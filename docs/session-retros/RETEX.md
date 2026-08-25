@@ -34,6 +34,12 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- **L'analyseur n'a signalé qu'UN des deux frères.** CodeQL pointait `MD_LINK` ; `JSON_HREF`, deux
+  lignes plus bas, portait le MÊME motif quadratique sans être vu. Un outil montre ce qu'il atteint,
+  pas ce qui existe — après chaque alerte, chercher le frère. `[1× — 08-25]`
+- **Deux sites du même motif dans le fichier signalé.** L'alerte donnait `security-token.ts:250` ;
+  le second `existsSync ? read : ""` (l.191) n'y figurait pas. `[1× — 08-25]`
+
 - [1× — 08-25] **« Les handles trancheront » — non.** Un signal ASYMÉTRIQUE ne tranche que dans un
   sens : des ressources qui s'accumulent désignent un défaut, mais un compte stable n'explique
   RIEN — il retire un suspect sur quatre. Je l'ai présenté comme la mesure décisive alors qu'elle
@@ -140,6 +146,11 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- **Mon commentaire donnait un exemple d'attaque que je n'ai pas su reproduire.** J'avais écrit
+  que `<<a>script>` redevient une balise après une passe ; testé, c'est faux. Ce qui protège
+  vraiment était AILLEURS (`esc()` au rendu). Un commentaire qui invente sa justification est pire
+  qu'un commentaire absent : il détourne le prochain lecteur de la vraie garde. `[1× — 08-25]`
+
 - **« Ajouter un choix = ajouter UNE entrée ici ; aucun front n'est à modifier »** — vrai pour deux
   fronts sur trois. La voie FLAGS a une analyse écrite à la main : une question ajoutée y est servie
   à l'humain et REFUSÉE au script, sans un mot. J'ai cru l'en-tête et raté le drapeau. Une
@@ -183,6 +194,11 @@
   de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- **`--publish` forçait `--write` : deux gestes couplés qui ne devaient pas l'être.** Révélé en
+  écrivant le workflow, qui serait tombé DÈS SA PREMIÈRE PASSE — sur le changelog, sans aucun
+  rapport avec la publication. Préparer écrit et se relit ; publier part d'un tag et ne doit RIEN
+  écrire. Écrire le second consommateur d'une API est ce qui montre ses couplages. `[1× — 08-25]`
 
 - [1× — 08-25] **Mon banc de durée refusait de mesurer sans ramasse-miettes et sans charge — et
   acceptait sans broncher une machine PARTAGÉE.** Deux runs perdus le même jour : l'un tué par mes
@@ -267,6 +283,16 @@
 
 ## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
 
+- **Un jeton écrit SANS son mode : 0644, lisible par toute la machine.** Parti d'une alerte de
+  RACE (`existsSync` puis `write`), j'ai trouvé pire à deux lignes. Et le remède existait DÉJÀ dans
+  le paquet (`JwtKeystore` écrit sa clé en 0600) : une CLI en avait une version dégradée.
+  Après chaque « on écrit quoi, où ? », poser « et qui a le droit de le LIRE ? ». `[1× — 08-25]`
+- **Le fichier TEMPORAIRE porte le secret, et survivait à l'échec.** L'écriture atomique passe par
+  `<f>.<pid>.tmp` puis `rename` ; si le `rename` lève, le tmp reste EN CLAIR sur le disque. On avait
+  durci les permissions de la cible en laissant fuir le contenu à côté. Le cas est PROBABLE sous
+  Windows (remplacer une cible ouverte y échoue, là où POSIX remplace) — et la cible est un `.env`
+  que l'utilisateur a sous les yeux dans son éditeur. `[1× — 08-25]`
+
 - **`--write` posait le jeton MCP dans `.env.local` : AUCUN code de l'application ne le lit.** Elle
   est le serveur de ressource, elle vérifie des jetons, elle n'en porte pas. Le consommateur — un
   agent — le cherchait ailleurs et recevait un 401 qui accusait le jeton. Une heure de diagnostic.
@@ -279,6 +305,14 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **`expect(...).toBeTruthy` sans les parenthèses ne s'exécute jamais.** Écrit dans MON test du
+  jour ; il passait, évidemment. Une assertion qui n'appelle pas son matcher est une expression
+  jetée. Remplacée par deux cas explicites, un par plateforme. `[1× — 08-25]`
+- **Les tests vitest ne TYPECHECKENT pas.** Un narrowing cassé (`Number.isInteger(port)` ne dit
+  rien à TS de `undefined`) laissait 3 161 tests verts et le BUILD rouge. Rattrapé par le hook
+  pre-push, pas par moi : après une modif de type, lancer `npm run build`, pas seulement la suite.
+  `[1× — 08-25]`
 
 - [1× — 08-25e] **Mon gate de conformité neuf a été complaisant DEUX fois de suite, sur le même
   fichier.** D'abord un décor vide — je supposais que `runScaffold({type:"app", dir})` écrivait dans
@@ -518,6 +552,11 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- **Ma mutation n'avait PAS été appliquée — et j'ai failli conclure que mes tests ne mordaient
+  pas.** Un `str.replace(old, new)` dont l'ancre ne correspond pas ne lève rien : il réécrit le
+  fichier INCHANGÉ. Les 46 verts qui ont suivi ne prouvaient donc rien. Toute mutation porte
+  désormais un `assert old in s` — et le grep de contrôle vient APRÈS. `[1× — 08-25]`
+
 - [1× — 08-25e] **La règle de portabilité que le PRODUIT avait déjà payée, rejouée dans un test une
   heure après l'avoir écrite.** Mon banc invoquait `node_modules/.bin/prettier` par `execFileSync` :
   npm n'y écrit sous Windows qu'un `.cmd` et un `.ps1`, l'appel échoue, et trois jobs Windows sont
@@ -681,6 +720,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- **La chaîne de PUBLICATION transitait par `.claude/skills/`, avec un CYCLE.**
+  `scripts/release.mjs` appelait un script du skill, qui réimportait le cœur du produit ; la CI
+  lançait le smoke depuis `.claude/`. Un skill renommé ou fusionné aurait emporté la capacité de
+  publier, sans qu'aucun test ne tombe. Ce qui S'EXÉCUTE appartient au produit ; le skill garde la
+  MÉTHODE. Corollaire : il manquait une page pour l'HUMAIN — trois lecteurs, trois endroits.
+  `[1× — 08-25]`
+
 - [1× — 08-25] **`schedule` et `workflow_dispatch` ne partent QUE depuis la branche par défaut.**
   Workflow écrit, commité, poussé sur la branche de travail — et incapable de se déclencher : ni
   rendez-vous hebdomadaire, ni bouton. L'API le dit franchement (« not found on the default
@@ -767,6 +813,12 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- **Une garde MORTE-NÉE : `try/catch` autour d'un `import` STATIQUE.** Le shim `create-nodefony`
+  protégeait l'absence de `nodefony` par un `try` autour de l'appel — Node résout les imports
+  statiques AVANT la première ligne du module, donc le `catch` n'était jamais atteint et
+  l'utilisateur recevait une trace de pile interne. `await import()` dans le `try`. Trouvée en
+  DÉBRANCHANT le paquet, jamais en relisant. `[1× — 08-25]`
 
 - **Enregistrer un handler `SIGTERM` a rendu le banc IMMORTEL.** Le filet d'arrêt ne pouvait pas
   s'exécuter — ce script vit dans des `spawnSync` qui BLOQUENT la boucle d'événements, et un
