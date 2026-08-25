@@ -160,6 +160,33 @@ export function childEnv(
   return env;
 }
 
+/**
+ * Drapeaux `node` qui TIENNENT un port — les seuls à ne pas suivre le child.
+ *
+ * Tout le reste de `process.execArgv` doit le suivre : `--expose-gc`,
+ * `--max-old-space-size`, `--import`, `--loader`… Un runtime lancé
+ * `node --expose-gc bin/nodefony production --detach` obtenait sinon un serveur SANS
+ * ce drapeau, et toute sonde mémoire y devenait un no-op parfaitement muet — le
+ * banc mesurait alors le déchet en attente de collecte au lieu du heap retenu.
+ *
+ * L'inspection fait exception parce que le parent est encore VIVANT pendant que
+ * l'enfant démarre (il attend sa readiness) : hériter le même port d'inspection tue
+ * l'enfant sur une adresse déjà prise, et le diagnostic ne parle jamais de débogueur.
+ */
+const PORT_HOLDING_FLAGS = /^--(inspect|debug)(-brk|-port|-publish-uid)?(=|$)/u;
+
+/**
+ * Drapeaux `node` à transmettre au runtime détaché.
+ *
+ * Fonction PURE — c'est ce qui permet de l'éprouver sans lancer de process.
+ *
+ * @param parentExecArgv - `process.execArgv` du lanceur.
+ * @returns les drapeaux à replacer devant le binaire du child.
+ */
+export function childExecArgv(parentExecArgv: string[]): string[] {
+  return parentExecArgv.filter((a) => !PORT_HOLDING_FLAGS.test(a));
+}
+
 /** Fenêtre de tick de la boucle d'attente (ms). */
 const TICK_MS = 500;
 
@@ -557,7 +584,11 @@ export async function runDetachedStart(argv: string[]): Promise<number> {
   say(`SPAWN nodefony ${parsed.relayArgs.join(" ")} (detached)`);
   const result = await launchDetached({
     spawnCmd: process.execPath,
-    spawnArgs: [argv[1], ...parsed.relayArgs],
+    spawnArgs: [
+      ...childExecArgv(process.execArgv),
+      argv[1],
+      ...parsed.relayArgs,
+    ],
     cwd,
     logFile,
     waitSec: parsed.waitSec,

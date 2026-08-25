@@ -5,7 +5,7 @@ import {
   probeBootDegraded,
   waitBootVerdict,
 } from "../service/dev/bootVerdict";
-import { parseDetachArgs } from "../service/dev/detachedStart";
+import { childExecArgv, parseDetachArgs } from "../service/dev/detachedStart";
 
 /**
  * SPEC — « des ports qui écoutent ne disent pas que l'application est ENTIÈRE ».
@@ -194,5 +194,48 @@ describe("parseDetachArgs — assumer un boot dégradé s'ÉCRIT", () => {
     // Relayé, il serait relu par le child qui, lui, ne détache rien : un drapeau
     // du lanceur n'a rien à faire dans la ligne de commande du runtime.
     expect(p.relayArgs).to.deep.equal(["production"]);
+  });
+});
+
+describe("childExecArgv — ce qui suit le child, et ce qui ne le suit pas", () => {
+  it("`--expose-gc` SUIT : sans lui, toute sonde mémoire du child est un no-op muet", () => {
+    expect(childExecArgv(["--expose-gc"])).to.deep.equal(["--expose-gc"]);
+  });
+
+  it("les réglages de moteur et de chargement suivent aussi", () => {
+    const argv = [
+      "--max-old-space-size=4096",
+      "--import",
+      "tsx",
+      "--no-warnings",
+    ];
+    expect(childExecArgv(argv)).to.deep.equal(argv);
+  });
+
+  it("l'INSPECTION ne suit pas — le parent est encore vivant et tient le port", () => {
+    // Hérité, le child mourrait sur une adresse déjà prise, et le diagnostic ne
+    // parlerait jamais de débogueur.
+    for (const flag of [
+      "--inspect",
+      "--inspect=9229",
+      "--inspect-brk",
+      "--inspect-port=9230",
+      "--debug",
+      "--debug-brk",
+    ]) {
+      expect(childExecArgv([flag, "--expose-gc"]), flag).to.deep.equal([
+        "--expose-gc",
+      ]);
+    }
+  });
+
+  it("un drapeau qui COMMENCE comme l'inspection sans en être un passe", () => {
+    // `--inspector-quelquechose` n'existe pas aujourd'hui ; le filtre doit tout de
+    // même s'ancrer sur la fin du nom, sinon il coupera un jour à l'aveugle.
+    expect(childExecArgv(["--inspectorate"])).to.deep.equal(["--inspectorate"]);
+  });
+
+  it("rien à propager → rien", () => {
+    expect(childExecArgv([])).to.deep.equal([]);
   });
 });
