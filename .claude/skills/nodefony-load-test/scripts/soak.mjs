@@ -223,11 +223,16 @@ for (let w = 1; w <= WINDOWS; w++) {
     p99Ms: p99,
     rssMb: +MB(mem.rss).toFixed(1),
     heapUsedMb: +MB(mem.heapUsed).toFixed(1),
+    // La sonde rendait DÉJÀ ces deux-là, et le banc les jetait. Ce sont
+    // pourtant les seules grandeurs qui permettent de DÉCOMPOSER une hausse du
+    // RSS : sans elles, on constate qu'il monte sans jamais pouvoir dire où.
+    heapTotalMb: +MB(mem.heapTotal).toFixed(1),
+    externalMb: +MB(mem.external).toFixed(1),
     errors: bad,
   };
   samples.push(s);
   console.log(
-    `  fenêtre ${String(w).padStart(2)}/${WINDOWS} · ${String(Math.round(rps)).padStart(6)} rps · p99 ${s.p99Ms.toFixed(2)}ms · heap ${s.heapUsedMb} MB · rss ${s.rssMb} MB${bad ? "  ⚠ erreurs" : ""}`,
+    `  fenêtre ${String(w).padStart(2)}/${WINDOWS} · ${String(Math.round(rps)).padStart(6)} rps · p99 ${s.p99Ms.toFixed(2)}ms · heap ${s.heapUsedMb} MB · rss ${s.rssMb} MB · ext ${s.externalMb} MB${bad ? "  ⚠ erreurs" : ""}`,
   );
 }
 
@@ -367,6 +372,38 @@ if (degrading) {
 // rouge fabriquerait le faux positif que ce fichier combat par ailleurs. C'est
 // un fait ÉNONCÉ, avec sa projection, pour qu'il ne passe plus inaperçu.
 const rssAmplitude = Math.abs(kept[kept.length - 1].rssMb - kept[0].rssMb);
+
+/**
+ * OÙ va la hausse du RSS — la question que « le RSS monte » ne répond pas.
+ *
+ * Le RSS d'un process Node se décompose grossièrement en trois postes que la
+ * sonde rend séparément : le tas RÉSERVÉ par V8 (`heapTotal`, qui peut croître
+ * alors que `heapUsed` reste plat — V8 garde ses arènes), la mémoire EXTERNE
+ * (`external` : tampons, `ArrayBuffer`, ressources natives rattachées), et tout
+ * le reste (code, piles, fragmentation de l'allocateur système).
+ *
+ * Chacun envoie chercher à un endroit DIFFÉRENT, et sans cette ventilation le
+ * diagnostic se résume à « ça monte » — ce qui ne conduit nulle part.
+ */
+const dHeapTotal = kept[kept.length - 1].heapTotalMb - kept[0].heapTotalMb || 0;
+const dExternal = kept[kept.length - 1].externalMb - kept[0].externalMb || 0;
+const dRss = kept[kept.length - 1].rssMb - kept[0].rssMb;
+const reste = dRss - dHeapTotal - dExternal;
+const part = (x) => (dRss ? `${((x / dRss) * 100).toFixed(0)} %` : "—");
+const decomposition =
+  Number.isFinite(dHeapTotal) && Number.isFinite(dExternal)
+    ? `Ventilation des +${dRss.toFixed(1)} MB : tas RÉSERVÉ ${dHeapTotal >= 0 ? "+" : ""}${dHeapTotal.toFixed(1)} MB (${part(dHeapTotal)}) · ` +
+      `externe ${dExternal >= 0 ? "+" : ""}${dExternal.toFixed(1)} MB (${part(dExternal)}) · ` +
+      `reste ${reste >= 0 ? "+" : ""}${reste.toFixed(1)} MB (${part(reste)}, code/piles/fragmentation).` +
+      `\n    ${
+        Math.abs(dExternal) > Math.abs(dHeapTotal) &&
+        Math.abs(dExternal) > Math.abs(reste)
+          ? "→ dominante EXTERNE : chercher des tampons ou des ressources natives retenus."
+          : Math.abs(dHeapTotal) > Math.abs(reste)
+            ? "→ dominante TAS RÉSERVÉ : V8 garde ses arènes ; regarder si `heapUsed` plafonne, auquel cas c'est bénin."
+            : "→ dominante RESTE : hors V8 — fragmentation de l'allocateur, piles, ou natif non rattaché."
+      }`
+    : "Ventilation indisponible (échantillons sans heapTotal/external).";
 const rssSuspect =
   !tooShort &&
   !plateau &&
@@ -378,8 +415,8 @@ if (rssSuspect) {
     `\n  ⚠ RSS EN HAUSSE SOUTENUE — +${rssAmplitude.toFixed(1)} MB en ${observedMin.toFixed(0)} min,` +
       ` régulier (R² ${rss.r2.toFixed(2)}) et SANS plateau ⇒ ${rss.perHour.toFixed(1)} MB/h.` +
       `\n    Projection : ~${(rss.perHour * 24).toFixed(0)} MB/jour, ~${((rss.perHour * 72) / 1024).toFixed(1)} Go sur 3 jours.` +
-      `\n    Le TAS est ${leaking ? "lui aussi en hausse" : "stable"} : chercher hors du tas JavaScript` +
-      ` (tampons natifs, sockets, fragmentation de l'allocateur), pas une rétention d'objets.` +
+      `\n    Le TAS est ${leaking ? "lui aussi en hausse" : "stable"}.` +
+      `\n    ${decomposition}` +
       `\n    Relancer plus long (--minutes 90) tranche entre montée vers un palier et hausse sans fin.`,
   );
 }
@@ -404,6 +441,11 @@ writeFileSync(
       rssR2: +rss.r2.toFixed(3),
       rssSlopeLateMbPerHour: +rssLate.perHour.toFixed(2),
       rssPlateau: plateau,
+      // La ventilation, pour qu'un run puisse être RELU sans être rejoué.
+      rssDeltaMb: +dRss.toFixed(1),
+      heapTotalDeltaMb: +dHeapTotal.toFixed(1),
+      externalDeltaMb: +dExternal.toFixed(1),
+      resteDeltaMb: +reste.toFixed(1),
       rpsDriftPct: +drift.toFixed(1),
       observedMinutes: +observedMin.toFixed(1),
       amplitudeMb: +amplitude.toFixed(1),
