@@ -360,11 +360,15 @@ jobs:
   # ne dit rien : les contrôles Windows étaient verts pendant qu'une application
   # générée ne chargeait aucun de ses modules locaux.
   #
-  # macOS y entre d'abord. Windows suit dès que cette matrice-ci est prouvée : son
-  # obstacle — un lanceur POSIX de bout en bout (`lsof`, `kill -9` sur un pid seul,
-  # readiness par `grep` sur le journal) — est levé, `nodefony-server` passe
-  # désormais par le lanceur DU framework. Deux changements ne s'introduisent pas
-  # dans la même passe : on ne saurait plus lequel a parlé.
+  # Les TROIS systèmes y sont désormais, et l'ordre a compté : `nodefony-server`
+  # est d'abord passé par le lanceur DU framework (kill d'arbre unique, readiness
+  # sur les ports RÉELS, refus d'un boot dégradé), et cette matrice-là a été
+  # prouvée sur ubuntu et macOS AVANT que Windows n'entre — deux changements ne
+  # s'introduisent pas dans la même passe, on ne saurait plus lequel a parlé.
+  #
+  # Ce que l'ancien lanceur coûtait, mesuré au passage : `websocket-fragmentation`
+  # pendait 60 s sous macOS et redevenait vert avec la readiness réelle. Déclarer
+  # un serveur prêt en comptant des lignes de journal ne prouvait pas qu'il l'était.
   test-integration:
     name: Tests intégration (${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.mode }})
     runs-on: ${{ matrix.os }}
@@ -385,6 +389,12 @@ jobs:
             node-version: "26.x"
             mode: development
           - os: macos-latest
+            node-version: "26.x"
+            mode: production
+          - os: windows-latest
+            node-version: "26.x"
+            mode: development
+          - os: windows-latest
             node-version: "26.x"
             mode: production
     timeout-minutes: 20
