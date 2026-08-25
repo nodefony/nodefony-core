@@ -577,13 +577,19 @@ jobs:
           npx vitest run --config vitest.integration.config.ts \
             -t "(backoff NIST|NIST PARTAGÉ)"
 
-      - name: Show server log on failure
+      # Un APERÇU, et il le dit — le fichier complet part en artefact au step
+      # suivant. Sur un serveur qui journalise chaque requête, 200 lignes
+      # couvrent les trois dernières secondes du run : un échec survenu au
+      # milieu de la suite n'y figure pas. Sans cette mention, on croit le
+      # journal perdu et l'on renonce au diagnostic — vécu.
+      - name: Aperçu du journal (échec)
         if: failure()
         shell: bash
         run: |
           for f in nodefony-server.log nodefony-server-throttle.log; do
             [ -f "$f" ] || continue
-            echo "─── $f (last 200 lines) ───"
+            echo "─── $f — $(wc -l < "$f") lignes AU TOTAL, 200 dernières ci-dessous ───"
+            echo "    Fichier COMPLET en artefact : nodefony-server-log-*"
             tail -200 "$f" || true
           done
 
@@ -597,7 +603,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: nodefony-server-log-node${{ matrix.node-version }}-${{ matrix.mode }}
+          name: nodefony-server-log-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.mode }}
           # Les deux décors, sinon un échec de la seconde passe s'analyse à l'aveugle.
           path: |
             nodefony-server.log
