@@ -156,8 +156,8 @@ serait sans effet à la régénération suivante.
     "desc": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "skills/nodefony-release.md",
-    "desc": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en…",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 3 scripts" }
+    "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
+    "meta": "🟢 conforme v2.0.0" }
 ]
 ```
 
@@ -186,7 +186,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 7 scripts · 📎 4 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" }
 ]
 ```
 <!-- skills-cards:end -->

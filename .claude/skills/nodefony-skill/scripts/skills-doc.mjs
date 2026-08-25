@@ -970,12 +970,43 @@ function renderIndex(list) {
   return L.join("\n");
 }
 
+/**
+ * Une fiche générée ne se réécrit QUE si son contenu change.
+ *
+ * Le timbre du jour était posé sur les 24 fiches à chaque passe : un seul skill
+ * modifié produisait 27 fichiers au diff, et la vraie ligne se noyait dans le
+ * bruit. La date décrit l'artefact, elle ne doit pas le faire vivre.
+ *
+ * Le même comparateur sert au mode `--check` : une fiche qui diffère du rendu
+ * est PÉRIMÉE. Sans lui, rien ne le voyait — le registre a vécu un jour entier
+ * avec le corps d'un skill à 455 lignes quand il en portait 619, et le gate
+ * était vert.
+ */
+const perimees = [];
+const sansTimbre = (t) =>
+  t
+    .replace(/^updated: .*$/m, "updated: —")
+    .replace(/"generatedAt": ".*"/, '"generatedAt": "—"');
+
+/**
+ * Écrit si le contenu diffère ; en `--check`, se contente de le SIGNALER.
+ *
+ * @param {string} chemin - fichier généré.
+ * @param {string} contenu - rendu attendu.
+ */
+function ecrireGenere(chemin, contenu) {
+  const actuel = existsSync(chemin) ? readFileSync(chemin, "utf8") : "";
+  if (sansTimbre(actuel) === sansTimbre(contenu)) return;
+  if (CHECK_ONLY) perimees.push(chemin);
+  else writeFileSync(chemin, actuel ? contenu : contenu);
+}
+
 // ---------------------------------------------------------------- exécution
-if (!CHECK_ONLY) {
-  mkdirSync(OUT_DIR, { recursive: true });
+{
+  if (!CHECK_ONLY) mkdirSync(OUT_DIR, { recursive: true });
   for (const s of skills)
-    writeFileSync(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
-  writeFileSync(join(OUT_DIR, "index.md"), renderIndex(skills));
+    ecrireGenere(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
+  ecrireGenere(join(OUT_DIR, "index.md"), renderIndex(skills));
 
   // Index MACHINE. Un registre de skills ou un moteur de recherche n'ouvre pas 27 markdown :
   // il lui faut un seul fichier structuré — résumé, mots-clés, déclencheurs, coût d'activation,
@@ -1033,7 +1064,7 @@ if (!CHECK_ONLY) {
       links: { source: `${s.dir}/SKILL.md`, doc: `docs/skills/${s.name}.md` },
     })),
   };
-  writeFileSync(
+  ecrireGenere(
     join(OUT_DIR, "registry.json"),
     JSON.stringify(registry, null, 2) + "\n",
   );
@@ -1052,8 +1083,11 @@ if (!CHECK_ONLY) {
         src.slice(0, i) +
         `${START}\n\n${renderCardsByFamily(skills, "skills/")}${END}` +
         src.slice(j + END.length);
-      if (next !== src) writeFileSync(ANALYSIS, next);
-      console.log(`  cards injectées dans ${ANALYSIS}`);
+      if (next !== src) {
+        if (CHECK_ONLY) perimees.push(ANALYSIS);
+        else writeFileSync(ANALYSIS, next);
+      }
+      if (!CHECK_ONLY) console.log(`  cards injectées dans ${ANALYSIS}`);
     }
   }
 }
@@ -1075,4 +1109,10 @@ for (const s of soft)
   console.log(
     `  ⚠️  ${s.name} : corps de ${s.bodyLines} lignes (recommandation : < ${MAX_BODY_LINES})`,
   );
-process.exit(failed.length ? 1 : 0);
+if (perimees.length) {
+  console.log(
+    `  ❌ ${perimees.length} fiche(s) générée(s) PÉRIMÉE(s) — lancer \`npm run skills:doc\` :`,
+  );
+  for (const f of perimees) console.log(`     ${f}`);
+}
+process.exit(failed.length || perimees.length ? 1 : 0);
