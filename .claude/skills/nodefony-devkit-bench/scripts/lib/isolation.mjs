@@ -128,14 +128,7 @@ export function packTarballs(repo, force) {
   } else {
     console.log("• npm pack des paquets publiables (release/tarballs)…");
     sh(process.execPath, [
-      path.join(
-        repo,
-        ".claude",
-        "skills",
-        "nodefony-release",
-        "scripts",
-        "pack-all.mjs",
-      ),
+      path.join(repo, "scripts", "release", "pack-all.mjs"),
     ]);
   }
   if (!existsSync(manifestPath)) {

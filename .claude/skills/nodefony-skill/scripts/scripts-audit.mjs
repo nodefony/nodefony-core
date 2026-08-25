@@ -179,6 +179,30 @@ for (const p of rootScripts) {
   rows.push({ zone: "racine", path: p, verdict, why });
 }
 
+/**
+ * Un renvoi vers un script existe-t-il quelque part ? Une seule implémentation,
+ * partagée par les deux contrôles (le texte des skills, et les sources qui
+ * LANCENT un script) : la même règle écrite deux fois divergerait, et le second
+ * contrôle a précisément commencé par redécouvrir ces cas un par un.
+ *
+ * Un renvoi peut viser la racine du dépôt, le skill porteur, ou un skill voisin ;
+ * et il peut être capturé avec un préfixe (`$SKILL_DIR/scripts/run.sh`) dont
+ * seule la queue est vérifiable.
+ *
+ * @param {string} ref - le chemin tel qu'écrit.
+ * @param {string} dossierPorteur - dossier du fichier qui porte le renvoi.
+ * @returns {boolean} vrai dès qu'un candidat existe.
+ */
+function renvoiResolu(ref, dossierPorteur) {
+  const court = ref.replace(/^.*?(?=(?:scripts|lib)\/)/u, "");
+  return [
+    ref,
+    join(dossierPorteur, court),
+    court,
+    ...[...skillTexts.keys()].map((other) => join(SKILLS_DIR, other, court)),
+  ].some((c) => existsSync(c));
+}
+
 // Scripts vivant DANS un skill : le skill les cite-t-il ?
 const deadRefs = [];
 for (const [name, text] of skillTexts) {
@@ -218,15 +242,81 @@ for (const [name, text] of skillTexts) {
     // Le renvoi peut avoir été capturé avec son préfixe : on teste aussi la
     // partie qui commence à `scripts/` ou `lib/`, seule forme valable pour un
     // renvoi INTERNE au skill.
-    const court = ref.replace(/^.*?(?=(?:scripts|lib)\/)/u, "");
-    const candidates = [
-      ref, // chemin complet depuis la racine du dépôt
-      join(dir, court), // dans ce skill
-      court, // à la racine du dépôt
-      ...[...skillTexts.keys()].map((other) => join(SKILLS_DIR, other, court)), // dans un skill voisin
-    ];
-    if (!candidates.some((c) => existsSync(c)))
-      deadRefs.push({ skill: name, ref });
+    if (!renvoiResolu(ref, dir)) deadRefs.push({ skill: name, ref });
+  }
+}
+
+/**
+ * Renvois morts dans les SOURCES — pas seulement dans les `SKILL.md`.
+ *
+ * Le contrôle ci-dessus lit le TEXTE des skills ; un script qui LANCE un autre
+ * script par un chemin en dur y échappait entièrement. Vécu : la chaîne de
+ * release a quitté l'outillage d'agent pour `scripts/release/`, et un banc a
+ * gardé l'ancien chemin — découvert par la forge, sur les QUATRE systèmes à la
+ * fois, après vingt secondes de décor et un `Cannot find module`. Un chemin de
+ * fichier ne se refactorise pas : il se vérifie.
+ *
+ * Deux formes, parce que le défaut vécu portait la seconde :
+ *   — le chemin écrit d'un seul tenant, `"scripts/release/pack-all.mjs"` ;
+ *   — les segments d'un `join(repo, ".claude", "skills", …, "x.mjs")`, qu'aucune
+ *     expression cherchant un chemin ne peut voir.
+ *
+ * Le critère est l'INVOCATION, pas la ressemblance : le chemin doit être remis à
+ * un lanceur (`execPath`, `spawn`, `execFile`, `sh(`, `bash `). La première
+ * version se contentait de « ça ressemble à un chemin de script » et sortait
+ * sept accusations, toutes fausses — un glob de configuration, un chemin
+ * d'application témoin, une donnée de test, des exemples en commentaire. Un
+ * gate qui crie au loup n'est plus lu ; les commentaires sont donc retirés
+ * avant lecture, et seule une invocation compte.
+ */
+const RACINES_VERSIONNEES = /^(?:\.claude|scripts)\//;
+const EST_SCRIPT = /\.(?:mjs|js|sh|py|ts)$/;
+const LANCEUR = /(?:execPath|execFile|spawnSync|spawn|execSync|\bsh\(|bash )/;
+
+/** Le source sans ses commentaires : un exemple n'invoque rien. */
+const sansCommentaires = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, "$1")
+    .replace(/(^|\s)#[^\n]*/g, "$1");
+
+/** Chemins de scripts réellement LANCÉS par un source, sous leurs deux formes. */
+function cheminsInvoques(source) {
+  const src = sansCommentaires(source);
+  const refs = new Set();
+  // La fenêtre INCLUT le match : `"bash .claude/…/start.sh"` porte son lanceur
+  // À L'INTÉRIEUR du littéral. Une fenêtre qui s'arrête avant lui ne voit rien —
+  // constaté en mutant ce site exact, que le gate laissait alors passer.
+  const lance = (index, texte = "") =>
+    LANCEUR.test(src.slice(Math.max(0, index - 120), index) + texte);
+  // Forme 1 — le chemin écrit d'un seul tenant.
+  // Le chemin n'est pas toujours collé au guillemet : `"bash .claude/…/start.sh"`
+  // le fait précéder d'une commande. On borne par des frontières, pas par des
+  // délimiteurs de chaîne — l'exigence d'invocation tient lieu de filtre.
+  for (const m of src.matchAll(
+    /(?<![\w./@-])((?:\.claude|scripts)\/[\w./@-]+\.(?:mjs|js|sh|py|ts))(?![\w.])/g,
+  ))
+    if (lance(m.index, m[0])) refs.add(m[1]);
+  // Forme 2 — les segments d'un `join(...)`. On ne traite que les appels sans
+  // parenthèse imbriquée : au pire on en rate un, jamais on n'en invente un.
+  for (const m of src.matchAll(/(?:path\.)?join\(([^()]*)\)/g)) {
+    if (!lance(m.index)) continue;
+    const segments = [...m[1].matchAll(/["'`]([^"'`]+)["'`]/g)].map(
+      (x) => x[1],
+    );
+    if (segments.length < 2) continue;
+    const chemin = segments.join("/");
+    if (RACINES_VERSIONNEES.test(chemin) && EST_SCRIPT.test(chemin))
+      refs.add(chemin);
+  }
+  return [...refs];
+}
+
+for (const [source, src] of sourcesByPath) {
+  const porteur = source.slice(0, source.lastIndexOf("/"));
+  for (const ref of cheminsInvoques(src)) {
+    if (ref.includes("*") || ref.includes("${")) continue;
+    if (!renvoiResolu(ref, porteur)) deadRefs.push({ skill: source, ref });
   }
 }
 
