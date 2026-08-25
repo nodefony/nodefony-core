@@ -135,7 +135,7 @@ jobs:
       # sur les ports publiés ci-dessus.
       NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
       NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony
-      REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
+      NF_REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
       # Index dédié : le banc comportemental purge sa base, il ne doit pas
       # emporter celle des bancs de pagination.
       NF_REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
@@ -257,7 +257,7 @@ jobs:
       # chiffre non reproductible, et un seuil non déterministe est un futur
       # rouge qui n'apprend rien.
       NF_RUN_CLUSTER_E2E: "1"
-      REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
+      NF_REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
       NF_REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
 
     steps:

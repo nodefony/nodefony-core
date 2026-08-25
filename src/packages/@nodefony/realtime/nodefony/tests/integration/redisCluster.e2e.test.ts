@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { fork, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createClient, type RedisClientType } from "redis";
+import { REDIS_GATE, gateValue } from "../../../../../../../vitest.gates";
 
 /**
  * Banc e2e cluster **Redis** — workers Node forkés RÉELS (1 process = 1 pod),
@@ -29,13 +30,15 @@ const WORKER_PATH = fileURLToPath(
 );
 
 /**
- * `REDIS_URL` d'abord : c'est la variable que pose `REDIS_GATE` et qu'affiche le
- * mode d'emploi du rapport de gates. Le triplet HOST/PORT/PASSWORD reste accepté
- * en repli (le compose expose les deux), mais il ne doit plus être le SEUL chemin
- * — sinon suivre le message d'aide ne débloque rien.
+ * L'URL vient de `REDIS_GATE` — la gate qui contrôle ce banc, jamais un nom
+ * retapé ici : un banc qui nomme son décor lui-même finit par nommer une AUTRE
+ * variable que celle dont son rapporteur constate l'absence. Le triplet
+ * HOST/PORT/PASSWORD reste accepté en repli (le compose expose les deux), mais
+ * il ne doit plus être le SEUL chemin — sinon suivre le message d'aide ne
+ * débloque rien.
  */
 async function redisReachable(): Promise<boolean> {
-  const url = process.env.REDIS_URL;
+  const url = gateValue(REDIS_GATE, "NF_REDIS_URL");
   const probe = createClient(
     url
       ? { url, socket: { connectTimeout: 1500, reconnectStrategy: false } }

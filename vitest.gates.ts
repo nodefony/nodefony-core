@@ -161,6 +161,36 @@ export function gateEnv(gate: EnvGate): string[] {
   return Object.keys(gate.values());
 }
 
+/**
+ * La valeur POSÉE pour une variable de cette gate — `undefined` si absente ou vide.
+ *
+ * **À préférer à `process.env.X` dans un banc.** Un banc qui nomme sa variable
+ * lui-même finit par nommer une AUTRE variable que celle dont son propre
+ * rapporteur constate l'absence : le décor est là, les cas tournent, et la passe
+ * échoue en annonçant « cible non exercée » — ou pire, ils sautent en silence
+ * pendant que la gate voit sa variable posée. Passer par ici rend les deux
+ * impossibles : le nom demandé doit être un nom que la gate exige.
+ *
+ * @param gate - la cible dont on veut lire le décor.
+ * @param name - la variable, telle que la gate la nomme.
+ * @returns la valeur posée, ou `undefined`.
+ * @throws Error si `name` n'est pas une variable de cette gate — c'est un banc
+ *   qui a inventé un nom, exactement la faute que ce helper existe pour rendre
+ *   visible.
+ */
+export function gateValue(gate: EnvGate, name: string): string | undefined {
+  const attendues = gateEnv(gate);
+  if (!attendues.includes(name)) {
+    throw new Error(
+      `${name} n'est pas une variable de « ${gate.label} » ` +
+        `(attendues : ${attendues.join(", ")}). Un banc ne choisit pas le nom ` +
+        `de son décor : il le tient de la gate qui le contrôle.`,
+    );
+  }
+  const value = (process.env[name] ?? "").trim();
+  return value === "" ? undefined : value;
+}
+
 /** Commande docker qui démarre la cible, ou `null` si elle n'a pas de service. */
 export function gateUpCommand(gate: EnvGate): string | null {
   if (!gate.service) return null;

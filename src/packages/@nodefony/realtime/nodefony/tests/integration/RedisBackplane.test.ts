@@ -7,6 +7,7 @@ import {
 import { sealBackplaneEnvelope } from "../../src/backplane/envelope.js";
 import { RealtimeHub } from "../../src/server/RealtimeHub.js";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
+import { REDIS_GATE, gateValue } from "../../../../../../../vitest.gates";
 
 /**
  * Tests d'INTÉGRATION (Redis réel) — exigent l'infra :
@@ -21,14 +22,15 @@ const HOST = process.env.NF_REDIS_HOST ?? "localhost";
 const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
 
 /**
- * `REDIS_URL` est la façon dont TOUT le dépôt désigne un Redis de test — c'est
- * ce que pose `REDIS_GATE` (`vitest.gates.ts`) et ce qu'affiche le mode d'emploi
- * quand la cible manque. Ce banc lisait `NF_REDIS_HOST`/`NF_REDIS_PORT` : suivre le
- * message d'aide n'aurait donc RIEN débloqué ici. On accepte l'URL d'abord, le
- * triplet ensuite (le compose expose les deux).
+ * L'URL vient de `REDIS_GATE` — la gate qui contrôle ce banc, jamais un nom
+ * retapé ici. Ce banc a lu `NF_REDIS_HOST`/`NF_REDIS_PORT`, puis `REDIS_URL` :
+ * dans les deux cas suivre le mode d'emploi du rapport ne débloquait rien, et la
+ * seconde forme a fini par faire échouer la passe pendant que les onze cas
+ * ci-dessous tournaient contre un vrai serveur. Le triplet reste accepté en
+ * repli (le compose expose les deux).
  */
 function mkClient(): RedisClientType {
-  const url = process.env.REDIS_URL;
+  const url = gateValue(REDIS_GATE, "NF_REDIS_URL");
   const c = createClient(
     url
       ? { url, socket: { reconnectStrategy: false } }
@@ -460,7 +462,7 @@ describe.skipIf(!REDIS_UP)(
 
     /** Client dont le `reconnectStrategy` est ACTIF (contrairement à `mkClient()`). */
     function mkReconnectingClient(): RedisClientType {
-      const url = process.env.REDIS_URL;
+      const url = gateValue(REDIS_GATE, "NF_REDIS_URL");
       const c = createClient(
         url
           ? { url, socket: { reconnectStrategy: () => 100 } }
