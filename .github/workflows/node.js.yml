@@ -202,6 +202,10 @@ jobs:
       # rendrait la CI rouge à chaque refactor honnête.
       - name: Gate — ancres de la doc (fichier:ligne résolus contre le code)
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        # Écrite en bash (continuation `\`, globs) : le shell se DÉCLARE. La garde
+        # `if` la réserve à ubuntu aujourd'hui — un shell tu est une mine posée
+        # pour le jour où cette garde changera.
+        shell: bash
         run: |
           node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs \
             src/packages/@nodefony/*/docs/*.md \
@@ -230,6 +234,7 @@ jobs:
       # lancé dans `orm.yml`, là où le service existe déjà.
       - name: Gate — auto-contrôle des juges du banc devkit
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
         run: |
           node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs
           node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
@@ -560,6 +565,11 @@ jobs:
       # par le motif qui la désigne. Le rapporteur échoue et dit lequel manque.
       - name: Câblage du backoff NIST (les 2 cas opt-in)
         working-directory: src/packages/@nodefony/http
+        # `shell` DÉCLARÉ, jamais déduit : sans lui, GitHub passe l'étape au shell
+        # par défaut de la PLATEFORME — PowerShell sous Windows, où la continuation
+        # `\` de bash n'existe pas. L'étape ne cassait donc que là-bas, longtemps
+        # après avoir été écrite, et le rouge ne parlait pas de shell.
+        shell: bash
         env:
           NF__SECURITY__RATELIMIT__ENABLED: "true"
           NF_GATES_EXPECT: "backoff NIST,NIST PARTAGÉ"
