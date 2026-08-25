@@ -3,18 +3,17 @@ name: nodefony-release
 metadata:
   version: 2.0.0
 description: >
-  Conduire une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version) :
-  quelle commande du dépôt lancer, dans quel ordre, ce que chaque garde refuse et pourquoi,
-  comment interpréter un échec. La chaîne elle-même appartient au PRODUIT (`npm run release`,
-  `release:pack`, `release:smoke`) ; ce skill porte le raisonnement qui l'entoure — une version
-  publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est
-  pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée
-  (`exports`, `files`, `peerDependencies`, gabarits d'application). Le plan de version et l'état
-  d'avancement vivent dans `docs/release/nodefony-10.md`. Déclencheurs : "publier sur npm", "faire
-  une release", "préparer la publication", "puis-je publier ?", "estampiller la version",
-  "changelog de la release", "ordre de publication", "packager les paquets", "smoke test release",
-  "tester l'installation depuis les tarballs", "est-ce que le paquet publié marche ?", "surface
-  npm", "types publiés", "tarball", "trusted publishing", "ENEEDAUTH", "avant de publier".
+  Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle
+  commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne
+  appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le
+  raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un
+  dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de
+  toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application).
+  Plan : `docs/release/nodefony-10.md`. Déclencheurs : "publier sur npm", "faire une release",
+  "préparer la publication", "puis-je publier ?", "estampiller la version", "changelog de la
+  release", "ordre de publication", "packager les paquets", "smoke test release", "tester
+  l'installation depuis les tarballs", "est-ce que le paquet publié marche ?", "surface npm",
+  "types publiés", "tarball", "trusted publishing", "ENEEDAUTH", "avant de publier".
 ---
 
 # nodefony-release — conduire une publication qui ne se rattrape pas
