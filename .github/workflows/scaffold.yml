@@ -245,6 +245,40 @@ jobs:
               console.log('aucun ' + nom + ' a ' + base + ' — le banc est tombe avant de l ecrire');
             }
           }
+          // Le journal du serveur DÉTACHÉ de l'application témoin. Sans lui, un
+          // module du manifeste qui ne charge pas est parfaitement muet : le
+          // Kernel le journalise en WARNING et poursuit (fail-soft), le serveur
+          // monte, et ses routes rendent 404 sans que rien ne nomme la cause.
+          // C'est exactement ce qui s'est produit sous Windows.
+          const app = path.join(base, 'app');
+          const journal = path.join(app, 'tmp', 'nodefony-detached.log');
+          if (fs.existsSync(journal)) {
+            fs.copyFileSync(journal, 'app-detached.log');
+            console.log('journal du serveur copie depuis ' + journal);
+          } else {
+            console.log('aucun journal de serveur a ' + journal);
+          }
+          // Ce que le journal ne dit pas : ce que l'application a REELLEMENT
+          // sous la main. Un module absent du manifeste ne produit aucun
+          // avertissement — il n'a jamais ete demande.
+          const etat = [];
+          for (const rel of ['nodefony.config.ts', 'package.json']) {
+            const f = path.join(app, rel);
+            etat.push('--- ' + rel + (fs.existsSync(f) ? '' : ' (ABSENT)'));
+            if (fs.existsSync(f)) etat.push(fs.readFileSync(f, 'utf8'));
+          }
+          const mods = path.join(app, 'modules');
+          etat.push('--- modules/');
+          if (fs.existsSync(mods)) {
+            for (const m of fs.readdirSync(mods)) {
+              const dist = path.join(mods, m, 'dist', 'index.js');
+              etat.push('  ' + m + ' dist/index.js: ' + (fs.existsSync(dist) ? 'PRESENT' : 'ABSENT'));
+            }
+          } else {
+            etat.push('  (aucun dossier modules/)');
+          }
+          fs.writeFileSync('app-etat.txt', etat.join('\n'));
+          console.log('etat de l application ecrit dans app-etat.txt');
           "
 
       - name: Journal et rapport du banc (si échec)
@@ -257,5 +291,7 @@ jobs:
             verify-runtime.log
             verify-report.json
             verify-conformite.json
+            app-detached.log
+            app-etat.txt
           retention-days: 7
           if-no-files-found: ignore
