@@ -51,7 +51,7 @@
  * Il n'empaquette pas non plus : `pack-all.mjs` le fait, avec la bascule des
  * `exports.types` et le post-traitement des déclarations.
  */
-import { execFileSync, execSync, spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -136,8 +136,20 @@ const npm = (args, opts = {}) =>
     shell: besoinDeShell("npm"),
     ...opts,
   });
-const git = (cmd) =>
-  execSync(`git ${cmd}`, {
+/**
+ * Une commande git, ARGUMENT PAR ARGUMENT — jamais une ligne de shell.
+ *
+ * `execSync` passe par `/bin/sh` : la borne `--from`, saisie par l'appelant ou
+ * dérivée d'une entrée de workflow, y devenait exécutable — `--from "x; …"`
+ * lançait ce qui suit avec les droits du publieur, sur la machine qui publie.
+ * `execFileSync` lance git DIRECTEMENT : il n'y a plus de shell à qui parler,
+ * et chaque argument arrive tel quel (un motif comme `v[0-9]*` n'a donc plus
+ * besoin de guillemets, et n'est plus développé par personne).
+ *
+ * @param {...string} args - arguments passés à git, un par un.
+ */
+const git = (...args) =>
+  execFileSync("git", args, {
     cwd: ROOT,
     encoding: "utf8",
     // Le journal complet dépasse le défaut de 1 Mio — cf `MAX_BUFFER_GIT`.
@@ -178,7 +190,7 @@ if (!prerelease && TAG_NPM && TAG_NPM !== "latest") {
   );
 }
 
-const sale = git("status --porcelain");
+const sale = git("status", "--porcelain");
 if (sale && (ECRIRE || PUBLIER)) {
   echouer(
     `l'arbre de travail n'est pas propre (${sale.split("\n").length} fichier(s)).\n` +
@@ -196,7 +208,7 @@ if (sale && (ECRIRE || PUBLIER)) {
 // checkout de tag dans la forge. La garde ne vaut donc que pour la préparation :
 // à la publication, c'est le TAG qui fait foi, pas la branche depuis laquelle on
 // se trouve être.
-const branche = git("branch --show-current") || "(HEAD détaché)";
+const branche = git("branch", "--show-current") || "(HEAD détaché)";
 if (branche !== BRANCHE_ATTENDUE && ECRIRE) {
   echouer(
     `branche « ${branche} », attendue « ${BRANCHE_ATTENDUE} ».\n` +
@@ -354,7 +366,7 @@ if (!(PUBLIER && !ECRIRE)) {
     DEPUIS ??
     (() => {
       try {
-        return git("describe --tags --abbrev=0 --match 'v[0-9]*'");
+        return git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*");
       } catch {
         return null;
       }
@@ -381,7 +393,10 @@ if (!(PUBLIER && !ECRIRE)) {
   const RS = "\x1e";
   const US = "\x1f";
   const commits = git(
-    `log ${dernierTag}..HEAD --no-merges --format=%h${US}%B${RS}`,
+    "log",
+    `${dernierTag}..HEAD`,
+    "--no-merges",
+    `--format=%h${US}%B${RS}`,
   )
     .split(RS)
     .map((bloc) => {
@@ -477,11 +492,22 @@ dire(`✓ estampillage — ${aChanger.length} package.json à ${VERSION}`);
 
 etape = "écriture du changelog";
 const cheminChangelog = path.join(ROOT, "CHANGELOG.md");
-const fusion = fusionnerChangelog(
-  existsSync(cheminChangelog) ? readFileSync(cheminChangelog, "utf8") : "",
-  section,
-  VERSION,
-);
+// Lire DIRECTEMENT : `existsSync` puis `readFileSync` teste un état qui peut
+// changer entre les deux appels, et confond « absent » avec « illisible ». Un
+// CHANGELOG.md devenu illisible pour cause de droits doit lever, jamais passer
+// pour vide — sinon la release en écrirait un neuf par-dessus l'ancien.
+// Règle et implémentation de référence : `lireSiPresentSync` de
+// `@nodefony/security` (nodefony/src/token/secretFile.ts) — inatteignable
+// depuis un script du dépôt, qui ne compile pas les paquets.
+const ancienChangelog = (() => {
+  try {
+    return readFileSync(cheminChangelog, "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return "";
+    throw e;
+  }
+})();
+const fusion = fusionnerChangelog(ancienChangelog, section, VERSION);
 if (fusion.erreur) echouer(fusion.erreur);
 writeFileSync(cheminChangelog, fusion.contenu);
 dire("✓ changelog écrit — CHANGELOG.md (brouillon à relire)");

@@ -707,8 +707,28 @@ npm ≥ 11.5.1 CONSTATÉ à l'exécution.
 les identifiants manquent — `ENEEDAUTH` n'est levé que hors dry-run. Une répétition verte ne dit
 donc rien de l'authentification ; seule une publication réelle le fait. Le workflow l'énonce.
 
-**Reste** : le workflow n'a jamais tourné — il exige un tag. C'est précisément ce que le cran
-d'armement permet de faire sans risque.
+**Le workflow a TOURNÉ, cran non armé** — tag d'essai `v10.0.0-essai.1`, run
+[32895215924](https://github.com/nodefony/nodefony-core/actions/runs/32895215924) : les trois
+scénarios d'épreuve verts, la répétition complète (gardes, inventaire, métadonnées, ordre,
+registre, changelog rendu), et les trois jobs irréversibles **sautés**. Constaté après coup :
+`nodefony` est toujours en 7.0.2 sur le registre, les quatorze autres n'existent pas.
+
+Ce que cette répétition a trouvé, et qui aurait tué la publication réelle :
+
+- 🔴 **`ENOBUFS` sur le journal.** `execSync` plafonne à 1 Mio ; le journal de ce dépôt en pèse
+  3,4 — et comme aucun tag `v*` n'existe, `--from` repart du premier commit et lit TOUT. L'échec
+  serait survenu **après** les quarante minutes d'épreuve, tag posé, sur un message qui ne parle
+  que de tampon. `MAX_BUFFER_GIT` vit désormais dans le cœur pur, et un test la confronte à la
+  taille réelle du journal en exigeant une marge de 4× — le plafond redeviendra rouge avant de
+  redevenir bloquant.
+- **Le workflow ne savait publier qu'une version FINALE.** Il ne passait jamais `--npm-tag`, que
+  `release.mjs` exige pour toute préversion (sans lui, npm la publierait sous `latest`). Le canal
+  se dérive maintenant de l'étiquette (`10.1.0-rc.2` → `rc`), au même endroit pour la répétition
+  et pour la publication.
+
+⚠️ **Un tag d'essai se SUPPRIME après son run.** `git describe --match 'v[0-9]*'` le retrouverait
+au moment de la vraie `v10.0.0`, qui calculerait alors son changelog depuis lui — quasi vide. Le
+run, lui, reste consultable sans le tag.
 
 ### 10.8 R6 — dépôts externes (gestes GitHub, hors dépôt)
 
