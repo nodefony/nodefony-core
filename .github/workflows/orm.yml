@@ -381,6 +381,14 @@ jobs:
 
       - name: Coupures réelles — PostgreSQL et MySQL
         working-directory: src/packages/@nodefony/drizzle
+        # Cette passe ne joue que les DEUX fichiers de coupure, quand le gate du
+        # paquet attend les preuves de la suite ENTIÈRE : ses motifs
+        # « (postgres) » / « (mysql) » nomment les bancs de CONTRAT, qu'un autre
+        # job joue déjà. Sans cette déclaration, une passe qui coupe et relance
+        # deux vrais serveurs se voit reprocher de ne pas les avoir exercés.
+        # L'absence est donc ÉNONCÉE — le rapport la nomme — et non masquée.
+        env:
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL
         run: npx vitest run tests/integration/outage.test.ts tests/integration/outage-real.test.ts
 
       - name: Coupures réelles — MongoDB

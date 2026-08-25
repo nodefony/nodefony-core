@@ -621,10 +621,38 @@ export class DrizzleOrm extends Orm {
     // différentes du pool : aucune atomicité, et un `BEGIN` orphelin recyclé.
     this.#beginTx = async (): Promise<DrizzleTransaction> => {
       const cx = await pool.connect();
+      // 🔴 MÊME défaut que celui fermé sur le pool, par le chemin resté
+      // ouvert. `pg-pool` RETIRE son auditeur `error` du client tant qu'il
+      // sert (`pg-pool/index.js:344`, réattaché en tête de `_release`) : le
+      // temps d'une transaction, la connexion n'en a donc AUCUN. Si le serveur
+      // tombe pendant, `pg` émet `error` dessus (`client.js:210`) — un
+      // `EventEmitter` qui émet `error` sans auditeur LÈVE, et rien n'installe
+      // de `uncaughtException` dans le framework : le pod meurt, en pleine
+      // transaction, là même où l'application avait le plus à perdre.
+      // Constaté au banc de coupure réelle, qui rendait « 6 tests passés,
+      // 1 erreur non capturée » — un vert qui portait un crash.
+      const puitsTx = (err: Error): void => {
+        this.connectionLost(
+          `pg (transaction) : ${err?.message ?? String(err)}`,
+        );
+      };
+      cx.on("error", puitsTx);
+      /** Rend la connexion, en retirant d'abord NOTRE puits. */
+      const rendre = (err?: unknown): void => {
+        // Synchrone jusqu'au `release`, donc aucune fenêtre sans auditeur :
+        // `_release` réattache celui du pool avant toute autre chose.
+        cx.removeListener("error", puitsTx);
+        // `release(err)` DÉTRUIT la connexion au lieu de la recycler. Un rejet
+        // non-`Error` (une string jetée) doit détruire aussi → `true`, jamais
+        // `undefined` (qui recyclerait une connexion à l'état inconnu).
+        cx.release(
+          err === undefined ? undefined : err instanceof Error ? err : true,
+        );
+      };
       try {
         await cx.query("BEGIN");
       } catch (e) {
-        cx.release(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
+        rendre(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
         throw e;
       }
       return new DrizzleTransaction(pgDrizzle(cx) as DrizzleDb, {
@@ -632,13 +660,7 @@ export class DrizzleOrm extends Orm {
           await cx.query(sql);
         },
         quoteIdent: (name: string): string => `"${name}"`,
-        // `release(err)` DÉTRUIT la connexion au lieu de la recycler. Un rejet
-        // non-`Error` (une string jetée) doit détruire aussi → `true`, jamais
-        // `undefined` (qui recyclerait une connexion à l'état inconnu).
-        release: (err?: unknown): void =>
-          cx.release(
-            err === undefined ? undefined : err instanceof Error ? err : true,
-          ),
+        release: rendre,
       });
     };
     for (const entity of entities) {
