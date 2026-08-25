@@ -47,13 +47,13 @@ d'exécuter du code : il **contraint** celui qu'on écrit contre lui. Une couche
 coup sur du JavaScript décrit ce que le code fait ; elle ne garantit rien. Les partis pris de cette
 réécriture sont donc structurels, et chacun ferme une porte :
 
-| Décision                          | Ce qu'elle rend impossible                                    |
-| --------------------------------- | ------------------------------------------------------------- |
-| TypeScript **strict**, zéro `any` | qu'un contrat se dégrade en silence entre deux modules        |
-| **ESM** exclusivement             | la double résolution CommonJS/ESM et ses pièges de chargement |
-| Décorateurs plutôt que convention | qu'une route existe sans être déclarée là où on la lit        |
-| Configuration **validée** au boot | qu'une clé mal orthographiée soit ignorée sans un mot         |
-| Un processus = une instance       | la supervision maison ; l'échelle revient à l'orchestrateur   |
+| Décision                                 | Ce qu'elle rend impossible                                    |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| TypeScript **strict**, zéro `@ts-ignore` | qu'un contrat se dégrade en silence entre deux modules        |
+| **ESM** exclusivement                    | la double résolution CommonJS/ESM et ses pièges de chargement |
+| Décorateurs plutôt que convention        | qu'une route existe sans être déclarée là où on la lit        |
+| Configuration **validée** au boot        | qu'une clé mal orthographiée soit ignorée sans un mot         |
+| Un processus = une instance              | la supervision maison ; l'échelle revient à l'orchestrateur   |
 
 La version 10 est l'aboutissement de cette réécriture. Ce n'est pas un portage : c'est le même
 projet, repensé pour ce que Node.js et TypeScript sont devenus.

@@ -9,7 +9,13 @@ Consomme [`@nodefony/user`](../user).
 
 > **Statut** : cœur livré — firewall + zones, session serveur (NIST), JWT (`jose`), WebAuthn,
 > OAuth2 social, CSRF/CORS/en-têtes natifs, clés API/PAT, 2FA TOTP, webhooks, audit persistant,
-> rate-limit. Reste : voters d'autorisation, décorateurs `@CsrfProtect`.
+> rate-limit, **voters d'autorisation** (`RoleVoter` + `ScopeVoter`, jury affirmatif à véto
+> `DENY`, découverts au boot par le `voterRegistry`) et les décorateurs **`@IsGranted`** et
+> **`@CsrfProtect`**, appliqués par le `Resolver` avant l'action.
+>
+> Reste : ACL fine par ressource (niveau B de `authorization.ts`), journal d'authentification
+> dédié, `rpId` WebAuthn dérivé du `Host` (multi-vhost), `MTlsAuthenticator` (niche). Le serveur
+> d'autorisation OAuth 2.1 est tranché **après** la 10.0.0.
 
 ## Principes
 

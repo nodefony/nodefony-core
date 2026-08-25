@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA React 19 via `@nodefony/frontend`. État : **P6 BRANCHÉ** — auth réelle (firewall `@nodefony/security`, session BFF cookie, RBAC `ROLE_NODEFONY_ADMIN`), mocks `/auth/*` **SUPPRIMÉS**. `IAdminApi`/`AdminBroker` (P10.2) **livré** (data plane par module via broker). Pages Sécu livrées : Sessions/Users/API Keys/Firewall/Audit/Profil self.
+Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA React 19 via `@nodefony/frontend`. État : **P6 BRANCHÉ** — auth réelle (firewall `@nodefony/security`, session BFF cookie), mocks `/auth/*` **SUPPRIMÉS**. RBAC `ROLE_NODEFONY_ADMIN` posé sur `/studio/api/create/*` SEUL (`@IsGranted`, `StudioCreateController`) — le reste de la surface `/nodefony` est gardé par la zone firewall et, pour `stats`, par `ROLE_SUPERVISOR` ; la généralisation reste à faire (P10.6). `IAdminApi`/`AdminBroker` (P10.2) **livré** (data plane par module via broker). Pages Sécu livrées : Sessions/Users/API Keys/Firewall/Audit/Profil self.
 
 ## Core Components
 
