@@ -108,7 +108,11 @@ macOS et redevient vert avec la readiness réelle ; sous Windows `@nodefony/http
 **Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release) ; `dependabot.yml` en place
 pour que la dérive des versions se voie ; `memory.yml` et `e2e-autonomes.yml` restent sur ubuntu seul
 — leur lanceur est désormais portable, mais les seuils de heap sont calibrés sur Linux et doivent être
-mesurés avant d'ouvrir la matrice.
+mesurés avant d'ouvrir la matrice. Et 🔴 **`orm.yml` (« Bancs sur infrastructure réelle ») est rouge
+depuis le 2026-08-23** sans que personne l'ait lu : rien ne le déclenchait, un changement de workflow
+l'a réveillé. Trois jobs tombent — coupures réelles PostgreSQL/MySQL (`outage-real.test.ts`,
+`outage.test.ts` : « la coupure doit être CONSTATÉE »), stores sur infra réelle (Redis) et socket
+distribuée (IPC · backplane Redis).
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
