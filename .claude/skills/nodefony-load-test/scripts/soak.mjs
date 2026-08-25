@@ -35,6 +35,7 @@
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { mkdirSync, openSync, writeFileSync } from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -126,6 +127,30 @@ if (wrkProbe.error?.code === "ENOENT") {
     `❌ \`wrk\` introuvable — ce banc n'a aucun moyen de charger le serveur.\n` +
       `   Sans lui il mesurerait un process au repos et conclurait « pas de fuite ».\n` +
       `   linux : sudo apt-get install -y wrk · macOS : brew install wrk`,
+  );
+  process.exit(1);
+}
+
+// ── 0 bis. la machine est-elle DISPONIBLE ? ────────────────────────────────
+//
+// Ce banc refuse de mesurer sans ramasse-miettes et sans charge — mais il
+// acceptait sans broncher de partir sur une machine déjà occupée. Vécu deux
+// fois le même jour : un run tué par mes propres compilations (p99 × 12), un
+// autre faussé par une console d'administration ouverte dans un navigateur, qui
+// tapait sur le serveur MESURÉ — le tas s'est mis à monter, le débit à chuter,
+// et le verdict a failli passer pour une fuite du framework.
+//
+// Une machine occupée ne rend pas une mesure « un peu moins bonne » : elle rend
+// une AUTRE mesure. Mieux vaut refuser au départ que le découvrir 90 minutes
+// plus tard.
+const COEURS = os.availableParallelism?.() ?? os.cpus().length;
+const chargeInitiale = os.loadavg()[0];
+if (chargeInitiale > COEURS * 0.5 && !process.argv.includes("--force-charge")) {
+  console.error(
+    `❌ machine OCCUPÉE — charge moyenne ${chargeInitiale.toFixed(2)} sur ${COEURS} cœurs.\n` +
+      `   Au-dessus de la moitié des cœurs, ce qu'on mesure est le voisin, pas le serveur.\n` +
+      `   Fermer ce qui tourne (compilations, conteneurs, navigateur ouvert sur l'application)\n` +
+      `   et attendre la retombée. Délibéré ? --force-charge`,
   );
   process.exit(1);
 }
@@ -268,6 +293,12 @@ for (let w = 1; w <= WINDOWS; w++) {
         ? mem.activeResourcesTotal
         : null,
     handlesByType: mem.activeResources ?? null,
+    // La charge de la MACHINE et le nombre de connexions au SERVEUR, fenêtre
+    // par fenêtre. Le banc ouvre un nombre CONSTANT de connexions : toute
+    // connexion supplémentaire est un tiers qui tape sur le process mesuré, et
+    // c'est exactement ce qui a fait monter le tas sur un run de 90 minutes.
+    charge: +os.loadavg()[0].toFixed(2),
+    sockets: mem.activeResources?.TCPSocketWrap ?? null,
     errors: bad,
   };
   samples.push(s);
@@ -524,6 +555,53 @@ if (h0 === null || h1 === null) {
   );
 }
 
+// ── LE DÉCOR A-T-IL TENU PENDANT LA MESURE ? ──────────────────────────────
+//
+// Un banc qui découvre APRÈS COUP qu'un tiers partageait la machine a produit
+// un chiffre, pas une mesure. Deux signaux gratuits, relevés à chaque fenêtre :
+//
+//   · la CHARGE de la machine — si elle grimpe en cours de route, quelqu'un
+//     d'autre travaille, et le débit qu'on lit n'est plus celui du serveur ;
+//   · le nombre de CONNEXIONS au serveur — ce banc en ouvre un nombre CONSTANT
+//     (`--conn`), donc toute connexion en plus vient d'ailleurs. C'est ce qui a
+//     faussé un run de 90 minutes : une console d'administration ouverte dans
+//     un navigateur tapait sur le process mesuré, faisant monter le TAS — et
+//     un tas qui monte, c'est précisément la signature qu'on traquait.
+const charges = kept.map((s) => s.charge).filter((c) => typeof c === "number");
+const socketsVus = kept
+  .map((s) => s.sockets)
+  .filter((n) => typeof n === "number");
+const decor = [];
+if (charges.length) {
+  const chargeMax = Math.max(...charges);
+  if (chargeMax > chargeInitiale + COEURS * 0.5) {
+    decor.push(
+      `la charge machine est montée à ${chargeMax.toFixed(2)} (départ ${chargeInitiale.toFixed(2)},` +
+        ` ${COEURS} cœurs) — un tiers a travaillé pendant la mesure`,
+    );
+  }
+}
+if (socketsVus.length) {
+  const socketsMax = Math.max(...socketsVus);
+  // Marge large : le serveur porte aussi ses propres sockets (écoute, sondes).
+  // Ce qu'on cherche est un DÉPASSEMENT franc, pas quelques unités.
+  if (socketsMax > CONN + 16) {
+    decor.push(
+      `jusqu'à ${socketsMax} connexions ouvertes alors que le banc en ouvre ${CONN}` +
+        ` — quelqu'un d'autre a sollicité le serveur MESURÉ`,
+    );
+  }
+}
+if (decor.length) {
+  console.log(
+    `\n  ⚠ DÉCOR NON TENU — le verdict ci-dessus porte sur autre chose que ce banc seul :`,
+  );
+  for (const d of decor) console.log(`      • ${d}`);
+  console.log(
+    `    Rejouer machine libre. Un décor partagé ne dégrade pas la mesure : il en change l'objet.`,
+  );
+}
+
 // ── LA grandeur qui traverse les machines ─────────────────────────────────
 //
 // « +33 MB/h » ne se compare à rien : le même code sur un runner partagé qui
@@ -581,6 +659,11 @@ writeFileSync(
       resteDeltaMb: +reste.toFixed(1),
       rpsDriftPct: +drift.toFixed(1),
       rpsMedian: Math.round(rpsMedian),
+      chargeInitiale: +chargeInitiale.toFixed(2),
+      chargeMax: charges.length ? Math.max(...charges) : null,
+      socketsMax: socketsVus.length ? Math.max(...socketsVus) : null,
+      coeurs: COEURS,
+      decorTenu: decor.length === 0,
       requestsTotal: Math.round(reqTotal),
       handlesFirst: h0,
       handlesLast: h1,
