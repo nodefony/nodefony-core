@@ -62,6 +62,7 @@ import {
   detecterSuspects,
   fusionnerChangelog,
   ordreTopologique,
+  paquetsNonEstampilles,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -102,7 +103,16 @@ const BRANCHE_ATTENDUE = arg("branch", "main");
 const DEPOT_ATTENDU = arg("repo", "github.com/nodefony/nodefony-core");
 const PUBLIER = drapeau("publish");
 const PACK = drapeau("pack") || PUBLIER;
-const ECRIRE = drapeau("write") || PUBLIER;
+// 🔴 PUBLIER N'IMPLIQUE PAS ÉCRIRE, et c'est la charnière de tout ce fichier.
+//
+// Préparer et publier sont deux gestes, à deux moments, sur deux machines.
+// La préparation écrit (versions, changelog) et se relit ; la publication part
+// d'un TAG et ne doit RIEN écrire — ce qui part doit être exactement ce qui a
+// été commité et relu. Les coupler avait deux conséquences, toutes deux
+// mauvaises : la forge aurait publié du code n'existant dans aucun commit, et
+// elle serait tombée à l'écriture du changelog, qui refuse d'écraser une
+// section déjà présente — un rouge sans aucun rapport avec la publication.
+const ECRIRE = drapeau("write");
 const HORS_LIGNE = drapeau("offline");
 
 // `npm` est `npm.cmd` sous Windows, et `execFile` ne résout pas les `.cmd` : la
@@ -163,7 +173,7 @@ if (!prerelease && TAG_NPM && TAG_NPM !== "latest") {
 }
 
 const sale = git("status --porcelain");
-if (sale && ECRIRE) {
+if (sale && (ECRIRE || PUBLIER)) {
   echouer(
     `l'arbre de travail n'est pas propre (${sale.split("\n").length} fichier(s)).\n` +
       "  Publier depuis un arbre sale produit du code qui n'existe dans AUCUN commit :\n" +
@@ -176,7 +186,11 @@ if (sale && ECRIRE) {
   );
 }
 
-const branche = git("branch --show-current");
+// `--show-current` rend une chaîne VIDE sur un HEAD détaché — ce qu'est un
+// checkout de tag dans la forge. La garde ne vaut donc que pour la préparation :
+// à la publication, c'est le TAG qui fait foi, pas la branche depuis laquelle on
+// se trouve être.
+const branche = git("branch --show-current") || "(HEAD détaché)";
 if (branche !== BRANCHE_ATTENDUE && ECRIRE) {
   echouer(
     `branche « ${branche} », attendue « ${BRANCHE_ATTENDUE} ».\n` +
@@ -299,56 +313,89 @@ if (HORS_LIGNE) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-etape = "changelog";
+etape = "cohérence du lot avec la version demandée";
 // ═══════════════════════════════════════════════════════════════════════════
-const dernierTag =
-  DEPUIS ??
-  (() => {
-    try {
-      return git("describe --tags --abbrev=0 --match 'v[0-9]*'");
-    } catch {
-      return null;
-    }
-  })();
-
-if (!dernierTag) {
-  echouer(
-    "aucun tag `v*` dans ce dépôt, et aucune borne donnée.\n" +
-      "  Sans borne, le changelog remonterait à la racine de l'historique : un mur que\n" +
-      "  personne ne relit — donc une release que personne n'a relue.\n" +
-      "  → `--from <ref>` (un commit, `HEAD~200`, le premier commit de la 10…).",
-  );
+// Ne vaut QUE pour une publication qui n'écrit pas — le cas de la forge, partie
+// d'un tag. La préparation, elle, a précisément pour rôle d'aligner ce que cette
+// garde exige.
+if (PUBLIER && !ECRIRE) {
+  const horsVersion = paquetsNonEstampilles(paquets, VERSION);
+  if (horsVersion.length) {
+    echouer(
+      `${horsVersion.length} paquet(s) ne portent pas ${VERSION} :\n` +
+        horsVersion.map((h) => `    • ${h}`).join("\n") +
+        "\n\n  La publication ne CORRIGE pas : elle publierait alors du code qui n'existe\n" +
+        "  dans aucun commit, sous un tag qui promet autre chose. C'est le commit de\n" +
+        "  release qui estampille, et il se relit AVANT que le tag ne soit posé :\n" +
+        `       npm run release -- --version ${VERSION} --from <ref> --write\n` +
+        `       git commit -am "chore(release): ${VERSION}" && git tag v${VERSION}`,
+    );
+  }
+  dire(`✓ cohérence — les ${paquets.length} paquets portent déjà ${VERSION}`);
 }
 
-// Le message ENTIER (`%B`), pas le sujet : Conventional Commits admet la
-// rupture signalée en PIED, qu'un parseur de sujets rate en silence.
-const SEP = "";
-const messages = git(`log ${dernierTag}..HEAD --no-merges --format=%B${SEP}`)
-  .split(SEP)
-  .map((s) => s.trim())
-  .filter(Boolean);
+// ═══════════════════════════════════════════════════════════════════════════
+etape = "changelog";
+// ═══════════════════════════════════════════════════════════════════════════
+// Sauté en publication : le changelog a été écrit, relu et commité AVANT le tag.
+// Le rejouer ici n'aurait rien à dire de juste — `git describe` rendrait le tag
+// COURANT, donc zéro commit, et l'avertissement « majeure sans rupture »
+// partirait à tort sur un intervalle vide.
+let ruptures = [];
+let section = "";
+if (!(PUBLIER && !ECRIRE)) {
+  const dernierTag =
+    DEPUIS ??
+    (() => {
+      try {
+        return git("describe --tags --abbrev=0 --match 'v[0-9]*'");
+      } catch {
+        return null;
+      }
+    })();
 
-const { ruptures, groupes, horsConvention } = analyserCommits(messages);
-const section = rendreChangelog({
-  version: VERSION,
-  date: new Date().toISOString().slice(0, 10),
-  ruptures,
-  groupes,
-});
+  if (!dernierTag) {
+    echouer(
+      "aucun tag `v*` dans ce dépôt, et aucune borne donnée.\n" +
+        "  Sans borne, le changelog remonterait à la racine de l'historique : un mur que\n" +
+        "  personne ne relit — donc une release que personne n'a relue.\n" +
+        "  → `--from <ref>` (un commit, `HEAD~200`, le premier commit de la 10…).",
+    );
+  }
 
-dire(
-  `✓ changelog — ${messages.length} commits depuis ${dernierTag}` +
-    (ruptures.length
-      ? `, dont ${ruptures.length} RUPTURE(S)`
-      : ", aucune rupture signalée") +
-    (horsConvention ? ` · ${horsConvention} hors convention (écartés)` : ""),
-);
-if (!ruptures.length && /^\d+\.0\.0$/.test(VERSION)) {
-  alerter(
-    "version MAJEURE sans une seule rupture signalée — vérifier que les commits\n" +
-      "    portaient `!` ou un pied `BREAKING CHANGE:`. Une rupture non annoncée casse\n" +
-      "    la production de l'utilisateur sans un mot.",
+  // Le message ENTIER (`%B`), pas le sujet : Conventional Commits admet la
+  // rupture signalée en PIED, qu'un parseur de sujets rate en silence.
+  const SEP = "\x1e";
+  const messages = git(`log ${dernierTag}..HEAD --no-merges --format=%B${SEP}`)
+    .split(SEP)
+    .map((m) => m.trim())
+    .filter(Boolean);
+
+  const analyse = analyserCommits(messages);
+  ruptures = analyse.ruptures;
+  section = rendreChangelog({
+    version: VERSION,
+    date: new Date().toISOString().slice(0, 10),
+    ruptures,
+    groupes: analyse.groupes,
+  });
+
+  dire(
+    `✓ changelog — ${messages.length} commits depuis ${dernierTag}` +
+      (ruptures.length
+        ? `, dont ${ruptures.length} RUPTURE(S)`
+        : ", aucune rupture signalée") +
+      (analyse.horsConvention
+        ? ` · ${analyse.horsConvention} hors convention (écartés)`
+        : ""),
   );
+  if (!ruptures.length && /^\d+\.0\.0$/.test(VERSION)) {
+    alerter(
+      "version MAJEURE sans une seule rupture signalée — vérifier que les commits\n" +
+        "    portaient `!` ou un pied `BREAKING CHANGE:`. Une rupture non annoncée casse\n" +
+        "    la production de l'utilisateur sans un mot.",
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

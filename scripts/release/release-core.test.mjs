@@ -21,6 +21,7 @@ import {
   detecterSuspects,
   fusionnerChangelog,
   ordreTopologique,
+  paquetsNonEstampilles,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -554,5 +555,43 @@ describe("detecterSuspects — un secret publié est public pour toujours", () =
 
   it("rend une liste vide sur un tarball sain", () => {
     expect(detecterSuspects(["p/dist/index.js", "p/package.json"])).toEqual([]);
+  });
+});
+
+describe("paquetsNonEstampilles — la garde du mode PUBLICATION", () => {
+  const lot = (...versions) =>
+    versions.map((v, i) => ({ nom: `p${i}`, pkg: { version: v } }));
+
+  it("ne signale rien quand tout le lot porte la version du tag", () => {
+    expect(paquetsNonEstampilles(lot("10.0.0", "10.0.0"), "10.0.0")).toEqual(
+      [],
+    );
+  });
+
+  it("nomme CHAQUE paquet en retard, avec la version qu'il porte", () => {
+    expect(
+      paquetsNonEstampilles(lot("10.0.0", "9.9.9", "10.0.1"), "10.0.0"),
+    ).toEqual(["p1@9.9.9", "p2@10.0.1"]);
+  });
+
+  it("PIÈGE : une version ABSENTE est un écart, pas un passe-droit", () => {
+    // Un `package.json` sans champ `version` publierait sous une version que
+    // personne n'a choisie. Une comparaison naïve `!==` le voit ; un test de
+    // vérité (`p.pkg.version && …`) le laisserait passer en silence.
+    expect(paquetsNonEstampilles([{ nom: "p", pkg: {} }], "10.0.0")).toEqual([
+      "p@(version absente)",
+    ]);
+  });
+
+  it("PIÈGE : ne compare pas en semver — `10.0` n'est pas `10.0.0`", () => {
+    // Le tag exige une chaîne EXACTE. Tolérer les équivalents sémantiques
+    // publierait un lot dont les manifestes ne disent pas tous la même chose.
+    expect(paquetsNonEstampilles(lot("10.0"), "10.0.0")).toEqual(["p0@10.0"]);
+  });
+
+  it("survit à un paquet dont le manifeste manque entièrement", () => {
+    expect(paquetsNonEstampilles([{ nom: "p" }], "10.0.0")).toEqual([
+      "p@(version absente)",
+    ]);
   });
 });

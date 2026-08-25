@@ -218,6 +218,31 @@ export function referencesFigees(paquets, version) {
   return figees;
 }
 
+/**
+ * Les paquets dont le `package.json` ne porte PAS la version demandée.
+ *
+ * ## Pourquoi cette vérification existe séparément de l'estampillage
+ *
+ * Préparer et publier sont deux gestes, à deux moments, sur deux machines. La
+ * préparation écrit (versions, changelog) et se relit ; la publication, elle,
+ * part d'un tag et **ne doit RIEN écrire** — ce qui est publié doit être
+ * exactement ce qui a été commité et relu.
+ *
+ * Sans cette garde, le mode publication n'a que deux issues, toutes deux
+ * mauvaises : estampiller lui-même — et publier alors du code qui n'existe dans
+ * aucun commit —, ou publier des tarballs dont la version ne correspond pas au
+ * tag qui les a déclenchés.
+ *
+ * @param paquets - `{ nom, pkg }` de chaque publiable.
+ * @param version - celle que le tag exige.
+ * @returns `["nom@versionTrouvée", …]` — vide si le lot est cohérent.
+ */
+export function paquetsNonEstampilles(paquets, version) {
+  return paquets
+    .filter((p) => p.pkg?.version !== version)
+    .map((p) => `${p.nom}@${p.pkg?.version ?? "(version absente)"}`);
+}
+
 /** Pont Conventional Commits → sections Keep a Changelog. */
 export const SECTIONS = {
   feat: "Ajouté",
