@@ -13,11 +13,12 @@
  * Ce module reste comme point d'entrée pour que les appelants du banc n'aient
  * rien à changer, et pour qu'il n'existe jamais deux versions de la règle.
  *
- * ## Ce que ce renvoi ne couvre PAS
+ * ## Portée
  *
- * `bench-schema.mjs` et `bench-discoverability.mjs` ont leurs propres helpers et
- * lancent de vrais agents : ils ne tournent pas en intégration continue, donc
- * rien ne les éprouve sous Windows. Le défaut y est présent ; il est nommé ici
- * plutôt que corrigé à l'aveugle.
+ * Tout ce qui, dans ce banc, lance un exécutable npm passe par ici — y compris
+ * `bench-schema.mjs` et `bench-discoverability.mjs`, qui gardaient le défaut
+ * parce qu'ils lancent de vrais agents et ne tournent pas en intégration
+ * continue. Rien ne les éprouve encore sous Windows ; les brancher ne coûtait
+ * rien, la règle étant désormais publiée et éprouvée par le framework.
  */
 export { besoinDeShell } from "nodefony";
