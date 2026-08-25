@@ -264,14 +264,28 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 08-25e] **Mon gate de conformité neuf a été complaisant DEUX fois de suite, sur le même
+  fichier.** D'abord un décor vide — je supposais que `runScaffold({type:"app", dir})` écrivait dans
+  un sous-dossier, il écrit DANS `dir` : `prettier --check` répondait « aucun fichier trouvé », que
+  le banc lisait comme « non conforme » et imputait au générateur. Décor réparé, quatre cas sont
+  passés au VERT **sans rien mesurer** : prettier lancé avec un `cwd` donné et un chemin ABSOLU
+  sortant de ce répertoire répond « All matched files use Prettier code style! » sans avoir rien
+  contrôlé. Seul le cas sentinelle — « un fichier volontairement mal formé DOIT être refusé » — a
+  rattrapé le second. **Tout banc de conformité commence par ce cas-là**, et il doit être le
+  premier écrit, pas le dernier.
+
 - [1× — 08-25] **Un seuil dont on ne voit jamais la marge est indistinguable d'un seuil
   décoratif.** Le gate mémoire ne publiait son delta qu'en ÉCHEC (message d'assertion), et le step
   de rapport filtrait sur `status == "failed"` : tant qu'il passait — toujours — aucun chiffre.
-  Instrumenté, les marges sortent entre **×55 et ×572** (0,05–0,37 Mo mesurés pour des seuils de
-  10 à 35 Mo), quand le `CLAUDE.md` chiffre la fuite à surveiller à 0,1 Mo / 1000 requêtes. Le vert
-  ne prouvait que « pas de fuite ÉNORME ». **Un gate à seuil doit publier sa MARGE à chaque
-  passage**, sinon nul ne peut dire s'il garde encore quelque chose — et c'est le user qui a posé
-  la question, pas le banc.
+  Instrumenté, les marges sortent entre ×55 et ×572 **sur un poste au repos**. **Un gate à seuil
+  doit publier sa MARGE à chaque passage**, sinon nul ne peut dire s'il garde encore quelque chose
+  — et c'est le user qui a posé la question, pas le banc.
+  ⚠️ **Suite, 08-25e : la conclusion « les seuils sont 55 à 572× trop larges » était FAUSSE.** Une
+  marge n'est pas une propriété du code, c'est une propriété du RÉGIME de la machine qui l'a
+  mesurée : le même gate rend **×12,7 à ×14,1** sur les trois systèmes de la forge et **×2,3 à
+  ×7,0** sur un poste sous charge. Les resserrer aurait fabriqué un rouge à chaque passage.
+  Dossier classé, chiffres et méthode dans `feedback_perf_memory_rule`. **Publier la marge était
+  juste ; en tirer un verdict depuis UN seul décor ne l'était pas.**
 
 - **Mon test neuf était complaisant par l'ORDRE de ses données.** Il devait prouver qu'une sonde lit
   l'état d'un socket (`LISTENING`) et n'attrape pas un client connecté au même port ; la ligne en
@@ -359,6 +373,16 @@
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
+- [1× — 08-25e] **TROIS attentes muettes le même jour, dans trois bancs différents — et la troisième
+  cachait un défaut de TEST qu'on prenait pour un défaut PRODUIT.** `new Promise(r => ws.once("pong",
+r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans cause, une exécution
+  sur deux. `abortedGet` résolvait sur `error` comme sur `close` sans jamais dire ce qu'il avait vu :
+  « expected 1 to equal 20 », dix-neuf requêtes disparues en silence. Instrumenté, le message est
+  devenu « côté client : 20 abandon(s) : expected 9 to equal 20 » — c'est-à-dire : les vingt ONT été
+  abandonnées, le serveur n'en a vu que neuf, **parce que le test coupait avant qu'elles soient
+  entrées dans l'action**. Sans l'instrumentation, on cherchait une fuite d'abandons dans le pipeline.
+  **Toute attente doit avoir autant d'issues que la réalité en a**, et les nommer.
+
 - **`spawnSync npm ENOENT` se lit « npm n'est pas installé »** — sur un runner où `npm ci` venait
   de réussir. La cause réelle : `npm` est un `.cmd` sous Windows, que Node refuse d'exécuter sans
   shell. Le message ne parle jamais de ce qui manque VRAIMENT (l'extension). [1× — 08-25]
@@ -376,6 +400,14 @@
   multiplateforme sans `.gitattributes` a ce piège en dormance. `[1× — 08-22]`
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
+
+- [1× — 08-25e] **Le banc de tenue mesurait DEUX grandeurs et n'en jugeait qu'une.** Verdict « ✅ pas
+  de fuite » sur un tas parfaitement plat, pendant que son RSS montait de 235 à 251 Mo avec un R² de
+  0,92 et sans plafonner — en satisfaisant les trois conditions que le même fichier exige pour oser
+  dire « fuite ». Pire : il recevait `heapTotal` et `external` de sa sonde et les JETAIT, donc il ne
+  pouvait pas dire OÙ la hausse allait. Ventilé (tas réservé / externe / reste), le diagnostic tombe
+  en une ligne — et il désigne l'extérieur de V8. **Ce qu'un banc mesure sans le juger est du travail
+  déjà payé qu'on jette** ; ce qu'il juge sans le ventiler n'oriente vers rien.
 
 - L'unanimité sur 3 runs a une résolution catastrophique : une tâche réussie 4 fois sur 5 sort
   « instable » **une fois sur deux** (P(3/3 | p=0,8) = 0,51). Vérifié dans le fichier : la tâche 13
@@ -469,6 +501,22 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 08-25e] **La règle de portabilité que le PRODUIT avait déjà payée, rejouée dans un test une
+  heure après l'avoir écrite.** Mon banc invoquait `node_modules/.bin/prettier` par `execFileSync` :
+  npm n'y écrit sous Windows qu'un `.cmd` et un `.ps1`, l'appel échoue, et trois jobs Windows sont
+  tombés sur cinq rouges qui ne disaient rien du générateur. Le dépôt porte `besoinDeShell` et
+  `nodefonyBin()` pour exactement ça. Remède : `process.execPath` + le script `.cjs` — aucun shell,
+  un seul chemin pour les trois systèmes. **La règle vaut pour TOUTE ligne écrite, pas seulement
+  pour celle qu'un utilisateur exécute.**
+
+- [1× — 08-25e] **Un champ ABSENT n'est pas une valeur à zéro.** Le banc lisait `inflightCount` d'un
+  serveur bâti AVANT que cette sonde existe : `undefined ?? -1` → « -1 en vol », et le message
+  accusait de nouveau le produit. La garde distingue désormais les deux et lève « son dist est
+  ANTÉRIEUR à cette sonde, reconstruire ». Même famille : la sonde mémoire forçait un GC **en no-op
+  silencieux** sans `--expose-gc` — elle rend maintenant `gcForced`, et le banc REFUSE de mesurer
+  quand il vaut faux. **Une capacité dont dépend une mesure doit être CONSTATÉE par la mesure
+  elle-même**, sinon on publie un chiffre faux avec l'aplomb d'un chiffre vrai.
 
 - **Mon débranchement est passé VERT, et ce n'était pas le test qui avait tort : le serveur n'avait
   pas rechargé.** J'ai daté le handler 5 s dans le futur pour prouver qu'une assertion d'ordre

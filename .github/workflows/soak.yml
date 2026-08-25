@@ -1,0 +1,203 @@
+name: Tenue dans la durée (soak RSS)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CE QUE CE BANC VOIT, QUE LE GATE MÉMOIRE NE PEUT PAS VOIR
+#
+# `memory.yml` mesure `heapUsed` sur mille requêtes — quelques secondes. Il est
+# vert, et il a RAISON de l'être : le tas ne bouge pas. Un serveur Nodefony sous
+# charge continue a pourtant vu son RSS monter de 33 MB/h pendant trente minutes,
+# avec un R² de 0,92 et sans jamais plafonner, pendant que `heapTotal` et
+# `external` DESCENDAIENT. La hausse est donc hors de V8 — fragmentation de
+# l'allocateur système, piles de threads, natif non rattaché au compteur — et
+# aucun gate du dépôt ne regardait de ce côté. C'est cet angle mort que ce
+# workflow ouvre. (Constat chiffré, pistes éliminées et plan de traque : mémoire
+# `project_rss_leak_hunt_kit`.)
+#
+# CE QUI EST MESURÉ, ET POURQUOI CE N'EST PAS ENCORE UN GATE
+#
+# Une pente « par heure » ne se compare pas d'une machine à l'autre : un runner
+# partagé sert cinq fois moins de requêtes qu'un poste de développement, et
+# rendrait cinq fois moins de MB/h pour EXACTEMENT le même défaut. On lirait
+# « cette plateforme ne fuit pas ». Le banc publie donc aussi le coût mémoire
+# PAR MILLION DE REQUÊTES SERVIES — invariant du débit, donc comparable.
+#
+# Tant qu'aucun seuil n'est étalonné par plateforme, ce workflow MESURE et
+# PUBLIE ; il ne juge pas la pente. Un seuil posé au jugé ne mesurerait rien,
+# et un `continue-on-error` en ferait un vert menteur.
+#
+# CE QUI LE FAIT ÉCHOUER, EN REVANCHE — un banc qui ne peut pas échouer est une
+# décoration. `soak.mjs` s'interrompt en erreur si la MESURE n'a pas eu lieu :
+#   · `wrk` introuvable (sans lui il mesure un process au repos et conclut
+#     « pas de fuite » — le faux vert le plus cher qui soit) ;
+#   · le serveur n'expose pas `gc` (la sonde ne collecte rien, on mesurerait du
+#     déchet en attente) ;
+#   · débit médian nul sur les fenêtres retenues (`wrk` présent, rien envoyé) ;
+#   · moins de trois fenêtres exploitables.
+#
+# POURQUOI PAS À CHAQUE POUSSÉE
+#
+# Trente minutes de charge répondent à une question de TENDANCE, pas à une
+# régression par commit. Une fois par semaine suffit à voir une dérive ; le
+# déclenchement manuel couvre l'investigation en cours, et porte les paramètres
+# qui font varier l'expérience (durée, connexions, ROUTE visée).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ⚠️ `schedule` et `workflow_dispatch` ne partent QUE depuis la branche par
+# défaut du dépôt (`main`) : tant que ce fichier n'y est pas, le rendez-vous
+# hebdomadaire ne se déclenchera jamais et le bouton n'existera pas — un
+# workflow qui ne tourne pas est une décoration. Le déclencheur `push`, lui,
+# part de la branche où il vit : c'est ce qui rend ce banc ÉPROUVÉ ici et
+# maintenant, et il est borné aux deux fichiers qui le composent — les toucher
+# est précisément le moment où l'on veut le voir tourner.
+on:
+  push:
+    paths:
+      - ".github/workflows/soak.yml"
+      - ".claude/skills/nodefony-load-test/scripts/soak.mjs"
+  schedule:
+    # Dimanche 03:00 UTC — hors des heures où la forge sert à quelque chose.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Durée de charge en minutes (sous 10, le verdict est INDÉTERMINÉ par construction)"
+        required: false
+        default: "30"
+      conn:
+        description: "Connexions concurrentes wrk"
+        required: false
+        default: "64"
+      url:
+        description: "Route martelée — la changer ISOLE le suspect (route nue vs route qui exerce l'ALS)"
+        required: false
+        default: "http://127.0.0.1:5151/nodefony/test/als-test/state"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  CI: true
+  FORCE_COLOR: 1
+
+jobs:
+  soak:
+    name: Charge continue et RSS (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # POURQUOI DEUX SYSTÈMES ET PAS TROIS
+    #
+    # Linux PARCE QUE c'est la plateforme des pods : le modèle de production du
+    # framework est un process par conteneur, et c'est le RSS d'un pod Linux
+    # qu'un orchestrateur surveille et sur lequel il tue. Si le RSS est plat ici,
+    # la piste de l'allocateur macOS monte en tête et l'urgence produit tombe.
+    #
+    # macOS PARCE QUE c'est là que le fait a été mesuré, deux fois : sans ce
+    # témoin, un Linux plat ne dirait pas si le défaut est propre à la plateforme
+    # ou propre au POSTE de mesure.
+    #
+    # Windows NON : aucun pod Nodefony n'y tourne, et `wrk` n'y existe pas. Le
+    # remplacer par un autre générateur changerait l'instrument — donc rendrait
+    # les trois chiffres incomparables, ce qui est exactement ce que ce banc
+    # cherche à éviter. L'absence est ÉNONCÉE, elle n'est pas un oubli.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        shell: bash
+        run: npm run build
+
+      # Le banc martèle des routes du module `test` ; il se construit après le
+      # build global, le serveur chargeant le `dist` présent au boot.
+      - name: Rebuild test module
+        shell: bash
+        run: npm run build --workspace=src/modules/test
+
+      # Le générateur de charge. `soak.mjs` CONSTATE ensuite sa présence et
+      # refuse de mesurer sans lui — cette étape n'est donc pas la garde, elle
+      # est la fourniture.
+      - name: Install wrk (linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: sudo apt-get update -qq && sudo apt-get install -y wrk
+
+      - name: Install wrk (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: brew install wrk
+
+      # `soak.mjs` lance LUI-MÊME son serveur : mode production, `--expose-gc`,
+      # modules de développement ouverts le temps du banc (les routes visées y
+      # vivent ; en production nue elles répondraient 404 et l'on mesurerait un
+      # serveur qui ne fait rien).
+      - name: Soak — charge continue et échantillonnage du RSS
+        shell: bash
+        env:
+          NF_SOAK_MINUTES: ${{ github.event.inputs.minutes || '30' }}
+          NF_SOAK_CONN: ${{ github.event.inputs.conn || '64' }}
+          NF_SOAK_URL: ${{ github.event.inputs.url || 'http://127.0.0.1:5151/nodefony/test/als-test/state' }}
+        run: |
+          node .claude/skills/nodefony-load-test/scripts/soak.mjs \
+            --minutes "$NF_SOAK_MINUTES" \
+            --conn "$NF_SOAK_CONN" \
+            --url "$NF_SOAK_URL" \
+            --out tmp/soak.json
+
+      # `always()` : c'est en échec que ces chiffres servent le plus — ils disent
+      # si le banc n'a rien mesuré ou s'il a mesuré quelque chose d'anormal.
+      - name: Ce que le banc a mesuré
+        if: always()
+        shell: bash
+        run: |
+          # Le journal du serveur vit hors de l'espace de travail ; il est ramené
+          # ICI, sinon l'artefact mêle un chemin absolu à un chemin relatif et
+          # se range sous une racine commune qui est `/`.
+          mkdir -p tmp && cp /tmp/nf-soak.log tmp/nf-soak.log 2>/dev/null || true
+          [ -f tmp/soak.json ] || { echo "::warning::aucun rapport — le banc s'est arrêté avant le verdict."; exit 0; }
+          jq -r '
+            "### " + env.RUNNER_OS + " — " + (.observedMinutes|tostring) + " min retenues, " +
+              (.rpsMedian|tostring) + " rps médians",
+            "",
+            "| Grandeur | Valeur |",
+            "| --- | --- |",
+            "| RSS (fenêtres retenues) | \(.rssKeptFirstMb) → \(.rssKeptLastMb) MB · pente **\(.rssSlopeMbPerHour) MB/h** (R² \(.rssR2)) |",
+            "| RSS, seconde moitié | \(.rssSlopeLateMbPerHour) MB/h · plateau : **\(.rssPlateau)** |",
+            "| Coût par million de requêtes | **\(.rssMbPerMillionReq // "non publié (run trop court)")** MB |",
+            "| Requêtes servies | \(.requestsTotal) |",
+            "| Tas utilisé | pente \(.heapSlopeMbPerHour) MB/h (R² \(.heapR2)) · verdict `\(.verdict)` |",
+            "| Ventilation de la hausse | tas réservé \(.heapTotalDeltaMb) · externe \(.externalDeltaMb) · reste \(.resteDeltaMb) MB |",
+            "| Débit | dérive \(.rpsDriftPct) % |",
+            "| Ressources ouvertes | \(.handlesFirst // "non mesurées") → \(.handlesLast // "—") · delta **\(.handlesDelta // "—")** |"
+          ' tmp/soak.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mesures brutes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-${{ matrix.os }}
+          path: |
+            tmp/soak.json
+            tmp/nf-soak.log
+          retention-days: 30
+          if-no-files-found: warn

@@ -230,6 +230,11 @@ class DefaultController extends Controller {
       forceGc();
     }
     const mem = process.memoryUsage();
+    const active = process.getActiveResourcesInfo();
+    const activeByType: Record<string, number> = {};
+    for (const kind of active) {
+      activeByType[kind] = (activeByType[kind] ?? 0) + 1;
+    }
     return this.renderJson({
       rss: mem.rss,
       heapTotal: mem.heapTotal,
@@ -241,6 +246,17 @@ class DefaultController extends Controller {
       // fuite. Une capacité se CONSTATE — l'appelant doit pouvoir refuser de
       // mesurer plutôt que publier un chiffre faux.
       gcForced: Boolean(forceGc),
+      // Ce que `process.memoryUsage()` ne dira JAMAIS : combien de ressources
+      // le runtime tient encore ouvertes. Un RSS qui monte pendant que le tas
+      // reste plat désigne du hors-V8, et la première question devient « des
+      // sockets ou des timers s'accumulent-ils ? ». Un compte stable élimine
+      // cette famille entière ; un compte qui croît EST le défaut.
+      //
+      // `getActiveResourcesInfo()` est l'API PUBLIQUE et typée — pas
+      // `process._getActiveHandles()`, interne et non typée, qu'un banc ne
+      // devrait pas avoir à caster pour lire.
+      activeResources: activeByType,
+      activeResourcesTotal: active.length,
     });
   }
 
