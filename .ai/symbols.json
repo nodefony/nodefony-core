@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-25T20:00:35.970Z",
+  "generated": "2026-08-25T20:51:52.256Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -28613,6 +28613,10 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
+      "lireSiPresentSync": [
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "MCP_ENDPOINT_PATH": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
@@ -28623,9 +28627,6 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "ecrireSecretSync": [
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
-      ],
-      "lireSiPresentSync": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "messageNonRestreint": [
