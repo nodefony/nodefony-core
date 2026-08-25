@@ -29,6 +29,21 @@
  * `1.0.0+exp.sha.5114f85` est une version VALIDE avec métadonnées de build
  * (clause 10) qu'une regex sans le `+` refuserait à tort.
  */
+/**
+ * Plafond de sortie des commandes git de la release, en octets.
+ *
+ * `execSync` tronque à 1 Mio par défaut — et échoue en `ENOBUFS`, pas
+ * silencieusement. Le journal complet de ce dépôt en pèse déjà plus de trois :
+ * comme AUCUN tag `v*` n'existe encore, la release repart du premier commit et
+ * lit TOUT. La publication réelle serait donc morte là, après quarante minutes
+ * d'épreuve, sur un message qui ne parle que de tampon.
+ *
+ * La valeur n'est pas un chiffre rond posé au hasard : un test la confronte à la
+ * taille RÉELLE du journal, pour qu'elle redevienne rouge avant de redevenir
+ * bloquante.
+ */
+export const MAX_BUFFER_GIT = 64 * 1024 * 1024;
+
 export const SEMVER =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
 

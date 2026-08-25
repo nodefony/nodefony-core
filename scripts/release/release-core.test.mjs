@@ -13,8 +13,10 @@
  * Les cas marqués « PIÈGE » sont ceux où une implémentation naïve passe : ce
  * sont eux qui font le travail.
  */
+import { execSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import {
+  MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
   comparerVersions,
@@ -642,5 +644,36 @@ describe("paquetsNonEstampilles — la garde du mode PUBLICATION", () => {
     expect(paquetsNonEstampilles([{ nom: "p" }], "10.0.0")).toEqual([
       "p@(version absente)",
     ]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("MAX_BUFFER_GIT — le plafond confronté au journal RÉEL", () => {
+  // ═════════════════════════════════════════════════════════════════════════
+  // Ce n'est pas une constante à relire : c'est une limite qui a déjà mordu.
+  // `execSync` plafonne à 1 Mio et sort en `ENOBUFS` ; le journal complet de ce
+  // dépôt en pèse plus de trois, et la release le lit ENTIER faute de tag `v*`
+  // antérieur. Le défaut a été trouvé à la répétition — il attendait la
+  // publication réelle, après quarante minutes d'épreuve.
+
+  const journalComplet = () => {
+    const racine = execSync("git rev-list --max-parents=0 HEAD", {
+      encoding: "utf8",
+    }).trim();
+    return execSync(`git log ${racine}..HEAD --no-merges --format=%h%B`, {
+      encoding: "utf8",
+      maxBuffer: MAX_BUFFER_GIT,
+    }).length;
+  };
+
+  it("dépasse le défaut de Node, qui est la cause du défaut vécu", () => {
+    expect(MAX_BUFFER_GIT).toBeGreaterThan(1024 * 1024);
+  });
+
+  it("laisse au journal du dépôt une marge d'au moins 4×", () => {
+    // Le journal grandit à chaque commit. Exiger une MARGE, et non le simple
+    // fait de tenir aujourd'hui, laisse le temps de relever le plafond avant
+    // qu'une publication ne tombe dessus.
+    expect(journalComplet() * 4).toBeLessThan(MAX_BUFFER_GIT);
   });
 });

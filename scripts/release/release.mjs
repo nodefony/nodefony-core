@@ -66,6 +66,7 @@ import {
   referencesFigees,
   rendreChangelog,
   validerVersion,
+  MAX_BUFFER_GIT,
 } from "./release-core.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -136,7 +137,12 @@ const npm = (args, opts = {}) =>
     ...opts,
   });
 const git = (cmd) =>
-  execSync(`git ${cmd}`, { cwd: ROOT, encoding: "utf8" }).trim();
+  execSync(`git ${cmd}`, {
+    cwd: ROOT,
+    encoding: "utf8",
+    // Le journal complet dépasse le défaut de 1 Mio — cf `MAX_BUFFER_GIT`.
+    maxBuffer: MAX_BUFFER_GIT,
+  }).trim();
 
 // ═══════════════════════════════════════════════════════════════════════════
 etape = "gardes préalables";
