@@ -746,6 +746,19 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-25] **Un « flake » qui revient N'EST PAS un flake.** `websocket-fragmentation` est tombé
+  sur Windows puis sur macOS en une heure, toujours en « timed out 60 s ». Traité deux fois comme
+  un aléa de plateforme ; c'était une COURSE : le listener `message` était posé APRÈS l'`open`,
+  alors que `ws` peut émettre le premier message dans la MÊME boucle d'événements que l'upgrade.
+  Reproduit en injectant un retard entre les deux — l'ancienne forme perd dès qu'un tour de boucle
+  s'intercale, à 0 ms déjà. Le test qui tranche entre « aléa » et « course » ne coûte rien :
+  RALENTIR artificiellement l'étape suspecte et voir si l'échec devient systématique.
+- [1× — 08-25] **Lire OÙ l'étape échoue avant de chercher QUOI corriger.** Un déploiement Pages
+  rouge m'a fait ouvrir le générateur de site : l'échec était dans `Set up job`, sur un
+  `Failed to download action` — panne réseau du runner, avant la moindre ligne de notre workflow.
+  Un simple rejeu l'a réglé. Le nom de l'étape en échec est la première information du log, et
+  c'est celle qui dit si le dépôt est même concerné.
+
 - [1× — 08-25] **Un banc rouge sur sa PROPRE garde d'entrée n'a jamais mesuré.** `soak.yml`
   échouait à chaque passe sur « machine OCCUPÉE » (21,72 de charge sur 3 cœurs) : il suit un
   `npm ci` + build, et `loadavg[0]` est une moyenne sur UNE MINUTE — elle décrit le passé, pas

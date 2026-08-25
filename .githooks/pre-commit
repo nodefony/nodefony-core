@@ -31,6 +31,18 @@ if git diff --cached --name-only --diff-filter=ACMR \
   fi
 fi
 
+# Garde anti-dérive : les fiches publiques des skills sont GÉNÉRÉES depuis les
+# `SKILL.md`. Toucher un skill sans les régénérer publie une doc qui ment, avec
+# l'autorité du généré — et le rouge ne tombait qu'en CI, un aller-retour plus
+# tard. Vécu le jour même où ce contrôle est né : une modification de script de
+# skill, deux fiches périmées, un job rouge.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^\.claude/skills/'; then
+  if ! node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check; then
+    echo "   → npm run skills:doc  puis  git add docs/skills"
+    exit 1
+  fi
+fi
+
 # Garde anti-dérive : les noms de canaux/méthodes de plateforme (`nodefony:*`) ne
 # s'écrivent pas en dur — ils viennent de la table du cœur. Un producteur renommé
 # sans son consommateur rend un écran muet SANS qu'aucun test ne rougisse (les

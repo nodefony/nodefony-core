@@ -3364,6 +3364,10 @@
             ],
             "options": [
               {
+                "flag": "--attendre-charge",
+                "help": ""
+              },
+              {
                 "flag": "--conn",
                 "help": ""
               },
@@ -3397,6 +3401,10 @@
               }
             ],
             "env": [
+              {
+                "name": "ATTENDRE_CHARGE",
+                "help": ""
+              },
               {
                 "name": "COEURS",
                 "help": ""
