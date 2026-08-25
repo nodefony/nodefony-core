@@ -34,6 +34,13 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-25] **J'ai corrigé ma propre règle une heure après l'avoir écrite, et c'est la CI qui
+  l'a trouvée.** « Un chemin absolu désigne un vrai exécutable, qui n'a besoin d'aucun shell » —
+  une INFÉRENCE, pas un constat : `…\node_modules\.bin\oxlint.cmd` est parfaitement absolu et
+  reste un script batch. Ce qui empêche Node de lancer une chose n'est pas l'ENDROIT où elle est,
+  c'est ce qu'elle EST. Quand une règle de portabilité s'écrit, énumérer les formes, pas les
+  emplacements.
+
 - [1× — 08-23d] Détection de coupure câblée sur les événements de pool : ils ne voient
   que le client **INACTIF** (`pg-pool` retire son auditeur pendant l'usage). J'ai livré
   en annonçant le problème résolu ; c'est le user qui a douté, et il avait raison.
@@ -78,6 +85,12 @@
   gabarit d'app générée, sinon chaque app naît avec ces artefacts. `[1× — 08-23c]`
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
+
+- **`nodefony check` accusait l'application témoin d'un défaut qui appartenait à MON poste** : deux
+  manquements « le port 5151 est déjà tenu », parce que mon serveur de développement écoutait. Le
+  banc frère posait des ports dédiés ; le mien, neuf, ne l'avait pas repris. Le verdict aurait été
+  vert sur un runner — **une mesure qui dépend de ce qui tourne à côté ne mesure rien**, et elle ne
+  le dit pas. [1× — 08-25]
 
 - **Un run interrompu a empoisonné le suivant, et personne ne pouvait le voir.** Une passe arrêtée
   sur « l'agent n'a rendu aucun tour » a quitté sans éteindre son serveur ; le run d'après a trouvé
@@ -220,6 +233,19 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- **Quinze cas VERTS en 0 ms, zéro requête émise.** Ma suite e2e neuve déduisait un corps valide
+  en lisant un format d'erreur SUPPOSÉ (`issues[].path`) là où l'application rend
+  `error.fields[].field`. Elle rendait `null`, et toute la famille CRUD faisait `return` en
+  silence — chaque cas comptait passé. Le seul signe était la **colonne des durées**, jamais le
+  total. Quatre gardes « anti-suite creuse » posées ensuite ont mordu au premier run. Corollaire :
+  **quand une sonde peut rendre `null`, un cas doit AFFIRMER qu'elle ne l'a pas fait** — et le
+  format d'une réponse se RELÈVE sur un serveur réel, il ne se suppose pas. [1× — 08-25]
+
+- **Un `beforeAll` qui lève ne rougit rien : vitest marque les cas SKIPPÉS.** Trois cas de la
+  couche donnée sont passés de « exécutés » à « skippés » sans qu'aucun total ne change de
+  couleur — un skip se lit comme un vert dans un rapport parcouru vite. La garde qui l'énonce
+  (« l'ORM DOIT être debout si des entités sqlite existent ») coûte quatre lignes. [1× — 08-25]
+
 - **Trois de mes fautes ont été attrapées par les gates et les bancs, aucune par moi.** Un champ
   d'options inexistant (vitest muet, `tsgo` l'a refusé au build) · un gabarit de test qui ne
   COMPILAIT pas avec une dépendance injectée (mes assertions lisaient des chaînes, le banc de
@@ -286,6 +312,16 @@
   qu'on vient de payer, offert au suivant. `[1× — 08-22]`
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
+
+- **`spawnSync npm ENOENT` se lit « npm n'est pas installé »** — sur un runner où `npm ci` venait
+  de réussir. La cause réelle : `npm` est un `.cmd` sous Windows, que Node refuse d'exécuter sans
+  shell. Le message ne parle jamais de ce qui manque VRAIMENT (l'extension). [1× — 08-25]
+
+- **Et quand il n'y a pas de message du tout : `status null`.** Un `.cmd` lancé sans shell ne rend
+  ni sortie ni code — la garde du banc traduisait ce `null` en « un motif d'exclusion écarte
+  l'application témoin », qui envoie chercher dans la configuration d'oxlint. Une garde qui
+  INTERPRÈTE un symptôme doit d'abord distinguer « le contrôle a jugé et refusé » de « le contrôle
+  n'a pas tourné ». [1× — 08-25]
 
 - Trois jobs Windows rouges deux jours durant sur « man/nodefony.1 est PÉRIMÉE — node
   scripts/generate-man.mjs ». La page n'était pas périmée : git la convertissait en CRLF au checkout
@@ -527,6 +563,19 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- **La passe principale était ROUGE depuis 20 exécutions, et plus personne ne la lisait.** Deux
+  erreurs de lint triviales la tenaient — et derrière elles, en file, deux autres gates qui
+  seraient devenus le rouge suivant (un fichier dérivé du formateur, un faux positif de
+  `skills:check`). **Un rouge permanent ne protège plus : il éteint le signal**, et il masque
+  exactement autant de choses qu'il y a de gates derrière lui dans la chaîne `&&`. Le réflexe qui
+  manquait : regarder `gh run list` au début d'une session qui touche à la CI. [1× — 08-25]
+
+- **Le faux positif qui maintenait le rouge venait du gate lui-même** : deux RENDEURS de rapports
+  (ils lisent un JSON déjà mesuré, écrivent du HTML) étaient classés « bancs à déplacer » sur du
+  VOCABULAIRE — `bench`, `p99`, `médiane` — alors que le même fichier appliquait déjà « on exige
+  un APPEL » à docker et au serveur. Une heuristique qui juge sur les mots condamne le code qui
+  PARLE du sujet. [1× — 08-25]
 
 - **La moulinette des skills a trouvé deux défauts que je n'aurais pas vus** : une description à
   1396 caractères pour un plafond de 1024, et un auto-contrôle livré une heure plus tôt que AUCUN

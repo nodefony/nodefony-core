@@ -71,8 +71,25 @@ l'avoir assemblé, et seulement `/` et `.`, si bien que `"/a|b"` produisait `^\/
 par /a » **ou** « finit par b » (la route absorbait `/n'importe/quoi/b`). RFC 3986 §3.3 : `( ) * + $`
 sont des `sub-delims` non encodés — huit métacaractères atteignent le routeur intacts. Un chemin
 portant l'un des six autres (`^ { } \ ? #`) est **inatteignable** et le dit désormais au démarrage.
-**Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release), et `dependabot.yml` en
-place pour que la dérive des versions se voie.
+
+**La forge éprouve enfin ce que le dépôt PRODUIT** (`scaffold.yml`, `1827d92c`) : matrice
+`ubuntu · macos · windows` sur le plancher `engines`, décor ISOLÉ (tarballs hors dépôt), deux bancs
+enchaînés — le code généré tient debout (16 étapes), puis l'application générée tient ses PROMESSES
+(`verify-runtime.mjs`, `017022f5` — 51 cas en trois étages : unitaire sans décor, intégration avec
+l'app bootée et zéro port ouvert, e2e sur serveur réel en production). Quatre défauts trouvés par ce
+seul workflow, dont **la suite e2e de TOUTE application générée, morte sous Windows** (`becf7e2e`) :
+elle lançait `node_modules/.bin/nodefony`, qui n'existe pas là-bas. Le framework résout désormais son
+propre lanceur (`nodefonyBin()` publié par `nodefony/testing`, `efbfacf5`) — plus aucun chemin deviné
+chez l'utilisateur. Au passage : la passe principale était **rouge depuis 20 exécutions** sans que
+personne ne la lise (`bd7485c0`), et le graphe symbolique, gitignoré, manquait à tout checkout frais
+(`8a1fad04` — `release-smoke.yml` portait le même trou).
+
+**Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release) ; `dependabot.yml` en
+place pour que la dérive des versions se voie ; et **sous Windows, les routes d'un MODULE LOCAL
+répondent 404** — le module se génère, compile et passe ses tests unitaires, mais l'application ne
+sert pas ses routes (12/13 étapes vertes, seul `comment.e2e.test.ts` tombe, entièrement). Défaut
+PRÉEXISTANT, rendu visible parce que rien ne l'exécutait sous Windows jusqu'ici ; piste = axiome 3
+(`import()` prend une URL, `D:\…` lu comme protocole `d:`).
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
