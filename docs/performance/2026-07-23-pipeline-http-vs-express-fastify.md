@@ -132,7 +132,7 @@ raisonnées**, signalées comme telles.
 ### G1 — La fabrique de contexte (3-6 µs + 6-12 Ko par requête)
 
 Chaque requête construit un `Scope` (`Container.ts:293-303`), un `HttpContext` qui est un
-`Service` complet — EventEmitter dédié (`Service.ts:117`), `Map` de listeners tracés,
+`Service` complet — EventEmitter dédié (`Service.ts:61`), `Map` de listeners tracés,
 étalement d'options, puis `delete this.options.events` (`Service.ts:131`, qui fait muter la
 classe cachée) — un `HttpRequest` (~8 champs, `Request.ts:101-137`), un `HttpResponse`, un
 `Resolver` et un `Controller`.
@@ -158,7 +158,7 @@ contexte : `onSend` (`HttpContext.ts:380`), `onClose` (`:469`), `onRequestEnd`
 
 ### G3 — L'écriture de la réponse (1,5-3 µs)
 
-`setBody` s'exécute **deux fois** (`HttpContext.ts:377` puis `Response.ts:438`) → deux
+`setBody` s'exécute **deux fois** (`HttpContext.ts:377` puis `Response.ts:362`) → deux
 `Buffer.from` du même corps. La regex de nettoyage du `statusMessage` tourne deux fois
 (`Response.ts:246-249` et `391-393`). `writeHead` passe **toujours** un `statusMessage`
 personnalisé, empêchant Node de réutiliser sa ligne de statut pré-calculée. `hasHeader()`
@@ -219,7 +219,7 @@ Protocole : paires A/B alternées, un seul basculement à la fois.
 | Court-circuiter `saveSession` sans session                      | `HttpContext.ts:372`                       | `session.test.ts` (15), websocket-session, porte mémoire |
 | Aligner `timeout` sur `responseTimeout`                         | `config.ts:273-292`                        | `resilience.test.ts` + compteur sur `socket.setTimeout`  |
 | Utiliser le singleton `ACCEPT_ANY`                              | `parser.ts:291` vs `315-317`               | `parser.test.ts` (17)                                    |
-| `url.href` au lieu de `url.format` ; `originUrl` paresseux      | `HttpContext.ts:110,114`                   | `httpKernel.test.ts` (35), `cors.test.ts`                |
+| `url.href` au lieu de `url.format` ; `originUrl` paresseux      | `HttpContext.ts:545,114`                   | `httpKernel.test.ts` (35), `cors.test.ts`                |
 | Ne plus poser le `Content-Type` par défaut au constructeur      | `Response.ts:54`                           | `static.test.ts` (12), headers, errors                   |
 | `setLength` : ensembles au niveau module + `hasHeader` natif    | `Response.ts:324-330,519-528`              | `Response.test.ts`, `httpKernel.test.ts`                 |
 | `statusMessage` personnalisé seulement s'il diffère du standard | `Response.ts:246-249,391-393`              | `errors.test.ts` (18)                                    |

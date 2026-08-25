@@ -748,7 +748,7 @@ rester pur.
 > **Une suite verte ne prouve rien du reste sans serveur Redis.** Les bancs d'intégration se
 > **skippent** quand l'infra manque, et un skip compte comme un succès : on peut lire « tout est
 > vert » sur une suite qui n'a rien exercé. La gate du module est déclarée une seule fois —
-> `REDIS_GATE` (`vitest.gates.ts:290`) — et la fin de run nomme la cible non exercée avec la commande
+> `REDIS_GATE` (`vitest.gates.ts:329`) — et la fin de run nomme la cible non exercée avec la commande
 > exacte pour la satisfaire. **Les variables et la commande docker se lisent là, pas ici** : les
 > recopier dans cette page les condamnerait à diverger.
 

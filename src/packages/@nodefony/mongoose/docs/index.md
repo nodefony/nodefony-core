@@ -585,7 +585,7 @@ await orm.transaction(async (tx) => {
 }); // commit si la fonction résout, annulation si elle échoue
 ```
 
-`MongooseOrm.transaction()` (`MongooseOrm.ts:199`) s'appuie sur les sessions Mongo « managées »
+`MongooseOrm.transaction()` (`MongooseOrm.ts:320`) s'appuie sur les sessions Mongo « managées »
 (commit, annulation et **reprises** gérées par le driver).
 
 > [!IMPORTANT]
@@ -596,7 +596,7 @@ await orm.transaction(async (tx) => {
 
 ### La trappe native — quand le contrat ne suffit plus
 
-`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:217`) rend la connexion Mongoose telle quelle :
+`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:338`) rend la connexion Mongoose telle quelle :
 agrégations, `$or`, index, `$text`, `bulkWrite`, changements de flux. Le module lui-même s'en sert
 là où le contrat portable ne suffit pas — par exemple pour la recherche texte du listing des
 webhooks, qui a besoin d'un `$or` sur deux champs
@@ -772,15 +772,15 @@ Schema). Le module fournit les sondes correspondantes :
 
 | Sonde                  | Ce qu'elle renvoie                                                          |
 | ---------------------- | --------------------------------------------------------------------------- |
-| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:231`)                    |
-| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:245`)              |
-| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:274`)    |
-| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:297`) |
+| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:352`)                    |
+| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:366`)              |
+| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:395`)    |
+| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:420`) |
 
 > [!IMPORTANT]
 > **Aucun identifiant ne sort jamais.** La cible affichée est nettoyée de tout `utilisateur:mot de
 passe@` avant d'atteindre le plan d'administration ou les journaux
-> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:309`)), y compris pour les URI multi-hôtes que
+> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:432`)), y compris pour les URI multi-hôtes que
 > l'analyseur d'URL standard ne sait pas découper.
 
 ## ⚡ Performance et mémoire
