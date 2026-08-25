@@ -146,6 +146,16 @@ jobs:
       - name: Lint (oxlint)
         run: npm run lint
 
+      # Portabilité des NOMS de fichiers — sur les trois systèmes, et le seul
+      # gate qui les regarde. Un nom que Windows refuse (`:`, `?`, un caractère
+      # de contrôle, `NUL.txt`) rend le dépôt INCLONABLE là-bas : `git checkout`
+      # sort en 128 avant le moindre test, quand linux et macOS restent verts.
+      # Le pre-commit porte la même garde sur l'index ; celle-ci vaut pour les
+      # fichiers SUIVIS, parce qu'un hook se contourne et qu'un fichier peut
+      # entrer par une autre voie.
+      - name: Gate — noms de fichiers portables (3 systèmes)
+        run: npm run check:filenames
+
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #
       # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant

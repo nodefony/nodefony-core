@@ -5,6 +5,17 @@
 # valide ; il reformate, il ne refuse pas. Bypass d'urgence : git commit --no-verify.
 npx --no-install lint-staged || exit 1
 
+# Garde de PORTABILITÉ : un nom de fichier que Windows refuse rend le dépôt
+# INCLONABLE là-bas — `git checkout` sort en 128 sur `invalid path`, avant le
+# moindre test, pendant que linux et macOS restent verts. Aucun lint ne regarde
+# les NOMS. Vécu : un `touch` lancé par un test d'attaque a créé deux fichiers à
+# la racine, `git add -A` les a emportés, sept jobs Windows sont tombés.
+# Placée en tête : elle coûte un `git diff --cached` et ferme une porte qu'aucun
+# autre gate ne voit.
+if ! node scripts/check-portable-filenames.mjs --staged; then
+  exit 1
+fi
+
 # Garde anti-dérive : `.env.example` est GÉNÉRÉ depuis env.ts (catalogue defineEnv).
 # Si env.ts, .env.example ou l'en-tête curé est staged, vérifier qu'ils sont
 # synchronisés (sinon une var ajoutée à env.ts mais pas régénérée passerait). Placé
