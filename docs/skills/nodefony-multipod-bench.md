@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 141 lignes |
-| Coût d'activation | ~2 647 tokens (le corps est chargé à l'invocation) |
+| Corps | 142 lignes |
+| Coût d'activation | ~2 927 tokens (le corps est chargé à l'invocation) |
 | Description | 988 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 2 page(s) |
@@ -127,7 +127,7 @@ node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 141 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 142 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

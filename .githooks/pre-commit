@@ -36,9 +36,14 @@ fi
 # l'autorité du généré — et le rouge ne tombait qu'en CI, un aller-retour plus
 # tard. Vécu le jour même où ce contrôle est né : une modification de script de
 # skill, deux fiches périmées, un job rouge.
+# La garde publiée en compte TROIS (fraîcheur des fiches, déclencheurs, audit des
+# scripts) et le hook n'en lançait qu'UNE : un script de skill que personne
+# n'appelle passait donc ici pour se faire refuser vingt minutes plus tard en
+# forge. Une règle appliquée à un seul de ses frères n'est pas appliquée — et
+# l'ensemble coûte UNE seconde, ce qui ne laisse aucun argument à l'asymétrie.
 if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^\.claude/skills/'; then
-  if ! node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check; then
-    echo "   → npm run skills:doc  puis  git add docs/skills"
+  if ! npm run --silent skills:check; then
+    echo "   → corriger ci-dessus (fiches : npm run skills:doc puis git add docs/skills)"
     exit 1
   fi
 fi

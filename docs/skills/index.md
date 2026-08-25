@@ -171,7 +171,7 @@ source: "docs/skills/index.md"
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 259 | 0 | 0 | ✅ |
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 359 | 4 | 43 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 359 | 0 | 0 | ✅ |
-| [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 141 | 2 | 11 | ✅ |
+| [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 142 | 2 | 11 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.0.0 | 246 | 0 | 0 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
