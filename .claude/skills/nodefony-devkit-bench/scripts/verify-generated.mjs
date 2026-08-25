@@ -292,8 +292,21 @@ function run(cmd, args, cwd = APP, env = {}) {
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
+    // La sortie ENTIÈRE sur disque avant tout filtrage — le rapport ne garde que
+    // la fin, et la cause d'un échec n'est pas toujours là. Vécu : le lanceur du
+    // framework refusait la readiness en NOMMANT le module qui manquait, puis un
+    // moteur de test écrivait sa propre pile par-dessus ; les 1 500 derniers
+    // caractères ne portaient plus que la pile, et le diagnostic — produit,
+    // exact — n'atteignait aucun lecteur.
+    const journal = path.join(ROOT, "echec.log");
+    try {
+      writeFileSync(journal, `$ ${cmd} ${args.join(" ")}\n\n${out}\n`);
+    } catch {
+      /* le décor a pu être démonté — le message reste utile sans le fichier */
+    }
     throw new Error(
-      `${cmd} ${args.join(" ")} → code ${res.status}\n${out.slice(-1500)}`,
+      `${cmd} ${args.join(" ")} → code ${res.status}` +
+        ` (sortie entière : ${journal})\n${out.slice(-1500)}`,
     );
   }
   return `${res.stdout ?? ""}`;

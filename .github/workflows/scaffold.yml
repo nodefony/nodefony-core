@@ -236,6 +236,9 @@ jobs:
           for (const [nom, cible] of [
             ['report.json', 'verify-report.json'],
             ['conformite.json', 'verify-conformite.json'],
+            // La sortie ENTIERE de la commande qui a echoue : le rapport n'en
+            // garde que la fin, et la cause n'y est pas toujours.
+            ['echec.log', 'echec-commande.log'],
           ]) {
             const src = path.join(base, nom);
             if (fs.existsSync(src)) {
@@ -293,5 +296,6 @@ jobs:
             verify-conformite.json
             app-detached.log
             app-etat.txt
+            echec-commande.log
           retention-days: 7
           if-no-files-found: ignore
