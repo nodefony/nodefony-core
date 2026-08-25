@@ -3978,6 +3978,43 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/db-persistance-pod.mjs",
+            "purpose": "Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ?",
+            "usage": [
+              "node db-persistance-pod.mjs                          # sqlite fichier (local, sans docker)"
+            ],
+            "options": [
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CLE",
+                "help": ""
+              },
+              {
+                "name": "MODE",
+                "help": ""
+              },
+              {
+                "name": "NF_DATABASE_URL",
+                "help": ""
+              },
+              {
+                "name": "PORT",
+                "help": ""
+              },
+              {
+                "name": "URL_BASE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/forge.mjs",
             "purpose": "",
             "usage": [],

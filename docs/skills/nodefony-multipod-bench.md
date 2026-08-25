@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 | Description | 988 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 10 |
+| Scripts | 11 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -85,6 +85,7 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/bench.mjs` | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD. | — | — |
 | `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--format` `--port` `--workers` | `BOX` `NF_DATABASE_URL` `WORKERS` |
+| `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `CLE` `MODE` `NF_DATABASE_URL` `PORT` `URL_BASE` |
 | `scripts/forge.mjs` | — | — | — |
 | `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages | — | — |
 | `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket | — | — |
@@ -99,6 +100,7 @@ script, donc toujours à jour après régénération.
 ```bash
 node bench.mjs <portRécepteur> <portÉmetteur> <connexions> <rafales>
 node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]
+node db-persistance-pod.mjs                          # sqlite fichier (local, sans docker)
 node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>
 node listen.mjs <port> <secondes>
 bash scripts/run.sh [dossier] [namespace]
@@ -106,7 +108,7 @@ bash scripts/setup.sh [dossier] [namespace]
 node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 ```
 
-**Toutes les variables lues par ce skill** : `APP` · `BOX` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `WORKERS`
+**Toutes les variables lues par ce skill** : `APP` · `BOX` · `CLE` · `MODE` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `PORT` · `URL_BASE` · `WORKERS`
 
 ## Conformité au standard Agent Skills
 

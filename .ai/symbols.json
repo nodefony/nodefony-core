@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-25T20:51:52.256Z",
+  "generated": "2026-08-25T23:06:40.235Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -23787,6 +23787,7 @@
       ],
       "Post": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
@@ -23899,6 +23900,7 @@
       ],
       "Param": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",

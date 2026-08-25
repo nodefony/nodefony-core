@@ -27,85 +27,36 @@
  *
  * Prérequis : `npm run build`, et la base joignable.
  */
-import { spawn, execFileSync } from "node:child_process";
-import path from "node:path";
 import process from "node:process";
+import {
+  arg,
+  dormir,
+  docker,
+  jusqua,
+  repond,
+  demarrerPod,
+  arreterPod,
+} from "./lib/pod.mjs";
 
-const arg = (nom, defaut) => {
-  const i = process.argv.indexOf(`--${nom}`);
-  return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : defaut;
-};
 const WORKERS = Number.parseInt(arg("workers", "1"), 10);
 const BOX = arg("container", "nodefony-postgres");
 const PORT0 = Number.parseInt(arg("port", "5251"), 10);
-const RACINE = process.cwd();
-const BIN = path.join(RACINE, "node_modules", "nodefony", "bin", "nodefony");
 const URL_BASE =
   process.env.NF_DATABASE_URL ??
   "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony";
 
-const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
-const docker = (...a) => {
-  try {
-    return execFileSync("docker", a, { encoding: "utf8" }).trim();
-  } catch (e) {
-    return `ERR:${String(e.message).slice(0, 60)}`;
-  }
-};
-
-/** Attend qu'une condition devienne vraie, ou rend `false`. */
-async function jusqua(verif, maxMs) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < maxMs) {
-    if (await verif()) return true;
-    await dormir(250);
-  }
-  return false;
-}
-
-/** Le port répond-il en HTTP ? (sans juger du code de retour) */
-async function repond(port) {
-  try {
-    const r = await fetch(`http://127.0.0.1:${port}/`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    return r.status > 0;
-  } catch {
-    return false;
-  }
-}
-
-/** Démarre un pod en PRODUCTION et attend qu'il écoute. */
-async function demarrerPod(index) {
-  const port = PORT0 + index * 2;
-  const enfant = spawn(process.execPath, [BIN, "production"], {
-    cwd: RACINE,
-    stdio: ["ignore", "pipe", "pipe"],
+/** Démarre un pod de ce banc — le socle porte le geste, ce banc porte le décor. */
+const leverPod = (index) =>
+  demarrerPod({
+    port: PORT0 + index * 2,
+    mode: "production",
     env: {
-      ...process.env,
-      NODE_ENV: "production",
-      NF_PORT: String(port),
-      NF_PORT_HTTPS: String(port + 1),
       NF_DATABASE_URL: URL_BASE,
       // Un battement serré : le banc ne doit pas durer une minute pour
       // constater ce que la production constaterait en trente secondes.
       NF_ORM_HEARTBEAT_MS: "1000",
     },
   });
-  const journal = [];
-  enfant.stdout.on("data", (d) => journal.push(String(d)));
-  enfant.stderr.on("data", (d) => journal.push(String(d)));
-  let mort = null;
-  enfant.on("exit", (code, sig) => {
-    mort = { code, sig };
-  });
-
-  const debout = await jusqua(async () => {
-    if (mort) return false;
-    return repond(port);
-  }, 90_000);
-  return { enfant, port, journal, estMort: () => mort, debout };
-}
 
 const pods = [];
 let verdictGlobal = 0;
@@ -120,7 +71,7 @@ try {
   );
   console.log("Démarrage");
   for (let i = 0; i < WORKERS; i++) {
-    const pod = await demarrerPod(i);
+    const pod = await leverPod(i);
     pods.push(pod);
     if (!pod.debout) {
       console.log(
@@ -164,20 +115,10 @@ try {
   dire(revenus, "tous les pods répondent après le retour");
 } finally {
   console.log("\nArrêt des pods");
+  // Le socle attend la mort EFFECTIVE : rendre la main avant fait échouer le
+  // banc suivant, sur le port que celui-ci n'a pas encore relâché.
   for (const pod of pods) {
-    try {
-      process.kill(pod.enfant.pid, "SIGTERM");
-    } catch {
-      /* déjà mort */
-    }
-  }
-  await dormir(2500);
-  for (const pod of pods) {
-    try {
-      process.kill(pod.enfant.pid, "SIGKILL");
-    } catch {
-      /* propre */
-    }
+    await arreterPod(pod);
   }
   try {
     docker("start", BOX);
