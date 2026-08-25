@@ -92,7 +92,7 @@ contrôleur** : l'attaque meurt sans avoir touché ton code.
 - **Vérifier la provenance d'abord** (OWASP 2025, modèle Go 1.25 `CrossOriginProtection`) : la
   couche 1 est la défense **par défaut**, `csrf.enabled: true` (`config.ts:151-156`).
 - **Globale, pas liée aux zones** : toute mutation cross-site est refusée, route publique ou non —
-  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1283`) arrive **après** le
+  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1427`) arrive **après** le
   resolve (les marqueurs de route sont lisibles) et **avant** la session (rejet précoce : un
   attaquant ne coûte ni lecture de session ni authentification).
 - **Logique pure** : la classe `Csrf` est synchrone, sans I/O ni allocation sur le hot-path —
@@ -240,7 +240,7 @@ autorisation :
 ```
 
 > [!WARNING]
-> `@CsrfExempt` (`routerDecorators.ts:1074`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
+> `@CsrfExempt` (`routerDecorators.ts:1099`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
 > webhook » avec `@BypassFirewall`/`@Anonymous` : eux désactivent l'authentification de la zone.
 
 Cas voisin — **façade multi-domaine** (`www.example.com` poste vers l'API d'un autre domaine à toi) :
@@ -267,7 +267,7 @@ sûres → coût nul sur le GET dominant (`csrf.ts:88`). Pour une mutation, dans
 Lectures durcies côté firewall :
 
 - en-têtes lus en **première occurrence** — jamais un tableau d'en-têtes répétés (garde d'injection,
-  `headerValue()`, `firewall.ts:77-83`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
+  `headerValue()`, `firewall.ts:103`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
   parse du contexte (`cookieValue()`, `firewall.ts:90-103`) ;
 - hôte cible **brut avec port** — `:authority` en HTTP/2, `context.domain` en dernier recours
   (`firewall.ts:772-775`) ;
@@ -297,11 +297,11 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 2. Au match de la route, `Resolver.match()` recopie les marqueurs sur le contexte
    (`Resolver.ts:152-153`) — champs portés par le `Context` de base, HTTP comme WS
    (`Context.ts:181-183`).
-3. `Firewall.enforceCsrf()` (`firewall.ts:833`) fait les trois rôles : **émission** du token sur
+3. `Firewall.enforceCsrf()` (`firewall.ts:932`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
    `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
    (`firewall.ts:743-745`), les `@CsrfExempt` sortent après la barrière méthode sûre
-   (`firewall.ts:760`).
+   (`firewall.ts:951`).
 4. `HttpContext.writeHead()` matérialise `context.csrfToken` en cookie `csrf-token` — flush groupé
    avec le cookie de session (`HttpContext.ts:419-432`).
 
@@ -314,7 +314,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:157-162`). |
 | `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:164-169`). |
 | `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:170-175`). |
-| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:554`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:428`). |
+| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:582`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:469`). |
 | `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:176-181`). |
 | `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:182-188`). |
 
@@ -333,10 +333,10 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 ## ⚡ Performance & mémoire
 
 - **GET = 0** : retour immédiat avant toute lecture d'en-tête (`csrf.ts:88`) ; seule exception, une
-  route `@CsrfProtect` mint le token **une fois** (skip si déjà posé, `firewall.ts:753-757`).
+  route `@CsrfProtect` mint le token **une fois** (skip si déjà posé, `firewall.ts:946`).
 - **Zéro microtask** : la chaîne est synchrone de bout en bout (pas d'`async` pour du pur calcul).
 - **Lazy** : `#csrf`/`#csrfTokens` restent `null` si la défense est désactivée — aucune structure
-  allouée « au cas où » (`firewall.ts:135-138`).
+  allouée « au cas où » (`firewall.ts:164`).
 - Le coût HMAC (1 à l'émission, 1 à la vérif) n'est payé **que** sur les routes `@CsrfProtect` ; les
   marqueurs sont lus depuis le memo de route — 0 `Reflect` par requête (`Resolver.ts:142`).
 

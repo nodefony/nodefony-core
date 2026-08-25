@@ -391,7 +391,7 @@ bavard.
 
 > [!TIP]
 > `ctx` porte **deux** axes distincts. `runtimeEnv` est le mode moteur (`NODE_ENV`) ; `appEnv` est un
-> axe de déploiement libre (`APP_ENV`/`NODEFONY_ENV`, `Kernel.ts:1364`). Un pré-production tourne
+> axe de déploiement libre (`APP_ENV`/`NF_ENV`, `Kernel.ts:1364`). Un pré-production tourne
 > « comme la production » (`isProd` vrai) tout en se distinguant par `ctx.appEnv === "staging"`.
 > C'est ce qui évite le faux dilemme « soit c'est prod, soit ça ne l'est pas ».
 
@@ -620,7 +620,7 @@ import qui en déréférence un — sinon l'import échoue, et la lecture retomb
 défaut. La résolution finale suit une précédence propre (`resolveTopology()`, `topology.ts:82`) :
 
 1. le drapeau CLI `nodefony cluster --workers <n|auto>` ;
-2. la variable `NODEFONY_WORKERS` (Docker, Kubernetes) ;
+2. la variable `NF_WORKERS` (Docker, Kubernetes) ;
 3. ce fichier (`cluster.workers`) — le défaut choisi par l'exploitation.
 
 ## 📡 Observabilité — Studio

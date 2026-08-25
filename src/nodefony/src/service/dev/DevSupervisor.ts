@@ -9,12 +9,12 @@ import {
   writeFileSync,
   type Stats,
 } from "node:fs";
-import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import readline from "node:readline";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
+import { waitBootVerdict } from "./bootVerdict";
 import {
   clearRuntimeState,
   defaultDevPorts,
@@ -46,7 +46,7 @@ export interface DevSupervisorOptions {
   /**
    * Ports serveur à attendre **libres** avant de relancer l'enfant (évite
    * `EADDRINUSE` au restart). Défaut : `[5151, 5152]` (HTTP/HTTPS Nodefony) ou
-   * `NODEFONY_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
+   * `NF_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
    * pas listés : l'arrêt emporte l'arbre (Vite compris) et chaque instance a son
    * propre port-retry au redémarrage.
    */
@@ -136,7 +136,7 @@ const delay = (ms: number): Promise<void> =>
  *
  * Topologie : ce process **parent** ne boote PAS le kernel applicatif — il
  * `spawn` le serveur dans un process **enfant** (même commande + variable d'env
- * `NODEFONY_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
+ * `NF_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
  * changement, rebuild puis **redémarre l'enfant**.
  *
  * Le restart doit emporter l'**arbre** de l'enfant — lui et les instances Vite du
@@ -161,7 +161,7 @@ export class DevSupervisor {
   readonly #debounceMs: number;
   readonly #childEnvKey: string;
   /**
-   * Ports imposés à la construction (`options.ports` / `NODEFONY_DEV_PORTS`). `null`
+   * Ports imposés à la construction (`options.ports` / `NF_DEV_PORTS`). `null`
    * = on APPREND les ports réels de l'enfant (cf {@link DevSupervisor.ports}) —
    * indispensable depuis `servers.portPolicy: "auto"` : l'enfant peut écouter
    * ailleurs que sur 5151/5152, et le superviseur doit suivre, pas supposer.
@@ -232,7 +232,7 @@ export class DevSupervisor {
   constructor(options: DevSupervisorOptions) {
     this.#cwd = options.cwd;
     this.#debounceMs = options.debounceMs ?? 250;
-    this.#childEnvKey = options.childEnvKey ?? "NODEFONY_DEV_CHILD";
+    this.#childEnvKey = options.childEnvKey ?? "NF_DEV_CHILD";
     // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
     // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rolldown -c` via
     // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.
@@ -865,14 +865,11 @@ export class DevSupervisor {
         // ports TCP acceptent avant la fin du boot → on attend le verdict STABLE
         // (`booted:true`, `#probeDegraded` renvoie null tant qu'il est en cours) par
         // re-sonde brève, pour ne pas crier « dégradé » sur la race port-up/boot.
-        let degraded: boolean | null = null;
-        const settleDeadline = Date.now() + DEGRADED_SETTLE_MS;
-        for (;;) {
-          if (this.#child !== child || this.#stopping) return;
-          degraded = await this.#probeDegraded();
-          if (degraded !== null || Date.now() >= settleDeadline) break;
-          await delay(READY_POLL_MS);
-        }
+        const degraded = await waitBootVerdict(
+          this.#ports[0],
+          DEGRADED_SETTLE_MS,
+          { aborted: () => this.#child !== child || this.#stopping },
+        );
         if (degraded === true) {
           this.#log(
             `✓ ports à l'écoute en ${Date.now() - t0}ms — ⚠ MAIS boot DÉGRADÉ ` +
@@ -936,54 +933,6 @@ export class DevSupervisor {
       this.#ports.map((p) => this.#isPortFree(p)),
     );
     return states.some((free) => !free);
-  }
-
-  /**
-   * Interroge `/nodefony/kernel/api/livez` (HTTP loopback, OBSERVATION EXTERNE — pas
-   * d'IPC) pour savoir si le boot est DÉGRADÉ (champ `degraded` : modules ignorés en
-   * fail-soft ou serveur attendu absent). Renvoie `null` = INCONCLUSIF dans deux cas :
-   * (a) boot pas encore terminé (`booted:false` — `degraded` y est transitoire, race
-   * port-up/boot) ; (b) tout échec best-effort (timeout, port HTTPS seul, JSON
-   * inattendu). Sur `null`, l'appelant re-sonde puis affiche le « prêt » normal. C'est
-   * ce qui rend le « vert mais cassé » VISIBLE au boot dev SANS fausse alarme.
-   */
-  #probeDegraded(): Promise<boolean | null> {
-    const port = this.#ports[0];
-    if (!port) return Promise.resolve(null);
-    return new Promise((resolve) => {
-      const req = http.get(
-        {
-          host: "127.0.0.1",
-          port,
-          path: "/nodefony/kernel/api/livez",
-          timeout: 1500,
-        },
-        (res) => {
-          let data = "";
-          res.setEncoding("utf8");
-          res.on("data", (c) => (data += c));
-          res.on("end", () => {
-            try {
-              const j = JSON.parse(data) as {
-                booted?: boolean;
-                degraded?: boolean;
-              };
-              // Verdict INCONCLUSIF tant que le boot n'est pas terminé (`booted:false`) :
-              // `degraded` est alors transitoire (race port-up/boot). null → re-sonde.
-              resolve(j.booted ? Boolean(j.degraded) : null);
-            } catch {
-              // oxlint-disable-next-line no-multiple-resolved -- branche EXCLUSIVE : on n'arrive ici que si l'analyse a levé, donc avant le `resolve` du `try`
-              resolve(null);
-            }
-          });
-        },
-      );
-      req.once("error", () => resolve(null));
-      req.once("timeout", () => {
-        req.destroy();
-        resolve(null);
-      });
-    });
   }
 
   /**

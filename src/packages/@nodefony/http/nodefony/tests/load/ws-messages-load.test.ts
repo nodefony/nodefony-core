@@ -12,7 +12,7 @@
  *   /nodefony/test/ws/broadcast  — fans the frame out to every client (incl. sender)
  *
  * CI-stable cases assert lossless delivery + a sane throughput floor. The
- * unbounded "until it breaks" flood is gated behind RUN_WS_RUPTURE=1.
+ * unbounded "until it breaks" flood is gated behind NF_RUN_WS_RUPTURE=1.
  */
 import { expect } from "chai";
 import https from "node:https";
@@ -146,7 +146,7 @@ describe("LOAD — WS messages (axis 2: throughput + broadcast)", function () {
   });
 
   // Unbounded message flood — find where delivery starts to drop / lag.
-  const rupture = process.env.RUN_WS_RUPTURE === "1" ? it : it.skip;
+  const rupture = process.env.NF_RUN_WS_RUPTURE === "1" ? it : it.skip;
   rupture(
     "RUPTURE — escalate frame bursts until loss/latency blows up",
     async function () {

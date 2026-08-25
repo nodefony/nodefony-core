@@ -35,7 +35,7 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 | Fuite mémoire suspectée (HTTP/WS heap delta) | `nodefony-check-memory-health` (run `npm run test:memory`, vitest) |
 | Lenteur, charge, p99 | `nodefony-load-test` (k6/autocannon orchestré) |
 | Modif front .tsx ne passe pas | `nodefony-frontend-dev` §4 (curl `/@fs/` + purge `.vite`) |
-| Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NODEFONY_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas) |
+| Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NF_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas) |
 | RETEX bugs réels par symptôme | `nodefony-framework-dev` §11 (kit vivant) |
 | Design/refacto/build neuf | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
 
@@ -257,7 +257,7 @@ Cas vécu : `project_service_base_improvements` point 3 (6 jours) suggérait `de
 
 ## 6. Références (anti-duplication, vérité unique)
 
-- **Boot enfant direct** : `NODEFONY_DEV_CHILD=1` court-circuite le superviseur pour voir le crash brut. La variable est lue par `src/nodefony/src/service/dev/DevSupervisor.ts` et `BootReporter.ts` (vérifié au code). Démarrage/arrêt → `nodefony-start-server`.
+- **Boot enfant direct** : `NF_DEV_CHILD=1` court-circuite le superviseur pour voir le crash brut. La variable est lue par `src/nodefony/src/service/dev/DevSupervisor.ts` et `BootReporter.ts` (vérifié au code). Démarrage/arrêt → `nodefony-start-server`.
 - **`nodefony-framework-dev` §11** : RETEX (kit vivant — bugs réels symptôme→cause→fix).
 - **`nodefony-framework-dev` §2** : règles absolues perf+mémoire (à respecter en debug aussi).
 - **`feedback_session_pitfalls`** (mémoire IA) : pièges récurrents (dist périmé, Bun pour `@nodefony/llm`, etc.).

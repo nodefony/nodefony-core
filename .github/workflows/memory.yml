@@ -78,8 +78,28 @@ env:
 
 jobs:
   memory:
-    name: Charge, fuites et scopes — HTTP et WebSocket
-    runs-on: ubuntu-latest
+    name: Charge, fuites et scopes — HTTP et WebSocket (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # POURQUOI LES TROIS SYSTÈMES, ET CE QUE LE PREMIER PASSAGE VAUT
+    #
+    # Une FUITE fuit partout : c'est l'argument qui autorise ce gate sur un
+    # runner partagé, et il ne dépend d'aucun système. Les seuils vivent dans
+    # `memory.test.ts` et sont GROSSIERS à dessein — 35 Mo quand le bruit du
+    # ramasse-miettes se compte en quelques Mo.
+    #
+    # Ils ont néanmoins été étalonnés sur Linux SEUL. Le premier passage ici est
+    # donc une MESURE avant d'être un verdict : le step « Ce que le banc a
+    # mesuré » publie les deltas de chaque plateforme. Si un seuil saute sur
+    # macOS ou Windows, il se recalibre AVEC CE CHIFFRE et par plateforme — un
+    # seuil desserré au jugé ne mesurerait plus rien, et un `continue-on-error`
+    # en ferait un vert menteur.
+    strategy:
+      # Chaque système rend SON verdict : un seuil qui saute sur l'un ne doit
+      # pas priver des mesures des deux autres — ce sont elles qui diront si
+      # c'est une fuite ou un étalonnage.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     timeout-minutes: 35
 
     steps:
@@ -93,14 +113,17 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
+        shell: bash
         run: npm ci --no-audit --no-fund
 
       - name: Build workspaces
+        shell: bash
         run: npm run build
 
       # Le module test porte les routes que martèle le banc ; il se construit après
       # le build global, le mode développement chargeant le `dist` présent au boot.
       - name: Rebuild test module
+        shell: bash
         run: npm run build --workspace=src/modules/test
 
       # TOUJOURS en développement, même sur `main` : ce banc mesure le pipeline de
@@ -145,15 +168,17 @@ jobs:
         working-directory: src/packages/@nodefony/http
         env:
           NF_GATES_EXPECT: "Memory leaks — HTTP,Memory leaks — WebSocket"
+        shell: bash
         run: npm run test:load
 
       # `always()` : c'est en ÉCHEC que ce résumé sert le plus. Il dit de combien
       # le seuil a été franchi — un dépassement de quelques Mo se lit comme du
       # bruit de ramasse-miettes, un dépassement d'un ordre de grandeur comme une
       # fuite. Sans ce chiffre, les deux se ressemblent.
-      # Les sondes de rupture (`RUN_WS_RUPTURE`) restent volontairement fermées : elles
+      # Les sondes de rupture (`NF_RUN_WS_RUPTURE`) restent volontairement fermées : elles
       # épuisent les ports éphémères de l'hôte. Leur silence est un choix, pas un oubli.
       - name: Ce que le banc a mesuré
+        shell: bash
         if: always()
         working-directory: src/packages/@nodefony/http
         run: |

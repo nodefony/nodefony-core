@@ -7,8 +7,8 @@ coverageModule: http
 section: "Performance"
 audience: [developer]
 tags: [performance, http, pipeline, profilage, routeur, websocket]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: "src/packages/@nodefony/http, src/packages/@nodefony/framework"
 tests: none
 ---

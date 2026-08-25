@@ -94,7 +94,10 @@ describe("bundle navigateur — aucune globale Node au chargement", () => {
   });
 
   for (const entry of ENTRIES) {
-    it(`${entry} se charge sans 'process'`, () => {
+    // Le `spawnSync` s'autorise 30 s ; laisser le `it` au défaut de 5 s rend ce
+    // budget inatteignable, et la suite complète rouge sur quatre entrées dont
+    // aucune n'a de défaut. Vu au run du 08-21 : 4 timeouts, 4 verts en isolation.
+    it(`${entry} se charge sans 'process'`, { timeout: 60_000 }, () => {
       const full = path.join(distClient, entry);
       expect(existsSync(full), `entrée absente du dist : ${entry}`).toBe(true);
 

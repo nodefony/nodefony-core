@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { fork, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createClient, type RedisClientType } from "redis";
+import { REDIS_GATE, gateValue } from "../../../../../../../vitest.gates";
 
 /**
  * Banc e2e cluster **Redis** — workers Node forkés RÉELS (1 process = 1 pod),
@@ -12,30 +13,32 @@ import { createClient, type RedisClientType } from "redis";
  *
  * Prérequis : Redis docker up (`@nodefony/redis/docker/docker-compose.yml`).
  *  - Correctness : auto-skip si Redis injoignable.
- *  - Perf (latence/débit) : derrière `RUN_PERF=1` (doctrine perf opt-in) —
+ *  - Perf (latence/débit) : derrière `NF_RUN_PERF=1` (doctrine perf opt-in) —
  *    un banc de mesure n'est pas une gate de non-régression.
  */
-const PASSWORD = process.env.REDIS_PASSWORD ?? "nodefony-dev";
-const HOST = process.env.REDIS_HOST ?? "localhost";
-const PORT = Number.parseInt(process.env.REDIS_PORT ?? "6379", 10);
-const RUN_PERF = process.env.RUN_PERF === "1";
+const PASSWORD = process.env.NF_REDIS_PASSWORD ?? "nodefony-dev";
+const HOST = process.env.NF_REDIS_HOST ?? "localhost";
+const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
+const NF_RUN_PERF = process.env.NF_RUN_PERF === "1";
 // e2e LOURD : fork de workers (tsx) + Redis réel. Opt-in pour ne pas faire
 // échouer le gate par défaut (`npm test` parallèle = contention → ready timeout)
-// ni dépendre d'un Redis up. Lancer : `RUN_CLUSTER_E2E=1 REDIS_PASSWORD=… npm test`.
-const RUN_CLUSTER_E2E = process.env.RUN_CLUSTER_E2E === "1";
+// ni dépendre d'un Redis up. Lancer : `NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=… npm test`.
+const NF_RUN_CLUSTER_E2E = process.env.NF_RUN_CLUSTER_E2E === "1";
 
 const WORKER_PATH = fileURLToPath(
   new URL("./redisClusterWorker.ts", import.meta.url),
 );
 
 /**
- * `REDIS_URL` d'abord : c'est la variable que pose `REDIS_GATE` et qu'affiche le
- * mode d'emploi du rapport de gates. Le triplet HOST/PORT/PASSWORD reste accepté
- * en repli (le compose expose les deux), mais il ne doit plus être le SEUL chemin
- * — sinon suivre le message d'aide ne débloque rien.
+ * L'URL vient de `REDIS_GATE` — la gate qui contrôle ce banc, jamais un nom
+ * retapé ici : un banc qui nomme son décor lui-même finit par nommer une AUTRE
+ * variable que celle dont son rapporteur constate l'absence. Le triplet
+ * HOST/PORT/PASSWORD reste accepté en repli (le compose expose les deux), mais
+ * il ne doit plus être le SEUL chemin — sinon suivre le message d'aide ne
+ * débloque rien.
  */
 async function redisReachable(): Promise<boolean> {
-  const url = process.env.REDIS_URL;
+  const url = gateValue(REDIS_GATE, "NF_REDIS_URL");
   const probe = createClient(
     url
       ? { url, socket: { connectTimeout: 1500, reconnectStrategy: false } }
@@ -64,7 +67,7 @@ async function redisReachable(): Promise<boolean> {
     return false;
   }
 }
-const REDIS_UP = RUN_CLUSTER_E2E ? await redisReachable() : false;
+const REDIS_UP = NF_RUN_CLUSTER_E2E ? await redisReachable() : false;
 const wait = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
@@ -96,7 +99,7 @@ function spawnWorker(rtChannel: string): Promise<ForkedWorker> {
       // "ignore" : le banc peut publier des dizaines de milliers de messages ;
       // remonter le stdout des workers sature inutilement le buffer du runner.
       stdio: ["ignore", "ignore", "ignore", "ipc"],
-      env: { ...process.env, NODEFONY_CLUSTER: "0", NF_RT_CHANNEL: rtChannel },
+      env: { ...process.env, NF_CLUSTER: "0", NF_RT_CHANNEL: rtChannel },
     });
     const events: AnyMsg[] = [];
     child.on("message", (raw) => events.push(raw as AnyMsg));
@@ -174,7 +177,7 @@ function percentile(sorted: number[], p: number): number {
   return sorted[idx];
 }
 
-describe.skipIf(!RUN_CLUSTER_E2E || !REDIS_UP)(
+describe.skipIf(!NF_RUN_CLUSTER_E2E || !REDIS_UP)(
   "e2e cluster Redis (Hub + RedisBackplane, Redis = relay)",
   () => {
     let workers: ForkedWorker[] = [];
@@ -222,7 +225,7 @@ describe.skipIf(!RUN_CLUSTER_E2E || !REDIS_UP)(
       ).to.equal(1);
     });
 
-    it.skipIf(!RUN_PERF)(
+    it.skipIf(!NF_RUN_PERF)(
       "PERF : latence p50/p99 + débit du fan-out cross-pod via Redis",
       async () => {
         const channel = `perf:${Date.now()}`;

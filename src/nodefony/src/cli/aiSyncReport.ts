@@ -41,6 +41,14 @@ export interface IPlannedSkill {
   action: SkillAction;
   /** Chemin du pointeur à écrire, relatif au projet, en `/`. */
   target: string;
+  /**
+   * Chemin du MIROIR Claude Code (`CLAUDE_SKILLS_DIR`), même contenu.
+   *
+   * L'idempotence du miroir se juge sur SON fichier au moment d'écrire (pas
+   * sur `action`, qui ne parle que de la racine canonique) : un miroir absent
+   * sous un canonique inchangé doit quand même être posé.
+   */
+  mirrorTarget: string;
   /** Contenu exact du pointeur — c'est lui qu'on écrit, tel quel. */
   content: string;
 }
@@ -54,6 +62,16 @@ export interface IAiSyncPlan {
   skills: IPlannedSkill[];
   /** Pointeurs présents dans le dossier que plus aucun paquet ne livre. */
   orphelins: string[];
+  /**
+   * Fichiers que la synchronisation a REFUSÉ d'écraser — un `SKILL.md` déjà
+   * présent qui n'est pas un pointeur, donc écrit par quelqu'un.
+   *
+   * 🔴 Ils sont rendus pour être DITS. Un fichier préservé en silence laisse
+   * croire que le skill a été synchronisé alors qu'il ne l'est pas ; et
+   * l'écraser sans le dire détruit du travail — vécu : 385 lignes remplacées
+   * par un renvoi de neuf lignes, sans un mot.
+   */
+  preserves: string[];
 }
 
 /**
@@ -61,15 +79,46 @@ export interface IAiSyncPlan {
  *
  * La spécification Agent Skills ne mandate AUCUN emplacement — elle ne définit
  * que ce qu'un skill contient. La convention qui a émergé pour le partage entre
- * clients est `.agents/skills/` : un skill posé là est vu par tout client
- * conforme (Cursor, Copilot, VS Code, Codex, Goose, Claude Code), alors qu'un
- * skill posé dans le dossier natif d'un seul n'est vu que par lui.
+ * clients est `.agents/skills/` : c'est la racine CANONIQUE, celle où vivent
+ * aussi la détection d'orphelins et l'inventaire.
  *
- * On pose donc ici, et nulle part ailleurs. Les clients qui ne scannent que leur
- * propre dossier le documentent ; c'est à eux d'ajouter ce chemin, pas à nous de
- * dupliquer un contenu dans N dossiers qui divergeront.
+ * ⭐ **« La convention qui a émergé » n'est pas un pari : deux clients la
+ * lisent, et l'un des deux la PRÉFÈRE à son propre dossier.** Une convention
+ * qu'on affirme sans nommer qui l'honore est une croyance ; celle-ci est
+ * constatée au source de chaque client :
+ *
+ * | client | lit `.agents/skills` | preuve                                          |
+ * | ------ | -------------------- | ----------------------------------------------- |
+ * | vibe   | oui                  | `vibe/core/paths/_local_config_files.py` (`_AGENTS_SKILLS_SUBDIR`) |
+ * | gemini | oui, **en priorité** | `@google/gemini-cli` `bundle/docs/cli/skills.md` |
+ * | claude | non                  | mesuré — d'où {@link CLAUDE_SKILLS_DIR}         |
+ * | codex  | pas de skills        | rien dans son paquet (0.149.0)                  |
+ *
+ * Gemini est explicite sur la préférence : à niveau égal, « the `.agents/skills/`
+ * alias takes precedence over the `.gemini/skills/` directory ». Poser en plus
+ * un `skill_paths` dans la configuration d'un agent serait donc une SECONDE
+ * source pour la même règle — la racine canonique suffit, et c'est tout
+ * l'intérêt d'une convention.
  */
 export const SKILLS_DIR = ".agents/skills";
+
+/**
+ * Le MIROIR pour Claude Code — parce que le pari « c'est aux clients d'ajouter
+ * `.agents/skills/` » a été MESURÉ perdu.
+ *
+ * Constaté sur une application générée (claude-code 2.1.238, mode headless) :
+ * les cinq pointeurs étaient posés dans `.agents/skills/`, et le champ `skills`
+ * de la session n'en listait AUCUN ; les mêmes fichiers recopiés dans
+ * `.claude/skills/` y apparaissaient tous. Un skill que le client dominant ne
+ * charge jamais n'existe pas — même motif que la porte MCP câblée sans
+ * `--mcp-config`. Le contenu reste rendu par `renderPointer`, en un seul
+ * exemplaire : deux racines, un écrivain, aucune divergence possible.
+ *
+ * ⚠️ Cette racine appartient d'abord à l'UTILISATEUR (ses propres skills y
+ * vivent) : la synchronisation n'y écrit QUE les pointeurs qu'elle livre, n'y
+ * détecte aucun orphelin et n'y supprime jamais rien.
+ */
+export const CLAUDE_SKILLS_DIR = ".claude/skills";
 
 /**
  * Le pointeur écrit dans le projet.
@@ -138,6 +187,7 @@ export function planSync(
             ? "inchange"
             : "remplace",
       target: `${SKILLS_DIR}/${skill.name}/SKILL.md`,
+      mirrorTarget: `${CLAUDE_SKILLS_DIR}/${skill.name}/SKILL.md`,
       content,
     });
   }
@@ -151,7 +201,9 @@ export function planSync(
     .filter((name) => !livres.has(name))
     .sort();
 
-  return { directory: SKILLS_DIR, skills, orphelins };
+  // `preserves` est rempli à l'ÉCRITURE (elle seule voit le disque du miroir) ;
+  // la composition, elle, reste pure.
+  return { directory: SKILLS_DIR, skills, orphelins, preserves: [] };
 }
 
 /**
@@ -167,7 +219,9 @@ export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
   const remplaces = plan.skills.filter((s) => s.action === "remplace");
   const inchanges = plan.skills.filter((s) => s.action === "inchange");
 
-  lignes.push(`\n  Skills d'agent — ${plan.directory}\n`);
+  lignes.push(
+    `\n  Skills d'agent — ${plan.directory} (miroir Claude Code : ${CLAUDE_SKILLS_DIR})\n`,
+  );
 
   if (plan.skills.length === 0) {
     lignes.push(
@@ -191,11 +245,23 @@ export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
     );
   }
 
+  // 🔴 Ce qui a été PRÉSERVÉ se dit, et se dit fort : sans cette ligne,
+  // l'utilisateur croit le skill synchronisé alors qu'il ne l'est pas — et
+  // c'est le seul cas où la commande n'a délibérément pas fait son travail.
+  for (const cible of plan.preserves) {
+    lignes.push(
+      `  ! ${cible} existe déjà et n'est PAS un pointeur — conservé tel quel\n`,
+    );
+  }
+
   lignes.push(
     `\n  ${poses.length} posé(s) · ${remplaces.length} mis à jour · ` +
       `${inchanges.length} inchangé(s)` +
       (plan.orphelins.length > 0
         ? ` · ${plan.orphelins.length} orphelin(s)`
+        : "") +
+      (plan.preserves.length > 0
+        ? ` · ${plan.preserves.length} conservé(s)`
         : "") +
       `\n`,
   );

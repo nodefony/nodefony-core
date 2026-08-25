@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-09
+updated: 2026-08-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 | --- | --- |
 | Version | `2.0.0` |
 | Famille | Développer le framework |
-| Corps | 143 lignes |
-| Coût d'activation | ~3 608 tokens (le corps est chargé à l'invocation) |
+| Corps | 145 lignes |
+| Coût d'activation | ~3 206 tokens (le corps est chargé à l'invocation) |
 | Description | 935 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 6 page(s) |
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/gotchas-studio.md` | Gotchas Studio — règles durables (par thème) | 399 |
 | `references/realtime-studio.md` | Référence — Realtime Studio (canaux · hub UI · log protocole · patron sondes) | 123 |
 | `references/twin.md` | Référence — Jumeau Vivant (Twin) | 77 |
-| `references/ui-kit.md` | Référence — UI kit Studio & construction d'écran | 372 |
+| `references/ui-kit.md` | Référence — UI kit Studio & construction d'écran | 373 |
 
 
 ## Conformité au standard Agent Skills
@@ -92,7 +92,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 143 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 145 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -997,10 +997,21 @@ export function buildEntityCodegen(
   // dès qu'un champ de RELATION est en dernier, son commentaire de fin de ligne avale
   // la fermeture : `…, // → User.id …});` ne compile pas. Vécu en appliquant un vrai
   // schéma (WordPress), invisible sur tous les exemples jusque-là.
-  const block = (lines: string[]): string => `${lines.join("\n  ")}\n`;
+  // Pas de saut de ligne FINAL : c'est la ligne du gabarit qui le porte
+  // (`  <%= it.rowProps %>` suivi de sa propre fin de ligne). Il en était ajouté
+  // un ici, et le moteur l'avalait — les deux fautes se compensaient. Depuis que
+  // le moteur rend ce que le gabarit écrit, la valeur ne doit plus emporter la
+  // ponctuation de son point d'insertion : sinon une ligne vide s'ouvre juste
+  // avant l'accolade fermante de chaque interface et de chaque schéma générés.
+  const block = (lines: string[]): string => lines.join("\n  ");
+  // La variante QUI FERME sa ligne, pour le seul point d'insertion où le gabarit
+  // enchaîne sur la MÊME ligne : `  <%= it.columns %>}<%= it.tableExtras %>);`.
+  // Deux helpers plutôt qu'un, parce que la ponctuation appartient au point
+  // d'insertion — la déduire du contenu était exactement l'erreur précédente.
+  const blockLn = (lines: string[]): string => `${block(lines)}\n`;
 
   return {
-    columns: block(columns),
+    columns: blockLn(columns),
     drizzleImport: `import { ${[...imports].sort().join(", ")} } from "${module}";`,
     tableFn: fn,
     rowProps: block(rowProps),

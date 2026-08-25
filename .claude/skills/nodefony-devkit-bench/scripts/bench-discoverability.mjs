@@ -77,12 +77,17 @@
  * verdict, sondes, préuves). Exit 1 si une tâche échoue — AVANT S4 c'est
  * l'état ATTENDU : un banc qui n'a jamais mordu ne gate rien.
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { besoinDeShell } from "./lib/exec-portable.mjs";
 import {
+  chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -115,9 +120,11 @@ import {
   lireCause,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
+import { portDeLAppSousTest } from "./lib/http-probe.mjs";
+import { envDecor, nfEcartees } from "./lib/env-decor.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
-  CHEMIN_REFERENCE,
+  cheminReference,
   depister,
   empreinteTache,
   ecrireReference,
@@ -125,6 +132,8 @@ import {
   lireReference,
   NON_JUGEABLE,
   verdictAgrege,
+  medianeTours,
+  deriveTours,
 } from "./lib/reference.mjs";
 
 /**
@@ -169,6 +178,13 @@ const LINKED = process.argv.includes("--link");
 const RUN_ROOT = LINKED
   ? path.join(REPO, "tmp", "devkit-bench")
   : path.join(os.tmpdir(), "nodefony-devkit-bench");
+/**
+ * Le commit du dépôt À L'INSTANT DU PACK — la seule date qui décrive la mesure.
+ * `null` tant qu'aucun décor n'a été monté (mode `--analyze-only`, qui reprend
+ * le commit du run relu).
+ */
+let COMMIT_AU_PACK = null;
+
 const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
 /**
  * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
@@ -192,6 +208,187 @@ const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
     ];
 
 /**
+ * Câblage MCP de l'agent — ajouté aux args par défaut, PAS à un override.
+ *
+ * `--mcp-config .mcp.json` (relatif : le cwd de l'agent EST l'app témoin) rend
+ * ATTEIGNABLE le serveur MCP que le décor déclare : en headless, le CLI
+ * n'approuve pas un `.mcp.json` de projet sans ce flag — mesuré : 0 appel
+ * `mcp__nodefony__*` sur 87 runs alors que le fichier était posé et validé.
+ * Un câblage que l'agent ne peut pas charger n'existe pas.
+ *
+ * `--strict-mcp-config` restreint l'agent à CE fichier : sans lui, il hérite
+ * des serveurs MCP du poste (scope user) — un agent mieux servi que
+ * l'utilisateur réel, et surtout un serveur `nodefony` du DÉPÔT répondrait à
+ * la place de celui de l'app témoin : la classe de piège « une application
+ * qui n'est pas la sienne », version appels MCP.
+ *
+ * `NF_DEVKIT_BENCH_AGENT_ARGS` reste le contrat COMPLET : posé, il remplace
+ * tout, MCP compris — sinon il ne permettrait plus de mesurer « sans MCP ».
+ */
+const MCP_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
+  ? []
+  : ["--mcp-config", ".mcp.json", "--strict-mcp-config"];
+
+/**
+ * Le MCP fait partie du DÉCOR enregistré — dérivé des args EFFECTIFS, jamais
+ * affirmé : un override d'args sans le flag doit produire un rapport qui dit
+ * « MCP non atteint », sinon le dépistage comparerait deux mesures que ce
+ * réglage sépare.
+ */
+const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
+
+/**
+ * RÉGIME de la porte MCP — trois décors qui mesurent trois choses différentes,
+ * et qui ne se comparent PAS entre eux.
+ *
+ * | `NF_DEVKIT_BENCH_MCP` | ce que l'agent trouve                                      |
+ * | --------------------- | ---------------------------------------------------------- |
+ * | `eteint` (défaut)     | la porte est DÉCLARÉE, sans jeton ; le décor ne démarre pas |
+ * | `auth`                | porte authentifiée (jeton) ET application DÉMARRÉE          |
+ * | `off`                 | aucune déclaration : l'agent ne sait pas qu'une porte existe |
+ *
+ * 🔴 **`eteint` n'est pas un décor dégradé, c'est un cas RÉEL** — et le plus
+ * fréquent : on ouvre un dépôt qu'on ne connaît pas, rien ne tourne. Le client
+ * MCP se connecte à l'INIT de sa session et ne retente jamais : la porte étant
+ * une ROUTE, elle est `failed` pour toute la session, même si l'agent démarre
+ * l'application ensuite. C'est pour cela que ce régime reste le DÉFAUT : la
+ * référence existante a été établie dessus.
+ *
+ * ⚠️ **« arrêtée » décrit le MONTAGE, pas chaque tâche** — et c'est le piège.
+ * Plusieurs tâches démarrent l'application par leur `prepare` (la 9 la
+ * première, dont c'est la prémisse explicite). Sur celles-là, `eteint` ne
+ * mesure PAS une porte morte : il mesure une porte joignable servie en
+ * ANONYME, faute de jeton. Vécu : un run `eteint` a rendu 8 appels MCP tous
+ * réussis pendant que le banc annonçait une application éteinte. Ce que ce
+ * régime sépare de `auth` est donc l'IDENTITÉ, pas l'allumage — et l'état de
+ * la porte se lit sur le CONSTAT imprimé avant l'agent, jamais sur ce nom.
+ *
+ * 🔴 **`auth` exige de DÉMARRER l'application** — sinon on croit mesurer un
+ * agent outillé alors qu'on mesure le même agent muet : le jeton est parfait,
+ * la porte n'existe pas. Les deux vont donc ensemble, ici, et pas au choix de
+ * l'appelant.
+ *
+ * ⚠️ En `auth`, la tâche 5 (« démarre puis arrête le serveur ») trouve un
+ * serveur DÉJÀ démarré : son verdict ne vaut rien dans ce régime. Le banc le
+ * dit plutôt que de le taire.
+ */
+/** Nom sous lequel la porte est déclarée — celui qu'écrit `ai:mcp`. */
+const MCP_SERVER_NOM = "nodefony";
+
+/**
+ * L'application témoin à éteindre avant de rendre la main — quel que soit le
+ * CHEMIN de sortie.
+ *
+ * 🔴 **Le défaut que ceci ferme, et il s'est retourné contre le banc lui-même.**
+ * L'arrêt existait, il nommait même le risque (« le run SUIVANT croirait
+ * interroger la sienne »), mais il était placé APRÈS la boucle des tâches et
+ * conditionné au seul régime `auth`. Or une passe s'interrompt : agent muet,
+ * quota, arguments refusés — autant de `process.exit()` qui sautent par-dessus.
+ * Et une tâche démarre l'application par sa PRÉMISSE dans tous les régimes, pas
+ * seulement en `auth`.
+ *
+ * Vécu, en cascade : un run arrêté sur « l'agent n'a rendu aucun tour » a laissé
+ * son serveur vivant sur les ports dédiés ; le run suivant n'a donc jamais pu
+ * démarrer le sien (aucun `runtime.json` dans son application), et l'agent, le
+ * constat de porte et le juge des routes ont TOUS interrogé l'application du run
+ * précédent. Le seul verdict juste de la chaîne fut le rouge de `nodefony check`
+ * — « le port est tenu par un autre processus », littéralement vrai.
+ */
+let APP_A_ETEINDRE = null;
+
+/** Éteint l'application témoin. Idempotent : appelable deux fois sans dommage. */
+function eteindreApplication(app) {
+  if (app === null) return;
+  APP_A_ETEINDRE = null;
+  spawnSync("npx", ["--no-install", "nodefony", "stop"], {
+    shell: besoinDeShell("npx"),
+    cwd: app,
+    encoding: "utf8",
+    env: APP_ENV,
+    timeout: 60_000,
+  });
+}
+
+// `exit` couvre les `process.exit()` de la passe ; les signaux ne le déclenchent
+// pas d'eux-mêmes, on les relaie. `spawnSync` reste licite ici : le handler est
+// synchrone, et c'est justement pourquoi l'arrêt s'écrit ainsi.
+process.on("exit", () => eteindreApplication(APP_A_ETEINDRE));
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(signal, () => {
+    eteindreApplication(APP_A_ETEINDRE);
+    process.exit(130);
+  });
+}
+
+const MCP_REGIMES = ["eteint", "auth", "off"];
+const MCP_REGIME = process.env.NF_DEVKIT_BENCH_MCP ?? "eteint";
+if (!MCP_REGIMES.includes(MCP_REGIME)) {
+  console.error(
+    `NF_DEVKIT_BENCH_MCP : « ${MCP_REGIME} » inconnu — attendus : ${MCP_REGIMES.join(", ")}`,
+  );
+  process.exit(64); // EX_USAGE
+}
+
+/**
+ * La porte est-elle FRANCHIE avec une identité ? Constaté sur l'environnement
+ * effectif, jamais déduit de l'intention : un jeton non émis doit rendre un
+ * rapport qui dit « anonyme », sinon deux mesures que ce réglage sépare
+ * seraient comparées — l'agent authentifié voit des outils que l'autre n'a pas.
+ */
+const mcpAuthentifie = () => typeof APP_ENV.NF_MCP_TOKEN === "string";
+
+/**
+ * Durée de vie du jeton MCP, en minutes — dimensionnée sur le RUN ENTIER,
+ * jamais sur une tâche.
+ *
+ * 🔴 Le trou était là : le jeton s'émettait pour 120 minutes, durée choisie
+ * pour « la tâche la plus longue ». Une passe de 30 tâches en dure ~110, donc
+ * un run de trois passes voyait sa porte se FERMER au milieu de la deuxième —
+ * et rien ne le disait : le décor enregistré continuait d'annoncer « MCP auth,
+ * jeton posé » pendant que la porte refusait. Deux mesures sur trois portaient
+ * alors sur un régime que personne n'avait choisi.
+ *
+ * La marge est large à dessein : un jeton en LECTURE seule, dans un décor
+ * jetable, ne coûte rien à rallonger — une porte qui se ferme en cours de run
+ * coûte le run.
+ *
+ * @param {number} nbTaches - tâches jouées par passe.
+ * @param {number} runs - nombre de passes.
+ * @returns {number} minutes, plancher à 120.
+ */
+export const ttlJetonMinutes = (nbTaches, runs) =>
+  Math.max(120, Math.ceil(nbTaches * runs * 7));
+
+/**
+ * Durée retenue pour CE run — posée par `main` une fois le périmètre connu
+ * (les tâches demandées, le nombre de passes), lue par le montage du décor.
+ * Le plancher vaut tant que le périmètre n'est pas connu.
+ */
+let TTL_JETON_MIN = 120;
+
+/**
+ * Minutes restantes au jeton — lues dans le jeton LUI-MÊME (`exp`), jamais
+ * déduites de l'heure d'émission : c'est l'émetteur qui décide, pas nous.
+ *
+ * @param {string | undefined} jeton - le JWT, ou rien.
+ * @param {number} maintenantMs - l'instant de référence.
+ * @returns {number} minutes restantes ; `-1` si illisible ou absent.
+ */
+export const minutesRestantesJeton = (jeton, maintenantMs) => {
+  if (typeof jeton !== "string") return -1;
+  const charge = jeton.split(".")[1];
+  if (!charge) return -1;
+  try {
+    const { exp } = JSON.parse(
+      Buffer.from(charge.replace(/-/gu, "+").replace(/_/gu, "/"), "base64"),
+    );
+    return typeof exp === "number" ? (exp * 1000 - maintenantMs) / 60_000 : -1;
+  } catch {
+    return -1;
+  }
+};
+
+/**
  * Ports DÉDIÉS de l'app témoin, hérités par tout ce que l'agent lance depuis
  * elle (le serveur qu'il démarre en tâche 5 compris).
  *
@@ -203,8 +400,39 @@ const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
  */
 const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
 
-/** Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates. */
-const APP_ENV = { ...process.env, ...PORTS };
+/**
+ * Le nom de l'application témoin — l'IDENTITÉ du décor, au même titre que ses
+ * ports. `nodefony stop <projet>` cible par ce nom : le laisser en dur à la
+ * création et le recopier ailleurs, c'est se préparer à arrêter le mauvais
+ * projet le jour où l'un des deux change.
+ */
+const NOM_APP_TEMOIN = "bench-app";
+
+/**
+ * Foyer JETABLE des agents dont la configuration est GLOBALE.
+ *
+ * 🔴 Vibe et Codex n'ont pas de portée projet en écriture : leur `mcp add`
+ * écrit chez l'utilisateur. Un banc qui les déclarerait ainsi modifierait la
+ * configuration du POSTE — et y laisserait une porte pointant sur une
+ * application témoin détruite depuis longtemps. Chacun accepte pourtant de
+ * déplacer son foyer par une variable (`VIBE_HOME`, `CODEX_HOME`) : on le
+ * pointe dans le décor, qui disparaît avec lui. C'est ce qui rend ces agents
+ * mesurables sans rien laisser derrière.
+ */
+const FOYERS_JETABLES = { VIBE_HOME: ".vibe-home", CODEX_HOME: ".codex-home" };
+
+/**
+ * Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates.
+ *
+ * 🔴 **Le jeton MCP y est POSÉ au montage du décor** (`NF_MCP_TOKEN`). Sans lui,
+ * l'agent franchit la porte en ANONYME : elle ne lui sert que les outils
+ * publics et retient les réservés — on mesurerait alors un agent moins bien
+ * outillé que l'utilisateur réel, dont le `create app` propose précisément ce
+ * câblage. L'en-tête écrit dans `.mcp.json` ne porte JAMAIS le secret, mais son
+ * nom (`${NF_MCP_TOKEN}`) : c'est le client MCP qui le substitue depuis cet
+ * environnement, et le fichier reste commitable.
+ */
+const APP_ENV = envDecor(PORTS);
 
 /**
  * Juge de la tâche « média » — chemin ABSOLU, car la commande s'exécute avec
@@ -228,6 +456,17 @@ const JUGE_SESSION = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-session-csrf.mjs",
+);
+
+/**
+ * Juge de la tâche « interroger l'application plutôt que lire ses sources » —
+ * il demande le compte à l'application EN MARCHE, celle que l'agent a
+ * interrogée, et ne boote un kernel qu'à défaut, en le disant.
+ */
+const JUGE_ROUTES = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-routes-count.mjs",
 );
 
 /** Juge de la tâche « protège une route » — trois identités, une seule route. */
@@ -425,6 +664,57 @@ function interrupteurPattern() {
  */
 const commandeQuiContient = (motif) =>
   new RegExp(`"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})`, "u");
+
+/**
+ * Le GESTE, quelle que soit la VOIE — ligne de commande **ou** outil MCP.
+ *
+ * 🔴 Une sonde qui n'accepte qu'une voie mesure un MOYEN, pas un fait. Mesuré :
+ * en régime MCP authentifié, l'agent a interrogé l'application sept fois par
+ * ses outils — le geste EXACT que la tâche demande — et la sonde l'a compté
+ * rouge parce qu'elle cherchait `nodefony inspect` dans une commande shell.
+ * Elle pénalisait donc l'agent le mieux outillé, et le banc aurait conclu que
+ * le MCP dégrade ce qu'il améliore.
+ *
+ * @param motif - le motif accepté dans une commande shell.
+ * @param outils - les noms d'outils MCP qui rendent le même service.
+ */
+export const gesteParCommandeOuMcp = (motif, outils) =>
+  new RegExp(
+    `"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})` +
+      `|${appelOutilMcp(outils)}`,
+    "u",
+  );
+
+/**
+ * Un appel d'outil MCP, dans les TROIS grammaires que produisent les agents.
+ *
+ * 🔴 Ce n'est pas une commodité : sans cela, le banc est AVEUGLE chez deux
+ * agents sur trois, et son aveuglement ressemble trait pour trait à un agent
+ * qui n'aurait pas eu la porte — « zéro appel MCP », le symptôme que ce banc
+ * apprend justement à lire comme « il n'a jamais eu d'outils ». Établi au
+ * SOURCE de chaque agent, pas à la lecture d'un transcript :
+ *
+ *  - **Claude** — bloc `tool_use` dont le `name` porte le préfixe `mcp__`
+ *    (`mcp__nodefony__nodefony_inspect`) ;
+ *  - **Codex** — item `mcp_tool_call`, qui sépare proprement `server` et `tool`
+ *    (`sdk/typescript/src/items.ts`, `McpToolCallItem`) ;
+ *  - **Gemini** — événement `tool_use` dont le nom vit sous `tool_name`, qualifié
+ *    `<serveur>_<outil>` — séparateur `_`, jamais `mcp__`
+ *    (`packages/core/src/tools/mcp-tool.ts`, `MCP_QUALIFIED_NAME_SEPARATOR`).
+ *
+ * @param {string} outils - alternative de noms d'outils, sans préfixe.
+ * @returns {string} une alternative de motifs, en source d'expression régulière.
+ */
+export function appelOutilMcp(outils) {
+  return (
+    // Claude : le préfixe porte le serveur.
+    `"name"\\s*:\\s*"mcp__[^"]*(?:${outils})` +
+    // Gemini : le nom qualifié vit sous une AUTRE clé.
+    `|"tool_name"\\s*:\\s*"[^"]*(?:${outils})` +
+    // Codex : l'outil est nommé à part de son serveur.
+    `|"tool"\\s*:\\s*"[^"]*(?:${outils})`
+  );
+}
 
 /**
  * Ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT — élagage du texte.
@@ -713,7 +1003,7 @@ export const SONDES_QUALITE = [
     // une ligne d'`expect` isolée qu'un refactor légitime déplace souvent.
     kind: "code",
     name: "aucun cas de test retiré (it/test supprimé)",
-    pattern: /^-\s*(it|test)\s*[.(]/mu,
+    pattern: /^\s*(it|test)\s*[.(]/mu,
     where: "deleted",
     invert: true,
   },
@@ -737,7 +1027,7 @@ export const SONDES_QUALITE = [
     kind: "code",
     name: "la zone à porteur du gabarit n'a pas été désarmée",
     pattern:
-      /^-\s*stateless\s*:\s*true|^-\s*authenticators:\s*\[\s*["']apikey["']\s*\]/mu,
+      /^\s*stateless\s*:\s*true|^\s*authenticators:\s*\[\s*["']apikey["']\s*\]/mu,
     where: "deleted",
     invert: true,
   },
@@ -963,7 +1253,16 @@ export const TASKS = [
         // s'arrête plus à une phase de boot, et n'a plus accès au conteneur).
         kind: "code",
         name: "pas de parsing d'argv artisanal ni de parseur tiers",
-        pattern: /process\.argv|from\s+["']commander["']|from\s+["']yargs["']/u,
+        // 🔴 LA LIGNE NE DOIT PAS ÊTRE COMMENTÉE — sans cette garde, la sonde
+        // punissait le sans-faute. Le gabarit de `create command` cite
+        // `process.argv` dans un commentaire (une recette de `spawnSync`) : un
+        // agent qui lance `npx nodefony create command <nom>` et ne touche à
+        // RIEN d'autre — zéro Write, zéro Edit, exactement le geste mesuré —
+        // se voyait reprocher du code écrit par NOTRE générateur, et commenté
+        // par-dessus le marché. Mesuré au run large du 08-21 : tâche 4 en FAIL
+        // sur 15 tours, tous ses gates d'état verts.
+        pattern:
+          /^(?!\s*(?:\/\/|\*|\/\*)).*(?:process\.argv|from\s+["']commander["']|from\s+["']yargs["'])/mu,
         where: "added",
         invert: true,
       },
@@ -1035,8 +1334,23 @@ export const TASKS = [
         //
         // Le motif s'ouvre en échange à TOUT `kill`, plus seulement `-9` :
         // `kill $(lsof -ti:5371)` bricolait tout autant et passait.
+        //
+        // Et le QUATRIÈME travers, du même bois que les trois précédents : un
+        // `kill` ÉCRIT n'est pas un `kill` EXÉCUTÉ. L'agent fait le geste
+        // demandé, obtient « ✓ arrêté proprement », puis pose une ceinture
+        // `if ps -p $PID; then kill -9 $PID; fi` — que ce succès rend morte.
+        // La sonde comptait la ceinture comme le meurtre : elle punissait la
+        // prudence, et sur une sonde inversée ce faux rouge ne se distingue
+        // pas d'un agent fautif.
+        //
+        // Le waiver est ancré sur la SORTIE de l'arrêt, pas sur son
+        // invocation : `nodefony stop` n'imprime « arrêté proprement » que si
+        // AUCUN process ne survit (`devStop.ts:439`) — quand il en reste, il
+        // le dit autrement, et le `kill` qui suit redevient le vrai moyen
+        // d'arrêt, donc rouge. « Rien à arrêter » ne l'imprime pas non plus.
         pattern: commandeQuiContient("\\bp?kill(?:all)?\\s"),
         invert: true,
+        unless: /arrêté proprement/u,
       },
       {
         // Gate d'ÉTAT DU SYSTÈME, pas du dépôt : le seul de tout le banc. Un
@@ -1059,12 +1373,36 @@ export const TASKS = [
   {
     id: 6,
     name: "configuration par l'environnement",
+    // 🔴 La bonne réponse est INVISIBLE au diff : elle s'écrit dans
+    // `.env.local`, gitignoré par conception — c'est le bon endroit, et c'est
+    // aussi celui qu'aucun `git diff` ne montre. Sans ce drapeau, la garde
+    // anti-abandon écarte le run d'un agent PARFAIT : mesuré sur deux passes,
+    // « NON JUGEABLE » deux fois pendant que le juge d'état rendait exit 0.
+    // Le gate ci-dessous est ce qui autorise cette exception : il lit l'état
+    // EFFECTIF de l'application, il n'a besoin d'aucun fichier suivi.
+    peutNeRienEcrire: true,
+    // 🔴 L'ÉNONCÉ DISAIT DEUX CHOSES INCOMPATIBLES, et l'agent avait raison de
+    // reculer. Il exigeait une base PostgreSQL que le décor ne fournit pas, PUIS
+    // de « prouver que la configuration est prise en compte » — ce que tout agent
+    // sensé traduit par « démarrer l'application ». Or un connecteur configuré et
+    // injoignable rend le boot FATAL, et c'est un choix délibéré du framework
+    // (`DrizzleService.#connectOne` : jamais un serveur vivant aux briques
+    // durables mortes). Mesuré : l'agent a posé `NF_DATABASE_URL`, l'a vue dans
+    // `nodefony env`, l'a COMMITÉE — puis l'a recommentée en écrivant « elle
+    // nécessite une base réelle ». Le gate, lui, ne demande QUE l'état effectif.
+    //
+    // Configurer une base qu'on n'a pas sous la main est le cas NORMAL (on
+    // prépare un environnement avant que l'infra existe) : l'énoncé le dit
+    // désormais, et demande de MONTRER les valeurs effectives plutôt que de
+    // « prouver ». Ce qui est mesuré ne change pas d'un pouce — trouver la
+    // cascade de configuration, ne rien écrire en dur.
     prompt:
       "Configure cette application pour qu'elle écrive ses journaux dans un FICHIER plutôt " +
       "que sur la sortie standard, et pour qu'elle utilise la base PostgreSQL " +
-      "postgres://app:pwd@db:5432/app. N'écris aucune de ces deux valeurs en dur dans le " +
-      "code : passe par l'environnement, au bon endroit. Prouve ensuite que la " +
-      "configuration est bien prise en compte.",
+      "postgres://app:pwd@db:5432/app. Ce serveur de base n'est pas joignable depuis ce " +
+      "poste et n'a pas à l'être : on prépare la configuration, on ne démarre pas la base. " +
+      "N'écris aucune de ces deux valeurs en dur dans le code : passe par l'environnement, " +
+      "au bon endroit. Montre ensuite les valeurs EFFECTIVES et d'où elles viennent.",
     probes: [
       {
         // Le chemin qu'on vient d'ouvrir : la cascade et le catalogue des
@@ -1092,7 +1430,7 @@ export const TASKS = [
       {
         kind: "code",
         name: "aucune valeur en dur dans le code TypeScript",
-        pattern: /^\+.*postgres:\/\/[^\n]*$/mu,
+        pattern: /^.*postgres:\/\/[^\n]*$/mu,
         where: "addedTs",
         invert: true,
       },
@@ -1190,7 +1528,16 @@ export const TASKS = [
         // `--link` le lui ayant rendu visible.
         kind: "code",
         name: "aucun chemin du monorepo (inapplicable chez l'utilisateur npm)",
-        pattern: /src\/packages\/@nodefony/u,
+        // 🔴 PAS une ligne de FRONTMATTER, et pas une ligne commentée. Nos
+        // propres docs publiées portent `source: "src/packages/@nodefony/…"`
+        // dans leur en-tête YAML (52 fichiers) : un agent qui dépaquette le
+        // tarball d'un module et recopie sa doc se voyait reprocher un chemin
+        // que NOUS publions. Ce que la sonde veut attraper est une INSTRUCTION
+        // inapplicable écrite par l'agent, pas une métadonnée transportée.
+        // Mesuré au run large du 08-21 : tâche 7 en FAIL sur 17 tours, tous
+        // ses gates d'état verts.
+        pattern:
+          /^(?!\s*(?:\/\/|\*|\/\*|source\s*:|path\s*:)).*src\/packages\/@nodefony/mu,
         where: "added",
         invert: true,
       },
@@ -1293,6 +1640,17 @@ export const TASKS = [
   {
     id: 9,
     name: "interroger l'application plutôt que lire ses sources",
+    // PRÉMISSE : l'application TOURNE quand l'agent démarre. Mesuré au run du
+    // 08-21 : le client MCP du CLI se connecte à l'INIT de sa session et ne
+    // retente jamais — la porte MCP étant une ROUTE de l'app, un décor éteint
+    // rend `mcp_servers: failed` pour TOUTE la session (0 appel sur 30 tâches),
+    // et cette tâche mesure précisément l'introspection en marche. Les autres
+    // tâches gardent le décor éteint : un agent qui se rabat sur la CLI est
+    // aussi une réalité utilisateur. Le serveur est arrêté par la remise à
+    // zéro du décor (`reinitialiserDecor` — leçon de la tâche 27).
+    prepare:
+      `npm run build >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1`,
     prompt:
       "Réponds à trois questions sur CETTE application, et écris les réponses dans AUDIT.md : " +
       "combien de routes expose-t-elle au total, quels services le module de sécurité " +
@@ -1318,8 +1676,12 @@ export const TASKS = [
         // `devkit:card` reste l'ALIAS de `card` (le nom d'origine, encore écrit
         // dans les AGENTS.md déjà générés) : la sonde accepte les deux, sinon
         // elle rendrait FAIL un agent qui a fait le geste juste.
-        pattern: commandeQuiContient(
+        // Deux voies pour le MÊME geste : la commande, ou l'outil MCP qui la
+        // sert. Ce que la tâche demande est d'INTERROGER l'application, pas de
+        // choisir un transport.
+        pattern: gesteParCommandeOuMcp(
           "nodefony\\s+(?:inspect\\b|(?:devkit:)?card\\b)",
+          "inspect|card",
         ),
       },
       {
@@ -1333,19 +1695,22 @@ export const TASKS = [
         // compté à la main dans les sources se trompe — c'est précisément ce que
         // la commande existe pour éviter, et le seul moyen de le prouver est de
         // confronter sa réponse au chiffre que l'outil donne.
+        // 🔴 CE GATE COMPARAIT DEUX APPLICATIONS. Il bootait un SECOND
+        // kernel, à froid, et opposait son compte au rapport de l'agent —
+        // lequel avait interrogé l'application EN MARCHE, comme la tâche le
+        // demande. Vécu deux runs d'affilée : la porte a répondu 145, l'agent
+        // l'a écrit en citant sa source, le gate a exigé 147. Il sanctionnait
+        // le geste juste. Et l'écart est INTERMITTENT (rejoué le lendemain :
+        // 147 des deux côtés), donc le rouge tombait au hasard.
+        //
+        // Le juge demande désormais le compte à la porte de l'application que
+        // l'agent a interrogée, et ne se rabat sur un kernel froid que si
+        // personne ne répond — en NOMMANT la source dans son verdict, vert
+        // compris : un chiffre venu d'une autre application doit se lire comme
+        // tel. Un juge en fichier s'éprouve seul ; ce gate ne l'était pas.
         kind: "gate",
         name: "le nombre de routes annoncé est le nombre RÉEL",
-        cmd: [
-          "sh",
-          "-c",
-          `node ${JSON.stringify(BIN)} inspect routes --json > .nf-routes.json 2>/dev/null; node -e ` +
-            `"const fs=require('node:fs');` +
-            `const n=JSON.parse(fs.readFileSync('.nf-routes.json','utf8')).length;` +
-            `const a=fs.existsSync('AUDIT.md')?fs.readFileSync('AUDIT.md','utf8'):'';` +
-            `if(!a){console.error('AUDIT.md absent');process.exit(1)}` +
-            `if(!new RegExp('\\\\\\\\b'+n+'\\\\\\\\b').test(a)){` +
-            `console.error('routes réelles='+n+', absent du rapport');process.exit(1)}"`,
-        ],
+        cmd: ["node", JUGE_ROUTES, BIN],
       },
     ],
   },
@@ -1439,8 +1804,16 @@ export const TASKS = [
           `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
             `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
-            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            // 🔴 Un JSON illisible se DIT. Sans cette garde, `inspect` qui
+            // échoue laisse un fichier VIDE (son erreur part dans /dev/null),
+            // `JSON.parse` jette, et le banc n'affiche qu'un
+            // « <anonymous_script>:1 » imputé à l'agent. Vécu sur la meilleure
+            // passe de la tâche 13 : 46 tours, travail JUSTE, verdict FAIL.
+            `const J=(f)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}` +
+            `catch(e){console.error('sonde : '+f+' illisible ('+e.message+') — ` +
+            `la commande qui devait le produire a échoué');process.exit(1)}};` +
+            `const all=J('.nf-services.json');` +
+            `const mods=J('.nf-modules.json');` +
             `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
             `const mine=all.filter(x=>own.has(x.module));` +
             `const nom=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
@@ -1565,12 +1938,47 @@ export const TASKS = [
       "prouvant que les tests de l'app passent.",
     probes: [
       {
-        // Écrit de mémoire, un service diverge du gabarit — c'est le constat
-        // qui a fait naître la commande (une classe à méthodes `static`,
-        // invisible au conteneur, mesurée en décor isolé).
+        // 🔴 OBSERVATION, plus verdict — et c'est une correction de MÉTHODE.
+        //
+        // Cette sonde mesurait le CHEMIN (« a-t-il lancé le générateur ? »)
+        // là où la tâche demande un RÉSULTAT. Or un service se modifie
+        // TOUJOURS après génération : passé la première minute, « généré » et
+        // « écrit à la main » ne sont ni distinguables dans le code, ni
+        // pertinents. Ce qui compte est que le service produit soit CONFORME —
+        // enregistré au conteneur, injecté, éprouvé séparément — et trois
+        // sondes le jugent déjà, dont un gate qui interroge l'application
+        // EXÉCUTÉE.
+        //
+        // La mesure reste, parce qu'elle instruit : le levier documentaire est
+        // saturé (la commande est nommée quatre fois dans l'`AGENTS.md`) et le
+        // taux d'appel plafonne. C'est une information sur la découvrabilité
+        // du générateur, pas un critère de réussite de la tâche.
         kind: "transcript",
         name: "a lancé create service",
         pattern: commandeQuiContient("create\\s+service\\b"),
+        observe: true,
+      },
+      {
+        // Ce que l'énoncé exige et que RIEN ne regardait : « chaque
+        // responsabilité doit être testable séparément ».
+        //
+        // Un agent qui n'éprouve que `POST /api/invoices` obtient un test vert
+        // sans jamais avoir séparé quoi que ce soit — le calcul de la taxe
+        // n'est alors une responsabilité distincte que sur le papier. La sonde
+        // demande donc qu'un TEST atteigne le service de taxe en tant que
+        // symbole : en l'important, en l'instanciant, ou en le résolvant par le
+        // conteneur. Les trois sont des façons légitimes de l'éprouver seul ;
+        // aucune n'est atteignable en passant par la route HTTP.
+        //
+        // `addedTests` et non `addedTs` : c'est le seul périmètre où cette
+        // preuve peut vivre. La chercher dans le code de production reviendrait
+        // à sanctionner exactement ce que la sonde voisine interdit — fabriquer
+        // un exemplaire à la main.
+        kind: "code",
+        name: "le service de taxe est éprouvé SÉPARÉMENT (test dédié)",
+        pattern:
+          /new\s+\w*(?:tva|vat|tax)\w*\s*\(|from\s+["'][^"']*(?:tva|vat|tax)[^"']*["']|\bget\(\s*["'][^"']*(?:tva|vat|tax)[^"']*["']/iu,
+        where: "addedTests",
       },
       {
         // La CONSOMMATION, toutes voies légitimes confondues : injection
@@ -1626,8 +2034,16 @@ export const TASKS = [
           `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
             `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
-            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            // 🔴 Un JSON illisible se DIT. Sans cette garde, `inspect` qui
+            // échoue laisse un fichier VIDE (son erreur part dans /dev/null),
+            // `JSON.parse` jette, et le banc n'affiche qu'un
+            // « <anonymous_script>:1 » imputé à l'agent. Vécu sur la meilleure
+            // passe de la tâche 13 : 46 tours, travail JUSTE, verdict FAIL.
+            `const J=(f)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}` +
+            `catch(e){console.error('sonde : '+f+' illisible ('+e.message+') — ` +
+            `la commande qui devait le produire a échoué');process.exit(1)}};` +
+            `const all=J('.nf-services.json');` +
+            `const mods=J('.nf-modules.json');` +
             `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
             `const mine=all.filter(x=>own.has(x.module));` +
             `const txt=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
@@ -1921,7 +2337,7 @@ export const TASKS = [
         // exactement la faute « la regex qui ne franchissait pas la parenthèse
         // d'un appel imbriqué », commise une seconde fois sous une autre forme.
         pattern:
-          /^\+\s*(?:const|let)\s+\w+\s*(?::[^=]*)?=\s*new\s+(?:Map|Set)\b[^(\n]*\(/mu,
+          /^\s*(?:const|let)\s+\w+\s*(?::[^=]*)?=\s*new\s+(?:Map|Set)\b[^(\n]*\(/mu,
         where: "addedTs",
         unless: /@UseSession\s*\(|@Session\s*\(/u,
         invert: true,
@@ -1961,7 +2377,9 @@ export const TASKS = [
             // Le juge DEMANDE ses routes sûres à l'application au lieu de
             // présumer d'où vient le jeton : un agent peut le distribuer par
             // une route dédiée, et c'est une réponse juste (vécu au 1ᵉʳ run).
-            `npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
+            // Même raison qu'au gate du nombre de routes : l'app tourne en
+            // développement, un `inspect` à froid répondrait pour la production.
+            `NODE_ENV=development npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_SESSION}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
@@ -2004,11 +2422,26 @@ export const TASKS = [
         // Le fichier ENTIER : le manifeste porte déjà un objet `areas`, donc
         // seule la zone ajoutée apparaîtrait dans le diff, jamais l'accolade
         // qui l'ouvre.
+        //
+        // 🔴 Ce que la DISTANCE à `areas: {` faisait mesurer : la POSITION du
+        // geste, pas le geste. Le motif exigeait la zone à moins de 800
+        // caractères de l'accolade ; le gabarit intercale entre les deux un
+        // commentaire de ~1 100 caractères — qui dit « AJOUTER une route
+        // ici ». Le banc recalait donc l'agent qui écrit là où son propre
+        // gabarit l'invite à écrire. Mesuré sur deux passes du MÊME run, zone
+        // identique : distance 1 251 → rouge, distance 145 → verte.
+        //
+        // La fenêtre est remplacée par un ancrage sur le FICHIER : une zone de
+        // firewall vit dans le manifeste, et nulle part ailleurs. Deux
+        // approximations tombent d'un coup — la distance, et le fait que
+        // `content` concatène TOUS les fichiers touchés (l'`areas` pouvait
+        // donc venir d'un fichier et le `pattern` d'un autre). Fichier non
+        // touché ⇒ matière vide ⇒ rouge, ce qui est bien le verdict voulu.
         kind: "code",
         name: "zone de firewall déclarée sur le préfixe du compte",
         pattern:
-          /areas\s*:\s*\{[\s\S]{0,800}?pattern\s*:\s*["'][^"']*\/api\/account[^"']*["'][\s\S]{0,300}?authenticators\s*:/u,
-        where: "content",
+          /pattern\s*:\s*["'][^"']*\/api\/account[^"']*["'][\s\S]{0,300}?authenticators\s*:/u,
+        file: "nodefony.config.ts",
       },
       {
         // Ce que l'attaque ne peut PAS voir : un agent qui décore route par
@@ -2587,15 +3020,28 @@ export const TASKS = [
         // trouvé (config commentée, AGENTS.md, doc), soit il pose une zone à
         // session et son API machine dépendra d'un cookie.
         kind: "code",
+        // 🔴 OBSERVATION, et non jugement — la sonde punissait le BON geste.
+        // `where: "added"` ne voit que les lignes ÉCRITES par l'agent, or le
+        // gabarit porte DÉJÀ une zone `machine` avec `stateless: true` et
+        // `apikey`. L'agent qui étend le `pattern` de cette zone à sa route —
+        // exactement ce qu'on veut — n'ajoute aucun de ces mots et sort rouge,
+        // pendant que le gate d'état ci-dessous le déclare bon. Mesuré au run
+        // du 08-21 : deux rouges sur une tâche dont la sécurité était juste.
+        // Pire, la sonde récompenserait un agent qui DUPLIQUE la zone au lieu
+        // de l'étendre. Ce qui compte est jugé par l'état ; ceci montre la voie.
         name: "zone déclarée stateless (appelant non-navigateur)",
         pattern: /stateless\s*:\s*true/u,
         where: "added",
+        observe: true,
       },
       {
         kind: "code",
+        // Même raison : le gabarit nomme déjà `apikey`. Étendre sa zone est le
+        // geste juste et n'écrit pas le mot.
         name: "authentificateur de porteur employé (apikey / jwt)",
         pattern: /["']apikey["']|["']jwt["']/u,
         where: "added",
+        observe: true,
       },
       {
         // Contrôle d'accès artisanal : lire l'en-tête soi-même et comparer à
@@ -3012,7 +3458,7 @@ export const TASKS = [
  * réelle, il n'y a rien à simuler.
  *
  * @param {object} probe - la sonde (`pattern`, `where`, `invert`, `unless`).
- * @param {{files: string[], added: string, addedTs: string, content: string, transcript: string}} matter - les matières à sonder.
+ * @param {{files: string[], added: string, addedTs: string, addedTests: string, content: string, transcript: string}} matter - les matières à sonder.
  * @returns {{pass: boolean, evidence: string}}
  */
 export function evaluateProbe(probe, matter) {
@@ -3021,6 +3467,7 @@ export function evaluateProbe(probe, matter) {
     added,
     addedCode,
     addedTs,
+    addedTests,
     content,
     contentByFile,
     transcript,
@@ -3043,9 +3490,24 @@ export function evaluateProbe(probe, matter) {
     // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
     // la seule pièce qui les montre.
     const hit = probe.pattern.test(transcript);
+    // Et `unless` aussi — MÊME règle, une seule écriture : un geste interdit
+    // ne se reproche que s'il a SERVI. Ce bloc rendait la main avant le waiver
+    // calculé plus bas, si bien que la moitié des interdits du banc — ceux qui
+    // ne laissent aucune trace dans le dépôt — ne pouvaient pas en bénéficier.
+    // Vécu (tâche 5) : l'agent arrête par le framework, obtient « ✓ arrêté
+    // proprement », puis écrit une ceinture `if ps -p …; then kill -9 …; fi`
+    // que ce succès rend MORTE. Personne n'est tué, et la sonde comptait quand
+    // même le `kill` — quatrième fois que celle-ci prend un texte pour un
+    // geste. La matière est ici le transcript, forcément : c'est la seule.
+    const waived =
+      probe.invert && probe.unless ? probe.unless.test(transcript) : false;
     return {
-      pass: probe.invert ? !hit : hit,
-      evidence: hit ? "vu dans le transcript" : "absent du transcript",
+      pass: waived ? true : probe.invert ? !hit : hit,
+      evidence: waived
+        ? "sans objet : la voie correcte a abouti"
+        : hit
+          ? "vu dans le transcript"
+          : "absent du transcript",
     };
   }
   // `deleted` / `deletedFiles` — la moitié du diff que le banc ne regardait PAS.
@@ -3064,11 +3526,13 @@ export function evaluateProbe(probe, matter) {
             ? (addedCode ?? "")
             : probe.where === "addedTs"
               ? addedTs
-              : probe.where === "deleted"
-                ? (deleted ?? "")
-                : probe.where === "deletedFiles"
-                  ? (deletedFiles ?? []).join("\n")
-                  : content;
+              : probe.where === "addedTests"
+                ? (addedTests ?? "")
+                : probe.where === "deleted"
+                  ? (deleted ?? "")
+                  : probe.where === "deletedFiles"
+                    ? (deletedFiles ?? []).join("\n")
+                    : content;
   // La matière du WAIVER se choisit, elle ne se suppose pas. Par défaut le
   // contenu rendu ; `unlessWhere: "transcript"` quand la voie correcte est un
   // GESTE et non un texte — avoir lancé un générateur, par exemple. Vécu : un
@@ -3130,6 +3594,34 @@ const DIFF_LIGNES_MAX = 5000;
  * @param {string} to - révision jugée.
  * @returns {string} les lignes `+` des fichiers de taille raisonnable.
  */
+/**
+ * Les lignes d'un diff, **DÉPOUILLÉES de leur marqueur** (`+` ou `-`).
+ *
+ * 🔴 Le marqueur a coûté trois passes complètes. La sonde « pas de parsing
+ * d'argv artisanal » (tâche 4) écarte les COMMENTAIRES par un
+ * `^(?!\s*(?://|\*|/\*))` — garde juste sur du code, inopérante sur un diff :
+ * `^` tombe sur le `+`, que `\s*` ne consomme pas, et la ligne
+ * `+    //   spawnSync(process.execPath, [process.argv[1]!, …` — écrite par
+ * NOTRE PROPRE gabarit, dans un commentaire — était comptée comme du code.
+ * Résultat : un agent qui lançait `create command` et ne touchait à RIEN
+ * d'autre échouait 3/3. Le banc mesurait son propre générateur.
+ *
+ * La matière rendue aux sondes est donc du CODE, pas du diff : `^` y désigne
+ * le début d'une vraie ligne. Un pattern qui viserait encore le marqueur est
+ * refusé au lancement (`refuserLesAncresDeDiff`) — sinon il ne matcherait plus
+ * jamais, et une sonde INVERSÉE deviendrait verte en silence.
+ *
+ * @param {string} sortie - la sortie brute de `git diff`.
+ * @param {"+"|"-"} marqueur - le côté du diff qu'on retient.
+ * @returns {string} les lignes retenues, sans leur premier caractère.
+ */
+export const lignesDuDiff = (sortie, marqueur) =>
+  sortie
+    .split("\n")
+    .filter((l) => l.startsWith(marqueur) && !l.startsWith(marqueur.repeat(3)))
+    .map((l) => l.slice(1))
+    .join("\n");
+
 export const lignesAjoutees = (app, from, to) => {
   const fichiers = git(app, "diff", "--numstat", from, to)
     .split("\n")
@@ -3149,18 +3641,18 @@ export const lignesAjoutees = (app, from, to) => {
     );
   }
   if (!retenus.length) return "";
-  return git(
-    app,
-    "diff",
-    "--unified=0",
-    from,
-    to,
-    "--",
-    ...retenus.map((f) => f.chemin),
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  return lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      from,
+      to,
+      "--",
+      ...retenus.map((f) => f.chemin),
+    ),
+    "+",
+  );
 };
 
 /**
@@ -3175,16 +3667,87 @@ export const lignesAjoutees = (app, from, to) => {
  * `--link` reste pour la boucle courte, et le rapport DIT alors que la mesure
  * n'est pas transposable. Deux runs de décors différents ne se comparent pas.
  */
+/**
+ * Rend les ports du banc qu'un run PRÉCÉDENT aurait laissés tenus.
+ *
+ * 🔴 Le filet de signaux ne peut PAS couvrir ce cas, et il faut le savoir plutôt
+ * que de s'y fier : ce script passe sa vie dans des `spawnSync` (l'agent, les
+ * gates, npm), qui BLOQUENT la boucle d'événements. Un handler de signal est un
+ * callback JS — il ne s'exécute jamais tant que la boucle est bloquée. Pire :
+ * enregistrer un handler `SIGTERM` DÉSACTIVE la mort par défaut, si bien qu'un
+ * run tué de l'extérieur ne s'arrête pas et ne nettoie pas non plus. Mesuré :
+ * deux `SIGTERM` ignorés d'affilée, `SIGKILL` nécessaire — et le port rendu au
+ * même moment par la remise à zéro du décor, ce qui a failli faire prendre un
+ * faux vert pour une preuve.
+ *
+ * Le nettoyage se fait donc à l'ENTRÉE du run suivant, là où la boucle tourne.
+ *
+ * Portée STRICTE, et c'est le FRAMEWORK qui la tient : `nodefony stop <projet>`
+ * cible une application PAR SON NOM, refuse un nom ambigu, et exige une seconde
+ * preuve indépendante du nom (le process travaille bien dans un projet
+ * Nodefony). Le banc n'a donc rien à réimplémenter — ni parcours de décors, ni
+ * `kill` par PID, ni `--all`, qui emporterait le serveur de dev du dépôt.
+ * L'application témoin s'appelle toujours `bench-app` : c'est le seul nom qu'un
+ * run laisse derrière lui.
+ *
+ * La commande est « standalone » (zéro boot, lançable de n'importe où) : elle
+ * atteint un décor dont le dossier a pu disparaître depuis, là où lire son
+ * `runtime.json` échouerait.
+ *
+ * @returns {void}
+ */
+function libererPortsLaissesParUnRunPrecedent() {
+  const avant = spawnSync(
+    "npx",
+    ["--no-install", "nodefony", "stop", NOM_APP_TEMOIN],
+    { cwd: REPO, encoding: "utf8", env: APP_ENV, timeout: 120_000 },
+  );
+  // Le rendre visible seulement s'il y avait QUELQUE CHOSE à rendre : sur un
+  // poste propre — le cas courant — cette ligne serait du bruit à chaque run.
+  const sortie = `${avant.stdout ?? ""}${avant.stderr ?? ""}`;
+  if (/\b(5371|5372)\b/u.test(sortie)) {
+    console.log(
+      `  ⚠️ un run précédent tenait encore les ports du banc — ` +
+        `\`nodefony stop ${NOM_APP_TEMOIN}\` les a rendus avant la mesure`,
+    );
+  }
+}
+
 function setup(runDir) {
   const app = path.join(runDir, "app");
   mkdirSync(runDir, { recursive: true });
+  // AVANT tout : un run tué de l'extérieur a pu laisser son serveur vivant, et
+  // c'est le run SUIVANT qui le paie — mêmes ports, même nom d'app, aucun
+  // signal. Vécu de bout en bout : agent, constat de porte et juge ont tous
+  // interrogé l'application du run précédent.
+  libererPortsLaissesParUnRunPrecedent();
+  // 🔴 Le MONTAGE a des sorties anticipées — un `return` par régime de porte
+  // (`off`, puis tout ce qui n'est pas `auth`). La FINALISATION, elle, vaut
+  // pour TOUS les régimes. Les avoir écrites dans une seule fonction faisait
+  // sauter, dans le régime PAR DÉFAUT `eteint`, l'isolation CONSTATÉE, la
+  // sauvegarde des fichiers ignorés et le commit « état initial » — donc
+  // `reinitialiserDecor` jetait dès la deuxième tâche, et aucun run large ne
+  // pouvait aboutir hors régime authentifié. Deux fonctions : le montage sort
+  // quand il veut, la finalisation a lieu quoi qu'il arrive.
+  monterDecor(runDir, app);
+  return finaliserDecor(app, runDir);
+}
+
+/**
+ * Monte l'application témoin, l'installe depuis les tarballs et déclare sa
+ * porte MCP selon le régime. Sort tôt quand le régime n'a plus rien à faire.
+ *
+ * @param {string} runDir - le répertoire du run.
+ * @param {string} app - l'application témoin.
+ */
+function monterDecor(runDir, app) {
   console.log(
     `• app témoin (create app --preset complete${LINKED ? " --link" : ""})…`,
   );
   sh(BIN, [
     "create",
     "app",
-    "bench-app",
+    NOM_APP_TEMOIN,
     "--dir",
     app,
     "--preset",
@@ -3203,6 +3766,15 @@ function setup(runDir) {
       packTarballs(REPO, process.argv.includes("--repack")),
     );
   }
+  // 🔴 **Le commit MESURÉ est celui du PACK, jamais celui de la fin du run.**
+  // Il était lu au moment d'écrire le rapport — c'est-à-dire des heures après,
+  // sur un dépôt où l'on a continué de travailler. Constaté : un run empaqueté
+  // à 12h32 s'est vu daté d'un commit de 14h39, soit six commits plus tard et
+  // aucun d'eux dans les tarballs mesurés. Une référence enregistrée ainsi
+  // daterait la mesure d'un code qui n'a JAMAIS été mesuré, et le dépistage
+  // comparerait ensuite contre ce faux repère. Le commit est donc figé ICI, à
+  // l'instant où les tarballs naissent.
+  COMMIT_AU_PACK = commitDuDepot();
 
   // Les pointeurs de skills, APRÈS l'arrivée des paquets — sinon le décor n'est
   // pas celui de l'utilisateur. `create app` les pose lui-même, mais il tourne
@@ -3214,10 +3786,304 @@ function setup(runDir) {
   // l'envoyait sur un dossier vide.
   sh("npx", ["--no-install", "nodefony", "ai:sync"], { cwd: app });
 
+  // Le serveur MCP de l'app fait partie du décor de l'utilisateur : `ai:mcp`
+  // écrit `.mcp.json` — la porte est une ROUTE, joignable dès que l'agent
+  // démarre l'application, rien d'autre à lancer. Le port ne peut pas être lu
+  // d'un runtime qui n'a jamais tourné : on le DONNE (ports dédiés du banc),
+  // sinon le repli 5151 câblerait l'agent sur le serveur du DÉPÔT — la classe
+  // de piège « une application qui n'est pas la sienne » décrite plus haut.
+  const envMcp = {
+    ...APP_ENV,
+    NF_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
+  };
+  if (MCP_REGIME === "off") {
+    console.log("  · porte MCP NON déclarée (régime « off »)");
+    return;
+  }
+  // `--auth` : la porte de l'app naît FERMÉE, exactement comme celle que
+  // `create app` câble pour un utilisateur. `--agent none` : on écrit le
+  // fichier du projet, on ne touche à la configuration d'aucun outil du poste
+  // — un banc ne déclare rien chez qui que ce soit.
+  // Chez QUI déclare-t-on ? `none` par défaut : on écrit le `.mcp.json` du
+  // projet — celui que l'agent reçoit par `--mcp-config` — et l'on ne touche à
+  // la configuration d'aucun outil. Mais un agent sans portée projet (Vibe,
+  // Codex) ne lit pas ce fichier : il faut le déclarer CHEZ LUI, dans son foyer
+  // jetable, jamais celui du poste.
+  const cleFoyer = `${AGENT.toUpperCase()}_HOME`;
+  const foyer = Object.hasOwn(FOYERS_JETABLES, cleFoyer) ? cleFoyer : null;
+  if (foyer) {
+    const chemin = path.join(app, FOYERS_JETABLES[foyer]);
+    mkdirSync(chemin, { recursive: true });
+    APP_ENV[foyer] = chemin;
+    envMcp[foyer] = chemin;
+    // ⚠️ Déplacer le foyer emporte AUSSI les identifiants : sans sa clé d'API,
+    // l'agent ne répond pas — et l'on mesurerait un décor, pas un agent. On
+    // COPIE donc ce qui l'identifie depuis le foyer réel, en lecture seule de
+    // notre côté : lire ce qui appartient à l'utilisateur, ne jamais y écrire.
+    //
+    // 🔴 Le fichier d'identité n'est PAS le même selon l'agent, et le supposer
+    // rend l'agent muet sans rien dire. Établi au source : Vibe se configure
+    // (et se dote de sa clé) par `config.toml` ; Codex range sa session dans
+    // `auth.json` — `get_auth_file(codex_home) = codex_home.join("auth.json")`
+    // (`codex-rs/login/src/auth/storage.rs`). Copier `config.toml` seul pour
+    // Codex, c'est lui donner ses réglages et lui retirer son identité.
+    const IDENTITE = {
+      VIBE_HOME: ["config.toml"],
+      CODEX_HOME: ["auth.json", "config.toml"],
+    };
+    const foyerReel = path.join(os.homedir(), `.${AGENT}`);
+    let copies = 0;
+    for (const nom of IDENTITE[foyer] ?? []) {
+      const reel = path.join(foyerReel, nom);
+      if (!existsSync(reel)) continue;
+      const cible = path.join(chemin, nom);
+      copyFileSync(reel, cible);
+      // Un secret recopié garde une porte étroite. Sous Windows ce mode n'a pas
+      // de sens (axiome 8) : on ne fonde donc AUCUNE garantie dessus, on évite
+      // seulement d'élargir ce que l'original protégeait.
+      try {
+        chmodSync(cible, 0o600);
+      } catch {
+        /* système sans permissions POSIX — sans conséquence ici */
+      }
+      copies += 1;
+    }
+    if (copies === 0) {
+      console.log(
+        `  ⚠️ rien à copier depuis ${foyerReel} (${(IDENTITE[foyer] ?? []).join(", ")}) — ` +
+          `${AGENT} n'aura PAS d'identité et répondra en 401 : ` +
+          `se connecter d'abord (\`${AGENT} login\`), le banc ne peut pas le faire`,
+      );
+    }
+    console.log(`  · foyer jetable de ${AGENT} : ${FOYERS_JETABLES[foyer]}/`);
+  }
+  sh(
+    "npx",
+    [
+      "--no-install",
+      "nodefony",
+      "ai:mcp",
+      ...(MCP_REGIME === "auth" ? ["--auth"] : []),
+      "--agent",
+      // ⭐ La déclaration passe par `ai:mcp`, donc par la CLI de l'agent —
+      // MÊME implémentation que pour un utilisateur, jamais une grammaire
+      // recopiée dans un banc, où elle divergerait sans que rien ne le dise.
+      //
+      // 🔴 La condition était `foyer ? AGENT : "none"` — elle confondait « cet
+      // agent a-t-il un foyer DÉPORTABLE ? » avec « faut-il appeler sa CLI ? ».
+      // Un agent à portée PROJET (Gemini écrit dans `.gemini/`, rien à déporter)
+      // n'a pas de foyer : sa CLI n'était donc JAMAIS appelée, et il travaillait
+      // sans porte. Son run rendait « 0 appel MCP » — le symptôme que ce banc
+      // apprend à lire comme un CHOIX de l'agent, alors qu'il n'avait pas
+      // d'outils. Ce qui décide, c'est la VOIE de déclaration, pas le foyer.
+      // On NOMME toujours l'agent : c'est `ai:mcp` qui porte la table des voies
+      // (CLI ou fichier de projet) et qui sait donc s'il y a une commande à
+      // lancer. Trancher ici recopierait cette connaissance — deux copies, une
+      // divergence garantie.
+      AGENT,
+    ],
+    { cwd: app, env: envMcp },
+  );
+  // 🔴 Une déclaration se CONSTATE. `ai:mcp` DIT quand la CLI d'un agent refuse
+  // — mais son compte rendu est capturé ici, donc invisible : le banc croyait
+  // avoir servi un agent qui n'avait rien reçu. Mesuré : `vibe mcp add` valide
+  // la `config.toml` plus strictement que le démarrage normal de Vibe (un
+  // modèle déclaré sans `name`/`provider` la fait refuser par pydantic), si
+  // bien que la porte n'était pas déclarée alors que tout paraissait vert.
+  // 🔴 Le constat vaut pour TOUT agent, pas seulement ceux qu'on déporte. Un
+  // agent à portée PROJET (Gemini écrit dans `.gemini/`) n'a pas de foyer : il
+  // échappait donc à ce contrôle, et rien ne disait s'il avait reçu la porte.
+  // Vécu : il a joué une tâche entière sans outils MCP, et son « 0 appel » se
+  // lisait comme un choix.
+  {
+    const ouChercher = foyer
+      ? [path.join(app, FOYERS_JETABLES[foyer])]
+      : [path.join(app, ".gemini"), app];
+    const trace = ouChercher.some((dossier) => {
+      let noms = [];
+      try {
+        noms = readdirSync(dossier);
+      } catch {
+        return false;
+      }
+      return noms
+        .filter((f) => f.endsWith(".toml") || f.endsWith(".json"))
+        .some((f) => {
+          try {
+            return readFileSync(path.join(dossier, f), "utf8").includes(
+              MCP_SERVER_NOM,
+            );
+          } catch {
+            return false;
+          }
+        });
+    });
+    console.log(
+      trace
+        ? `  · porte DÉCLARÉE chez ${AGENT} (constaté dans ` +
+            `${foyer ? "son foyer jetable" : "le projet"})`
+        : `  ⚠️ porte NON déclarée chez ${AGENT} — il travaillera SANS outils MCP ` +
+            `(sa CLI a refusé ; rejouer \`nodefony ai:mcp --agent ${AGENT}\` à la main pour lire son motif)`,
+    );
+  }
+  if (MCP_REGIME !== "auth") {
+    // 🔴 Ce que le montage SAIT, et rien de plus. Cette ligne annonçait
+    // « application ÉTEINTE — le client la marquera failed pour la session ».
+    // C'est une PRÉDICTION, et elle est fausse dès qu'une tâche porte une
+    // prémisse qui démarre l'application : la tâche 9 le fait, si bien que le
+    // régime prétendait mesurer une porte morte pendant que l'agent l'appelait
+    // huit fois avec succès. Ce qui est vrai ici est plus étroit : aucun jeton
+    // n'a été émis, donc la porte servira l'ANONYME à qui la joint. Son état
+    // réel se constate juste avant l'agent, décor figé (voir plus bas).
+    console.log(
+      "  · porte MCP déclarée, AUCUN jeton — elle servira l'anonyme ; " +
+        "le décor ne démarre pas l'application (une prémisse de tâche le peut)",
+    );
+    return;
+  }
+  // 🔴 CONSTRUIRE avant d'émettre. Le CLI lit la configuration dans le `dist`
+  // de l'application : sans build, `security.jwt.audiences` n'existe pas encore
+  // pour lui, et l'émetteur refuse l'audience de sa propre porte
+  // (`invalid_target`). Le symptôme accusait le jeton ; la cause était l'ORDRE.
+  sh("npm", ["run", "build"], { cwd: app, stdio: "ignore" });
+  // Le jeton, ensuite : sans lui l'en-tête reste un gabarit non substitué, et
+  // la porte sert l'anonyme. Portée en LECTURE — un banc n'a rien à muter par
+  // cette voie — et durée dimensionnée sur le RUN (`ttlJetonMinutes`).
+  emettreJetonMcp(app, envMcp, TTL_JETON_MIN);
+  // ⚠️ L'application n'est PAS démarrée ici. La porte est une route, il faut
+  // donc qu'elle tourne — mais le démarrer AU DÉCOR occupe le port avant les
+  // prémisses, et une tâche qui démarre elle-même l'application (elles sont
+  // plusieurs) échoue alors sur « port occupé » : sa prémisse tombe, la tâche
+  // n'est même pas jouée. Le démarrage a lieu au dernier moment utile — juste
+  // avant l'agent, prémisse passée — et seulement si rien ne répond déjà.
+}
+
+/**
+ * Empêche la machine de s'endormir pendant le run — le RÉGIME de la machine
+ * fait partie du décor, au même titre que le modèle ou l'isolation.
+ *
+ * 🔴 Vécu : un run de deux passes est mort à la tâche 19 sur
+ * « Your computer went to sleep mid-response ». Le banc a fait ce qu'il devait
+ * (arrêt, décor conservé), mais deux heures d'agents étaient payées pour rien —
+ * et rien, au lancement, ne disait que la machine allait s'endormir.
+ *
+ * `caffeinate -w <pid>` meurt avec le banc : pas de veilleur oublié qui
+ * empêcherait la machine de dormir après coup. Sur les autres plateformes, on
+ * le DIT plutôt que de faire semblant.
+ */
+function empecherLaVeilleMachine() {
+  if (process.platform !== "darwin") {
+    console.log(
+      "  · veille machine : non gérée sur cette plateforme — vérifier " +
+        "soi-même qu'elle ne s'endormira pas (un run dure des heures)",
+    );
+    return;
+  }
+  try {
+    const veilleur = spawn(
+      "caffeinate",
+      ["-dimsu", "-w", String(process.pid)],
+      { detached: true, stdio: "ignore" },
+    );
+    veilleur.unref();
+    console.log(
+      `  · veille machine EMPÊCHÉE pour la durée du run (caffeinate ${veilleur.pid})`,
+    );
+  } catch (e) {
+    console.log(
+      `  ⚠️ veille machine non empêchée (${e.message}) — un run long peut être coupé`,
+    );
+  }
+}
+
+/**
+ * Émet le jeton de la porte MCP et le pose dans l'environnement des agents.
+ *
+ * Extraite du montage parce qu'elle sert DEUX fois : à l'ouverture du décor, et
+ * au renouvellement entre deux passes — un jeton qui expire en cours de run
+ * ferme la porte sans que rien ne le dise.
+ *
+ * @param {string} app - l'application témoin (elle est son propre émetteur).
+ * @param {Record<string, string>} envMcp - l'environnement de la commande.
+ * @param {number} ttlMin - durée demandée, en minutes.
+ * @returns {string | null} le jeton posé, ou `null` si l'émission a échoué.
+ */
+function emettreJetonMcp(app, envMcp, ttlMin) {
+  const emission = spawnSync(
+    "npx",
+    [
+      "--no-install",
+      "nodefony",
+      "security:token",
+      "--json",
+      "--ttl",
+      String(ttlMin),
+      "--scope",
+      "admin:read",
+    ],
+    { cwd: app, encoding: "utf8", env: { ...envMcp, NODE_ENV: "development" } },
+  );
+  const jeton = (() => {
+    if (emission.status !== 0) return null;
+    try {
+      return JSON.parse(emission.stdout ?? "{}").access_token ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  if (jeton) {
+    APP_ENV.NF_MCP_TOKEN = jeton;
+    // La durée DEMANDÉE n'est pas la durée OBTENUE : l'émetteur peut la borner.
+    // On annonce ce que le jeton porte, pas ce qu'on a réclamé.
+    const reste = minutesRestantesJeton(jeton, Date.now());
+    console.log(
+      `  · porte MCP AUTHENTIFIÉE (jeton admin:read, ${Math.round(reste)} min ` +
+        `— ${ttlMin} demandées)`,
+    );
+    return jeton;
+  }
+  // Le DIRE, et ne pas continuer comme si de rien n'était : la mesure qui
+  // suit porterait sur un agent amputé de ses outils réservés, et le rapport
+  // l'attribuerait au devkit.
+  console.log(
+    `  ⚠️ jeton MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
+  );
+  // Les lignes UTILES, pas la première : `npm notice run …` occupe les deux
+  // premières et faisait passer un bruit pour la cause — deux diagnostics
+  // perdus là-dessus.
+  const motif = `${emission.stdout ?? ""}${emission.stderr ?? ""}`
+    .split("\n")
+    .filter((l) => l.trim() && !l.trim().startsWith("npm notice"))
+    .slice(0, 4);
+  for (const l of motif) console.log(`     ${l.trim()}`);
+  return null;
+}
+
+/**
+ * Ce qui vaut pour TOUS les régimes de porte : l'isolation se constate, les
+ * fichiers ignorés de la création sont mis de côté, et l'état de départ est
+ * COMMITÉ — c'est ce commit que `reinitialiserDecor` retrouve entre deux
+ * tâches. Sans lui, la remise à zéro n'a pas de point de retour.
+ *
+ * @param {string} app - l'application témoin.
+ * @param {string} runDir - le répertoire du run.
+ * @returns {string} le chemin de l'application témoin.
+ */
+function finaliserDecor(app, runDir) {
   // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
   // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
   const isolation = assertIsolated(REPO, app);
   for (const f of isolation.facts) console.log(`  ${f}`);
+  // L'isolation de l'ENVIRONNEMENT se constate comme celle du disque, et elle
+  // se DIT : sans cette ligne, un opérateur dont le shell porte un
+  // `NF_DATABASE_URL` chercherait longtemps pourquoi le décor l'ignore.
+  const ecartees = nfEcartees();
+  if (ecartees.length > 0) {
+    console.log(
+      `  ✅ ${ecartees.length} variable(s) NF_* du poste écartée(s) du décor : ` +
+        `${ecartees.join(", ")}`,
+    );
+  }
   if (!LINKED && !isolation.ok) {
     throw new Error(
       "décor NON isolé — le banc mesurerait un agent mieux servi que l'utilisateur réel",
@@ -3241,6 +4107,11 @@ function setup(runDir) {
     "commit",
     "-qm",
     "état initial",
+    // `create app` initialise DÉJÀ le dépôt et commite ce qu'il rend : selon le
+    // régime, le décor peut n'avoir rien ajouté par-dessus, et `git commit`
+    // sortirait alors en 1 — `sh` lève, le montage meurt. Ce commit est un
+    // REPÈRE, pas un contenu : il doit exister même vide.
+    "--allow-empty",
   );
   sauverIgnoresInitiaux(app, runDir);
   return app;
@@ -3396,6 +4267,7 @@ export function reinitialiserDecor(app, runDir, id) {
   // hériterait des paquets qu'une autre a installés et pourrait en importer un
   // sans l'avoir déclaré — un vert qui ne tiendrait pas chez un utilisateur.
   spawnSync("npm", ["prune", "--no-audit", "--no-fund"], {
+    shell: besoinDeShell("npm"),
     cwd: app,
     encoding: "utf8",
     timeout: 5 * 60 * 1000,
@@ -3419,6 +4291,17 @@ export function reinitialiserDecor(app, runDir, id) {
 /** Déroule UNE tâche : agent headless dans l'app, transcript + diff capturés. */
 function runTask(app, runDir, task) {
   console.log(`\n━━ tâche ${task.id} — ${task.name}`);
+  // 🔴 Le filet s'arme dès l'ENTRÉE, pas seulement quand le BANC démarre un
+  // serveur. Il ne couvrait que les serveurs du harnais — prémisse de tâche et
+  // régime `auth` — alors que **l'AGENT en démarre un presque à chaque tâche** :
+  // les énoncés lui demandent de prouver que sa route répond. Vécu : une passe
+  // `--task 1,2` (aucune prémisse, régime par défaut) tuée en cours a laissé un
+  // serveur vivant sur 5371, et c'est le run SUIVANT qui l'aurait payé — même
+  // ports, même nom d'app, aucun signal.
+  //
+  // `eteindreApplication` est idempotent et sans effet quand rien ne tourne :
+  // l'armer trop tôt ne coûte rien, ne pas l'armer coûte un run entier.
+  APP_A_ETEINDRE = app;
   // ─── La PRÉMISSE de l'énoncé, posée avant l'agent ────────────────────────
   // Une tâche peut DÉCRIRE une situation au lieu de la demander : « ses envois
   // sont rejetés en 403 » suppose une route déjà montée. Si le décor ne la
@@ -3460,11 +4343,74 @@ function runTask(app, runDir, task) {
       "--allow-empty",
     );
     console.log("  · prémisse posée (décor commité avant l'agent)");
+    // (le filet couvrant le serveur qu'une prémisse a pu lancer — la tâche 9 le
+    // fait — est armé à l'entrée de cette fonction, pour TOUTES les tâches.)
+  }
+  // Régime « auth » : l'application doit RÉPONDRE avant que l'agent démarre —
+  // son client MCP se connecte tôt, et une porte injoignable le reste pour
+  // toute la session. Après la prémisse (qui a pu la démarrer elle-même) et
+  // seulement si personne n'écoute : on ne double pas un serveur qui tourne.
+  if (MCP_REGIME === "auth") {
+    spawnSync(
+      "npx",
+      ["--no-install", "nodefony", "development", "--detach", "--wait"],
+      { cwd: app, encoding: "utf8", env: APP_ENV, timeout: 180_000 },
+    );
+  }
+  // 🔴 Le décor est FIGÉ ici — après la prémisse de la tâche, avant l'agent.
+  // C'est donc le seul instant où l'état de la porte se sait, et il se sait en
+  // FRAPPANT. Ce constat ne valait que pour `auth` ; c'est exactement ainsi
+  // qu'un régime nommé « eteint » a pu enregistrer huit appels MCP réussis
+  // sans que rien ne le signale : la tâche 9 démarre l'application par son
+  // `prepare`, et le banc affirmait le contraire depuis le montage. Ce que ce
+  // régime sépare est donc l'IDENTITÉ (anonyme vs jeton), pas l'allumage.
+  if (MCP_REGIME !== "off") {
+    // 🔴 Le VERDICT se CONSTATE, il ne se déduit pas du code de sortie. Une
+    // prémisse peut avoir démarré l'application avant nous : notre commande
+    // sort alors en 69 (« port occupé ») et l'on annoncerait une porte morte
+    // alors qu'elle répond. Ce qui compte n'est pas qui a démarré, c'est que
+    // quelqu'un réponde — et la seule façon de le savoir est de frapper.
+    const sonde = spawnSync(
+      "curl",
+      [
+        "-sk",
+        "-o",
+        "/dev/null",
+        "-w",
+        "%{http_code}",
+        "--max-time",
+        "5",
+        `https://127.0.0.1:${PORTS.NF_PORT_HTTPS}/nodefony/kernel/api/livez`,
+      ],
+      { encoding: "utf8" },
+    );
+    const vivante = (sonde.stdout ?? "").trim() === "200";
+    const identite = mcpAuthentifie() ? "jeton posé" : "ANONYME";
+    // 🔴 « Quelqu'un répond » n'est PAS « l'application sous test répond ». Un
+    // run laissé vivant tient les mêmes ports dédiés et porte le même nom :
+    // cette ligne a déjà annoncé « application EN MARCHE » à propos de
+    // l'application du run PRÉCÉDENT, et l'agent l'a interrogée en confiance.
+    // Le discriminant est local : l'état de runtime que publie CETTE app.
+    const cible = portDeLAppSousTest(PORTS.NF_PORT, app);
+    console.log(
+      !vivante
+        ? `  ⚠️ aucune réponse sur ${PORTS.NF_PORT_HTTPS} — l'agent trouvera la porte MORTE`
+        : cible.sien
+          ? `  · application EN MARCHE (constaté sur ${PORTS.NF_PORT_HTTPS}) — ` +
+            `porte MCP joignable, ${identite}`
+          : `  🛑 un serveur répond sur ${PORTS.NF_PORT_HTTPS}, mais ${cible.motif} — ` +
+            `la mesure porterait sur une AUTRE application`,
+    );
   }
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
   const res = spawnSync(
     AGENT,
-    [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), task.prompt],
+    [
+      ...AGENT_ARGS,
+      ...MCP_ARGS,
+      ...(MODEL ? ["--model", MODEL] : []),
+      task.prompt,
+    ],
     {
       cwd: app,
       encoding: "utf8",
@@ -3501,7 +4447,15 @@ function runTask(app, runDir, task) {
   // d'assistant se reconnaît dans les deux formats (`"type":"assistant"` chez
   // Claude, `"role": "assistant"` chez vibe), et son absence n'est jamais un
   // verdict.
-  if (!/["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(transcript)) {
+  // Codex ne dit ni `type: assistant` ni `role: assistant` : son tour d'agent est
+  // un item `agent_message` (source : `sdk/typescript/src/items.ts`). Sans ce
+  // troisième motif, un run Codex PARFAIT serait déclaré muet, et le banc
+  // arrêterait la passe en croyant l'agent jamais parti.
+  if (
+    !/["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(transcript) &&
+    !/["']agent_message["']/u.test(transcript) &&
+    !/["']agent_response["']/u.test(transcript)
+  ) {
     console.log(
       `\n🛑 l'agent « ${AGENT} » n'a rendu AUCUN tour d'assistant ` +
         `(${transcript.length} octets de transcript).\n` +
@@ -3573,17 +4527,30 @@ function runTask(app, runDir, task) {
  * est disponible dans… ». Bornée, parce qu'une trace entière dans un rapport
  * JSON le rend illisible sans rien apprendre de plus.
  *
+ * 🔴 « Première ligne DE L'OUTIL », pas première ligne du flux. Un gate lancé
+ * par `npm run <script>` reçoit d'abord l'annonce de npm (`npm notice run …`,
+ * ou `> app@1.0.0 check` en forme ancienne) : la retenir explique le rouge par
+ * le nom du script, jamais par le manquement. Vécu — trois rouges d'un même run
+ * rendus comme « npm notice run bench-app@0.1.0 check », de quoi conclure à un
+ * défaut de l'agent alors qu'un port était tenu par un serveur étranger. Le
+ * bruit de l'exécuteur est donc SAUTÉ ; s'il n'y a que lui, on le rend quand
+ * même — un gate qui se tait et un gate qu'on n'a pas su lire ne se confondent
+ * pas.
+ *
  * @param {string} stderr - le canal d'erreur du gate.
  * @param {string} stdout - sa sortie standard, si le canal d'erreur est muet.
  * @returns {string} l'explication, ou une chaîne vide si le gate s'est tu.
  */
+const BRUIT_EXECUTEUR =
+  /^(?:npm (?:notice|warn|WARN)\b|>\s|\$\s|yarn run |pnpm )/u;
+
 export function expliquerEchec(stderr, stdout) {
   for (const flux of [stderr ?? "", stdout ?? ""]) {
-    const ligne = flux.split("\n").find((l) => l.trim().length > 0);
-    if (ligne) {
-      const propre = ligne.trim();
-      return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
-    }
+    const lignes = flux.split("\n").filter((l) => l.trim().length > 0);
+    if (lignes.length === 0) continue;
+    const utile = lignes.find((l) => !BRUIT_EXECUTEUR.test(l.trim()));
+    const propre = (utile ?? lignes[0]).trim();
+    return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
   }
   return "";
 }
@@ -3703,13 +4670,58 @@ export function transcriptExploitable(texte) {
 }
 
 /**
+ * L'agent a-t-il été COUPÉ par l'API (quota épuisé, erreur amont) ?
+ *
+ * Le mode run s'arrête net quand ça arrive (`terminal_reason: api_error`,
+ * exit 2) — mais `--analyze-only` re-juge les pièces sans repasser par là, et
+ * il a compté FAIL un run réel (T30, « session limit ») dont les sondes rouges
+ * ne jugeaient qu'un travail jamais fini. La règle 4 du dépistage (« un rouge
+ * non opposable écarte le run ») doit mordre ICI, sur les pièces.
+ *
+ * On PARSE l'événement `result` au lieu de grepper le texte : l'agent écrit
+ * volontiers `terminal_reason` ou `api_error` dans une commande ou de la prose,
+ * et un grep écarterait un run pour ce qu'il DIT, pas pour ce qui s'est PASSÉ
+ * (même piège que le compte d'appels MCP). Champ propre au CLI de Claude : sur
+ * un autre agent il est simplement absent, et les gardes agnostiques restent.
+ * `terminal_reason` existe aussi sur les runs sains (`completed`) — c'est la
+ * VALEUR qui tranche.
+ *
+ * @param {string} texte - le contenu brut du transcript (JSONL).
+ * @returns {{turns: number, message: string}|null} la coupure, ou `null`.
+ */
+function coupureApi(texte) {
+  if (typeof texte !== "string") return null;
+  for (const ligne of texte.split("\n")) {
+    const l = ligne.trim();
+    if (!l.startsWith("{")) continue;
+    let event;
+    try {
+      event = JSON.parse(l);
+    } catch {
+      continue;
+    }
+    if (event?.type === "result" && event.terminal_reason === "api_error") {
+      return {
+        turns: typeof event.num_turns === "number" ? event.num_turns : 0,
+        message: typeof event.result === "string" ? event.result : "erreur API",
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * Ce run a-t-il de quoi être JUGÉ — et sinon, pourquoi ?
  *
- * Deux vacuités, un seul traitement : le run est ÉCARTÉ, jamais compté FAIL.
+ * Trois vacuités, un seul traitement : le run est ÉCARTÉ, jamais compté FAIL.
  * Les distinguer ici plutôt que dans l'appelant garde la règle en un exemplaire
  * et rend son libellé vérifiable sans monter de décor.
  *
  * - **Transcript muet** → voir {@link transcriptExploitable}.
+ * - **Agent coupé par l'API** → voir {@link coupureApi}. Testé AVANT le zéro
+ *   fichier : un agent coupé au premier tour n'a rien écrit non plus, et le
+ *   motif doit nommer la RACINE (le quota), pas l'abandon — un opérateur qui
+ *   lit « abandon » cherche un défaut d'agent là où il n'y a qu'un quota.
  * - **Aucun fichier touché** → l'agent a abandonné. C'est le symétrique du
  *   « vert par abandon » que le banc nomme déjà, mais pour le cas TOTAL : sur un
  *   run mesuré (T10, 16 tours, 40 s, zéro fichier), **huit sondes étaient vertes
@@ -3717,33 +4729,188 @@ export function transcriptExploitable(texte) {
  *   écrit. Un tel run compté FAIL ordinaire mélange « il n'a pas su » et « il
  *   n'a rien tenté », et c'est le premier qu'on cherche à mesurer.
  *
- * @param {{transcript: string, files: string[]}} pieces - la matière du jugement.
+ * 🔴 **Sauf pour une tâche dont la bonne réponse est INVISIBLE au diff.** La
+ * tâche 6 se résout en écrivant dans `.env.local` — gitignoré par conception,
+ * et c'est justement le bon endroit. Un agent parfait n'y touche donc AUCUN
+ * fichier suivi, et cette garde écartait son run : la tâche est ressortie « NON
+ * JUGEABLE » sur deux passes alors que son juge d'ÉTAT (`nodefony env --json`)
+ * était vert deux fois. Le banc connaissait déjà le piège — le commentaire de
+ * la tâche 6 interdit toute sonde de diff pour cette raison exacte — mais la
+ * garde, ajoutée plus tard et à un autre étage, l'a réintroduit.
+ *
+ * L'exception se DÉCLARE sur la tâche (`peutNeRienEcrire`) plutôt que
+ * d'affaiblir la garde pour tout le monde : partout ailleurs, zéro fichier
+ * touché reste un abandon, et huit sondes vertes par vacuité restent un faux
+ * verdict. Une tâche qui porte ce drapeau doit avoir un gate d'état — sans lui,
+ * elle n'aurait plus rien pour la juger.
+ *
+ * @param {{transcript: string, files: string[], peutNeRienEcrire?: boolean}} pieces - la matière du jugement.
  * @returns {string|null} le motif d'écartement, ou `null` si le run est jugeable.
  */
-export function motifDEcartement({ transcript, files }) {
-  if (!transcriptExploitable(transcript)) {
-    return `transcript illisible ou vide (${(transcript ?? "").length} octet(s), aucun objet JSON)`;
+export function motifDEcartement({ transcript, files, peutNeRienEcrire }) {
+  const transcriptSeul = motifDEcartementTranscript(transcript);
+  if (transcriptSeul) {
+    return transcriptSeul;
   }
-  if (!files || files.length === 0) {
+  if (!peutNeRienEcrire && (!files || files.length === 0)) {
     return "aucun fichier touché — abandon, pas mesure (les interdits ne mordent sur rien)";
   }
   return null;
 }
 
-function lireEffort(transcriptPath) {
+/**
+ * Les causes d'écartement lisibles au TRANSCRIPT SEUL — sans diff.
+ *
+ * Séparées de {@link motifDEcartement} parce qu'un run interrompu n'a pas
+ * toujours de diff à donner : le commit « tâche N » est posé par le HARNAIS
+ * (`--allow-empty` — même un agent qui n'a rien fait a le sien), et un harnais
+ * tué entre le transcript et le commit (exit 2 : transcript muet, agent coupé
+ * par l'API) laisse un transcript orphelin. Le juge qui ne trouve pas le commit
+ * doit lire CES causes avant de conclure « la tâche n'a pas été jouée » — c'est
+ * exactement le chemin par lequel la T30 quota-tronquée est devenue un FAIL.
+ *
+ * @param {string} transcript - le contenu brut du transcript (JSONL).
+ * @returns {string|null} le motif d'écartement, ou `null`.
+ */
+export function motifDEcartementTranscript(transcript) {
+  if (!transcriptExploitable(transcript)) {
+    return `transcript illisible ou vide (${(transcript ?? "").length} octet(s), aucun objet JSON)`;
+  }
+  const coupure = coupureApi(transcript);
+  if (coupure) {
+    return (
+      `agent COUPÉ par l'API après ${coupure.turns} tour(s) — ${coupure.message} — ` +
+      `travail partiel, aucun rouge n'est opposable`
+    );
+  }
+  return null;
+}
+
+export function lireEffort(transcriptPath) {
   if (!existsSync(transcriptPath)) {
     return null;
   }
   let tours = 0;
   let dureeMs = 0;
   let coutUsd = 0;
+  let mcpCalls = 0;
   let vu = false;
   for (const ligne of readFileSync(transcriptPath, "utf8").split("\n")) {
+    // Appels MCP RÉELS : des blocs `tool_use` des tours d'assistant, jamais un
+    // grep du texte — l'agent ÉCRIT volontiers `mcp__nodefony__…` dans du code
+    // ou de la prose, et un compte qui lit le texte mesurerait ce qu'il DIT,
+    // pas ce qu'il FAIT (même piège que `sansTexteAffiche` pour les sondes).
+    if (ligne.includes('"type":"assistant"') && ligne.includes('"tool_use"')) {
+      try {
+        const blocs = JSON.parse(ligne)?.message?.content;
+        if (Array.isArray(blocs)) {
+          for (const b of blocs) {
+            if (b?.type === "tool_use" && String(b.name).startsWith("mcp__")) {
+              mcpCalls += 1;
+            }
+          }
+        }
+      } catch {
+        // Ligne tronquée : même politique que ci-dessous.
+      }
+    }
+    // 🔴 Les DEUX autres grammaires. Sans elles ce compteur rend zéro chez
+    // Codex et chez Gemini — et « zéro appel MCP » est très exactement le
+    // symptôme que ce banc apprend à lire comme « l'agent n'a jamais eu la
+    // porte ». Un compteur muet fabriquerait donc un diagnostic FAUX, pas une
+    // absence de mesure. Formes établies au source de chaque agent (cf
+    // {@link appelOutilMcp}).
+    else if (ligne.includes('"mcp_tool_call"')) {
+      // Codex : un item par appel, et l'item est répété au fil de son cycle
+      // (`item.started` puis `item.completed`). On ne compte QUE l'achèvement,
+      // sinon un même appel vaudrait deux.
+      try {
+        const evt = JSON.parse(ligne);
+        if (
+          evt?.type === "item.completed" &&
+          evt?.item?.type === "mcp_tool_call"
+        ) {
+          mcpCalls += 1;
+        }
+      } catch {
+        /* ligne tronquée */
+      }
+    } else if (ligne.includes('"tool_use"') && ligne.includes('"tool_name"')) {
+      // Gemini : le nom qualifié est `<serveur>_<outil>` ; le serveur du décor
+      // s'appelle `nodefony`, et ses outils portent déjà ce préfixe.
+      try {
+        const evt = JSON.parse(ligne);
+        if (
+          evt?.type === "tool_use" &&
+          String(evt.tool_name ?? "").startsWith(`${MCP_SERVER_NOM}_`)
+        ) {
+          mcpCalls += 1;
+        }
+      } catch {
+        /* ligne tronquée */
+      }
+    }
+    // Antigravity (`agy`) : sa clé d'enveloppe est `event`, pas `type` — un
+    // quatrième dialecte, constaté en le lançant. Son `result` porte `num_turns`
+    // comme Claude, mais une durée en SECONDES, et son tour d'agent est un
+    // `step_update` de `step_type: "agent_response"`.
+    if (ligne.includes('"event"')) {
+      try {
+        const evt = JSON.parse(ligne);
+        if (evt?.event === "result" && evt.result) {
+          tours += Number(evt.result.num_turns) || 0;
+          dureeMs += Math.round(
+            (Number(evt.result.duration_seconds) || 0) * 1000,
+          );
+          vu = true;
+          continue;
+        }
+        // 🛑 `agy` NE SERA PAS une cible du banc — décision prise, ne pas
+        // rouvrir. L'authentifier exigerait d'écrire la VALEUR du jeton en
+        // clair dans son foyer utilisateur : mesuré avec une porte espionne, il
+        // n'expanse aucune variable et envoie `Bearer ${NF_MCP_TOKEN}` LITTÉRAL
+        // sur le réseau. Or la table du cœur ne transporte que `tokenEnv` — le
+        // NOM de la variable, jamais le secret. Le servir demanderait de casser
+        // cette règle pour un seul agent.
+        //
+        // Ce qui reste ici est la seule chose qui vaille : LIRE sa grammaire.
+        // Un transcript `agy` qu'on ne saurait pas lire rendrait « 0 tour, 0
+        // appel MCP » — le diagnostic faux que ce compteur existe pour ne plus
+        // produire. La forme d'un APPEL MCP chez lui n'est, elle, pas observée
+        // (il expose `call_mcp_tool`, aucun appel réussi enregistré) : deviner
+        // un motif serait inventer une mesure.
+        if (evt?.event === "step_update") continue;
+      } catch {
+        /* ligne tronquée */
+      }
+    }
+    // Codex : un tour d'agent s'achève sur `turn.completed`. Ni durée ni coût
+    // dans son flux — les compter à zéro serait plus faux que de ne rien dire,
+    // donc on ne renseigne que ce qui est ÉMIS.
+    if (ligne.includes('"turn.completed"')) {
+      try {
+        if (JSON.parse(ligne)?.type === "turn.completed") {
+          tours += 1;
+          vu = true;
+        }
+      } catch {
+        /* ligne tronquée */
+      }
+      continue;
+    }
     if (!ligne.includes('"type":"result"')) {
       continue;
     }
     try {
       const r = JSON.parse(ligne);
+      // Gemini : son `result` porte des `stats`, jamais un `num_turns`. Sa
+      // durée est mesurée par lui, ce qui vaut mieux que de la chronométrer du
+      // dehors — le décor compte alors le boot de la CLI dans la réflexion.
+      if (r.stats && typeof r.stats === "object") {
+        dureeMs += r.stats.duration_ms ?? 0;
+        vu = true;
+        continue;
+      }
       if (typeof r.num_turns !== "number") {
         continue;
       }
@@ -3757,7 +4924,13 @@ function lireEffort(transcriptPath) {
       // un effort partiel reste plus informatif qu'aucun.
     }
   }
-  return vu ? { tours, dureeMs, coutUsd } : null;
+  // 🔴 Un appel MCP compté EST une observation, et il vaut à lui seul un relevé.
+  // Sinon un agent tué en cours de route — quota épuisé, délai, échec après son
+  // premier outil — n'émet aucun tour achevé, `lireEffort` rend `null`, et le
+  // rapport affiche « aucun appel MCP » à propos d'un agent qui venait
+  // précisément de s'en servir. Le compteur d'effort se tairait ; celui des
+  // appels, lui, a bien vu quelque chose.
+  return vu || mcpCalls > 0 ? { tours, dureeMs, coutUsd, mcpCalls } : null;
 }
 
 /**
@@ -3796,6 +4969,26 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // des passes d'agent, et rien dans un verdict plausible ne l'aurait dit.
   const idx = indiceDeLaPasse(log, task.id, occurrence);
   if (idx === -1) {
+    // Le commit « tâche N » est posé par le HARNAIS, `--allow-empty` : même un
+    // agent qui n'a rien fait a le sien. Son absence avec un transcript présent
+    // dit que le harnais est mort AVANT (exit 2 : transcript muet, ou agent
+    // coupé par l'API — la T30 quota-tronquée est passée par ici) — jamais que
+    // l'agent n'a pas voulu travailler. Ces causes se lisent au transcript
+    // seul, et elles ÉCARTENT le run au lieu de fabriquer un FAIL.
+    const ecarteSansCommit = motifDEcartementTranscript(transcript);
+    if (ecarteSansCommit) {
+      console.log(
+        `  ⁉️  ${ecarteSansCommit} — run ÉCARTÉ, aucune sonde n'est opposable`,
+      );
+      return {
+        id: task.id,
+        name: task.name,
+        verdict: NON_JUGEABLE,
+        guessed: 0,
+        observed: 0,
+        probes: [],
+      };
+    }
     console.log(
       `  ❌ aucun commit « tâche ${task.id} » — la tâche n'a pas été jouée`,
     );
@@ -3819,7 +5012,11 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // verdict d'écartement déjà en place (`NON JUGEABLE`) : il est SEUL à savoir
   // retirer un run du compte sans le compter PASS. Le motif est calculé par une
   // fonction pure, éprouvée par l'auto-contrôle sans qu'aucun décor soit monté.
-  const ecarte = motifDEcartement({ transcript, files });
+  const ecarte = motifDEcartement({
+    transcript,
+    files,
+    peutNeRienEcrire: task.peutNeRienEcrire === true,
+  });
   if (ecarte) {
     console.log(`  ⁉️  ${ecarte} — run ÉCARTÉ, aucune sonde n'est opposable`);
     return {
@@ -3873,56 +5070,73 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // règle, il ne fait taire aucun outil. Sans cette matière, la seule option
   // était `added` (qui contient la prose) ou `addedTs` (qui exclut les tests,
   // où le geste est pourtant identique).
-  const addedCode = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-    "--",
-    "*.ts",
-    "*.tsx",
-    "*.js",
-    "*.mjs",
-    "*.json",
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
-  const addedTs = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-    "--",
-    "*.ts",
-    // Les TESTS sont exclus : une valeur littérale y est une FIXTURE, pas une
-    // configuration en dur. Vécu — un agent qui avait tout fait juste (valeur
-    // dans le `.env`, config qui lit l'environnement, `nodefony env --json`
-    // vert) était recalé parce que son test d'accompagnement citait l'URL
-    // qu'il venait de poser. La sonde visait la config ; elle mordait sur la
-    // preuve.
-    ":(exclude)tests/**",
-    ":(exclude)**/*.test.ts",
-    ":(exclude)**/*.spec.ts",
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  const addedCode = lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      `${base ?? `${hash}~1`}`,
+      hash,
+      "--",
+      "*.ts",
+      "*.tsx",
+      "*.js",
+      "*.mjs",
+      "*.json",
+    ),
+    "+",
+  );
+  const addedTs = lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      `${base ?? `${hash}~1`}`,
+      hash,
+      "--",
+      "*.ts",
+      // Les TESTS sont exclus : une valeur littérale y est une FIXTURE, pas une
+      // configuration en dur. Vécu — un agent qui avait tout fait juste (valeur
+      // dans le `.env`, config qui lit l'environnement, `nodefony env --json`
+      // vert) était recalé parce que son test d'accompagnement citait l'URL
+      // qu'il venait de poser. La sonde visait la config ; elle mordait sur la
+      // preuve.
+      ":(exclude)tests/**",
+      ":(exclude)**/*.test.ts",
+      ":(exclude)**/*.spec.ts",
+    ),
+    "+",
+  );
+  // Le COMPLÉMENT exact d'`addedTs` : ce que l'agent a écrit DANS ses tests.
+  //
+  // `addedTs` les exclut pour ne pas confondre une fixture avec du code de
+  // production. Mais l'exclusion rendait aussi INJUGEABLE tout ce qu'une tâche
+  // demande de PROUVER par un test — « chaque responsabilité doit être testable
+  // séparément » était dans l'énoncé de T13 sans que rien ne le regarde. Les
+  // deux périmètres sont donc disjoints et complémentaires : l'un sanctionne ce
+  // qui ne doit pas être écrit en production, l'autre constate ce qui doit
+  // exister dans les tests.
+  const addedTests = lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      `${base ?? `${hash}~1`}`,
+      hash,
+      "--",
+      "tests/**",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+    ),
+    "+",
+  );
   // L'autre moitié du diff : ce que l'agent a RETIRÉ. Sans elle, « npm test
   // vert » s'obtient en effaçant le test qui échoue, et rien ne le montre —
   // une absence ne laisse pas de trace dans les lignes ajoutées.
-  const deleted = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("-") && !l.startsWith("---"))
-    .join("\n");
+  const deleted = lignesDuDiff(
+    git(app, "diff", "--unified=0", `${base ?? `${hash}~1`}`, hash),
+    "-",
+  );
   const deletedFiles = git(
     app,
     "diff",
@@ -3953,6 +5167,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
         added,
         addedCode,
         addedTs,
+        addedTests,
         content,
         contentByFile,
         transcript,
@@ -4040,7 +5255,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
   if (effort) {
     console.log(
       `     effort : ${effort.tours} tours · ${Math.round(effort.dureeMs / 1000)} s · ` +
-        `${effort.coutUsd.toFixed(2)} $`,
+        `${effort.coutUsd.toFixed(2)} $ · ${effort.mcpCalls ?? 0} appel(s) MCP`,
     );
   }
   return {
@@ -4128,6 +5343,33 @@ function restituerDepistage(bilan, invocation) {
     "✍️ ",
     "ÉNONCÉ RÉÉCRIT depuis la référence — non comparables",
   );
+  // Le verdict n'a PAS bougé, l'effort si. C'est le seul canal où un progrès de
+  // guidage se lit sans repayer trois runs : une tâche que l'agent réussit
+  // désormais en 53 tours au lieu de 88 a changé, et le binaire ne le dira
+  // jamais. Ces lignes ne demandent rien — elles montrent.
+  const derives = (l, icone, quoi) => {
+    if (!l.length) return;
+    console.log(
+      `  ${icone} ${quoi} : ` +
+        l
+          .map(
+            (r) =>
+              `T${r.id} ${r.reference.tours}→${r.tours} tours ` +
+              `(${r.derive.ecart > 0 ? "+" : ""}${Math.round(r.derive.ecart * 100)} %)`,
+          )
+          .join(", "),
+    );
+  };
+  derives(
+    bilan.allegees ?? [],
+    "⚡",
+    "ALLÉGÉES — même verdict, moins de tours",
+  );
+  derives(
+    bilan.alourdies ?? [],
+    "🐢",
+    "ALOURDIES — même verdict, PLUS de tours (guidage perdu ?)",
+  );
   // Une tâche sans référence, mais déjà mesurée trois fois, n'a rien à rejouer —
   // elle a quelque chose à ENREGISTRER. Dire « rien à rejouer » sans le préciser
   // laisserait croire que la référence est complète.
@@ -4159,8 +5401,147 @@ function restituerDepistage(bilan, invocation) {
   );
 }
 
+/**
+ * Refuse toute sonde `code` dont le motif vise encore un MARQUEUR de diff.
+ *
+ * La matière des sondes est du CODE dépouillé (`lignesDuDiff`) : un motif
+ * ancré sur `+` ou `-` n'y matcherait plus JAMAIS. Sur une sonde ordinaire
+ * cela ferait un rouge visible ; sur une sonde INVERSÉE — la majorité d'entre
+ * elles — cela ferait un **vert silencieux**, c'est-à-dire un interdit qui ne
+ * garde plus rien. Un banc qui rend un verdict qu'il n'a pas mesuré est pire
+ * qu'un banc absent, donc la faute s'arrête au lancement plutôt que de se lire
+ * dans un rapport.
+ *
+ * @throws {Error} si au moins une sonde porte une ancre de diff.
+ */
+export function refuserLesAncresDeDiff() {
+  const ancre = /\^\\?[-+]/u;
+  const fautives = [];
+  for (const task of TASKS) {
+    for (const p of sondesDe(task)) {
+      if (p.kind !== "code" || !p.pattern) continue;
+      if (ancre.test(p.pattern.source))
+        fautives.push(`tâche ${task.id} · ${p.name}`);
+    }
+  }
+  if (fautives.length) {
+    throw new Error(
+      `sonde(s) ancrée(s) sur un marqueur de diff (^+ ou ^-) alors que la ` +
+        `matière est du code dépouillé — elles ne mordraient plus :\n  ` +
+        fautives.join("\n  "),
+    );
+  }
+}
+
+/**
+ * Purge les DÉCORS des runs, jamais leurs MESURES.
+ *
+ * Un run pèse ~316 Mo, dont 708 Ko de matière : le reste est l'application
+ * témoin et ses `node_modules`. Mesuré ici — 47 runs, **13 Go**, pour 33 Mo de
+ * transcripts, de verdicts de gates et de rapports. Le décor se reconstruit
+ * (c'est même tout l'intérêt d'un décor jetable) ; les transcripts, non : ce
+ * sont eux qui permettent d'INSTRUIRE un échec des mois plus tard, sans
+ * repayer un run.
+ *
+ * 🔴 Le run que la RÉFÉRENCE cite est intouché, décor compris. `--analyze-only`
+ * rejoue les gates SUR l'application (elle est reconstruite, interrogée en
+ * HTTP) : sans son `app/`, le re-jugement gratuit devient impossible et il faut
+ * repayer des heures d'agent. C'est exactement ce qui a permis, sur ces runs-là,
+ * de retrouver deux faux rouges sans relancer une seule tâche.
+ *
+ * Geste destructeur, donc : il DIT par défaut, et n'agit que sur `--confirmer`.
+ *
+ * @param confirmer - false = plan seul ; true = suppression effective.
+ */
+function purgerDecors(confirmer) {
+  if (!existsSync(RUN_ROOT)) {
+    console.log(`aucun run sous ${RUN_ROOT}`);
+    return 0;
+  }
+  console.log(`runs sous ${RUN_ROOT}\n`);
+  const reference = lireReference(cheminReference(AGENT));
+  const proteges = new Set(
+    reference
+      ? Object.values(reference.verdicts ?? {}).flatMap((v) => v.sources ?? [])
+      : [],
+  );
+  const poids = (dir) => {
+    let total = 0;
+    const pile = [dir];
+    while (pile.length) {
+      const courant = pile.pop();
+      let entrees;
+      try {
+        entrees = readdirSync(courant, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const e of entrees) {
+        const chemin = path.join(courant, e.name);
+        if (e.isDirectory()) pile.push(chemin);
+        else {
+          try {
+            total += statSync(chemin).size;
+          } catch {
+            /* fichier disparu en cours de route : il ne pèse plus */
+          }
+        }
+      }
+    }
+    return total;
+  };
+  const mo = (o) => `${(o / 1024 / 1024).toFixed(0)} Mo`;
+
+  let libere = 0;
+  let purges = 0;
+  let gardes = 0;
+  for (const nom of readdirSync(RUN_ROOT).sort()) {
+    const run = path.join(RUN_ROOT, nom);
+    if (!statSync(run).isDirectory()) continue;
+    const decors = [
+      path.join(run, "app"),
+      ...readdirSync(run)
+        .filter((e) => e.startsWith("rep-"))
+        .map((e) => path.join(run, e, "app")),
+    ].filter((d) => existsSync(d));
+    if (decors.length === 0) continue;
+    if (proteges.has(nom)) {
+      gardes += 1;
+      console.log(`  ⊘ ${nom} — cité par la référence, décor INTOUCHÉ`);
+      continue;
+    }
+    const taille = decors.reduce((n, d) => n + poids(d), 0);
+    libere += taille;
+    purges += 1;
+    if (confirmer) {
+      for (const d of decors) rmSync(d, { recursive: true, force: true });
+    }
+    console.log(
+      `  ${confirmer ? "✓" : "·"} ${nom} — ${mo(taille)}${confirmer ? " libérés" : ""}`,
+    );
+  }
+  console.log(
+    `\n${purges} décor(s) ${confirmer ? "supprimés" : "à supprimer"} · ${mo(libere)}` +
+      `${gardes ? ` · ${gardes} préservé(s) (référence)` : ""}`,
+  );
+  if (!confirmer && purges > 0) {
+    console.log(
+      "les transcripts, verdicts de gates et rapports RESTENT — c'est la matière\n" +
+        "qui permet d'instruire un échec sans repayer de run.\n" +
+        `pour exécuter : node ${path.relative(REPO, INVOCATION)} --purge --confirmer`,
+    );
+  }
+  return 0;
+}
+
 function main() {
   const args = process.argv.slice(2);
+  // Avant tout le reste : cette invocation ne joue aucune tâche, ne monte aucun
+  // décor, et n'a pas à payer les gardes de démarrage du banc.
+  if (args.includes("--purge")) {
+    process.exit(purgerDecors(args.includes("--confirmer")));
+  }
+  refuserLesAncresDeDiff();
   const valeurDe = (drapeau) => {
     const i = args.indexOf(drapeau);
     return i === -1 ? null : args[i + 1];
@@ -4236,6 +5617,10 @@ function main() {
       );
       process.exit(64);
     }
+    // Le jeton de la porte doit couvrir le run ENTIER : son périmètre n'est
+    // connu qu'ici (tâches demandées × passes), et c'est ici qu'il se décide.
+    TTL_JETON_MIN = ttlJetonMinutes(tasks.length, runs);
+    empecherLaVeilleMachine();
     setup(runDir);
     if (args.includes("--setup-only")) {
       console.log(`\napp témoin prête : ${app}`);
@@ -4253,12 +5638,56 @@ function main() {
         mkdirSync(dir, { recursive: true });
         console.log(`\n════ répétition ${rep + 1}/${runs}`);
       }
+      // CEINTURE — le jeton doit tenir jusqu'au bout de la passe qui commence.
+      // La durée calculée au montage suffit en théorie ; en pratique un run
+      // s'étire (une tâche qui rame, une reprise), et une porte qui se ferme en
+      // cours de route ne se voit NULLE PART : le décor enregistré continue
+      // d'annoncer « jeton posé » pendant que la porte refuse, et deux passes
+      // mesurent alors un régime que personne n'a choisi. On CONSTATE ce que le
+      // jeton porte, et on le renouvelle plutôt que de l'espérer.
+      if (MCP_REGIME === "auth") {
+        const reste = minutesRestantesJeton(APP_ENV.NF_MCP_TOKEN, Date.now());
+        const requis = tasks.length * 7;
+        if (reste < requis) {
+          console.log(
+            `  · jeton MCP à ${Math.round(reste)} min — insuffisant pour cette ` +
+              `passe (~${requis} min estimées), renouvellement`,
+          );
+          emettreJetonMcp(
+            app,
+            {
+              ...APP_ENV,
+              NF_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
+            },
+            ttlJetonMinutes(tasks.length, runs - rep),
+          );
+        }
+      }
       for (const [i, task] of tasks.entries()) {
         if (rep > 0 || i > 0) reinitialiserDecor(app, runDir, task.id);
         runTask(app, dir, task);
       }
       mesures.push({ app, dir, occurrence: runs > 1 ? rep : null });
     }
+    // 🔴 Sans condition de régime : une PRÉMISSE de tâche démarre l'application
+    // quel que soit le régime, et la laisser tourner ferait croire au run
+    // suivant qu'il interroge la sienne. Le filet de sortie (`process.on`)
+    // couvre les interruptions ; ceci couvre la fin normale, et le DIT.
+    eteindreApplication(app);
+    const restant = spawnSync("npx", ["--no-install", "nodefony", "status"], {
+      shell: besoinDeShell("npx"),
+      cwd: app,
+      encoding: "utf8",
+      env: APP_ENV,
+      timeout: 30_000,
+    });
+    // Le verdict se CONSTATE : `stop` peut sortir en 0 sans avoir tout tué.
+    console.log(
+      restant.status === 0 && /\b(5371|5372)\b/u.test(restant.stdout ?? "")
+        ? `\n⚠️ un serveur RÉPOND ENCORE sur les ports du banc — le run suivant ` +
+            `interrogerait une application qui n'est pas la sienne`
+        : "\n• application arrêtée (décor rendu)",
+    );
   }
 
   // Une tâche ne se juge que dans les passes qui l'ont RÉELLEMENT jouée : trois
@@ -4288,9 +5717,15 @@ function main() {
     // Une tâche sans run jugeable n'entre NI dans le rapport NI dans la
     // référence : mieux vaut un trou qu'un verdict qu'aucun run n'a établi.
     if (agrege.verdict === "NON JUGEABLE") continue;
+    // `passes.at(-1)` garde les sondes du DERNIER run — c'est voulu pour le
+    // détail. Mais son `effort` ne vaut que pour lui : sur trois runs de la
+    // tâche 13, 52 · 54 · 88 tours, le dernier seul dirait 88 et raconterait
+    // une tâche deux fois plus lourde qu'elle n'est. Les tours s'agrègent donc
+    // à part, par la MÉDIANE.
     results.push({
       ...passes.at(-1),
       ...agrege,
+      tours: medianeTours(passes.map((p) => p.effort)),
       name: t.name,
       id: t.id,
       empreinte: empreinteTache(t),
@@ -4317,13 +5752,19 @@ function main() {
     // Le décor est une VARIABLE de la mesure, au même titre que le modèle :
     // deux runs de décors différents ne se comparent pas. Il s'enregistre, il
     // ne se déduit pas du chemin.
-    decor: LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)",
+    decor:
+      (LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)") +
+      (MCP_ATTEIGNABLE
+        ? ` · MCP ${MCP_REGIME}${mcpAuthentifie() ? " (jeton posé)" : ""}`
+        : " · MCP non atteint"),
     agent: AGENT,
     // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la
     // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit
     // d'aujourd'hui : on reprend celui qu'il portait, quitte à n'en avoir
     // aucun. Écrire HEAD ici daterait la mesure du jour où on l'a relue.
-    commit: analyzeDirs ? commitDuRun(analyzeDirs[0]) : commitDuDepot(),
+    commit: analyzeDirs
+      ? commitDuRun(analyzeDirs[0])
+      : (COMMIT_AU_PACK ?? commitDuDepot()),
     // Les runs d'où sort la mesure. Leur nom EST leur horodatage : c'est ce qui
     // permet de dire quand une référence a été mesurée, là où `date` ne dit que
     // le jour où on l'a écrite — deux choses qu'un re-jugement sépare.
@@ -4351,12 +5792,17 @@ function main() {
     `rapport : ${runDir.startsWith(REPO + path.sep) ? path.relative(REPO, reportPath) : reportPath}`,
   );
 
-  const reference = lireReference();
+  // La référence de CET agent : `baseline.json` pour `claude` (l'historique),
+  // `baseline.<agent>.json` pour les autres. Sans cela, un agent tiers lisait la
+  // référence de `claude`, et la garde de décor refusait la comparaison sans
+  // qu'aucun fichier ne puisse jamais être écrit pour lui.
+  const cheminRef = cheminReference(AGENT);
+  const reference = lireReference(cheminRef);
   let aRejouer = 0;
   if (depistage) {
     if (!reference) {
       console.error(
-        `\n🛑 aucune référence (${path.relative(REPO, CHEMIN_REFERENCE)}).\n` +
+        `\n🛑 aucune référence (${path.relative(REPO, cheminRef)}).\n` +
           "   Dépister suppose un état antérieur écrit. Rejouer avec\n" +
           "   `--enregistrer-reference` pour en établir un.",
       );
@@ -4369,10 +5815,10 @@ function main() {
   if (enregistrer) {
     try {
       const fusion = fusionnerReference(reference, report);
-      ecrireReference(fusion);
+      ecrireReference(fusion, cheminRef);
       console.log(
         `\n📌 référence mise à jour (${results.length} tâche(s), ${mesures.length} run(s)) : ` +
-          path.relative(REPO, CHEMIN_REFERENCE),
+          path.relative(REPO, cheminRef),
       );
     } catch (e) {
       console.error(`\n🛑 ${e.message}`);

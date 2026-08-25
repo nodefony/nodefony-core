@@ -31,7 +31,10 @@ const direCeQuiNaPasTourné = {
     })
       .filter((e) => e.isFile() && /(^|\.)e2e\.test\.ts$/.test(e.name))
       .map((e) => e.name)
-      .sort();
+      // `toSorted` et non `sort` : le lint de l'application refuse les
+      // avertissements (`--deny-warnings`), et une app fraîche doit passer ses
+      // propres portes dès la première minute.
+      .toSorted();
     if (nonExercés.length === 0) {
       return;
     }

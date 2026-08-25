@@ -83,7 +83,7 @@ node node_modules/nodefony/bin/nodefony stop      # arrêt PROPRE du mode dev (g
 >   vrai cluster). En cluster le front n'est pas servi tant que `renderProdTags()` (14.2)
 >   n'est pas fait → l'API/observabilité (`/nodefony/realtime/api/health` → `cluster:true`)
 >   reste testable. `staging`/`preprod` = **déprécié** (→ `cluster`). Topologie : voir
->   `nodefony/config/cluster/cluster.config.ts` (`cluster.workers`) ou `NODEFONY_WORKERS`.
+>   `nodefony/config/cluster/cluster.config.ts` (`cluster.workers`) ou `NF_WORKERS`.
 
 Le script gère **tout** : kill des process Nodefony résiduels (+ rolldown) + ports → build conditionnel
 module test → spawn detached du superviseur → wait boot (fail-fast) → verify 4 servers réseau → health
@@ -131,7 +131,7 @@ un superviseur « nodemon-like » cloud-native : le process serveur est jetable,
 ```
 node $BIN development                     ← lancé par start.sh (binaire direct, pas npx)
 └─ nodefony-dev-supervisor (PPID 1)       ← parent CONSOLE, 0 serveur : watch + rebuild + restart
-   └─ nodefony-dev-server                 ← enfant (NODEFONY_DEV_CHILD=1, leader de groupe detached)
+   └─ nodefony-dev-server                 ← enfant (NF_DEV_CHILD=1, leader de groupe detached)
       └─ nodefony-vite[...]               ← N instances Vite (ViteProcessSupervisor)
 ```
 

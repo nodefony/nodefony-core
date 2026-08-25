@@ -7,10 +7,19 @@
  *   2. CLI interactif : `interactive.ts` rend chaque question en readline natif ;
  *   3. Studio         : un endpoint data plane sert `getScaffoldSpec()` en JSON,
  *      le formulaire React poste les réponses au MÊME moteur (`engine.ts`).
- * Ajouter un choix = ajouter UNE entrée ici ; aucun front n'est à modifier.
+ *
+ * ⚠️ **Deux fronts sur trois se servent seuls** : l'interactif et Studio LISENT
+ * cette spec, donc une question ajoutée y apparaît sans qu'on les touche. La
+ * voie FLAGS, elle, a une analyse écrite à la main (`parseCreateArgv`) : une
+ * question sans drapeau est servie à l'humain et REFUSÉE au script, sans un mot
+ * — c'est arrivé. Le drapeau se déduit de la clé (`maClé` → `--ma-cle`), sauf
+ * mention `flag` ; et un test du dépôt refuse toute question qu'aucun drapeau
+ * ne sert.
  */
 
 /** Une question de scaffold — champ `pattern` en string (JSON-able, validation partagée). */
+import { AGENT_TARGETS } from "../agentTargets";
+
 export interface IScaffoldQuestion {
   key: string;
   /** Libellé montré tel quel par le CLI interactif et Studio. */
@@ -77,6 +86,21 @@ export interface IScaffoldQuestion {
    * clés déclarées) — le pire des deux mondes.
    */
   advanced?: boolean;
+  /**
+   * Nom du drapeau de ligne de commande, quand il ne se DÉDUIT pas de la clé.
+   *
+   * La convention est `maClé` → `--ma-cle`, et elle couvre presque tout. Restent
+   * les cas où le drapeau dit l'inverse (`timestamps` se règle par
+   * `--no-timestamps` : le défaut est vrai, seul le retrait se nomme) ou porte
+   * un autre mot (`uniqueIndex` → `--unique`, répétable).
+   *
+   * 🔴 **Pourquoi ce champ existe plutôt qu'une table dans un test** : sans lui,
+   * rien ne relie une question à sa voie « script », et une question ajoutée
+   * sans drapeau est servie à l'humain, refusée au script — sans un mot. C'est
+   * arrivé (`agents`). Le déclarer ICI rend le contrôle possible depuis la spec
+   * elle-même, et l'affirmation de l'en-tête enfin vraie.
+   */
+  flag?: string;
 }
 
 /** Spec d'un type de scaffold (`app` aujourd'hui ; `module`/`controller`/`entity` suivent). */
@@ -217,6 +241,57 @@ const APP_SPEC: IScaffoldTypeSpec = {
       // EXPLICITE (interactif : l'utilisateur répond ; API/flags : --link).
       default: false,
       askIf: "hasCheckout",
+    },
+    {
+      key: "gitHooks",
+      label: "Poser des hooks git natifs (typecheck+lint au commit) ?",
+      type: "boolean",
+      // false, et JAMAIS posée en dialogue (`advanced`) : le défaut d'une app
+      // est SANS hooks — le filet complet est la CI, un hook local est un
+      // doublon contournable. Qui en veut le dit : `--git-hooks` (ou plus
+      // tard : `nodefony git:hooks`, même geste, même implémentation).
+      default: false,
+      advanced: true,
+    },
+    {
+      key: "agents",
+      // Le libellé nomme l'INTENTION, jamais la plomberie du jour : ce que
+      // l'app câble pour un agent (aujourd'hui sa porte d'introspection et ses
+      // pointeurs d'instructions) est appelé à s'étoffer, et une question qui
+      // énumère devient fausse au premier ajout.
+      label: "Quel(s) agent(s) de développement utilises-tu ?",
+      // `list` et non `choice` : on en sert plusieurs, et chaque valeur reste
+      // ENTIÈRE — deux clés concaténées seraient indiscernables d'une seule.
+      type: "list",
+      choices: [
+        // ⭐ Les NORMES d'abord, et pas par courtoisie : les outils nommés
+        // ensuite sont ceux dont on sait piloter la CLI — ils ne sont pas le
+        // monde. Un agent conforme se sert seul de ce que l'app dépose dans le
+        // projet (standards ouverts : AGENTS.md pour les instructions, MCP pour
+        // l'introspection). Sans cette entrée, qui n'utilise aucun des outils
+        // listés n'avait d'autre choix que « aucun » — et repartait sans rien,
+        // alors que son agent aurait su lire.
+        {
+          value: "standard",
+          label: "Un autre agent, conforme aux standards ouverts",
+          hint: "AGENTS.md + MCP déposés dans le projet, aucune CLI lancée",
+        },
+        ...AGENT_TARGETS.map((cible) => ({
+          value: cible.cle,
+          label: cible.nom,
+          hint:
+            cible.declaration === "cli"
+              ? `configuré par sa CLI (\`${cible.bin}\`)`
+              : `se sert des fichiers du projet`,
+        })),
+      ],
+      // 🔴 VIDE par défaut, et c'est la garde entière : câbler un agent ÉCRIT
+      // dans la configuration d'un autre outil. Rien de coché ⇒ rien d'écrit —
+      // coder seul est un choix, pas un oubli à rattraper. Le geste n'a donc
+      // pas besoin d'exiger un terminal : ce qui autorise n'est pas la présence
+      // d'un humain, c'est un choix EXPLICITE — ce qui rend la question
+      // servable par Studio, qui n'est pas un terminal.
+      default: [],
     },
   ],
 };
@@ -600,6 +675,7 @@ const COMMAND_SPEC: IScaffoldTypeSpec = {
       // l'ordre du disque, donc le premier alphabétiquement : juste tant qu'une
       // application n'avait qu'un service, faux dès le deuxième, et silencieux.
       key: "serviceName",
+      flag: "--service",
       label: "Quel service appeler (vide = le seul de la cible)",
       type: "string",
       default: "",
@@ -658,6 +734,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "timestamps",
+      flag: "--no-timestamps",
       label: "Horodatages createdAt / updatedAt",
       type: "boolean",
       default: true,
@@ -676,6 +753,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "tests",
+      flag: "--no-tests",
       label: "Tests (base sqlite en mémoire)",
       type: "boolean",
       default: true,
@@ -770,6 +848,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "uniqueIndex",
+      flag: "--unique",
       label:
         'Contrainte d\'unicité sur plusieurs colonnes (ex. "siteId,visitId")',
       type: "list",

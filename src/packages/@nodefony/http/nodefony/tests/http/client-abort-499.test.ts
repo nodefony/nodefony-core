@@ -1,8 +1,12 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import fs from "node:fs";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
+import {
+  compteDansJournal,
+  journalDuServeur,
+  type IJournalServeur,
+} from "../helpers/serverLog";
 
 // P2.3 — internal 499 ("client closed request").
 //
@@ -13,7 +17,6 @@ import { IS_PROD_TARGET } from "../helpers/targetEnv";
 // here via the server-side request log line ("http 499 GET ...").
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
-const LOG_PATH = "/tmp/nodefony-server.log";
 
 function getJson(path: string): Promise<{ status: number }> {
   return new Promise((resolve, reject) => {
@@ -40,36 +43,23 @@ function abortedGet(path: string, abortAfterMs: number): Promise<void> {
   });
 }
 
-function countInLog(pattern: RegExp, since: number): number {
-  try {
-    const text = fs
-      .readFileSync(LOG_PATH, "utf8")
-      .replace(/\x1b\[[0-9;]*m/g, "");
-    return text
-      .split("\n")
-      .slice(since)
-      .filter((l) => pattern.test(l)).length;
-  } catch {
-    return -1; // log unreadable — assertion skipped
-  }
-}
-
 // Dev-only : l'assertion lit la LIGNE DE LOG du 499 (request-logger verbeux en
 // dev). En prod le logging diffère → skip (sonde /livez), tourne en dev.
 describe.skipIf(IS_PROD_TARGET)(
   "Client abort → internal 499 — P2.3 (requires server)",
   () => {
-    let logBaseline = 0;
+    // 🔴 Le journal se DÉCOUVRE, il ne se suppose pas : le fichier alimenté
+    // dépend de la façon dont le serveur a été lancé (script du dépôt, ou
+    // `npx nodefony development` à la main, qui écrit dans `logs/*.jsonl`).
+    // Un chemin en dur rendait ici un faux ROUGE — le fichier existait, figé
+    // sur un autre jour, et l'absence de 499 accusait le kernel.
+    let journal: IJournalServeur | null = null;
 
-    beforeAll(() => {
-      try {
-        logBaseline = fs.readFileSync(LOG_PATH, "utf8").split("\n").length;
-      } catch {
-        logBaseline = -1;
-      }
+    beforeAll(async () => {
+      journal = await journalDuServeur(BASE);
     });
 
-    it("aborting before any response is logged as 499, not 200", async () => {
+    it("aborting before any response is logged as 499, not 200", async (ctx) => {
       const N = 8;
       await Promise.all(
         Array.from({ length: N }, () =>
@@ -79,19 +69,30 @@ describe.skipIf(IS_PROD_TARGET)(
       // Let the close → teardown → logRequest handlers settle.
       await new Promise((r) => setTimeout(r, 500));
 
-      if (logBaseline >= 0) {
-        // Request log line for an aborted GET: "GET  499 https://.../abort/wait ...".
-        const found499 = countInLog(
-          /GET\s+499\s+https?:\/\/\S*\/abort\/wait/,
-          logBaseline,
+      if (journal === null) {
+        // Aucun journal atteignable ne porte la trace de CE serveur : on n'a
+        // rien mesuré, et le dire vaut mieux qu'un rouge qui accuserait le
+        // kernel, comme mieux qu'un vert qui n'aurait rien prouvé.
+        ctx.skip(
+          "aucun journal alimenté par le serveur sous test (ni logs/*.jsonl, " +
+            "ni la redirection du lanceur) — l'assertion 499 n'a rien à lire",
         );
-        if (found499 >= 0) {
-          expect(
-            found499,
-            "expected at least one '499' request log line",
-          ).to.be.at.least(1);
-        }
+        return;
       }
+      // Ligne du journal de requête pour un GET abandonné :
+      // "GET  499 https://.../abort/wait ...".
+      const found499 = compteDansJournal(
+        journal,
+        /GET\s+499\s+https?:\/\/\S*\/abort\/wait/,
+      );
+      expect(
+        found499,
+        `journal ${journal.chemin} devenu illisible pendant le test`,
+      ).to.be.at.least(0);
+      expect(
+        found499,
+        "au moins une ligne de requête '499' attendue au journal",
+      ).to.be.at.least(1);
       // Server stays healthy.
       const health = await getJson("/nodefony/test/index");
       expect(health.status).to.equal(200);

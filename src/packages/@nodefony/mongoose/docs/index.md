@@ -585,7 +585,7 @@ await orm.transaction(async (tx) => {
 }); // commit si la fonction résout, annulation si elle échoue
 ```
 
-`MongooseOrm.transaction()` (`MongooseOrm.ts:199`) s'appuie sur les sessions Mongo « managées »
+`MongooseOrm.transaction()` (`MongooseOrm.ts:320`) s'appuie sur les sessions Mongo « managées »
 (commit, annulation et **reprises** gérées par le driver).
 
 > [!IMPORTANT]
@@ -596,7 +596,7 @@ await orm.transaction(async (tx) => {
 
 ### La trappe native — quand le contrat ne suffit plus
 
-`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:217`) rend la connexion Mongoose telle quelle :
+`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:338`) rend la connexion Mongoose telle quelle :
 agrégations, `$or`, index, `$text`, `bulkWrite`, changements de flux. Le module lui-même s'en sert
 là où le contrat portable ne suffit pas — par exemple pour la recherche texte du listing des
 webhooks, qui a besoin d'un `$or` sur deux champs
@@ -772,15 +772,15 @@ Schema). Le module fournit les sondes correspondantes :
 
 | Sonde                  | Ce qu'elle renvoie                                                          |
 | ---------------------- | --------------------------------------------------------------------------- |
-| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:231`)                    |
-| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:245`)              |
-| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:274`)    |
-| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:297`) |
+| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:352`)                    |
+| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:366`)              |
+| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:395`)    |
+| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:420`) |
 
 > [!IMPORTANT]
 > **Aucun identifiant ne sort jamais.** La cible affichée est nettoyée de tout `utilisateur:mot de
 passe@` avant d'atteindre le plan d'administration ou les journaux
-> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:309`)), y compris pour les URI multi-hôtes que
+> (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:432`)), y compris pour les URI multi-hôtes que
 > l'analyseur d'URL standard ne sait pas découper.
 
 ## ⚡ Performance et mémoire
@@ -815,7 +815,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 | Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
 | `audit store "mongoose" inconnu` — boot avorté en production | Brique **non portée** par Mongo, sélectionnée explicitement                   | Laisser `auto` (repli annoncé) ou choisir un backend qui la porte                 |
 | Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:74`)        |
-| Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `MONGO_TEST_URI` sur un conteneur Mongo                                   |
+| Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
 
 ## 🧪 Tests et couverture
 
@@ -840,7 +840,7 @@ couverts en amont, dans les modules qui possèdent les contrats.
 > MongoDB. Sans lui, l'infrastructure de test fournit une URI nulle, chaque suite se met en
 > `describe.skipIf`… **et un test sauté compte comme vert.** La suite passe alors en n'ayant
 > réellement exercé que la configuration. Avant de conclure « ça marche », vérifie que la base était
-> bien là : soit `MONGO_TEST_URI` pointe sur un conteneur (`docker run -p 27017:27017 mongo:7`), soit
+> bien là : soit `NF_MONGO_TEST_URI` pointe sur un conteneur (`docker run -p 27017:27017 mongo:7`), soit
 > le serveur en mémoire a démarré. Les bancs de transaction exigent en plus un **replica set**.
 >
 > Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module

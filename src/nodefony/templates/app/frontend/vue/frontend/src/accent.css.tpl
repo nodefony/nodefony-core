@@ -24,6 +24,11 @@
   --nf-logo-anim: nf-float 4s ease-in-out infinite;
 }
 @keyframes nf-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }

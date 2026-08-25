@@ -28,13 +28,17 @@ import type { IRedisConfigInput } from "../../interfaces/IRedisConfig";
  * dégradation muette contredit le principe de résilience du framework.
  */
 
-// La config applique l'environnement APRÈS le parse : une `REDIS_URL` posée dans
-// le shell du développeur écraserait notre port mort et rendrait ces tests verts
-// pour la mauvaise raison.
+// La config applique l'environnement APRÈS le parse : une URL de cache posée
+// dans le shell du développeur — ou par le gate d'infra — écraserait notre port
+// mort et rendrait ces tests verts pour la mauvaise raison.
+// `NF_REDIS_URL` est la forme PRIORITAIRE (resolveInfra la lit avant `REDIS_URL`) :
+// l'omettre laissait la garde incomplète, donc inopérante dès que la forme
+// préfixée est celle qui est posée.
+delete process.env.NF_REDIS_URL;
 delete process.env.REDIS_URL;
-delete process.env.REDIS_HOST;
-delete process.env.REDIS_PORT;
-delete process.env.REDIS_PASSWORD;
+delete process.env.NF_REDIS_HOST;
+delete process.env.NF_REDIS_PORT;
+delete process.env.NF_REDIS_PASSWORD;
 
 /** Port fermé : rien n'écoute, et surtout on ne veut rien y trouver. */
 const DEAD_PORT = 6399;

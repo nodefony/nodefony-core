@@ -2757,7 +2757,7 @@ export const DashboardSupervision = observer(() => {
                 ne rien coûter sur le chemin des requêtes. Réactivable via la
                 variable d'environnement{" "}
                 <Text span fw={600}>
-                  NODEFONY_ORM_FLOW=1
+                  NF_ORM_FLOW=1
                 </Text>
                 .
               </Alert>

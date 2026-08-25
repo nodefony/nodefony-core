@@ -37,6 +37,7 @@
  * @module
  */
 import { execFileSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 
 /**
  * Interroge l'application, sans ouvrir de port.
@@ -154,15 +155,18 @@ function main() {
   const modules = demanderALApp("modules");
   // La collecte du disque ne sert QU'À distinguer « rien fait » de « fait mais
   // pas câblé » : on ne la paie que dans ce cas.
+  //
+  // Le DISQUE fait foi, jamais `git status` : le status ne montre que le
+  // non-commité, et un agent qui committe son travail (vécu, tâche 28 — module
+  // complet, câblé, commité) rendait la collecte aveugle. La cause passait de
+  // « fait mais pas chargé » à « rien fait », et l'instruction partait du
+  // mauvais côté.
   let dossierModulesSurDisque = false;
   if (modules !== null && modules.filter(estComposantLocal).length === 0) {
     try {
-      dossierModulesSurDisque = /modules[/\\]/u.test(
-        execFileSync("git", ["status", "--short", "--untracked-files=all"], {
-          encoding: "utf8",
-          timeout: 60_000,
-        }),
-      );
+      dossierModulesSurDisque = readdirSync("modules", {
+        withFileTypes: true,
+      }).some((d) => d.isDirectory());
     } catch {
       dossierModulesSurDisque = false;
     }

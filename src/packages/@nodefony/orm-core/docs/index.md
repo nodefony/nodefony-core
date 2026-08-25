@@ -597,7 +597,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:627`) et `MongooseRepository.upsert()`
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts:868`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:314`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |
@@ -606,9 +606,9 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Contrat `IRepository` (15 verbes)      | complet                             | complet                            |
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                   |
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:801`)           | oui (`MongooseOrm.ts:274`)         |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1171`)          | oui (`MongooseOrm.ts:395`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:813`)           | oui (`MongooseOrm.ts:245`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1073`)          | oui (`MongooseOrm.ts:366`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :
@@ -647,7 +647,7 @@ Le contrat minimal tient en peu de choses, parce que `orm-core` fournit déjà l
 4. **Câbler le data plane** en une ligne à `onKernelBoot` : `wireOrmAdminPlane(this.kernel)`
    (`ormWiring.ts:31`) monte les routes admin, la santé et le diagnostic riche. Et
    `resolveOrmFlowEnabled(kernel)` (`ormWiring.ts:96`) décide si la sonde de flux s'allume — hors
-   production par défaut, `NODEFONY_ORM_FLOW=1` force.
+   production par défaut, `NF_ORM_FLOW=1` force.
 5. **Déclarer les capacités** dans `package.json` (`nodefony.storeKind`, `nodefony.stores`) : c'est
    ainsi que le framework sait ce que ton adapter sait faire.
 
@@ -728,7 +728,7 @@ deux, et pas de course).
 | Un objet de critère est pris pour une égalité (colonne JSON)  | comportement **voulu** : une valeur n'est un filtre que si **toutes** ses clés sont des opérateurs | c'est la protection ; pour filtrer dedans, passer au natif (`criteria.ts:42`)               |
 | `onOrmReady` ne part plus après un ajout dans l'adapter       | `connect()` a été surchargé                                                                        | surcharger `onConnect()` (`Orm.ts:74`), jamais `connect()`                                  |
 | Une entité déclarée dans un module reste invisible            | le module embarque sa **propre copie** du registre (singleton dédoublé)                            | externaliser `@nodefony/orm-core` dans le `rolldown.config.ts` du module                    |
-| Rien dans `flow` alors que la base travaille                  | la sonde est éteinte hors développement, ou le driver n'a pas de tap                               | `NODEFONY_ORM_FLOW=1` (`ormWiring.ts:96`) ; le tap n'est câblé que côté Drizzle             |
+| Rien dans `flow` alors que la base travaille                  | la sonde est éteinte hors développement, ou le driver n'a pas de tap                               | `NF_ORM_FLOW=1` (`ormWiring.ts:96`) ; le tap n'est câblé que côté Drizzle                   |
 
 ## 🧪 Tests & couverture
 
@@ -753,7 +753,7 @@ suite rejouée par dialecte :
 > [!WARNING]
 > **Un compteur vert ne prouve pas qu'une base a été touchée.** Les bancs sur serveur réel se
 > **skippent** quand leur variable d'infra est absente — et un test skippé compte comme vert.
-> PostgreSQL exige `NF_PG_URL`, MySQL/MariaDB `NF_MYSQL_URL`, MongoDB `MONGO_TEST_URI`. La source
+> PostgreSQL exige `NF_PG_URL`, MySQL/MariaDB `NF_MYSQL_URL`, MongoDB `NF_MONGO_TEST_URI`. La source
 > unique de ces variables et des commandes Docker correspondantes est `vitest.gates.ts` à la racine
 > du dépôt ; les suites concernées affichent un récapitulatif de couverture en fin d'exécution
 > (`gateReporter`). **Lire ce bloc avant de conclure « vert ».**

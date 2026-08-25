@@ -26,8 +26,7 @@ class TestFrontendReact extends Module {
    */
   override async onKernelBoot(): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       this.log(
         "@nodefony/frontend service not registered — is the module loaded before this one?",

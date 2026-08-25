@@ -7,6 +7,7 @@ import path from "node:path";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
 import { Nodefony } from "../Nodefony";
+import { DEFAULT_ENGINE_ENVIRONMENT } from "../runtime/engineEnvironment";
 import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
@@ -58,6 +59,7 @@ import { defaultAppConfig } from "../config/defaults";
 import {
   parseNfEnvOverrides,
   applyResolvedPath,
+  readResolvedPath,
   pathLooksSecret,
   closestMatch,
   resolveFailureHint,
@@ -428,7 +430,30 @@ class Kernel extends Service implements IKernel {
   registered: boolean = false;
   app: Module | null = null;
   cli: CliKernel | null = null;
-  environment: EnvironmentType = "production";
+  /**
+   * Mode MOTEUR par défaut, quand RIEN ne le dit.
+   *
+   * 🔴 `development`, et c'est un choix de sûreté — pas de confort. Le défaut
+   * ne s'applique que si `NODE_ENV` est absent ET que la commande n'exprime
+   * aucune intention. Or cette information ne manque JAMAIS en production : le
+   * `Dockerfile` généré pose `ENV NODE_ENV=production`, tout orchestrateur pose
+   * la variable, et les trois lanceurs posent leur mode eux-mêmes
+   * (`ProdCommand`, `DevCommand`, `ClusterCommand`). Elle ne manque que sur un
+   * poste de développement — le défaut doit donc protéger CE cas.
+   *
+   * L'ancien défaut `production` a produit trois défauts constatés : un jeton
+   * émis contre la mauvaise configuration, une inspection qui montrait les
+   * modules de production sur une machine de développement, et un contrôle de
+   * banc qui comparait deux applications différentes. Aucun n'a levé d'erreur :
+   * deviner « production » là où l'on est manifestement en développement est
+   * une dégradation SILENCIEUSE, ce que ce framework s'interdit.
+   *
+   * Il était de surcroît incohérent avec lui-même : la cascade `.env` ne
+   * chargeait alors NI `.env.production` ni `.env.development` (le lanceur
+   * rendait `undefined`), si bien que l'application se déclarait en production
+   * sans en avoir la configuration.
+   */
+  environment: EnvironmentType = DEFAULT_ENGINE_ENVIRONMENT;
   debug: DebugType = false;
   appEnvironment: AppEnvironmentType = {
     environment: process.env.NODE_ENV as string,
@@ -442,19 +467,28 @@ class Kernel extends Service implements IKernel {
   console: boolean = this.isConsole();
   /**
    * Vrai terminal disponible ? Résolu UNE fois dans le constructor (volet
-   * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NO_TTY` (test/CI).
+   * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NF_NO_TTY` (test/CI).
    */
-  isTTY: boolean = process.env.NO_TTY ? false : process.stdout?.isTTY === true;
+  isTTY: boolean = process.env.NF_NO_TTY
+    ? false
+    : process.stdout?.isTTY === true;
   /**
    * Timer no-op ref'd gardant l'event loop vivant pendant un {@link park} `keepAlive`
    * (daemon CONSOLE sans socket). `null` tant qu'aucun park alive — lazy. Nettoyé par
    * {@link terminate}.
    */
   private parkTimer: NodeJS.Timeout | null = null;
+
+  /**
+   * Le shutdown en cours, s'il y en a un — garde de ré-entrance de
+   * {@link terminate}. `null` par défaut : aucune allocation tant qu'on ne
+   * termine pas, et un kernel ne termine qu'une fois.
+   */
+  private terminating: Promise<this> | null = null;
   /** Minuterie d'auto-arrêt d'un runtime en dérogation de modules dev (`null` = aucune). */
   private devModulesStopTimer: NodeJS.Timeout | null = null;
   node_start: NodefonyStartType =
-    process.env.NODEFONY_START || this.options.node_start;
+    process.env.NF_START || this.options.node_start;
   platform: NodeJS.Platform = process.platform;
   projectName: string = "NODEFONY";
   uptime: number = new Date().getTime();
@@ -560,13 +594,13 @@ class Kernel extends Service implements IKernel {
     );
     this.environment = environment;
     // Trace boot-count diagnostique : 1 ligne par `new Kernel()`. Gardée par une env
-    // absente en prod → 0 coût (cohérent avec NODEFONY_BOOT_TIMEOUT_MS/WARN_MS). Sert au
+    // absente en prod → 0 coût (cohérent avec NF_BOOT_TIMEOUT_MS/WARN_MS). Sert au
     // filet d'intégration CLI à prouver l'invariant « 1 seul Kernel par process »
     // (avant refacto registry : prod/cluster en créaient 2). Boot-only, hors hot path.
-    if (process.env.NODEFONY_KERNEL_TRACE_FILE) {
+    if (process.env.NF_KERNEL_TRACE_FILE) {
       try {
         fs.appendFileSync(
-          process.env.NODEFONY_KERNEL_TRACE_FILE,
+          process.env.NF_KERNEL_TRACE_FILE,
           `${process.pid}:${environment}\n`,
         );
       } catch {
@@ -773,7 +807,7 @@ class Kernel extends Service implements IKernel {
         return (await this.terminate(1)) as this;
       }
       return await this.cli
-        .runCommandAsync("start", ["-i"])
+        .runCommandAsync("menu", ["-i"])
         .then(() => {
           if (this.command) {
             return this.command?.action(...this.commandArgs).then(() => {
@@ -796,11 +830,10 @@ class Kernel extends Service implements IKernel {
     //   (collecteur JSON) : un art ASCII multi-ligne est du bruit ; en cluster, N workers
     //   produiraient N splash. L'info de boot vit dans les logs (`MODULE ADD`, `Server Listen`).
     // - **DEV** → un SEUL splash, dans le process qui boote réellement le serveur (l'enfant
-    //   du DevSupervisor, `NODEFONY_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
+    //   du DevSupervisor, `NF_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
     //   (sinon double splash : parent + enfant — cf 2 ASCII art observés).
     const devSplash =
-      this.environment === "development" &&
-      process.env.NODEFONY_DEV_CHILD === "1";
+      this.environment === "development" && process.env.NF_DEV_CHILD === "1";
     if (this.cli && devSplash) {
       await this.cli.showAsciify(this.projectName).catch((e) => {
         this.log(e, "WARNING");
@@ -897,10 +930,22 @@ class Kernel extends Service implements IKernel {
 
     // Manifest de complétion shell : ICI (et pas avant) les commandes de MODULE sont
     // posées dans commander → dump complet pour le fast-path `__complete` (0 boot au
-    // TAB). DEV uniquement (prod cloud-native : FS possiblement read-only, aucune
-    // complétion dans un pod) ; fire-and-forget best-effort → coût boot nul, un
-    // échec d'écriture n'impacte JAMAIS le boot.
-    if (this.resolveRuntimeEnv(this.cli?.environment) === "development") {
+    // TAB) ET pour le menu, qui s'ouvre trop tôt (`onStart`) pour les connaître.
+    // Fire-and-forget best-effort → coût boot nul, un échec d'écriture n'impacte
+    // JAMAIS le boot.
+    //
+    // La condition n'est PAS l'environnement mais le PROFIL. Gaté sur
+    // `development`, ce fichier n'était écrit que par `nodefony dev` : toutes les
+    // autres portes qui connaissent pourtant l'état complet — `--help`, `check`,
+    // `inspect` — bootent en `production` par défaut et repartaient sans rien
+    // écrire. Sur un dépôt neuf, après un `npm ci` ou un `node_modules` nettoyé,
+    // le menu perdait donc TOUTES les commandes de module, en silence.
+    // `!runProfile.servers` = une commande CLI ponctuelle, lancée par un humain
+    // qui explore ; un pod de production (`servers: true`) n'écrit toujours rien,
+    // ce qui préserve le motif d'origine (FS possiblement read-only, aucune
+    // complétion dans un container).
+    const env = this.resolveRuntimeEnv(this.cli?.environment);
+    if (env === "development" || !this.runProfile?.servers) {
       void this.cli?.writeCompletionManifest().catch(() => {});
     }
 
@@ -1197,7 +1242,20 @@ class Kernel extends Service implements IKernel {
       );
       return this.park({ keepAlive: true });
     }
-    return this.terminate(code);
+    // 🔴 Un ÉCHEC posé par la commande l'emporte sur le `0` de l'appelant.
+    //
+    // Neuf points de sortie appelaient `finishOrPark(0)` en dur — le `0` y
+    // signifie « rien à signaler de la part du CYCLE DE VIE », pas « la commande
+    // a réussi ». Une commande qui écrit son erreur et pose `process.exitCode`
+    // (la façon normale en Node) voyait donc « terminate : 0 » et le process
+    // sortait en 0 : ni un script, ni un `&&`, ni une CI ne voyaient l'échec.
+    // Un seul de ces neuf points prenait la précaution ; huit l'oubliaient.
+    // La règle vit ici, au point de passage commun.
+    const echec =
+      typeof process.exitCode === "number" && process.exitCode !== 0
+        ? process.exitCode
+        : null;
+    return this.terminate(echec ?? code);
   }
 
   override clean() {
@@ -1554,15 +1612,27 @@ class Kernel extends Service implements IKernel {
         );
         continue;
       }
+      // La chaîne BRUTE voyage jusqu'ici : c'est au moment de poser la valeur
+      // qu'on découvre le type attendu (le défaut du schéma, déjà en place), et
+      // la devinette de `coerceEnvValue` s'y corrige — `TRUSTPROXY=1` doit
+      // devenir `true`, pas `Number(1)` que le Zod refuse.
       const applied = applyResolvedPath(
         mod.options as Record<string, unknown>,
         ov.path,
         ov.value,
+        ov.raw,
       );
       if (applied) {
+        // Journaliser la valeur RÉELLEMENT posée, jamais la devinette : un
+        // journal qui affiche autre chose que ce que porte la config est le
+        // genre de piste qu'on suit une heure.
+        const posee = readResolvedPath(
+          mod.options as Record<string, unknown>,
+          ov.path,
+        );
         const shown = pathLooksSecret(ov.path)
           ? "«***»"
-          : JSON.stringify(ov.value);
+          : JSON.stringify(posee);
         this.log(
           `Override env: ${mod.name}.${ov.path.join(".")} = ${shown}`,
           "INFO",
@@ -1670,7 +1740,7 @@ class Kernel extends Service implements IKernel {
    * (`dev`→`development`, conserve `test`/`production`) — granularité que le ctx
    * expose (`isTest`), DISTINCTE du collapse dev/prod de {@link resolveRuntimeEnv}
    * (gating moteur : un staging tourne « comme prod »). `appEnv` = axe déploiement
-   * libre (`APP_ENV`/`NODEFONY_ENV`). `process.env` est déjà peuplé par `loadEnv`
+   * libre (`APP_ENV`/`NF_ENV`). `process.env` est déjà peuplé par `loadEnv`
    * (bin/nodefony) avant le boot → lecture sûre ici.
    *
    * @param env - catalogue env typé exposé par l'app (`export const env = defineEnv(…)`) ;
@@ -1678,10 +1748,17 @@ class Kernel extends Service implements IKernel {
    * @returns contexte d'environnement pour `descriptor.resolve(ctx)`.
    */
   private buildConfigContext(env?: unknown): ConfigContext {
-    const raw = process.env.NODE_ENV || this.cli?.environment || "production";
+    // ⚠️ MÊME défaut que le moteur, obligatoirement : ce contexte est celui que
+    // reçoit la config de l'application (`defineConfig((ctx) => …)`). S'il
+    // désignait un autre mode que le kernel, l'application serait configurée
+    // pour un environnement et exécutée dans un autre — sans qu'aucune erreur
+    // ne le dise. C'est précisément la divergence que la source unique ferme.
+    const raw =
+      process.env.NODE_ENV ||
+      this.cli?.environment ||
+      DEFAULT_ENGINE_ENVIRONMENT;
     const runtimeEnv = raw === "dev" ? "development" : raw;
-    const appEnv =
-      process.env.APP_ENV || process.env.NODEFONY_ENV || runtimeEnv;
+    const appEnv = process.env.APP_ENV || process.env.NF_ENV || runtimeEnv;
     return {
       env: (env ?? process.env) as ConfigContext["env"],
       infra: this.infra,
@@ -2131,7 +2208,7 @@ class Kernel extends Service implements IKernel {
     const logCfg = this.options.log as TypeKernelOptions["log"];
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
     // Couleur ANSI des logs — résolue UNE fois ici (boot) à partir de `this.isTTY`
-    // (déjà résolu, NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
+    // (déjà résolu, NF_NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
     // des conventions NO_COLOR (no-color.org) + FORCE_COLOR. pipe/fichier = brut →
     // 0 ANSI baké (stdout pipe + .jsonl propres). 0 test par log ensuite.
     setLogColor(resolveColorEnabled(this.isTTY));
@@ -2188,7 +2265,7 @@ class Kernel extends Service implements IKernel {
     registerBuiltinLogDrivers();
     const driverCtx: ILogDriverContext = {
       logCfg,
-      environment: this.environment ?? "production",
+      environment: this.environment ?? DEFAULT_ENGINE_ENVIRONMENT,
       logDir: logDirAbs,
       pid: process.pid,
       getRingStack: () => this.syslog?.ringStack ?? [],
@@ -2252,7 +2329,7 @@ class Kernel extends Service implements IKernel {
     this.syslog?.setSeverityThreshold(
       this.environment === "production" && !this.debug ? "INFO" : null,
     );
-    // Debug runtime CIBLÉ via env — lu directement comme NODE_ENV/NODEFONY_CLUSTER
+    // Debug runtime CIBLÉ via env — lu directement comme NODE_ENV/NF_CLUSTER
     // (knob opérationnel framework, PAS config applicative → hors catalogue
     // env.ts de l'app). `NF__DEBUG=FIREWALL,SESSION:NOTICE` rallume ces modules
     // au boot ; `*` lève le gate global. Pas de TTL : un restart remet à zéro
@@ -2314,7 +2391,7 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Résout le **mode runtime** (dev/prod) selon le 12-factor : `NODE_ENV`
+   * Résout le **mode runtime** (dev/prod) : `NODE_ENV`
    * (ambient, posé par l'orchestrateur en cloud) PRIME sur l'intention de la
    * commande locale, qui prime sur la valeur courante. Normalise en
    * `"development" | "production"`. Pur (lit `process.env`, n'écrit rien) → sûr à
@@ -2324,24 +2401,36 @@ class Kernel extends Service implements IKernel {
   resolveRuntimeEnv(
     fromCommand?: EnvironmentType,
   ): "development" | "production" {
+    // Le dernier terme est le défaut quand RIEN ne parle — même raison que
+    // `Kernel.environment` : l'information ne manque qu'en développement.
+    // ⚠️ Ce qui suit n'est PAS un défaut mais un COLLAPSE volontaire : tout ce
+    // qui n'est pas « dev » tourne comme la production (un `staging` est
+    // optimisé comme elle). Ne pas confondre les deux.
     const raw =
-      process.env.NODE_ENV || fromCommand || this.environment || "production";
+      process.env.NODE_ENV ||
+      fromCommand ||
+      this.environment ||
+      DEFAULT_ENGINE_ENVIRONMENT;
     return raw === "dev" || raw === "development"
       ? "development"
       : "production";
   }
 
   setEnv(environment?: EnvironmentType) {
-    // MODE RUNTIME (dev/prod) — source 12-factor : NODE_ENV > commande > courant.
+    // MODE RUNTIME (dev/prod) — précédence : NODE_ENV > commande > courant.
+    // ⚠️ Ne pas rattacher cette précédence au « 12-factor » : sa section Config
+    // rejette les groupes d'environnement (« never grouped together as
+    // "environments" »), donc `NODE_ENV` lui-même. Seule la précédence — la
+    // configuration ambiante l'emporte — est de cet esprit.
     const runtime = this.resolveRuntimeEnv(environment);
     this.environment = runtime;
     // ENVIRONNEMENT DE DÉPLOIEMENT (axe DISTINCT du mode runtime) — string libre
-    // via APP_ENV / NODEFONY_ENV (staging/preprod/prod/canary/prod-eu…) ; pilote la
+    // via APP_ENV / NF_ENV (staging/preprod/prod/canary/prod-eu…) ; pilote la
     // config/secrets, PAS le moteur. Défaut = le mode runtime si non posé →
     // comportement inchangé hors cloud. Un staging tourne en mode `production`
     // (optimisé) mais reste l'env `staging`. Cf project_app_config_refonte_chantier.
     this.appEnvironment.environment =
-      process.env.APP_ENV || process.env.NODEFONY_ENV || runtime;
+      process.env.APP_ENV || process.env.NF_ENV || runtime;
   }
 
   /**
@@ -2371,10 +2460,10 @@ class Kernel extends Service implements IKernel {
     const env = this.environment
       ? `   ${logColor.green(String(this.environment))}`
       : "";
-    // Axe DÉPLOIEMENT (APP_ENV / NODEFONY_ENV) affiché seulement s'il DIFFÈRE du
+    // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
     // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
     // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
-    const appEnv = process.env.APP_ENV || process.env.NODEFONY_ENV;
+    const appEnv = process.env.APP_ENV || process.env.NF_ENV;
     const deploy =
       appEnv && appEnv !== String(this.environment)
         ? ` ${logColor.blackBright("·")} ${logColor.magenta(appEnv)}`
@@ -2490,12 +2579,12 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Timeout par listener appliqué au boot (résilience Phase 3). Précédence :
-   * `NODEFONY_BOOT_TIMEOUT_MS` (env, orchestrateur) > défaut par env (dev 20 s,
+   * `NF_BOOT_TIMEOUT_MS` (env, orchestrateur) > défaut par env (dev 20 s,
    * prod 60 s). Large à dessein : il borne la PENDAISON infinie (ex. file Redis
    * offline qui ne rejette jamais), pas la lenteur normale d'un hook.
    */
   private bootTimeoutMs(): number {
-    const env = Number(process.env.NODEFONY_BOOT_TIMEOUT_MS);
+    const env = Number(process.env.NF_BOOT_TIMEOUT_MS);
     if (Number.isFinite(env) && env > 0) {
       return env;
     }
@@ -2504,10 +2593,10 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Seuil d'alerte de lenteur d'un hook de boot (NOTICE, sans le tuer). Précédence :
-   * `NODEFONY_BOOT_WARN_MS` (env) > défaut 5 s. `0` désactive la mesure.
+   * `NF_BOOT_WARN_MS` (env) > défaut 5 s. `0` désactive la mesure.
    */
   private bootWarnMs(): number {
-    const env = Number(process.env.NODEFONY_BOOT_WARN_MS);
+    const env = Number(process.env.NF_BOOT_WARN_MS);
     if (Number.isFinite(env) && env >= 0) {
       return env;
     }
@@ -3210,19 +3299,50 @@ class Kernel extends Service implements IKernel {
    * jamais un process zombie qui attend le SIGKILL externe. `0` = filet désactivé.
    *
    * @param code - exit code Unix (0 = succès, 1+ = erreur).
+   * @param quiet - muselle l'AFFICHAGE (le log « terminate : N ») — jamais le
+   *   drain : une sortie voulue par l'utilisateur (Ctrl+C d'un menu) n'a pas à
+   *   ressembler à un événement système.
    * @returns Promise résolue avec `this` (ou rejected si `quit()` throw).
    */
-  async terminate(code?: number): Promise<this> {
+  async terminate(code?: number, quiet?: boolean): Promise<this> {
     if (code === undefined) {
-      code = 0;
+      // Aucun code demandé : on prend celui que le process porte DÉJÀ.
+      // `process.exitCode` est la façon normale, en Node, de signaler un échec
+      // sans sortir tout de suite — et c'est ce que font les commandes qui
+      // écrivent une erreur puis rendent la main. Forcer 0 ici affichait
+      // « terminate : 0 » sur un échec et faisait sortir le process en 0 : un
+      // script, un `&&`, une CI ne voyaient rien.
+      code = typeof process.exitCode === "number" ? process.exitCode : 0;
     }
+    // 🔴 **Un shutdown ne se rejoue pas.** Sans cette garde, deux appels
+    // rejouaient TOUT : le log « terminate : N » (symptôme visible — deux
+    // lignes, même PID, même milliseconde) mais surtout `fireAsync
+    // ("onTerminate")`, donc la bascule de readiness, la fermeture des sockets
+    // et le cleanup des services, une seconde fois sur un kernel déjà démonté.
+    // La fenêtre est large : la sortie réelle n'a lieu qu'au `nextTick`, si
+    // bien que tout appelant qui termine puis rend la main à un cadre qui
+    // termine aussi (le menu et son geste choisi) passait deux fois.
+    // On rend la promesse EN COURS plutôt qu'une erreur : un `await terminate()`
+    // qui rejetterait au milieu d'un shutdown transformerait une redondance
+    // bénigne en panne. Le premier appelant garde la main sur le code de sortie.
+    if (this.terminating) {
+      return this.terminating;
+    }
+    this.terminating = this.doTerminate(code, quiet);
+    return this.terminating;
+  }
+
+  /** Le shutdown lui-même — protégé de la ré-entrance par {@link terminate}. */
+  private async doTerminate(code: number, quiet?: boolean): Promise<this> {
     // Libère le timer de park (daemon) : sinon il garderait l'event loop vivant après
     // le shutdown. Idempotent (no-op si jamais parké).
     if (this.parkTimer) {
       clearInterval(this.parkTimer);
       this.parkTimer = null;
     }
-    this.log(`terminate : ${code}`);
+    if (!quiet) {
+      this.log(`terminate : ${code}`);
+    }
     // Rejet du drain capturé ICI (pas dans un try du race) : si la deadline
     // gagne, un rejet ultérieur du drain serait un unhandledRejection.
     const drain = this.fireAsync("onTerminate", this, code).catch(

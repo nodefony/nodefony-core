@@ -23,12 +23,12 @@ import { z } from "zod";
  *
  * ⚠️ ENV : ce schéma reste **PUR** (aucune lecture `process.env` ici, sinon il
  * devient non déterministe et non sérialisable en JSON Schema). La surcharge par
- * variables d'environnement (`MONGODB_URI`, `MONGODB_DEBUG`) est appliquée dans
+ * variables d'environnement (`MONGODB_URI`, `NF_MONGODB_DEBUG`) est appliquée dans
  * {@link defineMongooseConfig}, APRÈS le parse.
  *
  * SURCHARGE (précédence croissante — cf ADR-0006) :
  *   • App (typé)         : `use("@nodefony/mongoose", { debug: true, connectors: { … } })` ;
- *   • Par environnement  : `MONGODB_URI` · `MONGODB_DEBUG` (appliqués dans
+ *   • Par environnement  : `MONGODB_URI` · `NF_MONGODB_DEBUG` (appliqués dans
  *     `defineMongooseConfig`).
  *
  * ⚠️ NE PAS éditer les défauts matérialisés en bas de fichier : modifier les
@@ -92,7 +92,7 @@ export const mongooseConfigSchema = z
       .describe(
         "Active la trace Mongoose des requêtes (`mongoose.set('debug')`). " +
           "Défaut false. Mettre true en dev pour voir chaque opération. " +
-          "Surchargé par l'env `MONGODB_DEBUG` (1/true). Reco prod : false.",
+          "Surchargé par l'env `NF_MONGODB_DEBUG` (1/true). Reco prod : false.",
       ),
     connectors: z
       .record(z.string(), connectorSchema)

@@ -76,7 +76,7 @@ export interface IKernel extends IService {
   ): void;
   /**
    * L'environnement FOURNIT-il un vrai terminal ? Résolu une fois au boot
-   * (`process.stdout.isTTY`, surchargeable `NO_TTY`). Volet « environnement » qui
+   * (`process.stdout.isTTY`, surchargeable `NF_NO_TTY`). Volet « environnement » qui
    * complète `runProfile.interactive` (besoin déclaré) : un prompt n'a de sens que si
    * `runProfile.interactive && kernel.isTTY`. Cloud-native (pod/CI) → toujours `false`.
    */
@@ -120,7 +120,8 @@ export interface IKernel extends IService {
 
   // ─── Méthodes publiques ────────────────────────────────────────────────────
   start(): Promise<this>;
-  terminate(code?: number): Promise<this>;
+  /** `quiet` muselle l'affichage (log « terminate : N ») — jamais le drain. */
+  terminate(code?: number, quiet?: boolean): Promise<this>;
   isTrunk(): Promise<TrunkType>;
   isModule(subclass: unknown): boolean;
   addModule(Mod: unknown, ...args: unknown[]): Promise<IModule>;

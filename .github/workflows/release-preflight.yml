@@ -74,6 +74,7 @@ jobs:
       id-token: write
     steps:
       - name: Le runner peut-il obtenir un jeton d'identité ?
+        shell: bash
         id: jeton
         run: |
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
@@ -106,6 +107,7 @@ jobs:
             })"
 
       - name: Ce qu'il faut saisir sur npmjs.com
+        shell: bash
         env:
           PUBLIEUR: ${{ github.event.inputs.workflow_publieur || 'release-publish.yml' }}
         run: |
@@ -141,6 +143,7 @@ jobs:
       # le CLI ne détecte pas l'environnement OIDC et retombe silencieusement sur
       # l'authentification par jeton — donc sur une absence de jeton.
       - name: npm >= 11.5.1 et Node >= 22.14.0
+        shell: bash
         run: |
           node -e '
             const {execSync}=require("node:child_process");
@@ -173,6 +176,7 @@ jobs:
       # commandes qu'OIDC ne couvre pas (`install`, `view`, `access` — la doc
       # est explicite, et `npm whoami` ne reflète JAMAIS une auth OIDC).
       - name: Y a-t-il un jeton, et que vaut-il ?
+        shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -195,6 +199,7 @@ jobs:
       # Volontairement NON bloquant : ce projet ne publie aucune image. Le login
       # ne sert qu'au quota, et son absence ne compromet aucune release.
       - name: Login Docker Hub (si les identifiants existent)
+        shell: bash
         env:
           USER: ${{ secrets.DOCKERHUB_USERNAME }}
           TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -209,6 +214,7 @@ jobs:
       # échoue ici, c'est un `smoke-docker.sh` qui échouera pour une raison sans
       # rapport avec les tarballs — et on chercherait au mauvais endroit.
       - name: L'image de base du gabarit se tire-t-elle ?
+        shell: bash
         run: |
           docker pull node:24-slim
           docker image inspect node:24-slim --format 'node:24-slim présente ({{.Os}}/{{.Architecture}}, {{.Size}} octets)'
@@ -217,6 +223,7 @@ jobs:
       # registre. Mesuré depuis un poste : 100 tirages par heure et par IP — les
       # runners GitHub PARTAGENT leurs adresses, d'où l'intérêt du login.
       - name: Quota de pull restant
+        shell: bash
         run: |
           jeton=$(curl -sS "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).token)}catch{console.log('')}})")
           if [ -z "$jeton" ]; then

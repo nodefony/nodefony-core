@@ -6,7 +6,7 @@
  * 1. **Le catalogue** des variables d'environnement qui conditionnent l'accès à
  *    un serveur réel (PostgreSQL, MySQL/MariaDB, Redis). Une variable écrite à
  *    deux endroits finit par diverger — vécu : la suite Redis se gate sur
- *    `REDIS_TEST_URL` alors que le reste du package lit `REDIS_URL`, et lancer la
+ *    `NF_REDIS_TEST_URL` alors que le reste du package lit `NF_REDIS_URL`, et lancer la
  *    suite avec la seconde skippait 14 tests **en silence, tout en restant vert**.
  * 2. **Le rapporteur** qui, en fin de suite, dit à voix haute ce qui n'a PAS été
  *    exécuté, comment l'exécuter — et qui **fait ÉCHOUER la passe en intégration
@@ -126,14 +126,23 @@ export interface EnvGate {
  */
 export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
   {
-    env: "RUN_PERF",
+    env: "NF_RUN_PERF",
     what: "micro-bancs de performance (seuils non déterministes)",
   },
-  { env: "RUN_CLI_BOOT", what: "boots CLI réels (lents : un kernel par cas)" },
-  { env: "RUN_CLUSTER_E2E", what: "scénarios cluster multi-process" },
   {
-    env: "RUN_WS_RUPTURE",
+    env: "NF_RUN_CLI_BOOT",
+    what: "boots CLI réels (lents : un kernel par cas)",
+  },
+  { env: "NF_RUN_CLUSTER_E2E", what: "scénarios cluster multi-process" },
+  {
+    env: "NF_RUN_WS_RUPTURE",
     what: "sondes de rupture WebSocket (épuisent les ports)",
+  },
+  {
+    env: "NF_RUN_DB_OUTAGE",
+    what:
+      "coupures RÉELLES de base (arrête et relance un conteneur ; exige aussi " +
+      "NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER)",
   },
 ];
 
@@ -150,6 +159,36 @@ export function redactUrl(url: string): string {
 /** Les variables requises par une gate — dérivées de {@link EnvGate.values}. */
 export function gateEnv(gate: EnvGate): string[] {
   return Object.keys(gate.values());
+}
+
+/**
+ * La valeur POSÉE pour une variable de cette gate — `undefined` si absente ou vide.
+ *
+ * **À préférer à `process.env.X` dans un banc.** Un banc qui nomme sa variable
+ * lui-même finit par nommer une AUTRE variable que celle dont son propre
+ * rapporteur constate l'absence : le décor est là, les cas tournent, et la passe
+ * échoue en annonçant « cible non exercée » — ou pire, ils sautent en silence
+ * pendant que la gate voit sa variable posée. Passer par ici rend les deux
+ * impossibles : le nom demandé doit être un nom que la gate exige.
+ *
+ * @param gate - la cible dont on veut lire le décor.
+ * @param name - la variable, telle que la gate la nomme.
+ * @returns la valeur posée, ou `undefined`.
+ * @throws Error si `name` n'est pas une variable de cette gate — c'est un banc
+ *   qui a inventé un nom, exactement la faute que ce helper existe pour rendre
+ *   visible.
+ */
+export function gateValue(gate: EnvGate, name: string): string | undefined {
+  const attendues = gateEnv(gate);
+  if (!attendues.includes(name)) {
+    throw new Error(
+      `${name} n'est pas une variable de « ${gate.label} » ` +
+        `(attendues : ${attendues.join(", ")}). Un banc ne choisit pas le nom ` +
+        `de son décor : il le tient de la gate qui le contrôle.`,
+    );
+  }
+  const value = (process.env[name] ?? "").trim();
+  return value === "" ? undefined : value;
 }
 
 /** Commande docker qui démarre la cible, ou `null` si elle n'a pas de service. */
@@ -282,8 +321,8 @@ export const MYSQL_COMMUNITY_GATE: EnvGate = {
 };
 
 /**
- * Redis exige **deux** variables : `REDIS_URL` (bancs de pagination) et
- * `REDIS_TEST_URL` (banc comportemental, sur un index dédié pour ne pas polluer
+ * Redis exige **deux** variables : `NF_REDIS_URL` (bancs de pagination) et
+ * `NF_REDIS_TEST_URL` (banc comportemental, sur un index dédié pour ne pas polluer
  * la base de travail). Les deux portent le mot de passe — le serveur du compose
  * tourne en `requirepass`, et sans lui la connexion échoue en `NOAUTH`.
  */
@@ -294,10 +333,10 @@ export const REDIS_GATE: EnvGate = {
     const pass = fromCompose("REDIS_PASSWORD", "nodefony-dev");
     const port = fromCompose("REDIS_PORT", "6379");
     return {
-      REDIS_URL: `redis://:${pass}@127.0.0.1:${port}`,
+      NF_REDIS_URL: `redis://:${pass}@127.0.0.1:${port}`,
       // Index dédié : le banc comportemental purge sa base, il ne doit pas
       // emporter celle des bancs de pagination.
-      REDIS_TEST_URL: `redis://:${pass}@127.0.0.1:${port}/15`,
+      NF_REDIS_TEST_URL: `redis://:${pass}@127.0.0.1:${port}/15`,
     };
   },
 };
@@ -307,7 +346,7 @@ export const REDIS_GATE: EnvGate = {
  * refuse toute session transactionnelle, et les bancs qui prouvent l'atomicité
  * échoueraient sur une erreur qui ne parle pas du décor.
  *
- * Particularité de cette cible : à défaut de `MONGO_TEST_URI`, la suite tente de
+ * Particularité de cette cible : à défaut de `NF_MONGO_TEST_URI`, la suite tente de
  * télécharger et lancer un `mongod` éphémère. Quand ça échoue (hors ligne, binaire
  * absent), elle **skippe sans rien casser** — 146 tests peuvent rester muets
  * derrière un vert. D'où cette gate : nommer la cible non exercée est le seul
@@ -317,7 +356,7 @@ export const MONGO_GATE: EnvGate = {
   label: "MongoDB (replica set)",
   service: { name: "mongo", profile: "mongo" },
   values: () => ({
-    MONGO_TEST_URI:
+    NF_MONGO_TEST_URI:
       `mongodb://127.0.0.1:${fromCompose("MONGO_PORT", "27017")}` +
       `/?replicaSet=${fromCompose("MONGO_REPLSET", "rs0")}`,
   }),
@@ -411,7 +450,7 @@ function isBlank(name: string): boolean {
 export interface GateExpectation {
   /** Décor d'infra requis — ses variables doivent être posées. */
   gate?: EnvGate;
-  /** Interrupteur de coût requis (nom de la variable, ex. `"RUN_CLUSTER_E2E"`). */
+  /** Interrupteur de coût requis (nom de la variable, ex. `"NF_RUN_CLUSTER_E2E"`). */
   switch?: string;
   /** Étiquette lisible ; par défaut celle de la gate ou le nom de l'interrupteur. */
   label?: string;
@@ -620,7 +659,7 @@ export function gateReporter(
             ? `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`
             : `\n\x1b[32m✔ Attentes tenues${names ? ` : ${names}` : ""}.\x1b[0m`;
         // L'infra n'est qu'une des deux façons de rester muet. Des tests peuvent
-        // dormir derrière un INTERRUPTEUR DE COÛT (`RUN_PERF`, `RUN_CLUSTER_E2E`…),
+        // dormir derrière un INTERRUPTEUR DE COÛT (`NF_RUN_PERF`, `NF_RUN_CLUSTER_E2E`…),
         // fermé à raison mais dont le silence ressemble trait pour trait à une
         // suite complète. Annoncer « toutes exercées » en laissant N tests sautés
         // sans un mot, c'est signer un vert qu'on n'a pas gagné.

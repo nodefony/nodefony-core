@@ -428,16 +428,25 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
  * Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération).
  *
  * Ordre de vérité, du plus fiable au moins fiable :
- *  1. `NODEFONY_DEV_PORTS` — override explicite de l'opérateur, il gagne toujours ;
+ *  1. `NF_DEV_PORTS` — override explicite de l'opérateur, il gagne toujours ;
  *  2. le **state file runtime** — ce que le serveur écoute VRAIMENT (seule source
  *     exacte quand `portPolicy: "auto"` a décalé l'écoute) ;
- *  3. `[5151, 5152]` — la convention historique, quand rien ne tourne encore
- *     (cas du tout premier boot : personne n'a pu publier quoi que ce soit).
+ *  3. `NF_PORT` / `NF_PORT_HTTPS` — ce que l'application DÉCLARE. L'alias
+ *     plateforme `PORT` (Cloud Run, Heroku) n'est PAS lu ici : il appartient au
+ *     gabarit d'application, qui choisit de l'accepter, pas au framework — le
+ *     lire depuis le cœur ferait précisément la collision que le préfixe `NF_`
+ *     existe pour empêcher (un `PORT` posé pour un autre outil détournerait la
+ *     sonde). Sans cette marche, une application qui tourne ailleurs que sur la
+ *     convention était jugée sur les ports d'un projet VOISIN : `check` rendait
+ *     « port déjà tenu » sur du code parfait dès qu'un autre serveur tournait
+ *     sur le poste, et le verdict devenait dépendant de la machine ;
+ *  4. `[5151, 5152]` — la convention historique, quand rien n'est déclaré ni ne
+ *     tourne (cas du tout premier boot : personne n'a pu publier quoi que ce soit).
  *
  * @param cwd - racine du projet (le state file est par projet).
  */
 export function defaultDevPorts(cwd: string = process.cwd()): number[] {
-  const env = process.env.NODEFONY_DEV_PORTS;
+  const env = process.env.NF_DEV_PORTS;
   if (env) {
     const parsed = env
       .split(",")
@@ -447,6 +456,12 @@ export function defaultDevPorts(cwd: string = process.cwd()): number[] {
   }
   const state = readRuntimeState(cwd);
   if (state && state.ports.length > 0) return [...state.ports];
+  // Ce que l'application DÉCLARE. On ne sonde QUE ce qui est déclaré : compléter
+  // avec un port par défaut reviendrait à surveiller celui d'un voisin.
+  const declares = [process.env.NF_PORT, process.env.NF_PORT_HTTPS]
+    .map((v) => Number.parseInt(String(v ?? ""), 10))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  if (declares.length > 0) return declares;
   return [...FALLBACK_DEV_PORTS];
 }
 
@@ -981,6 +996,14 @@ export function formatForeignRuntimes(
   lines.push("", "  pour les arrêter :");
   for (const project of byProject.keys()) {
     if (!project.startsWith("(")) {
+      // 🔴 La voie CIBLÉE d'abord — celle qui n'arrête QUE ce projet et
+      // n'oblige pas à changer de répertoire. Vécu : ce bloc ne proposait que
+      // `cd <projet> && nodefony stop` et `--all` ; un agent dont le répertoire
+      // courant est sa PROPRE application ne peut pas prendre la première, et a
+      // pris la seconde — il a arrêté le serveur du développeur pour débloquer
+      // son contrôle. Un geste trans-projets ne se propose jamais avant le
+      // geste borné qui fait le travail.
+      lines.push(`    nodefony stop ${path.basename(project)}`);
       lines.push(`    cd ${project} && nodefony stop`);
     }
   }

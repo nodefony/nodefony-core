@@ -20,6 +20,15 @@ export { default as Cli } from "./Cli";
 export { default as clc } from "./colors";
 export type { ColorFn, Clc } from "./colors";
 export { SysExit } from "./cli/sysexits";
+export { askPasswordMasked } from "./cli/promptPassword";
+// La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
+// framework (modules, bancs, outillage) qui la subissent autant que lui.
+export { besoinDeShell } from "./cli/execPortable";
+// Rendu de la page de manuel, publié parce qu'une APPLICATION en a l'usage :
+// ses commandes de module ne peuvent figurer dans la page du framework, et
+// elle seule peut donc rendre la sienne. Publier la fonction évite qu'un
+// projet réécrive un générateur roff à côté du nôtre.
+export { renderManPage, escapeRoff, MAN_PAGE_NAME } from "./cli/manPage";
 export { default as Command } from "./command/Command";
 export { default as Builder } from "./command/Builder";
 
@@ -381,14 +390,59 @@ export type {
 export {
   INSPECT_SUBJECTS,
   readAdminSubject,
+  callAdminEndpoint,
   unwrapAdminResult,
 } from "./kernel/inspect/adminSubjects";
 export type {
   IInspectSubject,
   IAdminBrokerLike,
+  IAdminCall,
   InspectFailure,
   InspectResult,
 } from "./kernel/inspect/adminSubjects";
+
+// Porte UNIQUE d'exécution du plan d'administration : RBAC, porte d'idempotence
+// éventuelle, handler, normalisation. La route HTTP (framework), le pont WS-RPC,
+// la commande `inspect` et le serveur MCP l'appellent tous — ils ne diffèrent
+// que par la RÉSOLUTION de l'endpoint et par l'emballage de l'issue.
+export {
+  executeAdminEndpoint,
+  normalizeAdminResult,
+} from "./kernel/adminPlane/executeAdmin";
+export type {
+  IAdminExecution,
+  IAdminExecuteInput,
+  IAdminGateVerdict,
+  AdminGate,
+} from "./kernel/adminPlane/executeAdmin";
+export {
+  isAdminGranted,
+  resolveAdminRole,
+  ADMIN_DEFAULT_ROLE,
+} from "./kernel/adminPlane/adminRbac";
+// L'identité que chaque porte PRÉSENTE au plan d'administration — elle se
+// passe, elle ne se fabrique pas.
+export {
+  localOperatorCaller,
+  rolesFromScopes,
+  refusedAdminScopes,
+  ADMIN_SCOPE_READ,
+  ADMIN_SCOPE_WRITE,
+} from "./kernel/adminPlane/adminCaller";
+export type { IAdminCaller } from "./kernel/adminPlane/adminCaller";
+// La règle « que vaut un appelant sur une porte MCP » — UNE implémentation,
+// partagée par la porte du module de développement et par toute porte qu'un
+// module créera plus tard.
+export { mcpCallerRoles } from "./mcp/caller";
+export type { IMcpGatePosture } from "./mcp/caller";
+// Découpe d'un markdown par ses titres — le plan d'une page de documentation,
+// puis une section. Partagée par le serveur MCP (cœur) et le plan
+// d'administration (framework) : une page de 80 ko ne se rend pas entière.
+export {
+  outlineMarkdown,
+  extractMarkdownSection,
+} from "./kernel/inspect/docOutline";
+export type { IMarkdownSection } from "./kernel/inspect/docOutline";
 export type {
   IIdempotencyStore,
   IIdempotencyKeyEntry,
@@ -501,6 +555,13 @@ export {
   // hors du cœur (Vite et son service esbuild) : la recopier ailleurs ferait
   // réapparaître, dans le paquet suivant, l'angle mort qu'on vient de fermer ici.
   signalProcessGroup,
+  // Sonde « quelqu'un écoute-t-il ici ? » — une connexion en boucle locale, donc
+  // AUCUN outil système. Exposée pour la même raison que le kill d'arbre : hors du
+  // cœur, la question se repose (un banc qui attend un serveur, une app qui vérifie
+  // qu'un port est rendu), et la réponse improvisée est toujours `lsof` — qui
+  // n'existe pas sous Windows et fait conclure « personne n'écoute » là où le
+  // serveur écoute très bien.
+  isPortListening,
 } from "./service/dev/devProcess";
 export type {
   DevProcessInfo,
@@ -517,6 +578,9 @@ export type {
 // futur data plane Studio (`GET spec` en JSON → formulaire → `POST run`). La
 // spec est 100 % JSON-able ; runScaffold n'a aucune I/O terminal.
 export { getScaffoldSpec } from "./cli/scaffold/spec";
+// Le câblage des agents choisis à la création : UNE construction d'appel, servie
+// au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
+export { argvCablageMcp, planCablageMcp } from "./cli/create";
 export type {
   IScaffoldQuestion,
   IScaffoldTypeSpec,
@@ -623,7 +687,8 @@ export type {
 // qui ne se voient pas la partagent (les authentificateurs de `@nodefony/security`
 // et la porte MCP). Une copie n'aurait pas divergé bruyamment : elle aurait
 // divergé sur un cas limite que chaque copie continue de passer.
-export { bearerToken } from "./runtime/bearer";
+export { bearerToken, readBearerHeader } from "./runtime/bearer";
+export type { BearerHeader } from "./runtime/bearer";
 
 // ─── Rôle SERVEUR D'AUTORISATION OAuth (RFC 8414) — les DEUX faces ────────────
 // Lire les métadonnées d'un émetteur tiers (pour découvrir ses clés) et publier
@@ -684,7 +749,9 @@ export type { GuardVerdict, IGuardInput, IGuardPolicy } from "./mcp/guard";
 export {
   mcpText,
   builtinMcpTools,
+  declareMcpTools,
   collectMcpTools,
+  mcpDeclaredScopes,
   publishMcpTools,
   callMcpTool,
   BUILTIN_MCP_TOOL_KEYS,
@@ -695,6 +762,7 @@ export type {
   IMcpToolResult,
   IMcpToolDeps,
   IMcpCaller,
+  IMcpDeclareOptions,
   IMcpCollectOptions,
   BuiltinMcpToolKey,
 } from "./mcp/tools";
@@ -716,6 +784,47 @@ export type {
 } from "./cli/aiMcpReport";
 export { runAiMcpCommand, guessOrigin } from "./cli/aiMcp";
 
+// Les agents de développement — table UNIQUE. Elle vit dans le cœur parce que
+// `ai:mcp` et `create app` sont des commandes du cœur, et que `security:token`
+// (module `@nodefony/security`) doit servir EXACTEMENT les mêmes agents : deux
+// tables recopiées auraient divergé au premier agent ajouté d'un seul côté.
+export {
+  AGENT_TARGETS,
+  planAgentDeclaration,
+  renderPlanShell,
+  racineAgent,
+  poseVariable,
+  porteDejaLaCle,
+  agentsDemandes,
+  agentsPresents,
+  MCP_TOKEN_ENV,
+} from "./cli/agentTargets";
+export type {
+  IAgentTarget,
+  IDeclarationContexte,
+  IDeclarationPlan,
+  VoieDeclaration,
+} from "./cli/agentTargets";
+
+// Hooks git natifs — composition PURE (contenu des hooks, plan, refus) et son
+// adaptateur (`nodefony git:hooks`) : core.hooksPath, zéro dépendance.
+export {
+  GIT_HOOKS_DIR,
+  GIT_HOOKS_MARKER,
+  GIT_HOOK_NAMES,
+  renderGitHook,
+  planGitHooks,
+  renderGitHooksPlan,
+} from "./cli/gitHooksReport";
+export type {
+  GitHookName,
+  GitHookAction,
+  HooksPathAction,
+  IPlannedGitHook,
+  IGitHooksPlan,
+} from "./cli/gitHooksReport";
+export { runGitHooksCommand, installGitHooks } from "./cli/gitHooks";
+
 // Diagnostic statique — la COLLECTE, séparée de son rendu, pour que la commande
 // `check` et le serveur MCP du devkit rendent le même document.
 export {
@@ -725,6 +834,12 @@ export {
 export type { ICheckReport } from "./kernel/checks/runCheck";
 
 export { buildCard, renderCard } from "./cli/cardReport";
+export {
+  chargePrompts,
+  demande,
+  ancreEventLoop,
+  type IPrompts,
+} from "./cli/prompts";
 export type {
   ICard,
   ICardAppInfo,

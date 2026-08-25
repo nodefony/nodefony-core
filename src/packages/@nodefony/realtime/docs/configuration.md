@@ -371,7 +371,7 @@ jamais instancié, donc zéro minuteur, zéro message IPC — et l'endpoint de s
 de l'instance courante.
 
 Deux leviers coupent la sonde, et **l'un ou l'autre suffit** : cette clé, ou la variable
-`NODEFONY_CLUSTER_PROBE=0` (`src/packages/@nodefony/realtime/index.ts:391`). C'est ce qui permet
+`NF_CLUSTER_PROBE=0` (`src/packages/@nodefony/realtime/index.ts:391`). C'est ce qui permet
 d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
 
 ### `slowConsumer.bytes` — un compteur, pas un frein
@@ -520,7 +520,7 @@ use("@nodefony/realtime", { backplane: { driver: "cluster" } });
 
 **Ce qui se passe.** Un worker Node ne peut parler qu'au maître. Il lui envoie ses publications, et le
 maître les redistribue aux autres workers. Le driver ne s'active qu'en **rôle worker** et avec la
-variable `NODEFONY_CLUSTER=1`, posée par la commande de cluster
+variable `NF_CLUSTER=1`, posée par la commande de cluster
 (`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs, il rend `null` et le hub reste local.
 
 **Pourquoi c'est précieux.** C'est le banc d'essai qui stabilise l'architecture multi-processus avant
@@ -663,9 +663,9 @@ processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fich
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | ce module              | remplace `backplane.namespace` — sépare deux déploiements de la même app   |
 | `NF_REALTIME_BACKPLANE_SECRET`    | ce module              | remplace `backplane.secret` — scelle le transport partagé (≥ 32 car.)      |
 | `NF__REALTIME__<CHEMIN>`          | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
-| `NODEFONY_CLUSTER`                | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
-| `NODEFONY_CLUSTER_PROBE`          | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
-| `POD_NAME`                        | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
+| `NF_CLUSTER`                      | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
+| `NF_CLUSTER_PROBE`                | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
+| `NF_POD_NAME`                     | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
 
 L'ordre de recouvrement, du plus faible au plus fort :
 
@@ -689,7 +689,7 @@ NF_REALTIME_DRIVER=redis
 NF__REALTIME__BACKPLANE__NAMESPACE=boutique.prod
 NF__REALTIME__LIMITS__MAXCHANNELSPERCONNECTION=64
 NF__REALTIME__CSRF__CHECKORIGIN__ALLOWLIST=https://a.example.com,https://b.example.com
-NODEFONY_CLUSTER_PROBE=0        # couper la sonde de pod sur une réplique en incident
+NF_CLUSTER_PROBE=0        # couper la sonde de pod sur une réplique en incident
 ```
 
 > [!TIP]
@@ -781,7 +781,7 @@ qui compte ici, c'est **ce que les suites prouvent sur la configuration**.
 > ```bash
 > cd src/packages/@nodefony/realtime
 > npm test                                              # unitaires + IPC entre workers
-> RUN_CLUSTER_E2E=1 REDIS_PASSWORD=nodefony-dev npm test # + le fan-out entre machines
+> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm test # + le fan-out entre machines
 > npm run coverage                                      # couverture (vitest, v8)
 > ```
 

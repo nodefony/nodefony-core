@@ -11,35 +11,35 @@ const fakeKernel = (environment: string): Kernel =>
   ({ environment }) as unknown as Kernel;
 
 describe("ormWiring — resolveOrmFlowEnabled (C5)", () => {
-  const saved = process.env.NODEFONY_ORM_FLOW;
+  const saved = process.env.NF_ORM_FLOW;
   afterEach(() => {
     if (saved === undefined) {
-      delete process.env.NODEFONY_ORM_FLOW;
+      delete process.env.NF_ORM_FLOW;
     } else {
-      process.env.NODEFONY_ORM_FLOW = saved;
+      process.env.NF_ORM_FLOW = saved;
     }
   });
 
   it("override env '1'/'true' → activé (même en production)", () => {
-    process.env.NODEFONY_ORM_FLOW = "1";
+    process.env.NF_ORM_FLOW = "1";
     assert.equal(resolveOrmFlowEnabled(fakeKernel("production")), true);
-    process.env.NODEFONY_ORM_FLOW = "true";
+    process.env.NF_ORM_FLOW = "true";
     assert.equal(resolveOrmFlowEnabled(fakeKernel("production")), true);
   });
 
   it("override env '0' → désactivé (même hors production)", () => {
-    process.env.NODEFONY_ORM_FLOW = "0";
+    process.env.NF_ORM_FLOW = "0";
     assert.equal(resolveOrmFlowEnabled(fakeKernel("dev")), false);
   });
 
   it("sans override : OFF en production, ON sinon", () => {
-    delete process.env.NODEFONY_ORM_FLOW;
+    delete process.env.NF_ORM_FLOW;
     assert.equal(resolveOrmFlowEnabled(fakeKernel("production")), false);
     assert.equal(resolveOrmFlowEnabled(fakeKernel("dev")), true);
   });
 
   it("sans override + kernel nullish → ON (≠ production)", () => {
-    delete process.env.NODEFONY_ORM_FLOW;
+    delete process.env.NF_ORM_FLOW;
     assert.equal(resolveOrmFlowEnabled(null), true);
     assert.equal(resolveOrmFlowEnabled(undefined), true);
   });

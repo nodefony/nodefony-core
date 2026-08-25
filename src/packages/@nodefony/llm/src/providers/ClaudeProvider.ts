@@ -2,27 +2,35 @@
 // Adapter Anthropic Claude API avec gestion fuites mémoire
 
 import type {
-  ILLMProvider, ILLMConfig, IMessage, ILLMResponse,
-  IStreamChunk, IChatOptions, LLMMode
+  ILLMProvider,
+  ILLMConfig,
+  IMessage,
+  ILLMResponse,
+  IStreamChunk,
+  IChatOptions,
+  LLMMode,
 } from "../interfaces/ILLMProvider.js";
 import {
-  LLMError, LLMRateLimitError, LLMTimeoutError,
-  LLMAbortError, LLMEmbedNotSupportedError
+  LLMError,
+  LLMRateLimitError,
+  LLMTimeoutError,
+  LLMAbortError,
+  LLMEmbedNotSupportedError,
 } from "../errors/LLMErrors.js";
 
 // Tarifs Claude Sonnet 4.6 (€/1M tokens — vérifier docs Anthropic)
-const COST_INPUT_EUR_PER_1M  = 2.70;
-const COST_OUTPUT_EUR_PER_1M = 13.50;
+const COST_INPUT_EUR_PER_1M = 2.7;
+const COST_OUTPUT_EUR_PER_1M = 13.5;
 
 export class ClaudeProvider implements ILLMProvider {
-  readonly name  = "claude" as const;
+  readonly name = "claude" as const;
   readonly model: string;
-  readonly mode:  LLMMode = "cloud";
+  readonly mode: LLMMode = "cloud";
 
-  private readonly apiKey:     string;
-  private readonly endpoint:   string;
-  private readonly maxTokens:  number;
-  private readonly timeout:    number;
+  private readonly apiKey: string;
+  private readonly endpoint: string;
+  private readonly maxTokens: number;
+  private readonly timeout: number;
   private readonly maxRetries: number;
 
   // Cleanup mémoire — toutes les requêtes en cours
@@ -33,27 +41,37 @@ export class ClaudeProvider implements ILLMProvider {
     if (!config.apiKey || config.apiKey.trim() === "") {
       throw new LLMError("Claude API key required", "MISSING_API_KEY");
     }
-    this.apiKey     = config.apiKey;
-    this.model      = config.model     ?? "claude-sonnet-4-6";
-    this.endpoint   = config.endpoint  ?? "https://api.anthropic.com";
-    this.maxTokens  = config.maxTokens ?? 4096;
-    this.timeout    = config.timeout   ?? 60_000;
+    this.apiKey = config.apiKey;
+    this.model = config.model ?? "claude-sonnet-4-6";
+    this.endpoint = config.endpoint ?? "https://api.anthropic.com";
+    this.maxTokens = config.maxTokens ?? 4096;
+    this.timeout = config.timeout ?? 60_000;
     this.maxRetries = config.maxRetries ?? 3;
   }
 
-  async chat(messages: IMessage[], options?: IChatOptions): Promise<ILLMResponse> {
+  async chat(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): Promise<ILLMResponse> {
     this.assertReady();
     const body = this.buildRequestBody(messages, options);
     const response = await this.fetchWithTimeout(
       `${this.endpoint}/v1/messages`,
-      { method: "POST", headers: this.headers(), body: JSON.stringify({ ...body, stream: false }) },
-      options?.signal
+      {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({ ...body, stream: false }),
+      },
+      options?.signal,
     );
-    const data = await response.json() as ClaudeAPIResponse;
+    const data = (await response.json()) as ClaudeAPIResponse;
     return this.parseResponse(data);
   }
 
-  async *stream(messages: IMessage[], options?: IChatOptions): AsyncGenerator<IStreamChunk> {
+  async *stream(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): AsyncGenerator<IStreamChunk> {
     this.assertReady();
 
     const controller = new AbortController();
@@ -70,11 +88,16 @@ export class ClaudeProvider implements ILLMProvider {
       const body = this.buildRequestBody(messages, options);
       const response = await this.fetchWithTimeout(
         `${this.endpoint}/v1/messages`,
-        { method: "POST", headers: this.headers(), body: JSON.stringify({ ...body, stream: true }) },
-        controller.signal
+        {
+          method: "POST",
+          headers: this.headers(),
+          body: JSON.stringify({ ...body, stream: true }),
+        },
+        controller.signal,
       );
 
-      if (!response.body) throw new LLMError("No response body", "STREAM_ERROR");
+      if (!response.body)
+        throw new LLMError("No response body", "STREAM_ERROR");
 
       reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -103,12 +126,14 @@ export class ClaudeProvider implements ILLMProvider {
                 type: "done",
                 content: "",
                 usage: this.calcUsage(
-                  event.usage.input_tokens  ?? 0,
-                  event.usage.output_tokens ?? 0
+                  event.usage.input_tokens ?? 0,
+                  event.usage.output_tokens ?? 0,
                 ),
               };
             }
-          } catch { /* ligne non-JSON — ignorer */ }
+          } catch {
+            /* ligne non-JSON — ignorer */
+          }
         }
       }
     } catch (err) {
@@ -119,7 +144,11 @@ export class ClaudeProvider implements ILLMProvider {
     } finally {
       // Cleanup garanti même en cas d'erreur ou d'abort
       if (reader) {
-        try { reader.releaseLock(); } catch { /* déjà libéré */ }
+        try {
+          reader.releaseLock();
+        } catch {
+          /* déjà libéré */
+        }
       }
       if (externalSignal) externalSignal.removeEventListener("abort", onAbort);
       this.activeControllers.delete(controller);
@@ -136,12 +165,12 @@ export class ClaudeProvider implements ILLMProvider {
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       const response = await fetch(`${this.endpoint}/v1/messages`, {
-        method:  "POST",
+        method: "POST",
         headers: this.headers(),
         body: JSON.stringify({
-          model:      this.model,
+          model: this.model,
           max_tokens: 1,
-          messages:   [{ role: "user", content: "ping" }],
+          messages: [{ role: "user", content: "ping" }],
         }),
         signal: controller.signal,
       });
@@ -156,7 +185,11 @@ export class ClaudeProvider implements ILLMProvider {
   async shutdown(): Promise<void> {
     this.isShutdown = true;
     for (const controller of this.activeControllers) {
-      try { controller.abort(); } catch { /* déjà aborté */ }
+      try {
+        controller.abort();
+      } catch {
+        /* déjà aborté */
+      }
     }
     this.activeControllers.clear();
   }
@@ -171,26 +204,27 @@ export class ClaudeProvider implements ILLMProvider {
 
   private headers(): Record<string, string> {
     return {
-      "Content-Type":      "application/json",
-      "x-api-key":         this.apiKey,
+      "Content-Type": "application/json",
+      "x-api-key": this.apiKey,
       "anthropic-version": "2023-06-01",
     };
   }
 
   private buildRequestBody(messages: IMessage[], options?: IChatOptions) {
     const body: Record<string, unknown> = {
-      model:      this.model,
+      model: this.model,
       max_tokens: options?.maxTokens ?? this.maxTokens,
-      messages:   messages.filter(m => m.role !== "system"),
+      messages: messages.filter((m) => m.role !== "system"),
     };
 
-    const sysContent = messages.find(m => m.role === "system")?.content;
+    const sysContent = messages.find((m) => m.role === "system")?.content;
     const finalSystem = options?.context
       ? `${sysContent ?? ""}\n\n<context>\n${options.context}\n</context>`.trim()
       : sysContent;
 
     if (finalSystem) body.system = finalSystem;
-    if (options?.temperature !== undefined) body.temperature = options.temperature;
+    if (options?.temperature !== undefined)
+      body.temperature = options.temperature;
     if (options?.tools?.length) body.tools = options.tools;
 
     return body;
@@ -198,10 +232,11 @@ export class ClaudeProvider implements ILLMProvider {
 
   private parseResponse(data: ClaudeAPIResponse): ILLMResponse {
     return {
-      content:    data.content[0]?.text ?? "",
-      model:      data.model,
-      usage:      this.calcUsage(data.usage.input_tokens, data.usage.output_tokens),
-      stopReason: (data.stop_reason as ILLMResponse["stopReason"]) ?? "end_turn",
+      content: data.content[0]?.text ?? "",
+      model: data.model,
+      usage: this.calcUsage(data.usage.input_tokens, data.usage.output_tokens),
+      stopReason:
+        (data.stop_reason as ILLMResponse["stopReason"]) ?? "end_turn",
     };
   }
 
@@ -210,23 +245,23 @@ export class ClaudeProvider implements ILLMProvider {
       inputTokens,
       outputTokens,
       totalTokens: inputTokens + outputTokens,
-      costEur: (
-        (inputTokens  / 1_000_000) * COST_INPUT_EUR_PER_1M +
-        (outputTokens / 1_000_000) * COST_OUTPUT_EUR_PER_1M
-      ),
+      costEur:
+        (inputTokens / 1_000_000) * COST_INPUT_EUR_PER_1M +
+        (outputTokens / 1_000_000) * COST_OUTPUT_EUR_PER_1M,
     };
   }
 
   private async fetchWithTimeout(
     url: string,
     init: RequestInit,
-    externalSignal?: AbortSignal
+    externalSignal?: AbortSignal,
   ): Promise<Response> {
     const controller = new AbortController();
     this.activeControllers.add(controller);
 
     const onExternalAbort = () => controller.abort();
-    if (externalSignal) externalSignal.addEventListener("abort", onExternalAbort);
+    if (externalSignal)
+      externalSignal.addEventListener("abort", onExternalAbort);
 
     const timeoutHandle = setTimeout(() => controller.abort(), this.timeout);
 
@@ -235,10 +270,16 @@ export class ClaudeProvider implements ILLMProvider {
 
       for (let attempt = 0; attempt < this.maxRetries; attempt++) {
         try {
-          const response = await fetch(url, { ...init, signal: controller.signal });
+          const response = await fetch(url, {
+            ...init,
+            signal: controller.signal,
+          });
 
           if (response.status === 429) {
-            const retryAfter = parseInt(response.headers.get("retry-after") ?? "5", 10);
+            const retryAfter = parseInt(
+              response.headers.get("retry-after") ?? "5",
+              10,
+            );
             if (attempt < this.maxRetries - 1) {
               await this.delay(retryAfter * 1000);
               continue;
@@ -247,13 +288,13 @@ export class ClaudeProvider implements ILLMProvider {
           }
 
           if (!response.ok) {
-            const errBody = await response.json().catch(() => ({})) as {
-              error?: { message?: string }
+            const errBody = (await response.json().catch(() => ({}))) as {
+              error?: { message?: string };
             };
             throw new LLMError(
               errBody?.error?.message ?? `Claude API error ${response.status}`,
               "API_ERROR",
-              { status: response.status }
+              { status: response.status },
             );
           }
 
@@ -276,27 +317,28 @@ export class ClaudeProvider implements ILLMProvider {
       throw lastError ?? new LLMError("Max retries exceeded", "MAX_RETRIES");
     } finally {
       clearTimeout(timeoutHandle);
-      if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
+      if (externalSignal)
+        externalSignal.removeEventListener("abort", onExternalAbort);
       this.activeControllers.delete(controller);
     }
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
 // ── Types Anthropic API ──────────────────────────────────────────────────────
 
 interface ClaudeAPIResponse {
-  content:     { text: string }[];
-  model:       string;
+  content: { text: string }[];
+  model: string;
   stop_reason: string;
-  usage:       { input_tokens: number; output_tokens: number };
+  usage: { input_tokens: number; output_tokens: number };
 }
 
 interface ClaudeStreamEvent {
-  type:   string;
+  type: string;
   delta?: { text?: string };
   usage?: { input_tokens?: number; output_tokens?: number };
 }

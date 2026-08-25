@@ -8,6 +8,11 @@ import {
   DELEGATED_ENV,
   type TLocalCliDecision,
 } from "./resolveLocalCli";
+// Import STATIQUE, et c'est voulu : le bin est bundlé en fichier UNIQUE, donc
+// un import dynamique y créerait un second chunk (le bundler refuse). Ces deux
+// fonctions ne tirent que `node:fs`/`node:path` — le coût est nul, et le TAB
+// répond sans jamais charger le core.
+import { readCliManifest, computeCompletions } from "../cli/completion";
 
 /**
  * Détecte l'environment EN AMONT de `new CliKernel()` en scannant `process.argv`.
@@ -28,7 +33,12 @@ function detectEnvironmentFromArgv(
 ): EnvironmentType | undefined {
   for (const a of argv) {
     if (a === "development" || a === "dev") return "development";
-    if (a === "production" || a === "prod") return "production";
+    // `start` est un ALIAS de `production` (`ProdCommand.alias("start")`) : sans
+    // lui, `nodefony start` n'exprimait AUCUNE intention et ne devait son mode
+    // qu'au défaut de classe du Kernel. Il tombait du bon côté par accident —
+    // un accident qui disparaît le jour où ce défaut change, c'est-à-dire
+    // aujourd'hui. Un alias qui lance un serveur DOIT être détecté ici.
+    if (a === "production" || a === "prod" || a === "start") return "production";
     // `cluster` est un runtime PROD (master + workers). Sans cette détection,
     // l'unique Kernel naissait en `development` (env non résolu au constructeur)
     // alors que les workers tournent en production → env incohérent.
@@ -38,9 +48,19 @@ function detectEnvironmentFromArgv(
 }
 
 /**
- * Résout le **mode runtime** (dev/prod) AVANT le kernel, façon 12-factor : `NODE_ENV`
- * (ambient, posé par l'orchestrateur cloud) PRIME sur l'intention de la commande
- * (argv). Miroir pur de `Kernel.resolveRuntimeEnv`, mais sans instance (le bin tourne
+ * Résout le **mode runtime** (dev/prod) AVANT le kernel : `NODE_ENV` (ambiant)
+ * PRIME sur l'intention de la commande (argv).
+ *
+ * ⚠️ **Ce n'est pas « le 12-factor » qui l'impose, et l'écrire était faux.** Sa
+ * section *Config* REJETTE au contraire les groupes d'environnement : « In a
+ * twelve-factor app, env vars are granular controls […] They are never grouped
+ * together as "environments" ». `NODE_ENV` est précisément ce qu'elle
+ * déconseille. Ce qui relève d'elle ici est la seule PRÉCÉDENCE — la
+ * configuration ambiante l'emporte sur ce que la commande croit savoir.
+ *
+ * Ce qui garantit le mode en production est FACTUEL : Node.js le recommande
+ * (« Always run your Node.js with NODE_ENV=production set »), l'image générée
+ * pose `ENV NODE_ENV=production`, et les lanceurs déclarent leur intention. Miroir pur de `Kernel.resolveRuntimeEnv`, mais sans instance (le bin tourne
  * avant `new CliKernel()`) et autorisé à rendre `undefined` (aucun `.env.<env>` chargé
  * si ni NODE_ENV ni commande connue — ex. `nodefony frontend:build` hors contexte env).
  */
@@ -51,7 +71,7 @@ function resolveRuntimeEnv(argv: string[]): EnvironmentType | undefined {
   return detectEnvironmentFromArgv(argv);
 }
 
-/** Trace la décision du lanceur (opt-in `NODEFONY_CLI_DEBUG=1`, jamais par défaut). */
+/** Trace la décision du lanceur (opt-in `NF_CLI_DEBUG=1`, jamais par défaut). */
 function traceDecision(decision: TLocalCliDecision, selfDir: string): void {
   if (!process.env[DEBUG_ENV]) return;
   const target =
@@ -65,11 +85,42 @@ function traceDecision(decision: TLocalCliDecision, selfDir: string): void {
  * (sinon deux frameworks en mémoire, et le coût de boot payé deux fois).
  */
 async function runSelf(): Promise<unknown> {
+  // ─── TAB : répondre sans rien charger de plus qu'un lecteur de JSON ────────
+  // Un TAB doit être IMPERCEPTIBLE. Le fast-path `__complete` vivait dans
+  // `CliKernel.start()` — donc APRÈS l'import du core entier, la lecture des
+  // `.env` et la construction d'un CliKernel. Mesuré : 0,46 s par TAB, quand
+  // Node seul en coûte 0,11 — un demi-cycle de latence pour lire un fichier de
+  // 6 ko. Le manifest cache porte DÉJÀ les intégrées (il est extrait de
+  // commander après leur enregistrement) : quand il est là, rien d'autre n'est
+  // nécessaire.
+  //
+  // Absent ou illisible, on ne devine pas : on laisse le chemin normal
+  // reprendre la main, qui construira le repli des intégrées en mémoire. Le
+  // manifest étant réécrit par chaque commande, ce cas ne dure jamais.
+  if (process.argv[2] === "__complete") {
+    try {
+      const cached = readCliManifest(process.cwd());
+      if (cached) {
+        const sep = process.argv.indexOf("--");
+        const words = sep >= 0 ? process.argv.slice(sep + 1) : [];
+        const candidates = computeCompletions(cached, words);
+        if (candidates.length > 0) {
+          process.stdout.write(`${candidates.join("\n")}\n`);
+        }
+        // Une complétion sort TOUJOURS en 0 : un TAB qui échoue doit rendre une
+        // liste vide, jamais un message dans le terminal de l'utilisateur.
+        return exit(0);
+      }
+    } catch {
+      // On retombe sur le chemin normal — il sait faire sans cache.
+    }
+  }
+
   const { CliKernel, loadEnv } = await import("nodefony");
 
   const runtimeEnv = resolveRuntimeEnv(process.argv.slice(2));
   // Axe DÉPLOIEMENT (string libre : staging/canary/prod-eu…) — distinct du mode runtime.
-  const appEnv = process.env.APP_ENV ?? process.env.NODEFONY_ENV;
+  const appEnv = process.env.APP_ENV ?? process.env.NF_ENV;
 
   // Canonise NODE_ENV tôt (idempotent si l'orchestrateur l'a déjà posé) : le mode
   // runtime ne vit PLUS dans un `.env` committé (conv B + piège Next : un déploiement

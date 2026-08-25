@@ -9,12 +9,7 @@
 
 /** Catégorie d'une valeur JSON — pilote la couleur et le rendu. */
 export type JsonKind =
-  | "string"
-  | "number"
-  | "boolean"
-  | "null"
-  | "object"
-  | "array";
+  "string" | "number" | "boolean" | "null" | "object" | "array";
 
 /** Classe une valeur en {@link JsonKind} (rapide, sans allocation). */
 export function jsonKind(v: unknown): JsonKind {

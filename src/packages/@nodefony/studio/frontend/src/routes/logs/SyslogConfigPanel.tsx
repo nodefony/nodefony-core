@@ -44,10 +44,7 @@ const urlDefined = (
   </Badge>
 );
 
-export function SyslogConfigPanel({
-  meta,
-  onChanged,
-}: SyslogConfigPanelProps) {
+export function SyslogConfigPanel({ meta, onChanged }: SyslogConfigPanelProps) {
   const store = useStore();
 
   // Switch du driver de RELECTURE — MÊME action que la Vue d'ensemble
@@ -182,11 +179,11 @@ export function SyslogConfigPanel({
             "Environnement d'exécution. Gouverne la visibilité du switch de lecture (dev-only).",
         },
         {
-          key: "NODEFONY_CLUSTER",
+          key: "NF_CLUSTER",
           type: "boolean",
           effective: code(meta.cluster?.isCluster ? "cluster" : "mono-process"),
           source: "runtime",
-          env: "NODEFONY_CLUSTER",
+          env: "NF_CLUSTER",
           mutability: "readonly",
           description:
             "Topologie : posé par le master au fork. En cluster → préférer « cluster-file ».",

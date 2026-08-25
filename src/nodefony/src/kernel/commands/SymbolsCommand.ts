@@ -3,6 +3,10 @@ import CliKernel from "../CliKernel";
 import { runSymbolsCommand } from "../../cli/symbols";
 
 const options: OptionsCommandInterface = {
+  // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
+  // vaut que pour une invocation directe) : sa sortie serait noyée sous le
+  // journal de cycle de vie.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -35,6 +39,10 @@ class Symbols extends Command {
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");
+    this.addOption(
+      "--cwd <path>",
+      "Point de départ (la racine de l'app est résolue en remontant)",
+    );
     this.addOption("-m, --module <nom>", "n'afficher qu'un paquet");
   }
 

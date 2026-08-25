@@ -24,9 +24,9 @@ import {
   createRedisServiceTransport,
 } from "../../src/backplane/RedisBackplane.js";
 
-const PASSWORD = process.env.REDIS_PASSWORD ?? "nodefony-dev";
-const HOST = process.env.REDIS_HOST ?? "localhost";
-const PORT = Number.parseInt(process.env.REDIS_PORT ?? "6379", 10);
+const PASSWORD = process.env.NF_REDIS_PASSWORD ?? "nodefony-dev";
+const HOST = process.env.NF_REDIS_HOST ?? "localhost";
+const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
 // Canal Redis partagé pour ce run (le master le passe via env pour isoler les runs).
 const RT_CHANNEL = process.env.NF_RT_CHANNEL ?? "nodefony:rt:e2e";
 

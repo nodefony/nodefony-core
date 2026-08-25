@@ -10,8 +10,8 @@ export class SentenceChunker implements IChunker {
     // Split par phrase — gère ., ?, !
     const sentences = text
       .split(/(?<=[.?!])\s+(?=[A-ZÉÈÊÀÙÔÎÏÇa-z])/)
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     const chunks: string[] = [];
     let current: string[] = [];

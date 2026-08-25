@@ -11,7 +11,7 @@ import { redisTestUrl } from "../helpers/redisTestUrl";
  * **Double backend, un seul fichier** :
  * - par défaut → `FakePaginatingRedis` (déterministe, SCAN qui pagine réellement
  *   par COUNT) → le banc tourne TOUJOURS (non-régression) ;
- * - avec `REDIS_TEST_URL` → **vrai serveur Redis** : la preuve que le `SCAN` réel
+ * - avec `NF_REDIS_TEST_URL` → **vrai serveur Redis** : la preuve que le `SCAN` réel
  *   (curseur RESP = string opaque) est câblé de bout en bout. Un double trop
  *   permissif a déjà masqué deux bugs sur les stores frères — le curseur passé en
  *   `number` (refusé par node-redis v6) et le débordement de page (`SCAN COUNT`

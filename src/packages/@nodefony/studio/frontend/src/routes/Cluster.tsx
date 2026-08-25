@@ -451,7 +451,7 @@ function WorkerCard({
                   sections={[
                     {
                       label: "Si 0",
-                      body: "La sonde de flux ORM est OFF (par défaut en production) — activer via NODEFONY_ORM_FLOW=1. Les erreurs/connecteurs restent comptés.",
+                      body: "La sonde de flux ORM est OFF (par défaut en production) — activer via NF_ORM_FLOW=1. Les erreurs/connecteurs restent comptés.",
                     },
                   ]}
                 />
@@ -818,7 +818,7 @@ export const Cluster = observer(() => {
                       },
                       {
                         label: "Si 0",
-                        body: "Flux ORM OFF (défaut prod) — NODEFONY_ORM_FLOW=1 pour compter les requêtes.",
+                        body: "Flux ORM OFF (défaut prod) — NF_ORM_FLOW=1 pour compter les requêtes.",
                       },
                     ]}
                   />

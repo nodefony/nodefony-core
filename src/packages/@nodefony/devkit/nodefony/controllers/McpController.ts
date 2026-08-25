@@ -14,11 +14,12 @@ import {
   authorizeProtectedResource,
   protectedResourceMetadataUrl,
   ACCESS_TOKEN_VERIFIER,
+  mcpCallerRoles,
+  readBearerHeader,
   JsonRpcError,
   jsonRpcFailure,
 } from "nodefony";
 import type {
-  IAdminBrokerLike,
   IJsonRpcMessage,
   IMcpCaller,
   IAccessTokenVerifier,
@@ -110,6 +111,25 @@ class McpController extends Controller {
   }
 
   /**
+   * L'en-tête porte-t-il un gabarit d'interpolation jamais substitué ?
+   *
+   * Un `.mcp.json` déclare son jeton par `${NF_MCP_TOKEN}` : le client
+   * développe la variable, ou transmet la chaîne telle quelle si elle manque.
+   * Le second cas ne se distingue d'un jeton invalide par AUCUN symptôme
+   * observable de l'extérieur, et c'est pourtant le plus fréquent des deux —
+   * une session lancée depuis un terminal où la variable n'était pas posée.
+   *
+   * @param header - la valeur brute de l'en-tête `Authorization`
+   * @returns vrai si ce qui est présenté est resté un gabarit
+   */
+  #gabaritNonSubstitue(header: string | undefined): boolean {
+    const lu = readBearerHeader(header);
+    return (
+      lu.kind === "token" && lu.token.startsWith("${") && lu.token.endsWith("}")
+    );
+  }
+
+  /**
    * `POST /nodefony/mcp` — un message JSON-RPC entre, une réponse sort.
    *
    * Les trois statuts que rend cette route sont ceux que la spec impose, et pas
@@ -167,15 +187,37 @@ class McpController extends Controller {
     // scopes restent retenus — un appelant anonyme n'est pas une autorisation
     // implicite.
     const authz = settings.authorization;
-    let caller: IMcpCaller = { authenticated: false, scopes: [] };
+    // 🔴 La POSTURE se lit ici — seule la porte sait si elle est protégée —
+    // mais la RÈGLE qui en déduit les rôles vit au cœur (`mcpCallerRoles`),
+    // partagée avec toute porte MCP à venir. Sans serveur d'autorisation
+    // déclaré, cette porte accorde le rôle d'opérateur : sa protection est son
+    // PÉRIMÈTRE (module `policy: "dev"`, gardes d'origine et de localité
+    // ci-dessus), et la refuser ne fermerait rien — qui l'atteint lit déjà les
+    // sources — tout en rendant l'outillage inutile.
+    const gateProtected =
+      settings.authorization.authorizationServers.length > 0;
+    let caller: IMcpCaller = {
+      authenticated: false,
+      scopes: [],
+      roles: mcpCallerRoles({
+        protected: gateProtected,
+        authenticated: false,
+        scopes: [],
+      }),
+    };
 
-    if (authz.authorizationServers.length > 0) {
+    if (gateProtected) {
       const authVerdict = await authorizeProtectedResource(
         authorization,
         {
           resource: authz.resource,
+          acceptedResources: authz.additionalResources,
           metadataUrl: protectedResourceMetadataUrl(authz.resource),
-          scopes: authz.scopesSupported,
+          // Ce que la porte EXIGE, dérivé de ses outils — la MÊME source que
+          // le document RFC 9728 que ce défi fait lire. Deux listes auraient
+          // envoyé le client demander des scopes qu'on n'exige pas, ou taire
+          // ceux qu'on exige.
+          scopes: this.#service().declaredMcpScopes(),
           allowAnonymous: authz.anonymous,
         },
         this.#tokenVerifier(),
@@ -183,15 +225,22 @@ class McpController extends Controller {
 
       switch (authVerdict.outcome) {
         case "unverifiable":
-          // 🔴 La porte se DIT protégée et rien ne sait vérifier un jeton.
+          // 🔴 La porte se DIT protégée et le jeton n'a pas pu être jugé.
           // Servir reviendrait à accepter n'importe quel porteur ; se taire
           // laisserait croire à une protection qui n'existe pas. On refuse, et
-          // on crie — c'est une faute de configuration, pas une panne passagère.
+          // on crie. Deux causes, deux messages : rien n'est POSÉ (faute de
+          // configuration) ou la vérification a ÉCHOUÉ (panne). Les confondre
+          // envoyait chercher une clé manquante là où l'émetteur était
+          // simplement injoignable.
           this.log(
-            "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
-              "aucun service du conteneur ne sait vérifier un jeton " +
-              "(`accessTokenVerifier`). La porte refuse de servir : accepter les " +
-              "porteurs sans les valider serait pire que rester anonyme.",
+            authVerdict.why
+              ? "MCP — la vérification du jeton a ÉCHOUÉ, le jeton n'est donc " +
+                  "ni accepté ni refusé : la porte refuse de servir (503). " +
+                  `Cause — ${authVerdict.why}`
+              : "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
+                  "aucun service du conteneur ne sait vérifier un jeton " +
+                  "(`accessTokenVerifier`). La porte refuse de servir : accepter les " +
+                  "porteurs sans les valider serait pire que rester anonyme.",
             "CRITIC",
           );
           return this.renderJson(
@@ -203,6 +252,23 @@ class McpController extends Controller {
             503,
           );
         case "challenge":
+          // 🔴 Le refus le plus incompréhensible qui soit : un en-tête
+          // `Bearer ${…}` que personne n'a substitué. Le client CROIT présenter
+          // un jeton, la porte reçoit une chaîne illisible, et le seul symptôme
+          // est un serveur « failed » — alors que le même client, SANS en-tête,
+          // aurait obtenu les outils publics. La cause n'est pas devinable de
+          // l'extérieur : elle se DIT.
+          if (this.#gabaritNonSubstitue(authorization)) {
+            this.log(
+              "MCP — l'en-tête `Authorization` porte un GABARIT non substitué : " +
+                "la variable d'environnement du jeton n'est pas posée dans le " +
+                "process du client. Émettre le jeton (`nodefony security:token`) " +
+                "et le poser, ou rendre la porte anonyme pour ce client " +
+                "(`nodefony ai:mcp --no-auth`) — sans en-tête, les outils " +
+                "publics sont servis.",
+              "WARNING",
+            );
+          }
           // Le défi porte `resource_metadata` : c'est lui qui apprend au client
           // où obtenir un jeton. Sans cet en-tête, le refus serait un mur.
           return this.renderJson(
@@ -219,9 +285,47 @@ class McpController extends Controller {
             authenticated: true,
             scopes: authVerdict.principal.scopes,
             subject: authVerdict.principal.subject,
+            // Les rôles VIENNENT DU JETON. L'audience (RFC 8707) prouve que le
+            // jeton vise cette ressource ; elle ne dit rien de ce que son
+            // porteur a le droit d'y faire. Un jeton sans scope d'administration
+            // n'obtient donc aucun rôle — et se voit refuser, au lieu d'hériter
+            // d'un administrateur fabriqué.
+            roles: mcpCallerRoles({
+              protected: true,
+              authenticated: true,
+              scopes: authVerdict.principal.scopes,
+            }),
           };
           break;
         case "anonymous":
+          // 🔴 Un jeton PRÉSENTÉ et rejeté est servi en anonyme — mais jamais
+          // en silence. Sans cette ligne, un jeton expiré serait
+          // indistinguable d'une requête muette : l'agent perdrait ses outils
+          // réservés sans que rien n'en donne la raison, et un porteur refusé
+          // ne laisserait aucune trace. `WARNING`, pas `DEBUG` : c'est le
+          // symptôme d'un jeton à renouveler, ou d'une tentative.
+          if (authVerdict.rejected) {
+            this.log(
+              "MCP — jeton REJETÉ (expiré, mauvaise audience ou signature " +
+                "invalide) : la requête est servie en ANONYME, les outils " +
+                "réservés restent retenus. Renouveler le jeton " +
+                "(`nodefony security:token`) pour les retrouver.",
+              "WARNING",
+            );
+          }
+          // La porte a DÉCLARÉ une autorisation et tolère l'anonyme : lui
+          // accorder le rôle d'opérateur viderait cette déclaration de son
+          // sens. Il reste anonyme, donc sans rôle — c'est la règle qui le dit,
+          // pas cette ligne.
+          caller = {
+            authenticated: false,
+            scopes: [],
+            roles: mcpCallerRoles({
+              protected: true,
+              authenticated: false,
+              scopes: [],
+            }),
+          };
           break;
       }
     }
@@ -253,18 +357,10 @@ class McpController extends Controller {
         withheldCount += 1;
         this.log(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG");
       },
-      deps: {
-        // Le plan d'administration peut légitimement manquer (application sans
-        // `@nodefony/framework` monté) : les outils le DISENT alors, ils ne
-        // plantent pas.
-        broker: this.get<IAdminBrokerLike>("adminBroker") ?? undefined,
-        getCard: () => this.#service().getCard(),
-        // La racine de l'APPLICATION, pas `process.cwd()` : le serveur répond
-        // dans le process de l'app, dont le dossier courant n'est pas garanti
-        // être celui du projet — un diagnostic sur le mauvais dossier conclurait
-        // « rien à signaler » avec aplomb.
-        projectRoot: kernel?.path ?? process.cwd(),
-      },
+      // Composées par le SERVICE : les mêmes dépendances servent à dériver les
+      // scopes publiés, et deux compositions auraient fini par décrire deux
+      // applications.
+      deps: this.#service().mcpToolDeps(),
     });
 
     const reply = await handleMcpMessage(

@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-09",
+  "generatedAt": "2026-08-24",
   "count": 24,
   "conformant": 24,
   "skills": [
@@ -34,8 +34,8 @@
       ],
       "description": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"le thème sombre casse quelque chose ?\", \"quelles requêtes fait la page ?\", \"le temps réel arrive-t-il à l'écran ?\", \"teste le websocket\", \"quelle latence sur le socket ?\", \"la page déborde-t-elle sur mobile ?\".",
       "cost": {
-        "bodyLines": 367,
-        "approxTokens": 6224
+        "bodyLines": 416,
+        "approxTokens": 6742
       },
       "requires": [],
       "resources": {
@@ -100,7 +100,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "367",
+            "detail": "416",
             "advisory": true
           }
         ]
@@ -222,8 +222,8 @@
       ],
       "description": "Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation). Le CLAUDE.md donne la commande ; ce skill donne le protocole et l'interprétation — le charger AVANT de lancer la commande, pas après un résultat rouge. Déclencheurs : \"vérifier la mémoire\", \"memory leak\", \"test mémoire\", \"heap delta\", \"fuite mémoire\", \"gate mémoire\", \"j'ai touché au pipeline\", \"j'ai modifié le Kernel ou le Container\", \"je vais commiter une modif http/framework\", \"le seuil mémoire a sauté\", \"heap qui monte\".",
       "cost": {
-        "bodyLines": 83,
-        "approxTokens": 1308
+        "bodyLines": 84,
+        "approxTokens": 1169
       },
       "requires": [],
       "resources": {
@@ -282,7 +282,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "83",
+            "detail": "84",
             "advisory": true
           }
         ]
@@ -310,8 +310,8 @@
       ],
       "description": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps). Déclencheurs : \"crée un module frontend\", \"module react\", \"module vue\", \"module angular\", \"module svelte\", \"scaffold module avec front\", \"nouveau front nodefony\", \"module vite\".",
       "cost": {
-        "bodyLines": 249,
-        "approxTokens": 4060
+        "bodyLines": 250,
+        "approxTokens": 3761
       },
       "requires": [],
       "resources": {
@@ -373,7 +373,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "249",
+            "detail": "250",
             "advisory": true
           }
         ]
@@ -405,8 +405,8 @@
       ],
       "description": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au lieu de la réimplémenter (une seule source de templates). À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main produit un module non conforme (types, exports, config, docs) que rien ne signale. Déclencheurs : \"crée un module\", \"scaffold module\", \"nouveau module nodefony\", \"génère un module\", \"create module\", \"bootstrap module\", \"module @nodefony/...\", \"j'ai besoin d'un nouveau paquet\", \"ajouter un module au framework\", \"structure d'un module neuf\".",
       "cost": {
-        "bodyLines": 278,
-        "approxTokens": 5009
+        "bodyLines": 279,
+        "approxTokens": 4230
       },
       "requires": [],
       "resources": {
@@ -468,7 +468,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "278",
+            "detail": "279",
             "advisory": true
           }
         ]
@@ -513,8 +513,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 254,
-        "approxTokens": 4165
+        "bodyLines": 255,
+        "approxTokens": 4026
       },
       "requires": [],
       "resources": {
@@ -580,7 +580,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "254",
+            "detail": "255",
             "advisory": true
           }
         ]
@@ -599,8 +599,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 353,
-        "approxTokens": 5831
+        "bodyLines": 455,
+        "approxTokens": 8190
       },
       "requires": [
         "serveur UP",
@@ -610,11 +610,12 @@
       ],
       "resources": {
         "references": [
+          "agents-et-porte-mcp.md",
           "banc-decouvrabilite-lecons.md",
           "banc-schema-etudes-de-cas.md",
           "methode-de-mesure.md"
         ],
-        "referenceFilesTotal": 3,
+        "referenceFilesTotal": 4,
         "scripts": [
           {
             "path": "scripts/bench-discoverability.mjs",
@@ -622,11 +623,23 @@
             "usage": [],
             "options": [
               {
+                "flag": "--agent",
+                "help": ""
+              },
+              {
+                "flag": "--all",
+                "help": ""
+              },
+              {
                 "flag": "--allow-empty",
                 "help": ""
               },
               {
                 "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--auth",
                 "help": ""
               },
               {
@@ -706,6 +719,14 @@
                 "help": ""
               },
               {
+                "flag": "--max-time",
+                "help": ""
+              },
+              {
+                "flag": "--mcp-config",
+                "help": ""
+              },
+              {
                 "flag": "--model",
                 "help": ""
               },
@@ -774,6 +795,10 @@
                 "help": ""
               },
               {
+                "flag": "--scope",
+                "help": ""
+              },
+              {
                 "flag": "--selftest",
                 "help": ""
               },
@@ -786,11 +811,19 @@
                 "help": ""
               },
               {
+                "flag": "--strict-mcp-config",
+                "help": ""
+              },
+              {
                 "flag": "--task",
                 "help": ""
               },
               {
                 "flag": "--temoin-args",
+                "help": ""
+              },
+              {
+                "flag": "--ttl",
                 "help": ""
               },
               {
@@ -884,6 +917,14 @@
                 "help": ""
               },
               {
+                "name": "MCP_REGIME",
+                "help": ""
+              },
+              {
+                "name": "MCP_SERVER_NOM",
+                "help": ""
+              },
+              {
                 "name": "NF_DEVKIT_BENCH_AGENT",
                 "help": ""
               },
@@ -892,7 +933,19 @@
                 "help": ""
               },
               {
+                "name": "NF_DEVKIT_BENCH_MCP",
+                "help": ""
+              },
+              {
                 "name": "NF_DEVKIT_BENCH_MODEL",
+                "help": ""
+              },
+              {
+                "name": "NF_MCP_TOKEN",
+                "help": ""
+              },
+              {
+                "name": "NOM_APP_TEMOIN",
                 "help": ""
               },
               {
@@ -963,6 +1016,10 @@
             ],
             "options": [
               {
+                "flag": "--analyze-only",
+                "help": ""
+              },
+              {
                 "flag": "--describe-json",
                 "help": ""
               },
@@ -984,6 +1041,10 @@
               },
               {
                 "flag": "--kind",
+                "help": ""
+              },
+              {
+                "flag": "--no",
                 "help": ""
               },
               {
@@ -1189,6 +1250,15 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/jeton-mcp.selftest.mjs",
+            "purpose": "Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run,",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/reinit-decor.selftest.mjs",
             "purpose": "Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un",
             "usage": [
@@ -1215,6 +1285,10 @@
               "node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes"
             ],
             "options": [
+              {
+                "flag": "--auth",
+                "help": ""
+              },
               {
                 "flag": "--config",
                 "help": ""
@@ -1292,7 +1366,15 @@
                 "help": ""
               },
               {
+                "flag": "--scope",
+                "help": ""
+              },
+              {
                 "flag": "--service",
+                "help": ""
+              },
+              {
+                "flag": "--ttl",
                 "help": ""
               },
               {
@@ -1401,7 +1483,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "353",
+            "detail": "455",
             "advisory": true
           }
         ]
@@ -1413,21 +1495,24 @@
     },
     {
       "name": "nodefony-documentation",
-      "summary": "Kit de dev de la DOCUMENTATION Nodefony, deux faces.",
+      "summary": "Kit de dev de la DOCUMENTATION Nodefony, trois faces.",
       "family": "Développer le framework",
-      "version": "2.4.0",
+      "version": "3.0.0",
       "keywords": [
-        "@nodefony/documentation",
-        "scripts/"
+        "build-docs-site.mjs",
+        "publish",
+        "@nodefony/documentation"
       ],
       "triggers": [
+        "publier la doc",
+        "site de documentation",
+        "GitHub Pages",
+        "cette page doit-elle être publique ?",
+        "retirer une page du site",
+        "publish",
         "portail doc",
         "DocLayout",
-        "@nodefony/documentation",
         "MarkdownDoc",
-        "DocToc",
-        "page de documentation Studio",
-        "écrire la doc dans Studio",
         "écrire une page de doc",
         "doc de référence",
         "standard de rédaction",
@@ -1435,14 +1520,13 @@
         "anchor-check",
         "corpus doc",
         "reprendre la doc",
-        "avant de rédiger une doc",
         "la doc dit-elle encore vrai ?",
         "corriger un écart doc↔code"
       ],
-      "description": "Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module). Déclencheurs : \"portail doc\", \"DocLayout\", \"@nodefony/documentation\", \"MarkdownDoc\", \"DocToc\", \"page de documentation Studio\", \"écrire la doc dans Studio\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"avant de rédiger une doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
+      "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 459,
-        "approxTokens": 8004
+        "bodyLines": 469,
+        "approxTokens": 7783
       },
       "requires": [],
       "resources": {
@@ -1499,97 +1583,6 @@
             "selfDocumented": false
           },
           {
-            "path": "scripts/build-preview.mjs",
-            "purpose": "Tout est relatif au dossier de CE script (tmp/doc-corpus/_tools/) — plus aucun",
-            "usage": [],
-            "options": [
-              {
-                "flag": "--accent",
-                "help": ""
-              },
-              {
-                "flag": "--bg",
-                "help": ""
-              },
-              {
-                "flag": "--border",
-                "help": ""
-              },
-              {
-                "flag": "--brand",
-                "help": ""
-              },
-              {
-                "flag": "--code",
-                "help": ""
-              },
-              {
-                "flag": "--codefg",
-                "help": ""
-              },
-              {
-                "flag": "--fg",
-                "help": ""
-              },
-              {
-                "flag": "--muted",
-                "help": ""
-              },
-              {
-                "flag": "--no-save",
-                "help": ""
-              },
-              {
-                "flag": "--panel",
-                "help": ""
-              },
-              {
-                "flag": "--short",
-                "help": ""
-              },
-              {
-                "flag": "--show-current",
-                "help": ""
-              },
-              {
-                "flag": "--show-toplevel",
-                "help": ""
-              },
-              {
-                "flag": "--th",
-                "help": ""
-              }
-            ],
-            "env": [
-              {
-                "name": "GEN_DATE",
-                "help": ""
-              },
-              {
-                "name": "LOGO",
-                "help": ""
-              },
-              {
-                "name": "MMDC",
-                "help": ""
-              },
-              {
-                "name": "NF_BRANCH",
-                "help": ""
-              },
-              {
-                "name": "NF_COMMIT",
-                "help": ""
-              },
-              {
-                "name": "NF_VERSION",
-                "help": ""
-              }
-            ],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
             "path": "scripts/code-check.mjs",
             "purpose": "code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies).",
             "usage": [
@@ -1641,6 +1634,15 @@
             "env": [],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "lib/slug-heading.mjs",
+            "purpose": "Slug d'un titre de page — la SEULE implémentation côté Node.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },
@@ -1648,6 +1650,7 @@
         "nodefony-check-memory-health",
         "nodefony-create-module",
         "nodefony-framework-dev",
+        "nodefony-html-report",
         "nodefony-load-test",
         "nodefony-rfc",
         "nodefony-security-review",
@@ -1666,7 +1669,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "993",
+            "detail": "877",
             "advisory": false
           },
           {
@@ -1702,7 +1705,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "459",
+            "detail": "469",
             "advisory": true
           }
         ]
@@ -1744,7 +1747,7 @@
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
         "bodyLines": 357,
-        "approxTokens": 7643
+        "approxTokens": 7703
       },
       "requires": [],
       "resources": {
@@ -1760,7 +1763,7 @@
           "realtime.md",
           "security.md"
         ],
-        "referenceFilesTotal": 83,
+        "referenceFilesTotal": 85,
         "scripts": []
       },
       "related": [
@@ -1960,29 +1963,33 @@
     },
     {
       "name": "nodefony-html-report",
-      "summary": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
+      "summary": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés.",
       "family": "Références et livrables",
       "version": null,
       "keywords": [
-        "lib/report.mjs"
+        "lib/report.mjs",
+        "lib/echarts.mjs",
+        "lib/schemas.mjs"
       ],
       "triggers": [
         "rapport HTML",
-        "générer un rapport",
         "rapport imprimable",
-        "rapport PDF",
         "dashboard statique",
         "restituer des mesures",
-        "page de résultats",
-        "graphe sans dépendance",
+        "quel graphe choisir",
+        "diagramme de Sankey",
+        "boîtes à moustaches",
+        "deux axes",
+        "échelle d'un graphe",
+        "rendre un schéma mermaid",
         "calculateur interactif",
         "deck de présentation",
         "export CSV"
       ],
-      "description": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression, waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt que relu par un outil. Déclencheurs : \"rapport HTML\", \"générer un rapport\", \"rapport imprimable\", \"rapport PDF\", \"dashboard statique\", \"restituer des mesures\", \"page de résultats\", \"graphe sans dépendance\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
+      "description": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés, nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs, cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes de séquence mermaid sans toucher à leur source. Déclencheurs : \"rapport HTML\", \"rapport imprimable\", \"dashboard statique\", \"restituer des mesures\", \"quel graphe choisir\", \"diagramme de Sankey\", \"boîtes à moustaches\", \"deux axes\", \"échelle d'un graphe\", \"rendre un schéma mermaid\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
       "cost": {
-        "bodyLines": 198,
-        "approxTokens": 3438
+        "bodyLines": 354,
+        "approxTokens": 5278
       },
       "requires": [
         "redis",
@@ -1994,7 +2001,7 @@
           "html-vs-md.md",
           "print-pdf.md"
         ],
-        "referenceFilesTotal": 9,
+        "referenceFilesTotal": 13,
         "scripts": [
           {
             "path": "scripts/demo.mjs",
@@ -2018,8 +2025,58 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/echarts.selftest.mjs",
+            "purpose": "Auto-contrôle du moteur de graphes ECharts — les CONTRATS, pas l'esthétique.",
+            "usage": [
+              "node .claude/skills/nodefony-html-report/scripts/echarts.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/formats.selftest.mjs",
+            "purpose": "Auto-contrôle des FORMATS d'un rapport et du tri de ses tableaux.",
+            "usage": [
+              "node .claude/skills/nodefony-html-report/scripts/formats.selftest.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "lib/brand.mjs",
             "purpose": "brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs).",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "lib/echarts.mjs",
+            "purpose": "Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--muted",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "lib/report-echarts.mjs",
+            "purpose": "**Adaptateurs** — les fonctions de `report.mjs`, rendues par ECharts.",
             "usage": [],
             "options": [],
             "env": [],
@@ -2092,10 +2149,34 @@
             ],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "lib/schemas.mjs",
+            "purpose": "Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "HAUT",
+                "help": ""
+              },
+              {
+                "name": "MARGE",
+                "help": ""
+              },
+              {
+                "name": "POLICE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },
-      "related": [],
+      "related": [
+        "nodefony-documentation"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -2108,7 +2189,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "935",
+            "detail": "1000",
             "advisory": false
           },
           {
@@ -2144,7 +2225,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "198",
+            "detail": "354",
             "advisory": true
           }
         ]
@@ -2181,8 +2262,8 @@
       ],
       "description": "Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées, services enregistrés, config effective et provenance de chaque valeur) — mêmes valeurs que la console d'administration, sans ouvrir de port, ici comme dans une app. Donne aussi le diff propre. Ne crée rien (scaffolder → `nodefony-create-module`). Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"inspecter un module existant\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"symbols.json\".",
       "cost": {
-        "bodyLines": 258,
-        "approxTokens": 3812
+        "bodyLines": 259,
+        "approxTokens": 3669
       },
       "requires": [],
       "resources": {
@@ -2245,7 +2326,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "258",
+            "detail": "259",
             "advisory": true
           }
         ]
@@ -2279,8 +2360,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 330,
-        "approxTokens": 5407
+        "bodyLines": 359,
+        "approxTokens": 6011
       },
       "requires": [
         "serveur UP",
@@ -2329,6 +2410,10 @@
               "bash bench-ab-mono.sh <label> [KEY=VAL ...]"
             ],
             "options": [
+              {
+                "flag": "--latency",
+                "help": ""
+              },
               {
                 "flag": "--show-toplevel",
                 "help": ""
@@ -2918,6 +3003,15 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/kill-guard.sh",
+            "purpose": "Garde de mise à mort des bancs — À SOURCER, jamais à exécuter.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/log-sink-contention.mjs",
             "purpose": "Microbench ISOLÉ du driver de sink de log (LB.W / axe W2).",
             "usage": [
@@ -2972,6 +3066,10 @@
               "Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs [sortie.html]"
             ],
             "options": [
+              {
+                "flag": "--data",
+                "help": ""
+              },
               {
                 "flag": "--prove",
                 "help": ""
@@ -3047,6 +3145,51 @@
               }
             ],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/prod-readiness-report.mjs",
+            "purpose": "prod-readiness-report.mjs — « Nodefony peut-il partir en production ? »",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--data",
+                "help": ""
+              },
+              {
+                "flag": "--minutes",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--soak",
+                "help": ""
+              },
+              {
+                "flag": "--window",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "DATA",
+                "help": ""
+              },
+              {
+                "name": "OUT",
+                "help": ""
+              },
+              {
+                "name": "SOAK",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -3151,6 +3294,87 @@
               },
               {
                 "name": "NF_WAIT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/soak.mjs",
+            "purpose": "soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu.",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/soak.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--conn",
+                "help": ""
+              },
+              {
+                "flag": "--latency",
+                "help": ""
+              },
+              {
+                "flag": "--minutes",
+                "help": ""
+              },
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              },
+              {
+                "flag": "--skip",
+                "help": ""
+              },
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CONN",
+                "help": ""
+              },
+              {
+                "name": "MINUTES",
+                "help": ""
+              },
+              {
+                "name": "MIN_AMPLITUDE_MB",
+                "help": ""
+              },
+              {
+                "name": "MIN_MINUTES",
+                "help": ""
+              },
+              {
+                "name": "OUT",
+                "help": ""
+              },
+              {
+                "name": "PROBE",
+                "help": ""
+              },
+              {
+                "name": "SKIP",
+                "help": ""
+              },
+              {
+                "name": "THREADS",
+                "help": ""
+              },
+              {
+                "name": "URL",
+                "help": ""
+              },
+              {
+                "name": "WINDOW",
+                "help": ""
+              },
+              {
+                "name": "WINDOWS",
                 "help": ""
               }
             ],
@@ -3485,7 +3709,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "330",
+            "detail": "359",
             "advisory": true
           }
         ]
@@ -3516,8 +3740,8 @@
       ],
       "description": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD modules → fichier d'audit persistant + assainissement de la FORME du dashboard (anti-obésité). Déclencheurs : \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"mets à jour le migration\", \"gros point migration\", \"fichier vérité\", \"audit vérité\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 357,
-        "approxTokens": 6479
+        "bodyLines": 359,
+        "approxTokens": 6014
       },
       "requires": [],
       "resources": {
@@ -3577,7 +3801,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "357",
+            "detail": "359",
             "advisory": true
           }
         ]
@@ -3609,13 +3833,14 @@
       ],
       "description": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : \"banc multi-pods\", \"tester en cluster\", \"cross-pod\", \"deux apps\", \"plusieurs pods\", \"injection backplane\", \"bus Redis partagé\", \"fan-out cross-pod\", \"prouver en réel\", \"backplane secret\", \"est-ce que ça marche à plusieurs instances ?\", \"les apps sont-elles cloisonnées ?\".",
       "cost": {
-        "bodyLines": 140,
-        "approxTokens": 2431
+        "bodyLines": 141,
+        "approxTokens": 2647
       },
       "requires": [
         "serveur UP",
         "redis",
-        "docker"
+        "docker",
+        "base de données"
       ],
       "resources": {
         "references": [
@@ -3632,6 +3857,47 @@
             ],
             "options": [],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/db-outage-pod.mjs",
+            "purpose": "**Banc — une application Nodefony en PRODUCTION face à la chute de sa base.**",
+            "usage": [
+              "node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]"
+            ],
+            "options": [
+              {
+                "flag": "--container",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--port",
+                "help": ""
+              },
+              {
+                "flag": "--workers",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BOX",
+                "help": ""
+              },
+              {
+                "name": "NF_DATABASE_URL",
+                "help": ""
+              },
+              {
+                "name": "WORKERS",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -3819,7 +4085,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "140",
+            "detail": "141",
             "advisory": true
           }
         ]
@@ -3854,8 +4120,8 @@
       ],
       "description": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en conteneur — installation VIERGE des tarballs, compilation d'une application témoin et preuve de l'arrêt gracieux. À charger AVANT de publier ou de toucher à la surface publiée : ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit, et seul le décor jetable le montre. Le plan de version et l'état d'avancement vivent dans `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 130,
-        "approxTokens": 2404
+        "bodyLines": 131,
+        "approxTokens": 2278
       },
       "requires": [
         "docker",
@@ -4057,7 +4323,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "130",
+            "detail": "131",
             "advisory": true
           }
         ]
@@ -4097,15 +4363,15 @@
         "audience d'un jeton",
         "resource indicator"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et les RFC OAuth du rôle resource server (9728, 6750, 8707) : les relire coûte zéro requête. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"Fetch standard\", \"RFC 9110/9113/6455/6265\", \"pseudo-headers HTTP/2\", \"frame masking\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"révision 2026-07-28\", \"server/discover\", \"ère legacy MCP\", \"autorisation MCP\", \"resource server OAuth\", \"protected resource metadata\", \"RFC 9728\", \"WWW-Authenticate\", \"jeton Bearer\", \"audience d'un jeton\", \"resource indicator\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et renvoie au corpus RFC unique du dépôt (40 full-text, dont OAuth 8414/9728/6750/8707) : les relire coûte zéro requête. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"Fetch standard\", \"RFC 9110/9113/6455/6265\", \"pseudo-headers HTTP/2\", \"frame masking\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"révision 2026-07-28\", \"server/discover\", \"ère legacy MCP\", \"autorisation MCP\", \"resource server OAuth\", \"protected resource metadata\", \"RFC 9728\", \"WWW-Authenticate\", \"jeton Bearer\", \"audience d'un jeton\", \"resource indicator\".",
       "cost": {
-        "bodyLines": 134,
-        "approxTokens": 2100
+        "bodyLines": 147,
+        "approxTokens": 2428
       },
       "requires": [],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 165,
+        "referenceFilesTotal": 162,
         "scripts": []
       },
       "related": [],
@@ -4121,7 +4387,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "801",
+            "detail": "829",
             "advisory": false
           },
           {
@@ -4157,7 +4423,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "134",
+            "detail": "147",
             "advisory": true
           }
         ]
@@ -4376,8 +4642,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 444,
-        "approxTokens": 4837
+        "bodyLines": 454,
+        "approxTokens": 5005
       },
       "requires": [],
       "resources": {
@@ -4441,7 +4707,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "444",
+            "detail": "454",
             "advisory": true
           }
         ]
@@ -4635,8 +4901,8 @@
       ],
       "description": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check. Commandes natives standalone nodefony status / nodefony stop (introspection + arrêt propre, de partout). Déclencheurs : \"lance le serveur\", \"démarre nodefony\", \"relance le serveur\", \"start server\", \"redémarre le serveur\", tests d'intégration en 404 (dist périmé).",
       "cost": {
-        "bodyLines": 262,
-        "approxTokens": 4669
+        "bodyLines": 270,
+        "approxTokens": 4538
       },
       "requires": [
         "serveur UP"
@@ -4688,6 +4954,10 @@
             "env": [
               {
                 "name": "NF__SECURITY__RATELIMIT__ENABLED",
+                "help": ""
+              },
+              {
+                "name": "NODE_EXTRA_CA_CERTS",
                 "help": ""
               }
             ],
@@ -4756,7 +5026,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "262",
+            "detail": "270",
             "advisory": true
           }
         ]
@@ -4790,8 +5060,8 @@
       ],
       "description": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux). Déclencheurs : \"dev studio\", \"page studio\", \"dashboard studio\", \"écran studio\", \"panneau studio\", \"composant studio\", \"page /nodefony\", \"comment coder dans studio\", \"Twin\", \"jumeau vivant\", \"debug bar\", \"debugbar\", \"barre de debug\", \"WDT\".",
       "cost": {
-        "bodyLines": 143,
-        "approxTokens": 3608
+        "bodyLines": 145,
+        "approxTokens": 3206
       },
       "requires": [],
       "resources": {
@@ -4864,7 +5134,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "143",
+            "detail": "145",
             "advisory": true
           }
         ]
@@ -4890,8 +5160,8 @@
       ],
       "description": "Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des derniers logs du serveur Nodefony — supprime les codes ANSI et les requêtes 200 OK. À utiliser dès qu'un test d'intégration échoue ou que le serveur a crashé au boot. Déclencheurs : \"logs du serveur\", \"erreurs serveur\", \"voir les crashs\", \"pourquoi le test échoue\", \"tail logs\", \"stack trace nodefony\".",
       "cost": {
-        "bodyLines": 77,
-        "approxTokens": 880
+        "bodyLines": 84,
+        "approxTokens": 1020
       },
       "requires": [],
       "resources": {
@@ -4950,7 +5220,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "77",
+            "detail": "84",
             "advisory": true
           }
         ]

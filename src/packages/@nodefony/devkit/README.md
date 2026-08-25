@@ -115,11 +115,17 @@ use("@nodefony/devkit", {
       // forgé d'obtenir un jeton d'audience arbitraire ET de passer la
       // vérification.
       resource: "https://mon-app.example/nodefony/mcp",
-      scopesSupported: ["nodefony:inspect"],
     },
   },
 });
 ```
+
+> **Les scopes ne s'écrivent pas ici.** Ce que la porte publie
+> (`scopes_supported`) et nomme dans son défi est **dérivé** des outils qu'elle
+> sert : l'union de leurs `IMcpTool.scopes`. Pour qu'un scope soit publié, le
+> poser sur l'outil qu'il ouvre — le seul endroit où il a un effet. Une liste
+> écrite à côté du code annonçait au client autre chose que ce qu'on exige de
+> lui, dans les deux sens et sans qu'aucun contrôle ne s'en aperçoive.
 
 Le document est alors servi sur
 `GET /.well-known/oauth-protected-resource/nodefony/mcp` (RFC 9728 — le suffixe
@@ -128,7 +134,7 @@ hôte), et une requête sans jeton reçoit :
 
 ```http
 HTTP/1.1 401 Unauthorized
-WWW-Authenticate: Bearer resource_metadata="https://mon-app.example/.well-known/oauth-protected-resource/nodefony/mcp", scope="nodefony:inspect"
+WWW-Authenticate: Bearer resource_metadata="https://mon-app.example/.well-known/oauth-protected-resource/nodefony/mcp", scope="admin:read"
 ```
 
 C'est cet en-tête qui rend l'autorisation **apprenable** : sans lui, un refus

@@ -172,11 +172,7 @@ async function summarize(
   const { data, body } = parseFrontmatter(raw);
   return {
     slug,
-    title:
-      data.title ??
-      firstHeading(body) ??
-      (typeof data.topic === "string" ? data.topic : null) ??
-      slug,
+    title: docTitle(data, body, slug),
     status: typeof data.status === "string" ? data.status : null,
     since: typeof data.since === "string" ? data.since : null,
     updated: typeof data.updated === "string" ? data.updated : null,
@@ -260,6 +256,278 @@ export async function readModuleDoc(
   };
 }
 
+/**
+ * Titre humain d'une doc — frontmatter, sinon premier `# H1`, sinon le slug.
+ *
+ * Partagé par le sommaire et la recherche : deux lectures du même fichier qui
+ * n'en tireraient pas le même titre feraient croire à deux documents.
+ */
+function docTitle(data: DocFrontmatter, body: string, slug: string): string {
+  return (
+    data.title ??
+    firstHeading(body) ??
+    (typeof data.topic === "string" ? data.topic : null) ??
+    slug
+  );
+}
+
+/** Où un terme cherché apparaît, et la ligne qui le porte. */
+export interface DocSearchMatch {
+  /** Ligne (1-indexée) dans le CORPS markdown, frontmatter retiré. */
+  line: number;
+  /** La ligne, ramenée à une fenêtre lisible autour du terme. */
+  text: string;
+}
+
+/** Une doc qui répond à la recherche, avec ses extraits. */
+export interface DocSearchHit {
+  /** Clé du module qui porte la doc (`http`, `security`, `core`…). */
+  module: string;
+  slug: string;
+  title: string;
+  /** Extraits, dans l'ordre du document — bornés (cf `perDoc`). */
+  matches: DocSearchMatch[];
+  /** Occurrences TOTALES dans la doc ; les extraits, eux, sont bornés. */
+  occurrences: number;
+  /** Pertinence décroissante — un titre ou un slug porteur du terme pèse. */
+  score: number;
+}
+
+/** Une doc à balayer : la clé du module qui la porte, et son chemin disque. */
+export interface DocSearchTarget {
+  /** Clé d'affichage du module (`http`, `security`, `core`…). */
+  key: string;
+  /** Chemin disque du module (`Module.path`). */
+  path: string;
+}
+
+/** Ce que rend une recherche : les docs retenues, et ce qu'elle a balayé. */
+export interface DocSearchResult {
+  /** Termes effectivement cherchés, après normalisation. */
+  terms: string[];
+  /** Docs balayées — dit à l'agent si le corpus était bien là. */
+  scanned: number;
+  /** Docs qui portent TOUS les termes — avant la borne d'affichage. */
+  matched: number;
+  /** Les meilleures, bornées par `limit`. */
+  hits: DocSearchHit[];
+  /**
+   * Phrase d'annonce, présente UNIQUEMENT quand la borne a joué.
+   *
+   * ⚠️ `matched` seul ne suffit pas à s'en apercevoir : quand le nombre de
+   * documents trouvés égale la borne — le cas exact d'un corpus fourni — un
+   * lecteur voit « 20 » des deux côtés et conclut qu'il tient tout. Il faut
+   * donc le DIRE, et nommer le geste qui donne la suite. Absente quand tout
+   * est rendu : annoncer une coupe qui n'a pas eu lieu ferait chercher un
+   * reste inexistant.
+   */
+  note?: string;
+}
+
+/** Docs rendues par défaut — au-delà, l'agent relit au lieu de décider. */
+const SEARCH_MAX_DOCS = 20;
+/** Extraits gardés par doc. */
+const SEARCH_MAX_PER_DOC = 3;
+/** Largeur d'un extrait : une ligne de markdown peut faire un paragraphe. */
+const SNIPPET_MAX_CHARS = 240;
+/** Ce que pèse un terme trouvé dans le titre ou le slug, en occurrences. */
+const TITLE_WEIGHT = 5;
+
+/**
+ * Longueur d'une page de référence, en caractères — le pivot de la DENSITÉ.
+ *
+ * ⚠️ Compter les occurrences BRUTES classe par la taille, pas par la
+ * pertinence : un tableau de bord de plusieurs dizaines de milliers de
+ * caractères mentionne tout, donc il gagne toutes les recherches — et sortait
+ * devant la page qui TRAITE le sujet demandé. Ce qui distingue un document
+ * pertinent d'un document long, c'est la densité du terme, pas son total.
+ *
+ * Un document plus court que ce pivot n'est jamais AVANTAGÉ (le diviseur est
+ * planché à 1) : on corrige le biais du volume, on n'en crée pas l'inverse.
+ */
+const DOC_LENGTH_PIVOT = 8_000;
+
+/**
+ * Forme comparable d'un texte : minuscules, sans diacritiques.
+ *
+ * Un agent tape `securite` et la doc écrit « sécurité » — sans repli, la
+ * recherche rend zéro résultat sur un corpus qui traite le sujet en quinze
+ * pages, et rien ne dit que c'est l'accent qui a manqué.
+ */
+function fold(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Fenêtre lisible autour de la première occurrence d'un terme dans une ligne.
+ *
+ * Une ligne de markdown n'est pas une ligne d'écran : un paragraphe entier peut
+ * tenir sur une seule, et le rendre en entier fait de la recherche un second
+ * déversement du corpus.
+ */
+function snippet(line: string, folded: string, term: string): string {
+  if (line.length <= SNIPPET_MAX_CHARS) return line.trim();
+  const at = folded.indexOf(term);
+  const start = Math.max(0, at - Math.floor(SNIPPET_MAX_CHARS / 3));
+  const end = Math.min(line.length, start + SNIPPET_MAX_CHARS);
+  return (
+    (start > 0 ? "…" : "") +
+    line.slice(start, end).trim() +
+    (end < line.length ? "…" : "")
+  );
+}
+
+/**
+ * Cherche un texte dans les docs colocalisées des modules donnés.
+ *
+ * ⭐ **Pourquoi cette fonction existe** : chez un utilisateur, la documentation
+ * des modules vit sous `node_modules/@nodefony/<mod>/docs/` — un dossier que `git`
+ * ignore, donc que `rg` et les outils de recherche des agents EXCLUENT par
+ * défaut. La doc est livrée et introuvable ; c'est cette porte qui la rend
+ * atteignable, sans quoi l'agent réécrit à la main ce qui est déjà écrit.
+ *
+ * Un document est retenu s'il porte **TOUS** les termes (et non l'un d'eux) :
+ * sur un corpus où « session » apparaît partout, un OU rendrait le corpus.
+ * La comparaison est faite sans casse ni diacritiques ({@link fold}).
+ *
+ * Aucun index n'est conservé : le corpus est relu à chaque appel. C'est une
+ * opération de développement, rare et explicite — un index en mémoire coûterait
+ * en permanence ce qu'il ferait gagner quelques fois, et se périmerait à la
+ * première doc éditée.
+ *
+ * @param targets - modules à balayer (clé + chemin disque)
+ * @param query - texte cherché ; les espaces séparent des termes cumulatifs
+ * @param options - bornes de rendu (`limit` docs, `perDoc` extraits)
+ * @returns les docs retenues, et ce que la recherche a réellement balayé
+ */
+export async function searchModuleDocs(
+  targets: readonly DocSearchTarget[],
+  query: string,
+  options: { limit?: number; perDoc?: number } = {},
+): Promise<DocSearchResult> {
+  const terms = fold(query)
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+  const limit = options.limit ?? SEARCH_MAX_DOCS;
+  const perDoc = options.perDoc ?? SEARCH_MAX_PER_DOC;
+  if (terms.length === 0) {
+    return { terms, scanned: 0, matched: 0, hits: [] };
+  }
+
+  const hits: DocSearchHit[] = [];
+  let scanned = 0;
+
+  for (const target of targets) {
+    const docsDir = join(target.path, "docs");
+    let entries: string[];
+    try {
+      entries = await readdir(docsDir);
+    } catch {
+      continue;
+    }
+    for (const fileName of entries) {
+      if (!fileName.toLowerCase().endsWith(".md")) continue;
+      let raw: string;
+      try {
+        raw = await readFile(join(docsDir, fileName), "utf8");
+      } catch {
+        continue;
+      }
+      scanned += 1;
+      const slug = basename(fileName, extname(fileName));
+      const { data, body } = parseFrontmatter(raw);
+      const title = docTitle(data, body, slug);
+      const foldedTitle = fold(`${title} ${slug}`);
+      const lines = body.split("\n");
+      const foldedLines = lines.map(fold);
+
+      // Un document ne compte que s'il porte TOUS les termes — vérifié sur le
+      // corps ET sur son titre, sinon une page intitulée « Sessions » sortirait
+      // des résultats d'une recherche « sessions redis » qu'elle mérite.
+      const foldedBody = fold(body);
+      const carries = terms.every(
+        (term) => foldedBody.includes(term) || foldedTitle.includes(term),
+      );
+      if (!carries) continue;
+
+      let occurrences = 0;
+      let score = 0;
+      for (const term of terms) {
+        let at = foldedBody.indexOf(term);
+        while (at !== -1) {
+          occurrences += 1;
+          at = foldedBody.indexOf(term, at + term.length);
+        }
+        if (foldedTitle.includes(term)) score += TITLE_WEIGHT;
+      }
+      // Densité plutôt que total : occurrences ramenées à la taille du
+      // document, le titre gardant son poids propre (il dit le SUJET, quelle
+      // que soit la longueur).
+      score += occurrences / Math.max(1, foldedBody.length / DOC_LENGTH_PIVOT);
+
+      // ⚠️ Les extraits se choisissent sur la COUVERTURE, pas sur l'ordre du
+      // document. Prendre les premières lignes portant AU MOINS un terme
+      // donnait, sur « session redis », trois extraits qui ne parlaient que de
+      // sessions : la page était la bonne, ses extraits ne le montraient pas,
+      // et un lecteur qui juge sur les extraits passait son chemin. Une ligne
+      // qui porte les DEUX termes vaut mieux que trois qui n'en portent qu'un.
+      const candidats: { ligne: number; couverture: number; terme: string }[] =
+        [];
+      for (let i = 0; i < lines.length; i += 1) {
+        const portes = terms.filter((t) => foldedLines[i].includes(t));
+        if (portes.length === 0) continue;
+        candidats.push({
+          ligne: i,
+          couverture: portes.length,
+          terme: portes[0],
+        });
+      }
+      candidats.sort(
+        (a, b) => b.couverture - a.couverture || a.ligne - b.ligne,
+      );
+      const matches: DocSearchMatch[] = candidats
+        .slice(0, perDoc)
+        // Remis dans l'ordre du document : trois extraits qui remontent le
+        // texte à rebours se lisent mal, et rien ne le justifie.
+        .sort((a, b) => a.ligne - b.ligne)
+        .map((c) => ({
+          line: c.ligne + 1,
+          text: snippet(lines[c.ligne], foldedLines[c.ligne], c.terme),
+        }));
+
+      hits.push({
+        module: target.key,
+        slug,
+        title,
+        matches,
+        occurrences,
+        score,
+      });
+    }
+  }
+
+  hits.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
+  const rendus = hits.slice(0, limit);
+  return {
+    terms,
+    scanned,
+    matched: hits.length,
+    hits: rendus,
+    ...(hits.length > rendus.length
+      ? {
+          // ⚠️ Dire la borne EFFECTIVE, jamais « par défaut » : la borne peut
+          // avoir été DEMANDÉE par l'appelant, et lui présenter son propre
+          // choix comme un défaut du produit l'envoie chercher un réglage
+          // ailleurs. Une phrase d'aide qui se trompe coûte plus qu'une absence
+          // de phrase.
+          note: `${hits.length} documents portent ces termes, ${rendus.length} sont rendus (borne « limit » = ${limit}). Précise les termes, ou rappelle avec limit plus grand.`,
+        }
+      : {}),
+  };
+}
 /** Forme minimale d'une entrée `.ai/symbols.json` (lecture défensive). */
 interface RawSymbol {
   name?: string;
@@ -317,6 +585,152 @@ export async function listModuleSymbols(
   return out.sort(
     (a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name),
   );
+}
+
+/** Ce qu'on a trouvé d'un symbole dans les types LIVRÉS d'un module. */
+export interface SymbolDeclaration {
+  /**
+   * Fichier de TYPES qui porte la déclaration, relatif au module — jamais
+   * absolu (une réponse ne publie pas l'arborescence du serveur).
+   *
+   * Nommé `declarationFile` et non `file` : le graphe symbolique porte DÉJÀ un
+   * `file`, qui désigne la SOURCE dans le dépôt d'origine — un chemin qui
+   * n'existe pas chez celui qui a installé le paquet. Deux notions sous un même
+   * nom, et la fusion des deux réponses en écrasait une.
+   */
+  declarationFile: string;
+  /** Le bloc de déclaration, TSDoc compris. */
+  declaration: string;
+  /** Le bloc a-t-il été coupé ? Une troncature muette vaut un mensonge. */
+  truncated: boolean;
+}
+
+/** Au-delà, une déclaration cesse d'informer et se met à remplir. */
+const DECLARATION_MAX_CHARS = 12_000;
+/** Garde-fou de balayage : un `dist/types` sain tient en quelques dizaines. */
+const DECLARATION_MAX_FILES = 400;
+
+/**
+ * Fichiers de types d'un module, du plus probable au moins probable.
+ *
+ * `dist/types/` est ce qu'un utilisateur REÇOIT ; les sources `.ts` ne sont là
+ * que dans ce dépôt, où quelques paquets pointent leurs types vers leur
+ * `index.ts` (anti-race de build). On regarde donc les deux, dans cet ordre —
+ * mais on ne descend jamais dans `node_modules`, dont les types appartiennent à
+ * d'autres.
+ */
+async function typeFiles(modulePath: string): Promise<string[]> {
+  const found: string[] = [];
+  for (const sub of ["dist/types", "nodefony", "src"]) {
+    let entries: string[];
+    try {
+      entries = await readdir(join(modulePath, sub), { recursive: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.includes("node_modules")) continue;
+      if (!entry.endsWith(".d.ts") && !entry.endsWith(".ts")) continue;
+      if (entry.endsWith(".test.ts")) continue;
+      found.push(join(sub, entry));
+      if (found.length >= DECLARATION_MAX_FILES) return found;
+    }
+  }
+  return found;
+}
+
+/**
+ * Où commence la déclaration d'un symbole — avec le TSDoc qui la précède.
+ *
+ * Le commentaire n'est pas un ornement : c'est là que vit le POURQUOI, et il
+ * traverse le build (`.d.ts`) là où un `//` inline disparaît. Le rendre avec la
+ * signature est ce qui distingue « voici les paramètres » de « voici ce qu'en
+ * faire ».
+ */
+function declarationStart(lines: readonly string[], at: number): number {
+  let start = at;
+  // Le bloc TSDoc est juste au-dessus : on remonte tant qu'on est dedans.
+  if (start > 0 && lines[start - 1].trim().endsWith("*/")) {
+    let i = start - 1;
+    while (i > 0 && !lines[i].trim().startsWith("/**")) i -= 1;
+    if (lines[i].trim().startsWith("/**")) start = i;
+  }
+  return start;
+}
+
+/**
+ * Extrait la déclaration d'un symbole des types LIVRÉS d'un module.
+ *
+ * ⭐ **Pourquoi cette fonction existe** : le graphe symbolique
+ * (`.ai/symbols.json`) dit qu'un symbole existe, ce qu'il étend et la première
+ * phrase de sa documentation — mais **pas sa signature**. À « quels arguments
+ * prend cette méthode ? », un agent n'a donc aucune réponse : les `.d.ts` qui
+ * la portent vivent sous `node_modules`, que git ignore et que les outils de
+ * recherche de fichiers excluent. Il devine, et il devine faux.
+ *
+ * Le nom demandé ne touche JAMAIS un chemin : il sert à filtrer du texte. Les
+ * fichiers balayés sont dérivés du module, pas de l'appelant — un paramètre qui
+ * entrerait dans un `join` serait une traversée de répertoire offerte.
+ *
+ * @param modulePath - chemin disque du module (`Module.path`)
+ * @param symbolName - nom exact du symbole (`AbstractCrudService`, `IKernel`)
+ * @returns la déclaration et son fichier, ou `null` si rien ne la porte
+ */
+export async function readSymbolDeclaration(
+  modulePath: string,
+  symbolName: string,
+): Promise<SymbolDeclaration | null> {
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(symbolName)) return null;
+  const declare = new RegExp(
+    String.raw`^\s*(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?` +
+      String.raw`(?:class|interface|function|const|let|var|type|enum|namespace)\s+` +
+      symbolName +
+      String.raw`\b`,
+  );
+
+  for (const relative of await typeFiles(modulePath)) {
+    let raw: string;
+    try {
+      raw = await readFile(join(modulePath, relative), "utf8");
+    } catch {
+      continue;
+    }
+    // Un `indexOf` avant la découpe en lignes : sur des dizaines de fichiers,
+    // c'est ce qui évite de payer un `split` pour rien.
+    if (!raw.includes(symbolName)) continue;
+    const lines = raw.split("\n");
+    const at = lines.findIndex((line) => declare.test(line));
+    if (at === -1) continue;
+
+    const start = declarationStart(lines, at);
+    // Fin du bloc : on suit les accolades depuis la ligne de déclaration. Une
+    // déclaration sans accolade (`type X = …`) tient sur sa ligne logique,
+    // terminée par un `;`.
+    let depth = 0;
+    let opened = false;
+    let end = at;
+    for (let i = at; i < lines.length; i += 1) {
+      for (const ch of lines[i]) {
+        if (ch === "{") {
+          depth += 1;
+          opened = true;
+        } else if (ch === "}") depth -= 1;
+      }
+      end = i;
+      if (opened && depth <= 0) break;
+      if (!opened && lines[i].trimEnd().endsWith(";")) break;
+    }
+
+    const declaration = lines.slice(start, end + 1).join("\n");
+    return declaration.length > DECLARATION_MAX_CHARS
+      ? {
+          declarationFile: relative,
+          declaration: declaration.slice(0, DECLARATION_MAX_CHARS),
+          truncated: true,
+        }
+      : { declarationFile: relative, declaration, truncated: false };
+  }
+  return null;
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   type IAdminBrokerLike,
   type InspectFailure,
 } from "../inspect/adminSubjects";
+import { localOperatorCaller } from "../adminPlane/adminCaller";
 
 /**
  * `kernelEvent: "onPostReady"` — et pas `onReady`, malgré les apparences.
@@ -21,6 +22,9 @@ import {
  * défaut) est respecté par `Kernel.initServers`.
  */
 const options: OptionsCommandInterface = {
+  // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
+  // un état et le rend. Appliqué par le CLI à la commande demandée SEULE.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onPostReady",
 };
@@ -39,6 +43,10 @@ const EXIT_BY_FAILURE: Record<InspectFailure, number> = {
   "endpoint-missing": SysExit.UNAVAILABLE,
   "handler-failed": SysExit.SOFTWARE,
   "not-found": SysExit.NOINPUT,
+  // Ne devrait pas arriver depuis une commande locale (l'opérateur porte le
+  // rôle) ; s'il arrive, c'est une faute de configuration du plan, pas une
+  // faute d'usage — donc `NOPERM`, qui se distingue d'un mauvais argument.
+  forbidden: SysExit.NOPERM,
 };
 
 /**
@@ -58,6 +66,15 @@ const EXIT_BY_FAILURE: Record<InspectFailure, number> = {
  * producteurs, pas dans le transport, donc un secret n'est pas plus lisible par
  * cette porte que par l'autre.
  *
+ * 🔴 **La réponse dépend du MODE, et c'est pour cela qu'elle l'annonce.** Les
+ * modules `policy:"dev"` ne sont pas chargés en production : la MÊME application
+ * rend 136 routes en production et 354 en développement. Un nombre lu sans son
+ * mode ne veut rien dire — mesuré, un agent a rapporté le compte d'une app en
+ * marche pendant qu'un contrôle mesurait la même app bootée à froid dans l'autre
+ * mode, et les deux avaient raison. L'environnement est donc écrit à côté du
+ * total en rendu humain, et sur la sortie d'ERREUR en `--json` — jamais dans le
+ * flux, qui doit rester parsable tel quel.
+ *
  * @example
  * ```bash
  * nodefony inspect routes --json | jq '.[] | select(.methods[] == "POST")'
@@ -72,8 +89,12 @@ class Inspect extends Command {
       cli as CliKernel,
       options,
     );
+    // OPTIONNEL : déclaré `<sujet>`, commander refusait la commande avant
+    // qu'elle existe (« missing required argument 'sujet' »). Réclamé en TTY par
+    // `askArgument`, qui propose la LISTE des sujets — on ne demande pas de
+    // deviner un mot dans une énumération qu'on connaît.
     this.addArgument(
-      "<sujet>",
+      "[sujet]",
       `sujet : ${Object.keys(INSPECT_SUBJECTS).join(" | ")}`,
     );
     this.addArgument("[cible]", "paramètre du sujet (ex : le nom d'un module)");
@@ -86,19 +107,38 @@ class Inspect extends Command {
     // la première ligne de log. Les erreurs (sévérité ≤ 3) partent sur la
     // sortie d'erreur : elles restent visibles sans polluer le flux JSON.
     // Le constructeur tourne pour TOUTES les commandes, d'où la garde sur argv.
-    if (process.argv.includes("--json") || process.argv.includes("-j")) {
-      (cli as CliKernel).quietBoot = true;
-    }
   }
 
   override async generate(
-    subject: string,
+    subjectArg?: string,
     target?: string,
     opts: { json?: boolean } = {},
   ): Promise<this> {
+    let subject: string;
+    try {
+      subject = await this.askArgument(subjectArg, {
+        name: "sujet",
+        message: "Que veux-tu inspecter ?",
+        choices: Object.keys(INSPECT_SUBJECTS),
+        // `--json` va vers un script : y poser une question romprait le flux
+        // que l'appelant s'apprête à parser.
+        ...(opts.json ? { isTTY: false } : {}),
+      });
+    } catch (e) {
+      this.log((e as Error).message, "ERROR");
+      process.exitCode = 1;
+      return this;
+    }
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBrokerLike | undefined;
-    const read = await readAdminSubject(broker, subject, target);
+    // Qui lance cette commande possède déjà le processus : l'identité est
+    // ÉNONCÉE, plus fabriquée au fond de la lecture.
+    const read = await readAdminSubject(
+      broker,
+      subject,
+      localOperatorCaller(),
+      target,
+    );
 
     if (!read.ok) {
       // Le message de la lecture est déjà rédigé pour un humain ; on ajoute
@@ -107,12 +147,29 @@ class Inspect extends Command {
         read.reason === "missing-target"
           ? ` : nodefony inspect ${subject} <${INSPECT_SUBJECTS[subject]?.param}>`
           : "";
-      this.log(`${read.message}${hint}`, "ERROR");
+      // La CAUSE d'une panne de handler n'est écrite QU'ICI : cette commande
+      // tourne sur la machine de celui qui la lance, qui possède déjà le
+      // processus et ses journaux. Les portes distantes (MCP) ne la publient
+      // pas — un message d'exception porte ce que le code avait sous la main.
+      const pourquoi = read.cause ? ` — ${read.cause}` : "";
+      this.log(`${read.message}${pourquoi}${hint}`, "ERROR");
+      // Le producteur joint souvent DE QUOI corriger l'appel (les valeurs
+      // acceptées, le plan d'une page). Le taire laisse deviner ; le rendre
+      // coûte une ligne.
+      if (read.body !== undefined && read.body !== null) {
+        this.log(JSON.stringify(read.body, null, 2), "ERROR");
+      }
       await this.terminate(EXIT_BY_FAILURE[read.reason]);
       return this;
     }
 
     if (opts.json) {
+      // Le CONTEXTE part sur la sortie d'erreur, jamais dans le flux : un
+      // consommateur fait `| jq '.[]'`, envelopper la donnée le casserait.
+      // Même doctrine que le journal — la sortie EST le résultat, le reste
+      // RACONTE. Sans cette ligne, deux mesures du même sujet dans deux modes
+      // se contredisent sans que rien ne dise pourquoi.
+      process.stderr.write(`environnement : ${this.environnement()}\n`);
       process.stdout.write(`${JSON.stringify(read.data, null, 2)}\n`);
     } else {
       this.renderHuman(subject, read.data);
@@ -128,15 +185,43 @@ class Inspect extends Command {
    * enchaîne. Le rendu humain sert à répondre « qu'est-ce qu'il y a là-dedans »
    * sans ouvrir un autre outil, pas à remplacer la console d'administration.
    */
+  /**
+   * Le mode MOTEUR sous lequel cette lecture a été faite.
+   *
+   * Sans kernel — cas qui ne devrait pas se produire ici, la commande booted —
+   * on le DIT plutôt que de deviner : une valeur inventée serait pire que pas
+   * de valeur, puisqu'elle serait crue.
+   *
+   * @returns le nom de l'environnement, ou `"inconnu"`
+   */
+  private environnement(): string {
+    return this.kernel?.environment ?? "inconnu";
+  }
+
   private renderHuman(subject: string, payload: unknown): void {
     if (Array.isArray(payload)) {
       if (payload.length === 0) {
-        this.log(`${subject} : aucun`, "INFO");
+        // 🔴 La SORTIE d'une commande ne passe pas par le journal.
+        //
+        // Ces deux lignes étaient des `this.log(…, "INFO")`. Tant que le boot
+        // déversait son propre journal, la confusion ne se voyait pas ; le jour
+        // où cette commande a boché en silence (`quietBoot`), INFO est tombé —
+        // et la réponse avec. Un filtre de journal ne doit jamais pouvoir
+        // effacer ce qu'on est venu chercher : le journal RACONTE l'exécution,
+        // la sortie EST le résultat.
+        // Le mode est ici PLUS important que partout ailleurs : « aucune
+        // route » en production, alors qu'il y en a en développement, est la
+        // réponse qui trompe le plus.
+        process.stdout.write(
+          `${subject} : aucun (environnement : ${this.environnement()})\n`,
+        );
         return;
       }
       // `console.table` respecte la sortie standard et aligne seul.
       console.table(payload);
-      this.log(`${payload.length} ${subject}`, "INFO");
+      process.stdout.write(
+        `${payload.length} ${subject} (environnement : ${this.environnement()})\n`,
+      );
       return;
     }
     console.dir(payload, { depth: 4, colors: true });

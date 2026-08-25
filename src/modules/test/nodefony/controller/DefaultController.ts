@@ -38,6 +38,12 @@ const afterResponseState = {
   count: 0,
   multiCount: 0,
   lastFiredAtMs: 0,
+  // Instant où le HANDLER s'exécute, lu sur la MÊME horloge que `lastFiredAtMs`.
+  // C'est ce qui permet d'affirmer l'ORDRE (« le hook tire après la réponse »)
+  // sans comparer deux process : le test lisait `Date.now()` chez lui et chez le
+  // serveur, et concluait sur un écart d'UNE milliseconde — c'est-à-dire sur la
+  // granularité de l'horloge du système, qui est plus grossière sous Windows.
+  handlerAtMs: 0,
 };
 
 // P1.3 — abort signal observation state. Same singleton pattern.
@@ -45,6 +51,18 @@ const abortState = {
   abortedCount: 0,
   completedCount: 0,
   lastAbortReason: "",
+  /**
+   * Requêtes actuellement DANS l'action — le fait qu'un banc d'abandon doit
+   * pouvoir constater avant de couper quoi que ce soit.
+   *
+   * `abortedCount` ne peut compter que ce que l'action VOIT : une requête
+   * coupée avant d'y entrer (poignée de main TLS, routage) n'est comptée nulle
+   * part, et c'est légitime. Un test qui lance N requêtes puis coupe après un
+   * délai fixe SUPPOSE qu'elles y sont toutes arrivées — vécu : 20 lancées,
+   * 9 comptées sur un exécuteur macOS en mode production, et le banc accusait
+   * le serveur de perdre des abandons qu'il n'avait jamais reçus.
+   */
+  inflightCount: 0,
 };
 
 // P2.5 — request-timeout → AbortSignal observation state. Records that the
@@ -217,6 +235,12 @@ class DefaultController extends Controller {
       heapTotal: mem.heapTotal,
       heapUsed: mem.heapUsed,
       external: mem.external,
+      // 🔴 Le no-op ci-dessus est SILENCIEUX, et c'est ce qui le rend
+      // dangereux : sans `--expose-gc`, cette route rend un heap plein de
+      // déchets en attente de collecte, qu'un banc de durée lit comme une
+      // fuite. Une capacité se CONSTATE — l'appelant doit pouvoir refuser de
+      // mesurer plutôt que publier un chiffre faux.
+      gcForced: Boolean(forceGc),
     });
   }
 
@@ -238,6 +262,7 @@ class DefaultController extends Controller {
   // ── P1.2 onAfterResponse probes ─────────────────────────────────
   @route("after-incr", { path: "/after/incr" })
   afterIncr() {
+    afterResponseState.handlerAtMs = Date.now();
     this.context!.onAfterResponse(() => {
       afterResponseState.count++;
       afterResponseState.lastFiredAtMs = Date.now();
@@ -273,6 +298,7 @@ class DefaultController extends Controller {
       count: afterResponseState.count,
       multiCount: afterResponseState.multiCount,
       lastFiredAtMs: afterResponseState.lastFiredAtMs,
+      handlerAtMs: afterResponseState.handlerAtMs,
     });
   }
 
@@ -281,6 +307,7 @@ class DefaultController extends Controller {
     afterResponseState.count = 0;
     afterResponseState.multiCount = 0;
     afterResponseState.lastFiredAtMs = 0;
+    afterResponseState.handlerAtMs = 0;
     return this.renderJson({ ok: true });
   }
 
@@ -289,6 +316,7 @@ class DefaultController extends Controller {
   @route("abort-wait", { path: "/abort/wait" })
   async abortWait() {
     const signal = this.context!.signal;
+    abortState.inflightCount++;
     try {
       await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -311,8 +339,10 @@ class DefaultController extends Controller {
       });
     } catch {
       // Aborted — client already gone, but action returns so server stays clean.
+      abortState.inflightCount--;
       return this.renderJson({ aborted: true });
     }
+    abortState.inflightCount--;
     return this.renderJson({ aborted: false });
   }
 
@@ -322,6 +352,7 @@ class DefaultController extends Controller {
       abortedCount: abortState.abortedCount,
       completedCount: abortState.completedCount,
       lastAbortReason: abortState.lastAbortReason,
+      inflightCount: abortState.inflightCount,
     });
   }
 
@@ -330,6 +361,8 @@ class DefaultController extends Controller {
     abortState.abortedCount = 0;
     abortState.completedCount = 0;
     abortState.lastAbortReason = "";
+    // `inflightCount` n'est PAS remis à zéro : c'est un compteur d'état vivant,
+    // pas un cumul. L'écraser mentirait sur les requêtes encore en cours.
     return this.renderJson({ ok: true });
   }
 

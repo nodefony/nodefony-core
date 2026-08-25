@@ -11,6 +11,44 @@ import type Route from "./Route";
 import type { IAdminBroker } from "../interfaces/IAdminBroker";
 import { createPlaygroundEndpoints } from "./PlaygroundAdminApi";
 
+/**
+ * Capacités de page d'un endpoint, ÉVALUÉES sous filet.
+ *
+ * `sortable` et `search` sont des fonctions parce que la réponse dépend du
+ * store effectivement branché au démarrage — donc elles peuvent lever. Ce
+ * catalogue est lu au chargement de la console : une exception ici privait
+ * l'application entière de sa navigation à cause d'un seul module en panne. Ne
+ * rien publier est le repli sûr — le plan REFUSE en 400 ce qui n'est pas
+ * déclaré, une capacité tue ne promet donc rien de faux.
+ *
+ * @param caps - la déclaration du producteur, ou `undefined`.
+ * @returns le fragment `{ page }` à fusionner, ou rien.
+ */
+function readPageCapabilities(caps: IAdminEndpoint["page"] | undefined): {
+  page?: {
+    sortable: readonly string[];
+    filters: IFilterSpec;
+    search: boolean;
+    facets: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  };
+} {
+  if (!caps) return {};
+  try {
+    return {
+      page: {
+        sortable: caps.sortable?.() ?? [],
+        filters: caps.filters ?? {},
+        search: caps.search?.() ?? false,
+        // Les facettes sont une DONNÉE (nom → filtres), pas une capacité à
+        // évaluer : elles traversent telles quelles.
+        facets: caps.facets ?? {},
+      },
+    };
+  } catch {
+    return {};
+  }
+}
+
 /** Options de composition du producteur framework. */
 export interface FrameworkAdminApiOptions {
   /**
@@ -326,18 +364,12 @@ export function createFrameworkAdminApi(
             // ressource aurait coûté une requête par vue pour la même donnée.
             // `sortable` et `search` sont ÉVALUÉS maintenant — c'est le store
             // branché qui répond, pas une constante de compilation.
-            ...(caps
-              ? {
-                  page: {
-                    sortable: caps.sortable?.() ?? [],
-                    filters: caps.filters ?? {},
-                    search: caps.search?.() ?? false,
-                    // Les facettes sont une DONNÉE (nom → filtres), pas une
-                    // capacité à évaluer : elles traversent telles quelles.
-                    facets: caps.facets ?? {},
-                  },
-                }
-              : {}),
+            // 🔴 L'évaluation interroge le store branché : elle PEUT échouer
+            // (backend indisponible, module à moitié chargé). Sans filet, un
+            // seul producteur en panne faisait lever le catalogue ENTIER —
+            // c'est-à-dire la navigation d'administration de toute
+            // l'application.
+            ...readPageCapabilities(caps),
           });
         }
         const producers = [...byNs.keys()]

@@ -16,7 +16,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *    `vitest-mocha-shim.mjs` (re-export des équivalents vitest).
  *  - `import { assert, expect } from "chai"` : chai (lib d'assertion) reste tel quel.
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
- *    le perf-skip OPT-IN (`RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
+ *    le perf-skip OPT-IN (`NF_RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
  *
  * Decorators : requis pour le DI (`@injectable`/`@inject`) — cf `vitest.oxc.ts` (racine)
  * pour le pourquoi du bloc `oxc` ci-dessous.
@@ -26,6 +26,15 @@ export default defineConfig({
     globals: true,
     include: ["src/tests/**/*.test.ts"],
     setupFiles: [r("./src/tests/vitest.setup.ts")],
+    // ⏱️ Plafond d'ATTENTE, pas seuil de mesure — la distinction décide si
+    // l'allonger est honnête ou non. Aucun cas ici n'asserte une durée : ceux
+    // qui dépassent attendent un travail DÉLÉGUÉ dont la latence appartient à
+    // la machine — un process `prettier` externe, un `npm` réel. Vécu : verts en isolation,
+    // rouges sous `npm test`, où turbo lance les 21 espaces de travail en
+    // parallèle et sature ce qu'ils attendent. Le défaut de 5 s mesurait donc
+    // la charge du moment. Un vrai blocage reste attrapé, très en deçà.
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

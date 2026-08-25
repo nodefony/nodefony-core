@@ -1,0 +1,74 @@
+#!/usr/bin/env sh
+
+# Formatage auto des fichiers staged (prettier via lint-staged).
+# NON bloquant pour ton workflow : prettier --write réussit toujours sur du code
+# valide ; il reformate, il ne refuse pas. Bypass d'urgence : git commit --no-verify.
+npx --no-install lint-staged || exit 1
+
+# Garde anti-dérive : `.env.example` est GÉNÉRÉ depuis env.ts (catalogue defineEnv).
+# Si env.ts, .env.example ou l'en-tête curé est staged, vérifier qu'ils sont
+# synchronisés (sinon une var ajoutée à env.ts mais pas régénérée passerait). Placé
+# AVANT le pré-filtre .ts pour aussi attraper un .env.example édité à la main (non-.ts).
+# La commande lit env.ts EN SOURCE (pas le dist) : un build en retard ne fait pas
+# mentir le gate. C'est la commande du framework — le dépôt consomme la sienne.
+if git diff --cached --name-only --diff-filter=ACMR \
+   | grep -qE '^(env\.ts|\.env\.example|\.env\.example\.head)$'; then
+  if ! npx --no-install nodefony env --example --check; then
+    echo "❌ .env.example désynchronisé de env.ts."
+    echo "   → npx nodefony env --example  puis  git add .env.example"
+    exit 1
+  fi
+fi
+
+# Garde anti-dérive : les noms de canaux/méthodes de plateforme (`nodefony:*`) ne
+# s'écrivent pas en dur — ils viennent de la table du cœur. Un producteur renommé
+# sans son consommateur rend un écran muet SANS qu'aucun test ne rougisse (les
+# écrans n'en ont pas) ; seule la table, donc le compilateur, ferme cette porte.
+# Filtre .tsx inclus : le front est justement la zone non testée.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.tsx?$'; then
+  if ! node scripts/check-platform-channels.mjs; then
+    echo "   → importer PLATFORM_CHANNELS / PLATFORM_METHODS / PLATFORM_EVENTS depuis \"nodefony\""
+    exit 1
+  fi
+fi
+
+# Garde anti-dérive : un paquet qui importe sans déclarer ne casse RIEN ici (npm
+# hisse tout à la racine) — il casse l'ordre de build après un `clean`, et
+# l'installation chez le consommateur. Deux endroits où nous ne sommes jamais.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '(\.tsx?|package\.json)$'; then
+  if ! node scripts/check-package-deps.mjs; then
+    exit 1
+  fi
+fi
+
+# Pré-filtre rapide (shell pur, AUCUN boot node) : si aucun .ts n'est staged,
+# il n'y a rien à régénérer → on évite ~1,3 s de démarrage node/tsx sur les
+# commits sans code (docs, config, json…). Réduit aussi la fenêtre pendant
+# laquelle une interruption (crash terminal, Ctrl+C) peut laisser un
+# .git/index.lock orphelin. Le check précis (zone parsée des globs) reste
+# délégué au script node ci-dessous pour ne pas dupliquer la config (dérive).
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -q '\.ts$'; then
+  exit 0
+fi
+
+# Régénère .ai/symbols.json si des .ts dans la zone parsée sont staged.
+# La zone parsée est définie UNIQUEMENT dans scripts/generate-symbols.config.ts
+# (include/exclude globs). Ce hook délègue au mode --check-staged du script.
+
+if npm run generate-symbols --silent -- --check-staged; then
+  # exit 0 → rien dans la zone parsée → skip
+  exit 0
+fi
+
+echo "🔄 .ts modifiés dans la zone parsée → régénération .ai/symbols.json..."
+
+if ! npm run generate-symbols --silent; then
+  echo "❌ generate-symbols a échoué — commit annulé"
+  exit 1
+fi
+
+# Si le JSON a changé, le stager dans le commit en cours
+if ! git diff --quiet .ai/symbols.json 2>/dev/null; then
+  git add .ai/symbols.json
+  echo "✅ .ai/symbols.json mis à jour et stagé"
+fi

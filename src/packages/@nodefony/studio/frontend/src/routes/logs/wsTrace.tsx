@@ -28,7 +28,12 @@ import {
   IconPlugConnectedX,
 } from "@tabler/icons-react";
 import { type FC, useState } from "react";
-import { JsonView, jsonPreview, truncate, tryParseJson } from "../../components/ui";
+import {
+  JsonView,
+  jsonPreview,
+  truncate,
+  tryParseJson,
+} from "../../components/ui";
 import type { LogRecord } from "./logsTypes";
 import { fmtClock, fmtMillis, recordMessage } from "./logFormat";
 
@@ -78,7 +83,9 @@ function WsMessageRow({ rec, baseTs }: { rec: LogRecord; baseTs: number }) {
   const text = stripAnsi(recordMessage(rec));
   const parsed = tryParseJson(text);
   const [open, setOpen] = useState(false);
-  const preview = parsed.ok ? jsonPreview(parsed.value, 80) : truncate(text, 80);
+  const preview = parsed.ok
+    ? jsonPreview(parsed.value, 80)
+    : truncate(text, 80);
   return (
     <Box
       style={{
@@ -144,7 +151,11 @@ function WsMessageRow({ rec, baseTs }: { rec: LogRecord; baseTs: number }) {
       <Collapse expanded={open}>
         <Box style={{ padding: "0 8px 8px" }}>
           {parsed.ok ? (
-            <JsonView value={parsed.value} defaultExpandedDepth={1} maxHeight={240} />
+            <JsonView
+              value={parsed.value}
+              defaultExpandedDepth={1}
+              maxHeight={240}
+            />
           ) : (
             <Text
               size="xs"
@@ -234,15 +245,24 @@ export function WsTracePanel({
       {messages.length > 0 ? (
         <Stack gap={6}>
           {messages.map((m) => (
-            <WsMessageRow key={`${m.uid}-${m.timeStamp}`} rec={m} baseTs={baseTs} />
+            <WsMessageRow
+              key={`${m.uid}-${m.timeStamp}`}
+              rec={m}
+              baseTs={baseTs}
+            />
           ))}
         </Stack>
       ) : (
-        <Alert color="grape" variant="light" icon={<IconInfoCircle size={16} />}>
+        <Alert
+          color="grape"
+          variant="light"
+          icon={<IconInfoCircle size={16} />}
+        >
           <Text size="xs">
-            Aucun message WebSocket loggé pour cette connexion. Les messages au fil
-            de l'eau ne sont tracés qu'en <b>développement</b> (sévérité DEBUG) ;
-            en production seuls le handshake et la fermeture apparaissent.
+            Aucun message WebSocket loggé pour cette connexion. Les messages au
+            fil de l'eau ne sont tracés qu'en <b>développement</b> (sévérité
+            DEBUG) ; en production seuls le handshake et la fermeture
+            apparaissent.
           </Text>
         </Alert>
       )}

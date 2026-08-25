@@ -6,8 +6,8 @@ topic: perf-ouvertures
 section: "Performance"
 audience: [developer]
 tags: [performance, limites, backlog, honnetete, transposabilite]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: "docs/performance/"
 tests: none
 ---

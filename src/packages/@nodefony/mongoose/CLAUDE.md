@@ -59,7 +59,7 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
 - `npm run build` (rolldown preserveModules → `dist/` + `dist/types/`). `zod` dans `external`.
 - `npm test` (`vitest run`) : `tests/unit/config` (Zod + surcharges d'env, dont la branche infra
   `NF_DATABASE_URL` et son tri de famille) + `tests/integration/`
-  (orm-core ReplSet + session-storage hybride). **`MONGO_TEST_URI`** = conteneur Mongo CI/Docker ;
+  (orm-core ReplSet + session-storage hybride). **`NF_MONGO_TEST_URI`** = conteneur Mongo CI/Docker ;
   sinon `mongodb-memory-server` (binaire mongod téléchargé 1×, ~84 Mo). Banc orm-core = `MongoMemoryReplSet` (tx).
 
 ## Ce qu'il ne faut JAMAIS faire sans accord

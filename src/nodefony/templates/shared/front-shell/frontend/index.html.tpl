@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <!--
   Coquille HTML de ton app — TA page, pas celle du framework : ajoute ici tes
   meta, polices, favicons, scripts externes. Le framework injecte ses balises

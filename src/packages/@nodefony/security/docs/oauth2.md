@@ -310,7 +310,7 @@ défaut est `UserService.provisionOAuthUser()` (`UserService.ts:306`), en **find
 | ---------------------------------------- | ------------------------------------------------------------------------------ |
 | Lien social déjà connu                   | Le compte existant est rendu tel quel — rien n'est créé, rien n'est réécrit.   |
 | Lien inconnu, `allowSignup: true`        | Création JIT : `password: null`, rôles = `defaultRoles`, lien social persisté. |
-| Lien inconnu, `allowSignup: false`       | **Échec fail-closed** (`UserService.ts:317-322`) — un compte lié est exigé.    |
+| Lien inconnu, `allowSignup: false`       | **Échec fail-closed** (`UserService.ts:363`) — un compte lié est exigé.        |
 | E-mail identique à un compte local       | **Aucune liaison automatique** — un compte SÉPARÉ est créé.                    |
 | Même `providerId` chez deux fournisseurs | Comptes séparés (le couple `provider` + `providerId` fait la clé).             |
 
@@ -419,22 +419,22 @@ Exemple réel et sans réseau dans le dépôt : `src/modules/test/nodefony/secur
 Section `oauth2` du schéma Zod (`config.ts:990`), branchée sur la config du module
 (`config.ts:990`). Table dérivée du schéma — les défauts sont ceux du code.
 
-| Option            | Type                 | Défaut          | Effet                                                     |
-| ----------------- | -------------------- | --------------- | --------------------------------------------------------- |
-| `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.        |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:864`). |
-| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:890`). |
-| `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                    |
-| `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).        |
-| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:906`).                   |
+| Option            | Type                 | Défaut          | Effet                                                      |
+| ----------------- | -------------------- | --------------- | ---------------------------------------------------------- |
+| `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.         |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:989`).  |
+| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1015`). |
+| `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                     |
+| `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).         |
+| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1031`).                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:823`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:948`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |
 | --- | :---: | --- |
 | `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
-| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:771-776`). |
+| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:958`). |
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
 | `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:124-131`). |
@@ -489,16 +489,16 @@ ou détruire les sessions), pas chez le fournisseur.
 
 ## 📜 Normes appliquées
 
-| Domaine                           | Norme                    | Ancrage                                                                 |
-| --------------------------------- | ------------------------ | ----------------------------------------------------------------------- |
-| Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:53`)   |
-| PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:26`) · `oidc.ts:49-54`                   |
-| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:40`) · `oauth2Schema` (`config.ts:811-814`) |
-| Anti-mix-up (`iss`)               | RFC 9207                 | `expectedIssuer` (`IOAuthProvider.ts:34`) · `oauth2.ts:170-174`         |
-| Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:771-776`)                                     |
-| Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:72-89`)                       |
-| ID token consommé en code flow    | RFC 8725                 | `createOidcProvider()` (`oidc.ts:46`)                                   |
-| Anti-fixation de session          | OWASP Session Management | `session.regenerateId()` au login (`authFlow.ts:388`)                   |
+| Domaine                           | Norme                    | Ancrage                                                               |
+| --------------------------------- | ------------------------ | --------------------------------------------------------------------- |
+| Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:53`) |
+| PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:26`) · `oidc.ts:49-54`                 |
+| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:40`) · `oauth2Schema` (`config.ts:1001`)  |
+| Anti-mix-up (`iss`)               | RFC 9207                 | `expectedIssuer` (`IOAuthProvider.ts:34`) · `oauth2.ts:170-174`       |
+| Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:958`)                                       |
+| Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:72-89`)                     |
+| ID token consommé en code flow    | RFC 8725                 | `createOidcProvider()` (`oidc.ts:46`)                                 |
+| Anti-fixation de session          | OWASP Session Management | `session.regenerateId()` au login (`authFlow.ts:388`)                 |
 
 Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en fragment d'URL) et
 `password` / ROPC (l'application verrait le mot de passe du fournisseur).
@@ -528,13 +528,13 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | WARNING « inconnu du registre » au boot           | Nom configuré sans fabrique (`oauth2.ts:86-95`)                               | `registerOAuthProvider()` au chargement du module, ou builtin       |
 | `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:97`)            | Vérifier le nom exact **et** la présence des secrets                |
 | Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)               | Renseigner `clientId`/`clientSecret` dans l'env                     |
-| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:771-776`)      | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
+| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:958`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
 | Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)             | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
 | Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:126-129`)              | Refaire le flux depuis `authorize` — comportement attendu           |
 | `OAuth issuer mismatch`                           | `iss` reçu ≠ `expectedIssuer` (`oauth2.ts:170-174`)                           | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
 | Keycloak : erreur dès le premier login            | `issuer` absent en config (`oauthProviderRegistry.ts:89-93`)                  | Renseigner l'URL du realm                                           |
 | « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:224-231`)                  | Implémenter `provisionOAuthUser()` sur le service `users`           |
-| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:317-322`)         | Activer `allowSignup` ou lier le compte au préalable                |
+| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:363`)             | Activer `allowSignup` ou lier le compte au préalable                |
 | Doublon de compte pour un utilisateur existant    | Aucune liaison auto par e-mail (choix de sécurité)                            | Rattacher explicitement, utilisateur connecté                       |
 | Rôle attendu absent après re-login                | Rôles posés à la **création** seulement (`UserService.ts:348`)                | Modifier les rôles en base ; `defaultRoles` ne réécrit rien         |
 | Jeton du fournisseur introuvable côté application | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`) | Le capturer dans son propre `fetchProfile()` et le stocker soi-même |

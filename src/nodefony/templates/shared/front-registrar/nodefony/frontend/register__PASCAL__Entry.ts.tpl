@@ -24,8 +24,7 @@ import type { FrontendService } from "@nodefony/frontend";
  */
 export function register<%= it.pascal %>Entry(module: Module): void {
   const svc = module.kernel?.container?.get("frontend") as
-    | FrontendService
-    | undefined;
+    FrontendService | undefined;
   if (!svc) {
     module.log("@nodefony/frontend service not registered", "ERROR");
     return;

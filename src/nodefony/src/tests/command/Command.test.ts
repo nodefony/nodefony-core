@@ -123,6 +123,197 @@ describe("Command — addOption() + addArgument()", () => {
   });
 });
 
+// ─── 3quater. terminate() — un échec ne sort pas en 0 ────────────────────────
+
+describe("Command — le code de sortie d'un ÉCHEC survit", () => {
+  let cli: Cli;
+  beforeAll(async () => {
+    cli = await makeStartedCli();
+  });
+
+  /**
+   * 🔴 Signalé sur `security:token` : la commande écrivait son erreur, posait
+   * `process.exitCode = 1`… et le journal affichait « terminate : 0 ». Le
+   * process sortait en 0. Un script, un CI, un `&&` en shell ne voyaient RIEN.
+   *
+   * Deux étages écrasaient le code, l'un après l'autre : `Command.terminate()`
+   * traduisait `undefined` en `0` (`code || 0`), et `Kernel.terminate()` en
+   * faisait autant. Le `process.exitCode` posé par la commande — la façon
+   * NORMALE de signaler un échec en Node — n'avait aucune chance d'arriver.
+   *
+   * Cinq commandes du dépôt le posent ainsi : la règle vit donc au socle, pas
+   * dans chacune.
+   */
+  it("terminate() sans argument NE FORCE PAS 0 — il laisse passer l'intention", async () => {
+    const cmd = new Command("exit-code", "test", cli);
+    let recu: unknown = "jamais appelé";
+    (cmd as unknown as { cli: { terminate: (c?: number) => void } }).cli = {
+      terminate: (c?: number) => {
+        recu = c;
+      },
+    };
+    await cmd.terminate();
+    assert.strictEqual(
+      recu,
+      undefined,
+      "un `undefined` traduit en 0 efface l'échec posé par la commande",
+    );
+  });
+
+  it("terminate(1) transmet le code tel quel", async () => {
+    const cmd = new Command("exit-code-1", "test", cli);
+    let recu: unknown = null;
+    (cmd as unknown as { cli: { terminate: (c?: number) => void } }).cli = {
+      terminate: (c?: number) => {
+        recu = c;
+      },
+    };
+    await cmd.terminate(1);
+    assert.strictEqual(recu, 1);
+  });
+});
+
+// ─── 3ter. quietBoot — le journal de boot n'est pas la sortie d'une commande ──
+
+describe("Command — quietBoot déclaré", () => {
+  let cli: Cli;
+  beforeAll(async () => {
+    cli = await makeStartedCli();
+  });
+
+  /**
+   * 🔴 `nodefony inspect modules` rendait trente lignes de `MODULE ADD`, de
+   * stores résolus et d'un avertissement TLS AVANT son tableau : la réponse à
+   * la question posée arrivait en dernier, sous un mur que personne n'a demandé.
+   *
+   * La capacité est DÉCLARÉE, et c'est ce qui compte : posée dans le
+   * constructeur d'une commande (le réflexe précédent, avec une garde sur
+   * `process.argv`), elle vaudrait pour TOUTES les invocations du CLI — le
+   * constructeur de chaque commande s'exécute à chaque lancement — et rendrait
+   * muet le serveur de développement.
+   */
+  it("une commande qui ne le déclare pas ne l'a pas", () => {
+    const cmd = new Command("quiet-non", "test", cli);
+    assert.strictEqual(cmd.quietBoot, false);
+  });
+
+  it("une commande qui le déclare le porte", () => {
+    const cmd = new Command("quiet-oui", "test", cli, { quietBoot: true });
+    assert.strictEqual(cmd.quietBoot, true);
+  });
+
+  it("les commandes de LECTURE du dépôt le déclarent", async () => {
+    // Le contrat vaut par ses porteurs : si `inspect` cessait de le déclarer,
+    // sa sortie redeviendrait illisible sans qu'aucun test ne tombe.
+    const { default: Inspect } =
+      await import("../../kernel/commands/InspectCommand");
+    const { default: Outdated } =
+      await import("../../kernel/commands/OutdatedCommand");
+    for (const Ctor of [Inspect, Outdated]) {
+      const cmd = new Ctor(cli as never);
+      assert.strictEqual(
+        cmd.quietBoot,
+        true,
+        `${cmd.name} doit booter en silence`,
+      );
+    }
+  });
+});
+
+// ─── 3bis. askArgument() — un argument qui manque se DEMANDE ─────────────────
+
+describe("Command — askArgument()", () => {
+  let cli: Cli;
+  beforeAll(async () => {
+    cli = await makeStartedCli();
+  });
+
+  /**
+   * 🔴 Une commande choisie au menu — ou tapée sans son argument — répondait
+   * « error: missing required argument 'identifier' » puis `terminate : 1`.
+   * L'utilisateur n'a pas oublié un argument : il ne le connaissait pas. Une
+   * commande qui SAIT ce qu'il lui faut doit le demander, pas refuser.
+   *
+   * Le geste vit au socle et pas dans chaque commande : quatre commandes du
+   * dépôt exigent un argument, et quatre copies d'une même règle divergent.
+   */
+  it("une valeur déjà fournie n'est JAMAIS redemandée", async () => {
+    const cmd = new Command("ask-1", "test", cli);
+    let demande = false;
+    cmd.loadPrompts = async () => {
+      demande = true;
+    };
+    const v = await cmd.askArgument("bob", {
+      name: "identifier",
+      message: "identifiant",
+    });
+    assert.strictEqual(v, "bob");
+    assert.strictEqual(demande, false, "les prompts ont été chargés pour rien");
+  });
+
+  it("🔴 HORS TTY, elle ÉCHOUE avec la ligne à taper — jamais un prompt qui pend", async () => {
+    // Un pipeline CI n'a pas de terminal : y poser une question bloquerait le
+    // job jusqu'au timeout, et le journal ne dirait pas pourquoi. L'échec doit
+    // rester un échec, mais un échec qui montre la sortie.
+    const cmd = new Command("ask-2", "test", cli);
+    let erreur: Error | null = null;
+    try {
+      await cmd.askArgument(undefined, {
+        name: "identifier",
+        message: "identifiant",
+        isTTY: false,
+      });
+    } catch (e) {
+      erreur = e as Error;
+    }
+    assert.ok(erreur, "aucune erreur levée hors TTY");
+    assert.match(String(erreur?.message), /identifier/u);
+    assert.match(
+      String(erreur?.message),
+      /ask-2/u,
+      "la commande à taper manque",
+    );
+  });
+
+  it("en TTY, elle demande — saisie libre", async () => {
+    const cmd = new Command("ask-3", "test", cli);
+    cmd.loadPrompts = async () => {};
+    cmd.prompts = {
+      input: async () => "  saisie  ",
+    } as unknown as typeof cmd.prompts;
+    const v = await cmd.askArgument(undefined, {
+      name: "identifier",
+      message: "identifiant",
+      isTTY: true,
+    });
+    // La valeur est TAILLÉE : un espace de copier-coller deviendrait un login.
+    assert.strictEqual(v, "saisie");
+  });
+
+  it("en TTY avec des choix, elle propose une LISTE plutôt qu'une saisie", async () => {
+    const cmd = new Command("ask-4", "test", cli);
+    cmd.loadPrompts = async () => {};
+    let listeProposee: unknown = null;
+    cmd.prompts = {
+      select: async (o: { choices: unknown }) => {
+        listeProposee = o.choices;
+        return "routes";
+      },
+      input: async () => {
+        throw new Error("une saisie libre a été proposée malgré des choix");
+      },
+    } as unknown as typeof cmd.prompts;
+    const v = await cmd.askArgument(undefined, {
+      name: "sujet",
+      message: "sujet",
+      choices: ["routes", "services"],
+      isTTY: true,
+    });
+    assert.strictEqual(v, "routes");
+    assert.ok(Array.isArray(listeProposee));
+  });
+});
+
 // ─── 4. forceInteractiveMode() ────────────────────────────────────────────────
 
 describe("Command — forceInteractiveMode()", () => {
@@ -144,6 +335,41 @@ describe("Command — forceInteractiveMode()", () => {
     cmd.forceInteractiveMode();
     await cmd.run();
     assert.strictEqual(interactionCalled, true);
+  });
+
+  it("🔴 en interactif, generate() reçoit ses arguments ÉTALÉS — pas un tableau", async () => {
+    // Mesuré : `interaction(...args).then((...response) => generate(...response))`
+    // — le callback d'une promesse ne reçoit qu'UNE valeur, donc `response`
+    // valait `[[a, b, c]]` et `generate` recevait UN argument : le tableau.
+    // Conséquence : toute commande passée en interactif sans surcharger
+    // `interaction()` voyait son premier paramètre devenir un tableau. Le menu
+    // ne s'en apercevait pas — il surcharge `interaction()` et rend une chaîne.
+    // C'est ce qui bloquait la propagation du mode interactif depuis le menu.
+    const cmd = new Command("spread-int", "test", cli);
+    let recus: unknown[] = [];
+    cmd.generate = async (...args: unknown[]) => {
+      recus = args;
+      return cmd;
+    };
+    cmd.forceInteractiveMode();
+    await cmd.run("bob", { admin: true }, "cmd");
+    assert.strictEqual(recus.length, 3, "les arguments ont été empaquetés");
+    assert.strictEqual(recus[0], "bob");
+  });
+
+  it("une interaction qui rend UNE valeur la passe telle quelle", async () => {
+    // Le cas du menu : `interaction()` rend une chaîne, `generate` doit la
+    // recevoir comme argument unique — pas ses caractères étalés.
+    const cmd = new Command("single-int", "test", cli);
+    let recus: unknown[] = [];
+    cmd.interaction = async () => "start";
+    cmd.generate = async (...args: unknown[]) => {
+      recus = args;
+      return cmd;
+    };
+    cmd.forceInteractiveMode();
+    await cmd.run();
+    assert.deepStrictEqual(recus, ["start"]);
   });
 
   it("sans forceInteractiveMode — run() appelle generate() directement", async () => {

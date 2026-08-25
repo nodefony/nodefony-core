@@ -35,7 +35,8 @@ Le package `nodefony` a **deux visages compilés depuis la même source** :
 
 - condition `browser` sur l'export racine + subpaths client dédiés `./client`, `./react`,
   `./roles`, `./debugbar`, `./debugbar.js` (standalone) — `src/nodefony/package.json` ;
-- un build client séparé (`rollup.config.ts:156` `createClientConfig`, 4 entries + standalone) ;
+- un build client séparé (`createClientConfig`, 4 entries + standalone) — à l'époque dans
+  `rollup.config.ts`, aujourd'hui `rolldown.config.ts` (Rollup a été retiré depuis) ;
 - une **garantie compilateur** « zéro node-ism » : `tsconfigClient.json` → `"types": []`,
   `lib DOM`, et 3 shims d'alias (`node:util`, `node:events`, `cli-color` →
   `src/client/shim/*`) ;
@@ -311,7 +312,7 @@ ferait du kernel un moule du legacy Studio.
 | Alternative                                              | Pourquoi écartée                                                                                                                                                                                                          |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A. Transplanter le Kernel serveur dans le navigateur** | Routeur/firewall/ORM/serveurs n'ont pas d'existence navigateur ; le Kernel back pèse et suppose un process. L'isomorphisme de Nodefony = même modèle mental, pas même binaire.                                            |
-| **B. DI à décorateurs côté client**                      | `reflect-metadata` + metadata emit = poids et complexité sans gain vs composition explicite ; contredit la décision Studio éprouvée (`RootStore.ts:31`) ; l'injector est déjà exclu du build client.                      |
+| **B. DI à décorateurs côté client**                      | `reflect-metadata` + metadata emit = poids et complexité sans gain vs composition explicite ; contredit la décision Studio éprouvée (cf. la décision Studio citée plus haut) ; l'injector est déjà exclu du build client. |
 | **C. Package séparé `@nodefony/client`**                 | Déjà tranché (2026-05-21, [[project_client_lib_subpaths_decision]]) : subpaths du core = tree-shaking par entry, couplage de version = avantage (type-safety end-to-end), 1 package à maintenir (solo). P13.3 supprimé.   |
 | **D. Statu quo — chaque app garde sa glue**              | C'est le drift qu'on tue : 1 511 lignes non réutilisables, `ApiClient` à réécrire par app, et une règle de sécurité (D9) dont la présence dépend du copier-coller. Inacceptable une fois le contrat publié.               |
 | **E. Framework front complet (routing/rendu possédés)**  | Ligne rouge D1 : se battre contre React/Vue/Angular est perdu d'avance ; la valeur de Nodefony côté client est l'infra (socket, api, observabilité, identité), pas la vue.                                                |
@@ -355,7 +356,8 @@ ferait du kernel un moule du legacy Studio.
 
 - Code (ancrages vérifiés 2026-07-03) : `src/nodefony/package.json` (exports browser+subpaths) ·
   `src/nodefony/src/client/index.ts:57-78` (façade à supprimer) · `tsconfigClient.json`
-  (garantie `types:[]` + shims) · `src/nodefony/rollup.config.ts:156` (`createClientConfig`) ·
+  (garantie `types:[]` + shims) · `createClientConfig` (alors dans `rollup.config.ts`,
+  aujourd'hui `rolldown.config.ts`) ·
   `studio/frontend/src/stores/RootStore.ts` (composition manuelle ; :31 pas de DI front ;
   :104-156 cycle identité) · `studio/frontend/src/services/ApiClient.ts` (à remonter) ·
   `src/nodefony/src/kernel/MEMORY.md:40` (hooks lifecycle back).

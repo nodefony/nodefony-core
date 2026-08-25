@@ -93,6 +93,23 @@ updates:
         patterns: ["*"]
         dependency-type: "development"
         update-types: ["minor", "patch"]
+      # TypeScript majeur voyage SEUL, et ce n'est pas un traitement de faveur :
+      # il est BLOQUÉ EN AMONT. `@angular/build` exige `typescript >=6.0 <6.1`,
+      # y compris dans ses versions `next` — TypeScript 7 ne peut donc pas
+      # s'installer tant qu'Angular n'a pas suivi, et `npm ci` échoue AVANT le
+      # moindre test. Groupé, il emportait avec lui toutes les autres montées
+      # majeures : une pull request rouge de bout en bout, à chaque cycle, pour
+      # une raison qui n'est ni la nôtre ni corrigible ici. Un rouge permanent
+      # cesse d'être lu, et c'est ainsi qu'un vrai rouge passe inaperçu.
+      #
+      # Il n'est PAS ignoré — la décision du dépôt est de voir ses majeures. Il
+      # est seulement isolé, pour que son blocage ne devienne pas celui des
+      # autres. ⚠️ Ce groupe doit précéder `majeures` : une dépendance rejoint
+      # le PREMIER groupe qui la retient.
+      typescript-majeur:
+        patterns: ["typescript"]
+        update-types: ["major"]
       majeures:
         patterns: ["*"]
+        exclude-patterns: ["typescript"]
         update-types: ["major"]

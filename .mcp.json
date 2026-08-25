@@ -2,7 +2,10 @@
   "mcpServers": {
     "nodefony": {
       "type": "http",
-      "url": "http://localhost:5151/nodefony/mcp"
+      "url": "http://localhost:5151/nodefony/mcp",
+      "headers": {
+        "Authorization": "Bearer ${NF_MCP_TOKEN}"
+      }
     }
   }
 }

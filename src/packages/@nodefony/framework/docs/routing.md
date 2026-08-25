@@ -52,7 +52,7 @@ Trois faits à retenir avant tout le reste :
    (`routing-nonregression.test.ts:83`).
 2. **Le routeur ne lève jamais de 404.** Aucun match = `resolver.resolve === false`, sans exception ;
    le 404 est décidé plus loin, après le repli sur les fichiers statiques
-   (`HttpError("Not Found", 404)`, `http-kernel.ts:688`).
+   (`HttpError("Not Found", 404)`, `http-kernel.ts:798`).
 3. **Le chemin est vérifié avant la méthode, et le domaine entre les deux** — c'est ce qui produit un
    `403` plutôt qu'un `405` bavard quand la route appartient à un autre vhost (`Route.match()`,
    `Route.ts:212`).
@@ -367,7 +367,7 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 
 Deux routes peuvent partager un chemin et se distinguer par la méthode. La passe 1 essaie la première,
 qui **lève** un 405 sur la méthode ; l'exception est mémorisée et le scan **continue** jusqu'à la route
-qui accepte la méthode (`Router.resolve()`, `router.ts:247`).
+qui accepte la méthode (`Router.resolve()`, `router.ts:230`).
 
 ```ts ignore
 @Get("/book/{id}")    show() {}
@@ -376,8 +376,8 @@ qui accepte la méthode (`Router.resolve()`, `router.ts:247`).
 
 Si **aucune** route n'accepte la méthode, la **passe 2** entre en scène : elle reparcourt la table,
 collecte toutes les méthodes servies par ce chemin **sur ce vhost**, et lève un 405 dont l'en-tête
-`Allow` est l'**agrégat** (`collectSupportedMethods()`, `router.ts:261` ; en-tête posé sur la réponse,
-`router.ts:279`). C'est la conformité RFC 9110 §15.5.6 : `Allow` liste tout ce que la ressource
+`Allow` est l'**agrégat** (`collectSupportedMethods()`, `router.ts:31` ; en-tête posé sur la réponse,
+`router.ts:31`). C'est la conformité RFC 9110 §15.5.6 : `Allow` liste tout ce que la ressource
 accepte, pas seulement ce que la dernière route scannée acceptait.
 
 | Requête           | Réponse                                        |
@@ -418,7 +418,7 @@ Ce qui change par rapport au HTTP :
   inconnu ou un sous-protocole non conforme ferme la connexion **sans jamais l'ouvrir**.
 - **Le sous-protocole est un requirement de route.** Un `protocol` déclaré et non satisfait lève une
   erreur de code **1002** (Protocol Error, RFC 6455 §7.4) au lieu d'un statut HTTP
-  (`acceptedProtocol`, `Route.ts:587`).
+  (`acceptedProtocol`, `Route.ts:722`).
 - **Le 405 ne s'applique pas au WebSocket.** La passe 2 est réservée au HTTP : sur un contexte WS,
   l'exception d'origine est préservée (`Router.resolve()`, `router.ts:190`).
 - **Un `Resolver` par connexion, réutilisé à chaque frame.** Il est créé au handshake, puis chaque
@@ -440,7 +440,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
   chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:116`) que la
   route doit déclarer **en plus** du transport — une route `POST` qui n'annonce pas `WEBSOCKET` reste
-  **injoignable** par socket (zéro contournement, `Route.ts:546`).
+  **injoignable** par socket (zéro contournement, `Route.ts:678`).
 
 Le routage par **message** (invoquer un chemin porté par une frame, sans toucher l'URL de la connexion)
 passe par le même `resolve()`, avec un chemin fourni en argument — l'état partagé de la socket n'est
@@ -470,7 +470,7 @@ vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Rout
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:1610`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:1697`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -482,8 +482,8 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
-   logs (`Router.setController()`, `router.ts:356`). Un module tiers et ton app peuvent porter deux
-   contrôleurs homonymes sans collision : la clé du registre est `module:Classe` (`router.ts:367`).
+   logs (`Router.setController()`, `router.ts:417`). Un module tiers et ton app peuvent porter deux
+   contrôleurs homonymes sans collision : la clé du registre est `module:Classe` (`router.ts:164`).
 3. **Le data plane d'administration** — réservé, non négociable : `/nodefony/<namespace>/api/<endpoint>`
    (`AdminBroker.resolvePath()`, `AdminBroker.ts:91`). Trois segments minimum, pour ne jamais entrer en
    collision avec les routes de l'application ni avec la SPA de Studio.
@@ -502,9 +502,9 @@ d'une route — il survit à un changement de chemin.
 | Besoin                                   | Comment                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:326`)        |
-| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:326`)              |
-| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:315`) |
-| Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:416`)          |
+| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:387`)              |
+| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:376`) |
+| Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:445`)          |
 | Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:335`)                       |
 
 **Il n'existe pas de générateur d'URL inverse côté serveur** (pas de `path("ma-route", {id})` à la
@@ -551,12 +551,12 @@ alloué par requête.
   chaque route scannée — sinon le getter `URL.pathname`, la regex de normalisation et l'allocation de
   chaîne seraient refaits pour **chaque** route de la table (`Route.cleanPathname()`, `Route.ts:204`).
 - **Lookup O(1) pour les chemins littéraux**, scan pour les seuls chemins à motif — sans changer la
-  séquence de candidats (`buildRouteIndex()`, `router.ts:92`). L'index est invalidé par toute mutation
+  séquence de candidats (`buildRouteIndex()`, `router.ts:130`). L'index est invalidé par toute mutation
   de la table, avec un garde-fou sur une photo `longueur/première/dernière` qui rattrape même les
   mutations directes de la liste (`routeIndex`, `router.ts:201`).
 - **Zéro journalisation en production** : le log « route trouvée » est promu au niveau NOTICE hors
   production seulement, et le test est résolu une fois puis mémoïsé — en production, aucune chaîne
-  n'est même construite (`routeNoticePromoted`, `router.ts:232`).
+  n'est même construite (`routeNoticePromoted`, `router.ts:299`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
   (`resolveActionMeta`, `Resolver.ts:142`).
@@ -565,11 +565,11 @@ alloué par requête.
 
 | Sujet                                    | Norme             | Où le code s'y conforme                                         |
 | ---------------------------------------- | ----------------- | --------------------------------------------------------------- |
-| 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:261`)          |
+| 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:31`)           |
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:232`) |
 | 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:489`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1610`)                    |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1697`)                    |
 | Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:649`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 

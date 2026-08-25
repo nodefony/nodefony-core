@@ -1,7 +1,19 @@
 import { Service, Module, Container, Event, injectable } from "nodefony";
 
 /**
- * Un SERVICE de ton application — l'exemplaire à imiter quand tu écris de la
+ * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
+ *
+ * ```bash
+ * npx nodefony create service <Nom>                  # la classe + sa déclaration
+ * npx nodefony create service <Nom> --inject <Autre> # + la dépendance écrite
+ * ```
+ *
+ * Le générateur écrit la version COURANTE du framework et déclare le service sur
+ * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
+ * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
+ * se dupliquer.
+ *
+ * Un SERVICE de ton application — l'exemplaire à LIRE quand tu écris de la
  * logique métier.
  *
  * Il est là pour une raison précise : ton application naît avec des controllers
@@ -29,10 +41,6 @@ import { Service, Module, Container, Event, injectable } from "nodefony";
  * module, dans `@services([…])` de l'`index.ts`. Une classe `@injectable()` que
  * personne ne déclare n'existe pour personne — `npx nodefony check` le dit
  * (règle `orphan-service`), mais seulement si le décorateur est là.
- *
- * Tu en veux un nouveau ? Ne recopie pas ce fichier :
- * `npx nodefony create service <Nom>` le génère à la version courante du
- * framework, et `--inject <AutreService>` écrit la dépendance pour toi.
  */
 @injectable()
 class AppInfoService extends Service {

@@ -3,6 +3,10 @@ import CliKernel from "../CliKernel";
 import { runCheckCommand } from "../checks/runCheck";
 
 const options: OptionsCommandInterface = {
+  // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
+  // vaut que pour une invocation directe) : sa sortie serait noyée sous le
+  // journal de cycle de vie.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -38,7 +42,7 @@ class Check extends Command {
   constructor(cli: CliKernel) {
     super(
       "check",
-      "Check that every Nodefony package imported by the app is declared",
+      "Diagnostic statique du projet : câblage, dépendances, bilan du dernier démarrage",
       cli as CliKernel,
       options,
     );

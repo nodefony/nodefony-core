@@ -15,7 +15,7 @@ import {
  * Le **banc de contrat unique** de pagination utilisateur (`@nodefony/user`),
  * déroulé sur le store Mongoose — les MÊMES assertions que le store mémoire et les
  * trois dialectes SQL, seul le harness (insert/clear via le base repo) change.
- * GATE : infra Mongo (`MONGO_TEST_URI` ou memory-server), sinon skip.
+ * GATE : infra Mongo (`NF_MONGO_TEST_URI` ou memory-server), sinon skip.
  */
 const ORM = "mongo_user_pagination";
 const URI = mongoTestUri(ORM);

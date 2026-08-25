@@ -11,15 +11,15 @@ que **router l'argument vers le bon appel de script** — ne réimplémente rien
 
 Mappe l'argument (insensible casse/accents ; vide → `start`) puis lance la commande Bash correspondante :
 
-| Argument (alias) | Commande Bash à exécuter |
-|------------------|--------------------------|
-| `start` (vide, `up`, `lance`, `démarre`) | `bash .claude/skills/nodefony-start-server/start.sh` |
-| `stop` (`down`, `kill`, `arrête`) | `bash .claude/skills/nodefony-start-server/stop.sh` |
-| `restart` (`relance`, `redémarre`) | `bash .claude/skills/nodefony-start-server/stop.sh && bash .claude/skills/nodefony-start-server/start.sh` |
-| `debug` (`-d`, `verbose`) | `bash .claude/skills/nodefony-start-server/start.sh -d` |
-| `build` (`rebuild`, `--force-build`, `force`) | `bash .claude/skills/nodefony-start-server/start.sh --force-build` |
-| `debug build` (combinés) | `bash .claude/skills/nodefony-start-server/start.sh -d --force-build` |
-| `help` (`aide`, `?`) | **N'exécute rien** — affiche seulement ce tableau |
+| Argument (alias)                              | Commande Bash à exécuter                                                                                  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `start` (vide, `up`, `lance`, `démarre`)      | `bash .claude/skills/nodefony-start-server/start.sh`                                                      |
+| `stop` (`down`, `kill`, `arrête`)             | `bash .claude/skills/nodefony-start-server/stop.sh`                                                       |
+| `restart` (`relance`, `redémarre`)            | `bash .claude/skills/nodefony-start-server/stop.sh && bash .claude/skills/nodefony-start-server/start.sh` |
+| `debug` (`-d`, `verbose`)                     | `bash .claude/skills/nodefony-start-server/start.sh -d`                                                   |
+| `build` (`rebuild`, `--force-build`, `force`) | `bash .claude/skills/nodefony-start-server/start.sh --force-build`                                        |
+| `debug build` (combinés)                      | `bash .claude/skills/nodefony-start-server/start.sh -d --force-build`                                     |
+| `help` (`aide`, `?`)                          | **N'exécute rien** — affiche seulement ce tableau                                                         |
 
 Flags combinables : `-d` (logs DEBUG verbeux) et `--force-build` (rebuild module test
 même si dist à jour) peuvent coexister.

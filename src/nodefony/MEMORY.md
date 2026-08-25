@@ -243,9 +243,11 @@ rien à redéclarer.
 | `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue |
 | `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
 | `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
-| `collectMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip` |
+| `declareMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`. **Non servable tel quel** : contient les réservés |
+| `collectMcpTools(opts)` | `src/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
+| `mcpDeclaredScopes(opts)` | `src/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
 | `publishMcpTools`/`callMcpTool` | `src/mcp/tools.ts` | projection sans `handler` / exécution par nom |
-| `mcpText` | `src/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils |
+| `mcpText` | `src/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils. **BORNÉ** (voir ci-dessous) |
 | `IMcpTool` | `types/IMcpTool.ts` | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |
 
 - **Collecte, PAS registre** — rien n'est alloué au boot, rien n'est mémorisé :
@@ -256,6 +258,21 @@ rien à redéclarer.
   gratuite.
 - **Ordre = intégrés d'abord** → un module ne peut pas se substituer à
   `nodefony_inspect` et répondre à sa place.
+- 🔴 **Un résultat est une RÉPONSE, pas un déversement** — `mcpText` borne à
+  `MCP_TEXT_MAX_CHARS` (32 000). Au-delà : un tableau rend son `count` EXACT puis
+  ses entrées en SURFACE (`surfaceDe` : scalaires courts gardés, objets/tableaux
+  imbriqués et longues chaînes jetés) ; un objet rend ses `keys`. **En deçà, la
+  donnée part TELLE QUELLE** — aucun consommateur à retoucher, et la garde n'est
+  pas payée sur le cas courant. Garder TOUTES les entrées en surface, jamais un
+  échantillon des N premières : une question portant sur la 100ᵉ recevrait
+  sinon une réponse fausse, sans moyen de le savoir. La garde vit dans `mcpText`
+  (pas dans les 4 intégrés) → un outil d'application en hérite sans le savoir.
+  _Pourquoi_ : `inspect routes` rendait 47 138 caractères et l'agent, à qui on
+  demandait le NOMBRE de routes, recopiait la liste dans un script pour la
+  compter avant d'abandonner ; `inspect config` rendait 190 730 caractères,
+  au-delà de ce que le client accepte → déporté sur disque, vingt tours perdus.
+  L'outil était moins bon que la CLI qu'il expose (`renderHuman` affiche
+  « 119 routes » depuis toujours).
 - 🔴 **Outils RÉSERVÉS** : `IMcpTool.scopes` (TOUS exigés, `every` pas `some`) et
   `requiresAuth`, filtrés par `collectMcpTools({caller})` — donc **au seul point
   de collecte**, ce qui couvre `tools/list` ET `tools/call` : le protocole ne

@@ -330,13 +330,13 @@ export function createSyslogAdminApi(
             // info-leak FS). null en prod ou si le viewer de fichiers est désactivé.
             logDir: logDirPublic,
           },
-          // Topologie process. En cluster (`NODEFONY_CLUSTER=1`, posé par le
+          // Topologie process. En cluster (`NF_CLUSTER=1`, posé par le
           // master et hérité au fork), le data plane est servi par UN worker
           // round-robin → le front avertit que la relecture est partielle si le
           // driver actif n'agrège pas le cluster (≠ `cluster-file`). `pid` = ce
           // worker. Per-instance (cloud-native) — pas d'agrégation ici.
           cluster: {
-            isCluster: process.env.NODEFONY_CLUSTER === "1",
+            isCluster: process.env.NF_CLUSTER === "1",
             pid: process.pid,
           },
           // Santé du flux (cumuls monotones → débit dérivé côté lecteur).

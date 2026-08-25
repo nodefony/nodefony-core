@@ -23,7 +23,7 @@ import { redisTestUrl } from "../helpers/redisTestUrl";
  * restés NON couverts alors qu'ils sont précisément ceux qui décident du
  * comportement le jour où l'infra va mal.
  *
- * GATE : `REDIS_TEST_URL` pour la partie « donnée hostile » (elle exige un vrai
+ * GATE : `NF_REDIS_TEST_URL` pour la partie « donnée hostile » (elle exige un vrai
  * serveur). La partie « connexion absente » n'a besoin d'aucune infra.
  */
 

@@ -57,14 +57,14 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
       }
     });
 
-    it("MONGODB_DEBUG=1 → debug true", () => {
-      const prev = process.env.MONGODB_DEBUG;
-      process.env.MONGODB_DEBUG = "1";
+    it("NF_MONGODB_DEBUG=1 → debug true", () => {
+      const prev = process.env.NF_MONGODB_DEBUG;
+      process.env.NF_MONGODB_DEBUG = "1";
       try {
         assert.equal(defineMongooseConfig().debug, true);
       } finally {
-        if (prev === undefined) delete process.env.MONGODB_DEBUG;
-        else process.env.MONGODB_DEBUG = prev;
+        if (prev === undefined) delete process.env.NF_MONGODB_DEBUG;
+        else process.env.NF_MONGODB_DEBUG = prev;
       }
     });
 

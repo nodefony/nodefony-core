@@ -342,14 +342,14 @@ l'infrastructure sous la main.
 
 > [!WARNING]
 > **Une suite verte ne prouve rien sur le fan-out cross-machine.** Le banc Redis est doublement
-> conditionnel : il ne s'exécute que si tu le demandes (`RUN_CLUSTER_E2E=1`), et il se **saute** de
+> conditionnel : il ne s'exécute que si tu le demandes (`NF_RUN_CLUSTER_E2E=1`), et il se **saute** de
 > lui-même si aucun Redis n'est joignable. Or un test sauté compte comme un succès — on peut donc
 > lire « tout est vert » sur une suite qui n'a jamais ouvert une seule connexion. Le fan-out entre
 > workers d'un même pod, lui, ne demande aucune infrastructure et tourne toujours.
 >
 > ```bash
 > # Le seul run qui prouve réellement le fan-out entre machines.
-> RUN_CLUSTER_E2E=1 REDIS_PASSWORD=nodefony-dev npm test
+> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm test
 > ```
 
 ## 🔗 Pour aller plus loin

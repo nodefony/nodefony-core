@@ -77,6 +77,35 @@ export function empreinteTache(task) {
 }
 
 /**
+ * La référence de CET agent — un fichier par agent, à côté du `SKILL.md`.
+ *
+ * `claude` garde `baseline.json` : c'est l'agent de la référence historique, et
+ * la renommer couperait l'historique git de la seule mesure qu'on relit en diff.
+ * Les autres reçoivent `baseline.<agent>.json`.
+ *
+ * Pourquoi séparer plutôt qu'un seul fichier multi-agents : la garde de décor
+ * (`fusionnerReference`) REFUSE déjà de mélanger deux décors et renvoyait
+ * l'opérateur vers « un fichier séparé » — que rien ne savait produire. Un agent
+ * tiers n'avait donc aucune référence, donc pas de `--depistage`, donc aucune
+ * façon de répondre « qu'est-ce qui a bougé ? ». La garde reste entière À
+ * L'INTÉRIEUR de chaque fichier : elle protège encore du mélange de modèle, de
+ * décor et de régime MCP, qui sont les vraies variables d'une mesure.
+ *
+ * ⚠️ Écrire le fichier est bon marché ; le REMPLIR ne l'est pas. Une référence
+ * n'a de sens que si l'agent est REJOUABLE, et l'entrée dans la référence exige
+ * l'unanimité sur trois passes. Mesuré : trois agents sur quatre butent sur un
+ * mur de fournisseur avant d'avoir fini une seule passe.
+ *
+ * @param {string} agent - l'agent mesuré (`NF_DEVKIT_BENCH_AGENT`).
+ * @returns {string} le chemin de sa référence.
+ */
+export function cheminReference(agent) {
+  return agent === "claude"
+    ? CHEMIN_REFERENCE
+    : path.join(path.dirname(CHEMIN_REFERENCE), `baseline.${agent}.json`);
+}
+
+/**
  * Lit la référence versionnée.
  *
  * @returns {object|null} la référence, ou `null` si elle n'a jamais été écrite.
@@ -113,6 +142,75 @@ export const NON_JUGEABLE = "NON JUGEABLE";
  *   deux sont FAIL ou PASS, mais un résultat partagé se signale.
  * @throws {Error} si la liste est vide — un verdict sans run n'existe pas.
  */
+/**
+ * Écart RELATIF au-delà duquel une dérive de tours mérite d'être signalée.
+ *
+ * Choisi sur la dispersion MESURÉE, pas au jugé : sur la tâche 13, les runs où
+ * l'agent trouve le générateur tiennent en 52-54 tours, ceux où il ne le trouve
+ * pas en 69-88. Le plus petit écart réel vaut donc ~28 %. En dessous de 25 %, on
+ * regarde le bruit d'un modèle non déterministe.
+ */
+export const SEUIL_DERIVE_TOURS = 0.25;
+
+/**
+ * Plancher ABSOLU sous lequel aucune dérive n'est signalée.
+ *
+ * Sans lui, une tâche à 4 tours qui en prend 6 déclencherait une alerte à +50 %
+ * pour deux tours d'écart — du bruit présenté comme un signal. Les tâches
+ * courtes du banc (7 à 14 tours) sont précisément celles où le devkit marche
+ * déjà : elles n'ont rien à nous apprendre par ce canal.
+ */
+export const PLANCHER_DERIVE_TOURS = 8;
+
+/**
+ * Médiane des tours d'une tâche jouée N fois.
+ *
+ * 🔴 **La MÉDIANE, jamais le dernier run ni la moyenne.** Le verdict binaire
+ * d'une tâche a une résolution catastrophique — à l'unanimité sur 3 runs, une
+ * tâche que le devkit réussit 4 fois sur 5 sort « instable » une fois sur deux,
+ * et trois runs payés n'apprennent alors rien. Le nombre de TOURS, lui, est
+ * continu : il sépare nettement là où le verdict hésite. C'est la même
+ * information vue par l'autre bout — ce que l'agent ne trouve pas, il le
+ * cherche.
+ *
+ * La moyenne serait tirée par un run qui part en boucle ; la médiane tient.
+ *
+ * @param {Array<{tours?: number}|null|undefined>} efforts - un effort par run.
+ * @returns {number|null} la médiane arrondie, ou `null` si aucun run ne l'a mesurée.
+ */
+export function medianeTours(efforts) {
+  const tours = (efforts ?? [])
+    .map((e) => e?.tours)
+    .filter((n) => typeof n === "number" && Number.isFinite(n))
+    .sort((a, b) => a - b);
+  if (!tours.length) return null;
+  const milieu = Math.floor(tours.length / 2);
+  return tours.length % 2
+    ? tours[milieu]
+    : Math.round((tours[milieu - 1] + tours[milieu]) / 2);
+}
+
+/**
+ * Une dérive de tours mérite-t-elle d'être signalée, et dans quel sens ?
+ *
+ * @param {number|null|undefined} avant - médiane de référence.
+ * @param {number|null|undefined} apres - médiane du run.
+ * @returns {{signale: boolean, sens: "alourdie"|"allegee"|null, ecart: number}}
+ *   `ecart` est relatif et signé (+0.3 = 30 % de tours en plus).
+ */
+export function deriveTours(avant, apres) {
+  const muet = { signale: false, sens: null, ecart: 0 };
+  if (typeof avant !== "number" || typeof apres !== "number") return muet;
+  if (avant <= 0) return muet;
+  // Le plancher porte sur les DEUX bornes : passer de 4 à 12 tours est aussi peu
+  // parlant que l'inverse, et l'un comme l'autre reste sous le bruit utile.
+  if (avant < PLANCHER_DERIVE_TOURS && apres < PLANCHER_DERIVE_TOURS)
+    return muet;
+  const ecart = (apres - avant) / avant;
+  if (Math.abs(ecart) < SEUIL_DERIVE_TOURS) return muet;
+  return { signale: true, sens: ecart > 0 ? "alourdie" : "allegee", ecart };
+}
+
 export function verdictAgrege(verdicts) {
   if (!verdicts?.length) throw new Error("verdictAgrege : aucun run");
   const ecartes = verdicts.filter((v) => v === NON_JUGEABLE).length;
@@ -167,6 +265,11 @@ export function comparerDecor(ref, run) {
  */
 export function depister(ref, results) {
   const stables = [];
+  // Verdict INCHANGÉ, effort qui bouge : le seul canal où un progrès de guidage
+  // se voit sans repayer trois runs. Ces tâches ne se REJOUENT pas — elles se
+  // regardent.
+  const alourdies = [];
+  const allegees = [];
   const chutes = [];
   const remontees = [];
   const inconnues = [];
@@ -191,7 +294,12 @@ export function depister(ref, results) {
     if (!attendu) {
       inconnues.push(r);
     } else if (attendu.verdict === r.verdict) {
-      stables.push({ ...r, reference: attendu });
+      const derive = deriveTours(attendu.tours, r.tours);
+      const entree = { ...r, reference: attendu, derive };
+      stables.push(entree);
+      if (derive.signale) {
+        (derive.sens === "alourdie" ? alourdies : allegees).push(entree);
+      }
     } else if (attendu.verdict === "PASS") {
       chutes.push({ ...r, reference: attendu });
     } else {
@@ -216,6 +324,10 @@ export function depister(ref, results) {
     inconnues,
     instables,
     modifiees,
+    // Sous-ensembles de `stables` : à AFFICHER, jamais à rejouer. Les inclure
+    // dans `aRejouer` rendrait au dépistage le coût qu'il existe pour éviter.
+    alourdies,
+    allegees,
     aRejouer,
   };
 }
@@ -252,6 +364,10 @@ export function fusionnerReference(ref, run) {
       verdict: r.verdict,
       runs: r.total ?? 1,
       passes: r.passes ?? (r.verdict === "PASS" ? 1 : 0),
+      // La MESURE que le verdict binaire jette. Elle ne décide rien — elle rend
+      // comparable ce qui, sinon, ressort « instable » d'un run à l'autre sans
+      // qu'on apprenne jamais rien.
+      tours: r.tours ?? null,
       // L'énoncé mesuré, pas seulement son résultat : une référence qui ne dit
       // pas à quelle QUESTION elle répond se compare à n'importe quoi.
       empreinte: r.empreinte,

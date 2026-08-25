@@ -87,7 +87,7 @@ export default defineConfig<Env>((ctx) => ({
   // La topologie (nombre de workers) vit dans `nodefony/config/cluster/cluster.config.ts`
   // (fichier kernel-free) : le process MASTER le lit STANDALONE, AVANT de booter le
   // moindre Kernel, pour décider du fork. Le Kernel booté ne lit pas ce champ → inutile
-  // de le dupliquer ici. Override runtime : CLI `--workers` > `NODEFONY_WORKERS` > ce fichier.
+  // de le dupliquer ici. Override runtime : CLI `--workers` > `NF_WORKERS` > ce fichier.
 
   // ── Modules de l'application ────────────────────────────────────────────────
   // ⚠️ L'ORDRE = ordre (priorité) de chargement. Invariants réels — ne pas réordonner :
@@ -285,6 +285,47 @@ export default defineConfig<Env>((ctx) => ({
           issuer:
             ctx.env.NF_JWT_ISSUER ??
             (ctx.isProd ? undefined : "https://localhost:5152"),
+          // Clés de signature PERSISTANTES (dossier gitignoré, chmod 600).
+          //
+          // 🔴 Sans elles, chaque process génère la sienne au démarrage : un
+          // jeton émis par la CLI (`nodefony security:token`) porte un `kid`
+          // que le serveur en marche ne connaît pas, et il est refusé en
+          // « autorisation requise ». Mesuré : trois `kid` distincts pour la
+          // même application, un par process et un de plus après redémarrage.
+          // Elles survivent aussi aux redémarrages — les jetons en vol ne sont
+          // plus invalidés à chaque rebuild du serveur de développement.
+          //
+          // En PRODUCTION, ce dossier n'a pas de sens (pods jetables, système
+          // de fichiers éphémère) : la clé y vient de l'environnement
+          // (`keySetJson`), partagée par tous les pods.
+          keystore: ctx.isProd ? {} : { dir: "var/keys" },
+          // Les ressources qu'un client peut NOMMER en demandant un jeton
+          // (`resource`, RFC 8707) — une liste BLANCHE, décidée par
+          // l'APPLICATION. La première est l'audience par défaut : garder
+          // l'émetteur en tête laisse inchangé tout jeton demandé sans
+          // `resource`.
+          //
+          // 🔴 Ces quatre lignes vivaient dans le module `test`, et c'était un
+          // défaut de placement aux conséquences invisibles : le dépôt savait
+          // émettre un jeton pour sa porte MCP grâce à un module de BANC, si
+          // bien qu'aucun essai ici ne pouvait montrer qu'une application
+          // générée, elle, se voyait refuser le jeton de sa propre porte.
+          audiences: ctx.isProd
+            ? []
+            : [
+                ctx.env.NF_JWT_ISSUER ?? "https://localhost:5152",
+                // Audience du banc : la zone `test-foreign-audience` du module
+                // `test` l'exige, pour prouver qu'un jeton n'ouvre QUE la porte
+                // pour laquelle il a été demandé.
+                "https://api.foreign.example/v1",
+                // La porte MCP, en clair et en TLS : la même ressource répond
+                // sur les deux serveurs, et un jeton demandé pour l'une était
+                // refusé sur l'autre — la liaison d'audience faisant son
+                // travail. Ces valeurs s'ÉCRIVENT, jamais ne se dérivent du
+                // `Host`.
+                "http://localhost:5151/nodefony/mcp",
+                "https://localhost:5152/nodefony/mcp",
+              ],
         },
         // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via
         // env (absente en prod = 2FA OFF, fail-safe : un secret chiffré par une clé
@@ -406,6 +447,11 @@ export default defineConfig<Env>((ctx) => ({
             // par laquelle un client entre réellement (cf `.mcp.json`) ; en
             // production, l'URL publique en https.
             resource: "http://localhost:5151/nodefony/mcp",
+            // La même porte répond aussi en TLS, sur le second serveur. Sans
+            // cette ligne, un jeton demandé pour l'adresse https était refusé
+            // ici — la liaison d'audience faisant, à juste titre, son travail.
+            // Ces valeurs s'ÉCRIVENT, jamais ne se dérivent du `Host`.
+            additionalResources: ["https://localhost:5152/nodefony/mcp"],
             resourceName: "Nodefony — outils de développement",
             // 🔴 LES DEUX MODES À LA FOIS, et c'est un choix de DÉVELOPPEMENT.
             //

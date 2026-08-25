@@ -95,9 +95,9 @@ const BACKPLANE_START_TIMEOUT_MS = 5_000;
 registerBackplaneDriver(LoopbackBackplane.driver, () => null);
 
 // `cluster` : IPC entre workers d'un même pod (actif seulement en worker de
-// `nodefony cluster`, repéré par NODEFONY_CLUSTER=1).
+// `nodefony cluster`, repéré par NF_CLUSTER=1).
 registerBackplaneDriver(ClusterBackplane.driver, (ctx) =>
-  ctx.role === "WORKER" && process.env.NODEFONY_CLUSTER === "1"
+  ctx.role === "WORKER" && process.env.NF_CLUSTER === "1"
     ? new ClusterBackplane(processIpcTransport, ctx.originId)
     : null,
 );
@@ -300,7 +300,7 @@ class Realtime extends Module<IRealtimeConfig> {
     }
     const backplane = await factory({
       module: this,
-      // Unique cross-pod (POD_NAME/hostname + pid) — un PID nu est namespacé
+      // Unique cross-pod (NF_POD_NAME/hostname + pid) — un PID nu est namespacé
       // par conteneur (2 pods k8s = PID 1) et ferait avaler le fan-out par
       // l'anti-écho. Cf resolveBackplaneOriginId.
       originId: resolveBackplaneOriginId(),
@@ -372,25 +372,25 @@ class Realtime extends Module<IRealtimeConfig> {
 
   /**
    * Branche les composants cluster du process en worker de `nodefony cluster` (repéré
-   * par l'env `NODEFONY_CLUSTER=1` posée côté master) : le {@link ClusterBackplane}
+   * par l'env `NF_CLUSTER=1` posée côté master) : le {@link ClusterBackplane}
    * (fan-out realtime cross-process) ET le {@link ClusterProbeClient} (sonde agrégée
    * pod, Phase 4c).
    *
    * No-op si rôle MASTER, mono-process, ou worker `staging`/`preprod` legacy. La sonde
-   * est en plus gardée par `NODEFONY_CLUSTER_PROBE` (≠ "0") → **bypass total** quand
+   * est en plus gardée par `NF_CLUSTER_PROBE` (≠ "0") → **bypass total** quand
    * désactivée : pas de client, donc 0 timer / 0 listener / 0 IPC, et l'endpoint santé
    * sert la vue per-instance. Le backplane (realtime) reste indépendant de la sonde.
    * Idempotent.
    */
   #wireClusterProbe(role: "MASTER" | "WORKER" | "MONO"): void {
-    if (role !== "WORKER" || process.env.NODEFONY_CLUSTER !== "1") return;
+    if (role !== "WORKER" || process.env.NF_CLUSTER !== "1") return;
     // Sonde agrégée pod (Phase 4c) — opt-in, désactivable → bypass total
     // (0 client / 0 timer / 0 IPC quand off). Indépendante du backplane realtime,
     // qui est résolu par le registre de drivers à `onKernelBoot`.
     // Deux leviers de coupure : la config `cluster.probe.enabled` ET l'override
-    // env `NODEFONY_CLUSTER_PROBE=0` — l'un OU l'autre à false suffit.
+    // env `NF_CLUSTER_PROBE=0` — l'un OU l'autre à false suffit.
     const probeEnabled = this.config.cluster.probe.enabled;
-    if (probeEnabled && process.env.NODEFONY_CLUSTER_PROBE !== "0") {
+    if (probeEnabled && process.env.NF_CLUSTER_PROBE !== "0") {
       setClusterProbeClient(new ClusterProbeClient()).start(buildOwnHealth);
       this.log("RealtimeHub: ClusterProbeClient branché (sonde pod)", "INFO");
     }

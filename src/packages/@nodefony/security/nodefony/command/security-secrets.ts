@@ -20,6 +20,37 @@ const RESET = "\x1b[0m";
 const KEYS = ["NF_TOTP_KEY", "NF_WEBHOOK_KEY", "NF_CSRF_SECRET"] as const;
 
 /**
+ * Ce que chaque secret PROTÈGE, et ce qui casse sans lui.
+ *
+ * 🔴 Sans ce catalogue, la commande était muette sur l'essentiel : quand les
+ * trois clés étaient en place, elle affichait trois « ✓ » et RIEN d'autre — ni
+ * les noms, ni les rôles. On ne savait donc ni ce qui avait été généré, ni
+ * pourquoi. Un secret qu'on ne comprend pas est un secret qu'on ne fait jamais
+ * tourner, et qu'on recopie d'un environnement à l'autre.
+ *
+ * La conséquence est écrite au présent et pour la PRODUCTION : c'est là qu'une
+ * clé absente cesse d'être un avertissement de développement.
+ */
+const ROLES: Record<string, { protege: string; sans: string }> = {
+  NF_TOTP_KEY: {
+    protege: "chiffre le secret 2FA de chaque compte au repos (AES-256-GCM)",
+    sans: "2FA désactivé en production — un secret chiffré par une clé éphémère serait illisible au redémarrage",
+  },
+  NF_WEBHOOK_KEY: {
+    protege: "chiffre les secrets de signature des webhooks au repos",
+    sans: "webhooks désactivés en production (fail-safe, jamais de signature muette)",
+  },
+  NF_CSRF_SECRET: {
+    protege: "signe les jetons anti-rejeu des mutations (`@CsrfProtect`)",
+    sans: "en cluster, le jeton émis par un pod est rejeté par les autres",
+  },
+  "jwt.keystore": {
+    protege: "signe les JWT (clé Ed25519, rotation gérée par le keystore)",
+    sans: "chaque process signe avec la sienne : un jeton émis par la CLI est refusé par le serveur",
+  },
+};
+
+/**
  * `nodefony security:secrets` — génère les clés de chiffrement attendues par le
  * module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires,
  * base64) et guide le câblage en 3 FICHIERS (.env → env.ts → nodefony.config.ts).
@@ -122,8 +153,44 @@ class SecuritySecrets extends Command {
       process.stdout.write(s);
     };
     w(
-      `\n${BOLD}🔐 Secrets security — 3 étapes, 3 FICHIERS${RESET}\n` +
-        `${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
+      `\n${BOLD}🔐 Secrets du module security${RESET} ${DIM}— 4 secrets, 3 fichiers${RESET}\n\n`,
+    );
+    // Ce que chaque secret PROTÈGE, avant de dire s'il est en place : « ✓ » sur
+    // un nom qu'on ne comprend pas n'apprend rien, et c'est ce que la commande
+    // affichait quand tout était câblé.
+    for (const [nom, role] of Object.entries(ROLES)) {
+      const pose =
+        nom === "jwt.keystore"
+          ? /keystore\s*:/u.test(cfgTs)
+          : new RegExp(`^\\s*${nom}\\s*=`, "m").test(dotenv);
+      w(
+        `  ${pose ? GREEN + "✓" : YELLOW + "○"}${RESET} ${BOLD}${nom.padEnd(16)}${RESET}${DIM}${role.protege}${RESET}\n` +
+          `    ${DIM}sans → ${role.sans}${RESET}\n`,
+      );
+    }
+    // 🔴 Ce qui N'EST PAS un secret de cette application, et la question qui
+    // vient : « pourquoi NF_MCP_TOKEN n'est pas là ? ». Ce n'est pas une clé
+    // dont l'application a besoin pour fonctionner — AUCUN de son code ne la
+    // lit : c'est un JETON qu'elle ÉMET, que son porteur présente pour entrer.
+    // Il ne vit donc pas ici mais chez l'agent qui le porte. Le taire
+    // laisserait croire à un oubli.
+    const jetonEncoreLa = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
+    w(
+      `\n${DIM}  · NF_MCP_TOKEN n'est PAS un secret de cette application, et n'a rien à\n` +
+        `    faire dans cette liste : c'est un jeton qu'elle ÉMET, présenté par un\n` +
+        `    agent pour entrer. Aucun code d'ici ne le lit. Il se pose chez l'agent\n` +
+        `    qui le porte — nodefony security:token --write.${RESET}\n`,
+    );
+    if (jetonEncoreLa) {
+      // Une ligne héritée du temps où `--write` écrivait ici : un secret sans
+      // lecteur, qui ne fait qu'attendre d'être commité par erreur.
+      w(
+        `${YELLOW}  ⚠ une ligne NF_MCP_TOKEN traîne encore dans .env.local — rien ne la lit,\n` +
+          `    tu peux la retirer.${RESET}\n`,
+      );
+    }
+    w(
+      `\n${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );
 
     // ── 1. .env.local : les VALEURS (convention B — jamais dans le .env commité) ──
@@ -192,13 +259,46 @@ class SecuritySecrets extends Command {
       );
     }
 
+    // ── 4. Le keyset JWT : CONSTATÉ, pas seulement mentionné ────────────────
+    //
+    // 🔴 Il l'était — dans le paragraphe explicatif du bas, en gris, après trois
+    // « ✓ déjà câblées ». Personne ne le lisait : on lançait la commande, on
+    // voyait trois coches, on concluait que tout était en place — et
+    // `security:token` rendait ensuite un jeton que le serveur refusait, faute
+    // de clé persistante. Une chose qu'on ne CONSTATE pas n'est pas faite.
+    //
+    // La méthodologie reste celle que la commande prescrit depuis toujours : le
+    // keyset n'est pas un secret à COLLER (le keystore le génère, lui pose ses
+    // permissions et y ajoute des clés à chaque rotation), donc il se déclare
+    // par une SOURCE — un dossier en développement, l'environnement en prod.
+    const jwtCable = /keystore\s*:/u.test(cfgTs);
     w(
-      `${DIM}Pourquoi 3 étapes ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
+      `${BOLD}4. Fichier ${CYAN}nodefony.config.ts${RESET}${BOLD} — les clés de SIGNATURE des jetons${RESET} ${DIM}(jwt.keystore)${RESET}\n`,
+    );
+    if (jwtCable) {
+      w(`   ${GREEN}✓ déjà câblées${RESET}\n\n`);
+    } else {
+      w(
+        `   ${YELLOW}⚠ absentes : chaque process signe avec une clé ÉPHÉMÈRE.${RESET}\n` +
+          `   ${DIM}Un jeton émis par la CLI porte alors un \`kid\` que le serveur ne\n` +
+          `   connaît pas, et il est refusé — et un redémarrage invalide les jetons\n` +
+          `   en vol. Ce n'est pas une valeur à coller : c'est une SOURCE à déclarer.${RESET}\n\n` +
+          `   use("@nodefony/security", {\n` +
+          `     jwt: { keystore: ctx.isProd ? {} : { dir: "var/keys" } },\n` +
+          `   }),\n\n` +
+          `   ${DIM}En production, le dossier n'a pas de sens (pods jetables) : la clé vient\n` +
+          `   de l'environnement — jwt.keystore.keySetJson, injecté par ton gestionnaire\n` +
+          `   de secrets et partagé par tous les pods.${RESET}\n\n`,
+      );
+    }
+
+    w(
+      `${DIM}Pourquoi 3 fichiers ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
         `le .env commité ne porte que des défauts non-secrets) ; env.ts la DÉCLARE\n` +
         `(catalogue typé, validé au boot) ; nodefony.config.ts la CÂBLE au module.\n` +
         `Les étapes 2 et 3 ne se font qu'une fois — ensuite seule l'étape 1 vit.\n` +
-        `JWT (refresh durables) : pas un secret à coller — persistance du keyset via\n` +
-        `jwt.keystore.dir = "./var/keys" (dev/VPS) ou jwt.keystore.keySetJson (prod).${RESET}\n\n` +
+        `L'étape 4 sort de ce schéma, et c'est voulu : un keyset n'est pas une valeur\n` +
+        `qu'on colle, mais une source que le keystore gère (rotation, permissions).${RESET}\n\n` +
         `Relance le serveur : plus aucun warning « clé ÉPHÉMÈRE » au boot.\n\n`,
     );
     return this;

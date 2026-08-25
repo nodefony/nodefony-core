@@ -17,7 +17,7 @@ import type {
  *   elle appartient à `@nodefony/drizzle`) → `uri` du connecteur primaire
  *   (`nodefony`, sinon le premier). ⚠️ La place pour le secret de connexion
  *   (user:pass) — JAMAIS dans le dépôt.
- * - `MONGODB_DEBUG` (1/true) → `debug`.
+ * - `NF_MONGODB_DEBUG` (1/true) → `debug`.
  */
 function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
   const env = process.env;
@@ -33,7 +33,7 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
       config.connectors[target].uri = uri;
     }
   }
-  if (env.MONGODB_DEBUG === "1" || env.MONGODB_DEBUG === "true") {
+  if (env.NF_MONGODB_DEBUG === "1" || env.NF_MONGODB_DEBUG === "true") {
     config.debug = true;
   }
   return config;

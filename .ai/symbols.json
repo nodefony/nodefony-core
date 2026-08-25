@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-20T16:07:02.607Z",
+  "generated": "2026-08-25T14:17:51.386Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 713,
-    "symbols": 2951,
-    "classes": 358,
-    "interfaces": 855,
-    "types": 378,
+    "files": 737,
+    "symbols": 3124,
+    "classes": 364,
+    "interfaces": 887,
+    "types": 388,
     "enums": 4,
-    "functions": 1079,
-    "constants": 277
+    "functions": 1188,
+    "constants": 293
   },
   "symbols": {
     "Cli": {
@@ -649,6 +649,146 @@
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
     },
+    "IAgentTarget": {
+      "name": "IAgentTarget",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un agent de développement, et l'endroit où il lit ses variables. ⭐ **Cette table existe parce qu'aucun agent ne lit `.env.local`.** Ce fichier est celui de l'APPLICATION ; le client MCP, lui, résou…"
+    },
+    "IDeclarationContexte": {
+      "name": "IDeclarationContexte",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut savoir pour composer la déclaration chez un agent."
+    },
+    "VoieDeclaration": {
+      "name": "VoieDeclaration",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Comment la porte MCP se déclare chez un agent. `fichier-projet` : l'agent lit lui-même le `.mcp.json` que `ai:mcp` écrit — il n'y a rien de plus à faire, et le refaire par sa CLI créerait une SECON…"
+    },
+    "IDeclarationPlan": {
+      "name": "IDeclarationPlan",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut lancer — ou ne pas lancer — pour qu'un agent connaisse la porte. PURE : c'est la DÉCISION, le `spawn` n'est que de la plomberie. Rendre un plan plutôt que d'exécuter permet de l'affic…"
+    },
+    "planAgentDeclaration": {
+      "name": "planAgentDeclaration",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose la déclaration de la porte MCP chez un agent."
+    },
+    "renderPlanShell": {
+      "name": "renderPlanShell",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan sous la forme qu'on peut recopier dans un terminal. C'est le repli quand la CLI est absente : dire ce qu'il aurait fallu lancer vaut mieux que constater l'absence — la commande reste j…"
+    },
+    "racineAgent": {
+      "name": "racineAgent",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine où vit la configuration d'une cible : le projet, ou son dossier maison. PURE au sens qui compte : l'environnement et le dossier de l'utilisateur sont INJECTÉS, jamais lus ici. C'est ce qui p…"
+    },
+    "agentsPresents": {
+      "name": "agentsPresents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Agents dont la présence est CONSTATÉE sur ce poste. On ne crée pas la configuration d'un outil que personne n'utilise ici : le marqueur (`.claude`, `.codex`…) est la seule preuve qu'on ait, et il v…"
+    },
+    "poseVariable": {
+      "name": "poseVariable",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
+    },
+    "litVariable": {
+      "name": "litVariable",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce fichier porte-t-il DÉJÀ cette variable ? ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui porte …"
+    },
+    "porteDejaLaCle": {
+      "name": "porteDejaLaCle",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "agentsDemandes": {
+      "name": "agentsDemandes",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit `--agent` en cibles, ou rend l'erreur à afficher. Trois formes : rien (les cibles détectées, décidé par l'appelant), `none` (aucune écriture), ou une liste de clés. Une clé inconnue est REF…"
+    },
+    "pointeursInstructions": {
+      "name": "pointeursInstructions",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les fichiers-POINTEURS à poser pour qu'aucun agent ne travaille aveugle. PURE, dérivée de {@link AGENT_TARGETS} : un agent qui lit déjà `AGENTS.md` n'a besoin de rien, les autres reçoivent un fichi…"
+    },
+    "AGENT_TARGETS": {
+      "name": "AGENT_TARGETS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Agents dont l'emplacement de secret a été CONSTATÉ — au comportement ou au source, jamais sur la foi d'une page de blog. Deux stratégies pour le SECRET, et elles ne se ressemblent pas : - **Claude …"
+    },
+    "IChainedToken": {
+      "name": "IChainedToken",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut lancer pour obtenir le jeton, ou `null` s'il n'y a rien à faire."
+    },
+    "IEtatJeton": {
+      "name": "IEtatJeton",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Décide s'il faut enchaîner sur `security:token`, et avec quoi. PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux. Trois choses ne « suivent » pas toutes seules d'un proce…"
+    },
+    "IResultatDeclaration": {
+      "name": "IResultatDeclaration",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il est advenu de la déclaration chez un agent."
+    },
     "parseAiMcpArgv": {
       "name": "parseAiMcpArgv",
       "kind": "function",
@@ -664,6 +804,53 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Déduit l'origine du serveur de développement. ⚠️ **Le port en clair est préféré au port TLS**, et ce n'est pas une négligence : en développement le certificat est auto-signé, et un client MCP qui l…"
+    },
+    "etatDuJeton": {
+      "name": "etatDuJeton",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit l'échéance et les scopes d'un JWT, sans le valider ni le divulguer."
+    },
+    "renderEtatJeton": {
+      "name": "renderEtatJeton",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Phrase d'état d'un jeton, pour un humain devant une question."
+    },
+    "etatJetonsAgents": {
+      "name": "etatJetonsAgents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "État du jeton posé chez CHAQUE agent détecté — l'échéance et la portée, pas le secret. ⭐ Par agent, et non « le » jeton : rien ne garantit qu'ils portent le même. Un agent servi il y a trois semain…"
+    },
+    "planTokenChaining": {
+      "name": "planTokenChaining",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "declarerChezAgents": {
+      "name": "declarerChezAgents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclare (ou retire) la porte MCP chez chaque agent, **par SA propre CLI**. ⭐ La règle qui gouverne cette fonction : **on n'écrit pas le fichier de configuration d'un outil tiers.** Son format lui a…"
+    },
+    "renderDeclarations": {
+      "name": "renderDeclarations",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le compte rendu des déclarations. PURE : c'est le texte que l'utilisateur lit, et il doit pouvoir être éprouvé sans lancer la moindre CLI."
     },
     "readMcpConfig": {
       "name": "readMcpConfig",
@@ -732,6 +919,14 @@
       "module": "@nodefony/core",
       "description": "Décide ce qu'il faut écrire dans `.mcp.json`. ⭐ **Le document existant est PRÉSERVÉ**, et pas seulement par politesse : un projet y déclare ses autres serveurs MCP, et une commande de câblage qui l…"
     },
+    "metadataUrlOf": {
+      "name": "metadataUrlOf",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "URL des métadonnées de la porte protégée (RFC 9728) : le chemin bien connu s'INSÈRE entre l'hôte et le chemin de la ressource, il ne s'y ajoute pas."
+    },
     "renderMcpPlan": {
       "name": "renderMcpPlan",
       "kind": "function",
@@ -755,6 +950,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fichier de configuration, à la racine du projet."
+    },
+    "MCP_TOKEN_ENV": {
+      "name": "MCP_TOKEN_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de la variable d'environnement qui porte le jeton de la porte MCP. 🔴 C'est la VARIABLE qui s'écrit dans `.mcp.json`, jamais le jeton : ce fichier est un fichier de projet, suivi par git. Les c…"
     },
     "readSkillHeader": {
       "name": "readSkillHeader",
@@ -793,8 +996,7 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/aiSync.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Pose dans un projet les pointeurs vers les skills livrés par les paquets installés, et rend le plan de ce qui a été fait. C'est le geste ENTIER — découvrir, comparer, écrire — tel que l'exécutent s…"
+      "module": "@nodefony/core"
     },
     "runAiSyncCommand": {
       "name": "runAiSyncCommand",
@@ -870,6 +1072,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le dossier de découverte INTEROPÉRABLE. La spécification Agent Skills ne mandate AUCUN emplacement — elle ne définit que ce qu'un skill contient. La convention qui a émergé pour le partage entre cl…"
+    },
+    "CLAUDE_SKILLS_DIR": {
+      "name": "CLAUDE_SKILLS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le MIROIR pour Claude Code — parce que le pari « c'est aux clients d'ajouter `.agents/skills/` » a été MESURÉ perdu. Constaté sur une application générée (claude-code 2.1.238, mode headless) : les …"
     },
     "parseCardArgv": {
       "name": "parseCardArgv",
@@ -1148,6 +1358,38 @@
       "module": "@nodefony/core",
       "description": "Parse l'argv complet du process après le mot `create`. Ne valide QUE la forme des flags — les valeurs (nom, preset…) sont jugées par la spec du moteur."
     },
+    "renderDryRun": {
+      "name": "renderDryRun",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan d'un `--dry-run` : ce qui serait créé, et surtout le DIFF de ce qui serait réécrit. Les créations sont listées à plat (leur contenu n'écrase rien, l'inventaire suffit) ; les réécriture…"
+    },
+    "doitDemanderLeType": {
+      "name": "doitDemanderLeType",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un type manquant se DEMANDE-t-il, ou l'usage est-il la bonne réponse ? PURE. Trois conditions, et chacune dit quelque chose de différent : - l'erreur est bien « aucun type » — un type FAUTIF (`crea…"
+    },
+    "planCablageMcp": {
+      "name": "planCablageMcp",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide si `create app` CÂBLE la porte MCP chez les agents choisis. PURE. Deux refus, deux raisons qui n'ont rien à voir : - **aucun agent choisi** — et c'est le DÉFAUT (la question de la spec part …"
+    },
+    "argvCablageMcp": {
+      "name": "argvCablageMcp",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit le choix d'agents de développement en appel `ai:mcp` — PURE. ⭐ **Ce qui se choisit, c'est l'AGENT ; la porte MCP vient AVEC.** Demander « veux-tu déclarer une porte MCP ? » posait la questi…"
+    },
     "runCreateCommand": {
       "name": "runCreateCommand",
       "kind": "function",
@@ -1179,6 +1421,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Commande `nodefony env` — orchestre : résout le projet, lit la cascade et le catalogue, délègue le calcul au module pur, rend."
+    },
+    "composeEnvExample": {
+      "name": "composeEnvExample",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le contenu de `.env.example` d'une application — PUR."
+    },
+    "readExampleHeader": {
+      "name": "readExampleHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'en-tête curé du projet, s'il en a un — convention `.env.example.head` à la racine (versionné). Il PRIME sur l'en-tête générique : un projet qui a écrit son onboarding le garde, le corps reste dér…"
+    },
+    "applyEnvExample": {
+      "name": "applyEnvExample",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Applique (ou vérifie) le contenu sur le `.env.example` du projet — I/O seul, la composition appartient à {@link composeEnvExample}. Idempotence FORTE : un fichier déjà identique n'est pas réécrit —…"
     },
     "runEnvCommand": {
       "name": "runEnvCommand",
@@ -1239,6 +1505,151 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Construit le rapport d'environnement."
+    },
+    "besoinDeShell": {
+      "name": "besoinDeShell",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/execPortable.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lancer un exécutable de l'écosystème npm, sur les trois systèmes. ## Le défaut, et pourquoi il ne se voit jamais sur un poste de développement Sous Windows, `npm`, `npx`, `prettier` et compagnie ne…"
+    },
+    "parseGitHooksArgv": {
+      "name": "parseGitHooksArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooks.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse les arguments de `git:hooks`."
+    },
+    "installGitHooks": {
+      "name": "installGitHooks",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooks.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose les hooks natifs dans un projet, et rend le plan de ce qui a été fait. Le geste ENTIER — lire, décider, écrire, configurer — en un exemplaire, pour ses appelants présents et futurs (la command…"
+    },
+    "runGitHooksCommand": {
+      "name": "runGitHooksCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooks.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony git:hooks` — hooks git natifs (`core.hooksPath`), zéro dépendance. Standalone (0 boot) : elle écrit deux fichiers et une clé de config, et doit répondre dans un terminal qui n'a …"
+    },
+    "IPlannedGitHook": {
+      "name": "IPlannedGitHook",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le geste décidé pour un hook."
+    },
+    "IGitHooksPlan": {
+      "name": "IGitHooksPlan",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le plan complet — hooks ET configuration, jugés ensemble. Un seul refus suffit à tout arrêter : poser la moitié d'un jeu de hooks laisse un état qu'il faut comprendre avant de corriger, alors qu'un…"
+    },
+    "GitHookName": {
+      "name": "GitHookName",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "GitHookAction": {
+      "name": "GitHookAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut faire d'un hook, une fois comparé à l'existant."
+    },
+    "HooksPathAction": {
+      "name": "HooksPathAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut faire de `core.hooksPath`."
+    },
+    "renderGitHook": {
+      "name": "renderGitHook",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le contenu d'un hook. Sh POSIX strict : sous Windows, git exécute les hooks via le `sh.exe` de Git for Windows — un script simple passe partout, un bashisme non. Le `npx` est nécessaire : un hook g…"
+    },
+    "planGitHooks": {
+      "name": "planGitHooks",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide, pour chaque hook et pour `core.hooksPath`, le geste à faire."
+    },
+    "renderGitHooksPlan": {
+      "name": "renderGitHooksPlan",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan pour un humain."
+    },
+    "GIT_HOOKS_DIR": {
+      "name": "GIT_HOOKS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Composition PURE de `nodefony git:hooks` — hooks git natifs, zéro dépendance. Reçoit un état déjà lu (contenu actuel des hooks, valeur de `core.hooksPath`) et conclut : que poser, que laisser, que …"
+    },
+    "GIT_HOOKS_MARKER": {
+      "name": "GIT_HOOKS_MARKER",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Marqueur d'APPARTENANCE, présent dans chaque hook généré. C'est lui qui sépare « à nous, remplaçable » de « écrit par quelqu'un » : un hook existant qui ne le porte pas n'est JAMAIS écrasé — efface…"
+    },
+    "GIT_HOOK_NAMES": {
+      "name": "GIT_HOOK_NAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les hooks que la commande sait poser, dans l'ordre d'affichage."
+    },
+    "escapeRoff": {
+      "name": "escapeRoff",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/manPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Échappe une chaîne pour roff. Trois pièges, tous silencieux — ils ne produisent pas d'erreur, seulement une page mal rendue : la contre-oblique introduit les séquences roff, le tiret nu devient un …"
+    },
+    "renderManPage": {
+      "name": "renderManPage",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/manPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend la page de manuel complète, en roff."
+    },
+    "MAN_PAGE_NAME": {
+      "name": "MAN_PAGE_NAME",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/manPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de la page, section 1 (commandes utilisateur)."
     },
     "INpmOutdatedEntry": {
       "name": "INpmOutdatedEntry",
@@ -1330,6 +1741,160 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
+    },
+    "askPasswordMasked": {
+      "name": "askPasswordMasked",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/promptPassword.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Demande un secret sans jamais l'ÉCHOTER — mot de passe, phrase de passe. La frappe passe par un `readline` dont la sortie est un flux MUET : la question s'écrit directement sur la sortie standard, …"
+    },
+    "IPrompts": {
+      "name": "IPrompts",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Les questions servies par cette porte — le sous-ensemble réellement utilisé."
+    },
+    "ancreEventLoop": {
+      "name": "ancreEventLoop",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La porte UNIQUE par laquelle une commande pose une question. ⭐ Elle existe pour une raison qu'aucune commande ne peut résoudre seule : **attendre une réponse humaine ne retient pas Node.** Une ques…"
+    },
+    "demande": {
+      "name": "demande",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute une interaction utilisateur en retenant l'event loop. ⚠️ L'ancre se relâche dans un `finally` : une question interrompue (Ctrl+C, flux fermé, refus) doit rendre la main comme une question a…"
+    },
+    "chargePrompts": {
+      "name": "chargePrompts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Charge les prompts — import DYNAMIQUE, et c'est délibéré. Le paquet pèse ; une commande non interactive (`--json`, un script de forge) ne doit pas le payer. Le chargement est idempotent : Node met …"
+    },
+    "ouvreReadline": {
+      "name": "ouvreReadline",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Interface `readline` ANCRÉE — même garantie, pour le front natif du scaffold. Le scaffold de `create app` ne passe pas par `@inquirer/prompts` : il pose ses questions en `node:readline/promises`, s…"
+    },
+    "IStartMenuModuleCommand": {
+      "name": "IStartMenuModuleCommand",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une commande de module lue du manifest cache de complétion."
+    },
+    "IStartMenuInput": {
+      "name": "IStartMenuInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "StartMenuContext": {
+      "name": "StartMenuContext",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Composition PURE du menu interactif `nodefony menu` — même patron que `envReport`/`cardReport`/`aiSyncReport` : ce fichier reçoit l'état (contexte, descriptions, commandes de module) et rend une st…"
+    },
+    "StartMenuItem": {
+      "name": "StartMenuItem",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Item neutre du menu — champs BRUTS, aucun rendu. L'adaptateur compose l'affichage (alignement, couleurs, troncature à la largeur du terminal) : la composition décide QUOI montrer, jamais COMMENT."
+    },
+    "MenuAction": {
+      "name": "MenuAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que le menu doit FAIRE d'un choix — décidé ici, exécuté par l'adaptateur."
+    },
+    "planMenuAction": {
+      "name": "planMenuAction",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le plan d'exécution d'un choix de menu. ⚠️ **Une commande de MODULE ne peut pas s'exécuter dans le process du menu.** Le menu s'ouvre à `onStart` pour rester instantané ; à cette phase, les command…"
+    },
+    "buildStartMenu": {
+      "name": "buildStartMenu",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit le menu principal pour un contexte donné."
+    },
+    "buildInspectMenu": {
+      "name": "buildInspectMenu",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sous-menu des sujets d'`inspect`, dérivé de la table SOURCE (`INSPECT_SUBJECTS`) : seuls les sujets SANS argument obligatoire sont proposés (un sujet à paramètre exigerait une saisie de plus — il r…"
+    },
+    "filterStartMenu": {
+      "name": "filterStartMenu",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Filtre le menu à la frappe (prompt `search`) — la logique est ICI, pure et testée : normalisation (minuscules, accents retirés), chaque MOT du terme doit se retrouver dans le label, le résumé, le c…"
+    },
+    "START_MENU_CATALOG": {
+      "name": "START_MENU_CATALOG",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catalogue déclaratif du menu. L'ordre du tableau EST l'ordre d'affichage, groupe par groupe. Ajouter une commande au menu = une entrée ici, rien d'autre (le résumé et la disponibilité viennent de c…"
+    },
+    "NPM_SCRIPT_CATALOG": {
+      "name": "NPM_SCRIPT_CATALOG",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scripts npm que le menu sait proposer — les gestes qu'AUCUNE commande nodefony ne porte (qualité, infra docker). Un script n'apparaît que s'il existe dans le package.json du projet (`npmScripts`). …"
+    },
+    "NPM_SCRIPT_PREFIX": {
+      "name": "NPM_SCRIPT_PREFIX",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Préfixe des valeurs « script npm » émises par le menu."
+    },
+    "MODULE_COMMANDS_GROUP": {
+      "name": "MODULE_COMMANDS_GROUP",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Titre du groupe des commandes de module (projet seulement)."
     },
     "ISymbolEntry": {
       "name": "ISymbolEntry",
@@ -1727,6 +2292,14 @@
       "module": "@nodefony/core",
       "description": "Scanne `env` et extrait tous les overrides `NF__<MODULE>__<CHEMIN…>`. Ignore les clés sans au moins un module + un champ (`NF__X` seul), et les valeurs `undefined`. Ne touche PAS `env` (lecture seu…"
     },
+    "coerceEnvValueLike": {
+      "name": "coerceEnvValueLike",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La valeur d'environnement convertie vers le type de ce qu'elle REMPLACE. Une variable d'environnement est toujours une chaîne ; seul le schéma sait ce qu'il attend. {@link coerceEnvValue} devine sa…"
+    },
     "applyResolvedPath": {
       "name": "applyResolvedPath",
       "kind": "function",
@@ -1734,6 +2307,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Pose `value` dans `target` au `path` donné, en résolvant chaque segment contre les clés EXISTANTES (insensible à la casse). N'altère QUE des chemins déjà présents dans la config (= champs ayant un …"
+    },
+    "readResolvedPath": {
+      "name": "readResolvedPath",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Relit la valeur posée à `path` — la SYMÉTRIQUE de {@link applyResolvedPath}. Sert au journal du boot : depuis que la valeur est convertie contre le type attendu, ce qui est écrit dans la config n'e…"
     },
     "pathLooksSecret": {
       "name": "pathLooksSecret",
@@ -1956,6 +2537,39 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Champs applicables À CHAUD (chemin en dot-notation). Tout champ absent est `boot`. `log.active` / `log.debug` / `log.requestFormat` = exactement le cadre de la « fenêtre d'audit » (élever la verbos…"
+    },
+    "IReservedEnvVar": {
+      "name": "IReservedEnvVar",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Les variables d'environnement que **Nodefony pose lui-même**, et qui ne relèvent donc jamais de la configuration d'une application. ## Pourquoi cette liste existe `nodefony env` range en « inconnue…"
+    },
+    "isReservedEnv": {
+      "name": "isReservedEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cette variable est-elle posée par le framework lui-même ?"
+    },
+    "reservedEnvRole": {
+      "name": "reservedEnvRole",
+      "kind": "function",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le rôle d'une variable réservée, ou `null` si elle ne l'est pas."
+    },
+    "RESERVED_ENV": {
+      "name": "RESERVED_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le catalogue des variables réservées, indexé par nom. Ajouter une entrée ici est OBLIGATOIRE dès qu'un code du framework écrit une `NF_*` dans l'environnement d'un process : sans elle, la variable …"
     },
     "AppConfig": {
       "name": "AppConfig",
@@ -2491,6 +3105,23 @@
       "module": "@nodefony/core",
       "description": "Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non depuis le paquet `nodefony`. POURQUOI cette fonction existe : un `import(\"@app/blog\")` écrit dans le code du core est …"
     },
+    "IMcpGatePosture": {
+      "name": "IMcpGatePosture",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/caller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'une porte MCP sait d'elle-même et de son appelant, au moment de dire quels rôles celui-ci porte. Les trois champs sont séparés parce qu'ils répondent à trois questions distinctes que confondr…"
+    },
+    "mcpCallerRoles": {
+      "name": "mcpCallerRoles",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/caller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Quels rôles porte l'appelant d'une porte MCP — **la règle, à un seul endroit**. ⭐ Toute porte MCP passe par ici, y compris celles qu'un module créera plus tard (gestion d'agents, passerelles métier…"
+    },
     "IGuardInput": {
       "name": "IGuardInput",
       "kind": "interface",
@@ -2700,14 +3331,23 @@
       "extends": null,
       "description": "Ce dont les outils INTÉGRÉS ont besoin — injecté, jamais lu ici."
     },
+    "IMcpDeclareOptions": {
+      "name": "IMcpDeclareOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut pour ÉNUMÉRER les déclarations d'outils d'une application. Distinct de {@link IMcpCollectOptions}, qui ajoute l'appelant : énumérer est une question sur le CODE (« que déclare cette a…"
+    },
     "IMcpCollectOptions": {
       "name": "IMcpCollectOptions",
       "kind": "interface",
       "file": "src/nodefony/src/mcp/tools.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null,
-      "description": "Ce qu'il faut pour ramasser les outils d'une application."
+      "extends": "IMcpDeclareOptions",
+      "description": "Ce qu'il faut pour ramasser les outils SERVIS à un appelant."
     },
     "BuiltinMcpToolKey": {
       "name": "BuiltinMcpToolKey",
@@ -2723,7 +3363,7 @@
       "file": "src/nodefony/src/mcp/tools.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Outils MCP : le **catalogue intégré** du framework, et la **collecte** de ceux qu'une application déclare. ⚠️ **Rien n'est calculé ici.** Chaque outil intégré traduit un appel JSON-RPC vers une bri…"
+      "description": "Rend un résultat d'outil — les données partent en JSON indenté, lisible. Exporté parce qu'une application qui déclare un outil en a besoin : sans lui, chacune réinventerait l'enveloppe `content[]`,…"
     },
     "builtinMcpTools": {
       "name": "builtinMcpTools",
@@ -2733,13 +3373,29 @@
       "module": "@nodefony/core",
       "description": "Catalogue intégré du framework, indexé par clé d'allowlist. Chaque handler capture ses dépendances par fermeture : c'est ce qui permet à ces quatre outils d'être des {@link IMcpTool} ordinaires, du…"
     },
+    "declareMcpTools": {
+      "name": "declareMcpTools",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Énumère ce que cette application DÉCLARE : les intégrés autorisés, puis les outils des modules — sans rien retenir sur l'identité de qui que ce soit. Trois refus, tous énoncés par `onSkip` plutôt q…"
+    },
     "collectMcpTools": {
       "name": "collectMcpTools",
       "kind": "function",
       "file": "src/nodefony/src/mcp/tools.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Ramasse les outils servis par cette application : les intégrés autorisés, puis ceux que les modules déclarent. Trois refus, tous énoncés par `onSkip` plutôt que silencieux : - **nom hors forme** ({…"
+      "description": "Ramasse les outils SERVIS à cet appelant. Aux trois refus de {@link declareMcpTools} s'ajoute une RÉTENTION, qui n'est pas une faute : un outil dont l'appelant ne satisfait pas les exigences ({@lin…"
+    },
+    "mcpDeclaredScopes": {
+      "name": "mcpDeclaredScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le vocabulaire de scopes que cette porte EXIGE — l'union de ce que ses outils déclarent, jamais une liste écrite à côté. 🔴 **C'est ce qu'un client doit demander**, et c'est à ce titre qu'il est pu…"
     },
     "publishMcpTools": {
       "name": "publishMcpTools",
@@ -3387,13 +4043,45 @@
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
     },
+    "BearerHeader": {
+      "name": "BearerHeader",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/bearer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que porte un en-tête `Authorization` — et surtout ce qu'il NE porte pas. 🔴 Les trois façons de ne pas présenter de jeton ne se valent pas, et les confondre a rendu inatteignable la tolérance an…"
+    },
+    "readBearerHeader": {
+      "name": "readBearerHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/bearer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit un en-tête `Authorization` et dit ce qu'il porte."
+    },
     "bearerToken": {
       "name": "bearerToken",
       "kind": "function",
       "file": "src/nodefony/src/runtime/bearer.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`."
+      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`. Projection de {@link readBearerHeader} pour les appelants que la NUANCE ne regarde pas — un authentificateur qui cherche un porteur et…"
+    },
+    "defaultEngineEnvironment": {
+      "name": "defaultEngineEnvironment",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/engineEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le défaut à retenir SELON que `NODE_ENV` a été posé ou non. 🔴 **Poser `NODE_ENV` est un ACTE DE DÉPLOIEMENT ; ne rien poser est l'état d'un poste de développement.** C'est toute la distinction, et…"
+    },
+    "DEFAULT_ENGINE_ENVIRONMENT": {
+      "name": "DEFAULT_ENGINE_ENVIRONMENT",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/engineEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mode retenu lorsque ni l'environnement ni la commande n'en désignent un. 🔴 **`development`, et c'est un choix de SÛRETÉ.** Le raisonnement, parce qu'il se reprendra le jour où quelqu'un voudra l'i…"
     },
     "GcScheduler": {
       "name": "GcScheduler",
@@ -3826,7 +4514,7 @@
       "file": "src/nodefony/src/syslog/logColor.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY` **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NO_TTY`), sans re-lire `process.stdout`. Convention…"
+      "description": "Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY` **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NF_NO_TTY`), sans re-lire `process.stdout`. Convent…"
     },
     "logColor": {
       "name": "logColor",
@@ -3978,6 +4666,31 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sink `/dev/null` : noop total (bench — mesure du plafond sans I/O de log)."
+    },
+    "ITestModuleOptions": {
+      "name": "ITestModuleOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages d'un module de test — tous facultatifs."
+    },
+    "nodefonyBin": {
+      "name": "nodefonyBin",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL. ## Le problème que ce sous-chemin résout Un service Nodefony reçoit un `Module` (`super(nom, module.container, module.notific…"
+    },
+    "createTestModule": {
+      "name": "createTestModule",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un module JETABLE, prêt à porter un service dans un test. ```ts import { createTestModule } from \"nodefony/testing\"; import TaxService from \"../nodefony/service/TaxService\"; const tax = new TaxServ…"
     },
     "nodefonyOptions": {
       "name": "nodefonyOptions",
@@ -4863,6 +5576,31 @@
       "module": "@nodefony/core",
       "description": "Fonction de table Drizzle du dialecte (`sqliteTable`…) et son import."
     },
+    "IFormatOutcome": {
+      "name": "IFormatOutcome",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la mise en forme a fait — matière du récapitulatif du CLI."
+    },
+    "formatFilesOnDisk": {
+      "name": "formatFilesOnDisk",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme des fichiers DÉJÀ ÉCRITS, nommés un par un. La seconde porte, pour le seul cas que la transaction ne peut pas servir : `create app` écrit ses fichiers AVANT `npm install`, donc au mome…"
+    },
+    "formatScaffoldOutput": {
+      "name": "formatScaffoldOutput",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme les écritures en attente, dans la transaction. Appelée par {@link runScaffold} AVANT la bifurcation dry-run / vidage, pour que le plan annoncé et le résultat écrit soient le même texte."
+    },
     "confirm": {
       "name": "confirm",
       "kind": "function",
@@ -4935,8 +5673,7 @@
       "file": "src/nodefony/src/cli/scaffold/spec.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null,
-      "description": "Spec DÉCLARATIVE du scaffold — la source unique des choix de création. Les questions sont des DONNÉES (JSON-able, zéro fonction) : le même contrat alimente les TROIS fronts de création — 1. CLI rap…"
+      "extends": null
     },
     "IScaffoldTypeSpec": {
       "name": "IScaffoldTypeSpec",
@@ -5875,6 +6612,173 @@
       "implements": [],
       "decorators": []
     },
+    "IAdminCaller": {
+      "name": "IAdminCaller",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Qui appelle le plan d'administration, tel qu'il se PRÉSENTE. Ce type existe pour une raison précise : les portes sans HTTP (commande `inspect`, serveur MCP) fabriquaient un administrateur au lieu d…"
+    },
+    "localOperatorCaller": {
+      "name": "localOperatorCaller",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'opérateur qui lance une commande sur sa propre application. Il possède déjà le processus : il lit les sources, il édite la configuration, il peut arrêter le serveur. Lui refuser la lecture d'admi…"
+    },
+    "rolesFromScopes": {
+      "name": "rolesFromScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit les scopes d'un jeton en rôles Nodefony. ⚠️ Les deux scopes mènent aujourd'hui au MÊME rôle, et ce n'est pas un raccourci : le contrôle d'accès du plan d'administration est uniforme — tous …"
+    },
+    "refusedAdminScopes": {
+      "name": "refusedAdminScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les scopes d'administration demandés que ce porteur **ne peut pas** obtenir. Réciproque de {@link rolesFromScopes}, et indispensable avec elle : si un scope ouvre le plan d'administration, alors l'…"
+    },
+    "ADMIN_SCOPE_READ": {
+      "name": "ADMIN_SCOPE_READ",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scope d'un jeton ouvrant la LECTURE du plan d'administration. Trois valeurs suffisent pour tout le plan (celle-ci, {@link ADMIN_SCOPE_WRITE}, et l'absence de scope pour la topologie) : un scope par…"
+    },
+    "ADMIN_SCOPE_WRITE": {
+      "name": "ADMIN_SCOPE_WRITE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scope d'un jeton ouvrant les MUTATIONS du plan d'administration."
+    },
+    "isAdminGranted": {
+      "name": "isAdminGranted",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décision d'autorisation du data plane admin (Studio) — fonction **PURE**, cœur de la garantie RBAC, testée isolément (zéro dépendance runtime/DI). **Fail-closed.** Un endpoint qui exige un rôle (`r…"
+    },
+    "resolveAdminRole": {
+      "name": "resolveAdminRole",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rôle **effectif** d'un endpoint — la règle, à un seul endroit. Toutes les portes du plan d'administration (route HTTP montée par le broker, pont WS-RPC, commande `inspect`, serveur MCP) doivent tra…"
+    },
+    "ADMIN_DEFAULT_ROLE": {
+      "name": "ADMIN_DEFAULT_ROLE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rôle exigé par défaut d'un endpoint d'administration qui n'en déclare aucun. Le défaut est **restrictif** : un producteur qui oublie de qualifier son endpoint le publie au rôle d'administrateur, ja…"
+    },
+    "IAdminCatalogEntry": {
+      "name": "IAdminCatalogEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un endpoint du plan d'administration, tel qu'une porte sans session peut le proposer — de quoi l'APPELER, rien de plus. Ce que porte `params` mérite son existence : les chemins du plan portent des …"
+    },
+    "IAdminCatalogQuery": {
+      "name": "IAdminCatalogQuery",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Restriction de lecture du catalogue — sans effet sur ce qui est APPELABLE."
+    },
+    "IAdminCatalogView": {
+      "name": "IAdminCatalogView",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le catalogue montre, ET ce qu'il a écarté. Les compteurs ne sont pas décoratifs : sans eux, une liste de 61 entrées se lit comme « voilà tout le plan d'administration », et un appelant concl…"
+    },
+    "adminReadCatalog": {
+      "name": "adminReadCatalog",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les endpoints du plan d'administration qu'une porte **sans session** peut servir à cet appelant — la règle unique dont dépendent `nodefony_admin_list` ET `nodefony_admin_call`. ⭐ **Ce qui est listé…"
+    },
+    "findAdminReadEntry": {
+      "name": "findAdminReadEntry",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retrouve une entrée APPELABLE par son couple producteur/chemin. Passe par {@link adminReadCatalog} plutôt que de reparcourir le registre : c'est ce qui garantit que l'appel et la liste tranchent la…"
+    },
+    "IAdminExecution": {
+      "name": "IAdminExecution",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Issue d'un endpoint d'administration, sous la forme que TOUTES les portes reçoivent — succès comme échec. C'est volontairement la forme d'une réponse HTTP sans en être une : les producteurs raisonn…"
+    },
+    "IAdminGateVerdict": {
+      "name": "IAdminGateVerdict",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Verdict d'une porte posée AVANT le handler — aujourd'hui l'idempotence des mutations, demain ce que le transport exigera. Soit la porte tranche seule (`shortCircuit` : rejeu mémorisé, 409 concurren…"
+    },
+    "IAdminExecuteInput": {
+      "name": "IAdminExecuteInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce dont l'exécution a besoin — aucun transport, aucun conteneur."
+    },
+    "AdminGate": {
+      "name": "AdminGate",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Porte optionnelle évaluée entre le RBAC et le handler. Le paramètre qui la porte est **obligatoire et nullable** dans {@link IAdminExecuteInput} : `null` est un choix qu'on lit dans le code d'appel…"
+    },
+    "normalizeAdminResult": {
+      "name": "normalizeAdminResult",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Normalise ce qu'un handler a rendu : donnée brute, ou enveloppe. Discrimination volontairement étroite — enveloppe **si et seulement si** `body` est présent AVEC `status` ou `headers`. Un objet mét…"
+    },
+    "executeAdminEndpoint": {
+      "name": "executeAdminEndpoint",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute un endpoint du plan d'administration — **la porte unique**, sans HTTP. ⭐ **Une source, plusieurs portes.** Le data plane est un ensemble de fonctions `IAdminRequest → donnée` ; ce qui les e…"
+    },
     "ILastBootBrick": {
       "name": "ILastBootBrick",
       "kind": "interface",
@@ -6074,6 +6978,28 @@
       "module": "@nodefony/core",
       "description": "Contrôle le câblage d'une application et de ses modules locaux. Trois manquements, tous invisibles à la compilation : - **entité orpheline** — le descripteur n'est nommé nulle part, donc aucun `@en…"
     },
+    "AiMcp": {
+      "name": "AiMcp",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony ai:mcp` — déclare le serveur MCP de cette application à l'agent (`.mcp.json`). **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) e…"
+    },
+    "AiSync": {
+      "name": "AiSync",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony ai:sync` — pointeurs vers les skills d'agent livrés par les paquets installés. **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) e…"
+    },
     "Build": {
       "name": "Build",
       "kind": "class",
@@ -6170,6 +7096,17 @@
       "decorators": [],
       "description": "Commande `nodefony env` — l'environnement de l'application, en entier. Elle répond aux quatre questions qu'on se pose toujours ensemble, et dont aucune n'avait de réponse ailleurs que dans le code …"
     },
+    "GitHooks": {
+      "name": "GitHooks",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony git:hooks` — hooks git natifs (`core.hooksPath`), zéro dépendance. **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) et à la compl…"
+    },
     "Inspect": {
       "name": "Inspect",
       "kind": "class",
@@ -6190,6 +7127,17 @@
       "extends": "Command",
       "implements": [],
       "decorators": []
+    },
+    "Menu": {
+      "name": "Menu",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/MenuCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Menu interactif du CLI (`nodefony menu`, ou `nodefony` nu en TTY). La COMPOSITION (groupes, entrées, conseils, filtrage à la frappe) vit dans `cli/startMenu.ts` — pure, testée sans TTY. Ici : le RE…"
     },
     "Outdated": {
       "name": "Outdated",
@@ -6213,6 +7161,15 @@
       "decorators": [],
       "description": "Commande `nodefony production` — runtime PROD cloud-native, **foreground**. Modèle « 2 molettes » (2026-05-24) : front prod (dist, pas de Vite) × topologie pilotée par la molette `workers` ({@link …"
     },
+    "RuntimeConflictDeps": {
+      "name": "RuntimeConflictDeps",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Points d'injection du garde anti-collision — permettent de l'ÉPROUVER sans monter un vrai superviseur ni tuer le processus de test. Défauts = les implémentations réelles, donc le chemin de producti…"
+    },
     "LaunchTopologyOptions": {
       "name": "LaunchTopologyOptions",
       "kind": "interface",
@@ -6222,6 +7179,14 @@
       "extends": null,
       "description": "Arguments de {@link launchTopology}."
     },
+    "assertNoConflictingRuntime": {
+      "name": "assertNoConflictingRuntime",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Garde anti-collision (symétrique du superviseur dev) : un runtime prod/cluster ne démarre PAS par-dessus un AUTRE runtime **de CE projet** (dev/prod/cluster d'un mode différent). Fail-loud + exit —…"
+    },
     "launchTopology": {
       "name": "launchTopology",
       "kind": "function",
@@ -6229,16 +7194,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Applique la topologie résolue — flow **PARTAGÉ** par les commandes de lancement (`cluster`, `production`). Appelé depuis leur `onKernelStart` (phase `onStart`), donc AVANT que l'unique Kernel ne dé…"
-    },
-    "Start": {
-      "name": "Start",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/commands/StartCommand.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Command",
-      "implements": [],
-      "decorators": []
     },
     "@nodefony/core:Status": {
       "name": "Status",
@@ -6372,6 +7327,15 @@
       "extends": null,
       "description": "Vue minimale du broker dont cette lecture a besoin."
     },
+    "IAdminCall": {
+      "name": "IAdminCall",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut pour joindre un endpoint du plan d'administration."
+    },
     "InspectFailure": {
       "name": "InspectFailure",
       "kind": "type",
@@ -6396,13 +7360,21 @@
       "module": "@nodefony/core",
       "description": "Extrait la donnée d'une réponse d'administration. Un handler rend soit la donnée, soit une enveloppe `{status, body}` (pour porter un 404). Même discrimination que le pont HTTP : enveloppe **si et …"
     },
+    "callAdminEndpoint": {
+      "name": "callAdminEndpoint",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Appelle un endpoint du plan d'administration, hors HTTP. ⭐ **Une source, plusieurs portes** : cette fonction ne fait que RÉSOUDRE l'endpoint (par producteur et chemin, là où la route HTTP le résout…"
+    },
     "readAdminSubject": {
       "name": "readAdminSubject",
       "kind": "function",
       "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Lit un sujet d'inspection dans le plan d'administration. Le rôle d'administrateur est **annoncé**, pas contourné : certains producteurs graduent leur réponse selon les rôles, et un appelant qui se …"
+      "description": "Lit un sujet d'inspection dans le plan d'administration. Résout le sujet dans {@link INSPECT_SUBJECTS}, puis délègue à {@link callAdminEndpoint} — ce qui vaut pour l'appel vaut donc ici."
     },
     "INSPECT_SUBJECTS": {
       "name": "INSPECT_SUBJECTS",
@@ -6411,6 +7383,31 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sujets inspectables, et l'endpoint d'administration qui les sert. **Aucune donnée n'est calculée ici.** Chaque sujet pointe le producteur qui répond déjà en HTTP : toutes les portes rendent le même…"
+    },
+    "IMarkdownSection": {
+      "name": "IMarkdownSection",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/inspect/docOutline.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Découpe d'un markdown par ses titres — le plan, puis une section. ⭐ **Pourquoi ce fichier existe** : les pages de documentation du framework pèsent 50 à 80 ko. Rendues entières à un agent, elles sa…"
+    },
+    "outlineMarkdown": {
+      "name": "outlineMarkdown",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/docOutline.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Repère les titres d'un markdown, **en ignorant les blocs de code**. Cette exclusion n'est pas un détail de forme : la documentation du framework est pleine d'exemples shell, où un `# commentaire` e…"
+    },
+    "extractMarkdownSection": {
+      "name": "extractMarkdownSection",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/docOutline.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait UNE section d'un markdown, sous-sections comprises. Le titre demandé est reconnu sans casse, sans accents et sans ponctuation décorative ({@link foldTitle}) : « securite » retrouve « 🔐 Séc…"
     },
     "ClusterManager": {
       "name": "ClusterManager",
@@ -6891,6 +7888,38 @@
       "module": "@nodefony/core",
       "description": "Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui déclare l'aire (`framework` pour le data plane `…"
     },
+    "BootProbe": {
+      "name": "BootProbe",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'une sonde peut rendre — et la distinction qui évite d'attendre pour rien. `\"booting\"` et `\"unreachable\"` valent tous deux « pas de verdict », mais PAS la même conduite : le premier s'attend (…"
+    },
+    "probeBootDegraded": {
+      "name": "probeBootDegraded",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Interroge `livez` et rend le verdict de boot, ou pourquoi il n'y en a pas. Aucune de ces situations ne se confond avec « sain » : une sonde muette ne doit ni bloquer un démarrage, ni le certifier."
+    },
+    "waitBootVerdict": {
+      "name": "waitBootVerdict",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Re-sonde jusqu'à obtenir un verdict STABLE, ou jusqu'à l'échéance. Sans cette attente, la sonde tomberait dans la course entre l'ouverture des ports et la fin du boot, et crierait « dégradé » sur u…"
+    },
+    "extractSkippedModules": {
+      "name": "extractSkippedModules",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait du journal d'un runtime les modules que le boot a IGNORÉS, avec leur motif. POURQUOI lire le journal plutôt que la route : `livez` ne nomme les modules qu'à un appelant authentifié, et une …"
+    },
     "DetachedStartOptions": {
       "name": "DetachedStartOptions",
       "kind": "interface",
@@ -6925,6 +7954,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Environnement du child détaché — hérité du parent, MOINS ce qui ne se transmet pas. `DELEGATED_ENV` est une garde **anti-boucle de process** : le CLI global la pose sur lui-même juste avant de char…"
+    },
+    "childExecArgv": {
+      "name": "childExecArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Drapeaux `node` à transmettre au runtime détaché. Fonction PURE — c'est ce qui permet de l'éprouver sans lancer de process."
     },
     "parseDetachArgs": {
       "name": "parseDetachArgs",
@@ -7180,7 +8217,7 @@
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération). Ordre de vérité, du plus fiable au moins fiable : 1. `NODEFONY_DEV_PORTS` — override explicite de l'opérateur, il gagne …"
+      "description": "Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération). Ordre de vérité, du plus fiable au moins fiable : 1. `NF_DEV_PORTS` — override explicite de l'opérateur, il gagne toujou…"
     },
     "readSupervisorPid": {
       "name": "readSupervisorPid",
@@ -11086,14 +12123,6 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
-    "isAdminGranted": {
-      "name": "isAdminGranted",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/src/adminRbac.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Décision d'autorisation du data plane admin (Studio) — fonction **PURE**, cœur de la garantie RBAC, testée isolément (zéro dépendance runtime/DI). **Fail-closed.** Un endpoint qui exige un rôle (`r…"
-    },
     "IJsonSchemaNode": {
       "name": "IJsonSchemaNode",
       "kind": "interface",
@@ -11240,6 +12269,51 @@
       "extends": null,
       "description": "Symbole TS exporté d'un module, projeté depuis `.ai/symbols.json`."
     },
+    "DocSearchMatch": {
+      "name": "DocSearchMatch",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Où un terme cherché apparaît, et la ligne qui le porte."
+    },
+    "DocSearchHit": {
+      "name": "DocSearchHit",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une doc qui répond à la recherche, avec ses extraits."
+    },
+    "DocSearchTarget": {
+      "name": "DocSearchTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une doc à balayer : la clé du module qui la porte, et son chemin disque."
+    },
+    "DocSearchResult": {
+      "name": "DocSearchResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Ce que rend une recherche : les docs retenues, et ce qu'elle a balayé."
+    },
+    "SymbolDeclaration": {
+      "name": "SymbolDeclaration",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Ce qu'on a trouvé d'un symbole dans les types LIVRÉS d'un module."
+    },
     "DepInfo": {
       "name": "DepInfo",
       "kind": "interface",
@@ -11335,6 +12409,14 @@
       "module": "@nodefony/framework",
       "description": "Lit une doc module par slug : frontmatter + corps markdown brut. Le slug est borné (`SLUG_RE`) avant toute jointure de chemin → pas de path traversal vers l'extérieur de `<modulePath>/docs/`."
     },
+    "searchModuleDocs": {
+      "name": "searchModuleDocs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Cherche un texte dans les docs colocalisées des modules donnés. ⭐ **Pourquoi cette fonction existe** : chez un utilisateur, la documentation des modules vit sous `node_modules/@nodefony/<mod>/docs/…"
+    },
     "listModuleSymbols": {
       "name": "listModuleSymbols",
       "kind": "function",
@@ -11342,6 +12424,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine de l'application, cf {@link appRoot}). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergen…"
+    },
+    "readSymbolDeclaration": {
+      "name": "readSymbolDeclaration",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Extrait la déclaration d'un symbole des types LIVRÉS d'un module. ⭐ **Pourquoi cette fonction existe** : le graphe symbolique (`.ai/symbols.json`) dit qu'un symbole existe, ce qu'il étend et la pre…"
     },
     "readDependencies": {
       "name": "readDependencies",
@@ -11571,13 +12661,20 @@
       "module": "@nodefony/framework",
       "description": "Sérialisation défensive de config : borne la profondeur, neutralise les fonctions, casse les cycles, et **relativise les chemins absolus** (sécu : ne jamais exposer l'arborescence serveur). Les `op…"
     },
+    "candidatsPaquetNodefony": {
+      "name": "candidatsPaquetNodefony",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Paquets à essayer pour une clé de module, **dans l'ordre**, et bornés au périmètre du framework. Pure — donc éprouvable sans disque ni dossier courant, et c'est nécessaire : les deux défauts qu'ell…"
+    },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
       "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
+      "module": "@nodefony/framework"
     },
     "PlaygroundParam": {
       "name": "PlaygroundParam",
@@ -14891,6 +15988,25 @@
       "decorators": [],
       "description": "`nodefony security:secrets` — génère les clés de chiffrement attendues par le module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires, base64) et guide le câblage en 3 FICHIERS (…"
     },
+    "SecurityToken": {
+      "name": "SecurityToken",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:token` — émet un jeton d'accès pour une porte de cette application (la porte MCP par défaut). **Pourquoi une commande, et pas un `curl`.** Le jeton s'obtenait par un appel au gra…"
+    },
+    "ttlSeconds": {
+      "name": "ttlSeconds",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit `--ttl` en secondes, ou rend l'erreur à afficher. Exportée pour être ÉPROUVÉE : c'est une fonction pure dont chaque verdict est binaire, et dont l'échec — une durée acceptée alors qu'elle e…"
+    },
     "SecurityUserAdd": {
       "name": "SecurityUserAdd",
       "kind": "class",
@@ -14900,7 +16016,29 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "`nodefony security:user:add <identifier>` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). M…"
+      "description": "`nodefony security:user:add [identifier]` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). I…"
+    },
+    "SecurityUserDelete": {
+      "name": "SecurityUserDelete",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:user:delete <identifiant>` — retire un compte. **Un geste destructeur ne se fait pas sur une frappe.** La commande MONTRE ce qu'elle va supprimer (identifiant, rôles, identifiant…"
+    },
+    "SecurityUserList": {
+      "name": "SecurityUserList",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:user:list` — qui a un compte dans cette application. **Lister n'est pas une fuite, et c'était la question.** Cette commande s'exécute sur la machine qui possède déjà la base : el…"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
@@ -15992,7 +17130,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Identifiant stable de CETTE instance/process. Override possible via env `NODEFONY_INSTANCE_ID` (utile en multi-process pour distinguer les workers). Forward-compat vue cluster (P13) : les stats son…"
+      "description": "Identifiant stable de CETTE instance/process. Override possible via env `NF_INSTANCE_ID` (utile en multi-process pour distinguer les workers). Forward-compat vue cluster (P13) : les stats sont tagu…"
     },
     "PROC": {
       "name": "PROC",
@@ -20677,6 +21815,9 @@
       "Cli": [
         "CliKernel"
       ],
+      "IMcpDeclareOptions": [
+        "IMcpCollectOptions"
+      ],
       "nodefonyError": [
         "PaginationModeError",
         "CursorOrderError",
@@ -20724,6 +21865,8 @@
         "BindAdaptiveOptions"
       ],
       "Command": [
+        "AiMcp",
+        "AiSync",
         "Build",
         "Card",
         "Check",
@@ -20732,11 +21875,12 @@
         "Create",
         "Dev",
         "Env",
+        "GitHooks",
         "Inspect",
         "Install",
+        "Menu",
         "Outdated",
         "Prod",
-        "Start",
         "Status",
         "Stop",
         "Symbols",
@@ -20750,7 +21894,10 @@
         "Network",
         "ProxyGenerate",
         "SecuritySecrets",
-        "SecurityUserAdd"
+        "SecurityToken",
+        "SecurityUserAdd",
+        "SecurityUserDelete",
+        "SecurityUserList"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -21289,6 +22436,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/ICliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -21297,11 +22446,12 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -21315,7 +22465,10 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "ColorFn": [
         "src/nodefony/src/Cli.ts"
@@ -21378,8 +22531,16 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
+      ],
+      "DEFAULT_ENGINE_ENVIRONMENT": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "defaultEngineEnvironment": [
+        "src/nodefony/src/Cli.ts"
       ],
       "extend": [
         "src/nodefony/src/Cli.ts",
@@ -21419,6 +22580,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
@@ -21548,6 +22710,7 @@
         "src/nodefony/src/bin/nodefony.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/runtime/engineEnvironment.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/types/IKernel.ts",
@@ -21595,6 +22758,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -21832,6 +22996,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
@@ -23148,7 +24313,8 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "TokenService": [
-        "src/packages/@nodefony/security/index.ts"
+        "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "AccessTokenVerifierService": [
         "src/packages/@nodefony/security/index.ts"
@@ -23178,6 +24344,15 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "SecurityUserAdd": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "SecurityUserList": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "SecurityUserDelete": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "SecurityToken": [
         "src/packages/@nodefony/security/index.ts"
       ],
       "registerSecurityAdminApi": [
@@ -23240,6 +24415,13 @@
       "TLocalCliDecision": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
+      "readCliManifest": [
+        "src/nodefony/src/bin/nodefony.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "computeCompletions": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
         "src/nodefony/src/cli/aiMcp.ts",
@@ -23247,14 +24429,31 @@
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "RESERVED_ENV": [
+        "src/nodefony/src/bin/resolveLocalCli.ts"
+      ],
       "defineConfig": [
         "src/nodefony/src/bundler/index.ts"
+      ],
+      "MCP_SERVER_KEY": [
+        "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "MCP_TOKEN_ENV": [
+        "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "MCP_CONFIG_FILE": [
+        "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts"
       ],
       "SysExit": [
         "src/nodefony/src/cli/aiMcp.ts",
@@ -23263,6 +24462,7 @@
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
@@ -23272,9 +24472,25 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "chargePrompts": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "ADMIN_SCOPE_READ": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/mcp/tools.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "ADMIN_SCOPE_WRITE": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "defaultDevPorts": [
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
@@ -23289,11 +24505,41 @@
       "renderMcpPlan": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
-      "MCP_CONFIG_FILE": [
-        "src/nodefony/src/cli/aiMcp.ts"
-      ],
       "IMcpConfigDocument": [
         "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "AGENT_TARGETS": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/spec.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "agentsDemandes": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "agentsPresents": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "litVariable": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "planAgentDeclaration": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "racineAgent": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "renderPlanShell": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "IAgentTarget": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "stripTrailingSlashes": [
         "src/nodefony/src/cli/aiMcpReport.ts",
@@ -23335,6 +24581,12 @@
       "ICardInput": [
         "src/nodefony/src/cli/card.ts",
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "besoinDeShell": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
@@ -23386,6 +24638,9 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "formatFilesOnDisk": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "diffLines": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -23404,9 +24659,24 @@
       "syncSkillPointers": [
         "src/nodefony/src/cli/create.ts"
       ],
+      "runAiMcpCommand": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts"
+      ],
+      "installGitHooks": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "GIT_HOOKS_DIR": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
       "envFileOrder": [
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "renderEnvExample": [
+        "src/nodefony/src/cli/env.ts"
       ],
       "getEnvCatalog": [
         "src/nodefony/src/cli/env.ts"
@@ -23442,6 +24712,28 @@
         "src/nodefony/src/cli/envReport.ts",
         "src/nodefony/src/config/defineConfig.ts",
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isReservedEnv": [
+        "src/nodefony/src/cli/envReport.ts"
+      ],
+      "reservedEnvRole": [
+        "src/nodefony/src/cli/envReport.ts"
+      ],
+      "planGitHooks": [
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
+      "renderGitHooksPlan": [
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
+      "IGitHooksPlan": [
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
+      "ICliManifest": [
+        "src/nodefony/src/cli/manPage.ts",
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "ICliManifestCommand": [
+        "src/nodefony/src/cli/manPage.ts"
       ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/IClientKernel.ts",
@@ -23557,6 +24849,8 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -23565,12 +24859,13 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -23584,7 +24879,10 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "Builder": [
         "src/nodefony/src/command/Command.ts"
@@ -23687,7 +24985,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/types/IModuleManifest.ts"
       ],
-      "Start": [
+      "Menu": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Dev": [
@@ -23720,6 +25018,15 @@
       "Stop": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
+      "AiSync": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "AiMcp": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "GitHooks": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "isStandaloneDevCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -23743,9 +25050,6 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "runCompleteQuery": [
-        "src/nodefony/src/kernel/CliKernel.ts"
-      ],
-      "ICliManifest": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Completion": [
@@ -23784,16 +25088,19 @@
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
       ],
       "runAiSyncCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts"
       ],
-      "runAiMcpCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+      "runGitHooksCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveColorEnabled": [
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -23892,6 +25199,9 @@
       "readAppEnvOverrideReport": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "readResolvedPath": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "resolveInfra": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
@@ -23911,8 +25221,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/runtime/pageGuard.ts",
         "src/nodefony/src/runtime/pageQuery.ts",
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -23986,6 +25296,15 @@
       "tagListener": [
         "src/nodefony/src/kernel/Module.ts"
       ],
+      "ADMIN_DEFAULT_ROLE": [
+        "src/nodefony/src/mcp/caller.ts",
+        "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "rolesFromScopes": [
+        "src/nodefony/src/mcp/caller.ts",
+        "src/nodefony/src/mcp/tools.ts"
+      ],
       "JsonRpcError": [
         "src/nodefony/src/mcp/server.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
@@ -24041,16 +25360,42 @@
       ],
       "INSPECT_SUBJECTS": [
         "src/nodefony/src/mcp/tools.ts",
-        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "readAdminSubject": [
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
+      "callAdminEndpoint": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
       "IAdminBrokerLike": [
         "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "InspectResult": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "outlineMarkdown": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "IAdminCaller": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts"
+      ],
+      "adminReadCatalog": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "findAdminReadEntry": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "IAdminCatalogView": [
+        "src/nodefony/src/mcp/tools.ts"
       ],
       "readSymbolsGraph": [
         "src/nodefony/src/mcp/tools.ts"
@@ -24070,11 +25415,9 @@
       "IMcpToolResult": [
         "src/nodefony/src/mcp/tools.ts"
       ],
-      "bearerToken": [
+      "readBearerHeader": [
         "src/nodefony/src/oauth/protectedResource.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "ActionNames": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
@@ -24481,6 +25824,9 @@
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
       ],
+      "pointeursInstructions": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "resolveModuleLayout": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -24533,8 +25879,12 @@
       "SCAFFOLD_VERSIONS": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
-      "ScaffoldWriter": [
+      "formatScaffoldOutput": [
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ScaffoldWriter": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/format.ts"
       ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
@@ -24557,6 +25907,9 @@
       ],
       "TPresetChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ancreEventLoop": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "IScaffoldCaps": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -24711,6 +26064,61 @@
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
       ],
+      "IAdminEndpoint": [
+        "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "AdminHttpMethod": [
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts"
+      ],
+      "isAdminGranted": [
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts"
+      ],
+      "resolveAdminRole": [
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "IAdminRequest": [
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminResponse": [
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
@@ -24737,6 +26145,7 @@
       ],
       "probePorts": [
         "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
@@ -24750,6 +26159,8 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "OptionsCommandInterface": [
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -24758,11 +26169,12 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -24776,7 +26188,10 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
@@ -24801,6 +26216,30 @@
       ],
       "InspectFailure": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "localOperatorCaller": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "buildStartMenu": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "buildInspectMenu": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "filterStartMenu": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "NPM_SCRIPT_PREFIX": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "StartMenuItem": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "IStartMenuModuleCommand": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "planMenuAction": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "aggregateOutdated": [
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
@@ -24846,6 +26285,19 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "DevProcessInfo": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/nodefony/src/service/dev/devProjects.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "PortState": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "RuntimeMode": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -24893,34 +26345,12 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
-      "IAdminEndpoint": [
+      "executeAdminEndpoint": [
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
       ],
-      "IAdminRequest": [
-        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
-        "src/modules/test/nodefony/admin/TestAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      "normalizeAdminResult": [
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts"
       ],
       "ClusterManager": [
         "src/nodefony/src/service/cluster/clusterMaster.ts"
@@ -24944,12 +26374,6 @@
       "resolveWorkerCount": [
         "src/nodefony/src/service/cluster/topology.ts"
       ],
-      "DevProcessInfo": [
-        "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/nodefony/src/service/dev/devProjects.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
-      ],
       "renderProcessTable": [
         "src/nodefony/src/service/dev/BootReporter.ts"
       ],
@@ -24969,10 +26393,12 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
-      "PortState": [
+      "extractSkippedModules": [
+        "src/nodefony/src/service/dev/detachedStart.ts"
+      ],
+      "waitBootVerdict": [
         "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "DevProcessWithCwd": [
         "src/nodefony/src/service/dev/devProjects.ts",
@@ -25454,7 +26880,10 @@
       ],
       "UserService": [
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "recordInitializeRun": [
@@ -25475,6 +26904,9 @@
       "canonicalResourceUri": [
         "src/packages/@nodefony/devkit/nodefony/config/config.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
+      ],
+      "BUILTIN_MCP_TOOL_KEYS": [
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts"
       ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
@@ -25510,6 +26942,9 @@
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
+      "mcpCallerRoles": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
       "IAccessTokenVerifier": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
@@ -25524,6 +26959,10 @@
       "ICardVerb": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
+      "IMcpToolDeps": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
       "injectable": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -25533,6 +26972,9 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "mcpDeclaredScopes": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "IProtectedResourceInput": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
@@ -25659,7 +27101,6 @@
       "IdempotentResponse": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
@@ -26159,21 +27600,15 @@
       "frameworkConfigSchema": [
         "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts"
       ],
-      "IAdminResponse": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      "IAdminExecution": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
+      ],
+      "IAdminGateVerdict": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
       ],
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
-      ],
-      "isAdminGranted": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
       ],
       "evaluateIdempotency": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -26348,7 +27783,16 @@
       "extractJsonSchemaDefaults": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "extractMarkdownSection": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
       "TestRunResult": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "DocSearchTarget": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "DocSummary": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listModuleDocs": [
@@ -26357,10 +27801,16 @@
       "countModuleDocs": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "searchModuleDocs": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
       "readModuleDoc": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listModuleSymbols": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "readSymbolDeclaration": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "readCoverage": [
@@ -27100,6 +28550,18 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
+      "MCP_ENDPOINT_PATH": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "poseVariable": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "porteDejaLaCle": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "askPasswordMasked": [
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+      ],
       "securityConfigSchema": [
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"
       ],
@@ -27184,6 +28646,12 @@
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
+      "canonicalIssuer": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
       "IAccessPrincipal": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
@@ -27202,6 +28670,12 @@
       ],
       "RemoteJwtVerifier": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+      ],
+      "IJwtKeystore": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "countFacets": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -27425,10 +28899,8 @@
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
-      "canonicalIssuer": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      "refusedAdminScopes": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "InvalidTargetError": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
@@ -27446,11 +28918,6 @@
       "IJwtRuntime": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
-      ],
-      "IJwtKeystore": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "deriveStoreBackend": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
@@ -27613,6 +29080,9 @@
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+      ],
+      "argvCablageMcp": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "suspendSupervisor": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
@@ -28129,6 +29599,11 @@
       ],
       "parseApiKey": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts"
+      ],
+      "bearerToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "AnonymousAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"

@@ -43,7 +43,7 @@ Grâce à l'augmentation du registre `NodefonyModuleConfig`, `use("@nodefony/mon
 Mongoose : `user`/`pass`/`maxPoolSize`/timeouts).
 
 **Surcharge par environnement** (précédence max) : `MONGODB_URI` (uri du connecteur primaire) ·
-`MONGODB_DEBUG` (1/true). ⚠️ Les secrets (`user:pass`) passent par l'env, **jamais** par le dépôt.
+`NF_MONGODB_DEBUG` (1/true). ⚠️ Les secrets (`user:pass`) passent par l'env, **jamais** par le dépôt.
 
 La config est validée par **Zod** au boot (`config.ts` = source de vérité). Une config invalide
 plante proprement avec un message clair.
@@ -89,7 +89,7 @@ await orm.disconnect();
 npm test   # vitest : config (Zod) + intégration (mongodb-memory-server)
 ```
 
-Pour une CI / Docker, exportez `MONGO_TEST_URI=mongodb://localhost:27017` (conteneur de service Mongo)
+Pour une CI / Docker, exportez `NF_MONGO_TEST_URI=mongodb://localhost:27017` (conteneur de service Mongo)
 → aucun binaire téléchargé.
 
 ## Licence

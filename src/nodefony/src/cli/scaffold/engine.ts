@@ -1,8 +1,33 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
+import { pointeursInstructions } from "../agentTargets";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
+
+/**
+ * Options du moteur de gabarits, **écrites une seule fois** : sept rendus les
+ * instanciaient à l'identique, et une divergence entre deux d'entre eux serait
+ * passée inaperçue jusqu'au fichier produit.
+ *
+ * - `autoEscape: false` — on génère du CODE, pas du HTML : échapper les entités
+ *   corromprait chaque fichier.
+ * - `useWith: false` + `varName: "it"` — accès strict par `it.`, aucune variable
+ *   implicite.
+ * - `autoTrim: false` — **le défaut d'eta AVALE la ligne vide qui suit une
+ *   balise en fin de ligne.** Un `# <%= it.appName %>` suivi d'une ligne vide et
+ *   d'un paragraphe rendait le titre COLLÉ au paragraphe ; et en markdown, un
+ *   paragraphe qui suit une liste sans ligne vide devient une continuation de la
+ *   dernière puce. Le rendu n'était donc pas seulement mal formaté, il était mal
+ *   STRUCTURÉ — et le formateur que l'application embarque le refusait. Ce que
+ *   le gabarit écrit est ce qui sort.
+ */
+const ETA_OPTIONS = {
+  useWith: false,
+  varName: "it",
+  autoEscape: false,
+  autoTrim: false,
+} as const;
 import { findProjectRoot } from "../projectRoot";
 // L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
 // implémentation, celle qu'exécute le kernel. Le scaffold les emprunte : une
@@ -26,6 +51,7 @@ import {
 } from "./entityFields";
 import { findReservedEntity } from "./reservedEntities";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
+import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
   getScaffoldSpec,
@@ -83,6 +109,12 @@ export interface IScaffoldResult {
    * uniquement en dry-run (rien n'a touché le disque).
    */
   changes?: IScaffoldChange[];
+  /**
+   * Fichiers formatables laissés SANS mise en forme, faute de prettier dans le
+   * projet (cas courant : `--no-install`). Zéro dès qu'il est là — le CLI ne
+   * parle que quand ça compte.
+   */
+  unformatted?: number;
 }
 
 /** Options d'exécution d'un scaffold (cf {@link runScaffold}). */
@@ -107,9 +139,22 @@ export interface IScaffoldRunOptions {
 const RENAMES: Record<string, string> = {
   gitignore: ".gitignore",
   dockerignore: ".dockerignore",
+  prettierignore: ".prettierignore",
+  gitattributes: ".gitattributes",
   "oxlintrc.json": ".oxlintrc.json",
+  "prettierrc.json": ".prettierrc.json",
+  "gitlab-ci.yml": ".gitlab-ci.yml",
   env: ".env",
   "env.local": ".env.local",
+};
+
+/**
+ * Répertoires renommés au rendu — même raison que `RENAMES` (npm strip aussi
+ * les DOSSIERS pointés publiés : un `templates/…/.github/` n'arriverait jamais
+ * chez l'installeur). Seul le PREMIER segment du chemin relatif est mappé.
+ */
+const DIR_RENAMES: Record<string, string> = {
+  github: ".github",
 };
 
 /**
@@ -216,6 +261,12 @@ export const DATABASE_PARAMS: Record<
     scheme: string;
     /** Port publié sur 127.0.0.1 (l'app tourne sur l'hôte). */
     port: number;
+    /**
+     * Image docker — SOURCE UNIQUE : consommée par `compose.yaml.tpl` ET par
+     * le `ci.yml.tpl` (service container GitHub). Écrite en dur dans chacun,
+     * elle divergerait au premier bump sans qu'aucun des deux ne le dise.
+     */
+    image: string;
   }
 > = {
   postgres: {
@@ -223,14 +274,22 @@ export const DATABASE_PARAMS: Record<
     label: "PostgreSQL 16",
     scheme: "postgres",
     port: 5432,
+    image: "postgres:16-alpine",
   },
   mariadb: {
     service: "mariadb",
     label: "MariaDB 11.4",
     scheme: "mysql",
     port: 3306,
+    image: "mariadb:11.4",
   },
-  mysql: { service: "mysql", label: "MySQL 8.4", scheme: "mysql", port: 3306 },
+  mysql: {
+    service: "mysql",
+    label: "MySQL 8.4",
+    scheme: "mysql",
+    port: 3306,
+    image: "mysql:8.4",
+  },
 };
 
 /**
@@ -440,7 +499,12 @@ function renderLayer(
       continue;
     }
     const abs = path.join(entry.parentPath, entry.name);
-    const relDir = path.relative(srcDir, entry.parentPath);
+    let relDir = path.relative(srcDir, entry.parentPath);
+    const segments = relDir.split(path.sep);
+    const mapped = segments[0] !== undefined && DIR_RENAMES[segments[0]];
+    if (mapped) {
+      relDir = path.join(mapped, ...segments.slice(1));
+    }
     const base = entry.name.replace(/\.tpl$/u, "");
     let rel = path.join(relDir, RENAMES[base] ?? base);
     for (const [token, value] of Object.entries(tokens ?? {})) {
@@ -534,14 +598,22 @@ function renderProjectAgents(
   }
   writer.write(agentsPath, rendered);
   written.push("AGENTS.md");
-  const claudePath = path.join(projectRoot, "CLAUDE.md");
-  if (!writer.exists(claudePath)) {
-    const pointer = eta.renderString(
-      readFileSync(path.join(tplDir, "CLAUDE.md.tpl"), "utf8"),
-      data as unknown as Record<string, unknown>,
-    );
-    writer.write(claudePath, pointer);
-    written.push("CLAUDE.md");
+  // Un pointeur par DIALECTE — dérivé de la table des agents, jamais listé à la
+  // main : deux d'entre eux n'ouvrent QUE le fichier à leur nom et ne verraient
+  // jamais l'`AGENTS.md` qu'on vient d'écrire (constaté au source de chacun, cf
+  // `IAgentTarget.instructions`). Chaque pointeur n'est écrit que s'il MANQUE :
+  // celui qu'un développeur a remplacé lui appartient.
+  const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
+  for (const { fichier, agents } of pointeursInstructions()) {
+    const cible = path.join(projectRoot, fichier);
+    if (writer.exists(cible)) continue;
+    const pointer = eta.renderString(gabarit, {
+      ...(data as unknown as Record<string, unknown>),
+      pointeur: fichier,
+      agents: agents.join(" et "),
+    });
+    writer.write(cible, pointer);
+    written.push(fichier);
   }
 }
 
@@ -925,11 +997,18 @@ export function runScaffold(
   if (options.writer) {
     return result;
   }
+  // La mise en forme entre DANS la transaction, avant que le plan soit calculé
+  // ou vidé : le dry-run décrit alors le texte exact qui sera écrit. La faire
+  // au vidage ferait annoncer une forme que l'exécution ne produit pas — une
+  // option dont le seul rôle est de dire ce qui va se passer ne peut pas mentir.
+  const forme = formatScaffoldOutput(writer, result.dest);
+  const rendu =
+    forme.pending > 0 ? { ...result, unformatted: forme.pending } : result;
   if (options.dryRun) {
-    return { ...result, changes: writer.changes() };
+    return { ...rendu, changes: writer.changes() };
   }
   writer.commit();
-  return result;
+  return rendu;
 }
 
 /** Résout la spec puis route vers le scaffold du type demandé. */
@@ -1015,7 +1094,7 @@ function dispatchScaffold(
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des
   // entités corromprait chaque fichier. useWith false = accès via `it.` strict.
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
@@ -1461,7 +1540,7 @@ function runModuleScaffold(
         ? ((appManifest as { version?: string }).version ?? "0.1.0")
         : "0.1.0",
   };
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const templates = path.join(packageRoot, "templates", "module");
   const tokens = { __PASCAL__: pascal, __KEBAB__: name };
   const written: string[] = [];
@@ -1697,7 +1776,7 @@ function runControllerScaffold(
         `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
     );
   }
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
     nameClass,
@@ -1848,7 +1927,7 @@ function runServiceScaffold(
     };
   }
 
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   renderLayer(
     eta,
@@ -2228,7 +2307,7 @@ function runCommandScaffold(
         `sans argument obligatoire) — relance sans --service`,
     );
   }
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   renderLayer(
     eta,
@@ -3013,7 +3092,7 @@ function runEntityScaffold(
         f.type !== "enum",
     )?.name ?? null;
 
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
     pascal,
@@ -3170,7 +3249,10 @@ function runEntityScaffold(
   // ne la modifie JAMAIS ensuite, et aucune migration n'est produite.
   const notes = [
     ...ormRuntimeNote,
-    `table ${table} (${dialect}) — créée au prochain boot en développement`,
+    // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
+    // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
+    // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
+    `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`,
     `⚠ modifier l'entité ensuite n'altère PAS la table (pas d'ALTER en dev) — supprime la base de dev, ou passe par une migration`,
     `⚠ production : aucune migration générée (orm:migrate n'existe pas encore)`,
   ];
@@ -3425,7 +3507,7 @@ function runFrontScaffold(
   const nameClass = `${pascal}Controller`;
   const kebab = toKebabCase(base);
   const route = String(answers.route) || `/${kebab}`;
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
     nameClass,

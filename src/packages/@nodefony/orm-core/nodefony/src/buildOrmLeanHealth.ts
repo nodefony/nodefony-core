@@ -18,6 +18,7 @@ import { queryFlowMonitor } from "./QueryFlowMonitor";
 export function buildOrmLeanHealth(): IOrmLeanHealth {
   const names = ormRegistry.list();
   let connected = 0;
+  let assumed = 0;
   let queryTotal = 0;
   let slowTotal = 0;
   let errorTotal = 0;
@@ -25,7 +26,17 @@ export function buildOrmLeanHealth(): IOrmLeanHealth {
   let maxEwmaMs: number | null = null;
   for (const name of names) {
     try {
-      if (ormRegistry.get(name).isConnected()) connected += 1;
+      const orm = ormRegistry.get(name);
+      if (orm.isConnected()) {
+        connected += 1;
+        // `liveness` est DÉCLARÉ par l'adapter, avec un défaut prudent. Un
+        // ORM tiers qui n'étend pas `Orm` ne le porte pas du tout : dans le
+        // doute on compte SUPPOSÉ, jamais constaté — l'ignorance ne doit
+        // jamais se présenter comme une preuve.
+        if ((orm as { liveness?: string }).liveness !== "events") {
+          assumed += 1;
+        }
+      }
     } catch {
       /* adapter pas prêt / registre incohérent → compté non-connecté, jamais throw */
     }
@@ -36,13 +47,17 @@ export function buildOrmLeanHealth(): IOrmLeanHealth {
     const flow = queryFlowMonitor.snapshot(name, "");
     queryTotal += flow.total;
     slowTotal += flow.slowTotal;
-    if (flow.ewmaMs !== null && (maxEwmaMs === null || flow.ewmaMs > maxEwmaMs)) {
+    if (
+      flow.ewmaMs !== null &&
+      (maxEwmaMs === null || flow.ewmaMs > maxEwmaMs)
+    ) {
       maxEwmaMs = flow.ewmaMs;
     }
   }
   return {
     connectors: names.length,
     connected,
+    assumed,
     queryTotal,
     slowTotal,
     errorTotal,

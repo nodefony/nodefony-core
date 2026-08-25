@@ -201,8 +201,8 @@ après sa livraison, et contredisait le fichier qu'elle pointe.
 ```bash
 cd src/nodefony
 npm run test           # vitest run (les tests perf sont skippés — opt-in)
-npm run test:perf      # RUN_PERF=1 vitest run — inclut les microbenchs à seuil (non-déterministes)
-npm run test:boot      # RUN_CLI_BOOT=1 vitest run — intégration CLI serveur réelle
+npm run test:perf      # NF_RUN_PERF=1 vitest run — inclut les microbenchs à seuil (non-déterministes)
+npm run test:boot      # NF_RUN_CLI_BOOT=1 vitest run — intégration CLI serveur réelle
 npm run coverage       # vitest run --coverage (provider v8) → .coverage/
 npm run build          # rolldown build + .d.ts tsgo
 npm run clean          # supprime dist/
@@ -210,7 +210,7 @@ npm run clean          # supprime dist/
 
 > Test runtime intégration : se lance depuis la racine du repo via `npx nodefony development` (cf skill `nodefony-start-server`).
 
-> **Couverture** : `@vitest/coverage-v8` (provider v8 natif, config dans `vitest.config.ts`). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → `yargs` casse) ; monocart n'est plus utilisé. Les tests `performance` sont skippés par défaut (hook global dans `src/tests/vitest.setup.ts`, OPT-IN `RUN_PERF=1`). Rapports : `.coverage/coverage-summary.json` + `lcov.info` (gitignored).
+> **Couverture** : `@vitest/coverage-v8` (provider v8 natif, config dans `vitest.config.ts`). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → `yargs` casse) ; monocart n'est plus utilisé. Les tests `performance` sont skippés par défaut (hook global dans `src/tests/vitest.setup.ts`, OPT-IN `NF_RUN_PERF=1`). Rapports : `.coverage/coverage-summary.json` + `lcov.info` (gitignored).
 
 ## Workflow de session typique sur le core
 

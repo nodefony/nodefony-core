@@ -12,7 +12,7 @@
 // Prérequis :
 //   1. docker compose -f docker/docker-compose.yml up -d redis   (password "nodefony-dev")
 //   2. serveur dev booté AVEC le store redis (dev fixtures user/secret seedés) :
-//      NODEFONY_DEV_CHILD=1 NF_IDEMPOTENCY_STORE=redis REDIS_PASSWORD=nodefony-dev \
+//      NF_DEV_CHILD=1 NF_IDEMPOTENCY_STORE=redis NF_REDIS_PASSWORD=nodefony-dev \
 //        node node_modules/nodefony/bin/nodefony development
 //      (vérifier le log : `Idempotency store → "redis" (distributed)`)
 // Lancement (racine repo) :

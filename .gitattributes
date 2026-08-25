@@ -1,0 +1,41 @@
+# Fins de ligne — LF PARTOUT, y compris dans la copie de travail Windows.
+#
+# 🔴 Ce n'est pas une préférence de style : des GATES de ce dépôt comparent un
+# fichier du dépôt, OCTET POUR OCTET, à ce qu'un générateur produit. Le
+# générateur écrit `\n` ; sans la règle ci-dessous, git convertit le fichier en
+# `\r\n` au checkout Windows (`core.autocrlf` y vaut `true` sur les runners
+# GitHub), et la comparaison échoue sur une page parfaitement à jour.
+#
+# Vécu : `manPage.test.ts` rendait « man/nodefony.1 est PÉRIMÉE — node
+# scripts/generate-man.mjs » sur les trois jobs Windows, verte partout ailleurs.
+# Le message envoyait régénérer un fichier qui n'avait rien à se reprocher, et
+# régénérer n'y aurait rien changé : la différence était `\r\n` contre `\n`.
+#
+# Sans danger ici, et vérifié avant d'être posé : le dépôt ne contient AUCUN
+# fichier commité avec des CRLF, et AUCUN script `.bat`/`.cmd`/`.ps1` — les
+# seuls qui exigeraient CRLF. La règle ne renormalise donc rien ; elle empêche
+# une divergence future.
+* text=auto eol=lf
+
+# Binaires : jamais touchés, jamais diffés comme du texte.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tgz binary
+*.db binary
+
+# Artefacts GÉNÉRÉS, comparés octet pour octet par un gate : le LF y est une
+# CONDITION de correction, pas une convention. Redit explicitement pour que
+# personne ne l'affaiblisse en touchant à la règle générale ci-dessus.
+man/*.1 text eol=lf
+.ai/symbols.json text eol=lf

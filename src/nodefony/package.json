@@ -20,6 +20,10 @@
       "types": "./dist/types/bundler/index.d.ts",
       "import": "./dist/node/bundler/index.js"
     },
+    "./testing": {
+      "types": "./dist/types/testing/index.d.ts",
+      "import": "./dist/node/testing/index.js"
+    },
     "./client": {
       "types": "./dist/client/types/src/client/index.d.ts",
       "default": "./dist/client/client/index.js"
@@ -46,6 +50,9 @@
   "bin": {
     "nodefony": "bin/nodefony"
   },
+  "man": [
+    "./man/nodefony.1"
+  ],
   "keywords": [
     "nodefony",
     "node-js",
@@ -61,9 +68,9 @@
     "start": "node ./bin/nodefony",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:perf": "cross-env RUN_PERF=1 vitest run",
-    "test:boot": "cross-env RUN_CLI_BOOT=1 vitest run",
-    "test:all": "cross-env RUN_PERF=1 RUN_CLI_BOOT=1 vitest run",
+    "test:perf": "cross-env NF_RUN_PERF=1 vitest run",
+    "test:boot": "cross-env NF_RUN_CLI_BOOT=1 vitest run",
+    "test:all": "cross-env NF_RUN_PERF=1 NF_RUN_CLI_BOOT=1 vitest run",
     "coverage": "vitest run --coverage",
     "doc": "typedoc",
     "typecheck:tsc6": "tsc --noEmit",
@@ -97,9 +104,9 @@
   "devDependencies": {
     "@types/figlet": "1.7.0",
     "@types/mime-types": "3.0.1",
-    "@types/node": "26.2.0",
+    "@types/node": "26.3.0",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
+    "@types/react-dom": "^19.2.5",
     "@types/semver": "7.8.0",
     "@vitest/coverage-v8": "4.1.11",
     "chai": "6.2.2",
@@ -135,6 +142,7 @@
     "bin",
     "docs",
     "templates",
-    ".ai"
+    ".ai",
+    "man"
   ]
 }

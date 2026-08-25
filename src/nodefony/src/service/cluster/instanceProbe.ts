@@ -22,6 +22,17 @@ export interface IOrmLeanHealth {
   connectors: number;
   /** Connecteurs actuellement connectés (`isConnected()`). */
   connected: number;
+  /**
+   * Parmi les connectés, ceux dont l'état est **SUPPOSÉ** et non constaté :
+   * leur adapter n'a aucun signal de cycle de vie à traduire (base embarquée,
+   * driver muet), donc « connecté » y veut seulement dire « la connexion a
+   * été ouverte et n'a pas été fermée ».
+   *
+   * Sans ce compte, une readiness ne peut pas distinguer un connecteur qu'on
+   * SAIT vivant d'un connecteur dont on ne sait rien — et c'est le second qui
+   * fait prendre les mauvaises décisions.
+   */
+  assumed: number;
   /** Requêtes ORM cumulées, tous connecteurs (monotone ; 0 si flux OFF en prod). */
   queryTotal: number;
   /** Requêtes lentes cumulées (au-dessus du seuil `slowMs`) (monotone). */

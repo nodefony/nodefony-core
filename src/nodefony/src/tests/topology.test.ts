@@ -3,21 +3,21 @@ import { resolveTopology } from "../service/cluster/topology";
 
 /**
  * topology — résolution de LA topologie de lancement (combien de workers).
- * Source unique de vérité : CLI `--workers` > env `NODEFONY_WORKERS` > config app
+ * Source unique de vérité : CLI `--workers` > env `NF_WORKERS` > config app
  * `cluster.workers` > défaut 1. `resolveTopology` est pur (seams injectés) → testable
  * sans FS ni process réel. (Décision « 2 molettes » 2026-05-24.)
  */
 describe("cluster / resolveTopology (priorité flag > env > config > défaut)", () => {
   // Neutralise l'env réel pour les cas « rien fourni ».
-  const saved = process.env.NODEFONY_WORKERS;
+  const saved = process.env.NF_WORKERS;
   beforeAll(() => {
-    delete process.env.NODEFONY_WORKERS;
+    delete process.env.NF_WORKERS;
   });
   afterAll(() => {
     if (saved === undefined) {
-      delete process.env.NODEFONY_WORKERS;
+      delete process.env.NF_WORKERS;
     } else {
-      process.env.NODEFONY_WORKERS = saved;
+      process.env.NF_WORKERS = saved;
     }
   });
 
@@ -52,7 +52,7 @@ describe("cluster / resolveTopology (priorité flag > env > config > défaut)", 
     });
   });
 
-  describe("env (NODEFONY_WORKERS)", () => {
+  describe("env (NF_WORKERS)", () => {
     it("env `4` (sans flag) → 4 workers, source `env`", () => {
       expect(resolveTopology({ env: "4" })).to.deep.equal({
         workers: 4,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que
- * les serveurs écoutent) et compte le nombre de `new Kernel()` via NODEFONY_KERNEL_TRACE_FILE.
+ * les serveurs écoutent) et compte le nombre de `new Kernel()` via NF_KERNEL_TRACE_FILE.
  *
  * Usage : node scripts/boot-bench.mjs <runs> -- <args nodefony...>
  *   node scripts/boot-bench.mjs 3 -- production --workers 1
@@ -35,7 +35,7 @@ function once(args) {
     const t0 = performance.now();
     const child = spawn(process.execPath, [BIN, ...args], {
       cwd: REPO_ROOT,
-      env: { ...process.env, NODEFONY_KERNEL_TRACE_FILE: traceFile },
+      env: { ...process.env, NF_KERNEL_TRACE_FILE: traceFile },
     });
     let out = "";
     let done = false;

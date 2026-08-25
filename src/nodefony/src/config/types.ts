@@ -313,7 +313,7 @@ export interface AppConfigInput {
   servers?: ServersConfig;
   /**
    * Topologie cluster (cloud-native, sans PM2). Résolue par `resolveTopology`
-   * (override runtime : CLI `--workers` > `NODEFONY_WORKERS` > ce champ).
+   * (override runtime : CLI `--workers` > `NF_WORKERS` > ce champ).
    * @reactivity boot
    */
   cluster?: Record<string, unknown>;
@@ -382,7 +382,7 @@ export interface ConfigContext<E = Record<string, unknown>> {
    * (ex. `when: () => !!ctx.infra.cache` pour redis) sans relire `process.env`.
    */
   readonly infra: IInfra;
-  /** Environnement applicatif libre (`APP_ENV`/`NODEFONY_ENV`) — granularité métier. */
+  /** Environnement applicatif libre (`APP_ENV`/`NF_ENV`) — granularité métier. */
   readonly appEnv: string;
   /** Environnement runtime canonisé (`NODE_ENV`). */
   readonly runtimeEnv: string;

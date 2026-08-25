@@ -37,8 +37,7 @@ class <%= it.nameClass %> extends Controller {
   renderPage(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       // @nodefony/frontend absent du manifeste (nodefony.config.ts) : la page
       // ne peut pas être construite — on le DIT au lieu d'un écran vide.

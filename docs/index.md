@@ -150,5 +150,7 @@ Orientés tâche : on suit le guide, on obtient un résultat.
 - 🧭 **Tu ne sais pas par où entrer ?** → [Par où commencer](demarrer.md) : quatre parcours ordonnés.
 - 🧪 **Qualité** : chaque page de brique porte l'inventaire de ses tests — unitaires, intégration, E2E,
   attaque, charge — **et dit ce qui manque**. Un trou de couverture nommé vaut mieux qu'un chiffre flatteur.
+- 📊 **Ce que ça tient** : le dossier [Performance](performance/index.md) — où part le temps, ce
+  que le chantier a rendu, ce qu'il a **annulé après l'avoir écrit**, et combien de pods il faut.
 - 📡 **Voir tourner** : Studio expose la documentation, la configuration résolue, les routes, les
   sessions et le temps réel de l'instance en marche.

@@ -28,9 +28,40 @@ conservées mais ignorées (utiles au RAG).
   `devops` | `supervisor` | `admin`. Toute autre valeur (`human`, `ai`, `architect`, `dev`) est
   **filtrée** (⇒ « toutes »). Ne PAS écrire `[human, ai]`.
 - `status` = enum `DocStatus` : `stable` | `draft` | `temporary` | `experimental` | `deprecated`.
+  Il décide AUSSI de la publication sur le site public (cf `publish` ci-dessous).
 - La date lue est **`updated`** — **jamais `last-updated`** (sinon date non affichée, fallback git).
 - `section` frontmatter est parsé mais **non utilisé** pour le regroupement : les sections de l'index
   sont bâties depuis le **dossier parent** du fichier (`docScanner.ts` `group`).
+
+### 🌍 `publish` — cette page part-elle sur le SITE PUBLIC ?
+
+Le site publié (`scripts/build-docs-site.mjs` → GitHub Pages) ne rend pas tout le corpus : un dépôt
+ouvert contient des pages qui n'ont aucun lecteur au-dehors. Le tri se fait à trois niveaux, du plus
+général au plus précis — **et le dernier gagne toujours** :
+
+1. **le DOSSIER** — `docs/architecture`, `docs/guides`, `docs/tutoriels` et tous les
+   `<module>/docs/` sont publics. Le journal de sessions, les archives, les décisions
+   d'architecture, l'outillage d'agent, le plan de version et le tableau de bord de migration ne le
+   sont pas. Une page NEUVE dans un dossier public est publiée d'office : la liste ne se périme pas ;
+2. **le STATUT** — seuls `stable` et `accepted` sont publiables. `draft`, `vision`, `superseded`,
+   `experimental`, `deprecated` restent dedans : un texte de travail ENGAGE dès qu'il est en ligne,
+   et un lecteur ne distingue pas un brouillon d'une promesse. Une page **sans** `status` reste
+   publiée — retirer un guide utile pour un frontmatter incomplet serait une punition, pas une
+   règle — mais elle est signalée au rendu ;
+3. **la PAGE elle-même**, par cette clé :
+
+   ```yaml
+   publish: false # retire du site une page qui y serait allée
+   publish: true # publie une page que son dossier ou son statut excluait
+   ```
+
+Le générateur AFFICHE ce qu'il écarte et pourquoi, page par page — publier à l'aveugle est le seul
+vrai risque de cet outil. Vérifier avant de pousser :
+
+```bash
+node scripts/build-docs-site.mjs --out tmp/site --mount /docs   # la liste des écartés, par motif
+node scripts/build-docs-site.mjs --out tmp/apercu --only <chemin/page.md>   # une seule page
+```
 
 ### Gabarit unique (à copier)
 
@@ -43,6 +74,7 @@ topic: pipeline-http # slug de sujet stable (RAG)
 section: "Cœur runtime" # informatif
 audience: [developer] # developer|devops|supervisor|admin (vide = toutes)
 tags: [http, context] # extra RAG
+# publish: false        # (optionnel) retire cette page du site public
 version: "doc" # docs module : version du package
 status: stable
 updated: AAAA-MM-JJ # ⚠️ `updated`, PAS last-updated
@@ -105,7 +137,7 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
    - Dans la prose : **1 ancre max par affirmation-clé, en FIN de phrase** entre parenthèses.
      Jamais en plein milieu d'une phrase, jamais 3 ancres dans un paragraphe narratif.
    - Les ancres denses vivent dans les **tableaux** (Normes, Pièges) et sections de référence.
-   - Au **rendu** (build-preview, et MarkdownDoc Studio à terme) : une ancre `fichier.ts:NNN` est
+   - Au **rendu** (le générateur du site, et MarkdownDoc Studio à terme) : une ancre `fichier.ts:NNN` est
      affichée en **référence discrète** (petite, atténuée, type note de bas de page) — le MD reste
      la source vérifiable, le lecteur voit un texte propre.
 4. **Le code doit être VISUEL** : coloration syntaxique obligatoire au rendu ; un bloc = une idée ;
@@ -114,7 +146,7 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
    répondent à une question, pas des titres décoratifs.
 6. **Catalogue de briques = CARDS** (série homogène : authenticators, stores, drivers…) —
    convention 100 % Markdown : chaque brique s'écrit ``### `nom` — titre`` (le nom en code
-   inline) ; le rendu (build-preview, MarkdownDoc Studio à terme) en fait une **card** (bordure
+   inline) ; le rendu (le générateur du site, MarkdownDoc Studio à terme) en fait une **card** (bordure
    accent, nom en pill, corps encadré). Toujours précéder le catalogue d'un **tableau de synthèse**
    (choisir en 5 s) — les cards donnent le détail.
 7. **Rythmer avec les admonitions** (`> [!TIP]` · `> [!WARNING]` · `> [!IMPORTANT]`) : un piège
@@ -204,7 +236,7 @@ La doc vit **dans le module** (ADR-0001) → on l'édite à côté du code qu'on
    schéma Zod ; une entité, du fichier d'entité.
 4. Bumper `updated:` dans le frontmatter (le SEUL endroit daté).
 5. **Studio rend le `.md` en direct** (cache 30 s ; `cache.ttlMs:0` en dev) → rien à régénérer côté
-   portail. L'aperçu HTML autonome (`build-preview.mjs`) ne sert qu'à une revue HORS Studio.
+   portail. L'aperçu HTML autonome (`build-docs-site.mjs --only`) ne sert qu'à une revue HORS Studio.
 6. Commit `docs(<module>): <brique> — <ce qui a changé>`.
 
 **Détecter la dérive** : date git de la page < date git du code du module (Studio affiche déjà la
@@ -472,7 +504,7 @@ Le linter (`tmp/doc-corpus/_tools/doc-lint.mjs`) échoue si, pour une page :
 **Workflow par page (ordre imposé)** : lire le code → rédiger (intro §8 + analyse §8bis + complétude
 §8quater) → compter les tests sur la machine (`grep -cE "^\s*(it|test)\(" …`) → écrire
 `coverage/tests.<topic>.json` (+ `coverageModule/coverageFiles` si couverture dispo) → générer l'aperçu
-(`build-preview.mjs`) → **`doc-lint.mjs` au vert** → livrer + committer. Passer le linter sur TOUT le
+(`build-docs-site.mjs --only`) → **`doc-lint.mjs` au vert** → livrer + committer. Passer le linter sur TOUT le
 corpus après un lot (`node doc-lint.mjs tmp/corpus/*.md`) pour attraper les régressions.
 
 ## 9. Squelette de page module (maximum — adapter selon §8bis)

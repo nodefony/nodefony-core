@@ -6,8 +6,8 @@ topic: perf-methode
 section: "Performance"
 audience: [developer]
 tags: [performance, methode, benchmark, protocole, mesure]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: ".claude/skills/nodefony-load-test/"
 tests: none
 ---

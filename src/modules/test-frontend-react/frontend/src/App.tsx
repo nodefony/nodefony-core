@@ -126,8 +126,8 @@ export function App() {
 
         <h1>You did it!</h1>
         <p className="subtitle">
-          React&nbsp;19 transpilé par <strong>@nodefony/frontend</strong> via Vite —
-          multi-framework aux côtés du bundle Vue, même superviseur.
+          React&nbsp;19 transpilé par <strong>@nodefony/frontend</strong> via
+          Vite — multi-framework aux côtés du bundle Vue, même superviseur.
         </p>
 
         <div className="badges">

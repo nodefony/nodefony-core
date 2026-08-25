@@ -124,9 +124,33 @@ function linesOf(rel) {
   return fileCache.get(rel);
 }
 
+/**
+ * Une page REMPLACÉE (`status: superseded`) est une PHOTO, pas une référence.
+ *
+ * Ses ancres décrivent le code tel qu'il était le jour de sa rédaction — c'est
+ * exactement ce qui fait sa valeur. Les recaler sur le code d'aujourd'hui
+ * falsifierait ce qu'elle rapporte, et les laisser signalées transforme le
+ * rapport de ce gate en bruit permanent. Vécu : les neuf dernières ancres
+ * suspectes du corpus appartenaient toutes à un seul rapport de mesure daté,
+ * explicitement remplacé par une page vivante.
+ *
+ * La règle vit ICI, dans l'outil, et pas dans la liste de fichiers que la forge
+ * lui passe : écrite dans l'invocation, elle serait à répéter à chaque appel et
+ * n'existerait pas pour qui lance le script à la main.
+ */
+const estRemplacee = (contenu) => {
+  const entete = contenu.match(/^---\n([\s\S]*?)\n---/);
+  return entete ? /^status:\s*superseded\s*$/m.test(entete[1]) : false;
+};
+
 for (const md of args) {
   const moduleRoot = moduleRootOf(md.replace(/^tmp\/doc-corpus\//, ""));
-  const mdLines = fs.readFileSync(md, "utf8").split("\n");
+  const brut = fs.readFileSync(md, "utf8");
+  if (estRemplacee(brut)) {
+    console.log(`\x1b[2m⏭  ${md} — page remplacée (status: superseded)\x1b[0m`);
+    continue;
+  }
+  const mdLines = brut.split("\n");
   const pageProblems = [];
 
   mdLines.forEach((line, i) => {

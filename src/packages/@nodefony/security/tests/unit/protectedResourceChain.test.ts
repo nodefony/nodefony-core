@@ -151,16 +151,27 @@ describe("Porte protégée + vérificateur réel — ce qu'un client reçoit", (
     assert.match(outcome.wwwAuthenticate, /error="invalid_request"/);
   });
 
-  it("émetteur EN PANNE : l'exception remonte, jamais un « jeton refusé »", async () => {
-    // La porte doit traduire ça en 5xx. Rendre 401 ici enverrait un agent
-    // parfaitement autorisé renouveler un jeton qui n'était pas en cause.
+  it("émetteur EN PANNE : verdict `unverifiable`, jamais un « jeton refusé »", async () => {
+    // L'invariant : rendre 401 ici enverrait un agent parfaitement autorisé
+    // renouveler un jeton qui n'était pas en cause. La porte doit répondre 5xx.
+    //
+    // ⚠️ Ce que ce test exigeait AVANT — que l'exception remonte — ne tenait
+    // pas cette promesse : l'exception traversait la porte et sortait en 500
+    // NON TRADUIT, avec sa trace d'appels, si bien que le porteur d'un jeton
+    // valide lisait une pile Node. Le verdict `unverifiable` est ce que la
+    // porte sait traduire (503), et il porte la cause pour le journal seul.
     const { verify, sign } = await decor({ jwksDown: true });
     const token = await sign({ sub: "agent-7" });
 
-    await assert.rejects(
-      () => authorizeProtectedResource(`Bearer ${token}`, policy, verify),
-      /vérification impossible/,
+    const outcome = await authorizeProtectedResource(
+      `Bearer ${token}`,
+      policy,
+      verify,
     );
+
+    assert.equal(outcome.outcome, "unverifiable");
+    assert.ok(outcome.outcome === "unverifiable");
+    assert.match(outcome.why ?? "", /vérification impossible/);
   });
 
   it("sans vérificateur du tout : verdict `unverifiable` (la porte refusera)", async () => {

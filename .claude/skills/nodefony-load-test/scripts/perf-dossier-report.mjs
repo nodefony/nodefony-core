@@ -20,16 +20,19 @@
  *
  * Source de vérité éditoriale : `docs/performance/` (Markdown versionné).
  */
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
 import {
   doc,
   section,
   cards,
   table,
-  barChart,
-  lineChart,
-  donut,
-  gauge,
   tabs,
   details,
   note,
@@ -46,8 +49,43 @@ import {
   COLORS,
   series,
 } from "../../nodefony-html-report/lib/report.mjs";
+// Les figures viennent du moteur ECharts — mêmes signatures, rendu vectoriel
+// dans les DEUX thèmes, sans un octet de JavaScript servi au lecteur.
+import {
+  barChart,
+  lineChart,
+  donut,
+  gauge,
+} from "../../nodefony-html-report/lib/report-echarts.mjs";
+import { STYLE_GRAPHES } from "../../nodefony-html-report/lib/echarts.mjs";
 
 const OUT = process.argv[2] ?? "tmp/performance-nodefony.html";
+
+// 🔴 UNE SOURCE, DEUX RENDUS. Le comparatif de frameworks vivait ici EN DUR et
+// aussi dans `docs/performance/data/<version>.json` que rend la page de version :
+// deux copies de la même mesure, qui ont divergé dès la campagne suivante — cette
+// page annonçait encore les chiffres du 2026-08-07 pendant que l'autre publiait
+// ceux du 08-23. Le jeu versionné fait autorité ; ce qu'il ne porte PAS (profilage
+// V8, lots A→D, escalier ORM) reste déclaré ci-dessous avec sa fenêtre, et la
+// table de chronologie dit à quel état du code chaque bloc correspond.
+const DATASET = (() => {
+  const dir = path.join(ROOT_DIR, "docs", "performance", "data");
+  const explicit = process.argv.indexOf("--data");
+  const file =
+    explicit >= 0 && process.argv[explicit + 1]
+      ? process.argv[explicit + 1]
+      : (() => {
+          if (!existsSync(dir)) return null;
+          const versions = readdirSync(dir)
+            .filter((f) => f.endsWith(".json"))
+            .sort()
+            .reverse();
+          return versions.length ? path.join(dir, versions[0]) : null;
+        })();
+  if (!file || !existsSync(file)) return null;
+  const d = JSON.parse(readFileSync(file, "utf8"));
+  return d?.comparison?.frameworks ? d : null;
+})();
 
 /* ─────────────────────────── SCHÉMAS (SVG généré) ─────────────────────────── */
 
@@ -131,80 +169,6 @@ const schemaBoucle = () => {
 /* ────────────────────────────── DONNÉES ────────────────────────────── */
 
 const DATA = {
-  // 🔴 LE RATTACHEMENT DES MESURES À L'ÉTAT DU CODE.
-  // Sans cette table, le rapport juxtapose des chiffres pris sur des commits
-  // différents et un « avant/après » ne prouve rien de vérifiable. Elle passe
-  // AVANT tout le reste, et tout bloc non rattaché s'annonce comme tel.
-  chronologie: [
-    {
-      fenetre: "2026-07-23",
-      etat: "avant TOUT lot",
-      mesure: "analyse statique + comparatif node:http / Fastify / Express",
-      ou: "page archivée du 23-07",
-    },
-    {
-      fenetre: "2026-08-05",
-      etat: "avant le lot A",
-      mesure: "profilage runtime, comptes exacts par requête",
-      ou: "§3, colonne « avant »",
-    },
-    {
-      fenetre: "2026-08-05",
-      etat: "lots A→D livrés (724f25d1)",
-      mesure:
-        "A/B cumulé +8,9 %, comparatif de frameworks, re-profil, capacité",
-      ou: "§1 niveau 1, §2, §3, §8",
-    },
-    {
-      fenetre: "2026-08-05",
-      etat: "lots A→D livrés (724f25d1)",
-      mesure: "Express « équipé » — parité de travail",
-      ou: "§1 niveau 2",
-    },
-    {
-      fenetre: "2026-08-06",
-      etat: "après ba1f0d17 et 5fa6ee7a",
-      mesure: "lots F (~+7 % et +4 à +10 %), sonde in-situ",
-      ou: "§2",
-    },
-    {
-      fenetre: "2026-08-06",
-      etat: "arbre revenu à 5bba2436",
-      mesure: "lot F-D mesuré puis ANNULÉ",
-      ou: "§2",
-    },
-    {
-      fenetre: "2026-08-06",
-      etat: "8d2942f3 (avant tout) vs f6a4e302",
-      mesure: "non-régression WebSocket",
-      ou: "§9",
-    },
-    {
-      fenetre: "2026-08-06",
-      etat: "AVANT le lot ORM",
-      mesure: "escalier ORM, profilage par couche",
-      ou: "§5",
-    },
-    {
-      fenetre: "2026-08-07",
-      etat: "lot ORM 1f1926a7, décor 8121bef1",
-      mesure: "A/B SQLite et PostgreSQL, parité Express",
-      ou: "§1 niveau 3, §6",
-    },
-    {
-      fenetre: "2026-08-07",
-      etat: "a42512e3",
-      mesure: "routeur : comptes de motifs, courbe",
-      ou: "§4",
-    },
-    {
-      fenetre: "non rattaché",
-      etat: "— à re-mesurer —",
-      mesure: "transports HTTP et plafonds WebSocket",
-      ou: "§9",
-    },
-  ],
-
   decor: {
     machine:
       "MacBook Pro — Intel Core i9-8950HK @ 2,90 GHz, 6 cœurs physiques / 12 logiques, 32 Go",
@@ -262,136 +226,69 @@ const DATA = {
     ],
   },
 
-  // A/B cumulé des lots A→D, banc durci.
-  abAD: [
-    {
-      serie: "old1 — avant le lot A",
-      min: 9720,
-      med: 9742,
-      max: 9792,
-      disp: 0.7,
-      thermal: "34→54",
-    },
-    {
-      serie: "new1 — après A→D",
-      min: 10545,
-      med: 10572,
-      max: 10609,
-      disp: 0.6,
-      thermal: "44→59",
-    },
-    {
-      serie: "old2 — avant le lot A",
-      min: 9777,
-      med: 9816,
-      max: 9876,
-      disp: 1.0,
-      thermal: "43→57",
-    },
-    {
-      serie: "new2 — après A→D",
-      min: 10680,
-      med: 10731,
-      max: 10843,
-      disp: 1.5,
-      thermal: "43→61",
-    },
-  ],
-
-  // Le lot écrit puis ANNULÉ.
-  abRejete: [
-    { serie: "old1", rps: 13426, disp: 1.4 },
-    { serie: "new1", rps: 13203, disp: 2.9 },
-    { serie: "old2", rps: 13418, disp: 0.7 },
-    { serie: "new2", rps: 13539, disp: 1.0 },
-  ],
-
-  // Profil CPU du pipeline, avant et après les lots.
+  // Profil CPU ACTUEL — une part par poste sur une requête servie. `null` quand
+  // le poste n'a pas été re-profilé depuis sa dernière modification : le dire
+  // vaut mieux que publier une valeur périmée en la présentant comme courante.
   profil: [
     {
-      poste: "Pose des en-têtes sortants",
-      avant: 13.4,
-      apres: 7.3,
-      nature: "accidentel",
-      lot: "A",
-    },
-    {
       poste: "Écouteurs Node",
-      avant: 9.0,
-      apres: null,
-      nature: "structurel (94 % vient de Node)",
-      lot: "—",
+      actuel: 9.0,
+      nature: "structurel",
     },
     {
       poste: "Analyse HTTP entrante",
-      avant: 8.0,
-      apres: null,
+      actuel: 8.0,
       nature: "structurel",
-      lot: "—",
+    },
+    {
+      poste: "Pose des en-têtes sortants",
+      actuel: 7.3,
+      nature: "propre au framework",
     },
     {
       poste: "Écriture sur la socket",
-      avant: 5.0,
-      apres: null,
+      actuel: 5.0,
       nature: "structurel",
-      lot: "—",
     },
     {
-      poste: "Portée d'injection de dépendances",
-      avant: 4.4,
-      apres: null,
-      nature: "requalifié par la sonde",
-      lot: "—",
+      poste: "Portée d'injection",
+      actuel: 4.4,
+      nature: "propre au framework",
     },
     {
       poste: "Code du noyau HTTP",
-      avant: 4.4,
-      apres: 3.47,
-      nature: "à décomposer",
-      lot: "—",
-    },
-    {
-      poste: "Promesses à vide",
-      avant: 4.1,
-      apres: 0.0,
-      nature: "accidentel",
-      lot: "C",
+      actuel: 3.47,
+      nature: "propre au framework",
     },
     {
       poste: "Fabrique de contexte",
-      avant: 3.4,
-      apres: null,
-      nature: "accidentel partiel",
-      lot: "F",
-    },
-    {
-      poste: "Nonce CSP",
-      avant: 1.7,
-      apres: 0.16,
-      nature: "accidentel",
-      lot: "B",
-    },
-    {
-      poste: "Armements de délai",
-      avant: 1.6,
-      apres: 0.05,
-      nature: "accidentel",
-      lot: "B",
-    },
-    {
-      poste: "Reformatage d'URL",
-      avant: 1.0,
-      apres: 0.16,
-      nature: "accidentel",
-      lot: "D",
+      actuel: null,
+      nature: "propre au framework",
     },
     {
       poste: "Ramasse-miettes",
-      avant: 0.98,
-      apres: 1.2,
-      nature:
-        "réfuté comme goulot — 0,93 à 1,3 % selon l'instrument, trois mesures concordantes",
-      lot: "—",
+      actuel: 1.2,
+      nature: "structurel",
+    },
+    {
+      poste: "Résolution de route",
+      actuel: 0.6,
+      nature: "propre au framework",
+    },
+    {
+      poste: "Reformatage d'URL",
+      actuel: 0.16,
+      nature: "propre au framework",
+    },
+    {
+      poste: "Nonce CSP",
+      actuel: 0.16,
+      nature: "propre au framework",
+    },
+    {
+      poste: "Armements de délai",
+      actuel: 0.05,
+      nature: "propre au framework",
     },
   ],
 
@@ -598,47 +495,6 @@ const DATA = {
     { route: "Lecture connectée", c: 50, rps: 1054, p50: 43.2, p99: 75.9 },
   ],
   pod: { lecture: 1650, connectee: 1040 },
-  transports: [
-    { transport: "HTTP/1.1 en clair", rps: 6827, elu: 0.89 },
-    { transport: "HTTPS/1.1 (TLS)", rps: 7406, elu: 0.78 },
-    { transport: "HTTP/2 (multiplexé)", rps: 6207, elu: 0.89 },
-  ],
-  websocket: [
-    {
-      grandeur: "Connexions simultanées",
-      valeur: "16 372",
-      limite: "ports éphémères de la boucle locale, ni mémoire ni descripteurs",
-    },
-    { grandeur: "Écho, une connexion", valeur: "~7 200 msg/s", limite: "—" },
-    {
-      grandeur: "Diffusion, ventilation propre",
-      valeur: "~40 000 msg/s",
-      limite: "—",
-    },
-    {
-      grandeur: "Diffusion, saturation",
-      valeur: "~120 000 msg/s",
-      limite: "le serveur met en tampon, il ne tombe pas",
-    },
-  ],
-  wsAB: [
-    {
-      axe: "Écho",
-      verdict: "Bruit",
-      detail: "paire propre à +1,0 %, dispersion 0,4 à 1,6 %",
-    },
-    {
-      axe: "Diffusion",
-      verdict: "Bruit",
-      detail: "le +5,9/+10,7 % d'une série disparaît en seconde série",
-    },
-    {
-      axe: "Renouvellement",
-      verdict: "Non concluant",
-      detail:
-        "métrique à rampe, dispersion 9,7 à 28 % ; aucun signe de régression",
-    },
-  ],
 
   // Le décor ment.
   instruments: [
@@ -721,10 +577,16 @@ const DATA = {
 
   ouvertures: [
     {
-      sujet: "Comparatif inter-frameworks",
-      etat: "À rejouer",
+      sujet: "Transports HTTP et plafonds WebSocket",
+      etat: "À re-mesurer",
       detail:
-        "mesuré avant les 3 derniers lots (~+14 %) ; deux fenêtres ne se comparent pas",
+        "chiffres non rattachés à un état de code — retirés de ce rapport tant qu'ils ne le sont pas",
+    },
+    {
+      sujet: "Profil de la fabrique de contexte",
+      etat: "Non re-profilée",
+      detail:
+        "allégée depuis la dernière mesure de profil : sa part actuelle n'est pas connue",
     },
     {
       sujet: "Absolus PostgreSQL",
@@ -757,60 +619,140 @@ const DATA = {
       detail: "le générateur doit-il les indexer par défaut ?",
     },
     {
-      sujet: "A/B MySQL du lot préparé",
+      sujet: "MySQL — requêtes préparées",
       etat: "Non mesuré",
       detail: "gain attendu purement JavaScript (pas de préparation protocole)",
     },
   ],
 };
 
+// ── Le comparatif vient du jeu VERSIONNÉ dès qu'il y en a un ───────────────
+// Les valeurs ci-dessus restent le repli hors dépôt (le générateur est publié
+// avec le devkit). Les trois « niveaux d'équité » se RECALCULENT : figer 1,61 /
+// 1,29 / 1,07 en dur, c'était garantir qu'ils survivent à la mesure qui les
+// contredit — le défaut même que cette page reproche aux benchmarks qu'elle cite.
+if (DATASET) {
+  const f = DATASET.comparison.frameworks;
+  const rps = (id) => f[id]?.med ?? null;
+  const disp = (id) => f[id]?.dispersionPct ?? null;
+  const nf = rps("nodefony");
+  if (nf) {
+    DATA.comparatif.n1 = [
+      ["node:http nu", "bare"],
+      ["Fastify", "fastify"],
+      ["Express", "express"],
+      ["Nodefony", "nodefony"],
+    ]
+      .filter(([, id]) => rps(id))
+      .map(([label, id]) => ({
+        label,
+        rps: Math.round(rps(id)),
+        disp: disp(id),
+        ratio: Number((rps(id) / nf).toFixed(2)),
+      }));
+    DATA.comparatif.n2 = [
+      ["node:http nu", "bare"],
+      ["Express nu", "express"],
+      ["Express équipé (même travail)", "express-fair"],
+      ["Nodefony", "nodefony"],
+    ]
+      .filter(([, id]) => rps(id))
+      .map(([label, id]) => ({ label, rps: Math.round(rps(id)) }));
+    const fair = rps("express-fair");
+    const nu = rps("express");
+    DATA.comparatif.ecarts = [
+      nu && {
+        situation: "L'application ne fait rien",
+        ratio: Number((nu / nf).toFixed(2)),
+      },
+      fair && {
+        situation: "Même travail par requête",
+        ratio: Number((fair / nf).toFixed(2)),
+      },
+      // Le troisième niveau (avec une vraie requête SQL) n'est pas dans le jeu :
+      // il vient d'une autre campagne, et la table de chronologie le dit.
+      DATA.comparatif.ecarts[2],
+    ].filter(Boolean);
+  }
+}
+
+/** Décimal à la française pour l'AFFICHAGE seul (jamais pour un `data-v` trié). */
+const vir = (x, n = 2) => x.toFixed(n).replace(".", ",");
+
 /* ────────────────────────────── RENDU ────────────────────────────── */
 
 const pct = (v) => (v === null ? "—" : `${fmt.dec(v, 2)} %`);
+
+/**
+ * L'état de code d'un bloc de mesure — en discret, sous la figure.
+ *
+ * 🔴 Ce qu'il remplace, et pourquoi il ne se supprime pas. Cette page portait une
+ * section entière de chronologie qui racontait le chantier fenêtre par fenêtre :
+ * illisible, et elle noyait le résultat. Mais l'information qu'elle portait est
+ * NÉCESSAIRE — les chapitres ne sont pas tous pris sur le même commit, et
+ * présenter des chiffres hétérogènes comme un état homogène serait faux. La
+ * narration part, le rattachement reste : chaque bloc dit d'où il vient.
+ *
+ * @param {string} quand - la date de la mesure.
+ * @param {string} commit - l'état du code, ou ce qui en tient lieu.
+ * @returns {string} une ligne discrète.
+ */
+const etatDuCode = (quand, commit) =>
+  `<p class="dim" style="margin-top:.4rem"><small>Mesuré le ${esc(quand)} — état du code : <code>${esc(commit)}</code></small></p>`;
 
 const sections = [
   /* 1 — BLUF */
   section(
     "Ce qu'il faut retenir",
     cards([
+      // Le chiffre de tête se DÉRIVE du jeu versionné : écrit en dur, il survivait
+      // à la mesure qui le contredit — c'est ce qui avait laissé « ≈ 93 % » en
+      // vitrine pendant que la campagne suivante mesurait 91,7 %.
+      (() => {
+        const f = DATASET?.comparison?.frameworks;
+        const nf = f?.nodefony?.med;
+        const fair = f?.["express-fair"]?.med;
+        if (!nf || !fair)
+          return {
+            k: "Écart avec Express, à travail et ORM égaux",
+            v: "×1,07",
+            sub: "≈ 93 % du débit d'un Express équipé",
+          };
+        return {
+          k: "Écart avec un Express équipé du même travail",
+          v: `×${vir(fair / nf)}`,
+          sub: `≈ ${vir((nf / fair) * 100, 0)} % de son débit — et ×1,07 dès qu'une vraie requête SQL entre dans les deux`,
+        };
+      })(),
       {
-        k: "Écart avec Express, à travail et ORM égaux",
-        v: "×1,07",
-        sub: "≈ 93 % du débit d'un Express équipé",
-      },
-      {
-        k: "Gain du chantier pipeline",
-        v: "+8,9 %",
-        unit: "puis ~+14 %",
-        sub: "lots A→D re-audités, puis lots F",
-      },
-      {
-        k: "Gain du lot ORM",
-        v: "+59 à +96 %",
-        sub: "selon la route et le moteur",
+        k: "Ce que tient un processus",
+        v: `~${fmt.int(DATA.pod.lecture)}`,
+        unit: "req/s",
+        sub: `route de lecture ; ~${fmt.int(DATA.pod.connectee)} req/s si la session est chargée`,
       },
       {
         k: "Poids de la couche ORM du framework",
         v: "< 2,5 %",
         unit: "du CPU",
-        sub: "elle est innocentée par le profilage",
+        sub: "le temps part dans le pilote et la base, pas dans le framework",
       },
       {
         k: "Motifs de route exécutés par requête",
-        v: "−89 %",
-        sub: "26,3 → 2,8 sur 136 routes",
+        v: `${vir(DATA.routeurMotifs.apres, 1)}`,
+        sub: `sur 136 routes déclarées — le scan ne suit plus la taille de la table`,
       },
       {
-        k: "Lots annulés après implémentation",
-        v: "1",
-        sub: "son A/B ne le justifiait pas",
+        k: "Part du budget d'une requête prise par le routeur",
+        v: "0,6 %",
+        sub: "~0,54 µs sur 86",
       },
     ]) +
       note(
-        `<strong>La thèse de ce rapport ne porte pas sur un record de débit.</strong> Elle porte sur le
-         fait que <em>l'écart avec un serveur nu fond à mesure que l'application fait un travail réel</em> —
-         et sur la méthode qui permet de l'affirmer : critères engagés avant mesure, gardes de décor,
-         et un lot supprimé parce que la mesure ne le soutenait pas.`,
+        `<strong>Ce rapport ne revendique pas un record de débit.</strong> Il montre où part le temps d'une
+         requête servie par Nodefony, et ce qu'il en reste pour l'application. Le fait central est que
+         <em>l'écart avec un serveur nu fond à mesure que l'application fait un travail réel</em> : sur une
+         route qui rend une constante, la comparaison mesure surtout ce que chaque framework fait EN PLUS ;
+         dès qu'une requête SQL entre dans les deux camps, elle mesure l'application.`,
       ) +
       warn(
         `<strong>Lecture des chiffres absolus.</strong> Machine de développement, générateur de charge
@@ -822,36 +764,7 @@ const sections = [
     { break: "avoid" },
   ),
 
-  /* 1bis — LA CHRONOLOGIE : sans elle, rien de ce qui suit n'est vérifiable */
-  section(
-    "0 · À quel état du code correspond chaque chiffre",
-    warn(
-      `<strong>Défaut connu de ce rapport, et raison pour laquelle le dossier est en « brouillon ».</strong>
-       Les chiffres ci-dessous viennent de <strong>fenêtres de mesure différentes, prises sur des états
-       de code différents</strong>. Tant que chaque tableau ne porte pas son commit, un « avant/après »
-       ne peut pas être vérifié par le lecteur — il doit être lu à travers cette table, pas seul.`,
-    ) +
-      table(
-        [
-          { label: "Fenêtre" },
-          { label: "État du code", strong: true },
-          { label: "Ce qui a été mesuré" },
-          { label: "Où c'est publié", dim: true },
-        ],
-        DATA.chronologie.map((c) => [c.fenetre, c.etat, c.mesure, c.ou]),
-        { sortable: true, id: "t-chrono" },
-      ) +
-      note(
-        `<strong>Ce que cette table rend visible :</strong> le comparatif de frameworks (§1 niveau 1)
-         et la capacité (§8) datent de l'état <code>724f25d1</code> — donc <strong>avant</strong> les
-         lots F ; le re-profil « après » (§3) aussi ; l'escalier ORM (§5) décrit l'état d'<strong>avant</strong>
-         le lot de requêtes préparées. Et deux blocs ne sont rattachés à <strong>aucun</strong> commit :
-         les transports HTTP et les plafonds WebSocket, à re-mesurer avant d'être cités.`,
-      ),
-    { break: "avoid" },
-  ),
-
-  /* 2 — L'écart, à trois niveaux */
+  /* 1 — L'écart, à trois niveaux */
   section(
     "1 · L'écart avec Express, à trois niveaux d'équité",
     `<p>Comparer deux frameworks sur une route qui ne fait rien ne compare pas deux frameworks :
@@ -867,7 +780,12 @@ const sections = [
         {
           unit: "×",
           title: "L'écart fond quand l'application grandit",
-          desc: "1,61 à vide · 1,29 à travail égal · 1,07 avec une vraie requête SQL",
+          // Dérivé : écrit en dur, ce sous-titre a fini par CONTREDIRE les barres
+          // qu'il surmonte — la pire forme de chiffre faux, celle qui se lit à côté
+          // de sa réfutation sans que personne ne les compare.
+          desc: DATA.comparatif.ecarts
+            .map((e) => `${vir(e.ratio)} ${e.situation}`)
+            .join(" · "),
         },
       ) +
       tabs([
@@ -901,9 +819,15 @@ const sections = [
               { sortable: true, id: "t-n1" },
             ) +
             warn(
-              `Ces mesures datent d'une fenêtre <strong>antérieure aux derniers lots</strong>
-               (Nodefony y valait 11 702 req/s ; l'état livré mesure ~13 400 dans une fenêtre ultérieure).
-               Les rapports sont valides <em>entre eux</em> à la date de leur mesure — le comparatif reste à rejouer.`,
+              DATASET
+                ? `Ces chiffres viennent du jeu <strong>versionné</strong> de la
+                   ${esc(DATASET.version)} (mesuré le ${esc(DATASET.provenance?.measuredAt ?? "?")},
+                   code ${esc(DATASET.provenance?.runtimeCommit ?? "?")}) — la même source que la page
+                   de version, pour qu'aucune des deux ne puisse contredire l'autre.
+                   Les rapports restent valides <em>entre eux</em> à la date de leur mesure.`
+                : `Jeu versionné introuvable : les valeurs affichées sont celles déclarées dans le
+                   générateur, d'une campagne antérieure. Elles restent valides <em>entre elles</em>,
+                   mais ne décrivent pas l'état livré.`,
             ),
         },
         {
@@ -991,69 +915,15 @@ const sections = [
                même remède, deux frameworks indépendants — et la prédiction avait été engagée avant la mesure.`,
             ),
         },
-      ]),
-  ),
-
-  /* 3 — Le pipeline */
-  section(
-    "2 · Le pipeline HTTP — huit lots, un rejet",
-    barChart(
-      DATA.abAD.map((r) => ({
-        label: r.serie,
-        value: r.med,
-        color: r.serie.startsWith("new") ? COLORS.green : COLORS.grey,
-        note: `dispersion ${fmt.dec(r.disp, 1)} %`,
-      })),
-      {
-        unit: "req/s",
-        title: "A/B cumulé des lots A→D — paires alternées",
-        desc: "+8,9 % [7,7–10,1], sans chevauchement",
-      },
-    ) +
-      table(
-        [
-          { label: "Série" },
-          { label: "min", align: "right" },
-          { label: "médiane", align: "right", strong: true },
-          { label: "max", align: "right" },
-          { label: "dispersion", align: "right" },
-          { label: "thermique", align: "right", dim: true },
-        ],
-        DATA.abAD.map((r) => [
-          r.serie,
-          fmt.int(r.min),
-          fmt.int(r.med),
-          fmt.int(r.max),
-          `${fmt.dec(r.disp, 1)} %`,
-          r.thermal,
-        ]),
-        { sortable: true, id: "t-abad" },
-      ) +
-      `<h3>Le lot annulé — c'est la décision la plus instructive du chantier</h3>
-       <p>Un lot supprimant six résolutions de conteneur par requête a été <strong>entièrement
-       implémenté</strong>, ses tests vus rouges au débranchement, toutes les suites au vert. Puis mesuré :</p>` +
-      table(
-        [
-          { label: "Série" },
-          { label: "Débit", align: "right" },
-          { label: "Dispersion", align: "right" },
-        ],
-        DATA.abRejete.map((r) => [
-          r.serie,
-          fmt.int(r.rps),
-          `${fmt.dec(r.disp, 1)} %`,
-        ]),
-        { id: "t-rejete" },
-      ) +
-      warn(
-        `<strong>Directions opposées entre les deux paires</strong> (−1,7 % puis +0,9 %), moyenne −0,4 % :
-         c'est du bruit. Le critère avait été engagé <em>avant</em> la mesure. <strong>Le lot a été annulé</strong>,
-         l'arbre remis à son état antérieur. Un code correct, testé, supprimé parce que la mesure ne le soutenait pas.`,
+      ]) +
+      etatDuCode(
+        DATASET?.provenance?.measuredAt ?? "2026-08-23",
+        DATASET?.provenance?.commit ?? "dfdada9e — état livré 10.0.0",
       ),
   ),
 
   section(
-    "3 · Où part le CPU — avant et après les lots",
+    "2 · Où part le temps d'une requête",
     schemaPipeline([
       {
         label: "Analyse HTTP entrante",
@@ -1076,38 +946,32 @@ const sections = [
       {
         label: "Fabrique de contexte",
         poids: 3.4,
-        nature: "accidentel",
-        tag: "lots F — allègée",
+        nature: "propre au framework",
+        tag: "allégée — non re-profilée depuis",
       },
       {
         label: "Analyse d'URL",
-        poids: 1.0,
-        nature: "accidentel",
-        tag: "lot D + F-B — 1 seule analyse",
+        poids: 0.16,
+        nature: "propre au framework",
+        tag: "une seule analyse par requête",
       },
       {
         label: "Résolution de route",
-        poids: 1.3,
-        nature: "accidentel",
-        tag: "pré-filtre — −89 % de motifs",
+        poids: 0.6,
+        nature: "propre au framework",
+        tag: "2,8 motifs — 0,6 % du budget",
       },
       {
         label: "Pare-feu (zones, CSRF, en-têtes)",
-        poids: 1.7,
-        nature: "accidentel",
-        tag: "lot B — entropie amortie",
+        poids: 0.16,
+        nature: "propre au framework",
+        tag: "entropie amortie",
       },
       {
         label: "Pose des en-têtes sortants",
-        poids: 13.4,
-        nature: "accidentel",
-        tag: "lot A — 13,4 % → 7,3 %",
-      },
-      {
-        label: "Promesses de cycle de vie",
-        poids: 4.1,
-        nature: "accidentel",
-        tag: "lot C — 4,1 % → 0 %",
+        poids: 7.3,
+        nature: "propre au framework",
+        tag: "10 en-têtes par réponse",
       },
       {
         label: "Écriture sur la socket",
@@ -1118,41 +982,28 @@ const sections = [
     ]) +
       barChart(
         DATA.profil
-          .filter((p) => p.apres !== null)
+          .filter((p) => typeof p.actuel === "number")
           .map((p) => ({
-            label: `${p.poste} (avant)`,
-            value: p.avant,
-            color: COLORS.grey,
-          }))
-          .concat(
-            DATA.profil
-              .filter((p) => p.apres !== null)
-              .map((p) => ({
-                label: `${p.poste} (après)`,
-                value: p.apres,
-                color: COLORS.green,
-              })),
-          ),
+            label: p.poste,
+            value: p.actuel,
+            color: p.nature === "structurel" ? COLORS.grey : COLORS.accent,
+          })),
         {
           unit: "% CPU",
-          title: "Postes attaqués : avant / après",
-          desc: "Seuls les postes traités par un lot sont montrés ici",
+          title: "Part de CPU par poste, sur une requête servie",
+          desc: "Gris : ce que Node fait de toute façon. Couleur : ce que le framework ajoute.",
         },
       ) +
       table(
         [
           { label: "Poste" },
-          { label: "Avant", align: "right" },
-          { label: "Après", align: "right" },
+          { label: "% CPU", align: "right", strong: true },
           { label: "Nature" },
-          { label: "Lot", align: "right", dim: true },
         ],
         DATA.profil.map((p) => [
           p.poste,
-          pct(p.avant),
-          pct(p.apres),
+          typeof p.actuel === "number" ? pct(p.actuel) : "non re-profilé",
           p.nature,
-          p.lot,
         ]),
         { sortable: true, id: "t-profil" },
       ) +
@@ -1181,57 +1032,46 @@ const sections = [
   ),
 
   section(
-    "4 · Le routeur — un lot qui ne revendique aucun gain de débit",
+    "3 · Le routeur — ce que coûte le scan quand la table grandit",
     lineChart(
       [
         {
-          label: "Scan sans pré-filtre",
-          color: COLORS.vermillion,
-          points: DATA.routeur.map((r) => ({ x: r.routes, y: r.sansIndex })),
-        },
-        {
-          label: "Scan avec pré-filtre de préfixe",
+          label: "Scan par requête",
           color: COLORS.green,
           points: DATA.routeur.map((r) => ({ x: r.routes, y: r.avecIndex })),
         },
       ],
       { xLabel: "routes déclarées", yLabel: "µs de scan par requête" },
     ) +
-      legend([
-        { label: "Scan sans pré-filtre", color: COLORS.vermillion },
-        { label: "Scan avec pré-filtre", color: COLORS.green },
-      ]) +
       table(
         [
           { label: "Routes", align: "right" },
           { label: "Dynamiques scannées", align: "right" },
-          { label: "Sans pré-filtre", align: "right" },
-          { label: "Avec pré-filtre", align: "right", strong: true },
+          { label: "Scan par requête", align: "right", strong: true },
           { label: "Part d'un budget de 86 µs", align: "right" },
         ],
         DATA.routeur.map((r) => [
           fmt.int(r.routes),
           fmt.int(r.dyn),
-          `${fmt.dec(r.sansIndex, 2)} µs`,
           `${fmt.dec(r.avecIndex, 2)} µs`,
           `${fmt.dec(r.part, 1)} %`,
         ]),
         { sortable: true, id: "t-routeur" },
       ) +
-      `<p>Sur la table de ce dépôt : <strong>${DATA.routeurMotifs.avant} → ${DATA.routeurMotifs.apres} motifs
-        exécutés par requête</strong> (pire cas ${DATA.routeurMotifs.pireAvant} → ${DATA.routeurMotifs.pireApres}),
-        soit <strong>−89 %</strong> — pour ~0,54 µs sur 86, donc <strong>0,6 % du budget</strong>.</p>` +
-      warn(
-        `<strong>Aucun gain de débit n'est revendiqué, et aucun A/B n'a été lancé</strong> : le critère de
-         succès annoncé était la <em>courbe</em>, pas le débit. Ce qui change est l'échelle — le nombre de
-         motifs ne suit plus le nombre de routes déclarées, mais celui des routes qui partagent le préfixe.
-         La croissance sans pré-filtre est <strong>super-linéaire</strong> : 8,8× plus de routes pour 29× plus de temps.`,
-      ),
+      `<p>Sur la table de ce dépôt — 136 routes déclarées — <strong>${vir(DATA.routeurMotifs.apres, 1)} motifs
+        sont exécutés par requête</strong> (pire cas ${DATA.routeurMotifs.pireApres}), soit ~0,54 µs sur 86 :
+        <strong>0,6 % du budget</strong>.</p>` +
+      note(
+        `<strong>Ce qui compte ici est l'échelle, pas le débit.</strong> Le nombre de motifs exécutés ne suit
+         pas le nombre de routes déclarées, mais celui des routes qui partagent le préfixe demandé — une
+         application peut donc déclarer des centaines de routes sans que le scan devienne un poste.`,
+      ) +
+      etatDuCode("2026-08-07", "a42512e3"),
   ),
 
   /* 5 — ORM */
   section(
-    "5 · L'escalier ORM — le framework n'est pas le sujet",
+    "4 · L'accès aux données — le framework n'est pas le sujet",
     barChart(
       DATA.postesOrm.map((p, i) => ({
         label: p.poste,
@@ -1303,66 +1143,42 @@ const sections = [
          une bonne nouvelle qu'on s'accorde : c'est un résultat qui <em>ferme</em> une piste. Optimiser
          l'adaptateur n'aurait rien rendu. Le goulot est que l'ORM <strong>refabrique et re-prépare la
          requête à chaque requête HTTP</strong> — 39 % de construction contre 17 % d'exécution réelle.`,
+      ) +
+      etatDuCode(
+        "2026-08-06",
+        "profil pris avant la mise en cache des requêtes préparées",
       ),
   ),
 
   section(
-    "6 · Le lot de requêtes préparées — ce qu'il rend, par moteur",
+    "5 · Les requêtes préparées — ce que rend chaque moteur",
     barChart(
       [
-        { label: "SQLite — lecture (avant)", value: 1083, color: COLORS.grey },
-        { label: "SQLite — lecture (après)", value: 2019, color: COLORS.green },
+        { label: "SQLite — lecture", value: 2019, color: COLORS.green },
         {
-          label: "SQLite — session+lecture (avant)",
-          value: 773,
-          color: COLORS.grey,
-        },
-        {
-          label: "SQLite — session+lecture (après)",
+          label: "SQLite — session + lecture",
           value: 1516,
           color: COLORS.green,
         },
+        { label: "PostgreSQL — lecture", value: 1640, color: COLORS.blue },
         {
-          label: "PostgreSQL — lecture (avant)",
-          value: 1017,
-          color: COLORS.grey,
-        },
-        {
-          label: "PostgreSQL — lecture (après)",
-          value: 1640,
-          color: COLORS.blue,
-        },
-        {
-          label: "PostgreSQL — session+lecture (avant)",
-          value: 642,
-          color: COLORS.grey,
-        },
-        {
-          label: "PostgreSQL — session+lecture (après)",
+          label: "PostgreSQL — session + lecture",
           value: 1021,
           color: COLORS.blue,
         },
       ],
-      { unit: "req/s", title: "A/B du lot, deux moteurs, deux routes" },
+      { unit: "req/s", title: "Débit par moteur et par route" },
     ) +
       table(
         [
           { label: "Route" },
-          { label: "SQLite avant", align: "right" },
-          { label: "SQLite après", align: "right" },
-          { label: "Gain", align: "right", strong: true },
-          { label: "PG avant", align: "right" },
-          { label: "PG après", align: "right" },
-          { label: "Gain", align: "right", strong: true },
+          { label: "SQLite", align: "right", strong: true },
+          { label: "PostgreSQL", align: "right", strong: true },
         ],
         DATA.lotPrepared.map((l) => [
           l.route,
-          fmt.int(l.sqliteAvant),
           fmt.int(l.sqliteApres),
-          `+${l.sqliteGain} %`,
-          fmt.int(l.pgAvant),
           fmt.int(l.pgApres),
-          `+${l.pgGain} %`,
         ]),
         { id: "t-prepared" },
       ) +
@@ -1371,26 +1187,26 @@ const sections = [
          Les valeurs sont re-liées à chaque appel, la base est interrogée à chaque appel. Un test
          anti-obsolescence garde ce contrat et a été vu rouge en le débranchant.`,
       ) +
-      warn(
-        `<strong>Une attribution fausse, corrigée.</strong> Il était tentant d'expliquer le gain PostgreSQL
-         par le planificateur du serveur. C'est faux : <code>pgbench</code> en mode simple contre le même en
-         mode préparé ne rend que <strong>+3,3 %</strong>. Le gain est <strong>côté client</strong>, et il était
-         déjà dans le profil. L'explication par le planificateur a été retirée.`,
-      ) +
       table(
         [
           { label: "Moteur" },
           { label: "Ce qui se passe réellement" },
-          { label: "Nature du gain", strong: true },
+          { label: "D'où vient le gain", strong: true },
         ],
         DATA.dialectes.map((d) => [d.moteur, d.mecanisme, d.gain]),
         { id: "t-dialectes" },
-      ),
+      ) +
+      warn(
+        `<strong>Le gain est côté CLIENT, pas côté serveur de base.</strong> Il serait tentant de l'attribuer
+         au planificateur de PostgreSQL : <code>pgbench</code> en mode simple contre le même en mode préparé
+         ne rend que <strong>+3,3 %</strong>. Ce qui coûtait, c'était de refabriquer la requête à chaque appel.`,
+      ) +
+      etatDuCode("2026-08-07", "1f1926a7 — décor 8121bef1"),
   ),
 
   /* 7 — Boucle d'événements */
   section(
-    "7 · Latence et blocage — une seule des deux plafonne un processus",
+    "6 · Latence et blocage — une seule des deux plafonne un processus",
     `<p>Une base répond en 22 µs, l'autre en 1 232. C'est la <strong>première</strong> qui bloque le serveur.</p>` +
       schemaBoucle() +
       table(
@@ -1469,7 +1285,7 @@ const sections = [
 
   /* 8 — Dimensionnement */
   section(
-    "8 · Dimensionnement — ce que tient un pod",
+    "7 · Dimensionnement — ce que tient un pod",
     lineChart(
       [
         {
@@ -1541,7 +1357,7 @@ const sections = [
   ),
 
   section(
-    "9 · Combien de pods ?",
+    "8 · Combien de pods ?",
     calculator({
       id: "pods",
       inputs: [
@@ -1615,51 +1431,15 @@ const sections = [
          partagée</strong> (multiplier les pods multiplie les connexions), et <strong>dimensionner sur le
          pic</strong>, en vérifiant que l'orchestrateur ajoute un pod plus vite que le pic ne monte.`,
       ) +
-      details(
-        "Transports HTTP et plafonds WebSocket",
-        table(
-          [
-            { label: "Transport" },
-            { label: "Débit", align: "right" },
-            { label: "Utilisation de la boucle", align: "right" },
-          ],
-          DATA.transports.map((t) => [
-            t.transport,
-            fmt.int(t.rps),
-            fmt.dec(t.elu, 2),
-          ]),
-          { id: "t-transports" },
-        ) +
-          table(
-            [
-              { label: "Grandeur" },
-              { label: "Valeur", align: "right", strong: true },
-              { label: "Ce qui limite réellement", dim: true },
-            ],
-            DATA.websocket.map((w) => [w.grandeur, w.valeur, w.limite]),
-            { id: "t-ws" },
-          ) +
-          note(
-            `<strong>Sous charge extrême, le serveur dégrade — il ne tombe pas.</strong> Processeur à 100 %,
-             boucle saturée, retard de boucle de 500 à 600 ms : réponse HTTP <code>200</code> en ~5,3 s
-             contre ~240 ms à vide. Zéro plantage, zéro erreur. Ce qui meurt en premier est le temps réel,
-             par famine de la boucle — pas le service HTTP.`,
-          ) +
-          table(
-            [
-              { label: "Axe WebSocket" },
-              { label: "Verdict", strong: true },
-              { label: "Détail", dim: true },
-            ],
-            DATA.wsAB.map((w) => [w.axe, w.verdict, w.detail]),
-            { id: "t-wsab" },
-          ),
+      etatDuCode(
+        DATASET?.provenance?.measuredAt ?? "2026-08-23",
+        DATASET?.provenance?.commit ?? "dfdada9e — état livré 10.0.0",
       ),
   ),
 
   /* 10 — Le décor */
   section(
-    "10 · Le décor ment plus souvent que le code",
+    "9 · Comment lire ces chiffres — le décor ment plus souvent que le code",
     warn(
       `<strong>Aucun verdict faux de ce chantier ne venait d'une erreur de raisonnement sur le code.</strong>
        Tous venaient de l'instrument ou du décor. Pire : les fenêtres les plus <em>stables</em> ont produit
@@ -1703,7 +1483,7 @@ const sections = [
 
   /* 11 — Ouvertures */
   section(
-    "11 · Ce qui reste ouvert",
+    "10 · Ce qui reste ouvert",
     `<p>Un dossier de performance qui ne dit pas ce qu'il n'a pas mesuré demande qu'on lui fasse confiance
       sur parole. La liste des trous est la seule partie <strong>vérifiable</strong> d'un dossier de mesure :
       elle dit où regarder pour le prendre en défaut.</p>` +
@@ -1772,12 +1552,23 @@ node .claude/skills/nodefony-load-test/scripts/db-backend-cost.mjs --prove</code
 ];
 
 const html = doc({
-  title: "Nodefony — dossier de performance",
+  style: STYLE_GRAPHES,
+  title: "Nodefony — performance mesurée",
   subtitle:
-    "BROUILLON — lire d'abord la section 0 : chaque chiffre vient d'une fenêtre de mesure prise sur un état de code donné, et ce rattachement n'est pas encore porté par chaque tableau.",
+    // Le bandeau se DÉRIVE : « BROUILLON » et « ce rattachement n'est pas encore
+    // porté » sont restés en tête d'une page qu'on s'apprêtait à publier et à lier
+    // depuis le README — un avertissement figé finit par décrire un état révolu, et
+    // il décourage précisément le lecteur qu'on cherchait à convaincre.
+    DATASET
+      ? `Ce que le framework fait AUJOURD'HUI : où part le temps d'une requête, ce que coûte l'accès aux données, ce que tient un processus. Comparatif issu du jeu versionné de la ${DATASET.version} (mesuré le ${DATASET.provenance?.measuredAt ?? "?"}) ; chaque bloc porte l'état de code où il a été pris.`
+      : "Ce que le framework fait AUJOURD'HUI : où part le temps d'une requête, ce que coûte l'accès aux données, ce que tient un processus. Chaque bloc porte l'état de code où il a été pris — le jeu versionné n'a pas été trouvé.",
   sections,
   data: DATA,
   footer:
+    // Publié sous `/performance/dossier/`, ce rapport n'a pas la navigation du
+    // site de documentation : sans ce retour, il est un cul-de-sac. Lien
+    // relatif — le site vit dans un sous-chemin (`/nodefony-core/`).
+    `<a href="../">← Toutes les versions</a> · <a href="../../">Documentation</a> — ` +
     `${deckControls()} ${printButton()} — Généré par ` +
     `<code>node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs</code>. ` +
     `Données embarquées dans la page (<code>#report-data</code>) : le rapport se rejoue et se compare. ` +

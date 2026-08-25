@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import path from "node:path";
+import { nodefonyBin } from "nodefony/testing";
 <% if (it.hasSecurity) { %>import { readRuntimeState } from "nodefony";
 <% } %>
 /**
@@ -21,7 +22,20 @@ import path from "node:path";
  * l'application déclare le sien (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé
  * l'a fait glisser.
  */
-const bin = path.resolve("node_modules/.bin/nodefony");
+
+/**
+ * Le lanceur du framework — RÉSOLU par le framework lui-même.
+ *
+ * Aucun chemin n'est écrit ici, et c'est le point : `node_modules/.bin/nodefony`
+ * n'existe pas sous Windows (npm y écrit un `.cmd`, que Node refuse d'exécuter
+ * sans shell), et l'emplacement du paquet dépend du hoisting, des espaces de
+ * travail, du gestionnaire utilisé. `nodefonyBin()` demande à Node de localiser
+ * le paquet et lit son champ `bin` : une seule implémentation, dans le
+ * framework, qui suit ses propres déménagements.
+ *
+ * Le résultat se donne à `node`, jamais au système : c'est un script.
+ */
+const bin = nodefonyBin();
 
 /**
  * Base de données de la suite E2E — jetable, et surtout SÉPARÉE de celle du
@@ -98,7 +112,7 @@ export async function setup(): Promise<void> {
       rmSync(`${fichier}${suffixe}`, { force: true });
     }
   }
-  execFileSync(bin, ["production", "--detach", "--wait"], {
+  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {
@@ -116,5 +130,8 @@ export async function setup(): Promise<void> {
 export async function teardown(): Promise<void> {
   // Jamais de serveur laissé derrière : un runtime orphelin tient les ports et
   // fait échouer le run suivant sur une erreur qui ne parle pas de lui.
-  execFileSync(bin, ["stop"], { stdio: "inherit", timeout: 30_000 });
+  execFileSync(process.execPath, [bin, "stop"], {
+    stdio: "inherit",
+    timeout: 30_000,
+  });
 }

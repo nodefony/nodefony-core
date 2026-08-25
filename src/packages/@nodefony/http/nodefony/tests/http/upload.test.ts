@@ -2,18 +2,15 @@ import { expect } from "chai";
 import path from "node:path";
 import https from "node:https";
 import fs from "node:fs";
-import fsp from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import {
+  snapshotUploadDirs,
+  purgeUploadResidue,
+  type UploadSnapshot,
+} from "../helpers/uploadResidue.js";
 
-// Dossier où le service d'upload dépose les fichiers reçus (uploadDir défaut =
-// « tmp » résolu sous la racine projet). Les tests d'upload y créent des fichiers
-// temporaires `<uuid>.<ext>` ; un test ne doit JAMAIS laisser de résidu → on les
-// nettoie en fin de suite (diff de snapshot, sans toucher au préexistant).
-const REPO_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../../../../..",
-);
-const UPLOAD_DIR = path.join(REPO_ROOT, "tmp");
+// Un test ne laisse JAMAIS de résidu. Le dossier de dépôt et le garde vivent
+// dans un helper unique — viser le mauvais dossier est un nettoyage qui n'en
+// est pas un (cf `helpers/uploadResidue.ts`).
 
 function postMultipart(
   urlPath: string,
@@ -152,19 +149,19 @@ describe("File Upload Tests", () => {
   // Hygiène : un test ne laisse JAMAIS de résidu. On photographie le dossier
   // d'upload avant la suite et on supprime UNIQUEMENT les fichiers qu'elle a
   // créés (diff de snapshot) — sans toucher au préexistant.
-  let preexisting: Set<string>;
+  let snapshot: UploadSnapshot;
   beforeAll(async () => {
-    preexisting = new Set(await fsp.readdir(UPLOAD_DIR).catch(() => []));
+    snapshot = await snapshotUploadDirs();
   });
   afterAll(async () => {
-    const entries = await fsp
-      .readdir(UPLOAD_DIR, { withFileTypes: true })
-      .catch(() => [] as import("node:fs").Dirent[]);
-    await Promise.all(
-      entries
-        .filter((d) => d.isFile() && !preexisting.has(d.name))
-        .map((d) => fsp.unlink(path.join(UPLOAD_DIR, d.name)).catch(() => {})),
-    );
+    // Le COMPTE est ce qui rend le garde vérifiable : cette suite dépose des
+    // fichiers, donc un zéro signifie qu'on a nettoyé un dossier où le serveur
+    // n'écrit pas — exactement le défaut qui avait laissé 4 420 résidus.
+    const removed = await purgeUploadResidue(snapshot);
+    expect(
+      removed,
+      "aucun résidu supprimé — dossier de dépôt manqué",
+    ).to.be.greaterThan(0);
   });
 
   it("should upload a file successfully", async () => {

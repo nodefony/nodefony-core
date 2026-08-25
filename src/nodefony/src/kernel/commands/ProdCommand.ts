@@ -21,7 +21,7 @@ const options: OptionsCommandInterface = {
  *
  * Modèle « 2 molettes » (2026-05-24) : front prod (dist, pas de Vite) × topologie
  * pilotée par la molette `workers` ({@link resolveTopology} : `--workers` >
- * `NODEFONY_WORKERS` > config `cluster.workers` > défaut 1). `workers:1` = mono-process
+ * `NF_WORKERS` > config `cluster.workers` > défaut 1). `workers:1` = mono-process
  * (1 process = 1 pod, scaling délégué à l'orchestrateur) ; `>= 2` = cluster (master +
  * workers), via le flow partagé {@link launchTopology} (même runtime que `cluster`).
  *
@@ -38,14 +38,18 @@ class Prod extends Command {
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Start Server in Production Mode (foreground, cloud-native — topology = workers)",
+      "Serveur de production : premier plan, cloud-native (topologie via --workers)",
       cli as CliKernel,
       options,
     );
     this.alias("prod");
+    // Convention de l'écosystème (npm start, next start, nest start) : `start`
+    // = démarrer l'application en production. Le menu interactif, lui, vit
+    // sous `menu` (et `nodefony` nu en TTY) — `start` ne l'a jamais bien nommé.
+    this.alias("start");
     this.addOption(
       "-w, --workers <number>",
-      "Number of worker processes (default: config cluster.workers / NODEFONY_WORKERS / 1)",
+      "Number of worker processes (default: config cluster.workers / NF_WORKERS / 1)",
     );
     // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
     // CliKernel.start (detachedStart.ts), déclarées pour le help.
@@ -60,8 +64,8 @@ class Prod extends Command {
 
   override async onKernelStart(opts?: { workers?: string }): Promise<void> {
     this.cli.environment = "production";
-    process.env.MODE_START = "production";
-    // Topologie = source unique : CLI `--workers` > env NODEFONY_WORKERS > config app
+    process.env.NF_MODE_START = "production";
+    // Topologie = source unique : CLI `--workers` > env NF_WORKERS > config app
     // `cluster.workers` (lue standalone, sans kernel) > défaut 1. Résolue AVANT
     // initServers : master → superviseur (0 serveur) ; mono/worker → ce Kernel sert.
     const cfgWorkers = await loadClusterConfig();

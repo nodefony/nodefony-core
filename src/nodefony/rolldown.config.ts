@@ -43,7 +43,7 @@ const external: string[] = [
 // réexportée par `src/index.ts` — elle importe `rolldown` (peerDep optionnelle),
 // le barrel principal ne doit pas le tirer.
 const nodeConfig: RolldownOptions = defineConfig({
-  input: ["src/index.ts", "src/bundler/index.ts"],
+  input: ["src/index.ts", "src/bundler/index.ts", "src/testing/index.ts"],
   platform: "node",
   tsconfig: "tsconfig.json",
   external: nodefonyExternalMatcher(external),

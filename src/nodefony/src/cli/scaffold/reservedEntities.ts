@@ -10,7 +10,7 @@
  *
  * ⚠️ Cette table décrit le FRAMEWORK, pas les modules tiers : un module applicatif
  * inconnu d'ici peut réserver un nom qu'elle ignore. Elle est tenue honnête par le
- * gate `RUN_CLI_BOOT=1` de `CliIntegration.test.ts`, qui la confronte à ce que
+ * gate `NF_RUN_CLI_BOOT=1` de `CliIntegration.test.ts`, qui la confronte à ce que
  * `nodefony inspect entities --json` rapporte réellement sur ce dépôt.
  */
 

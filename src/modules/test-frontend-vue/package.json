@@ -33,7 +33,7 @@
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
-    "@types/node": "26.2.0",
+    "@types/node": "26.3.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "nodefony": "*",
     "rimraf": "6.1.3"

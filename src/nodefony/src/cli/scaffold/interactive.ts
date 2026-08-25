@@ -1,4 +1,5 @@
 import readline from "node:readline/promises";
+import { ancreEventLoop } from "../prompts";
 import type { Readable, Writable } from "node:stream";
 import type { IScaffoldTypeSpec } from "./spec";
 import type {
@@ -20,7 +21,7 @@ async function ask(
   rl: readline.Interface,
   out: Writable,
   spec: IScaffoldTypeSpec["questions"][number],
-): Promise<string | boolean> {
+): Promise<string | boolean | string[]> {
   if (spec.type === "boolean") {
     const def = spec.default === true;
     const raw = await rl.question(`${spec.label} ${def ? "[O/n]" : "[o/N]"} `);
@@ -29,6 +30,39 @@ async function ask(
       return def;
     }
     return t === "o" || t === "y" || t === "oui" || t === "yes";
+  }
+  if (spec.type === "list" && spec.choices) {
+    // Multi-choix : plusieurs numéros séparés par une virgule, et surtout le
+    // VIDE comme réponse pleine — « aucun » est un choix, pas une hésitation.
+    // C'est ce qui permet à une question d'écriture chez un tiers d'exister
+    // sans jamais rien cocher par défaut.
+    out.write(`${spec.label}\n`);
+    spec.choices.forEach((c, i) => {
+      out.write(`  ${i + 1}) ${c.label}${c.hint ? ` — ${c.hint}` : ""}\n`);
+    });
+    for (;;) {
+      const raw = await rl.question(
+        `Numéros séparés par une virgule [aucun] : `,
+      );
+      const t = raw.trim();
+      if (t === "") return [];
+      const nums = t
+        .split(/[\s,]+/u)
+        .filter(Boolean)
+        .map((n) => Number.parseInt(n, 10));
+      const valides = nums.every(
+        (n) => Number.isInteger(n) && n >= 1 && n <= spec.choices!.length,
+      );
+      if (valides) {
+        // Un TABLEAU, jamais une chaîne à virgules : le moteur garde chaque
+        // valeur d'une question `list` ENTIÈRE et ne re-découpe rien — « a,b »
+        // y deviendrait UNE valeur nommée « a,b », que personne ne verrait.
+        return [...new Set(nums)].map((n) => spec.choices![n - 1].value);
+      }
+      out.write(
+        `  → numéros entre 1 et ${spec.choices.length}, ou ENTRÉE pour aucun\n`,
+      );
+    }
   }
   if (spec.type === "choice" && spec.choices) {
     out.write(`${spec.label} :\n`);
@@ -67,6 +101,10 @@ export async function confirm(
   input: Readable = process.stdin,
   output: Writable = process.stdout,
 ): Promise<boolean> {
+  // ⭐ Ancre l'event loop le temps des questions : `create app` est servi sans
+  // démarrer quoi que ce soit, donc l'attente d'une frappe est la seule chose
+  // qui reste — et Node ne compte que les handles. Cf `cli/prompts.ts`.
+  const relacheAncre = ancreEventLoop();
   const rl = readline.createInterface({ input, output });
   try {
     const raw = await rl.question(`${question} [O/n] `);
@@ -74,6 +112,7 @@ export async function confirm(
     return t === "" || t === "o" || t === "y" || t === "oui" || t === "yes";
   } finally {
     rl.close();
+    relacheAncre();
   }
 }
 
@@ -90,6 +129,10 @@ export async function askMissing(
   output: Writable = process.stdout,
   context: IScaffoldContext | null = null,
 ): Promise<TScaffoldAnswers> {
+  // ⭐ Ancre l'event loop le temps des questions : `create app` est servi sans
+  // démarrer quoi que ce soit, donc l'attente d'une frappe est la seule chose
+  // qui reste — et Node ne compte que les handles. Cf `cli/prompts.ts`.
+  const relacheAncre = ancreEventLoop();
   const rl = readline.createInterface({ input, output });
   const answers: TScaffoldAnswers = { ...partial };
   try {
@@ -114,6 +157,7 @@ export async function askMissing(
     }
   } finally {
     rl.close();
+    relacheAncre();
   }
   return answers;
 }

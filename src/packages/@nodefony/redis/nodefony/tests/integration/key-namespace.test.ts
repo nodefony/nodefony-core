@@ -19,7 +19,7 @@ import { redisTestUrl } from "../helpers/redisTestUrl";
  * Un test sur un double ne prouverait rien : c'est le `SCAN` du vrai serveur, avec
  * son `MATCH` et son curseur, qui décide de ce qui est vu. D'où le serveur réel.
  *
- * GATE : `REDIS_TEST_URL`.
+ * GATE : `NF_REDIS_TEST_URL`.
  */
 // Base DÉDIÉE : ce banc purge (`flushDb`) — partager celle d'un autre fichier
 // effacerait son seed. Symptôme caractéristique quand on l'oublie : vert en

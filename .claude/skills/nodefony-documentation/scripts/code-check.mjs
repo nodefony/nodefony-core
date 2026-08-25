@@ -25,6 +25,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { execSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
@@ -36,11 +37,16 @@ if (!files.length) {
 }
 // Un répertoire de travail PAR INVOCATION (nommé d'après les pages) : plusieurs
 // rédacteurs travaillent en parallèle sur des pages différentes et ne doivent pas
-// s'effacer mutuellement leurs extraits.
+// s'effacer mutuellement leurs extraits. Au-delà de ~100 caractères le nom est
+// tronqué + suffixé d'un hash du lot complet : un corpus entier en une invocation
+// dépassait NAME_MAX et le mkdir tombait en ENAMETOOLONG (vécu, 63 pages).
+const lotName = files.map((f) => path.basename(f, ".md")).join("+");
 const QS = path.join(
   REPO,
   "tmp/doc-work/qs",
-  files.map((f) => path.basename(f, ".md")).join("+"),
+  lotName.length <= 100
+    ? lotName
+    : `${lotName.slice(0, 80)}+${createHash("sha256").update(lotName).digest("hex").slice(0, 8)}`,
 );
 
 // Section « Démarrage rapide » : du titre H2 (icône canonique tolérée) au H2 suivant.
@@ -154,7 +160,14 @@ const r = spawnSync("npx", ["tsgo", "-p", "tsconfig.json"], {
   cwd: QS,
   encoding: "utf8",
 });
-const out = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim();
+// npm écrit ses propres lignes `npm notice …` sur stderr autour d'un `npx` :
+// ce bruit d'ORCHESTRATION n'est pas une sortie de tsgo — sans ce filtre, toute
+// compilation VERTE était déclarée rouge (« sortie non vide », vécu 2026-08-20).
+const out = `${r.stdout ?? ""}${r.stderr ?? ""}`
+  .split("\n")
+  .filter((l) => !/^npm notice\b/.test(l))
+  .join("\n")
+  .trim();
 if (r.status === 0 && !out) {
   console.log(`\n✅ ${extracted} bloc(s) compilent (strict, décorateurs).\n`);
   process.exit(0);

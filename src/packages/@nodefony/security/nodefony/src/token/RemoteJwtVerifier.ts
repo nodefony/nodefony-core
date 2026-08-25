@@ -29,6 +29,26 @@ export interface ITrustedIssuer {
    */
   jwksUri?: string;
   /**
+   * Jeu de clés fourni LOCALEMENT — aucune requête, aucune découverte.
+   *
+   * ⭐ **Le cas qui l'exige : l'émetteur, c'est CETTE application.** Elle signe
+   * ses propres jetons, elle a donc déjà les clés publiques en mémoire. Aller
+   * les relire par HTTP chez elle-même ajoute à une opération purement locale
+   * une dépendance au réseau, au DNS et à TLS — et c'est exactement là que ça
+   * casse : en développement, l'application se sert un certificat que le
+   * magasin d'autorités de Node ne connaît pas, si bien que la vérification
+   * échouait en `SELF_SIGNED_CERT_IN_CHAIN` alors que le jeton était parfait,
+   * que la clé était à portée de main, et que `curl` joignait la même URL sans
+   * broncher. En production, le même aller-retour ferait dépendre
+   * l'authentification de l'entrée réseau du pod.
+   *
+   * Appelé à CHAQUE résolution, jamais mémoïsé : une rotation de clés locale
+   * est alors prise en compte sans redémarrage, et le coût — analyser un jeu de
+   * une ou deux clés — est sans commune mesure avec la vérification de
+   * signature qui suit.
+   */
+  localJwks?: () => Promise<Jose.JSONWebKeySet>;
+  /**
    * Algorithmes de signature acceptés — **allowlist côté serveur**.
    *
    * RFC 8725 §3.1 : l'algorithme ne se déduit JAMAIS de l'en-tête du jeton.
@@ -284,6 +304,10 @@ export class RemoteJwtVerifier {
     trusted: ITrustedIssuer,
     jose: typeof Jose,
   ): Promise<IResolvedIssuer> {
+    // Un jeu de clés LOCAL ne se mémoïse pas : il ne coûte aucune requête, et
+    // le relire à chaque fois est ce qui fait suivre une rotation sans
+    // redémarrage.
+    if (trusted.localJwks) return this.#build(trusted, jose);
     const pending = this.#resolved.get(trusted.issuer);
     if (pending) return pending;
     const promise = this.#build(trusted, jose).catch((error: unknown) => {
@@ -298,6 +322,12 @@ export class RemoteJwtVerifier {
     trusted: ITrustedIssuer,
     jose: typeof Jose,
   ): Promise<IResolvedIssuer> {
+    if (trusted.localJwks) {
+      return {
+        trusted,
+        getKey: jose.createLocalJWKSet(await trusted.localJwks()),
+      };
+    }
     const jwksUri = trusted.jwksUri ?? (await this.#discover(trusted.issuer));
     const options: Jose.RemoteJWKSetOptions = {
       timeoutDuration: this.#options.timeoutMs ?? 5_000,

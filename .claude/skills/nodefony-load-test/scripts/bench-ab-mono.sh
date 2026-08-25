@@ -163,9 +163,19 @@ WRK_HDR=()
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent (brew install wrk)"; exit 1; }
 
-# 1. banc propre : tuer ports + résidus Vite/serveur, attendre la libération
-lsof -ti tcp:5151,5152,5173,5177 2>/dev/null | xargs kill -9 2>/dev/null
-pkill -9 -f vite.js 2>/dev/null; pkill -9 -f "bin/nodefony" 2>/dev/null
+# 1. banc propre : tuer ports + résidus Vite/serveur, attendre la libération.
+# ⚠️ PASSER PAR `kill-guard.sh`, jamais par un `lsof | xargs kill -9` nu : ce
+# bloc a déjà SIGKILLé le `claude` qui lançait le banc (session perdue, aucune
+# trace). Les deux gardes — `-sTCP:LISTEN` et la liste d'épargne — et le pourquoi
+# de chacune sont documentés dans ce fichier.
+# Arrêt PROPRE d'abord (implémentation UNIQUE, celle de `stop` — comme start.sh) :
+# un superviseur de développement n'écoute AUCUN port, donc la purge par port ne le
+# voit pas — et il RELANCERAIT son serveur au milieu de la mesure. Un banc qui
+# mesure pendant qu'un autre serveur revient sur les mêmes ports ne mesure rien.
+node "$ROOT/src/nodefony/bin/nodefony" stop >/dev/null 2>&1 || true
+. "$(dirname "${BASH_SOURCE[0]}")/kill-guard.sh"
+kill_listeners 5151 5152 5173 5177
+kill_by_cmdline vite.js "bin/nodefony"
 node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();process.exit(0)});s.on('connect',()=>{s.destroy();if(Date.now()-t0>10000)process.exit(0);setTimeout(p,300)})})();" 2>/dev/null
 
 # 2. spawn mono prod (detached), env forcé + toggles A/B
@@ -180,8 +190,36 @@ const c=spawn('node',['src/nodefony/bin/nodefony','production'],{cwd:'$ROOT',env
 c.unref();fs.writeFileSync('/tmp/nf-bench.pid',String(c.pid));process.exit(0);
 "
 
+# ⚠️ `NF_LOG_DRIVER=null` (posé plus haut pour ne pas mesurer le coût des logs) rend
+# tout échec de boot MUET : `/tmp/nf-bench.log` reste à ZÉRO octet et le banc ne sait
+# dire que « BOOT TIMEOUT ». Vécu : un superviseur dev orphelin bloquait le démarrage
+# production, et il a fallu rejouer le boot à la main pour le découvrir. Le banc rejoue
+# donc lui-même, une fois, AVEC les journaux — la mesure n'est pas affectée (on n'y
+# arrive que sur échec).
+boot_diagnostic() {
+  echo "   ↳ boot rejoué AVEC les journaux (le banc les coupe pour mesurer) :"
+  # shellcheck disable=SC2086
+  env $EXTRA_ENV NODE_ENV=production NF_BENCH_ROUTE=1 \
+    node "$ROOT/src/nodefony/bin/nodefony" production > /tmp/nf-bench-diag.log 2>&1 &
+  local dpid=$!
+  local i=0
+  while [ $i -lt 30 ]; do
+    kill -0 "$dpid" 2>/dev/null || break
+    i=$((i + 1))
+    node -e "setTimeout(()=>process.exit(0),400)" 2>/dev/null
+  done
+  kill -INT "$dpid" 2>/dev/null || true
+  if [ -s /tmp/nf-bench-diag.log ]; then
+    grep -aiE "critic|error|erreur|refus|EADDRINUSE|✖|⛔" /tmp/nf-bench-diag.log | head -8 \
+      || head -8 /tmp/nf-bench-diag.log
+  else
+    echo "   (rien non plus avec les journaux — voir /tmp/nf-bench-diag.log)"
+  fi
+  echo "   ↳ vérifier aussi : nodefony status  (un superviseur dev résiduel refuse la production)"
+}
+
 # 3. attendre le boot (poll port 5151)
-node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"; exit 1; }
+node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { boot_diagnostic; echo "$LABEL: BOOT FAIL"; rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"; exit 1; }
 
 # 4. VÉRIFICATION DE LA CIBLE (avant toute mesure)
 # 🚨 wrk compte les 404/500 dans son `Requests/sec`. Or une erreur répond PLUS VITE
@@ -216,19 +254,43 @@ WARMUP="${BENCH_WARMUP:-5}"
 wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" >/dev/null 2>&1
 echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $REGIME"
 
-RPS=(); BAD=0
+# ── Latences ────────────────────────────────────────────────────────────────
+# Un RPS seul ne dit RIEN de ce que vit un utilisateur : deux serveurs au même
+# débit peuvent servir l'un en 5 ms et l'autre avec une queue à 800 ms. C'est le
+# p99 qui décide si une prod tient, pas la moyenne — et wrk le calcule déjà, il
+# suffit de le lui DEMANDER (`--latency`) et de ne pas jeter la sortie.
+#
+# `lat_ms` normalise en millisecondes : wrk change d'unité selon l'échelle
+# (`850.00us`, `2.15ms`, `1.20s`) et comparer les nombres bruts ferait passer
+# 850 us pour 850 ms. Un chiffre sans son unité est un piège, pas une mesure.
+lat_ms() {
+  awk -v v="$1" 'BEGIN{
+    if (v ~ /us$/)      { sub(/us$/, "", v); printf "%.3f", v / 1000 }
+    else if (v ~ /ms$/) { sub(/ms$/, "", v); printf "%.3f", v }
+    else if (v ~ /s$/)  { sub(/s$/,  "", v); printf "%.3f", v * 1000 }
+    else if (v ~ /m$/)  { sub(/m$/,  "", v); printf "%.3f", v * 60000 }
+    else                { printf "%.3f", v }
+  }'
+}
+# Extrait un percentile de la « Latency Distribution » de wrk (`--latency`).
+lat_pct() { printf '%s' "$1" | awk -v p="$2" '$1 == p"%" {print $2; exit}'; }
+
+RPS=(); P50=(); P99=(); BAD=0
 for i in 1 2 3; do
   [ "$i" -gt 1 ] && sleep 10
-  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" 2>/dev/null)
+  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" 2>/dev/null)
   R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
+  L50=$(lat_ms "$(lat_pct "$OUT" 50)")
+  L99=$(lat_ms "$(lat_pct "$OUT" 99)")
+  P50+=("$L50"); P99+=("$L99")
   # wrk n'affiche cette ligne QUE s'il y a eu des réponses hors 2xx/3xx.
   NON2XX=$(printf '%s' "$OUT" | grep "Non-2xx or 3xx responses" | awk '{print $NF}')
   ERRS=$(printf '%s' "$OUT" | grep "Socket errors" || true)
   if [ -n "$NON2XX" ] || [ -n "$ERRS" ]; then
-    echo "  run $i: $R RPS  ⚠ INVALIDE — ${NON2XX:-0} réponses hors 2xx/3xx ${ERRS:+· $ERRS}"
+    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms  ⚠ INVALIDE — ${NON2XX:-0} réponses hors 2xx/3xx ${ERRS:+· $ERRS}"
     BAD=1
   else
-    echo "  run $i: $R RPS"
+    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms"
   fi
   RPS+=("$R")
 done
@@ -244,7 +306,11 @@ MIN=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '1p')
 MED=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '2p')
 MAX=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '3p')
 DISP=$(awk -v min="$MIN" -v max="$MAX" -v med="$MED" 'BEGIN{printf "%.1f", (max-min)/med*100}')
+MED50=$(printf '%s\n' "${P50[@]}" | sort -n | sed -n '2p')
+MED99=$(printf '%s\n' "${P99[@]}" | sort -n | sed -n '2p')
+MAX99=$(printf '%s\n' "${P99[@]}" | sort -n | sed -n '3p')
 echo "  min/méd/max: $MIN / $MED / $MAX RPS · dispersion ${DISP} % · thermal avant/après: $THERM_BEFORE/$THERM_AFTER"
+echo "  latence (médiane des 3 runs) : p50 ${MED50}ms · p99 ${MED99}ms · pire p99 ${MAX99}ms"
 
 # Dispersion > 3 % = la fenêtre est plus bruyante que le seuil de décision A/B :
 # cette série ne peut trancher AUCUNE comparaison — la refuser, pas la publier.
@@ -255,11 +321,14 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
   kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
-echo "  MÉDIANE: $MED RPS  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
+echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
-  "$MIN" "$MED" "$MAX" "$DISP" "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" \
+  "$MIN" "$MED" "$MAX" "$DISP" \
+  "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
+  "$MED50" "$MED99" "$MAX99" \
+  "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)

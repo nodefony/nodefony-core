@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { builtinMcpTools, collectMcpTools } from "nodefony";
+import {
+  builtinMcpTools,
+  collectMcpTools,
+  BUILTIN_MCP_TOOL_KEYS,
+} from "nodefony";
 import { defineDevkitConfig } from "../nodefony/config/defineModuleConfig";
 
 /**
@@ -26,13 +30,20 @@ const deps = {
 };
 
 describe("devkit — la configuration du serveur MCP", () => {
-  it("pose les quatre défauts, malgré le piège Zod 4", () => {
+  it("pose ses défauts, malgré le piège Zod 4", () => {
     // Un `.default({})` plat n'aurait ré-appliqué aucun sous-défaut : ce test
     // garde le pattern `default(() => schema.parse({}))`.
     expect(defaults.enabled).toBe(true);
     expect(defaults.allowedOrigins).toEqual([]);
     expect(defaults.allowRemote).toBe(false);
-    expect(defaults.tools).toEqual(["inspect", "check", "symbols", "card"]);
+  });
+
+  it("🔴 l'allowlist par défaut est DÉRIVÉE du catalogue, pas recopiée", () => {
+    // Écrite à la main, cette liste taisait chaque outil ajouté au cœur :
+    // déclaré dans le code, absent de la porte, sans le moindre message. La
+    // comparer au catalogue est le seul contrôle qui le voie — et il ne peut
+    // pas être satisfait par une copie qui aurait dérivé.
+    expect(defaults.tools).toEqual([...BUILTIN_MCP_TOOL_KEYS]);
   });
 
   it("🔴 chaque outil nommé par défaut EXISTE dans le catalogue du cœur", () => {
@@ -46,9 +57,43 @@ describe("devkit — la configuration du serveur MCP", () => {
         true,
       );
     }
-    expect(collectMcpTools({ builtins: defaults.tools, deps })).toHaveLength(
-      defaults.tools.length,
+    // ⚠️ L'appelant est celui qui satisfait TOUT — sinon cette assertion
+    // mesurerait l'autorisation en croyant mesurer l'existence : les intégrés
+    // protégés (le plan d'administration) sont retenus à la collecte pour un
+    // anonyme, et une clé disparue au cœur deviendrait indiscernable d'un
+    // outil simplement hors de portée.
+    const toutPermis = {
+      authenticated: true,
+      roles: [],
+      scopes: [
+        ...new Set(
+          Object.values(catalogue).flatMap((tool) => tool.scopes ?? []),
+        ),
+      ],
+    };
+    expect(
+      collectMcpTools({ builtins: defaults.tools, deps, caller: toutPermis }),
+    ).toHaveLength(defaults.tools.length);
+  });
+
+  it("🔴 les intégrés PROTÉGÉS ne sortent pas pour un appelant anonyme", () => {
+    // Le corollaire du test précédent, et la raison d'être du filtrage à la
+    // collecte : ce qu'un anonyme ne peut pas appeler, il ne doit pas même
+    // apprendre l'existence — un outil retenu est « inconnu » pour le
+    // protocole, indistinguable d'un outil qui n'existe pas.
+    const catalogue = builtinMcpTools(deps);
+    const proteges = Object.values(catalogue).filter(
+      (tool) => tool.requiresAuth === true || (tool.scopes?.length ?? 0) > 0,
     );
+    expect(proteges.length).toBeGreaterThan(0);
+    const anonyme = collectMcpTools({ builtins: defaults.tools, deps }).map(
+      (tool) => tool.name,
+    );
+    for (const tool of proteges) {
+      expect(anonyme, `« ${tool.name} » ne doit rien révéler`).not.toContain(
+        tool.name,
+      );
+    }
   });
 
   it("refuse une valeur mal typée au boot, en nommant le champ", () => {

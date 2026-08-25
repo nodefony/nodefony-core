@@ -54,7 +54,7 @@ flowchart TD
 `Firewall.isSecure()` (`firewall.ts:538`) rattache la requête à une **zone** via
 `Firewall.matchPath()` (`firewall.ts:529`) ; `Firewall.handleSecurity()` (`firewall.ts:561`) décide.
 Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
-le plus long gagne, pas le premier déclaré (`firewall.ts:230`).
+le plus long gagne, pas le premier déclaré (`firewall.ts:191`).
 
 ## 📖 Lexique
 
@@ -231,7 +231,7 @@ le keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP
 `JwtAuthenticator.authenticate()` :
 
 - **allowlist d'algorithmes** `["EdDSA"]` — l'algo n'est **jamais** choisi d'après l'en-tête du
-  token ; `alg=none` rejeté (`JwtAuthenticator.ts:104`).
+  token ; `alg=none` rejeté (`JwtAuthenticator.ts:120`).
 - **clé par `kid` depuis le JWKS LOCAL** (`createLocalJWKSet`) — jamais `jku`/`jwk` de l'en-tête
   (anti-injection de clé / SSRF, `JwtAuthenticator.ts:155`).
 - **`aud` + `iss` obligatoires** + `typ:"at+jwt"` (un refresh présenté comme access est rejeté) +
@@ -294,7 +294,7 @@ handshake des zones protégées `realtime` (`firewall.ts:289`).
 ## ⚙️ Ordre et modes (`mode: "first"` vs `"all"`)
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:1013`). Le `mode` dit comment la parcourir. Trois situations concrètes :
+(`firewall.ts:1112`). Le `mode` dit comment la parcourir. Trois situations concrètes :
 
 ### Situation 1 — humains ET machines sur la même API (`first`, le mode courant)
 
@@ -316,7 +316,7 @@ Ce qui se passe, requête par requête :
 | --- | --- | --- |
 | le cookie de session | `session` | identifié, `apikey` jamais consulté |
 | `Authorization: Bearer nf_…` | `apikey` | identifié (session ne matche pas, on passe) |
-| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:947-952`) |
+| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:1112`) |
 | rien | aucun | **401** (Zero Trust) |
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
@@ -440,29 +440,29 @@ scopes, métier), un même jury, combinables.
 (opt-out, `firewall.ts:277`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:289`)
 **et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:337`). Même résolution de zone que HTTP.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
-`firewall.ts:1076`) : le **code de fermeture** suffit.
+`firewall.ts:1191`) : le **code de fermeture** suffit.
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 
-- **`Firewall.applySecurityHeaders()`** (`firewall.ts:835`) : CSP, Referrer-Policy, COOP/COEP/CORP
+- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1029`) : CSP, Referrer-Policy, COOP/COEP/CORP
   au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:855`) :
   alloué seulement si une directive en a besoin.
-- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:833`) : Fetch Metadata
+- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:932`) : Fetch Metadata
   (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:764`), puis double-submit `x-csrf-token` ≡
   cookie + HMAC (`firewall.ts:778`).
-- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:892`).
+- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:154`).
 
 ## 📜 Normes appliquées
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1076`)        |
+| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1191`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
-| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:585`)                |
+| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:764`)                |
 | Backoff de login       | NIST SP 800-63B | `UserPasswordAuthenticator.ts:43-46,101-104`           |
-| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:833`)           |
+| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:932`)           |
 | Modèle                 | Zero Trust      | `firewall.ts:611` (aucune preuve → 401)                |
 
 ## ⚡ Performance & mémoire

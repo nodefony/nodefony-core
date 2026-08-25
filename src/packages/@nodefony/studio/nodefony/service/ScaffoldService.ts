@@ -12,6 +12,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   Service,
+  besoinDeShell,
+  argvCablageMcp,
+  AGENT_TARGETS,
   runScaffold,
   listTargets,
   findProjectRoot,
@@ -683,6 +686,13 @@ class ScaffoldService extends Service {
       }
     }
 
+    // Les agents choisis, servis APRÈS l'installation et la construction :
+    // l'appel enchaîne sur une émission de jeton qui DÉMARRE le kernel de
+    // l'app. Jamais pour une archive — le code part ailleurs, câbler les outils
+    // de CE poste n'aurait aucun sens.
+    if (type === "app") {
+      await this.#cablerAgents(job, stepCwd, answers);
+    }
     if (type === "app") {
       this.#emit(job, "ok", `Application prête : ${stepCwd}`);
       this.#emit(
@@ -702,6 +712,99 @@ class ScaffoldService extends Service {
     this.#finish(job, "done");
   }
 
+  /**
+   * Câble la nouvelle application chez les agents que l'utilisateur a cochés.
+   *
+   * ⭐ **La construction de l'appel n'est pas recopiée** : `argvCablageMcp` vit
+   * au cœur et sert le terminal comme cet écran — deux copies divergeraient au
+   * premier drapeau ajouté, et personne ne le verrait avant qu'un agent ne
+   * reçoive une déclaration différente selon la porte par laquelle on est
+   * passé.
+   *
+   * Rien de coché ⇒ rien d'écrit : ici, le consentement n'est pas la présence
+   * d'un humain devant un terminal (il n'y en a pas), c'est le choix explicite
+   * fait dans le formulaire.
+   *
+   * ⚠️ Sans terminal, la commande ne peut pas DEMANDER la durée ni la portée du
+   * jeton : elle pose la déclaration, pas le secret. Le terminal de l'écran le
+   * dit plutôt que de laisser découvrir un `401` plus tard.
+   */
+  async #cablerAgents(
+    job: IJob,
+    dest: string,
+    answers: TScaffoldAnswers,
+  ): Promise<void> {
+    const choisis = Array.isArray(answers.agents)
+      ? (answers.agents as string[])
+      : [];
+    const argv = argvCablageMcp(choisis, AGENT_TARGETS, dest);
+    if (argv === null) return;
+    const ok = await this.#spawnNodefony(job, argv, dest);
+    if (!ok) return;
+    this.#emit(
+      job,
+      "info",
+      "Jeton non émis (aucun terminal ici pour en choisir la durée) : " +
+        "dans l'app, `npx nodefony security:token --write`.",
+    );
+  }
+
+  /**
+   * Lance la CLI `nodefony` de l'application et streame sa sortie.
+   *
+   * Le binaire est celui de l'app générée — pas celui du serveur : c'est SA
+   * version qui doit écrire dans SON projet, et elle existe puisque l'étape
+   * d'installation vient de passer.
+   */
+  #spawnNodefony(job: IJob, argv: string[], cwd: string): Promise<boolean> {
+    this.#emit(job, "info", `$ npx nodefony ${argv.join(" ")}`);
+    return new Promise<boolean>((resolve) => {
+      const child = spawn("npx", ["--no-install", "nodefony", ...argv], {
+        cwd,
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"],
+        // `npx` est un `.cmd` sous Windows : lancé nu, Node rend « ENOENT », qui
+        // se lit « npx n'est pas installé ». Règle UNIQUE, portée par le core.
+        shell: besoinDeShell("npx"),
+      });
+      job.child = child;
+      const pipe = (
+        stream: NodeJS.ReadableStream | null,
+        kind: ScaffoldStream,
+      ): void => {
+        let rest = "";
+        stream?.on("data", (chunk: Buffer) => {
+          const parts = (rest + chunk.toString("utf8")).split("\n");
+          rest = parts.pop() ?? "";
+          for (const part of parts) {
+            if (part.trim()) this.#emit(job, kind, part);
+          }
+        });
+        stream?.on("end", () => {
+          if (rest.trim()) this.#emit(job, kind, rest);
+        });
+      };
+      pipe(child.stdout, "out");
+      pipe(child.stderr, "err");
+      child.once("error", (err) => {
+        // Un câblage d'agent qui échoue n'annule PAS une application créée : on
+        // le DIT, et le geste reste rejouable à la main.
+        this.#emit(job, "err", `câblage agents impossible : ${err.message}`);
+        resolve(false);
+      });
+      child.once("close", (code) => {
+        job.child = null;
+        if (code === 0) {
+          this.#emit(job, "ok", "agents câblés");
+          resolve(true);
+        } else {
+          this.#emit(job, "err", `câblage agents — échec (code ${code})`);
+          resolve(false);
+        }
+      });
+    });
+  }
+
   /** Lance UNE étape de l'allowlist et streame sa sortie ligne par ligne. */
   #spawnStep(job: IJob, step: ScaffoldStep, cwd: string): Promise<boolean> {
     const args = SCAFFOLD_STEP_COMMANDS[step];
@@ -716,6 +819,7 @@ class ScaffoldService extends Service {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
+        shell: besoinDeShell("npm"),
       });
       job.child = child;
 

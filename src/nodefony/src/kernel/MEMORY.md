@@ -166,7 +166,7 @@ Spec figée par `src/tests/resolveModuleEntry.test.ts` (6 tests, dont la régres
 
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
-- ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NODEFONY_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rolldown, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
+- ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NF_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rolldown, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
 - `setParameters("modules.${name}", options)`
 
 **setPath(p)**:
@@ -271,10 +271,12 @@ pris, handler absent, déclaration qui lève) → écarté + `onSkip`, jamais si
 Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`), **le port d'écoute n'est plus une certitude** : un port occupé fait glisser le serveur (5151 → 5153). Tout l'outillage process sondait `[5151, 5152]` **en dur** → il serait devenu aveugle.
 
 - **Canal** : `runtimeStateFile(cwd)` = `node_modules/.cache/nodefony/runtime.json` (à côté du pidfile). Le serveur PUBLIE (`writeRuntimeState`, appelé par `@nodefony/http` après le listen) `{pid, ports, desiredPorts, ts}` ; `status`/`stop`/readiness LISENT (`readRuntimeState`). Best-effort : un échec d'écriture ne fait jamais tomber un serveur qui écoute.
-- **`defaultDevPorts(cwd)` — ordre de vérité** : `NODEFONY_DEV_PORTS` (l'opérateur gagne toujours) > **state file** (les ports RÉELS) > `[5151, 5152]` (convention, 1ᵉʳ boot). ⚠️ prend un `cwd` (le state file est PAR PROJET).
+- **`defaultDevPorts(cwd)` — ordre de vérité** : `NF_DEV_PORTS` (l'opérateur gagne toujours) > **state file** (les ports RÉELS) > `[5151, 5152]` (convention, 1ᵉʳ boot). ⚠️ prend un `cwd` (le state file est PAR PROJET).
 - Un state file dont le **process est mort** est ignoré ET purgé (sinon `status` sonderait les ports d'hier).
 - **`DevSupervisor`** : `#ports` est un **getter** (jamais figé au ctor) ; `#observedPorts` retient les ports de l'enfant (au restart il est mort + son state file purgé, mais il faut attendre que SES ports se libèrent, sinon il en prendrait de nouveaux à chaque reload → onglet navigateur cassé). `#foreignHeldPorts` = ports d'un AUTRE projet : ni attendus (ils ne se libéreront pas), ni pris pour une readiness.
 - ⚠️ **Readiness et faux positif** : « un port écoute » ne prouve RIEN quand un autre projet tient les ports par défaut — ce serait SON serveur. `#anyPortListening` (et `launchDetached`) exigent alors le **state file** (seule preuve que c'est notre enfant). Sinon → pas prêt.
+- ⚠️ **Les drapeaux `node` du LANCEUR suivent le child détaché** (`childExecArgv`, `detachedStart.ts`) — sauf ceux qui TIENNENT un port (`--inspect*`, `--debug*`) : le parent est encore vivant pendant que l'enfant démarre (il attend sa readiness), et hériter le même port d'inspection tue l'enfant sur une adresse déjà prise. Sans cette propagation, `node --expose-gc bin/nodefony production --detach` rendait un serveur SANS `--expose-gc` — toute sonde mémoire y devenait un no-op muet, et un banc mesurait le déchet en attente de collecte au lieu du heap retenu.
+- ⚠️ **Readiness ≠ application ENTIÈRE** : des ports qui écoutent ne disent pas que les modules du manifeste sont là. Un module qui ne charge pas est écarté en **fail-soft** (`Kernel.loadModulesFromManifest` — sans quoi un module en masquerait N), le boot poursuit, et TOUTES les routes de ce module rendent 404. Verdict = `service/dev/bootVerdict.ts`, **implémentation UNIQUE** appelée par `DevSupervisor` ET `launchDetached` : `probeBootDegraded` interroge `/nodefony/kernel/api/livez` en boucle locale (OBSERVATION externe, jamais une IPC) et rend `true`/`false`/`"booting"`/`"unreachable"` ; `waitBootVerdict` **attend** `booting` (course port-up/boot) mais **rend la main aussitôt** sur `unreachable` (sans quoi toute app sans route de santé en clair paierait la fenêtre entière à chaque démarrage). `launchDetached` REFUSE la readiness sur un boot dégradé (`SysExit.UNAVAILABLE` + group-kill), et **NOMME** les modules écartés via `extractSkippedModules` (relecture du journal — `livez` ne les nomme qu'à un appelant authentifié, et une sonde de démarrage n'a pas d'identité). Échappatoire ÉCRITE : `--allow-degraded`. Une sonde muette ne conclut rien : ni blocage, ni certificat de bonne santé.
 - **Cross-projet n'est plus un refus** : le superviseur INFORME (l'enfant glissera) au lieu d'`exit(UNAVAILABLE)`. Le refus subsiste pour un doublon **du même projet** (single-instance, `mine`). En `portPolicy: "strict"`, c'est l'enfant qui échoue au bind — le seul endroit qui SAIT.
 - **Warnings `status` scopés au PROJET** (`splitByProject`) : 2 apps en parallèle est NORMAL ; le compte global criait « empilement anormal » sur le cas nominal.
 - **`stop`** lit ses ports AVANT le kill (après, le state file est purgé → il aurait rapporté les ports du VOISIN comme « encore occupés » sur un arrêt impeccable) puis `clearRuntimeState`.
@@ -284,9 +286,9 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 
 > `service/cluster/` (core). Refonte « beaucoup mieux » de `StagingCommand` (legacy `os.cpus()` + 0 respawn). Vision : mémoire IA `project_cluster_backplane_vision`.
 
-**`ClusterCommand`** (`nodefony cluster`, alias aucun, `kernelEvent:"onStart"`, `--workers N`) : master (`cluster.isPrimary`) → pose `process.env.NODEFONY_CLUSTER="1"` (héritage au fork) + crée le **`ClusterRelay`** (gateway) + `cluster.on("fork"→attach / "exit"→detach)` (couvre forks initiaux ET respawns, attaché AVANT `manager.start()`) + `ClusterManager.start()+installSignalHandlers()` (0 HTTP) ; worker → `new Kernel().start()`. `onKernelStart` (via `launchTopology`) : mono/worker → profil serveur `setRunProfile({servers:true,lifetime:"longrunning"})` ; **master reste console** (park) ; env production + `MODE_START="cluster"`.
+**`ClusterCommand`** (`nodefony cluster`, alias aucun, `kernelEvent:"onStart"`, `--workers N`) : master (`cluster.isPrimary`) → pose `process.env.NF_CLUSTER="1"` (héritage au fork) + crée le **`ClusterRelay`** (gateway) + `cluster.on("fork"→attach / "exit"→detach)` (couvre forks initiaux ET respawns, attaché AVANT `manager.start()`) + `ClusterManager.start()+installSignalHandlers()` (0 HTTP) ; worker → `new Kernel().start()`. `onKernelStart` (via `launchTopology`) : mono/worker → profil serveur `setRunProfile({servers:true,lifetime:"longrunning"})` ; **master reste console** (park) ; env production + `NF_MODE_START="cluster"`.
 
-**Backplane IPC (Phase 3 — master-gateway).** Protocole de fil `clusterMessage.ts` (core) : `CLUSTER_RT_KIND="nf:rt"` + `isClusterMessage()` (UNE source du tag, le framework l'importe via `"nodefony"` → 0 magic-string dupliqué). **`ClusterRelay`** (core, master) : routeur de messages OPAQUES — reçoit une publication realtime d'un worker, la rebroadcast aux AUTRES (`#route` exclut la source = anti-echo de routage) ; ignore les autres kinds (sondes Phase 4 = agrégées ailleurs) + malformés ; seam `IRelayWorker`{id,send,onMessage} → routage testé sans forker (11 tests `ClusterRelay.test.ts`). 0 dépendance `@nodefony/framework` (respect framework→core). Côté worker : `ClusterBackplane` (framework) branché sur le hub par le module `Framework` à `onCluster("WORKER")` (gardé `NODEFONY_CLUSTER`). `Kernel.initCluster` worker : `process.on("message")` **filtre les rt** (consommés par le backplane → ni log ni re-fire, anti-flood) ; ne re-fire `onMessage` que pour les messages de contrôle. **Bench fil IPC** : `.claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs` (fork réel, mesuré : ~300k publishes/s @256B, fan-out sature le master @4KB×7sub ~176 MB/s, RTT 4-sauts p50 0.40 ms).
+**Backplane IPC (Phase 3 — master-gateway).** Protocole de fil `clusterMessage.ts` (core) : `CLUSTER_RT_KIND="nf:rt"` + `isClusterMessage()` (UNE source du tag, le framework l'importe via `"nodefony"` → 0 magic-string dupliqué). **`ClusterRelay`** (core, master) : routeur de messages OPAQUES — reçoit une publication realtime d'un worker, la rebroadcast aux AUTRES (`#route` exclut la source = anti-echo de routage) ; ignore les autres kinds (sondes Phase 4 = agrégées ailleurs) + malformés ; seam `IRelayWorker`{id,send,onMessage} → routage testé sans forker (11 tests `ClusterRelay.test.ts`). 0 dépendance `@nodefony/framework` (respect framework→core). Côté worker : `ClusterBackplane` (framework) branché sur le hub par le module `Framework` à `onCluster("WORKER")` (gardé `NF_CLUSTER`). `Kernel.initCluster` worker : `process.on("message")` **filtre les rt** (consommés par le backplane → ni log ni re-fire, anti-flood) ; ne re-fire `onMessage` que pour les messages de contrôle. **Bench fil IPC** : `.claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs` (fork réel, mesuré : ~300k publishes/s @256B, fan-out sature le master @4KB×7sub ~176 MB/s, RTT 4-sauts p50 0.40 ms).
 
 **`resolveWorkerCount(opts)`** (`cpuQuota.ts`, PUR) : ordre = (1) `--workers N` explicite, **non borné** (harnais backplane : sur-souscrire OK) → (2) quota cgroup arrondi, borné par `availableParallelism` → (3) `os.availableParallelism()`. Toujours `>= 1`. **`readCgroupCpuQuota(read)`** : v2 `cpu.max` (`"max"`=null) → v1 `cfs_quota/period` (`-1`=null). LE fix du bug conteneur (`os.cpus()` lit l'hôte, ignore cgroup).
 
@@ -339,9 +341,54 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 
 **Avancement** : `MIGRATION_STATUS.md` — jamais ici (un MEMORY décrit ce que le code FAIT).
 
+## adminPlane (`adminPlane/`) — porte UNIQUE du plan d'administration
+
+`executeAdmin.ts` : `executeAdminEndpoint({endpoint, request, requiredRole, gate, onServerError?})`
+→ `{status, headers?, body}`. Ordre FIXE : RBAC → porte → handler → normalisation → traduction.
+Aucun transport, aucun conteneur. Les appelants ne diffèrent que par la RÉSOLUTION de l'endpoint.
+
+- `AdminApiController.runAdmin` (framework) résout par **nom de route** (Router) puis délègue.
+- `callAdminEndpoint` (`inspect/adminSubjects.ts`) résout par **namespace + chemin** puis délègue.
+  Consommateurs : commande `inspect`, serveur MCP (`src/mcp/tools.ts`).
+- `adminRbac.ts` : `isAdminGranted(roles, requiredRole)` (pure, fail-closed) ·
+  `resolveAdminRole(endpoint)` = `public ? "" : (role ?? ADMIN_DEFAULT_ROLE)` — la règle est ICI,
+  le broker l'appelle.
+
+Règles :
+
+- **Le corps d'un refus appartient au producteur, jamais à la porte.** Un 404 « section inconnue »
+  joint le plan de la page ; le résumer en « introuvable » fait conclure que la page n'existe pas.
+  `InspectResult.body` le porte ; MCP (`mcpEchecAdmin`, borné 4 ko) et CLI `inspect` le rendent.
+- **Panne ≠ refus.** Un handler qui lève est notifié par `onServerError` — ne pas le deviner depuis
+  un 500, qu'un producteur peut rendre lui-même. Une 4xx portée par `nodefonyError` est une faute
+  du CLIENT : restituée telle quelle, jamais journalisée.
+- `gate: null` est un CHOIX écrit (lectures seules), pas un paramètre omis. L'idempotence vit au
+  framework (`idempotency.ts`) : son second consommateur est le seam `Resolver`/`@Idempotent`.
+- **L'identité se PRÉSENTE** (`IAdminCaller` : `user`, `roles`, `label`), elle n'est plus fabriquée.
+  `localOperatorCaller()` pour une commande locale (qui la lance possède déjà le processus) ;
+  `adminCallerFromMcp` pour la porte MCP. Le 3ᵉ paramètre de `callAdminEndpoint` est OBLIGATOIRE :
+  le compilateur force chaque porte à dire au nom de qui elle appelle.
+- **Rôle ∧ scope, et les deux bornes existent** : `rolesFromScopes` n'accorde le rôle qu'à un jeton
+  portant `admin:read`/`admin:write` ; `refusedAdminScopes` empêche un non-administrateur de les
+  OBTENIR (appliqué à l'émission par `TokenService.#grantableScopes`). Porter le rôle ne suffit pas
+  à avoir le scope, porter le scope ne suffit pas à avoir le rôle. Session cookie = pas de
+  délégation = rôles seuls (Studio inchangé).
+- `mcpCallerRoles` (`src/mcp/caller.ts`) : la règle unique de toute porte MCP — non protégée →
+  opérateur (son périmètre EST sa protection) · protégée + jeton → ses scopes · protégée + anonyme
+  toléré → rien. Toute porte future (module d'agents) l'appelle au lieu de la réécrire.
+- `forbidden` est une raison DISTINCTE de `not-found` : confondre « pas le droit » et « n'existe
+  pas » envoie chercher une autre cible au lieu d'un meilleur jeton.
+- ⚠️ Asymétrie NOMMÉE, non fermée : un jeton présenté sur la porte HTTP (`ExternalJwtAuthenticator`,
+  `subjectPolicy:"require"`) hérite des rôles du compte local SANS intersection avec ses scopes —
+  les routes du plan sont montées par le broker, donc sans `@RequireScope`. Le même porteur obtient
+  plus par HTTP que par MCP.
+- ⚠️ Un seul rôle ouvre les 94 endpoints : c'est du RBAC **fail-closed**, pas du moindre privilège.
+  La granularité suppose que `IAdminEndpoint.role` se différencie.
+
 ## Deps
 
 - Kernel → Container, Service, Injector, FileClass, Nodefony, CliKernel, Module, @nodefony/http
+- adminPlane → types/IAdminApi, Error (zéro transport, zéro conteneur)
 - Module → Service, Kernel, Injector, Container, CliKernel
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
 - Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata

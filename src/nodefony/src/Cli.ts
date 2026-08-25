@@ -23,6 +23,10 @@ import semver from "semver";
 import Table, { TableConstructorOptions } from "cli-table3";
 import clc, { type ColorFn, type Clc } from "./colors";
 import Service, { DefaultOptionsService } from "./Service";
+import {
+  DEFAULT_ENGINE_ENVIRONMENT,
+  defaultEngineEnvironment,
+} from "./runtime/engineEnvironment";
 import { extend } from "./Tools";
 import Container from "./Container";
 import FileClass from "./FileClass";
@@ -108,7 +112,12 @@ const defaultOptions = {
   warning: false,
   pid: false,
   promiseRejection: true,
-  environment: "production",
+  // ⚠️ PAS de `environment` ici, volontairement. Un défaut posé dans les options
+  // s'interpose dans la cascade du constructeur et court-circuite la seule
+  // fonction qui sache distinguer « `NODE_ENV` absent » (poste de développement)
+  // de « `NODE_ENV` posé mais non-moteur » (un déploiement `staging`/`canary`,
+  // qui doit tourner comme la production). Vécu : avec un défaut ici, un
+  // `NODE_ENV=staging` partait en développement.
 };
 
 /**
@@ -144,10 +153,60 @@ const toEngineEnvironment = (raw?: string): EnvironmentType | null => {
   }
 };
 
+/**
+ * Délai au-delà duquel on sort sans attendre le vidage des sorties.
+ *
+ * Le cas qu'il couvre : le destinataire du tuyau a fermé (`| head -5`), aucun
+ * `drain` n'arrivera jamais, et attendre serait un blocage franc. Une seconde
+ * suffit très largement — vider 100 Ko vers un tuyau vivant prend des
+ * millisecondes.
+ */
+const EXIT_FLUSH_DEADLINE_MS = 1000;
+
+/**
+ * Sort du process APRÈS avoir vidé les sorties standard.
+ *
+ * 🔴 **`process.exit()` TRONQUE la sortie, et ne le dit pas.** Vers un fichier
+ * ou un terminal, `process.stdout.write` est synchrone : tout part. Vers un
+ * TUYAU, il est asynchrone — au-delà du tampon du système (64 Ko), le reste
+ * attend dans la file, et `process.exit()` part avec. Mesuré sur
+ * `nodefony inspect routes --json` : 97 825 octets vers un fichier, très
+ * exactement 65 536 vers un `| jq`, qui casse alors sur un JSON incomplet.
+ * L'usage était pourtant celui que la commande DOCUMENTE.
+ *
+ * Le défaut ne se voit pas sur une petite sortie : il apparaît le jour où
+ * l'application grossit, sur la machine de quelqu'un d'autre, et il se lit
+ * comme une donnée corrompue plutôt que comme une sortie coupée.
+ *
+ * @param code - code de sortie du process
+ */
+function exitWhenFlushed(code: number): void {
+  const streams = [process.stdout, process.stderr].filter(
+    (s) => typeof s.writableLength === "number" && s.writableLength > 0,
+  );
+  if (streams.length === 0) {
+    return process.exit(code);
+  }
+  let restants = streams.length;
+  const fini = (): void => {
+    restants -= 1;
+    if (restants === 0) {
+      process.exit(code);
+    }
+  };
+  for (const s of streams) {
+    s.once("drain", fini);
+  }
+  // Filet, jamais le chemin normal : `unref` pour ne pas retenir l'event-loop
+  // si les drains arrivent d'abord.
+  const filet = setTimeout(() => process.exit(code), EXIT_FLUSH_DEADLINE_MS);
+  filet.unref();
+}
+
 class Cli extends Service {
   public override options: CliDefaultOptions = extend({}, defaultOptions);
   public debug: DebugType = false;
-  public environment: EnvironmentType = "production";
+  public environment: EnvironmentType = DEFAULT_ENGINE_ENVIRONMENT;
   public commander: typeof program | null = null;
   protected commands: Record<string, Command> = {};
   public pid: number | null = null;
@@ -228,7 +287,11 @@ class Cli extends Service {
     this.environment =
       toEngineEnvironment(process.env.NODE_ENV) ??
       this.options.environment ??
-      "production";
+      // ⚠️ Pas `DEFAULT_ENGINE_ENVIRONMENT` nu : une valeur POSÉE mais
+      // non-moteur (`staging`, `canary`, `prod-eu`) nomme un déploiement, et
+      // un déploiement tourne comme la production. Seule l'ABSENCE désigne un
+      // poste de développement.
+      defaultEngineEnvironment(process.env.NODE_ENV);
     this.setProcessTitle();
     this.pid = this.options.pid ? this.setPid() : null;
     if (this.options.autoLogger) {
@@ -860,14 +923,14 @@ class Cli extends Service {
     if (code === 0) {
       process.exitCode = code;
     }
-    process.exit(code);
+    exitWhenFlushed(code);
   }
 
   static quit(code: number): void {
     if (code === 0) {
       process.exitCode = code;
     }
-    return process.exit(code);
+    return exitWhenFlushed(code);
   }
 
   startTimer(name: string) {

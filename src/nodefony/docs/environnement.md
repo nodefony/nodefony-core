@@ -54,7 +54,18 @@ Ce qu'elle montre, et qu'aucune lecture de fichier ne donne :
   fournie** ;
 - ce qui est **masqué** : une valeur écrite dans un fichier de rang inférieur, donc sans effet ;
 - les variables `NF_` **inconnues** — presque toujours une faute de frappe, avec la correction
-  probable.
+  probable ;
+- les variables **posées par le framework** lui-même, à part, avec ce que chacune signale.
+
+> **Pourquoi ces deux dernières listes sont séparées.** Le framework écrit des `NF_*` dans
+> l'environnement sans que vous les ayez demandées : le lanceur du CLI marque sa délégation au
+> `nodefony` du projet (`NF_CLI_DELEGATED`), les commandes de démarrage inscrivent le mode
+> (`NF_MODE_START`), le maître de grappe signale la grappe (`NF_CLUSTER`), la déclaration MCP
+> porte son jeton (`NF_MCP_TOKEN`). Rangées parmi les inconnues, elles vous accusaient d'une
+> faute de frappe que vous n'aviez pas commise — et proposaient de « corriger »
+> `NF_CLI_DELEGATED` en `NF_ADMIN_PASSWORD`. Elles ne sont pas tues pour autant : une variable
+> présente que le rapport passe sous silence vous ferait chercher pourquoi votre environnement
+> ne ressemble pas à ce qu'il montre.
 
 ## Le modèle : deux axes, une cascade, un seul lecteur
 
@@ -75,14 +86,51 @@ typé, validé au démarrage. Une variable non déclarée là n'existe pas, quoi
 
 Nodefony sépare ce que la plupart des frameworks confondent :
 
-| Axe             | Variable                   | Valeurs                             | Ce qu'il décide                                     |
-| --------------- | -------------------------- | ----------------------------------- | --------------------------------------------------- |
-| **Mode**        | `NODE_ENV`                 | `development` / `production`        | comment le code s'exécute (optimisations, journaux) |
-| **Déploiement** | `APP_ENV` / `NODEFONY_ENV` | chaîne libre : `staging`, `canary`… | **où** il s'exécute (quelle base, quels secrets)    |
+| Axe             | Variable             | Valeurs                             | Ce qu'il décide                                     |
+| --------------- | -------------------- | ----------------------------------- | --------------------------------------------------- |
+| **Mode**        | `NODE_ENV`           | `development` / `production`        | comment le code s'exécute (optimisations, journaux) |
+| **Déploiement** | `APP_ENV` / `NF_ENV` | chaîne libre : `staging`, `canary`… | **où** il s'exécute (quelle base, quels secrets)    |
 
 Un `staging` tourne en mode `production` : ce sont deux questions différentes, et les mélanger
 oblige à choisir entre « optimisé » et « pointe la bonne base ». Le déploiement est **plus
 spécifique** que le mode, donc plus fort dans la cascade.
+
+## Et si `NODE_ENV` n'est pas posé ?
+
+C'est le cas de tous les jours sur une machine de développement — et la réponse n'est pas
+« au hasard ». **Poser `NODE_ENV` est un acte de déploiement ; ne rien poser est l'état d'un
+poste de développement.**
+
+| `NODE_ENV`                                        | Mode retenu       | Pourquoi                                          |
+| ------------------------------------------------- | ----------------- | ------------------------------------------------- |
+| `development` / `dev`                             | **`development`** | déclaré                                           |
+| `production` / `prod`                             | **`production`**  | déclaré                                           |
+| **absent**                                        | **`development`** | personne n'a rien dit → poste de développement    |
+| posé mais autre (`staging`, `canary`, `prod-eu`…) | **`production`**  | un DÉPLOIEMENT est nommé — il tourne comme prod   |
+| chaîne vide                                       | **`production`**  | choix conservateur : « vidée » ≠ « jamais posée » |
+
+Une chaîne vide compte comme posée : on ne distingue pas « vidée par erreur » de « vidée
+exprès », et se tromper vers la production ne coûte qu'une commande utilitaire, là où l'inverse
+exposerait la console d'administration d'un serveur.
+
+**Le défaut ne gouverne jamais un serveur.** `nodefony development`, `nodefony production`
+(alias `start`, `prod`) et `nodefony cluster` posent leur mode eux-mêmes, et il n'existe pas
+d'autre façon d'en démarrer un. Le défaut ne concerne donc que les commandes utilitaires —
+`inspect`, `check`, `env`, `security:*`.
+
+> ⚠️ **Le piège à connaître : une commande utilitaire ne tourne PAS dans le mode du serveur que
+> vous avez lancé.** Chacune démarre son propre noyau. Si votre serveur tourne par
+> `nodefony development` mais que `NODE_ENV` n'est pas dans votre shell, une commande lancée à
+> côté partira bien en `development` — mais le jour où vous exportez `NODE_ENV=production` pour
+> un essai, elle changera de base de données sans rien dire d'autre. **Demandez le mode plutôt
+> que de le supposer :**
+>
+> ```bash
+> npx nodefony env                 # le mode, et d'où vient chaque variable
+> npx nodefony inspect routes      # la dernière ligne indique l'environnement
+> ```
+>
+> Pour forcer explicitement, préfixez la commande : `NODE_ENV=production npx nodefony …`.
 
 ## La cascade — qui gagne
 
@@ -175,7 +223,7 @@ code. Ce que l'application possède en propre se déclare dans `env.ts`.
 
 ## 🧪 Tests
 
-Le calcul du rapport est un module **pur** ([`envReport.ts:147`](../src/cli/envReport.ts)) : il
+Le calcul du rapport est un module **pur** ([`envReport.ts:177`](../src/cli/envReport.ts)) : il
 reçoit la cascade déjà lue et l'environnement effectif, et conclut. Cette séparation est ce qui
 rend éprouvables les trois affirmations sur lesquelles on va se fier pour corriger une
 configuration — d'où vient une valeur, ce qui est masqué, ce qui n'a aucun effet. Se tromper sur

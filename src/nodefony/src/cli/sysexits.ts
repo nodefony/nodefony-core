@@ -23,6 +23,8 @@ export enum SysExit {
   CANTCREAT = 73,
   /** Erreur interne du logiciel (bug, exception non gérée au boot). */
   SOFTWARE = 70,
+  /** Permission refusée : l'appelant est connu, son rôle ne suffit pas. */
+  NOPERM = 77,
   /** Erreur de configuration. */
   CONFIG = 78,
 }

@@ -22,6 +22,11 @@
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion de TON application — requis dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant de connexion ; si absent, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
+ * `@env` NF_BROWSER_ACTIONS séquence d'interactions AVANT mesure, séparées par `|` —
+ *                        `verbe:cible[=valeur]` : clic (défaut), double, droit, survol,
+ *                        saisir, touche, voir, defiler, attendre. Un écran qui se déplie
+ *                        au clic n'existe pas tant qu'on ne l'a pas ouvert.
+ * `@env` NF_BROWSER_FULLPAGE 1 = capture la page ENTIÈRE (défaut : la fenêtre)
  * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`)
  * `@env` NF_BROWSER_WIDTHS largeurs de la famille responsive (défaut 360,768,1280)
  * `@env` NF_BROWSER_SEUIL_LOURD octets au-delà desquels une ressource est « lourde » (défaut 512000)
@@ -46,6 +51,60 @@ import {
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
 const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
+/**
+ * Ce qu'il faut FAIRE avant de mesurer — une séquence, pas un geste.
+ *
+ * Certaines pages ne sont pas un état mais un PARCOURS : le formulaire de
+ * création d'application n'affiche ses questions qu'après le choix d'un type,
+ * un menu ne s'ouvre qu'au survol, un panneau qu'au second clic. Sans ce
+ * levier, on photographie l'écran d'accueil et l'on conclut « le champ n'y est
+ * pas » — alors qu'on ne l'a jamais ouvert.
+ *
+ * Grammaire : `verbe:cible[=valeur]`, séparés par `|`. Le verbe est facultatif
+ * (`clic` par défaut), et la cible est cherchée d'abord comme TEXTE visible —
+ * ce que voit l'utilisateur — puis comme sélecteur CSS.
+ *
+ * | verbe      | ce qu'il fait                                             |
+ * | ---------- | --------------------------------------------------------- |
+ * | `clic`     | clic gauche (le défaut)                                   |
+ * | `double`   | double-clic                                               |
+ * | `droit`    | clic droit — ouvre un menu contextuel applicatif          |
+ * | `survol`   | survol : révèle une infobulle, un menu déroulant          |
+ * | `saisir`   | remplit un champ (`saisir:Nom=mon-app`)                   |
+ * | `touche`   | frappe une touche (`touche:Enter`, `touche:Escape`)       |
+ * | `voir`     | amène dans la vue SANS cliquer                            |
+ * | `defiler`  | fait défiler de N pixels (`defiler:600`), page ou conteneur |
+ * | `attendre` | attend qu'un texte APPARAISSE (après une action lente)    |
+ *
+ * 🔴 `voir` existe parce qu'un clic n'est pas neutre : sur un formulaire, le
+ * texte d'une question est un `label` — cliquer dessus COCHE la case qu'il
+ * décrit, et l'on observerait un écran que l'observation a modifié.
+ *
+ * ⚠️ Et `defiler` n'est pas `NF_BROWSER_FULLPAGE` : une application dont le
+ * contenu défile dans un conteneur interne (toute console à barre latérale
+ * fixe) ne GRANDIT pas — la capture « page entière » y rend exactement la
+ * fenêtre, et l'on conclut que ce qui est plus bas n'existe pas. Vécu.
+ */
+const ACTIONS = (process.env.NF_BROWSER_ACTIONS ?? "")
+  .split("|")
+  .map((a) => a.trim())
+  .filter(Boolean)
+  .map((entree) => {
+    const m =
+      /^(clic|double|droit|survol|saisir|touche|voir|defiler|attendre):(.*)$/su.exec(
+        entree,
+      );
+    const verbe = m ? m[1] : "clic";
+    const reste = m ? m[2] : entree;
+    const eq = reste.indexOf("=");
+    return eq === -1
+      ? { verbe, cible: reste.trim(), valeur: "" }
+      : {
+          verbe,
+          cible: reste.slice(0, eq).trim(),
+          valeur: reste.slice(eq + 1),
+        };
+  });
 
 const { retenues, inconnues } = parseFamilies(process.env.NF_BROWSER_FAMILIES);
 if (inconnues.length > 0) {
@@ -204,6 +263,64 @@ if (EXPECT) {
         (LOGIN && new URL(page.url()).pathname.endsWith(LOGIN)
           ? "→ on est resté sur le formulaire de connexion : identifiants refusés, ou la page demandée est protégée et NF_BROWSER_USER n'a pas été fourni."
           : "→ la page est bien ouverte : le texte attendu est absent, ou il n'est pas encore rendu."),
+    );
+    await browser.close();
+    process.exit(65); // EX_DATAERR
+  }
+}
+
+// Jouer la séquence — après le texte discriminant (la page est montée), avant
+// toute mesure. Une action qui ne trouve pas sa cible ARRÊTE la sonde : la
+// mesure qui suivrait porterait sur un écran qu'on n'a pas ouvert, et rien ne
+// le dirait.
+for (const { verbe, cible, valeur } of ACTIONS) {
+  if (verbe === "defiler") {
+    const pixels = Number.parseInt(cible, 10);
+    if (!Number.isFinite(pixels)) {
+      console.error(`defiler attend un nombre de pixels, reçu « ${cible} »`);
+      await browser.close();
+      process.exit(64); // EX_USAGE
+    }
+    // Le conteneur qui défile RÉELLEMENT, pas la fenêtre : sur une console à
+    // barre latérale fixe, `window.scrollBy` ne bouge rien du tout.
+    await page.evaluate((dy) => {
+      const defilant = [...document.querySelectorAll("*")].find(
+        (el) => el.scrollHeight > el.clientHeight + 40 && el.clientHeight > 200,
+      );
+      (defilant ?? window).scrollBy(0, dy);
+    }, pixels);
+    continue;
+  }
+  // Le premier candidat VISIBLE, pas le premier du DOM : un libellé apparaît
+  // souvent d'abord dans un menu replié ou un gabarit caché, et agir là ne fait
+  // rien tout en passant pour un succès.
+  const candidats = page.getByText(cible, { exact: false });
+  let locator = null;
+  const total = await candidats.count();
+  for (let i = 0; i < total; i += 1) {
+    const c = candidats.nth(i);
+    if (await c.isVisible().catch(() => false)) {
+      locator = c;
+      break;
+    }
+  }
+  locator ??= page.locator(cible).first();
+  try {
+    await locator.waitFor({ timeout: 15000 });
+    if (verbe === "clic") await locator.click();
+    else if (verbe === "double") await locator.dblclick();
+    else if (verbe === "droit") await locator.click({ button: "right" });
+    else if (verbe === "survol") await locator.hover();
+    else if (verbe === "saisir") await locator.fill(valeur);
+    else if (verbe === "touche") await locator.press(valeur || "Enter");
+    else if (verbe === "voir") await locator.scrollIntoViewIfNeeded();
+    // `attendre` : le `waitFor` ci-dessus EST l'action.
+  } catch {
+    console.error(
+      `Action « ${verbe}:${cible} » impossible\n` +
+        `Page réellement ouverte : ${page.url()}\n` +
+        "→ le libellé a changé, l'élément n'est pas encore rendu, ou il faut " +
+        "agir sur autre chose avant lui (NF_BROWSER_ACTIONS accepte une séquence, séparée par « | »).",
     );
     await browser.close();
     process.exit(65); // EX_DATAERR
@@ -697,7 +814,13 @@ if (actives.has("stockage")) {
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────
 const slug = PAGE.replace(/\//g, "-").replace(/^-/, "") || "racine";
 const shot = path.join(SORTIE, `${slug}-${stamp}.png`);
-await page.screenshot({ path: shot });
+// `NF_BROWSER_FULLPAGE=1` : la page ENTIÈRE, pas la fenêtre. Un formulaire long
+// (ou une page qu'on vient de déplier) a l'essentiel SOUS la ligne de flottaison
+// — la capture par défaut laisse alors conclure « ce n'est pas là ».
+await page.screenshot({
+  path: shot,
+  fullPage: process.env.NF_BROWSER_FULLPAGE === "1",
+});
 
 if (actives.has("responsive")) {
   const { largeurs, invalides } = parseWidths(

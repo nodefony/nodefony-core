@@ -48,7 +48,7 @@ flowchart TD
   S --> CTRL["→ autorisation → contrôleur"]
 ```
 
-C'est `Firewall.#authenticate()` (`firewall.ts:1013`) qui déroule ce cycle pour chaque maillon de la
+C'est `Firewall.#authenticate()` (`firewall.ts:1112`) qui déroule ce cycle pour chaque maillon de la
 zone, dans l'ordre déclaré. Le succès pose l'identité dans l'ALS ; l'échec remonte au firewall qui
 pose le 401 et son challenge — l'authenticator, lui, ne touche jamais à la réponse.
 
@@ -115,7 +115,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
 - Un nom inconnu en config = boot **fail-closed** — `#configError` posé + log CRITIC
-  (`firewall.ts:369-377`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
+  (`firewall.ts:419`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
   faute de frappe.
 
 ## 🚀 Démarrage rapide
@@ -197,12 +197,12 @@ curl -s -H 'Authorization: Bearer nf_…' \
 
 Requête par requête, qui répond :
 
-| Le client envoie…                    | Maillon (`supports()`) | Résultat                                                 |
-| ------------------------------------ | ---------------------- | -------------------------------------------------------- |
-| le cookie de session                 | `session`              | identifié — rôles frais re-résolus en base               |
-| `Authorization: Bearer eyJ…` (a.b.c) | `jwt`                  | identifié — signature EdDSA + claims vérifiés            |
-| `Authorization: Bearer nf_…`         | `apikey`               | identifié — clé vérifiée au store, révocable             |
-| rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:981`) |
+| Le client envoie…                    | Maillon (`supports()`) | Résultat                                                  |
+| ------------------------------------ | ---------------------- | --------------------------------------------------------- |
+| le cookie de session                 | `session`              | identifié — rôles frais re-résolus en base                |
+| `Authorization: Bearer eyJ…` (a.b.c) | `jwt`                  | identifié — signature EdDSA + claims vérifiés             |
+| `Authorization: Bearer nf_…`         | `apikey`               | identifié — clé vérifiée au store, révocable              |
+| rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:1200`) |
 
 ## 🔐 Les six authenticators intégrés
 
@@ -226,7 +226,7 @@ Le seul authenticator autorisé à produire un token **non authentifié** sans d
   si preuve présente, sinon visiteur anonyme accepté ». En mode `all`, utile en **dernier** :
   « canal prouvé (ex. mTLS), identité utilisateur optionnelle ».
 - Sans lui, zone protégée + aucune preuve = 401 : la défense en profondeur du firewall n'accepte un
-  token non authentifié que si `anonymous` est le maillon déclaré (`firewall.ts:634-636`).
+  token non authentifié que si `anonymous` est le maillon déclaré (`firewall.ts:827`).
 - **Faille fermée** : l'anonymat _implicite_ — ici il est un choix explicite et auditable, jamais un
   défaut.
 
@@ -244,7 +244,7 @@ le mot de passe peut en contenir (`UserPasswordAuthenticator.ts:74`).
   (`UserPasswordAuthenticator.ts:101-103`) — un identifiant bloqué ne coûte **aucun hash** → le
   throttle protège aussi le serveur du **DoS argon2**. Échec compté, succès remis à zéro
   (`UserPasswordAuthenticator.ts:111-114`). `ThrottledError` → **429 + `Retry-After`**
-  (`firewall.ts:584-587`).
+  (`firewall.ts:764`).
 - **Le throttler est PARTAGÉ** avec le login JSON du BFF — même `loginThrottler` du container : un
   attaquant ne contourne pas le backoff en changeant de porte (`authenticatorRegistry.ts:75-79`).
 - Challenge : `Basic realm="nodefony", charset="UTF-8"` (`UserPasswordAuthenticator.ts:130`).
@@ -276,7 +276,7 @@ prouvées en test :
 
 | Défense                                | Comment                                                                                          | Attaque fermée                                                     |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:104`)        | `alg=none`, algorithm confusion (§3.1)                             |
+| **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:120`)        | `alg=none`, algorithm confusion (§3.1)                             |
 | **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:158`)                | injection de clé / SSRF (§3.5)                                     |
 | **`aud` + `iss` + `typ` obligatoires** | `typ: "at+jwt"` (§3.11) sépare access et refresh (`JwtAuthenticator.ts:105-107`)                 | refresh présenté comme access, token d'un autre service (§3.8-3.9) |
 | **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:123-131`)       | jeton auto-porté volé, logout global                               |
@@ -343,7 +343,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
 ## ⚙️ Composer une zone — ordre, mode, cohabitation
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:1013`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
+(`firewall.ts:1112`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
 
 ### Situation 1 — humains ET machines sur la même API (`first`)
 
@@ -352,12 +352,12 @@ Deux preuves différentes, mêmes routes — c'est la config du Démarrage rapid
 de lecture :
 
 - un maillon dont `supports()` est faux est simplement **sauté** en mode `first`
-  (`firewall.ts:935`) ;
+  (`firewall.ts:1128`) ;
 - un credential **présenté mais invalide échoue immédiatement** — l'échec d'`authenticate()`
-  remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:947-952`). Une clé
+  remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:1112`). Une clé
   API révoquée donne un 401 direct, même si un autre maillon aurait pu réussir.
 - aucune preuve présentée sur toute la chaîne → `handleSecurity()` lève l'`AuthenticationError`
-  Zero Trust (`firewall.ts:613-626`).
+  Zero Trust (`firewall.ts:738`).
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
 
@@ -396,7 +396,7 @@ paresse : c'est une **défense anti-énumération / anti-oracle**.
 Distinguer « compte inconnu » de « mot de passe faux », ou « token expiré » de « signature
 invalide », donnerait à un attaquant une sonde. La cause fine part **toujours** en log d'audit ; le
 client n'obtient qu'un 401 + son challenge — posé par le firewall, premier maillon de la zone qui
-en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1076`).
+en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1191`).
 
 ## 🧩 Ajouter un authenticator maison
 
@@ -422,12 +422,12 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1076`) |
-| Bearer | RFC 6750 | `BEARER_SCHEME` (`JwtAuthenticator.ts:14` · `ApiKeyAuthenticator.ts:12`) |
+| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1191`) |
+| Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
 | Backoff de login | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`) |
-| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:584-587`) |
+| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:764`) |
 | Anti-énumération | OWASP | `INVALID_TOKEN` (`JwtAuthenticator.ts:24`) · `INVALID_CREDENTIALS` (`UserPasswordAuthenticator.ts:16`) |
 
 ## ⚡ Performance & mémoire
@@ -450,12 +450,12 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
-| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:613-626`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
+| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:827`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
 | 401 générique + log ERROR « service `users` » | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`) | Enregistrer un `UserService` au boot de l'app |
 | JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
 | Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |
 | Révocation WS pas immédiate | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
-| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:346-349`) | Configurer `rateLimit` pour poser le throttler |
+| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:617`) | Configurer `rateLimit` pour poser le throttler |
 
 ## 🧪 Tests & couverture
 

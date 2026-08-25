@@ -11,7 +11,7 @@ import { redisTestUrl } from "../helpers/redisTestUrl";
  * **Double backend, un seul fichier** :
  * - par défaut → `FakePaginatingRedis` (déterministe, SCAN qui pagine réellement par
  *   COUNT) → le banc tourne TOUJOURS (non-régression) ;
- * - avec `REDIS_TEST_URL` (ex. `redis://:pass@127.0.0.1:6379/15`) → **vrai serveur
+ * - avec `NF_REDIS_TEST_URL` (ex. `redis://:pass@127.0.0.1:6379/15`) → **vrai serveur
  *   Redis** : la preuve que le `SCAN` réel (curseur RESP = string opaque) est câblé
  *   correctement de bout en bout. La DB dédiée est purgée par `flushDb`.
  */

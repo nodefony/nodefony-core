@@ -19,6 +19,7 @@
  * exactement ce que ce gate existe pour empêcher. Toucher l'une = toucher l'autre.
  */
 import { readFileSync } from "node:fs";
+import { slugifyHeading } from "../lib/slug-heading.mjs";
 
 /**
  * Convention GitHub : accents CONSERVÉS, ponctuation/symboles/emoji retirés.
@@ -28,12 +29,7 @@ import { readFileSync } from "node:fs";
  * suivante en tant que marques (\p{M}). Les garder rendait l'ancre intapable — un
  * rédacteur ne peut pas écrire un caractère qu'il ne voit pas.
  */
-const slugify = (text) =>
-  text
-    .toLowerCase()
-    .replace(/[︀-️]/g, "")
-    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
-    .replace(/\s/g, "-");
+const slugify = slugifyHeading;
 
 const files = process.argv.slice(2);
 if (files.length === 0) {

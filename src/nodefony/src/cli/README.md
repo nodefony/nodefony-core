@@ -80,7 +80,9 @@ class MyCommand extends Command {
   constructor(cli: Cli) {
     super("my-cmd", "My command", cli, { showBanner: false });
     this.addArgument("<input>", "Input value");
-    this.done = new Promise((r) => { this._resolve = r; });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(input: string): Promise<this> {
@@ -106,7 +108,7 @@ En mode kernel, la commande n'est pas exécutée directement — elle attend un 
 class StartCommand extends Command {
   constructor(cli: CliKernel) {
     super("start", "Start the framework", cli, {
-      kernelEvent: "onReady",   // déclenchement sur kernel ready
+      kernelEvent: "onReady", // déclenchement sur kernel ready
     });
   }
 
@@ -123,12 +125,12 @@ class StartCommand extends Command {
 
 ### Événements disponibles
 
-| `kernelEvent`      | Déclenché quand                          |
-|--------------------|------------------------------------------|
-| `"onRegister"`     | Modules enregistrés (défaut)             |
-| `"onBoot"`         | Kernel booté                             |
-| `"onReady"`        | Kernel prêt (serveurs démarrés)          |
-| `"onStart"`        | Kernel démarré                           |
+| `kernelEvent`  | Déclenché quand                 |
+| -------------- | ------------------------------- |
+| `"onRegister"` | Modules enregistrés (défaut)    |
+| `"onBoot"`     | Kernel booté                    |
+| `"onReady"`    | Kernel prêt (serveurs démarrés) |
+| `"onStart"`    | Kernel démarré                  |
 
 ---
 
@@ -147,18 +149,18 @@ new Cli(name: string, container: Container | null, event: Event | false, options
 
 #### Options clés (`CliDefaultOptions`)
 
-| Option              | Type              | Défaut         | Description                          |
-|---------------------|-------------------|----------------|--------------------------------------|
-| `version`           | `string`          | `"1.0.0"`      | Version affichée par `-v`            |
-| `autostart`         | `boolean`         | `true`         | Lance `onStart` automatiquement      |
-| `asciify`           | `boolean`         | `true`         | Affiche le nom en ASCII art          |
-| `clear`             | `boolean`         | `true`         | Efface le terminal au démarrage      |
-| `signals`           | `boolean`         | `true`         | Gère SIGINT/SIGTERM/etc.             |
-| `autoLogger`        | `boolean`         | `true`         | Initialise le syslog                 |
-| `promiseRejection`  | `boolean`         | `true`         | Capture les rejets non gérés         |
-| `commander`         | `boolean`         | `true`         | Active Commander.js                  |
-| `pid`               | `boolean`         | `false`        | Stocke le PID du processus           |
-| `environment`       | `EnvironmentType` | `"production"` | Environnement courant                |
+| Option             | Type              | Défaut         | Description                     |
+| ------------------ | ----------------- | -------------- | ------------------------------- |
+| `version`          | `string`          | `"1.0.0"`      | Version affichée par `-v`       |
+| `autostart`        | `boolean`         | `true`         | Lance `onStart` automatiquement |
+| `asciify`          | `boolean`         | `true`         | Affiche le nom en ASCII art     |
+| `clear`            | `boolean`         | `true`         | Efface le terminal au démarrage |
+| `signals`          | `boolean`         | `true`         | Gère SIGINT/SIGTERM/etc.        |
+| `autoLogger`       | `boolean`         | `true`         | Initialise le syslog            |
+| `promiseRejection` | `boolean`         | `true`         | Capture les rejets non gérés    |
+| `commander`        | `boolean`         | `true`         | Active Commander.js             |
+| `pid`              | `boolean`         | `false`        | Stocke le PID du processus      |
+| `environment`      | `EnvironmentType` | `"production"` | Environnement courant           |
 
 #### Méthodes Commander
 
@@ -231,12 +233,12 @@ new Command(name: string, description: string, cli: Cli | CliKernel, options?: O
 
 #### Options (`OptionsCommandInterface`)
 
-| Option        | Type                  | Défaut          | Description                      |
-|---------------|-----------------------|-----------------|----------------------------------|
-| `showBanner`  | `boolean`             | `true`          | Affiche ASCII art au démarrage   |
-| `progress`    | `boolean`             | `false`         | Active la barre de progression   |
-| `sizeProgress`| `number`              | `100`           | Taille de la progress bar        |
-| `kernelEvent` | `keyof typeof Events` | `"onRegister"`  | Événement kernel déclencheur     |
+| Option         | Type                  | Défaut         | Description                    |
+| -------------- | --------------------- | -------------- | ------------------------------ |
+| `showBanner`   | `boolean`             | `true`         | Affiche ASCII art au démarrage |
+| `progress`     | `boolean`             | `false`        | Active la barre de progression |
+| `sizeProgress` | `number`              | `100`          | Taille de la progress bar      |
+| `kernelEvent`  | `keyof typeof Events` | `"onRegister"` | Événement kernel déclencheur   |
 
 #### Méthodes à override
 
@@ -294,8 +296,11 @@ cli.parse(process.argv);
 
 ```typescript
 const table = cli.displayTable(
-  [["Name", "Version"], ["nodefony", "6.0.0"]],
-  { head: ["Package", "Version"] }
+  [
+    ["Name", "Version"],
+    ["nodefony", "6.0.0"],
+  ],
+  { head: ["Package", "Version"] },
 );
 // Affichée automatiquement via console.log
 ```
@@ -323,14 +328,14 @@ cli.stopTimer("build"); // affiche le temps écoulé
 
 ## Troubleshooting
 
-| Problème | Cause | Fix |
-|----------|-------|-----|
-| `throw "Commander not found"` | `commander: false` ou `cli.commander = null` | Créer le Cli sans `commander: false` |
-| `throw "Commender not found"` (typo) | setCommandVersion/setCommandOption sans commander | Idem |
-| `throw "already exist"` | `startTimer(name)` doublon | Appeler `stopTimer(name)` d'abord |
-| `throw "not exist"` | `stopTimer(name)` sur timer inconnu | Vérifier le nom avec `this.timers` |
-| `throw "existsSync no path found"` | `existsSync(null\|"")` | Valider le path avant l'appel |
-| `showBanner()` retourne `null` | `options.version` undefined | Passer `version` dans les options |
-| generate() jamais appelé | Commander ne trouve pas la commande | Vérifier le nom exact (case-sensitive) |
-| `process.exit()` appelé dans les tests | `commander.exitOverride()` non appelé | Toujours appeler `exitOverride()` en test |
-| generate reçoit plus d'args qu'attendu | Commander passe `Cmd` en dernier | `args[last]` est toujours l'instance Cmd |
+| Problème                               | Cause                                             | Fix                                       |
+| -------------------------------------- | ------------------------------------------------- | ----------------------------------------- |
+| `throw "Commander not found"`          | `commander: false` ou `cli.commander = null`      | Créer le Cli sans `commander: false`      |
+| `throw "Commender not found"` (typo)   | setCommandVersion/setCommandOption sans commander | Idem                                      |
+| `throw "already exist"`                | `startTimer(name)` doublon                        | Appeler `stopTimer(name)` d'abord         |
+| `throw "not exist"`                    | `stopTimer(name)` sur timer inconnu               | Vérifier le nom avec `this.timers`        |
+| `throw "existsSync no path found"`     | `existsSync(null\|"")`                            | Valider le path avant l'appel             |
+| `showBanner()` retourne `null`         | `options.version` undefined                       | Passer `version` dans les options         |
+| generate() jamais appelé               | Commander ne trouve pas la commande               | Vérifier le nom exact (case-sensitive)    |
+| `process.exit()` appelé dans les tests | `commander.exitOverride()` non appelé             | Toujours appeler `exitOverride()` en test |
+| generate reçoit plus d'args qu'attendu | Commander passe `Cmd` en dernier                  | `args[last]` est toujours l'instance Cmd  |

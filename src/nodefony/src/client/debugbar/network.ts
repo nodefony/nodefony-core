@@ -143,7 +143,8 @@ export function installNetworkInterceptor(
             },
             (err: unknown) => {
               try {
-                entry.error = err instanceof Error ? err.message : "network error";
+                entry.error =
+                  err instanceof Error ? err.message : "network error";
                 entry.durationMs = round(performance.now() - entry.startedAt);
                 entry.pending = false;
                 safeEmit(opts, entry);
@@ -202,8 +203,7 @@ export function installNetworkInterceptor(
           try {
             entry.status = this.status || null;
             entry.ok = this.status >= 200 && this.status < 400;
-            entry.requestId =
-              this.getResponseHeader(REQUEST_ID_HEADER) || null;
+            entry.requestId = this.getResponseHeader(REQUEST_ID_HEADER) || null;
             entry.traceparent =
               this.getResponseHeader(TRACEPARENT_HEADER) || null;
             entry.durationMs = round(performance.now() - entry.startedAt);

@@ -16,7 +16,7 @@ import {
  * **Double backend, un seul fichier** :
  * - par défaut → `FakePaginatingRedis` (déterministe, `SCAN` qui pagine réellement
  *   par `COUNT`) → le banc tourne TOUJOURS, même sans infra ;
- * - avec `REDIS_TEST_URL` (ex. `redis://127.0.0.1:6379/15`) → **vrai serveur
+ * - avec `NF_REDIS_TEST_URL` (ex. `redis://127.0.0.1:6379/15`) → **vrai serveur
  *   Redis** : la preuve que le `SCAN` réel est câblé de bout en bout. La DB dédiée
  *   est purgée par `flushDb`.
  *

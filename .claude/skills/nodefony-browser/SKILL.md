@@ -66,10 +66,18 @@ se comparent pas. `NF_BROWSER_ENGINE` en impose un, sans repli.
 > fonctionnel est tombé. Une collision de variable ne lève aucune erreur — elle change le sens.
 
 ```bash
-# En conteneur — pour une mesure COMPARABLE (image épinglée par empreinte) ou de l'ISOLATION
+# En conteneur — DERNIER RECOURS : mesure comparable (image épinglée) ou isolation exigée
 docker compose -f docker/docker-compose.yml --profile browser up -d
 docker ps --filter name=nodefony-browser --format '{{.Status}}'
 ```
+
+> 🔴 **Le conteneur n'est pas la voie normale.** Playwright pilote un navigateur DÉJÀ présent sur le
+> poste (`chromium`, sinon `chrome`, sinon `msedge`) : il n'y a le plus souvent rien à installer, et
+> rien à démarrer. N'aller au conteneur que pour les trois raisons du tableau ci-dessous — et jamais
+> par réflexe : la copie des sondes à chaque modification, `host.docker.internal`, les ports publiés
+> et un certificat auto-signé que d'autres navigateurs pilotés refusent en font le chemin le plus
+> long. Un navigateur MCP tiers n'est pas non plus la voie : il ne sait pas ignorer le certificat de
+> développement.
 
 Le conteneur `nodefony-browser` embarque Chromium et Playwright, est plafonné (2 CPU / 2 Go),
 disparaît au `down`, et monte `tmp/browser/` du dépôt sur son `/output`.
@@ -104,21 +112,33 @@ Les scripts sont copiés dans le conteneur puis exécutés. Ils rendent un objet
 standard, et `inspect.mjs` écrit une capture horodatée dans `tmp/browser/`.
 
 ```bash
-docker cp src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/. nodefony-browser:/app/see-screen
+S=src/packages/@nodefony/devkit/skills/nodefony-browser/scripts
 
 # une page publique
-docker exec nodefony-browser node /app/see-screen/inspect.mjs /nodefony/login "Connexion"
+node $S/inspect.mjs /nodefony/login "Connexion"
 
 # une page derrière authentification, avec des sondes de style
-docker exec \
-  -e NF_BROWSER_LOGIN=/nodefony/login \
-  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
-  -e "NF_BROWSER_PROBES=menu actif=[class*='NavLink-root'][data-active]" \
-  nodefony-browser node /app/see-screen/inspect.mjs /nodefony/supervision "Santé du framework"
+NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret \
+  NF_BROWSER_PROBES="menu actif=[class*='NavLink-root'][data-active]" \
+  node $S/inspect.mjs /nodefony/supervision "Santé du framework"
+```
+
+> **Les identifiants du dépôt** : `admin` / `secret` (`NF_ADMIN_PASSWORD`, défaut de développement
+> dans `env.ts`). Ce n'est PAS `admin/admin`, qui est le défaut des applications **générées** —
+> confondre les deux rend un `401` qu'on impute au parcours de connexion de la sonde.
+
+<details><summary>La même chose en conteneur (dernier recours — voir le tableau ci-dessus)</summary>
+
+```bash
+docker cp src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/. nodefony-browser:/app/see-screen
+docker exec nodefony-browser node /app/see-screen/inspect.mjs /nodefony/login "Connexion"
 ```
 
 Le **`/.`** de la copie n'est pas décoratif : sans lui, une seconde copie imbrique un dossier de plus
-au lieu de remplacer, et l'on relance une version périmée des sondes sans aucun message.
+au lieu de remplacer, et l'on relance une version périmée des sondes sans aucun message. Toute
+variable se repasse en `-e`, et l'application se joint par `host.docker.internal` (§4).
+
+</details>
 
 Ce qu'il rend, et qu'une capture d'écran ne dit pas :
 
@@ -157,9 +177,37 @@ bâti quand on soupçonne d'observer une génération précédente (cf §5).
 
 Options par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, `NF_BROWSER_EXPECT`,
 `NF_BROWSER_LOGIN`, `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_PROBES`
-(`libellé=sélecteur`, séparés par des virgules). Le détail vit dans l'en-tête du script.
-**`NF_BROWSER_LOGIN` n'a pas de défaut** — la sonde ne devine aucun écran de connexion, elle
-s'arrête (code 64) si on lui donne un identifiant sans chemin. Pour Studio : `/nodefony/login`.
+(`libellé=sélecteur`, séparés par des virgules), `NF_BROWSER_ACTIONS`, `NF_BROWSER_FULLPAGE`.
+Le détail vit dans l'en-tête du script.
+
+### Un écran qui n'existe qu'après un GESTE — `NF_BROWSER_ACTIONS`
+
+Certaines pages ne sont pas un état mais un **parcours** : le formulaire de `/nodefony/create`
+n'affiche ses questions qu'après le choix d'un type, un menu ne s'ouvre qu'au survol, un panneau
+qu'au second clic. Photographier sans agir fait conclure « le champ n'y est pas » alors qu'on ne
+l'a jamais ouvert.
+
+```bash
+NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret \
+  NF_BROWSER_ACTIONS="app|voir:agent(s) de développement" \
+  node $S/inspect.mjs /nodefony/create "Que voulez-vous créer"
+```
+
+Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif (`clic` par défaut),
+cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
+· `droit` (clic droit) · `survol` · `saisir:Nom=mon-app` · `touche:Enter` · `voir` · `defiler:600`
+· `attendre`.
+
+- 🔴 **`voir` plutôt qu'un clic pour amener dans la vue** : sur un formulaire, le texte d'une
+  question est un `label` — cliquer dessus COCHE la case qu'il décrit, et l'on observe un écran que
+  l'observation a modifié.
+- ⚠️ **`defiler` n'est pas `NF_BROWSER_FULLPAGE=1`** : une application dont le contenu défile dans
+  un conteneur interne (toute console à barre latérale fixe) ne GRANDIT pas — la capture « page
+  entière » y rend exactement la fenêtre. Mesuré sur Studio.
+- Une action dont la cible est introuvable **arrête la sonde** (code 65) en nommant la cible : une
+  mesure faite sur un écran qu'on n'a pas ouvert est pire qu'aucune mesure.
+  **`NF_BROWSER_LOGIN` n'a pas de défaut** — la sonde ne devine aucun écran de connexion, elle
+  s'arrête (code 64) si on lui donne un identifiant sans chemin. Pour Studio : `/nodefony/login`.
 
 ### Les familles de sondes — `NF_BROWSER_FAMILIES`
 

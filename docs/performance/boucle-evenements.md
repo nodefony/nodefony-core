@@ -6,8 +6,8 @@ topic: perf-boucle-evenements
 section: "Performance"
 audience: [developer]
 tags: [performance, event-loop, sqlite, postgresql, blocage, latence]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: ".claude/skills/nodefony-load-test/scripts/db-backend-cost.mjs"
 tests: none
 ---

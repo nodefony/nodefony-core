@@ -20,9 +20,9 @@
 
 ## Config
 
-| Clé        | Type      | Défaut                        |
-| ---------- | --------- | ----------------------------- |
-| `enabled`  | `boolean` | `true`                        |
+| Clé        | Type      | Défaut                           |
+| ---------- | --------- | -------------------------------- |
+| `enabled`  | `boolean` | `true`                           |
 | `greeting` | `string`  | `"Bonjour de <%= it.name %>"` |
 
 Chargement : `use("<%= it.pkgName %>", { … })` dans le `nodefony.config.ts` de

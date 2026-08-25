@@ -81,6 +81,9 @@ un défaut qui empêchait le Kernel de charger le moindre module.
 | 8   | Les **permissions POSIX n'existent pas** (`chmod 600`)                            | Ne jamais asseoir une garantie de sécurité dessus sans repli explicite.                                              |
 | 9   | Un script npm ne porte pas de `VAR=1 cmd`                                         | `cross-env` — `cmd.exe` refuse la syntaxe POSIX.                                                                     |
 | 10  | Une **assertion sur un chemin** se compose, ne se littéralise pas                 | `path.join(...)` dans le test. Accepter « l'un ou l'autre séparateur » n'est JAMAIS la réponse.                      |
+| 11  | Une étape de CI écrite en bash **DÉCLARE** son shell                              | Sans `shell:`, GitHub prend celui de la PLATEFORME — PowerShell sous Windows, où `\` n'est pas une continuation.     |
+| 12  | La règle de portabilité vit dans le **PRODUIT**, pas dans son banc                | C'est l'utilisateur qui la subit. Écrite dans l'outil de mesure seul, elle rend le banc portable et le produit non.  |
+| 13  | Un **ordre** ne se prouve jamais avec DEUX horloges                               | Deux process = deux `Date.now()`. Rendre le fait observable sur UNE horloge ; ne jamais relâcher le seuil.           |
 
 **Éprouver sans machine Windows** (3 leviers, tous vérifiés) : rendre la fonction PURE et injecter
 la grammaire (`path.win32`) · injecter le VERDICT plutôt que lire l'environnement · écrire le test
@@ -123,7 +126,7 @@ Avant de commencer une nouvelle phase / tâche :
      `test` — à migrer vers vitest au câblage de la phase, pas avant.
    - **Un `npm test` vert ne prouve pas ce qu'on croit** : les bancs sur serveur réel se skippent
      sans leurs variables d'infra, et un skip compte comme vert (vécu : drizzle 442/781 non
-     exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `REDIS_TEST_URL`).
+     exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `NF_REDIS_TEST_URL`).
      Source unique des variables + commandes docker = **`vitest.gates.ts`** (racine) ; les suites
      concernées l'affichent en fin de run (`gateReporter`). Lire ce bloc AVANT de conclure « vert ».
      **En CI (`CI` posé) ce n'est plus un avertissement : la passe ÉCHOUE** si une cible déclarée
@@ -198,9 +201,11 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    Cinq règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
    - **🔴 LE MODÈLE S'ÉCRIT DANS LE CHAMP `description` DE L'APPEL, ENTRE CROCHETS.**
      `description: "[haiku] Vérifier 12 ancrages"`, `"[fable] Trier le corpus"` — **le champ
-     `description`, pas le prompt** : c'est la SEULE chaîne que le user voit passer. Le mettre
-     dans le prompt ne coûte rien à écrire et n'affiche rien ; la règle a été enfreinte
-     exactement comme ça. Toujours, y compris quand le modèle est le défaut. Le modèle est le
+     `description`, pas SEULEMENT le prompt** — et **AUSSI en première ligne du prompt**
+     (`MODÈLE : <m> — <pourquoi>`), parce que le `subagent_type` peut AVALER la
+     `description` : avec `Explore`, la ligne affichée est celle de l'agent intégré et le
+     modèle n'apparaît NULLE PART, champ pourtant rempli (vécu 2026-08-22). Corollaire :
+     ne pas prendre `Explore` quand la visibilité du modèle compte. Toujours, y compris quand le modèle est le défaut. Le modèle est le
      premier poste de dépense d'une délégation (`fable` ≈ 40× `haiku`) et il est invisible
      autrement : **on ne peut pas arbitrer ce qu'on ne voit pas.** Et si le modèle dépasse
      `haiku`, dire en UNE phrase, dans la réponse au user, ce que le modèle léger échouerait à
@@ -463,16 +468,22 @@ Les **invariants** qui doivent rester présents en permanence :
 - **Config d'app** : `nodefony.config.ts` + `env.ts` à la racine (`env.ts` = SEUL lecteur de
   `process.env`). Par-environnement = **fonction `(ctx) => …`**, jamais un fichier parallèle.
 - **🔴 TOUTE variable d'environnement que Nodefony lit se préfixe `NF_`.** Sans exception, y
-  compris pour les tests, les bancs et les interrupteurs de coût (`NF_RUN_PERF`, pas `RUN_PERF`).
+  compris pour les tests, les bancs et les interrupteurs de coût (`NF_RUN_PERF`, `NF_RUN_CLI_BOOT`).
   Une application qui installe le framework a déjà un environnement : `COOKIE_SECRET`, `PG_URL`,
-  `REDIS_HOST`, `POD_NAME`, `APP_ENV` sont des noms que d'autres outils revendiquent, et une
-  collision se manifeste par un comportement inexplicable, jamais par une erreur. Le préfixe dit
-  À QUI appartient la variable — c'est sa seule raison d'être, et elle suffit.
-  Les **seules** exceptions sont les variables qu'on ne possède pas : `NODE_ENV`, `CI`,
-  `NODE_DEBUG`, `UV_THREADPOOL_SIZE`… — celles-là se lisent, ne se renomment pas.
-  ⚠️ `NODEFONY_*` est l'ANCIENNE forme : conforme sur le fond, hors convention sur la forme.
-  Ne pas en créer de nouvelles. Le stock existant est une dette inscrite au `MIGRATION_STATUS`
-  (renommage après release — c'est une rupture pour les applications).
+  `REDIS_HOST`, `POD_NAME` sont des noms que d'autres outils revendiquent, et une collision se
+  manifeste par un comportement inexplicable, jamais par une erreur. Le préfixe dit À QUI
+  appartient la variable — c'est sa seule raison d'être, et elle suffit.
+  Deux exceptions, et deux seulement. (1) Les variables qu'on **ne possède pas** : `NODE_ENV`,
+  `CI`, `NODE_DEBUG`, `UV_THREADPOOL_SIZE`, `KUBERNETES_SERVICE_HOST`… — elles se lisent, ne se
+  renomment pas. (2) Les **alias de plateforme qu'un hébergeur POSE lui-même** (`DATABASE_URL`,
+  `REDIS_URL`, `MONGODB_URI`, `APP_ENV`) : acceptés, mais en **SECOND rang** derrière la forme
+  `NF_` (`resolveInfra`, `APP_ENV || NF_ENV`). Le test qui tranche : **un PaaS pose-t-il ce nom ?**
+  `REDIS_URL` oui (Heroku, Render, Upstash) ⇒ alias. `REDIS_HOST`, `POD_NAME` non — personne ne
+  les pose, c'est l'application qui se les donne ⇒ collision pure, donc préfixe obligatoire.
+  ✅ **La dette est SOLDÉE** : `NODEFONY_*` (18), génériques (12) et interrupteurs de coût (6)
+  renommés d'un bloc avant la release, **sans alias de compatibilité**. Ne pas en réintroduire.
+  ⚠️ Une garde d'isolation de test qui purge `REDIS_URL` sans purger `NF_REDIS_URL` est
+  **inopérante** — c'est la forme préfixée qui gagne (vécu : 4 tests verts pour la mauvaise raison).
 - **Config de module** : 2 fichiers, `nodefony/config/config.ts` (le QUOI — schéma Zod, source
   unique des défauts) + `nodefony/config/defineModuleConfig.ts` (le COMMENT — builder pur).
   Tout module qui expose une config **augmente le registre** `NodefonyModuleConfig`, sinon une clé

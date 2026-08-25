@@ -37,7 +37,7 @@ const probeSchema = z
           "worker `nodefony cluster`. true = sonde active (timer + IPC). " +
           "false = bypass total (0 timer / 0 listener / 0 IPC, l'endpoint " +
           "santé sert la vue per-instance). Override env : " +
-          "NODEFONY_CLUSTER_PROBE=0 force la désactivation.",
+          "NF_CLUSTER_PROBE=0 force la désactivation.",
       ),
   })
   .describe("Sonde agrégée pod (Phase 4c).");
@@ -53,7 +53,7 @@ const backplaneSchema = z
           "est la source de vérité du registre, ouverte aux drivers custom " +
           "utilisateur (`registerBackplaneDriver(name, factory)`). Natifs : " +
           "`loopback` (mono, hub local sans IPC), `cluster` (IPC workers " +
-          "`nodefony cluster`, actif si NODEFONY_CLUSTER=1), `redis` (multi-host " +
+          "`nodefony cluster`, actif si NF_CLUSTER=1), `redis` (multi-host " +
           "pub/sub). Driver inconnu au boot → warn fail-soft, le hub reste local.",
       ),
     namespace: z

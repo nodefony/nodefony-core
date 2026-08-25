@@ -8,7 +8,7 @@ import { afterEach, beforeEach } from "vitest";
 // ── Perf-skip (port de src/tests/perf-skip.cjs) ────────────────────────────────
 // Les tests de perf (titre à seuil "< Nms" OU sous un describe `performance`) sont
 // OPT-IN : skippés par défaut et en CI (microbench non déterministe en fin de suite,
-// cf TSDoc de l'original), exécutés seulement avec RUN_PERF=1. Même regex.
+// cf TSDoc de l'original), exécutés seulement avec NF_RUN_PERF=1. Même regex.
 const PERF_TITLE = /<\s*\d[\d\s]*ms|\bperformance\b/i;
 
 interface TaskLike {
@@ -30,7 +30,7 @@ const fullName = (task: TaskLike | undefined): string => {
 
 beforeEach((ctx) => {
   if (
-    (process.env.CI || !process.env.RUN_PERF) &&
+    (process.env.CI || !process.env.NF_RUN_PERF) &&
     PERF_TITLE.test(fullName(ctx.task as unknown as TaskLike))
   ) {
     ctx.skip();

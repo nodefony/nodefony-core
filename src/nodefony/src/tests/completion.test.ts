@@ -15,6 +15,7 @@ import CliKernel from "../kernel/CliKernel";
 import {
   extractFlags,
   buildCliManifest,
+  writeCliManifest,
   computeCompletions,
   renderCompletionScript,
   cliManifestFile,
@@ -237,25 +238,33 @@ describe("completion — scripts shell", () => {
   // La syntaxe shell RÉELLE des scripts générés — `zsh -n` / `bash -n` parsent sans
   // exécuter. Skip si le shell n'est pas sur la machine (CI minimaliste).
   for (const sh of ["zsh", "bash"] as const) {
-    it(`${sh} -n : le script généré parse sans erreur`, async (ctx) => {
-      const { execFileSync, spawnSync } = await import("node:child_process");
-      if (spawnSync("command", ["-v", sh], { shell: true }).status !== 0) {
-        return ctx.skip();
-      }
-      const fsMod = await import("node:fs");
-      const osMod = await import("node:os");
-      const pathMod = await import("node:path");
-      const file = pathMod.join(
-        osMod.tmpdir(),
-        `nodefony-compl-${sh}-${process.pid}.sh`,
-      );
-      fsMod.writeFileSync(file, renderCompletionScript(sh), "utf8");
-      try {
-        execFileSync(sh, ["-n", file]); // throw si erreur de syntaxe
-      } finally {
-        fsMod.rmSync(file, { force: true });
-      }
-    });
+    // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
+    // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle) il
+    // est dépassé sans qu'aucun défaut n'existe — vert en isolation, rouge en
+    // suite. Le délai n'est pas une mesure ici : rien ne s'évalue en temps.
+    it(
+      `${sh} -n : le script généré parse sans erreur`,
+      { timeout: 60_000 },
+      async (ctx) => {
+        const { execFileSync, spawnSync } = await import("node:child_process");
+        if (spawnSync("command", ["-v", sh], { shell: true }).status !== 0) {
+          return ctx.skip();
+        }
+        const fsMod = await import("node:fs");
+        const osMod = await import("node:os");
+        const pathMod = await import("node:path");
+        const file = pathMod.join(
+          osMod.tmpdir(),
+          `nodefony-compl-${sh}-${process.pid}.sh`,
+        );
+        fsMod.writeFileSync(file, renderCompletionScript(sh), "utf8");
+        try {
+          execFileSync(sh, ["-n", file]); // throw si erreur de syntaxe
+        } finally {
+          fsMod.rmSync(file, { force: true });
+        }
+      },
+    );
   }
 
   it("cliManifestFile — cache par projet sous node_modules/.cache/nodefony", () => {
@@ -362,6 +371,92 @@ describe("completion — install/uninstall (HOME jetable, fs réel)", () => {
       assert.ok(fs.existsSync(scriptFile));
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("completion — le manifest s'écrit ATOMIQUEMENT", () => {
+  /**
+   * Un cache à demi écrit est PIRE qu'un cache absent : il écrase une donnée
+   * valide. Vécu, et la cause de trois symptômes qui semblaient sans rapport —
+   * le manifest tombait à **0 octet** après une commande courte, si bien que le
+   * menu perdait toutes les commandes de module et que la complétion proposait
+   * des noms de commandes au lieu des options de celle qu'on avait tapée.
+   *
+   * `writeFile` OUVRE et TRONQUE avant d'écrire ; appelé en fire-and-forget —
+   * c'est le contrat, pour ne rien coûter au boot — il laisse un fichier vide
+   * dès que le process sort avant la fin, soit le cas NOMINAL d'une commande
+   * CLI. D'où l'écriture par temporaire + `rename`.
+   */
+  it("🔴 une écriture INTERROMPUE laisse le manifest précédent INTACT", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-manifest-"));
+    try {
+      const file = cliManifestFile(dir);
+      const cli = new CliKernel("development");
+      // `buildBuiltinManifest` enregistre les intégrées dans commander — sans
+      // cet appel, `cli.commander` ne porte aucune commande et le test
+      // écrirait un manifest vide, donc ne prouverait rien.
+      cli.buildBuiltinManifest();
+      const commander = (cli as unknown as { commander: never }).commander;
+      // 1) Un manifest valide, écrit normalement.
+      await writeCliManifest(commander, dir, "10.0.0");
+      const bon = fs.readFileSync(file, "utf8");
+      assert.ok(bon.length > 0, "le premier manifest est vide");
+      const commandes = (JSON.parse(bon) as ICliManifest).commands.length;
+      assert.ok(commandes > 0);
+
+      // 2) Une écriture qui ÉCHOUE (JSON non sérialisable : référence cyclique
+      //    sur le commander). Sans atomicité, le fichier serait déjà tronqué à
+      //    zéro à cet instant.
+      const casse = { commands: null } as unknown as never;
+      await assert.rejects(() => writeCliManifest(casse, dir, "10.0.0"));
+
+      // 3) Le manifest VALIDE est toujours là, entier.
+      const apres = fs.readFileSync(file, "utf8");
+      assert.strictEqual(apres, bon, "le manifest valide a été abîmé");
+      assert.strictEqual(
+        (JSON.parse(apres) as ICliManifest).commands.length,
+        commandes,
+      );
+
+      // 4) Aucun résidu temporaire ne traîne dans le dossier du cache.
+      const restes = fs
+        .readdirSync(path.dirname(file))
+        .filter((f) => f.includes(".tmp"));
+      assert.deepStrictEqual(restes, [], `résidus : ${restes.join(", ")}`);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("🔴 les temporaires ORPHELINS d'un process mort sont balayés", async () => {
+    // La suite du correctif précédent, constatée sur le vrai dossier de cache :
+    // deux `cli-manifest.json.<pid>.tmp` de 0 octet y traînaient. Le nettoyage
+    // n'existait que dans le `catch` — or le cas NOMINAL n'y passe jamais :
+    // l'écriture est fire-and-forget, le process sort PENDANT le `writeFile`,
+    // le fichier vide est déjà créé et aucun `catch` ne tourne. Un résidu par
+    // commande interrompue, dans le `node_modules` de chaque utilisateur.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-manifest-orph-"));
+    try {
+      const file = cliManifestFile(dir);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      // Un PID qui n'existe plus (très au-delà du maximum usuel), et le NÔTRE :
+      // seul le premier doit disparaître — supprimer le temporaire d'un process
+      // vivant lui arracherait son écriture en cours.
+      const mort = `${file}.4194304.tmp`;
+      const vivant = `${file}.${process.pid}.tmp`;
+      fs.writeFileSync(mort, "");
+      fs.writeFileSync(vivant, "");
+
+      const cli = new CliKernel("development");
+      cli.buildBuiltinManifest();
+      const commander = (cli as unknown as { commander: never }).commander;
+      await writeCliManifest(commander, dir, "10.0.0");
+
+      assert.ok(!fs.existsSync(mort), "le temporaire orphelin survit");
+      assert.ok(fs.existsSync(file), "le manifest n'a pas été écrit");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

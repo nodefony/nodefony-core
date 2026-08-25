@@ -23,11 +23,7 @@
  *  5. publish duplex : A publish→B reçoit, puis B publish→A reçoit
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  fork,
-  type ChildProcess,
-  type Serializable,
-} from "node:child_process";
+import { fork, type ChildProcess, type Serializable } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ClusterRelay, type IRelayWorker, CLUSTER_RT_KIND } from "nodefony";
 
@@ -38,8 +34,8 @@ const WORKER_PATH = fileURLToPath(
 // e2e LOURD : fork de N workers (tsx) → sensible à la contention CPU. Dans le
 // gate par défaut (`npm test`, 30+ workspaces en parallèle), le boot worker peut
 // dépasser le ready timeout → faux négatif. Opt-in (doctrine perf/e2e opt-in,
-// cf feedback_perf_tests_optin). Lancer : `RUN_CLUSTER_E2E=1 npm test`.
-const RUN_CLUSTER_E2E = process.env.RUN_CLUSTER_E2E === "1";
+// cf feedback_perf_tests_optin). Lancer : `NF_RUN_CLUSTER_E2E=1 npm test`.
+const NF_RUN_CLUSTER_E2E = process.env.NF_RUN_CLUSTER_E2E === "1";
 
 interface AnyMsg {
   cmd?: string;
@@ -69,7 +65,7 @@ function spawnWorker(): Promise<ForkedWorker> {
       env: {
         ...process.env,
         // Pas de tâches collatérales : on n'instancie pas le kernel ici.
-        NODEFONY_CLUSTER: "0",
+        NF_CLUSTER: "0",
       },
     });
     const events: AnyMsg[] = [];
@@ -167,7 +163,7 @@ async function killWorker(w: ForkedWorker): Promise<void> {
   });
 }
 
-describe.skipIf(!RUN_CLUSTER_E2E)(
+describe.skipIf(!NF_RUN_CLUSTER_E2E)(
   "e2e cluster IPC (Hub + ClusterBackplane + ClusterRelay)",
   () => {
     let workers: ForkedWorker[] = [];

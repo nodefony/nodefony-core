@@ -6,13 +6,14 @@ Résolution automatique des dépendances entre services via decorators TypeScrip
 
 ## Vue d'ensemble
 
-| Decorator | Cible | Rôle |
-|---|---|---|
-| `@injectable(name?, scope?)` | Classe | Enregistre le service dans le registre global |
-| `@inject("name")` | Paramètre constructeur | Injection explicite par nom |
-| `@Inject("name")` | Propriété de classe | Injection post-construction par nom |
+| Decorator                    | Cible                  | Rôle                                          |
+| ---------------------------- | ---------------------- | --------------------------------------------- |
+| `@injectable(name?, scope?)` | Classe                 | Enregistre le service dans le registre global |
+| `@inject("name")`            | Paramètre constructeur | Injection explicite par nom                   |
+| `@Inject("name")`            | Propriété de classe    | Injection post-construction par nom           |
 
 Deux fichiers :
+
 - `injector/injector.ts` — moteur (`Injector`, algorithme, circular detection)
 - `kernel/decorators/kernelDecorator.ts` — decorators (`@injectable`, `@inject`, `@Inject`)
 
@@ -30,7 +31,9 @@ class AuthService extends Service {
   constructor() {
     super("AuthService", new Container());
   }
-  verify(token: string): boolean { return token === "secret"; }
+  verify(token: string): boolean {
+    return token === "secret";
+  }
 }
 ```
 
@@ -42,10 +45,10 @@ Options disponibles :
 @injectable({ name: "MonNom", scope: "transient" })  // objet complet
 ```
 
-| Scope | Comportement |
-|---|---|
-| `"singleton"` (défaut) | Réutilise l'instance du container kernel si présente |
-| `"transient"` | Crée toujours une nouvelle instance, ignore le container |
+| Scope                  | Comportement                                             |
+| ---------------------- | -------------------------------------------------------- |
+| `"singleton"` (défaut) | Réutilise l'instance du container kernel si présente     |
+| `"transient"`          | Crée toujours une nouvelle instance, ignore le container |
 
 ---
 
@@ -74,6 +77,7 @@ user.login("secret"); // true
 
 > **Tests tsx** — `emitDecoratorMetadata` inactif dans tsx/esbuild.
 > Appeler `inject()` comme fonction :
+>
 > ```typescript
 > (inject("AuthService") as Function)(UserService, undefined, 0);
 > ```
@@ -109,6 +113,7 @@ order.createOrder("secret"); // "order-123"
 ```
 
 Séquence interne :
+
 ```
 1. Reflect.construct(OrderService, [])   ← constructeur
 2. order.auth  = resolve("AuthService")  ← property injection
@@ -129,18 +134,18 @@ Injector les lit via `design:paramtypes` — aucun `@inject` nécessaire.
 @injectable()
 class ReportService extends Service {
   constructor(
-    private auth: AuthService,    // auto-injecté si AuthService est @injectable
-    private users: UserService,   // idem
+    private auth: AuthService, // auto-injecté si AuthService est @injectable
+    private users: UserService, // idem
   ) {
     super("ReportService", auth.container as Container);
   }
 }
 ```
 
-| Environnement | `design:paramtypes` | Auto-injection |
-|---|---|---|
-| Rollup (prod, rollup.config.ts) | ✅ émis | ✅ fonctionne |
-| tsx (tests) | ❌ absent | ❌ utiliser `@inject` explicite |
+| Environnement                   | `design:paramtypes` | Auto-injection                  |
+| ------------------------------- | ------------------- | ------------------------------- |
+| Rollup (prod, rollup.config.ts) | ✅ émis             | ✅ fonctionne                   |
+| tsx (tests)                     | ❌ absent           | ❌ utiliser `@inject` explicite |
 
 ---
 
@@ -151,8 +156,12 @@ class ReportService extends Service {
 @injectable()
 class TokenRepository extends Service {
   private tokens = new Set(["tok-abc", "tok-xyz"]);
-  constructor() { super("TokenRepository", new Container()); }
-  exists(token: string): boolean { return this.tokens.has(token); }
+  constructor() {
+    super("TokenRepository", new Container());
+  }
+  exists(token: string): boolean {
+    return this.tokens.has(token);
+  }
 }
 
 // ── Couche métier ──────────────────────────────────────────────
@@ -161,16 +170,18 @@ class AuthService extends Service {
   @Inject("TokenRepository")
   private repo!: TokenRepository;
 
-  constructor() { super("AuthService", new Container()); }
-  verify(token: string): boolean { return this.repo.exists(token); }
+  constructor() {
+    super("AuthService", new Container());
+  }
+  verify(token: string): boolean {
+    return this.repo.exists(token);
+  }
 }
 
 // ── Couche applicative ─────────────────────────────────────────
 @injectable()
 class ApiGateway extends Service {
-  constructor(
-    @inject("AuthService") private auth: AuthService,
-  ) {
+  constructor(@inject("AuthService") private auth: AuthService) {
     super("ApiGateway", auth.container as Container);
   }
 
@@ -183,10 +194,11 @@ class ApiGateway extends Service {
 // ── Résolution ─────────────────────────────────────────────────
 const gateway = Injector.instantiate(ApiGateway);
 gateway.handle("tok-abc"); // "200 OK"
-gateway.handle("bad");     // "401 Unauthorized"
+gateway.handle("bad"); // "401 Unauthorized"
 ```
 
 Ordre de résolution interne :
+
 ```
 instantiate(ApiGateway)
   → resolve("AuthService")
@@ -212,6 +224,7 @@ Pour chaque paramètre du constructeur à la position `i` :
 ```
 
 Après construction :
+
 ```
 Pour chaque entrée dans inject:properties du prototype :
   → instance[key] = resolve(name)
@@ -224,11 +237,15 @@ Pour chaque entrée dans inject:properties du prototype :
 ```typescript
 @injectable()
 class A extends Service {
-  constructor(@inject("B") b: B) { super("A", new Container()); }
+  constructor(@inject("B") b: B) {
+    super("A", new Container());
+  }
 }
 @injectable()
 class B extends Service {
-  constructor(@inject("A") a: A) { super("B", new Container()); }
+  constructor(@inject("A") a: A) {
+    super("B", new Container());
+  }
 }
 
 Injector.instantiate(A);
@@ -246,26 +263,26 @@ avant la vérification circulaire — pas de faux positif.
 ## 8. API statique — `Injector`
 
 ```typescript
-Injector.register("MyService", MyService)  // enregistre manuellement
-Injector.isRegistered("MyService")         // boolean
-Injector.get("MyService")                  // retourne le constructeur, throw si absent
-Injector.getScope("MyService")             // "singleton" | "transient"
-Injector.instantiate(MyService, ...args)   // instancie avec injection
-Injector.inject(MyService, ...args)        // alias de instantiate
-Injector.injectables                       // Record<string, ServiceConstructor>
+Injector.register("MyService", MyService); // enregistre manuellement
+Injector.isRegistered("MyService"); // boolean
+Injector.get("MyService"); // retourne le constructeur, throw si absent
+Injector.getScope("MyService"); // "singleton" | "transient"
+Injector.instantiate(MyService, ...args); // instancie avec injection
+Injector.inject(MyService, ...args); // alias de instantiate
+Injector.injectables; // Record<string, ServiceConstructor>
 ```
 
 ---
 
 ## 9. Roadmap
 
-| Phase | Feature | Statut | Prérequis |
-|---|---|---|---|
-| A | Property injection `@Inject` | ✅ 2026-05-14 | — |
-| C | Circular dependency detection | ✅ 2026-05-14 | — |
-| B | Scope `scoped` (1 instance/requête, AsyncLocalStorage) | ⬜ | Handler HTTP (Phase 4) |
-| D | Registry par module (isolation namespace) | ⬜ | Après B |
-| E | `@InjectLazy` (factory, instanciation différée) | ⬜ | Après D |
+| Phase | Feature                                                | Statut        | Prérequis              |
+| ----- | ------------------------------------------------------ | ------------- | ---------------------- |
+| A     | Property injection `@Inject`                           | ✅ 2026-05-14 | —                      |
+| C     | Circular dependency detection                          | ✅ 2026-05-14 | —                      |
+| B     | Scope `scoped` (1 instance/requête, AsyncLocalStorage) | ⬜            | Handler HTTP (Phase 4) |
+| D     | Registry par module (isolation namespace)              | ⬜            | Après B                |
+| E     | `@InjectLazy` (factory, instanciation différée)        | ⬜            | Après D                |
 
 ---
 

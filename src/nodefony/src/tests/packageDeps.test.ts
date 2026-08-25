@@ -127,4 +127,97 @@ describe("checkPackageDeps — un frère du dépôt doit être ORDONNÉ", () => 
       analyse().findings.filter((x) => x.kind === "peer-only-sibling"),
     );
   });
+
+  /**
+   * 🔴 La RACINE d'un monorepo ne se fait crier dessus NI dans un sens NI dans
+   * l'autre.
+   *
+   * Le code prévoyait déjà le cas — `workspaceMembers()` verse les membres dans
+   * l'ensemble « déclaré », en disant pourquoi : « exiger qu'il les redéclare en
+   * dépendances serait exiger le contraire de ce que npm attend, et ferait crier
+   * l'outil sur la racine de tout monorepo — donc lui apprendrait à être
+   * ignoré ». Mais la garde n'a été posée qu'à UN des deux endroits : l'ensemble
+   * qui juge l'ORDRE ne connaissait pas les membres. Un membre échappait donc au
+   * verdict « non déclaré » pour tomber dans « déclaré en peerDependencies
+   * SEULE » — un message doublement trompeur, puisque la racine n'a aucune
+   * peerDependency, et qu'il prescrit exactement ce que le commentaire dit de ne
+   * pas exiger. Vécu : `nodefony check` rendait 9 manquements sur ce dépôt.
+   *
+   * Le fond : le champ `workspaces` ORDONNE. C'est par lui que npm installe et
+   * relie ses membres, et que turbo construit le graphe — c'est même la seule
+   * façon correcte de le dire à la racine.
+   */
+  it("🔴 la racine d'un monorepo n'a rien à redéclarer — `workspaces` ORDONNE", () => {
+    paquet("@nodefony/fixture-core", {});
+    // La racine du dépôt de fixture : elle déclare ses membres par `workspaces`
+    // et RIEN d'autre — exactement la forme de ce dépôt.
+    writeFileSync(
+      path.join(root, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "fixture-racine",
+          version: "1.0.0",
+          private: true,
+          workspaces: ["packages/*"],
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    writeFileSync(
+      path.join(root, "index.ts"),
+      'import { socle } from "@nodefony/fixture-core";\nexport const x = socle;\n',
+    );
+    const { findings } = checkPackageDeps({
+      roots: [path.join(root, "packages"), root],
+      cwd: root,
+    });
+    const surLaRacine = findings.filter((f) => f.package === "fixture-racine");
+    assert.isEmpty(surLaRacine, JSON.stringify(surLaRacine, null, 2));
+  });
+
+  it("sens négatif : la garde ne dispense QUE les membres, pas les autres", () => {
+    // Élargir « workspaces ORDONNE » en « la racine ne se trompe jamais » serait
+    // rendre l'outil aveugle là où il sert : un paquet du dépôt qui n'est PAS un
+    // membre déclaré doit continuer d'être réclamé.
+    paquet("@nodefony/fixture-core", {});
+    mkdirSync(path.join(root, "autre"), { recursive: true });
+    writeFileSync(
+      path.join(root, "autre", "package.json"),
+      `${JSON.stringify(
+        {
+          name: "@nodefony/fixture-hors-workspace",
+          version: "1.0.0",
+          private: true,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    writeFileSync(
+      path.join(root, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "fixture-racine",
+          version: "1.0.0",
+          private: true,
+          workspaces: ["packages/*"],
+          peerDependencies: { "@nodefony/fixture-hors-workspace": "*" },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    writeFileSync(
+      path.join(root, "index.ts"),
+      'import { y } from "@nodefony/fixture-hors-workspace";\nexport const x = y;\n',
+    );
+    const { findings } = checkPackageDeps({
+      roots: [path.join(root, "packages"), path.join(root, "autre"), root],
+      cwd: root,
+    });
+    const surLaRacine = findings.filter((f) => f.package === "fixture-racine");
+    assert.lengthOf(surLaRacine, 1, JSON.stringify(findings, null, 2));
+    assert.equal(surLaRacine[0]?.kind, "peer-only-sibling");
+  });
 });

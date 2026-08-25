@@ -290,7 +290,7 @@ export const OrmWorker = observer(() => {
                       },
                       {
                         label: "Taux, pas cumul",
-                        body: "Erreurs & reconnexions en delta/min (après 2 mesures live). Débit & EWMA = flux ORM (NODEFONY_ORM_FLOW=1).",
+                        body: "Erreurs & reconnexions en delta/min (après 2 mesures live). Débit & EWMA = flux ORM (NF_ORM_FLOW=1).",
                       },
                     ]}
                   />

@@ -72,8 +72,7 @@ export default class Connection extends Service {
       return this.options.url.replace(/:[^:@/]*@/, ":***@");
     }
     const socket = this.options.socket as
-      | { host?: string; port?: number }
-      | undefined;
+      { host?: string; port?: number } | undefined;
     return `${socket?.host ?? "?"}:${socket?.port ?? "?"}`;
   }
 

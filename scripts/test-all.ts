@@ -42,6 +42,7 @@
  * un pipeline jetable.
  */
 import { spawn, spawnSync } from "node:child_process";
+import { besoinDeShell } from "nodefony";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -279,8 +280,13 @@ function serverRunning(): boolean {
   const pidfile = join(ROOT, "node_modules/.cache/nodefony/dev-supervisor.pid");
   if (!existsSync(pidfile)) return false;
   return (
-    spawnSync("npx", ["nodefony", "status"], { cwd: ROOT, stdio: "ignore" })
-      .status === 0
+    spawnSync("npx", ["nodefony", "status"], {
+      cwd: ROOT,
+      stdio: "ignore",
+      // `npx` est un `.cmd` sous Windows — sans shell, Node rend `ENOENT` et cette
+      // sonde conclurait « aucun serveur » quel que soit l'état réel.
+      shell: besoinDeShell("npx"),
+    }).status === 0
   );
 }
 

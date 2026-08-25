@@ -14,7 +14,10 @@ set -euo pipefail
 PORT="${1:-5171}"
 N="${2:-1000000}"
 
-PID=$(lsof -ti :"$PORT" | head -1)
+# `-sTCP:LISTEN` OBLIGATOIRE : sans lui, `lsof -ti :PORT` rend aussi les CLIENTS
+# connectés — et `head -1` en choisirait un au hasard. On mesurerait alors la RSS
+# du navigateur ou du curl au lieu de celle du pod, sans que rien ne le signale.
+PID=$(lsof -ti :"$PORT" -sTCP:LISTEN | head -1)
 if [ -z "$PID" ]; then
   echo "Aucun pod sur le port $PORT — lancer run.sh d'abord." >&2
   exit 1

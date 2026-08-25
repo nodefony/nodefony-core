@@ -200,13 +200,13 @@ bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-probe
 ```
 
 > Sonde agrégée **désactivable** → bypass total :
-> `NODEFONY_CLUSTER_PROBE=0 npx nodefony cluster --workers 4`
+> `NF_CLUSTER_PROBE=0 npx nodefony cluster --workers 4`
 > ⇒ aucun reporter/agrégateur (0 timer, 0 IPC sonde), l'endpoint santé sert la vue per-instance.
 >
 > ⚠️ **Modèle « 2 molettes » (2026-05-24)** : la topologie = `--workers N` > env
-> `NODEFONY_WORKERS` > config `cluster.workers` > **défaut 1**. Donc `nodefony cluster` SANS
+> `NF_WORKERS` > config `cluster.workers` > **défaut 1**. Donc `nodefony cluster` SANS
 > `--workers` (et config=1) = **mono-process** (zéro machinerie cluster) — pour un VRAI
-> cluster, toujours `--workers N` (≥2) ou `NODEFONY_WORKERS=N`. `staging`/`preprod` =
+> cluster, toujours `--workers N` (≥2) ou `NF_WORKERS=N`. `staging`/`preprod` =
 > **déprécié**. Pour lancer un runtime cluster à tester :
 > `bash .claude/skills/nodefony-start-server/start.sh --cluster -w N`. Les scripts `cluster-*.mjs`
 > ci-dessus forkent en DIRECT (harnais de preuve, indépendant du CLI) → non concernés.
@@ -220,7 +220,7 @@ gateway → coalescer avant `publish` au-delà) ; RTT 4-sauts p50 ~0.40 / p99 ~0
 
 Preuve **terrain** du mécanisme générique d'override de config par variable d'environnement
 (ADR-0006 : `NF__<APP|MODULE>__<CHEMIN>`). Le script **spawn lui-même** le serveur (process unique,
-`NODEFONY_DEV_CHILD=1`, ports 7771/7772 pour éviter toute collision) — **PAS de serveur dev requis**
+`NF_DEV_CHILD=1`, ports 7771/7772 pour éviter toute collision) — **PAS de serveur dev requis**
 (**prérequis : `npm run build`**). Il ASSERTE (exit 0/1) :
 
 - `NF__APP__SERVERS__HTTP__PORT=7771` (+ https 7772) → le serveur **écoute sur le port surchargé** (override appliqué au boot, 0 code) ;

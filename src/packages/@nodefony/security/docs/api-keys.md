@@ -238,7 +238,7 @@ raison est dans le code (`apiKeyFormat.ts:8-10`) : le charset base64url contient
 
 | Morceau  | Taille               | Secret ? | À quoi ça sert                                                                                     |
 | -------- | -------------------- | :------: | -------------------------------------------------------------------------------------------------- |
-| `prefix` | ≤ 12 car. minuscules |   non    | Marque applicative — discrimine du JWT, aide le secret-scanning (`config.ts:605`)                  |
+| `prefix` | ≤ 12 car. minuscules |   non    | Marque applicative — discrimine du JWT, aide le secret-scanning (`config.ts:730`)                  |
 | `pubid`  | 6 octets → 8 car.    |   non    | Identifiant affichable dans la console (`nf_a1b2c3d4`) — `generateApiKey()` (`apiKeyFormat.ts:92`) |
 | `secret` | 32 octets → 43 car.  | **oui**  | 256 bits d'entropie — `SECRET_BYTES` (`apiKeyFormat.ts:30`)                                        |
 | `crc`    | 4 octets → 6 car.    |   non    | CRC32 du `prefix_pubid+secret` — `crcChunk()` (`apiKeyFormat.ts:63`)                               |
@@ -302,7 +302,7 @@ filtre qui coûte plus cher que la précédente :
 
 | #   | Contrôle                                | Coût            | Ancrage                                               |
 | --- | --------------------------------------- | --------------- | ----------------------------------------------------- |
-| 1   | Bearer présent + préfixe                | regex           | `BEARER_SCHEME` (`ApiKeyAuthenticator.ts:12`)         |
+| 1   | Bearer présent + préfixe                | regex           | `readBearerHeader()` (`runtime/bearer.ts:68`)         |
 | 2   | Longueur, charset, **CRC**              | CPU local       | `parseApiKey` (`ApiKeyAuthenticator.ts:99`)           |
 | 3   | Lookup par `secretHash`                 | 1 lecture store | `findByHash` (`ApiKeyAuthenticator.ts:105`)           |
 | 4   | `kind:"pat"`, non révoquée, non expirée | en mémoire      | `ApiKeyAuthenticator.ts:107-114`                      |
@@ -330,7 +330,7 @@ zone est un simple `Bearer` (`challenge()`, `ApiKeyAuthenticator.ts:155`).
 L'authenticator n'est jamais instancié à la main : le firewall le construit depuis le registre, en
 lui injectant la config effective — `registerAuthenticatorFactory("apikey")`
 (`authenticatorRegistry.ts:117`), qui lit `prefix` et `lastUsedThrottleS`
-(`authenticatorRegistry.ts:123`). Conséquence pratique : changer `apiKeys.prefix` change **à la
+(`authenticatorRegistry.ts:143`). Conséquence pratique : changer `apiKeys.prefix` change **à la
 fois** l'émission et la reconnaissance — les anciennes clés ne sont plus reconnues.
 
 ## Quatre parcours vécus
@@ -375,7 +375,7 @@ soit deux secrets valides sous le même id (ambigu à auditer), soit une coupure
 4. **Puis** révoquer la v1.
 
 Ce qui rend l'étape 3 fiable : `lastUsedAt` est écrit de façon **throttlée**, pas à chaque requête —
-la fenêtre par défaut est de 60 s (`lastUsedThrottleS`, `config.ts:621`). Attends donc une minute
+la fenêtre par défaut est de 60 s (`lastUsedThrottleS`, `config.ts:746`). Attends donc une minute
 avant de conclure qu'une clé « ne sert plus ».
 
 ### Révoquer une clé qui a fuité
@@ -442,17 +442,17 @@ alimenter, pas le store de jetons.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:602`), branché à la racine de la config du
-module (`config.ts:602`). Toutes les valeurs ci-dessous sont les **défauts réels**.
+Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:727`), branché à la racine de la config du
+module (`config.ts:727`). Toutes les valeurs ci-dessous sont les **défauts réels**.
 
 | Option              | Type             | Défaut | Effet                                                                                  |
 | ------------------- | ---------------- | ------ | -------------------------------------------------------------------------------------- |
-| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:584`)    |
-| `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts:605`)            |
-| `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts:614`)  |
-| `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts:621`)        |
-| `maxPerSubject`     | number > 0       | `100`  | Plafond de clés **actives** par porteur ; au-delà → 409 (`config.ts:630`)              |
-| `allowedScopes`     | string[] \| null | `null` | Catalogue fermé à la création ; `null` = tout scope non vide accepté (`config.ts:639`) |
+| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:533`)    |
+| `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts:730`)            |
+| `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts:739`)  |
+| `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts:746`)        |
+| `maxPerSubject`     | number > 0       | `100`  | Plafond de clés **actives** par porteur ; au-delà → 409 (`config.ts:755`)              |
+| `allowedScopes`     | string[] \| null | `null` | Catalogue fermé à la création ; `null` = tout scope non vide accepté (`config.ts:764`) |
 
 Deux réglages méritent une décision consciente :
 
@@ -467,7 +467,7 @@ Deux réglages méritent une décision consciente :
 ### Les endpoints — deux portées, jamais mélangées
 
 **Console « mes clés »** (le porteur gère les siennes) — montées par `mountApiKeyRoutes()`
-(`ApiKeyController.ts:191`) **seulement si** le service `apiKeys` existe (`framework/index.ts:423`) ;
+(`ApiKeyController.ts:191`) **seulement si** le service `apiKeys` existe (`framework/index.ts:468`) ;
 sinon 404, zéro surface. Aucune n'est `bypassFirewall` : la zone data plane exige la session BFF.
 
 | Méthode  | Chemin                                     | Rôle                                              | Ancrage                                     |
@@ -584,7 +584,7 @@ révocation ne traverse pas. Le détail de la résolution, des avertissements et
 
 | Domaine                           | Norme                                  | Ancrage                                                |
 | --------------------------------- | -------------------------------------- | ------------------------------------------------------ |
-| Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `BEARER_SCHEME` (`ApiKeyAuthenticator.ts:12`)          |
+| Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `readBearerHeader()` (`runtime/bearer.ts:68`)          |
 | `invalid_token` → 401 + challenge | RFC 6750 §3.1 · RFC 7235               | `challenge()` (`ApiKeyAuthenticator.ts:205`)           |
 | Secret **jamais** stocké en clair | OWASP ASVS (secret storage)            | `hashApiKey()` (`apiKeyFormat.ts:70`)                  |
 | Secret montré une seule fois      | Pratique « shown once »                | `IApiKeyCreated.token` (`IApiKey.ts:37`)               |
@@ -641,12 +641,12 @@ pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements 
 | Symptôme                                               | Cause (dans le code)                                                                           | Correction                                                             |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | 404 sur `/nodefony/security/api/keys`                  | Routes montées seulement si le service `apiKeys` existe (`framework/index.ts:385`)             | Charger `@nodefony/security` + `apiKeys.enabled: true`                 |
-| 503 « API keys unavailable »                           | Store non provisionné (`TokenService` absent/désactivé) (`apiKeys.ts:274`)                     | Vérifier `jwt`/`tokenStore` — le `TokenService` pose le store          |
+| 503 « API keys unavailable »                           | Store non provisionné (`TokenService` absent/désactivé) (`apiKeys.ts:330`)                     | Vérifier `jwt`/`tokenStore` — le `TokenService` pose le store          |
 | 401 à la création de clé                               | Ces routes exigent une **session** (pas de `bypassFirewall`)                                   | Se connecter d'abord (`/nodefony/security/api/auth/login`)             |
 | Le token clair est introuvable après coup              | Seul `sha256` est stocké — non re-dérivable (`apiKeyFormat.ts:70`)                             | Émettre une nouvelle clé, révoquer l'ancienne                          |
 | 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts:113`)                                         | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
 | 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:292`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
-| Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:123`)       | Garder le `prefix` STABLE après la première émission                   |
+| Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:142`)       | Garder le `prefix` STABLE après la première émission                   |
 | Clé valide mais 403 sur la route                       | Autorisation, pas authentification : scope manquant — `ScopeVoter.vote()` (`ScopeVoter.ts:50`) | Émettre une clé portant le scope exigé par `@RequireScope`             |
 | Clé rejetée alors qu'elle n'est ni expirée ni révoquée | Porteur désactivé/verrouillé, ou seuil `invalidBefore` (`ApiKeyAuthenticator.ts:117-120`)      | Réactiver le compte, ou réémettre après le bannissement                |
 | 404 en révoquant la clé d'un autre porteur             | Anti-énumération volontaire, jamais 403 (`ApiKeyController.ts:139-142`)                        | Attendu — passer par l'endpoint d'administration                       |

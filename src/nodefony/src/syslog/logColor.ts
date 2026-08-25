@@ -95,7 +95,7 @@ export function isLogColorEnabled(): boolean {
 
 /**
  * Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY`
- * **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NO_TTY`),
+ * **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NF_NO_TTY`),
  * sans re-lire `process.stdout`. Conventions :
  *
  * - **`NO_COLOR`** (no-color.org) : présent **et non vide** → couleur OFF, quelle
@@ -106,7 +106,7 @@ export function isLogColorEnabled(): boolean {
  *
  * Isomorphe : `env` lu via `globalThis.process` (navigateur : pas de `process`).
  *
- * @param isTTY - signal TTY déjà résolu (ex. `Kernel.isTTY`, NO_TTY-aware).
+ * @param isTTY - signal TTY déjà résolu (ex. `Kernel.isTTY`, NF_NO_TTY-aware).
  */
 export function resolveColorEnabled(isTTY: boolean): boolean {
   const env =
@@ -123,7 +123,7 @@ export function resolveColorEnabled(isTTY: boolean): boolean {
 }
 
 // Défaut à l'IMPORT (le kernel n'existe pas encore → on lit process une fois, en
-// honorant NO_TTY comme le fait Kernel.isTTY). Re-confirmé au boot par
+// honorant NF_NO_TTY comme le fait Kernel.isTTY). Re-confirmé au boot par
 // Kernel.initializeLog avec `this.isTTY` (cf resolveColorEnabled).
 const _importProc = (
   globalThis as {
@@ -133,7 +133,7 @@ const _importProc = (
     };
   }
 ).process;
-const _importIsTTY = _importProc?.env?.NO_TTY
+const _importIsTTY = _importProc?.env?.NF_NO_TTY
   ? false
   : _importProc?.stdout?.isTTY === true;
 setLogColor(resolveColorEnabled(_importIsTTY));

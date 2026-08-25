@@ -331,13 +331,13 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:577-578`
 | Déclaration                                 | Sémantique                                                                                                                       |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:839`)                                             |
-| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:292-297`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:309-312`)                       |
-| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1444`)                         |
+| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:426`)                           |
+| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1469`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:613-617`)                                  |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:760`)          |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:887`) |
-| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1180`)                                |
+| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1205`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
 403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:331-336`). Le
@@ -369,7 +369,7 @@ Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts:25-27`) et v
   default-DENY du jury qui ferme, pas ce voter. C'est aussi ce qui rend l'OR
   (`@IsGranted(["A","B"])`) possible.
 - La hiérarchie est lue **en lazy** depuis le container — clé `roleHierarchy`
-  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:180-183`).
+  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:206`).
 - Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts:36-38`).
 
 ### `scope` — l'axe « ce qu'une clé déléguée peut faire »
@@ -427,7 +427,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
   et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
   hiérarchie** : `satisfies()` (`frameAuthorizer.ts:240-250`) délègue à `Firewall.hasRole()`
-  (`firewall.ts:399-401`) — les rôles exigés par un canal héritent comme partout ailleurs.
+  (`firewall.ts:466`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées
 
@@ -441,7 +441,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
   alloc (`Resolver.ts:334-336`) ; l'exigence est **figée une fois** par route et partagée entre
-  requêtes (`SecurityRequirement`, `routerDecorators.ts:300-312`).
+  requêtes (`SecurityRequirement`, `routerDecorators.ts:424`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:78-80`),
   instanciés **une seule fois** au boot (`authorization.ts:55-64`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête

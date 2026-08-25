@@ -42,7 +42,23 @@ type LooseModel = Model<Record<string, unknown>>;
  */
 export class MongooseOrm extends Orm {
   #connection: Connection | null = null;
-  #connected = false;
+  /**
+   * Listeners de cycle de vie attachés à la connexion Mongoose — gardés pour
+   * pouvoir les DÉTACHER : `disconnect()` puis `connect()` sur le même ORM
+   * empilerait sinon un jeu de listeners par cycle (règle « pas de listener
+   * sans cleanup »). `null` tant qu'aucune connexion n'est ouverte.
+   */
+  #lifecycle: Array<[string, (...a: never[]) => void]> | null = null;
+
+  /**
+   * Mongoose traduit les signaux de topologie du driver MongoDB (SDAM) : il
+   * SAIT qu'un serveur est tombé, même sans le moindre trafic — d'où
+   * `"events"`. C'est la seule des trois familles d'adapters du dépôt qui
+   * dispose d'une surveillance de serveur indépendante des requêtes.
+   */
+  override get liveness(): "events" | "assumed" {
+    return "events";
+  }
   #models: Record<string, LooseModel> | null = null;
   #repositories: Record<string, IRepository> | null = null;
   readonly #uri: string;
@@ -72,11 +88,22 @@ export class MongooseOrm extends Orm {
   }
 
   protected async onConnect(): Promise<void> {
-    const connection = this.#options
-      ? mongoose.createConnection(this.#uri, this.#options)
-      : mongoose.createConnection(this.#uri);
+    // Un `connect()` rejoué ne doit pas laisser derrière lui les écoutes de
+    // la connexion précédente : elles resteraient ACTIVES et indétachables,
+    // et un `disconnected` venu d'une connexion abandonnée ferait basculer
+    // un ORM dont la connexion courante est parfaitement saine.
+    if (this.#connection) {
+      this.#unwireLifecycle();
+      await this.#connection.close().catch(() => undefined);
+      this.#connection = null;
+    }
+    const connection = mongoose.createConnection(
+      this.#uri,
+      this.#delaisSains(),
+    );
     await connection.asPromise();
     this.#connection = connection;
+    this.#wireLifecycle(connection);
     this.#models = Object.create(null) as Record<string, LooseModel>;
 
     const entities = this.#ownEntities();
@@ -160,22 +187,116 @@ export class MongooseOrm extends Orm {
       this.#models[entity.name] = model;
       entity.model = model;
     }
+  }
 
-    this.#connected = true;
+  /**
+   * Délais d'attente **par défaut**, plus courts que ceux du driver.
+   *
+   * Le driver MongoDB attend **30 s** pour trouver un serveur utilisable
+   * (`serverSelectionTimeoutMS`) et autant pour établir une connexion
+   * (`connectTimeoutMS`) — vérifié au source, `connection_string.js`. Mesuré
+   * sur une base arrêtée : une requête PEND 30 s avant d'échouer. Pour une
+   * requête HTTP c'est absurde : le client a abandonné depuis longtemps, et
+   * le worker reste bloqué à attendre une base dont on sait déjà qu'elle ne
+   * répond pas.
+   *
+   * **5 s** est tenable parce que `retryReads`/`retryWrites` valent `true`
+   * par défaut : une opération qui échoue en sélection est RETENTÉE, ce qui
+   * porte la fenêtre effective à une dizaine de secondes — de quoi absorber
+   * l'élection d'un nouveau primaire sans faire attendre le client deux fois
+   * plus longtemps que nécessaire.
+   *
+   * `socketTimeoutMS` n'est délibérément PAS touché (le driver le laisse
+   * infini) : le borner ici tuerait les agrégations longues légitimes. Ce
+   * rôle revient à `timeoutMS` (CSOT), que seule l'application peut fixer en
+   * connaissance de ses opérations.
+   *
+   * 🔴 **Un choix EXPLICITE gagne toujours** — qu'il vienne des options ou de
+   * la chaîne de connexion. Poser un défaut n'autorise pas à écraser une
+   * intention : une URI qui porte `?serverSelectionTimeoutMS=20000` dit ce
+   * qu'elle veut, et l'objet d'options primerait silencieusement sur elle.
+   */
+  #delaisSains(): ConnectOptions {
+    const fournis = this.#options ?? {};
+    const dansUri = (cle: string): boolean =>
+      new RegExp(`[?&]${cle}=`, "iu").test(this.#uri);
+    const defauts: ConnectOptions = {};
+    if (
+      fournis.serverSelectionTimeoutMS === undefined &&
+      !dansUri("serverSelectionTimeoutMS")
+    ) {
+      defauts.serverSelectionTimeoutMS = 5_000;
+    }
+    if (
+      fournis.connectTimeoutMS === undefined &&
+      !dansUri("connectTimeoutMS")
+    ) {
+      defauts.connectTimeoutMS = 5_000;
+    }
+    return { ...defauts, ...fournis };
+  }
+
+  /**
+   * Traduit les événements du driver en signaux du contrat `orm-core`.
+   *
+   * Mongoose SAIT quand le serveur tombe — le setter de `readyState` émet
+   * l'état, et le driver câble `serverDescriptionChanged` (topologie simple)
+   * ou `topologyDescriptionChanged` (replica set : perte du primaire). Rien
+   * n'écoutait, d'où une santé ORM qui affirmait « connecté » pendant toute
+   * une coupure. `error` est écouté AUSSI parce qu'une `Connection` est un
+   * `EventEmitter` : sans auditeur, une erreur émise ferait tomber le process.
+   */
+  #wireLifecycle(connection: Connection): void {
+    const lost = (why: string) => (): void => this.connectionLost(why);
+    const listeners: Array<[string, (...a: never[]) => void]> = [
+      ["disconnected", lost("mongoose: disconnected")],
+      ["close", lost("mongoose: close")],
+      [
+        "error",
+        ((e: Error) =>
+          this.connectionLost(
+            `mongoose: ${e?.message ?? String(e)}`,
+          )) as unknown as (...a: never[]) => void,
+      ],
+      ["reconnected", (): void => this.connectionRestored()],
+      ["connected", (): void => this.connectionRestored()],
+    ];
+    for (const [event, handler] of listeners) {
+      connection.on(event, handler as (...a: unknown[]) => void);
+    }
+    this.#lifecycle = listeners;
+  }
+
+  /** Détache les listeners de cycle de vie (anti-fuite, anti-empilement). */
+  #unwireLifecycle(): void {
+    const connection = this.#connection;
+    if (connection && this.#lifecycle) {
+      for (const [event, handler] of this.#lifecycle) {
+        connection.removeListener(event, handler as (...a: unknown[]) => void);
+      }
+    }
+    this.#lifecycle = null;
   }
 
   async disconnect(): Promise<void> {
-    if (this.#connection) {
-      await this.#connection.close();
+    // `alive` d'abord, puis détacher : `close()` émet `close`, et un ORM
+    // qu'on ferme volontairement n'a pas « perdu » sa connexion — le compter
+    // comme un incident polluerait le tableau de bord à chaque arrêt propre.
+    // Le PUITS qui suit n'est pas un détail : une `Connection` est un
+    // `EventEmitter`, et la détacher entièrement juste avant de la fermer
+    // rouvrirait — le temps de la fermeture — le défaut que ce câblage ferme.
+    this.alive = false;
+    this.stopHeartbeat();
+    this.#unwireLifecycle();
+    const connection = this.#connection;
+    if (connection) {
+      const sink = (): void => undefined;
+      connection.on("error", sink);
+      await connection.close();
     }
     this.#connection = null;
-    this.#connected = false;
     this.#models = null;
     this.#repositories = null;
-  }
-
-  isConnected(): boolean {
-    return this.#connected;
   }
 
   getRepository<T = unknown>(name: string): IRepository<T> {

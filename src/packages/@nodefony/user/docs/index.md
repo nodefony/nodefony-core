@@ -266,7 +266,7 @@ choisir comment leurs mots de passe sont rangés, créer un compte et le retrouv
 
 L'encodeur ne se configure pas dans ce module : il est **dérivé de la config sécurité**, parce que
 c'est une politique de sécurité. Le firewall lit la section `encoders` et pose le service
-`passwordEncoder` dans le container (`service/firewall.ts:344`).
+`passwordEncoder` dans le container (`service/firewall.ts:394`).
 
 ```typescript
 // nodefony.config.ts — extrait du manifeste `modules`
@@ -284,7 +284,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:954`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts:1079`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)
@@ -474,7 +474,7 @@ l'audit serveur, jamais dans la réponse.
 | `onAuthenticated`         | authentification réussie                      | l'utilisateur            |
 | `onAuthenticationFailure` | tout échec                                    | identifiant + raison     |
 
-`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:168`) : un changement de
+`onPasswordChanged` est délibérément distinct d'`onUpdated` (`UserService.ts:223`) : un changement de
 credential n'est pas une modification banale, et un abonné (audit, notification, invalidation de
 sessions) doit pouvoir le traiter à part.
 
@@ -900,7 +900,7 @@ en mémoire (`UserService.ts:154`).
 ### Cascade de révocation
 
 Supprimer, désactiver ou verrouiller un compte émet l'événement kernel `onUserRevoked`
-(`UserAdminApi.ts:238`). `@nodefony/security` s'y abonne pour éjecter **immédiatement** sessions et
+(`UserAdminApi.ts:219`). `@nodefony/security` s'y abonne pour éjecter **immédiatement** sessions et
 jetons.
 
 Ce n'est **pas** ce qui neutralise l'accès — c'était déjà fait, puisque les authenticators
@@ -947,7 +947,7 @@ l'authentification, pas à chaque requête. Les points qui comptent :
 | Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache     | `UserService.ts:374`      |
 | Blocklist           | `null` par défaut → aucun coût tant qu'elle n'est pas branchée | `UserService.ts:83`       |
 | Listing             | pagination **native au store**, jamais de `find()` complet     | `IUserRepository.ts:78`   |
-| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes           | `IUserRepository.ts:88`   |
+| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes           | `IUserRepository.ts:112`  |
 | Registre de stores  | `Set` allouée au premier enregistrement                        | `userStoreRegistry.ts:16` |
 
 **Le vrai budget, c'est la mémoire du hachage.** Avec les défauts Argon2id, chaque vérification

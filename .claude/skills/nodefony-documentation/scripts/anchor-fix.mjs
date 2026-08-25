@@ -133,13 +133,11 @@ for (const j of jobs) {
   }
   if (best === j.oldLine) continue;
   if (!edits.has(j.md)) edits.set(j.md, []);
-  edits
-    .get(j.md)
-    .push({
-      mdLine: j.mdLine,
-      from: `${j.ref}:${j.oldLine}`,
-      to: `${j.ref}:${best}`,
-    });
+  edits.get(j.md).push({
+    mdLine: j.mdLine,
+    from: `${j.ref}:${j.oldLine}`,
+    to: `${j.ref}:${best}`,
+  });
 }
 
 let n = 0;

@@ -49,10 +49,10 @@ function targetOptions(
 
 interface QuestionFieldProps {
   question: IScaffoldQuestion;
-  value: string | boolean | undefined;
+  value: string | boolean | string[] | undefined;
   error: string | null;
   targets: IScaffoldTarget[];
-  onChange: (key: string, value: string | boolean) => void;
+  onChange: (key: string, value: string | boolean | string[]) => void;
 }
 
 /** Un contrôle, choisi par le TYPE de la question (+ le cas particulier de la cible). */
@@ -112,6 +112,60 @@ function QuestionField({
     );
   }
 
+  // `list` À CHOIX — plusieurs valeurs, chacune entière. Une case par choix
+  // plutôt qu'un multi-select : ce sont des gestes distincts (chacun écrit
+  // ailleurs), et l'on doit VOIR d'un coup d'œil que rien n'est coché.
+  if (question.type === "list" && question.choices) {
+    const coches = Array.isArray(value) ? (value as string[]) : [];
+    return (
+      <Stack gap={4}>
+        <Group gap="xs" wrap="nowrap">
+          <Text size="sm" fw={500}>
+            {question.label}
+          </Text>
+          <DocHint
+            title="Ce que « câbler un agent » veut dire"
+            summary={`Rien n'est coché par défaut : ${coches.length === 0 ? "en l'état, aucun fichier d'agent n'est écrit hors du projet" : `${coches.length} agent(s) seront servis`}.`}
+            sections={[
+              {
+                label: "Ce que l'application dépose, toujours",
+                body: "Ses instructions en AGENTS.md (standard porté par l'Agentic AI Foundation, sous Linux Foundation ; précédence « le plus proche gagne »), et un pointeur au nom des agents qui ne lisent pas ce fichier — Claude Code lit CLAUDE.md, Gemini CLI lit GEMINI.md.",
+              },
+              {
+                label: "Ce que ce choix ajoute",
+                body: "La porte d'introspection de l'app, déclarée chez l'agent coché — par SA propre CLI, jamais en écrivant son fichier de configuration. Un agent conforme aux standards se sert seul des fichiers du projet : c'est le premier choix de la liste, et il ne lance aucune commande.",
+              },
+              {
+                label: "Si vous ne cochez rien",
+                body: "Aucune configuration d'un autre outil n'est touchée. Le geste reste disponible plus tard : npx nodefony ai:mcp, dans l'application générée.",
+              },
+            ]}
+          />
+        </Group>
+        {question.choices.map((c) => (
+          <Checkbox
+            key={c.value}
+            label={c.hint ? `${c.label} — ${c.hint}` : c.label}
+            checked={coches.includes(c.value)}
+            onChange={(e) =>
+              onChange(
+                question.key,
+                e.currentTarget.checked
+                  ? [...coches, c.value]
+                  : coches.filter((v) => v !== c.value),
+              )
+            }
+          />
+        ))}
+        {error ? (
+          <Text size="xs" c="red">
+            {error}
+          </Text>
+        ) : null}
+      </Stack>
+    );
+  }
+
   if (question.type === "choice") {
     const data = (question.choices ?? []).map((c) => ({
       value: c.value,
@@ -149,7 +203,7 @@ export interface CreateFormProps {
   targets: IScaffoldTarget[];
   /** Capacités CONSTATÉES par le serveur — décident des questions `askIf`. */
   caps: IScaffoldCaps;
-  onChange: (key: string, value: string | boolean) => void;
+  onChange: (key: string, value: string | boolean | string[]) => void;
 }
 
 /** Le formulaire d'un type de scaffold : questions du dialogue + repli « Réglages avancés ». */
@@ -234,7 +288,7 @@ export function CreateForm({
  */
 function validateAnswerLive(
   q: IScaffoldQuestion,
-  value: string | boolean | undefined,
+  value: string | boolean | string[] | undefined,
 ): string | null {
   if (typeof value !== "string" || value === "") return null;
   return validateAnswer(q, value);

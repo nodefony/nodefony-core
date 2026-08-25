@@ -59,7 +59,7 @@ class DrizzleService extends Service {
     // — donc « critique » par défaut, et un journal qui ne nomme personne.
     this.module.hookKernel("onBoot", async () => {
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
-      // NODEFONY_ORM_FLOW. Calcul factorisé en orm-core (C5).
+      // NF_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
       await this.connectAll().catch((e: Error) => {
         this.log(e, "ERROR");

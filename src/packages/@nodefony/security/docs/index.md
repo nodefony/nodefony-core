@@ -51,7 +51,9 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 1. [Firewall](firewall.md) — déclarer la zone et ses authenticators.
 2. [Clés d'API](api-keys.md) — émettre, faire tourner, révoquer une clé opaque.
 3. [Jetons](tokens.md) — le JWT quand la vérification doit rester sans état.
-4. [Autorisation](authorization.md) — borner chaque clé par des scopes.
+4. [Jetons d'un émetteur TIERS](external-jwt.md) — accepter Keycloak, Auth0 ou Entra sans leur
+   céder l'application.
+5. [Autorisation](authorization.md) — borner chaque clé par des scopes.
 
 **J'ouvre un login à des humains** — navigateur, comptes, second facteur.
 

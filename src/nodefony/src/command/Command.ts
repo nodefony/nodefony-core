@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { chargePrompts } from "../cli/prompts";
 import Service, { DefaultOptionsService } from "../Service";
 import Container, { Scope } from "../Container";
 //import Event from "../Event";
@@ -36,6 +37,23 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * master/worker cluster) restent posés par `setRunProfile()` dans `onKernelStart`.
    */
   runProfile?: IRunProfile;
+  /**
+   * Boot SILENCIEUX pour CETTE commande (capability déclarative).
+   *
+   * 🔴 Le journal de cycle de vie n'est pas la SORTIE d'une commande. Vécu :
+   * `nodefony inspect modules` rendait trente lignes de `MODULE ADD`, de stores
+   * résolus et d'avertissements TLS avant son tableau — la réponse à la
+   * question posée arrivait en dernier, sous un mur que personne n'a demandé.
+   *
+   * Déclaré ICI plutôt que posé par chaque commande : le constructeur d'une
+   * commande s'exécute pour TOUTES les invocations du CLI, si bien qu'un
+   * `cli.quietBoot = true` écrit dans un constructeur rendrait muet le serveur
+   * de développement. Le CLI ne l'applique qu'à la commande RÉELLEMENT demandée.
+   *
+   * Ne cache jamais une erreur : seuls NOTICE et INFO tombent, `EMERGENCY..ERROR`
+   * restent, et `-d/--debug` rétablit tout.
+   */
+  quietBoot?: boolean;
 }
 
 export type CommandArgs = any[];
@@ -75,6 +93,8 @@ class Command extends Service {
   public lifetime: RunLifetime = "oneshot";
   /** Profil d'exécution déclaré (cf {@link OptionsCommandInterface.runProfile}) — `null` si non déclaré. */
   public runProfile: IRunProfile | null = null;
+  /** Boot silencieux déclaré (cf {@link OptionsCommandInterface.quietBoot}). */
+  public quietBoot: boolean = false;
   // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
   // LAZY dans setEvents() : un `kernel.once(...)` n'est posé QUE si la commande définit
   // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
@@ -126,6 +146,7 @@ class Command extends Service {
     this.kernelEvent = this.options.kernelEvent;
     this.lifetime = this.options.lifetime ?? "oneshot";
     this.runProfile = this.options.runProfile ?? null;
+    this.quietBoot = this.options.quietBoot === true;
     this.command = this.createCommand(name, description);
     this.command?.action((...args: any[]) => {
       if (this.kernel) {
@@ -223,9 +244,76 @@ class Command extends Service {
    */
   public async loadPrompts(): Promise<void> {
     if (!this.prompts) {
-      this.prompts = await import("@inquirer/prompts");
+      // ⭐ Par la porte UNIQUE, jamais par un import direct : les questions en
+      // sortent ANCRÉES sur l'event loop. Attendre une frappe est une promesse
+      // en attente, et Node ne compte que les HANDLES — une commande qui ne
+      // démarre rien s'arrête donc AU MILIEU de sa question, sans erreur et
+      // avec un code de sortie nul. Cf `cli/prompts.ts`.
+      this.prompts = (await chargePrompts()) as unknown as typeof this.prompts;
     }
   }
+  /**
+   * Rend un argument : celui qu'on a reçu, ou celui qu'on DEMANDE.
+   *
+   * 🔴 Une commande qui exige un argument positionnel (`<identifier>`) refuse
+   * avant même d'exister : commander répond « error: missing required argument
+   * 'identifier' » et le kernel sort en 1. C'est juste quand on TAPE la ligne
+   * et qu'on a oublié un mot ; c'est absurde quand on a CHOISI la commande dans
+   * le menu — on n'a rien oublié, on ne savait pas. Vécu sur
+   * `security:user:add` : le menu propose le geste, la commande le refuse.
+   *
+   * La règle vit ICI et pas dans chaque commande : quatre commandes du dépôt
+   * attendent un argument, et quatre copies d'une même règle divergent. Pour en
+   * profiter, une commande déclare son argument OPTIONNEL (`[identifier]` —
+   * sinon commander refuse avant nous) puis passe ce qu'elle a reçu.
+   *
+   * **Hors terminal, on ne demande RIEN** : un pipeline sans TTY resterait
+   * suspendu sur une question que personne ne lit, jusqu'au timeout du job.
+   * L'échec reste un échec — mais il montre la ligne exacte à taper.
+   *
+   * @param valeur - ce que la ligne de commande a fourni (souvent `undefined`)
+   * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
+   *               est INJECTABLE pour que la règle s'éprouve sans terminal
+   * @returns la valeur, taillée
+   * @throws Si l'argument manque et qu'aucun terminal ne peut le demander
+   */
+  public async askArgument(
+    valeur: string | undefined,
+    spec: {
+      name: string;
+      message: string;
+      choices?: readonly string[];
+      isTTY?: boolean;
+    },
+  ): Promise<string> {
+    const donnee = typeof valeur === "string" ? valeur.trim() : "";
+    if (donnee.length > 0) return donnee;
+
+    const interactifPossible = spec.isTTY ?? Boolean(process.stdin.isTTY);
+    if (!interactifPossible) {
+      const exemple = spec.choices?.length
+        ? `<${spec.choices.join("|")}>`
+        : `<${spec.name}>`;
+      throw new Error(
+        `${spec.name} est requis — aucun terminal pour le demander : ` +
+          `nodefony ${this.name} ${exemple}`,
+      );
+    }
+
+    await this.loadPrompts();
+    const reponse = spec.choices?.length
+      ? await this.prompts.select({
+          message: spec.message,
+          choices: spec.choices.map((c) => ({ name: c, value: c })),
+        })
+      : await this.prompts.input({
+          message: spec.message,
+          validate: (v: string) =>
+            v.trim().length > 0 || `${spec.name} est requis`,
+        });
+    return String(reponse).trim();
+  }
+
   /**
    * Méthode d'action de la commande.
    *
@@ -261,9 +349,19 @@ class Command extends Service {
   public async run(...args: any[]): Promise<this> {
     if (this.kernel) this.kernel.command = this;
     if (this.interactive || this.forceInteractive) {
-      return this.interaction(...args).then((...response) =>
-        this.generate(...response),
-      );
+      // 🔴 `.then((...response) => …)` ne recevait qu'UNE valeur — le callback
+      // d'une promesse n'est jamais variadique. `interaction()` rendant ses
+      // arguments (`[a, b, c]` par défaut), `generate` recevait UN argument :
+      // le tableau. Toute commande passée en interactif sans surcharger
+      // `interaction()` voyait donc son premier paramètre devenir un tableau —
+      // c'est ce qui interdisait de propager le mode interactif depuis le menu.
+      // Le menu, lui, ne le voyait pas : son `interaction()` rend une chaîne.
+      const response = await this.interaction(...args);
+      // Un tableau = plusieurs arguments (le cas par défaut) ; une valeur seule
+      // = un argument, et surtout pas ses éléments étalés.
+      return Array.isArray(response)
+        ? this.generate(...response)
+        : this.generate(response);
     }
     return this.generate(...args);
   }
@@ -449,7 +547,19 @@ class Command extends Service {
     }
   }
   async terminate(code?: number): Promise<void> {
-    return this.cli?.terminate(code || 0);
+    // 🔴 `code || 0` traduisait `undefined` en 0 — et effaçait l'échec.
+    //
+    // Une commande signale son échec par `process.exitCode = 1`, la façon
+    // normale en Node ; puis le cadre appelle `terminate()` SANS argument pour
+    // clore le kernel. Le `|| 0` en faisait un succès : « terminate : 0 »,
+    // process sorti en 0, et ni un script, ni un `&&` en shell, ni une CI ne
+    // voyaient quoi que ce soit. Signalé sur `security:token`, présent sur cinq
+    // commandes. `undefined` doit VOYAGER : c'est le Kernel qui résout alors le
+    // code réel (`process.exitCode`, sinon 0).
+    //
+    // ⚠️ `|| 0` était doublement faux : il transformait aussi un `terminate(0)`
+    // explicite en… 0, par chance — mais tout code falsy y passait.
+    return this.cli?.terminate(code);
   }
 }
 

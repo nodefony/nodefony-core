@@ -448,7 +448,19 @@ describe("CliKernel — initSyslog()", () => {
     }
   });
 
-  it("initSyslog 2x avec kernel → 2 listeners (pas de deduplication)", () => {
+  it("🔴 initSyslog REMPLACE son abonné — il ne l'empile pas", () => {
+    // Ce test gardait l'inverse (« 2 listeners, pas de deduplication »), sans
+    // dire pourquoi ce serait souhaitable. C'était un défaut caractérisé, et il
+    // avait deux conséquences bien réelles :
+    //
+    //  · reconfigurer le filtre ne servait à RIEN — le nouvel abonné, plus
+    //    restrictif, s'ajoutait à l'ancien qui continuait d'écrire. Vécu : une
+    //    commande choisie au menu déclare `quietBoot`, on réinitialise le
+    //    syslog, et le journal de boot sort quand même ;
+    //  · chaque ligne acceptée par plusieurs abonnés était écrite PLUSIEURS
+    //    fois — une erreur en double à chaque appel supplémentaire.
+    //
+    // `Syslog.init()` prenait déjà cette précaution ; ici elle manquait.
     const cli = makeCliKernel();
     cli.syslog?.removeAllListeners();
     cli.kernel = { type: "CONSOLE", environment: "development" } as any;
@@ -458,9 +470,11 @@ describe("CliKernel — initSyslog()", () => {
     cli.initSyslog("development", false);
     const after2 = cli.syslog?.listenerCount("onLog") ?? 0;
 
-    assert.ok(
-      after2 > after1,
-      "deuxième appel ajoute un listener supplémentaire",
+    assert.strictEqual(after1, 1, "un abonné après le premier appel");
+    assert.strictEqual(
+      after2,
+      1,
+      "le second appel doit REMPLACER — sinon le filtre précédent écrit encore",
     );
   });
 });

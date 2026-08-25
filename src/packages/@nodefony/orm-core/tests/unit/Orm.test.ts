@@ -22,10 +22,12 @@ class TestOrm extends Orm {
   }
   async disconnect(): Promise<void> {
     this.connected = false;
+    this.alive = false;
   }
-  isConnected(): boolean {
-    return this.connected;
-  }
+  // `isConnected()` n'est PAS surchargé : le fichier qui exerce la classe de
+  // base ne peut pas neutraliser le mécanisme qu'elle porte. Un adapter qui
+  // le redéfinit peut re-mentir — c'est précisément ce qu'on ne veut pas
+  // enseigner par l'exemple.
   getRepository<T = unknown>(): IRepository<T> {
     return {} as IRepository<T>;
   }

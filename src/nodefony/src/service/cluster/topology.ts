@@ -39,7 +39,7 @@ export interface Topology {
 export interface ResolveTopologyOptions {
   /** CLI `--workers <n|auto>` (chaîne Commander). Priorité MAX (override opérateur). */
   flag?: string;
-  /** Override `NODEFONY_WORKERS` (Docker/k8s). Défaut : lecture de `process.env`. */
+  /** Override `NF_WORKERS` (Docker/k8s). Défaut : lecture de `process.env`. */
   env?: string;
   /** Valeur de la config app `cluster.workers` (le knob DevOps par défaut). */
   config?: WorkersSetting;
@@ -73,7 +73,7 @@ function coerce(
  * workers ». Ordre de priorité (premier défini gagne) :
  *
  * 1. **CLI `--workers`** — override explicite de l'opérateur (jamais borné).
- * 2. **env `NODEFONY_WORKERS`** — override déploiement (Docker/k8s, sans éditer de fichier).
+ * 2. **env `NF_WORKERS`** — override déploiement (Docker/k8s, sans éditer de fichier).
  * 3. **config app `cluster.workers`** — le knob DevOps par défaut (remplace PM2 `instances`).
  * 4. **défaut `1`** — mono-process cloud-native.
  *
@@ -84,7 +84,7 @@ export function resolveTopology(opts: ResolveTopologyOptions = {}): Topology {
   if (fromFlag !== undefined) {
     return { workers: fromFlag, source: "flag" };
   }
-  const envRaw = opts.env ?? process.env.NODEFONY_WORKERS;
+  const envRaw = opts.env ?? process.env.NF_WORKERS;
   const fromEnv = coerce(envRaw);
   if (fromEnv !== undefined) {
     return { workers: fromEnv, source: "env" };

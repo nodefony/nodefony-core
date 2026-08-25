@@ -117,6 +117,7 @@ describe("mergeClusterHealth — consolidation pod", () => {
         orm: {
           connectors: 1,
           connected: 1,
+          assumed: 0,
           queryTotal: 100,
           slowTotal: 2,
           errorTotal: 1,
@@ -130,6 +131,7 @@ describe("mergeClusterHealth — consolidation pod", () => {
         orm: {
           connectors: 1,
           connected: 0,
+          assumed: 0,
           queryTotal: 50,
           slowTotal: 5,
           errorTotal: 4,
@@ -142,6 +144,11 @@ describe("mergeClusterHealth — consolidation pod", () => {
     expect(merged.totals.orm).to.deep.equal({
       connectors: 2,
       connected: 1,
+      // Somme des connecteurs dont l'état n'est que SUPPOSÉ : ici aucun des
+      // deux workers n'en déclare, donc 0 — mais le champ doit voyager, sinon
+      // la distinction « constaté / supposé » se perd au niveau cluster,
+      // précisément là où une readiness la lit.
+      assumed: 0,
       queryTotal: 150,
       slowTotal: 7,
       errorTotal: 5,

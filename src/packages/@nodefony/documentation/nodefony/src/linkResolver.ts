@@ -57,6 +57,17 @@ export interface RewriteLinksOptions {
    * intact — on ne fabrique jamais un slug qui n'existe pas).
    */
   toSlug: (repoRelPath: string) => string | undefined;
+  /**
+   * Suffixe ajouté derrière la cible traduite. Vaut `".md"` par défaut : le
+   * portail reconnaît un lien interne à cette extension, et un slug nu serait
+   * indistinguable d'une URL relative quelconque.
+   *
+   * Un générateur de site statique publie en revanche des URL réelles
+   * (`/modules/security/cors/`) : il passe `""` et `toSlug` rend l'URL. Sans ce
+   * point d'extension, il faudrait recopier la résolution relative ailleurs —
+   * et deux implémentations d'une même règle divergent toujours.
+   */
+  suffix?: string;
 }
 
 /**
@@ -73,10 +84,10 @@ export function rewriteInternalLinks(
   markdown: string,
   options: RewriteLinksOptions,
 ): string {
-  const { fromDir, toSlug } = options;
+  const { fromDir, toSlug, suffix = ".md" } = options;
   const translate = (href: string): string | null => {
     const slug = toSlug(resolveRelative(fromDir, href));
-    return slug ? `${slug}.md` : null;
+    return slug ? `${slug}${suffix}` : null;
   };
   const out = markdown.replace(MD_LINK, (whole, href: string, hash = "") => {
     const t = translate(href);

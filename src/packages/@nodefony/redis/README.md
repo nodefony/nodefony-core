@@ -14,7 +14,7 @@ Module workspace du monorepo Nodefony. Déclaré dans `@modules()` racine.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d   # Redis 7, password "nodefony-dev"
-export REDIS_PASSWORD=nodefony-dev
+export NF_REDIS_PASSWORD=nodefony-dev
 ```
 
 ## Usage
@@ -53,12 +53,12 @@ export default {
 
 ### Variables d'environnement
 
-| Variable         | Effet                                     |
-| ---------------- | ----------------------------------------- |
-| `REDIS_URL`      | URL complète `redis[s]://…` (prioritaire) |
-| `REDIS_HOST`     | hôte du serveur                           |
-| `REDIS_PORT`     | port (validé)                             |
-| `REDIS_PASSWORD` | mot de passe (jamais committé)            |
+| Variable            | Effet                                     |
+| ------------------- | ----------------------------------------- |
+| `REDIS_URL`         | URL complète `redis[s]://…` (prioritaire) |
+| `NF_REDIS_HOST`     | hôte du serveur                           |
+| `NF_REDIS_PORT`     | port (validé)                             |
+| `NF_REDIS_PASSWORD` | mot de passe (jamais committé)            |
 
 ### Connexions par défaut
 
@@ -98,7 +98,7 @@ sautés** si Redis est injoignable. Pour les exécuter :
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d
-REDIS_PASSWORD=nodefony-dev npx vitest run
+NF_REDIS_PASSWORD=nodefony-dev npx vitest run
 ```
 
 ## Licence

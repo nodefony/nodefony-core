@@ -161,7 +161,7 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 ## Commandes existantes — `src/nodefony/src/kernel/commands/`
 
-Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots réels).
+Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les boots réels).
 
 | Command      | Alias         | Fichier                | Note                                                          |
 | ------------ | ------------- | ---------------------- | ------------------------------------------------------------- |
@@ -182,6 +182,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 | `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
 | `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
 | `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)           |
+| `git:hooks`  | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)            |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -197,7 +198,7 @@ kernel). Pattern du wrapper de projet (`gradlew`, `mvnw`) : _le projet gagne_.
 
 Install cassée (paquet local présent, binaire absent) → **stderr + exit 1**, jamais de repli silencieux
 sur le global : piloter une app avec une version de framework qu'elle n'a pas choisie est un faux
-service. Détail des cas + variables (`NODEFONY_CLI_DELEGATED`, `NODEFONY_CLI_DEBUG`) : [`MEMORY.md`](./MEMORY.md).
+service. Détail des cas + variables (`NF_CLI_DELEGATED`, `NF_CLI_DEBUG`) : [`MEMORY.md`](./MEMORY.md).
 
 > Conséquence pour le dev du framework : `npm link` depuis `src/nodefony` rend `nodefony` disponible
 > partout et suit le checkout (symlink) ; dans le repo self-hosted comme dans une app `create app --link`,
@@ -242,7 +243,7 @@ document de FORME différente, que l'agrégateur lirait mal sans rien signaler.
 
 ## `nodefony env` — l'environnement, en entier (standalone 0-boot)
 
-`nodefony env [--json] [--cwd <path>]` — cascade des `.env`, variables déclarées, valeur
+`nodefony env [--json] [--cwd <path>]` (+ `--example [--check]` : dérive/vérifie `.env.example` depuis le catalogue, ADR-0006) — cascade des `.env`, variables déclarées, valeur
 EFFECTIVE de chacune et sa PROVENANCE, puis ce qui est ignoré. Standalone **par nécessité**
 (même raison que `check`, en plus tranchée) : on cherche une variable précisément quand l'app
 NE démarre pas. Sort en **78** (`EX_CONFIG`) si une variable requise manque.
@@ -378,10 +379,74 @@ d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire
 VERSIONNÉ à chaque installation produirait des différences surprises. `create app` pose une fois
 (après l'install, avant le premier commit) ; cette commande remet à jour quand on le demande.
 
+## `nodefony ai:mcp --agent` — déclarer la porte CHEZ l'agent, par SA CLI
+
+`nodefony ai:mcp [--agent <claude,gemini,vibe,codex|all|none>] [--remove]`. Après avoir écrit
+`.mcp.json`, la commande déclare la porte chez chaque agent demandé **en appelant sa ligne de
+commande** — jamais en écrivant son fichier de configuration. Frontière : _Nodefony possède le
+JETON et l'URL, l'agent possède le format de sa déclaration._ La table unique vit dans
+`cli/agentTargets.ts` (cœur), consommée AUSSI par `security:token` (module `security`) qui y pose
+le secret : deux tables auraient divergé au premier agent ajouté d'un seul côté.
+
+**Aucun agent est un CHOIX, pas un oubli.** Sans `--agent`, en terminal, une case à cocher propose
+les agents présents **rien de coché** ; entrée sur une liste vide ne touche à rien et le DIT
+(« tu codes seul, c'est un choix »). Hors terminal, sans `--agent`, rien n'est déclaré : écrire
+dans la configuration d'un autre outil ne peut pas être un effet de bord. `--agent` refuse une clé
+inconnue en nommant celles qui existent (exit `64`), jamais en l'ignorant.
+
+⚠️ **Ce que le code de sortie ne dit pas.** Mesuré : `gemini mcp remove nodefony` répond « not found
+in project settings », **sort en 0**, et laisse l'entrée que `gemini mcp add` venait d'écrire. Le
+verdict se prend donc au CONSTAT — la commande de lecture de l'agent (`argvListe`), relancée après
+le geste : porte encore là après un retrait ⇒ état `sans-effet`, dit tel quel. Sans lecture possible
+(Vibe n'a pas de `mcp list`), on ne prétend rien.
+
+⚠️ **La CLI de l'agent est lancée depuis la RACINE du projet** (`cwd: projectRoot`), jamais depuis
+le dossier de l'appelant : un agent en portée projet écrit relativement à SON répertoire courant,
+et la commande créait sinon un second `.gemini/` dans un sous-dossier, invisible à l'agent.
+Constaté au disque — aucun code de sortie ne le signale.
+
+**Portée : lire ≠ écrire.** Les quatre agents savent LIRE une configuration de projet ; seuls deux
+savent en ÉCRIRE une. `codex mcp add` répond « Added **global** MCP server », et Vibe subordonne la
+persistance à la source `user` (`persist_allowed`). Leur portée projet existe (`.codex/config.toml`,
+`.vibe/config.toml`) mais elle est conditionnée à un dossier **de confiance** — un geste de sécurité
+qui appartient à l'utilisateur, dans son agent. On passe donc par leur CLI, donc en global, **et on
+l'annonce** : deux applications Nodefony sur un poste se disputent sinon le même nom de serveur, et
+la seconde efface la première. L'écrasement d'une déclaration visant une AUTRE URL est signalé.
+
+## `nodefony git:hooks` — hooks git natifs, zéro dépendance (standalone 0-boot)
+
+`nodefony git:hooks [--dry-run] [--json] [--cwd <path>]` — pose `.githooks/`
+(`pre-commit` = typecheck+lint LÉGER, `pre-push` = `verify`) et
+`git config core.hooksPath`. **Natif exprès** : husky v9 n'est qu'un habillage
+de `core.hooksPath`, et un `postinstall` est refusé pour les mêmes raisons
+qu'`ai:sync` (`--ignore-scripts`, vecteur d'attaque) — la pose est un geste
+explicite. Doctrine : le hook local reste léger, le filet complet est la CI.
+
+Architecture en deux morceaux, comme `env`/`card`/`ai:sync` :
+`cli/gitHooksReport.ts` = composition **PURE** (`renderGitHook`/`planGitHooks`/
+rendu) ; `cli/gitHooks.ts` = adaptateur (`installGitHooks` — lecture, écriture,
+`git config`). **Deux appelants, une implémentation** : la commande, et
+`create app --git-hooks` (question `advanced` de la spec — jamais posée en
+dialogue, le défaut SANS hooks est la doctrine). Le scaffold pose les hooks
+ENTRE `git init` et le commit initial (ils entrent dans le premier commit) et
+ce commit passe en `--no-verify` : le hook fraîchement posé s'exécuterait sur
+du contenu tout juste généré, sans `node_modules` en `--no-install` — son
+premier geste serait de bloquer la création de l'app qu'il sert.
+
+Trois refus, tous TOTAUX (rien d'à-moitié posé, exit `CANTCREAT`) : un hook
+existant **sans le marqueur d'appartenance** (`GIT_HOOKS_MARKER`) n'est JAMAIS
+écrasé · un `core.hooksPath` déjà posé ailleurs n'est pas volé · hors dépôt
+git = `UNAVAILABLE` + « git init ». ⚠️ **Un `core.hooksPath` relatif se résout
+depuis le TOPLEVEL git**, pas depuis l'app : app en sous-dossier d'un monorepo
+→ la valeur posée est `apps/<x>/.githooks` (vue du toplevel), calculée sur des
+chemins passés par `realpath` — git rend `/private/var/…` quand l'appelant
+tient le symlink `/var/…`, et sans ça `path.relative` fabrique un `../../..`
+qui sort du dépôt : les hooks ne s'exécutent alors jamais.
+
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
-[--frontend <none|react|vue|angular>] [--link|--no-link]` — **standalone 0-boot**
+[--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 L'app naît **agent-ready** : `AGENTS.md` racine (devise + générateurs + table
 tâche→doc dérivée des deps réelles + gates + zone préservée `<!-- app-notes:start/end -->`)
@@ -551,7 +616,7 @@ Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de la cible �
 déclarée · **nom RÉSERVÉ par un module du framework** (`scaffold/reservedEntities.ts` : `User`,
 `session`, `access_token`, `audit_event`… ; casse et séparateurs ignorés — registre ORM PLAT, un
 homonyme dépossède le module et l'app ne démarre plus sur un message de « colonne inconnue » ;
-table tenue honnête par le gate `RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
+table tenue honnête par le gate `NF_RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
 `nodefony inspect entities --json`) · champ invalide. Ajoute `drizzle-orm` au `package.json` de
 l'app si absent (le code produit l'importe EN DIRECT — sans la dep, seul le hissage npm sauvait
 la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **La SUPPRESSION naît gardée** : `@IsGranted("ROLE_ADMIN")` sur `destroy` dès que
@@ -645,7 +710,7 @@ Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
 dotfiles publiés). Exit codes :
 `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (parse + spec +
 moteur 2 presets × 4 fronts + interactif sur streams + e2e bin gate
-`RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
+`NF_RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
 unit→e2e + page HMR nonce servie), minimal, vue, angular.
 
 ## Hooks Command

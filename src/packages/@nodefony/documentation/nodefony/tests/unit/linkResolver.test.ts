@@ -105,3 +105,41 @@ describe("blocs déclaratifs (fences typées)", () => {
     expect(rewrite(md)).toBe(md);
   });
 });
+
+describe("rewriteInternalLinks — suffixe (générateur de site statique)", () => {
+  /** Le site publie des URL réelles, pas des slugs : `toSlug` rend l'URL, `suffix` est vide. */
+  const URLS: Record<string, string> = {
+    "docs/index.md": "/",
+    "src/packages/@nodefony/security/docs/cors.md": "/modules/security/cors/",
+  };
+  const toUrl = (md: string): string =>
+    rewriteInternalLinks(md, {
+      fromDir: FROM,
+      toSlug: (p) => URLS[p],
+      suffix: "",
+    });
+
+  it("rend une URL nue, sans extension collée derrière", () => {
+    expect(toUrl("voir [CORS](cors.md)")).toBe(
+      "voir [CORS](/modules/security/cors/)",
+    );
+  });
+
+  it("garde l'ancre après une URL nue", () => {
+    expect(toUrl("[CORS](cors.md#origines)")).toBe(
+      "[CORS](/modules/security/cors/#origines)",
+    );
+  });
+
+  it("traduit aussi les `href` des blocs déclaratifs en URL nue", () => {
+    const md =
+      '```nodefony-cards\n[{ "href": "../../../../../docs/index.md" }]\n```';
+    expect(toUrl(md)).toContain('"href": "/"');
+  });
+
+  it("laisse le suffixe `.md` par défaut — le portail Studio ne change pas", () => {
+    expect(rewrite("voir [CORS](cors.md)")).toBe(
+      "voir [CORS](mod~security~cors.md)",
+    );
+  });
+});

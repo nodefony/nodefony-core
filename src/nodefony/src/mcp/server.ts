@@ -97,7 +97,56 @@ function metaVersion(params: Record<string, unknown>): string | undefined {
 }
 
 /**
- * Compose les `instructions` de `server/discover`.
+ * La requête relève-t-elle de l'ère MODERNE (≥ 2026-07-28) ?
+ *
+ * L'ère se lit de la déclaration du client — `_meta` OU en-tête, la spec les
+ * fait équivalents (leur discordance est déjà refusée en amont). Aucune
+ * déclaration = client legacy. Les révisions sont des dates ISO : la
+ * comparaison lexicale EST la comparaison chronologique, et une révision
+ * future reste moderne sans qu'on y revienne.
+ */
+function isModernRequest(
+  params: Record<string, unknown>,
+  headers: IMcpHeaders,
+): boolean {
+  const declared = metaVersion(params) ?? headers.protocolVersion;
+  return declared !== undefined && declared >= MCP_PROTOCOL_VERSION;
+}
+
+/**
+ * Donne à un résultat la FORME de l'ère du client.
+ *
+ * Ère moderne : `resultType` est un **MUST** du schéma (« Servers implementing
+ * this protocol version MUST include this field ») et `_meta` serverInfo un
+ * SHOULD sur chaque réponse. Payé par une connexion réelle : le client
+ * officiel (claude-code 2.1.238) rejoue quatre fois un `tools/list` moderne
+ * sans `resultType`, puis n'enregistre AUCUN outil — serveur « connected »,
+ * porte morte. Un serveur qui annonce l'ère moderne et répond en forme legacy
+ * est injoignable, exactement comme l'inverse l'était (cf
+ * `MCP_SUPPORTED_VERSIONS`).
+ *
+ * Ère legacy : résultat inchangé — un client ≤ 2025-11-25 ne définit pas ces
+ * champs, les lui envoyer serait du bruit d'une autre ère.
+ */
+function eraResult(
+  modern: boolean,
+  serverInfo: IServerInfo,
+  result: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!modern) return result;
+  return {
+    ...result,
+    resultType: "complete",
+    _meta: {
+      ...(result._meta as Record<string, unknown> | undefined),
+      [META_SERVER_INFO]: serverInfo,
+    },
+  };
+}
+
+/**
+ * Compose les `instructions` annoncées au client (`initialize` aujourd'hui ;
+ * `server/discover` le jour de sa réactivation — cf le retrait plus bas).
  *
  * ⭐ **Le seul endroit où un catalogue filtré peut cesser de mentir par
  * omission.** Un outil retenu faute d'autorisation est, pour le client,
@@ -116,10 +165,17 @@ function metaVersion(params: Record<string, unknown>): string | undefined {
  * agent à chercher une porte qui n'existe pas.
  */
 function discoverInstructions(context: IMcpServerContext): string {
+  // ⚠️ Les outils sont NOMMÉS depuis ce qui est réellement servi, jamais
+  // récités : une énumération écrite ici taisait `docs` deux sessions après sa
+  // livraison — déclaré dans le code, absent de la phrase qui présente la
+  // porte, et donc invisible pour l'agent qui la lit en premier.
+  const noms = context.tools.map((tool) => tool.name);
   const base =
-    "Outils d'introspection d'une application Nodefony : ce qui est " +
-    "monté (inspect), ce qui manque (check), ce qu'une API du " +
-    "framework signifie (symbols), et par où commencer (card).";
+    "Outils d'introspection d'une application Nodefony — ils répondent depuis " +
+    "l'application qui TOURNE, pas depuis une lecture des sources. " +
+    (noms.length > 0
+      ? `Disponibles ici : ${noms.join(", ")}. Commence par la carte de visite si tu arrives sur cette application.`
+      : "Aucun outil n'est servi à cet appelant.");
   const withheld = context.withheldCount ?? 0;
   if (withheld <= 0) {
     return base;
@@ -127,8 +183,10 @@ function discoverInstructions(context: IMcpServerContext): string {
   return (
     `${base} ${withheld} outil(s) supplémentaire(s) sont RÉSERVÉS et ne ` +
     "figurent pas dans `tools/list` : ils exigent une autorisation que cette " +
-    "requête ne présente pas. Ce n'est pas une panne — inutile de les deviner " +
-    "ni de contourner."
+    "requête ne présente pas. Ce n'est pas une panne, et rien ne sert de les " +
+    "deviner — le document de ressource protégée de cette porte (RFC 9728) " +
+    "nomme les scopes à demander, et le défi du refus dit où le lire. Ce sont " +
+    "eux qu'il faut faire porter au jeton, pas un contournement."
   );
 }
 
@@ -266,22 +324,25 @@ export async function handleMcpMessage(
   const refus = checkProtocolVersion(id, params, headers);
   if (refus) return refus;
 
+  // L'ère du CLIENT décide de la forme de chaque résultat (cf `eraResult`).
+  const modern = isModernRequest(params, headers);
+
   switch (method) {
-    // ─── Ère MODERNE : pas de session, tout se déclare par requête ───────────
-    // La spec est catégorique — « Servers MUST implement it ». C'est le point
-    // d'entrée d'un client moderne : il apprend ici les révisions servies, les
-    // capacités et l'identité, sans ouvrir quoi que ce soit.
-    case "server/discover":
-      return {
-        status: 200,
-        body: jsonRpcSuccess(id, {
-          resultType: "complete",
-          supportedVersions: [...MCP_SUPPORTED_VERSIONS],
-          capabilities: { tools: {} },
-          instructions: discoverInstructions(context),
-          _meta: { [META_SERVER_INFO]: context.serverInfo },
-        }),
-      };
+    // ─── `server/discover` : NON SERVI, et c'est une décision, pas un oubli ──
+    // La spec 2026-07-28 en fait un MUST pour un serveur moderne — et ce
+    // serveur l'a servi, conforme au schéma champ pour champ. Mesuré alors sur
+    // le client dominant (claude-code 2.1.238, proxy journalisant) : quand
+    // `server/discover` RÉPOND, le client bascule sur son fil moderne, rejoue
+    // `tools/list` quatre fois — réponse conforme (`resultType`, `_meta`),
+    // rejouée en JSON puis en SSE — et n'enregistre AUCUN outil : serveur
+    // « connected », porte morte. Quand `server/discover` rend -32601, le même
+    // client suit le repli que la spec prévoit (« tries server/discover, gets
+    // an error, falls back to initialize ») et enregistre les quatre outils.
+    // Un serveur legacy est un citoyen légitime de l'écosystème ; un serveur
+    // moderne que le seul client déployé ne sait pas finir d'écouter n'est
+    // conforme que sur le papier (cf `nodefony-rfc` : conforme ≠ joignable).
+    // RÉACTIVER (remettre le `case` — `eraResult` et les tests du fil moderne
+    // sont restés en place) le jour où un client réel achève ce fil.
 
     // ─── Ère LEGACY : le handshake que les clients déployés emploient encore ──
     // ⚠️ `initialize` appartient à l'ère legacy (≤ 2025-11-25) ; le servir fait
@@ -299,16 +360,29 @@ export async function handleMcpMessage(
           // ferait porter au client des appels qui échoueraient ensuite.
           capabilities: { tools: {} },
           serverInfo: context.serverInfo,
+          // Le champ existe depuis 2024-11-05 — c'est ici que le catalogue
+          // s'annonce (et que les outils RÉSERVÉS cessent de mentir par
+          // omission) tant que `server/discover` n'est pas servi.
+          instructions: discoverInstructions(context),
         }),
       };
 
     case "ping":
-      return { status: 200, body: jsonRpcSuccess(id, {}) };
+      // `EmptyResult` EST un `Result` : la forme d'ère s'applique aussi à lui.
+      return {
+        status: 200,
+        body: jsonRpcSuccess(id, eraResult(modern, context.serverInfo, {})),
+      };
 
     case "tools/list":
       return {
         status: 200,
-        body: jsonRpcSuccess(id, { tools: publishMcpTools(context.tools) }),
+        body: jsonRpcSuccess(
+          id,
+          eraResult(modern, context.serverInfo, {
+            tools: publishMcpTools(context.tools),
+          }),
+        ),
       };
 
     case "tools/call": {
@@ -357,7 +431,13 @@ export async function handleMcpMessage(
           ),
         };
       }
-      return { status: 200, body: jsonRpcSuccess(id, result) };
+      return {
+        status: 200,
+        body: jsonRpcSuccess(
+          id,
+          eraResult(modern, context.serverInfo, { ...result }),
+        ),
+      };
     }
 
     default:

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { besoinDeShell } from "./execPortable";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
@@ -22,9 +23,15 @@ import {
   runScaffold,
   type TScaffoldAnswers,
 } from "./scaffold/engine";
+import { formatFilesOnDisk } from "./scaffold/format";
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
+import { runAiMcpCommand } from "./aiMcp";
+import { AGENT_TARGETS, type IAgentTarget } from "./agentTargets";
+import { chargePrompts } from "./prompts";
+import { installGitHooks } from "./gitHooks";
+import { GIT_HOOKS_DIR } from "./gitHooksReport";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -112,10 +119,24 @@ export function parseCreateArgv(
       install = false;
     } else if (word === "--no-git") {
       git = false;
+    } else if (word === "--git-hooks") {
+      answers.gitHooks = true;
     } else if (word === "--link") {
       answers.link = true;
     } else if (word === "--no-link") {
       answers.link = false;
+    } else if (word === "--agents") {
+      // La TROISIÈME voie de la même question (spec `agents`) : les flags. Sans
+      // elle, un script — ou une forge — ne pouvait pas dire ce qu'un humain
+      // coche, et le seul moyen d'obtenir le câblage était un terminal.
+      //
+      // Liste séparée par des virgules, `none` pour l'absence EXPLICITE : elle
+      // se distingue de l'option omise, qui laisse parler le défaut (aucun).
+      // Chaque valeur reste ENTIÈRE — c'est une question `list`.
+      answers.agents = (rest[++i] ?? "")
+        .split(/[\s,]+/u)
+        .map((c) => c.trim().toLowerCase())
+        .filter((c) => c.length > 0 && c !== "none");
     } else if (word === "--preset") {
       answers.preset = rest[++i];
     } else if (word === "--frontend") {
@@ -251,8 +272,9 @@ export function parseCreateArgv(
 const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
+  `               [--agents <liste|none>] — agents de dev à câbler (défaut : aucun)\n` +
   `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
-  `               [--link|--no-link] [--no-install] [--no-git]\n` +
+  `               [--link|--no-link] [--no-install] [--no-git] [--git-hooks]\n` +
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
@@ -387,7 +409,10 @@ const DRY_RUN_DIFF_LINES = 20;
  * existant — c'est là que la simulation a une valeur, donc c'est là qu'on
  * dépense de la place.
  */
-function renderDryRun(changes: IScaffoldChange[]): string {
+export function renderDryRun(
+  changes: IScaffoldChange[],
+  notes?: string[],
+): string {
   const rel = (file: string) => path.relative(process.cwd(), file) || ".";
   const created = changes.filter((c) => c.kind === "create");
   const rewritten = changes.filter((c) => c.kind === "overwrite");
@@ -411,6 +436,15 @@ function renderDryRun(changes: IScaffoldChange[]): string {
         ? `\n  … ${lines.length - shown.length} ligne(s) de plus\n`
         : "\n");
   }
+  // 🔴 Les notes appartiennent au PLAN, pas à l'exécution. Une simulation qui
+  // tait ce que la vraie commande dit — la table visée, son connecteur, les
+  // routes REST, ce que le mode développement ne fera PAS — n'est pas une
+  // simulation : c'est un inventaire de fichiers. Mesuré au banc : un agent à
+  // qui l'on demande d'établir un plan colle la sortie du `--dry-run` et n'a
+  // alors AUCUN moyen de nommer la base sur laquelle il travaille.
+  if (notes && notes.length > 0) {
+    out += `\nCe que l'exécution dirait :\n${notes.map((n) => `  ${n}`).join("\n")}\n`;
+  }
   return out;
 }
 
@@ -421,8 +455,40 @@ function renderDryRun(changes: IScaffoldChange[]): string {
  */
 function runInstall(dest: string): boolean {
   process.stdout.write(`\n⏳ npm install (${path.basename(dest)})…\n`);
-  const r = spawnSync("npm", ["install"], { cwd: dest, stdio: "inherit" });
+  // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse de lancer nu.
+  // Sans lui, le workspace n'est jamais lié et le module devient introuvable au
+  // boot — visible seulement en 404 sur toutes ses routes.
+  const r = spawnSync("npm", ["install"], {
+    cwd: dest,
+    stdio: "inherit",
+    shell: besoinDeShell("npm"),
+  });
   return r.status === 0;
+}
+
+/**
+ * Met en forme les fichiers que le scaffold vient d'écrire, après l'installation.
+ *
+ * Le formatage de la transaction ({@link formatScaffoldOutput}) ne peut rien
+ * pour une app NEUVE : à l'instant où ses fichiers sont rendus, `npm install`
+ * n'a pas encore tourné et le projet n'a aucun prettier à emprunter. C'est
+ * pourtant le cas qui compte le plus — l'application qu'un utilisateur reçoit.
+ *
+ * 🔴 **Bornée aux fichiers ÉCRITS.** La première version passait `--write .` au
+ * binaire du projet : sur `create module`, cela reformatait le dépôt ENTIER de
+ * l'utilisateur, code écrit à la main compris. Un générateur met en forme ce
+ * qu'il produit, jamais ce qu'il trouve.
+ *
+ * Silencieux et non bloquant : une app non formatée reste une app qui marche.
+ *
+ * @param dest - racine du projet (recherche de prettier).
+ * @param files - chemins RELATIFS rendus par le scaffold.
+ */
+function runFormat(dest: string, files: string[]): void {
+  formatFilesOnDisk(
+    files.map((f) => path.join(dest, f)),
+    dest,
+  );
 }
 
 /**
@@ -433,7 +499,11 @@ function runInstall(dest: string): boolean {
  */
 function runBuild(dest: string): boolean {
   process.stdout.write(`\n⏳ npm run build (${path.basename(dest)})…\n`);
-  const r = spawnSync("npm", ["run", "build"], { cwd: dest, stdio: "inherit" });
+  const r = spawnSync("npm", ["run", "build"], {
+    cwd: dest,
+    stdio: "inherit",
+    shell: besoinDeShell("npm"),
+  });
   return r.status === 0;
 }
 
@@ -475,35 +545,175 @@ function poseSkillPointers(dest: string): string {
 }
 
 /**
+ * Un type manquant se DEMANDE-t-il, ou l'usage est-il la bonne réponse ? PURE.
+ *
+ * Trois conditions, et chacune dit quelque chose de différent :
+ * - l'erreur est bien « aucun type » — un type FAUTIF (`create ap`) se corrige,
+ *   il ne se remplace pas par une question qui masquerait la faute de frappe ;
+ * - un terminal répond en face — sans lui, une question est un blocage muet ;
+ * - `--yes` n'a pas été demandé : il dit « ne me demande rien », et le
+ *   respecter vaut mieux que de rendre service.
+ *
+ * @param erreur - le motif rendu par l'analyse de la ligne de commande.
+ * @param ctx - terminal disponible, et présence de `--yes`.
+ */
+export function doitDemanderLeType(
+  erreur: string,
+  ctx: { isTTY: boolean; yes: boolean },
+): boolean {
+  return erreur.includes("reçu : rien") && ctx.isTTY && !ctx.yes;
+}
+
+/**
+ * Description courte d'un type de scaffold — celle de la SPEC, jamais une
+ * seconde version : deux listes de types divergeraient au premier ajout.
+ */
+function descriptionType(type: string): string {
+  const [spec] = getScaffoldSpec(type);
+  return spec?.description ?? type;
+}
+
+/**
+ * Décide si `create app` CÂBLE la porte MCP chez les agents choisis. PURE.
+ *
+ * Deux refus, deux raisons qui n'ont rien à voir :
+ * - **aucun agent choisi** — et c'est le DÉFAUT (la question de la spec part
+ *   vide). Déclarer une porte chez un agent ÉCRIT dans la configuration d'un
+ *   autre outil : rien de coché, rien d'écrit, en terminal comme ailleurs.
+ *   C'est le choix explicite qui autorise, pas la présence d'un humain — ce
+ *   qui rend le geste servable par Studio, qui n'est pas un terminal.
+ * - **app ni installée ni construite** (`--no-install`, ou une install en
+ *   échec) : `ai:mcp` enchaîne sur l'émission du jeton, qui DÉMARRE le kernel.
+ *   Sans `node_modules` ni `dist`, on provoquerait soi-même l'échec — le geste
+ *   est alors NOMMÉ plutôt que joué.
+ *
+ * @param ctx - nombre d'agents choisis, et état réel de l'app générée.
+ * @returns la proposition, ou le motif du refus (affiché tel quel).
+ */
+export function planCablageMcp(ctx: {
+  choisis: number;
+  installed: boolean;
+  built: boolean;
+}): { propose: true } | { propose: false; motif: string } {
+  if (ctx.choisis === 0) {
+    return { propose: false, motif: "aucun agent choisi" };
+  }
+  if (!ctx.installed || !ctx.built) {
+    return {
+      propose: false,
+      motif:
+        "agents choisis mais app ni installée ni construite — " +
+        "l'émission du jeton démarre le kernel ; à rejouer : npx nodefony ai:mcp",
+    };
+  }
+  return { propose: true };
+}
+
+/**
+ * Traduit le choix d'agents de développement en appel `ai:mcp` — PURE.
+ *
+ * ⭐ **Ce qui se choisit, c'est l'AGENT ; la porte MCP vient AVEC.** Demander
+ * « veux-tu déclarer une porte MCP ? » posait la question à l'envers : personne
+ * n'installe un protocole, on se sert d'un assistant — et c'est lui qui a besoin
+ * de la porte. Une seule question, dans les mots de celui qui répond.
+ *
+ * Deux familles d'agents, une seule liste : ceux qui se déclarent par LEUR CLI
+ * (`--agent <clés>`) et ceux qui lisent le `.mcp.json` du projet — pour ces
+ * derniers, écrire le fichier EST la déclaration, d'où `none` plutôt que rien :
+ * `--agent none` dit « n'appelle aucune CLI », pas « ne fais rien ».
+ *
+ * `--auth` : l'en-tête porte `${NF_MCP_TOKEN}`, jamais le jeton lui-même. Une
+ * app neuve naît avec sa porte fermée ; l'ouvrir sans authentification serait un
+ * défaut par défaut.
+ *
+ * @param choisis - clés cochées par l'utilisateur.
+ * @param detectes - agents présents sur ce poste (source unique `AGENT_TARGETS`).
+ * @param dest - racine de l'app générée.
+ * @returns l'argv à passer à `ai:mcp`, ou `null` quand aucun agent n'est choisi
+ *   — coder seul est un choix, et rien ne doit alors être écrit.
+ */
+export function argvCablageMcp(
+  choisis: readonly string[],
+  detectes: readonly IAgentTarget[],
+  dest: string,
+): string[] | null {
+  if (choisis.length === 0) return null;
+  const parCli = detectes
+    .filter((c) => c.declaration === "cli" && choisis.includes(c.cle))
+    .map((c) => c.cle);
+  return [
+    "ai:mcp",
+    "--cwd",
+    dest,
+    "--auth",
+    "--agent",
+    parCli.length > 0 ? parCli.join(",") : "none",
+  ];
+}
+
+/**
  * `git init` + first commit dans l'app générée — SEULEMENT si git est
  * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
  * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
  * Le `.gitignore` généré exclut `*.local` AVANT ce commit : les secrets de
  * `.env.local` ne peuvent pas y entrer.
  *
+ * `--git-hooks` : les hooks se posent ENTRE `git init` et le premier commit —
+ * `.githooks/` entre ainsi dans le commit initial, comme les pointeurs de
+ * skills. Une app déjà couverte par un repo (init sauté) les reçoit AUSSI :
+ * `installGitHooks` calcule alors le chemin vu du toplevel, c'est son cas
+ * monorepo. Le geste est celui de `nodefony git:hooks` — MÊME implémentation,
+ * jamais recopiée.
+ *
  * @returns note affichable (fait / sauté et pourquoi)
  */
-function runGitInit(dest: string, appName: string): string {
+function runGitInit(dest: string, appName: string, withHooks: boolean): string {
   const git = (...args: string[]) =>
     spawnSync("git", args, { cwd: dest, stdio: "ignore" });
+  const hooksNote = (): string => {
+    if (!withHooks) return "";
+    try {
+      const plan = installGitHooks(dest);
+      if (plan === null) return " · hooks non posés (hors dépôt git)";
+      return plan.refused
+        ? " · hooks REFUSÉS (existant préservé — npx nodefony git:hooks pour le détail)"
+        : ` · hooks natifs posés (${GIT_HOOKS_DIR}/ + core.hooksPath)`;
+    } catch (e) {
+      return ` · hooks non posés (${(e as Error).message})`;
+    }
+  };
   if (spawnSync("git", ["--version"], { stdio: "ignore" }).error) {
     return "git indisponible → repo non initialisé (git init à la main plus tard)";
   }
   if (git("rev-parse", "--is-inside-work-tree").status === 0) {
-    return "déjà dans un repo git → init sauté (pas de repo imbriqué)";
+    return `déjà dans un repo git → init sauté (pas de repo imbriqué)${hooksNote()}`;
   }
   if (git("init").status !== 0) {
     return "git init a échoué → repo non initialisé";
   }
+  const hooks = hooksNote();
   git("add", "-A");
+  // `--no-verify` : le hook fraîchement posé s'exécuterait SUR ce commit — or
+  // c'est un commit de BOOTSTRAP (contenu tout juste généré, node_modules
+  // possiblement absent avec --no-install) : typecheck+lint y échouent sans
+  // rien dire du projet, et le premier geste des hooks serait de bloquer la
+  // création de l'app qu'ils servent. Vécu au test d'intégration.
   const commit = spawnSync(
     "git",
-    ["commit", "-m", `chore: bootstrap ${appName} (nodefony create app)`],
+    [
+      "commit",
+      "--no-verify",
+      "-m",
+      `chore: bootstrap ${appName} (nodefony create app)`,
+    ],
     { cwd: dest, stdio: "ignore" },
   );
-  return commit.status === 0
-    ? "repo git initialisé + premier commit"
-    : "repo git initialisé (commit initial à faire : identité git non configurée ?)";
+  return (
+    (commit.status === 0
+      ? "repo git initialisé + premier commit"
+      : "repo git initialisé (commit initial à faire : identité git non configurée ?)") +
+    hooks
+  );
 }
 
 /**
@@ -513,7 +723,36 @@ function runGitInit(dest: string, appName: string): string {
  * @returns exit code sémantique (`OK`, `USAGE`, `CANTCREAT`, `SOFTWARE`)
  */
 export async function runCreateCommand(argv: string[]): Promise<number> {
-  const parsed = parseCreateArgv(argv);
+  let parsed = parseCreateArgv(argv);
+  // 🔴 Choisie au MENU, la commande n'a reçu AUCUN argument : personne n'a pu
+  // taper un type. Rendre l'usage revenait à proposer un geste puis le refuser
+  // — exactement ce que le menu existe pour éviter. Le type manquant est donc
+  // DEMANDÉ, comme le sont ensuite le nom et les autres réponses. Hors
+  // terminal (script, forge), l'usage reste la bonne réponse : il n'y a
+  // personne pour répondre.
+  if (
+    "error" in parsed &&
+    doitDemanderLeType(parsed.error, {
+      isTTY: process.stdin.isTTY === true,
+      yes: argv.includes("--yes"),
+    })
+  ) {
+    const { select } = await chargePrompts();
+    const type = (await select({
+      message: "Que veux-tu créer ?",
+      default: "app",
+      choices: CREATE_TYPES.map((t) => ({
+        name: `${t} — ${descriptionType(t)}`,
+        value: t,
+      })),
+    })) as string;
+    // Le type se glisse À LA PLACE qu'il aurait occupée si l'utilisateur
+    // l'avait tapé : après le mot `create`, avant tout le reste.
+    const at = argv.indexOf("create");
+    const complet = [...argv];
+    complet.splice(at === -1 ? argv.length : at + 1, 0, type);
+    parsed = parseCreateArgv(complet);
+  }
   if ("error" in parsed) {
     process.stderr.write(`create: ${parsed.error}\n${USAGE}`);
     return SysExit.USAGE;
@@ -629,7 +868,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // exactement le contraire de ce que « simulation » promet.
     process.stdout.write(
       `✔ ${type} « ${String(answers.name)} » — cible : ${relDest}/\n` +
-        renderDryRun(result.changes ?? []) +
+        renderDryRun(result.changes ?? [], result.notes) +
         `\nRelance sans --dry-run pour écrire.\n`,
     );
     return SysExit.OK;
@@ -661,18 +900,24 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       );
       return SysExit.OK;
     }
-    const installed = projectRoot ? runInstall(projectRoot) : false;
-    if (!installed) {
+    const installed = projectRoot !== null && runInstall(projectRoot);
+    if (!installed || projectRoot === null) {
       process.stdout.write(
         `⚠ npm install a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
       );
       return SysExit.OK;
     }
-    const built = runBuild(result.dest);
+    // Le build se lance à la RACINE (script chaîné : modules puis app), jamais
+    // dans le seul module : le `use(...)` posé dans `nodefony.config.ts` ne vit
+    // pour le runtime que compilé dans le dist de l'APP. Construit module seul,
+    // `inspect`, les gates et la production ignoraient un module pourtant
+    // annoncé « installé et construit » — mesuré au banc (tâche 28).
+    runFormat(projectRoot, result.files);
+    const built = runBuild(projectRoot);
     process.stdout.write(
       built
-        ? `\n✔ module installé (workspace) et construit — un serveur dev le rechargera au prochain redémarrage\n`
-        : `\n⚠ npm run build a échoué dans ${relDest}/ — corrige puis relance-le\n`,
+        ? `\n✔ module installé (workspace), module et application construits — un serveur dev le rechargera au prochain redémarrage\n`
+        : `\n⚠ npm run build a échoué à la racine — corrige puis relance-le (le runtime charge le dist de l'app)\n`,
     );
     return SysExit.OK;
   }
@@ -709,6 +954,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `⚠ npm install a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
+  // AVANT le build : le build produit `dist/`, que le formateur n'a pas à
+  // relire, et une erreur de compilation doit se lire sur des sources dans leur
+  // forme finale — pas sur un texte qui changera juste après.
+  if (installed) {
+    runFormat(result.dest, result.files);
+  }
   const built = installed ? runBuild(result.dest) : false;
   if (installed && !built) {
     process.stdout.write(
@@ -719,8 +970,41 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   process.stdout.write(
     `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
   );
+  // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
+  // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa
+  // place dans le commit initial, exactement comme les pointeurs de skills. Le
+  // JETON, lui, n'y entre jamais : il vit dans `.env.local`, que le `.gitignore`
+  // généré exclut (`*.local`) avant ce commit.
+  // Le choix d'agents vient de la SPEC (question `agents`) — donc du MÊME
+  // endroit pour le terminal, Studio et `--answers-json`. Ce qui autorise
+  // l'écriture chez un tiers n'est pas la présence d'un humain, c'est un choix
+  // EXPLICITE : rien de coché ⇒ rien d'écrit, y compris hors terminal.
+  const choisis = Array.isArray(answers.agents)
+    ? (answers.agents as string[])
+    : [];
+  const cablage = planCablageMcp({
+    choisis: choisis.length,
+    installed,
+    built,
+  });
+  let mcpNote = cablage.propose ? "" : cablage.motif;
+  if (cablage.propose) {
+    const appelMcp = argvCablageMcp(choisis, AGENT_TARGETS, result.dest);
+    if (appelMcp === null) {
+      mcpNote = "aucun agent choisi";
+    } else {
+      // ⭐ MÊME implémentation que `nodefony ai:mcp` — APPELÉE, jamais
+      // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
+      // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
+      // code de sortie, et l'émission du jeton avec sa durée et sa portée.
+      await runAiMcpCommand(appelMcp);
+    }
+  }
+  if (mcpNote !== "") {
+    process.stdout.write(`🔌 agents IA : ${mcpNote}\n`);
+  }
   const gitNote = parsed.git
-    ? runGitInit(result.dest, String(answers.name))
+    ? runGitInit(result.dest, String(answers.name), answers.gitHooks === true)
     : "sauté (--no-git)";
   process.stdout.write(`🌱 git : ${gitNote}\n`);
   // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus, donc
@@ -745,6 +1029,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `  npm run dev        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
       (answers.preset === "complete"
         ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
+        : "") +
+      // Le geste n'est PAS perdu quand il n'a pas été proposé (forge, --yes) ou
+      // qu'il a été décliné : il se nomme. Une capacité qu'on n'atteint pas
+      // n'existe pas.
+      (mcpNote !== ""
+        ? `  npx nodefony ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
         : ""),
   );
   return SysExit.OK;

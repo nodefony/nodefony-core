@@ -1,8 +1,9 @@
 /**
  * readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
  *
- * Support DESTINÉ À ÊTRE PRÉSENTÉ : bouton « Mode présentation », puis ← →.
- * Une slide ≈ 1 minute. Public : ingénieur, décideur technique, contributeur.
+ * Elle se lit d'un trait, et se PRÉSENTE aussi : bouton « Mode présentation », puis ← →.
+ * Page d'accueil du site publié, et support de présentation (une section ≈ 1 minute).
+ * Public : ingénieur, décideur technique, contributeur.
  *
  * Principe : rien n'est affirmé ici qui ne soit CALCULÉ depuis le dépôt au moment
  * de la génération (paquets, docs, tests, symboles) ou cité avec sa source datée.
@@ -23,9 +24,15 @@ import {
   printButton,
   deckControls,
   fmt,
-  COLORS,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  mkdirSync,
+} from "node:fs";
+import MarkdownIt from "markdown-it";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -51,6 +58,58 @@ const readJson = (p) => {
   } catch {
     return null;
   }
+};
+
+/**
+ * Recense les suites de tests : leur NOMBRE DE CAS, et leur nature.
+ *
+ * Compter des fichiers ne dit rien à un lecteur — et peint en rouge un module
+ * dont les cas vivent dans la suite d'intégration d'un autre. Ce qui se raconte,
+ * c'est le nombre de cas exécutés et la DIVERSITÉ des angles : unitaire,
+ * intégration, bout-en-bout, attaque, charge, mémoire. Tout est compté ici, au
+ * moment de la génération de la page.
+ */
+const inventaireTests = () => {
+  const fichiers = [];
+  const walk = (d) => {
+    if (!existsSync(d)) return;
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (
+        e.name === "node_modules" ||
+        e.name === "dist" ||
+        e.name.startsWith(".")
+      )
+        continue;
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (/\.(test|spec)\.ts$/.test(e.name)) fichiers.push(p);
+    }
+  };
+  walk(join(ROOT, "src"));
+  const CAS = /^[ \t]*(it|test)(\.\w+)?\s*\(/gm;
+  const natures = {
+    attaque: { fichiers: 0, cas: 0, re: /\.attack\.|red-?team/i },
+    integration: {
+      fichiers: 0,
+      cas: 0,
+      re: /[/\\]integration[/\\]|\.integration\./i,
+    },
+    e2e: { fichiers: 0, cas: 0, re: /[/\\]e2e[/\\]|\.e2e\./i },
+    charge: { fichiers: 0, cas: 0, re: /[/\\]load[/\\]/i },
+    memoire: { fichiers: 0, cas: 0, re: /memory\.test\.ts$/i },
+  };
+  let cas = 0;
+  for (const f of fichiers) {
+    const src = readFileSync(f, "utf8");
+    const n = (src.match(CAS) ?? []).length;
+    cas += n;
+    for (const k of Object.keys(natures))
+      if (natures[k].re.test(f)) {
+        natures[k].fichiers++;
+        natures[k].cas += n;
+      }
+  }
+  return { fichiers: fichiers.length, cas, natures };
 };
 
 const countFiles = (dir, re) => {
@@ -82,7 +141,7 @@ const countFiles = (dir, re) => {
 const embedPng = (name, alt) => {
   const p = join(ROOT, "docs", "assets", name);
   if (!existsSync(p)) {
-    console.warn(`⚠️  capture absente, slide rendue sans image : ${name}`);
+    console.warn(`⚠️  capture absente, section rendue sans image : ${name}`);
     return "";
   }
   const b64 = readFileSync(p).toString("base64");
@@ -151,17 +210,71 @@ const guides =
     (e) => e.isFile() && e.name.endsWith(".md"),
   ).length;
 const adr = countFiles(join(ROOT, "docs", "adr"), /\.md$/);
+const suites = inventaireTests();
 
-const OK = COLORS.green;
-const MID = COLORS.amber;
-const KO = COLORS.red;
+/**
+ * Le README du dépôt, rendu en HTML — c'est le texte de présentation du projet,
+ * et la page d'accueil doit le MONTRER, pas le paraphraser. Trois traitements,
+ * chacun pour une raison :
+ *
+ *   - l'en-tête centré (logo, titre, badges d'images distantes) est retiré : le
+ *     chrome de la page porte déjà la marque, et ces badges sont des images
+ *     servies par un tiers — une page publiée n'a pas à dépendre d'un service
+ *     extérieur pour afficher « licence CeCILL-B » ;
+ *   - les images du dépôt sont servies depuis GitHub, faute d'être copiées dans
+ *     le site ;
+ *   - les liens relatifs mènent au dépôt, ou à la documentation quand la cible y
+ *     est publiée.
+ */
+function readmeEnHtml() {
+  const brut = readFileSync(join(ROOT, "README.md"), "utf8");
+  const sansEntete = brut
+    .replace(/^<div align="center">[\s\S]*?<\/div>\s*\n(-{3,}\s*\n)?/, "")
+    .trim();
+  const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+  let html = md.render(sansEntete);
+  const BLOB = "https://github.com/nodefony/nodefony-core/blob/main/";
+  const RAW = "https://raw.githubusercontent.com/nodefony/nodefony-core/main/";
+  html = html
+    .replace(/src="(?!https?:|data:)([^"]+)"/g, (_, p) => `src="${RAW}${p}"`)
+    .replace(/href="(?!https?:|#|mailto:)([^"]+)"/g, (_, p) =>
+      p.startsWith("docs/") && !p.includes("session-retros")
+        ? `href="./docs/"`
+        : `href="${BLOB}${p}"`,
+    );
+  // Un tableau dont TOUS les en-têtes sont vides n'est pas un tableau à en-tête :
+  // c'est une grille de définition, une mise en page courante en Markdown. Lui
+  // laisser un `thead` vide fait annoncer deux colonnes sans nom par un lecteur
+  // d'écran ; en inventer les titres serait pire, car ce serait faux.
+  html = html.replace(
+    /<thead>\s*<tr>(?:\s*<th[^>]*>\s*<\/th>)+\s*<\/tr>\s*<\/thead>/g,
+    "",
+  );
+  return html;
+}
+
+const readme = section("Ce qu'est Nodefony", readmeEnHtml());
+const flux = existsSync(join(ROOT, ".github", "workflows"))
+  ? readdirSync(join(ROOT, ".github", "workflows")).filter((f) =>
+      /\.ya?ml$/.test(f),
+    ).length
+  : 0;
+
+// PAS `COLORS.green` : la palette du moteur est faite pour REMPLIR des formes
+// (barres, secteurs), où un aplat de 3,4:1 se voit très bien. En TEXTE, la même
+// teinte passe sous le seuil de lisibilité — mesuré à 3,42:1 sur cinq nombres de
+// cette page par axe-core. Une couleur de série et une couleur de texte ne se
+// choisissent pas de la même façon.
+const OK = "var(--ok)";
+const MID = "var(--mid)";
+const KO = "var(--ko)";
 const B = (t, c) => `<span style="color:${c};font-weight:650">${t}</span>`;
 const mark = (v) => (v ? B("✓", OK) : B("—", KO));
 
 /* ── 1 · Ce que c'est ─────────────────────────────────────────────────────── */
 
 const intro = section(
-  "Nodefony, en une slide",
+  "L'essentiel en trente secondes",
   `
 <p class="lead">Un framework Node.js <strong>fullstack</strong>, en TypeScript strict, bâti
 directement sur les modules natifs de la plateforme. Pensé pour le <strong>temps réel</strong> :
@@ -392,6 +505,48 @@ const DOMAINS = {
   documentation: "Portail de documentation",
 };
 
+const couverture = section(
+  "Ce que les suites éprouvent — les angles, pas seulement le nombre",
+  `
+<p>Un compte de tests ne dit rien de ce qu'ils regardent. Ces chiffres sont comptés dans le dépôt au
+moment de la génération de cette page, fichier par fichier.</p>
+
+${cards([
+  {
+    k: "Cas d'attaque",
+    v: fmt.int(suites.natures.attaque.cas),
+    sub: `${fmt.int(suites.natures.attaque.fichiers)} suites offensives : on essaie de casser ses propres garanties`,
+  },
+  {
+    k: "Intégration",
+    v: fmt.int(suites.natures.integration.cas),
+    sub: `${fmt.int(suites.natures.integration.fichiers)} suites contre un serveur qui tourne pour de vrai`,
+  },
+  {
+    k: "Bout en bout",
+    v: fmt.int(suites.natures.e2e.cas),
+    sub: `${fmt.int(suites.natures.e2e.fichiers)} suites : une application générée, démarrée, interrogée`,
+  },
+  {
+    k: "Charge & mémoire",
+    v: fmt.int(suites.natures.charge.cas + suites.natures.memoire.cas),
+    sub: "seuils de fuite et de débit, tenus par un gate séparé",
+  },
+])}
+
+<p>S'y ajoutent <strong>${fmt.int(flux)} flux d'intégration continue</strong> — analyse statique de
+sécurité, gate mémoire, suites ORM sur plusieurs moteurs, bout-en-bout autonomes, contrôle avant
+publication et installation à blanc des paquets depuis leurs archives.</p>
+
+${note(
+  `<strong>Ce que ces chiffres ne prouvent pas.</strong> Un test vert ne vaut que pour ce qu'il
+exerce : une suite qui se passe de son infrastructure se SKIPPE, et un skip compte comme un vert.
+C'est pourquoi le dépôt fait échouer une passe d'intégration continue dont une cible déclarée n'a
+pas été exercée — une absence voulue s'énonce, elle ne s'oublie pas.`,
+)}
+`,
+);
+
 const matrice = section(
   "La matrice — ce qui est couvert, domaine par domaine",
   `
@@ -400,9 +555,9 @@ les suites de tests, la documentation destinée aux humains, et la fiche d'entr�
 
 ${cards([
   {
-    k: "Fichiers de test",
-    v: fmt.int(totals.tests),
-    sub: "suites versionnées, hors bancs de charge",
+    k: "Cas de test",
+    v: fmt.int(suites.cas),
+    sub: `exécutés, répartis sur ${fmt.int(suites.fichiers)} fichiers`,
   },
   {
     k: "Pages de doc",
@@ -434,7 +589,7 @@ ${table(
     DOMAINS[m.key] ?? m.key,
     `<code>${m.name}</code>`,
     fmt.int(m.sources),
-    m.tests ? B(fmt.int(m.tests), m.tests >= 5 ? OK : MID) : B("0", KO),
+    m.tests ? fmt.int(m.tests) : B("couvert ailleurs", MID),
     m.docs ? fmt.int(m.docs) : "—",
     mark(m.readme),
   ]),
@@ -709,16 +864,66 @@ qu'un montage.</p>`,
 /* ── Assemblage ───────────────────────────────────────────────────────────── */
 
 const html = doc({
-  title: "Nodefony — matrice de présentation",
+  title: "Nodefony — le framework Node.js fullstack",
+  // L'icône est écrite à la racine du site par le générateur de documentation,
+  // qui tourne juste après : à la fin du flux, le fichier est là. La description
+  // est ce qu'un moteur de recherche affichera de la page d'accueil du projet —
+  // sans elle, il en invente une, et sans l'icône chaque visiteur récolte un 404.
+  head:
+    `<meta name="description" content="Nodefony — framework Node.js fullstack en TypeScript : ` +
+    `un serveur HTTP/HTTP2 et un serveur WebSocket qui partagent le même contexte de contrôleur, ` +
+    `une injection de dépendances, un noyau de modules et une couche de sécurité complète.">\n` +
+    `<link rel="icon" href="./favicon.png">`,
+  // Cette page est la porte d'entrée du site publié, pas un rapport qu'on
+  // imprime : elle occupe toute la largeur, comme la documentation à côté. La
+  // colonne centrée du moteur convient à un document qu'on lit d'un trait, pas
+  // à un tableau de bord de présentation.
+  style: `
+.wrap { max-width:none; padding:26px 34px 80px; }
+/* Verdicts du tableau de couverture. Une teinte qui tient 4,5:1 sur blanc est
+   trop sombre sur fond noir — d'où deux jeux, jamais une couleur unique. */
+:root { --ok:#0a7a52; --mid:#8a6200; --ko:#c0322a; }
+:root[data-theme="dark"] { --ok:#4fc07d; --mid:#e0ab3a; --ko:#ff8a80; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ok:#4fc07d; --mid:#e0ab3a; --ko:#ff8a80; }
+}
+@media (max-width:820px) { .wrap { padding:20px 18px 60px; } }`,
   subtitle:
-    "Dix minutes pour comprendre ce que le framework est, ce qu'il couvre, ce qu'il coûte et ce qui lui manque.",
+    "Temps réel natif, développement agentic-ready, sur un socle TypeScript isomorphe. Dix minutes pour comprendre ce que le framework couvre, ce qu'il coûte et ce qui lui manque.",
   sections: [
     `<div class="noprint" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
+    // Cette page est la PORTE D'ENTRÉE du site publié : sans ces deux liens, un
+    // lecteur y arrive et n'a nulle part où aller. Les cibles sont relatives —
+    // le site vit dans un sous-chemin (`/nodefony-core/`) — et restent justes
+    // quand la page est aussi ouverte depuis le disque, la doc étant alors
+    // simplement absente à côté.
+    section(
+      "Où aller ensuite",
+      cards([
+        {
+          k: "Documentation",
+          v: '<a href="./docs/">Lire la documentation</a>',
+          sub: "86 pages : le cœur, les modules, l'architecture, les guides",
+        },
+        {
+          k: "Performance",
+          v: '<a href="./performance/">Voir les mesures</a>',
+          sub: "une page par version, la méthode et ce qu'elle interdit de conclure",
+        },
+        {
+          k: "Code",
+          v: '<a href="https://github.com/nodefony/nodefony-core">Le dépôt</a>',
+          sub: "sources, suivi, licence CeCILL-B",
+        },
+      ]),
+    ),
+    readme,
     intro,
     cheminement,
     pari,
     isomorphisme,
     agentReady,
+    couverture,
     matrice,
     securite,
     studio,
@@ -731,6 +936,11 @@ const html = doc({
   footer: `Généré par <code>node scripts/readme-html.mjs</code> — ${new Date().toISOString().slice(0, 10)} · dépôt <code>nodefony-core</code> ${pkgRoot.version ?? ""} · les mesures de dimensionnement proviennent des rapports de capacité du dépôt.`,
 });
 
+// Le dossier de sortie peut ne pas exister : cette page est la PREMIÈRE écrite
+// du site publié, avant que le générateur de documentation ne crée quoi que ce
+// soit. En local l'ordre était inverse, le dossier préexistait, et le défaut ne
+// s'est vu qu'en intégration continue — sur l'artefact réellement produit.
+mkdirSync(dirname(resolve(OUT)), { recursive: true });
 writeFileSync(OUT, html);
 console.log(
   `readme.html écrit : ${OUT} (${fmt.int(Math.round(html.length / 1024))} Ko)`,

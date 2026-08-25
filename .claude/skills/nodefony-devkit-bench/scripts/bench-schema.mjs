@@ -104,6 +104,7 @@
  * trous de la grammaire en devinant juste).
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { besoinDeShell } from "./lib/exec-portable.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import {
   appendFileSync,
@@ -124,6 +125,7 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
+import { envDecor } from "./lib/env-decor.mjs";
 import { DatabaseSync } from "node:sqlite";
 
 /** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` non. */
@@ -219,11 +221,10 @@ const DB_URL = {
  * lui-même pour pointer une vraie base ; le dialecte s'en déduit par le schéma
  * d'URL. Rien d'autre à configurer.
  */
-const APP_ENV = {
-  ...process.env,
-  ...PORTS,
-  ...(DB_URL[DIALECT] ? { NF_DATABASE_URL: DB_URL[DIALECT] } : {}),
-};
+const APP_ENV = envDecor(
+  PORTS,
+  DB_URL[DIALECT] ? { NF_DATABASE_URL: DB_URL[DIALECT] } : {},
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les schémas — sources EXTERNES, sous-ensembles FIGÉS
@@ -1352,6 +1353,7 @@ function appBin(app) {
 function bootApp(app, runDir) {
   console.log("\n• build de l'app…");
   const build = spawnSync("npm", ["run", "build"], {
+    shell: besoinDeShell("npm"),
     cwd: app,
     encoding: "utf8",
     timeout: 900_000,

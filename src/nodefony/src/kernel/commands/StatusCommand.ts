@@ -21,7 +21,7 @@ class Status extends Command {
   constructor(cli: CliKernel) {
     super(
       "status",
-      "Show running Nodefony dev processes (supervisor/server/vite) and server ports",
+      "Montre les runtimes Nodefony actifs (superviseur, serveurs, Vite) et leurs ports",
       cli as CliKernel,
       options,
     );

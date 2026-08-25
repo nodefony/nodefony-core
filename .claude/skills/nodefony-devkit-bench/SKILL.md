@@ -74,6 +74,96 @@ aux assertions :
 
 Aucune de ces quatre n'aurait été vue autrement qu'en compilant et en exécutant.
 
+### Le formateur de l'application refuse ce que le générateur lui donne
+
+Cinquième panne du même genre, et la plus silencieuse : une application
+fraîchement générée arrivait avec **sept fichiers** que son propre
+`npm run format` réécrivait au premier passage — `AGENTS.md`, `README.md`,
+`env.ts`, `nodefony.config.ts`, `package.json`, `.oxlintrc.json`,
+`tests/e2e.test.ts`. Rien ne le signalait : le dépôt ne formate pas les `.tpl`
+(prettier ignore les extensions qu'il ne connaît pas), et les assertions
+lisent des chaînes, pas une mise en forme.
+
+```bash
+npm run format:scaffold            # les trois variantes
+npm run format:scaffold -- --diff  # ce que prettier changerait, ligne à ligne
+npm run format:scaffold -- --keep  # conserve les apps générées pour inspection
+```
+
+**Trois variantes, et pourquoi celles-là** (`scripts/check-scaffold-format.mjs`) :
+`complete+react` allume tout ce qui est conditionnel, `minimal` n'en allume
+rien — une non-conformité qui n'apparaîtrait que dans un cas intermédiaire
+supposerait un contenu présent dans NI l'un NI l'autre. La troisième,
+`nom-long`, est le seul régime qui exerce **les lignes dont la longueur dépend
+d'une valeur interpolée** : `content="<nom> — application Nodefony."` tient sur
+une ligne pour `probe` et doit être éclatée pour un nom de vingt caractères.
+Sans elle, on livre un rendu conforme aux noms courts seulement.
+
+**Quatre pièges, tous payés au moins une fois :**
+
+| Symptôme                                                | Cause                                                                                                                                                                                                                                                          | Le geste                                                                                                                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Une table markdown revient toujours non conforme        | prettier impose l'alignement canonique, calculé sur la cellule la plus large — donc sur un contenu qui n'existe que dans certaines variantes                                                                                                                   | **une table à lignes conditionnelles devient une LISTE** ; aucun alignement écrit à la main ne peut être juste pour toutes                                |
+| Un `prettier --write` sur un `.tpl` markdown            | il lit une balise eta suivie d'une barre verticale comme une CELLULE, et en injecte d'autres                                                                                                                                                                   | ne formater directement QUE les gabarits sans balise (`npm run format:templates`)                                                                         |
+| Formater un gabarit À BALISES « pour bien faire »       | prettier formate le texte qu'il voit ; une fois les balises remplacées, les lignes changent de longueur et la forme canonique n'est plus la même — **le rendu peut se DÉGRADER** (vécu : deux fichiers de test acceptés par le gate en sont ressortis refusés) | corriger à la main en lisant le RENDU (`format:scaffold -- --diff`), jamais la source ; `npm run format:templates` ne traite QUE les gabarits sans balise |
+| Une correction du moteur reste sans effet               | le CLI s'exécute depuis `dist` ; un gabarit se lit au disque, pas le moteur                                                                                                                                                                                    | **build avant de mesurer** — sinon on conclut sur du code inchangé                                                                                        |
+| Deux lignes vides ou zéro autour d'un bloc conditionnel | la newline vit du mauvais côté de la balise                                                                                                                                                                                                                    | placer la ligne vide **DANS** le bloc (`…\n\n<% } %>## Titre`), jamais après                                                                              |
+
+**Ce que le script ne peut pas rendre conforme, et pourquoi ce n'est plus un
+problème** : la forme canonique d'une ligne dépend souvent d'un identifiant que
+l'utilisateur choisit. `content="<nom> — application Nodefony."` tient sur une
+ligne pour `probe` et doit être éclatée pour un nom de vingt caractères ;
+`export type ReportingMensuelConfigInput = z.input<…>` fait 87 colonnes, et
+tiendrait sous 80 pour un module nommé `blog`. Un gabarit rend UNE forme : aucune
+écriture ne peut être juste pour tous les noms. Ce n'est pas un cas particulier —
+c'est la règle, puisque presque tout ce qu'un générateur produit porte un nom
+dérivé.
+
+**C'est donc le RÉSULTAT qui est mis en forme, avec le prettier du projet.**
+`create` formate ce qu'il écrit : dans la transaction quand le projet est déjà
+installé (`create module|entity|service|command|controller`, où le dry-run
+montre alors le texte exact qui sera écrit), et juste après `npm install` pour
+`create app`, dont les dépendances n'existent pas encore au moment où ses
+fichiers sont rendus. Le coût qui avait fait écarter cette solution — embarquer
+prettier dans le CLI — n'existait pas : l'application générée a DÉJÀ prettier en
+dépendance de développement. Prettier absent (`--no-install`, registre
+injoignable) : les fichiers sont écrits tels quels et `unformatted` le dit.
+
+> 🔴 **Un rouge PERMANENT cache les vrais défauts.** Tant que ces cas faisaient
+> échouer le gate, on lisait son rouge comme « les cas connus » — et `App.tsx` a
+> pu accumuler **onze** écarts que personne n'a vus, livrés tels quels. Le gate
+> CONSTATE désormais qu'une non-conformité dépend du nom (sa première ligne
+> fautive porte le nom de l'application), la nomme, et n'échoue que sur le reste.
+> Il garde ce qui lui reste à garder : la forme des GABARITS, et le cas où
+> l'installation échoue — c'est alors le rendu brut que l'utilisateur reçoit.
+
+### Deux formateurs, et ce qu'aucun des deux ne regarde
+
+```bash
+npm run format:templates            # les gabarits SANS balise, formatés à la SOURCE
+npm run format:templates -- --check # sort 1 si l'un d'eux changerait
+```
+
+| Gabarits                                     | Qui juge leur forme                                                              |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| sans balise eta                              | `format:templates`, sur la source — c'est exact                                  |
+| à balises, rendus par `create app`           | `format:scaffold`, sur le RENDU des 3 variantes                                  |
+| à balises, appartenant à un AUTRE générateur | **personne** — 29 gabarits : module, controller, entity, front, service, command |
+
+`format:templates` **refuse** délibérément un gabarit à balises : formater sa
+source ne rend pas son RENDU conforme et peut le DÉGRADER (deux fichiers de test
+acceptés en sont ressortis refusés). Le script nomme lui-même les 29, groupés par
+générateur, à chaque exécution : un « 0 à reformater » ne veut pas dire « tout est
+propre », mais « propre là où je regarde ». Ces 29 ne sont plus livrés bruts — le
+formatage à la génération les couvre — mais leur forme reste celle qu'on LIT dans
+le dépôt.
+
+> ⚠️ Deux instruments mentent en silence quand on mesure ça soi-même. Prettier
+> lancé sur une copie sous `tmp/` ne traite RIEN — le `.prettierignore` du dépôt
+> écarte ce dossier, et la commande sort 0 sans avoir lu le fichier. Et le gate
+> formate depuis le dossier de l'app générée (`cwd: dest`) : c'est la seule cible
+> dont le verdict vaille.
+
 ## Banc de vérité — le code généré tient-il debout ?
 
 ```bash
@@ -86,6 +176,17 @@ node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link   
 **Prérequis : le checkout est BÂTI** (`npm run build`). Les tarballs sont
 fabriqués depuis le `dist/` local : le banc éprouve ce que tu viens de compiler,
 mais **tel qu'un installeur le reçoit**.
+
+> **Il tourne tout seul à la forge, sur les TROIS systèmes** —
+> `.github/workflows/scaffold.yml`, matrice `ubuntu · macos · windows` sur le
+> plancher `engines` (Node 24, la version que pose la CI générée pour
+> l'application de l'utilisateur), plus une variante haute sur ubuntu. Le lancer
+> à la main sert à la boucle courte et au diagnostic, plus à obtenir le verdict :
+> il arrive à chaque poussée. En échec, le job remonte le journal complet et le
+> `report.json` en artefact — le décor, lui, ne l'est pas (~300 Mo), et le
+> rapport suffit à savoir quelle étape est tombée. **Ce que ce job n'éprouve
+> pas** est nommé dans [`docs/guides/integration-continue.md`](../../../docs/guides/integration-continue.md)
+> § 6 : le front d'une application générée, et les dialectes autres que SQLite.
 
 > **Le décor de ce banc est ISOLÉ, et ce n'est pas un détail d'exécution.**
 > Longtemps il vivait sous le dépôt, paquets liés au checkout — la résolution de
@@ -202,6 +303,8 @@ main.
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs   # les sondes, AVANT le verdict
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs   # un juge à causes, chacune vue rouge
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-routes-count.selftest.mjs  # la SOURCE du chiffre : porte, repli annoncé, ou rien
+node .claude/skills/nodefony-devkit-bench/scripts/lib/agents-formats.selftest.mjs   # les 4 grammaires de transcript (Claude · Codex · Gemini · agy)
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-secure-route.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-entity-delete.selftest.mjs
@@ -216,12 +319,149 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selfte
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
+node .claude/skills/nodefony-devkit-bench/scripts/jeton-mcp.selftest.mjs   # la porte reste-t-elle ouverte tout le run ?
+node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove   # le décor et ses 3 règles vues rouges : aucune NF_ du poste n'entre
 node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove   # le dépistage, ses 5 règles vues rouges
 node .claude/skills/nodefony-devkit-bench/scripts/lib/passes.selftest.mjs --prove      # quelle passe est jugée (décor ≠ agent)
 node .claude/skills/nodefony-devkit-bench/scripts/lib/imputation.selftest.mjs --prove  # à QUI le rouge d'un juge est opposable
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
+
+### Le DÉCOR d'un run : quel agent, et quelle porte MCP
+
+Deux réglages indépendants décident de ce qu'un run mesure — **qui** travaille, et **ce qu'il
+trouve en arrivant**. Les confondre produit des comparaisons fausses : un agent mieux outillé
+qu'un autre n'est pas un agent meilleur.
+
+```bash
+B=.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
+
+NF_DEVKIT_BENCH_MCP=auth node $B --task 9          # porte authentifiée ET app démarrée
+NF_DEVKIT_BENCH_MCP=off  node $B --task 9          # l'agent ignore qu'une porte existe
+
+NF_DEVKIT_BENCH_AGENT=vibe NF_DEVKIT_BENCH_MODEL= \
+  NF_DEVKIT_BENCH_AGENT_ARGS="--output streaming --yolo --trust -p" \
+  NF_DEVKIT_BENCH_MCP=auth node $B --task 9        # un AUTRE agent, foyer jetable
+```
+
+`NF_DEVKIT_BENCH_MCP` : `eteint` (défaut — porte déclarée, **application arrêtée** : le cas réel
+« j'ouvre un dépôt, rien ne tourne ») · `auth` (jeton émis **et** application démarrée — les deux
+vont ensemble : la porte est une ROUTE) · `off`. Le régime entre dans le décor enregistré, donc le
+dépistage refuse de comparer deux régimes. Le défaut reste `eteint` : la référence a été établie
+dessus.
+
+**Ce que ces runs coûtent en pièges** — audience à déclarer, build AVANT l'émission du jeton,
+démarrage APRÈS la prémisse (sinon la tâche n'est pas jouée), un code de sortie qui n'est pas un
+verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la clé d'API, et la sonde
+qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
+AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
+
+## Banc de conformité — l'application tient-elle les promesses du framework ?
+
+```bash
+node scripts/verify-generated.mjs --keep        # d'abord : monte le décor et l'éprouve
+node scripts/verify-runtime.mjs                 # puis : la conformité, trois étages
+node scripts/verify-runtime.mjs --etage unit    # un seul étage (unit | integration | e2e)
+```
+
+**Deux bancs, deux questions qu'on confond.** `verify-generated.mjs` demande « ce
+qui a été PRODUIT tient-il debout ? » ; celui-ci demande « ce qui a été CÂBLÉ
+tient-il les promesses ? ». Une application peut compiler parfaitement, démarrer
+sans un mot, et servir une liste dont le client dicte la borne, une suppression
+que personne n'a besoin d'autoriser, un controller déclaré dont aucune route
+n'est montée.
+
+Il **réutilise le décor** du banc de vérité (`--keep`) : monter le sien coûterait
+une minute, et surtout il jugerait une AUTRE application que celle dont on vient
+de prouver qu'elle compile.
+
+| Étage         | Décor                                                     | Ce qu'il attrape SEUL                                                                                                                                         |
+| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit`        | aucun                                                     | balise de gabarit non résolue, `any`, service `@injectable` non déclaré, `process.env` hors catalogue                                                         |
+| `integration` | l'app boote en entier, **zéro port** (`nodefony inspect`) | service non résolu au conteneur, controller déclaré sans route, collision méthode+chemin, route qui contourne le firewall, schéma qui ne produit pas de table |
+| `e2e`         | serveur RÉEL, en production                               | CRUD complet (201+Location, 422, PATCH, 204→404), suppression sans identité, borne de pagination, `nosniff`, cookie HttpOnly+SameSite, WebSocket co-citoyen   |
+
+Les suites vivent dans `suites/` (`harness.ts`, `conformite.unit.test.ts`,
+`conformite.integration.test.ts`, `conformite.e2e.test.ts`) et sont **injectées**
+dans l'application témoin, jouées, puis jetées avec le décor. Elles ne sont
+**jamais livrées à l'utilisateur** : « ma commande porte-t-elle son namespace ? »
+est une question du générateur, pas de l'application.
+
+> 🔴 **Quatre GARDES anti-suite creuse, et elles ont mordu dès le premier run.**
+> Chaque étage commence par un cas qui vérifie que la sonde a trouvé de quoi
+> mesurer — des sources, des routes, une ressource REST, une identité. Sans
+> elles, la famille CRUD entière rendait la main sur un `null` et comptait
+> **quinze cas verts en 0 ms, zéro requête émise**. Le signe ne se voit que dans
+> la colonne des durées, et jamais dans le total.
+
+> ⚠️ **La sonde est le premier suspect, pas le produit.** Au premier run, dix cas
+> sur onze accusaient le générateur — et tous étaient faux : les suites
+> s'analysaient elles-mêmes, un contrôle de code lisait les commentaires,
+> `nodefony check` tombait sur le serveur de développement du POSTE faute de
+> ports dédiés, et `cluster` — une valeur de configuration — était compté comme
+> un module manquant. Un seul défaut réel dans le lot.
+
+### Lancer npm sur les trois systèmes — `scripts/lib/exec-portable.mjs`
+
+Sous Windows, `npm` et `npx` sont des `.cmd`, et Node **refuse** de les
+exécuter sans `shell: true` depuis le correctif de CVE-2024-27980. Il ne le dit
+pas : il rend `spawnSync npm ENOENT`, qui se lit « npm n'est pas installé » — sur
+un runner où `npm ci` vient de réussir. C'est ainsi que le premier passage
+Windows du banc du code généré est tombé, à la première étape, pendant que linux
+et macOS étaient verts.
+
+La règle a **une seule** implémentation (`besoinDeShell`), appelée par les deux
+helpers d'exécution (`scripts/lib/isolation.mjs`, `scripts/verify-generated.mjs`). Elle est
+**pure** — plateforme et grammaire de chemins injectées — parce qu'une fonction
+qui lit `process.platform` ne s'éprouve que sur la plateforme qu'elle décrit,
+c'est-à-dire jamais ici :
+
+```bash
+node scripts/lib/exec-portable.selftest.mjs           # les deux branches, partout
+node scripts/lib/exec-portable.selftest.mjs --prove   # amputée, elle doit faire tomber 2 cas
+```
+
+> ⚠️ **Non couvert** : `bench-schema.mjs` et `bench-discoverability.mjs` ont leurs
+> propres helpers et lancent de vrais agents — ils ne tournent pas en intégration
+> continue, donc rien ne les éprouve sous Windows. Le défaut y est présent, et il
+> est nommé plutôt que corrigé à l'aveugle.
+
+### Rendre la page publique du banc
+
+```bash
+node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
+```
+
+**Ce rendeur ne MESURE rien**, et c'est le contrat : le banc lance de vrais
+agents, coûte de l'argent et prend des heures ; sa sortie est **commitée** dans
+`docs/devkit/data/<version>.json`. La page n'est qu'un rendu de ce jeu —
+déterministe, rejouable, indépendant de la machine qui l'exécute. Même règle que
+le site de performance, et pour le même motif : un chiffre reste attaché à sa
+version, définitivement.
+
+### Purger les décors — garder la MESURE, jeter le DÉCOR
+
+```bash
+node $B --purge              # ce qui serait libéré, sans rien toucher
+node $B --purge --confirmer  # supprime les `app/`, garde tout le reste
+```
+
+Un run pèse ~300 Mo, dont **moins de 1 %** est la mesure : le reste est
+l'application témoin et ses `node_modules`. Mesuré ici : **47 runs = 13 Go**,
+pour 200 Mo de transcripts, verdicts de gates et rapports. Le décor se
+reconstruit — c'est tout l'intérêt d'un décor jetable ; les transcripts, non.
+Ce sont eux qui permettent d'INSTRUIRE un échec des mois plus tard sans repayer
+un run, et deux faux rouges du banc ont été trouvés exactement comme ça.
+
+🔴 **Le run que la référence cite garde son décor**, et ce n'est pas une
+politesse : `--analyze-only` rejoue les gates SUR l'application — elle est
+reconstruite et interrogée en HTTP. Sans son `app/`, le re-jugement gratuit
+devient impossible et il faut repayer des heures d'agent. La purge le nomme et
+l'écarte.
+
+Le mode DIT par défaut et n'agit que sur `--confirmer` : c'est une suppression,
+elle ne se déclenche pas par inadvertance.
 
 ### Dépistage — 1 run sur tout, 3 runs sur ce qui a bougé
 
@@ -248,6 +488,19 @@ le décor, l'agent, et par tâche le verdict, le nombre de runs et les runs
 d'origine. Quatre règles la gouvernent, chacune payée par une erreur déjà
 commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
 
+0. **Le verdict binaire ne DÉCIDE pas seul — la référence garde aussi les
+   TOURS.** L'unanimité sur 3 runs a une résolution catastrophique : une tâche
+   que le devkit réussit 4 fois sur 5 sort « instable » une fois sur deux
+   (P(3/3 | p=0,8) = 0,51). Rejouer ne la stabilise jamais — la référence
+   portait la tâche 13 à `passes: 2, runs: 3` le 2 août ; trois runs repayés
+   trois semaines plus tard ont rendu exactement 2/3. Deux mesures, zéro
+   information. Les TOURS, eux, sont continus et déjà mesurés à chaque run :
+   sur ces mêmes trois runs, 52 · 54 · 88, et le seul qui échoue est le seul où
+   l'agent n'a pas trouvé le générateur. Là où le verdict hésite, l'effort
+   tranche. `medianeTours` (jamais le dernier run, jamais la moyenne) entre dans
+   la référence, et le dépistage classe les tâches **ALLÉGÉES** et **ALOURDIES**
+   — verdict inchangé, effort qui bouge. Elles ne se REJOUENT pas : c'est tout
+   l'intérêt.
 1. **Unanimité** — un verdict agrégé n'est PASS que si TOUS les runs le sont.
    « 2/3 » n'est pas « plutôt bon » : c'est instable, donc non prouvé.
 2. **Asymétrie** — une REMONTÉE (référence FAIL → run PASS) se rejoue autant
@@ -256,6 +509,11 @@ commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
 3. **Le décor est une variable de la mesure** — modèle, isolation, agent : un
    écart REFUSE la comparaison (sortie 78). Un avertissement se lit après coup ;
    une comparaison fausse s'utilise tout de suite.
+   ⚠️ **Et ce refus ne se contourne pas à la main.** Vécu : un run large rendu
+   dans un décor « MCP atteignable » face à une référence sans MCP a vu sa
+   comparaison refusée, puis rejouée au `jq` par l'opérateur — qui a lu trois
+   « chutes » qu'aucun changement n'expliquait. Refaire soi-même le calcul que
+   la garde interdit, c'est reproduire exactement l'erreur qu'elle empêche.
 4. **Un rouge NON OPPOSABLE écarte le run** — une gate rejouée sur l'app
    d'aujourd'hui (run antérieur aux gates figées) ne juge pas la tâche. Le banc
    le DISAIT déjà dans son texte, sans en tirer la conséquence : le rouge était
@@ -263,6 +521,13 @@ commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
 
 Le mode **ne relance rien** : il nomme les tâches et rend la commande à copier.
 Un banc qui décide seul de rejouer dépense sans qu'on l'ait voulu.
+
+> 🔴 **Ne pas repayer des runs pour reconfirmer un verdict déjà instable.** Une
+> tâche que la référence donne à « 2/3 » le restera : la rejouer remesure le même
+> aléa. Ce qui apprend quelque chose, c'est d'INSTRUIRE le transcript d'un run
+> rouge — c'est ainsi qu'on a trouvé deux bugs du framework (une sortie tronquée
+> au-delà de 64 Ko, un `inspect` muet sur son mode) et trois défauts du banc
+> lui-même. Le banc sert à ouvrir une enquête, pas à produire un score.
 
 **Détail : [`references/banc-decouvrabilite-lecons.md`](references/banc-decouvrabilite-lecons.md)**
 — dix leçons, chacune payée par un défaut réel : les sondes s'éprouvent avant de juger, mesurer
@@ -356,3 +621,4 @@ un message qui parle de colonne inconnue. Nommer autrement dans un banc.
 - `references/methode-de-mesure.md` — variance d'un run unique, modèle par défaut, générateur qui abaisse le modèle nécessaire
 - `references/banc-decouvrabilite-lecons.md` — dix leçons du banc de découvrabilité, chacune payée par un défaut réel
 - `references/banc-schema-etudes-de-cas.md` — pourquoi le décor et le juge PostgreSQL du banc de schéma s'éprouvent avant de juger
+- `references/agents-et-porte-mcp.md` — le décor d'un run : régimes de porte MCP, drapeaux par agent, foyer jetable, et les pièges qui font mesurer autre chose que ce qu'on croit

@@ -6,13 +6,13 @@ Async directory traversal and file metadata utilities for Nodefony.
 
 ## Overview
 
-| Class | File | Extends | Purpose |
-|---|---|---|---|
-| `FileClass` | `FileClass.ts` | — | File/dir metadata wrapper |
-| `File` | `File.ts` | `FileClass` | Tree node with parent/children |
-| `Result` | `Result.ts` | `Array` | Generic collection base |
-| `FileResult` | `FileResult.ts` | `Result` | File-aware collection |
-| `Finder` | `Finder.ts` | `Event` | Async directory traverser |
+| Class        | File            | Extends     | Purpose                        |
+| ------------ | --------------- | ----------- | ------------------------------ |
+| `FileClass`  | `FileClass.ts`  | —           | File/dir metadata wrapper      |
+| `File`       | `File.ts`       | `FileClass` | Tree node with parent/children |
+| `Result`     | `Result.ts`     | `Array`     | Generic collection base        |
+| `FileResult` | `FileResult.ts` | `Result`    | File-aware collection          |
+| `Finder`     | `Finder.ts`     | `Event`     | Async directory traverser      |
 
 ---
 
@@ -35,57 +35,57 @@ Throws if path does not exist or is empty.
 ### Properties
 
 ```typescript
-f.path       // string — absolute real path (follows symlinks)
-f.name       // "file.ts"
-f.shortName  // "file"
-f.ext        // ".ts"
-f.type       // "File" | "Directory" | "symbolicLink" | ...
-f.mimeType   // "application/javascript" | false (directories)
-f.encoding   // "UTF-8" (files only)
-f.extention  // "js" | false
-f.dirName    // parent directory path
-f.stats      // fs.Stats
-f.parse      // path.ParsedPath
+f.path; // string — absolute real path (follows symlinks)
+f.name; // "file.ts"
+f.shortName; // "file"
+f.ext; // ".ts"
+f.type; // "File" | "Directory" | "symbolicLink" | ...
+f.mimeType; // "application/javascript" | false (directories)
+f.encoding; // "UTF-8" (files only)
+f.extention; // "js" | false
+f.dirName; // parent directory path
+f.stats; // fs.Stats
+f.parse; // path.ParsedPath
 ```
 
 ### Type detection
 
 ```typescript
-f.isFile()           // boolean
-f.isDirectory()      // boolean
-f.isSymbolicLink()   // boolean
-f.isHidden()         // boolean — name starts with "."
-f.checkType()        // "File" | "Directory" | "symbolicLink" | ...
-f.matchType("File")  // boolean
-f.matchName(/\.ts$/) // RegExpExecArray | null
-f.matchName("foo.ts")// boolean
+f.isFile(); // boolean
+f.isDirectory(); // boolean
+f.isSymbolicLink(); // boolean
+f.isHidden(); // boolean — name starts with "."
+f.checkType(); // "File" | "Directory" | "symbolicLink" | ...
+f.matchType("File"); // boolean
+f.matchName(/\.ts$/); // RegExpExecArray | null
+f.matchName("foo.ts"); // boolean
 ```
 
 ### I/O
 
 ```typescript
 // Sync
-f.content()                   // Buffer (default)
-f.content("utf8")             // string
-f.read("utf8")                // follows symlinks
-f.readByLine((line, n) => {}) // synchronous line iteration
-f.write("data", { encoding: "utf8" })
-f.checkSum()         // md5 hex by default
-f.checkSum("sha256") // sha256 hex
+f.content(); // Buffer (default)
+f.content("utf8"); // string
+f.read("utf8"); // follows symlinks
+f.readByLine((line, n) => {}); // synchronous line iteration
+f.write("data", { encoding: "utf8" });
+f.checkSum(); // md5 hex by default
+f.checkSum("sha256"); // sha256 hex
 
 // Async
-await f.readAsync("utf8")  // follows symlinks
+await f.readAsync("utf8"); // follows symlinks
 
 // File operations
-const moved = f.move("/new/path/file.ts")  // returns new FileClass
-f.unlink()                                  // deletes file
+const moved = f.move("/new/path/file.ts"); // returns new FileClass
+f.unlink(); // deletes file
 ```
 
 ### JSON
 
 ```typescript
-f.toJson()   // FileClassInterface object
-f.toString() // JSON.stringify(toJson(), null, "\n")
+f.toJson(); // FileClassInterface object
+f.toString(); // JSON.stringify(toJson(), null, "\n")
 ```
 
 ---
@@ -108,15 +108,15 @@ const result = await finder.in("/path/to/dir");
 
 ```typescript
 interface DefaultSettingsInterface {
-  recurse?: boolean;       // default false — traverse subdirectories
-  depth?: number;          // default 10 — max recursion depth (null = unlimited)
-  seeHidden?: boolean;     // default false — include dotfiles
+  recurse?: boolean; // default false — traverse subdirectories
+  depth?: number; // default 10 — max recursion depth (null = unlimited)
+  seeHidden?: boolean; // default false — include dotfiles
   match?: RegExp | string; // filter all entry names
-  matchFile?: string;      // filter file names only
-  matchDir?: string;       // filter directory names only
-  exclude?: string | RegExp;     // exclude by name
+  matchFile?: string; // filter file names only
+  matchDir?: string; // filter directory names only
+  exclude?: string | RegExp; // exclude by name
   excludeFile?: string | RegExp; // exclude files by name
-  excludeDir?: string | RegExp;  // exclude directories by name
+  excludeDir?: string | RegExp; // exclude directories by name
   followSymLink?: boolean; // default false
 }
 ```
@@ -165,8 +165,8 @@ interface TotalInterface {
 Validates and wraps paths as FileResult — useful for type checking before traversal:
 
 ```typescript
-const r = finder.checkPath("/path/to/dir");  // FileResult
-const r2 = finder.checkPath(["/a", "/b"]);   // FileResult with 2 entries
+const r = finder.checkPath("/path/to/dir"); // FileResult
+const r2 = finder.checkPath(["/a", "/b"]); // FileResult with 2 entries
 ```
 
 ---
@@ -180,23 +180,23 @@ import FileResult from "@nodefony/core/finder/FileResult";
 
 const result: FileResult = await finder.in("/path");
 
-result.getFiles()             // FileResult — all files (recursive)
-result.getDirectories()       // FileResult — all directories (recursive)
-result.findByName(/\.ts$/)    // FileResult — recursive name search, deduped
-result.sortByName()           // FileResult — sorted copy
-result.sortByType()           // FileResult — sorted by type
-result.uniq()                 // FileResult — deduplicated by path
-result.toString()             // "file1.ts\nfile2.ts\n..."
-result.toJson()               // JSON string with nested children
+result.getFiles(); // FileResult — all files (recursive)
+result.getDirectories(); // FileResult — all directories (recursive)
+result.findByName(/\.ts$/); // FileResult — recursive name search, deduped
+result.sortByName(); // FileResult — sorted copy
+result.sortByType(); // FileResult — sorted by type
+result.uniq(); // FileResult — deduplicated by path
+result.toString(); // "file1.ts\nfile2.ts\n..."
+result.toJson(); // JSON string with nested children
 ```
 
 ### Working with children
 
 ```typescript
-const root = result[0];           // File (directory)
-root.childrens                    // FileResult of immediate children
-root.childrens.getFiles()         // recursive flat list of all files
-root.childrens.sortByName()[0]    // first child alphabetically
+const root = result[0]; // File (directory)
+root.childrens; // FileResult of immediate children
+root.childrens.getFiles(); // recursive flat list of all files
+root.childrens.sortByName()[0]; // first child alphabetically
 ```
 
 ---

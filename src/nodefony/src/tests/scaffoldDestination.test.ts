@@ -67,7 +67,12 @@ describe("destination d'une app créée depuis Studio", () => {
 
   describe("recomposition de la destination", () => {
     it("compose racine + sous-dossier + nom", () => {
-      const dest = resolveScaffoldDestination(roots, "workspace", "clients", "acme");
+      const dest = resolveScaffoldDestination(
+        roots,
+        "workspace",
+        "clients",
+        "acme",
+      );
       assert.equal(dest, path.resolve("/home/dev/projects/clients/acme"));
     });
 
@@ -99,8 +104,7 @@ describe("destination d'une app créée depuis Studio", () => {
 
     it("un sous-dossier qui remonte est refusé", () => {
       assert.throws(
-        () =>
-          resolveScaffoldDestination(roots, "workspace", "../../..", "app"),
+        () => resolveScaffoldDestination(roots, "workspace", "../../..", "app"),
         ScaffoldDestinationError,
       );
     });

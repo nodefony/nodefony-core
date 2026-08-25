@@ -14,7 +14,7 @@
   ⚠️ **Sous-batcher l'ouverture** (`BATCH=50`) pour lire ce plafond : ouvrir des centaines de
   connects d'un coup échoue côté CLIENT (TLS loopback dual-stack) et **sous-estime** (mesuré
   4741 sans sous-batch vs 16372 avec). Le script `ws-connections.mjs` ET la sonde vitest
-  `RUPTURE` le font ; lever `WS_RUPTURE_CAP=20000` pour que la sonde atteigne le vrai plafond.
+  `RUPTURE` le font ; lever `NF_WS_RUPTURE_CAP=20000` pour que la sonde atteigne le vrai plafond.
 - **Messages** : echo 1 conn ~7 200 msg/s ; broadcast fan-out propre jusqu'à ~**40k msg/s**,
   sature vers ~**120k msg/s** (le serveur bufferise, ne crash pas).
 - **Stress combiné supervision (2026-05-23, ORM_PATH=counts)** : sous `WS_STEP=400 HTTP_STEP=80

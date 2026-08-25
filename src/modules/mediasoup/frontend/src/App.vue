@@ -8,7 +8,9 @@
   <main class="ms-placeholder">
     <h1>mediasoup</h1>
     <p>Build Vue prêt — front à implémenter.</p>
-    <p>Le modèle ORM (connecteur « mediasoup ») est visible dans Studio → ERD.</p>
+    <p>
+      Le modèle ORM (connecteur « mediasoup ») est visible dans Studio → ERD.
+    </p>
   </main>
 </template>
 

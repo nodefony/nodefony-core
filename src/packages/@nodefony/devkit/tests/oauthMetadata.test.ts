@@ -39,7 +39,8 @@ describe("devkit — rôle serveur de ressource ÉTEINT par défaut", () => {
     // quatre champs ci-dessous seraient `undefined` et le code lirait des
     // `undefined.length`.
     const cfg = parseMcp({ enabled: true });
-    expect(cfg.mcp.authorization.scopesSupported).to.deep.equal([]);
+    expect(cfg.mcp.authorization.anonymous).to.equal(false);
+    expect(cfg.mcp.authorization.additionalResources).to.deep.equal([]);
     expect(cfg.mcp.authorization.authorizationServers).to.deep.equal([]);
   });
 });
@@ -77,15 +78,23 @@ describe("devkit — allumer le rôle exige une audience, au BOOT", () => {
       authorization: {
         authorizationServers: [AS],
         resource: "https://app.example/nodefony/mcp",
-        scopesSupported: ["nodefony:inspect"],
         anonymous: true,
       },
     });
     const authz = cfg.mcp.authorization;
     expect(authz.authorizationServers).to.deep.equal([AS]);
     expect(authz.resource).to.equal("https://app.example/nodefony/mcp");
-    expect(authz.scopesSupported).to.deep.equal(["nodefony:inspect"]);
     expect(authz.anonymous).to.equal(true);
+  });
+
+  it("🔴 les SCOPES ne s'écrivent pas en configuration — le schéma n'en a plus", () => {
+    // Le sens du test : tant que la clé existe, quelqu'un l'écrira, et ce qu'il
+    // écrira sera publié à la place de ce que le code exige. La dérivation vit
+    // dans `DevkitService.declaredMcpScopes()` (union de `IMcpTool.scopes`) ;
+    // ici on prouve seulement qu'aucune seconde source n'a survécu.
+    expect(Object.keys(parseMcp({}).mcp.authorization)).to.not.include(
+      "scopesSupported",
+    );
   });
 });
 

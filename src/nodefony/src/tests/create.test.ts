@@ -11,14 +11,19 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
+  argvCablageMcp,
+  doitDemanderLeType,
   parseCreateArgv,
+  planCablageMcp,
+  renderDryRun,
   runCreateCommand,
   type ICreateRequest,
 } from "../cli/create";
+import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
 import { getScaffoldSpec } from "../cli/scaffold/spec";
 import {
   findPackageRoot,
@@ -199,6 +204,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isTrue((short as ICreateRequest).dryRun);
     });
 
+    it("--git-hooks → answers.gitHooks (déclaré dans la spec, sinon le moteur l'IGNORERAIT)", () => {
+      const req = parseCreateArgv(
+        argv("create", "app", "x", "--git-hooks", "--yes"),
+      ) as ICreateRequest;
+      assert.isTrue(req.answers.gitHooks as boolean);
+      // La spec porte la question — `advanced` : jamais posée en dialogue (le
+      // défaut SANS hooks est sûr : le filet complet est la CI), mais présente,
+      // sinon `resolveAnswers` jetterait la réponse sans un mot.
+      const q = getScaffoldSpec("app")[0]?.questions.find(
+        (x) => x.key === "gitHooks",
+      );
+      assert.isDefined(q);
+      assert.isTrue(q?.advanced);
+      assert.strictEqual(q?.default, false);
+    });
+
     it("type inconnu / option inconnue → error", () => {
       assert.property(parseCreateArgv(argv("create", "plugin", "x")), "error");
       assert.property(
@@ -310,7 +331,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // zéro commande lancée ; le gate oublié était toujours `typecheck`, le
       // seul que le build ne fait pas.
       assert.property(pkg["scripts"], "verify");
-      for (const gate of ["typecheck", "lint", "test", "check"]) {
+      for (const gate of [
+        "typecheck",
+        "lint",
+        // `format:check` et non `format` : le second RÉÉCRIT, il ne vérifie rien.
+        // Sans lui, un `verify` vert cohabitait avec un dépôt non formaté, et le
+        // gate de forme de la CI générée tombait après coup, ailleurs.
+        "format:check",
+        "test",
+        "check",
+      ]) {
         assert.include(
           pkg["scripts"]["verify"],
           gate,
@@ -442,9 +472,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join(dest, "nodefony.config.ts"),
           "utf8",
         );
+        // Le module est au manifeste, et il y est en `policy: "dev"`. On ne
+        // fige PAS la forme littérale de son `use(...)` : le devkit y reçoit
+        // désormais l'audience de sa porte MCP, et une assertion écrite sur la
+        // ponctuation aurait rougi pour un ajout parfaitement voulu — sans rien
+        // dire de ce qu'elle protège.
+        const compact = config.replace(/\s+/gu, " ");
+        const at = compact.indexOf('"@nodefony/devkit"');
+        assert.isAbove(at, -1, "le devkit doit figurer au manifeste");
+        // La fenêtre qui suit le nom du module porte ses options : c'est là que
+        // `policy` se lit, quelle que soit la façon dont le formateur a coupé
+        // les lignes.
+        // Jusqu'au module SUIVANT — pas une fenêtre de N caractères : la
+        // déclaration du devkit porte sa configuration et ses commentaires, et
+        // une borne chiffrée se périme au premier mot ajouté.
+        const suivant = compact.indexOf("use(", at);
         assert.include(
-          config.replace(/\s+/gu, " "),
-          'use("@nodefony/devkit", {}, { policy: "dev" })',
+          compact.slice(at, suivant === -1 ? undefined : suivant),
+          '{ policy: "dev" }',
+          "le devkit doit rester chargé en DÉVELOPPEMENT seulement",
         );
       });
     }
@@ -516,6 +562,127 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
       assert.include(agents, ".agents/skills/");
       assert.include(agents, "ai:sync");
+    });
+
+    it("🔴 l'app GÉNÉRÉE dit comment CHERCHER une doc que `rg` n'indexe pas", () => {
+      // Le motif est structurel : la documentation des paquets vit sous
+      // `node_modules`, que git ignore et que les outils de recherche excluent.
+      // Ce fichier pointe huit chemins qui s'OUVRENT très bien mais qu'aucune
+      // recherche plein texte ne trouve — un agent en conclut « pas documenté »
+      // et réécrit à la main. Les trois issues doivent être écrites ICI, dans
+      // le RENDU : ce que le gabarit sait ne sert à personne.
+      const dest = path.join(tmp, "agents-recherche");
+      scaffold(dest, {
+        name: "recherche",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+
+      // 1. L'outil qui CHERCHE, quand le serveur répond.
+      assert.include(agents, "nodefony_docs");
+      // 2. Le repli sans serveur — DÉSIGNER le dossier suffit : l'exclusion ne
+      //    vaut que pour le parcours. Mesuré : `rg` à la racine rend 1 fichier,
+      //    le même motif sur le dossier désigné en rend 3.
+      assert.include(agents, 'rg "terme" node_modules/@nodefony/*/docs/');
+      // 3. Le balayage large, quand on ne sait pas où chercher.
+      assert.include(agents, "--no-ignore");
+      // 4. Et le cas où il n'y a rien à lire : à DIRE, pas à contourner.
+      assert.include(agents, "npm install");
+    });
+
+    it("🔴 les trois pièges MESURÉS au banc sont écrits dans l'app GÉNÉRÉE", () => {
+      // Trois échecs du banc devkit dont la cause était ce fichier — pas
+      // l'agent. Chacun se relit ici, dans le rendu, parce qu'un gabarit n'est
+      // pas ce qu'il produit.
+      const dest = path.join(tmp, "agents-pieges");
+      scaffold(dest, { name: "pieges", preset: "complete", frontend: "none" });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+
+      // T10 — l'agent s'arrêtait à `npm test` (vitest n'inspecte aucun type) et
+      // commitait du code qui ne compile pas. L'en-tête et la conclusion
+      // nomment maintenant LA commande unique, comme le corps le faisait déjà.
+      assert.include(agents, "npm run verify");
+      assert.notInclude(
+        agents,
+        "`npm test` d'abord, puis `npm run typecheck`",
+        "l'en-tête ne doit plus proposer une séquence qu'on peut interrompre",
+      );
+
+      // T16 — « Fetch Metadata protège déjà », donc pas de `@CsrfProtect` : un
+      // client non-navigateur postait sans jeton et recevait 201.
+      assert.include(agents, "PREUVE D'INTENTION");
+      assert.include(agents, "x-csrf-token");
+
+      // T26 — le fichier CONSEILLAIT de déplacer la route sous `/api/machine` ;
+      // l'agent a obéi, et l'adresse publiée a rendu 404 au partenaire.
+      assert.include(agents, "URL DÉJÀ PUBLIÉE");
+      assert.include(agents, "^/api/(machine|partenaire)");
+    });
+  });
+
+  describe(".prettierrc + CI générée (le filet complet vit en forge)", () => {
+    it("🔴 l'app naît avec .prettierrc.json et un workflow CI qui joue verify + e2e", () => {
+      const dest = path.join(tmp, "ci-sqlite");
+      scaffold(dest, { name: "cisqlite" });
+      // `format` tournait sur les défauts prettier : un style non écrit.
+      assert.include(
+        readFileSync(path.join(dest, ".prettierrc.json"), "utf8"),
+        '"printWidth"',
+      );
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      assert.include(ci, "npm run verify");
+      assert.include(ci, "npm run test:e2e");
+      // Le YAML garde sa STRUCTURE : le piège eta « tag en fin de ligne avale
+      // le saut de ligne » recollerait `steps:` au bloc précédent — un yml qui
+      // parse encore, et un job qui n'a plus d'étapes.
+      assert.match(ci, /\n {4}steps:\n/u);
+      // sqlite : aucun service container — l'app démarre sans rien.
+      assert.notInclude(ci, "services:");
+      // Les DEUX forges sont servies (préférence logiciel libre : GitLab par
+      // défaut aussi) — le fichier de l'autre forge est simplement inerte.
+      const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
+      assert.include(gitlab, "npm run verify");
+      assert.include(gitlab, "npm run test:e2e");
+      assert.notInclude(gitlab, "services:");
+      assertNoEtaResidue(dest);
+    });
+
+    it("base SQL retenue : le service container CI porte la MÊME image que le compose", () => {
+      const dest = path.join(tmp, "ci-pg");
+      scaffold(dest, { name: "cipg", database: "postgres" });
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      assert.match(ci, /\n {4}services:\n {6}postgres:\n/u);
+      assert.include(ci, "POSTGRES_USER: cipg");
+      assert.include(ci, "pg_isready -U cipg");
+      // Anti-dérive PROUVÉE sur les rendus, pas sur le catalogue : la même
+      // image dans les deux fichiers, extraite de chacun.
+      const imageDe = (texte: string, motif: RegExp): string =>
+        motif.exec(texte)?.[1] ?? "(absente)";
+      const imageCi = imageDe(ci, /image: (\S+)/u);
+      const imageCompose = imageDe(
+        readFileSync(path.join(dest, "compose.yaml"), "utf8"),
+        /postgres:\n {4}image: (\S+)/u,
+      );
+      assert.equal(imageCi, imageCompose);
+      assert.notEqual(imageCi, "(absente)");
+      // GitLab : le service se joint par son ALIAS, jamais par 127.0.0.1 (le
+      // service tourne dans un autre conteneur) — la variable du job PRIME sur
+      // le `.env`, c'est la cascade documentée (le shell gagne toujours).
+      const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
+      assert.equal(imageDe(gitlab, /name: (\S+)/u), imageCompose);
+      assert.include(
+        gitlab,
+        'NF_DATABASE_URL: "postgres://cipg:cipg-dev@postgres:5432/cipg"',
+      );
+      assert.notInclude(gitlab, "127.0.0.1");
+      assertNoEtaResidue(dest);
     });
   });
 
@@ -1275,11 +1442,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `npx nodefony create module");
-      // CLAUDE.md = un POINTEUR, et rien d'autre. Il n'a qu'un seul contenu
-      // propre : le renvoi à `create --help`, qui ne peut pas se périmer —
-      // contrairement à une liste de générateurs, qui avait déjà dérivé
-      // (`create command` y manquait), et l'agent qui ne l'y trouvait pas
-      // écrivait à la main.
+      // CLAUDE.md = un POINTEUR, et presque rien d'autre. Deux contenus
+      // propres seulement, chacun payé par une mesure au banc : le renvoi à
+      // `create --help` (une liste de générateurs avait déjà dérivé —
+      // `create command` y manquait — et l'agent écrivait à la main), et
+      // `npm run verify` (trois tâches FAIL sur un code qui ne compilait
+      // pas : l'agent lançait `npm test` en boucle sans jamais typechecker,
+      // et n'ouvrait pas AGENTS.md — ce pointeur est le SEUL texte qu'un
+      // agent headless reçoit d'office).
       //
       // La règle qui vaut la garde de TAILLE ci-dessous : tout ce qu'on
       // recopierait ici existe dans `AGENTS.md` et en divergerait en silence.
@@ -1289,6 +1459,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
       assert.include(claude, "nodefony create --help");
+      // Le réflexe gate : un `npm test` vert ne typecheck rien (le runner
+      // efface les types) — c'est la panne commune des trois FAIL mesurés.
+      assert.include(claude, "npm run verify");
       assert.isBelow(
         claude.split("\n").length,
         15,
@@ -1991,6 +2164,60 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         { type: "service", answers, dir: from, force: false },
         version,
       );
+
+    it("génère AUSSI son test unitaire — sinon l'agent écrit un e2e", () => {
+      // 🔴 Mesuré au banc de découvrabilité (tâche 13) : sommé de rendre chaque
+      // responsabilité « testable séparément », l'agent écrit des tests de bout
+      // en bout. Il n'a rien d'autre à copier — `create service` était le SEUL
+      // générateur sans test, quand `entity` en produit deux et `module` un.
+      const dest = path.join(tmp, "svctest");
+      scaffold(dest, { name: "svctest", preset: "minimal" });
+      const r = service(dest, { name: "tax", description: "Calcul de la TVA" });
+      const file = path.join(dest, "tests", "TaxService.test.ts");
+      assert.isTrue(existsSync(file), "aucun test généré pour le service");
+      assert.include(r.files, path.join("tests", "TaxService.test.ts"));
+      const src = readFileSync(file, "utf8");
+      // Il passe par la porte PUBLIÉE, pas par un kernel bricolé.
+      assert.include(src, 'from "nodefony/testing"');
+      assert.include(src, "createTestModule()");
+      // 🔴 Et il n'assied AUCUNE assertion sur la méthode d'exemple, que le
+      // gabarit dit de remplacer : un test écrit sur `greet()` serait rouge à
+      // la première modification de l'utilisateur. C'est le piège déjà payé par
+      // `create command --service`, qui EXIGEAIT cette même méthode.
+      assert.notInclude(src, "greet");
+      // Zéro balise eta résiduelle.
+      assertNoEtaResidue(dest);
+    });
+
+    it("le test généré COMPILE aussi quand le service a une dépendance", () => {
+      // 🔴 Le banc de vérité a attrapé ce qu'aucune assertion de chaîne ne
+      // voyait : avec `--inject`, le constructeur prend DEUX arguments, et le
+      // test généré n'en passait qu'un — `TS2554: Expected 2 arguments, but
+      // got 1`, trois fois. D'où le constructeur local `build()`, seul endroit
+      // du fichier qui connaît la forme du constructeur.
+      const dest = path.join(tmp, "svctestdep");
+      scaffold(dest, { name: "svctestdep", preset: "minimal" });
+      service(dest, { name: "tax", description: "Calcul de la TVA" });
+      service(dest, {
+        name: "invoice",
+        description: "Facturation",
+        inject: "TaxService",
+      });
+      const src = readFileSync(
+        path.join(dest, "tests", "InvoiceService.test.ts"),
+        "utf8",
+      );
+      // La dépendance est CONSTRUITE et passée — sinon le fichier ne compile pas.
+      assert.include(src, "new TaxService(module)");
+      assert.include(src, "new InvoiceService(module, new TaxService(module))");
+      // Et le service SANS dépendance n'en invente pas une.
+      const seul = readFileSync(
+        path.join(dest, "tests", "TaxService.test.ts"),
+        "utf8",
+      );
+      assert.include(seul, "new TaxService(module)");
+      assert.notInclude(seul, "new TaxService(module, ");
+    });
 
     it("app racine SANS @services([...]) : le décorateur est CRÉÉ, pas refusé", () => {
       // Le gabarit `app/base` ne rend JAMAIS @services([...]) — c'est le cas
@@ -3025,7 +3252,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       ]) {
         assert.isTrue(existsSync(path.join(dest, f)), `${f} manquant`);
       }
-      assert.include((r.notes ?? []).join("\n"), "table posts (sqlite)");
+      assert.include(
+        (r.notes ?? []).join("\n"),
+        "table posts sur le connecteur « default » (sqlite)",
+      );
       assertNoEtaResidue(dest);
     });
 
@@ -4002,6 +4232,68 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       force = false,
     ) => runScaffold({ type: "command", answers, dir: from, force }, version);
 
+    it("🔴 la commande GÉNÉRÉE naît avec les quatre leçons payées sur le cœur", () => {
+      // Un gabarit est du code DISTRIBUÉ : ce qu'il n'enseigne pas, chaque
+      // développeur le réapprendra par le même bug. Ces trois-là ont été payées
+      // le même jour sur les commandes du framework.
+      const dest = appWithModule("cmdlecons");
+      const r = command(dest, { name: "publish", module: "@cmdlecons/blog" });
+      const src = readFileSync(
+        path.join(r.dest, "nodefony", "command", "PublishCommand.ts"),
+        "utf8",
+      );
+
+      // 1. Le journal de boot n'est pas la sortie : sans ceci, la commande rend
+      //    trente lignes de `MODULE ADD` avant sa réponse.
+      assert.include(src, "quietBoot: true");
+
+      // 2. La SORTIE va sur stdout, jamais dans le journal — sinon le filtre
+      //    ci-dessus (ou `--json`) efface la réponse elle-même.
+      //    ⚠️ On regarde le CODE, pas les commentaires : le gabarit CITE
+      //    `this.log(message, "INFO")` pour dire de ne pas l'écrire, et une
+      //    sonde naïve accuse alors la phrase qui met en garde.
+      const codeSeul = src
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+        .join("\n");
+      assert.notMatch(
+        codeSeul,
+        /this\.log\(message/u,
+        "la sortie passe par le journal : un filtre la fera disparaître",
+      );
+      assert.include(src, "process.stdout.write(`${message}");
+
+      // 3. Un argument indispensable se DEMANDE : déclaré `<requis>`, commander
+      //    refuse la commande avant qu'elle existe — y compris choisie au menu.
+      assert.include(src, "askArgument");
+
+      // 4. ENCHAÎNER une autre commande : trois choses ne suivent pas d'un
+      //    process à l'autre, et elles ont été écrites deux fois à la main
+      //    avant que le gabarit ne les enseigne.
+      //    ⚠️ On vérifie le BLOC D'EXEMPLE, pas la prose qui l'explique : une
+      //    première version cherchait `stdio: "inherit"` n'importe où, et le
+      //    texte pédagogique la satisfaisait à lui seul — le test restait vert
+      //    en ayant perdu l'exemple, c'est-à-dire la seule chose qui AGIT.
+      const exemple = src.slice(src.indexOf("spawnSync(process.execPath"));
+      assert.isNotEmpty(exemple, "le gabarit n'enseigne plus l'enchaînement");
+      for (const clef of [
+        'stdio: "inherit"',
+        "NODE_ENV",
+        "cwd: this.kernel?.path",
+      ]) {
+        assert.include(
+          exemple.slice(0, 400),
+          clef,
+          `${clef} absent de l'exemple d'enchaînement`,
+        );
+      }
+      assert.notMatch(
+        src,
+        /addArgument\("<[a-z]/u,
+        "un argument déclaré obligatoire fait refuser la commande au menu",
+      );
+    });
+
     it("dérive `<module>:<action>` du Module cible, pas du nom npm", () => {
       const dest = appWithModule("cmdapp");
       const r = command(dest, { name: "publish", module: "@cmdapp/blog" });
@@ -4451,6 +4743,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("le plan NOMME sa cible et rend ce que l'exécution dirait", () => {
+      // 🔴 Mesuré au banc de découvrabilité : à qui l'on demande d'établir un
+      // plan, l'agent colle la sortie du `--dry-run` — et cette sortie ne
+      // portait qu'un inventaire de fichiers. Ni le connecteur visé, ni le
+      // dialecte, ni les routes : les notes, qui les disent, n'étaient rendues
+      // qu'en exécution RÉELLE. Une simulation qui tait ce que la commande dit
+      // n'est pas une simulation.
+      const dest = path.join(tmp, "simentity");
+      scaffold(dest, {
+        name: "simentity",
+        preset: "complete",
+        frontend: "none",
+      });
+      const before = snapshotTree(dest);
+      const r = runScaffold(
+        {
+          type: "entity",
+          answers: { name: "Invoice", fields: "number:string! amount:int" },
+          dir: dest,
+          force: false,
+        },
+        version,
+        { dryRun: true },
+      );
+      assertTreeUnchanged(before, dest);
+      const notes = (r.notes ?? []).join("\n");
+      // Le CONNECTEUR est nommé — sur une app multi-connecteurs, le seul
+      // dialecte ne dit pas OÙ la table atterrit.
+      assert.include(notes, "default");
+      assert.match(notes, /sqlite|postgres|mysql/u);
+      // Et le rendu du plan les porte : c'est lui que l'agent recopie.
+      const rendu = renderDryRun(r.changes ?? [], r.notes);
+      assert.include(rendu, "default");
+    });
+
     it("un refus reste un refus en simulation", () => {
       const dest = path.join(tmp, "simref");
       scaffold(dest, { name: "simref", preset: "minimal" });
@@ -4698,7 +5025,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const input = new PassThrough();
       const output = new PassThrough();
       // name → "demo" · preset → 2 (minimal) · frontend → 2 (react) · link → o
-      feedAnswers(input, output, ["demo", "2", "2", "o"]);
+      // · agents → ENTRÉE (aucun : rien n'est jamais coché par défaut)
+      feedAnswers(input, output, ["demo", "2", "2", "o", ""]);
       const answers = await askMissing(
         spec,
         {},
@@ -4711,6 +5039,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "minimal",
         frontend: "react",
         link: true,
+        agents: [],
       });
     });
 
@@ -4718,8 +5047,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const [spec] = getScaffoldSpec("app");
       const input = new PassThrough();
       const output = new PassThrough();
-      output.resume();
-      input.write("\n"); // seul frontend est demandé → entrée vide = défaut none
+      // frontend, puis agents : deux entrées vides = les deux défauts (none,
+      // aucun). Au RYTHME des invites — readline ne met pas en file ce qui
+      // arrive entre deux `question()`.
+      feedAnswers(input, output, ["", ""]);
       const answers = await askMissing(
         spec,
         { name: "demo", preset: "minimal" },
@@ -4728,6 +5059,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         output,
       );
       assert.equal(answers.frontend, "none");
+      assert.deepEqual(answers.agents, []); // ENTRÉE = aucun agent, rien d'écrit
       assert.isUndefined(answers.link); // askIf non satisfait → jamais posée
     });
   });
@@ -4837,11 +5169,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
-  // E2E binaire réel (gate RUN_CLI_BOOT — exige un `npm run build` PRÉALABLE :
+  // E2E binaire réel (gate NF_RUN_CLI_BOOT — exige un `npm run build` PRÉALABLE :
   // un spawn valide le DIST, pas le source).
-  const describeBoot = process.env["RUN_CLI_BOOT"] ? describe : describe.skip;
+  const describeBoot = process.env["NF_RUN_CLI_BOOT"]
+    ? describe
+    : describe.skip;
   describeBoot("e2e bin/nodefony create (dist)", () => {
-    it("spawn → exit 0 + arbre généré", () => {
+    // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
+    // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle) il
+    // est dépassé sans qu'aucun défaut n'existe — vert en isolation, rouge en
+    // suite. Le délai n'est pas une mesure ici : rien ne s'évalue en temps.
+    it("spawn → exit 0 + arbre généré", { timeout: 120_000 }, () => {
       const here = path.dirname(fileURLToPath(import.meta.url));
       const bin = path.resolve(here, "../../bin/nodefony");
       const dest = path.join(tmp, "e2e-app");
@@ -4861,5 +5199,307 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.isTrue(existsSync(path.join(dest, "nodefony.config.ts")));
     });
+  });
+});
+
+// Le geste `--git-hooks` de `create app` EST `installGitHooks` — même
+// implémentation que la commande `nodefony git:hooks`, jamais recopiée. Ce
+// bloc prouve le CÂBLAGE : l'option traverse le parse, le moteur, et les
+// hooks entrent dans le COMMIT INITIAL (posés entre `git init` et le commit).
+describe("create app --git-hooks", { timeout: 60_000 }, () => {
+  let dest = "";
+  const envAvant: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    dest = mkdtempSync(path.join(os.tmpdir(), "nf-create-hooks-"));
+    // L'identité git est posée par l'ENV (héritée par les spawn de create) :
+    // sans elle, le commit initial échoue sur une machine/CI sans .gitconfig
+    // et le test conclurait FAUX sur l'appartenance au commit.
+    for (const [k, v] of Object.entries({
+      GIT_AUTHOR_NAME: "banc",
+      GIT_AUTHOR_EMAIL: "banc@local",
+      GIT_COMMITTER_NAME: "banc",
+      GIT_COMMITTER_EMAIL: "banc@local",
+    })) {
+      envAvant[k] = process.env[k];
+      process.env[k] = v;
+    }
+  });
+
+  afterEach(() => {
+    rmSync(dest, { recursive: true, force: true });
+    for (const [k, v] of Object.entries(envAvant)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it("🔴 pose .githooks + core.hooksPath, et les hooks sont DANS le commit initial", async () => {
+    const code = await runCreateCommand(
+      argv(
+        "create",
+        "app",
+        "hooks-app",
+        "--dir",
+        dest,
+        "--force",
+        "--preset",
+        "minimal",
+        "--no-install",
+        "--git-hooks",
+        "--yes",
+      ),
+    );
+    assert.equal(code, SysExit.OK);
+    const hook = path.join(dest, ".githooks", "pre-commit");
+    assert.isTrue(existsSync(hook), "pre-commit absent — le flag n'a pas agi");
+    assert.include(readFileSync(hook, "utf8"), "nodefony git:hooks");
+    const cfg = spawnSync("git", ["config", "--get", "core.hooksPath"], {
+      cwd: dest,
+      encoding: "utf8",
+    });
+    assert.equal(cfg.stdout.trim(), ".githooks");
+    // Dans le COMMIT INITIAL — pas seulement sur le disque : posés après le
+    // commit, ils ne suivraient ni l'équipe ni la CI.
+    const fichiers = spawnSync(
+      "git",
+      ["log", "--name-only", "--format=", "-1"],
+      { cwd: dest, encoding: "utf8" },
+    ).stdout;
+    assert.include(fichiers, ".githooks/pre-commit");
+    assert.include(fichiers, ".githooks/pre-push");
+  });
+
+  it("sans le flag : AUCUN hook, aucune config — le défaut est la CI", async () => {
+    const code = await runCreateCommand(
+      argv(
+        "create",
+        "app",
+        "sans-hooks",
+        "--dir",
+        dest,
+        "--force",
+        "--preset",
+        "minimal",
+        "--no-install",
+        "--yes",
+      ),
+    );
+    assert.equal(code, SysExit.OK);
+    assert.isFalse(existsSync(path.join(dest, ".githooks")));
+    const cfg = spawnSync("git", ["config", "--get", "core.hooksPath"], {
+      cwd: dest,
+      encoding: "utf8",
+    });
+    assert.notEqual(cfg.status, 0);
+  });
+});
+
+describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", () => {
+  const parCli = AGENT_TARGETS.filter((c) => c.declaration === "cli");
+  const parFichier = AGENT_TARGETS.filter(
+    (c) => c.declaration === "fichier-projet",
+  );
+
+  it("aucun agent coché → RIEN n'est écrit (pas même le .mcp.json)", () => {
+    assert.isNull(argvCablageMcp([], AGENT_TARGETS, "/tmp/app"));
+  });
+
+  it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
+    assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
+    const cle = parCli[0]!.cle;
+    assert.deepEqual(argvCablageMcp([cle], AGENT_TARGETS, "/tmp/app"), [
+      "ai:mcp",
+      "--cwd",
+      "/tmp/app",
+      "--auth",
+      "--agent",
+      cle,
+    ]);
+  });
+
+  it("seulement un agent servi par le FICHIER → `none` : le .mcp.json est écrit, aucune CLI lancée", () => {
+    assert.isAtLeast(
+      parFichier.length,
+      1,
+      "fixture : au moins un agent servi par fichier",
+    );
+    const argv = argvCablageMcp(
+      [parFichier[0]!.cle],
+      AGENT_TARGETS,
+      "/tmp/app",
+    );
+    assert.isNotNull(argv);
+    assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
+  });
+
+  it("le choix « standard » (norme AGENTS.md + MCP) écrit le fichier et ne lance AUCUNE CLI", () => {
+    // Il ne correspond à aucun outil de la table : c'est le cas de l'agent
+    // conforme qu'on ne pilote pas. `--agent none` dit « aucune CLI », pas
+    // « rien faire » — le `.mcp.json` est écrit, et c'est lui que l'agent lit.
+    const argv = argvCablageMcp(["standard"], AGENT_TARGETS, "/tmp/app");
+    assert.isNotNull(argv);
+    assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
+    assert.include(argv ?? [], "--auth");
+  });
+
+  it("un agent NON coché ne part jamais dans l'appel", () => {
+    if (parCli.length < 2) return;
+    const argv = argvCablageMcp([parCli[0]!.cle], AGENT_TARGETS, "/tmp/app");
+    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.cle);
+  });
+
+  it("des agents choisis + app installée ET construite → on câble", () => {
+    assert.deepEqual(
+      planCablageMcp({ choisis: 1, installed: true, built: true }),
+      { propose: true },
+    );
+  });
+
+  it("aucun agent choisi → rien n'est écrit, ici comme hors terminal", () => {
+    const plan = planCablageMcp({ choisis: 0, installed: true, built: true });
+    assert.isFalse(plan.propose);
+    assert.include(
+      plan.propose === false ? plan.motif : "",
+      "aucun agent",
+      "le motif doit NOMMER la raison — un refus muet se lit comme une panne",
+    );
+  });
+
+  it("ne propose pas sur une app non installée : l'émission du jeton démarre le kernel", () => {
+    for (const etat of [
+      { installed: false, built: false },
+      { installed: true, built: false },
+    ]) {
+      const plan = planCablageMcp({ choisis: 1, ...etat });
+      assert.isFalse(
+        plan.propose,
+        `attendu refusé pour ${JSON.stringify(etat)}`,
+      );
+      assert.include(plan.propose === false ? plan.motif : "", "kernel");
+    }
+  });
+});
+
+describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => {
+  it("un pointeur par agent qui ne lit PAS AGENTS.md, aucun pour ceux qui le lisent", () => {
+    const attendus = new Set(
+      AGENT_TARGETS.filter((c) => !c.instructions.natif).map(
+        (c) => c.instructions.fichier,
+      ),
+    );
+    const rendus = new Set(pointeursInstructions().map((p) => p.fichier));
+    assert.deepEqual([...rendus].sort(), [...attendus].sort());
+    for (const cible of AGENT_TARGETS.filter((c) => c.instructions.natif)) {
+      assert.notInclude(
+        [...rendus],
+        cible.instructions.fichier,
+        `${cible.nom} lit AGENTS.md : rien à poser`,
+      );
+    }
+  });
+
+  it("chaque agent est NOMMÉ dans son pointeur — deux agents d'un même fichier y figurent tous les deux", () => {
+    for (const { fichier, agents } of pointeursInstructions()) {
+      assert.isNotEmpty(agents, `${fichier} : pointeur sans agent nommé`);
+      const attendus = AGENT_TARGETS.filter(
+        (c) => !c.instructions.natif && c.instructions.fichier === fichier,
+      ).map((c) => c.nom);
+      assert.deepEqual([...agents].sort(), attendus.sort());
+    }
+  });
+
+  it("chaque fait s'ancre dans le SOURCE de l'agent — jamais dans sa doc seule", () => {
+    for (const cible of AGENT_TARGETS) {
+      assert.isNotEmpty(
+        cible.instructions.preuve,
+        `${cible.nom} : le fichier d'instructions est affirmé sans preuve`,
+      );
+    }
+  });
+});
+
+describe("create app --agents — la troisième voie de la même question", () => {
+  const lu = (argv: string[]): unknown => {
+    const p = parseCreateArgv(["node", "nodefony", "create", "app", ...argv]);
+    return "error" in p ? p.error : p.answers.agents;
+  };
+
+  it("une liste séparée par des virgules devient un TABLEAU de valeurs entières", () => {
+    assert.deepEqual(lu(["--agents", "claude,gemini"]), ["claude", "gemini"]);
+  });
+
+  it("`none` dit l'absence EXPLICITE — distincte de l'option omise", () => {
+    assert.deepEqual(lu(["--agents", "none"]), []);
+    assert.isUndefined(lu([]), "omise, la question garde le défaut de la spec");
+  });
+
+  it("un script obtient donc le câblage sans terminal", () => {
+    // C'est tout l'intérêt : ce qui autorise est le choix EXPLICITE, pas la
+    // présence d'un humain — sinon Studio et les forges restent muets.
+    assert.deepEqual(lu(["--agents", "standard"]), ["standard"]);
+  });
+});
+
+describe("spec ⇄ flags — une question qu'aucun flag ne sert est INATTEIGNABLE", () => {
+  /** `gitHooks` → `--git-hooks` : la convention du CLI, appliquée une fois. */
+  const enKebab = (cle: string): string =>
+    `--${cle.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`)}`;
+
+  it("chaque question de chaque type est atteignable par un flag", () => {
+    // 🔴 Le gate qui manquait. L'en-tête de la spec promet « ajouter un choix =
+    // ajouter UNE entrée » — la voie interactive et Studio la tiennent (ils
+    // lisent la spec), la voie FLAGS non : son analyse est écrite à la main.
+    // Une question ajoutée sans son flag est donc servie à l'humain et refusée
+    // au script, sans que rien ne le signale. Vécu sur `agents`.
+    // `name` est POSITIONNEL (`create app mon-app`) : c'est la seule exemption,
+    // et elle se justifie — un nom n'est pas une option, c'est le sujet de la
+    // commande. Toute autre absence est un oubli.
+    const positionnelles = new Set(["name"]);
+    const manquants: string[] = [];
+    for (const spec of getScaffoldSpec()) {
+      for (const q of spec.questions) {
+        if (positionnelles.has(q.key)) continue;
+        const flag = q.flag ?? enKebab(q.key);
+        const parsed = parseCreateArgv([
+          "node",
+          "nodefony",
+          "create",
+          spec.type,
+          "x",
+          flag,
+          q.type === "boolean" ? "" : "valeur",
+        ]);
+        if ("error" in parsed && parsed.error.includes("option inconnue")) {
+          manquants.push(`${spec.type}.${q.key} (${flag})`);
+        }
+      }
+    }
+    assert.deepEqual(
+      manquants,
+      [],
+      "questions sans flag — un script ne peut pas y répondre",
+    );
+  });
+});
+
+describe("create sans type — le menu propose, la commande doit DEMANDER", () => {
+  const RIEN = "type requis : app | module (reçu : rien)";
+  const FAUTE = "type requis : app | module (reçu : ap)";
+
+  it("aucun type + terminal → on demande, au lieu de rendre l'usage", () => {
+    assert.isTrue(doitDemanderLeType(RIEN, { isTTY: true, yes: false }));
+  });
+
+  it("hors terminal → l'usage, car personne ne peut répondre", () => {
+    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: false, yes: false }));
+  });
+
+  it("--yes dit « ne me demande rien » — il est respecté", () => {
+    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: true, yes: true }));
+  });
+
+  it("un type FAUTIF se corrige, il ne se remplace pas par une question", () => {
+    assert.isFalse(doitDemanderLeType(FAUTE, { isTTY: true, yes: false }));
   });
 });

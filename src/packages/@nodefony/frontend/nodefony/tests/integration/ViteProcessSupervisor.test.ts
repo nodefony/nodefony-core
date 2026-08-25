@@ -2,25 +2,9 @@ import { expect } from "chai";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";
-import { execSync } from "node:child_process";
+import { pidListeningOn } from "../helpers/pidListening.js";
 import { ViteProcessSupervisor } from "../../service/ViteProcessSupervisor.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
-
-/**
- * Trouve le PID réel de Vite (pas de npx parent) via le port en écoute.
- * Sur macOS/Linux, `lsof -ti:PORT -sTCP:LISTEN` retourne le PID owner.
- */
-function pidListeningOn(port: number): number | null {
-  try {
-    const out = execSync(`lsof -ti:${port} -sTCP:LISTEN 2>/dev/null || true`)
-      .toString()
-      .trim();
-    if (!out) return null;
-    return parseInt(out.split(/\s+/)[0]!, 10);
-  } catch {
-    return null;
-  }
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

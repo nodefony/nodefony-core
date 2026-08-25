@@ -3,7 +3,7 @@
  *
  * Un fichier de doc Nodefony commence (optionnellement) par un bloc encadré de
  * `---` qui porte des métadonnées (`title`, `audience`, `section`, `version`,
- * `status`, `updated`, `source`). On n'embarque PAS `gray-matter` (~plusieurs
+ * `status`, `updated`, `source`, `publish`). On n'embarque PAS `gray-matter` (~plusieurs
  * deps transitives) pour ça : la doc n'utilise qu'un sous-ensemble plat de YAML
  * (clé: valeur scalaire ou liste). Ce parseur couvre ce sous-ensemble et reste
  * volontairement strict/petit.

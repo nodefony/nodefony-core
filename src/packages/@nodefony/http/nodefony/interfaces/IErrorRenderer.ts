@@ -36,5 +36,8 @@ export interface IErrorWebsocketResult {
  */
 export interface IErrorRenderer {
   renderHttp(error: Error, context: IHttpContext): IErrorHttpResult;
-  renderWebsocket(error: Error, context: IWebsocketContext): IErrorWebsocketResult;
+  renderWebsocket(
+    error: Error,
+    context: IWebsocketContext,
+  ): IErrorWebsocketResult;
 }

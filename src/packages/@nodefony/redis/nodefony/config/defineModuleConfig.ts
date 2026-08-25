@@ -16,9 +16,9 @@ import type {
  *   (gagne sur host/port/auth pour toutes les connexions). La résolution de
  *   l'URL de cache est déléguée à `resolveInfra` (core) — source UNIQUE des
  *   alias, partagée avec drizzle/mongoose ; pas de réimplémentation locale.
- * - `REDIS_HOST`  → `globalOptions.socket.host`
- * - `REDIS_PORT`  → `globalOptions.socket.port`
- * - `REDIS_PASSWORD` → `globalOptions.password` (secret JAMAIS dans la config)
+ * - `NF_REDIS_HOST`  → `globalOptions.socket.host`
+ * - `NF_REDIS_PORT`  → `globalOptions.socket.port`
+ * - `NF_REDIS_PASSWORD` → `globalOptions.password` (secret JAMAIS dans la config)
  * - `NF_REDIS_KEY_NAMESPACE` → `keyNamespace` (cloison de DÉPLOIEMENT, pas de code)
  */
 function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
@@ -27,17 +27,17 @@ function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
   if (cacheUrl) {
     config.url = cacheUrl;
   }
-  if (env.REDIS_HOST) {
-    config.globalOptions.socket.host = env.REDIS_HOST;
+  if (env.NF_REDIS_HOST) {
+    config.globalOptions.socket.host = env.NF_REDIS_HOST;
   }
-  if (env.REDIS_PORT) {
-    const port = Number.parseInt(env.REDIS_PORT, 10);
+  if (env.NF_REDIS_PORT) {
+    const port = Number.parseInt(env.NF_REDIS_PORT, 10);
     if (Number.isInteger(port) && port > 0 && port <= 65_535) {
       config.globalOptions.socket.port = port;
     }
   }
-  if (env.REDIS_PASSWORD) {
-    config.globalOptions.password = env.REDIS_PASSWORD;
+  if (env.NF_REDIS_PASSWORD) {
+    config.globalOptions.password = env.NF_REDIS_PASSWORD;
   }
   // La cloison sépare des DÉPLOIEMENTS (préproduction et production portent le
   // même nom d'app, donc la même cloison dérivée). La figer dans un fichier

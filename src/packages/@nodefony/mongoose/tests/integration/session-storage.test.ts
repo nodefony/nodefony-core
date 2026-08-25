@@ -24,7 +24,7 @@ const fakeManager = {
 
 /**
  * Source du Mongo de test, portable hors poste local (CI GitHub/GitLab, Docker) :
- * - `MONGO_TEST_URI` défini → on tape CE serveur (conteneur de service CI ou
+ * - `NF_MONGO_TEST_URI` défini → on tape CE serveur (conteneur de service CI ou
  *   `docker run -p 27017:27017 mongo:7`) : **aucun binaire téléchargé**, glibc
  *   géré par l'image ;
  * - sinon → `mongodb-memory-server` lance un `mongod` éphémère in-process
@@ -34,7 +34,7 @@ const fakeManager = {
  * suffit (pas besoin d'un replica set ici, contrairement au banc orm-core).
  *
  * Serveur Mongo PARTAGÉ par `globalSetup` (1× pour toute la suite) scopé sur la
- * base `session_test` ; `MONGO_TEST_URI` (CI/Docker) le court-circuite en amont.
+ * base `session_test` ; `NF_MONGO_TEST_URI` (CI/Docker) le court-circuite en amont.
  * `null` → infra absente → suite skippée.
  */
 const URI = mongoTestUri("session_test");

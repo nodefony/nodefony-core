@@ -260,7 +260,7 @@ Nodefony pose **deux barrières successives**, à deux étages différents.
 | Allowlist stricte    | `@nodefony/realtime` | **inactif** (`enabled: false`)      | configurable  | `close 4003` |
 
 **Barrière 1 — transport, active sans rien faire.** `HttpKernel.checkWebsocketOrigin()`
-(`http-kernel.ts:509`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
+(`http-kernel.ts:599`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
 loopback en développement et une allowlist optionnelle (`allowedOrigins`,
 `http/nodefony/config/config.ts:525`) acceptant le hostname exact ou un wildcard à un label. Une
 requête **sans** `Origin` est acceptée : un attaquant non-navigateur n'a pas besoin de CSWSH.
@@ -467,7 +467,7 @@ Trois durcissements méritent d'être connus :
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
-  (`security/nodefony/config/config.ts:968`) sont placées en tête, premier match gagnant. On peut
+  (`security/nodefony/config/config.ts:1093`) sont placées en tête, premier match gagnant. On peut
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
@@ -535,7 +535,7 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:253`) : san
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
-posé au moment de son handshake (`RealtimeController.ts:402`, via
+posé au moment de son handshake (`RealtimeController.ts:429`, via
 `RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:961`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
@@ -544,7 +544,7 @@ firewall se construit au boot, avant tout trafic ; le cas ne se présente qu'en 
 
 **Le refus de dégrader en silence.** Quand des policies sont déclarées sans décideur câblé,
 `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1020`) renvoie `true` et le controller
-émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:487`) :
+émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:522`) :
 
 ```text
 Realtime channel policies declared but NO frame authorizer is wired —
@@ -603,7 +603,7 @@ ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch`
 courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
-`isValid` (`RealtimeController.ts:511`) — anonymes et JWT n'y entrent jamais, coût nul.
+`isValid` (`RealtimeController.ts:550`) — anonymes et JWT n'y entrent jamais, coût nul.
 `RealtimeHub.registerRevocable()` (`RealtimeHub.ts:704`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:111`), 30 s, alignée sur le heartbeat WS.
@@ -669,10 +669,10 @@ Un onglet en arrière-plan, un mobile en zone blanche, une fenêtre TCP pleine :
 grossit sans borne, et le multiplexage concentre le risque (une socket lente bloque tous ses
 canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:76`) applique deux seuils :
 
-| `bufferedAmount`                                                     | Action                                                                       |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| ≥ `BACKPRESSURE_DROP_BYTES` — 1 MiB (`WsConnectionTransport.ts:32`)  | la frame est **jetée** (canaux d'état : le prochain snapshot la remplace)    |
-| ≥ `BACKPRESSURE_CLOSE_BYTES` — 8 MiB (`WsConnectionTransport.ts:33`) | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise |
+| `bufferedAmount`                                                                                | Action                                                                                                                      |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:625`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
+| `websocket.backpressureCloseAfterDrops` drops CONSÉCUTIFS — 1000 par défaut                     | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise                                                |
 
 ### Taille des messages entrants
 

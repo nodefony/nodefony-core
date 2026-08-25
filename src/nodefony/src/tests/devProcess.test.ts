@@ -18,6 +18,7 @@ import {
 import {
   clearRuntimeState,
   defaultDevPorts,
+  formatForeignRuntimes,
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
   detectRuntimeMode,
@@ -264,20 +265,115 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
   });
 
   it("defaultDevPorts : défaut, override CSV, valeur invalide", () => {
-    const save = process.env.NODEFONY_DEV_PORTS;
+    const save = process.env.NF_DEV_PORTS;
     // cwd ISOLÉ : sans lui, le test lirait le state file du serveur de dev
     // éventuellement lancé dans le repo (il en écrit un) → verdict machine-dépendant.
     const cwd = mkdtempSync(path.join(os.tmpdir(), "nf-ports-"));
     try {
-      delete process.env.NODEFONY_DEV_PORTS;
+      delete process.env.NF_DEV_PORTS;
       assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
-      process.env.NODEFONY_DEV_PORTS = "3000, 3001 ";
+      process.env.NF_DEV_PORTS = "3000, 3001 ";
       assert.deepStrictEqual(defaultDevPorts(cwd), [3000, 3001]);
-      process.env.NODEFONY_DEV_PORTS = "nope";
+      process.env.NF_DEV_PORTS = "nope";
       assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]); // fallback
     } finally {
-      if (save === undefined) delete process.env.NODEFONY_DEV_PORTS;
-      else process.env.NODEFONY_DEV_PORTS = save;
+      if (save === undefined) delete process.env.NF_DEV_PORTS;
+      else process.env.NF_DEV_PORTS = save;
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("formatForeignRuntimes : la voie CIBLÉE est proposée avant la voie qui tue tout", () => {
+    // 🔴 Vécu au banc devkit : un agent bloqué par un port tenu a lu ce bloc,
+    // n'a pas pu `cd` (son répertoire courant est celui de SON application), et
+    // a donc pris la seule autre voie affichée — `nodefony stop --all`. Il a
+    // arrêté le serveur du développeur pour faire passer son contrôle. La
+    // commande ciblée `nodefony stop <projet>` existait, elle n'était nulle
+    // part : ce message est le SEUL endroit où l'on apprend qu'un voisin
+    // tourne, donc c'est là que la voie sûre doit se lire — AVANT la voie
+    // trans-projets. Un geste destructeur ne se propose jamais en premier.
+    const proc = (pid: number, cwd: string, label: string) =>
+      ({
+        pid,
+        ppid: 1,
+        mode: "dev",
+        role: "supervisor",
+        label,
+        rssKb: 1000,
+        cpu: 0,
+        uptimeSec: 10,
+        cwd,
+      }) as const;
+    const lignes = formatForeignRuntimes([
+      proc(101, path.join(path.sep, "tmp", "boutique"), "supervisor"),
+      proc(102, path.join(path.sep, "tmp", "boutique"), "server"),
+    ] as unknown as Parameters<typeof formatForeignRuntimes>[0]);
+    const texte = lignes.join("\n");
+
+    const cible = lignes.findIndex((l) => l.includes("nodefony stop boutique"));
+    const tout = lignes.findIndex((l) => l.includes("nodefony stop --all"));
+    assert.notStrictEqual(cible, -1, "la voie ciblée doit être proposée");
+    assert.notStrictEqual(tout, -1, "la voie trans-projets reste proposée");
+    assert.ok(cible < tout, "la voie ciblée passe AVANT `--all`");
+    // La portée de `--all` reste dite : on ne masque pas ce qu'il fait.
+    assert.match(texte, /--all.*tous projets/u);
+  });
+
+  it("defaultDevPorts : l'application qui DÉCLARE ses ports n'est plus jugée sur ceux d'une autre", () => {
+    // 🔴 Vécu, et coûteux : une application témoin lancée avec `NF_PORT=5371`
+    // faisait sonder 5151/5152 à `nodefony check` — les ports du dépôt voisin.
+    // Le vérificateur rendait donc « port déjà tenu » sur du code parfait, dès
+    // qu'un AUTRE serveur tournait sur le poste. Deux sources de vérité pour
+    // « quels ports cette application utilise » : le gabarit d'app déclare
+    // `NF_PORT`/`NF_PORT_HTTPS`, cette fonction ne connaissait que la forme
+    // héritée `NF_DEV_PORTS`. Elles divergeaient en silence.
+    const sauve = {
+      dev: process.env.NF_DEV_PORTS,
+      port: process.env.NF_PORT,
+      https: process.env.NF_PORT_HTTPS,
+      alias: process.env.PORT,
+    };
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "nf-ports-decl-"));
+    try {
+      delete process.env.NF_DEV_PORTS;
+      delete process.env.PORT;
+      process.env.NF_PORT = "5371";
+      process.env.NF_PORT_HTTPS = "5372";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5371, 5372]);
+
+      // Un seul des deux déclaré : on ne sonde que ce qui est déclaré, jamais
+      // un port par défaut qui appartient peut-être à quelqu'un d'autre.
+      delete process.env.NF_PORT_HTTPS;
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5371]);
+
+      // L'alias plateforme `PORT` reste IGNORÉ ici : il appartient au gabarit
+      // d'application, pas au cœur. Un `PORT` posé pour un autre outil ne doit
+      // pas détourner la sonde — c'est la collision que `NF_` évite.
+      delete process.env.NF_PORT;
+      process.env.PORT = "8080";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+      process.env.NF_PORT = "5371";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5371]);
+
+      // L'override explicite de l'opérateur garde la priorité.
+      process.env.NF_DEV_PORTS = "3000,3001";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [3000, 3001]);
+
+      // Rien de déclaré → la convention historique, inchangée.
+      delete process.env.NF_DEV_PORTS;
+      delete process.env.NF_PORT;
+      delete process.env.PORT;
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+    } finally {
+      for (const [cle, valeur] of [
+        ["NF_DEV_PORTS", sauve.dev],
+        ["NF_PORT", sauve.port],
+        ["NF_PORT_HTTPS", sauve.https],
+        ["PORT", sauve.alias],
+      ] as const) {
+        if (valeur === undefined) delete process.env[cle];
+        else process.env[cle] = valeur;
+      }
       rmSync(cwd, { recursive: true, force: true });
     }
   });
@@ -294,16 +390,16 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
  */
 describe("devProcess — state file runtime (ports effectifs)", () => {
   let cwd: string;
-  const savedEnv = process.env.NODEFONY_DEV_PORTS;
+  const savedEnv = process.env.NF_DEV_PORTS;
 
   beforeEach(() => {
-    delete process.env.NODEFONY_DEV_PORTS;
+    delete process.env.NF_DEV_PORTS;
     cwd = mkdtempSync(path.join(os.tmpdir(), "nf-runtime-"));
   });
 
   afterEach(() => {
-    if (savedEnv === undefined) delete process.env.NODEFONY_DEV_PORTS;
-    else process.env.NODEFONY_DEV_PORTS = savedEnv;
+    if (savedEnv === undefined) delete process.env.NF_DEV_PORTS;
+    else process.env.NF_DEV_PORTS = savedEnv;
     rmSync(cwd, { recursive: true, force: true });
   });
 
@@ -357,19 +453,27 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
     assert.ok(!seen.warnings.some((w) => w.includes("non observables")));
   });
 
-  it("discoverDevProcessesDetailed CONSTATE la disponibilité, il ne la déduit pas", () => {
-    // La règle ne peut pas être « tout ce qui n'est pas Windows a `ps` » : `procps`
-    // n'est pas installé dans les images Node minces — celles du Dockerfile de
-    // production — ni garanti sur une BSD avec cette syntaxe. Le verdict doit donc
-    // venir de l'exécution, et il doit distinguer « aucun process » de « je n'ai pas
-    // pu regarder », faute de quoi aucun repli ne peut se déclencher.
-    const d = discoverDevProcessesDetailed();
-    assert.strictEqual(typeof d.supported, "boolean");
-    assert.ok(Array.isArray(d.procs));
-    // Là où l'observation a lieu, elle rend une liste (vide ou non) ; là où elle
-    // n'a pas lieu, la liste est vide ET le drapeau le dit.
-    if (!d.supported) assert.deepStrictEqual(d.procs, []);
-  });
+  // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
+  // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle)
+  // il est dépassé sans qu'aucun défaut n'existe — vert en isolation, rouge
+  // en suite. Le délai n'est pas une mesure ici : rien ne s'évalue en temps.
+  it(
+    "discoverDevProcessesDetailed CONSTATE la disponibilité, il ne la déduit pas",
+    { timeout: 60_000 },
+    () => {
+      // La règle ne peut pas être « tout ce qui n'est pas Windows a `ps` » : `procps`
+      // n'est pas installé dans les images Node minces — celles du Dockerfile de
+      // production — ni garanti sur une BSD avec cette syntaxe. Le verdict doit donc
+      // venir de l'exécution, et il doit distinguer « aucun process » de « je n'ai pas
+      // pu regarder », faute de quoi aucun repli ne peut se déclencher.
+      const d = discoverDevProcessesDetailed();
+      assert.strictEqual(typeof d.supported, "boolean");
+      assert.ok(Array.isArray(d.procs));
+      // Là où l'observation a lieu, elle rend une liste (vide ou non) ; là où elle
+      // n'a pas lieu, la liste est vide ET le drapeau le dit.
+      if (!d.supported) assert.deepStrictEqual(d.procs, []);
+    },
+  );
 
   it("discoverFromRuntimeState rend le SUPERVISEUR AVANT le serveur (sinon il respawn)", () => {
     // Le superviseur relance son enfant dès qu'il le voit mourir : rendre le serveur
@@ -425,9 +529,9 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
     assert.deepStrictEqual(defaultDevPorts(cwd), [5153, 5154]);
   });
 
-  it("NODEFONY_DEV_PORTS reste PRIORITAIRE (l'opérateur a toujours le dernier mot)", () => {
+  it("NF_DEV_PORTS reste PRIORITAIRE (l'opérateur a toujours le dernier mot)", () => {
     writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
-    process.env.NODEFONY_DEV_PORTS = "9000,9001";
+    process.env.NF_DEV_PORTS = "9000,9001";
     assert.deepStrictEqual(defaultDevPorts(cwd), [9000, 9001]);
   });
 

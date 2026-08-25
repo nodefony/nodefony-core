@@ -6,35 +6,35 @@ import { resolveBackplaneOriginId } from "../../src/backplane/originId.js";
  * Résolveur d'originId backplane — dette 🔴 #2 du module : `String(process.pid)`
  * n'est PAS unique cross-pod (namespace PID par conteneur → 2 pods k8s = PID 1),
  * l'anti-écho jetait silencieusement le fan-out légitime. Le default doit porter
- * une composante HOST (POD_NAME / hostname) + le pid (workers d'un même host).
+ * une composante HOST (NF_POD_NAME / hostname) + le pid (workers d'un même host).
  */
 
-const savedPodName = process.env.POD_NAME;
+const savedPodName = process.env.NF_POD_NAME;
 afterEach(() => {
   if (savedPodName === undefined) {
-    delete process.env.POD_NAME;
+    delete process.env.NF_POD_NAME;
   } else {
-    process.env.POD_NAME = savedPodName;
+    process.env.NF_POD_NAME = savedPodName;
   }
 });
 
 describe("resolveBackplaneOriginId", () => {
-  it("POD_NAME (downward API k8s) prioritaire : `<pod>:<pid>`", () => {
-    process.env.POD_NAME = "web-7f9c-abcde";
+  it("NF_POD_NAME (downward API k8s) prioritaire : `<pod>:<pid>`", () => {
+    process.env.NF_POD_NAME = "web-7f9c-abcde";
     expect(resolveBackplaneOriginId()).to.equal(
       `web-7f9c-abcde:${process.pid}`,
     );
   });
 
-  it("sans POD_NAME : `<hostname>:<pid>`", () => {
-    delete process.env.POD_NAME;
+  it("sans NF_POD_NAME : `<hostname>:<pid>`", () => {
+    delete process.env.NF_POD_NAME;
     expect(resolveBackplaneOriginId()).to.equal(`${hostname()}:${process.pid}`);
   });
 
   it("2 pods au MÊME pid (PID 1 conteneurisé) → origins DISTINCTS (le bug d'avant)", () => {
-    process.env.POD_NAME = "pod-a";
+    process.env.NF_POD_NAME = "pod-a";
     const a = resolveBackplaneOriginId();
-    process.env.POD_NAME = "pod-b";
+    process.env.NF_POD_NAME = "pod-b";
     const b = resolveBackplaneOriginId();
     // même process (donc même pid), seule la composante host diffère — c'est
     // exactement la situation k8s que le pid nu confondait.

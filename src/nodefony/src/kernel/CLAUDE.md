@@ -26,6 +26,8 @@ src/nodefony/src/kernel/
 │   ├── StopCommand.ts       ← arrêt propre de tout runtime Nodefony (group-kill, standalone)
 │   ├── CompletionCommand.ts ← script de complétion shell bash/zsh/fish (standalone)
 │   └── CreateCommand.ts     ← scaffold projet/module/entité (standalone)
+├── adminPlane/              ← porte UNIQUE d'exécution du plan d'administration (RBAC + handler + normalisation, sans transport)
+├── inspect/                 ← sujets inspectables + résolution par namespace/chemin (consomme adminPlane)
 ├── injector/                ← DI decorators (@injectable, @inject, ...)
 └── MEMORY.md / README.md / CLAUDE.md
 ```
@@ -92,7 +94,7 @@ hook que s'il EXISTE sur la classe (`if (this.onKernelRegister)`), plus le
 **Aucun listener de build** : le build passe par la toolchain CLI (turbo + rolldown), le
 rechargement dev par le `DevSupervisor` (`Module.ts:115` le dit au source).
 
-> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ : il ne rechargeait rien. Le dev = **`DevSupervisor` auto-restart** (`src/service/dev/DevSupervisor.ts`, activé par `DevCommand` en mode `development`) : un process parent (type CONSOLE, ne boote pas de serveur) `spawn` le serveur enfant (`NODEFONY_DEV_CHILD=1`) en **leader de groupe** (`detached:true`), watch les sources backend (frontend exclu → HMR Vite préservé), rebuild **ciblé** (`turbo --filter` + `rollup -c` racine) puis **group-kill** l'enfant (tue les instances Vite filles → 0 orphelin) et relance après **attente des ports libres** (anti-`EADDRINUSE`) avec retry crash borné. Validé runtime (boot/restart 1.2s/anti-orphelin/multi-Vite/Ctrl+C propre). Le `stop.sh`/`start.sh` du skill `nodefony-start-server` reste l'option « boot direct » pour les suites de tests (serveur stable sans superviseur).
+> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ : il ne rechargeait rien. Le dev = **`DevSupervisor` auto-restart** (`src/service/dev/DevSupervisor.ts`, activé par `DevCommand` en mode `development`) : un process parent (type CONSOLE, ne boote pas de serveur) `spawn` le serveur enfant (`NF_DEV_CHILD=1`) en **leader de groupe** (`detached:true`), watch les sources backend (frontend exclu → HMR Vite préservé), rebuild **ciblé** (`turbo --filter` + `rollup -c` racine) puis **group-kill** l'enfant (tue les instances Vite filles → 0 orphelin) et relance après **attente des ports libres** (anti-`EADDRINUSE`) avec retry crash borné. Validé runtime (boot/restart 1.2s/anti-orphelin/multi-Vite/Ctrl+C propre). Le `stop.sh`/`start.sh` du skill `nodefony-start-server` reste l'option « boot direct » pour les suites de tests (serveur stable sans superviseur).
 
 **Hooks lifecycle attachés via `setEvents()`** (méthodes prototype obligatoires, pas property initializers) :
 
@@ -141,7 +143,7 @@ class DevCommand extends Command {
 - `this.runProfile = { servers, lifetime, interactive }` (défaut console : `{false,"oneshot",false}`) — remplace l'ancien binaire `type` (`KernelType`, double casing) qui écrasait 3 axes.
 - `setRunProfile(profile)` côté CliKernel → recopié dans `kernel.runProfile` à `onStart`.
 - `isConsole()` = `!runProfile.servers` (dérivé). Le montage serveur reste piloté par `kernelEvent` + présence `HttpKernel`. **`lifetime` est EFFECTIF** (Phase B) : `Kernel.finishOrPark(code)` parke (daemon `longrunning` + `!servers`) au lieu de terminer, via `Kernel.park({keepAlive})` = **source unique** du park (remplace les `new Promise(()=>{})` inline de DevSupervisor parent / master cluster / daemon). `keepAlive:true` ref un timer (daemon sans handle) ; superviseurs = `false` (handles propres). Cf `project_kernel_runmodes_introspection`.
-- `isTTY` (champ résolu 1× au boot, `process.stdout.isTTY`, surchargeable `NO_TTY`) : volet ENVIRONNEMENT complétant `runProfile.interactive` → interactif possible SSI `interactive && isTTY`. Affiché dans le banner dev (`tty yes/no`). Cloud-native → `false`.
+- `isTTY` (champ résolu 1× au boot, `process.stdout.isTTY`, surchargeable `NF_NO_TTY`) : volet ENVIRONNEMENT complétant `runProfile.interactive` → interactif possible SSI `interactive && isTTY`. Affiché dans le banner dev (`tty yes/no`). Cloud-native → `false`.
 
 ### Package manager
 

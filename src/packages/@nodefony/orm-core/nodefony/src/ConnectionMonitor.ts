@@ -8,6 +8,10 @@ import type { ILatencyWindow } from "../interfaces/IOrmProbe";
 interface MutableStats {
   connectedSince: number | null;
   connectCount: number;
+  /** Reprises CONSTATÉES (signalées par l'adapter), pas déduites d'un compteur. */
+  reconnectCount: number;
+  /** Pertes constatées — un incident qui n'a pas encore trouvé sa reprise. */
+  lostCount: number;
   errorCount: number;
   lastConnectMs: number | null;
   lastError: IConnectionError | null;
@@ -21,6 +25,8 @@ export interface IConnectionMonitorCore {
   uptimeMs: number | null;
   connectCount: number;
   reconnectCount: number;
+  /** Pertes de connexion constatées depuis le démarrage du process. */
+  lostCount: number;
   errorCount: number;
   lastConnectMs: number | null;
   lastError: IConnectionError | null;
@@ -48,6 +54,7 @@ const EMPTY_CORE: IConnectionMonitorCore = {
   uptimeMs: null,
   connectCount: 0,
   reconnectCount: 0,
+  lostCount: 0,
   errorCount: 0,
   lastConnectMs: null,
   lastError: null,
@@ -86,6 +93,8 @@ class ConnectionMonitor {
       s = {
         connectedSince: null,
         connectCount: 0,
+        reconnectCount: 0,
+        lostCount: 0,
         errorCount: 0,
         lastConnectMs: null,
         lastError: null,
@@ -115,8 +124,10 @@ class ConnectionMonitor {
   }
 
   /**
-   * Enregistre une connexion réussie + sa latence. La 2ᵉ connexion et les
-   * suivantes comptent comme des **reconnexions**.
+   * Enregistre une connexion réussie + sa latence.
+   *
+   * Ne compte PAS une reconnexion : une reprise du driver ne repasse jamais
+   * par `Orm.connect()`, elle se signale par {@link ConnectionMonitor.recordReconnect}.
    *
    * @param name - clé du connecteur.
    * @param latencyMs - durée de l'établissement (ms).
@@ -126,6 +137,32 @@ class ConnectionMonitor {
     s.connectCount += 1;
     s.connectedSince = Date.now();
     s.lastConnectMs = Math.round(latencyMs * 100) / 100;
+  }
+
+  /**
+   * Enregistre une **perte** de connexion constatée par l'adapter.
+   *
+   * `connectedSince` retombe à `null` : un uptime qui continue de croître
+   * pendant que le serveur est tombé est pire qu'absent — il se lit comme une
+   * preuve de bonne santé.
+   *
+   * @param name - clé du connecteur.
+   */
+  recordLost(name: string): void {
+    const s = this.#ensure(name);
+    s.lostCount += 1;
+    s.connectedSince = null;
+  }
+
+  /**
+   * Enregistre une **reprise** de connexion constatée par l'adapter.
+   *
+   * @param name - clé du connecteur.
+   */
+  recordReconnect(name: string): void {
+    const s = this.#ensure(name);
+    s.reconnectCount += 1;
+    s.connectedSince = Date.now();
   }
 
   /**
@@ -150,7 +187,7 @@ class ConnectionMonitor {
 
   /**
    * Vue figée des compteurs d'un connecteur (ou compteurs neutres si jamais
-   * observé). `reconnectCount = max(0, connectCount - 1)`.
+   * observé).
    *
    * @param name - clé du connecteur.
    */
@@ -183,7 +220,8 @@ class ConnectionMonitor {
       uptimeMs:
         s.connectedSince === null ? null : Date.now() - s.connectedSince,
       connectCount: s.connectCount,
-      reconnectCount: Math.max(0, s.connectCount - 1),
+      reconnectCount: s.reconnectCount,
+      lostCount: s.lostCount,
       errorCount: s.errorCount,
       lastConnectMs: s.lastConnectMs,
       lastError: s.lastError,

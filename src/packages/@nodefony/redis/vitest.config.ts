@@ -14,7 +14,7 @@ export default defineConfig({
   test: {
     globals: true,
     // Deux variables gouvernent l'accès au serveur réel (`REDIS_URL` pour les
-    // bancs de pagination, `REDIS_TEST_URL` pour le banc comportemental) : en
+    // bancs de pagination, `NF_REDIS_TEST_URL` pour le banc comportemental) : en
     // fournir une seule laissait 14 tests skippés — suite VERTE, sans un mot.
     reporters: ["default", gateReporter([REDIS_GATE])],
     include: [

@@ -1,13 +1,13 @@
-import { RequestContext, RpcError, nodefonyError } from "nodefony";
-import type { IAdminRequest, IAdminResponse } from "nodefony";
-import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
+import { RequestContext, RpcError, executeAdminEndpoint } from "nodefony";
 import type {
-  IIdempotencyStore,
-  IdempotentResponse,
-} from "../interfaces/IIdempotencyStore";
+  IAdminExecution,
+  IAdminGateVerdict,
+  IAdminRequest,
+} from "nodefony";
+import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
+import type { IIdempotencyStore } from "../interfaces/IIdempotencyStore";
 import type { ContextType } from "@nodefony/http";
 import Controller from "../src/Controller";
-import { isAdminGranted } from "../src/adminRbac";
 import {
   evaluateIdempotency,
   resolveIdempotencyKey,
@@ -30,12 +30,12 @@ import {
  */
 class AdminApiController extends Controller {
   /**
-   * Identité de l'instance qui répond — `NODEFONY_INSTANCE_ID` (k8s pod, worker)
+   * Identité de l'instance qui répond — `NF_INSTANCE_ID` (k8s pod, worker)
    * ou `pid` en fallback. Même convention que les providers realtime Studio.
    * Calculée une fois (statique) : invariante sur la vie du process.
    */
   static readonly instanceId =
-    process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
+    process.env.NF_INSTANCE_ID ?? String(process.pid);
 
   constructor(context: ContextType) {
     super("AdminApiController", context);
@@ -78,16 +78,16 @@ class AdminApiController extends Controller {
   }
 
   /**
-   * Exécution transport-agnostique d'un endpoint admin : lookup broker → RBAC
-   * → handler → normalisation. Toute issue (succès comme erreur) ressort en
-   * `{status, headers?, body}` — les adaptateurs de rendu (HTTP/pont) décident
-   * de la forme finale.
+   * Résout la route admin, puis délègue l'exécution à la porte unique du cœur.
+   *
+   * Le LOOKUP est ce qui reste propre à ce transport : ici par **nom de route**
+   * (le Router l'impose), là où la CLI et le serveur MCP résolvent par couple
+   * namespace/chemin. Tout ce qui suit — autorisation, idempotence, handler,
+   * normalisation, traduction des erreurs — est commun, donc partagé
+   * ({@link executeAdminEndpoint}) : deux implémentations divergeraient, et
+   * c'est la porte la moins relue qui deviendrait la plus permissive.
    */
-  private async runAdmin(args: unknown[]): Promise<{
-    status: number;
-    headers?: IAdminResponse["headers"];
-    body: unknown;
-  }> {
+  private async runAdmin(args: unknown[]): Promise<IAdminExecution> {
     const broker = this.get<IAdminBroker>("adminBroker");
     const name = this.route?.name;
     const adminRoute: IAdminRoute | undefined =
@@ -101,59 +101,19 @@ class AdminApiController extends Controller {
       };
     }
 
-    const request = this.buildRequest(args);
-
-    // ── RBAC (fail-closed) ───────────────────────────────────────────────────
-    // Le firewall (zone `nodefony-admin`) garantit l'AUTHENTIFICATION en amont ;
-    // ici on tranche le RÔLE. Un authentifié SANS le rôle requis — y compris
-    // `roles=[]` (compte non doté) — est REJETÉ (403). `adminRoute.role === ""`
-    // = endpoint public déclaré (`endpoint.public`, ex. `livez`) → accordé.
-    // Détail + ex-fail-open documentés dans `isAdminGranted`.
-    if (!isAdminGranted(request.roles, adminRoute.role)) {
-      return {
-        status: 403,
-        body: { error: "Forbidden", required: adminRoute.role },
-      };
-    }
-
-    // ── Idempotence des MUTATIONS (anti double-effet sur rejeu) ──────────────
-    // Évaluée APRÈS le RBAC (un 403 ne consomme aucune entrée du cache). Un GET
-    // n'est jamais idempotenté (lecture). Pour une mutation : clé OBLIGATOIRE
-    // par socket (qui reconnecte/rejoue), OPTIONNELLE en HTTP. La porte
-    // court-circuite (400 clé requise WS / 409 in-flight / réponse mémorisée
-    // d'un rejeu) ou laisse passer en mémorisant le résultat à la sortie.
-    const gate = await this.idempotencyGate(adminRoute, request);
-    if (gate.shortCircuit) return gate.shortCircuit;
-
-    // ── Exécution du handler ─────────────────────────────────────────────────
-    try {
-      const result = await adminRoute.endpoint.handler(request);
-      const n = this.normalize(result);
-      const resp = {
-        status: n.status ?? 200,
-        headers: n.headers,
-        body: n.body,
-      };
-      await gate.onSuccess?.(resp); // mémorise pour les rejeux (fresh uniquement)
-      return resp;
-    } catch (e) {
-      await gate.onFailure?.(); // libère la clé in-flight → un échec reste réessayable
-      // Une erreur 4xx portée par un nodefonyError applicatif (ex.
-      // PaginationModeError → 400 : mode de pagination que le store ne sait pas
-      // honorer) est une faute du CLIENT, pas une panne serveur. On la restitue
-      // telle quelle (statut + message contrôlé), sans la maquiller en 500 ni
-      // polluer le journal ERROR. Tout le reste = 500 opaque + log.
-      if (
-        e instanceof nodefonyError &&
-        typeof e.code === "number" &&
-        e.code >= 400 &&
-        e.code < 500
-      ) {
-        return { status: e.code, body: { error: e.message } };
-      }
-      this.log(e as Error, "ERROR");
-      return { status: 500, body: { error: "Internal admin handler error" } };
-    }
+    // RBAC, idempotence, handler, normalisation et traduction des erreurs
+    // vivent dans la porte UNIQUE du cœur — la même que la commande `inspect`
+    // et le serveur MCP empruntent. Ce controller n'est plus qu'un ADAPTATEUR
+    // de transport : il projette le Context en requête, fournit la porte
+    // d'idempotence (qui a besoin du conteneur), et emballe l'issue.
+    return executeAdminEndpoint({
+      endpoint: adminRoute.endpoint,
+      request: this.buildRequest(args),
+      // Rôle **monté avec la route** : le broker l'a résolu au boot.
+      requiredRole: adminRoute.role,
+      gate: (request) => this.idempotencyGate(adminRoute, request),
+      onServerError: (error) => this.log(error, "ERROR"),
+    });
   }
 
   /**
@@ -171,15 +131,7 @@ class AdminApiController extends Controller {
   private async idempotencyGate(
     adminRoute: IAdminRoute,
     request: IAdminRequest,
-  ): Promise<{
-    shortCircuit?: {
-      status: number;
-      headers?: IAdminResponse["headers"];
-      body: unknown;
-    };
-    onSuccess?: (resp: IdempotentResponse) => void | Promise<void>;
-    onFailure?: () => void | Promise<void>;
-  }> {
+  ): Promise<IAdminGateVerdict> {
     if (adminRoute.method === "GET") return {};
     const store = this.get<IIdempotencyStore>("idempotencyStore");
     const verdict = await evaluateIdempotency({
@@ -262,22 +214,6 @@ class AdminApiController extends Controller {
       }
     }
     return [];
-  }
-
-  /** Normalise le retour d'un handler (donnée brute OU enveloppe) en réponse. */
-  private normalize(
-    result: unknown,
-  ): Required<Pick<IAdminResponse, "body">> & Omit<IAdminResponse, "body"> {
-    if (
-      result &&
-      typeof result === "object" &&
-      "body" in result &&
-      ("status" in result || "headers" in result)
-    ) {
-      const r = result as IAdminResponse;
-      return { status: r.status ?? 200, headers: r.headers, body: r.body };
-    }
-    return { status: 200, body: result };
   }
 }
 

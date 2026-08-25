@@ -2,6 +2,15 @@
 .vscode/
 .idea/
 
+# Agents de développement : leur dossier est le home REDIRIGÉ que `ai:mcp` leur
+# donne pour que la porte MCP soit déclarée par PROJET (son URL porte un port —
+# une déclaration globale ne pourrait désigner qu'une application). Ils y
+# déposent aussi leurs fichiers de travail : seule la DÉCLARATION se versionne.
+.vibe/*
+!.vibe/config.toml
+.codex/*
+!.codex/config.toml
+
 # Ignore les fichiers de sauvegarde automatique et les fichiers de build
 *.bak
 *.log
@@ -14,6 +23,13 @@
 dist/
 node_modules/
 tmp/
+# Sites RENDUS (`build-docs-site.mjs`, `build-perf-site.mjs`) : ~12 Mo de HTML
+# dérivé, reconstruit à l'identique depuis le Markdown et les mesures versionnés.
+# La SOURCE est ce Markdown ; le rendu ne vit que dans l'artefact publié sur
+# Pages. `dist/` ne les couvrait pas — un `git add -A` après un build local les
+# aurait emportés dans un commit, sans que rien ne le signale.
+dist-site/
+dist-perf-site/
 # Support de présentation GÉNÉRÉ (`node scripts/readme-html.mjs`) : ~1 Mo dont
 # des captures en base64, réécrit intégralement à chaque exécution. La source
 # versionnée est le script ; committer sa sortie alourdirait chaque diff sans
@@ -45,6 +61,13 @@ nodefony/databases/*
 #   Gitignorés (secrets / machine)  : *.local → .env.local, .env.<env>.local
 # Précédence (cf src/nodefony/src/runtime/loadEnv.ts) : les *.local priment.
 *.local
+
+# Secrets posés chez les agents de développement (nodefony security:token --write).
+# 🔴 `.gemini/.env` porte un JETON PORTEUR : la déclaration de la porte MCP,
+# elle, reste versionnable (.gemini/settings.json, .mcp.json) — c'est la CLÉ qui
+# ne se commite pas. Un jeton commité est un jeton publié.
+.gemini/.env
+.gemini/.env.*
 
 # Ignore les fichiers de sauvegarde
 *.swp

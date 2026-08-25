@@ -49,6 +49,8 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
+import { envDecor } from "./lib/env-decor.mjs";
+import { besoinDeShell } from "./lib/exec-portable.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -283,12 +285,28 @@ function run(cmd, args, cwd = APP, env = {}) {
     cwd,
     encoding: "utf8",
     timeout: 600_000,
-    env: { ...process.env, ...PORTS, ...env },
+    env: envDecor(PORTS, env),
+    // `npm` sous Windows est un `.cmd` : sans shell, Node rend `ENOENT` — un
+    // message qui accuse une installation absente. Cf `lib/exec-portable.mjs`.
+    shell: besoinDeShell(cmd),
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
+    // La sortie ENTIÈRE sur disque avant tout filtrage — le rapport ne garde que
+    // la fin, et la cause d'un échec n'est pas toujours là. Vécu : le lanceur du
+    // framework refusait la readiness en NOMMANT le module qui manquait, puis un
+    // moteur de test écrivait sa propre pile par-dessus ; les 1 500 derniers
+    // caractères ne portaient plus que la pile, et le diagnostic — produit,
+    // exact — n'atteignait aucun lecteur.
+    const journal = path.join(ROOT, "echec.log");
+    try {
+      writeFileSync(journal, `$ ${cmd} ${args.join(" ")}\n\n${out}\n`);
+    } catch {
+      /* le décor a pu être démonté — le message reste utile sans le fichier */
+    }
     throw new Error(
-      `${cmd} ${args.join(" ")} → code ${res.status}\n${out.slice(-1500)}`,
+      `${cmd} ${args.join(" ")} → code ${res.status}` +
+        ` (sortie entière : ${journal})\n${out.slice(-1500)}`,
     );
   }
   return `${res.stdout ?? ""}`;
@@ -715,6 +733,12 @@ step(
         cwd: APP,
         encoding: "utf8",
         timeout: 120_000,
+        // `oxlint.cmd` est un script batch : son chemin a beau être ABSOLU,
+        // Node ne peut pas l'exécuter sans shell. Le symptôme est `status null`
+        // — pas un message d'erreur — et la garde ci-dessous le traduisait en
+        // « un motif d'exclusion écarte l'application », qui envoyait chercher
+        // du côté de la configuration. Cf `lib/exec-portable.mjs`.
+        shell: besoinDeShell(bin),
       });
     const temoin = path.join(APP, "tests", "oxlint.selfcheck.ts");
     try {
@@ -895,7 +919,7 @@ step(
       spawnSync(process.execPath, [BIN, "stop"], {
         cwd: APP,
         encoding: "utf8",
-        env: { ...process.env, ...PORTS },
+        env: envDecor(PORTS),
       });
     }
   },
@@ -915,6 +939,41 @@ step(
     const entity = routes.find((r) => String(r.path).startsWith("/api/posts"));
     if (!entity) {
       throw new Error("les routes de l'entité générée n'apparaissent pas");
+    }
+  },
+);
+
+step(
+  "l'app sait émettre le JETON de sa propre porte MCP",
+  "Sans audience déclarée, l'émetteur refuse (`invalid_target`) et `ai:mcp --auth` livre une porte que rien n'ouvre.",
+  () => {
+    // 🔴 Le défaut que cette étape existe pour fermer : le DÉPÔT savait émettre
+    // ce jeton grâce à son module de banc, qui déclarait `security.jwt.audiences`
+    // pour toute l'application. Aucune application générée ne l'a — et rien ici
+    // ne pouvait le montrer, puisque tous les essais tournaient dans le dépôt.
+    // Une audience est une décision d'APPLICATION : elle appartient au gabarit,
+    // et une étape qui l'EXÉCUTE est la seule preuve qui vaille.
+    const out = run(
+      process.execPath,
+      [BIN, "security:token", "--json", "--ttl", "15", "--scope", "admin:read"],
+      APP,
+      // La porte MCP est servie par un module de DÉVELOPPEMENT : sans cet
+      // environnement, le CLI démarre en production et la porte n'existe pas.
+      { NODE_ENV: "development" },
+    );
+    const jeton = JSON.parse(out);
+    if (typeof jeton.access_token !== "string" || !jeton.access_token) {
+      throw new Error("aucun jeton rendu");
+    }
+    // L'audience INSCRITE, pas celle demandée : c'est elle que la porte
+    // comparera à son propre URI, et elle seule dit que le jeton ouvrira.
+    const charge = JSON.parse(
+      Buffer.from(jeton.access_token.split(".")[1], "base64url").toString(),
+    );
+    if (!String(charge.aud ?? "").endsWith("/nodefony/mcp")) {
+      throw new Error(
+        `jeton émis pour « ${charge.aud} » — ce n'est pas la porte MCP`,
+      );
     }
   },
 );

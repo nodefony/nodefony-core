@@ -289,8 +289,8 @@ new Service("calc", container, false).fire("x"); // ❌ lève : notificationsCen
 ### Écouteurs trackés — la mécanique anti-fuite
 
 C'est **la** raison d'être de la délégation. Chaque écouteur posé par l'API du service
-(`Service.on()` (`Service.ts:328`), `once`, `addListener`, `prependListener`…) est enregistré dans la
-carte privée `#trackedListeners` (`Service.ts:53`) via `Service.trackListener()` (`Service.ts:242`).
+(`Service.on()` (`Service.ts:373`), `once`, `addListener`, `prependListener`…) est enregistré dans la
+carte privée `#trackedListeners` (`Service.ts:53`) via `Service.trackListener()` (`Service.ts:282`).
 
 ```mermaid
 sequenceDiagram
@@ -335,8 +335,8 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 | `set(name, obj)`         | `Service.ts:435` | enregistre — **lève** si le container est détaché               |
 | `remove(name)`           | `Service.ts:447` | si la cible est un `Service`, appelle son `clean()` **d'abord** |
 | `has(name)`              | `Service.ts:477` | `false` plutôt qu'une erreur quand le container est détaché     |
-| `getParameters(path)`    | `Service.ts:461` | lecture par chemin pointé (`"kernel.environment"`)              |
-| `setParameters(path, v)` | `Service.ts:469` | écriture par chemin pointé — **lève** si détaché                |
+| `getParameters(path)`    | `Service.ts:506` | lecture par chemin pointé (`"kernel.environment"`)              |
+| `setParameters(path, v)` | `Service.ts:514` | écriture par chemin pointé — **lève** si détaché                |
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
@@ -349,7 +349,7 @@ les sondes de fuite.
 | Appel                               | Ancre            | Usage                                             |
 | ----------------------------------- | ---------------- | ------------------------------------------------- |
 | `log(pci, severity?, msgid?, msg?)` | `Service.ts:209` | le point d'entrée de **tout** log Nodefony        |
-| `logger(pci, …)`                    | `Service.ts:226` | raccourci `DEBUG` + `console.debug` formaté       |
+| `logger(pci, …)`                    | `Service.ts:266` | raccourci `DEBUG` + `console.debug` formaté       |
 | `trace(pci, …)`                     | `Service.ts:231` | idem avec `console.trace` (pile d'appels)         |
 | `spinlog(message)`                  | `Service.ts:236` | sévérité `SPINNER` — animation CLI, hors RFC 5424 |
 
@@ -364,10 +364,10 @@ tomber le process à cause du journal. Sévérités et transports : [syslog](sys
 | `fire(name, …)` / `emit(name, …)`     | `Service.ts:272` | synchrone, **0 microtask** — le défaut sur le hot path          |
 | `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts:277` | attend les écouteurs asynchrones, **en séquence**               |
 | `emitAsyncGuarded(name, options?, …)` | `Service.ts:296` | isole chaque écouteur — **boot / jobs uniquement**              |
-| `on` / `once` / `addListener`         | `Service.ts:328` | **trackés** → retirés par `clean()`                             |
-| `off` / `removeListener`              | `Service.ts:343` | retirent aussi l'entrée de suivi                                |
+| `on` / `once` / `addListener`         | `Service.ts:350` | **trackés** → retirés par `clean()`                             |
+| `off` / `removeListener`              | `Service.ts:412` | retirent aussi l'entrée de suivi                                |
 | `listen(name, listener)`              | `Service.ts:317` | bind sur `this`, **non tracké** — renvoie un déclencheur        |
-| `settingsToListen(settings, ctx)`     | `Service.ts:353` | câble les clés `onXxx` d'un objet de config                     |
+| `settingsToListen(settings, ctx)`     | `Service.ts:398` | câble les clés `onXxx` d'un objet de config                     |
 | `removeAllListeners(name?)`           | `Service.ts:374` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
 
 Le contrat `EventEmitter` complet (`listenerCount`, `eventNames`, `rawListeners`, `prependListener`,
@@ -391,7 +391,7 @@ interne `timeoutSentinel` (`Event.ts:33`).
 
 Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:2575`) branche la politique : délai issu de
 `Kernel.bootTimeoutMs()` (`Kernel.ts:2177`) — 20 s en développement, 60 s en production, surchargeable
-par `NODEFONY_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2189`), 5 s par
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2598`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
@@ -451,7 +451,7 @@ container hiérarchique, pas du DI (voir [injection-portees](../../../docs/archi
 Historiquement, un service devait être listé **avant** ses consommateurs dans `@services([…])` :
 déplacer une classe de trois lignes suffisait à casser le serveur au runtime. Aujourd'hui, l'ordre se
 **calcule** — `orderServicesByDependencies()` (`serviceOrder.ts:71`), appelé par le décorateur
-(`kernelDecorator.ts:48`), fait un tri topologique **stable** depuis les dépendances déclarées
+(`kernelDecorator.ts:80`), fait un tri topologique **stable** depuis les dépendances déclarées
 (`@inject` puis `design:paramtypes`). Une liste déjà correcte ressort inchangée.
 
 ```typescript ignore
@@ -541,9 +541,9 @@ Les services d'un module sont introspectables sans lire le code :
 
 | Symptôme                                                | Cause (dans le code)                                                              | Correction                                                                  |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:328`)   |
+| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:282`)   |
 | `off()` ne retire rien                                  | `Service.listen()` (`Service.ts:317`) **bind** — la référence posée diffère       | retirer via le déclencheur renvoyé, jamais l'original                       |
-| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:374`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
+| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:419`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
 | `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:62`)                         | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
 | `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:435`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
 | Avertissement `MaxListeners` à 11 abonnés               | le défaut annoncé (20) n'est pas appliqué (`Service.ts:17`)                       | passer `{ events: { nbListeners: N } }` explicitement                       |

@@ -4,6 +4,10 @@ import { runCardCommand } from "../../cli/card";
 import { version } from "../../../package.json";
 
 const options: OptionsCommandInterface = {
+  // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
+  // vaut que pour une invocation directe) : sa sortie serait noyée sous le
+  // journal de cycle de vie.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -43,6 +47,10 @@ class Card extends Command {
     );
     this.alias("devkit:card");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
+    this.addOption(
+      "--cwd <path>",
+      "Point de départ (la racine de l'app est résolue en remontant)",
+    );
   }
 
   override async generate(opts?: { json?: boolean }): Promise<this> {

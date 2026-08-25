@@ -4,9 +4,10 @@
  * ({@link NamedEnvVarMeta} via `getEnvCatalog`) et rend le modèle d'onboarding —
  * toutes les variables COMMENTÉES (un `.example` ne pose rien, il documente).
  *
- * Anti-dérive : `env.ts` (le catalogue) devient la SEULE liste de variables ;
- * `.env.example` en est DÉRIVÉ. Un script (`scripts/gen-env-example.ts`) écrit le
- * fichier ; son mode `--check` échoue si le fichier diverge du catalogue.
+ * Anti-dérive : `env.ts` (le catalogue) est la SEULE liste de variables,
+ * `.env.example` en est DÉRIVÉ. La commande `nodefony env --example` écrit le
+ * fichier (en-tête curé possible : `.env.example.head`) ; son `--check` échoue
+ * si le fichier diverge du catalogue — pre-commit, CI.
  */
 import type { NamedEnvVarMeta } from "./defineEnv";
 

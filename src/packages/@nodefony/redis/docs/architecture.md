@@ -356,7 +356,7 @@ TTL**. Avec un blob, chaque appel d'API coûterait une lecture, une désérialis
 et remettrait en jeu la date d'expiration.
 
 Ce choix impose une précaution : `HSET` sur une clé absente la **recrée**, et une clé recréée n'a pas
-de TTL. Le store vérifie donc l'existence d'abord (`RedisTokenStore.ts:414`) et ne fait rien si
+de TTL. Le store vérifie donc l'existence d'abord (`RedisTokenStore.ts:254`) et ne fait rien si
 l'identifiant est inconnu. Sans ce test, un jeton expiré ressusciterait, immortel, à sa prochaine
 utilisation.
 
@@ -414,7 +414,7 @@ sequenceDiagram
 Quatre propriétés à retenir.
 
 **Un seul canal, pas un par sujet.** Les canaux applicatifs voyagent **dans** l'enveloppe. Le
-backplane fait donc un unique `SUBSCRIBE` au démarrage (`RedisBackplane.ts:185`), jamais
+backplane fait donc un unique `SUBSCRIBE` au démarrage (`RedisBackplane.ts:18`), jamais
 d'abonnement dynamique. C'est ce qui rend le coût indépendant du nombre de canaux applicatifs.
 
 **Le cloisonnement n'est pas le numéro de base.** Le pub/sub Redis est **global au serveur** : il
@@ -449,7 +449,7 @@ muet ne l'est pas. Voici ce que le code fait réellement, moment par moment.
 ### Moment 1 — Redis est absent au démarrage
 
 Le module est déclaré non critique (`index.ts:36`), et l'initialisation du service est **bornée dans
-le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3006`) enveloppe l'appel dans un délai maximal de
+le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3095`) enveloppe l'appel dans un délai maximal de
 démarrage. Un `init()` qui pend ne gèle donc pas le boot ; l'échec est agrégé au rapport de démarrage,
 qui fait dire « démarrage DÉGRADÉ » au superviseur au lieu de mentir sur un état sain.
 
@@ -575,7 +575,7 @@ uniquement sur un chemin d'administration. Les trois stores partagent ce mécani
 > **Ce mécanisme n'est pas exercé sans serveur Redis réel.** Le double utilisé par défaut,
 > `FakePaginatingRedis` (`session-pagination.test.ts:39`), découpe ses lots à exactement `COUNT`
 > clés — il ne déborde jamais, donc la branche de reprise n'est jamais atteinte. Or c'est un vrai
-> serveur qui a révélé le débordement. Sans `REDIS_TEST_URL`, les bancs de pagination passent au vert
+> serveur qui a révélé le débordement. Sans `NF_REDIS_TEST_URL`, les bancs de pagination passent au vert
 > **sans avoir testé la seule chose que ce code résout**.
 
 ### Une asymétrie sur les curseurs hostiles
@@ -583,7 +583,7 @@ uniquement sur un chemin d'administration. Les trois stores partagent ce mécani
 Le curseur arrive de l'extérieur (chaîne de requête d'un écran d'administration, client qui rejoue une
 page) : il n'est pas digne de confiance. Un curseur `SCAN` valide est toujours une suite de chiffres.
 
-Le store de session s'en protège : `scanOrZero()` (`SessionStorage.ts:62`) impose le format et retombe
+Le store de session s'en protège : `scanOrZero()` (`scanCursor.ts:68`) impose le format et retombe
 sur `"0"` sinon — repartir du début est faux au pire d'une page, transmettre une valeur arbitraire
 échoue à coup sûr. Les stores de jetons (`RedisTokenStore.ts:35`) et de passkeys
 (`RedisWebAuthnCredentialStore.ts:31`) ne font **pas** cette validation : ils transmettent le curseur
@@ -617,7 +617,7 @@ Le module suit la règle de coût du framework : ne rien allouer « au cas où �
 - **Trames de maintenance coupées** (`buildClientOptions.ts:58`) : zéro écouteur et zéro trame
   superflus sur un Redis OSS.
 - **Renouvellement de session en O(1)** : `EXPIRE` seul, sans réécrire la valeur
-  (`SessionStorage.ts:183`). Sur une application authentifiée, c'est le geste le plus fréquent de tout
+  (`redis/nodefony/src/SessionStorage.ts:161`). Sur une application authentifiée, c'est le geste le plus fréquent de tout
   le store.
 - **Aucun balayage périodique** : le TTL natif remplace le ramasse-miettes applicatif que les backends
   SQL doivent programmer.
@@ -656,7 +656,7 @@ surfacé par les écrans transverses ci-dessus.
 | Le démarrage pend sans Redis                                  | Tentatives illimitées : `connect()` ne rend pas la main                                         | Fixer un maximum fini ; hors production c'est déjà fait (`defineModuleConfig.ts:65`)        |
 | Deux applications se renvoient leurs messages temps réel      | Le pub/sub ignore le numéro de base — cloisonnement inexistant                                  | Poser un namespace de canal explicite (`RedisBackplane.ts:31`)                              |
 | Les mêmes messages sont diffusés deux fois localement         | Anti-echo court-circuité (identifiant d'origine partagé)                                        | Un identifiant d'origine distinct par pod (`RedisBackplane.ts:212`)                         |
-| Un jeton expiré « revient » et n'expire plus                  | `HSET` recrée une clé absente, sans TTL                                                         | Le test d'existence préalable (`RedisTokenStore.ts:414`) — ne pas le retirer                |
+| Un jeton expiré « revient » et n'expire plus                  | `HSET` recrée une clé absente, sans TTL                                                         | Le test d'existence préalable (`RedisTokenStore.ts:254`) — ne pas le retirer                |
 | `?cursor=…` fait échouer un listing de jetons                 | Curseur transmis sans validation (`RedisTokenStore.ts:35`)                                      | Ne pas fabriquer de curseur à la main ; rejouer `nextCursor` tel quel                       |
 | L'écran d'administration n'affiche aucun total                | `countSessions` / `countTokens` rendent `-1` (comptage O(N) refusé)                             | Afficher « inconnu » ; ne jamais inventer un total                                          |
 | Un `offset` envoyé n'a aucun effet                            | Le mode curseur ne lit que `cursor` (`SessionStorage.ts:258`)                                   | Paginer par curseur, pas par décalage                                                       |
@@ -695,7 +695,7 @@ cette prose. Ce qui doit être dit ici, c'est **ce qui est prouvé, et par quoi*
 > **Une suite verte ne prouve rien sans serveur Redis.** Les bancs d'intégration se **skippent**
 > quand l'infra manque, et un skip compte comme un succès : on peut lire « tout est vert » sur une
 > suite qui n'a rien exercé. La gate du module est déclarée une seule fois — `REDIS_GATE` dans
-> `vitest.gates.ts:290` — et la fin de run nomme la cible non exercée avec la commande exacte pour la
+> `vitest.gates.ts:329` — et la fin de run nomme la cible non exercée avec la commande exacte pour la
 > satisfaire. **Les variables et la commande docker se lisent là, pas ici** : les recopier dans cette
 > page les condamnerait à diverger.
 

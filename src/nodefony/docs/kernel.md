@@ -108,8 +108,8 @@ donc gratuitement `this.log()`, `this.get()`, `this.on()`, `this.fire()` — le 
 sait en plus se charger et s'accrocher au cycle de vie.
 
 **2. Le kernel s'enregistre lui-même, une fois.** Son constructeur (`Kernel.ts:489`) appelle
-`Nodefony.setKernel(this)` (`Kernel.ts:525`) et se pose au container sous la clé `kernel`
-(`Kernel.ts:527`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
+`Nodefony.setKernel(this)` (`Kernel.ts:612`) et se pose au container sous la clé `kernel`
+(`Kernel.ts:612`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
 façade pour le reste.
 
 **3. Le CLI n'est pas le noyau.** `CliKernel` (`CliKernel.ts:84`) étend `Cli`, **pas** `Kernel` : il
@@ -401,7 +401,7 @@ chargement et la validation.
 
 Le niveau du journal dépend de qui parle : une **application** qui vise un module absent obtient un
 `WARNING` (config morte, comptée au verdict de boot) ; un **module** obtient un `INFO`, parce qu'il
-peut légitimement embarquer un réglage pour une cible optionnelle (`Module.ts:275`).
+peut légitimement embarquer un réglage pour une cible optionnelle (`Module.ts:329`).
 
 ### Rendre son module optionnel
 
@@ -423,8 +423,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
 | `getModule(nom)` | `Kernel.ts:1502` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1505` | la table complète, **par référence** (ne pas la muter) |
-| `modules`        | `Kernel.ts:462`  | le même objet, en accès direct                         |
+| `getModules()`   | `Kernel.ts:1562` | la table complète, **par référence** (ne pas la muter) |
+| `modules`        | `Kernel.ts:494`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
 `undefined`, pas une erreur. Le tester est donc à ta charge — c'est aussi le bon moyen de rendre une
@@ -437,9 +437,9 @@ un conteneur neuf ou un premier boot ne les ont pas.
 
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
-| `path`   | `Kernel.ts:436` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
-| `varDir` | `Kernel.ts:414` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
-| `tmpDir` | `Kernel.ts:408` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
+| `path`   | `Kernel.ts:461` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
+| `varDir` | `Kernel.ts:501` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
+| `tmpDir` | `Kernel.ts:495` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
 `varDir` et `tmpDir` sont des `FileClass`, pas des chaînes : leur chemin est sous `.path`.
 
@@ -454,9 +454,9 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
 | `environment`               | `Kernel.ts:325`  | Le mode **moteur** : `"development"` ou `"production"`.                |
-| `domain`                    | `Kernel.ts:471`  | Le nom d'hôte retenu, résolu au boot.                                  |
+| `domain`                    | `Kernel.ts:503`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:2644` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:2733` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -492,9 +492,9 @@ même chose.
 
 | Émetteur                | Ancre            | Comportement                                                     | Employé pour           |
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
-| `fire(nom, …)`          | `Kernel.ts:2148` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
-| `fireAsync(nom, …)`     | `Kernel.ts:2166` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
-| `fireLifecycle(nom, …)` | `Kernel.ts:2575` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
+| `fire(nom, …)`          | `Kernel.ts:2557` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
+| `fireAsync(nom, …)`     | `Kernel.ts:2575` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
+| `fireLifecycle(nom, …)` | `Kernel.ts:2980` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
 `fire`.** `fire()` ne t'apprend rien de ce qui s'est passé — il rend un booléen « quelqu'un
@@ -505,7 +505,7 @@ La règle de choix tient en une ligne : **si le résultat de l'écouteur t'impor
 timer, aucune allocation par requête. La résilience du boot ne se paie pas au prix de la requête.
 
 > [!NOTE]
-> Les trois émetteurs journalisent une ligne `DEBUG` par événement émis (`Kernel.ts:2149`). Utile
+> Les trois émetteurs journalisent une ligne `DEBUG` par événement émis (`Kernel.ts:2558`). Utile
 > pour suivre un boot ; c'est aussi pourquoi un `NF__DEBUG` large rend le démarrage très bavard.
 
 ### Le piège du listener non tagué
@@ -532,7 +532,7 @@ override async onKernelBoot(): Promise<this> {
 ```
 
 La conséquence est asymétrique, et c'est ce qui la rend traître. La criticité manquante est traitée
-comme **critique par défaut** (`Kernel.ts:2540` : l'échec est fatal dès lors que `critical !== false`
+comme **critique par défaut** (`Kernel.ts:2629` : l'échec est fatal dès lors que `critical !== false`
 et qu'on est en production). Donc :
 
 | Environnement  | Hook déclaré, `critical = false` | Écouteur posé à la main   |
@@ -542,7 +542,7 @@ et qu'on est en production). Donc :
 
 En développement les deux formes se comportent pareil : le piège est invisible pendant tout le
 développement, et se déclenche au premier déploiement. Le journal, lui, ne peut nommer personne — il
-écrit `"(anonyme)"` (`Kernel.ts:2225`), ce qui rend le diagnostic difficile au pire moment.
+écrit `"(anonyme)"` (`Kernel.ts:2633`), ce qui rend le diagnostic difficile au pire moment.
 
 **La règle** : sur les phases de boot, on déclare un hook. `kernel.on(...)` est réservé aux
 événements hors cycle de vie.
@@ -557,11 +557,11 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 | Membre                  | Ancre              | Rôle                                                                  |
 | ----------------------- | ------------------ | --------------------------------------------------------------------- |
-| `runProfile`            | `CliKernel.ts:85`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
-| `setRunProfile(profil)` | `CliKernel.ts:627` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
-| `packageManager`        | `CliKernel.ts:87`  | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
+| `runProfile`            | `CliKernel.ts:101` | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
+| `setRunProfile(profil)` | `CliKernel.ts:784` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
+| `packageManager`        | `CliKernel.ts:103` | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
 | `addCommand(Ctor)`      | `CliKernel.ts:670` | Enregistre une commande intégrée (les modules passent par `Module`).  |
-| `quietBoot`             | `CliKernel.ts:95`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
+| `quietBoot`             | `CliKernel.ts:111` | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
 | `parseCommand(argv?)`   | `CliKernel.ts:143` | Analyse Commander synchrone.                                          |
 
 Le défaut de `runProfile` est **console pur** : `{ servers: false, lifetime: "oneshot" }`. Une
@@ -608,18 +608,18 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | `Cannot read properties of null` sur le kernel            | `getKernel()` rend `null` hors serveur                                           | Tester le retour ; en service, préférer l'injection                  |
 | Mon hook n'est jamais appelé                              | Propriété fléchée, ou nom approximatif                                           | Méthode de prototype nommée exactement (`Module.ts:212`)             |
 | Le boot casse **en production seulement**                 | Écouteur de phase posé à la main → non tagué → critique par défaut               | Déclarer un hook de module (`Module.ts:215`)                         |
-| Journal de boot : échec de `"(anonyme)"`                  | Même cause : aucun propriétaire à nommer (`Kernel.ts:2225`)                      | Idem — le hook porte l'identité                                      |
-| `Error("Kernel not ready")` sur `addCommand`              | `kernel.cli` absent — module hors invocation CLI (`Module.ts:511`)               | N'appeler `addCommand` que dans un module chargé par le CLI          |
+| Journal de boot : échec de `"(anonyme)"`                  | Même cause : aucun propriétaire à nommer (`Kernel.ts:2633`)                      | Idem — le hook porte l'identité                                      |
+| `Error("Kernel not ready")` sur `addCommand`              | `kernel.cli` absent — module hors invocation CLI (`Module.ts:576`)               | N'appeler `addCommand` que dans un module chargé par le CLI          |
 | Ma commande de module n'apparaît pas                      | `addCommand` appelé dans un hook, trop tard                                      | La poser dans le **constructeur**, comme les modules du framework    |
 | `import { Inject } from "nodefony"` échoue                | Le décorateur de propriété n'est pas ré-exporté par le paquet                    | Injection par constructeur : `@inject("nom")`                        |
 | `@injectable({ singleton: true })` sans effet             | La clé n'existe pas — elle est acceptée puis **ignorée**                         | `{ scope: "singleton" }` (défaut) ou `{ scope: "transient" }`        |
 | `@services()` refuse ma classe : « not assignable »       | Config déclarée en `interface` — pas d'index signature (`kernelDecorator.ts:21`) | Déclarer le type de config avec `type`, pas `interface`              |
-| `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1502`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
+| `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1559`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:275`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:100`)                    | Déplacer le réglage dans `onKernelStart()`                           |
-| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:2148`)                         | `fireAsync()` si le résultat compte                                  |
-| Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:2149`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
+| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:2557`)                         | `fireAsync()` si le résultat compte                                  |
+| Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:2558`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
 | Fichier de config qui plante à l'import                   | Kernel déréférencé au premier niveau                                             | `defineConfig((ctx) => …)` ou getter paresseux                       |
 
 ## 🧪 Tests & couverture

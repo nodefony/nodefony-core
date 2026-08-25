@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-09
+updated: 2026-08-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-rfc/SKILL.md"
 ---
@@ -27,17 +27,17 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 | --- | --- |
 | Version | `1.1.0` |
 | Famille | Références et livrables |
-| Corps | 134 lignes |
-| Coût d'activation | ~2 100 tokens (le corps est chargé à l'invocation) |
-| Description | 801 / 1024 caractères |
+| Corps | 147 lignes |
+| Coût d'activation | ~2 428 tokens (le corps est chargé à l'invocation) |
+| Description | 829 / 1024 caractères |
 | Déclencheurs | 22 |
-| Ressources `references/` | 0 page(s), 165 fichiers au total |
+| Ressources `references/` | 0 page(s), 162 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et les RFC OAuth du rôle resource server (9728, 6750, 8707) : les relire coûte zéro requête.
+Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et renvoie au corpus RFC unique du dépôt (40 full-text, dont OAuth 8414/9728/6750/8707) : les relire coûte zéro requête.
 
 ## Quand il se déclenche
 
@@ -63,13 +63,13 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 801 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 829 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 134 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 147 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

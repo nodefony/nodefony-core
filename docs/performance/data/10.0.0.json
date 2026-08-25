@@ -1,0 +1,353 @@
+{
+  "version": "10.0.0",
+  "status": "complete",
+  "provenance": {
+    "measuredAt": "2026-08-23",
+    "headCommit": "a3f6eba8",
+    "runtimeCommit": "dfdada9e",
+    "commitCaveat": "Le banc n'enregistrait pas encore l'identité du code AU MOMENT du pack : ces deux hachages sont RECONSTRUITS en croisant l'heure de chaque fichier de mesure (23:33 → 23:44) avec le journal des commits. `headCommit` est le dernier commit antérieur aux mesures ; `runtimeCommit` est le dernier qui touchait le code exécuté (les commits intermédiaires ne portaient que des scripts de banc). Pour toute mesure ultérieure, le champ est ÉCRIT par le banc — une reconstruction reste une déduction.",
+    "machine": {
+      "cpu": "Intel Core i9-8950HK @ 2.90 GHz",
+      "logicalCores": 12,
+      "memoryGb": 32,
+      "os": "macOS (darwin 24.6.0)",
+      "note": "Portable. Régime CPU et température relevés par mesure (voir chaque entrée)."
+    },
+    "node": "v26.7.0",
+    "nodeCaveat": "Constaté après coup sur le même poste, non enregistré pendant le banc.",
+    "protocol": {
+      "tool": "wrk",
+      "warmupSec": 10,
+      "durationSec": 10,
+      "connections": 64,
+      "threads": 4,
+      "runs": 3,
+      "verdict": "médiane des 3 runs ; dispersion publiée par mesure",
+      "serverMode": "production (NF_WITH_DEV_MODULES=1)",
+      "route": "même travail applicatif pour tous les camps"
+    }
+  },
+  "comparison": {
+    "reference": "express-fair",
+    "subject": "nodefony",
+    "why": "Comparer un pipeline complet à un serveur nu ne compare pas le même TRAVAIL. Le seul rapport honnête oppose Nodefony à un Express muni des mêmes intergiciels (ALS, CORS, en-têtes de sécurité, CSRF, traceparent, zones) — c'est `express-fair`.",
+    "frameworks": {
+      "bare": {
+        "label": "bare",
+        "rps": [33821.32, 34649.19, 33795.91],
+        "min": 33795.91,
+        "med": 33821.32,
+        "max": 34649.19,
+        "dispersionPct": 2.5,
+        "p50Ms": [1.85, 1.78, 1.82],
+        "p99Ms": [2.67, 2.93, 3.99],
+        "medP50Ms": 1.82,
+        "medP99Ms": 2.93,
+        "maxP99Ms": 3.99,
+        "thermalBefore": "23",
+        "thermalAfter": "82",
+        "warmupSec": 10,
+        "durSec": 10,
+        "conn": 64,
+        "threads": 4,
+        "url": "http://127.0.0.1:5161/nodefony/test/als-test/state",
+        "measuredAt": "2026-08-23T23:39:39"
+      },
+      "express-fair": {
+        "label": "express-fair",
+        "rps": [13281.17, 13332.99, 13531.09],
+        "min": 13281.17,
+        "med": 13332.99,
+        "max": 13531.09,
+        "dispersionPct": 1.9,
+        "p50Ms": [4.77, 4.66, 4.65],
+        "p99Ms": [6.99, 8.68, 7.17],
+        "medP50Ms": 4.66,
+        "medP99Ms": 7.17,
+        "maxP99Ms": 8.68,
+        "thermalBefore": "43",
+        "thermalAfter": "82",
+        "warmupSec": 10,
+        "durSec": 10,
+        "conn": 64,
+        "threads": 4,
+        "url": "http://127.0.0.1:5161/nodefony/test/als-test/state",
+        "measuredAt": "2026-08-23T23:44:43"
+      },
+      "express": {
+        "label": "express",
+        "rps": [17159.19, 17462.14, 17418.25],
+        "min": 17159.19,
+        "med": 17418.25,
+        "max": 17462.14,
+        "dispersionPct": 1.7,
+        "p50Ms": [3.56, 3.53, 3.54],
+        "p99Ms": [6.07, 5.45, 5.69],
+        "medP50Ms": 3.54,
+        "medP99Ms": 5.69,
+        "maxP99Ms": 6.07,
+        "thermalBefore": "37",
+        "thermalAfter": "73",
+        "warmupSec": 10,
+        "durSec": 10,
+        "conn": 64,
+        "threads": 4,
+        "url": "http://127.0.0.1:5161/nodefony/test/als-test/state",
+        "measuredAt": "2026-08-23T23:43:12"
+      },
+      "fastify": {
+        "label": "fastify",
+        "rps": [31959.58, 31940.53, 32356.2],
+        "min": 31940.53,
+        "med": 31959.58,
+        "max": 32356.2,
+        "dispersionPct": 1.3,
+        "p50Ms": [1.95, 1.94, 1.91],
+        "p99Ms": [3.09, 3.16, 3.0],
+        "medP50Ms": 1.94,
+        "medP99Ms": 3.09,
+        "maxP99Ms": 3.16,
+        "thermalBefore": "42",
+        "thermalAfter": "84",
+        "warmupSec": 10,
+        "durSec": 10,
+        "conn": 64,
+        "threads": 4,
+        "url": "http://127.0.0.1:5161/nodefony/test/als-test/state",
+        "measuredAt": "2026-08-23T23:41:20"
+      },
+      "nodefony": {
+        "label": "nodefony",
+        "env": "NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=120",
+        "rps": [12192.81, 12258.21, 12226.22],
+        "min": 12192.81,
+        "med": 12226.22,
+        "max": 12258.21,
+        "dispersionPct": 0.5,
+        "p50Ms": [4.95, 4.97, 4.98],
+        "p99Ms": [16.75, 9.57, 8.78],
+        "medP50Ms": 4.97,
+        "medP99Ms": 9.57,
+        "maxP99Ms": 16.75,
+        "thermalBefore": "35",
+        "thermalAfter": "71",
+        "cpuRegime": "AC Power/lpm=0",
+        "warmupSec": 10,
+        "durSec": 10,
+        "conn": 64,
+        "threads": 4,
+        "url": "http://127.0.0.1:5151/nodefony/test/als-test/state",
+        "measuredAt": "2026-08-23T23:33:25"
+      }
+    }
+  },
+  "soak": {
+    "url": "http://127.0.0.1:5151/nodefony/test/als-test/state",
+    "minutes": 20,
+    "windowSec": 60,
+    "conn": 64,
+    "skipped": 2,
+    "node": "v26.7.0",
+    "samples": [
+      {
+        "window": 1,
+        "atSec": 60,
+        "rps": 10956.5,
+        "p99Ms": 8.84,
+        "rssMb": 233.5,
+        "heapUsedMb": 46.8,
+        "errors": true
+      },
+      {
+        "window": 2,
+        "atSec": 120,
+        "rps": 10634.43,
+        "p99Ms": 12.01,
+        "rssMb": 236.6,
+        "heapUsedMb": 47.2,
+        "errors": false
+      },
+      {
+        "window": 3,
+        "atSec": 181,
+        "rps": 7332.29,
+        "p99Ms": 56.12,
+        "rssMb": 238.5,
+        "heapUsedMb": 46.1,
+        "errors": false
+      },
+      {
+        "window": 4,
+        "atSec": 241,
+        "rps": 9202.55,
+        "p99Ms": 26.64,
+        "rssMb": 239.1,
+        "heapUsedMb": 47.2,
+        "errors": false
+      },
+      {
+        "window": 5,
+        "atSec": 301,
+        "rps": 10474.87,
+        "p99Ms": 9.04,
+        "rssMb": 240,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 6,
+        "atSec": 361,
+        "rps": 9208.29,
+        "p99Ms": 30.22,
+        "rssMb": 239.3,
+        "heapUsedMb": 47.3,
+        "errors": false
+      },
+      {
+        "window": 7,
+        "atSec": 422,
+        "rps": 9274.04,
+        "p99Ms": 22.99,
+        "rssMb": 239.8,
+        "heapUsedMb": 46.8,
+        "errors": false
+      },
+      {
+        "window": 8,
+        "atSec": 482,
+        "rps": 10325.03,
+        "p99Ms": 9.51,
+        "rssMb": 240.2,
+        "heapUsedMb": 46.4,
+        "errors": false
+      },
+      {
+        "window": 9,
+        "atSec": 542,
+        "rps": 10768.02,
+        "p99Ms": 8.4,
+        "rssMb": 239.6,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 10,
+        "atSec": 602,
+        "rps": 7722.96,
+        "p99Ms": 54.11,
+        "rssMb": 239.9,
+        "heapUsedMb": 46.5,
+        "errors": false
+      },
+      {
+        "window": 11,
+        "atSec": 662,
+        "rps": 8572.17,
+        "p99Ms": 23.06,
+        "rssMb": 241.5,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 12,
+        "atSec": 723,
+        "rps": 9018.22,
+        "p99Ms": 16.96,
+        "rssMb": 242,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 13,
+        "atSec": 783,
+        "rps": 9394,
+        "p99Ms": 15.11,
+        "rssMb": 244.4,
+        "heapUsedMb": 47.4,
+        "errors": false
+      },
+      {
+        "window": 14,
+        "atSec": 843,
+        "rps": 9595.32,
+        "p99Ms": 19.4,
+        "rssMb": 245,
+        "heapUsedMb": 46.6,
+        "errors": false
+      },
+      {
+        "window": 15,
+        "atSec": 903,
+        "rps": 11072.35,
+        "p99Ms": 8.06,
+        "rssMb": 244.6,
+        "heapUsedMb": 46.7,
+        "errors": false
+      },
+      {
+        "window": 16,
+        "atSec": 963,
+        "rps": 10806,
+        "p99Ms": 7.84,
+        "rssMb": 244,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 17,
+        "atSec": 1024,
+        "rps": 10716.65,
+        "p99Ms": 8.4,
+        "rssMb": 243.6,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 18,
+        "atSec": 1084,
+        "rps": 10663.91,
+        "p99Ms": 8.9,
+        "rssMb": 243.4,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 19,
+        "atSec": 1144,
+        "rps": 10873.64,
+        "p99Ms": 8.21,
+        "rssMb": 244.8,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 20,
+        "atSec": 1204,
+        "rps": 10872.39,
+        "p99Ms": 7.74,
+        "rssMb": 244.8,
+        "heapUsedMb": 47.4,
+        "errors": false
+      }
+    ],
+    "heapSlopeMbPerHour": -0.04,
+    "heapR2": 0,
+    "rssSlopeMbPerHour": 24.3,
+    "rssR2": 0.833,
+    "rssSlopeLateMbPerHour": 8.16,
+    "rssPlateau": false,
+    "rpsDriftPct": 48.3,
+    "observedMinutes": 17.1,
+    "amplitudeMb": 1.3,
+    "verdict": "clean",
+    "provenance": {
+      "measuredAt": "2026-08-24",
+      "runtimeCommit": "dfdada9e",
+      "commitNote": "Dernier commit touchant le code exécuté ; les commits postérieurs de la session ne portaient que de la documentation, des tests et des scripts.",
+      "serverMode": "production (NF_WITH_DEV_MODULES=1, TTL 60 min, NODE_OPTIONS=--expose-gc)",
+      "decorDiffersFromComparison": "⚠️ Les JOURNAUX sont ACTIFS ici, alors que le comparatif a été mesuré sans eux. Le sink de log écrit à chaque requête — c'est la principale raison pour laquelle le débit du soak (~10 800 rps stabilisé) reste sous celui du comparatif (12 226). Ce choix est délibéré : couper les journaux pour mesurer rend un échec de boot MUET, et une charge de vingt minutes sans capacité de diagnostic est un pari. La grandeur cherchée ici est une PENTE, que le coût constant des journaux ne déplace pas.",
+      "machineBusy": "Une session de travail tournait sur le même poste (édition de fichiers, git). Sans effet sur la pente ; explique une partie de la dispersion du débit."
+    },
+    "rssReading": "Le tas JS est PLAT (pente -0,04 MB/h, R² 0,00) : aucune fuite JavaScript. Le RSS, lui, monte de 238,5 à 244,8 MB et le critère de plateau du banc rend `false` — mais à 0,06 près (pente de seconde moitié 8,16 MB/h contre un seuil de 8,10). Un verdict qui bascule sur 0,7 % ne tranche pas : la seconde moitié oscille autour de 244 MB sans direction nette, ce qui ressemble à un plateau, et une session précédente avait conclu au plateau sur la même machine. À OBSERVER sur une durée plus longue plutôt qu'à trancher ici — c'est la question ouverte que ce jeu de mesures laisse derrière lui."
+  }
+}

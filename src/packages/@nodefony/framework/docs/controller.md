@@ -195,12 +195,12 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 
 | #   | Étape                                   | Où                                                  |
 | --- | --------------------------------------- | --------------------------------------------------- |
-| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1183`)          |
-| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1194`)    |
-| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1224`                               |
-| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:695`)   |
+| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1324`)          |
+| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1334`)    |
+| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1316`                               |
+| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:767`)   |
 | 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1290`)    |
-| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1059`) |
+| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1131`) |
 | 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
 | 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:349`)      |
@@ -219,7 +219,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 C'est **sa raison d'être** : un `constructor` ne peut pas être `async`, et la résolution DI est
 synchrone. Tout ce qui demande un `await` à la mise en place de l'instance n'a pas d'autre endroit
 où aller. Le hook est **optionnel** — le Resolver ne l'appelle que s'il existe
-(`Resolver._createController()`, `Resolver.ts:293-298`). Son contrat est décrit par
+(`Resolver._createController()`, `Resolver.ts:269`). Son contrat est décrit par
 `ControllerWithInitialize` (`Resolver.ts:72`) : aucun argument, retour `Promise<this>`.
 
 ```typescript
@@ -310,9 +310,9 @@ action se tromperait d'objet.
 > frame 2 — pratique pour un état de conversation, piège si tu comptais sur une instance neuve. En
 > HTTP, l'inverse : chaque requête repart d'une instance vierge.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1515`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1659`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
-(`http-kernel.ts:1059`), avant l'acceptation de la socket, et avant le firewall
+(`http-kernel.ts:1131`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
 
 ## 🧠 D'où viennent `request`, `response`, `session`
@@ -432,12 +432,12 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 (`withFrontendLocals()`, `Controller.ts:345`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:417-421`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts:445`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
 > RFC 9110 §15.4 (301, 302, 303, 307, 308) retombe sur 302 avec un log d'avertissement
-> (`Response.redirect()`, `Response.ts:534`). Un 301 par défaut piégeait : les navigateurs le mettent
+> (`Response.redirect()`, `Response.ts:595`). Un 301 par défaut piégeait : les navigateurs le mettent
 > en cache de façon quasi irréversible.
 
 ## 📁 Servir un fichier — téléchargement et flux média
@@ -448,7 +448,7 @@ Deux besoins distincts, deux helpers.
 
 `renderFileDownload(file, options?, headers?)` (`Controller.ts:473`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:472`) ;
+de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:497`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
@@ -470,7 +470,7 @@ donc testable sans serveur.
 
 ### Ce que `streamFile()` garantit
 
-`streamFile()` (`Controller.ts:498`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
+`streamFile()` (`Controller.ts:580`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
 **nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
 téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
 écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
@@ -489,7 +489,7 @@ throw new nodefonyError("Article introuvable", 404); // statut porté par l'erre
 throw new HttpError("Not Found", 404, this.context); // variante enrichie du contexte
 ```
 
-L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:802`), qui délègue la mise en
+L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:874`), qui délègue la mise en
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**
@@ -501,7 +501,7 @@ forme au rendeur d'erreurs. Ce qui en sort :
   ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts:770-775`).
 
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
-(`renderWebsocket()`, `error-renderer.ts:136-153`) — 401/403 → 1008 (violation de politique),
+(`renderWebsocket()`, `error-renderer.ts:264`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
 c'est un **rejet** de handshake.
 
@@ -521,7 +521,7 @@ explicite :
 const catalog = this.get<CatalogService>("catalog"); // null si absent ou container nettoyé
 ```
 
-`Service.get()` (`Service.ts:427`) est une **façade sûre** : elle retourne `null` au lieu de lever si
+`Service.get()` (`Service.ts:472`) est une **façade sûre** : elle retourne `null` au lieu de lever si
 le container a déjà été détaché. C'est le style à privilégier dans `initialize()`.
 
 ### 2. Injection par le constructeur — `@inject`
@@ -604,13 +604,13 @@ code du framework applique — et attend de toi — les règles suivantes :
 | La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:801`) | Retourner une valeur, ou poser `@HttpCode(204)` |
 | Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:775`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
 | `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
-| `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1288`) | Lire la session dans l'action, pas dans le hook |
+| `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1142`) | Lire la session dans l'action, pas dans le hook |
 | Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1294`) | Déplacer l'effet de bord dans l'action |
 | Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
 | WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée par toute la connexion (`Resolver.ts:262`) | Réinitialiser l'état en tête d'action, ou le porter par message |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur `singleton` : données d'un autre utilisateur | Champ mutable per-requête sur une instance partagée | Retirer `@Scope("singleton")`, ou passer par les arguments décorés |
-| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:428`) | Utiliser `getFileAsync()` (`Controller.ts:472`) |
+| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:457`) | Utiliser `getFileAsync()` (`Controller.ts:472`) |
 
 ## 🧪 Tests & couverture
 

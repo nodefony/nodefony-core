@@ -157,7 +157,10 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
     // La règle de recherche (échappement du terme + motif ancré à gauche) vit
     // au socle, en un exemplaire — elle était ici en double avec le store
     // WebAuthn, à l'identique.
-    Object.assign(criteria, searchCriteria<TotpSecretRow>(query.q, ["userId"]) ?? {});
+    Object.assign(
+      criteria,
+      searchCriteria<TotpSecretRow>(query.q, ["userId"]) ?? {},
+    );
     return criteria as unknown as Criteria<TotpSecretRow>;
   }
 

@@ -41,20 +41,20 @@ describe("backplaneRegistry (résolution driver SANS if en dur)", () => {
     expect(await factory(ctx())).to.equal(null);
   });
 
-  it("cluster → null hors worker, instance en worker NODEFONY_CLUSTER=1", async () => {
+  it("cluster → null hors worker, instance en worker NF_CLUSTER=1", async () => {
     const factory = getBackplaneDriver(ClusterBackplane.driver)!;
     expect(await factory(ctx({ role: "MONO" })), "mono → inactif").to.equal(
       null,
     );
 
-    const prev = process.env.NODEFONY_CLUSTER;
-    process.env.NODEFONY_CLUSTER = "1";
+    const prev = process.env.NF_CLUSTER;
+    process.env.NF_CLUSTER = "1";
     try {
       const bp = await factory(ctx({ role: "WORKER" }));
       expect(bp).to.be.instanceOf(ClusterBackplane);
     } finally {
-      if (prev === undefined) delete process.env.NODEFONY_CLUSTER;
-      else process.env.NODEFONY_CLUSTER = prev;
+      if (prev === undefined) delete process.env.NF_CLUSTER;
+      else process.env.NF_CLUSTER = prev;
     }
   });
 

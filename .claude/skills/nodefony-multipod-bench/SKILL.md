@@ -98,15 +98,16 @@ docker exec nodefony-redis redis-cli -a nodefony-dev --no-auth-warning \
 
 Tous les scripts vivent dans `scripts/` et se lancent depuis le dossier du banc.
 
-| Script        | Ce qu'il rend                      | Usage                                       |
-| ------------- | ---------------------------------- | ------------------------------------------- |
-| `listen.mjs`  | ce qu'un client reçoit vraiment    | `node listen.mjs <portRx> <secondes>`       |
-| `latency.mjs` | latence pure, hors saturation      | `node latency.mjs <portRx> <portTx> 60 50`  |
-| `bench.mjs`   | débit, pertes, latence sous charge | `node bench.mjs <portRx> <portTx> 50 10`    |
-| `pubcost.mjs` | coût de publication (médiane)      | `node pubcost.mjs <portTx> 9`               |
-| `soak.mjs`    | charge par paliers de connexions   | `node soak.mjs <portRx> <portTx> 50,200 30` |
-| `forge.mjs`   | enveloppe scellée d'attaquant      | `node forge.mjs <canal> <secret>`           |
-| `mempeak.sh`  | pic mémoire pendant une rafale     | `bash mempeak.sh <portTx> 1000000`          |
+| Script              | Ce qu'il rend                                                                                            | Usage                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `listen.mjs`        | ce qu'un client reçoit vraiment                                                                          | `node listen.mjs <portRx> <secondes>`       |
+| `latency.mjs`       | latence pure, hors saturation                                                                            | `node latency.mjs <portRx> <portTx> 60 50`  |
+| `bench.mjs`         | débit, pertes, latence sous charge                                                                       | `node bench.mjs <portRx> <portTx> 50 10`    |
+| `pubcost.mjs`       | coût de publication (médiane)                                                                            | `node pubcost.mjs <portTx> 9`               |
+| `soak.mjs`          | charge par paliers de connexions                                                                         | `node soak.mjs <portRx> <portTx> 50,200 30` |
+| `forge.mjs`         | enveloppe scellée d'attaquant                                                                            | `node forge.mjs <canal> <secret>`           |
+| `db-outage-pod.mjs` | un POD en production face à la chute de sa BASE : survit-il, répond-il hors base, sa santé dit-elle vrai | `node db-outage-pod.mjs`                    |
+| `mempeak.sh`        | pic mémoire pendant une rafale                                                                           | `bash mempeak.sh <portTx> 1000000`          |
 
 **Lire les chiffres correctement** : `bench.mjs` publie en rafale, donc sa latence mesure
 surtout le backlog de livraison — c'est une mesure de **débit**. La latence du chemin se lit

@@ -4,7 +4,6 @@ import { request as httpRequest } from "node:http";
 import {
   MCP_ENDPOINT_PATH,
   MCP_PROTOCOL_VERSION,
-  MCP_SUPPORTED_VERSIONS,
   protectedResourceMetadataPath,
 } from "nodefony";
 
@@ -195,7 +194,9 @@ function lire(chemin: string): Promise<IReponse> {
  *
  * @returns le jeton, ou `null` si la porte n'exige aucune autorisation
  */
-async function jetonPourLaPorte(): Promise<string | null> {
+async function jetonPourLaPorte(
+  scopeDemande: string | null = "admin:read",
+): Promise<string | null> {
   // 🔴 Tout est enveloppé : ce code s'exécute à l'IMPORT du fichier, avant que
   // la sonde de décor ait pu conclure quoi que ce soit. Une exception ici ne
   // ferait pas sauter la suite — elle la ferait ÉCHOUER, et sans serveur, ce qui
@@ -211,7 +212,17 @@ async function jetonPourLaPorte(): Promise<string | null> {
     // demande un jeton dont l'audience est la porte — sans lui, l'audience par
     // défaut serait celle de l'application, et la porte refuserait à juste titre.
     const reponse = await poster(
-      { username: "admin", password: "secret", resource: doc.resource },
+      {
+        username: "admin",
+        password: "secret",
+        resource: doc.resource,
+        // 🔴 Le scope se DEMANDE. La porte protégée exige désormais un scope
+        // d'administration : un jeton d'audience valide qui n'en porte aucun
+        // est refusé. Ce que la porte accepte est publié dans
+        // `scopes_supported` du document de ressource protégée — le banc ne
+        // devine rien, et `null` sert à éprouver le refus.
+        ...(scopeDemande === null ? {} : { scope: scopeDemande }),
+      },
       {},
       "/nodefony/security/api/token",
     );
@@ -366,6 +377,41 @@ describe.skipIf(raison !== null)(
       expect(result.content[0].text).toMatch(/@nodefony\/devkit/u);
     });
 
+    it("🔴 le MÊME compte, un jeton SANS scope : la lecture est REFUSÉE", async () => {
+      // C'était le trou : la lecture d'administration fabriquait un
+      // administrateur, donc tout porteur d'un jeton d'audience valide obtenait
+      // tout — la vérification RFC 8707 prouve que le jeton VISE cette
+      // ressource, jamais ce que son porteur a le droit d'y faire.
+      //
+      // Même utilisateur, même mot de passe, même audience que le jeton de la
+      // suite : SEUL le scope change. Si ce cas passait, le durcissement ne
+      // tiendrait à rien.
+      const sansScope = await jetonPourLaPorte(null);
+      expect(sansScope, "grant sans scope attendu").toBeTypeOf("string");
+      const reponse = await poster(
+        {
+          jsonrpc: "2.0",
+          id: 41,
+          method: "tools/call",
+          params: {
+            name: "nodefony_inspect",
+            arguments: { subject: "modules" },
+          },
+        },
+        { authorization: `Bearer ${sansScope as string}` },
+      );
+      const result = (
+        reponse.body as {
+          result: { content: { text: string }[]; isError?: true };
+        }
+      ).result;
+      expect(result.isError).toBe(true);
+      // Le refus DIT qui est refusé et ce qui manque : sans cela, l'appelant
+      // cherche une autre cible au lieu d'un meilleur jeton.
+      expect(result.content[0].text).toMatch(/ROLE_NODEFONY_ADMIN/u);
+      expect(result.content[0].text).toMatch(/admin/u);
+    });
+
     it("🔴 la garde Origin MORD sur la vraie route (DNS rebinding)", async () => {
       // Une page web malveillante pose TOUJOURS un Origin ; un client MCP natif
       // n'en pose aucun. C'est toute la sécurité de cette porte sans OAuth.
@@ -400,17 +446,24 @@ describe.skipIf(raison !== null)(
       );
     });
 
-    it("`server/discover` annonce toutes les révisions servies", async () => {
+    it("🔴 `server/discover` n'est PAS servi — et c'est le signal de repli", async () => {
+      // Retrait MESURÉ, pas un oubli (cf `mcp/server.ts`, le bloc de commentaire
+      // au-dessus du `switch`) : quand ce serveur répondait à `server/discover`,
+      // le client dominant basculait sur son fil moderne, rejouait `tools/list`
+      // quatre fois et n'enregistrait AUCUN outil — « connected », porte morte.
+      // C'est l'erreur `-32601` qui fait suivre au client le repli que la spec
+      // prévoit (« tries server/discover, gets an error, falls back to
+      // initialize »). Ce test garde donc l'ABSENCE, pas la présence : le jour
+      // où un client réel achève le fil moderne, il tombera — et c'est voulu.
       const reponse = await poster({
         jsonrpc: "2.0",
         id: 7,
         method: "server/discover",
       });
-      expect(reponse.status).toBe(200);
-      expect(
-        (reponse.body as { result: { supportedVersions: string[] } }).result
-          .supportedVersions,
-      ).toEqual([...MCP_SUPPORTED_VERSIONS]);
+      expect(reponse.status).toBe(404);
+      expect((reponse.body as { error: { code: number } }).error.code).toBe(
+        -32601,
+      );
     });
 
     it("🔴 `initialize` ÉCHOTE la révision du client — jusque sur la route", async () => {
@@ -486,12 +539,20 @@ describe.skipIf(raison !== null)(
       expect(outilsDe(reponse).length).toBeGreaterThan(0);
     });
 
-    it("🔴 un jeton PRÉSENTÉ est vérifié strictement — mauvaise audience ⇒ 401", async () => {
-      // LA garde que la tolérance ne doit PAS emporter. Tolérer l'anonyme et
-      // tolérer un jeton douteux sont deux choses opposées : le premier n'a rien
-      // affirmé, le second affirme une identité. Un jeton de cette application,
-      // parfaitement signé et valide, mais délivré pour une AUTRE ressource,
-      // doit être refusé ici (RFC 8707 §2) — sinon l'audience ne lie rien.
+    it("🔴 un jeton d'une AUTRE audience n'ouvre RIEN — la liaison RFC 8707 mord", async () => {
+      // LA garde que la tolérance ne doit PAS emporter, mesurée sur ce qui
+      // compte : non pas le statut, mais ce que le porteur OBTIENT. Un jeton de
+      // cette application, parfaitement signé et valide, mais délivré pour une
+      // AUTRE ressource, ne doit ouvrir aucun outil réservé (RFC 8707 §2) —
+      // sinon l'audience ne lie rien.
+      //
+      // ⚠️ Il n'est plus refusé par un `401` : cette porte TOLÈRE l'anonyme, et
+      // punir un jeton rejeté plus durement qu'une requête muette coûtait
+      // l'outillage entier au premier jeton expiré (le client marque alors le
+      // serveur « failed » pour toute la session). Le jeton est donc rétrogradé
+      // en anonyme, ce qui n'accorde rien — c'est ce que ce cas prouve. Le
+      // `401` d'une porte FERMÉE, lui, est éprouvé au cœur
+      // (`oauthProtectedResource.test.ts`).
       const autre = await poster(
         { username: "admin", password: "secret" }, // sans `resource` ⇒ audience par défaut
         {},
@@ -504,7 +565,49 @@ describe.skipIf(raison !== null)(
         { jsonrpc: "2.0", id: 10, method: "tools/list" },
         { authorization: `Bearer ${jeton as string}` },
       );
-      expect(reponse.status).toBe(401);
+      const noms = outilsDe(reponse).map((t) => t.name);
+      expect(noms).to.not.contain("nodefony_admin_list");
+      expect(noms).to.not.contain("nodefony_admin_call");
+      expect(noms).to.not.contain("test_secret");
+      // Et il reçoit bien ce qu'un inconnu reçoit — ni plus, ni moins.
+      expect(noms).to.contain("nodefony_card");
+    });
+
+    it("🔴 `scopes_supported` est ce que la porte EXIGE — dérivé des outils, pas d'une liste écrite", async () => {
+      // La preuve sur l'artefact REÇU : le document qu'un client lit vraiment.
+      // Le catalogue de cette application est en LECTURE SEULE — `admin:read`
+      // ouvre `admin_list`/`admin_call`, et aucun outil n'exige `admin:write`.
+      // La liste écrite en configuration publiait pourtant les deux : le client
+      // demandait un droit qui n'ouvrait rien, et il aurait manqué le scope de
+      // tout outil qu'un module déclare.
+      const doc = (await lireDocument(MCP_METADATA_PATH)).body as {
+        scopes_supported?: unknown;
+      };
+      const publies = doc.scopes_supported as string[];
+      // Ce que les outils INTÉGRÉS exigent…
+      expect(publies).to.contain("admin:read");
+      // …et ce qu'un outil de MODULE exige (`test_secret` du module `test`) —
+      // c'est l'écart qu'aucune liste écrite ne pouvait suivre : elle vivait
+      // dans la configuration du devkit, l'outil dans un autre paquet.
+      expect(publies).to.contain("test:secret");
+      // …et RIEN d'autre : `admin:write` était publié alors qu'aucun outil ne
+      // l'exige — le client demandait un droit qui n'ouvrait rien.
+      expect(publies).to.not.contain("admin:write");
+
+      // Et ce scope publié est bien celui qui ouvre : demandé au grant, il rend
+      // un jeton que la porte accepte POUR les outils réservés. Un document
+      // exact mais inopérant ne serait qu'un autre mensonge.
+      const jeton = await jetonPourLaPorte(
+        (doc.scopes_supported as string[])[0] ?? null,
+      );
+      expect(jeton, "grant attendu").toBeTypeOf("string");
+      const reponse = await poster(
+        { jsonrpc: "2.0", id: 11, method: "tools/list" },
+        { authorization: `Bearer ${jeton as string}` },
+      );
+      expect(outilsDe(reponse).map((t) => t.name)).toContain(
+        "nodefony_admin_list",
+      );
     });
 
     it("le chemin publié est celui que la RFC 9728 fait construire au client", async () => {

@@ -94,6 +94,91 @@ describe("envOverride — applyResolvedPath (résolution casse-insensible)", () 
   });
 });
 
+describe("envOverride — la valeur REMPLACÉE guide la conversion", () => {
+  // Une variable d'environnement est TOUJOURS une chaîne ; c'est le schéma qui
+  // sait ce qu'il attend. `coerceEnvValue` devine sans lui, et sa devinette
+  // rendait un type FAUX qui échouait à la validation Zod : bug rouge du
+  // dashboard, `NF__HTTP__TRUSTPROXY=1` → `Number(1)`, refusé par
+  // `z.union([boolean, string, array])` — une variable DOCUMENTÉE cassait le
+  // boot. La valeur déjà présente (le défaut du schéma) porte l'information
+  // manquante, et `applyResolvedPath` est le seul endroit qui l'a sous la main.
+  it("🔴 `1` sur une clé booléenne devient `true` (le bug qui cassait le boot)", () => {
+    const target = { trustProxy: false };
+    assert.strictEqual(
+      applyResolvedPath(target, ["trustproxy"], coerceEnvValue("1"), "1"),
+      true,
+    );
+    assert.strictEqual(target.trustProxy, true);
+  });
+
+  it("`0`, `on`, `off`, `yes`, `no` valent aussi sur une clé booléenne", () => {
+    for (const [raw, attendu] of [
+      ["0", false],
+      ["on", true],
+      ["off", false],
+      ["yes", true],
+      ["no", false],
+      ["TRUE", true],
+    ] as const) {
+      const target = { enabled: !attendu };
+      applyResolvedPath(target, ["enabled"], coerceEnvValue(raw), raw);
+      assert.strictEqual(target.enabled, attendu, `${raw} → ${attendu}`);
+    }
+  });
+
+  it("🔴 SÉCURITÉ : une CIDR sur une clé booléenne reste une chaîne, jamais `true`", () => {
+    // Le piège de la conversion « vers le type existant » : `trustProxy` a pour
+    // défaut `false` mais accepte AUSSI une CIDR. Convertir aveuglément vers le
+    // type de la valeur remplacée transformerait `10.0.0.0/8` en `true`, soit
+    // une confiance TOTALE envers les `X-Forwarded-*` — une faille ouverte par
+    // le correctif d'un bug de boot. Seuls des littéraux booléens RECONNUS sont
+    // convertis ; tout le reste garde la devinette.
+    const target: { trustProxy: unknown } = { trustProxy: false };
+    applyResolvedPath(
+      target,
+      ["trustproxy"],
+      coerceEnvValue("10.0.0.0/8"),
+      "10.0.0.0/8",
+    );
+    assert.strictEqual(target.trustProxy, "10.0.0.0/8");
+  });
+
+  it("🔴 une clé de type CHAÎNE ne devient pas un nombre", () => {
+    // Même défaut, autre type : `headerServer` est `z.string().nullable()`, et
+    // `NF__HTTP__HEADERSERVER=1` rendait `Number(1)` — refusé lui aussi.
+    const target: { headerServer: unknown } = { headerServer: "nodefony" };
+    applyResolvedPath(target, ["headerserver"], coerceEnvValue("1"), "1");
+    assert.strictEqual(target.headerServer, "1");
+  });
+
+  it("sens négatif : les cibles NON ambiguës gardent la devinette", () => {
+    // La garde ne doit mordre que là où la devinette se trompe. Un nombre reste
+    // un nombre, et le CSV → tableau de l'exemple documenté
+    // (`NF__SECURITY__CORS__ORIGINS=https://a.com,https://b.com`, défaut `[]`)
+    // doit continuer de fonctionner — sinon on corrige un bug en en créant un.
+    const nombre = { accessTtlS: 900 };
+    applyResolvedPath(nombre, ["accessttls"], coerceEnvValue("300"), "300");
+    assert.strictEqual(nombre.accessTtlS, 300);
+
+    const liste: { origins: unknown } = { origins: [] };
+    applyResolvedPath(
+      liste,
+      ["origins"],
+      coerceEnvValue("https://a.com,https://b.com"),
+      "https://a.com,https://b.com",
+    );
+    assert.deepStrictEqual(liste.origins, ["https://a.com", "https://b.com"]);
+  });
+
+  it("sens négatif : sans `raw`, le comportement est INCHANGÉ", () => {
+    // Le paramètre est optionnel : tout appelant existant garde sa sémantique,
+    // et la garde ne s'applique jamais par surprise.
+    const target: { trustProxy: unknown } = { trustProxy: false };
+    applyResolvedPath(target, ["trustproxy"], coerceEnvValue("1"));
+    assert.strictEqual(target.trustProxy, 1);
+  });
+});
+
 describe("envOverride — pathLooksSecret", () => {
   it("détecte les chemins sensibles", () => {
     assert.strictEqual(pathLooksSecret(["jwt", "secret"]), true);
@@ -204,6 +289,42 @@ describe("envOverride — intégration Kernel (NF__* au boot)", () => {
       jwt: { accessTtlS: 300 },
       cors: { maxAgeS: 60 },
     });
+  });
+
+  it("🔴 `NF__HTTP__TRUSTPROXY=1` pose `true` — le bug de boot, de bout en bout", () => {
+    // Le test unitaire d'`applyResolvedPath` ne suffit PAS : il resterait vert
+    // si le Kernel oubliait de transmettre la chaîne brute, et c'est le Kernel
+    // qui fait foi au boot. On exerce donc le chemin réel, avec la vraie forme
+    // de config d'`@nodefony/http` (défaut `false`, union boolean|string|array).
+    const mod = fakeModule("@nodefony/http", {
+      trustProxy: false,
+      trustedHosts: false,
+      headerServer: "nodefony",
+    });
+    applyEnv(
+      makeKernel(),
+      { "@nodefony/http": mod },
+      {
+        NF__HTTP__TRUSTPROXY: "1",
+        NF__HTTP__TRUSTEDHOSTS: "0",
+        NF__HTTP__HEADERSERVER: "1",
+      },
+    );
+    assert.deepStrictEqual(mod.options, {
+      trustProxy: true,
+      trustedHosts: false,
+      headerServer: "1",
+    });
+  });
+
+  it("🔴 SÉCURITÉ (bout en bout) : une CIDR n'est jamais promue en `true`", () => {
+    const mod = fakeModule("@nodefony/http", { trustProxy: false });
+    applyEnv(
+      makeKernel(),
+      { "@nodefony/http": mod },
+      { NF__HTTP__TRUSTPROXY: "10.0.0.0/8" },
+    );
+    assert.deepStrictEqual(mod.options, { trustProxy: "10.0.0.0/8" });
   });
 
   it("module/chemin inconnu = no-op (pas de crash, pas de clé fantôme)", () => {

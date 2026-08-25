@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-08-09
+updated: 2026-08-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -56,8 +56,8 @@ source: "docs/skills/index.md"
     "desc": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`.",
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📘", "title": "documentation", "href": "nodefony-documentation.md",
-    "desc": "Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée.",
-    "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
+    "desc": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort.",
+    "meta": "🟢 conforme v3.0.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.0.0 · 📎 10 réf" },
@@ -82,10 +82,10 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 40 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme · ⚙️ 43 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
-    "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme · ⚙️ 10 scripts · 📎 2 réf" },
   { "icon": "🚀", "title": "start-server", "href": "nodefony-start-server.md",
     "desc": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check.",
     "meta": "🟢 conforme · ⚙️ 2 scripts" },
@@ -129,8 +129,8 @@ source: "docs/skills/index.md"
 ```nodefony-cards
 [
   { "icon": "📊", "title": "html-report", "href": "nodefony-html-report.md",
-    "desc": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
-    "meta": "🟢 conforme · ⚙️ 3 scripts · 📎 3 réf" },
+    "desc": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et…",
+    "meta": "🟢 conforme · ⚙️ 8 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "nodefony-rfc.md",
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML.",
     "meta": "🟢 conforme v1.1.0" },
@@ -149,7 +149,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts · 📎 3 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 7 scripts · 📎 4 réf" }
 ]
 ```
 
@@ -157,30 +157,30 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
-| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 367 | 1 | 0 | ✅ |
+| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 416 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 114 | 0 | 0 | ✅ |
-| [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
-| [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 249 | 1 | 0 | ✅ |
-| [`nodefony-create-module`](nodefony-create-module.md) | — | 278 | 1 | 0 | ✅ |
-| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 254 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 353 | 3 | 6 | ✅ |
-| [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
+| [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 84 | 0 | 0 | ✅ |
+| [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 250 | 1 | 0 | ✅ |
+| [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
+| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 455 | 4 | 7 | ✅ |
+| [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 469 | 2 | 7 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 357 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 114 | 6 | 0 | ✅ |
-| [`nodefony-html-report`](nodefony-html-report.md) | — | 198 | 3 | 3 | ✅ |
-| [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 258 | 0 | 0 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 330 | 4 | 40 | ✅ |
-| [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 357 | 0 | 0 | ✅ |
-| [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 1.0.0 | 130 | 0 | 3 | ✅ |
-| [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 134 | 0 | 0 | ✅ |
+| [`nodefony-html-report`](nodefony-html-report.md) | — | 354 | 3 | 8 | ✅ |
+| [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 259 | 0 | 0 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 359 | 4 | 43 | ✅ |
+| [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 359 | 0 | 0 | ✅ |
+| [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 141 | 2 | 10 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 1.0.0 | 131 | 0 | 3 | ✅ |
+| [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 444 | 1 | 0 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 454 | 1 | 0 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
-| [`nodefony-start-server`](nodefony-start-server.md) | — | 262 | 0 | 2 | ✅ |
-| [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 143 | 6 | 0 | ✅ |
-| [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 77 | 0 | 0 | ✅ |
+| [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
+| [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
+| [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

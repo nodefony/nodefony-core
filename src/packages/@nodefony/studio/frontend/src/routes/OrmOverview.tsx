@@ -350,7 +350,7 @@ function ClusterOrmGrid({
                     },
                     {
                       label: "Taux, pas cumul",
-                      body: "Erreurs & reconnexions en delta/min (après 2 mesures live). Requêtes lentes & EWMA = flux ORM (NODEFONY_ORM_FLOW=1).",
+                      body: "Erreurs & reconnexions en delta/min (après 2 mesures live). Requêtes lentes & EWMA = flux ORM (NF_ORM_FLOW=1).",
                     },
                   ]}
                 />
@@ -918,7 +918,7 @@ export const OrmOverview = observer(
                     label: isClusterMode ? "Cluster" : "Mono-process",
                     body: isClusterMode
                       ? `Pod = PIRE worker (rollup) sur ${workers.length} worker(s). Source = sonde lean agrégée par le master (cohérente, ≠ /orm/api/* en round-robin).`
-                      : "1 process : la latence EWMA & la part de requêtes lentes n'apparaissent que si le flux ORM est actif (NODEFONY_ORM_FLOW=1).",
+                      : "1 process : la latence EWMA & la part de requêtes lentes n'apparaissent que si le flux ORM est actif (NF_ORM_FLOW=1).",
                   },
                 ]}
               />
@@ -1192,7 +1192,7 @@ export const OrmOverview = observer(
                     La sonde lean ORM (`nodefony:socket`) n'est pas remontée par
                     ce pod. Le diagnostic riche reste accessible par worker via
                     le drill (clique un connecteur), ou active le flux ORM
-                    (`NODEFONY_ORM_FLOW=1`) pour animer débit & latence.
+                    (`NF_ORM_FLOW=1`) pour animer débit & latence.
                   </Alert>
                 )}
 

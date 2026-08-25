@@ -30,10 +30,7 @@ interface BuilderObject {
   path?: string | PathLike;
   skeleton?: string | PathLike;
   params?:
-    | SymlinkParams
-    | CopyParams
-    | fs.MakeDirectoryOptions
-    | Record<string, any>;
+    SymlinkParams | CopyParams | fs.MakeDirectoryOptions | Record<string, any>;
   chmod?: string | number;
   parse?: boolean;
   childs?: BuilderObject[];

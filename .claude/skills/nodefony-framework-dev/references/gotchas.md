@@ -83,7 +83,7 @@
 - **turbo restaure du dist caché** : `clean && build` ne buste pas le cache → runtime sur vieux code. Avant test runtime d'un diff non commité : `npx turbo run build --force --filter=…`.
 - **typecheck = gate DISTINCT du build** : le build (oxc, sans type-check) peut masquer un `tsgo --noEmit` rouge (ex. TS18036 sur `static #` + décorateur de classe → `private static`). Hook pre-push.
 - **`.git/index.lock` orphelin** = `git stash pop`/commit échouent silencieusement (edits restent dans le stash, working tree = original → fausse impression de perte). Après un git qui « réussit » mais dont l'effet manque : vérifier `.git/index.lock` + `git stash list`.
-- **Tests perf à seuil absolu flakent en CI** (runners non déterministes) → opt-in `RUN_PERF=1` / skip si `CI`.
+- **Tests perf à seuil absolu flakent en CI** (runners non déterministes) → opt-in `NF_RUN_PERF=1` / skip si `CI`.
 
 ## Méthode (avant de coder)
 

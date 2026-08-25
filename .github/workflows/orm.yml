@@ -42,7 +42,18 @@ on:
       - "src/packages/@nodefony/orm-core/**"
       - "src/packages/@nodefony/mongoose/**"
       - "src/packages/@nodefony/realtime/**"
+      # `clusterIpc.e2e.test.ts` importe `ClusterRelay` du CŒUR : c'est lui qui
+      # route le fan-out entre workers. Sans ce chemin, le modifier ne rejouait
+      # aucun des cinq cas de fan-out IPC — dont le seul qui éprouve N > 2
+      # workers, que le banc autonome ne couvre pas.
+      - "src/nodefony/src/service/cluster/**"
       - "src/nodefony/src/tests/support/**"
+      # Les actions locales qui LÈVENT le décor de ces bancs. Les casser doit
+      # rejouer ce qui s'en sert : sans ces chemins, un décor dégradé n'était
+      # constaté qu'au prochain commit touchant un paquet — sur une cause
+      # devenue introuvable.
+      - ".github/actions/redis/**"
+      - ".github/actions/mongo/**"
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
   pull_request:
@@ -53,7 +64,18 @@ on:
       - "src/packages/@nodefony/orm-core/**"
       - "src/packages/@nodefony/mongoose/**"
       - "src/packages/@nodefony/realtime/**"
+      # `clusterIpc.e2e.test.ts` importe `ClusterRelay` du CŒUR : c'est lui qui
+      # route le fan-out entre workers. Sans ce chemin, le modifier ne rejouait
+      # aucun des cinq cas de fan-out IPC — dont le seul qui éprouve N > 2
+      # workers, que le banc autonome ne couvre pas.
+      - "src/nodefony/src/service/cluster/**"
       - "src/nodefony/src/tests/support/**"
+      # Les actions locales qui LÈVENT le décor de ces bancs. Les casser doit
+      # rejouer ce qui s'en sert : sans ces chemins, un décor dégradé n'était
+      # constaté qu'au prochain commit touchant un paquet — sur une cause
+      # devenue introuvable.
+      - ".github/actions/redis/**"
+      - ".github/actions/mongo/**"
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
   # Rattrapage manuel : un changement transverse peut casser ces suites sans
@@ -75,7 +97,7 @@ env:
 
 jobs:
   stores:
-    name: Stores (PostgreSQL · MariaDB · Redis · MongoDB)
+    name: Stores sur infra réelle + gate du juge de schéma (PostgreSQL · MariaDB · Redis · MongoDB)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -135,10 +157,10 @@ jobs:
       # sur les ports publiés ci-dessus.
       NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
       NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony
-      REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
+      NF_REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
       # Index dédié : le banc comportemental purge sa base, il ne doit pas
       # emporter celle des bancs de pagination.
-      REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
+      NF_REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
 
     steps:
       - name: Checkout
@@ -212,7 +234,7 @@ jobs:
       - name: Mongoose — serveur réel
         working-directory: src/packages/@nodefony/mongoose
         env:
-          MONGO_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          NF_MONGO_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
         run: npm test
 
       - name: orm-core
@@ -231,7 +253,7 @@ jobs:
       # Il existe parce que ce banc a rendu des verdicts faux avec l'aplomb des
       # justes : 18 faux positifs qui noyaient le seul vrai écart, dont le tout
       # premier était dans le CONTRÔLE et non dans le lecteur.
-      - name: Banc de schéma — auto-contrôle du juge (PostgreSQL)
+      - name: Gate — auto-contrôle du juge du banc de schéma (PostgreSQL)
         env:
           NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
         run: node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
@@ -240,7 +262,7 @@ jobs:
   #
   # C'est la promesse centrale du framework — « HTTP et WebSocket co-citoyens,
   # jusqu'en cluster » — et elle n'était vérifiée nulle part : les deux bancs qui
-  # la portent s'auto-skippent sans `RUN_CLUSTER_E2E`, jamais posé. La garantie
+  # la portent s'auto-skippent sans `NF_RUN_CLUSTER_E2E`, jamais posé. La garantie
   # la plus structurante du produit reposait donc sur des tests que personne
   # n'exécutait, dans une suite qui sortait verte.
   #
@@ -253,12 +275,12 @@ jobs:
 
     env:
       # Ouvre les deux bancs e2e. Les MESURES (latence, débit) restent derrière
-      # `RUN_PERF`, fermé ici : un banc de mesure sur runner partagé rendrait un
+      # `NF_RUN_PERF`, fermé ici : un banc de mesure sur runner partagé rendrait un
       # chiffre non reproductible, et un seuil non déterministe est un futur
       # rouge qui n'apprend rien.
-      RUN_CLUSTER_E2E: "1"
-      REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
-      REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
+      NF_RUN_CLUSTER_E2E: "1"
+      NF_REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
+      NF_REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
 
     steps:
       - name: Checkout
@@ -290,3 +312,129 @@ jobs:
       - name: Realtime — fan-out cross-process (IPC) et cross-pod (Redis)
         working-directory: src/packages/@nodefony/realtime
         run: npm test
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Coupures RÉELLES de base — le seul décor qui prouve ce qu'un driver FAIT
+  # quand le serveur tombe. Les suites `outage.test.ts` émettent elles-mêmes
+  # l'événement du driver : elles prouvent le câblage EN SUPPOSANT que le driver
+  # émettra. Le jour où un `pg` renommera `acquire`, tout resterait vert sans ce
+  # job.
+  #
+  # Pourquoi `docker run` et non `services:` : ces bancs ARRÊTENT le serveur et
+  # le relancent — il leur faut donc un NOM stable, que les service containers
+  # de GitHub ne donnent pas. C'est le même raisonnement que pour Redis plus
+  # haut, poussé d'un cran.
+  # ────────────────────────────────────────────────────────────────────────────
+  outage:
+    name: Coupures réelles de base (PostgreSQL · MySQL · MongoDB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Images et identifiants ALIGNÉS sur `docker/docker-compose.yml` : éprouver
+      # le code contre une AUTRE version que celle de développement ferait de
+      # chaque divergence un mystère.
+      NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
+      NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony
+      NF_MONGO_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+      NF_RUN_DB_OUTAGE: "1"
+      NF_DB_OUTAGE_PG_CONTAINER: nf-outage-pg
+      NF_DB_OUTAGE_MYSQL_CONTAINER: nf-outage-mysql
+      NF_DB_OUTAGE_MONGO_CONTAINER: nf-outage-mongo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+          cache: npm
+
+      - name: PostgreSQL (conteneur NOMMÉ — les bancs l'arrêtent et le relancent)
+        shell: bash
+        run: |
+          docker run -d --name nf-outage-pg \
+            -e POSTGRES_USER=nodefony \
+            -e POSTGRES_PASSWORD=nodefony-dev \
+            -e POSTGRES_DB=nodefony \
+            -p 5432:5432 postgres:16-alpine
+          for i in $(seq 1 40); do
+            if docker exec nf-outage-pg pg_isready -U nodefony -d nodefony >/dev/null 2>&1; then
+              echo "PostgreSQL prêt"; exit 0
+            fi
+            sleep 2
+          done
+          echo "PostgreSQL n'a jamais répondu"; docker logs nf-outage-pg; exit 1
+
+      - name: MariaDB (conteneur nommé)
+        shell: bash
+        run: |
+          docker run -d --name nf-outage-mysql \
+            -e MARIADB_ROOT_PASSWORD=nodefony-dev \
+            -e MARIADB_USER=nodefony \
+            -e MARIADB_PASSWORD=nodefony-dev \
+            -e MARIADB_DATABASE=nodefony \
+            -p 3306:3306 mariadb:11.4
+          for i in $(seq 1 40); do
+            if docker exec nf-outage-mysql healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1; then
+              echo "MariaDB prête"; exit 0
+            fi
+            sleep 2
+          done
+          echo "MariaDB n'a jamais répondu"; docker logs nf-outage-mysql; exit 1
+
+      - name: MongoDB en replica set (conteneur nommé)
+        uses: ./.github/actions/mongo
+        with:
+          name: nf-outage-mongo
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      # Le contrat portable d'abord : s'il tombe, inutile d'accuser un driver.
+      - name: Contrat de résilience (sans infra) et compatibilité d'un adapter tiers
+        working-directory: src/packages/@nodefony/orm-core
+        run: npx vitest run tests/unit/ormResilience.test.ts tests/unit/ormAdapterCompat.test.ts
+
+      - name: Coupures réelles — PostgreSQL et MySQL
+        working-directory: src/packages/@nodefony/drizzle
+        # Cette passe ne joue que les DEUX fichiers de coupure, quand le gate du
+        # paquet attend les preuves de la suite ENTIÈRE : ses motifs
+        # « (postgres) » / « (mysql) » nomment les bancs de CONTRAT, qu'un autre
+        # job joue déjà. Sans cette déclaration, une passe qui coupe et relance
+        # deux vrais serveurs se voit reprocher de ne pas les avoir exercés.
+        # L'absence est donc ÉNONCÉE — le rapport la nomme — et non masquée.
+        env:
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL
+        run: npx vitest run tests/integration/outage.test.ts tests/integration/outage-real.test.ts
+
+      - name: Coupures réelles — MongoDB
+        working-directory: src/packages/@nodefony/mongoose
+        # Même raison qu'au step précédent : passe filtrée, gate écrit pour la
+        # suite entière (il attend ici le banc « MongooseTokenStore — ITokenStore
+        # portable »). Ce step-ci ne tombait pas tant que son frère échouait
+        # AVANT lui — un rouge en masquait un autre, dans le même job.
+        env:
+          NF_GATES_ALLOW: NF_MONGO_TEST_URI
+        run: npx vitest run tests/integration/outage.test.ts tests/integration/outage-real.test.ts
+
+      # Le banc le plus parlant, et le seul qui parle de POD : les suites ORM
+      # éprouvent un connecteur isolé, celui-ci démarre l'application comme en
+      # production et coupe sa base. Sans le câblage du pool `pg`, les pods
+      # MEURENT (code 1) — mesuré. C'est ce que ce banc empêche de revenir.
+      - name: Pods en PRODUCTION face à la chute de leur base (cluster de 2)
+        run: node .claude/skills/nodefony-multipod-bench/scripts/db-outage-pod.mjs --workers 2 --container nf-outage-pg
+        env:
+          NF_DATABASE_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
+
+      # Un banc qui ARRÊTE des serveurs peut laisser le décor en vrac : dire ce
+      # qu'on rend permet de distinguer « le test a échoué » de « le décor a
+      # disparu en route ».
+      - name: État final du décor
+        if: always()
+        run: docker ps -a --format "{{.Names}} {{.Status}}"

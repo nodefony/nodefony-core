@@ -38,8 +38,11 @@ const MODULE =
 const {
   comparerDecor,
   depister,
+  deriveTours,
   fusionnerReference,
+  medianeTours,
   NON_JUGEABLE,
+  PLANCHER_DERIVE_TOURS,
   verdictAgrege,
 } = await import(MODULE);
 
@@ -264,6 +267,85 @@ console.log(
     : `\n━━ ${defauts} DÉFAUT(S)`,
 );
 
+// ─── 7. La MÉDIANE de tours — ce que le verdict binaire jette ─────────────
+console.log("• médiane de tours — jamais le dernier run, jamais la moyenne");
+// Les trois runs RÉELS de la tâche 13 : le dernier seul dirait 88 et
+// raconterait une tâche deux fois plus lourde qu'elle n'est.
+if (medianeTours([{ tours: 52 }, { tours: 54 }, { tours: 88 }]) !== 54) {
+  echec("52/54/88 → médiane attendue 54");
+}
+// La moyenne vaudrait 64,7 : un run parti en boucle la tirerait à lui seul.
+if (medianeTours([{ tours: 10 }, { tours: 12 }, { tours: 400 }]) !== 12) {
+  echec("10/12/400 → médiane attendue 12 (la moyenne serait 141)");
+}
+// Nombre PAIR de runs : la moyenne des deux du milieu, arrondie.
+if (medianeTours([{ tours: 52 }, { tours: 55 }]) !== 54) {
+  echec("52/55 → médiane attendue 54");
+}
+// Rien de mesuré → rien d'inventé. Un 0 se comparerait ensuite comme un chiffre.
+if (medianeTours([]) !== null || medianeTours([null, {}]) !== null) {
+  echec("sans mesure, la médiane doit être null — jamais 0");
+}
+
+console.log("• dérive de tours — signalée au-delà du seuil, muette en dessous");
+// Le cas qui justifie tout : le verdict ne bouge pas, l'effort si.
+const alourdie = deriveTours(54, 88);
+if (!alourdie.signale || alourdie.sens !== "alourdie") {
+  echec(
+    `54→88 tours devrait être signalé « alourdie », rendu ${alourdie.sens}`,
+  );
+}
+const allegee = deriveTours(88, 54);
+if (!allegee.signale || allegee.sens !== "allegee") {
+  echec(`88→54 tours devrait être signalé « allegee », rendu ${allegee.sens}`);
+}
+// Sous le seuil relatif : du bruit de modèle non déterministe, pas un signal.
+if (deriveTours(50, 55).signale) {
+  echec("50→55 tours (+10 %) est du bruit, il ne doit rien signaler");
+}
+// Sous le PLANCHER absolu : +50 % pour deux tours d'écart ne dit rien.
+if (deriveTours(4, 6).signale) {
+  echec("4→6 tours est sous le plancher absolu, il ne doit rien signaler");
+}
+// Mais franchir le plancher par le haut reste un signal.
+if (!deriveTours(7, PLANCHER_DERIVE_TOURS * 3).signale) {
+  echec("7→24 tours franchit le plancher et doit être signalé");
+}
+// Sans référence mesurée, aucune dérive : on ne compare pas à rien.
+if (deriveTours(null, 88).signale || deriveTours(54, null).signale) {
+  echec("une dérive sans les deux bornes ne se signale pas");
+}
+
+console.log("• le dépistage classe les dérives SANS les rejouer");
+const bilanDerive = depister(
+  { verdicts: { 13: { verdict: "FAIL", runs: 3, passes: 0, tours: 88 } } },
+  [{ id: 13, verdict: "FAIL", passes: 0, total: 3, tours: 54 }],
+);
+if (bilanDerive.allegees.length !== 1) {
+  echec(
+    "une tâche au verdict stable mais allégée doit être classée « allegee »",
+  );
+}
+// LA règle qui compte : elle ne coûte RIEN. La rejouer rendrait au dépistage le
+// coût qu'il existe précisément pour éviter.
+if (bilanDerive.aRejouer.length !== 0) {
+  echec("une dérive de tours ne se rejoue pas — elle se regarde");
+}
+
+// La référence GARDE la médiane : sans elle, plus rien à comparer au run suivant.
+const refAvecTours = fusionnerReference(null, {
+  model: "m",
+  decor: "d",
+  agent: "a",
+  date: "2026-01-01",
+  commit: "abc",
+  sources: ["run"],
+  results: [{ id: 13, verdict: "FAIL", passes: 2, total: 3, tours: 54 }],
+});
+if (refAvecTours.verdicts["13"].tours !== 54) {
+  echec("la référence doit garder la médiane de tours");
+}
+
 // ─── --prove : chaque règle débranchée doit faire TOMBER ce contrôle ────────
 // Les mutations s'appliquent à une COPIE, dans un répertoire temporaire : muter
 // le fichier du dépôt le laisserait cassé à la première interruption.
@@ -295,6 +377,36 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
       regle: "run non jugeable écarté",
       de: "const retenus = verdicts.filter((v) => v !== NON_JUGEABLE);",
       vers: "const retenus = verdicts;",
+    },
+    {
+      regle: "médiane (et non dernier run / moyenne)",
+      de: "  const milieu = Math.floor(tours.length / 2);",
+      vers: "  const milieu = tours.length - 1;",
+    },
+    {
+      regle: "seuil de dérive (le bruit ne se signale pas)",
+      de: "  if (Math.abs(ecart) < SEUIL_DERIVE_TOURS) return muet;",
+      vers: "  if (false) return muet;",
+    },
+    {
+      regle: "plancher absolu de dérive",
+      // Ancre SANS mise en forme : la précédente citait la ligne entière, `return`
+      // et indentation compris — un passage de prettier l'a coupée en deux, et le
+      // débranchement ne se faisait plus. Le selftest le disait (« ancre
+      // introuvable »), mais la règle n'était plus prouvée pour autant. Une ancre
+      // de mutation vise l'EXPRESSION, jamais la ligne.
+      de: "avant < PLANCHER_DERIVE_TOURS && apres < PLANCHER_DERIVE_TOURS",
+      vers: "false",
+    },
+    {
+      regle: "une dérive ne se REJOUE pas",
+      de: "      stables.push(entree);",
+      vers: "      stables.push(entree);\n      chutes.push(entree);",
+    },
+    {
+      regle: "la référence garde la médiane",
+      de: "      tours: r.tours ?? null,",
+      vers: "",
     },
     {
       regle: "fusion non destructive",

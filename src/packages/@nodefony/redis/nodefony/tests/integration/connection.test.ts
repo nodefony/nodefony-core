@@ -13,9 +13,9 @@ import type { IRedisConfigInput } from "../../interfaces/IRedisConfig";
  * Auto-skip si Redis est injoignable (CI sans docker) : on ne fait PAS échouer
  * la suite, on la saute proprement (probe au chargement du fichier).
  */
-const PASSWORD = process.env.REDIS_PASSWORD ?? "nodefony-dev";
-const HOST = process.env.REDIS_HOST ?? "localhost";
-const PORT = Number.parseInt(process.env.REDIS_PORT ?? "6379", 10);
+const PASSWORD = process.env.NF_REDIS_PASSWORD ?? "nodefony-dev";
+const HOST = process.env.NF_REDIS_HOST ?? "localhost";
+const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
 
 /** Probe : Redis répond-il à un PING authentifié ? */
 async function redisReachable(): Promise<boolean> {

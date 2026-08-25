@@ -3,9 +3,9 @@
 export type LLMRole = "system" | "user" | "assistant" | "tool";
 
 export interface IMessage {
-  role:    LLMRole;
+  role: LLMRole;
   content: string;
-  name?:   string;
+  name?: string;
   toolCallId?: string;
 }
 
@@ -18,72 +18,75 @@ export type StopReason =
   | "aborted";
 
 export interface ITokenUsage {
-  inputTokens:  number;
+  inputTokens: number;
   outputTokens: number;
-  totalTokens:  number;
-  costEur:      number;
+  totalTokens: number;
+  costEur: number;
 }
 
 export interface IToolCall {
-  id:        string;
-  name:      string;
+  id: string;
+  name: string;
   arguments: Record<string, unknown>;
 }
 
 export interface ILLMResponse {
-  content:    string;
-  model:      string;
-  usage:      ITokenUsage;
+  content: string;
+  model: string;
+  usage: ITokenUsage;
   stopReason: StopReason;
   toolCalls?: IToolCall[];
 }
 
 export interface IStreamChunk {
-  type:      "token" | "tool_call" | "done" | "error";
-  content:   string;
-  usage?:    ITokenUsage;
+  type: "token" | "tool_call" | "done" | "error";
+  content: string;
+  usage?: ITokenUsage;
   toolCall?: IToolCall;
-  error?:    string;
+  error?: string;
 }
 
 export interface IToolDefinition {
-  name:        string;
+  name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 }
 
 export interface IChatOptions {
-  context?:     string;
-  system?:      string;
-  tools?:       IToolDefinition[];
-  maxTokens?:   number;
+  context?: string;
+  system?: string;
+  tools?: IToolDefinition[];
+  maxTokens?: number;
   temperature?: number;
-  signal?:      AbortSignal;
-  metadata?:    Record<string, unknown>;
+  signal?: AbortSignal;
+  metadata?: Record<string, unknown>;
 }
 
 export type LLMProviderName = "claude" | "gemini" | "ollama" | "openai";
 export type LLMMode = "cloud" | "sovereign";
 
 export interface ILLMConfig {
-  provider:     LLMProviderName;
-  model:        string;
-  apiKey?:      string;
-  endpoint?:    string;
-  maxTokens?:   number;
+  provider: LLMProviderName;
+  model: string;
+  apiKey?: string;
+  endpoint?: string;
+  maxTokens?: number;
   temperature?: number;
-  mode?:        LLMMode;
-  timeout?:     number;
-  maxRetries?:  number;
+  mode?: LLMMode;
+  timeout?: number;
+  maxRetries?: number;
 }
 
 export interface ILLMProvider {
-  readonly name:  LLMProviderName;
+  readonly name: LLMProviderName;
   readonly model: string;
-  readonly mode:  LLMMode;
+  readonly mode: LLMMode;
 
   chat(messages: IMessage[], options?: IChatOptions): Promise<ILLMResponse>;
-  stream(messages: IMessage[], options?: IChatOptions): AsyncGenerator<IStreamChunk>;
+  stream(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): AsyncGenerator<IStreamChunk>;
   embed(text: string): Promise<number[]>;
   healthCheck(): Promise<boolean>;
   shutdown(): Promise<void>;

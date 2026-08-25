@@ -3,7 +3,7 @@ import { RealtimeHub } from "../../src/server/RealtimeHub.js";
 import { JsonRpcPeer } from "nodefony";
 
 /**
- * **Ce que le plan S1 économise, mesuré sur l'étage seul** — opt-in `RUN_PERF=1`
+ * **Ce que le plan S1 économise, mesuré sur l'étage seul** — opt-in `NF_RUN_PERF=1`
  * (doctrine perf du dépôt : une mesure chronométrée n'est pas une non-régression).
  *
  * Pourquoi ici et pas au banc multi-pods : le banc sature le transport WebSocket
@@ -18,7 +18,7 @@ import { JsonRpcPeer } from "nodefony";
  * charge : le gain n'y devient visible qu'à mesure que la charge grossit.
  */
 
-const RUN_PERF = process.env.RUN_PERF === "1";
+const NF_RUN_PERF = process.env.NF_RUN_PERF === "1";
 
 const ABONNES = 200;
 const PUBLICATIONS = 2000;
@@ -59,8 +59,8 @@ function mesure(
   return { ms: performance.now() - t0, octets };
 }
 
-describe("Fan-out mutualisé — coût de sérialisation (RUN_PERF=1)", () => {
-  it.skipIf(!RUN_PERF)(
+describe("Fan-out mutualisé — coût de sérialisation (NF_RUN_PERF=1)", () => {
+  it.skipIf(!NF_RUN_PERF)(
     "à charge réaliste, l'étage de sérialisation coûte au moins 10× moins",
     () => {
       const charge = { seq: 1, ts: 0, pad: "x".repeat(2000) };
@@ -79,7 +79,7 @@ describe("Fan-out mutualisé — coût de sérialisation (RUN_PERF=1)", () => {
     },
   );
 
-  it.skipIf(!RUN_PERF)("un seul abonné : aucun surcoût introduit", () => {
+  it.skipIf(!NF_RUN_PERF)("un seul abonné : aucun surcoût introduit", () => {
     const charge = { seq: 1, pad: "x".repeat(2000) };
     const hub = new RealtimeHub();
     const serialize = serializer("chat:room1");

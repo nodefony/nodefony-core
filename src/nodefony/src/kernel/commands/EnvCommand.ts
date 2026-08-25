@@ -3,6 +3,10 @@ import CliKernel from "../CliKernel";
 import { runEnvCommand } from "../../cli/env";
 
 const options: OptionsCommandInterface = {
+  // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
+  // vaut que pour une invocation directe) : sa sortie serait noyée sous le
+  // journal de cycle de vie.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -42,6 +46,18 @@ class Env extends Command {
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");
+    this.addOption(
+      "--example",
+      "Dérive .env.example du catalogue env.ts (ADR-0006)",
+    );
+    this.addOption(
+      "--check",
+      "Avec --example : vérifie sans écrire, sort en erreur si le fichier diverge",
+    );
+    this.addOption(
+      "--cwd <path>",
+      "Point de départ (la racine de l'app est résolue en remontant)",
+    );
   }
 
   override async generate(opts?: { json?: boolean }): Promise<this> {

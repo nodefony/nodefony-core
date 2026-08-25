@@ -23,4 +23,8 @@
   --nf-accent-line: rgba(97, 218, 251, 0.35);
   --nf-logo-anim: nf-spin 16s linear infinite;
 }
-@keyframes nf-spin { to { transform: rotate(360deg); } }
+@keyframes nf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

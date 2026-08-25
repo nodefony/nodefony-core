@@ -462,6 +462,45 @@ describe("Kernel lifecycle — terminate()", () => {
     }
   });
 
+  it("🔴 terminate appelé DEUX FOIS ne rejoue ni le drain ni le log", async () => {
+    // Vécu : « terminate : 0 » imprimé deux fois, même PID, même milliseconde.
+    // Le double affichage n'est que le symptôme visible ; le vrai défaut est
+    // que TOUT le shutdown est rejoué — `onTerminate` refire, donc les
+    // listeners de drain (bascule readiness, fermeture des WS, cleanup des
+    // services) s'exécutent une seconde fois sur un kernel déjà démonté. Rien
+    // ne l'interdisait : `terminate` n'avait aucune garde de ré-entrance, et la
+    // sortie réelle n'a lieu qu'au `nextTick` — la fenêtre est donc grande
+    // ouverte pour tout appelant qui termine puis rend la main à un cadre qui
+    // termine aussi (le menu, exactement).
+    const restore = mockQuit();
+    try {
+      const k = mkKernel();
+      let fired = 0;
+      k.on("onTerminate", () => {
+        fired += 1;
+      });
+      await Promise.all([k.terminate(0), k.terminate(0)]);
+      assert.strictEqual(fired, 1, `onTerminate a fire ${fired} fois`);
+    } finally {
+      restore();
+    }
+  });
+
+  it("sens négatif : le SECOND appel rend le même kernel, il n'échoue pas", async () => {
+    // Une garde qui ferait échouer le second appel déplacerait le problème : un
+    // `await terminate()` qui rejette au milieu d'un shutdown produirait une
+    // erreur là où il n'y avait qu'une redondance.
+    const restore = mockQuit();
+    try {
+      const k = mkKernel();
+      const [a, b] = await Promise.all([k.terminate(0), k.terminate(0)]);
+      assert.strictEqual(a, k);
+      assert.strictEqual(b, k);
+    } finally {
+      restore();
+    }
+  });
+
   it("terminate retourne le kernel (promise résolue)", async () => {
     const restore = mockQuit();
     try {
@@ -719,9 +758,9 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     assert.strictEqual(r.errors.length, 1);
   });
 
-  it("dev: un hook FIGÉ est borné par le timeout (NODEFONY_BOOT_TIMEOUT_MS)", async () => {
-    const prev = process.env.NODEFONY_BOOT_TIMEOUT_MS;
-    process.env.NODEFONY_BOOT_TIMEOUT_MS = "30";
+  it("dev: un hook FIGÉ est borné par le timeout (NF_BOOT_TIMEOUT_MS)", async () => {
+    const prev = process.env.NF_BOOT_TIMEOUT_MS;
+    process.env.NF_BOOT_TIMEOUT_MS = "30";
     try {
       const k = mkKernel("development");
       k.on("onBoot", () => new Promise(() => {})); // ne se résout jamais
@@ -729,8 +768,8 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       assert.strictEqual(r.errors.length, 1);
       assert.strictEqual(r.errors[0].timedOut, true);
     } finally {
-      if (prev === undefined) delete process.env.NODEFONY_BOOT_TIMEOUT_MS;
-      else process.env.NODEFONY_BOOT_TIMEOUT_MS = prev;
+      if (prev === undefined) delete process.env.NF_BOOT_TIMEOUT_MS;
+      else process.env.NF_BOOT_TIMEOUT_MS = prev;
     }
   });
 

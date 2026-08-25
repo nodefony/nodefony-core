@@ -54,7 +54,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:416`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:462`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -151,7 +151,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:416`). La
+Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:462`). La
 colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -164,7 +164,7 @@ colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standal
 | `build` | `compile` | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force` | `onRegister` | `BuildCommand.ts:16` |
 | `install` | — | `install` sur tous les modules — `-f/--force` | `onRegister` | `InstallCommand.ts:9` |
 | `outdated` | — | `outdated` sur tous les modules | `onRegister` | `OutdatedCommand.ts:9` |
-| `start` | — | Menu interactif (TTY) | `onStart` | `StartCommand.ts:70` |
+| `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:49` |
 | `check` | **`doctor`** | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `CheckCommand.ts:37` |
 | `env` | — | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
 | `status` | — | Introspecte les process dev/prod/cluster (**0 boot**) | `0 boot` | `StatusCommand.ts:20` |
@@ -218,7 +218,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
-> serveur (`CliKernel.ts:573`).
+> serveur (`CliKernel.ts:625`).
 
 ## 🏗️ Échafauder — `create`
 
@@ -239,7 +239,7 @@ nodefony create command import --phase onReady                    # commande CLI
 > marche, et elle reste **invisible au conteneur**. Sans générateur de commande, il n'a aucun
 > modèle et invente. Un type de scaffold manquant ne se voit pas — il se paie en code inventé.
 
-Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:764`),
+Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:875`),
 partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline), et un futur formulaire
 Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 
@@ -268,10 +268,10 @@ Trois comportements de `create entity` qui surprennent si on ne les connaît pas
 
 Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers.
 
-**`generate()` est l'action.** On la surcharge (`command/Command.ts:291`) ; elle reçoit les arguments
+**`generate()` est l'action.** On la surcharge (`command/Command.ts:389`) ; elle reçoit les arguments
 positionnels déclarés par `addArgument()`, et l'instance Commander en dernier paramètre. Les hooks de
 cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la demande par `setEvents()`
-(`command/Command.ts:144`), idempotent.
+(`command/Command.ts:165`), idempotent.
 
 **`kernelEvent` = jusqu'où booter.** C'est le choix structurant :
 
@@ -282,14 +282,14 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 - `onStart` — rien n'est chargé : pour le vrai standalone.
 
 **Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:545`) —
-il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:524`). Hors module, un
-outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:585`). Dans les deux cas,
+il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:560`). Hors module, un
+outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:714`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.
 
 ## ⚙️ La complétion shell
 
 `nodefony completion <bash|zsh|fish>` imprime un script à sourcer (`renderCompletionScript()`,
-`completion.ts:181` ; shells supportés `COMPLETION_SHELLS`, `completion.ts:173`) :
+`completion.ts:261` ; shells supportés `COMPLETION_SHELLS`, `completion.ts:253`) :
 
 ```bash
 source <(nodefony completion zsh)     # essai immédiat (zsh)
@@ -298,7 +298,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:443`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:495`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie
@@ -338,7 +338,7 @@ Le CLI est couvert par une suite dédiée du cœur, sans serveur pour la plupart
   (`create.test.ts`, `entityFields.test.ts`, `scaffoldDestination.test.ts`), la complétion
   (`completion.test.ts`) et la délégation du binaire projet/global (`resolveLocalCli.test.ts`).
 - **Intégration / bout en bout** — le binaire réel `node bin/nodefony <commande>` (`CliIntegration.test.ts`) :
-  `--help`/`--version` sans condition, et les boots serveur derrière `RUN_CLI_BOOT=1`.
+  `--help`/`--version` sans condition, et les boots serveur derrière `NF_RUN_CLI_BOOT=1`.
 
 Le décompte exact (cas comptés, par fichier) est rendu dans la carte de tests de cette page — jamais
 figé dans le texte, où il vieillirait. Pour le relancer : `cd src/nodefony && npm run test` (les boots

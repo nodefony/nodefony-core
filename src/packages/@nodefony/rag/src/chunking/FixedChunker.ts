@@ -5,7 +5,7 @@ import type { IChunker, IIndexOptions } from "../interfaces/IRagService.js";
 
 export class FixedChunker implements IChunker {
   chunk(text: string, options: IIndexOptions = {}): string[] {
-    const chunkSize    = options.chunkSize    ?? 512;
+    const chunkSize = options.chunkSize ?? 512;
     const chunkOverlap = options.chunkOverlap ?? 50;
 
     if (chunkSize <= 0) throw new Error("chunkSize must be > 0");
@@ -13,7 +13,7 @@ export class FixedChunker implements IChunker {
       throw new Error("chunkOverlap must be in [0, chunkSize)");
     }
 
-    const words = text.split(/\s+/).filter(w => w.length > 0);
+    const words = text.split(/\s+/).filter((w) => w.length > 0);
     if (words.length === 0) return [];
 
     const chunks: string[] = [];

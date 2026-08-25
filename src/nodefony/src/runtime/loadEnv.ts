@@ -13,7 +13,7 @@ export interface ILoadEnvOptions {
   runtimeEnv?: string;
   /**
    * Environnement de DÉPLOIEMENT (string libre : `staging` / `canary` / `prod-eu`…) =
-   * APP_ENV / NODEFONY_ENV. Sélectionne `.env.<appEnv>` (+ `.env.<appEnv>.local`),
+   * APP_ENV / NF_ENV. Sélectionne `.env.<appEnv>` (+ `.env.<appEnv>.local`),
    * PLUS prioritaire que le mode runtime (plus spécifique). Omis ou égal à
    * `runtimeEnv` → ces niveaux sont sautés (pas de doublon).
    */

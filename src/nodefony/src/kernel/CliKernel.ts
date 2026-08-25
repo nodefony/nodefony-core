@@ -12,7 +12,7 @@ import Kernel, {
   TypeKernelOptions,
 } from "./Kernel";
 import Command from "../command/Command";
-import Start from "./commands/StartCommand";
+import Menu from "./commands/MenuCommand";
 import Dev from "./commands/DevCommand";
 import Build from "./commands/BuildCommand";
 import Prod from "./commands/ProdCommand";
@@ -23,6 +23,9 @@ import Status from "./commands/StatusCommand";
 import Check from "./commands/CheckCommand";
 import Inspect from "./commands/InspectCommand";
 import Stop from "./commands/StopCommand";
+import AiSync from "./commands/AiSyncCommand";
+import AiMcp from "./commands/AiMcpCommand";
+import GitHooks from "./commands/GitHooksCommand";
 import {
   isStandaloneDevCommand,
   runStandaloneDevCommand,
@@ -50,6 +53,7 @@ import Symbols from "./commands/SymbolsCommand";
 import { runSymbolsCommand } from "../cli/symbols";
 import { runAiSyncCommand } from "../cli/aiSync";
 import { runAiMcpCommand } from "../cli/aiMcp";
+import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -295,7 +299,15 @@ class CliKernel extends Cli {
     // Standalone pour la même raison que `ai:sync` — la route est servie par un
     // module `policy: "dev"`, donc invisible à un terminal sans `NODE_ENV`.
     if (requested === "ai:mcp") {
-      return process.exit(runAiMcpCommand(process.argv));
+      return process.exit(await runAiMcpCommand(process.argv));
+    }
+
+    // ─── `git:hooks` : hooks git natifs (core.hooksPath), même famille ────────
+    // Deux fichiers sh + une clé de config, aucun boot — et JAMAIS de
+    // postinstall : la pose de hooks est un choix explicite, pas un effet de
+    // bord d'un `npm install`.
+    if (requested === "git:hooks") {
+      return process.exit(runGitHooksCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
@@ -325,6 +337,18 @@ class CliKernel extends Cli {
     try {
       if (this.commander) {
         this.registerBuiltinCommands();
+        // Boot SILENCIEUX de la commande DEMANDÉE — et d'elle seule.
+        //
+        // Le journal de cycle de vie n'est pas la sortie d'une commande :
+        // `nodefony inspect modules` rendait trente lignes de `MODULE ADD`, de
+        // stores résolus et d'un avertissement TLS avant son tableau. La règle
+        // ne peut PAS vivre dans le constructeur de la commande — il s'exécute
+        // pour toutes les invocations, et rendrait muet le serveur de dev. On
+        // l'applique donc ici, une fois les intégrées enregistrées et le nom
+        // demandé connu, avant que le Kernel ne démarre son journal.
+        if (requested !== null && this.getCommand(requested)?.quietBoot) {
+          this.quietBoot = true;
+        }
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
@@ -357,6 +381,16 @@ class CliKernel extends Cli {
         // On boote donc le kernel jusqu'à cette phase (mode CONSOLE, 0 serveur),
         // PUIS on affiche le help complet et on `terminate(0)`. `--version` n'est
         // PAS concerné (résolu par commander sans boot, cf le `.catch` plus bas).
+        // `nodefony` NU dans un terminal → le MENU interactif : taper le nom
+        // seul est une question (« qu'est-ce que je peux faire ici ? »), pas
+        // une demande de documentation. On POUSSE `menu` dans argv et on laisse
+        // le flux normal parser — aucun chemin parallèle. Le help global reste
+        // servi hors TTY (CI, scripts — prompter y est absurde) et sur demande
+        // explicite (`-h` / `--help`). Le TTY se lit sur `kernel.isTTY`
+        // (source unique, `NF_NO_TTY` respecté — les tests forcent ainsi le help).
+        if (process.argv.slice(2).length === 0 && this.kernel?.isTTY) {
+          process.argv.push("menu");
+        }
         if (this.isGlobalHelpRequested()) {
           return this.dispatchGlobalHelp();
         }
@@ -435,7 +469,7 @@ class CliKernel extends Cli {
     this.addCommand(Build);
     this.addCommand(Install);
     this.addCommand(Outdated);
-    this.addCommand(Start);
+    this.addCommand(Menu);
     this.addCommand(Status);
     this.addCommand(Stop);
     this.addCommand(Completion);
@@ -445,6 +479,12 @@ class CliKernel extends Cli {
     this.addCommand(Card);
     this.addCommand(Symbols);
     this.addCommand(Inspect);
+    // Standalone servis par le fast-path : ces classes n'existent que pour le
+    // help et la complétion (leur `generate()` est un filet) — sans elles, une
+    // commande bien réelle est INVISIBLE de `nodefony -h`, donc de personne.
+    this.addCommand(AiSync);
+    this.addCommand(AiMcp);
+    this.addCommand(GitHooks);
   }
 
   /**
@@ -537,7 +577,7 @@ class CliKernel extends Cli {
    *
    * @returns set des noms et alias built-in.
    */
-  private getBuiltinCommandNames(): Set<string> {
+  public getBuiltinCommandNames(): Set<string> {
     const names = new Set<string>();
     for (const cmd of this.commander?.commands ?? []) {
       names.add(cmd.name());
@@ -620,6 +660,15 @@ class CliKernel extends Cli {
     const render = async (): Promise<void> => {
       if (!shown) {
         shown = true;
+        // Le manifest s'écrit ICI, et pas dans `Kernel.preRegister` comme pour
+        // tout autre boot : ce rendu EST posé sur `onPreRegister`, il termine le
+        // process, et la ligne d'écriture placée après le fire n'est jamais
+        // atteinte. Or c'est précisément le help qui tient l'état complet — les
+        // commandes de module viennent d'être posées — et c'est le geste par
+        // lequel un humain découvre le CLI. Sans ça, le menu (qui relit ce
+        // fichier) restait amputé chez qui n'avait jamais démarré l'application.
+        // Best-effort, jamais bloquant : un help ne doit pas dépendre du disque.
+        await this.writeCompletionManifest().catch(() => {});
         this.printHelpHeader();
         this.assignHelpGroups();
         this.showHelp(false, undefined);
@@ -885,6 +934,13 @@ class CliKernel extends Cli {
         data: format,
       };
     }
+    // 🔴 REMPLACER, pas empiler. `listenWithConditions` AJOUTE un abonné : un
+    // second appel posait un filtre restrictif par-dessus l'ancien, resté
+    // actif — et l'ancien continuait d'écrire les INFO. Symptôme : une commande
+    // choisie AU MENU déclarait `quietBoot`, on réinitialisait le syslog, et le
+    // journal de boot sortait quand même. `Syslog.init()` prend déjà cette
+    // précaution (`removeAllListeners("onLog")`) ; ici elle manquait.
+    syslog?.removeAllListeners("onLog");
     return syslog?.listenWithConditions(conditions, (pdu: Pdu) => {
       // En dev mono-process le pid pollue chaque ligne sans valeur ajoutée
       // (process unique, déjà connu via `ps`). En prod cluster il distingue
@@ -908,7 +964,7 @@ class CliKernel extends Cli {
    */
   override async terminate(code: number = 0, quiet?: boolean): Promise<void> {
     if (this.kernel) {
-      await this.kernel.terminate(code);
+      await this.kernel.terminate(code, quiet);
       return;
     }
     return Promise.resolve(super.terminate(code, quiet));

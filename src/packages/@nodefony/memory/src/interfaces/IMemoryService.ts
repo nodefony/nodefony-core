@@ -1,36 +1,46 @@
 // @nodefony/memory — src/interfaces/IMemoryService.ts
 
 export interface IMemoryEntry {
-  id:        string;
-  agentId:   string;
+  id: string;
+  agentId: string;
   sessionId: string;
-  role:      "user" | "assistant" | "system";
-  content:   string;
+  role: "user" | "assistant" | "system";
+  content: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
 }
 
 export interface IMemoryStats {
-  totalEntries:  number;
+  totalEntries: number;
   totalSessions: number;
-  totalAgents:   number;
+  totalAgents: number;
 }
 
 export interface IMemoryService {
   /**
    * Mémorise une entrée (court terme = session courante).
    */
-  remember(entry: Omit<IMemoryEntry, "id" | "timestamp">): Promise<IMemoryEntry>;
+  remember(
+    entry: Omit<IMemoryEntry, "id" | "timestamp">,
+  ): Promise<IMemoryEntry>;
 
   /**
    * Récupère les entrées récentes d'une session (court terme).
    */
-  recall(agentId: string, sessionId: string, limit?: number): Promise<IMemoryEntry[]>;
+  recall(
+    agentId: string,
+    sessionId: string,
+    limit?: number,
+  ): Promise<IMemoryEntry[]>;
 
   /**
    * Recherche sémantique dans la mémoire long terme.
    */
-  search(agentId: string, query: string, limit?: number): Promise<IMemoryEntry[]>;
+  search(
+    agentId: string,
+    query: string,
+    limit?: number,
+  ): Promise<IMemoryEntry[]>;
 
   /**
    * Promeut une session de la mémoire court terme vers long terme.

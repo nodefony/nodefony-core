@@ -13,7 +13,7 @@
  */
 
 /** Nature d'une question — décide du contrôle rendu. */
-export type ScaffoldQuestionType = "string" | "boolean" | "choice";
+export type ScaffoldQuestionType = "string" | "boolean" | "choice" | "list";
 
 /** Un choix d'une question `choice` (le premier n'est PAS forcément le défaut). */
 export interface IScaffoldChoice {
@@ -28,7 +28,8 @@ export interface IScaffoldQuestion {
   label: string;
   type: ScaffoldQuestionType;
   choices?: IScaffoldChoice[];
-  default: string | boolean;
+  /** `string[]` : défaut d'une question `list` — vide = rien de coché. */
+  default: string | boolean | string[];
   /** Source d'une regex (sans flags) que la valeur doit satisfaire. */
   pattern?: string;
   /** Message affiché quand `pattern` n'est pas satisfait. */
@@ -175,7 +176,12 @@ export interface ICreateSpecOff {
 export type CreateSpec = ICreateSpecOk | ICreateSpecOff;
 
 /** Réponses du formulaire (clé de question → valeur). */
-export type TAnswers = Record<string, string | boolean>;
+/**
+ * Réponses du formulaire. `string[]` sert les questions `list` — chaque valeur
+ * reste ENTIÈRE : deux valeurs concaténées seraient indiscernables d'une seule
+ * (même raison que côté moteur).
+ */
+export type TAnswers = Record<string, string | boolean | string[]>;
 
 /** Réponse de l'action `nodefony:scaffold:cancel`. */
 export interface IScaffoldCancelResult {
@@ -374,7 +380,7 @@ function compilePattern(source: string): RegExp | null {
  */
 export function validateAnswer(
   q: IScaffoldQuestion,
-  value: string | boolean | undefined,
+  value: string | boolean | string[] | undefined,
 ): string | null {
   if (q.type !== "string" || !q.pattern) return null;
   const text = typeof value === "string" ? value : "";
@@ -498,9 +504,18 @@ export const STREAM_COLORS: Readonly<Record<ScaffoldStream, string>> = {
 /** Valeur d'une réponse, telle qu'on la RÉCAPITULE avant de lancer (jamais une valeur brute nue). */
 export function formatAnswer(
   q: IScaffoldQuestion,
-  value: string | boolean | undefined,
+  value: string | boolean | string[] | undefined,
 ): string {
   if (q.type === "boolean") return value === true ? "oui" : "non";
+  if (q.type === "list") {
+    // Le récap dit ce qui SERA fait : une liste vide n'est pas « le défaut »,
+    // c'est un choix — « aucun » — et il doit se lire comme tel.
+    const valeurs = Array.isArray(value) ? value : [];
+    if (valeurs.length === 0) return "aucun";
+    return valeurs
+      .map((v) => q.choices?.find((c) => c.value === v)?.label ?? v)
+      .join(", ");
+  }
   const text = typeof value === "string" ? value : "";
   if (text === "") return "— (défaut)";
   if (q.type === "choice") {

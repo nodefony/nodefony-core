@@ -22,6 +22,7 @@ import {
   formatForeignRuntimes,
   type PortState,
 } from "./devProcess";
+import { extractSkippedModules, waitBootVerdict } from "./bootVerdict";
 
 /**
  * Lancement DÉTACHÉ d'un runtime Nodefony (`nodefony development --detach`) —
@@ -55,6 +56,11 @@ export interface DetachedStartOptions {
   ports?: number[];
   /** Path d'un GET de santé post-listen (best-effort, jamais bloquant). */
   healthPath?: string;
+  /**
+   * Déclarer prêt un runtime dont le boot est DÉGRADÉ (cf `ParsedDetachArgs`).
+   * Défaut `false` : un module déclaré et non chargé est un échec de readiness.
+   */
+  allowDegraded?: boolean;
   /** Callback de progression (une ligne ~toutes les 5 s). */
   onProgress?: (msg: string) => void;
   /** Variables d'env additionnelles pour le child. */
@@ -80,6 +86,13 @@ export interface DetachedStartResult {
    * tombe sur le serveur du voisin, qui lui répond très bien — mais autre chose.
    */
   desiredPorts?: number[];
+  /**
+   * Modules que le boot a IGNORÉS (`nom — motif`), lus dans le journal du runtime.
+   * Renseigné quand la readiness est refusée pour boot dégradé : sans ces noms, le
+   * refus serait un « dégradé » sans coupable, aussi muet que le silence qu'il
+   * remplace.
+   */
+  modulesSkipped?: string[];
   /** Cause de l'échec (`ok: false`) — diagnostic humain. */
   reason?: string;
   /** Dernières lignes du log (strip ANSI) pour le diagnostic d'échec. */
@@ -92,12 +105,22 @@ export interface ParsedDetachArgs {
   waitSec: number;
   healthPath?: string;
   logFile?: string;
+  /**
+   * Accepter un boot DÉGRADÉ (un module du manifeste ignoré) comme « prêt ».
+   *
+   * Le défaut est NON, et c'est le contrat même de la readiness : une application
+   * amputée d'un module qu'elle DÉCLARE ne peut pas servir ce qu'on lui demandera,
+   * et un orchestrateur ne doit pas lui envoyer de trafic. Le drapeau existe pour
+   * qui l'assume — un module optionnel absent d'un décor donné — mais la décision
+   * s'écrit alors, elle ne se subit plus en silence.
+   */
+  allowDegraded: boolean;
   /** argv à relayer au child (flags détacheur STRIPPÉS — anti-récursion). */
   relayArgs: string[];
 }
 
 /** Marqueur env anti-récursion : posé sur le child pour couper tout re-détachement. */
-export const DETACH_CHILD_ENV = "NODEFONY_DETACH_CHILD";
+export const DETACH_CHILD_ENV = "NF_DETACH_CHILD";
 
 /**
  * Environnement du child détaché — hérité du parent, MOINS ce qui ne se
@@ -137,11 +160,47 @@ export function childEnv(
   return env;
 }
 
+/**
+ * Drapeaux `node` qui TIENNENT un port — les seuls à ne pas suivre le child.
+ *
+ * Tout le reste de `process.execArgv` doit le suivre : `--expose-gc`,
+ * `--max-old-space-size`, `--import`, `--loader`… Un runtime lancé
+ * `node --expose-gc bin/nodefony production --detach` obtenait sinon un serveur SANS
+ * ce drapeau, et toute sonde mémoire y devenait un no-op parfaitement muet — le
+ * banc mesurait alors le déchet en attente de collecte au lieu du heap retenu.
+ *
+ * L'inspection fait exception parce que le parent est encore VIVANT pendant que
+ * l'enfant démarre (il attend sa readiness) : hériter le même port d'inspection tue
+ * l'enfant sur une adresse déjà prise, et le diagnostic ne parle jamais de débogueur.
+ */
+const PORT_HOLDING_FLAGS = /^--(inspect|debug)(-brk|-port|-publish-uid)?(=|$)/u;
+
+/**
+ * Drapeaux `node` à transmettre au runtime détaché.
+ *
+ * Fonction PURE — c'est ce qui permet de l'éprouver sans lancer de process.
+ *
+ * @param parentExecArgv - `process.execArgv` du lanceur.
+ * @returns les drapeaux à replacer devant le binaire du child.
+ */
+export function childExecArgv(parentExecArgv: string[]): string[] {
+  return parentExecArgv.filter((a) => !PORT_HOLDING_FLAGS.test(a));
+}
+
 /** Fenêtre de tick de la boucle d'attente (ms). */
 const TICK_MS = 500;
 
 /** Nombre de lignes de log remontées au diagnostic d'échec. */
 const TAIL_LINES = 10;
+
+/**
+ * Fenêtre laissée au verdict de boot pour se STABILISER (ms).
+ *
+ * Les ports TCP acceptent avant que les modules soient debout : sonder trop tôt
+ * rendrait « dégradé » sur une application saine, c'est-à-dire une alarme qu'on
+ * apprend à ignorer.
+ */
+const DEGRADED_SETTLE_MS = 3000;
 
 /**
  * Parse les flags du détacheur depuis argv (après node + bin) et STRIP ces flags
@@ -156,10 +215,13 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
   let waitSec = 120;
   let healthPath: string | undefined;
   let logFile: string | undefined;
+  let allowDegraded = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--detach") {
       detach = true;
+    } else if (a === "--allow-degraded") {
+      allowDegraded = true;
     } else if (a === "--wait" || a.startsWith("--wait=")) {
       const v = a.includes("=") ? a.split("=")[1] : args[++i];
       const n = Number.parseInt(v ?? "", 10);
@@ -172,12 +234,21 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
       relayArgs.push(a);
     }
   }
-  return { detach, waitSec, healthPath, logFile, relayArgs };
+  return { detach, waitSec, healthPath, logFile, allowDegraded, relayArgs };
 }
 
 /** `true` si l'invocation demande un lancement détaché (et n'est PAS déjà le child). */
 export function isDetachRequested(args: string[]): boolean {
   return args.includes("--detach") && process.env[DETACH_CHILD_ENV] !== "1";
+}
+
+/** Contenu brut du journal, ou chaîne vide s'il est illisible. */
+function readLog(logFile: string): string {
+  try {
+    return readFileSync(logFile, "utf8");
+  } catch {
+    return "";
+  }
 }
 
 /** Dernières lignes non vides d'un fichier de log, ANSI strippé (diagnostic). */
@@ -401,6 +472,46 @@ export async function launchDetached(
       const health = opts.healthPath
         ? await probeHealth(watched, opts.healthPath)
         : undefined;
+      // Des ports qui écoutent ne disent pas que l'application est ENTIÈRE. Un
+      // module du manifeste qui n'a pas chargé est écarté en fail-soft — ce qui
+      // est juste, sans quoi un module en masquerait N — mais le boot poursuit,
+      // les serveurs montent, et TOUTES les routes de ce module rendent 404. Rien
+      // ne le disait ici : le mode détaché est précisément celui qui n'a pas de
+      // superviseur pour le journaliser, et c'est celui que sert la production.
+      //
+      // Le verdict vient du runtime lui-même (`livez`), et il n'est jamais déduit :
+      // muet ou pas encore stabilisé, il ne conclut pas — une sonde qui ne répond
+      // pas ne doit ni bloquer un démarrage, ni le certifier.
+      const degraded = opts.allowDegraded
+        ? null
+        : await waitBootVerdict(watched[0], DEGRADED_SETTLE_MS);
+      if (degraded === true) {
+        const skipped = extractSkippedModules(readLog(logFile));
+        // Pas de runtime à moitié debout laissé derrière : l'appelant a reçu un
+        // échec, il n'appellera pas l'arrêt. Même geste que le plafond dépassé.
+        if (child.pid) {
+          try {
+            signalProcessGroup(child.pid, "SIGKILL");
+          } catch {
+            /* déjà mort */
+          }
+        }
+        return {
+          ok: false,
+          pid: child.pid ?? null,
+          exitCode: SysExit.UNAVAILABLE,
+          ports: states,
+          logFile,
+          modulesSkipped: skipped,
+          reason:
+            "boot DÉGRADÉ — l'application a démarré SANS " +
+            (skipped.length > 0
+              ? `${skipped.length} module(s) de son manifeste : ${skipped.join(" · ")}`
+              : "au moins un module de son manifeste") +
+            ". Leurs routes répondront 404. Corrige, ou assume avec --allow-degraded.",
+          logTail: tailLog(logFile),
+        };
+      }
       // Le runtime a-t-il dû GLISSER ? (`portPolicy: "auto"` sur des ports pris.)
       // Un glissement tu envoie le client sur le port de sa config — donc chez le
       // voisin, qui répond 404 à tout : le décalage doit être DIT, pas déduit.
@@ -473,11 +584,16 @@ export async function runDetachedStart(argv: string[]): Promise<number> {
   say(`SPAWN nodefony ${parsed.relayArgs.join(" ")} (detached)`);
   const result = await launchDetached({
     spawnCmd: process.execPath,
-    spawnArgs: [argv[1], ...parsed.relayArgs],
+    spawnArgs: [
+      ...childExecArgv(process.execArgv),
+      argv[1],
+      ...parsed.relayArgs,
+    ],
     cwd,
     logFile,
     waitSec: parsed.waitSec,
     healthPath: parsed.healthPath,
+    allowDegraded: parsed.allowDegraded,
     onProgress: (m) => say(`... ${m}`),
   });
 

@@ -258,13 +258,73 @@ describe("authorizeProtectedResource — les six issues, sans serveur", () => {
 
   it("en-tête mal formé : 400 invalid_request (et non 401)", async () => {
     // RFC 6750 §3.1 : « The resource server SHOULD respond with the HTTP 400 ».
-    for (const bad of ["Basic dXNlcjpw", "Bearer", "Bearer   ", "Bearerabc"]) {
+    // Un AUTRE schéma, ou un schéma collé à sa valeur : le client croit
+    // s'authentifier et ne le fait pas — le lui dire est le service à rendre.
+    for (const bad of ["Basic dXNlcjpw", "Bearerabc"]) {
       const r = await authorizeProtectedResource(bad, policy, accept);
       expect(r.outcome, bad).to.equal("challenge");
       if (r.outcome !== "challenge") return;
       expect(r.status, bad).to.equal(400);
       expect(r.wwwAuthenticate, bad).to.contain('error="invalid_request"');
     }
+  });
+
+  it("🔴 `Bearer` SANS jeton ne vaut pas mieux ni pire qu'aucun en-tête", async () => {
+    // Le cas COURANT, et celui qui a coûté la capacité : un client dont la
+    // variable d'environnement n'est pas substituée envoie `Authorization:
+    // Bearer `. Il n'affirme RIEN — RFC 6750 §3, « the request lacks any
+    // authentication information » : ni code d'erreur, ni 400. La porte lui
+    // doit exactement ce qu'elle doit à un client muet, sans quoi elle punit
+    // plus sévèrement celui qui n'a rien à dire que celui qui se tait.
+    for (const vide of ["Bearer", "Bearer ", "Bearer   ", "bearer\t"]) {
+      const ferme = await authorizeProtectedResource(vide, policy, accept);
+      expect(ferme.outcome, vide).to.equal("challenge");
+      if (ferme.outcome !== "challenge") return;
+      expect(ferme.status, vide).to.equal(401);
+      // Aucun code d'erreur : il n'y a rien à juger.
+      expect(ferme.wwwAuthenticate, vide).to.not.contain("error=");
+
+      // Et porte ouverte, il est servi comme l'anonyme qu'il est — c'est CE
+      // chemin qui rendait un agent sans outils alors que la porte en publie.
+      const ouverte = await authorizeProtectedResource(
+        vide,
+        { ...policy, allowAnonymous: true },
+        accept,
+      );
+      expect(ouverte.outcome, vide).to.equal("anonymous");
+    }
+  });
+
+  it("🔴 porte TOLÉRANTE : un jeton rejeté est servi en anonyme, et le rejet se DIT", async () => {
+    // Le paradoxe que ce cas ferme : sans en-tête, le client obtenait les
+    // outils publics ; avec un jeton EXPIRÉ, il obtenait `401` et plus rien —
+    // un client MCP marque alors le serveur « failed » pour toute la session.
+    // Présenter mal ne peut pas valoir moins que ne rien présenter.
+    const r = await authorizeProtectedResource(
+      "Bearer perime",
+      { ...policy, allowAnonymous: true },
+      accept,
+    );
+    expect(r.outcome).to.equal("anonymous");
+    // …et le rejet n'est pas tu : la porte a de quoi le journaliser. Sans ce
+    // drapeau, un jeton périmé serait indistinguable d'une requête muette.
+    if (r.outcome !== "anonymous") return;
+    expect(r.rejected).to.equal(true);
+    // Aucun privilège accordé au passage : c'est un anonyme, pas un porteur.
+    const muet = await authorizeProtectedResource(
+      undefined,
+      { ...policy, allowAnonymous: true },
+      accept,
+    );
+    expect(muet.outcome).to.equal("anonymous");
+    expect((muet as { rejected?: true }).rejected).to.equal(undefined);
+  });
+
+  it("porte FERMÉE : un jeton rejeté reste un 401 — c'est là que le drapeau compte", async () => {
+    const r = await authorizeProtectedResource("Bearer perime", policy, accept);
+    expect(r.outcome).to.equal("challenge");
+    if (r.outcome !== "challenge") return;
+    expect(r.status).to.equal(401);
   });
 
   it("jeton refusé : 401 invalid_token, sans dire POURQUOI", async () => {
@@ -320,5 +380,90 @@ describe("missingScopes — TOUS, jamais « au moins un »", () => {
     expect(missingScopes(["lecture"], ["lecture", "ecriture"])).to.deep.equal([
       "ecriture",
     ]);
+  });
+});
+
+/**
+ * Ce que cette suite prouve : qu'une ressource peut avoir PLUSIEURS adresses
+ * sans que la liaison d'audience cesse de mordre, et qu'une PANNE de
+ * vérification ne se confond ni avec un refus, ni avec une erreur du client.
+ */
+describe("authorizeProtectedResource — plusieurs adresses, et la panne", () => {
+  const base: IProtectedResourcePolicy = {
+    resource: "http://app.example:5151/nodefony/mcp",
+    metadataUrl:
+      "http://app.example:5151/.well-known/oauth-protected-resource/nodefony/mcp",
+    allowAnonymous: false,
+  };
+
+  /** Un vérificateur qui n'accepte QU'UNE audience — comme un vrai. */
+  const lie =
+    (audienceAttendue: string, vues: string[]): IAccessTokenVerifier =>
+    async (_token, audience) => {
+      vues.push(audience);
+      return audience === audienceAttendue
+        ? { issuer: "https://idp.example", subject: "agent", scopes: [] }
+        : null;
+    };
+
+  it("accepte un jeton émis pour une AUTRE adresse de la même ressource", async () => {
+    const vues: string[] = [];
+    const r = await authorizeProtectedResource(
+      "Bearer jeton",
+      { ...base, acceptedResources: ["https://app.example:5152/nodefony/mcp"] },
+      lie("https://app.example:5152/nodefony/mcp", vues),
+    );
+    expect(r.outcome).to.equal("authenticated");
+    // L'adresse PUBLIÉE est essayée en premier — c'est celle qu'un client
+    // conforme aura suivie ; la seconde n'est un repli que parce qu'elle est
+    // ÉCRITE dans la configuration.
+    expect(vues).to.deep.equal([
+      "http://app.example:5151/nodefony/mcp",
+      "https://app.example:5152/nodefony/mcp",
+    ]);
+  });
+
+  it("🔴 refuse une audience qui n'est PAS déclarée — la liaison mord toujours", async () => {
+    // Sens du test : élargir la liste ne doit pas la supprimer. Un jeton émis
+    // pour un autre service reste un jeton pour un autre service.
+    const vues: string[] = [];
+    const r = await authorizeProtectedResource(
+      "Bearer jeton",
+      { ...base, acceptedResources: ["https://app.example:5152/nodefony/mcp"] },
+      lie("https://api.etranger.example/v1", vues),
+    );
+    expect(r.outcome).to.equal("challenge");
+    if (r.outcome !== "challenge") return;
+    expect(r.status).to.equal(401);
+    // Rien n'a été essayé hors de la liste ÉCRITE.
+    expect(vues).to.not.contain("https://api.etranger.example/v1");
+  });
+
+  it("sans autres adresses déclarées, une seule audience est essayée", async () => {
+    const vues: string[] = [];
+    await authorizeProtectedResource("Bearer jeton", base, lie("aucune", vues));
+    expect(vues).to.deep.equal(["http://app.example:5151/nodefony/mcp"]);
+  });
+
+  it("🔴 un vérificateur qui LÈVE rend `unverifiable`, jamais une exception", async () => {
+    // Sens du test : sans ce rattrapage, l'exception traversait la porte et
+    // sortait en 500 avec sa trace d'appels — le porteur d'un jeton valide
+    // lisait une pile Node, et l'exploitant cherchait la faute dans le jeton.
+    const panne: IAccessTokenVerifier = async () => {
+      throw new Error("émetteur injoignable — SELF_SIGNED_CERT_IN_CHAIN");
+    };
+    const r = await authorizeProtectedResource("Bearer jeton", base, panne);
+    expect(r.outcome).to.equal("unverifiable");
+    if (r.outcome !== "unverifiable") return;
+    // La cause est portée POUR LE JOURNAL — le client, lui, reçoit un refus nu.
+    expect(r.why).to.contain("SELF_SIGNED_CERT_IN_CHAIN");
+  });
+
+  it("distingue la panne de l'ABSENCE de vérificateur", async () => {
+    const r = await authorizeProtectedResource("Bearer jeton", base, undefined);
+    expect(r.outcome).to.equal("unverifiable");
+    if (r.outcome !== "unverifiable") return;
+    // Rien n'a échoué : rien n'était posé. Le journal doit pouvoir le dire.
+    expect(r.why).to.equal(undefined);
   });
 });

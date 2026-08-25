@@ -1,0 +1,301 @@
+# Banc de vérité du CODE GÉNÉRÉ — sur les trois systèmes.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# POURQUOI CE WORKFLOW EXISTE
+#
+# Tous les autres jobs de cette forge éprouvent le code du DÉPÔT. Aucun
+# n'éprouve ce que le dépôt PRODUIT. Les assertions du dépôt sur le scaffold
+# lisent des chaînes dans des fichiers rendus : elles ne peuvent pas voir qu'un
+# type généré ne compile pas, qu'un échantillon viole son propre schéma Zod,
+# qu'une relation déclarée fait lever l'ORM au démarrage, ou qu'une dépendance
+# manque au `package.json` produit. Ces quatre pannes ont existé, et toutes sont
+# passées entre les mailles d'une passe verte.
+#
+# Le protocole qui les a trouvées est écrit (`verify-generated.mjs`, 16 étapes :
+# décor isolé → service + commande → 5 entités → module → compilation → lint →
+# build → commande exécutée → tests → HTTP réel → production → inspection →
+# jeton MCP). Il tournait à la main, sur UN poste, sous macOS. Ce fichier est ce
+# qui le fait tourner tout seul, et surtout AILLEURS.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# CE QU'IL ÉPROUVE QUE `node.js.yml` NE PEUT PAS VOIR
+#
+#  · Le décor est ISOLÉ : l'application témoin naît hors du dépôt et installe
+#    les paquets depuis les TARBALLS, dépaquetés. Les deux gestes sont
+#    nécessaires — la distance seule ne suffit pas, la résolution de modules de
+#    Node remonte et l'application trouve alors des paquets qu'elle ne déclare
+#    pas. C'est exactement l'angle mort qui a laissé une application générée
+#    mourir au déploiement sur `Cannot find package '@node-rs/argon2'`, pendant
+#    que l'étape « production » restait verte avec ET sans la dépendance.
+#  · Le mode PRODUCTION de l'application générée — celui où un gating
+#    `policy: "dev"` fait disparaître une brique sans un mot.
+#  · WINDOWS, qui est un impératif produit et non une compatibilité de bonne
+#    volonté. Il ne mordra pas sur les fichiers, il mordra sur les SERVEURS :
+#    pas de groupes de processus, donc `--detach` puis `stop` sont le vrai
+#    sujet de ce job, pas la compilation.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# CE QUI RESTE VOLONTAIREMENT DEHORS — à lire avant de conclure « couvert »
+#
+#  · `--frontend` : l'application témoin naît `--frontend none`. Toute la
+#    famille « le front généré se bâtit-il » n'est éprouvée nulle part ici.
+#  · Les DIALECTES autres que SQLite : le banc génère bien des entités
+#    PostgreSQL — c'est indispensable, une clé `uuid` et une colonne texte sont
+#    le MÊME type en SQLite — mais il les génère `--no-tests` et vérifie
+#    qu'elles QUITTENT le câblage. Aucune base n'est jointe. Corollaire utile :
+#    ce job n'a besoin d'aucun service, donc l'absence de Docker sur les
+#    runners macOS ne lui coûte rien.
+#  · Le banc de DÉCOUVRABILITÉ (`bench-discoverability.mjs`), qui lance de vrais
+#    agents et coûte de l'argent : il n'a rien à faire dans une passe
+#    automatique. Seuls ses auto-contrôles tournent, dans `node.js.yml`.
+#
+# Protocole, interprétation des échecs et pièges : skill `nodefony-devkit-bench`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Code généré (3 systèmes)
+
+on:
+  push:
+    branches: ["main", "claude-ts"]
+    paths-ignore: &prose
+      # Même filtre que `node.js.yml`, et pour la même raison : ce job est cher
+      # (une installation npm RÉELLE par système), il n'a rien à dire sur de la
+      # prose. La liste reste CIBLÉE et surtout pas `**/*.md` — les gabarits
+      # rendent des `.md` (`AGENTS.md`, `README.md`), dont une étape compile le
+      # code cité. Le filtre évident éteindrait ce gate sans le signaler.
+      - "docs/**"
+      - "MIGRATION_STATUS.md"
+  pull_request:
+    branches: ["main", "claude-ts"]
+    paths-ignore: *prose
+  workflow_dispatch:
+
+# Pas de filtre par chemin plus fin, et c'est délibéré. La tentation est de ne
+# lancer ce banc que sur `src/nodefony/templates/**` — mais ce que le scaffold
+# produit dépend de TOUT le framework : un changement dans le pipeline HTTP, un
+# service qui cesse d'être enregistré, un export retiré d'un index public
+# suffisent à rendre le code généré non compilable sans qu'aucun gabarit ait
+# bougé. Un gate qui ne se déclenche que sur ses propres fichiers ne garde que
+# ses propres fichiers.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Lecture seule : ce job ne publie ni ne commente rien. Le dépôt est public, une
+# dépendance compromise pendant `npm ci` hériterait sinon d'un jeton en écriture.
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  CI: true
+  FORCE_COLOR: 1
+  # Même atténuation que `node.js.yml` : turbo lance dix tâches de front sur des
+  # runners à quatre cœurs, et sous Windows ces démarrages simultanés de binaires
+  # natifs (rolldown en Rust, tsgo en Go) ont fait tomber des jobs entiers avec
+  # 3221225794 (STATUS_DLL_INIT_FAILED) — le processus ne démarre pas, il
+  # n'échoue pas à compiler. Ce job appelle `npm run build`, il est donc exposé
+  # au même défaut.
+  TURBO_CONCURRENCY: 4
+
+jobs:
+  generated:
+    name: Code généré (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Chaque système dit sa propre vérité, et c'est même la raison d'être du
+      # job : s'arrêter au premier rouge coûterait un second run pour apprendre
+      # si le défaut est celui d'une plateforme ou de tout le monde.
+      fail-fast: false
+      matrix:
+        include:
+          # Le PLANCHER partout — `engines: >=24`, et c'est la version que pose
+          # la CI générée pour l'application de l'utilisateur (`ci.yml.tpl`) :
+          # on éprouve la version la plus ancienne qu'on prétend servir, sur les
+          # trois systèmes.
+          - os: ubuntu-latest
+            node-version: "24.x"
+          - os: macos-latest
+            node-version: "24.x"
+          - os: windows-latest
+            node-version: "24.x"
+          # Une seule variante HAUTE, et sur le système le moins cher. La
+          # dimension que ce job croise est la PLATEFORME ; la version de Node
+          # est déjà croisée six fois par `node.js.yml` sur le code du dépôt.
+          # Cette variante-ci garde ce que l'autre ne peut pas voir : une
+          # rupture par le haut (API retirée) dans le code GÉNÉRÉ.
+          - os: ubuntu-latest
+            node-version: "26.x"
+    # Généreux et borné. MESURÉ sur un poste macOS : le banc entier, décor isolé
+    # compris (création de l'application, pack des tarballs, installation
+    # vierge), tient en **107 s** pour ses 16 étapes — dont 49 s pour le seul
+    # décor. Le reste du plafond est pour `npm ci` et le build du dépôt, plus
+    # lents sur un runner, et surtout sous Windows. Un banc qui pend est un banc
+    # qu'on annule à la main, donc qu'on cesse de lancer.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Show environment
+        shell: bash
+        run: |
+          node --version
+          npm --version
+          node -e "console.log('tmpdir', require('node:os').tmpdir())"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Prérequis EXPLICITE du banc, et le plus coûteux à rater : les tarballs
+      # sont fabriqués depuis `dist/`. Sans build, le banc éprouverait un
+      # artefact périmé et rendrait un vert sans valeur.
+      - name: Build workspaces (turbo)
+        run: npm run build
+
+      # Le graphe symbolique est GÉNÉRÉ, et `src/nodefony/.ai/` est IGNORÉ par
+      # git : il existe sur le poste qui vient de commiter — le hook pre-commit
+      # le régénère — et JAMAIS sur un checkout frais. `pack-all.mjs` refuse
+      # alors de packer le paquet `nodefony`, dont le `files` déclare `.ai`,
+      # et le banc tombe sur son DÉCOR sans avoir rien mesuré : un rouge dont la
+      # cause est un fichier absent, pas un défaut du produit.
+      #
+      # Constaté au premier run de ce workflow, à l'identique sur les quatre
+      # variantes — c'est le piège « un fichier gitignoré ne tient que chez
+      # toi », et il ne pouvait se voir que sur une machine qui n'est pas la
+      # mienne. Sept secondes.
+      - name: Générer le graphe symbolique (absent d'un checkout frais)
+        run: npm run generate-symbols
+
+      # Le banc, en décor ISOLÉ (pas de `--link` : le mode lié laisse la
+      # résolution de modules remonter au monorepo et rend invisible toute la
+      # famille « dépendance manquante du gabarit »).
+      #
+      # ⚠️ Le `tee` n'est pas décoratif, et le `pipefail` non plus : sans lui,
+      # le code de sortie d'un pipeline est celui du DERNIER maillon — `tee`
+      # réussit toujours, et le job serait vert quel que soit le verdict du
+      # banc. GitHub lance `shell: bash` avec `-eo pipefail`, ce qui suffit ;
+      # on le repose ici pour que la ligne dise sa propre garantie, plutôt que
+      # de la faire dépendre d'un défaut d'implémentation du lanceur.
+      - name: Banc de vérité — le code généré tient-il debout ?
+        shell: bash
+        run: |
+          set -eo pipefail
+          node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep 2>&1 \
+            | tee verify-generated.log
+
+      # Le second banc, sur le décor que le premier vient de laisser (`--keep`).
+      #
+      # Pourquoi deux bancs et pas un : ils répondent à deux questions qu'on
+      # confond facilement. Le premier demande « ce qui a été PRODUIT tient-il
+      # debout ? » — compilation, lint, build, tests, une route qui répond. Le
+      # second demande « ce qui a été CÂBLÉ tient-il les promesses du
+      # framework ? » — et c'est une autre affaire : une application peut
+      # compiler parfaitement, démarrer sans un mot, et servir une liste dont le
+      # client dicte la borne, une suppression que personne n'a besoin
+      # d'autoriser, un controller déclaré dont aucune route n'est montée.
+      #
+      # Trois étages joués SÉPARÉMENT, pour que le rouge se nomme : unitaire
+      # (aucun décor), intégration (l'application boote en entier, zéro port
+      # ouvert), e2e (serveur réel en production, HTTP et WebSocket).
+      #
+      # Les suites vivent dans le skill et sont INJECTÉES dans l'application
+      # témoin — elles ne sont jamais livrées à l'utilisateur : « ma commande
+      # porte-t-elle son namespace ? » est une question du générateur, pas de
+      # l'application.
+      - name: Banc de conformité — l'application tient-elle ses promesses ?
+        shell: bash
+        run: |
+          set -eo pipefail
+          node .claude/skills/nodefony-devkit-bench/scripts/verify-runtime.mjs 2>&1 \
+            | tee verify-runtime.log
+
+      # Le décor est jetable, son rapport ne l'est pas. Il vit sous
+      # `os.tmpdir()`, qui n'est ni `/tmp` ni `${{ runner.temp }}` selon le
+      # système — on le fait donc DIRE par Node plutôt que de le deviner. Le
+      # décor lui-même (~300 Mo) n'est pas remonté : le rapport et le journal
+      # suffisent à savoir QUELLE étape est tombée et sur quoi.
+      - name: Récupérer le rapport du banc (si échec)
+        if: failure()
+        shell: bash
+        run: |
+          node -e "
+          const os = require('node:os');
+          const path = require('node:path');
+          const fs = require('node:fs');
+          const base = path.join(os.tmpdir(), 'nodefony-devkit-verify');
+          for (const [nom, cible] of [
+            ['report.json', 'verify-report.json'],
+            ['conformite.json', 'verify-conformite.json'],
+            // La sortie ENTIERE de la commande qui a echoue : le rapport n'en
+            // garde que la fin, et la cause n'y est pas toujours.
+            ['echec.log', 'echec-commande.log'],
+          ]) {
+            const src = path.join(base, nom);
+            if (fs.existsSync(src)) {
+              fs.copyFileSync(src, cible);
+              console.log('rapport copie depuis ' + src);
+            } else {
+              console.log('aucun ' + nom + ' a ' + base + ' — le banc est tombe avant de l ecrire');
+            }
+          }
+          // Le journal du serveur DÉTACHÉ de l'application témoin. Sans lui, un
+          // module du manifeste qui ne charge pas est parfaitement muet : le
+          // Kernel le journalise en WARNING et poursuit (fail-soft), le serveur
+          // monte, et ses routes rendent 404 sans que rien ne nomme la cause.
+          // C'est exactement ce qui s'est produit sous Windows.
+          const app = path.join(base, 'app');
+          const journal = path.join(app, 'tmp', 'nodefony-detached.log');
+          if (fs.existsSync(journal)) {
+            fs.copyFileSync(journal, 'app-detached.log');
+            console.log('journal du serveur copie depuis ' + journal);
+          } else {
+            console.log('aucun journal de serveur a ' + journal);
+          }
+          // Ce que le journal ne dit pas : ce que l'application a REELLEMENT
+          // sous la main. Un module absent du manifeste ne produit aucun
+          // avertissement — il n'a jamais ete demande.
+          const etat = [];
+          for (const rel of ['nodefony.config.ts', 'package.json']) {
+            const f = path.join(app, rel);
+            etat.push('--- ' + rel + (fs.existsSync(f) ? '' : ' (ABSENT)'));
+            if (fs.existsSync(f)) etat.push(fs.readFileSync(f, 'utf8'));
+          }
+          const mods = path.join(app, 'modules');
+          etat.push('--- modules/');
+          if (fs.existsSync(mods)) {
+            for (const m of fs.readdirSync(mods)) {
+              const dist = path.join(mods, m, 'dist', 'index.js');
+              etat.push('  ' + m + ' dist/index.js: ' + (fs.existsSync(dist) ? 'PRESENT' : 'ABSENT'));
+            }
+          } else {
+            etat.push('  (aucun dossier modules/)');
+          }
+          fs.writeFileSync('app-etat.txt', etat.join('\n'));
+          console.log('etat de l application ecrit dans app-etat.txt');
+          "
+
+      - name: Journal et rapport du banc (si échec)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: code-genere-${{ matrix.os }}-node${{ matrix.node-version }}
+          path: |
+            verify-generated.log
+            verify-runtime.log
+            verify-report.json
+            verify-conformite.json
+            app-detached.log
+            app-etat.txt
+            echec-commande.log
+          retention-days: 7
+          if-no-files-found: ignore

@@ -149,15 +149,15 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
 - **Mesure = event-loop latency + p99 sous charge** (supervision `eventLoopMs` + skill `nodefony-load-test`),
   **PAS** un microbench à seuil dans la suite.
 
-### Tests de PERF = isolés + opt-in (`RUN_PERF=1`)
+### Tests de PERF = isolés + opt-in (`NF_RUN_PERF=1`)
 
 - Un **microbench à seuil temporel** (`expect(elapsed).lessThan(Nms)`) ne mesure RIEN de fiable **dans la
   suite** : CPU non déterministe + event-loop chargé par les ~1300 tests précédents (machine chaude + GC)
   → faux échec (vécu : `extend 50k deep 536 ms` > 500 ms en suite, **162 ms isolé**).
 - Le perf-skip (porté dans `vitest.setup.ts`, mocha SUPPRIMÉ) skippe les perfs **par défaut** (titres
-  `… < Nms` ou describe `performance`) ; elles sont **OPT-IN** : `RUN_PERF=1 npm test` (+ toujours
+  `… < Nms` ou describe `performance`) ; elles sont **OPT-IN** : `NF_RUN_PERF=1 npm test` (+ toujours
   skippées en CI). → `npm test` est **déterministe** (0 faux failing). **Mesurer une perf = la lancer
-  ISOLÉE** (`RUN_PERF=1 npx vitest run src/tests/Tools.test.ts`), jamais sur la suite chaude. **Ne PAS
+  ISOLÉE** (`NF_RUN_PERF=1 npx vitest run src/tests/Tools.test.ts`), jamais sur la suite chaude. **Ne PAS
   desserrer un seuil** pour masquer la contamination — corriger l'environnement de mesure, pas le seuil.
 
 ### TypeScript / ESM
@@ -292,19 +292,19 @@ entre les deux voies → skill **`nodefony-inspect`**.
 > Partie B API publique + internals + gotchas du module (vérifiés sur le source). Mettre à jour = éditer
 > en place (pas de journal). Autosuffisant : tout est ici, même sans le source du core (cas projet consumer).
 
-| Ta tâche                                                                                                                                                                                            | Lis ce fichier                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Service injectable (DI `@inject`), Module+hooks, CLI, lazy/cleanup, ALS, config (`defineConfig`/`env`), interfaces, erreurs ; + API core (Kernel/Container/Event/Syslog/Finder)                     | `references/core.md`                                 |
-| Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy) | `references/http.md`                                 |
-| Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                     | `references/framework.md`                            |
-| Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                  | `references/orm.md`                                  |
-| **Rendre une LISTE** : contrat `IPageQuery`/`IPage`, `parsePageQuery`, `parseFilters`/`IFilterSpec`, `countFacets`/`IFacetSpec`, `pickOrder`, publier la capacité (`IAdminEndpoint.page`) — **le défaut est le REFUS**  | `references/pagination.md`                           |
-| Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                          | `references/realtime.md`                             |
-| Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `references/security.md`                             |
-| **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `references/rfc/` (index `references/rfc/README.md`) |
-| **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                   | `references/gotchas.md`                              |
-| **Conventions de STRUCTURE** : arborescence du dépôt, squelette d'un module, `package.json`/`exports`/`.d.ts`, `defineConfig`+`env.ts` de l'app, config d'un module en 2 fichiers                   | `references/conventions.md`                          |
-| **PORTABILITÉ 3 plateformes** : chemin qui voyage vs qu'on ouvre, `import()` = URL, arbres de process sans groupes (Windows), capacité constatée, éprouver Windows sans machine Windows             | `references/portabilite.md`                          |
+| Ta tâche                                                                                                                                                                                                               | Lis ce fichier                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Service injectable (DI `@inject`), Module+hooks, CLI, lazy/cleanup, ALS, config (`defineConfig`/`env`), interfaces, erreurs ; + API core (Kernel/Container/Event/Syslog/Finder)                                        | `references/core.md`                                 |
+| Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy)                    | `references/http.md`                                 |
+| Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                                        | `references/framework.md`                            |
+| Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                                     | `references/orm.md`                                  |
+| **Rendre une LISTE** : contrat `IPageQuery`/`IPage`, `parsePageQuery`, `parseFilters`/`IFilterSpec`, `countFacets`/`IFacetSpec`, `pickOrder`, publier la capacité (`IAdminEndpoint.page`) — **le défaut est le REFUS** | `references/pagination.md`                           |
+| Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                                             | `references/realtime.md`                             |
+| Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                                               | `references/security.md`                             |
+| **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                                             | `references/rfc/` (index `references/rfc/README.md`) |
+| **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                                      | `references/gotchas.md`                              |
+| **Conventions de STRUCTURE** : arborescence du dépôt, squelette d'un module, `package.json`/`exports`/`.d.ts`, `defineConfig`+`env.ts` de l'app, config d'un module en 2 fichiers                                      | `references/conventions.md`                          |
+| **PORTABILITÉ 3 plateformes** : chemin qui voyage vs qu'on ouvre, `import()` = URL, arbres de process sans groupes (Windows), capacité constatée, éprouver Windows sans machine Windows                                | `references/portabilite.md`                          |
 
 > Review/attaque sécurité d'un diff (red/blue-team, conformité) → skill **`nodefony-security-review`**.
 > RFC full-text rare (hors `references/rfc/`) → skill **`nodefony-rfc`** (raw GitHub + proxy r.jina.ai).
@@ -358,7 +358,7 @@ npm run generate-symbols
   **pre-commit** lint-staged (prettier-only) + pré-filtre symbols. eslint racine = `warn` (jamais
   bloquant au commit). Tout bypassable `--no-verify`.
 - **Tests perf à seuil temporel** : ne gatent PAS la CI (runners non déterministes) → opt-in
-  `RUN_PERF=1` (perf-skip porté dans `vitest.setup.ts`, mocha SUPPRIMÉ). Ne pas les « réparer », c'est voulu.
+  `NF_RUN_PERF=1` (perf-skip porté dans `vitest.setup.ts`, mocha SUPPRIMÉ). Ne pas les « réparer », c'est voulu.
 - `npm run build` (sans clean) ne recompile que les workspaces modifiés (cache turbo) → après
   pull/merge/changement d'`index.ts` public → `npm run clean && npm run build`.
 - Vérif dist à jour : `grep -E "^export\s*\{" src/packages/@nodefony/<mod>/dist/index.js | head -1`.

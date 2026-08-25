@@ -353,7 +353,7 @@ donc réservée, quoi qu'en dise son décorateur. À savoir avant de nommer une 
 
 Pour exiger un rôle sur tes propres actions, on déclare une règle de préfixe dans la
 configuration de sécurité — la même liste que pour les canaux
-(`realtimeChannels`, `security/nodefony/config/config.ts:968`) :
+(`realtimeChannels`, `security/nodefony/config/config.ts:1093`) :
 
 ```ts ignore
 use("@nodefony/security", {

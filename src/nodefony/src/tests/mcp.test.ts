@@ -6,6 +6,7 @@ import { handleMcpMessage } from "../mcp/server";
 import {
   builtinMcpTools,
   collectMcpTools,
+  mcpDeclaredScopes,
   callMcpTool,
   publishMcpTools,
   mcpText,
@@ -16,8 +17,24 @@ import {
   MCP_SUPPORTED_VERSIONS,
   MCP_DEFAULT_NEGOTIATED_VERSION,
 } from "../mcp/protocol";
-import type { IMcpTool } from "../types/IMcpTool";
+import type { IMcpCaller, IMcpTool } from "../types/IMcpTool";
 import type { IAdminApi } from "../types/IAdminApi";
+import { ADMIN_DEFAULT_ROLE } from "../kernel/adminPlane/adminRbac";
+import { ADMIN_SCOPE_READ } from "../kernel/adminPlane/adminCaller";
+import { buildProtectedResourceMetadata } from "../oauth/protectedResource";
+
+/**
+ * L'appelant qu'une porte NON protégée établit — rôle d'opérateur, ÉNONCÉ.
+ *
+ * Les bancs le passent explicitement : depuis que l'identité se présente au
+ * lieu d'être fabriquée au fond de la lecture, un handler appelé sans elle est
+ * refusé — et c'est le comportement voulu.
+ */
+const OPERATEUR: IMcpCaller = {
+  authenticated: false,
+  scopes: [],
+  roles: [ADMIN_DEFAULT_ROLE],
+};
 
 /**
  * Ce que cette suite prouve, et pourquoi elle ne passe par aucun serveur : tout
@@ -78,6 +95,9 @@ function context(
       onSkip: extra.onSkip,
     }),
     serverInfo: { name: "banc", version: "0.0.0" },
+    // La porte du banc est non protégée, comme celle du module de
+    // développement : elle établit un opérateur, et le DIT.
+    caller: OPERATEUR,
   };
 }
 
@@ -245,6 +265,89 @@ describe("MCP — le protocole", () => {
       "inputSchema",
       "name",
     ]);
+  });
+
+  // ─── Forme d'ÈRE des résultats — payée par une connexion réelle ───────────
+  // Le schéma 2026-07-28 est catégorique : « Servers implementing this
+  // protocol version MUST include this field » (`resultType`, schema.ts §Result),
+  // et `_meta` serverInfo est un SHOULD sur chaque réponse. Constaté sur le
+  // client officiel (claude-code 2.1.238) : un `tools/list` moderne SANS
+  // `resultType` est rejoué 4 fois puis écarté — serveur « connected », zéro
+  // outil enregistré. Un serveur moderne à résultats legacy est injoignable.
+  const META_MODERNE = {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+  };
+
+  it("🔴 un `tools/list` MODERNE porte `resultType` et l'identité du serveur", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 40,
+        method: "tools/list",
+        params: { _meta: META_MODERNE },
+      },
+      context(["card"]),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+    expect(
+      (result._meta as Record<string, unknown>)[
+        "io.modelcontextprotocol/serverInfo"
+      ],
+    ).toEqual({ name: "banc", version: "0.0.0" });
+  });
+
+  it("🔴 un `tools/call` MODERNE porte la même forme d'ère", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 41,
+        method: "tools/call",
+        params: { name: "nodefony_card", arguments: {}, _meta: META_MODERNE },
+      },
+      context(["card"]),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+    expect(result._meta).toBeDefined();
+  });
+
+  it("🔴 un `ping` MODERNE aussi — `EmptyResult` EST un `Result`", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 42,
+        method: "ping",
+        params: { _meta: META_MODERNE },
+      },
+      context(),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+  });
+
+  it("🔴 l'ère se lit AUSSI de l'en-tête seul (`MCP-Protocol-Version`)", async () => {
+    // Le client officiel envoie les deux ; un client qui n'enverrait que
+    // l'en-tête a pourtant déclaré son ère — la spec les fait équivalents.
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 43, method: "tools/list" },
+      context(["card"]),
+      { protocolVersion: "2026-07-28" },
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+  });
+
+  it("un `tools/list` LEGACY garde la forme legacy — pas de champ d'une autre ère", async () => {
+    // Un client ≤ 2025-11-25 ne définit pas `resultType` ; le lui envoyer est
+    // au mieux du bruit, au pire un champ qu'un validateur strict refuse.
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 44, method: "tools/list" },
+      context(["card"]),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBeUndefined();
+    expect(result._meta).toBeUndefined();
   });
 
   it("sens négatif : une clé inconnue dans l'allowlist n'ouvre RIEN", () => {
@@ -505,11 +608,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
     };
 
     /** Collecte avec un appelant donné, et le journal des rétentions. */
-    function servis(caller?: {
-      authenticated: boolean;
-      scopes: string[];
-      subject?: string;
-    }) {
+    function servis(caller?: IMcpCaller) {
       const withheld: string[] = [];
       const tools = collectMcpTools({
         builtins: [],
@@ -555,6 +654,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       const { tools, withheld } = servis({
         authenticated: true,
         scopes: ["shop:read"],
+        roles: [],
       });
       expect(tools.map((t) => t.name)).toEqual(["shop_stock"]);
       // Le motif NOMME ce qui manque — sinon l'appelant devine.
@@ -567,6 +667,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       const { tools } = servis({
         authenticated: true,
         scopes: ["shop:billing", "shop:read", "autre"],
+        roles: [],
       });
       expect(tools.map((t) => t.name)).toEqual(["shop_invoice", "shop_stock"]);
     });
@@ -576,6 +677,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
         authenticated: true,
         scopes: ["shop:read", "shop:billing"],
         subject: "user-42",
+        roles: [],
       });
       const reply = await handleMcpMessage(
         {
@@ -590,6 +692,9 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
             authenticated: true,
             scopes: ["shop:read", "shop:billing"],
             subject: "user-42",
+            // Ces bancs éprouvent le filtrage par SCOPES d'un outil de module ;
+            // aucun rôle du plan d'administration n'y intervient.
+            roles: [],
           },
           serverInfo: { name: "banc", version: "0.0.0" },
         },
@@ -616,7 +721,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
         builtins: [],
         deps: deps(),
         modules: { shop: moduleDeclaring(nu) },
-        caller: { authenticated: true, scopes: [] },
+        caller: { authenticated: true, scopes: [], roles: [] },
       });
       expect(connu.map((t) => t.name)).toEqual(["shop_me"]);
     });
@@ -647,11 +752,13 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       expect(tools[0].name).toBe("shop_stock");
     });
 
-    it("🔴 `server/discover` ANNONCE qu'il existe des réservés, sans les nommer", async () => {
+    it("🔴 `initialize` ANNONCE qu'il existe des réservés, sans les nommer", async () => {
       // Sans cette phrase, un catalogue filtré ment par omission : l'agent
-      // conclut « rien de plus » et ne demandera jamais de jeton.
+      // conclut « rien de plus » et ne demandera jamais de jeton. Elle vivait
+      // dans `server/discover` ; les `instructions` d'`initialize` (champ
+      // présent depuis 2024-11-05) la portent tant que discover n'est pas servi.
       const reply = await handleMcpMessage(
-        { jsonrpc: "2.0", id: 60, method: "server/discover" },
+        { jsonrpc: "2.0", id: 60, method: "initialize", params: {} },
         {
           tools: servis().tools,
           withheldCount: 1,
@@ -667,7 +774,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
 
     it("aucun réservé : aucune phrase — pas de porte imaginaire à chercher", async () => {
       const reply = await handleMcpMessage(
-        { jsonrpc: "2.0", id: 61, method: "server/discover" },
+        { jsonrpc: "2.0", id: 61, method: "initialize", params: {} },
         {
           tools: servis().tools,
           serverInfo: { name: "banc", version: "0.0.0" },
@@ -694,28 +801,44 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
 });
 
 describe("MCP — conformité de la révision 2026-07-28", () => {
-  it("🔴 `server/discover` est un MUST — il répond, avec versions et identité", async () => {
-    // « Servers MUST implement it » (server/discover). C'est le point d'entrée
-    // d'un client MODERNE, qui n'ouvre aucune session.
+  it("🔴 `server/discover` rend -32601 — un retrait DÉLIBÉRÉ, pas un trou", async () => {
+    // La spec en fait un MUST moderne, et ce serveur l'A servi, conforme au
+    // schéma. Mesuré au proxy sur le client dominant (claude-code 2.1.238) :
+    // discover répondu ⇒ le client bascule sur son fil moderne, rejoue
+    // `tools/list` 4× (réponse conforme, JSON puis SSE) et n'enregistre AUCUN
+    // outil. Discover en -32601 ⇒ il suit le repli PRÉVU par la spec
+    // (« falls back to initialize ») et enregistre les quatre. Conforme ≠
+    // joignable : ce test fige le retrait TANT QU'aucun client réel n'achève
+    // le fil moderne — le réactiver = remettre le `case` dans server.ts, et
+    // inverser CE test.
     const reply = await handleMcpMessage(
       { jsonrpc: "2.0", id: 20, method: "server/discover" },
       context(),
     );
+    expect(reply.status).toBe(404);
+    expect((reply.body as { error: { code: number } }).error.code).toBe(-32601);
+  });
+
+  it("l'ère moderne PAR REQUÊTE reste servie — le retrait ne touche que discover", async () => {
+    // Un client moderne qui invoque « inline » (la spec l'y autorise : « a
+    // client is free to invoke any RPC inline ») est servi dans la forme de
+    // son ère — c'est ce qui rend le retrait réversible sans rien réécrire.
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 22,
+        method: "tools/list",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+          },
+        },
+      },
+      context(["card"]),
+    );
     expect(reply.status).toBe(200);
     const result = (reply.body as { result: Record<string, unknown> }).result;
-    // La préférée EN TÊTE : c'est l'ordre qui dit ce qu'on recommande.
-    expect(result.supportedVersions).toEqual([...MCP_SUPPORTED_VERSIONS]);
-    expect((result.supportedVersions as string[])[0]).toBe(
-      MCP_PROTOCOL_VERSION,
-    );
-    expect(result.capabilities).toEqual({ tools: {} });
     expect(result.resultType).toBe("complete");
-    // L'identité voyage en `_meta`, sous la clé que la spec nomme.
-    expect(
-      (result._meta as Record<string, unknown>)[
-        "io.modelcontextprotocol/serverInfo"
-      ],
-    ).toEqual({ name: "banc", version: "0.0.0" });
   });
 
   it("🔴 une révision inconnue rend -32022 AVEC la liste des versions servies", async () => {
@@ -982,13 +1105,179 @@ describe("MCP — les outils de diagnostic", () => {
       },
       context(),
     );
-    const entries = JSON.parse(toolText(reply).text) as { module: string }[];
-    expect(entries.length).toBeGreaterThan(0);
-    // Le filtre doit MORDRE : aucun symbole d'un autre paquet ne passe.
-    expect(entries.every((e) => e.module === "@nodefony/http")).toBe(true);
+    // La surface d'un paquet entier pèse ~78 000 caractères : la réponse est
+    // donc RÉSUMÉE (cf `MCP_TEXT_MAX_CHARS`) — elle annonce son compte et rend
+    // chaque symbole en surface. Ce que ce test prouve n'en change pas : le
+    // filtre doit MORDRE, et il se lit sur les entrées rendues.
+    const rendu = JSON.parse(toolText(reply).text) as {
+      count: number;
+      items: { module: string }[];
+    };
+    expect(rendu.count).toBeGreaterThan(0);
+    expect(rendu.items.length).toBeGreaterThan(0);
+    // Aucun symbole d'un autre paquet ne passe.
+    expect(rendu.items.every((e) => e.module === "@nodefony/http")).toBe(true);
   });
 
-  it("les quatre clés intégrées sont toutes IMPLÉMENTÉES", () => {
+  it("🔴 un sujet VOLUMINEUX annonce son COMPTE au lieu de déverser", async () => {
+    // Le défaut mesuré au banc (tâche 9, deux runs) : `inspect routes` rendait
+    // 47 000 caractères de JSON brut, et l'agent — à qui on demandait le NOMBRE
+    // de routes — a tenté de recopier la liste dans un script pour la compter,
+    // puis a abandonné. Le compte est la première chose qu'on veut d'une liste ;
+    // le faire calculer par un modèle est à la fois cher et faux.
+    const broker = {
+      list: () => [
+        {
+          adminNamespace: "framework",
+          adminDescriptor: () => ({ label: "Framework" }),
+          adminEndpoints: () => [
+            {
+              path: "routes",
+              handler: () =>
+                Array.from({ length: 119 }, (_, i) => ({
+                  name: `route-${i}`,
+                  path: `/api/ressource-${i}/{id}`,
+                  methods: ["GET", "POST"],
+                  controller: `Controller${i}`,
+                  action: "index",
+                  module: "app",
+                  // La profondeur : ce qui fait le volume, et que personne ne
+                  // lit dans une vue d'ensemble.
+                  meta: {
+                    description: "x".repeat(400),
+                    tags: Array.from({ length: 12 }, (_, t) => `tag-${t}`),
+                  },
+                })),
+            },
+          ],
+        } as unknown as IAdminApi,
+      ],
+    };
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 20,
+        method: "tools/call",
+        params: { name: "nodefony_inspect", arguments: { subject: "routes" } },
+      },
+      {
+        tools: collectMcpTools({
+          builtins: BUILTIN_MCP_TOOL_KEYS,
+          deps: { ...deps(), broker },
+        }),
+        serverInfo: { name: "banc", version: "0.0.0" },
+        caller: OPERATEUR,
+      },
+    );
+    const { text, isError } = toolText(reply);
+    expect(isError).toBeUndefined();
+    const rendu = JSON.parse(text) as {
+      count: number;
+      items: unknown[];
+      note?: string;
+    };
+    // Le compte est EXACT et immédiat — pas à recompter dans un mur de JSON.
+    expect(rendu.count).toBe(119);
+    // La capacité n'est pas mutilée : les 119 entrées restent VISIBLES, c'est
+    // leur profondeur qui est tombée. Un échantillon des N premières aurait
+    // rendu la réponse fausse pour toute question portant sur la 100ᵉ.
+    expect(rendu.items).toHaveLength(119);
+    // La surface est gardée…
+    expect(text).toMatch(/route-118/u);
+    expect(text).toMatch(/\/api\/ressource-118\/\{id\}/u);
+    // …la profondeur est tombée (c'est elle qui pesait).
+    expect(text).not.toMatch(/xxxxxxxx/u);
+    expect(text).not.toMatch(/tag-11/u);
+    // Et la réponse DIT ce qu'elle a fait — sinon l'agent croit tout avoir.
+    expect(rendu.note).toMatch(/détail/iu);
+  });
+
+  it("🔴 un sujet ÉNORME et non-tableau rend ses clés, pas son contenu", () => {
+    // L'autre moitié du défaut mesuré : `inspect config` rendait 190 730
+    // caractères, au-delà de ce que le client accepte — le résultat partait sur
+    // disque et l'agent a brûlé vingt tours à essayer de le relire au `jq`.
+    const config: Record<string, unknown> = {};
+    for (const m of ["http", "framework", "security", "orm"]) {
+      config[m] = { valeur: "y".repeat(20_000), provenance: "défaut" };
+    }
+    const { content } = mcpText(config);
+    const rendu = JSON.parse(content[0].text) as {
+      keys: string[];
+      note?: string;
+    };
+    expect(rendu.keys).toEqual(["http", "framework", "security", "orm"]);
+    expect(content[0].text.length).toBeLessThan(4_000);
+    expect(rendu.note).toBeTruthy();
+  });
+
+  it("sens négatif : une réponse ORDINAIRE n'est pas touchée", () => {
+    // La borne ne doit pas se déclencher sur le cas courant : un outil qui rend
+    // trois lignes doit rendre exactement son JSON, sans enveloppe. Sinon on
+    // paierait la garde sur 100 % des appels pour 1 % de gros sujets — et tout
+    // consommateur qui parse la donnée casserait.
+    const petit = [{ name: "@nodefony/http", version: "10.0.0" }];
+    expect(JSON.parse(mcpText(petit).content[0].text)).toEqual(petit);
+    expect(JSON.parse(mcpText({ app: "banc" }).content[0].text)).toEqual({
+      app: "banc",
+    });
+    // Une chaîne reste une chaîne — c'est déjà une réponse rédigée.
+    expect(mcpText("tout va bien").content[0].text).toBe("tout va bien");
+  });
+
+  it("🔴 la NOTE se lit AVANT les entrées, et le `count` est désigné comme la source du NOMBRE", () => {
+    // Vécu au banc devkit, tâche « annonce le nombre de routes » : 0 PASS sur 3.
+    // L'agent appelait l'outil, recevait `count` puis 88 entrées puis, 20 000
+    // caractères plus loin, une note disant que la liste était tronquée. Il
+    // n'annonçait jamais le nombre — il partait recompter les entrées visibles,
+    // ou renonçait. Deux défauts de RÉPONSE, pas de guidage :
+    //   1. le fait qui gouverne la lecture arrivait en DERNIER ;
+    //   2. la note conseillait « affine la demande » alors que le sujet
+    //      `routes` n'accepte aucun filtre — un geste impossible.
+    const routes = Array.from({ length: 354 }, (_, i) => ({
+      name: `route-numero-${i}`,
+      path: `/un/chemin/assez/long/pour/peser/quelque/chose/${i}`,
+      methods: ["GET", "HEAD"],
+      controller: `ControllerNumero${i}`,
+      action: "index",
+      module: "test",
+    }));
+    const texte = mcpText(routes).content[0].text;
+    const rendu = JSON.parse(texte) as {
+      count: number;
+      note: string;
+      items: unknown[];
+    };
+
+    // Le compte porte sur la liste ENTIÈRE, pas sur l'extrait.
+    expect(rendu.count).toBe(354);
+    expect(rendu.items.length).toBeLessThan(354);
+
+    // La note se lit AVANT la première entrée — sinon elle arrive trop tard.
+    expect(texte.indexOf('"note"')).toBeLessThan(texte.indexOf('"items"'));
+
+    // Et elle DÉSIGNE `count` comme la source du nombre, au lieu de renvoyer
+    // vers un affinement que le sujet n'offre pas.
+    expect(rendu.note).toMatch(/count/u);
+    expect(rendu.note).not.toMatch(/affine la demande/u);
+  });
+
+  it("🔴 un tableau compacté qui pèse ENCORE est borné, et le dit", () => {
+    // Cas limite : 40 000 entrées dont la seule surface dépasse déjà la borne.
+    // Tout rendre reviendrait à réintroduire le déversement par une autre porte.
+    const enorme = Array.from({ length: 40_000 }, (_, i) => ({
+      name: `entrée-numéro-${i}-avec-un-nom-assez-long-pour-peser`,
+    }));
+    const rendu = JSON.parse(mcpText(enorme).content[0].text) as {
+      count: number;
+      items: unknown[];
+      note?: string;
+    };
+    expect(rendu.count).toBe(40_000);
+    expect(rendu.items.length).toBeLessThan(40_000);
+    expect(rendu.note).toMatch(/40000|40 000/u);
+  });
+
+  it("toutes les clés intégrées sont IMPLÉMENTÉES", () => {
     // Sens du test : la liste publiée et le catalogue ne peuvent pas diverger —
     // annoncer une clé qu'aucun code ne sert serait invisible jusqu'au premier
     // appel d'un agent.
@@ -997,5 +1286,239 @@ describe("MCP — les outils de diagnostic", () => {
       expect(typeof catalogue[key]?.handler).toBe("function");
     }
     expect(Object.keys(catalogue)).toHaveLength(BUILTIN_MCP_TOOL_KEYS.length);
+  });
+});
+
+/**
+ * L'outil `docs` — la porte par laquelle un agent atteint une documentation
+ * que ses outils de recherche de fichiers EXCLUENT (elle vit sous
+ * `node_modules`, dossier ignoré par git). Ce qui est éprouvé ici est le
+ * ROUTAGE : chaque forme d'appel doit toucher l'endpoint correspondant, avec
+ * les bons paramètres — un outil qui interrogerait le mauvais chemin répondrait
+ * quand même, et personne ne le verrait.
+ */
+describe("outil docs", () => {
+  /** Ce que le producteur a REÇU au dernier appel — c'est là qu'est la preuve. */
+  let vu: { path: string; params: unknown; query: unknown } | null = null;
+
+  /** Un plan d'administration qui sert les quatre chemins de documentation. */
+  function docsBroker(pageChars = 40): { list(): readonly IAdminApi[] } {
+    const trace =
+      (path: string, body: unknown) =>
+      (request: { params: unknown; query: unknown }) => {
+        vu = { path, params: request.params, query: request.query };
+        return body;
+      };
+    return {
+      list: () => [
+        {
+          adminNamespace: "kernel",
+          adminDescriptor: () => ({ label: "Kernel" }),
+          adminEndpoints: () => [
+            {
+              path: "docs",
+              handler: trace("docs", {
+                total: 2,
+                modules: [{ key: "http", docs: [{ slug: "sessions" }] }],
+              }),
+            },
+            {
+              path: "docs/search",
+              handler: trace("docs/search", {
+                terms: ["session"],
+                scanned: 3,
+                matched: 1,
+                hits: [{ module: "http", slug: "sessions" }],
+              }),
+            },
+            {
+              path: "module/{name}/docs",
+              handler: trace("module/{name}/docs", {
+                key: "http",
+                docs: [{ slug: "sessions" }],
+              }),
+            },
+            {
+              path: "module/{name}/docs/{slug}",
+              handler: trace("module/{name}/docs/{slug}", {
+                slug: "sessions",
+                frontmatter: { title: "Sessions" },
+                markdown: `# Sessions\n\n## Redis\n\n${"x".repeat(pageChars)}`,
+              }),
+            },
+          ],
+        } as unknown as IAdminApi,
+      ],
+    };
+  }
+
+  /** Appelle l'outil et rend son texte, en repartant d'une trace vierge. */
+  async function appel(
+    args: Record<string, unknown>,
+    pageChars = 40,
+  ): Promise<{ texte: string; isError: boolean }> {
+    vu = null;
+    const tool = builtinMcpTools({
+      ...deps(),
+      broker: docsBroker(pageChars),
+    }).docs;
+    const result = await tool.handler(args, OPERATEUR);
+    return {
+      texte: result.content[0].text,
+      isError: result.isError === true,
+    };
+  }
+
+  it("sans argument : le sommaire de TOUTE la documentation chargée", async () => {
+    const { texte } = await appel({});
+    expect(vu?.path).toBe("docs");
+    expect(JSON.parse(texte).total).toBe(2);
+  });
+
+  it("avec `query` : la recherche, et le texte cherché lui parvient", async () => {
+    await appel({ query: "  session redis  " });
+    expect(vu?.path).toBe("docs/search");
+    // Rogné : un espace de tête ferait un terme vide côté producteur.
+    expect(vu?.query).toEqual({ q: "session redis" });
+  });
+
+  it("avec `module` seul : le sommaire de ce module", async () => {
+    await appel({ module: "http" });
+    expect(vu?.path).toBe("module/{name}/docs");
+    expect(vu?.params).toEqual({ name: "http" });
+  });
+
+  it("avec `module` et `slug` : la page, sans affinement parasite", async () => {
+    const { texte } = await appel({ module: "http", slug: "sessions" });
+    expect(vu?.path).toBe("module/{name}/docs/{slug}");
+    expect(vu?.params).toEqual({ name: "http", slug: "sessions" });
+    expect(vu?.query).toEqual({});
+    expect(JSON.parse(texte).markdown).toContain("# Sessions");
+  });
+
+  it("avec `section` : le titre voulu part au producteur", async () => {
+    await appel({ module: "http", slug: "sessions", section: "Redis" });
+    expect(vu?.query).toEqual({ section: "Redis" });
+  });
+
+  it("avec `outline` : le plan est demandé, pas le corps", async () => {
+    await appel({ module: "http", slug: "sessions", outline: true });
+    expect(vu?.query).toEqual({ outline: "1" });
+  });
+
+  it("🔴 une page TROP LOURDE revient en PLAN, jamais en liste de clés", async () => {
+    // Sens du test : le résumé générique rendrait `keys: [slug, frontmatter,
+    // markdown]` et conseillerait « demande une branche précise » — une phrase
+    // qui ne désigne aucun geste faisable sur un markdown. Le plan, lui, nomme
+    // les sections à redemander.
+    const { texte } = await appel({ module: "http", slug: "sessions" }, 60_000);
+    const rendu = JSON.parse(texte) as {
+      keys?: string[];
+      chars?: number;
+      note?: string;
+      outline?: { title: string }[];
+    };
+    expect(rendu.keys).toBeUndefined();
+    expect(rendu.chars).toBeGreaterThan(60_000);
+    expect(rendu.outline?.map((s) => s.title)).toEqual(["Sessions", "Redis"]);
+    expect(rendu.note).toMatch(/section/u);
+  });
+
+  it("un producteur absent est DIT, pas tu", async () => {
+    vu = null;
+    const tool = builtinMcpTools({ ...deps(), broker: undefined }).docs;
+    const result = await tool.handler({ query: "session" }, OPERATEUR);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("kernel");
+  });
+});
+
+/**
+ * Le vocabulaire de scopes publié — ce qu'un client doit demander.
+ *
+ * Ce qui est éprouvé ici n'est pas un calcul d'union : c'est qu'il n'existe
+ * plus de seconde source. Une liste de configuration a longtemps tenu ce rôle,
+ * et elle a menti dans les deux sens sans que rien ne s'en aperçoive.
+ */
+describe("mcpDeclaredScopes — la porte publie ce qu'elle EXIGE", () => {
+  it("l'union vient des outils, donc `admin:write` n'est plus annoncé", () => {
+    // Le catalogue est en lecture seule : `admin_list` et `admin_call` exigent
+    // `admin:read`, et RIEN n'exige `admin:write`. La liste écrite le publiait
+    // quand même — un client le demandait, l'obtenait, et n'ouvrait rien.
+    expect(
+      mcpDeclaredScopes({ builtins: BUILTIN_MCP_TOOL_KEYS, deps: deps() }),
+    ).toEqual([ADMIN_SCOPE_READ]);
+  });
+
+  it("le scope d'un outil de MODULE y figure — l'écart qu'aucune liste ne voyait", () => {
+    const scopes = mcpDeclaredScopes({
+      builtins: [],
+      deps: deps(),
+      modules: {
+        facturation: {
+          getMcpTools: (): IMcpTool[] => [
+            {
+              name: "facture_lire",
+              description: "lit une facture",
+              inputSchema: { type: "object" },
+              scopes: ["billing:read"],
+              handler: () => mcpText("ok"),
+            },
+          ],
+        },
+      },
+    });
+    expect(scopes).toEqual(["billing:read"]);
+  });
+
+  it("le vocabulaire ne dépend pas de l'appelant — le document se lit SANS jeton", () => {
+    // C'est la raison d'être de l'énumération : un catalogue filtré n'annonce à
+    // l'anonyme que ce dont il n'a pas besoin, et il ne demande jamais de
+    // jeton. L'anonyme ne se voit servir aucun outil réservé…
+    const servis = collectMcpTools({
+      builtins: BUILTIN_MCP_TOOL_KEYS,
+      deps: deps(),
+    }).map((t) => t.name);
+    expect(servis).not.toContain("nodefony_admin_list");
+    // …et lit pourtant le scope qui les ouvre.
+    expect(
+      mcpDeclaredScopes({ builtins: BUILTIN_MCP_TOOL_KEYS, deps: deps() }),
+    ).toContain(ADMIN_SCOPE_READ);
+  });
+
+  it("dédoublonne et trie — deux exécutions rendent le même document", () => {
+    const outil = (name: string, scopes: string[]): IMcpTool => ({
+      name,
+      description: name,
+      inputSchema: { type: "object" },
+      scopes,
+      handler: () => mcpText("ok"),
+    });
+    expect(
+      mcpDeclaredScopes({
+        builtins: [],
+        deps: deps(),
+        modules: {
+          b: {
+            getMcpTools: () => [outil("z_outil", ["zeta:read", "alpha:read"])],
+          },
+          a: { getMcpTools: () => [outil("a_outil", ["alpha:read"])] },
+        },
+      }),
+    ).toEqual(["alpha:read", "zeta:read"]);
+  });
+
+  it("aucune exigence ⇒ aucun scope, et le champ sera OMIS du document", () => {
+    // `card` n'exige rien : la porte qui ne sert que lui n'a rien à faire
+    // demander. Publier `[]` dirait « il existe des scopes, mais aucun » ; la
+    // RFC 9728 prévoit l'absence, et c'est ce que produit un tableau vide.
+    expect(mcpDeclaredScopes({ builtins: ["card"], deps: deps() })).toEqual([]);
+    expect(
+      buildProtectedResourceMetadata({
+        resource: "https://app.example/nodefony/mcp",
+        authorizationServers: ["https://as.example"],
+        scopesSupported: [],
+      }).scopes_supported,
+    ).toBeUndefined();
   });
 });

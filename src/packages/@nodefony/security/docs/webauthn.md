@@ -120,7 +120,7 @@ Trois partis pris assumés :
 
 ### 1. Les passkeys sont déjà actives — la config utile
 
-`passkeys.enabled` vaut `true` par défaut (`config.ts:981`). Ce que tu déclares vraiment, c'est **ton
+`passkeys.enabled` vaut `true` par défaut (`config.ts:1106`). Ce que tu déclares vraiment, c'est **ton
 domaine** : sans `rpId`, le service prend le domaine de l'app, et bascule sur `localhost` si c'est une
 adresse IP (un navigateur refuse une IP comme `rpId`, `webAuthn.ts:134`).
 
@@ -291,7 +291,7 @@ main au navigateur, téléphone par QR compris.
 `WebAuthnService.verifyRegistration()` (`webAuthn.ts:317`) enchaîne dans cet ordre :
 
 1. **Vérification déléguée** à `verifyRegistrationResponse` — défi, origine, rpIdHash, flags,
-   attestation (`webAuthn.ts:296`). Tout échec devient un message uniforme
+   attestation (`webAuthn.ts:330`). Tout échec devient un message uniforme
    `WebAuthn registration failed` (`webAuthn.ts:305`).
 2. **Plafond d'enrôlement** — `countByUser`, refus `409` si `maxPerUser` est atteint
    (`webAuthn.ts:313`). Volontairement **après** la cryptographie et **avant** le `save` : un client
@@ -353,16 +353,16 @@ exactement les porteurs à risque de verrouillage.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `passkeysSchema` (`config.ts:447`), monté sous la clé `passkeys`
-(`config.ts:981`).
+(`config.ts:1106`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
 | ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------ |
 | `enabled`                 | boolean                                    | `true`       | Active les cérémonies ; `false` → endpoints en 503 (`config.ts:449`)           |
 | `rpId`                    | string?                                    | domaine app  | Domaine de liaison des passkeys ; IP → `localhost` (`config.ts:455`)           |
 | `rpName`                  | string?                                    | `"Nodefony"` | Nom affiché dans l'invite OS/navigateur (`config.ts:459`)                      |
-| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts:445`)    |
+| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts:463`)    |
 | `userVerification`        | `required` \| `preferred` \| `discouraged` | `preferred`  | Exiger biométrie/PIN — `required` = AAL2 (`config.ts:469`)                     |
-| `residentKey`             | `required` \| `preferred` \| `discouraged` | `preferred`  | Passkey découvrable → login sans identifiant (`config.ts:455`)                 |
+| `residentKey`             | `required` \| `preferred` \| `discouraged` | `preferred`  | Passkey découvrable → login sans identifiant (`config.ts:483`)                 |
 | `authenticatorAttachment` | `platform` \| `cross-platform` \| `any`    | `platform`   | Biométrie intégrée / clé externe / les deux (`config.ts:481`)                  |
 | `attestation`             | `none` \| `direct` \| `enterprise`         | `none`       | Conveyance du certificat fabricant (`config.ts:487`)                           |
 | `timeoutMs`               | number (ms)                                | `60000`      | Délai laissé à l'utilisateur pour la cérémonie (`config.ts:493`)               |
@@ -426,9 +426,9 @@ host non-domaine que la spécification autorise. En développement, accède donc
 L'origine attendue est calculée par `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:523`) en trois
 temps : la **liste blanche `passkeys.origins`** si elle est non vide (`webAuthn.ts:484`, la voie de
 production) ; sinon **l'origine de la requête, mais seulement si son hostname est exactement le
-`rpId`** (`webAuthn.ts:489` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
+`rpId`** (`webAuthn.ts:134` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
 est ignoré, sans jamais ouvrir à un domaine tiers) ; en dernier recours `https://{rpId}`
-(`webAuthn.ts:496`).
+(`webAuthn.ts:537`).
 
 > [!WARNING]
 > **Un seul `rpId` par instance.** Il est résolu une fois au boot et stocké dans le service ; il n'y a
@@ -449,7 +449,7 @@ Avec un `username`, le serveur charge **toutes** les passkeys du porteur pour co
 `allowCredentials` doit être complet ou il est faux : un authenticator absent de la liste ne peut pas
 répondre, et le protocole n'offre aucune « page suivante » (`IWebAuthnCredentialStore.ts:88`).
 
-Ce qui borne donc cette lecture, c'est **`passkeys.maxPerUser`** (défaut 20, `config.ts:481`) :
+Ce qui borne donc cette lecture, c'est **`passkeys.maxPerUser`** (défaut 20, `config.ts:509`) :
 
 - le refus est un `409` porté par `WebAuthnError` (`WebAuthnError.ts:15`), rendu **tel quel** au
   client parce qu'il est authentifié — rien à énumérer, et il doit comprendre qu'il faut retirer un
@@ -558,7 +558,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   `DrizzleWebAuthnCredentialStore` (`DrizzleWebAuthnCredentialStore.ts:37`) est **100 % portable** —
   aucune requête SQL native, tout passe par `IRepository` d'`orm-core`.
 - Trois dialectes sur le même banc : **sqlite** (toujours, `:memory:`), **postgres** et **mysql**
-  (gatés par l'infra). Pagination offset + `total` (`DrizzleWebAuthnCredentialStore.ts:176`).
+  (gatés par l'infra). Pagination offset + `total` (`DrizzleWebAuthnCredentialStore.ts:188`).
 
 ### `mongoose` — MongoDB
 
@@ -572,7 +572,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   `RedisWebAuthnCredentialStore` (`RedisWebAuthnCredentialStore.ts:93`) stocke un **HASH** par
   credential + un **SET** d'ids par porteur — `update` réécrit 1 à 4 champs sans relire
   l'enregistrement (`RedisWebAuthnCredentialStore.ts:219`).
-- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:26`) :
+- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:257`) :
   **ni ordre global ni total**, pages de taille variable — capacité réduite **déclarée**, pas un
   défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts:330`).
 
@@ -655,7 +655,7 @@ passkey (`AuthStore.ts:209`).
 | Flags de sauvegarde (BE/BS)         | W3C WebAuthn §6.1.3                | `IWebAuthnCredential.backupEligible` (`IWebAuthnCredential.ts:29`) |
 | Liaison à l'origine (anti-phishing) | W3C WebAuthn §13.4.8               | `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:523`)            |
 | Clé publique COSE                   | RFC 8152 / RFC 9052                | `IWebAuthnCredential.publicKey` (`IWebAuthnCredential.ts:16`)      |
-| FIDO2 / CTAP2                       | plafond `maxCredentialCountInList` | `passkeys.maxPerUser` (`config.ts:481`)                            |
+| FIDO2 / CTAP2                       | plafond `maxCredentialCountInList` | `passkeys.maxPerUser` (`config.ts:509`)                            |
 | Assurance d'authentification        | NIST SP 800-63B (AAL2)             | `passkeys.userVerification` (`config.ts:449`)                      |
 | Contrôle d'accès (IDOR)             | OWASP A01                          | `WebAuthnService.removeUserCredential()` (`webAuthn.ts:502`)       |
 

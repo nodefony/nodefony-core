@@ -37,10 +37,23 @@ onUnmounted(() => {
 <template>
   <main class="page">
     <div class="hero">
-      <svg class="logo" viewBox="0 0 256 221" xmlns="http://www.w3.org/2000/svg">
-        <path d="M204.8 0H256L128 220.8 0 0h97.92L128 51.2 157.44 0z" fill="#41B883" />
-        <path d="m0 0 128 220.8L256 0h-51.2L128 132.48 50.56 0z" fill="#41B883" />
-        <path d="M50.56 0 128 133.12 204.8 0h-47.36L128 51.2 97.92 0z" fill="#35495E" />
+      <svg
+        class="logo"
+        viewBox="0 0 256 221"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M204.8 0H256L128 220.8 0 0h97.92L128 51.2 157.44 0z"
+          fill="#41B883"
+        />
+        <path
+          d="m0 0 128 220.8L256 0h-51.2L128 132.48 50.56 0z"
+          fill="#41B883"
+        />
+        <path
+          d="M50.56 0 128 133.12 204.8 0h-47.36L128 51.2 97.92 0z"
+          fill="#35495E"
+        />
       </svg>
 
       <h1>You did it!</h1>
@@ -70,7 +83,9 @@ onUnmounted(() => {
         <h2>🔌 Backend ping</h2>
         <code class="route">GET /vue/api/data</code>
         <pre v-if="error" class="out out--err">{{ error }}</pre>
-        <pre v-else-if="data" class="out">{{ JSON.stringify(data, null, 2) }}</pre>
+        <pre v-else-if="data" class="out">{{
+          JSON.stringify(data, null, 2)
+        }}</pre>
         <p v-else class="hint">loading…</p>
       </section>
     </div>
@@ -87,10 +102,18 @@ onUnmounted(() => {
   gap: 2.5rem;
   padding: 4rem 1.5rem;
   box-sizing: border-box;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
   color: #2c3e50;
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(66, 184, 131, 0.18), transparent),
+    radial-gradient(
+      1200px 600px at 50% -10%,
+      rgba(66, 184, 131, 0.18),
+      transparent
+    ),
     #f7f9f8;
 }
 .hero {
@@ -104,8 +127,13 @@ onUnmounted(() => {
   animation: float 4s ease-in-out infinite;
 }
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 h1 {
   margin: 1.2rem 0 0.6rem;
@@ -170,7 +198,9 @@ h1 {
   border: 1px solid #41b883;
   background: #41b883;
   color: #fff;
-  transition: transform 0.08s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.2s ease;
 }
 .counter:hover {
   box-shadow: 0 6px 16px rgba(66, 184, 131, 0.35);

@@ -9,7 +9,7 @@ const options: OptionsCommandInterface = {
 };
 
 /** Variable d'env distinguant le serveur enfant du process superviseur parent. */
-const CHILD_ENV = "NODEFONY_DEV_CHILD";
+const CHILD_ENV = "NF_DEV_CHILD";
 
 /**
  * `true` si l'invocation demande un mode développement SANS superviseur.
@@ -28,7 +28,7 @@ export function isWatchDisabled(args: readonly string[]): boolean {
  * Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart).
  *
  * **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette
- * topologie (`cluster.workers` / `--workers` / `NODEFONY_WORKERS`) est **ignorée** en
+ * topologie (`cluster.workers` / `--workers` / `NF_WORKERS`) est **ignorée** en
  * dev : Vite exige un process maître unique (conflit port HMR si N workers spawnaient
  * chacun leur Vite). Le multi-process se règle uniquement sur le runtime prod
  * (`nodefony cluster`). Cf décision « 2 molettes » 2026-05-24.
@@ -42,7 +42,7 @@ class Dev extends Command {
   constructor(cli: CliKernel) {
     super(
       "development",
-      "Start Server in development Mode",
+      "Serveur de développement : rechargement auto du backend, HMR du front",
       cli as CliKernel,
       options,
     );
@@ -66,7 +66,7 @@ class Dev extends Command {
   /**
    * Boot de rêve dev : checklist animée par phase (spinner + ✓/✗) à la place du mur
    * de logs. Branché AVANT `loadApp` (gros import) pour couvrir le gap de feedback.
-   * **Enfant supervisé uniquement** (`NODEFONY_DEV_CHILD=1`) : le superviseur parent
+   * **Enfant supervisé uniquement** (`NF_DEV_CHILD=1`) : le superviseur parent
    * ne boote pas de serveur → aucun affichage. Animation TTY non-debug ; debug/non-TTY
    * → marqueurs statiques + logs bruts (cf {@link BootReporter}).
    */
@@ -76,7 +76,7 @@ class Dev extends Command {
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     this.#reporter = new BootReporter(kernel, {
-      // Gate TTY CENTRALISÉ du Kernel (résolu 1× au boot, NO_TTY-aware) plutôt
+      // Gate TTY CENTRALISÉ du Kernel (résolu 1× au boot, NF_NO_TTY-aware) plutôt
       // qu'une relecture directe de `process.stdout.isTTY` → cohérent avec la
       // couleur ANSI et surchargeable en test/CI.
       debug: Boolean(kernel.debug),
@@ -87,10 +87,10 @@ class Dev extends Command {
 
   override async onKernelStart(): Promise<void> {
     this.cli.environment = "development";
-    process.env.MODE_START = "development";
+    process.env.NF_MODE_START = "development";
 
     // Deux chemins mènent au même boot serveur, et c'est voulu :
-    //  · enfant supervisé (`NODEFONY_DEV_CHILD=1`), lancé par le superviseur ;
+    //  · enfant supervisé (`NF_DEV_CHILD=1`), lancé par le superviseur ;
     //  · `--no-watch`, demandé par un humain ou une machine qui veut le mode
     //    développement SANS rechargement — une suite d'intégration au premier chef :
     //    un rebuild déclenché en plein run coupe les connexions sous les tests, et

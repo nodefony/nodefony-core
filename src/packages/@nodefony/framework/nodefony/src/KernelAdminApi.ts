@@ -13,6 +13,8 @@ import {
   extractJsonSchemaDefaults,
   defaultAppConfig,
   applyResolvedPath,
+  outlineMarkdown,
+  extractMarkdownSection,
 } from "nodefony";
 import type {
   IKernel,
@@ -22,12 +24,14 @@ import type {
   IAdminRequest,
   IStoreResolution,
 } from "nodefony";
-import type { TestRunResult } from "./docsReader";
+import type { TestRunResult, DocSearchTarget, DocSummary } from "./docsReader";
 import {
   listModuleDocs,
   countModuleDocs,
+  searchModuleDocs,
   readModuleDoc,
   listModuleSymbols,
+  readSymbolDeclaration,
   readCoverage,
   readDependencies,
   checkOutdated,
@@ -490,6 +494,54 @@ const MAX_DEBUG_TTL_MS = 60 * 60 * 1000;
  * @param kernel - kernel courant (`Nodefony.getKernel()`).
  * @returns le contrat admin du kernel, prêt à `broker.register()`.
  */
+/**
+ * Forme admise d'un nom de paquet npm — la garde entre un paramètre de route et
+ * une jointure de chemin. Sans elle, « ../../etc » désignerait un dossier hors
+ * de l'arbre des dépendances.
+ */
+const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
+
+/**
+ * Paquets à essayer pour une clé de module, **dans l'ordre**, et bornés au
+ * périmètre du framework.
+ *
+ * Pure — donc éprouvable sans disque ni dossier courant, et c'est nécessaire :
+ * les deux défauts qu'elle corrige tiennent l'un à l'ORDRE, l'autre au
+ * PÉRIMÈTRE, jamais au système de fichiers.
+ *
+ * 🔴 **Le scope d'abord.** `redis` désigne ici le module Nodefony — mais un
+ * client Redis tiers du même nom vit dans le même `node_modules`. L'essayer en
+ * premier le faisait gagner : le paquet trouvé n'avait pas de documentation,
+ * la réponse sortait VIDE, et le cas exact qu'on venait de corriger était le
+ * seul à rater. Un nom court est une clé Nodefony avant d'être un nom npm ;
+ * l'homonyme tiers ne vient qu'après.
+ *
+ * 🔴 **Le périmètre n'est pas la traversée.** {@link PACKAGE_NAME} empêche
+ * `../../etc` de désigner un dossier hors de l'arbre — elle ne dit rien de ce
+ * qu'on a le droit de servir. Sans cette seconde garde, la porte de
+ * documentation rendait les pages de n'importe quelle dépendance installée
+ * (`chrome-launcher` en a), c'est-à-dire qu'elle exposait l'arbre de
+ * dépendances d'une application à qui interroge la porte.
+ *
+ * ⚠️ `nodefony` en toutes lettres : le socle se nomme ainsi sur npm (héritage
+ * du dépôt JS) quand le reste de la pile porte le scope ; `CORE_PACKAGE` est
+ * son nom LOGIQUE, pas celui du dossier installé.
+ *
+ * @param name - clé courte (`redis`) ou nom de paquet (`@nodefony/redis`).
+ * @returns les noms de paquets à tenter, du plus probable au moins probable.
+ */
+export function candidatsPaquetNodefony(name: string): string[] {
+  if (!PACKAGE_NAME.test(name)) return [];
+  const dansLePerimetre = (pkg: string): boolean =>
+    pkg === "nodefony" || pkg === CORE_PACKAGE || pkg.startsWith("@nodefony/");
+  // Une clé DÉJÀ scopée ne se préfixe pas : `@nodefony/@nodefony/redis` ne
+  // désigne rien, et l'essayer d'abord ne coûte qu'un accès disque inutile —
+  // mais c'est le genre de candidat absurde qui finit par masquer un vrai
+  // problème de résolution.
+  const candidats = name.includes("/") ? [name] : [`@nodefony/${name}`, name];
+  return candidats.filter(dansLePerimetre);
+}
+
 export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   const descriptor: IAdminDescriptor = {
     label: "Kernel",
@@ -504,6 +556,71 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     const mod = kernel.getModules()[key];
     if (!mod) return null;
     return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
+  };
+
+  // Dossier d'un paquet INSTALLÉ, pour ce que `getModules()` ne connaît pas.
+  // Toutes les briques du framework ne sont pas des modules : `orm-core` est une
+  // bibliothèque pure, jamais chargée par le kernel — mais ses types sont bien
+  // là, dans l'arbre des dépendances. Sans ce repli, la porte répondait « module
+  // introuvable » sur des symboles parfaitement présents.
+  // Périmètre du repli : les paquets du FRAMEWORK, et eux seuls.
+  //
+  // 🔴 `PACKAGE_NAME` borne la traversée de chemin, pas le périmètre — deux
+  // gardes distinctes qu'on confond volontiers. Sans celle-ci, la porte de
+  // documentation servait n'importe quel paquet de `node_modules` : elle
+  // rendait les pages de `chrome-launcher`, c'est-à-dire qu'elle exposait
+  // l'arbre de dépendances d'une application à qui interroge la porte.
+  const resolvePackageDir = (name: string): string | null => {
+    for (const candidate of candidatsPaquetNodefony(name)) {
+      const dir = join(repoRoot, "node_modules", candidate);
+      // Dans ce dépôt, c'est un lien vers le workspace ; chez un utilisateur,
+      // le paquet dépaqueté. Les deux répondent au même chemin.
+      if (existsSync(join(dir, "package.json"))) return dir;
+    }
+    return null;
+  };
+
+  // Tous les porteurs de documentation : le socle `core` (absent de
+  // `getModules()`) puis les modules chargés. Composé ICI plutôt que dans le
+  // lecteur de docs — lui ne connaît que des chemins, c'est le kernel qui sait
+  // ce qui est chargé.
+  /**
+   * Chemin d'un porteur de documentation, module CHARGÉ ou paquet INSTALLÉ.
+   *
+   * ⚠️ Les deux cas existent et se confondaient en un seul refus. Un paquet
+   * peut être présent dans l'arbre des dépendances — sa documentation livrée
+   * avec lui — sans que le kernel l'ait chargé : `orm-core` est une
+   * bibliothèque pure, `redis` peut n'être pas activé dans cette application.
+   * Répondre « module introuvable » sur des pages parfaitement présentes
+   * faisait conclure qu'elles n'existaient pas, alors qu'elles sont
+   * précisément ce que git ignore et que les outils de recherche excluent.
+   *
+   * @param key - clé courte (`http`) ou nom de paquet (`@nodefony/redis`).
+   * @returns le dossier à lire, ou `null`.
+   */
+  const resolveDocDir = (key: string): string | null =>
+    resolveTarget(key)?.path ?? resolvePackageDir(key);
+
+  /**
+   * Ce qu'on peut proposer à qui s'est trompé de nom — les clés qui répondent.
+   *
+   * Un refus qui ne nomme AUCUNE valeur valide laisse deviner, puis abandonner :
+   * l'appelant conclut que la ressource n'existe pas, quand il a seulement mal
+   * orthographié. Le secours accompagne donc le refus, il ne s'obtient pas par
+   * un second appel que personne ne pense à faire.
+   */
+  const docKeys = (): string[] => [
+    CORE_KEY,
+    ...Object.keys(kernel.getModules()),
+  ];
+
+  const docTargets = (): DocSearchTarget[] => {
+    const targets: DocSearchTarget[] = [];
+    for (const key of [CORE_KEY, ...Object.keys(kernel.getModules())]) {
+      const target = resolveTarget(key);
+      if (target) targets.push({ key, path: target.path });
+    }
+    return targets;
   };
 
   // Jobs de tests ASYNCHRONES : le run (6-30 s) ne tient PAS la connexion HTTP
@@ -675,7 +792,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             // comment remédier (cf IBootReport / BootReport « vert mais cassé »).
             modulesSkipped: report.modulesSkipped,
             remediation: report.remediation,
-            cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
+            cluster: { isCluster: process.env.NF_CLUSTER === "1" },
             backplanes: {
               log: {
                 driver: getActiveLogDriver()?.name ?? null,
@@ -700,11 +817,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         platform: process.platform,
         uptime: process.uptime(),
         modules: Object.keys(kernel.getModules()).length,
-        // Topologie process (cloud-native, per-instance). `NODEFONY_CLUSTER=1`
+        // Topologie process (cloud-native, per-instance). `NF_CLUSTER=1`
         // posé par le master, hérité au fork → `true` dans chaque worker. Le
         // décompte des workers est agrégé ailleurs (master → nodefony:socket) :
         // ici on ne rapporte QUE ce process (pas d'agrégation dans le data plane).
-        cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
+        cluster: { isCluster: process.env.NF_CLUSTER === "1" },
         // Fonds de panier (« backplanes ») — info rapide pour la topbar Studio.
         // LOG Backplane : driver de relecture actif (axe DESTINATION queryable)
         // + sink d'écriture (axe WRITE). Le Realtime Backplane vit dans son
@@ -967,7 +1084,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const mod = kernel.getModules()[key] as unknown as
           ConfigModuleLike | undefined;
         if (!mod) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         // 2. Corps { path, value }.
         const body = (request.body ?? {}) as {
@@ -1201,7 +1321,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const mod = kernel.getModules()[key];
         if (!mod) {
           // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         // Services enregistrés par le module + classe d'implémentation (le nom
         // de registration vient de Module.getServiceNames, la classe du
@@ -1255,7 +1378,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         if (!target) {
           return {
             status: 404,
-            body: { error: "Module not found", key: request.params.name },
+            body: {
+              error: "Module not found",
+              key: request.params.name,
+              available: docKeys(),
+            },
           };
         }
         return {
@@ -1273,7 +1400,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         if (!target) {
           return {
             status: 404,
-            body: { error: "Module not found", key: request.params.name },
+            body: {
+              error: "Module not found",
+              key: request.params.name,
+              available: docKeys(),
+            },
           };
         }
         const deps = await readDependencies(target.path);
@@ -1291,11 +1422,14 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary: "Documentation index of one module (markdown in <module>/docs)",
       handler: async (request) => {
         const key = request.params.name;
-        const target = resolveTarget(key);
-        if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+        const dir = resolveDocDir(key);
+        if (!dir) {
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
-        return { key, docs: await listModuleDocs(target.path) };
+        return { key, docs: await listModuleDocs(dir) };
       },
     },
     {
@@ -1304,18 +1438,146 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary: "Raw markdown of one module doc by slug",
       handler: async (request) => {
         const key = request.params.name;
-        const target = resolveTarget(key);
-        if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
-        }
-        const doc = await readModuleDoc(target.path, request.params.slug);
-        if (!doc) {
+        const dir = resolveDocDir(key);
+        if (!dir) {
           return {
             status: 404,
-            body: { error: "Doc not found", key, slug: request.params.slug },
+            body: { error: "Module not found", key, available: docKeys() },
+          };
+        }
+        const doc = await readModuleDoc(dir, request.params.slug);
+        if (!doc) {
+          // Le SOMMAIRE accompagne le refus : une page demandée sous un slug
+          // approchant (« firewal » pour « firewall ») est le cas courant, et
+          // sans la liste il ne reste qu'à deviner — ou à conclure, à tort,
+          // que ce module ne documente rien.
+          return {
+            status: 404,
+            body: {
+              error: "Doc not found",
+              key,
+              slug: request.params.slug,
+              available: (await listModuleDocs(dir)).map((d) => d.slug),
+            },
+          };
+        }
+        // Une page de documentation du framework pèse 50 à 80 ko : rendue
+        // entière à un lecteur au contexte borné (un agent), elle sature sa
+        // fenêtre pour une question qui tenait dans un paragraphe. D'où deux
+        // affinements OPTIONNELS — sans query, la réponse est inchangée, et
+        // Studio continue de recevoir la page complète.
+        const wanted =
+          typeof request.query.section === "string"
+            ? request.query.section
+            : "";
+        if (wanted !== "") {
+          const section = extractMarkdownSection(doc.markdown, wanted);
+          if (!section) {
+            // Le plan accompagne le refus : sans lui, il ne reste qu'à
+            // deviner un second titre, puis un troisième.
+            return {
+              status: 404,
+              body: {
+                error: "Section not found",
+                key,
+                slug: doc.slug,
+                section: wanted,
+                outline: outlineMarkdown(doc.markdown),
+              },
+            };
+          }
+          return {
+            ...doc,
+            section: section.title,
+            markdown: section.markdown,
+          };
+        }
+        if (request.query.outline !== undefined) {
+          const { markdown, ...rest } = doc;
+          return {
+            ...rest,
+            key,
+            chars: markdown.length,
+            outline: outlineMarkdown(markdown),
           };
         }
         return doc;
+      },
+    },
+    {
+      // Sommaire CROSS-MODULE : ce que l'application documente, en un appel.
+      // L'index par module existe déjà (`module/{name}/docs`) ; il oblige à
+      // savoir QUEL module interroger — ce qu'un arrivant ignore précisément.
+      path: "docs",
+      summary: "Documentation index across every loaded module",
+      handler: async () => {
+        const modules: { key: string; docs: DocSummary[] }[] = [];
+        for (const target of docTargets()) {
+          const docs = await listModuleDocs(target.path);
+          if (docs.length > 0) modules.push({ key: target.key, docs });
+        }
+        return {
+          total: modules.reduce((sum, m) => sum + m.docs.length, 0),
+          modules,
+        };
+      },
+    },
+    {
+      // Recherche plein texte dans TOUTE la documentation chargée.
+      // ⭐ Chez un utilisateur, ces `.md` vivent sous `node_modules/`, que git
+      // ignore et que les outils de recherche des agents excluent : sans cette
+      // porte, la documentation est livrée et introuvable.
+      path: "docs/search",
+      summary: "Full-text search across every loaded module's documentation",
+      handler: async (request) => {
+        const raw = request.query.q;
+        const q = typeof raw === "string" ? raw : "";
+        if (q.trim() === "") {
+          return {
+            status: 400,
+            body: {
+              error: "Missing query parameter: q",
+              hint: "ex. /nodefony/kernel/api/docs/search?q=session+redis",
+            },
+          };
+        }
+        const limit = Number.parseInt(String(request.query.limit ?? ""), 10);
+        return searchModuleDocs(docTargets(), q, {
+          limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+        });
+      },
+    },
+    {
+      // La DÉCLARATION d'un symbole — sa signature, telle qu'elle est LIVRÉE.
+      // ⭐ Le graphe symbolique dit qu'un symbole existe et ce qu'il étend, mais
+      // pas ce qu'il PREND en argument : cela vit dans les `.d.ts`, sous
+      // `node_modules`, que git ignore et que les outils de recherche excluent.
+      // Sans cette porte, un agent devine une signature — et devine faux.
+      path: "module/{name}/symbol/{symbol}",
+      summary: "Declaration (signature + TSDoc) of one exported symbol",
+      handler: async (request) => {
+        const key = request.params.name;
+        const modulePath = resolveTarget(key)?.path ?? resolvePackageDir(key);
+        if (!modulePath) {
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
+        }
+        const symbol = request.params.symbol;
+        const found = await readSymbolDeclaration(modulePath, symbol);
+        if (!found) {
+          return {
+            status: 404,
+            body: {
+              error: "Symbol declaration not found",
+              key,
+              symbol,
+              hint: "le module publie-t-il ses types (dist/types) ?",
+            },
+          };
+        }
+        return { key, symbol, ...found };
       },
     },
     {
@@ -1326,7 +1588,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         return {
           key,
@@ -1344,7 +1609,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         return { key, ...(await readCoverage(target.path)) };
       },
@@ -1357,7 +1625,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         return {
           key,
@@ -1386,7 +1657,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         const body = (request.body ?? {}) as { file?: unknown };
         let file: string | undefined;

@@ -340,8 +340,8 @@ d'interception y sont posés :
 - `beforeDispatch` (`JsonRpcPeer.ts:172`) — un verrou **synchrone** appelé avant tout
   traitement de frame. Il rend `true`/`false`. Un refus sur une requête produit
   `-32001 unauthorized` ; sur une notification, la frame est jetée
-  (`JsonRpcPeer.ts:391`).
-- `onFrameAudit` (`JsonRpcPeer.ts:190`) — la trace des événements protocolaires notables
+  (`JsonRpcPeer.ts:413`).
+- `onFrameAudit` (`JsonRpcPeer.ts:210`) — la trace des événements protocolaires notables
   (frame invalide, refusée, méthode inconnue, erreur interne).
 
 La contrainte de synchronisme n'est pas un oubli : un `await` par frame coûterait une
@@ -358,14 +358,26 @@ contrôleur à chaque message reçu, laquelle pousse la charge dans
 même façon, par le hook `onFinish` du contexte, qui déclenche `fireClose()`
 (`WsConnectionTransport.ts:151`).
 
-Ce transport porte aussi la **back-pressure**, à deux seuils
-(`WsConnectionTransport.send()`, `WsConnectionTransport.ts:76`) :
+Ce transport porte aussi la **back-pressure**. Elle n'est pas câblée en dur : les trois
+leviers sont des clés de configuration du serveur WebSocket, lues par le transport
+(`WsConnectionTransport.ts:63-75`) et documentées dans `@nodefony/http`
+(`http/nodefony/config/config.ts:625`).
 
-| File non drainée (`bufferedAmount`)                                 | Décision                             | Pourquoi                                                                         |
-| ------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| < 1 MiB                                                             | envoi normal                         | régime nominal                                                                   |
-| ≥ 1 MiB (`BACKPRESSURE_DROP_BYTES`, `WsConnectionTransport.ts:32`)  | la frame est **jetée**               | les canaux d'état sont « le dernier gagne » : le prochain instantané la remplace |
-| ≥ 8 MiB (`BACKPRESSURE_CLOSE_BYTES`, `WsConnectionTransport.ts:33`) | fermeture `1013` (_Try Again Later_) | file irrécupérable ; le client se reconnecte et se resynchronise                 |
+| File non drainée (`bufferedAmount`)     | Décision                                            | Réglage (défaut)                                                                      |
+| --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| sous le seuil                           | envoi normal                                        | —                                                                                     |
+| au-dessus du seuil                      | politique appliquée : frame **jetée**, ou fermeture | `websocket.maxBackpressure` (**4 MiB**) · `websocket.backpressurePolicy` (**`drop`**) |
+| drops **consécutifs** au-delà du compte | fermeture `1013` (_Try Again Later_)                | `websocket.backpressureCloseAfterDrops` (**1000**)                                    |
+
+Deux points que la formulation « deux seuils d'octets » faisait manquer : la fermeture ne
+se déclenche pas sur un volume mais sur une **suite de frames jetées** — une seule frame
+qui repart remet le compteur à zéro — et `drop` est un choix, `close` fermant dès le
+premier dépassement. Jeter est acceptable parce que les canaux d'état sont « le dernier
+gagne » : le prochain instantané remplace celui qu'on a sauté.
+
+À ne pas confondre avec `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`, 1 MiB) : ce seuil-là
+ne jette rien, il **compte** — c'est celui à partir duquel la sonde marque une connexion
+`slowConsumer`.
 
 Sans ces seuils, un client lent — onglet en arrière-plan, mobile sur réseau dégradé —
 accumule sans borne côté serveur, et le multiplexage aggrave le phénomène : une connexion
@@ -575,7 +587,7 @@ rien.
 **`cluster`** relie les workers d'un même hôte. Un worker Node ne peut parler qu'au maître :
 il émet vers lui (`ClusterBackplane.publish()`, `ClusterBackplane.ts:117`), le maître
 rediffuse aux autres. Le driver ne s'active qu'en rôle worker avec la variable
-`NODEFONY_CLUSTER=1` (`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs il rend
+`NF_CLUSTER=1` (`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs il rend
 `null`. Aucune infrastructure requise — c'est le banc d'essai qui stabilise l'architecture
 multi-process avant d'ajouter du réseau.
 
@@ -612,12 +624,12 @@ et non une :
 L'étiquette elle-même est calculée par `resolveBackplaneOriginId()` (`originId.ts:24`), et
 sa recette mérite qu'on s'y arrête :
 
-| Étape              | Valeur              | Pourquoi                                                                                              |
-| ------------------ | ------------------- | ----------------------------------------------------------------------------------------------------- |
-| 1. explicite       | variable `POD_NAME` | l'opérateur sait mieux que nous (API descendante Kubernetes)                                          |
-| 2. filet           | `os.hostname()`     | nom de pod en Kubernetes, identifiant de conteneur en Docker, nom de machine ailleurs                 |
-| 3. toujours ajouté | suffixe `:pid`      | distingue les workers d'un même hôte (cluster + driver `redis`)                                       |
-| 4. dernier recours | `randomUUID()`      | hôte indisponible ; l'unicité à l'instant t suffit, la stabilité entre redémarrages n'est pas requise |
+| Étape              | Valeur                 | Pourquoi                                                                                              |
+| ------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1. explicite       | variable `NF_POD_NAME` | l'opérateur sait mieux que nous (API descendante Kubernetes)                                          |
+| 2. filet           | `os.hostname()`        | nom de pod en Kubernetes, identifiant de conteneur en Docker, nom de machine ailleurs                 |
+| 3. toujours ajouté | suffixe `:pid`         | distingue les workers d'un même hôte (cluster + driver `redis`)                                       |
+| 4. dernier recours | `randomUUID()`         | hôte indisponible ; l'unicité à l'instant t suffit, la stabilité entre redémarrages n'est pas requise |
 
 > [!CAUTION]
 > Prendre le PID seul serait un piège sournois : en conteneur, l'espace de noms des PID est
@@ -816,20 +828,20 @@ dans la sonde, et le plafond de canaux par connexion.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                       | Cause                                                                      | Correction                                                                 |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Le chat marche en local, plus rien en cluster                  | le canal n'est pas déclaré broadcast (défaut : instance-local)             | déclarer le préfixe avec `@RealtimeBroadcast`                              |
-| Le client ne reçoit rien alors qu'il a un handler `on(...)`    | `on` reçoit, `subscribe` demande — il faut les **deux**                    | appeler `socket.subscribe(canal)`                                          |
-| Chaque message arrive **en double** en cluster                 | `publishLocal` court-circuité, ou `originId` non unique entre pods         | ne jamais republier une arrivée backplane ; vérifier `POD_NAME`/hostname   |
-| Deux applications se parlent sur un Redis mutualisé            | même canal dérivé (le numéro de base Redis ne cloisonne pas le pub/sub)    | poser un `backplane.namespace` explicite et distinct                       |
-| Producteur planté après le départ du premier abonné            | la fabrique a capturé le contexte de la connexion créatrice                | ne capturer que des valeurs à longue durée de vie                          |
-| Abonnement refusé avec `realtime:denied` motif `limit`         | plafond de canaux par connexion atteint (256 par défaut)                   | regrouper les canaux, ou relever le plafond en connaissance de cause       |
-| Fermeture `1013` sur un client lent                            | file d'envoi ≥ 8 MiB, jugée irrécupérable                                  | attendu ; le client se reconnecte et se resynchronise                      |
-| Fermeture `4001` en cours de session                           | identité révoquée, détectée par le tick de re-validation                   | se réauthentifier ; le comportement est voulu                              |
-| Frames envoyées juste après `connect()` perdues                | le transport n'est pas branché tant que le handshake n'est pas fini        | attendre `realtime:welcome` (`RealtimeClient` le fait déjà)                |
-| Avertissement « channel policies … NOT enforced » au démarrage | des canaux déclarent une politique sans décideur câblé                     | charger `@nodefony/security` avec une zone realtime                        |
-| `ServerRealtimeSocket.request()` rejette systématiquement      | un handle posé sur le hub n'a pas d'interlocuteur unique                   | utiliser `RealtimeController.requestClient()` pour un appel ciblé          |
-| `TS2550: RegExp.escape does not exist` à la compilation        | `lib` du tsconfig sous ES2025 (les paquets exposent leurs types en source) | `"lib": ["ESNext", …]`, comme le tsconfig généré par `nodefony create app` |
+| Symptôme                                                       | Cause                                                                      | Correction                                                                  |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Le chat marche en local, plus rien en cluster                  | le canal n'est pas déclaré broadcast (défaut : instance-local)             | déclarer le préfixe avec `@RealtimeBroadcast`                               |
+| Le client ne reçoit rien alors qu'il a un handler `on(...)`    | `on` reçoit, `subscribe` demande — il faut les **deux**                    | appeler `socket.subscribe(canal)`                                           |
+| Chaque message arrive **en double** en cluster                 | `publishLocal` court-circuité, ou `originId` non unique entre pods         | ne jamais republier une arrivée backplane ; vérifier `NF_POD_NAME`/hostname |
+| Deux applications se parlent sur un Redis mutualisé            | même canal dérivé (le numéro de base Redis ne cloisonne pas le pub/sub)    | poser un `backplane.namespace` explicite et distinct                        |
+| Producteur planté après le départ du premier abonné            | la fabrique a capturé le contexte de la connexion créatrice                | ne capturer que des valeurs à longue durée de vie                           |
+| Abonnement refusé avec `realtime:denied` motif `limit`         | plafond de canaux par connexion atteint (256 par défaut)                   | regrouper les canaux, ou relever le plafond en connaissance de cause        |
+| Fermeture `1013` sur un client lent                            | file d'envoi ≥ 8 MiB, jugée irrécupérable                                  | attendu ; le client se reconnecte et se resynchronise                       |
+| Fermeture `4001` en cours de session                           | identité révoquée, détectée par le tick de re-validation                   | se réauthentifier ; le comportement est voulu                               |
+| Frames envoyées juste après `connect()` perdues                | le transport n'est pas branché tant que le handshake n'est pas fini        | attendre `realtime:welcome` (`RealtimeClient` le fait déjà)                 |
+| Avertissement « channel policies … NOT enforced » au démarrage | des canaux déclarent une politique sans décideur câblé                     | charger `@nodefony/security` avec une zone realtime                         |
+| `ServerRealtimeSocket.request()` rejette systématiquement      | un handle posé sur le hub n'a pas d'interlocuteur unique                   | utiliser `RealtimeController.requestClient()` pour un appel ciblé           |
+| `TS2550: RegExp.escape does not exist` à la compilation        | `lib` du tsconfig sous ES2025 (les paquets exposent leurs types en source) | `"lib": ["ESNext", …]`, comme le tsconfig généré par `nodefony create app`  |
 
 ## 🧪 Tests & couverture
 

@@ -65,17 +65,31 @@ env:
   TURBO_CONCURRENCY: 4
 
 jobs:
-  # ─── Vérifications statiques — multi-plateformes ────────────────────────────
+  # ─── Statique multi-plateformes + GATES DU DÉPÔT ───────────────────────────
   #
   # Ce job ne PRODUIT rien pour les autres : il compile pour vérifier que ça
-  # compile, puis contrôle types, style, dépendances et skills. Chaque job de
-  # test réinstalle et reconstruit sur son propre runner. Il s'appelait « Build »,
-  # ce qui laissait croire à une étape amont dont les tests attendraient la
-  # sortie — d'où l'étonnement légitime de voir les tests démarrer « avant lui ».
-  # Ils démarrent EN MÊME TEMPS, et c'est le but : plus aucun job n'est mis en
-  # attente, donc plus aucun ne peut être masqué par l'échec d'un autre.
+  # compile. Chaque job de test réinstalle et reconstruit sur son propre runner.
+  # Il s'appelait « Build », ce qui laissait croire à une étape amont dont les
+  # tests attendraient la sortie — d'où l'étonnement légitime de voir les tests
+  # démarrer « avant lui ». Ils démarrent EN MÊME TEMPS, et c'est le but : plus
+  # aucun job n'est mis en attente, donc plus aucun ne peut être masqué par
+  # l'échec d'un autre.
+  #
+  # 🔎 Il porte DEUX familles, et le nom doit le dire — sinon un rouge ici ne
+  # se distingue pas d'un rouge de compilation :
+  #
+  #   1. STATIQUE, sur les 6 variantes : typecheck · lint · format · audit des
+  #      dépendances. Ce qu'on attend de n'importe quel dépôt.
+  #   2. GATES DU DÉPÔT, sur UNE seule variante (ubuntu / Node 26, cf. le `if`
+  #      de chaque étape) — les contrôles que personne d'autre ne fait à notre
+  #      place : conformité des skills publiés, ancres `fichier:ligne` de la doc
+  #      résolues contre le code, auto-contrôle des juges du banc devkit. Ils
+  #      sont préfixés `Gate —` dans la liste des étapes.
+  #
+  # Pourquoi les gates ne tournent QUE sur une variante : ils lisent le dépôt,
+  # pas la plateforme. Les rejouer six fois coûterait six fois le même verdict.
   checks:
-    name: Vérifications (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    name: Statique + gates du dépôt (${{ matrix.os }} / Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -132,6 +146,30 @@ jobs:
       - name: Lint (oxlint)
         run: npm run lint
 
+      # Formatage — bloquant, au même titre que le lint et pour le même motif.
+      #
+      # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant
+      # qu'un fichier passe par lui. Il ne voit rien de ce qui l'évite : un
+      # `--no-verify`, une édition depuis l'interface web, un fichier jamais
+      # stagé. C'est exactement par là que 108 fichiers avaient dérivé sans que
+      # rien ne le signale — le hook n'est pas un contrôle, c'est une commodité.
+      #
+      # Un seul système et une seule version suffisent : prettier ne fait que
+      # lire des fichiers, son verdict ne dépend pas de la plateforme. La
+      # passe coûte ~70 s sur l'ensemble du dépôt ; la faire six fois n'apporte
+      # rien. ⚠️ Sur Windows elle exigerait en plus que `.gitattributes` couvre
+      # CHAQUE extension présente — un CRLF au checkout suffit à faire échouer
+      # un fichier pourtant conforme dans le dépôt.
+      #
+      # L'option vit dans le script `format:check` du manifeste racine, pas ici,
+      # pour la raison écrite plus haut à propos de `--deny-warnings` : un
+      # contrôle dont la forge et le poste ne disent pas la même chose ne se
+      # découvre qu'après le `push`. Remède imprimé par prettier lui-même, et
+      # `npm run format` le corrige en une commande.
+      - name: Formatage (prettier)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run format:check
+
       # Bloquant à partir de « high ». `npm ci` tourne avec `--no-audit` (l'audit
       # à l'installation ralentit sans rien bloquer) — la vérification est donc
       # faite ICI, à un endroit qui peut casser la marche. Une faille de gravité
@@ -145,9 +183,36 @@ jobs:
       # depuis des semaines sans que rien ne le déclenche — c'est précisément le
       # motif qui a laissé le lint dériver jusqu'à 263 avertissements. Un seul
       # système d'exploitation suffit : il ne lit que des fichiers.
-      - name: Conformité des skills
+      - name: Gate — conformité des skills publiés
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
+
+      # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
+      #
+      # Le contrôle existait et personne ne le lançait — ni ici, ni dans un
+      # script npm : juste une ligne dans un SKILL.md. Passé sur le corpus, il a
+      # sorti huit ancres qui pointaient dans le vide, dont deux vers
+      # `rollup.config.ts`, supprimé à la migration rolldown. Une ancre fausse
+      # est pire qu'une ancre absente : elle a l'air d'une preuve.
+      #
+      # Ce gate ne mord QUE sur ce qui est indiscutable (`anchor-check.mjs:211`)
+      # — fichier introuvable, ou ligne au-delà de la fin du fichier. Les
+      # `SUSPECT` (l'ancre a dérivé de quelques lignes) sont RAPPORTÉS sans
+      # échouer : ils se recalent avec `anchor-fix.mjs`, et en faire un blocage
+      # rendrait la CI rouge à chaque refactor honnête.
+      - name: Gate — ancres de la doc (fichier:ligne résolus contre le code)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        # Écrite en bash (continuation `\`, globs) : le shell se DÉCLARE. La garde
+        # `if` la réserve à ubuntu aujourd'hui — un shell tu est une mine posée
+        # pour le jour où cette garde changera.
+        shell: bash
+        run: |
+          node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs \
+            src/packages/@nodefony/*/docs/*.md \
+            src/nodefony/docs/*.md \
+            docs/guides/*.md \
+            docs/adr/*.md \
+            docs/performance/*.md
 
       # Les JUGES du banc devkit, éprouvés — pas le banc lui-même.
       #
@@ -167,13 +232,17 @@ jobs:
       # NON couvert par cette étape : `bench-schema.selftest.mjs`, qui exige une
       # base PostgreSQL pour exercer son lecteur et sort `2` sans elle. Il est
       # lancé dans `orm.yml`, là où le service existe déjà.
-      - name: Auto-contrôle des juges du banc devkit
+      - name: Gate — auto-contrôle des juges du banc devkit
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
         run: |
           node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs
           node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
           node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs
           node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/exec-portable.selftest.mjs --prove
 
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   #
@@ -224,11 +293,11 @@ jobs:
       # un doit rester possible ; en ajouter un se justifie.
       - name: Run unit tests (turbo)
         env:
-          # `RUN_CLUSTER_E2E` figure ici pour une raison différente des autres :
+          # `NF_RUN_CLUSTER_E2E` figure ici pour une raison différente des autres :
           # ce n'est pas un serveur qui manque, c'est un COÛT qu'on refuse — des
           # process forkés, six fois (trois systèmes × deux versions de Node).
           # Les deux topologies sont éprouvées par `orm.yml`, une fois, sur Linux.
-          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,REDIS_TEST_URL,MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL,RUN_CLUSTER_E2E
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL,NF_RUN_CLUSTER_E2E
         run: npm test
 
   # ─── Filet CLI — exerce le BINAIRE `nodefony`, sur les deux plateformes ─────
@@ -270,7 +339,7 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
-      - name: Filet CLI (RUN_CLI_BOOT)
+      - name: Filet CLI (NF_RUN_CLI_BOOT)
         run: npm run test:boot
 
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────
@@ -289,18 +358,49 @@ jobs:
   # Trois variantes, pas quatre : le mode éprouve le GATING du framework, pas le
   # moteur JavaScript — les deux versions de Node sont déjà croisées en
   # développement, et une quatrième tâche ne dirait rien de neuf.
+  # POURQUOI une matrice de systèmes ici, alors que les gates n'en ont pas besoin :
+  # cette tâche est la SEULE du dépôt qui DÉMARRE un serveur et lui parle. Tant
+  # qu'elle ne tournait que sur Linux, rien de ce qui vit à l'exécution — pipeline
+  # HTTP, WebSocket, cycle de vie, arrêt — n'était éprouvé ailleurs. « Ça compile »
+  # ne dit rien : les contrôles Windows étaient verts pendant qu'une application
+  # générée ne chargeait aucun de ses modules locaux.
+  #
+  # Les TROIS systèmes y sont désormais, et l'ordre a compté : `nodefony-server`
+  # est d'abord passé par le lanceur DU framework (kill d'arbre unique, readiness
+  # sur les ports RÉELS, refus d'un boot dégradé), et cette matrice-là a été
+  # prouvée sur ubuntu et macOS AVANT que Windows n'entre — deux changements ne
+  # s'introduisent pas dans la même passe, on ne saurait plus lequel a parlé.
+  #
+  # Ce que l'ancien lanceur coûtait, mesuré au passage : `websocket-fragmentation`
+  # pendait 60 s sous macOS et redevenait vert avec la readiness réelle. Déclarer
+  # un serveur prêt en comptant des lignes de journal ne prouvait pas qu'il l'était.
   test-integration:
-    name: Tests intégration (Node ${{ matrix.node-version }} / ${{ matrix.mode }})
-    runs-on: ubuntu-latest
+    name: Tests intégration (${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.mode }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - node-version: "24.x"
+          - os: ubuntu-latest
+            node-version: "24.x"
             mode: development
-          - node-version: "26.x"
+          - os: ubuntu-latest
+            node-version: "26.x"
             mode: development
-          - node-version: "26.x"
+          - os: ubuntu-latest
+            node-version: "26.x"
+            mode: production
+          - os: macos-latest
+            node-version: "26.x"
+            mode: development
+          - os: macos-latest
+            node-version: "26.x"
+            mode: production
+          - os: windows-latest
+            node-version: "26.x"
+            mode: development
+          - os: windows-latest
+            node-version: "26.x"
             mode: production
     timeout-minutes: 20
     env:
@@ -451,7 +551,6 @@ jobs:
         with:
           mode: ${{ matrix.mode == 'production' && 'production' || 'development --no-watch' }}
           log-file: nodefony-server-throttle.log
-          pid-file: srv-throttle.pid
           env: NF__SECURITY__RATELIMIT__ENABLED=true
 
       # Sélection par NOM : jouer les fichiers entiers réarmerait le problème que
@@ -466,6 +565,11 @@ jobs:
       # par le motif qui la désigne. Le rapporteur échoue et dit lequel manque.
       - name: Câblage du backoff NIST (les 2 cas opt-in)
         working-directory: src/packages/@nodefony/http
+        # `shell` DÉCLARÉ, jamais déduit : sans lui, GitHub passe l'étape au shell
+        # par défaut de la PLATEFORME — PowerShell sous Windows, où la continuation
+        # `\` de bash n'existe pas. L'étape ne cassait donc que là-bas, longtemps
+        # après avoir été écrite, et le rouge ne parlait pas de shell.
+        shell: bash
         env:
           NF__SECURITY__RATELIMIT__ENABLED: "true"
           NF_GATES_EXPECT: "backoff NIST,NIST PARTAGÉ"
@@ -488,7 +592,6 @@ jobs:
         uses: ./.github/actions/nodefony-server
         with:
           action: stop
-          pid-file: srv-throttle.pid
 
       - name: Upload server log on failure
         if: failure()

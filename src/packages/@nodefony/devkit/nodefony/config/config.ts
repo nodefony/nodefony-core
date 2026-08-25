@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonicalResourceUri } from "nodefony";
+import { canonicalResourceUri, BUILTIN_MCP_TOOL_KEYS } from "nodefony";
 
 /**
  * @nodefony/devkit — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -76,16 +76,27 @@ const mcpAuthorizationSchema = z
       .describe("URI publique de la porte MCP (audience attendue des jetons)"),
 
     /**
-     * Scopes que cette porte comprend — publiés, et proposés au client quand on
-     * le refuse.
+     * Autres adresses de CETTE MÊME porte, dont les jetons sont aussi acceptés.
      *
-     * Ce sont ceux que les outils déclarent (`IMcpTool.scopes`). Les annoncer
-     * évite au client de demander plus que nécessaire.
+     * Le cas courant : l'application sert la porte en clair sur un port et en
+     * TLS sur un autre. Un jeton émis pour l'une était alors refusé sur l'autre
+     * — la liaison d'audience (RFC 8707) faisant son travail. Nommer la seconde
+     * adresse est la bonne réponse ; relâcher la liaison n'en serait pas une.
+     *
+     * 🔴 Ces valeurs s'ÉCRIVENT. Dérivées du `Host`, un en-tête forgé
+     * obtiendrait un jeton d'audience arbitraire ET passerait la vérification.
+     * Seule `resource` est publiée en RFC 9728 : le document n'admet qu'une
+     * valeur, et un client n'a besoin que d'une adresse.
+     *
+     * ⚠️ L'ÉMETTEUR doit servir ces audiences (`security.jwt.audiences`), sinon
+     * il refuse de les émettre — `invalid_target`, et à juste titre.
      */
-    scopesSupported: z
+    additionalResources: z
       .array(z.string())
       .default([])
-      .describe("Scopes compris par la porte (guide le client)"),
+      .describe(
+        "Autres URI de la même porte dont les jetons sont acceptés (jamais dérivées du Host)",
+      ),
 
     /** Nom lisible, affiché pendant le consentement. */
     resourceName: z.string().optional().describe("Nom affiché au consentement"),
@@ -199,7 +210,10 @@ const mcpSchema = z.object({
    */
   tools: z
     .array(z.string())
-    .default(["inspect", "check", "symbols", "card"])
+    // Le défaut est DÉRIVÉ du catalogue intégré, jamais retapé : une liste
+    // recopiée ici aurait tu chaque outil ajouté au cœur — déclaré dans le
+    // code, absent de la porte, et sans le moindre message pour l'expliquer.
+    .default([...BUILTIN_MCP_TOOL_KEYS])
     .describe("Outils MCP activés (allowlist, lecture seule)"),
 
   /**

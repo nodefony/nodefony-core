@@ -4,6 +4,7 @@ import type {
   ICardDoor,
   ICardInput,
   ICardVerb,
+  IMcpToolDeps,
 } from "nodefony";
 import type { DevkitConfig } from "../config/config";
 
@@ -58,4 +59,22 @@ export interface IDevkitService {
    * configuration — deux lectures divergent.
    */
   mcpSettings(): DevkitConfig["mcp"];
+
+  /**
+   * Ce dont les outils MCP intégrés ont besoin pour répondre.
+   *
+   * Sur le contrat parce que la porte HTTP les passe au catalogue : les
+   * composer de son côté ferait une seconde source, qui divergerait de celle
+   * dont sont dérivés les scopes publiés.
+   */
+  mcpToolDeps(): IMcpToolDeps;
+
+  /**
+   * Les scopes que la porte MCP EXIGE, dérivés des outils déclarés.
+   *
+   * Deux lecteurs, une seule source : le document RFC 9728 (`scopes_supported`)
+   * et le défi opposé à un porteur refusé (RFC 6750 `scope`). Vide = la porte
+   * n'exige rien, et le champ est alors omis du document.
+   */
+  declaredMcpScopes(): readonly string[];
 }

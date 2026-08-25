@@ -30,8 +30,7 @@ import { ormRegistry } from "./OrmRegistry";
  */
 export function wireOrmAdminPlane(kernel: IKernel | null | undefined): void {
   const broker = kernel?.container?.get("adminBroker") as
-    | IAdminRegistry
-    | undefined;
+    IAdminRegistry | undefined;
   if (broker) {
     registerOrmAdminApi(broker);
   }
@@ -84,7 +83,7 @@ export function reportOrmBootLines(kernel: IKernel | null | undefined): void {
  * Détermine si la sonde de flux ORM (`queryFlowMonitor`) doit être active :
  * **OFF en production** (coût nul sur le hot path des requêtes), **ON sinon**
  * (observabilité dev / Supervision). Override explicite par la variable
- * d'environnement `NODEFONY_ORM_FLOW` (`1`/`true` = forcer ON).
+ * d'environnement `NF_ORM_FLOW` (`1`/`true` = forcer ON).
  *
  * Factorise le calcul recopié à l'identique dans chaque `*Service.onBoot` (le
  * pendant « flux » de {@link wireOrmAdminPlane}, gardé distinct car il s'exécute
@@ -96,7 +95,7 @@ export function reportOrmBootLines(kernel: IKernel | null | undefined): void {
 export function resolveOrmFlowEnabled(
   kernel: IKernel | null | undefined,
 ): boolean {
-  const flag = process.env.NODEFONY_ORM_FLOW;
+  const flag = process.env.NF_ORM_FLOW;
   return flag !== undefined
     ? flag === "1" || flag === "true"
     : kernel?.environment !== "production";
