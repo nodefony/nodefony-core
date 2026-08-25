@@ -572,6 +572,12 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-25] **J'ai édité un script bash PENDANT son exécution.** Bash lit le fichier au fur et à
+  mesure, à l'OFFSET D'OCTETS : mon insertion a décalé la suite, et l'interpréteur est tombé au
+  milieu d'une ligne (`══: command not found`). Le rouge n'accusait rien d'autre que moi, et
+  `bash -n` ne pouvait pas le voir. La règle « ne pas éditer pendant un run » ne vaut pas que pour
+  les suites de tests : elle vaut pour le script LUI-MÊME.
+
 - **Ma mutation n'avait PAS été appliquée — et j'ai failli conclure que mes tests ne mordaient
   pas.** Un `str.replace(old, new)` dont l'ancre ne correspond pas ne lève rien : il réécrit le
   fichier INCHANGÉ. Les 46 verts qui ont suivi ne prouvaient donc rien. Toute mutation porte
@@ -739,6 +745,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 08-25] **Un banc rouge sur sa PROPRE garde d'entrée n'a jamais mesuré.** `soak.yml`
+  échouait à chaque passe sur « machine OCCUPÉE » (21,72 de charge sur 3 cœurs) : il suit un
+  `npm ci` + build, et `loadavg[0]` est une moyenne sur UNE MINUTE — elle décrit le passé, pas
+  l'instant. La garde était juste, son MOMENT ne l'était pas. Quand une garde de décor refuse
+  systématiquement dans un environnement donné, la question n'est pas « faut-il la desserrer ? »
+  mais « que devrait-elle faire à la place ? » — ici, ce que son message conseillait déjà à un
+  humain : attendre la retombée.
 
 - [1× — 08-25] **Un gate qui ne lit que la moitié de son domaine.** `scripts-audit` portait un
   contrôle « renvois morts » — mais il ne lisait que le TEXTE des `SKILL.md`. Un script qui en

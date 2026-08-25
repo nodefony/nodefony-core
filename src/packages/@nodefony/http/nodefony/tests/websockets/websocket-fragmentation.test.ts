@@ -32,27 +32,36 @@ const senderFrame = (ws as unknown as { Sender: { frame: FrameFn } }).Sender
 const mkFrame = (data: Buffer, fin: boolean, opcode: number): Buffer[] =>
   senderFrame(data, { fin, opcode, mask: true, readOnly: false, rsv1: false });
 
-const openEcho = (): Promise<WebSocket> =>
+/**
+ * Ouvre la connexion d'echo ET arme la capture du handshake AVANT l'`open`.
+ *
+ * `ws` émet `message` dès qu'il a des données à rendre — y compris dans la MÊME
+ * boucle d'événements que l'upgrade, quand la réponse HTTP et le premier
+ * message applicatif arrivent dans le même segment TCP. Un listener posé APRÈS
+ * la résolution de l'ouverture (une microtask plus tard) rate alors le message,
+ * et l'attente pend ses 60 s pour ne rendre qu'un « timed out ».
+ *
+ * C'est le mode d'échec observé DEUX FOIS en une heure, sur deux plateformes
+ * différentes (Windows puis macOS) — intermittent parce qu'il dépend du
+ * découpage TCP, donc de la charge de la machine.
+ *
+ * Un durcissement précédent avait rendu cette attente PARLANTE quand la
+ * connexion tombait (cf {@link premierMessage}, qui distingue close et error
+ * d'un silence) ; il ne pouvait rien contre un message simplement arrivé trop
+ * tôt. Armer avant l'ouverture supprime la course au lieu d'en réduire la
+ * chance — c'est la seule forme qui ne dépende pas de la vitesse du réseau.
+ */
+const openEcho = (): Promise<{ ws: WebSocket; handshake: Promise<string> }> =>
   new Promise((resolve, reject) => {
     const ws = new WebSocket(ECHO);
-    ws.on("open", () => resolve(ws));
+    const handshake = premierMessage(ws);
+    // Si l'ouverture échoue, `handshake` sera rejetée sans que personne ne
+    // l'attende : on la marque gérée pour qu'un `unhandledRejection` ne vienne
+    // pas masquer la VRAIE erreur, celle de l'ouverture.
+    handshake.catch(() => {});
+    ws.on("open", () => resolve({ ws, handshake }));
     ws.on("error", reject);
   });
-
-/**
- * Consomme le message de handshake (`{handshake:true}`) envoyé à la connexion.
- *
- * Passe par {@link premierMessage} plutôt que par un `once("message")` nu :
- * l'attente muette que le commentaire ci-dessous décrit valait pour CETTE
- * étape aussi, et c'est ici qu'elle a mordu. Sur un runner Windows en
- * production, le test a pendu ses 60 s entières pour ne rendre qu'un
- * « timed out » — le handshake n'était jamais arrivé, et rien ne disait
- * pourquoi. Durcir le second message et laisser le premier muet ne protège
- * que la moitié du chemin.
- */
-const consumeHandshake = async (ws: WebSocket): Promise<void> => {
-  await premierMessage(ws);
-};
 
 /**
  * Le PREMIER message reçu — ou la raison pour laquelle il ne viendra jamais.
@@ -169,8 +178,8 @@ describe("WS fragmentation — RFC 6455 §5.4", () => {
     (JSON.parse(raw) as { frag: string }).frag;
 
   it("réassemble un message JSON fragmenté (echo renvoie le tout)", async () => {
-    const ws = await openEcho();
-    await consumeHandshake(ws);
+    const { ws, handshake } = await openEcho();
+    await handshake;
     const got = premierMessage(ws);
     writeRawFrames(ws, [
       mkFrame(Buffer.from('{"frag":'), false, OPCODE_TEXT),
@@ -182,8 +191,8 @@ describe("WS fragmentation — RFC 6455 §5.4", () => {
   });
 
   it("gère un PING injecté entre fragments (pong + réassemblage intact)", async () => {
-    const ws = await openEcho();
-    await consumeHandshake(ws);
+    const { ws, handshake } = await openEcho();
+    await handshake;
     const gotMsg = premierMessage(ws);
     const gotPong = attendrePong(ws);
     writeRawFrames(ws, [
