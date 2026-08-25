@@ -7,6 +7,10 @@
 # `templates/` est bien publié dans le paquet, ce qu'aucun test du dépôt ne
 # peut voir.
 #
+# Une étape précède les scénarios et ne dépend d'aucun : la PORTE D'ENTRÉE,
+# `create-nodefony` installé depuis SON tarball. C'est le premier paquet qu'un
+# inconnu exécute (`npm create nodefony <app>`), et il n'était éprouvé par rien.
+#
 # TROIS scénarios, sélectionnables :
 #
 #   base   — app minimale sans front : sondes, node PID 1, drain au SIGTERM
@@ -60,16 +64,23 @@ ok() { echo "✓ $1"; }
 # Génère une application témoin. Les gardes qui suivent ne sont pas du zèle :
 # sans elles, un gabarit disparu ferait échouer `docker build` avec un message
 # qui accuserait les tarballs.
+# Ce qu'une application générée doit porter, quel que soit le générateur qui l'a
+# produite. UNE implémentation : le binaire du cœur et le shim `create-nodefony`
+# subissent le même contrôle, sinon l'un des deux chemins dériverait sans bruit.
+assert_app_conforme() { # dir quoi
+  local dir="$1" quoi="$2" f
+  for f in Dockerfile .dockerignore package.json index.ts nodefony.config.ts; do
+    [[ -f "$dir/$f" ]] || fail "$quoi : l'app générée n'a pas de $f — gabarit absent du tarball ?"
+  done
+  grep -q '^CMD \["' "$dir/Dockerfile" || fail "$quoi : Dockerfile généré sans CMD en forme exec"
+}
+
 scaffold_app() { # nom dir preset frontend
   local name="$1" dir="$2" preset="$3" front="$4"
   "$NODEFONY_BIN" create app "$name" --dir "$dir" --yes \
     --preset "$preset" --frontend "$front" --no-install --no-git > "$WORK/.scaffold-$name.out" 2>&1 \
     || { tail -30 "$WORK/.scaffold-$name.out"; fail "nodefony create app ($preset/$front)"; }
-  local f
-  for f in Dockerfile .dockerignore package.json index.ts nodefony.config.ts; do
-    [[ -f "$dir/$f" ]] || fail "l'app générée n'a pas de $f — gabarit absent du tarball ?"
-  done
-  grep -q '^CMD \["' "$dir/Dockerfile" || fail "Dockerfile généré sans CMD en forme exec"
+  assert_app_conforme "$dir" "nodefony create app"
   ok "app « $name » générée ($preset / front=$front)"
 }
 
@@ -154,6 +165,54 @@ process.stdout.write(m["nodefony"]);
 NODEFONY_BIN="$SCAFFOLDER/node_modules/.bin/nodefony"
 [[ -x "$NODEFONY_BIN" ]] || fail "binaire absent du tarball : $NODEFONY_BIN"
 ok "nodefony installé depuis $NODEFONY_TGZ"
+
+# ═══ LA PORTE D'ENTRÉE — `npm create nodefony` ══════════════════════════════
+#
+# `create-nodefony` est le PREMIER paquet qu'un inconnu exécute, et le seul qui
+# ait remplacé le `npm i -g`. Il n'était éprouvé par RIEN : tout le reste de ce
+# banc passe par le binaire du paquet `nodefony`, jamais par ce shim. Un paquet
+# qu'on publie sans l'avoir exécuté depuis son tarball est exactement ce que ce
+# banc existe pour empêcher.
+#
+# Sa dépendance `nodefony` est épinglée sur la MÊME version, qui n'existe pas
+# encore sur le registre — d'où l'`overrides` vers le tarball local. Ce n'est pas
+# un contournement : c'est le propos, on éprouve ce qu'on s'APPRÊTE à publier.
+#
+# ⚠️ CE QUE CETTE ÉTAPE NE PROUVE PAS, et personne ne peut le prouver avant la
+# publication : la résolution `npm create nodefony <app>` depuis le REGISTRE.
+# Ce qui EST prouvé : le tarball porte son binaire, ce binaire trouve le lanceur
+# par `nodefonyBin` (résolution qui a sa propre subtilité — import dynamique,
+# hoisting), et il produit une application conforme.
+step "porte d'entrée — create-nodefony depuis SON tarball (le geste d'un inconnu)"
+CREATOR="$WORK/creator"
+CREATE_TGZ="$(node -e '
+const m = require(process.argv[1] + "/manifest.json");
+if (!m["create-nodefony"]) {
+  throw new Error("manifest.json sans entrée `create-nodefony` — le 15e paquet n a pas ete packe");
+}
+process.stdout.write(m["create-nodefony"]);
+' "$ROOT/release/tarballs")"
+mkdir -p "$CREATOR"
+node -e '
+const fs = require("fs");
+const [dir, tgz] = process.argv.slice(1);
+fs.writeFileSync(dir + "/package.json", JSON.stringify({
+  name: "nodefony-smoke-creator", version: "1.0.0", private: true,
+  // La dépendance épinglée du shim pointe une version encore absente du
+  // registre : on la redirige vers le tarball que ce banc vient de fabriquer.
+  overrides: { nodefony: "file:" + tgz },
+}, null, 2) + "\n");
+' "$CREATOR" "$ROOT/release/tarballs/$NODEFONY_TGZ"
+(cd "$CREATOR" && npm install --no-audit --no-fund "$ROOT/release/tarballs/$CREATE_TGZ" > "$WORK/.creator.out" 2>&1) \
+  || { tail -30 "$WORK/.creator.out"; fail "npm install du tarball create-nodefony ($CREATE_TGZ)"; }
+CREATE_BIN="$CREATOR/node_modules/.bin/create-nodefony"
+[[ -x "$CREATE_BIN" ]] || fail "binaire absent du tarball create-nodefony : $CREATE_BIN"
+VIA_CREATE="$WORK/via-create"
+"$CREATE_BIN" "smokecreate" --dir "$VIA_CREATE" --yes \
+  --preset minimal --frontend none --no-install --no-git > "$WORK/.via-create.out" 2>&1 \
+  || { tail -30 "$WORK/.via-create.out"; fail "create-nodefony n a pas produit d application"; }
+assert_app_conforme "$VIA_CREATE" "create-nodefony"
+ok "create-nodefony installé depuis $CREATE_TGZ, et son application est conforme"
 
 # ═══ SCÉNARIO « base » — sondes, PID 1, drain ═══════════════════════════════
 

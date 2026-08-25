@@ -165,6 +165,13 @@ npm run release:pack                           # les tarballs seuls
 `package.json`. `fix-dts-extensions.mjs` extensionne les specifiers relatifs des déclarations
 (`node16`/`nodenext` l'exige) — appelé **depuis** le pack, pas à la main.
 
+**La PORTE D'ENTRÉE est éprouvée en premier.** `create-nodefony` est installé depuis SON tarball et
+doit produire une application conforme : c'est le premier paquet qu'un inconnu exécute
+(`npm create nodefony <app>`), et le seul qui ait remplacé le `npm i -g`. Sa dépendance `nodefony`
+est épinglée sur une version encore absente du registre → `overrides` vers le tarball local. Ce que
+cette étape NE prouve pas, et que rien ne peut prouver avant publication : la résolution depuis le
+REGISTRE.
+
 **Le décor du smoke est GÉNÉRÉ, pas copié.** Le paquet `nodefony` est installé depuis son tarball
 dans un dossier jetable, et c'est CE binaire qui produit l'application témoin (`create app`, puis
 `create controller` pour la route lente du drain). Deux conséquences qu'aucun autre gate ne donne :
