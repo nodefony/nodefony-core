@@ -17,6 +17,11 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+// Le kill d'ARBRE du framework, pas une redécouverte locale : sous Windows les
+// groupes de process n'existent pas (axiome 5), et cette fonction est
+// l'implémentation UNIQUE du dépôt — elle passe par `taskkill /T /F` là-bas et
+// ÉNONCE ce qu'elle a pu atteindre au lieu de le supposer.
+import { signalProcessGroup } from "nodefony";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 // racine repo = 4 niveaux au-dessus de .claude/skills/nodefony-load-test/scripts
@@ -52,13 +57,30 @@ function bootServer(extraEnv) {
   return child;
 }
 
-/** Tue le groupe de process (l'enfant + ses descendants Vite). */
+/**
+ * Tue l'ARBRE de process (l'enfant + ses descendants Vite).
+ *
+ * 🔴 Ce banc faisait `process.kill(-pid)` — un groupe de process, qui n'existe
+ * PAS sous Windows : l'appel y LÈVE, et le `catch` le prenait pour « déjà
+ * mort ». Le serveur survivait donc au banc, avec son Vite sur 5173 et ses
+ * ports 7771/7772 ; l'étape suivante trouvait les ports pris, Vite échouait en
+ * « Port 5173 is already in use », et `status` — privé de `ps` sous Windows —
+ * lisait le fichier d'état du RÉSIDU. Trois symptômes, une cause.
+ *
+ * `signalProcessGroup` est l'implémentation unique du dépôt et RÉPOND ce qu'elle
+ * a atteint : on le vérifie au lieu de l'espérer. `single` signifie que seul
+ * l'enfant direct est tombé — les Vite petits-enfants sont encore là, et le
+ * banc suivant en héritera : c'est exactement ce qu'il faut dire tout haut.
+ */
 function killGroup(child) {
-  try {
-    process.kill(-child.pid, "SIGKILL");
-  } catch {
-    /* déjà mort */
+  const verdict = signalProcessGroup(child.pid, "SIGKILL");
+  if (verdict === "single") {
+    console.error(
+      `⚠ arbre NON emporté (pid ${child.pid}) : seul l'enfant direct est tombé — ` +
+        `des descendants (Vite) tiennent peut-être encore leurs ports.`,
+    );
   }
+  return verdict;
 }
 
 /** Résout `true` dès que `port` accepte une connexion TCP, `false` au timeout. */
