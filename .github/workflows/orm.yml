@@ -42,7 +42,18 @@ on:
       - "src/packages/@nodefony/orm-core/**"
       - "src/packages/@nodefony/mongoose/**"
       - "src/packages/@nodefony/realtime/**"
+      # `clusterIpc.e2e.test.ts` importe `ClusterRelay` du CŒUR : c'est lui qui
+      # route le fan-out entre workers. Sans ce chemin, le modifier ne rejouait
+      # aucun des cinq cas de fan-out IPC — dont le seul qui éprouve N > 2
+      # workers, que le banc autonome ne couvre pas.
+      - "src/nodefony/src/service/cluster/**"
       - "src/nodefony/src/tests/support/**"
+      # Les actions locales qui LÈVENT le décor de ces bancs. Les casser doit
+      # rejouer ce qui s'en sert : sans ces chemins, un décor dégradé n'était
+      # constaté qu'au prochain commit touchant un paquet — sur une cause
+      # devenue introuvable.
+      - ".github/actions/redis/**"
+      - ".github/actions/mongo/**"
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
   pull_request:
@@ -53,7 +64,18 @@ on:
       - "src/packages/@nodefony/orm-core/**"
       - "src/packages/@nodefony/mongoose/**"
       - "src/packages/@nodefony/realtime/**"
+      # `clusterIpc.e2e.test.ts` importe `ClusterRelay` du CŒUR : c'est lui qui
+      # route le fan-out entre workers. Sans ce chemin, le modifier ne rejouait
+      # aucun des cinq cas de fan-out IPC — dont le seul qui éprouve N > 2
+      # workers, que le banc autonome ne couvre pas.
+      - "src/nodefony/src/service/cluster/**"
       - "src/nodefony/src/tests/support/**"
+      # Les actions locales qui LÈVENT le décor de ces bancs. Les casser doit
+      # rejouer ce qui s'en sert : sans ces chemins, un décor dégradé n'était
+      # constaté qu'au prochain commit touchant un paquet — sur une cause
+      # devenue introuvable.
+      - ".github/actions/redis/**"
+      - ".github/actions/mongo/**"
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
   # Rattrapage manuel : un changement transverse peut casser ces suites sans

@@ -47,6 +47,15 @@ on:
       - "src/packages/@nodefony/http/**"
       - "src/packages/@nodefony/framework/**"
       - "src/packages/@nodefony/realtime/**"
+      # Le banc d'arrêt gracieux interroge des routes de CE module
+      # (`/nodefony/test/abort/wait`, `/nodefony/test/ws/echo`) : les changer
+      # sans réveiller ce workflow ferait tomber le banc des commits plus tard,
+      # sur une cause devenue introuvable.
+      - "src/modules/test/**"
+      # L'action qui BOOTE le serveur du banc. `memory.yml` la déclare ; ici
+      # elle manquait — la casser ne réveillait donc pas le seul workflow qui
+      # s'en sert pour prouver un arrêt propre.
+      - ".github/actions/nodefony-server/**"
       - ".claude/skills/nodefony-load-test/scripts/**"
       - ".github/workflows/e2e-autonomes.yml"
   pull_request:
@@ -56,6 +65,15 @@ on:
       - "src/packages/@nodefony/http/**"
       - "src/packages/@nodefony/framework/**"
       - "src/packages/@nodefony/realtime/**"
+      # Le banc d'arrêt gracieux interroge des routes de CE module
+      # (`/nodefony/test/abort/wait`, `/nodefony/test/ws/echo`) : les changer
+      # sans réveiller ce workflow ferait tomber le banc des commits plus tard,
+      # sur une cause devenue introuvable.
+      - "src/modules/test/**"
+      # L'action qui BOOTE le serveur du banc. `memory.yml` la déclare ; ici
+      # elle manquait — la casser ne réveillait donc pas le seul workflow qui
+      # s'en sert pour prouver un arrêt propre.
+      - ".github/actions/nodefony-server/**"
       - ".claude/skills/nodefony-load-test/scripts/**"
       - ".github/workflows/e2e-autonomes.yml"
   workflow_dispatch:

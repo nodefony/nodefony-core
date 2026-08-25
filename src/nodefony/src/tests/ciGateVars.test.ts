@@ -159,3 +159,59 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
     }
   }
 });
+
+/**
+ * **Un workflop à liste blanche doit déclarer les actions LOCALES qu'il utilise.**
+ *
+ * `paths:` est une liste blanche : ce qui n'y figure pas ne réveille jamais le
+ * workflow. Une action locale (`uses: ./.github/actions/X`) est du code comme un
+ * autre — la casser doit rejouer ce qui s'en sert. Sans son chemin, l'action se
+ * dégrade et le seul workflow qui l'exerce reste muet ; le rouge tombera plus
+ * tard, sur un commit qui n'y est pour rien.
+ *
+ * Vécu : `e2e-autonomes.yml` boote son serveur par `./.github/actions/nodefony-server`
+ * sans la déclarer, quand son frère `memory.yml` la déclarait — la convention
+ * existait, elle n'avait simplement pas été appliquée aux deux.
+ *
+ * Ne concerne PAS les workflows en `paths-ignore` (`node.js.yml`, `scaffold.yml`) :
+ * ils tournent sur tout sauf exclusion, donc rien ne peut leur échapper.
+ */
+describe("Workflows à liste blanche — les actions locales sont déclarées", () => {
+  for (const file of workflows) {
+    const contenu = readFileSync(path.join(WORKFLOWS, file), "utf8");
+    // Liste blanche seulement : `paths-ignore` couvre tout par construction.
+    if (!/^\s+paths:/m.test(contenu)) continue;
+
+    // Un `paths:` par déclencheur (`push`, `pull_request`) : le chemin doit
+    // figurer dans CHACUN. Déclaré dans `push` seul, il laisse les
+    // requêtes de tirage sans couverture — et ce test passait, faute de
+    // compter. Constaté en le débranchant : il n'a pas mordu.
+    const blocsPaths = (contenu.match(/^\s+paths:/gm) ?? []).length;
+
+    const actions = new Set(
+      [...contenu.matchAll(/uses:\s*\.\/(\.github\/actions\/[\w-]+)/g)].map(
+        (m) => m[1] as string,
+      ),
+    );
+    for (const action of actions) {
+      it(`${file} — déclare \`${action}\` dans chaque déclencheur`, () => {
+        const declare = (
+          contenu.match(
+            new RegExp(
+              `"${action.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\*\\*"`,
+              "g",
+            ),
+          ) ?? []
+        ).length;
+        assert.strictEqual(
+          declare,
+          blocsPaths,
+          `${file} utilise l'action locale ${action} et compte ${blocsPaths} ` +
+            `bloc(s) \`paths:\`, mais ne la déclare que ${declare} fois. La ` +
+            `modifier ne réveillera pas tous les déclencheurs — ajouter ` +
+            `"${action}/**" à chacun.`,
+        );
+      });
+    }
+  }
+});
