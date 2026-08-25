@@ -41,18 +41,23 @@ derrière les commandes npm qui font autorité :
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 
-Ce skill donne la méthode : quoi lancer, ce que chaque refus signifie, où chercher quand ça casse.
+Ce skill donne la méthode À UN AGENT : quoi lancer, ce que chaque refus signifie, où chercher
+quand ça casse. Ce n'est pas la documentation du projet — celle-ci vit dans
+[`docs/guides/publier-une-release.md`](../../../docs/guides/publier-une-release.md), écrite pour un
+humain qui la lit avant de publier. Les deux disent la même chose à deux lecteurs différents ; ce
+qui n'a qu'un seul lecteur possible — l'exécutable — n'est ni dans l'un ni dans l'autre.
 **Ne jamais y remettre de script exécutable** — la chaîne de publication ne peut pas dépendre de
 l'outillage d'agent, qui se réorganise pour d'autres raisons qu'elle. Le cycle a existé
 (`release.mjs` appelait un script du skill, qui réimportait le cœur du produit) ; il est coupé.
 
-| Besoin                                                   | Où                            |
-| -------------------------------------------------------- | ----------------------------- |
-| Conduire la publication, lire un échec                   | **ce skill**                  |
-| Savoir QUOI publier et dans quel ordre (plan de version) | `docs/release/nodefony-10.md` |
-| Dérive `external` du bundler ↔ `peerDependencies`        | `nodefony-check-externals`    |
-| Créer ou restructurer un paquet                          | `nodefony-create-module`      |
-| Mesurer la performance de ce qui est publié              | `nodefony-load-test`          |
+| Besoin                                                   | Où                                                                                  |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Conduire la publication, lire un échec                   | **ce skill**                                                                        |
+| **Une page à faire LIRE à un humain**                    | [`docs/guides/publier-une-release.md`](../../../docs/guides/publier-une-release.md) |
+| Savoir QUOI publier et dans quel ordre (plan de version) | `docs/release/nodefony-10.md`                                                       |
+| Dérive `external` du bundler ↔ `peerDependencies`        | `nodefony-check-externals`                                                          |
+| Créer ou restructurer un paquet                          | `nodefony-create-module`                                                            |
+| Mesurer la performance de ce qui est publié              | `nodefony-load-test`                                                                |
 
 ## 2. Ce qui rend une release différente de tout autre geste
 

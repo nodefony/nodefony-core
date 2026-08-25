@@ -1,0 +1,424 @@
+# Publication de Nodefony — déclenchée par un TAG, jamais par un push.
+#
+# ⚠️ LE NOM DE CE FICHIER EST UN IDENTIFIANT. Il est saisi tel quel dans les
+# réglages de chaque paquet sur npmjs.com (« Workflow filename »), extension
+# comprise, et la comparaison est SENSIBLE À LA CASSE. Le renommer casse la
+# publication des quinze paquets d'un coup, et npm ne le dira qu'à la tentative
+# suivante : il ne valide RIEN à l'enregistrement du publieur de confiance.
+#
+# ⚠️ NE JAMAIS APPELER CE WORKFLOW DEPUIS UN AUTRE (`workflow_call`). npm valide
+# le nom du workflow APPELANT : passer par un intermédiaire fait échouer
+# l'assertion d'identité, avec un `ENEEDAUTH` qui n'évoque nulle part la cause.
+#
+# ── CE QUI REND CE WORKFLOW DIFFÉRENT DE TOUS LES AUTRES ─────────────────────
+#
+# Il est IRRÉVERSIBLE. Une version publiée sur npm ne se réécrit jamais :
+# `unpublish` n'est ouvert que 72 heures, et seulement si personne n'en dépend.
+# Et le lockstep aggrave tout : quinze paquets partent en séquence, npm ne
+# connaît pas la transaction, donc un échec au huitième laisse sept paquets en
+# ligne qui référencent sept absents — sept versions brûlées, et une reprise en
+# 10.0.1 POUR TOUT LE LOT.
+#
+# D'où les deux principes qui structurent ce fichier :
+#   1. tout ce qui peut être vérifié l'est AVANT le premier `publish` ;
+#   2. rien ici n'écrit dans le dépôt — ce qui part est exactement ce qui a été
+#      commité, relu, puis tagué.
+#
+# ── 🔴 CRAN D'ARMEMENT — CE WORKFLOW NE PUBLIE RIEN PAR DÉFAUT ───────────────
+#
+# Tant que la variable de dépôt `NF_RELEASE_ARMED` ne vaut pas `true`, tout
+# s'exécute SAUF les trois gestes irréversibles : le `npm publish`, la release
+# GitHub, et les pousses vers les dépôts externes. On peut donc pousser un tag
+# `v10.*` d'essai et voir la chaîne ENTIÈRE se dérouler — build, tests, pack,
+# installation vierge en conteneur, toutes les gardes, la répétition sur le lot
+# complet — sans qu'un octet ne parte sur le registre.
+#
+# Ce n'est pas une ceinture de confort : un workflow de publication qu'on n'a
+# jamais vu tourner est un workflow dont on découvre les défauts LE JOUR OÙ ils
+# coûtent le plus cher. Celui-ci se répète autant qu'on veut.
+#
+#   Armer   : Settings → Variables → NF_RELEASE_ARMED = true
+#   Désarmer: supprimer la variable (ou toute autre valeur que `true`)
+#
+# Protocole, gardes et interprétation des échecs : skill `nodefony-release`.
+# Plan de version, ordre de publication, réglages npmjs.com : docs/release/nodefony-10.md.
+
+name: Release (publication npm)
+
+on:
+  # Le TAG est la CAUSE de la publication, pas sa conséquence. Il est posé à la
+  # main, après que l'auteur a relu le changelog et le diff des versions — c'est
+  # le seul point où quelqu'un voit ce qui va sortir sous son nom.
+  push:
+    tags: ["v10.*"]
+  # Une répétition à la demande, qui ne publie RIEN : elle rejoue toutes les
+  # gardes sur l'état courant. Utile avant de poser le tag.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version à répéter (ex. 10.0.0) — AUCUNE publication"
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  # 🔴 JAMAIS `cancel-in-progress: true` ICI. Annuler une publication en cours
+  # l'interrompt entre deux paquets : le lot reste à moitié en ligne, et ces
+  # versions sont brûlées. Deux releases simultanées font la queue ; elles ne se
+  # tuent pas l'une l'autre.
+  cancel-in-progress: false
+
+# Défaut minimal : chaque job élargit ce dont il a besoin, et rien de plus.
+permissions:
+  contents: read
+
+jobs:
+  # ═════════════════════════════════════════════════════════════════════════
+  # 1. ÉPREUVE — ce qu'un installeur recevra, avant que quoi que ce soit ne parte
+  # ═════════════════════════════════════════════════════════════════════════
+  epreuve:
+    name: Épreuve — installation vierge (${{ matrix.scenario }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      # Chaque scénario dit sa PROPRE vérité : `front` voit ce que `base` ne
+      # peut pas voir. S'arrêter au premier rouge coûterait un second run pour
+      # apprendre le reste — sur un chemin où l'on veut TOUT savoir avant de
+      # publier.
+      fail-fast: false
+      matrix:
+        scenario: [base, front, studio]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Prérequis EXPLICITE : le pack empaquette depuis `dist/`. Sans build, on
+      # éprouverait un artefact périmé et l'on rendrait un vert sans valeur —
+      # le mode de défaillance le plus coûteux de toute cette chaîne.
+      - name: Build des workspaces
+        run: npm run build
+
+      # `src/nodefony/.ai/` est IGNORÉ par git : le graphe existe sur le poste
+      # qui vient de commiter — le hook le régénère — et JAMAIS sur un checkout
+      # frais. Or le paquet `nodefony` le déclare dans `files`. Sans cette étape,
+      # le pack refuse, et le rouge désigne un fichier absent plutôt qu'un défaut.
+      - name: Graphe symbolique (absent d'un checkout frais)
+        run: npm run generate-symbols
+
+      - name: Cœur de release — la suite qui attaque le script
+        run: npm run test:release
+
+      - name: Smoke — pack, install VIERGE, conteneur, arrêt gracieux
+        run: npm run release:smoke -- --scenario ${{ matrix.scenario }}
+
+      - name: État du décor (si échec)
+        if: failure()
+        run: |
+          echo "::group::images"
+          docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | head -20
+          echo "::endgroup::"
+          echo "::group::conteneurs"
+          docker ps -a --format '{{.Names}} {{.Status}}' | head -20
+          echo "::endgroup::"
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 2. PUBLICATION — le seul job qui touche au registre
+  # ═════════════════════════════════════════════════════════════════════════
+  publier:
+    name: Publication npm (lockstep, ${{ github.ref_name }})
+    needs: epreuve
+    runs-on:
+      ubuntu-latest # runner HÉBERGÉ obligatoire : l'OIDC n'est pas
+      # délivré aux runners auto-hébergés.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # 🔴 C'EST CETTE LIGNE QUI REMPLACE LE JETON npm. Sans elle, GitHub ne
+      # délivre aucune assertion d'identité, et le publish répond `ENEEDAUTH` —
+      # un message qui n'évoque nulle part une permission manquante.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.x" # le trusted publishing exige Node >= 22.14.0
+          registry-url: "https://registry.npmjs.org"
+          # Jamais de cache de gestionnaire dans un build de release : ce qui
+          # part doit venir du registre, pas d'un état conservé entre deux runs.
+          package-manager-cache: false
+
+      - name: Version — elle vient du TAG, jamais d'une saisie
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "publier=non" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "publier=oui" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm run generate-symbols
+
+      # npm >= 11.5.1 est requis pour échanger l'assertion OIDC. Node 26 embarque
+      # bien plus récent — on le CONSTATE plutôt que de le supposer, parce que le
+      # symptôme d'une version trop ancienne est un `ENEEDAUTH` trompeur.
+      - name: Constater les planchers du trusted publishing
+        run: |
+          echo "node $(node --version) · npm $(npm --version)"
+          node -e 'const [a,b,c]=process.versions.node.split(".").map(Number);
+            if (a<22 || (a===22 && (b<14))) { console.error("Node < 22.14.0"); process.exit(1) }'
+          npm --version | node -e '
+            const v=require("fs").readFileSync(0,"utf8").trim().split(".").map(Number);
+            const min=[11,5,1];
+            for (let i=0;i<3;i++){ if((v[i]??0)>min[i]) break; if((v[i]??0)<min[i]){
+              console.error("npm "+v.join(".")+" < 11.5.1 — le trusted publishing échouerait en ENEEDAUTH");
+              process.exit(1) } }'
+
+      # ── RÉPÉTITION : toutes les gardes, sans rien publier ──────────────────
+      # Elle vaut pour les deux déclencheurs. Sur `workflow_dispatch`, c'est TOUT
+      # ce qui tourne — d'où l'intérêt de pouvoir la demander avant de taguer.
+      - name: Répétition — gardes, métadonnées, ordre, registre
+        run: npm run release -- --version "${{ steps.v.outputs.version }}" --from "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)"
+
+      # ── PUBLICATION RÉELLE ────────────────────────────────────────────────
+      # AUCUN `NODE_AUTH_TOKEN` : le CLI détecte l'environnement OIDC et échange
+      # une assertion signée contre un jeton valable quelques minutes. La
+      # provenance est alors générée AUTOMATIQUEMENT — ne pas ajouter
+      # `--provenance`, elle se construit depuis les variables GITHUB_* de ce run.
+      #
+      # ⚠️ `--publish` n'écrit AUCUN fichier : il exige au contraire que les
+      # quinze manifestes portent déjà la version du tag, et refuse sinon. C'est
+      # le commit de release, relu avant le tag, qui estampille.
+      - name: Publier les 15 paquets (OIDC, aucun jeton)
+        if: steps.v.outputs.publier == 'oui' && vars.NF_RELEASE_ARMED == 'true'
+        run: npm run release -- --version "${{ steps.v.outputs.version }}" --publish
+
+      - name: RIEN n'a été publié — et ce que ce vert ne prouve pas
+        if: steps.v.outputs.publier != 'oui' || vars.NF_RELEASE_ARMED != 'true'
+        run: |
+          if [ "${{ vars.NF_RELEASE_ARMED }}" != "true" ]; then
+            echo "::notice::CRAN NON ARMÉ — toutes les gardes ont tourné, aucune publication."
+            echo "::notice::Pour publier : Settings → Variables → NF_RELEASE_ARMED = true"
+          else
+            echo "::notice::Répétition à la demande — rien n'est publié par ce déclencheur."
+          fi
+          echo "::warning::Une répétition VERTE ne prouve PAS que l'authentification fonctionne :"
+          echo "::warning::en --dry-run, npm n'émet qu'un AVERTISSEMENT quand les identifiants manquent"
+          echo "::warning::(ENEEDAUTH n'est levé QUE hors dry-run — lib/commands/publish.js)."
+          echo "::warning::Seule une publication réelle le prouve."
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 3. VITRINE — l'application de démonstration, GÉNÉRÉE puis poussée
+  # ═════════════════════════════════════════════════════════════════════════
+  # Décision D1 : `nodefony/nodefony` est une vitrine GÉNÉRÉE, jamais éditée à
+  # la main — un gabarit à cloner serait une seconde source face à celle du
+  # cœur, et dériverait.
+  #
+  # Inerte tant que la variable de dépôt `NF_RELEASE_VITRINE` ne vaut pas
+  # `true` : le jeton d'écriture sur le dépôt cible doit exister d'abord.
+  vitrine:
+    name: Vitrine — application générée
+    needs: publier
+    if: vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_VITRINE == 'true' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: "26.x" }
+
+      # 🔴 GARDE R6.1 — LA BRANCHE `v7` DOIT EXISTER AVANT TOUT ÉCRASEMENT.
+      # `nodefony/nodefony` porte aujourd'hui le framework JS 7.0.2 : 19 étoiles
+      # et des liens entrants pointent vers ce code. Écraser la branche par
+      # défaut sans l'avoir mis à l'abri le rendrait introuvable, et aucune
+      # étape ultérieure ne s'en apercevrait. Cet avertissement vivait dans un
+      # document ; il vit désormais ICI, où il peut refuser.
+      - name: Refuser d'écraser un code qui n'a pas de refuge
+        env:
+          GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! gh api repos/nodefony/nodefony/branches/v7 --silent 2>/dev/null; then
+            echo "::error::La branche v7 n'existe pas sur nodefony/nodefony."
+            echo "::error::Elle porte le framework JS 7.0.2 (19 ★, liens entrants)."
+            echo "::error::La créer AVANT : git checkout -b v7 && git push origin v7 && git tag v7.0.2"
+            exit 1
+          fi
+          echo "✓ branche v7 présente — le code historique a un refuge"
+
+      - name: Générer l'application vitrine
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          mkdir -p /tmp/vitrine && cd /tmp/vitrine
+          node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app nodefony \
+            --preset complete --yes --no-install --no-git
+
+      - name: Pousser la vitrine
+        env:
+          GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd /tmp/vitrine/nodefony
+          git init -q -b main
+          git config user.name "nodefony-bot"
+          git config user.email "ccamensuli@gmail.com"
+          git add -A
+          git commit -q -m "chore: vitrine générée pour ${VERSION}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/nodefony/nodefony.git"
+          # `--force` est ici DÉLIBÉRÉ : la vitrine est régénérée à chaque
+          # release, son historique n'a aucune valeur. Ce qui en avait — la 7 —
+          # est sur `v7`, dont la garde ci-dessus a constaté l'existence.
+          git push --force origin main
+          git tag "${VERSION}" && git push origin "${VERSION}"
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 4. IMAGE — construite DEPUIS l'application générée (décision D4)
+  # ═════════════════════════════════════════════════════════════════════════
+  # Elle prouve alors le générateur au lieu de vivre à côté de lui : le
+  # Dockerfile n'a qu'une source, les gabarits de `create app` (D3).
+  image:
+    name: Image docker (depuis une app générée)
+    needs: publier
+    if: vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_IMAGE == 'true' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: "26.x" }
+
+      - name: Générer l'application, puis bâtir SON image
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          mkdir -p /tmp/image && cd /tmp/image
+          node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app demo \
+            --preset complete --yes --no-install --no-git
+          test -f demo/Dockerfile || { echo "::error::pas de Dockerfile généré"; exit 1; }
+          # Forme EXEC obligatoire : `node` doit être PID 1 pour recevoir le
+          # SIGTERM. En forme shell, `/bin/sh` est PID 1, ne transmet pas les
+          # signaux, et l'arrêt gracieux disparaît SANS la moindre erreur.
+          grep -q '^CMD \[' demo/Dockerfile || { echo "::error::CMD n'est pas en forme exec"; exit 1; }
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+
+      - name: Construire et pousser
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd /tmp/image/demo
+          V="${VERSION#v}"
+          docker build -t "nodefony/nodefony:${V}" -t "nodefony/nodefony:latest" .
+          docker push "nodefony/nodefony:${V}"
+          docker push "nodefony/nodefony:latest"
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 5. ANNONCE — la release GitHub, à partir du changelog RELU
+  # ═════════════════════════════════════════════════════════════════════════
+  annonce:
+    name: Release GitHub
+    needs: publier
+    # Une release GitHub est publique et notifie les abonnés : elle relève du
+    # même cran que la publication npm.
+    if: vars.NF_RELEASE_ARMED == 'true' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # créer la release
+    steps:
+      - uses: actions/checkout@v7
+
+      # Le corps de la release vient du CHANGELOG COMMITÉ — celui que l'auteur a
+      # relu et réécrit —, jamais d'une regénération depuis `git log`. Laisser un
+      # automate réécrire ici produirait un texte DIFFÉRENT de celui du fichier,
+      # pour la même version.
+      - name: Extraire la section de cette version
+        id: notes
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          V="${VERSION#v}"
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::error::CHANGELOG.md absent — la release n'a rien à annoncer."
+            exit 1
+          fi
+          # Format Common Changelog : `## VERSION - DATE`, jusqu'au `## ` suivant.
+          # Comparaison LITTÉRALE, pas une expression régulière : les points
+          # d'une version sont des métacaractères, et « 10.0.0 » finirait par
+          # accepter « 10X0Y0 ». Sur un fichier qui décide ce qui est annoncé,
+          # un faux positif vaut une annonce fausse.
+          awk -v pfx="## $V - " '
+            substr($0, 1, length(pfx)) == pfx { p=1; next }
+            p && /^## / { exit }
+            p { print }
+          ' CHANGELOG.md > /tmp/notes.md
+          if [ ! -s /tmp/notes.md ]; then
+            echo "::error::aucune section « ## $V - … » dans CHANGELOG.md."
+            echo "::error::Le tag a-t-il été posé avant le commit de release ?"
+            exit 1
+          fi
+          echo "✓ $(wc -l < /tmp/notes.md) lignes extraites"
+
+      - name: Créer la release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: gh release create "$VERSION" --title "$VERSION" --notes-file /tmp/notes.md
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 6. BILAN — dire ce qui N'A PAS tourné ; un job sauté est silencieux
+  # ═════════════════════════════════════════════════════════════════════════
+  bilan:
+    name: Bilan — ce qui a tourné, et ce qui a été sauté
+    needs: [epreuve, publier, vitrine, image, annonce]
+    if: always() && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Récapituler
+        run: |
+          etat() { case "$1" in
+            success) echo "✅ $2" ;;
+            skipped) echo "⏭️  $2 — SAUTÉ ($3)" ;;
+            *)       echo "❌ $2 — $1" ;;
+          esac; }
+          {
+            echo "## Publication ${GITHUB_REF_NAME}"
+            echo
+            if [ "${{ vars.NF_RELEASE_ARMED }}" != "true" ]; then
+              echo "> 🔒 **CRAN NON ARMÉ** — répétition complète, **aucune publication**."
+              echo "> Les gardes ont toutes tourné ; rien n'est parti sur le registre,"
+              echo "> aucune release GitHub, aucun push externe."
+              echo
+            fi
+            etat "${{ needs.epreuve.result }}" "Épreuve (installation vierge)" ""
+            etat "${{ needs.publier.result }}" "Publication npm" ""
+            etat "${{ needs.vitrine.result }}" "Vitrine nodefony/nodefony" "poser la variable NF_RELEASE_VITRINE=true et le secret NF_VITRINE_TOKEN"
+            etat "${{ needs.image.result }}"   "Image docker" "poser la variable NF_RELEASE_IMAGE=true et les secrets NF_DOCKERHUB_*"
+            etat "${{ needs.annonce.result }}" "Release GitHub" ""
+            echo
+            echo "Un job SAUTÉ ne signale rien de lui-même : ce bilan existe pour"
+            echo "qu'une release incomplète ne se lise pas comme une release réussie."
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"

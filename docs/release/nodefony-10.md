@@ -217,6 +217,10 @@ Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **s
 
 ## 7. Pipeline de release (GitHub Action + script)
 
+> 📘 **Mode d'emploi** (ce qu'on tape, dans quel ordre, ce que chaque garde refuse, le smoke,
+> l'OIDC, le dépannage) : [`docs/guides/publier-une-release.md`](../guides/publier-une-release.md).
+> Cette page-ci reste le PLAN : quoi publier, les décisions et leur pourquoi, ce qui reste à faire.
+
 **Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
 mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie que `start.sh`/`run.sh`).
 
