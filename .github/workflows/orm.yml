@@ -393,6 +393,12 @@ jobs:
 
       - name: Coupures réelles — MongoDB
         working-directory: src/packages/@nodefony/mongoose
+        # Même raison qu'au step précédent : passe filtrée, gate écrit pour la
+        # suite entière (il attend ici le banc « MongooseTokenStore — ITokenStore
+        # portable »). Ce step-ci ne tombait pas tant que son frère échouait
+        # AVANT lui — un rouge en masquait un autre, dans le même job.
+        env:
+          NF_GATES_ALLOW: NF_MONGO_TEST_URI
         run: npx vitest run tests/integration/outage.test.ts tests/integration/outage-real.test.ts
 
       # Le banc le plus parlant, et le seul qui parle de POD : les suites ORM

@@ -21,7 +21,7 @@
  */
 import { describe, it } from "vitest";
 import { assert } from "chai";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import {
   PG_GATE,
@@ -97,6 +97,65 @@ describe("Variables d'infra — la forge et `vitest.gates.ts` disent la même ch
           );
         });
       }
+    }
+  }
+});
+
+/**
+ * **Une passe FILTRÉE ne peut pas tenir les preuves d'une suite entière.**
+ *
+ * Un `gateReporter` de paquet exige qu'un banc nommé ait PASSÉ. Quand un
+ * workflow ne joue que deux fichiers de ce paquet, ces bancs-là ne tournent
+ * pas : la passe échoue en annonçant « cible non exercée » alors qu'elle vient
+ * de couper et relancer de vrais serveurs. L'échappatoire existe
+ * (`NF_GATES_ALLOW`, qui NOMME l'absence dans le rapport) ; ce qui manquait,
+ * c'est ce qui oblige à y penser.
+ *
+ * Vécu, deux fois dans la même heure : le step `drizzle`, puis son frère
+ * `mongoose` — invisible tant que le premier échouait AVANT lui. Un rouge en
+ * masquait un autre à l'intérieur du même job.
+ */
+const STEPS = /^\s*- name: (.+)$/;
+
+describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => {
+  for (const file of workflows) {
+    const lignes = readFileSync(path.join(WORKFLOWS, file), "utf8").split("\n");
+    // Découpe en blocs de step : un bloc court jusqu'au `- name:` suivant.
+    const blocs: string[][] = [];
+    for (const ligne of lignes) {
+      if (STEPS.test(ligne)) blocs.push([]);
+      if (blocs.length > 0) (blocs[blocs.length - 1] as string[]).push(ligne);
+    }
+
+    for (const bloc of blocs) {
+      const texte = bloc.join("\n");
+      const paquet =
+        /working-directory:\s*src\/packages\/@nodefony\/([\w-]+)/.exec(
+          texte,
+        )?.[1];
+      const filtree = /vitest run\s+\S*\.test\.ts/.test(texte);
+      if (!paquet || !filtree) continue;
+
+      // Le paquet impose-t-il des preuves ? (un `gateReporter` dans sa config)
+      const configs = ["vitest.config.ts", "vitest.integration.config.ts"]
+        .map((c) => path.join(REPO_ROOT, "src/packages/@nodefony", paquet, c))
+        .filter((p) => existsSync(p));
+      const garde = configs.some((p) =>
+        readFileSync(p, "utf8").includes("gateReporter"),
+      );
+      if (!garde) continue;
+
+      const nom = STEPS.exec(bloc[0] as string)?.[1] ?? "?";
+      it(`${file} — « ${nom} » (@nodefony/${paquet})`, () => {
+        assert.include(
+          texte,
+          "NF_GATES_ALLOW",
+          `ce step ne joue que certains fichiers de @nodefony/${paquet}, dont ` +
+            `le gateReporter attend les preuves de la suite ENTIÈRE. Sans ` +
+            `NF_GATES_ALLOW, la passe échouera en réclamant des bancs qu'elle ` +
+            `ne joue pas — énoncer l'absence, elle ne s'oublie pas.`,
+        );
+      });
     }
   }
 });
