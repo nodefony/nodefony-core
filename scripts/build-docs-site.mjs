@@ -438,9 +438,27 @@ const ENTITIES = {
   "&#39;": "'",
   "&nbsp;": " ",
 };
+// Un remplacement en une passe n'est pas idempotent : rien ne garantit que la
+// sortie ne contienne plus de balise. On répète donc jusqu'au point fixe — une
+// passe de plus qui ne trouve rien, sur des titres de quelques mots.
+//
+// ⚠️ Ce qui protège VRAIMENT n'est pas ici, et il faut le savoir avant de
+// toucher à l'une des deux lignes : `textOf` DÉCODE les entités APRÈS avoir
+// retiré les balises, si bien qu'un titre contenant `&lt;img onerror=…&gt;`
+// ressort en HTML actif. C'est `esc(t.text)` au rendu du sommaire qui le rend
+// inoffensif. Retirer cet échappement ouvrirait une injection, et cette
+// fonction-ci n'y changerait rien.
+const sansBalises = (html) => {
+  let avant;
+  let apres = html;
+  do {
+    avant = apres;
+    apres = avant.replace(/<[^>]*>/g, "");
+  } while (apres !== avant);
+  return apres;
+};
 const textOf = (html) =>
-  html
-    .replace(/<[^>]+>/g, "")
+  sansBalises(html)
     .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => ENTITIES[e])
     .trim();
 

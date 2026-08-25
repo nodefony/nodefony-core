@@ -128,7 +128,7 @@ octet nul, hors jeu de caractères — **avant** même la recherche.
 **Tes liens relatifs restent valides des deux côtés.** Une page se lie à ses voisines par chemin
 relatif (`[Architecture](./architecture.md)`), ce qui la rend lisible sur GitHub et dans l'éditeur ;
 le portail, lui, navigue par identifiant. La traduction est faite au service
-(`rewriteInternalLinks()`, `linkResolver.ts:72`), seul à connaître la table chemin → identifiant.
+(`rewriteInternalLinks()`, `linkResolver.ts:90`), seul à connaître la table chemin → identifiant.
 Une cible **absente de l'index** est laissée intacte plutôt que réécrite au hasard : mieux vaut un
 lien inerte qu'un identifiant inventé.
 

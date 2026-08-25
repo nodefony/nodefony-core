@@ -23,14 +23,22 @@
  * Exclus : URL absolues (`http:`, `mailto:`), ancres pures (`#section`), et
  * tout ce qui n'est pas un fichier markdown.
  */
-const MD_LINK = /\]\((?!https?:|mailto:|#)([^)\s]+?\.md)(#[^)\s]*)?\)/gi;
+// La cible est BORNÉE (`{1,512}`) et non simplement paresseuse : `[^)\s]+?\.md`
+// laisse le moteur réessayer chaque coupure possible sur une cible longue, en
+// temps quadratique. Ce module sert le portail de documentation, qui peut
+// rendre le markdown d'une APPLICATION — l'entrée n'est pas forcément la nôtre.
+// 512 caractères passent largement tout chemin de fichier réel.
+const MD_LINK =
+  /\]\((?!https?:|mailto:|#)([^)\s]{1,512}?\.md)(#[^)\s]{0,512})?\)/gi;
 
 /**
  * Cible d'un bloc déclaratif : `"href": "../x.md"` dans un JSON de fence typée
  * (`nodefony-cards`…). Même règle que les liens markdown — seules les cibles
  * `.md` internes sont traduites.
  */
-const JSON_HREF = /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s]+?\.md)"/gi;
+// Même borne que `MD_LINK`, pour la même raison : l'analyseur n'a signalé que
+// le frère du dessus, mais le motif est identique.
+const JSON_HREF = /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s]{1,512}?\.md)"/gi;
 
 /** Résout un chemin relatif POSIX contre le dossier d'une page. */
 function resolveRelative(fromDir: string, href: string): string {

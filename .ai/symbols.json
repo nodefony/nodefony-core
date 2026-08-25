@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-25T19:47:40.944Z",
+  "generated": "2026-08-25T20:00:35.970Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 739,
-    "symbols": 3132,
+    "symbols": 3133,
     "classes": 364,
     "interfaces": 887,
     "types": 388,
     "enums": 4,
-    "functions": 1195,
+    "functions": 1196,
     "constants": 294
   },
   "symbols": {
@@ -720,8 +720,7 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
+      "module": "@nodefony/core"
     },
     "litVariable": {
       "name": "litVariable",

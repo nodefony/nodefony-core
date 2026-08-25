@@ -26,7 +26,14 @@ export interface IMarkdownSection {
 }
 
 /** Un titre atx, hors bloc de code. */
-const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+// Le titre est capturé BRUT, puis nettoyé à part. Écrite d'un seul tenant
+// (`(.+?)\s*#*\s*$`), la reconnaissance devient ambiguë — le paresseux, les
+// blancs et les `#` de fermeture peuvent se partager les mêmes caractères de
+// plusieurs façons, et le moteur les essaie toutes. Deux gestes simples valent
+// mieux qu'une expression qui a l'air savante.
+const HEADING_RE = /^(#{1,6})[^\S\n](.*)$/;
+/** Les `#` de fermeture, forme ATX facultative : `## Titre ##`. */
+const HEADING_FERMETURE_RE = /[^\S\n]#+$/;
 /** Ouverture ou fermeture d'un bloc de code clôturé. */
 const FENCE_RE = /^\s*(?:```|~~~)/;
 
@@ -68,7 +75,7 @@ export function outlineMarkdown(markdown: string): IMarkdownSection[] {
     if (m) {
       sections.push({
         level: m[1].length,
-        title: m[2].trim(),
+        title: m[2].trim().replace(HEADING_FERMETURE_RE, "").trim(),
         line: i + 1,
         chars: 0,
       });
