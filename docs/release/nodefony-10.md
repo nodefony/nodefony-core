@@ -160,7 +160,7 @@ est **conservé tel quel** (0 renommage, 0 changement d'import). Le POC comparat
 
 ### Smoke test de parité (VALIDATION du modèle B) — ✅ LIVRÉ, fusionné avec la preuve Docker (0.7)
 
-**Réalisé** : `bash .claude/skills/nodefony-release/scripts/smoke-docker.sh` = pack des 13
+**Réalisé** : `npm run release:smoke` = pack des 13
 publiables → `attw` sur les types publiés → **le paquet `nodefony` installé DEPUIS SON TARBALL**
 dans un dossier jetable, qui **GÉNÈRE** les applications témoins hors du dépôt (deps → tarballs) →
 `docker build` (npm install **vierge**) → `docker run` → probes `/livez` `/readyz` + routes →
@@ -217,6 +217,10 @@ Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **s
 
 ## 7. Pipeline de release (GitHub Action + script)
 
+> 📘 **Mode d'emploi** (ce qu'on tape, dans quel ordre, ce que chaque garde refuse, le smoke,
+> l'OIDC, le dépannage) : [`docs/guides/publier-une-release.md`](../guides/publier-une-release.md).
+> Cette page-ci reste le PLAN : quoi publier, les décisions et leur pourquoi, ce qui reste à faire.
+
 **Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
 mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie que `start.sh`/`run.sh`).
 
@@ -226,20 +230,43 @@ mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie 
 - **Node ≫ bash pour CE job** : lire/fusionner des `package.json`, **ordre topologique** des deps
   internes, **assembler `dist/` + `dist/types/`** dans la mono-distrib, **générer la map `exports`**
   (+ `types` par subpath), **estampiller UNE version** partout → manipulation JSON/graphe = Node/TS.
-- **Action mince** : `checkout → setup-node → npm ci → node scripts/release.mjs --publish`, avec
+- **Action mince** : `checkout → setup-node → npm ci → npm run release -- --publish`, avec
   `permissions: id-token: write` (trusted publishing) et **aucun secret npm** — cf §7.3bis. Tout le
   reste dans le script.
 
 ### 7.2 Étapes du script (= le pipeline)
 
-1. `clean` + **build** tous les packages (turbo → `dist/` + `dist/types/` par package).
-2. **Assemble** la mono-distrib `nodefony` : collecte chaque `dist` sous `nodefony/dist/<subpath>/`,
-   génère `exports` (+ `types` par subpath), **stamp 1 version** partout (lockstep).
-3. **Vérifie** : `@arethetypeswrong/cli` sur le tarball + `tsc` depuis l'app **témoin** (le template)
-   - smoke `import "nodefony/http"` (type ET runtime). Échec ⇒ abort avant publish.
-4. **Pack/publish** : `npm pack` (dry-run) → `npm publish` (la distrib unique). + maj template
-   `create-nodefony`.
-5. **Tag + GitHub Release** : tag `v10.x` + `gh release create` + changelog.
+> Les étapes ci-dessous décrivent le pipeline **du modèle B** (N paquets verrouillés). La version
+> initiale de ce paragraphe assemblait une mono-distribution `nodefony` à subpaths — modèle
+> **abandonné le 2026-07-02** (cf §6bis). Rien n'assemble plus : chaque paquet reste lui-même.
+
+Ce que `scripts/release/release.mjs` fait, dans l'ordre — chaque étape est NOMMÉE, et un échec dit
+laquelle a lâché :
+
+1. **Gardes** — version semver valide, préversion obligatoirement taguée, arbre propre, branche
+   attendue, planchers npm/Node du trusted publishing, graphe symbolique présent.
+2. **Inventaire** — `npm query .workspace` filtré sur `private`. Jamais de liste écrite à la main :
+   son oubli serait silencieux.
+3. **Métadonnées** — `repository` vers `nodefony-core` avec un `directory` qui existe sur disque,
+   `publishConfig.access`, `files`. Ces défauts ne se voient QUE au `publish`.
+4. **Ordre topologique** des dépendances internes, cycles signalés.
+5. **Registre** — la version est-elle libre sur les 14 ? Une collision découverte au huitième paquet
+   brûle les sept précédents.
+6. **Changelog** — lecture des messages de commit ENTIERS (`%B`, pour attraper un pied
+   `BREAKING CHANGE:`), rendu d'un **brouillon** à relire.
+7. `--write` : **estampillage** de la version dans les `package.json` (réécriture du seul champ,
+   sans reformater) + fusion du changelog.
+8. `--pack` : délégation à `pack-all.mjs` (bascule des `exports.types`, extensions des `.d.ts`),
+   puis **inspection du contenu** de chaque tarball.
+9. `--publish` : **répétition `--dry-run` sur le lot ENTIER**, puis publication séquentielle qui
+   s'arrête net au premier refus en DISANT l'état exact (publiés / restants).
+
+Le script ne pose PAS le tag, et ne crée pas la GitHub Release : le tag `v10.*` poussé à la main est
+ce qui déclenche la suite (§7.3, §10.7).
+
+**Ce que le script ne fait pas** : `clean` + `build` (prérequis explicite, à lancer avant),
+`@arethetypeswrong/cli` et la compilation d'une application témoin — ces deux-là vivent dans
+`npm run release:smoke`, qui est le seul à travailler sur l'artefact REÇU.
 
 ### 7.2bis Mesure de performance de la version — geste MANUEL, avant le tag
 
@@ -380,7 +407,7 @@ jobs:
       - run: npm ci
       # AUCUN NODE_AUTH_TOKEN : le CLI (>= 11.5.1) détecte l'environnement OIDC
       # et échange une assertion signée contre un jeton de quelques minutes.
-      - run: node scripts/release.mjs --publish
+      - run: npm run release -- --version "${GITHUB_REF_NAME#v}" --publish
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
 ```
 
@@ -470,7 +497,7 @@ dépôts — c'est une **publication**, au même titre que npm. Conséquences : 
 deux commits par régénération ; et le contenu reste éditable des deux côtés, donc **la dérive
 demeure**. C'est de plus le montage qu'employait le v7 (`.gitmodules` à sa racine).
 
-### 10.2 R0 — hygiène de la surface publiée (aucun impact fonctionnel)
+### 10.2 R0 ✅ — hygiène de la surface publiée (aucun impact fonctionnel)
 
 Terrain relevé : sur les 13 publiables, **aucun** `repository` n'est exploitable — 7 pointent vers
 `git://github.com/nodefony/nodefony.git` (le futur dépôt VITRINE) avec un `directory`
@@ -486,6 +513,21 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 | **R0.3** | `@nodefony/frontend` déclare `"vite": "8.1.5"` en peer **exact** → passer en intervalle | toute application qui l'installe entre en conflit au prochain patch de vite |
 
 > R0.2 est le vrai livrable : sans lui, le trou se rejoue à la création du prochain paquet.
+
+**Fait.** Les dix-neuf `package.json` du périmètre portent `repository`, `homepage` et `bugs` vers
+`nodefony-core` ; les URL `tree/HEAD/<location>` répondent 200 (`HEAD`, pas `main`). `@nodefony/devkit`
+n'avait pas non plus `publishConfig.access` — il serait parti en privé. Le gate (R0.2) vit dans
+`scripts/release/release-core.mjs`, appelé par `pack-all.mjs` ET par `release.mjs` : le banc de
+release invoque le pack directement, et un gate posé chez un seul appelant ne garde que celui-là.
+Vu rouge en vidant un `repository`, vert une fois restauré. R0.3 était déjà soldé : `@nodefony/frontend`
+ne déclare plus du tout la peer `vite` (elle est chargée par `await import()`).
+
+Ce que le premier passage du script a rendu : **22 métadonnées** qui auraient fait échouer la
+publication — quatre `repository` absents, trois objets vides, sept en `git://` (protocole que GitHub
+ne sert plus depuis 2022) pointant le futur dépôt VITRINE avec un `directory` inexistant. La doc npm
+cite le dépôt discordant parmi les causes premières d'`ENEEDAUTH` en publication de confiance, et npm
+ne valide rien à l'enregistrement du publieur : l'erreur ne serait sortie qu'au milieu d'un lot déjà
+parti.
 
 ### 10.3 R1 — Docker entre dans le générateur
 
@@ -602,15 +644,33 @@ La condition posée était que le smoke sache générer son décor : elle est re
 plus aucun script ne lisait `examples/`. Le dépôt n'a donc plus **aucune** application témoin figée
 — toute preuve part désormais d'une application **générée par le paquet publié**.
 
-### 10.6 R4 — `create-nodefony`
+### 10.6 R4 ✅ — `create-nodefony`
 
-14ᵉ paquet, ~50 lignes, versionné en lockstep : il résout le binaire `nodefony` et lui passe la
-main. **Preuve** : `npm create nodefony@<version> app-test` depuis les tarballs, en conteneur vierge.
+15ᵉ paquet (le plan disait « 14ᵉ » : `@nodefony/devkit` s'est ajouté depuis), ~70 lignes,
+versionné en lockstep : il résout le binaire `nodefony` par `nodefonyBin()` et lui passe la main.
 
-### 10.7 R5 — la CI porte tout
+**Fait.** `npm create nodefony <app>` supprime le `npm i -g` que le §6bis-B nommait comme LE
+bloqueur d'onboarding. Il ne scaffolde RIEN : le générateur du cœur reste la seule implémentation —
+un second, même « juste pour le cas simple », dériverait en silence. `nodefonyBin()` a REMONTÉ de
+`nodefony/testing` vers la racine `nodefony` (ré-exportée, aucun consommateur cassé) : elle résout
+le lanceur du framework, ce dont un shim de création a autant besoin qu'un banc.
+
+Trois chemins prouvés par leur code de sortie : nominal `0` (application complète générée), dossier
+déjà occupé `73` (message du générateur remonté tel quel), paquet absent `1`.
+
+🔴 **Une garde MORTE-NÉE, trouvée en la voyant rouge.** Le shim protégeait l'absence de `nodefony`
+par un `try/catch` autour de l'appel — inopérant : un `import` STATIQUE est résolu par Node avant
+que la moindre ligne du fichier ne s'exécute, si bien que celui qui découvre le framework recevait
+une trace de pile interne. Passé en `await import()` dans le `try`. Écrire la garde ne suffisait
+pas ; il fallait débrancher le paquet pour le constater.
+
+**Reste** : la preuve depuis le TARBALL, en conteneur vierge — le smoke n'installe pas encore
+`create-nodefony`.
+
+### 10.7 R5 ✅ — la CI porte tout
 
 ```
-tag v10.x ─► build + tests ─► pack (14 tarballs) ─► smoke sur app GÉNÉRÉE
+tag v10.x ─► build + tests ─► pack (15 tarballs) ─► smoke sur app GÉNÉRÉE
           ├─► npm publish (lockstep)
           ├─► create app ──► push vitrine + tag
           ├─► docker build (depuis l'app générée) ──► push
@@ -619,9 +679,56 @@ tag v10.x ─► build + tests ─► pack (14 tarballs) ─► smoke sur app G�
 
 Secrets : **aucun pour npm** (trusted publishing, §7.3bis), jeton d'écriture sur la vitrine,
 identifiants du registre d'images.
-**Manque criant que ce lot comble** : aucun job ne construit l'image aujourd'hui, et
-`smoke-docker.sh` n'est déclenché par aucun automate — la preuve la plus proche de la production
-n'existe que si quelqu'un pense à la taper.
+**Fait** — `.github/workflows/release.yml`, six jobs : `epreuve` (les trois scénarios du smoke, en
+matrice, `fail-fast: false`) → `publier` (OIDC) → `vitrine` · `image` · `annonce` → `bilan`.
+
+🔒 **Cran d'armement.** Tant que la variable de dépôt `NF_RELEASE_ARMED` ne vaut pas `true`, tout
+s'exécute SAUF les trois gestes irréversibles. On peut pousser un tag d'essai et voir la chaîne
+entière se dérouler sans qu'un octet ne parte sur le registre. Un workflow de publication qu'on n'a
+jamais vu tourner est un workflow dont on découvre les défauts le jour où ils coûtent le plus cher.
+
+Trois points structurels, et un avertissement devenu exécutable :
+
+- `cancel-in-progress: FALSE` — annuler une publication en cours l'interrompt ENTRE deux paquets :
+  le lot reste à moitié en ligne, et ces versions sont brûlées.
+- L'épreuve passe AVANT la publication, et ne s'arrête pas au premier rouge : sur ce chemin, on veut
+  tout savoir avant de publier.
+- 🔴 **La garde R6.1 est désormais un step qui REFUSE** : il interroge l'API GitHub et échoue si la
+  branche `v7` n'existe pas sur `nodefony/nodefony`. Un avertissement qu'on peut lire sans le voir
+  ne protège personne.
+
+Encodé depuis la doc npm ET le source du CLI, pas supposé : `id-token: write` (sans elle,
+`ENEEDAUTH` sans mention de permission) · provenance AUTOMATIQUE sous OIDC (ne pas ajouter
+`--provenance`) · le NOM du fichier est un identifiant sensible à la casse, saisi sur npmjs.com ·
+ne JAMAIS appeler ce workflow depuis un autre (npm valide le nom de l'APPELANT) · runner hébergé ·
+npm ≥ 11.5.1 CONSTATÉ à l'exécution.
+
+⚠️ **Ce que le workflow ne prouvera pas** : en `--dry-run`, npm n'émet qu'un AVERTISSEMENT quand
+les identifiants manquent — `ENEEDAUTH` n'est levé que hors dry-run. Une répétition verte ne dit
+donc rien de l'authentification ; seule une publication réelle le fait. Le workflow l'énonce.
+
+**Le workflow a TOURNÉ, cran non armé** — tag d'essai `v10.0.0-essai.1`, run
+[32895215924](https://github.com/nodefony/nodefony-core/actions/runs/32895215924) : les trois
+scénarios d'épreuve verts, la répétition complète (gardes, inventaire, métadonnées, ordre,
+registre, changelog rendu), et les trois jobs irréversibles **sautés**. Constaté après coup :
+`nodefony` est toujours en 7.0.2 sur le registre, les quatorze autres n'existent pas.
+
+Ce que cette répétition a trouvé, et qui aurait tué la publication réelle :
+
+- 🔴 **`ENOBUFS` sur le journal.** `execSync` plafonne à 1 Mio ; le journal de ce dépôt en pèse
+  3,4 — et comme aucun tag `v*` n'existe, `--from` repart du premier commit et lit TOUT. L'échec
+  serait survenu **après** les quarante minutes d'épreuve, tag posé, sur un message qui ne parle
+  que de tampon. `MAX_BUFFER_GIT` vit désormais dans le cœur pur, et un test la confronte à la
+  taille réelle du journal en exigeant une marge de 4× — le plafond redeviendra rouge avant de
+  redevenir bloquant.
+- **Le workflow ne savait publier qu'une version FINALE.** Il ne passait jamais `--npm-tag`, que
+  `release.mjs` exige pour toute préversion (sans lui, npm la publierait sous `latest`). Le canal
+  se dérive maintenant de l'étiquette (`10.1.0-rc.2` → `rc`), au même endroit pour la répétition
+  et pour la publication.
+
+⚠️ **Un tag d'essai se SUPPRIME après son run.** `git describe --match 'v[0-9]*'` le retrouverait
+au moment de la vraie `v10.0.0`, qui calculerait alors son changelog depuis lui — quasi vide. Le
+run, lui, reste consultable sans le tag.
 
 ### 10.8 R6 — dépôts externes (gestes GitHub, hors dépôt)
 
@@ -631,6 +738,9 @@ n'existe que si quelqu'un pense à la taper.
 3. Image publiée sous `nodefony/nodefony`.
 
 ### 10.9 Ce que ce plan NE couvre PAS — et qui bloque encore la release
+
+> Séquence R0→R6 : **R0 ✅ · R1 ✅ · R2 ✅ · R3 ✅ · R4 ✅ · R5 ✅ · R6 ⬜** (gestes GitHub hors
+> dépôt). Le DoD du §8, lui, reste ouvert — voir ci-dessous.
 
 Le DoD du §8 n'est pas atteint : **ORM multi-dialecte S5** (DDL prod) · **preset Svelte** (figé
 comme dernier geste avant release) · **devkit S1→S4** + volet A « l'application possède son

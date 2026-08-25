@@ -146,6 +146,16 @@ jobs:
       - name: Lint (oxlint)
         run: npm run lint
 
+      # Portabilité des NOMS de fichiers — sur les trois systèmes, et le seul
+      # gate qui les regarde. Un nom que Windows refuse (`:`, `?`, un caractère
+      # de contrôle, `NUL.txt`) rend le dépôt INCLONABLE là-bas : `git checkout`
+      # sort en 128 avant le moindre test, quand linux et macOS restent verts.
+      # Le pre-commit porte la même garde sur l'index ; celle-ci vaut pour les
+      # fichiers SUIVIS, parce qu'un hook se contourne et qu'un fichier peut
+      # entrer par une autre voie.
+      - name: Gate — noms de fichiers portables (3 systèmes)
+        run: npm run check:filenames
+
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #
       # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant
@@ -577,13 +587,19 @@ jobs:
           npx vitest run --config vitest.integration.config.ts \
             -t "(backoff NIST|NIST PARTAGÉ)"
 
-      - name: Show server log on failure
+      # Un APERÇU, et il le dit — le fichier complet part en artefact au step
+      # suivant. Sur un serveur qui journalise chaque requête, 200 lignes
+      # couvrent les trois dernières secondes du run : un échec survenu au
+      # milieu de la suite n'y figure pas. Sans cette mention, on croit le
+      # journal perdu et l'on renonce au diagnostic — vécu.
+      - name: Aperçu du journal (échec)
         if: failure()
         shell: bash
         run: |
           for f in nodefony-server.log nodefony-server-throttle.log; do
             [ -f "$f" ] || continue
-            echo "─── $f (last 200 lines) ───"
+            echo "─── $f — $(wc -l < "$f") lignes AU TOTAL, 200 dernières ci-dessous ───"
+            echo "    Fichier COMPLET en artefact : nodefony-server-log-*"
             tail -200 "$f" || true
           done
 
@@ -597,7 +613,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: nodefony-server-log-node${{ matrix.node-version }}-${{ matrix.mode }}
+          name: nodefony-server-log-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.mode }}
           # Les deux décors, sinon un échec de la seconde passe s'analyse à l'aveugle.
           path: |
             nodefony-server.log

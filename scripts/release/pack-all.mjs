@@ -12,7 +12,7 @@
 // Sorties : release/tarballs/*.tgz + release/tarballs/manifest.json
 // (map nom → fichier tgz, consommée par le smoke test / l'app témoin).
 //
-// Usage (racine repo) : node .claude/skills/nodefony-release/scripts/pack-all.mjs
+// Usage (racine repo) : npm run release:pack
 // Prérequis : `npm run build` (dist/ + dist/types/ à jour sur tous les packages).
 import { execSync } from "node:child_process";
 import {
@@ -24,11 +24,12 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
+import { auditerMetadonnees } from "./release-core.mjs";
 
-// `scripts/` → `nodefony-release/` → `skills/` → `.claude/` → racine du dépôt.
-// Quatre niveaux, pas deux : ce script a été déplacé dans le skill et sa racine
-// n'avait pas suivi — il cherchait les workspaces sous `.claude/skills/src/…`.
-const ROOT = path.resolve(import.meta.dirname, "../../../..");
+// `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
+// la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
+// réorganise pour d'autres raisons qu'elle.
+const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT = path.join(ROOT, "release", "tarballs");
 
 // Contrainte release §6bis (2) : peers OPTIONNELS injectés au pack — npm ≥7
@@ -51,6 +52,40 @@ const PACK_PEER_OPTIONAL = {
 const workspaces = JSON.parse(
   execSync("npm query .workspace --json", { cwd: ROOT, encoding: "utf8" }),
 ).filter((w) => !w.private);
+
+// ── Ce qui fait REFUSER la publication, constaté AVANT d'empaqueter ────────
+//
+// `repository` discordant, `publishConfig.access` manquant sur un paquet scopé,
+// `files` absent : aucun de ces défauts ne se voit dans le dépôt. Ils ne se
+// manifestent qu'au `npm publish` — le jour J, au milieu d'un lot déjà
+// partiellement parti, alors que les versions déjà publiées sont brûlées.
+//
+// Le gate vit ICI et pas seulement dans `release.mjs` parce que le pack a
+// PLUSIEURS appelants : le banc de release l'invoque directement, et un gate
+// posé chez un seul appelant ne garde que celui-là. C'est la MÊME fonction dans
+// les deux cas — un seul lieu de décision, deux points d'appel.
+const audit = auditerMetadonnees(
+  workspaces.map((w) => ({
+    nom: w.name,
+    pkg: JSON.parse(
+      readFileSync(path.join(ROOT, w.location, "package.json"), "utf8"),
+    ),
+  })),
+  {
+    depotAttendu:
+      process.env.NF_RELEASE_REPO ?? "github.com/nodefony/nodefony-core",
+    existe: (d) => existsSync(path.join(ROOT, d)),
+  },
+);
+if (audit.bloquants.length) {
+  console.error(
+    `\n✗ ${audit.bloquants.length} métadonnée(s) empêcheraient la publication :\n` +
+      audit.bloquants.map((b) => `    • ${b}`).join("\n") +
+      "\n\n  Empaqueter ne servirait à rien : `npm publish` refuserait, ou publierait\n" +
+      "  un paquet que personne ne peut installer. Corriger avant de packer.\n",
+  );
+  process.exit(1);
+}
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });

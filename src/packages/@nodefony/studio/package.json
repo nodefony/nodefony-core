@@ -59,7 +59,7 @@
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "6.1.0",
     "@vitest/coverage-v8": "4.1.11",
-    "@xyflow/react": "12.11.3",
+    "@xyflow/react": "12.11.5",
     "dagre": "0.8.5",
     "dayjs": "^1.11.23",
     "mermaid": "^11.17.2",
@@ -85,5 +85,14 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/studio"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/studio#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
   }
 }

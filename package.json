@@ -33,12 +33,17 @@
     "test:load": "turbo run build && turbo run test:load",
     "test:memory": "turbo run build && turbo run test:memory",
     "test:boot": "turbo run build && turbo run test:boot --continue",
+    "test:release": "vitest run scripts/release/",
+    "release": "node scripts/release/release.mjs",
+    "release:pack": "node scripts/release/pack-all.mjs",
+    "release:smoke": "bash scripts/release/smoke-docker.sh",
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
     "lint": "oxlint --deny-warnings",
     "certificates": "bash bin/generateCertificates.sh",
     "generate-symbols": "tsx scripts/generate-symbols.ts",
     "deps:check": "node scripts/check-deps-latest.mjs",
+    "check:filenames": "node scripts/check-portable-filenames.mjs",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
     "skills:doc": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     "format": "prettier --write .",
@@ -49,6 +54,7 @@
   "workspaces": [
     "src/nodefony",
     "src/packages/@nodefony/*",
+    "src/packages/create-nodefony",
     "src/modules/*"
   ],
   "devDependencies": {
@@ -71,7 +77,7 @@
     "ts-morph": "28.0.0",
     "tslib": "2.8.1",
     "tsx": "4.23.12",
-    "turbo": "2.10.11",
+    "turbo": "2.10.12",
     "typescript": "6.0.3"
   },
   "repository": {

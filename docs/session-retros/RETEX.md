@@ -34,6 +34,26 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-25] **CodeQL n'a signalé QU'UN des trois frères.** L'alerte visait
+  `generate-man.mjs` ; le même `existsSync(f) ? readFileSync(f) : …` vivait aussi dans
+  `aiMcp.ts` — où le test préalable court-circuitait un `catch` qui distinguait pourtant DÉJÀ
+  « illisible » d'« absent » — et dans `security-secrets.ts`, où une 4ᵉ copie ignorait le
+  `lireSiPresentSync` de son PROPRE paquet. Un `rg` sur le MOTIF (pas sur le fichier signalé)
+  les rend en une seconde ; l'analyseur montre ce qu'il atteint, jamais ce qui existe.
+
+- **L'analyseur n'a signalé qu'UN des deux frères.** CodeQL pointait `MD_LINK` ; `JSON_HREF`, deux
+  lignes plus bas, portait le MÊME motif quadratique sans être vu. Un outil montre ce qu'il atteint,
+  pas ce qui existe — après chaque alerte, chercher le frère. `[1× — 08-25]`
+- **Deux sites du même motif dans le fichier signalé.** L'alerte donnait `security-token.ts:250` ;
+  le second `existsSync ? read : ""` (l.191) n'y figurait pas. `[1× — 08-25]`
+
+- [1× — 08-25] **« Les handles trancheront » — non.** Un signal ASYMÉTRIQUE ne tranche que dans un
+  sens : des ressources qui s'accumulent désignent un défaut, mais un compte stable n'explique
+  RIEN — il retire un suspect sur quatre. Je l'ai présenté comme la mesure décisive alors qu'elle
+  ne répondait même pas à la question posée (« palier ou hausse sans fin ? »), à laquelle seule la
+  DURÉE répond. Le user a relevé en trois mots. Avant d'annoncer qu'une mesure tranchera, se
+  demander ce que son résultat NÉGATIF prouverait.
+
 - [1× — 08-25] **QUATRE défauts d'une même session étaient la MÊME faute : une règle appliquée à un
   seul frère.** Le gate Redis renommé d'un côté et pas dans le workflow ; `attendreServeur` écrit
   pour PostgreSQL quand le bloc MySQL relançait son conteneur sans attendre ; `NF_GATES_ALLOW` posé
@@ -133,6 +153,11 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- **Mon commentaire donnait un exemple d'attaque que je n'ai pas su reproduire.** J'avais écrit
+  que `<<a>script>` redevient une balise après une passe ; testé, c'est faux. Ce qui protège
+  vraiment était AILLEURS (`esc()` au rendu). Un commentaire qui invente sa justification est pire
+  qu'un commentaire absent : il détourne le prochain lecteur de la vraie garde. `[1× — 08-25]`
+
 - **« Ajouter un choix = ajouter UNE entrée ici ; aucun front n'est à modifier »** — vrai pour deux
   fronts sur trois. La voie FLAGS a une analyse écrite à la main : une question ajoutée y est servie
   à l'humain et REFUSÉE au script, sans un mot. J'ai cru l'en-tête et raté le drapeau. Une
@@ -176,6 +201,20 @@
   de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- **`--publish` forçait `--write` : deux gestes couplés qui ne devaient pas l'être.** Révélé en
+  écrivant le workflow, qui serait tombé DÈS SA PREMIÈRE PASSE — sur le changelog, sans aucun
+  rapport avec la publication. Préparer écrit et se relit ; publier part d'un tag et ne doit RIEN
+  écrire. Écrire le second consommateur d'une API est ce qui montre ses couplages. `[1× — 08-25]`
+
+- [1× — 08-25] **Mon banc de durée refusait de mesurer sans ramasse-miettes et sans charge — et
+  acceptait sans broncher une machine PARTAGÉE.** Deux runs perdus le même jour : l'un tué par mes
+  propres compilations (p99 × 12), l'autre faussé par une console d'administration ouverte dans un
+  navigateur, qui tapait sur le serveur MESURÉ. Le tas s'est mis à monter de 13 MB/h alors qu'il
+  est plat partout ailleurs — c'est-à-dire exactement la signature qu'on traquait : le décor a
+  failli faire accuser le framework. Deux relevés gratuits manquaient : la charge machine, et le
+  nombre de connexions (un banc en ouvre un nombre CONSTANT, donc toute connexion en plus est un
+  intrus). **Une machine partagée ne rend pas une mesure moins bonne : elle rend une AUTRE mesure.**
 
 - **La garde anti-abandon rendait NON JUGEABLE la tâche dont la bonne réponse est INVISIBLE au
   diff.** « Aucun fichier touché ⇒ abandon » est juste partout — sauf pour la tâche de
@@ -251,6 +290,16 @@
 
 ## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
 
+- **Un jeton écrit SANS son mode : 0644, lisible par toute la machine.** Parti d'une alerte de
+  RACE (`existsSync` puis `write`), j'ai trouvé pire à deux lignes. Et le remède existait DÉJÀ dans
+  le paquet (`JwtKeystore` écrit sa clé en 0600) : une CLI en avait une version dégradée.
+  Après chaque « on écrit quoi, où ? », poser « et qui a le droit de le LIRE ? ». `[1× — 08-25]`
+- **Le fichier TEMPORAIRE porte le secret, et survivait à l'échec.** L'écriture atomique passe par
+  `<f>.<pid>.tmp` puis `rename` ; si le `rename` lève, le tmp reste EN CLAIR sur le disque. On avait
+  durci les permissions de la cible en laissant fuir le contenu à côté. Le cas est PROBABLE sous
+  Windows (remplacer une cible ouverte y échoue, là où POSIX remplace) — et la cible est un `.env`
+  que l'utilisateur a sous les yeux dans son éditeur. `[1× — 08-25]`
+
 - **`--write` posait le jeton MCP dans `.env.local` : AUCUN code de l'application ne le lit.** Elle
   est le serveur de ressource, elle vérifie des jetons, elle n'en porte pas. Le consommateur — un
   agent — le cherchait ailleurs et recevait un 401 qui accusait le jeton. Une heure de diagnostic.
@@ -263,6 +312,14 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **`expect(...).toBeTruthy` sans les parenthèses ne s'exécute jamais.** Écrit dans MON test du
+  jour ; il passait, évidemment. Une assertion qui n'appelle pas son matcher est une expression
+  jetée. Remplacée par deux cas explicites, un par plateforme. `[1× — 08-25]`
+- **Les tests vitest ne TYPECHECKENT pas.** Un narrowing cassé (`Number.isInteger(port)` ne dit
+  rien à TS de `undefined`) laissait 3 161 tests verts et le BUILD rouge. Rattrapé par le hook
+  pre-push, pas par moi : après une modif de type, lancer `npm run build`, pas seulement la suite.
+  `[1× — 08-25]`
 
 - [1× — 08-25e] **Mon gate de conformité neuf a été complaisant DEUX fois de suite, sur le même
   fichier.** D'abord un décor vide — je supposais que `runScaffold({type:"app", dir})` écrivait dans
@@ -361,6 +418,19 @@
   ligne. Découvert en injectant le défaut exprès, pas en le relisant. [1× — 08-24]
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
+
+- [1× — 08-25] **Mon test d'attaque a cassé la forge sur une plateforme.** Pour prouver qu'une
+  injection s'exécutait, j'ai fait lancer `; touch …` par un shell — et le `touch` de BSD, qui
+  ignore les options longues, a pris ses arguments pour des NOMS DE FICHIERS. Deux fichiers créés
+  à la racine, `git add -A` les emporte, sept jobs Windows tombent au CHECKOUT (`invalid path`,
+  exit 128), avant tout test. J'avais nettoyé le témoin attendu, pas les deux inattendus. Une
+  charge d'attaque se joue dans un répertoire JETABLE, et l'on relève ce qu'elle a produit
+  (`git status`), pas ce qu'on croit qu'elle a produit.
+- [1× — 08-25] **J'ai lu le code de sortie du WRAPPER, pas celui de la commande.** `gh run watch`
+  écrivait `exit=1` dans son fichier ; la notification de tâche annonçait « exit code 0 » — celui
+  du shell qui l'enveloppait. J'ai annoncé la CI verte sur deux workflows... rouges, et sur 2 des
+  6 seulement. Un verdict de forge se prend sur l'ÉNUMÉRATION complète des runs du commit, pas
+  sur les quelques-uns qu'on a pensé à surveiller.
 
 - **La même URL recomposée à trois endroits, et l'un avait gardé l'origine nue** : `--dry-run`
   annonçait `http://localhost:5151` là où l'exécution visait `…/nodefony/mcp`. On croit un dry-run
@@ -501,6 +571,11 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- **Ma mutation n'avait PAS été appliquée — et j'ai failli conclure que mes tests ne mordaient
+  pas.** Un `str.replace(old, new)` dont l'ancre ne correspond pas ne lève rien : il réécrit le
+  fichier INCHANGÉ. Les 46 verts qui ont suivi ne prouvaient donc rien. Toute mutation porte
+  désormais un `assert old in s` — et le grep de contrôle vient APRÈS. `[1× — 08-25]`
 
 - [1× — 08-25e] **La règle de portabilité que le PRODUIT avait déjà payée, rejouée dans un test une
   heure après l'avoir écrite.** Mon banc invoquait `node_modules/.bin/prettier` par `execFileSync` :
@@ -665,6 +740,39 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-25] **Un gate qui ne lit que la moitié de son domaine.** `scripts-audit` portait un
+  contrôle « renvois morts » — mais il ne lisait que le TEXTE des `SKILL.md`. Un script qui en
+  LANCE un autre par un chemin en dur y échappait entièrement, et la forme employée
+  (`join(repo, ".claude", "skills", …)`) n'est visible d'AUCUNE expression cherchant un chemin.
+  Le gate était vert pendant que quatre systèmes tombaient sur `Cannot find module`. Étendre un
+  gate à un nouveau support commence par se demander ce qu'il ne REGARDE pas.
+- [1× — 08-25] **Une fiche générée périmée ment avec l'autorité du généré.** `skills-doc --check`
+  contrôlait la conformité des sources, jamais la fraîcheur de ce qu'il avait lui-même produit :
+  le registre annonçait un skill à 455 lignes quand il en portait 619. Tout générateur doit
+  savoir dire « ce que je produirais diffère de ce qui est sur disque » — c'est le même
+  comparateur que celui qui évite de réécrire, donc il est déjà là.
+
+- **La chaîne de PUBLICATION transitait par `.claude/skills/`, avec un CYCLE.**
+  `scripts/release.mjs` appelait un script du skill, qui réimportait le cœur du produit ; la CI
+  lançait le smoke depuis `.claude/`. Un skill renommé ou fusionné aurait emporté la capacité de
+  publier, sans qu'aucun test ne tombe. Ce qui S'EXÉCUTE appartient au produit ; le skill garde la
+  MÉTHODE. Corollaire : il manquait une page pour l'HUMAIN — trois lecteurs, trois endroits.
+  `[1× — 08-25]`
+
+- [1× — 08-25] **`schedule` et `workflow_dispatch` ne partent QUE depuis la branche par défaut.**
+  Workflow écrit, commité, poussé sur la branche de travail — et incapable de se déclencher : ni
+  rendez-vous hebdomadaire, ni bouton. L'API le dit franchement (« not found on the default
+  branch »), mais rien dans le fichier ne le laisse deviner. Un `push` borné aux bons fichiers le
+  rend éprouvable tout de suite ; le reste exige d'être porté sur la branche par défaut.
+- [1× — 08-25] **Un `on: push` sans `branches:` part sur TOUTE branche — Dependabot compris**,
+  dont les branches rebasent sur la branche de travail et embarquent donc le fichier neuf. Deux
+  exécuteurs mobilisés trente minutes pour une montée de dépendance sans rapport, dont le `npm ci`
+  échouait de toute façon. Le workflow voisin bornait déjà ses branches : la règle existait, elle
+  n'a pas été recopiée.
+- [1× — 08-25] **Le banc de release était rouge depuis TROIS passes hebdomadaires**, jamais lues —
+  et le correctif dormait dans le dépôt depuis la veille, jamais éprouvé. Un rendez-vous
+  automatique dont personne ne lit le verdict ne garde rien : il fabrique juste de la confiance.
+
 - **La passe principale était ROUGE depuis 20 exécutions, et plus personne ne la lisait.** Deux
   erreurs de lint triviales la tenaient — et derrière elles, en file, deux autres gates qui
   seraient devenus le rouge suivant (un fichier dérivé du formateur, un faux positif de
@@ -738,6 +846,12 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
 
+- **Une garde MORTE-NÉE : `try/catch` autour d'un `import` STATIQUE.** Le shim `create-nodefony`
+  protégeait l'absence de `nodefony` par un `try` autour de l'appel — Node résout les imports
+  statiques AVANT la première ligne du module, donc le `catch` n'était jamais atteint et
+  l'utilisateur recevait une trace de pile interne. `await import()` dans le `try`. Trouvée en
+  DÉBRANCHANT le paquet, jamais en relisant. `[1× — 08-25]`
+
 - **Enregistrer un handler `SIGTERM` a rendu le banc IMMORTEL.** Le filet d'arrêt ne pouvait pas
   s'exécuter — ce script vit dans des `spawnSync` qui BLOQUENT la boucle d'événements, et un
   handler de signal est un callback JS. Pire : l'enregistrer DÉSACTIVE la mort par défaut. Sans
@@ -751,6 +865,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   confirme n'importe quelle cause. [1× — 08-23b] ↝ [[feedback_bench_probe_false_verdicts]]
 
 ## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
+
+- [1× — 08-25] **Un `tail -200` qui se fait passer pour le journal.** Sur un serveur qui
+  journalise chaque requête, 200 lignes couvrent TROIS secondes : l'échec du milieu de suite n'y
+  était pas. J'en ai conclu que la trace était perdue et j'ai renoncé au diagnostic — alors que
+  le journal ENTIER était publié en artefact depuis toujours, au step suivant. Un aperçu doit
+  DIRE qu'il est un aperçu et où est le complet ; sinon il ne tronque pas seulement la sortie,
+  il tronque la recherche.
 
 - [1× — 08-23e] Un banc de performance pose `NF_LOG_DRIVER=null` pour ne pas mesurer le coût des
   journaux. Le jour où le serveur n'a pas démarré, il n'a su dire que « BOOT TIMEOUT — voir
@@ -769,6 +890,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
+
+- [1× — 08-25] **Une source qui fait autorité peut être PÉRIMÉE, et le dire avec aplomb.** Le guide
+  npm de l'OpenSSF recommande encore d'authentifier une publication par un jeton d'automatisation
+  — retirés du registre depuis novembre 2025, et remplacés par la publication de confiance
+  précisément parce que ces jetons étaient le vecteur des vols de compte. La doc du dépôt, elle,
+  était à jour. Une source externe se DATE avant d'être suivie ; ici, c'est le dépôt qui avait
+  raison contre la référence.
 
 - [1× — 08-23e] Après avoir corrigé une purge de ports qui tuait son propre lanceur, la même
   commande restait **enseignée** dans la table de dépannage d'un autre skill (`lsof -ti:PORT |

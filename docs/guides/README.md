@@ -33,6 +33,7 @@ last-updated: 2026-05-21
 | Page                                                             | Sujet                                                                             | Statut |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------ |
 | [`integration-continue.md`](./integration-continue.md)           | Forge du dépôt : ce qui tourne, le décor, les gates, rejouer en local             | stable |
+| [`publier-une-release.md`](./publier-une-release.md)             | Publier les 15 paquets : la chaîne, ce que chaque garde refuse, le smoke, l'OIDC  | stable |
 | [`eprouver-loutillage-agent.md`](./eprouver-loutillage-agent.md) | Mesurer un framework avec un agent : méthode, pièges du juge, ce qu'elle a trouvé | stable |
 
 ## Pages (à venir)

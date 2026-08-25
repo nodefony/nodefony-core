@@ -43,6 +43,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import semver from "semver";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ARGS = new Set(process.argv.slice(2));
@@ -303,6 +304,89 @@ if (behindRows.length === 0) {
       "Les plages déjà hissées par le verrou sont masquées — `--strict` pour les voir.\n",
     );
   }
+}
+
+// ── 3bis. Majeures BLOQUÉES EN AMONT — par qui, et depuis quand ────────────
+//
+// Une montée majeure impossible ne se voit qu'au moment où elle échoue : une
+// pull request rouge de bout en bout, où `npm ci` casse AVANT le moindre test,
+// pour une raison qui n'est pas la nôtre. Elle revient à chaque cycle, et un
+// rouge permanent cesse d'être lu — c'est ainsi qu'un vrai rouge passe
+// inaperçu.
+//
+// Le blocage est pourtant CONSTATABLE sans rien installer : un paquet du
+// dépôt déclare une plage de pair qui exclut la version visée. On le NOMME
+// ici, avec sa contrainte — et surtout, on dit quand le blocage TOMBE, ce
+// qu'aucune pull request rouge ne saura jamais annoncer.
+//
+// Le champ est borné aux écarts MAJEURS : eux seuls justifient de parcourir
+// l'arbre installé, et ce sont les seuls que le dépôt refuse de grouper.
+const majeurs = rows.filter((r) => r.kind === "major");
+const blocages = new Map();
+if (majeurs.length) {
+  const cibles = new Set(majeurs.map((r) => r.name));
+  const racines = [path.join(ROOT, "node_modules")];
+  for (const racine of racines) {
+    let entrees = [];
+    try {
+      entrees = fs.readdirSync(racine, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entrees) {
+      if (!e.isDirectory()) continue;
+      const dossiers = e.name.startsWith("@")
+        ? fs
+            .readdirSync(path.join(racine, e.name), { withFileTypes: true })
+            .filter((x) => x.isDirectory())
+            .map((x) => path.join(e.name, x.name))
+        : [e.name];
+      for (const d of dossiers) {
+        let pkg;
+        try {
+          pkg = JSON.parse(
+            fs.readFileSync(path.join(racine, d, "package.json"), "utf8"),
+          );
+        } catch {
+          continue;
+        }
+        const peers = pkg.peerDependencies ?? {};
+        for (const cible of cibles) {
+          const plage = peers[cible];
+          if (!plage) continue;
+          const visee = majeurs.find((r) => r.name === cible)?.latest;
+          if (!visee || semver.satisfies(visee, plage)) continue;
+          if (!blocages.has(cible)) blocages.set(cible, []);
+          blocages.get(cible).push({
+            par: `${pkg.name}@${pkg.version}`,
+            plage,
+          });
+        }
+      }
+    }
+  }
+}
+for (const r of majeurs) {
+  const qui = blocages.get(r.name);
+  if (!qui || qui.length === 0) {
+    process.stdout.write(
+      `\n✅ ${r.name} ${r.latest} : AUCUN pair installé ne s'y oppose — la montée majeure est jouable.\n`,
+    );
+    continue;
+  }
+  const uniques = [...new Map(qui.map((q) => [q.par, q])).values()];
+  process.stdout.write(
+    `\n⛔ ${r.name} ${r.latest} est BLOQUÉ EN AMONT — \`npm ci\` échouerait avant tout test :\n`,
+  );
+  for (const q of uniques.slice(0, 8)) {
+    process.stdout.write(`     ${q.par} exige ${r.name} ${q.plage}\n`);
+  }
+  if (uniques.length > 8) {
+    process.stdout.write(`     … et ${uniques.length - 8} autres\n`);
+  }
+  process.stdout.write(
+    "     Rien à faire ici : la levée viendra de l'amont. Ce rapport le dira.\n",
+  );
 }
 
 // ── 4. Pins DIVERGENTS — un même paquet déclaré différemment selon le site ──

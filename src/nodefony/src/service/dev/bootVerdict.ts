@@ -49,7 +49,13 @@ export function probeBootDegraded(
     readonly fetchLivez?: (port: number) => Promise<string | null>;
   } = {},
 ): Promise<BootProbe> {
-  if (!port) return Promise.resolve("unreachable");
+  // Ce port vient d'un fichier d'état, et il décide d'une requête sortante. Le
+  // reste de la cible est en dur (boucle locale, chemin fixe), mais une valeur
+  // hors bornes n'aurait de toute façon aucun sens : la refuser ici évite qu'un
+  // fichier corrompu fasse frapper un port arbitraire de la machine.
+  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+    return Promise.resolve("unreachable");
+  }
   const fetchLivez = deps.fetchLivez ?? httpGetLivez;
   return fetchLivez(port).then((body): BootProbe => {
     if (body === null) return "unreachable";

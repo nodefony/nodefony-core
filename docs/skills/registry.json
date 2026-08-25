@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-24",
+  "generatedAt": "2026-08-25",
   "count": 24,
   "conformant": 24,
   "skills": [
@@ -599,8 +599,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 455,
-        "approxTokens": 8190
+        "bodyLines": 619,
+        "approxTokens": 10762
       },
       "requires": [
         "serveur UP",
@@ -648,6 +648,10 @@
               },
               {
                 "flag": "--command",
+                "help": ""
+              },
+              {
+                "flag": "--confirmer",
                 "help": ""
               },
               {
@@ -768,6 +772,10 @@
               },
               {
                 "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--purge",
                 "help": ""
               },
               {
@@ -1002,6 +1010,10 @@
               },
               {
                 "name": "ROUTE_SYNTHESE",
+                "help": ""
+              },
+              {
+                "name": "RUN_ROOT",
                 "help": ""
               }
             ],
@@ -1426,6 +1438,41 @@
             ],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/verify-runtime.mjs",
+            "purpose": "Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--config",
+                "help": ""
+              },
+              {
+                "flag": "--etage",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--reporter",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "APP",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },
@@ -1482,8 +1529,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "455",
+            "ok": false,
+            "detail": "619",
             "advisory": true
           }
         ]
@@ -1526,7 +1573,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 469,
-        "approxTokens": 7783
+        "approxTokens": 7910
       },
       "requires": [],
       "resources": {
@@ -2842,9 +2889,18 @@
             "path": "scripts/graceful-shutdown-e2e.mjs",
             "purpose": "Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur.",
             "usage": [
-              "bash .claude/skills/nodefony-start-server/start.sh"
+              "node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs"
             ],
-            "options": [],
+            "options": [
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              }
+            ],
             "env": [
               {
                 "name": "HTTP_SLOW_URL",
@@ -3312,6 +3368,10 @@
                 "help": ""
               },
               {
+                "flag": "--force-charge",
+                "help": ""
+              },
+              {
                 "flag": "--latency",
                 "help": ""
               },
@@ -3330,9 +3390,17 @@
               {
                 "flag": "--url",
                 "help": ""
+              },
+              {
+                "flag": "--version",
+                "help": ""
               }
             ],
             "env": [
+              {
+                "name": "COEURS",
+                "help": ""
+              },
               {
                 "name": "CONN",
                 "help": ""
@@ -4097,18 +4165,25 @@
     },
     {
       "name": "nodefony-release",
-      "summary": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version).",
+      "summary": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
       "family": "Publier et distribuer",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "keywords": [
-        "exports.types",
-        ".d.ts",
+        "release:pack",
+        "release:smoke",
+        "exports",
+        "files",
+        "peerDependencies",
         "docs/release/nodefony-10.md"
       ],
       "triggers": [
         "publier sur npm",
         "faire une release",
         "préparer la publication",
+        "puis-je publier ?",
+        "estampiller la version",
+        "changelog de la release",
+        "ordre de publication",
         "packager les paquets",
         "smoke test release",
         "tester l'installation depuis les tarballs",
@@ -4116,159 +4191,20 @@
         "surface npm",
         "types publiés",
         "tarball",
+        "trusted publishing",
+        "ENEEDAUTH",
         "avant de publier"
       ],
-      "description": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en conteneur — installation VIERGE des tarballs, compilation d'une application témoin et preuve de l'arrêt gracieux. À charger AVANT de publier ou de toucher à la surface publiée : ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit, et seul le décor jetable le montre. Le plan de version et l'état d'avancement vivent dans `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"avant de publier\".",
+      "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 131,
-        "approxTokens": 2278
+        "bodyLines": 239,
+        "approxTokens": 4372
       },
-      "requires": [
-        "docker",
-        "serveur UP"
-      ],
+      "requires": [],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
-        "scripts": [
-          {
-            "path": "scripts/fix-dts-extensions.mjs",
-            "purpose": "Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS",
-            "usage": [
-              "Usage : node .claude/skills/nodefony-release/scripts/fix-dts-extensions.mjs <dir> [--quiet]"
-            ],
-            "options": [
-              {
-                "flag": "--quiet",
-                "help": ""
-              }
-            ],
-            "env": [],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/pack-all.mjs",
-            "purpose": "Pack release des workspaces publiables (modèle B — N-packages lockstep).",
-            "usage": [
-              "Usage (racine repo) : node .claude/skills/nodefony-release/scripts/pack-all.mjs"
-            ],
-            "options": [
-              {
-                "flag": "--json",
-                "help": ""
-              },
-              {
-                "flag": "--omit",
-                "help": ""
-              },
-              {
-                "flag": "--pack-destination",
-                "help": ""
-              },
-              {
-                "flag": "--silent",
-                "help": ""
-              }
-            ],
-            "env": [
-              {
-                "name": "OUT",
-                "help": ""
-              }
-            ],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/smoke-docker.sh",
-            "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.",
-            "usage": [
-              "bash .claude/skills/nodefony-release/scripts/smoke-docker.sh [--scenario all|base|front|studio]"
-            ],
-            "options": [
-              {
-                "flag": "--detach",
-                "help": ""
-              },
-              {
-                "flag": "--dir",
-                "help": ""
-              },
-              {
-                "flag": "--entrypoint",
-                "help": ""
-              },
-              {
-                "flag": "--exclude-entrypoints",
-                "help": ""
-              },
-              {
-                "flag": "--frontend",
-                "help": ""
-              },
-              {
-                "flag": "--help",
-                "help": ""
-              },
-              {
-                "flag": "--kind",
-                "help": ""
-              },
-              {
-                "flag": "--name",
-                "help": ""
-              },
-              {
-                "flag": "--no-audit",
-                "help": ""
-              },
-              {
-                "flag": "--no-fund",
-                "help": ""
-              },
-              {
-                "flag": "--no-git",
-                "help": ""
-              },
-              {
-                "flag": "--no-install",
-                "help": ""
-              },
-              {
-                "flag": "--omit",
-                "help": ""
-              },
-              {
-                "flag": "--preset",
-                "help": ""
-              },
-              {
-                "flag": "--profile",
-                "help": ""
-              },
-              {
-                "flag": "--rm",
-                "help": ""
-              },
-              {
-                "flag": "--route",
-                "help": ""
-              },
-              {
-                "flag": "--scenario",
-                "help": ""
-              },
-              {
-                "flag": "--yes",
-                "help": ""
-              }
-            ],
-            "env": [],
-            "output": "",
-            "selfDocumented": false
-          }
-        ]
+        "scripts": []
       },
       "related": [
         "nodefony-check-externals",
@@ -4287,7 +4223,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "935",
+            "detail": "1013",
             "advisory": false
           },
           {
@@ -4323,7 +4259,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "131",
+            "detail": "239",
             "advisory": true
           }
         ]

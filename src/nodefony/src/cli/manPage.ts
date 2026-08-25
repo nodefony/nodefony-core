@@ -65,7 +65,13 @@ export function escapeRoff(text: string): string {
     .replace(/-/gu, "\\-")
     .trim()
     // Un saut de ligne au milieu d'une description casserait le paragraphe.
-    .replace(/\s*\n\s*/gu, " ");
+    //
+    // `[^\S\n]` = un blanc QUI N'EST PAS un saut de ligne. Écrit `\s*\n\s*`,
+    // les deux quantificateurs chevauchent le `\n` littéral : sur une suite de
+    // sauts de ligne, le moteur réessaie chaque découpage, en temps quadratique.
+    // Cette fonction est EXPORTÉE — une application la lâche sur son propre
+    // texte, et rien ne dit que ce texte est court.
+    .replace(/[^\S\n]*\n\s*/gu, " ");
   return /^[.']/u.test(escaped) ? `\\&${escaped}` : escaped;
 }
 

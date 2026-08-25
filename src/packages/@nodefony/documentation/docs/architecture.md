@@ -134,7 +134,7 @@ séparés — c'est précisément le travail de ce module.
 **Les briques de base sont pures.** Le découpage du frontmatter (`parseFrontmatter()`,
 `frontmatter.ts:51`), la fabrication du slug (`pathToSlug()`, `slug.ts:60`), le parcours du
 disque (`scanDocsDir()`, `docScanner.ts:55`) et la traduction des liens
-(`rewriteInternalLinks()`, `linkResolver.ts:72`) sont des fonctions sans état et sans Kernel.
+(`rewriteInternalLinks()`, `linkResolver.ts:90`) sont des fonctions sans état et sans Kernel.
 Elles sont exportées telles quelles, donc réutilisables par un générateur statique ou un
 indexeur RAG — et testables sans démarrer un serveur.
 
@@ -377,18 +377,18 @@ Le pont, c'est une table `chemin repo → slug` construite au scan (`#ensureCach
 `../../../../../docs/index.md` sans le moindre moyen de savoir à quel fichier ça correspond —
 il ne connaît ni l'arborescence du dépôt, ni le point de départ de la page.
 
-`rewriteInternalLinks()` (`linkResolver.ts:72`) applique quatre règles :
+`rewriteInternalLinks()` (`linkResolver.ts:90`) applique quatre règles :
 
-1. **Seules les cibles `.md` internes** sont touchées (`MD_LINK`, `linkResolver.ts:26`). Les
+1. **Seules les cibles `.md` internes** sont touchées (`MD_LINK`, `linkResolver.ts:31`). Les
    URL absolues, les `mailto:`, les ancres pures `#section`, les images et les `.ts` restent
    intacts.
 2. **Le chemin est résolu contre le dossier de la page** (`resolveRelative()`,
-   `linkResolver.ts:36`), en saturant à la racine : une remontée excessive ne peut pas sortir
+   `linkResolver.ts:43`), en saturant à la racine : une remontée excessive ne peut pas sortir
    du dépôt.
 3. **Une cible non indexée reste telle quelle.** Mieux vaut un lien inerte qu'un slug inventé
    qui produirait un 404.
 4. **Les fences typées aussi.** Un catalogue de hub porte ses cibles dans du JSON
-   (`"href": "cors.md"`) : sans traduction, `JSON_HREF` (`linkResolver.ts:33`), les cards
+   (`"href": "cors.md"`) : sans traduction, `JSON_HREF` (`linkResolver.ts:40`), les cards
    d'un hub renverraient dans le vide.
 
 L'ancre de section est **préservée** : `pipeline.md#etapes` devient `root~…~pipeline.md#etapes`.

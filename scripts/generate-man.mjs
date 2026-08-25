@@ -46,7 +46,18 @@ const cli = new CliKernel("development");
 const page = renderManPage(cli.buildBuiltinManifest(), version);
 
 const check = process.argv.includes("--check");
-const actuel = existsSync(PAGE) ? readFileSync(PAGE, "utf8") : null;
+// Lire DIRECTEMENT : `existsSync` puis `readFileSync` teste un état qui peut
+// changer entre les deux appels, et confond « absent » avec « illisible ».
+// `null` reste réservé à l'ABSENCE — c'est lui qui distingue « MANQUE » de
+// « est PÉRIMÉE » dans le message.
+const actuel = (() => {
+  try {
+    return readFileSync(PAGE, "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return null;
+    throw e;
+  }
+})();
 
 if (check) {
   if (actuel === page) {

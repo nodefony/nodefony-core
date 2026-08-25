@@ -24,6 +24,10 @@ export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
 export { besoinDeShell } from "./cli/execPortable";
+// Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
+// `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
+// `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.
+export { nodefonyBin } from "./cli/nodefonyBin";
 // Rendu de la page de manuel, publié parce qu'une APPLICATION en a l'usage :
 // ses commandes de module ne peuvent figurer dans la page du framework, et
 // elle seule peut donc rendre la sienne. Publier la fonction évite qu'un

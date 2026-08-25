@@ -524,6 +524,22 @@ export function agentsPresents(ctx: {
  * @param valeur - sa valeur
  * @returns le nouveau contenu, ou une `Error` si le fichier est illisible
  */
+/**
+ * La chaîne sans ses sauts de ligne FINAUX — sans expression régulière.
+ *
+ * `/\n*$/` a l'air anodin et coûte du temps quadratique : sur une queue de
+ * sauts de ligne, le moteur réessaie depuis chaque position. Une boucle qui
+ * recule dit la même chose en un seul passage, et se lit mieux.
+ *
+ * `trimEnd()` ne convient pas : il emporterait aussi espaces et tabulations,
+ * alors qu'on ne veut normaliser QUE la fin de ligne avant d'ajouter la nôtre.
+ */
+function sansSautsFinaux(texte: string): string {
+  let fin = texte.length;
+  while (fin > 0 && texte.charCodeAt(fin - 1) === 10) fin -= 1;
+  return texte.slice(0, fin);
+}
+
 export function poseVariable(
   forme: IAgentTarget["forme"],
   actuel: string,
@@ -536,7 +552,7 @@ export function poseVariable(
     if (motif.test(actuel)) return actuel.replace(motif, ligne);
     return actuel.length === 0
       ? `${ligne}\n`
-      : `${actuel.replace(/\n*$/u, "")}\n${ligne}\n`;
+      : `${sansSautsFinaux(actuel)}\n${ligne}\n`;
   }
   let doc: Record<string, unknown>;
   try {

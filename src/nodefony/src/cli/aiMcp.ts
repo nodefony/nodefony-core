@@ -305,12 +305,18 @@ export function etatJetonsAgents(
     );
     let contenu = "";
     try {
-      contenu = existsSync(fichier) ? readFileSync(fichier, "utf8") : "";
-    } catch {
-      // Un fichier illisible n'est pas une panne de cette commande : on se tait
-      // sur cet agent plutôt que d'affirmer qu'il n'a pas de jeton.
-      etats.set(cible.cle, "état du jeton illisible");
-      continue;
+      contenu = readFileSync(fichier, "utf8");
+    } catch (e) {
+      // ABSENT et ILLISIBLE ne se disent pas pareil, et le test préalable les
+      // confondait : `existsSync` puis `readFileSync` laisse la fenêtre où le
+      // fichier disparaît, et un refus de droits y prenait le visage d'un
+      // agent sans jeton. Seul `ENOENT` vaut absence.
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+        // Un fichier illisible n'est pas une panne de cette commande : on se tait
+        // sur cet agent plutôt que d'affirmer qu'il n'a pas de jeton.
+        etats.set(cible.cle, "état du jeton illisible");
+        continue;
+      }
     }
     const jeton = litVariable(cible.forme, contenu, MCP_TOKEN_ENV);
     etats.set(

@@ -21,7 +21,7 @@
 // Idempotent (specifiers déjà extensionnés non touchés) → réécriture EN PLACE
 // sûre, y compris pour la consommation interne (Bundler accepte `.js`).
 //
-// Usage : node .claude/skills/nodefony-release/scripts/fix-dts-extensions.mjs <dir> [--quiet]
+// Usage : node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]
 //         ou import { fixDtsExtensions } from "./fix-dts-extensions.mjs"
 import ts from "typescript";
 import fs from "node:fs";

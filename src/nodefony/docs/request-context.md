@@ -250,7 +250,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
 journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:169`), branché sur
-`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:490`). C'est ce qui
+`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:864`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
 ## 🧰 API publique

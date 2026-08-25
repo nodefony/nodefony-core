@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-25T15:17:02.738Z",
+  "generated": "2026-08-25T20:51:52.256Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 737,
-    "symbols": 3124,
+    "files": 739,
+    "symbols": 3133,
     "classes": 364,
     "interfaces": 887,
     "types": 388,
     "enums": 4,
-    "functions": 1188,
-    "constants": 293
+    "functions": 1196,
+    "constants": 294
   },
   "symbols": {
     "Cli": {
@@ -720,8 +720,7 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
+      "module": "@nodefony/core"
     },
     "litVariable": {
       "name": "litVariable",
@@ -1650,6 +1649,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nom de la page, section 1 (commandes utilisateur)."
+    },
+    "nodefonyBin": {
+      "name": "nodefonyBin",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/nodefonyBin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le chemin du lanceur `nodefony`, tel que CETTE installation l'a reçu. ## Pourquoi une fonction, et pas un chemin écrit à la main Un appelant qui doit démarrer l'application — une suite de tests, un…"
     },
     "INpmOutdatedEntry": {
       "name": "INpmOutdatedEntry",
@@ -4675,14 +4682,6 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Réglages d'un module de test — tous facultatifs."
-    },
-    "nodefonyBin": {
-      "name": "nodefonyBin",
-      "kind": "function",
-      "file": "src/nodefony/src/testing/index.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL. ## Le problème que ce sous-chemin résout Un service Nodefony reçoit un `Module` (`super(nom, module.container, module.notific…"
     },
     "createTestModule": {
       "name": "createTestModule",
@@ -20362,6 +20361,70 @@
       "extends": null,
       "description": "Réglages du vérificateur — au-delà de la liste des émetteurs."
     },
+    "lireSiPresent": {
+      "name": "lireSiPresent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Le contenu du fichier, ou `null` s'il n'existe pas."
+    },
+    "lireSiPresentSync": {
+      "name": "lireSiPresentSync",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Forme synchrone de {@link lireSiPresent}."
+    },
+    "modeNonRestreint": {
+      "name": "modeNonRestreint",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Le mode effectif du fichier n'est-il PAS restreint au propriétaire ?"
+    },
+    "modeNonRestreintAsync": {
+      "name": "modeNonRestreintAsync",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Forme asynchrone de {@link modeNonRestreint}."
+    },
+    "messageNonRestreint": {
+      "name": "messageNonRestreint",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "La phrase à journaliser quand la restriction n'a PAS pris. Elle nomme la cause probable et ce qui reste à faire : un avertissement qui dit seulement « mode inattendu » se lit comme du bruit et fini…"
+    },
+    "ecrireSecret": {
+      "name": "ecrireSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Écrit un secret : dossier créé, mode 0600, remplacement ATOMIQUE. Le mode est posé à la création du temporaire — et non après `rename` — pour qu'il n'existe à aucun instant un fichier au contenu se…"
+    },
+    "ecrireSecretSync": {
+      "name": "ecrireSecretSync",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Forme synchrone de {@link ecrireSecret}."
+    },
+    "MODE_SECRET": {
+      "name": "MODE_SECRET",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Écrire un SECRET sur disque — la seule implémentation du dépôt. ## Les trois règles, et ce que chacune évite 1. **Ne jamais tester la présence avant de lire.** `existsSync(f) ? read(f) : \"\"` ouvre …"
+    },
     "tokenStatusCriteria": {
       "name": "tokenStatusCriteria",
       "kind": "function",
@@ -28550,6 +28613,10 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
+      "lireSiPresentSync": [
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "MCP_ENDPOINT_PATH": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
@@ -28557,6 +28624,16 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "porteDejaLaCle": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "ecrireSecretSync": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "messageNonRestreint": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "modeNonRestreint": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "askPasswordMasked": [
@@ -29657,6 +29734,15 @@
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "IJwtSigningKey": [
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "ecrireSecret": [
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "lireSiPresent": [
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "modeNonRestreintAsync": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "matchesTokenStatus": [

@@ -94,18 +94,24 @@ updates:
         dependency-type: "development"
         update-types: ["minor", "patch"]
       # TypeScript majeur voyage SEUL, et ce n'est pas un traitement de faveur :
-      # il est BLOQUÉ EN AMONT. `@angular/build` exige `typescript >=6.0 <6.1`,
-      # y compris dans ses versions `next` — TypeScript 7 ne peut donc pas
-      # s'installer tant qu'Angular n'a pas suivi, et `npm ci` échoue AVANT le
-      # moindre test. Groupé, il emportait avec lui toutes les autres montées
-      # majeures : une pull request rouge de bout en bout, à chaque cycle, pour
-      # une raison qui n'est ni la nôtre ni corrigible ici. Un rouge permanent
-      # cesse d'être lu, et c'est ainsi qu'un vrai rouge passe inaperçu.
+      # il est BLOQUÉ EN AMONT. TROIS paquets installés interdisent TypeScript 7
+      # — `@angular/build` et `@angular/compiler-cli` exigent `>=6.0 <6.1` (leurs
+      # versions `next` comprises), `typedoc` s'arrête à `6.0.x`. `npm ci` échoue
+      # donc AVANT le moindre test. Groupé, ce blocage emportait avec lui toutes
+      # les autres montées majeures.
       #
-      # Il n'est PAS ignoré — la décision du dépôt est de voir ses majeures. Il
-      # est seulement isolé, pour que son blocage ne devienne pas celui des
-      # autres. ⚠️ Ce groupe doit précéder `majeures` : une dépendance rejoint
-      # le PREMIER groupe qui la retient.
+      # ⚠️ Ce groupe doit précéder `majeures` : une dépendance rejoint le PREMIER
+      # groupe qui la retient.
+      #
+      # La 7 est ignorée CI-DESSOUS, et la raison n'est pas qu'on renonce à voir
+      # nos majeures : c'est que la voir sous forme de pull request rouge à
+      # chaque cycle ne l'apprend à personne. Un rouge permanent cesse d'être lu,
+      # et c'est ainsi qu'un vrai rouge passe inaperçu. La visibilité est portée
+      # par `npm run deps:check`, qui NOMME les trois bloqueurs et leur
+      # contrainte — et qui dira « la montée majeure est jouable » le jour où
+      # l'amont suivra. C'est ce rapport, pas une pull request, qui commande la
+      # levée de l'ignore ci-dessous. Seule la 7 est tue : TypeScript 8
+      # reviendra de lui-même.
       typescript-majeur:
         patterns: ["typescript"]
         update-types: ["major"]
@@ -113,3 +119,10 @@ updates:
         patterns: ["*"]
         exclude-patterns: ["typescript"]
         update-types: ["major"]
+    # LEVÉE : quand `npm run deps:check` affiche « AUCUN pair installé ne s'y
+    # oppose — la montée majeure est jouable » pour typescript, retirer ces
+    # trois lignes. Tant qu'il affiche « BLOQUÉ EN AMONT », la pull request ne
+    # peut PAS être verte : elle échoue à l'installation, pas aux tests.
+    ignore:
+      - dependency-name: "typescript"
+        versions: ["7.x"]

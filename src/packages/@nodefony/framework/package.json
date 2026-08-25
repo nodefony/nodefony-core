@@ -27,7 +27,11 @@
     "javascript",
     "typescript"
   ],
-  "repository": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/framework"
+  },
   "dependencies": {
     "@graphql-tools/merge": "9.2.3",
     "@graphql-tools/schema": "10.1.0",
@@ -61,5 +65,9 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/framework#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
   }
 }

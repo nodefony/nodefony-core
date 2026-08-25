@@ -29,7 +29,11 @@
     "javascript",
     "typescript"
   ],
-  "repository": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/http"
+  },
   "directories": {
     "lib": "./nodefony",
     "test": "./nodefony/tests"
@@ -78,5 +82,9 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/http#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
   }
 }

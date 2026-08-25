@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-08-24
+updated: 2026-08-25
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -119,8 +119,8 @@ source: "docs/skills/index.md"
     "desc": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
-    "desc": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en…",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 3 scripts" }
+    "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
+    "meta": "🟢 conforme v2.0.0" }
 ]
 ```
 
@@ -149,7 +149,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 7 scripts · 📎 4 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" }
 ]
 ```
 
@@ -163,7 +163,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 250 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 455 | 4 | 7 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 619 | 4 | 8 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 469 | 2 | 7 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 357 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 114 | 6 | 0 | ✅ |
@@ -172,7 +172,7 @@ source: "docs/skills/index.md"
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 359 | 4 | 43 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 359 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 141 | 2 | 10 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 1.0.0 | 131 | 0 | 3 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 2.0.0 | 239 | 0 | 0 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |

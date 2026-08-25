@@ -172,6 +172,35 @@ async function loginAndIsolate(
   return { cookie, ref: fresh[0]! };
 }
 
+/**
+ * Un compte JETABLE, propre à ce fichier — jamais le compte partagé `user`.
+ *
+ * Le cas « déconnecter TOUT un user » détruit TOUTES les sessions du compte
+ * visé. Lancé sur `user`, il emporte celles des autres fichiers de test, qui
+ * tournent EN PARALLÈLE. Mesuré en CI : `count=11` alors que ce cas n'avait
+ * ouvert que deux sessions — neuf appartenaient à des bancs voisins, dont un
+ * banc WebSocket dont le handshake s'est vu fermer en 1008 « Authentication
+ * required ». Le rouge tombait donc ailleurs que la faute, et seulement quand
+ * l'ordonnancement s'y prêtait : vert dix fois, rouge la onzième.
+ *
+ * Idempotent : `409` signifie « créé par une passe précédente », ce qui est le
+ * cas normal dès la deuxième exécution contre un serveur vivant.
+ */
+const JETABLE = "session-revocation-probe";
+const JETABLE_MDP = "secret-probe";
+
+async function assurerCompteJetable(admin: string): Promise<void> {
+  const cree = await post(
+    "/nodefony/user/api/users",
+    { cookie: admin },
+    { identifier: JETABLE, plainPassword: JETABLE_MDP, roles: ["ROLE_USER"] },
+  );
+  expect(
+    [201, 409],
+    `création du compte jetable (statut ${cree.status})`,
+  ).to.include(cree.status);
+}
+
 describe("Révocation de session — cycle de vie (3 chemins admin + logout)", () => {
   // Sentinelle : le logout volontaire passe par `session.destroy()` (objet en
   // mémoire neutralisé) → déjà sain. Verrouille qu'il le reste.
@@ -208,10 +237,13 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   });
 
   it("3. déconnecter TOUT un user (logout everywhere) → toutes 401 + count > 0", async () => {
-    const u1 = await loginAs("user", "secret");
-    const u2 = await loginAs("user", "secret");
+    // Compte JETABLE : ce cas révoque EN MASSE, il ne peut pas viser un compte
+    // que d'autres fichiers utilisent au même moment. Cf `assurerCompteJetable`.
     const admin = await loginAs("admin", "secret");
-    const rev = await post(revokeUserPath("user"), { cookie: admin });
+    await assurerCompteJetable(admin);
+    const u1 = await loginAs(JETABLE, JETABLE_MDP);
+    const u2 = await loginAs(JETABLE, JETABLE_MDP);
+    const rev = await post(revokeUserPath(JETABLE), { cookie: admin });
     expect(rev.status).to.equal(200);
     const count = (rev.body as { count?: number }).count ?? 0;
     expect(count, "≥ 2 sessions détruites").to.be.greaterThan(1);

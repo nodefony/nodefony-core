@@ -61,5 +61,14 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/realtime"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/realtime#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
   }
 }

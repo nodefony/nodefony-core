@@ -1,11 +1,16 @@
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type * as Jose from "jose";
 import type { JSONWebKeySet, JWK } from "jose";
 import type {
   IJwtKeystore,
   IJwtSigningKey,
 } from "../../contracts/IJwtKeystore";
+import {
+  ecrireSecret,
+  lireSiPresent,
+  messageNonRestreint,
+  modeNonRestreintAsync,
+} from "./secretFile";
 
 /** Journalisation injectée (le keystore n'est pas un Service — il reçoit un log). */
 type LogFn = (message: string, severity: string) => void;
@@ -211,20 +216,12 @@ export class JwtKeystore implements IJwtKeystore {
 
   /** Lit un fichier ; `null` si absent (ENOENT), relance toute autre erreur. */
   async #readFile(file: string): Promise<string | null> {
-    try {
-      return await readFile(file, "utf8");
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw e;
-    }
+    return lireSiPresent(file);
   }
 
   /** Écriture atomique (tmp + rename) en mode 600 — pas de fichier partiel lu. */
   async #writeAtomic(file: string, data: string): Promise<void> {
-    await mkdir(dirname(file), { recursive: true });
-    const tmp = `${file}.${process.pid}.tmp`;
-    await writeFile(tmp, data, { mode: 0o600 });
-    await rename(tmp, file);
+    await ecrireSecret(file, data);
     this.#log(
       `JWT keystore: clé Ed25519 générée et persistée (${file}).`,
       "INFO",
@@ -246,21 +243,12 @@ export class JwtKeystore implements IJwtKeystore {
    * uniquement) — hors hot-path.
    */
   async #checkRestricted(file: string): Promise<void> {
-    let mode: number;
-    try {
-      mode = (await stat(file)).mode & 0o777;
-    } catch {
-      return; // fichier disparu entre-temps : le chemin d'erreur normal parlera
-    }
-    if (mode === 0o600) return;
+    const mode = await modeNonRestreintAsync(file);
+    if (mode === null || mode === undefined) return;
     this.#log(
-      `JWT keystore: ${file} porte la clé PRIVÉE mais n'est PAS restreint au ` +
-        `seul propriétaire (mode ${mode.toString(8).padStart(4, "0")}, attendu 0600). ` +
-        `Le système de fichiers n'applique pas les permissions POSIX (NTFS, ` +
-        `FAT/exFAT, NFS sans mapping) ou le fichier a été déposé par un tiers. ` +
-        `La confidentialité de la clé dépend alors des seuls droits du dossier : ` +
-        `restreignez-les, ou provisionnez la clé hors-bande via ` +
-        `jwt.keystore.keySetJson (recommandé en production).`,
+      `JWT keystore: ${messageNonRestreint(file, mode)} La clé PRIVÉE y ` +
+        `réside : provisionnez-la plutôt hors-bande via jwt.keystore.keySetJson ` +
+        `(recommandé en production).`,
       "WARNING",
     );
   }

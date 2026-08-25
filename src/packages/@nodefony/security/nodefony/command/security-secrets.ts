@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, appendFileSync } from "node:fs";
+import { appendFileSync } from "node:fs";
+import { lireSiPresentSync } from "../src/token/secretFile.js";
 import path from "node:path";
 import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 
@@ -105,8 +106,10 @@ class SecuritySecrets extends Command {
   /** Contenu d'un fichier du projet, "" si absent/illisible (détection best-effort). */
   #read(file: string): string {
     try {
-      const abs = path.resolve(this.#root(), file);
-      return existsSync(abs) ? readFileSync(abs, "utf8") : "";
+      // `lireSiPresentSync` plutôt qu'un `existsSync ? read : ""` de plus : le
+      // paquet porte DÉJÀ cette règle, et deux copies d'une lecture tolérante
+      // divergent — l'une distingue « absent » d'« illisible », l'autre non.
+      return lireSiPresentSync(path.resolve(this.#root(), file)) ?? "";
     } catch {
       return "";
     }

@@ -11,5 +11,14 @@
   },
   "license": "CECILL-B",
   "private": true,
-  "devDependencies": {}
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/agent"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/agent#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
+  }
 }
