@@ -34,6 +34,13 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-25] **« Les handles trancheront » — non.** Un signal ASYMÉTRIQUE ne tranche que dans un
+  sens : des ressources qui s'accumulent désignent un défaut, mais un compte stable n'explique
+  RIEN — il retire un suspect sur quatre. Je l'ai présenté comme la mesure décisive alors qu'elle
+  ne répondait même pas à la question posée (« palier ou hausse sans fin ? »), à laquelle seule la
+  DURÉE répond. Le user a relevé en trois mots. Avant d'annoncer qu'une mesure tranchera, se
+  demander ce que son résultat NÉGATIF prouverait.
+
 - [1× — 08-25] **QUATRE défauts d'une même session étaient la MÊME faute : une règle appliquée à un
   seul frère.** Le gate Redis renommé d'un côté et pas dans le workflow ; `attendreServeur` écrit
   pour PostgreSQL quand le bloc MySQL relançait son conteneur sans attendre ; `NF_GATES_ALLOW` posé
@@ -176,6 +183,15 @@
   de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- [1× — 08-25] **Mon banc de durée refusait de mesurer sans ramasse-miettes et sans charge — et
+  acceptait sans broncher une machine PARTAGÉE.** Deux runs perdus le même jour : l'un tué par mes
+  propres compilations (p99 × 12), l'autre faussé par une console d'administration ouverte dans un
+  navigateur, qui tapait sur le serveur MESURÉ. Le tas s'est mis à monter de 13 MB/h alors qu'il
+  est plat partout ailleurs — c'est-à-dire exactement la signature qu'on traquait : le décor a
+  failli faire accuser le framework. Deux relevés gratuits manquaient : la charge machine, et le
+  nombre de connexions (un banc en ouvre un nombre CONSTANT, donc toute connexion en plus est un
+  intrus). **Une machine partagée ne rend pas une mesure moins bonne : elle rend une AUTRE mesure.**
 
 - **La garde anti-abandon rendait NON JUGEABLE la tâche dont la bonne réponse est INVISIBLE au
   diff.** « Aucun fichier touché ⇒ abandon » est juste partout — sauf pour la tâche de
@@ -665,6 +681,20 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-25] **`schedule` et `workflow_dispatch` ne partent QUE depuis la branche par défaut.**
+  Workflow écrit, commité, poussé sur la branche de travail — et incapable de se déclencher : ni
+  rendez-vous hebdomadaire, ni bouton. L'API le dit franchement (« not found on the default
+  branch »), mais rien dans le fichier ne le laisse deviner. Un `push` borné aux bons fichiers le
+  rend éprouvable tout de suite ; le reste exige d'être porté sur la branche par défaut.
+- [1× — 08-25] **Un `on: push` sans `branches:` part sur TOUTE branche — Dependabot compris**,
+  dont les branches rebasent sur la branche de travail et embarquent donc le fichier neuf. Deux
+  exécuteurs mobilisés trente minutes pour une montée de dépendance sans rapport, dont le `npm ci`
+  échouait de toute façon. Le workflow voisin bornait déjà ses branches : la règle existait, elle
+  n'a pas été recopiée.
+- [1× — 08-25] **Le banc de release était rouge depuis TROIS passes hebdomadaires**, jamais lues —
+  et le correctif dormait dans le dépôt depuis la veille, jamais éprouvé. Un rendez-vous
+  automatique dont personne ne lit le verdict ne garde rien : il fabrique juste de la confiance.
+
 - **La passe principale était ROUGE depuis 20 exécutions, et plus personne ne la lisait.** Deux
   erreurs de lint triviales la tenaient — et derrière elles, en file, deux autres gates qui
   seraient devenus le rouge suivant (un fichier dérivé du formateur, un faux positif de
@@ -769,6 +799,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
+
+- [1× — 08-25] **Une source qui fait autorité peut être PÉRIMÉE, et le dire avec aplomb.** Le guide
+  npm de l'OpenSSF recommande encore d'authentifier une publication par un jeton d'automatisation
+  — retirés du registre depuis novembre 2025, et remplacés par la publication de confiance
+  précisément parce que ces jetons étaient le vecteur des vols de compte. La doc du dépôt, elle,
+  était à jour. Une source externe se DATE avant d'être suivie ; ici, c'est le dépôt qui avait
+  raison contre la référence.
 
 - [1× — 08-23e] Après avoir corrigé une purge de ports qui tuait son propre lanceur, la même
   commande restait **enseignée** dans la table de dépannage d'un autre skill (`lsof -ti:PORT |

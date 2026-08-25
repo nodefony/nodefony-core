@@ -470,7 +470,7 @@ dépôts — c'est une **publication**, au même titre que npm. Conséquences : 
 deux commits par régénération ; et le contenu reste éditable des deux côtés, donc **la dérive
 demeure**. C'est de plus le montage qu'employait le v7 (`.gitmodules` à sa racine).
 
-### 10.2 R0 — hygiène de la surface publiée (aucun impact fonctionnel)
+### 10.2 R0 ✅ — hygiène de la surface publiée (aucun impact fonctionnel)
 
 Terrain relevé : sur les 13 publiables, **aucun** `repository` n'est exploitable — 7 pointent vers
 `git://github.com/nodefony/nodefony.git` (le futur dépôt VITRINE) avec un `directory`
@@ -486,6 +486,21 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 | **R0.3** | `@nodefony/frontend` déclare `"vite": "8.1.5"` en peer **exact** → passer en intervalle | toute application qui l'installe entre en conflit au prochain patch de vite |
 
 > R0.2 est le vrai livrable : sans lui, le trou se rejoue à la création du prochain paquet.
+
+**Fait.** Les dix-neuf `package.json` du périmètre portent `repository`, `homepage` et `bugs` vers
+`nodefony-core` ; les URL `tree/HEAD/<location>` répondent 200 (`HEAD`, pas `main`). `@nodefony/devkit`
+n'avait pas non plus `publishConfig.access` — il serait parti en privé. Le gate (R0.2) vit dans
+`scripts/lib/release-core.mjs`, appelé par `pack-all.mjs` ET par `scripts/release.mjs` : le banc de
+release invoque le pack directement, et un gate posé chez un seul appelant ne garde que celui-là.
+Vu rouge en vidant un `repository`, vert une fois restauré. R0.3 était déjà soldé : `@nodefony/frontend`
+ne déclare plus du tout la peer `vite` (elle est chargée par `await import()`).
+
+Ce que le premier passage du script a rendu : **22 métadonnées** qui auraient fait échouer la
+publication — quatre `repository` absents, trois objets vides, sept en `git://` (protocole que GitHub
+ne sert plus depuis 2022) pointant le futur dépôt VITRINE avec un `directory` inexistant. La doc npm
+cite le dépôt discordant parmi les causes premières d'`ENEEDAUTH` en publication de confiance, et npm
+ne valide rien à l'enregistrement du publieur : l'erreur ne serait sortie qu'au milieu d'un lot déjà
+parti.
 
 ### 10.3 R1 — Docker entre dans le générateur
 
