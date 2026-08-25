@@ -17,7 +17,7 @@
 #            est servie (un 404 ici = `dist/frontend` absent du tarball)
 #
 # Usage (racine repo) :
-#   bash .claude/skills/nodefony-release/scripts/smoke-docker.sh [--scenario all|base|front|studio]
+#   npm run release:smoke -- [--scenario all|base|front|studio]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
@@ -36,8 +36,8 @@ runs() { [[ "$SCENARIO" == "all" || "$SCENARIO" == "$1" ]]; }
 # Le compte se VÉRIFIE au lieu de se supposer : déplacer ce script d'un dossier
 # le décalait en silence, et le seul symptôme était un chemin doublé
 # (`.claude/skills/.claude/skills/…`) au premier `node`.
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-[[ -f "$ROOT/package.json" && -d "$ROOT/.claude" ]] ||
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+[[ -f "$ROOT/package.json" && -d "$ROOT/scripts/release" ]] ||
   { echo "✗ racine du dépôt introuvable depuis ${BASH_SOURCE[0]} (ROOT=$ROOT)" >&2; exit 1; }
 
 # HORS du repo : dedans, la résolution node/TS remonterait aux node_modules
@@ -121,7 +121,7 @@ http_code() { curl -s -o /dev/null -w "%{http_code}" "$1" || true; }
 # ═══ 1-3. Chaîne commune : pack, types, scaffolder ══════════════════════════
 
 step "pack — 14 tarballs depuis les workspaces"
-node "$ROOT/.claude/skills/nodefony-release/scripts/pack-all.mjs" || fail "pack-all.mjs"
+node "$ROOT/scripts/release/pack-all.mjs" || fail "pack-all.mjs"
 ok "tarballs écrits dans release/tarballs/"
 
 # (profil esm-only : node10 et require() CJS ignorés — framework ESM-only).

@@ -12,7 +12,7 @@
 // Sorties : release/tarballs/*.tgz + release/tarballs/manifest.json
 // (map nom → fichier tgz, consommée par le smoke test / l'app témoin).
 //
-// Usage (racine repo) : node .claude/skills/nodefony-release/scripts/pack-all.mjs
+// Usage (racine repo) : npm run release:pack
 // Prérequis : `npm run build` (dist/ + dist/types/ à jour sur tous les packages).
 import { execSync } from "node:child_process";
 import {
@@ -24,12 +24,12 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
-import { auditerMetadonnees } from "../../../../scripts/lib/release-core.mjs";
+import { auditerMetadonnees } from "./release-core.mjs";
 
-// `scripts/` → `nodefony-release/` → `skills/` → `.claude/` → racine du dépôt.
-// Quatre niveaux, pas deux : ce script a été déplacé dans le skill et sa racine
-// n'avait pas suivi — il cherchait les workspaces sous `.claude/skills/src/…`.
-const ROOT = path.resolve(import.meta.dirname, "../../../..");
+// `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
+// la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
+// réorganise pour d'autres raisons qu'elle.
+const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT = path.join(ROOT, "release", "tarballs");
 
 // Contrainte release §6bis (2) : peers OPTIONNELS injectés au pack — npm ≥7

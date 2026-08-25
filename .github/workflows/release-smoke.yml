@@ -129,7 +129,7 @@ jobs:
         run: npm run test:release
 
       - name: Smoke test — pack, install vierge, conteneur
-        run: bash .claude/skills/nodefony-release/scripts/smoke-docker.sh --scenario ${{ matrix.scenario }}
+        run: npm run release:smoke -- --scenario ${{ matrix.scenario }}
 
       # Le décor est jetable, son journal ne l'est pas : distinguer un
       # `docker build` en échec d'une app témoin muette décide où chercher.

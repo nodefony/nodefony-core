@@ -21,10 +21,10 @@
  * de publication. Inverser les deux enlève à l'auteur le seul point où il relit
  * ce qui va sortir sous son nom.
  *
- *   node scripts/release.mjs --version 10.0.0 --from <ref>            # répétition
- *   node scripts/release.mjs --version 10.0.0 --from <ref> --write
- *   node scripts/release.mjs --version 10.0.0 --from <ref> --write --pack
- *   node scripts/release.mjs --version 10.0.0 --from <ref> --publish  # MANUEL
+ *   npm run release -- --version 10.0.0 --from <ref>            # répétition
+ *   npm run release -- --version 10.0.0 --from <ref> --write
+ *   npm run release -- --version 10.0.0 --from <ref> --write --pack
+ *   npm run release -- --version 10.0.0 --from <ref> --publish  # MANUEL
  *
  * Options : --branch <nom> · --repo <hôte/org/dépôt> · --npm-tag <tag>
  *           --offline (n'interroge pas le registre — une collision passerait)
@@ -43,8 +43,8 @@
  *
  * Il ne DÉCIDE rien : tout le raisonnement — validation de version, lecture des
  * messages de commit, ordre de publication, audit des métadonnées, rendu du
- * changelog, détection de contenu suspect — vit dans `lib/release-core.mjs`,
- * pur et éprouvé par `lib/release-core.test.mjs`. Ce fichier n'est que l'accès
+ * changelog, détection de contenu suspect — vit dans `release-core.mjs`,
+ * pur et éprouvé par `release-core.test.mjs`. Ce fichier n'est que l'accès
  * au monde : git, npm, le disque. Une release ne se répétant pas, ce qui décide
  * doit pouvoir s'éprouver sans elle.
  *
@@ -65,9 +65,9 @@ import {
   referencesFigees,
   rendreChangelog,
   validerVersion,
-} from "./lib/release-core.mjs";
+} from "./release-core.mjs";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
+const ROOT = path.resolve(import.meta.dirname, "../..");
 
 // ── Étapes NOMMÉES : un échec doit dire lequel des maillons a lâché ─────────
 let etape = "démarrage";
@@ -419,14 +419,10 @@ dire("✓ changelog écrit — CHANGELOG.md (brouillon à relire)");
 if (PACK) {
   etape = "pack — tarballs";
   try {
-    execFileSync(
-      "node",
-      [".claude/skills/nodefony-release/scripts/pack-all.mjs"],
-      {
-        cwd: ROOT,
-        stdio: "inherit",
-      },
-    );
+    execFileSync("node", ["scripts/release/pack-all.mjs"], {
+      cwd: ROOT,
+      stdio: "inherit",
+    });
   } catch {
     echouer(
       "pack-all.mjs a échoué — voir sa sortie ci-dessus.\n" +

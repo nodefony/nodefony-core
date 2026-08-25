@@ -160,7 +160,7 @@ est **conservé tel quel** (0 renommage, 0 changement d'import). Le POC comparat
 
 ### Smoke test de parité (VALIDATION du modèle B) — ✅ LIVRÉ, fusionné avec la preuve Docker (0.7)
 
-**Réalisé** : `bash .claude/skills/nodefony-release/scripts/smoke-docker.sh` = pack des 13
+**Réalisé** : `npm run release:smoke` = pack des 13
 publiables → `attw` sur les types publiés → **le paquet `nodefony` installé DEPUIS SON TARBALL**
 dans un dossier jetable, qui **GÉNÈRE** les applications témoins hors du dépôt (deps → tarballs) →
 `docker build` (npm install **vierge**) → `docker run` → probes `/livez` `/readyz` + routes →
@@ -226,20 +226,43 @@ mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie 
 - **Node ≫ bash pour CE job** : lire/fusionner des `package.json`, **ordre topologique** des deps
   internes, **assembler `dist/` + `dist/types/`** dans la mono-distrib, **générer la map `exports`**
   (+ `types` par subpath), **estampiller UNE version** partout → manipulation JSON/graphe = Node/TS.
-- **Action mince** : `checkout → setup-node → npm ci → node scripts/release.mjs --publish`, avec
+- **Action mince** : `checkout → setup-node → npm ci → npm run release -- --publish`, avec
   `permissions: id-token: write` (trusted publishing) et **aucun secret npm** — cf §7.3bis. Tout le
   reste dans le script.
 
 ### 7.2 Étapes du script (= le pipeline)
 
-1. `clean` + **build** tous les packages (turbo → `dist/` + `dist/types/` par package).
-2. **Assemble** la mono-distrib `nodefony` : collecte chaque `dist` sous `nodefony/dist/<subpath>/`,
-   génère `exports` (+ `types` par subpath), **stamp 1 version** partout (lockstep).
-3. **Vérifie** : `@arethetypeswrong/cli` sur le tarball + `tsc` depuis l'app **témoin** (le template)
-   - smoke `import "nodefony/http"` (type ET runtime). Échec ⇒ abort avant publish.
-4. **Pack/publish** : `npm pack` (dry-run) → `npm publish` (la distrib unique). + maj template
-   `create-nodefony`.
-5. **Tag + GitHub Release** : tag `v10.x` + `gh release create` + changelog.
+> Les étapes ci-dessous décrivent le pipeline **du modèle B** (N paquets verrouillés). La version
+> initiale de ce paragraphe assemblait une mono-distribution `nodefony` à subpaths — modèle
+> **abandonné le 2026-07-02** (cf §6bis). Rien n'assemble plus : chaque paquet reste lui-même.
+
+Ce que `scripts/release/release.mjs` fait, dans l'ordre — chaque étape est NOMMÉE, et un échec dit
+laquelle a lâché :
+
+1. **Gardes** — version semver valide, préversion obligatoirement taguée, arbre propre, branche
+   attendue, planchers npm/Node du trusted publishing, graphe symbolique présent.
+2. **Inventaire** — `npm query .workspace` filtré sur `private`. Jamais de liste écrite à la main :
+   son oubli serait silencieux.
+3. **Métadonnées** — `repository` vers `nodefony-core` avec un `directory` qui existe sur disque,
+   `publishConfig.access`, `files`. Ces défauts ne se voient QUE au `publish`.
+4. **Ordre topologique** des dépendances internes, cycles signalés.
+5. **Registre** — la version est-elle libre sur les 14 ? Une collision découverte au huitième paquet
+   brûle les sept précédents.
+6. **Changelog** — lecture des messages de commit ENTIERS (`%B`, pour attraper un pied
+   `BREAKING CHANGE:`), rendu d'un **brouillon** à relire.
+7. `--write` : **estampillage** de la version dans les `package.json` (réécriture du seul champ,
+   sans reformater) + fusion du changelog.
+8. `--pack` : délégation à `pack-all.mjs` (bascule des `exports.types`, extensions des `.d.ts`),
+   puis **inspection du contenu** des 14 tarballs.
+9. `--publish` : **répétition `--dry-run` sur le lot ENTIER**, puis publication séquentielle qui
+   s'arrête net au premier refus en DISANT l'état exact (publiés / restants).
+
+Le script ne pose PAS le tag, et ne crée pas la GitHub Release : le tag `v10.*` poussé à la main est
+ce qui déclenche la suite (§7.3, §10.7).
+
+**Ce que le script ne fait pas** : `clean` + `build` (prérequis explicite, à lancer avant),
+`@arethetypeswrong/cli` et la compilation d'une application témoin — ces deux-là vivent dans
+`npm run release:smoke`, qui est le seul à travailler sur l'artefact REÇU.
 
 ### 7.2bis Mesure de performance de la version — geste MANUEL, avant le tag
 
@@ -380,7 +403,7 @@ jobs:
       - run: npm ci
       # AUCUN NODE_AUTH_TOKEN : le CLI (>= 11.5.1) détecte l'environnement OIDC
       # et échange une assertion signée contre un jeton de quelques minutes.
-      - run: node scripts/release.mjs --publish
+      - run: npm run release -- --version "${GITHUB_REF_NAME#v}" --publish
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
 ```
 
@@ -490,7 +513,7 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 **Fait.** Les dix-neuf `package.json` du périmètre portent `repository`, `homepage` et `bugs` vers
 `nodefony-core` ; les URL `tree/HEAD/<location>` répondent 200 (`HEAD`, pas `main`). `@nodefony/devkit`
 n'avait pas non plus `publishConfig.access` — il serait parti en privé. Le gate (R0.2) vit dans
-`scripts/lib/release-core.mjs`, appelé par `pack-all.mjs` ET par `scripts/release.mjs` : le banc de
+`scripts/release/release-core.mjs`, appelé par `pack-all.mjs` ET par `release.mjs` : le banc de
 release invoque le pack directement, et un gate posé chez un seul appelant ne garde que celui-là.
 Vu rouge en vidant un `repository`, vert une fois restauré. R0.3 était déjà soldé : `@nodefony/frontend`
 ne déclare plus du tout la peer `vite` (elle est chargée par `await import()`).

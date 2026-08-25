@@ -313,7 +313,7 @@ export function rendreChangelog({ version, date, ruptures, groupes }) {
   const lignes = [
     `## [${version}] — ${date}`,
     "",
-    "<!-- BROUILLON généré par scripts/release.mjs depuis les messages de commit.",
+    "<!-- BROUILLON généré par scripts/release/release.mjs depuis les messages de commit.",
     "     À RELIRE ET RÉÉCRIRE avant publication : un journal git n'est pas un",
     "     changelog — il est écrit pour l'auteur, pas pour le lecteur. -->",
     "",
@@ -348,7 +348,7 @@ export const ENTETE_CHANGELOG =
   "# Changelog\n\n" +
   "Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versions selon\n" +
   "[Semantic Versioning](https://semver.org/). Les sections sont un BROUILLON généré\n" +
-  "par `scripts/release.mjs` puis relu à la main.\n\n";
+  "par `scripts/release/release.mjs` puis relu à la main.\n\n";
 
 /**
  * Insère une section en tête du changelog, en antéchronologique.
