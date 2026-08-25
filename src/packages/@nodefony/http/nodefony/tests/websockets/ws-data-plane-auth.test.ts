@@ -158,9 +158,21 @@ function hubConnect(cookie: string | null): Promise<{
       clearTimeout(timer);
       reject(e);
     });
-    ws.on("close", (code: number) => {
+    ws.on("close", (code: number, raison: Buffer) => {
       clearTimeout(timer);
-      reject(new Error(`closed before welcome (code=${code})`));
+      // La RAISON, pas seulement le code. Un `1008` (Policy Violation) nu ne dit
+      // pas QUI a refusé ni pourquoi — session absente, zone du firewall, origine,
+      // compte inexistant : le diagnostic part alors au hasard. Le serveur envoie
+      // une raison ; ne pas la lire, c'est jeter la seule chose utile.
+      const motif = raison.length
+        ? ` « ${raison.toString()} »`
+        : " (sans raison)";
+      reject(
+        new Error(
+          `le serveur a FERMÉ la connexion avant le welcome — code ${code}${motif}` +
+            (cookie ? "" : " · aucun cookie n'était présenté"),
+        ),
+      );
     });
     ws.on("message", (data: Buffer) => {
       const frame = JSON.parse(String(data)) as Record<string, unknown>;
