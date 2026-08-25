@@ -404,8 +404,17 @@ if runs front; then
   docker run -d --name "$FCTN" -p "$FPORT:5151" --entrypoint sh "$FIMG" \
     -c 'rm -rf public/dist && exec node_modules/.bin/nodefony production' >/dev/null
   wait_ready "$FCTN" "$FPORT"
+  # Le message est émis pendant le BOOT, donc AVANT que `/readyz` réponde — mais
+  # `docker logs` ne le rend pas dans la milliseconde qui suit. Vécu : ce grep a
+  # échoué pendant que le `tail` du diagnostic, lancé juste après, AFFICHAIT le
+  # message. On attend donc LE FAIT, borné — jamais un `sleep` fixe, qui
+  # mesurerait la machine au lieu du produit.
+  for _ in $(seq 1 50); do
+    docker logs "$FCTN" 2>&1 | grep -q "vite indisponible" && break
+    sleep 0.2
+  done
   docker logs "$FCTN" 2>&1 | grep -q "vite indisponible" \
-    || { docker logs "$FCTN" 2>&1 | tail -30; fail "ERREUR « vite indisponible » absente — la page blanche redevient muette"; }
+    || { docker logs "$FCTN" 2>&1 | tail -30; fail "ERREUR « vite indisponible » absente après 10 s — la page blanche redevient muette"; }
   ok "ERREUR nommée : vite indisponible, geste indiqué"
   APICODE=$(http_code "http://127.0.0.1:$FPORT/api/hello")
   [ "$APICODE" = "200" ] || fail "API à $APICODE — un front absent ne doit PAS emporter le backend"
