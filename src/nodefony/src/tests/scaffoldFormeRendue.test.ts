@@ -39,7 +39,26 @@ import { runScaffold } from "../cli/scaffold/engine";
 
 /** Racine du dépôt — c'est SON prettier qu'on prête au projet de test. */
 const REPO = path.resolve(__dirname, "..", "..", "..", "..");
-const PRETTIER_BIN = path.join(REPO, "node_modules", ".bin", "prettier");
+/**
+ * Le SCRIPT de prettier, lancé par Node — jamais son lien dans `.bin`.
+ *
+ * 🔴 Vécu, et immédiatement : `node_modules/.bin/prettier` n'est pas exécutable
+ * sous Windows, où npm n'y écrit qu'un `.cmd` et un `.ps1`. `execFileSync` y
+ * échouait, et ce banc rendait cinq rouges qui ne disaient rien du scaffold.
+ * C'est l'axiome que le dépôt a déjà payé dans son PRODUIT (`besoinDeShell`) et
+ * que ce test venait de rejouer — la règle vaut pour toute ligne écrite, pas
+ * seulement pour celle qu'un utilisateur exécute.
+ *
+ * Passer par `process.execPath` évite le shell entièrement : un seul chemin de
+ * code pour les trois systèmes, et aucun découpage d'arguments à craindre.
+ */
+const PRETTIER_JS = path.join(
+  REPO,
+  "node_modules",
+  "prettier",
+  "bin",
+  "prettier.cjs",
+);
 
 /** Les extensions que le projet confie à prettier — les autres n'ont pas de forme. */
 const FORMATABLES = /\.(ts|tsx|js|mjs|cjs|jsx|json|md|css|scss|html|ya?ml)$/;
@@ -98,7 +117,7 @@ function appAvecPrettier(): string {
  */
 function nonConforme(relatif: string): string {
   try {
-    execFileSync(PRETTIER_BIN, ["--check", relatif], {
+    execFileSync(process.execPath, [PRETTIER_JS, "--check", relatif], {
       cwd: racine,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],

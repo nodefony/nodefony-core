@@ -163,6 +163,26 @@ if (!probe0 || probe0.status !== 200) {
   process.exit(1);
 }
 
+// Le piège 1 de l'en-tête, CONSTATÉ au lieu d'être espéré. Ce banc lance son
+// serveur avec `--expose-gc`, mais un drapeau posé n'est pas un drapeau ARRIVÉ :
+// s'il ne traverse pas le lancement, la sonde devient un no-op silencieux et
+// tout ce qui suit mesure le déchet en attente de collecte. Une pente montante
+// serait alors garantie — et prise pour une fuite. Mieux vaut ne RIEN mesurer
+// que publier ce chiffre-là.
+const etatGc = await probe0
+  .clone()
+  .json()
+  .catch(() => ({}));
+if (etatGc.gcForced !== true) {
+  console.error(
+    `❌ le serveur sous test n'expose PAS \`gc\` — la sonde ne collecte rien\n` +
+      `   avant de lire le tas, et ce banc mesurerait du déchet transitoire.\n` +
+      `   (sonde ${PROBE} → gcForced: ${JSON.stringify(etatGc.gcForced)})`,
+  );
+  stop();
+  process.exit(1);
+}
+
 console.log(
   `soak ${MINUTES} min · ${WINDOWS} fenêtres de ${WINDOW}s · c${CONN} · ${URL}`,
 );

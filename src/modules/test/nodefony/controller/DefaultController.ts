@@ -223,6 +223,12 @@ class DefaultController extends Controller {
       heapTotal: mem.heapTotal,
       heapUsed: mem.heapUsed,
       external: mem.external,
+      // 🔴 Le no-op ci-dessus est SILENCIEUX, et c'est ce qui le rend
+      // dangereux : sans `--expose-gc`, cette route rend un heap plein de
+      // déchets en attente de collecte, qu'un banc de durée lit comme une
+      // fuite. Une capacité se CONSTATE — l'appelant doit pouvoir refuser de
+      // mesurer plutôt que publier un chiffre faux.
+      gcForced: Boolean(forceGc),
     });
   }
 
