@@ -53,6 +53,7 @@
   "workspaces": [
     "src/nodefony",
     "src/packages/@nodefony/*",
+    "src/packages/create-nodefony",
     "src/modules/*"
   ],
   "devDependencies": {

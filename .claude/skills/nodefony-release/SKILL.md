@@ -38,7 +38,7 @@ derrière les commandes npm qui font autorité :
 | --- | --- | --- |
 | `npm run release -- --version <v> --from <ref>` | `scripts/release/release.mjs` | PRÉPARE et REFUSE. Sans drapeau, ne touche aucun fichier |
 | `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, 99 tests |
-| `npm run release:pack` | `scripts/release/pack-all.mjs` | Les 14 tarballs, `exports.types` basculés |
+| `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 
 Ce skill donne la méthode : quoi lancer, ce que chaque refus signifie, où chercher quand ça casse.
@@ -59,7 +59,7 @@ l'outillage d'agent, qui se réorganise pour d'autres raisons qu'elle. Le cycle 
 Elle est **irréversible**. `npm unpublish` n'est ouvert que **72 heures**, et seulement si personne
 n'en dépend — politique adoptée après `left-pad` (2016). Une version publiée par erreur est brûlée.
 
-En lockstep, c'est pire : quatorze paquets partent en séquence et **npm ne connaît pas la
+En lockstep, c'est pire : les quinze paquets partent en séquence et **npm ne connaît pas la
 transaction**. Un échec au huitième laisse sept paquets en ligne qui référencent sept absents, et
 ces sept versions sont brûlées — la reprise se fait en `10.0.1` **pour tout le lot**. D'où la règle
 qui structure toute la chaîne : _tout ce qui peut être vérifié l'est AVANT le premier `publish`,

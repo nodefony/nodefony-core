@@ -1,9 +1,9 @@
 {
-  "generated": "2026-08-25T15:17:02.738Z",
+  "generated": "2026-08-25T19:04:54.208Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 737,
+    "files": 738,
     "symbols": 3124,
     "classes": 364,
     "interfaces": 887,
@@ -1650,6 +1650,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nom de la page, section 1 (commandes utilisateur)."
+    },
+    "nodefonyBin": {
+      "name": "nodefonyBin",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/nodefonyBin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le chemin du lanceur `nodefony`, tel que CETTE installation l'a reçu. ## Pourquoi une fonction, et pas un chemin écrit à la main Un appelant qui doit démarrer l'application — une suite de tests, un…"
     },
     "INpmOutdatedEntry": {
       "name": "INpmOutdatedEntry",
@@ -4675,14 +4683,6 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Réglages d'un module de test — tous facultatifs."
-    },
-    "nodefonyBin": {
-      "name": "nodefonyBin",
-      "kind": "function",
-      "file": "src/nodefony/src/testing/index.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL. ## Le problème que ce sous-chemin résout Un service Nodefony reçoit un `Module` (`super(nom, module.container, module.notific…"
     },
     "createTestModule": {
       "name": "createTestModule",

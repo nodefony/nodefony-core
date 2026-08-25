@@ -253,7 +253,7 @@ laquelle a lâché :
 7. `--write` : **estampillage** de la version dans les `package.json` (réécriture du seul champ,
    sans reformater) + fusion du changelog.
 8. `--pack` : délégation à `pack-all.mjs` (bascule des `exports.types`, extensions des `.d.ts`),
-   puis **inspection du contenu** des 14 tarballs.
+   puis **inspection du contenu** de chaque tarball.
 9. `--publish` : **répétition `--dry-run` sur le lot ENTIER**, puis publication séquentielle qui
    s'arrête net au premier refus en DISANT l'état exact (publiés / restants).
 
@@ -642,13 +642,14 @@ plus aucun script ne lisait `examples/`. Le dépôt n'a donc plus **aucune** app
 
 ### 10.6 R4 — `create-nodefony`
 
-14ᵉ paquet, ~50 lignes, versionné en lockstep : il résout le binaire `nodefony` et lui passe la
+15ᵉ paquet (le plan disait « 14ᵉ » : `@nodefony/devkit` s'est ajouté depuis), ~70 lignes,
+versionné en lockstep : il résout le binaire `nodefony` et lui passe la
 main. **Preuve** : `npm create nodefony@<version> app-test` depuis les tarballs, en conteneur vierge.
 
 ### 10.7 R5 — la CI porte tout
 
 ```
-tag v10.x ─► build + tests ─► pack (14 tarballs) ─► smoke sur app GÉNÉRÉE
+tag v10.x ─► build + tests ─► pack (15 tarballs) ─► smoke sur app GÉNÉRÉE
           ├─► npm publish (lockstep)
           ├─► create app ──► push vitrine + tag
           ├─► docker build (depuis l'app générée) ──► push

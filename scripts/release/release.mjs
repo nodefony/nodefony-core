@@ -8,7 +8,7 @@
  * — politique adoptée après l'affaire `left-pad` (2016), où un retrait a cassé
  * l'écosystème. Une version publiée par erreur est BRÛLÉE.
  *
- * Pire en lockstep : quatorze paquets se publient en séquence et npm ne connaît
+ * Pire en lockstep : quinze paquets se publient en séquence et npm ne connaît
  * pas la transaction. Un échec au huitième laisse sept paquets en ligne qui
  * référencent sept absents — et ces sept versions sont brûlées, donc la reprise
  * se fait en 10.0.1 POUR TOUT LE LOT. D'où la règle de ce fichier : tout ce qui
@@ -275,7 +275,7 @@ etape = "vérification du registre";
 // ═══════════════════════════════════════════════════════════════════════════
 // La vérification sans session de rattrapage : une version déjà publiée ne peut
 // pas être remplacée. Découvrir la collision au huitième paquet d'un lot de
-// quatorze, c'est brûler les sept précédents.
+// quinze, c'est brûler les sept précédents.
 if (HORS_LIGNE) {
   alerter(
     "--offline : le registre n'est PAS interrogé. Une collision de version passerait.",
