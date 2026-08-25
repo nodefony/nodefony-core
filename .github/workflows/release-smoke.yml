@@ -119,6 +119,7 @@ jobs:
       # Le décor est jetable, son journal ne l'est pas : distinguer un
       # `docker build` en échec d'une app témoin muette décide où chercher.
       - name: État du décor (si échec)
+        shell: bash
         if: failure()
         run: |
           echo "::group::images"

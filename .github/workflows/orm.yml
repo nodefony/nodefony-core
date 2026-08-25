@@ -331,6 +331,7 @@ jobs:
           cache: npm
 
       - name: PostgreSQL (conteneur NOMMÉ — les bancs l'arrêtent et le relancent)
+        shell: bash
         run: |
           docker run -d --name nf-outage-pg \
             -e POSTGRES_USER=nodefony \
@@ -346,6 +347,7 @@ jobs:
           echo "PostgreSQL n'a jamais répondu"; docker logs nf-outage-pg; exit 1
 
       - name: MariaDB (conteneur nommé)
+        shell: bash
         run: |
           docker run -d --name nf-outage-mysql \
             -e MARIADB_ROOT_PASSWORD=nodefony-dev \

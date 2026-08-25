@@ -94,6 +94,7 @@ jobs:
       # silence. On exige la porte d'entrée, une page profonde et la page de
       # mesures courante — trois points qui tombent pour trois raisons distinctes.
       - name: Vérifier que le site n'est pas vide
+        shell: bash
         run: |
           test -s dist-site/index.html
           test -s dist-site/404.html

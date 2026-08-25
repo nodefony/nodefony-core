@@ -158,5 +158,6 @@ jobs:
           action: stop
 
       - name: Journal du serveur (échec)
+        shell: bash
         if: failure()
         run: tail -100 nodefony-server.log || true

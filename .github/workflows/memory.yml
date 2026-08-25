@@ -154,6 +154,7 @@ jobs:
       # Les sondes de rupture (`NF_RUN_WS_RUPTURE`) restent volontairement fermées : elles
       # épuisent les ports éphémères de l'hôte. Leur silence est un choix, pas un oubli.
       - name: Ce que le banc a mesuré
+        shell: bash
         if: always()
         working-directory: src/packages/@nodefony/http
         run: |
