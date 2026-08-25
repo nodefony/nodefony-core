@@ -81,6 +81,9 @@ un défaut qui empêchait le Kernel de charger le moindre module.
 | 8   | Les **permissions POSIX n'existent pas** (`chmod 600`)                            | Ne jamais asseoir une garantie de sécurité dessus sans repli explicite.                                              |
 | 9   | Un script npm ne porte pas de `VAR=1 cmd`                                         | `cross-env` — `cmd.exe` refuse la syntaxe POSIX.                                                                     |
 | 10  | Une **assertion sur un chemin** se compose, ne se littéralise pas                 | `path.join(...)` dans le test. Accepter « l'un ou l'autre séparateur » n'est JAMAIS la réponse.                      |
+| 11  | Une étape de CI écrite en bash **DÉCLARE** son shell                              | Sans `shell:`, GitHub prend celui de la PLATEFORME — PowerShell sous Windows, où `\` n'est pas une continuation.     |
+| 12  | La règle de portabilité vit dans le **PRODUIT**, pas dans son banc                | C'est l'utilisateur qui la subit. Écrite dans l'outil de mesure seul, elle rend le banc portable et le produit non.  |
+| 13  | Un **ordre** ne se prouve jamais avec DEUX horloges                               | Deux process = deux `Date.now()`. Rendre le fait observable sur UNE horloge ; ne jamais relâcher le seuil.           |
 
 **Éprouver sans machine Windows** (3 leviers, tous vérifiés) : rendre la fonction PURE et injecter
 la grammaire (`path.win32`) · injecter le VERDICT plutôt que lire l'environnement · écrire le test
