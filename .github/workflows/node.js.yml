@@ -360,11 +360,11 @@ jobs:
   # ne dit rien : les contrôles Windows étaient verts pendant qu'une application
   # générée ne chargeait aucun de ses modules locaux.
   #
-  # macOS y entre maintenant ; Windows ne le peut pas ENCORE, et il faut le dire au
-  # lieu de le taire : le lanceur de `.github/actions/nodefony-server` est POSIX de
-  # bout en bout (`lsof`, `kill -9`, attente par `grep` sur le journal). Il doit
-  # d'abord passer par le lanceur DU framework — qui porte déjà le kill d'arbre
-  # unique et la readiness — avant que cette matrice puisse s'ouvrir à trois.
+  # macOS y entre d'abord. Windows suit dès que cette matrice-ci est prouvée : son
+  # obstacle — un lanceur POSIX de bout en bout (`lsof`, `kill -9` sur un pid seul,
+  # readiness par `grep` sur le journal) — est levé, `nodefony-server` passe
+  # désormais par le lanceur DU framework. Deux changements ne s'introduisent pas
+  # dans la même passe : on ne saurait plus lequel a parlé.
   test-integration:
     name: Tests intégration (${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.mode }})
     runs-on: ${{ matrix.os }}
@@ -536,7 +536,6 @@ jobs:
         with:
           mode: ${{ matrix.mode == 'production' && 'production' || 'development --no-watch' }}
           log-file: nodefony-server-throttle.log
-          pid-file: srv-throttle.pid
           env: NF__SECURITY__RATELIMIT__ENABLED=true
 
       # Sélection par NOM : jouer les fichiers entiers réarmerait le problème que
@@ -573,7 +572,6 @@ jobs:
         uses: ./.github/actions/nodefony-server
         with:
           action: stop
-          pid-file: srv-throttle.pid
 
       - name: Upload server log on failure
         if: failure()

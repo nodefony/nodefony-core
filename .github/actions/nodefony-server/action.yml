@@ -1,13 +1,38 @@
 name: Serveur Nodefony (banc d'intégration)
 description: >-
-  Démarre le serveur du banc et attend qu'il ÉCOUTE (ou l'arrête). Existe parce
-  qu'un banc d'intégration a parfois besoin de deux décors successifs : recopier
-  le lanceur pour le second, c'est garantir qu'un jour l'un des deux corrigera un
-  défaut que l'autre gardera.
+  Démarre le serveur du banc et attend qu'il soit PRÊT (ou l'arrête), en passant
+  par le lanceur DU framework. Existe parce qu'un banc d'intégration a parfois
+  besoin de deux décors successifs : recopier le lanceur pour le second, c'est
+  garantir qu'un jour l'un des deux corrigera un défaut que l'autre gardera.
+
+# POURQUOI cette action ne lance plus rien elle-même
+#
+# Elle recopiait le travail du framework : spawn détaché à la main, readiness par
+# `grep` sur le journal (« 4× Server Listen on »), arrêt par `kill -9` sur un pid
+# suivi d'un filet `lsof`. Trois recopies, et trois raisons de s'en défaire :
+#
+#  1. Elles étaient POSIX de bout en bout. `lsof` n'existe pas sous Windows, un
+#     `kill -9` sur un pid seul n'y emporte pas l'arbre, et il n'y a pas de groupes
+#     de process. Cette action était donc le seul obstacle qui empêchait la tâche
+#     d'intégration — la SEULE du dépôt qui démarre un serveur et lui parle — de
+#     s'ouvrir aux trois systèmes. Tout ce qui vit à l'exécution, pipeline HTTP,
+#     WebSocket, cycle de vie, arrêt, n'était donc éprouvé que sur Linux.
+#  2. Le framework porte DÉJÀ chacune de ces trois choses, et mieux : la readiness
+#     lit les ports RÉELS publiés par le runtime (`runtime.json`) au lieu de
+#     compter des lignes de journal — un décompte qui ment dès qu'une application
+#     déclare un autre nombre de serveurs ; l'arrêt passe par l'implémentation
+#     UNIQUE du kill d'arbre (`signalProcessGroup`, `taskkill /T /F` sous Windows)
+#     et sait retrouver un runtime par son fichier d'état là où `ps` n'existe pas.
+#  3. Depuis `10c6d556`, cette readiness REFUSE un boot dégradé et nomme les
+#     modules manquants. Un banc qui démarre à la main n'en profitait pas : il
+#     mesurait une application amputée en croyant mesurer l'application.
+#
+# Ce que l'action garde en propre : le décor (variables de CE serveur), la preuve
+# qu'une route RÉPOND vraiment, et la remontée du journal.
 
 inputs:
   action:
-    description: "`start` (démarre et attend l'écoute) ou `stop` (tue l'arbre)."
+    description: "`start` (démarre et attend la readiness) ou `stop` (arrête l'arbre)."
     required: false
     default: start
   mode:
@@ -21,10 +46,6 @@ inputs:
     description: Journal du serveur. Deux décors successifs = deux journaux distincts.
     required: false
     default: nodefony-server.log
-  pid-file:
-    description: Fichier de pid, lu par `stop`.
-    required: false
-    default: srv.pid
   env:
     description: >-
       Variables `CLÉ=valeur`, une par ligne, posées pour CE serveur seulement.
@@ -38,129 +59,92 @@ inputs:
       Ils ne peuvent pas transiter par `NODE_OPTIONS`, que Node refuse pour ce
       drapeau. Sans `--expose-gc`, la sonde mémoire du module de test est un
       no-op silencieux et le banc mesure le déchet en attente de collecte au
-      lieu du heap retenu.
+      lieu du heap retenu. Ils SUIVENT le runtime détaché (`childExecArgv`).
     required: false
     default: ""
+  health-url:
+    description: >-
+      URL à interroger pour prouver qu'une route répond vraiment. Des ports qui
+      écoutent ne prouvent pas qu'une requête aboutit.
+    required: false
+    default: https://127.0.0.1:5152/nodefony/test/index
 
 runs:
   using: composite
   steps:
-    - name: Démarrer et attendre l'écoute
+    - name: Démarrer et attendre la readiness
       if: inputs.action == 'start'
       shell: bash
       env:
         NF_CI_MODE: ${{ inputs.mode }}
         NF_CI_LOG: ${{ inputs.log-file }}
-        NF_CI_PID: ${{ inputs.pid-file }}
         NF_CI_ENV: ${{ inputs.env }}
         NF_CI_NODE_ARGS: ${{ inputs.node-args }}
       run: |
-        # Variables propres à CE décor, avant tout spawn.
+        # Variables propres à CE décor, avant tout lancement.
         while IFS= read -r line; do
           [ -z "${line// }" ] && continue
           export "${line?}"
           echo "décor: ${line%%=*} posé"
         done <<< "$NF_CI_ENV"
 
-        node -e "
-        const { spawn } = require('child_process');
-        const path = require('path');
-        // Le bin 'nodefony' est un artefact de build (src/nodefony/.gitignore: /bin/)
-        // généré par 'npm run build'. À l'install (npm ci) il n'existe pas encore →
-        // npm ne crée PAS le symlink node_modules/.bin/nodefony → 'npx nodefony'
-        // échoue en CI (sh: nodefony: not found). On invoque le bin construit en direct.
-        const bin = path.join(process.cwd(), 'node_modules', 'nodefony', 'bin', 'nodefony');
-        // production : boot foreground in-process, SANS PM2 (cible cloud-native,
-        // 1 process = 1 pod). Foreground est le comportement PAR DÉFAUT de la
-        // commande (pas de flag à passer). Logs sur stdout → captés ci-dessous.
-        const nodeArgs = (process.env.NF_CI_NODE_ARGS || '').split(' ').filter(Boolean);
-        const child = spawn(process.execPath, [...nodeArgs, bin, ...process.env.NF_CI_MODE.split(' ')], {
-          cwd: process.cwd(),
-          stdio: ['ignore', 'pipe', 'pipe'],
-          detached: true,
-        });
-        child.stdout.pipe(process.stdout);
-        child.stderr.pipe(process.stderr);
-        child.unref();
-        require('fs').writeFileSync(process.env.NF_CI_PID, String(child.pid));
-        console.log('SERVER PID=' + child.pid);
-        " > "$NF_CI_LOG" 2>&1 &
+        # Découpage en MOTS, jamais une variable nue : un argument qui contient un
+        # espace ne doit pas se scinder en deux, et une liste vide ne doit pas
+        # devenir un argument vide.
+        read -ra NODE_ARGS <<< "$NF_CI_NODE_ARGS"
+        read -ra MODE_ARGS <<< "$NF_CI_MODE"
 
-        # Poll avec fail-fast sur erreur FATALE, succès sur 4× "Server Listen on".
-        #
-        # `CRITIC` ne figure PLUS parmi les motifs fatals, et c'est une décision.
-        # Le framework écrit `CRITIC` pour DEUX choses très différentes : ce qui
-        # le tue, et ce qu'il désactive en continuant de tourner (« AUCUNE clé de
-        # chiffrement en PRODUCTION — 2FA désactivé »). Confondre les deux fait
-        # annoncer « Serveur Nodefony a crashé au démarrage » à propos d'un
-        # serveur qui écoute ses quatre ports — un verdict faux sur un journal
-        # juste, et un rouge que personne ne sait lire.
-        #
-        # Restent fatals les motifs qui signent une mort CERTAINE. Pour tout le
-        # reste, le juge est le fait d'écouter : un vrai crash ne produit jamais
-        # ses quatre « Server Listen on », et tombe au délai avec son journal.
-        # Une dégradation, elle, est AFFICHÉE — elle ne doit ni tuer la passe,
-        # ni passer inaperçue.
-        for i in $(seq 1 60); do
-          if grep -q -E "SyntaxError|EADDRINUSE|ALREADY USE|terminate :" "$NF_CI_LOG" 2>/dev/null; then
-            echo "::error::Serveur Nodefony a crashé au démarrage"
-            grep -E "SyntaxError|terminate|EADDRINUSE" "$NF_CI_LOG" | tail -20
-            exit 1
+        # Le binaire construit, invoqué par `node` : `node_modules/.bin/nodefony`
+        # n'existe pas toujours (le bin est un artefact de build, absent à l'heure
+        # du `npm ci`) et n'existe JAMAIS sous Windows autrement qu'en `.cmd`, que
+        # Node refuse de lancer. Le script, lui, est le même partout.
+        BIN=node_modules/nodefony/bin/nodefony
+
+        if node "${NODE_ARGS[@]}" "$BIN" "${MODE_ARGS[@]}" \
+             --detach --wait 120 --log "$NF_CI_LOG"; then
+          echo "── état du runtime"
+          node "$BIN" status || true
+          # Une dégradation n'est pas un crash : le serveur écoute, mais des
+          # fonctions ont pu se désactiver. Le dire sans mentir sur sa nature.
+          if grep -q "CRITIC" "$NF_CI_LOG" 2>/dev/null; then
+            echo "::warning::Le serveur écoute, mais a signalé des CRITIC — des fonctions sont peut-être DÉSACTIVÉES :"
+            grep "CRITIC" "$NF_CI_LOG" | tail -10
           fi
-          if [ "$(grep -c 'Server Listen on' "$NF_CI_LOG" 2>/dev/null)" -ge 4 ]; then
-            echo "✅ Serveur Nodefony READY"
-            grep "Server Listen" "$NF_CI_LOG" | head -10
-            # Le serveur tourne, mais peut-être amputé. Le dire fort, sans mentir
-            # sur la nature du fait : une fonction désactivée n'est pas un crash.
-            if grep -q "CRITIC" "$NF_CI_LOG" 2>/dev/null; then
-              echo "::warning::Le serveur écoute, mais a signalé des CRITIC — des fonctions sont peut-être DÉSACTIVÉES :"
-              grep "CRITIC" "$NF_CI_LOG" | tail -10
-            fi
-            exit 0
-          fi
-          sleep 1
-        done
+        else
+          code=$?
+          echo "::error::Le runtime n'a pas atteint la readiness (code $code)"
+          echo "── journal complet"
+          cat "$NF_CI_LOG" 2>/dev/null || echo "(aucun journal à $NF_CI_LOG)"
+          exit "$code"
+        fi
 
-        echo "::error::Timeout — serveur n'a pas démarré en 60s"
-        tail -40 "$NF_CI_LOG"
-        exit 1
-
-    - name: Répond en HTTP
+    - name: Une route RÉPOND vraiment
       if: inputs.action == 'start'
       shell: bash
+      env:
+        NF_CI_HEALTH: ${{ inputs.health-url }}
+        NF_CI_LOG: ${{ inputs.log-file }}
       run: |
+        # Des ports qui écoutent ne prouvent pas qu'une requête aboutit : il faut
+        # le routage, le module qui porte la route, et la chaîne TLS.
         for i in $(seq 1 10); do
-          if curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:5152/nodefony/test/index | grep -q "200"; then
-            echo "✅ Health OK"
+          if curl -sk -o /dev/null -w "%{http_code}" "$NF_CI_HEALTH" | grep -q "200"; then
+            echo "✅ $NF_CI_HEALTH → 200"
             exit 0
           fi
           sleep 1
         done
-        echo "::error::Health check failed"
+        echo "::error::$NF_CI_HEALTH n'a jamais rendu 200"
+        tail -40 "$NF_CI_LOG" 2>/dev/null || true
         exit 1
 
     - name: Arrêter
       if: inputs.action == 'stop'
       shell: bash
-      env:
-        NF_CI_PID: ${{ inputs.pid-file }}
       run: |
-        if [ -f "$NF_CI_PID" ]; then
-          kill -9 "$(cat "$NF_CI_PID")" 2>/dev/null || true
-          rm -f "$NF_CI_PID"
-        fi
-        # Filet de sécurité sur les ports. `-ti:5151,5152` en UNE liste : la
-        # forme `-ti:5151 -ti:5152` ne fait pas l'union attendue.
-        lsof -ti:5151,5152 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-
-        # Attendre la mort EFFECTIVE : un `kill` rend la main avant que le noyau
-        # ait rendu le port. Le serveur suivant démarrerait sur un EADDRINUSE, et
-        # le rouge accuserait le code au lieu du décor.
-        for i in $(seq 1 20); do
-          if [ -z "$(lsof -ti:5151,5152 2>/dev/null)" ]; then
-            echo "✅ ports 5151/5152 libérés"
-            exit 0
-          fi
-          sleep 0.5
-        done
-        echo "::warning::ports encore occupés après 10 s"
+        # L'arrêt du framework : kill d'ARBRE par l'implémentation unique (le
+        # serveur a des enfants — Vite, workers — qu'un `kill` sur le seul pid
+        # laisserait vivants, tenant les ports pour le décor suivant), attente de
+        # la mort EFFECTIVE, purge du fichier d'état. Idempotent : rien à arrêter
+        # n'est pas une erreur.
+        node node_modules/nodefony/bin/nodefony stop
