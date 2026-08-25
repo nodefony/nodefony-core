@@ -129,6 +129,19 @@ wait_ready() { # ctn port
 
 http_code() { curl -s -o /dev/null -w "%{http_code}" "$1" || true; }
 
+# `grep -q` FERME le pipe dès qu'il a trouvé : l'amont reçoit SIGPIPE, sort en
+# 141, et sous `set -o pipefail` le PIPELINE rend 141 — un succès devient un
+# échec. Et seulement quand l'amont avait encore de quoi écrire, donc de façon
+# NON DÉTERMINISTE : le scénario `front` était vert ou rouge sans qu'une ligne
+# ne change. Ce test-ci ne crée aucun pipe, donc aucun SIGPIPE.
+# (Le motif est traité comme un glob : n'y mettre que du littéral.)
+contient() { # texte motif
+  case "$1" in
+    *"$2"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # ═══ 1-3. Chaîne commune : pack, types, scaffolder ══════════════════════════
 
 step "pack — 14 tarballs depuis les workspaces"
@@ -277,13 +290,13 @@ TS
   ok "livez → 200"
 
   HELLO=$(curl -s "http://127.0.0.1:$PORT/api/hello")
-  echo "$HELLO" | grep -q '"hello"' || fail "hello KO : $HELLO"
+  contient "$HELLO" '"hello"' || fail "hello KO : $HELLO"
   ok "/api/hello → $HELLO"
 
   # La forme exec du CMD se CONSTATE ici, elle ne se déduit pas du fichier : en
   # forme shell, /bin/sh serait PID 1 et node porterait un autre numéro — le
   # seul signe observable avant que le drain ne manque à l'appel.
-  echo "$HELLO" | grep -q '"pid":1' || fail "node n'est PAS PID 1 (forme shell du CMD ?) : $HELLO"
+  contient "$HELLO" '"pid":1' || fail "node n'est PAS PID 1 (forme shell du CMD ?) : $HELLO"
   ok "node est PID 1 (forme exec constatée, pas supposée)"
 
   step "[base] graceful — docker stop pendant une requête en vol"
@@ -303,7 +316,7 @@ TS
   [ "$EXITCODE" = "0" ] || { docker logs "$CTN" 2>&1 | tail -30; fail "exit code container = $EXITCODE (attendu 0 = SIGTERM drainé, pas de SIGKILL)"; }
   ok "container sorti exit 0 (graceful, sous la grace period)"
 
-  docker logs "$CTN" 2>&1 | grep -q "SHUTDOWN" || fail "logs sans trace du drain (SHUTDOWN)"
+  contient "$(docker logs "$CTN" 2>&1)" "SHUTDOWN" || fail "logs sans trace du drain (SHUTDOWN)"
   ok "logs : drain visible (SHUTDOWN serveurs)"
   docker rm -f "$CTN" >/dev/null 2>&1 || true
 fi
@@ -361,7 +374,7 @@ if runs front; then
   step "[front] (a) la page porte les tags /_assets/… du build"
   boot_local "$WORK/.front-a.log"
   BODY=$(curl -s "http://127.0.0.1:$LPORT/")
-  echo "$BODY" | grep -q "/_assets/" \
+  contient "$BODY" "/_assets/" \
     || { echo "$BODY" | head -20; stop_local; fail "GET / sans tag /_assets/ — le manifeste n'est pas lu"; }
   ok "GET / porte les tags /_assets/… (manifeste Vite servi)"
   stop_local
@@ -374,7 +387,7 @@ if runs front; then
     || { tail -30 "$WORK/.front-b1.log"; stop_local; fail "reconstruction au boot NON annoncée (WARNING attendu)"; }
   ok "WARNING : construction au boot annoncée"
   BODY=$(curl -s "http://127.0.0.1:$LPORT/")
-  echo "$BODY" | grep -q "/_assets/" \
+  contient "$BODY" "/_assets/" \
     || { stop_local; fail "GET / sans tag après reconstruction au boot"; }
   ok "GET / porte de nouveau les tags (auto-guérison, sans restart)"
   stop_local
@@ -404,17 +417,11 @@ if runs front; then
   docker run -d --name "$FCTN" -p "$FPORT:5151" --entrypoint sh "$FIMG" \
     -c 'rm -rf public/dist && exec node_modules/.bin/nodefony production' >/dev/null
   wait_ready "$FCTN" "$FPORT"
-  # Le message est émis pendant le BOOT, donc AVANT que `/readyz` réponde — mais
-  # `docker logs` ne le rend pas dans la milliseconde qui suit. Vécu : ce grep a
-  # échoué pendant que le `tail` du diagnostic, lancé juste après, AFFICHAIT le
-  # message. On attend donc LE FAIT, borné — jamais un `sleep` fixe, qui
-  # mesurerait la machine au lieu du produit.
-  for _ in $(seq 1 50); do
-    docker logs "$FCTN" 2>&1 | grep -q "vite indisponible" && break
-    sleep 0.2
-  done
-  docker logs "$FCTN" 2>&1 | grep -q "vite indisponible" \
-    || { docker logs "$FCTN" 2>&1 | tail -30; fail "ERREUR « vite indisponible » absente après 10 s — la page blanche redevient muette"; }
+  # Le message est émis pendant le BOOT, donc il est écrit quand `/readyz`
+  # répond : rien à attendre ici. Ce qui faisait échouer cette ligne n'était pas
+  # un retard mais `grep -q` sous `pipefail` (cf `contient`).
+  contient "$(docker logs "$FCTN" 2>&1)" "vite indisponible" \
+    || { docker logs "$FCTN" 2>&1 | tail -30; fail "ERREUR « vite indisponible » absente — la page blanche redevient muette"; }
   ok "ERREUR nommée : vite indisponible, geste indiqué"
   APICODE=$(http_code "http://127.0.0.1:$FPORT/api/hello")
   [ "$APICODE" = "200" ] || fail "API à $APICODE — un front absent ne doit PAS emporter le backend"
