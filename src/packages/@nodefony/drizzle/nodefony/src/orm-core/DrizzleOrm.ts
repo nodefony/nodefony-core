@@ -731,10 +731,26 @@ export class DrizzleOrm extends Orm {
    * laquelle MySQL ne fait pas tomber le process là où `pg` le fait). On
    * s'abonne donc à chaque connexion créée ; `connection` sert aussi de
    * signal de RETOUR, le pool en ouvrant une neuve dès que le serveur répond.
+   *
+   * 🔴 **Mais cet `error` n'arrive PAS quand le serveur tombe.** Mesuré, un
+   * `docker stop` sous une connexion établie : le socket rend `end` puis
+   * `close`, la requête en vol est rejetée en `PROTOCOL_CONNECTION_LOST`
+   * (`fatal: true`) — et la connexion n'émet rien, `mysql2` délivrant l'erreur
+   * fatale au demandeur plutôt qu'à l'émetteur. L'écoute ci-dessus ne couvre
+   * donc que les erreurs survenues connexion INACTIVE ; s'y fier seul laissait
+   * l'ORM marqué connecté jusqu'au battement suivant, quand `pg` bascule
+   * aussitôt par `pool.on("error")`.
+   *
+   * D'où la seconde écoute, sur le **socket** — le seul à parler dans ce cas.
+   * Sa fermeture n'est pas une preuve (une connexion inactive recyclée en
+   * ferme un aussi), donc elle ne conclut rien : elle déclenche un battement
+   * ANTICIPÉ, qui tranche par une requête. Cleanup : `once` se retire en
+   * partant, et le socket meurt avec la connexion qui le porte.
    */
   #wireMysqlLifecycle(pool: MysqlPool): void {
     const onConnection = (cx: {
       on: (e: string, f: (x: Error) => void) => void;
+      stream?: { once: (e: string, f: () => void) => void };
     }): void => {
       this.connectionRestored();
       cx.on("error", (err: Error) => {
@@ -745,6 +761,12 @@ export class DrizzleOrm extends Orm {
           return;
         }
         this.connectionLost(`mysql: ${err?.message ?? String(err)}`);
+      });
+      cx.stream?.once("close", () => {
+        if (this.#mysqlPool !== pool) {
+          return;
+        }
+        this.beatNow();
       });
     };
     const emitter = pool as unknown as {

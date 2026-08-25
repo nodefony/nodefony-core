@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-24T23:54:39.017Z",
+  "generated": "2026-08-25T08:43:46.652Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 735,
-    "symbols": 3116,
+    "files": 737,
+    "symbols": 3124,
     "classes": 364,
     "interfaces": 887,
-    "types": 387,
+    "types": 388,
     "enums": 4,
-    "functions": 1181,
+    "functions": 1188,
     "constants": 293
   },
   "symbols": {
@@ -1505,6 +1505,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Construit le rapport d'environnement."
+    },
+    "besoinDeShell": {
+      "name": "besoinDeShell",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/execPortable.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lancer un exécutable de l'écosystème npm, sur les trois systèmes. ## Le défaut, et pourquoi il ne se voit jamais sur un poste de développement Sous Windows, `npm`, `npx`, `prettier` et compagnie ne…"
     },
     "parseGitHooksArgv": {
       "name": "parseGitHooksArgv",
@@ -7880,6 +7888,38 @@
       "module": "@nodefony/core",
       "description": "Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui déclare l'aire (`framework` pour le data plane `…"
     },
+    "BootProbe": {
+      "name": "BootProbe",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'une sonde peut rendre — et la distinction qui évite d'attendre pour rien. `\"booting\"` et `\"unreachable\"` valent tous deux « pas de verdict », mais PAS la même conduite : le premier s'attend (…"
+    },
+    "probeBootDegraded": {
+      "name": "probeBootDegraded",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Interroge `livez` et rend le verdict de boot, ou pourquoi il n'y en a pas. Aucune de ces situations ne se confond avec « sain » : une sonde muette ne doit ni bloquer un démarrage, ni le certifier."
+    },
+    "waitBootVerdict": {
+      "name": "waitBootVerdict",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Re-sonde jusqu'à obtenir un verdict STABLE, ou jusqu'à l'échéance. Sans cette attente, la sonde tomberait dans la course entre l'ouverture des ports et la fin du boot, et crierait « dégradé » sur u…"
+    },
+    "extractSkippedModules": {
+      "name": "extractSkippedModules",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait du journal d'un runtime les modules que le boot a IGNORÉS, avec leur motif. POURQUOI lire le journal plutôt que la route : `livez` ne nomme les modules qu'à un appelant authentifié, et une …"
+    },
     "DetachedStartOptions": {
       "name": "DetachedStartOptions",
       "kind": "interface",
@@ -7914,6 +7954,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Environnement du child détaché — hérité du parent, MOINS ce qui ne se transmet pas. `DELEGATED_ENV` est une garde **anti-boucle de process** : le CLI global la pose sur lui-même juste avant de char…"
+    },
+    "childExecArgv": {
+      "name": "childExecArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Drapeaux `node` à transmettre au runtime détaché. Fonction PURE — c'est ce qui permet de l'éprouver sans lancer de process."
     },
     "parseDetachArgs": {
       "name": "parseDetachArgs",
@@ -24534,6 +24582,12 @@
         "src/nodefony/src/cli/card.ts",
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
+      "besoinDeShell": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
@@ -26337,6 +26391,13 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "extractSkippedModules": [
+        "src/nodefony/src/service/dev/detachedStart.ts"
+      ],
+      "waitBootVerdict": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "DevProcessWithCwd": [

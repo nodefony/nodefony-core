@@ -40,23 +40,54 @@ const sleep = (ms: number): Promise<void> =>
  * accepter des connexions, et le test suivant échouait à son `connect()`
  * pour une raison qui n'avait rien à voir avec ce qu'il éprouve — le faux
  * rouge le plus coûteux à diagnostiquer, parce qu'il accuse le code.
+ *
+ * **Les DEUX dialectes en ont besoin.** Cette attente n'a longtemps existé que
+ * côté PostgreSQL : le bloc MySQL relançait son conteneur et rendait la main
+ * aussitôt. Constaté en intégration continue — un premier cas MySQL rouge, et
+ * le suivant tombait à son `connect()` sur « The server closed the connection »,
+ * une cascade qui masque la cause au lieu de la nommer.
  */
-async function attendreServeur(url: string, maxMs: number): Promise<boolean> {
-  const { Pool } = (await import("pg")) as unknown as {
-    Pool: new (c: { connectionString: string }) => {
-      query: (s: string) => Promise<unknown>;
-      end: () => Promise<void>;
-    };
-  };
+async function attendreServeur(
+  dialect: "postgres" | "mysql",
+  url: string,
+  maxMs: number,
+): Promise<boolean> {
+  const sonder =
+    dialect === "postgres"
+      ? async (): Promise<void> => {
+          const { Pool } = (await import("pg")) as unknown as {
+            Pool: new (c: { connectionString: string }) => {
+              query: (s: string) => Promise<unknown>;
+              end: () => Promise<void>;
+            };
+          };
+          const sonde = new Pool({ connectionString: url });
+          try {
+            await sonde.query("SELECT 1");
+          } finally {
+            await sonde.end().catch(() => undefined);
+          }
+        }
+      : async (): Promise<void> => {
+          const mysql = (await import("mysql2/promise")) as unknown as {
+            createConnection: (u: string) => Promise<{
+              query: (s: string) => Promise<unknown>;
+              end: () => Promise<void>;
+            }>;
+          };
+          const sonde = await mysql.createConnection(url);
+          try {
+            await sonde.query("SELECT 1");
+          } finally {
+            await sonde.end().catch(() => undefined);
+          }
+        };
   return until(async () => {
-    const sonde = new Pool({ connectionString: url });
     try {
-      await sonde.query("SELECT 1");
+      await sonder();
       return true;
     } catch {
       return false;
-    } finally {
-      await sonde.end().catch(() => undefined);
     }
   }, maxMs);
 }
@@ -104,7 +135,7 @@ describe.skipIf(!ON || !PG_URL || !PG_BOX)(
       ormRegistry.unregister(ORM);
       // Attendre que la base ACCEPTE des connexions : sans cela, le test
       // suivant échoue à son `connect()` et accuse le code.
-      await attendreServeur(PG_URL as string, 60_000);
+      await attendreServeur("postgres", PG_URL as string, 60_000);
     });
 
     it("le serveur tombe : le process SURVIT, l'état bascule, la reprise est automatique", async () => {
@@ -346,6 +377,9 @@ describe.skipIf(!ON || !MYSQL_URL || !MYSQL_BOX)(
       }
       await orm.disconnect().catch(() => undefined);
       ormRegistry.unregister(ORM);
+      // Même raison que côté PostgreSQL : `docker start` rend la main bien
+      // avant que le serveur accepte des connexions.
+      await attendreServeur("mysql", MYSQL_URL as string, 60_000);
     });
 
     it("le serveur tombe : l'état bascule et la reprise est automatique", async () => {

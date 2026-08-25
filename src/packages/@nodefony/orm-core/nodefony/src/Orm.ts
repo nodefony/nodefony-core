@@ -253,6 +253,30 @@ export abstract class Orm extends Service implements IOrm {
   }
 
   /**
+   * **Bat MAINTENANT**, sans attendre la fin de la période.
+   *
+   * À appeler par un adapter dont le driver émet un signal SUSPECT mais pas
+   * concluant — typiquement la fermeture du socket d'une connexion du pool :
+   * elle arrive aussi bien pour un serveur tombé que pour une connexion
+   * inactive recyclée, et l'adapter ne peut pas les distinguer. Plutôt que de
+   * trancher à sa place — ce qui inscrirait de faux incidents à chaque
+   * recyclage — il délègue ici : le battement fait la seule chose qui tranche,
+   * une requête, et met l'état à jour selon la réponse.
+   *
+   * Sans cette porte, un dialecte muet reste marqué connecté jusqu'au battement
+   * suivant : 30 s par défaut, là où `pg` bascule en millisecondes. C'est une
+   * asymétrie de détection entre deux dialectes de production, pas un réglage.
+   *
+   * Ne coûte rien quand rien ne va mal : la garde `#beating` écarte les
+   * battements concurrents, donc un pool dont dix connexions tombent d'un coup
+   * ne sonde qu'une fois. Ne rétablit ni ne perd quoi que ce soit après un
+   * `disconnect()` — `#beat` y voit un arrêt volontaire et s'abstient.
+   */
+  protected beatNow(): void {
+    void this.#beat();
+  }
+
+  /**
    * Un battement : sonde la base et met l'état à jour.
    *
    * Ne fait RIEN si un battement précédent n'a pas rendu la main — sur une base
