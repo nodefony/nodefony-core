@@ -302,106 +302,93 @@ describe("referencesFigees — le lockstep dépareillé", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe("analyserCommits — Conventional Commits 1.0.0", () => {
-  it("range par section selon le type", () => {
-    const { groupes, horsConvention } = analyserCommits([
+describe("analyserCommits — Conventional Commits 1.0.0 → Common Changelog", () => {
+  it("range dans les QUATRE catégories fermées de la spec", () => {
+    const { groupes, horsConvention, ecartes } = analyserCommits([
       "feat: une nouveauté",
       "fix: une correction",
-      "docs: une page",
+      "perf: plus rapide",
+      "revert: on retire",
     ]);
     expect(horsConvention).toBe(0);
-    expect(groupes.get("Ajouté")).toHaveLength(1);
-    expect(groupes.get("Corrigé")).toHaveLength(1);
-    expect(groupes.get("Documentation")).toHaveLength(1);
+    expect(ecartes).toBe(0);
+    expect([...groupes.keys()].sort()).toEqual([
+      "Added",
+      "Changed",
+      "Fixed",
+      "Removed",
+    ]);
   });
 
-  it("extrait la portée", () => {
-    const { groupes } = analyserCommits(["fix(http): le pipeline"]);
-    expect(groupes.get("Corrigé")[0]).toEqual({
+  it("🔴 ÉCARTE les types sans effet pour l'utilisateur, sans les confondre avec du hors-convention", () => {
+    // « skip no-op changes » : docs/ci/chore/test/build/style ne produisent
+    // AUCUNE entrée. Les compter comme « hors convention » enverrait l'auteur
+    // chercher des messages mal écrits qui n'existent pas.
+    const r = analyserCommits([
+      "docs: une page",
+      "ci: un job",
+      "chore: du ménage",
+      "test: un cas",
+      "build: un bundler",
+      "style: des espaces",
+      "pas du tout conventionnel",
+    ]);
+    expect(r.ecartes).toBe(6);
+    expect(r.horsConvention).toBe(1);
+    expect(r.groupes.size).toBe(0);
+  });
+
+  it("porte la RÉFÉRENCE de commit — normative (« must reference relevant commits »)", () => {
+    const { groupes } = analyserCommits([
+      { sha: "abc1234", message: "fix(http): le pipeline" },
+    ]);
+    expect(groupes.get("Fixed")[0]).toEqual({
       portee: "http",
       texte: "le pipeline",
+      sha: "abc1234",
+      rupture: false,
     });
   });
 
+  it("accepte encore un simple tableau de chaînes — référence alors VIDE, jamais inventée", () => {
+    const { groupes } = analyserCommits(["fix: x"]);
+    expect(groupes.get("Fixed")[0].sha).toBe("");
+  });
+
   it("détecte une rupture signalée par `!` (règle 1)", () => {
-    const { ruptures } = analyserCommits(["feat!: la signature change"]);
-    expect(ruptures).toEqual([{ portee: "", texte: "la signature change" }]);
+    const { ruptures, groupes } = analyserCommits([
+      "feat!: la signature change",
+    ]);
+    expect(ruptures).toEqual([
+      { portee: "", texte: "la signature change", sha: "" },
+    ]);
+    // PIÈGE : la rupture doit AUSSI marquer son entrée de catégorie, sinon le
+    // rendu ne saurait pas la préfixer ni la remonter.
+    expect(groupes.get("Added")[0].rupture).toBe(true);
   });
 
   it("détecte `!` APRÈS une portée", () => {
-    const { ruptures } = analyserCommits(["feat(api)!: la route disparaît"]);
-    expect(ruptures).toEqual([{ portee: "api", texte: "la route disparaît" }]);
+    const { ruptures } = analyserCommits(["feat(api)!: x"]);
+    expect(ruptures[0].portee).toBe("api");
   });
 
   it("🔴 détecte une rupture annoncée en PIED — le cas qu'un parseur de sujets rate", () => {
-    // C'est LE défaut qui rend une release majeure muette sur ce qui casse :
-    // le sujet est un `feat:` ordinaire, la rupture est dans le corps.
     const { ruptures } = analyserCommits([
-      "feat(security): nouvelle politique\n\nDu contexte.\n\nBREAKING CHANGE: `allowAnonymous` est retiré.",
+      "feat: ajoute un réglage\n\nBREAKING CHANGE: l'ancien réglage disparaît",
     ]);
-    expect(ruptures).toEqual([
-      { portee: "security", texte: "`allowAnonymous` est retiré." },
-    ]);
-  });
-
-  it("admet la graphie BREAKING-CHANGE (synonyme de la spec)", () => {
-    const { ruptures } = analyserCommits(["fix: x\n\nBREAKING-CHANGE: y"]);
-    expect(ruptures).toHaveLength(1);
-  });
-
-  it("PIÈGE — `breaking change:` en minuscules N'EST PAS une rupture", () => {
-    // La spec exige « the uppercase text BREAKING CHANGE ». L'accepter en
-    // minuscules inventerait une norme et signalerait des ruptures là où
-    // l'auteur n'en annonçait aucune.
-    const { ruptures } = analyserCommits([
-      "fix: x\n\nil n'y a aucun breaking change: tout est compatible",
-    ]);
-    expect(ruptures).toEqual([]);
+    expect(ruptures[0].texte).toBe("l'ancien réglage disparaît");
   });
 
   it("quand `!` ET pied coexistent, le PIED donne la description", () => {
     const { ruptures } = analyserCommits([
-      "feat(a)!: sujet court\n\nBREAKING CHANGE: la vraie explication",
+      "feat!: sujet court\n\nBREAKING CHANGE: la vraie description",
     ]);
-    expect(ruptures).toEqual([{ portee: "a", texte: "la vraie explication" }]);
+    expect(ruptures[0].texte).toBe("la vraie description");
   });
 
-  it("ne compte qu'UNE rupture par commit, même avec les deux formes", () => {
-    const { ruptures } = analyserCommits(["feat!: x\n\nBREAKING CHANGE: y"]);
-    expect(ruptures).toHaveLength(1);
-  });
-
-  it("écarte ce qui n'est pas conventionnel, et le COMPTE", () => {
-    const { horsConvention, groupes } = analyserCommits([
-      "un message libre",
-      "WIP",
-      "Merge branch 'x'",
-      "feat: gardé",
-    ]);
-    expect(horsConvention).toBe(3);
-    expect(groupes.get("Ajouté")).toHaveLength(1);
-  });
-
-  it("écarte un type INCONNU plutôt que d'inventer une section", () => {
-    const { horsConvention, groupes } = analyserCommits([
-      "wip(x): quelque chose",
-    ]);
-    expect(horsConvention).toBe(1);
-    expect(groupes.size).toBe(0);
-  });
-
-  it("PIÈGE — exige l'espace après le deux-points (règle 5)", () => {
-    expect(analyserCommits(["feat:sans espace"]).horsConvention).toBe(1);
-  });
-
-  it("ignore les messages vides sans les compter comme hors convention", () => {
-    const { horsConvention } = analyserCommits(["", "   ", "\n"]);
-    expect(horsConvention).toBe(0);
-  });
-
-  it("ne confond pas un `!` du TEXTE avec une rupture", () => {
-    const { ruptures } = analyserCommits(["feat: enfin corrigé !"]);
-    expect(ruptures).toEqual([]);
+  it("refuse un pied en MINUSCULES — la spec exige les majuscules", () => {
+    const { ruptures } = analyserCommits(["feat: x\n\nbreaking change: y"]);
+    expect(ruptures).toHaveLength(0);
   });
 
   it("survit à une portée vide `feat(): x` sans planter", () => {
@@ -410,62 +397,124 @@ describe("analyserCommits — Conventional Commits 1.0.0", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe("rendreChangelog — Keep a Changelog", () => {
+describe("rendreChangelog — Common Changelog, clause par clause", () => {
   const base = { version: "10.0.0", date: "2026-08-25" };
+  const rendu = (groupes) =>
+    rendreChangelog({ ...base, ruptures: [], groupes: new Map(groupes) });
 
-  it("titre la version et la date au format ISO", () => {
-    const s = rendreChangelog({ ...base, ruptures: [], groupes: new Map() });
-    expect(s.split("\n")[0]).toBe("## [10.0.0] — 2026-08-25");
+  it("🔴 titre NORMATIF `## VERSION - DATE` — ni crochets, ni tiret cadratin", () => {
+    // « ## 1.0.1 - 2019-08-24 ». Keep a Changelog écrit `## [1.0.1] — …` ;
+    // un lecteur automatique de Common Changelog ne reconnaîtrait pas cette forme.
+    expect(rendu([]).split("\n")[0]).toBe("## 10.0.0 - 2026-08-25");
   });
 
-  it("se déclare BROUILLON dans le fichier lui-même", () => {
-    const s = rendreChangelog({ ...base, ruptures: [], groupes: new Map() });
+  it("date en ISO 8601, telle qu'on la lui donne", () => {
+    expect(rendu([])).toMatch(/^## 10\.0\.0 - \d{4}-\d{2}-\d{2}$/m);
+  });
+
+  it("se déclare BROUILLON, et rappelle que la FORMULATION reste à écrire", () => {
+    const s = rendu([]);
     expect(s).toMatch(/BROUILLON/);
+    expect(s).toMatch(/IMPÉRATIF/);
   });
 
-  it("🔴 met les ruptures AVANT toute autre section", () => {
-    const s = rendreChangelog({
-      ...base,
-      ruptures: [{ portee: "http", texte: "rupture" }],
-      groupes: new Map([["Ajouté", [{ portee: "", texte: "nouveauté" }]]]),
-    });
-    expect(s.indexOf("Ruptures")).toBeLessThan(s.indexOf("Ajouté"));
+  it("🔴 respecte l'ORDRE normatif Changed → Added → Removed → Fixed", () => {
+    const s = rendu([
+      ["Fixed", [{ portee: "", texte: "f", sha: "1" }]],
+      ["Removed", [{ portee: "", texte: "r", sha: "2" }]],
+      ["Added", [{ portee: "", texte: "a", sha: "3" }]],
+      ["Changed", [{ portee: "", texte: "c", sha: "4" }]],
+    ]);
+    const rang = (t) => s.indexOf(`### ${t}`);
+    expect(rang("Changed")).toBeLessThan(rang("Added"));
+    expect(rang("Added")).toBeLessThan(rang("Removed"));
+    expect(rang("Removed")).toBeLessThan(rang("Fixed"));
   });
 
-  it("n'écrit pas de section Ruptures quand il n'y en a pas", () => {
-    const s = rendreChangelog({ ...base, ruptures: [], groupes: new Map() });
-    expect(s).not.toMatch(/Ruptures/);
+  it("🔴 préfixe une rupture par `**Breaking:** `", () => {
+    const s = rendu([
+      [
+        "Added",
+        [{ portee: "", texte: "ça casse", sha: "abc1234", rupture: true }],
+      ],
+    ]);
+    expect(s).toMatch(/^- \*\*Breaking:\*\* ça casse \(abc1234\)$/m);
   });
 
-  it("respecte l'ordre normalisé des sections, pas l'ordre d'insertion", () => {
-    const s = rendreChangelog({
-      ...base,
-      ruptures: [],
-      groupes: new Map([
-        ["Interne", [{ portee: "", texte: "i" }]],
-        ["Ajouté", [{ portee: "", texte: "a" }]],
-        ["Corrigé", [{ portee: "", texte: "c" }]],
-      ]),
-    });
-    expect(s.indexOf("Ajouté")).toBeLessThan(s.indexOf("Corrigé"));
-    expect(s.indexOf("Corrigé")).toBeLessThan(s.indexOf("Interne"));
+  it("🔴 pour un sous-système : `**<portée> (breaking):** `", () => {
+    const s = rendu([
+      [
+        "Changed",
+        [{ portee: "http", texte: "x", sha: "abc1234", rupture: true }],
+      ],
+    ]);
+    expect(s).toMatch(/^- \*\*http \(breaking\):\*\* x \(abc1234\)$/m);
+  });
+
+  it("🔴 remonte les ruptures EN TÊTE de leur catégorie", () => {
+    const s = rendu([
+      [
+        "Added",
+        [
+          { portee: "a", texte: "banale", sha: "1", rupture: false },
+          { portee: "z", texte: "cassante", sha: "2", rupture: true },
+        ],
+      ],
+    ]);
+    // « should be listed before other changes (per category) » — et ce, MÊME
+    // quand le tri par portée les placerait dans l'autre ordre (a < z).
+    expect(s.indexOf("cassante")).toBeLessThan(s.indexOf("banale"));
+  });
+
+  it("écrit la référence entre parenthèses, en FIN de ligne", () => {
+    const s = rendu([["Fixed", [{ portee: "", texte: "x", sha: "deadbee" }]]]);
+    expect(s).toMatch(/^- x \(deadbee\)$/m);
+  });
+
+  it("PIÈGE : sans référence connue, n'écrit pas de parenthèses VIDES", () => {
+    const s = rendu([["Fixed", [{ portee: "", texte: "x", sha: "" }]]]);
+    expect(s).toMatch(/^- x$/m);
+    expect(s).not.toMatch(/\(\)/);
+  });
+
+  it("PIÈGE : une entrée tient sur UNE ligne — jamais de retour dans le texte rendu", () => {
+    const s = rendu([
+      ["Added", [{ portee: "http", texte: "une nouveauté", sha: "abc1234" }]],
+    ]);
+    const puces = s.split("\n").filter((l) => l.startsWith("- "));
+    expect(puces).toHaveLength(1);
+    expect(puces[0]).toBe("- **http:** une nouveauté (abc1234)");
+  });
+
+  it("n'écrit AUCUNE catégorie vide", () => {
+    const s = rendu([["Added", []]]);
+    expect(s).not.toMatch(/### /);
+  });
+
+  it("n'écrit jamais de section « Unreleased » — rejetée par la spec", () => {
+    expect(
+      rendu([["Added", [{ portee: "", texte: "x", sha: "1" }]]]),
+    ).not.toMatch(/Unreleased/i);
+  });
+
+  it("un titre de catégorie n'est suivi QUE d'une liste non numérotée", () => {
+    const s = rendu([["Added", [{ portee: "", texte: "x", sha: "1" }]]]);
+    const lignes = s.split("\n");
+    const i = lignes.indexOf("### Added");
+    expect(lignes[i + 1]).toBe("");
+    expect(lignes[i + 2].startsWith("- ")).toBe(true);
   });
 
   it("ne mute pas les tableaux qu'on lui passe", () => {
     const entrees = [
-      { portee: "z", texte: "z" },
-      { portee: "a", texte: "a" },
+      { portee: "z", texte: "z", sha: "1" },
+      { portee: "a", texte: "a", sha: "2" },
     ];
-    rendreChangelog({
-      ...base,
-      ruptures: [],
-      groupes: new Map([["Ajouté", entrees]]),
-    });
+    rendu([["Added", entrees]]);
     expect(entrees[0].portee).toBe("z"); // le tri est fait sur une copie
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
 describe("fusionnerChangelog — antéchronologique, et jamais destructeur", () => {
   it("crée le fichier avec son en-tête quand il n'existe pas", () => {
     const r = fusionnerChangelog("", "## [10.0.0] — d\n", "10.0.0");

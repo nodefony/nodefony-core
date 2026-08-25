@@ -365,28 +365,46 @@ if (!(PUBLIER && !ECRIRE)) {
 
   // Le message ENTIER (`%B`), pas le sujet : Conventional Commits admet la
   // rupture signalée en PIED, qu'un parseur de sujets rate en silence.
-  const SEP = "\x1e";
-  const messages = git(`log ${dernierTag}..HEAD --no-merges --format=%B${SEP}`)
-    .split(SEP)
-    .map((m) => m.trim())
-    .filter(Boolean);
+  //
+  // Et l'EMPREINTE avec lui : Common Changelog fait de la référence de commit
+  // une obligation (« changes must reference relevant commits »). Une entrée
+  // sans référence est invérifiable — celui qui remonte une régression ne peut
+  // plus atteindre le code. Deux séparateurs non imprimables (US entre les
+  // champs, RS entre les enregistrements) : ils ne peuvent pas apparaître dans
+  // un message, là où n'importe quel caractère lisible finirait par le faire.
+  const RS = "\x1e";
+  const US = "\x1f";
+  const commits = git(
+    `log ${dernierTag}..HEAD --no-merges --format=%h${US}%B${RS}`,
+  )
+    .split(RS)
+    .map((bloc) => {
+      const [sha, ...reste] = bloc.split(US);
+      return { sha: sha.trim(), message: reste.join(US).trim() };
+    })
+    .filter((c) => c.message);
 
-  const analyse = analyserCommits(messages);
+  const analyse = analyserCommits(commits);
   ruptures = analyse.ruptures;
+  // `ruptures` ne se passe plus au rendu : chaque entrée porte son propre
+  // marqueur, ce qui permet de la remonter EN TÊTE DE SA CATÉGORIE comme la
+  // spec l'exige — une liste séparée ne pouvait pas le faire.
   section = rendreChangelog({
     version: VERSION,
     date: new Date().toISOString().slice(0, 10),
-    ruptures,
     groupes: analyse.groupes,
   });
 
   dire(
-    `✓ changelog — ${messages.length} commits depuis ${dernierTag}` +
+    `✓ changelog — ${commits.length} commits depuis ${dernierTag}` +
       (ruptures.length
         ? `, dont ${ruptures.length} RUPTURE(S)`
         : ", aucune rupture signalée") +
+      (analyse.ecartes
+        ? ` · ${analyse.ecartes} sans effet utilisateur (docs, ci, chore… écartés)`
+        : "") +
       (analyse.horsConvention
-        ? ` · ${analyse.horsConvention} hors convention (écartés)`
+        ? ` · ${analyse.horsConvention} HORS CONVENTION (ignorés — messages à corriger)`
         : ""),
   );
   if (!ruptures.length && /^\d+\.0\.0$/.test(VERSION)) {

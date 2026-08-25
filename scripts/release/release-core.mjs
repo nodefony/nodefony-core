@@ -243,31 +243,46 @@ export function paquetsNonEstampilles(paquets, version) {
     .map((p) => `${p.nom}@${p.pkg?.version ?? "(version absente)"}`);
 }
 
-/** Pont Conventional Commits → sections Keep a Changelog. */
+/**
+ * Pont Conventional Commits → catégories **Common Changelog**.
+ *
+ * ## Pourquoi Common Changelog plutôt que Keep a Changelog
+ *
+ * Keep a Changelog donne des CONSEILS ; Common Changelog pose des règles
+ * normatives (MUST/SHOULD), et c'est ce qui le rend exploitable par une
+ * machine : ensemble de catégories FERMÉ, ordre imposé, une entrée par ligne,
+ * référence de commit obligatoire, rupture préfixée. Un outil peut alors lire
+ * ce fichier sans le deviner.
+ *
+ * ## Pourquoi les titres restent en ANGLAIS dans un projet francophone
+ *
+ * Les quatre catégories sont un ensemble fermé de la spécification. Les
+ * traduire romprait la conformité — aucun lecteur automatique ne reconnaîtrait
+ * « Ajouté » — sans rien apporter à l'humain, qui lit les ENTRÉES, écrites dans
+ * la langue du projet.
+ *
+ * ## Les types ABSENTS de cette table, et pourquoi
+ *
+ * `docs`, `build`, `ci`, `test`, `chore`, `style` ne produisent aucune entrée :
+ * la spécification demande d'écarter les changements sans effet pour celui qui
+ * met à jour (« skip no-op changes »). Ils sont COMPTÉS et annoncés par le
+ * script, jamais écrits en silence — l'auteur reste libre d'en remonter un à la
+ * main s'il change quelque chose pour l'utilisateur.
+ */
 export const SECTIONS = {
-  feat: "Ajouté",
-  fix: "Corrigé",
-  perf: "Modifié",
-  refactor: "Modifié",
-  revert: "Retiré",
-  docs: "Documentation",
-  build: "Interne",
-  ci: "Interne",
-  test: "Interne",
-  chore: "Interne",
-  style: "Interne",
+  perf: "Changed",
+  refactor: "Changed",
+  feat: "Added",
+  revert: "Removed",
+  fix: "Fixed",
 };
 
-export const ORDRE_SECTIONS = [
-  "Ajouté",
-  "Modifié",
-  "Déprécié",
-  "Retiré",
-  "Corrigé",
-  "Sécurité",
-  "Documentation",
-  "Interne",
-];
+/**
+ * L'ordre des catégories est NORMATIF (« must be in the following order »).
+ * Il n'est pas arbitraire : ce qui CHANGE sous les pieds de l'utilisateur vient
+ * avant ce qui s'ajoute, et les corrections ferment la marche.
+ */
+export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
 
 /**
  * Lit des messages de commit ENTIERS et en tire les ruptures et les sections.
@@ -283,23 +298,44 @@ export const ORDRE_SECTIONS = [
  * minuscules n'est donc PAS une rupture — l'accepter reviendrait à inventer une
  * norme, et à signaler des ruptures là où l'auteur n'en annonçait aucune.
  *
- * @param {string[]} messages messages complets (sujet + corps)
- * @returns {{ruptures: Array<{portee: string, texte: string}>, groupes: Map<string, Array<{portee: string, texte: string}>>, horsConvention: number}}
+ * ## La RÉFÉRENCE de commit est normative
+ *
+ * Common Changelog : « changes must reference relevant commits ». Une entrée
+ * sans référence est une affirmation invérifiable — celui qui lit le changelog
+ * pour comprendre une régression ne peut plus remonter au code. Chaque message
+ * arrive donc accompagné de son empreinte.
+ *
+ * @param {Array<{sha?: string, message: string}>|string[]} commits — messages
+ *        complets (sujet + corps), avec leur empreinte quand elle est connue.
+ *        La forme « tableau de chaînes » reste acceptée : elle produit des
+ *        entrées sans référence, ce que le script signale.
+ * @returns {{ruptures: Array<{portee: string, texte: string, sha: string}>, groupes: Map<string, Array<{portee: string, texte: string, sha: string}>>, horsConvention: number, ecartes: number}}
  */
-export function analyserCommits(messages) {
+export function analyserCommits(commits) {
   const ruptures = [];
   const groupes = new Map();
   let horsConvention = 0;
+  let ecartes = 0;
 
-  for (const brut of messages) {
-    const texteBrut = String(brut).trim();
+  for (const entree of commits) {
+    const brut = typeof entree === "string" ? entree : entree?.message;
+    const sha = typeof entree === "string" ? "" : (entree?.sha ?? "");
+    const texteBrut = String(brut ?? "").trim();
     if (!texteBrut) continue;
     const [sujet, ...reste] = texteBrut.split("\n");
     const corps = reste.join("\n");
 
     const m = /^(\w+)(?:\(([^)]*)\))?(!)?:[ \t]+(.+)$/.exec(sujet);
-    if (!m || !SECTIONS[m[1]]) {
+    if (!m) {
       horsConvention++;
+      continue;
+    }
+    // Un type CONVENTIONNEL mais sans effet pour l'utilisateur (`docs`, `ci`,
+    // `chore`…) n'est pas « hors convention » : il est délibérément ÉCARTÉ.
+    // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
+    // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
+    if (!SECTIONS[m[1]]) {
+      ecartes++;
       continue;
     }
     const [, type, portee, bang, texte] = m;
@@ -313,15 +349,21 @@ export function analyserCommits(messages) {
       ruptures.push({
         portee: portee ?? "",
         texte: pied?.[1]?.trim() || texte,
+        sha,
       });
     }
 
     const section = SECTIONS[type];
     if (!groupes.has(section)) groupes.set(section, []);
-    groupes.get(section).push({ portee: portee ?? "", texte });
+    groupes.get(section).push({
+      portee: portee ?? "",
+      texte,
+      sha,
+      rupture: Boolean(bang || pied),
+    });
   }
 
-  return { ruptures, groupes, horsConvention };
+  return { ruptures, groupes, horsConvention, ecartes };
 }
 
 /**
@@ -334,46 +376,68 @@ export function analyserCommits(messages) {
  * matière — sans lui on oublie des changements ; l'humain écrit — sans lui on
  * publie un mur que personne ne lit.
  */
-export function rendreChangelog({ version, date, ruptures, groupes }) {
+export function rendreChangelog({ version, date, groupes }) {
+  // Titre NORMATIF : `## VERSION - DATE`. Ni crochets (Common Changelog n'a pas
+  // de lien de comparaison à ancrer), ni tiret cadratin — un lecteur automatique
+  // attend cette forme exacte, et la date en ISO 8601.
   const lignes = [
-    `## [${version}] — ${date}`,
+    `## ${version} - ${date}`,
     "",
-    "<!-- BROUILLON généré par scripts/release/release.mjs depuis les messages de commit.",
-    "     À RELIRE ET RÉÉCRIRE avant publication : un journal git n'est pas un",
-    "     changelog — il est écrit pour l'auteur, pas pour le lecteur. -->",
+    "<!-- BROUILLON — structure conforme à Common Changelog, FORMULATION à réécrire.",
+    "     La spec exige des entrées à l'IMPÉRATIF, d'UNE ligne, et AUTO-DESCRIPTIVES",
+    "     (compréhensibles hors de leur catégorie). Les sujets de commit de ce dépôt",
+    "     sont narratifs : ils font une matière première, pas un changelog.",
+    "     « Don't take the easy way out with full automation. » -->",
     "",
   ];
-
-  // Les ruptures d'abord, toujours : c'est la seule information qui peut casser
-  // la production de quelqu'un, et la première qu'il cherche.
-  if (ruptures.length) {
-    lignes.push(`### ⚠ Ruptures de compatibilité (${ruptures.length})`, "");
-    for (const r of ruptures) {
-      lignes.push(`- ${r.portee ? `**${r.portee}** — ` : ""}${r.texte}`);
-    }
-    lignes.push("");
-  }
 
   for (const section of ORDRE_SECTIONS) {
     const entrees = groupes.get(section);
     if (!entrees?.length) continue;
     lignes.push(`### ${section}`, "");
-    for (const e of [...entrees].sort((a, b) =>
-      a.portee.localeCompare(b.portee),
-    )) {
-      lignes.push(`- ${e.portee ? `**${e.portee}** — ` : ""}${e.texte}`);
-    }
+
+    // « Breaking changes should be listed before other changes (per category) » :
+    // c'est la seule information qui peut casser la production de quelqu'un.
+    // Tri stable ensuite par portée, pour qu'un même sous-système se lise d'un bloc.
+    const triees = [...entrees].sort(
+      (a, b) =>
+        Number(b.rupture) - Number(a.rupture) ||
+        a.portee.localeCompare(b.portee),
+    );
+    for (const e of triees) lignes.push(`- ${rendreEntree(e)}`);
     lignes.push("");
   }
 
   return lignes.join("\n");
 }
 
+/**
+ * Une entrée, à la forme normative de Common Changelog.
+ *
+ * `- **Breaking:** texte (sha)` · `- **portée (breaking):** texte (sha)`
+ *
+ * La spec veut le préfixe en GRAS et, pour un sous-système, la forme
+ * `**<subsystem> (breaking):** ` — une seule paire de parenthèses pour les
+ * références, jamais `(#1) (#2)`.
+ */
+function rendreEntree(e) {
+  const ref = e.sha ? ` (${e.sha})` : "";
+  if (e.rupture) {
+    return e.portee
+      ? `**${e.portee} (breaking):** ${e.texte}${ref}`
+      : `**Breaking:** ${e.texte}${ref}`;
+  }
+  return e.portee ? `**${e.portee}:** ${e.texte}${ref}` : `${e.texte}${ref}`;
+}
+
 export const ENTETE_CHANGELOG =
   "# Changelog\n\n" +
-  "Format inspiré de [Keep a Changelog](https://keepachangelog.com/), versions selon\n" +
-  "[Semantic Versioning](https://semver.org/). Les sections sont un BROUILLON généré\n" +
-  "par `scripts/release/release.mjs` puis relu à la main.\n\n";
+  "Format : [Common Changelog](https://common-changelog.org/) — catégories fermées et\n" +
+  "ordonnées, une entrée par ligne, à l'impératif, chacune référençant son commit.\n" +
+  "Versions selon [Semantic Versioning](https://semver.org/).\n\n" +
+  "Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les messages\n" +
+  "de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,\n" +
+  "un changelog pour celui qui met à jour.\n\n";
 
 /**
  * Insère une section en tête du changelog, en antéchronologique.

@@ -73,7 +73,32 @@ l'auteur le seul point où il relit ce qui sortira sous son nom.
 
 Le changelog est un **brouillon**, marqué comme tel dans le fichier. L'automate rassemble la
 matière — sans lui on oublie des changements ; l'humain écrit — sans lui on publie un mur que
-personne ne lit.
+personne ne lit. _« Don't take the easy way out with full automation. This results in poor
+changelogs, defeating their purpose. »_ (Common Changelog)
+
+### Le format est [Common Changelog](https://common-changelog.org/), pas Keep a Changelog
+
+Keep a Changelog donne des CONSEILS ; Common Changelog pose des règles **normatives**, et ce sont
+elles qui rendent le fichier exploitable par une machine autant que par un humain :
+
+<!-- prettier-ignore -->
+| Règle (MUST) | Forme | Ce que ça évite |
+| --- | --- | --- |
+| Titre de version | `## 10.0.0 - 2026-08-25` | Ni crochets ni tiret cadratin : un lecteur automatique attend cette forme exacte |
+| Catégories | ensemble **fermé** `Changed · Added · Removed · Fixed`, dans **cet ordre** | Des sections inventées que rien ne sait lire |
+| Entrée | **une** ligne, à l'impératif, **auto-descriptive** hors de sa catégorie | Une entrée extraite seule et devenue incompréhensible |
+| Rupture | `- **Breaking:** …` ou `- **portée (breaking):** …`, **en tête** de sa catégorie | La seule information qui casse une production, noyée au milieu |
+| Référence | `(sha)` en fin de ligne, une seule paire de parenthèses | Une affirmation invérifiable : plus moyen de remonter au code |
+| Pas de section `Unreleased` | — | Une section dont les références ne peuvent pas encore exister |
+
+**Les titres restent en anglais dans ce projet francophone** : ils sont l'ensemble fermé de la
+spécification. Les traduire romprait la conformité — aucun outil ne reconnaîtrait « Ajouté » — sans
+rien apporter à l'humain, qui lit les ENTRÉES, écrites en français.
+
+**Ce qui n'entre PAS dans le changelog** : `docs`, `ci`, `chore`, `test`, `build`, `style`. La spec
+demande d'écarter ce qui ne change rien pour celui qui met à jour. Le script les **compte et les
+annonce** séparément des messages hors convention — confondre les deux enverrait chercher des
+commits mal écrits qui n'existent pas.
 
 ### Pourquoi un mode `--publish` manuel, alors que la cible est l'OIDC
 
