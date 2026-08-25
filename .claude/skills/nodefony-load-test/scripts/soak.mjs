@@ -258,6 +258,16 @@ for (let w = 1; w <= WINDOWS; w++) {
     // RSS : sans elles, on constate qu'il monte sans jamais pouvoir dire où.
     heapTotalMb: +MB(mem.heapTotal).toFixed(1),
     externalMb: +MB(mem.external).toFixed(1),
+    // Les ressources que le runtime tient ouvertes. Une hausse du RSS à tas
+    // plat pose d'abord cette question — sockets ou timers qui s'accumulent —
+    // et un compte stable élimine la famille entière. `null` quand la sonde
+    // servie ne rend pas encore le champ : on CONSTATE son absence au lieu de
+    // la lire comme un zéro, qui signifierait « aucune ressource active ».
+    handlesTotal:
+      typeof mem.activeResourcesTotal === "number"
+        ? mem.activeResourcesTotal
+        : null,
+    handlesByType: mem.activeResources ?? null,
     errors: bad,
   };
   samples.push(s);
@@ -478,6 +488,42 @@ if (rssSuspect) {
       `\n    Relancer plus long (--minutes 90) tranche entre montée vers un palier et hausse sans fin.`,
   );
 }
+// ── Les ressources ouvertes : la famille de causes qu'on peut ÉLIMINER ────
+//
+// C'est le seul poste de cette liste qui, s'il bouge, désigne un défaut PRODUIT
+// et non une propriété de l'allocateur : des sockets, des timers ou des flux
+// que le pipeline n'a pas rendus. Stable, il fait tomber toute cette famille
+// d'un coup — ce qui vaut largement l'appel d'une API par fenêtre.
+const h0 = kept[0].handlesTotal;
+const h1 = kept[kept.length - 1].handlesTotal;
+let handlesDelta = null;
+let handlesGrowth = null;
+if (h0 === null || h1 === null) {
+  console.log(
+    `\n  handles : non mesurés — la sonde ${PROBE} ne rend pas` +
+      ` \`activeResourcesTotal\`. Serveur bâti avant cet ajout ?`,
+  );
+} else {
+  handlesDelta = h1 - h0;
+  const a = kept[0].handlesByType ?? {};
+  const b = kept[kept.length - 1].handlesByType ?? {};
+  handlesGrowth = Object.fromEntries(
+    Object.keys({ ...a, ...b })
+      .map((k) => [k, (b[k] ?? 0) - (a[k] ?? 0)])
+      .filter(([, d]) => d !== 0),
+  );
+  const detail = Object.entries(handlesGrowth)
+    .map(([k, d]) => `${k} ${d >= 0 ? "+" : ""}${d}`)
+    .join(" · ");
+  console.log(
+    `\n  handles : ${h0} → ${h1} (${handlesDelta >= 0 ? "+" : ""}${handlesDelta})` +
+      (detail ? `\n            ${detail}` : " — aucun type n'a bougé") +
+      (handlesDelta > 0
+        ? `\n            ⚠ des ressources s'accumulent : c'est un défaut PRODUIT, pas de l'allocateur.`
+        : `\n            ✅ rien ne s'accumule — sockets, timers et flux sont rendus.`),
+  );
+}
+
 // ── LA grandeur qui traverse les machines ─────────────────────────────────
 //
 // « +33 MB/h » ne se compare à rien : le même code sur un runner partagé qui
@@ -536,6 +582,10 @@ writeFileSync(
       rpsDriftPct: +drift.toFixed(1),
       rpsMedian: Math.round(rpsMedian),
       requestsTotal: Math.round(reqTotal),
+      handlesFirst: h0,
+      handlesLast: h1,
+      handlesDelta,
+      handlesGrowthByType: handlesGrowth,
       rssMbPerMillionReq: tooShort ? null : +rssPerMreq.toFixed(3),
       observedMinutes: +observedMin.toFixed(1),
       amplitudeMb: +amplitude.toFixed(1),

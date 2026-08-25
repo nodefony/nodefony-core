@@ -187,7 +187,8 @@ jobs:
             "| Requêtes servies | \(.requestsTotal) |",
             "| Tas utilisé | pente \(.heapSlopeMbPerHour) MB/h (R² \(.heapR2)) · verdict `\(.verdict)` |",
             "| Ventilation de la hausse | tas réservé \(.heapTotalDeltaMb) · externe \(.externalDeltaMb) · reste \(.resteDeltaMb) MB |",
-            "| Débit | dérive \(.rpsDriftPct) % |"
+            "| Débit | dérive \(.rpsDriftPct) % |",
+            "| Ressources ouvertes | \(.handlesFirst // "non mesurées") → \(.handlesLast // "—") · delta **\(.handlesDelta // "—")** |"
           ' tmp/soak.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Mesures brutes
