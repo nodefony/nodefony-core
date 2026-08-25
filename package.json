@@ -33,6 +33,7 @@
     "test:load": "turbo run build && turbo run test:load",
     "test:memory": "turbo run build && turbo run test:memory",
     "test:boot": "turbo run build && turbo run test:boot --continue",
+    "test:release": "vitest run scripts/lib/",
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
     "lint": "oxlint --deny-warnings",

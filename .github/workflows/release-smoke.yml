@@ -113,6 +113,21 @@ jobs:
       - name: Générer le graphe symbolique (absent d'un checkout frais)
         run: npm run generate-symbols
 
+      # Le RAISONNEMENT de la release — validation de version, lecture des
+      # messages de commit, ordre de publication, audit des métadonnées,
+      # détection de contenu suspect — s'éprouve ICI, avant que quoi que ce soit
+      # ne parte. Une release ne se répète pas : la version est brûlée dès le
+      # premier `publish`, et npm n'ouvre le retrait que 72 heures. C'est donc la
+      # seule occasion d'éprouver ces décisions sans en payer le prix.
+      #
+      # ⚠️ `vitest` n'est pas déclaré à la racine : il est REMONTÉ depuis un
+      # workspace. Si un jour plus aucun workspace ne le porte, cette étape
+      # tombera avec un « command not found » — et c'est le bon comportement,
+      # bien plus qu'un saut silencieux.
+      - name: Cœur de release — la suite qui attaque le script
+        shell: bash
+        run: npm run test:release
+
       - name: Smoke test — pack, install vierge, conteneur
         run: bash .claude/skills/nodefony-release/scripts/smoke-docker.sh --scenario ${{ matrix.scenario }}
 

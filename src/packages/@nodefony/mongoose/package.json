@@ -63,7 +63,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/nodefony/nodefony.git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/@nodefony/mongoose"
   },
   "license": "CECILL-B",
@@ -81,5 +81,9 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/mongoose#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
   }
 }

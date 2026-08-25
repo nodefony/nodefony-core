@@ -27,7 +27,11 @@
     "javascript",
     "typescript"
   ],
-  "repository": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/security"
+  },
   "dependencies": {
     "@simplewebauthn/server": "13.3.2",
     "arctic": "^3.7.0",
@@ -60,5 +64,9 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/security#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
   }
 }

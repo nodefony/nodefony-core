@@ -32,5 +32,14 @@
     "vitest": "4.1.11"
   },
   "private": true,
-  "dependencies": {}
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/packages/@nodefony/llm"
+  },
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/llm#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
+  }
 }

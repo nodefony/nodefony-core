@@ -125,7 +125,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/nodefony/nodefony.git"
+    "url": "git+https://github.com/nodefony/nodefony-core.git",
+    "directory": "src/nodefony"
   },
   "resolutions": {},
   "license": "CECILL-B",
@@ -144,5 +145,9 @@
     "templates",
     ".ai",
     "man"
-  ]
+  ],
+  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/nodefony#readme",
+  "bugs": {
+    "url": "https://github.com/nodefony/nodefony-core/issues"
+  }
 }
