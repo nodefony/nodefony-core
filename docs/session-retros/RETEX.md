@@ -34,6 +34,13 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-25] **CodeQL n'a signalé QU'UN des trois frères.** L'alerte visait
+  `generate-man.mjs` ; le même `existsSync(f) ? readFileSync(f) : …` vivait aussi dans
+  `aiMcp.ts` — où le test préalable court-circuitait un `catch` qui distinguait pourtant DÉJÀ
+  « illisible » d'« absent » — et dans `security-secrets.ts`, où une 4ᵉ copie ignorait le
+  `lireSiPresentSync` de son PROPRE paquet. Un `rg` sur le MOTIF (pas sur le fichier signalé)
+  les rend en une seconde ; l'analyseur montre ce qu'il atteint, jamais ce qui existe.
+
 - **L'analyseur n'a signalé qu'UN des deux frères.** CodeQL pointait `MD_LINK` ; `JSON_HREF`, deux
   lignes plus bas, portait le MÊME motif quadratique sans être vu. Un outil montre ce qu'il atteint,
   pas ce qui existe — après chaque alerte, chercher le frère. `[1× — 08-25]`
@@ -412,6 +419,19 @@
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
+- [1× — 08-25] **Mon test d'attaque a cassé la forge sur une plateforme.** Pour prouver qu'une
+  injection s'exécutait, j'ai fait lancer `; touch …` par un shell — et le `touch` de BSD, qui
+  ignore les options longues, a pris ses arguments pour des NOMS DE FICHIERS. Deux fichiers créés
+  à la racine, `git add -A` les emporte, sept jobs Windows tombent au CHECKOUT (`invalid path`,
+  exit 128), avant tout test. J'avais nettoyé le témoin attendu, pas les deux inattendus. Une
+  charge d'attaque se joue dans un répertoire JETABLE, et l'on relève ce qu'elle a produit
+  (`git status`), pas ce qu'on croit qu'elle a produit.
+- [1× — 08-25] **J'ai lu le code de sortie du WRAPPER, pas celui de la commande.** `gh run watch`
+  écrivait `exit=1` dans son fichier ; la notification de tâche annonçait « exit code 0 » — celui
+  du shell qui l'enveloppait. J'ai annoncé la CI verte sur deux workflows... rouges, et sur 2 des
+  6 seulement. Un verdict de forge se prend sur l'ÉNUMÉRATION complète des runs du commit, pas
+  sur les quelques-uns qu'on a pensé à surveiller.
+
 - **La même URL recomposée à trois endroits, et l'un avait gardé l'origine nue** : `--dry-run`
   annonçait `http://localhost:5151` là où l'exécution visait `…/nodefony/mcp`. On croit un dry-run
   sur parole — c'est précisément pour ça qu'on le lance. Une valeur, calculée une fois.
@@ -720,6 +740,18 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-25] **Un gate qui ne lit que la moitié de son domaine.** `scripts-audit` portait un
+  contrôle « renvois morts » — mais il ne lisait que le TEXTE des `SKILL.md`. Un script qui en
+  LANCE un autre par un chemin en dur y échappait entièrement, et la forme employée
+  (`join(repo, ".claude", "skills", …)`) n'est visible d'AUCUNE expression cherchant un chemin.
+  Le gate était vert pendant que quatre systèmes tombaient sur `Cannot find module`. Étendre un
+  gate à un nouveau support commence par se demander ce qu'il ne REGARDE pas.
+- [1× — 08-25] **Une fiche générée périmée ment avec l'autorité du généré.** `skills-doc --check`
+  contrôlait la conformité des sources, jamais la fraîcheur de ce qu'il avait lui-même produit :
+  le registre annonçait un skill à 455 lignes quand il en portait 619. Tout générateur doit
+  savoir dire « ce que je produirais diffère de ce qui est sur disque » — c'est le même
+  comparateur que celui qui évite de réécrire, donc il est déjà là.
+
 - **La chaîne de PUBLICATION transitait par `.claude/skills/`, avec un CYCLE.**
   `scripts/release.mjs` appelait un script du skill, qui réimportait le cœur du produit ; la CI
   lançait le smoke depuis `.claude/`. Un skill renommé ou fusionné aurait emporté la capacité de
@@ -833,6 +865,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   confirme n'importe quelle cause. [1× — 08-23b] ↝ [[feedback_bench_probe_false_verdicts]]
 
 ## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
+
+- [1× — 08-25] **Un `tail -200` qui se fait passer pour le journal.** Sur un serveur qui
+  journalise chaque requête, 200 lignes couvrent TROIS secondes : l'échec du milieu de suite n'y
+  était pas. J'en ai conclu que la trace était perdue et j'ai renoncé au diagnostic — alors que
+  le journal ENTIER était publié en artefact depuis toujours, au step suivant. Un aperçu doit
+  DIRE qu'il est un aperçu et où est le complet ; sinon il ne tronque pas seulement la sortie,
+  il tronque la recherche.
 
 - [1× — 08-23e] Un banc de performance pose `NF_LOG_DRIVER=null` pour ne pas mesurer le coût des
   journaux. Le jour où le serveur n'a pas démarré, il n'a su dire que « BOOT TIMEOUT — voir
