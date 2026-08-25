@@ -70,50 +70,83 @@ if (!runtime.ports.includes(PORT)) {
 }
 console.log(`— serveur PID=${pid} sur :${PORT}`);
 
-// 2) WS ouverte AVANT le SIGTERM — on capture son code de close.
+// 2) Le STIMULUS existe-t-il sur cette plateforme ?
+//
+// Windows n'a pas les signaux POSIX : Node y implémente `process.kill(pid, …)` par
+// `TerminateProcess`, qui tue SANS que le process reçoive quoi que ce soit. Aucun
+// handler ne s'exécute, donc aucun drain n'est possible — et le banc mesurait alors
+// trois « échecs » (readyz injoignable, in-flight ECONNRESET, WebSocket 1006) qui
+// décrivaient la plateforme, jamais le produit. Mesuré : le serveur mourait 124 ms
+// après le signal, quand le drain seul dure 2 s.
+//
+// Ce n'est PAS un `skipIf` de confort : c'est l'axiome « aucun arrêt gracieux d'arbre
+// sous Windows » ÉNONCÉ plutôt que masqué derrière un SIGTERM qui n'en a que le nom.
+// Ce qui reste prouvable là-bas l'est — le process meurt et rend ses ports.
+//
+// Le chemin de l'utilisateur, lui, fonctionne : un Ctrl+C dans la console Windows
+// délivre bien SIGINT à Node. C'est l'envoi depuis un AUTRE process qui n'existe pas.
+const signauxDelivres = process.platform !== "win32";
+if (!signauxDelivres) {
+  console.log(
+    "⚠ PREUVE DU DRAIN NON MENÉE — cette plateforme ne délivre pas les signaux à un\n" +
+      "  process tiers (`TerminateProcess`). Reste éprouvé ci-dessous : le process meurt\n" +
+      "  et libère ses ports. Le drain lui-même se prouve sur linux et macOS.",
+  );
+}
+
+// 3) WS ouverte AVANT le SIGTERM — on capture son code de close.
 const wsClose = new Promise((res) => {
   const ws = new WebSocket(WS_URL);
   ws.on("close", (code) => res(code));
   ws.on("error", () => res(-1));
 });
 
-// 3) Requête lente in-flight (répond après 2 s si non coupée).
+// 4) Requête lente in-flight (répond après 2 s si non coupée).
 await sleep(150); // la WS a le temps de s'ouvrir
 const inflight = fetch(HTTP_SLOW_URL)
   .then(async (r) => ({ status: r.status, body: await r.json() }))
   .catch((e) => ({ status: 0, error: String(e?.cause ?? e) }));
 
-// 4) SIGTERM pendant que la requête est en vol.
+// 5) SIGTERM pendant que la requête est en vol.
 await sleep(400);
 process.kill(pid, "SIGTERM");
 console.log(
   `— SIGTERM envoyé à ${pid} (requête in-flight à ~400 ms / 2000 ms)`,
 );
 
-// 4b) Bascule readiness (trou 3) : dès le SIGTERM, /readyz doit répondre 503
+// 5b) Bascule readiness (trou 3) : dès le SIGTERM, /readyz doit répondre 503
 // (le LB retire le pod) PENDANT que le serveur accepte encore (fenêtre = close
 // 1001 des WS ~600 ms + `health.shutdownDelay` éventuel, AVANT le drain HTTP).
 await sleep(120);
 const readyz = await fetch(`http://127.0.0.1:${PORT}/readyz`)
   .then((r) => r.status)
   .catch(() => 0);
-ok(
-  readyz === 503,
-  `readyz bascule 503 dès le SIGTERM, avant le drain (reçu : ${readyz})`,
-);
+if (signauxDelivres) {
+  ok(
+    readyz === 503,
+    `readyz bascule 503 dès le SIGTERM, avant le drain (reçu : ${readyz})`,
+  );
+}
 
-// 5) Asserts.
+// 6) Asserts.
 const res = await inflight;
-ok(
-  res.status === 200 && res.body?.aborted === false,
-  `in-flight terminée malgré SIGTERM : 200 {"aborted":false} (reçu : ${JSON.stringify(res)})`,
-);
-
 const closeCode = await Promise.race([wsClose, sleep(6000).then(() => -2)]);
-ok(
-  closeCode === 1001,
-  `WS fermée proprement 1001 Going Away (reçu : ${closeCode})`,
-);
+if (signauxDelivres) {
+  ok(
+    res.status === 200 && res.body?.aborted === false,
+    `in-flight terminée malgré SIGTERM : 200 {"aborted":false} (reçu : ${JSON.stringify(res)})`,
+  );
+  ok(
+    closeCode === 1001,
+    `WS fermée proprement 1001 Going Away (reçu : ${closeCode})`,
+  );
+} else {
+  // On les IMPRIME quand même : le jour où une plateforme se met à délivrer le
+  // signal, ces deux lignes sont le premier endroit où ça se verra.
+  console.log(
+    `— sans signal délivré : in-flight ${JSON.stringify(res)} · WS close ${closeCode}`,
+  );
+}
 
 // Le process doit sortir et libérer le port (< shutdownTimeout + marge).
 await sleep(3000);
@@ -122,7 +155,7 @@ ok(!stillListening, `port :${PORT} libéré (process sorti)`);
 
 console.log(
   fails.length === 0
-    ? "\nGRACEFUL SHUTDOWN : PREUVE COMPLÈTE ✓ — relancer le serveur :\n  node node_modules/nodefony/bin/nodefony development --detach --wait 120"
+    ? `\nGRACEFUL SHUTDOWN : ${signauxDelivres ? "PREUVE COMPLÈTE ✓" : "arrêt et libération des ports ✓ (drain NON éprouvé ici)"} — relancer le serveur :\n  node node_modules/nodefony/bin/nodefony development --detach --wait 120`
     : `\nÉCHECS (${fails.length}) : ${fails.join(" | ")}`,
 );
 process.exit(fails.length === 0 ? 0 : 1);
