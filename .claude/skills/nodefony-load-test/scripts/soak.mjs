@@ -144,13 +144,48 @@ if (wrkProbe.error?.code === "ENOENT") {
 // une AUTRE mesure. Mieux vaut refuser au départ que le découvrir 90 minutes
 // plus tard.
 const COEURS = os.availableParallelism?.() ?? os.cpus().length;
-const chargeInitiale = os.loadavg()[0];
-if (chargeInitiale > COEURS * 0.5 && !process.argv.includes("--force-charge")) {
+const SEUIL_CHARGE = COEURS * 0.5;
+
+// `--attendre-charge <s>` : ATTENDRE la retombée au lieu de refuser tout de
+// suite. C'est le conseil que ce message donne déjà à un humain — sur un
+// exécuteur d'intégration, personne n'est là pour le suivre.
+//
+// Le cas est structurel, pas accidentel : le banc suit un `npm ci` et un build
+// qui saturent la machine, et `loadavg[0]` est une moyenne sur UNE MINUTE — elle
+// décrit donc le passé récent, pas l'instant. Mesuré à l'échec : 3,54 sur 4
+// cœurs (ubuntu) et 21,72 sur 3 (macOS), quelques secondes après le build. Sans
+// attente, ce workflow ne pouvait pas démarrer une seule fois, et il était rouge
+// en permanence — donc plus lu, alors qu'il porte la traque d'une fuite RSS.
+//
+// L'attente ne DÉSARME rien : passé le délai, le refus tombe comme avant, avec
+// la charge finale. C'est `--force-charge` qui désarme, et lui seul.
+const ATTENDRE_CHARGE = (() => {
+  const i = process.argv.indexOf("--attendre-charge");
+  const v = i > 0 ? Number(process.argv[i + 1]) : 0;
+  return Number.isFinite(v) && v > 0 ? v : 0;
+})();
+
+let chargeInitiale = os.loadavg()[0];
+if (chargeInitiale > SEUIL_CHARGE && ATTENDRE_CHARGE > 0) {
+  const limite = Date.now() + ATTENDRE_CHARGE * 1000;
+  console.log(
+    `⏳ charge ${chargeInitiale.toFixed(2)} > ${SEUIL_CHARGE.toFixed(2)} — attente de la retombée (max ${ATTENDRE_CHARGE}s)…`,
+  );
+  while (chargeInitiale > SEUIL_CHARGE && Date.now() < limite) {
+    await sleep(5000);
+    chargeInitiale = os.loadavg()[0];
+  }
+  console.log(
+    `   charge après attente : ${chargeInitiale.toFixed(2)} sur ${COEURS} cœurs`,
+  );
+}
+
+if (chargeInitiale > SEUIL_CHARGE && !process.argv.includes("--force-charge")) {
   console.error(
     `❌ machine OCCUPÉE — charge moyenne ${chargeInitiale.toFixed(2)} sur ${COEURS} cœurs.\n` +
       `   Au-dessus de la moitié des cœurs, ce qu'on mesure est le voisin, pas le serveur.\n` +
       `   Fermer ce qui tourne (compilations, conteneurs, navigateur ouvert sur l'application)\n` +
-      `   et attendre la retombée. Délibéré ? --force-charge`,
+      `   et attendre la retombée (\`--attendre-charge <secondes>\`). Délibéré ? --force-charge`,
   );
   process.exit(1);
 }

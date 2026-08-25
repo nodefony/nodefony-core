@@ -169,6 +169,7 @@ jobs:
             --minutes "$NF_SOAK_MINUTES" \
             --conn "$NF_SOAK_CONN" \
             --url "$NF_SOAK_URL" \
+            --attendre-charge 180 \
             --out tmp/soak.json
 
       # `always()` : c'est en échec que ces chiffres servent le plus — ils disent
