@@ -38,6 +38,12 @@ const afterResponseState = {
   count: 0,
   multiCount: 0,
   lastFiredAtMs: 0,
+  // Instant où le HANDLER s'exécute, lu sur la MÊME horloge que `lastFiredAtMs`.
+  // C'est ce qui permet d'affirmer l'ORDRE (« le hook tire après la réponse »)
+  // sans comparer deux process : le test lisait `Date.now()` chez lui et chez le
+  // serveur, et concluait sur un écart d'UNE milliseconde — c'est-à-dire sur la
+  // granularité de l'horloge du système, qui est plus grossière sous Windows.
+  handlerAtMs: 0,
 };
 
 // P1.3 — abort signal observation state. Same singleton pattern.
@@ -238,6 +244,7 @@ class DefaultController extends Controller {
   // ── P1.2 onAfterResponse probes ─────────────────────────────────
   @route("after-incr", { path: "/after/incr" })
   afterIncr() {
+    afterResponseState.handlerAtMs = Date.now();
     this.context!.onAfterResponse(() => {
       afterResponseState.count++;
       afterResponseState.lastFiredAtMs = Date.now();
@@ -273,6 +280,7 @@ class DefaultController extends Controller {
       count: afterResponseState.count,
       multiCount: afterResponseState.multiCount,
       lastFiredAtMs: afterResponseState.lastFiredAtMs,
+      handlerAtMs: afterResponseState.handlerAtMs,
     });
   }
 
@@ -281,6 +289,7 @@ class DefaultController extends Controller {
     afterResponseState.count = 0;
     afterResponseState.multiCount = 0;
     afterResponseState.lastFiredAtMs = 0;
+    afterResponseState.handlerAtMs = 0;
     return this.renderJson({ ok: true });
   }
 

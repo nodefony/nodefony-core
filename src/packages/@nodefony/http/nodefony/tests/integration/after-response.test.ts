@@ -43,13 +43,17 @@ function get(path: string): Promise<{ status: number; body: Json }> {
 // Hooks may run on a microtask after "finish" — wait briefly to observe their effect.
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function readState(): Promise<{
+interface IAfterState {
   count: number;
   multiCount: number;
   lastFiredAtMs: number;
-}> {
+  /** Instant du handler, lu sur l'horloge DU SERVEUR (cf le cas d'ordre). */
+  handlerAtMs: number;
+}
+
+async function readState(): Promise<IAfterState> {
   const r = await get("/nodefony/test/after/state");
-  return r.body as { count: number; multiCount: number; lastFiredAtMs: number };
+  return r.body as unknown as IAfterState;
 }
 
 async function reset(): Promise<void> {
@@ -107,13 +111,27 @@ describe("P1.2 — Context.onAfterResponse", () => {
   });
 
   it("hook timestamp lands after the response is observed by the client", async () => {
+    // L'ORDRE se prouve sur UNE SEULE horloge — celle du serveur. La version
+    // précédente comparait `Date.now()` du process de test à `Date.now()` du
+    // process serveur et exigeait l'ordre à la milliseconde près : elle mesurait
+    // la granularité de l'horloge système, plus grossière sous Windows, où elle
+    // échouait sur UNE milliseconde d'écart. Le seuil n'est pas relâché — c'est
+    // le FAIT qui devient observable là où il se produit.
+    await get("/nodefony/test/after/reset");
     const clientBefore = Date.now();
     await get("/nodefony/test/after/incr");
     const clientAfterRecv = Date.now();
     await wait(50);
     const s = await readState();
-    expect(s.lastFiredAtMs).to.be.at.least(clientBefore);
-    // hook fires after finish, so lastFiredAtMs may be a tick after the client got bytes
+    // 1. le hook a bien tiré pour CETTE requête (et une seule fois) ;
+    expect(s.count).to.equal(1);
+    // 2. il a tiré APRÈS l'exécution du handler — même process, même horloge ;
+    expect(s.handlerAtMs).to.be.greaterThan(0);
+    expect(s.lastFiredAtMs).to.be.at.least(s.handlerAtMs);
+    // 3. et il n'a pas tardé : cette borne-ci CROISE les deux horloges, mais sa
+    //    marge de 200 ms la rend insensible à leur granularité — elle mesure une
+    //    latence, pas un ordre.
     expect(s.lastFiredAtMs).to.be.at.most(clientAfterRecv + 200);
+    expect(s.lastFiredAtMs).to.be.at.least(clientBefore - 200);
   });
 });
