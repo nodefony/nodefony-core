@@ -98,6 +98,60 @@ const premierMessage = (ws: WebSocket): Promise<string> =>
     ws.once("error", onError);
   });
 
+/**
+ * Le PONG attendu — ou la raison pour laquelle il ne viendra pas.
+ *
+ * Même faute que {@link premierMessage}, sur le troisième frère : l'attente du
+ * pong était restée NUE (`new Promise((r) => ws.once("pong", r))`), donc sans
+ * aucune issue quand la connexion se ferme ou tombe en erreur. Le cas pendait
+ * alors ses 60 s entières pour ne rendre qu'un « timed out » — vécu sur macOS,
+ * en suite complète, une exécution sur deux, quand les mêmes cas passent en
+ * 20 ms en isolation (constaté six fois de suite). Durcir deux attentes sur
+ * trois ne protégeait que deux tiers du chemin.
+ *
+ * Le plafond propre est très au-dessus du bruit (le pong arrive en quelques
+ * millisecondes) et bien en dessous de celui du lanceur : ce qu'on gagne n'est
+ * pas un vert, c'est un échec qui NOMME sa cause.
+ */
+const attendrePong = (ws: WebSocket, plafondMs = 10_000): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const fin = (): void => {
+      clearTimeout(minuteur);
+      ws.removeListener("pong", onPong);
+      ws.removeListener("close", onClose);
+      ws.removeListener("error", onError);
+    };
+    const onPong = (): void => {
+      fin();
+      resolve();
+    };
+    const onClose = (code: number, raison: Buffer): void => {
+      fin();
+      reject(
+        new Error(
+          `connexion FERMÉE avant le pong — code ${code}` +
+            (raison.length ? ` « ${raison.toString()} »` : " (sans raison)"),
+        ),
+      );
+    };
+    const onError = (e: Error): void => {
+      fin();
+      reject(new Error(`socket en ERREUR avant le pong — ${e.message}`));
+    };
+    const minuteur = setTimeout(() => {
+      fin();
+      reject(
+        new Error(
+          `aucun PONG en ${plafondMs} ms — la connexion est VIVANTE mais le ` +
+            `serveur n'a pas répondu au ping interjeté entre deux fragments`,
+        ),
+      );
+    }, plafondMs);
+    ws.once("pong", onPong);
+    ws.once("close", onClose);
+    ws.once("error", onError);
+  });
+
 const writeRawFrames = (ws: WebSocket, frames: Buffer[][]): void => {
   const sock = (ws as unknown as { _socket: { write(b: Buffer): void } })
     ._socket;
@@ -131,7 +185,7 @@ describe("WS fragmentation — RFC 6455 §5.4", () => {
     const ws = await openEcho();
     await consumeHandshake(ws);
     const gotMsg = premierMessage(ws);
-    const gotPong = new Promise<void>((r) => ws.once("pong", () => r()));
+    const gotPong = attendrePong(ws);
     writeRawFrames(ws, [
       mkFrame(Buffer.from('{"frag":"AAA'), false, OPCODE_TEXT),
       mkFrame(Buffer.from("hb"), true, OPCODE_PING), // contrôle interjeté (§5.4)

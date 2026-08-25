@@ -115,16 +115,48 @@ console.log(
 );
 
 // 5b) Bascule readiness (trou 3) : dès le SIGTERM, /readyz doit répondre 503
-// (le LB retire le pod) PENDANT que le serveur accepte encore (fenêtre = close
-// 1001 des WS ~600 ms + `health.shutdownDelay` éventuel, AVANT le drain HTTP).
-await sleep(120);
-const readyz = await fetch(`http://127.0.0.1:${PORT}/readyz`)
-  .then((r) => r.status)
-  .catch(() => 0);
+// (le répartiteur retire le pod) PENDANT que le serveur sert encore.
+//
+// ⚠️ Ce que ce cas prouve est un ORDRE, pas un délai. Il attendait 120 ms fixes
+// puis interrogeait une fois — ce qui ne mesurait que la machine : sur un
+// exécuteur macOS partagé, `/readyz` rendait encore 200 à 287 ms alors que le
+// drain était PARFAIT par ailleurs (in-flight terminée, WebSocket en 1001, port
+// rendu). Un rouge qui n'accusait que la contention du moment.
+//
+// La bascule est donc SONDÉE jusqu'à ce qu'elle survienne, et ce qu'on exige est
+// qu'elle survienne AVANT la fin du drain — deux instants lus sur la MÊME
+// horloge, dans le MÊME process. Le seuil n'est pas relâché : il est remplacé
+// par le fait qu'il cherchait à approcher.
+const repere = performance.now();
+let finDuDrain = 0;
+void inflight.then(() => {
+  finDuDrain = performance.now();
+});
+
+let basculeA = 0;
+let readyz = 0;
+while (performance.now() - repere < 8000) {
+  readyz = await fetch(`http://127.0.0.1:${PORT}/readyz`)
+    .then((r) => r.status)
+    .catch(() => 0);
+  if (readyz === 503) {
+    basculeA = performance.now();
+    break;
+  }
+  // Le serveur est parti : plus rien à observer, la bascule n'aura pas lieu.
+  if (readyz === 0 && finDuDrain) break;
+  await sleep(25);
+}
+
 if (signauxDelivres) {
   ok(
-    readyz === 503,
-    `readyz bascule 503 dès le SIGTERM, avant le drain (reçu : ${readyz})`,
+    basculeA > 0,
+    `readyz bascule en 503 après le SIGTERM (dernier code observé : ${readyz})`,
+  );
+  ok(
+    basculeA > 0 && (finDuDrain === 0 || basculeA <= finDuDrain),
+    `readyz bascule AVANT la fin du drain (bascule à ${(basculeA - repere).toFixed(0)} ms, ` +
+      `drain ${finDuDrain ? `fini à ${(finDuDrain - repere).toFixed(0)} ms` : "encore en cours"})`,
   );
 }
 
