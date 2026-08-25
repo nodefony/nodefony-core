@@ -42,7 +42,18 @@ name: Tenue dans la durée (soak RSS)
 # qui font varier l'expérience (durée, connexions, ROUTE visée).
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ⚠️ `schedule` et `workflow_dispatch` ne partent QUE depuis la branche par
+# défaut du dépôt (`main`) : tant que ce fichier n'y est pas, le rendez-vous
+# hebdomadaire ne se déclenchera jamais et le bouton n'existera pas — un
+# workflow qui ne tourne pas est une décoration. Le déclencheur `push`, lui,
+# part de la branche où il vit : c'est ce qui rend ce banc ÉPROUVÉ ici et
+# maintenant, et il est borné aux deux fichiers qui le composent — les toucher
+# est précisément le moment où l'on veut le voir tourner.
 on:
+  push:
+    paths:
+      - ".github/workflows/soak.yml"
+      - ".claude/skills/nodefony-load-test/scripts/soak.mjs"
   schedule:
     # Dimanche 03:00 UTC — hors des heures où la forge sert à quelque chose.
     - cron: "0 3 * * 0"
