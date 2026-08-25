@@ -11,6 +11,15 @@ export default defineConfig({
   test: {
     globals: true,
     include: ["tests/unit/**/*.test.ts"],
+    // ⏱️ Plafond d'ATTENTE, pas seuil de mesure — la distinction décide si
+    // l'allonger est honnête ou non. Aucun cas ici n'asserte une durée : ceux
+    // qui dépassent attendent un travail DÉLÉGUÉ dont la latence appartient à
+    // la machine — le pool de threads que bcrypt natif occupe. Vécu : verts en isolation,
+    // rouges sous `npm test`, où turbo lance les 21 espaces de travail en
+    // parallèle et sature ce qu'ils attendent. Le défaut de 5 s mesurait donc
+    // la charge du moment. Un vrai blocage reste attrapé, très en deçà.
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: "v8",
       include: ["index.ts", "nodefony/**/*.ts"],
