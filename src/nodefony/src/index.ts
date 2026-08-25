@@ -555,6 +555,13 @@ export {
   // hors du cœur (Vite et son service esbuild) : la recopier ailleurs ferait
   // réapparaître, dans le paquet suivant, l'angle mort qu'on vient de fermer ici.
   signalProcessGroup,
+  // Sonde « quelqu'un écoute-t-il ici ? » — une connexion en boucle locale, donc
+  // AUCUN outil système. Exposée pour la même raison que le kill d'arbre : hors du
+  // cœur, la question se repose (un banc qui attend un serveur, une app qui vérifie
+  // qu'un port est rendu), et la réponse improvisée est toujours `lsof` — qui
+  // n'existe pas sous Windows et fait conclure « personne n'écoute » là où le
+  // serveur écoute très bien.
+  isPortListening,
 } from "./service/dev/devProcess";
 export type {
   DevProcessInfo,

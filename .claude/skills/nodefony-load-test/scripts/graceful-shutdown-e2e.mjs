@@ -13,14 +13,21 @@
 // `servers.*.shutdownTimeout` ms, défaut 5000).
 //
 // ⚠️ Ce banc ARRÊTE le serveur dev (c'est l'objet du test). Le relancer ensuite :
-//   bash .claude/skills/nodefony-start-server/start.sh
+//   node node_modules/nodefony/bin/nodefony development --detach --wait 120
+// (`start.sh` fait la même chose avec le confort du poste, mais il est POSIX : le
+// nommer SEUL laissait un lecteur sous Windows sans commande.)
 //
-// Prérequis : serveur dev booté (start.sh). Lancement (racine repo) :
+// Prérequis : serveur dev booté. Lancement (racine repo) :
 //   node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
 // Env : HTTP_SLOW_URL (défaut http://127.0.0.1:5151/nodefony/test/abort/wait — répond après 2 s)
 //       WS_URL (défaut ws://127.0.0.1:5151/nodefony/test/ws/echo) · PORT (défaut 5151)
 import WebSocket from "ws";
-import { execSync } from "node:child_process";
+// Le produit répond DÉJÀ aux deux questions de ce banc — qui écoute, et le port
+// est-il rendu. Les redemander à `lsof` était la faute que le dépôt a déjà payée
+// ailleurs : l'outil n'existe pas sous Windows, la sonde rendait « aucun process
+// n'écoute sur :5151 » pendant que le serveur écoutait, et le banc accusait le
+// drain d'un défaut qui était le sien.
+import { readRuntimeState, isPortListening } from "nodefony";
 
 const PORT = Number(process.env.PORT ?? 5151);
 const HTTP_SLOW_URL =
@@ -40,20 +47,26 @@ const ok = (cond, msg) => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// 1) PID du serveur = le process qui ÉCOUTE le port (robuste, indépendant de /tmp/srv.pid).
-let pid;
-try {
-  pid = Number(
-    execSync(`lsof -ti tcp:${PORT} -sTCP:LISTEN`, { encoding: "utf8" })
-      .trim()
-      .split("\n")[0],
-  );
-} catch {
+// 1) PID du serveur = celui que le runtime PUBLIE sur lui-même une fois en écoute
+// (`node_modules/.cache/nodefony/runtime.json`). C'est le canal du framework, pas une
+// observation de l'OS : il porte le PID de qui écoute, il est déjà purgé quand le
+// process est mort, et il répond à l'identique sur les trois systèmes.
+const runtime = readRuntimeState(process.cwd());
+if (!runtime || runtime.pid <= 0) {
   console.error(
-    `✗ Aucun process n'écoute sur :${PORT} — booter le serveur d'abord :\n` +
-      "  bash .claude/skills/nodefony-start-server/start.sh",
+    `✗ Aucun runtime Nodefony publié sous ${process.cwd()} — booter le serveur d'abord :\n` +
+      "  node node_modules/nodefony/bin/nodefony development --detach --wait 120",
   );
   process.exit(2);
+}
+const pid = runtime.pid;
+// Le banc frappe le port qu'on lui donne ; le runtime dit celui qu'il SERT. Les voir
+// diverger (`servers.portPolicy: "auto"` a décalé) explique un banc qui tape dans le
+// vide — le taire ferait accuser le drain.
+if (!runtime.ports.includes(PORT)) {
+  console.warn(
+    `⚠ le runtime écoute sur [${runtime.ports.join(", ")}], le banc vise :${PORT}`,
+  );
 }
 console.log(`— serveur PID=${pid} sur :${PORT}`);
 
@@ -104,17 +117,12 @@ ok(
 
 // Le process doit sortir et libérer le port (< shutdownTimeout + marge).
 await sleep(3000);
-let stillListening = true;
-try {
-  execSync(`lsof -ti tcp:${PORT} -sTCP:LISTEN`, { encoding: "utf8" });
-} catch {
-  stillListening = false;
-}
+const stillListening = await isPortListening(PORT);
 ok(!stillListening, `port :${PORT} libéré (process sorti)`);
 
 console.log(
   fails.length === 0
-    ? "\nGRACEFUL SHUTDOWN : PREUVE COMPLÈTE ✓ — relancer le serveur : bash .claude/skills/nodefony-start-server/start.sh"
+    ? "\nGRACEFUL SHUTDOWN : PREUVE COMPLÈTE ✓ — relancer le serveur :\n  node node_modules/nodefony/bin/nodefony development --detach --wait 120"
     : `\nÉCHECS (${fails.length}) : ${fails.join(" | ")}`,
 );
 process.exit(fails.length === 0 ? 0 : 1);

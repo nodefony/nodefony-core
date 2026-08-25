@@ -1,5 +1,10 @@
 /**
- * **Un banc ne redevine pas le kill d'arbre : il appelle celui du framework.**
+ * **Un banc ne redevine pas une capacité système : il appelle celle du framework.**
+ *
+ * Deux formes de la même faute sont contrôlées ici — tuer un arbre, et demander
+ * qui écoute sur un port. Chaque fois, le script improvise un appel POSIX que le
+ * dépôt porte DÉJÀ, portable, et chaque fois le silence de Windows fait accuser
+ * le produit à la place de l'instrument.
  *
  * Les groupes de process n'existent pas sous Windows (axiome 5). Un
  * `process.kill(-pid, …)` y LÈVE — et comme cet appel est presque toujours
@@ -90,6 +95,58 @@ describe("Bancs et scripts — le kill d'arbre vient du framework", () => {
           `l'appel y lève, donc un \`catch\` le prend pour « déjà mort ». ` +
           `Utiliser \`signalProcessGroup(pid, signal)\` (barrel \`nodefony\`), ` +
           `qui traite les trois systèmes et REND ce qu'il a atteint.`,
+      );
+    });
+  }
+});
+
+/**
+ * Les outils POSIX de sonde réseau, invoqués depuis un script.
+ *
+ * `lsof` n'existe pas sous Windows : l'appel rend « command not found », le
+ * `try/catch` qui l'enveloppe lit l'absence de sortie comme « personne
+ * n'écoute », et le banc conclut que le serveur n'a pas démarré alors qu'il
+ * écoute très bien. C'est le rouge qui a rendu ce contrôle nécessaire : la
+ * preuve d'arrêt gracieux, verte sur deux systèmes, a passé une journée à
+ * accuser le drain d'un défaut qui était celui de sa propre sonde.
+ *
+ * Le motif ne vise QUE l'exécution — un `lsof` cité dans une prose, ou dans le
+ * transcript factice d'un banc qui apprend à reconnaître un agent qui bricole,
+ * n'invoque rien.
+ */
+const SONDE_POSIX = /\b(lsof|netstat)\b/;
+/** Les appels qui font TOURNER une commande. */
+const EXECUTION =
+  /\b(execSync|execFileSync|spawnSync|exec|execFile|spawn)\s*\(/;
+
+describe("Bancs et scripts — la sonde de port vient du framework", () => {
+  it("des scripts sont bien balayés (sinon ce test ne prouve rien)", () => {
+    assert.isAbove(scripts.length, 0, "aucun script trouvé");
+  });
+
+  for (const fichier of scripts) {
+    const relatif = path.relative(REPO_ROOT, fichier);
+    const source = readFileSync(fichier, "utf8");
+    const code = source
+      .split("\n")
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .join("\n");
+
+    // La sonde doit être l'ARGUMENT d'une exécution, pas une mention. On borne
+    // la fenêtre en arrière : au-delà, l'appel appartient à un autre énoncé.
+    const invoquee = [...code.matchAll(new RegExp(SONDE_POSIX, "g"))].some(
+      (m) => EXECUTION.test(code.slice(Math.max(0, m.index - 200), m.index)),
+    );
+    if (!invoquee) continue;
+
+    it(`${relatif} — passe par isPortListening / readRuntimeState`, () => {
+      assert.fail(
+        `${relatif} interroge les ports par \`lsof\`/\`netstat\`. ` +
+          `\`lsof\` n'existe pas sous Windows : la sonde y rend « personne n'écoute » ` +
+          `pendant que le serveur écoute, et le banc accuse le produit. ` +
+          `Utiliser \`isPortListening(port)\` (une connexion en boucle locale, aucun ` +
+          `outil système) ou \`readRuntimeState(cwd)\` pour le PID de qui écoute — ` +
+          `tous deux au barrel \`nodefony\`.`,
       );
     });
   }
