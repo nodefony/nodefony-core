@@ -353,18 +353,39 @@ jobs:
   # Trois variantes, pas quatre : le mode éprouve le GATING du framework, pas le
   # moteur JavaScript — les deux versions de Node sont déjà croisées en
   # développement, et une quatrième tâche ne dirait rien de neuf.
+  # POURQUOI une matrice de systèmes ici, alors que les gates n'en ont pas besoin :
+  # cette tâche est la SEULE du dépôt qui DÉMARRE un serveur et lui parle. Tant
+  # qu'elle ne tournait que sur Linux, rien de ce qui vit à l'exécution — pipeline
+  # HTTP, WebSocket, cycle de vie, arrêt — n'était éprouvé ailleurs. « Ça compile »
+  # ne dit rien : les contrôles Windows étaient verts pendant qu'une application
+  # générée ne chargeait aucun de ses modules locaux.
+  #
+  # macOS y entre maintenant ; Windows ne le peut pas ENCORE, et il faut le dire au
+  # lieu de le taire : le lanceur de `.github/actions/nodefony-server` est POSIX de
+  # bout en bout (`lsof`, `kill -9`, attente par `grep` sur le journal). Il doit
+  # d'abord passer par le lanceur DU framework — qui porte déjà le kill d'arbre
+  # unique et la readiness — avant que cette matrice puisse s'ouvrir à trois.
   test-integration:
-    name: Tests intégration (Node ${{ matrix.node-version }} / ${{ matrix.mode }})
-    runs-on: ubuntu-latest
+    name: Tests intégration (${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.mode }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - node-version: "24.x"
+          - os: ubuntu-latest
+            node-version: "24.x"
             mode: development
-          - node-version: "26.x"
+          - os: ubuntu-latest
+            node-version: "26.x"
             mode: development
-          - node-version: "26.x"
+          - os: ubuntu-latest
+            node-version: "26.x"
+            mode: production
+          - os: macos-latest
+            node-version: "26.x"
+            mode: development
+          - os: macos-latest
+            node-version: "26.x"
             mode: production
     timeout-minutes: 20
     env:
