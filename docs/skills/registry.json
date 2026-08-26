@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-25",
+  "generatedAt": "2026-08-26",
   "count": 24,
   "conformant": 24,
   "skills": [
@@ -3439,6 +3439,10 @@
               },
               {
                 "name": "THREADS",
+                "help": ""
+              },
+              {
+                "name": "TRANCHE",
                 "help": ""
               },
               {

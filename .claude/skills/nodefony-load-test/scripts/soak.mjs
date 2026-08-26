@@ -560,8 +560,30 @@ if (rssSuspect) {
 // et non une propriété de l'allocateur : des sockets, des timers ou des flux
 // que le pipeline n'a pas rendus. Stable, il fait tomber toute cette famille
 // d'un coup — ce qui vaut largement l'appel d'une API par fenêtre.
-const h0 = kept[0].handlesTotal;
-const h1 = kept[kept.length - 1].handlesTotal;
+// 🔴 On compare des PLANCHERS, jamais deux instantanés. Une fenêtre est
+// échantillonnée tantôt pendant une rafale `wrk` (c64 ⇒ ~66 sockets vivantes),
+// tantôt entre deux — deux régimes que rien ne distingue dans un relevé isolé.
+// Vécu : `21 → 73 (+52)`, accompagné de « c'est un défaut PRODUIT », sur un
+// serveur où les handles OSCILLAIENT (6, 72, 5, 73, 29, 72, 73) et dont le
+// plancher valait 5 au début comme à la fin. L'instrument accusait le produit.
+// Le plancher, lui, est l'état AU REPOS : s'il monte, quelque chose n'est pas
+// rendu ; s'il est stable, rien ne s'accumule — quel que soit le maximum.
+const TRANCHE = Math.max(5, Math.min(20, Math.floor(kept.length / 4)));
+const plancher = (echantillons) => {
+  const v = echantillons.map((x) => x.handlesTotal).filter((x) => x != null);
+  return v.length ? Math.min(...v) : null;
+};
+const typesAuPlancher = (echantillons) => {
+  const v = echantillons.filter((x) => x.handlesTotal != null);
+  if (!v.length) return {};
+  const bas = v.reduce(
+    (m, x) => (x.handlesTotal < m.handlesTotal ? x : m),
+    v[0],
+  );
+  return bas.handlesByType ?? {};
+};
+const h0 = plancher(kept.slice(0, TRANCHE));
+const h1 = plancher(kept.slice(-TRANCHE));
 let handlesDelta = null;
 let handlesGrowth = null;
 if (h0 === null || h1 === null) {
@@ -571,8 +593,8 @@ if (h0 === null || h1 === null) {
   );
 } else {
   handlesDelta = h1 - h0;
-  const a = kept[0].handlesByType ?? {};
-  const b = kept[kept.length - 1].handlesByType ?? {};
+  const a = typesAuPlancher(kept.slice(0, TRANCHE));
+  const b = typesAuPlancher(kept.slice(-TRANCHE));
   handlesGrowth = Object.fromEntries(
     Object.keys({ ...a, ...b })
       .map((k) => [k, (b[k] ?? 0) - (a[k] ?? 0)])
@@ -582,7 +604,8 @@ if (h0 === null || h1 === null) {
     .map(([k, d]) => `${k} ${d >= 0 ? "+" : ""}${d}`)
     .join(" · ");
   console.log(
-    `\n  handles : ${h0} → ${h1} (${handlesDelta >= 0 ? "+" : ""}${handlesDelta})` +
+    `\n  handles : plancher ${h0} → ${h1} (${handlesDelta >= 0 ? "+" : ""}${handlesDelta})` +
+      ` · sur ${TRANCHE} fenêtres de chaque bout, hors rafale` +
       (detail ? `\n            ${detail}` : " — aucun type n'a bougé") +
       (handlesDelta > 0
         ? `\n            ⚠ des ressources s'accumulent : c'est un défaut PRODUIT, pas de l'allocateur.`
