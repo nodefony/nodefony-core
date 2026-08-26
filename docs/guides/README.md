@@ -23,6 +23,7 @@ last-updated: 2026-05-21
 | [`frontend-react.md`](./frontend-react.md)   | Ajouter un frontend React 19 (Vite) à un module Nodefony                           | stable |
 | [`session-storage.md`](./session-storage.md) | Stockage de session : mécanisme IoC, backends, storage sur mesure                  | stable |
 | [`persistence.md`](./persistence.md)         | Persistance & stores : infra déclarée, profils, matrice brique×backend, audit≠logs | stable |
+| [`compatibilite.md`](./compatibilite.md)     | Ce qui casse en montant de version : surface couverte, dépréciation, support       | stable |
 
 > ⚠️ [`integration-continue.md`](./integration-continue.md) fait exception à la
 > règle ci-dessus : il documente la forge du **dépôt du framework** (ce que la CI

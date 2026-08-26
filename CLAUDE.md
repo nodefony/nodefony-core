@@ -515,6 +515,25 @@ Les **invariants** qui doivent rester présents en permanence :
 
 **Process model en prod** : **cloud-native, pas PM2**. 1 process Node = 1 pod / container. Scaling horizontal géré par l'orchestrateur (k8s HPA, Docker Swarm, Nomad, Cloud Run, Fargate). Process supervision déléguée (k8s liveness/readiness, systemd, Docker restart-policy). Logs → stdout/stderr → collecteur centralisé. **PM2 RETIRÉ du framework (C6, 2026-05-29)** : `pm2Service`, commande `nodefony pm2:*`, commande `nodefony kill` (artefact PM2) et la dep npm `pm2` supprimés. Voir mémoire `project_pm2_deprecation.md`. Multi-process bare-metal/VPS = `nodefony cluster -w N` (cgroup-aware, sans PM2).
 
+**Compatibilité — engagement PUBLIC, à tenir sans y penser** : la politique vit dans
+[`docs/guides/compatibilite.md`](docs/guides/compatibilite.md) (ne pas la recopier ici, elle
+divergerait). Ce qu'il faut retenir pour AGIR :
+
+- **La garantie porte sur `exports`, et sur rien d'autre.** Avant de qualifier un changement de
+  « non cassant », regarder si le chemin touché est déclaré dans `exports` — un `dist/…` atteint en
+  biais n'est pas public. **Le comportement compte autant que la signature** : un code d'erreur qui
+  change, un défaut inversé, un en-tête retiré = RUPTURE, même à types identiques.
+- **QUAND je déprécie** (jamais de retrait direct) : marquer `@deprecated` en **TSDoc** — il traverse
+  le build jusqu'au `.d.ts` publié, donc l'éditeur de l'utilisateur le barre, ce qu'un `//` ne fait
+  pas — en nommant le remplaçant ; entrée changelog sous `Changed` ; la chose **continue de marcher
+  à l'identique** toute la série majeure. Retrait à la **majeure suivante**, sous `Removed`.
+  Jamais de retrait en mineure ni en patch.
+- **QUAND c'est une majeure** : retrait d'API publique · changement de comportement documenté ·
+  **relèvement du plancher Node** (`engines`), qui casse l'installation de qui n'a pas migré.
+- **Support** : **seule la dernière majeure reçoit des correctifs**, sécurité comprise. Ne jamais
+  promettre un rétroportage, dans une réponse, une issue ou une page — c'est un projet solo non
+  rémunéré, et une politique enfreinte coûte plus cher que pas de politique.
+
 **Terminologie** (renommage JS → TS) :
 
 | Ancien (JS)                       | Nouveau (TS)                          | Note                      |
