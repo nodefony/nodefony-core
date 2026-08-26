@@ -53,8 +53,13 @@ nodefony/databases/*
 *.tsbuildinfo
 *.js.map
 
-# Rapports de couverture monocart-coverage-reports (tous modules)
+# Rapports de couverture — les DEUX emplacements. Les modules ne sont pas
+# configurés pareil (`reportsDirectory` vaut `.coverage` chez les uns, le
+# défaut `coverage` chez les autres) et `npm run coverage` les fait tous
+# tourner : n'en ignorer qu'un laisse 41 fichiers de rapport entrer dans le
+# dépôt. Un rapport est une PHOTO, il se refabrique.
 .coverage/
+coverage/
 
 # Fichiers d'environnement — Convention B (Vite/Next).
 #   Committés (défauts NON-secrets) : .env, .env.<env>, .env.example

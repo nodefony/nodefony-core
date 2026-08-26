@@ -20,6 +20,18 @@
 
 ---
 
+## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
+
+- **Importer `test-all.ts` pour une seule fonction relançait l'infra, le build et la batterie
+  entière.** Un script n'est pas une bibliothèque : son corps s'exécute à l'import. Ce qu'on veut
+  partager se SORT du script d'abord (`scripts/lib/docker.ts`), sinon « réutiliser » veut dire
+  « relancer ». Le symptôme était visible — `npm run coverage` affichait la bannière de la batterie
+  de tests — mais il aurait pu ne pas l'être. [1× — 08-26]
+- **Poser la variable d'un service ABSENT ne rend pas les tests skippés : elle les fait ÉCHOUER.**
+  `NF_LOKI_TEST_URL` posée sans Loki → 4 tests du cœur rouges, module entier sans rapport, et le
+  rouge imputé au produit. Un banc qui n'a personne au bout de son URL ne se tait pas, il tombe.
+  Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
+
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
 - [1× — 08-23d] **`savepoint()` est un NO-OP chez Mongoose** (MongoDB n'a pas de
@@ -169,6 +181,18 @@
 - **Le verdict du gate se prend depuis SA cible** : il formate avec `cwd: dest` (le dossier de l'app générée). Reproduire la mesure ailleurs — même config, même version — rend un autre résultat, et on croit le sien. [1× — 08-25]
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
+
+- **Un kit de mémoire m'a envoyé refaire une tâche finie depuis dix jours.** « Publier
+  docs/performance — dossier exhaustif PRÊT » : les dix pages étaient écrites, commitées et
+  publiées sous `/performance/`, et les neuf rapports HTML qu'il citait avaient disparu de `tmp/`
+  (ce sont des photos). **Un kit n'est pas le terrain** — `ls` + `git log -- <dossier>` avant de
+  suivre un plan de mémoire. [1× — 08-26]
+- **Deux lignes du MÊME dashboard se contredisaient** : « RSS en PLATEAU ~244 MB » d'un côté,
+  « AUCUN plateau » de l'autre. Personne ne lit un fichier de 900 lignes d'un bout à l'autre, donc
+  la contradiction survit. Elle ne se voit qu'en cherchant le même FAIT à deux endroits. [1× — 08-26]
+- **Mon propre outil renvoyait vers une section inexistante.** `npm run coverage` finissait par
+  « Détail : docs/guides/integration-continue.md » — la page ne parlait pas de couverture. Un
+  renvoi mort envoie chercher une explication qui n'existe pas : pire qu'aucun renvoi. [1× — 08-26]
 
 - **Mon commentaire donnait un exemple d'attaque que je n'ai pas su reproduire.** J'avais écrit
   que `<<a>script>` redevient une balise après une passe ; testé, c'est faux. Ce qui protège
@@ -337,6 +361,13 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **Le premier instrument qui ACQUITTE à tort — pire que ceux qui accusent.** Le soak s'est
+  arrêté à la 37ᵉ fenêtre d'un run de 180, est resté DEUX HEURES pendu, puis a rendu
+  `verdict: "clean"`, exit 0. Son garde-fou de durée comparait à un plancher ABSOLU (10 min) et
+  jamais à la durée DEMANDÉE : 15,7 min franchissaient le plancher. Un faux vert FERME la question
+  au lieu de la poser — la traque RSS s'arrêtait là. `tronque` prime désormais sur tout, exit 2.
+  [1× — 08-26]
 
 - **`expect(...).toBeTruthy` sans les parenthèses ne s'exécute jamais.** Écrit dans MON test du
   jour ; il passait, évidemment. Une assertion qui n'appelle pas son matcher est une expression
@@ -612,6 +643,18 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- **Mon débranchement n'a RIEN débranché, et l'a écrit quand même.** `pkill -f "bin/nodefony
+production"` ne tuait rien (Nodefony renomme ses process) et mon `;` au lieu d'un `&&` imprimait
+  « serveur tué » de toute façon. Le gate est passé au vert sans avoir été éprouvé. Refait en tuant
+  par le PORT, avec la mort CONSTATÉE après coup : 3 tests sont tombés. [1× — 08-26]
+- **`timeout` n'existe pas sur macOS → code 127 lu comme « la commande n'existe pas ».** J'ai
+  failli conclure que `nodefony inspect/check/env` étaient absents, alors que c'est mon préfixe qui
+  manquait. Un 127 accuse toujours le PREMIER mot de la ligne. [1× — 08-26]
+- **Un pathspec `dossier/**/*.mjs` ne matche PAS la racine du dossier** : mon comptage rendait 4
+  scripts là où `git ls-files` du dossier en voit 44. Dans un outil dont le seul rôle est de dire
+  « ce chiffre ne dit pas tout », un comptage faux est l'ironie maximale. Recroisé zone par zone
+  avant de livrer. [1× — 08-26]
 
 - [1× — 08-25] **J'ai édité un script bash PENDANT son exécution.** Bash lit le fichier au fur et à
   mesure, à l'OFFSET D'OCTETS : mon insertion a décalé la suite, et l'interpréteur est tombé au
