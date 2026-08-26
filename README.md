@@ -182,8 +182,9 @@ où l'application ne se rend pas assez évidente. C'est exactement à ça qu'il 
 
 </details>
 
-Aucun framework backend Node n'offre aujourd'hui d'équivalent officiel. C'est un espace vide, et
-c'est délibérément là que Nodefony se place.
+Ce que Nodefony revendique n'est pas d'écrire un `AGENTS.md` — n'importe quel projet peut le
+faire — mais de traiter la découvrabilité comme une propriété **mesurée** : le banc ci-dessus est
+rejouable, et ses échecs sont publics. C'est cette place-là que le framework occupe délibérément.
 
 ## Démarrage
 
