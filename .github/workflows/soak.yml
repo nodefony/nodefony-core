@@ -96,25 +96,39 @@ jobs:
   soak:
     name: Charge continue et RSS (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # POURQUOI DEUX SYSTÈMES ET PAS TROIS
+    # POURQUOI UN SEUL SYSTÈME ICI — les deux absences sont ÉNONCÉES
     #
     # Linux PARCE QUE c'est la plateforme des pods : le modèle de production du
     # framework est un process par conteneur, et c'est le RSS d'un pod Linux
     # qu'un orchestrateur surveille et sur lequel il tue. Si le RSS est plat ici,
     # la piste de l'allocateur macOS monte en tête et l'urgence produit tombe.
     #
-    # macOS PARCE QUE c'est là que le fait a été mesuré, deux fois : sans ce
-    # témoin, un Linux plat ne dirait pas si le défaut est propre à la plateforme
-    # ou propre au POSTE de mesure.
+    # macOS RETIRÉ DE LA FORGE, et ce n'est pas la plateforme qu'on récuse : le
+    # fait y a été mesuré deux fois, et ce banc l'a lui-même mesuré ici tant que
+    # sa garde de charge n'existait pas (9 000 rps, 60 fenêtres pleines). Depuis
+    # que la garde est là, l'exécuteur macOS hébergé ne repasse JAMAIS sous le
+    # seuil : 21,72 puis 18,41 de charge sur 3 cœurs, APRÈS les 180 s d'attente
+    # de retombée qui suffisent à Linux. Huit exécutions, zéro mesure — la charge
+    # héritée du `npm ci` et du build ne redescend pas dans le temps imparti sur
+    # une machine à 3 cœurs partagée. Un témoin qui ne témoigne plus n'est pas un
+    # témoin : il ne produit qu'un rouge permanent qui apprend à ignorer le banc.
+    # Le témoin macOS se rejoue donc SUR LE POSTE, où la machine est maîtrisée et
+    # où le fait a été constaté :
+    #
+    #   node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 30
+    #
+    # Relâcher le seuil serait l'autre issue, et c'est la mauvaise : le banc
+    # rendrait alors un chiffre pris sur une machine occupée, c'est-à-dire une
+    # AUTRE mesure présentée comme la sienne.
     #
     # Windows NON : aucun pod Nodefony n'y tourne, et `wrk` n'y existe pas. Le
     # remplacer par un autre générateur changerait l'instrument — donc rendrait
-    # les trois chiffres incomparables, ce qui est exactement ce que ce banc
-    # cherche à éviter. L'absence est ÉNONCÉE, elle n'est pas un oubli.
+    # les chiffres incomparables, ce qui est exactement ce que ce banc cherche à
+    # éviter.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     timeout-minutes: 60
 
     steps:
@@ -148,11 +162,6 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: sudo apt-get update -qq && sudo apt-get install -y wrk
-
-      - name: Install wrk (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: brew install wrk
 
       # `soak.mjs` lance LUI-MÊME son serveur : mode production, `--expose-gc`,
       # modules de développement ouverts le temps du banc (les routes visées y
