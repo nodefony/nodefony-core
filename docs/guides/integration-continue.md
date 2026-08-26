@@ -305,6 +305,46 @@ fuit quelle que soit la charge.
 
 ---
 
+## 6 bis. La couverture — pourquoi ce nombre ne se lit pas comme une note
+
+`npm run coverage` rejoue la couverture des seize modules qui en déclarent une.
+Le pourcentage qui en sort est **utile pour repérer un module délaissé**, et
+trompeur pour à peu près tout le reste. Trois raisons, que la commande affiche
+elle-même en fin de passe plutôt que de les laisser à ce guide.
+
+### Le taux est SURESTIMÉ par les suites qui n'éprouvent pas une fonction
+
+Sur 573 fichiers de test, **24 sont des suites d'attaque** et 7 des bancs de
+charge. Une suite d'attaque prouve qu'une intrusion **échoue** : elle traverse le
+code — donc elle fait monter le taux — sans rien dire du chemin nominal, qui peut
+rester entièrement non éprouvé derrière des lignes comptées « couvertes ». Un
+banc de charge, lui, parcourt le pipeline des milliers de fois sans affirmer sa
+correction : du volume, pas de la preuve. Seul un test unitaire vérifie un
+contrat, et lui seul autorise à lire « couvert » comme « éprouvé ».
+
+### Le taux est SOUS-ESTIMÉ par tout ce qui vit hors des modules
+
+**136 scripts de banc** éprouvent le produit sans peser un gramme dans le
+pourcentage : 47 pour la charge, la rupture et les preuves e2e sans navigateur,
+56 pour les épreuves du scaffold, 12 pour le multi-pods, 21 d'outillage. Ils
+lancent de vrais serveurs, de vraies bases, parfois de vrais agents. Un taux ne
+connaît que les suites vitest d'un module ; ceux-là n'y sont pas.
+
+### Un skip compte comme un succès, et ressort comme non couvert
+
+C'est la règle n°1 de ce guide appliquée à la couverture. `npm run coverage` pose
+donc le décor depuis `vitest.gates.ts` — mais **uniquement pour les services dont
+le conteneur est sain**. Poser l'URL d'un service absent ne rend pas les suites
+silencieuses : elle les fait **échouer**, et le rouge est alors imputé au produit.
+La commande nomme en tête de passe les services absents et les variables qu'elle
+n'a donc pas posées.
+
+**Ce qu'on en fait** : lire les taux les uns à côté des autres pour repérer un
+module qui décroche, jamais comme une note de qualité, et jamais entre deux
+modules dont les suites n'ont pas la même nature. Le dépôt ne pose aucun plancher
+de couverture, et la commande n'échoue que si un module sort en erreur — fixer un
+seuil serait une décision de projet, pas un effet de bord d'un outil de mesure.
+
 ## 7. Ajouter une cible, une preuve, un workflow
 
 1. **Une nouvelle cible d'infra** → une `EnvGate` dans `vitest.gates.ts`. Ses
