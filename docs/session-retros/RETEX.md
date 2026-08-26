@@ -182,11 +182,15 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
-- **Un kit de mémoire m'a envoyé refaire une tâche finie depuis dix jours.** « Publier
-  docs/performance — dossier exhaustif PRÊT » : les dix pages étaient écrites, commitées et
-  publiées sous `/performance/`, et les neuf rapports HTML qu'il citait avaient disparu de `tmp/`
-  (ce sont des photos). **Un kit n'est pas le terrain** — `ls` + `git log -- <dossier>` avant de
-  suivre un plan de mémoire. [1× — 08-26]
+- **Une mémoire m'a envoyé refaire une tâche déjà faite.** [2× — 08-27] (a) Un kit : « Publier
+  docs/performance — dossier exhaustif PRÊT », alors que les dix pages étaient écrites, commitées
+  et publiées sous `/performance/` depuis dix jours. (b) Un `_state` au RESUME : « PROCHAINE =
+  merger `claude-ts` sur `main` » — `main`, `claude-ts` et `origin/main` pointaient déjà le MÊME
+  commit, zéro écart ; restitué tel quel au user, qui a dû corriger. **Le garde-fou anti-`_state`
+  périmé du skill `nodefony-session` ne couvre PAS ce cas** : il vérifie que le dernier commit
+  figure bien dans `## Fait`, jamais que la PROCHAINE ÉTAPE reste à faire. **Un plan de mémoire
+  n'est pas le terrain** — avant de restituer une prochaine étape, l'éprouver d'une commande
+  (`git rev-parse main claude-ts`, `ls`, `git log -- <dossier>`).
 - **Deux lignes du MÊME dashboard se contredisaient** : « RSS en PLATEAU ~244 MB » d'un côté,
   « AUCUN plateau » de l'autre. Personne ne lit un fichier de 900 lignes d'un bout à l'autre, donc
   la contradiction survit. Elle ne se voit qu'en cherchant le même FAIT à deux endroits. [1× — 08-26]
