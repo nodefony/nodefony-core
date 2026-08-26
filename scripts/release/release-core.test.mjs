@@ -19,6 +19,7 @@ import {
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
+  FICHIERS_LICENCE,
   comparerVersions,
   detecterSuspects,
   fusionnerChangelog,
@@ -169,6 +170,7 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
   const BON = "github.com/org/depot";
   const ok = {
     nom: "@x/a",
+    location: "src/a",
     pkg: {
       repository: {
         type: "git",
@@ -177,6 +179,7 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
       },
       publishConfig: { access: "public" },
       files: ["dist"],
+      license: "CECILL-B",
     },
   };
   const audit = (paquets, existe = () => true) =>
@@ -184,6 +187,49 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
 
   it("laisse passer un paquet conforme", () => {
     expect(audit([ok]).bloquants).toEqual([]);
+  });
+
+  // ── La licence doit VOYAGER : le champ ET le texte ──────────────────────
+  // Le défaut réel qui a motivé cette garde : quinze paquets déclaraient
+  // `license` (ou pas) sans qu'aucun tarball ne porte le texte, le seul fichier
+  // du dépôt vivant à la racine du monorepo — hors de tout paquet.
+  it("bloque un paquet sans champ `license`", () => {
+    const { license: _license, ...sansLicence } = ok.pkg;
+    const r = audit([{ ...ok, pkg: sansLicence }]);
+    expect(r.bloquants.join()).toMatch(/champ `license` absent/);
+  });
+
+  it("bloque un paquet dont le dossier ne porte AUCUN texte de licence", () => {
+    const r = audit([ok], () => false);
+    expect(r.bloquants.join()).toMatch(/aucun texte de licence dans le paquet/);
+  });
+
+  it("accepte n'importe lequel des noms que npm inclut d'office", () => {
+    for (const nom of FICHIERS_LICENCE) {
+      // `src/a` doit exister aussi : c'est le `repository.directory` déclaré,
+      // gardé par la même injection.
+      const r = audit(
+        [ok],
+        (chemin) => chemin === "src/a" || chemin === `src/a/${nom}`,
+      );
+      expect(r.bloquants).toEqual([]);
+    }
+  });
+
+  it("refuse un fichier de licence au nom que npm n'inclut PAS d'office", () => {
+    // `COPYING` est un nom courant côté GNU — npm ne le connaît pas, et le
+    // fichier ne partirait dans le tarball que s'il figurait dans `files`.
+    const r = audit([ok], (chemin) => chemin === "src/a/COPYING");
+    expect(r.bloquants.join()).toMatch(/aucun texte de licence/);
+  });
+
+  it("AVERTIT sans bloquer quand `location` n'est pas fournie — on ne conclut pas au vert sur ce qu'on ne peut pas voir", () => {
+    const { location: _location, ...sansLocation } = ok;
+    const r = audit([sansLocation]);
+    expect(r.bloquants).toEqual([]);
+    expect(r.avertissements.join()).toMatch(
+      /`location` non fournie.*NON vérifiée/,
+    );
   });
 
   it("bloque un repository absent, vide, ou objet vide", () => {
@@ -225,7 +271,15 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
       ...ok,
       pkg: { ...ok.pkg, repository: { url: `git+https://${BON}.git` } },
     };
-    expect(audit([sansDir], () => false).bloquants).toEqual([]);
+    // `existe` est l'injection COMMUNE à plusieurs gardes : un `() => false`
+    // global fait aussi manquer le texte de licence, ce qui est correct et sans
+    // rapport. L'assertion porte donc sur ce que ce cas éprouve, et sur lui
+    // seul — sinon elle échouerait pour un motif qu'elle ne teste pas.
+    expect(
+      audit([sansDir], () => false).bloquants.filter((b) =>
+        b.includes("directory"),
+      ),
+    ).toEqual([]);
   });
 
   it("bloque un paquet SCOPÉ sans publishConfig.access public", () => {

@@ -146,6 +146,20 @@ export function ordreTopologique(paquets) {
  *        l'appelant, ce qui rend l'audit éprouvable sans toucher au disque.
  * @returns {{bloquants: string[], avertissements: string[]}}
  */
+/**
+ * Noms sous lesquels npm inclut d'office un fichier de licence à la racine d'un
+ * paquet. La liste est celle du registre, pas une préférence : un fichier nommé
+ * autrement ne voyagerait que s'il figure dans `files`.
+ */
+export const FICHIERS_LICENCE = [
+  "LICENSE",
+  "LICENSE.txt",
+  "LICENSE.md",
+  "LICENCE",
+  "LICENCE.txt",
+  "LICENCE.md",
+];
+
 export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
   const bloquants = [];
   const avertissements = [];
@@ -194,6 +208,40 @@ export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
     if (!Array.isArray(p.pkg.files) || p.pkg.files.length === 0) {
       bloquants.push(
         `${p.nom} : \`files\` absent — le tarball emporterait tout le dossier`,
+      );
+    }
+
+    // ── La LICENCE doit VOYAGER dans le tarball ────────────────────────────
+    //
+    // Un dépôt monolithique a UN fichier de licence, à sa racine — et npm
+    // n'inclut d'office que les fichiers de licence posés à la racine du
+    // PAQUET. Les deux ne sont pas au même endroit, et rien ne le signale :
+    // mesuré sur l'artefact reçu, le tarball `@nodefony/http@10.0.0` porte
+    // 154 fichiers et ZÉRO licence, tout en déclarant `license: "CECILL-B"`.
+    // Les licences libres — CeCILL-B comme MIT ou BSD — exigent que leur texte
+    // accompagne la distribution : le paquet publié ne remplit donc pas la
+    // condition sous laquelle il autorise sa propre réutilisation.
+    //
+    // Le champ SEUL ne suffit pas, et le fichier SEUL non plus : npmjs.com
+    // affiche « UNLICENSED » sans le champ — ce qui suffit à faire refuser une
+    // dépendance par l'inventaire de conformité d'une entreprise — et un champ
+    // sans texte laisse l'installeur sans les termes qu'il est censé accepter.
+    if (!p.pkg.license) {
+      bloquants.push(
+        `${p.nom} : champ \`license\` absent — npmjs.com affichera « UNLICENSED »`,
+      );
+    }
+    // `location` peut manquer chez un appelant qui ne le fournit pas : on
+    // CONSTATE alors qu'on ne peut pas vérifier, au lieu de conclure au vert.
+    if (p.location === undefined) {
+      avertissements.push(
+        `${p.nom} : \`location\` non fournie — présence du texte de licence NON vérifiée`,
+      );
+    } else if (!FICHIERS_LICENCE.some((f) => existe(`${p.location}/${f}`))) {
+      bloquants.push(
+        `${p.nom} : aucun texte de licence dans le paquet` +
+          ` (attendu ${FICHIERS_LICENCE.join(" ou ")} dans ${p.location})` +
+          ` — le tarball déclarerait « ${p.pkg.license ?? "?"} » sans en fournir les termes`,
       );
     }
 

@@ -51,7 +51,7 @@
     "tsx": "4.23.12",
     "vitest": "4.1.11"
   },
-  "license": "",
+  "license": "CECILL-B",
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {

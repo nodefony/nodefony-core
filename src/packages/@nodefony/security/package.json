@@ -49,7 +49,7 @@
     "rimraf": "6.1.3",
     "vitest": "4.1.11"
   },
-  "license": "",
+  "license": "CECILL-B",
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {

@@ -67,6 +67,11 @@ const workspaces = JSON.parse(
 const audit = auditerMetadonnees(
   workspaces.map((w) => ({
     nom: w.name,
+    // `location` n'est pas décoratif : sans elle, la garde qui vérifie que le
+    // texte de licence VOYAGE dans le tarball n'a aucun chemin où regarder et
+    // ne peut que se déclarer aveugle. Un gate posé chez un seul appelant ne
+    // garde que celui-là — et c'est le pack qui fabrique l'artefact.
+    location: w.location,
     pkg: JSON.parse(
       readFileSync(path.join(ROOT, w.location, "package.json"), "utf8"),
     ),
