@@ -31,6 +31,12 @@
   l'idempotence** qu'il prétendait éprouver : Mongoose dédoublonne en amont (son
   `readyState` n'émet que sur changement). Le débranchement est le SEUL révélateur ; sans
   lui, on publie un test complaisant en croyant avoir prouvé.
+- **J'ai pollué ma propre mesure en travaillant pendant qu'elle courait.** Soak de 90 min annoncé
+  « poste inutilisable » — puis j'ai commité, poussé, régénéré des fiches et interrogé la forge
+  pendant les mesures. Le banc l'a relevé tout seul : « charge montée à 8,05 (départ 1,65) — un
+  tiers a travaillé pendant la mesure ». Un décor partagé **ne dégrade pas** une mesure : il en
+  change l'objet. Ce qui survit malgré tout (un heap plat ne se fabrique pas par pollution CPU) se
+  garde ; le chiffre de pente, lui, se rejoue. [1× — 08-26]
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
@@ -97,6 +103,17 @@
   parties, c'est s'engager à recompter N à la livraison. `[1× — 08-24]`
 - **Le banc nommait DEUX contournements dans son propre code, le produit n'en désamorçait qu'un.** Tâche 18 : le rôle recopié au semis est averti en toutes lettres dans le skill ; la liste de rôles sur l'action — celle que l'agent écrit réellement — ne l'était nulle part. Le gabarit MONTRE en plus la forme fautive, et elle fonctionne sur la route mesurée. Quand un code de banc énumère les façons de contourner, chacune est une ligne de doc à écrire. [1× — 08-25]
 - **La règle existait, un cran plus bas.** La puce voisine du même fichier disait déjà « jamais la liste des routes du jour ; énumérer marche à l'essai, passe la revue, et laisse la route sœur NAÎTRE PUBLIQUE ». Écrite pour les routes, jamais pour les rôles. Chercher la convention-frère AVANT d'écrire une règle neuve. [1× — 08-25]
+- **J'ai corrigé sur une cause PLAUSIBLE que je n'avais pas prouvée, et commité l'explication.**
+  Un smoke rouge dont le message cherché figurait dans le diagnostic imprimé deux lignes plus bas :
+  j'ai conclu « course de propagation de `docker logs` », ajouté une attente bornée, commité. Le
+  rejeu suivant est retombé rouge — le message était là depuis dix secondes. La vraie cause était
+  mécanique (`grep -q` sous `pipefail`). **Un rejeu VERT ne confirme pas une hypothèse : il ne fait
+  que ne pas la contredire.** Le commit suivant a dû corriger le précédent. [1× — 08-26]
+- **Le hook ne lançait qu'UNE des trois gardes que la forge lance.** `npm run skills:check` en
+  compte trois ; le pre-commit n'avait branché que la première. Un script de skill orphelin passait
+  donc en local pour se faire refuser vingt minutes plus tard en CI — l'aller-retour que ce hook
+  existe pour supprimer. Coût de l'ensemble mesuré : **une seconde**. Il n'y avait aucun argument à
+  l'asymétrie, seulement l'habitude d'avoir branché la première. [1× — 08-26]
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
@@ -168,6 +185,14 @@
   conteneur pour regarder une page locale, puis conclu à tort qu'un navigateur piloté était en
   panne (certificat de développement refusé). Ce que la doc MONTRE pèse plus que ce qu'elle dit.
   [1× — 08-22h]
+- **Une doc périmée est lue comme la vérité par un tiers — et nous coûte plus que le défaut
+  qu'elle décrit mal.** Un audit externe du dépôt a noté la sécurité 8/10 et l'a déclarée « pas
+  terminée » : il avait lu le README de `@nodefony/security`, qui annonçait comme RESTANT deux
+  briques livrées et câblées en production (voters d'autorisation, `@CsrfProtect`). Nous nous
+  étions sous-notés nous-mêmes, dans une page publique. Deux autres du même lot : « TypeScript
+  strict, zéro `any` » (3 casts + 128 `...args: any[]` en réalité) et un `MEMORY.md` de module qui
+  contredisait le tableau de migration sur le RBAC. **Une promesse invérifiable se remplace par une
+  promesse vérifiable** — « zéro `@ts-ignore` » se contrôle d'un `rg`, « zéro any » non. [1× — 08-26]
 
 ## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
 
@@ -440,6 +465,22 @@
   `NF_MCP_TOKEN` dans `.env` » le lendemain du jour où ce comportement avait été retiré. Un message
   qui envoie chercher un secret dans un fichier qui ne le porte pas, c'est le diagnostic d'une heure
   qu'on vient de payer, offert au suivant. `[1× — 08-22]`
+- **Un compteur de ressources comparait deux instantanés pris dans des RÉGIMES différents.** Le
+  banc de durée a rendu « handles 21 → 73 (+52) · TCPSocketWrap +48 » suivi de « des ressources
+  s'accumulent : c'est un défaut PRODUIT » — de quoi chercher une fuite de sockets pendant des
+  heures. Les handles OSCILLAIENT (6, 72, 5, 73, 29, 72, 73) : une fenêtre tombe tantôt pendant une
+  rafale `wrk` (c64 ⇒ ~66 sockets vivantes), tantôt entre deux. Le PLANCHER, lui, valait 5 au début
+  comme à la fin. **Ce qui se compare, c'est l'état au repos — jamais deux relevés dont on ignore
+  le régime.** [1× — 08-26]
+- **`grep -q` sous `set -o pipefail` transforme un SUCCÈS en échec.** `grep -q` ferme le pipe dès
+  qu'il trouve ; l'amont meurt en SIGPIPE (141) et le pipeline REND 141. Et seulement si l'amont
+  avait encore de quoi écrire — donc de façon non déterministe : le même scénario de smoke, sans
+  qu'une ligne ne change, vert ou rouge. Démontré nu : `seq 1 10000000 | grep -q "^1$"` → 141,
+  `seq 1 3 | grep -q "^1$"` → 0. Le remède ne rustine pas un site : `case "$texte" in *"$motif"*)`
+  ne crée aucun pipe. [1× — 08-26]
+- **`$?` lu après un pipe est celui du DERNIER maillon** — relu deux fois dans la même soirée (un
+  banc jugé « exit 0 » alors qu'il sortait 1, un commit cru accepté alors que le hook l'avait
+  refusé). Capturer dans un fichier, PUIS lire le code sans pipe. [2× — 08-26]
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
