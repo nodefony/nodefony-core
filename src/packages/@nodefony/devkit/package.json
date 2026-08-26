@@ -19,7 +19,8 @@
   "scripts": {
     "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
   },
   "peerDependencies": {
     "@nodefony/framework": "*",

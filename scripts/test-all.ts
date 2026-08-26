@@ -46,6 +46,7 @@ import { besoinDeShell } from "nodefony";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { containerHealthy } from "./lib/docker.ts";
 import {
   PG_GATE,
   MYSQL_GATE,
@@ -122,22 +123,6 @@ interface InfraState {
 }
 
 /** Le conteneur `name` est-il en marche ET sain (ou sans sonde de santé) ? */
-function containerHealthy(name: string): boolean {
-  const res = spawnSync(
-    "docker",
-    [
-      "inspect",
-      "-f",
-      "{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
-      `nodefony-${name}`,
-    ],
-    { encoding: "utf8" },
-  );
-  if (res.status !== 0) return false;
-  const [running, health] = res.stdout.trim().split(" ");
-  if (running !== "true") return false;
-  return health === "healthy" || health === "none";
-}
 
 function dockerAvailable(): boolean {
   return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0;

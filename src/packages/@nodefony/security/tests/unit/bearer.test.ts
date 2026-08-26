@@ -155,7 +155,15 @@ describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {
         `(${meilleur.simple.toFixed(3)} ms → ${meilleur.double.toFixed(3)} ms) — ` +
         `linéaire ≈ 2, quadratique ≈ 4`,
     ).to.be.below(3);
-  });
+    // Le délai d'EXÉCUTION de ce cas — pas une assertion de vitesse. Les deux
+    // gardes réelles restent inchangées : terminaison sous 50 ms, ratio sous 3.
+    // Motif : sous instrumentation de couverture, ce fichier tourne en parallèle
+    // de 74 autres et le temps MURAL du cas entier dépasse les 5 s par défaut.
+    // Constaté : vert seul avec couverture (6/6), vert en suite sans couverture
+    // (1034 tests), rouge seulement à l'intersection des deux. Élargir ce délai
+    // n'affaiblit donc aucun seuil — il empêche un verdict qui ne portait pas
+    // sur le motif mais sur l'ordonnanceur.
+  }, 30_000);
 
   it("un jeton légitime précédé de beaucoup d'espaces sort quand même", () => {
     const padded = `Bearer ${" ".repeat(50_000)}abc.def.ghi`;

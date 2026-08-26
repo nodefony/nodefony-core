@@ -29,6 +29,7 @@
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npx nodefony check",
     "posttest": "node -e \"console.log('\\n\\x1b[33m⚠  npm test = suites unitaires seules — ni serveur, ni base.\\n   Image complète (infra + intégration) : \\x1b[1mnpm run test:all\\x1b[0m\\x1b[33m\\x1b[0m\\n')\"",
     "test:all": "tsx scripts/test-all.ts",
+    "coverage": "tsx scripts/coverage-all.ts",
     "test:integration": "turbo run build && turbo run test:integration --continue",
     "test:load": "turbo run build && turbo run test:load",
     "test:memory": "turbo run build && turbo run test:memory",
