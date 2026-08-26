@@ -146,6 +146,36 @@ if (wrkProbe.error?.code === "ENOENT") {
 const COEURS = os.availableParallelism?.() ?? os.cpus().length;
 const SEUIL_CHARGE = COEURS * 0.5;
 
+// ── Le décor VIRTUALISÉ, CONSTATÉ (axiome 4 : une capacité ne se déduit pas) ──
+//
+// `loadavg` ne voit pas une machine virtuelle : un hyperviseur qui réserve 8 des
+// 12 cœurs laisse une charge basse, et le banc part sereinement sur une machine
+// dont il ignore qu'elle est partagée. Le dépôt a déjà payé cette cécité ailleurs
+// — facteur 3,7 sur le seul chemin virtualisé de Docker Desktop, sur macOS.
+//
+// ⚠️ Ce champ ne DÉSIGNE aucun coupable, et ne doit pas servir à en désigner un :
+// deux runs de ce banc pris sur cette machine, hyperviseur allumé dans les DEUX
+// cas, ont rendu 7 048 et 10 971 rps. La virtualisation n'expliquait donc pas cet
+// écart-là. Ce qu'on grave ici est un ÉLÉMENT DE DÉCOR, pas une cause : il permet
+// de savoir si deux runs sont comparables, jamais de conclure pourquoi ils
+// diffèrent.
+const VCPU_VIRTUALISES = (() => {
+  const r = spawnSync("docker", ["info", "--format", "{{.NCPU}}"], {
+    encoding: "utf8",
+    timeout: 4000,
+  });
+  const n = Number((r.stdout ?? "").trim());
+  return Number.isFinite(n) && n > 0 ? n : null;
+})();
+if (VCPU_VIRTUALISES) {
+  console.log(
+    `⚠ hyperviseur ACTIF — ${VCPU_VIRTUALISES} vCPU réservés sur ${COEURS} cœurs.\n` +
+      `  La charge moyenne ne le voit pas, le débit si : les ABSOLUS de ce run ne se\n` +
+      `  comparent qu'à d'autres runs pris dans le même décor. Pour un chiffre\n` +
+      `  transposable, arrêter la machine virtuelle (Docker Desktop, Colima, VM).`,
+  );
+}
+
 // `--attendre-charge <s>` : ATTENDRE la retombée au lieu de refuser tout de
 // suite. C'est le conseil que ce message donne déjà à un humain — sur un
 // exécuteur d'intégration, personne n'est là pour le suivre.
@@ -281,13 +311,61 @@ console.log(
 );
 
 // ── 4. charge continue + échantillonnage ──────────────────────────────────
+//
+// 🔴 RIEN DANS CETTE BOUCLE N'EST SANS BORNE DE TEMPS. Vécu, et cher : un run
+// de 90 min s'est arrêté à la 37ᵉ fenêtre, puis le script est resté DEUX HEURES
+// pendu avant de rendre son verdict (dernière mesure à atSec=1090, fichier écrit
+// 2 h 19 après le lancement). Ni `spawnSync` ni `fetch` n'ont de délai par
+// défaut : un générateur coincé sur des sockets en attente, ou un serveur dont
+// la boucle d'événements est figée, immobilisent le banc — et le poste avec lui.
+// Un banc qui n'avance plus doit ABANDONNER en le disant, jamais attendre.
+const WRK_TIMEOUT_MS = (WINDOW + 30) * 1000; // la fenêtre, plus une marge franche
+const SONDE_TIMEOUT_MS = 10_000;
+const SONDE_ESSAIS = 3;
+
+/**
+ * Interroge la sonde mémoire, avec délai et réessais — et RETIENT l'erreur.
+ *
+ * L'ancienne version faisait `.catch(() => null)` : un hoquet unique tuait le
+ * run (74 min perdues sur 90), et l'on ne savait même pas LEQUEL — serveur mort
+ * (ECONNREFUSED), boucle figée (délai dépassé) ou réponse illisible se
+ * présentaient tous comme le même `null` muet. Une sonde qui abandonne doit dire
+ * de quoi elle est morte, sinon le diagnostic recommence à zéro le lendemain.
+ */
+async function sonder() {
+  let derniere = null;
+  for (let essai = 1; essai <= SONDE_ESSAIS; essai++) {
+    try {
+      const r = await fetch(PROBE, {
+        signal: AbortSignal.timeout(SONDE_TIMEOUT_MS),
+      });
+      if (!r.ok) {
+        derniere = `HTTP ${r.status}`;
+        continue;
+      }
+      return { mem: await r.json(), erreur: null };
+    } catch (e) {
+      derniere =
+        e?.name === "TimeoutError"
+          ? `pas de réponse en ${SONDE_TIMEOUT_MS / 1000}s (boucle d'événements figée ?)`
+          : (e?.cause?.code ?? e?.code ?? e?.name ?? String(e));
+    }
+    if (essai < SONDE_ESSAIS) await sleep(2000);
+  }
+  return { mem: null, erreur: derniere };
+}
+
 const samples = [];
 const t0 = Date.now();
 for (let w = 1; w <= WINDOWS; w++) {
   const out = spawnSync(
     "wrk",
     [`-t${THREADS}`, `-c${CONN}`, `-d${WINDOW}s`, "--latency", URL],
-    { encoding: "utf8" },
+    {
+      encoding: "utf8",
+      timeout: WRK_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    },
   );
   const txt = out.stdout || "";
   const rps = Number(/Requests\/sec:\s+([\d.]+)/.exec(txt)?.[1] ?? 0);
@@ -299,11 +377,13 @@ for (let w = 1; w <= WINDOWS; w++) {
       : parseFloat(p99raw) * 1000;
   const bad = /Non-2xx or 3xx responses|Socket errors/.test(txt);
 
-  const mem = await fetch(PROBE)
-    .then((r) => r.json())
-    .catch(() => null);
+  const { mem, erreur: erreurSonde } = await sonder();
   if (!mem) {
-    console.error(`  fenêtre ${w}: sonde mémoire muette — arrêt.`);
+    console.error(
+      `  fenêtre ${w}/${WINDOWS}: sonde mémoire muette après ${SONDE_ESSAIS} essais` +
+        ` — ${erreurSonde}. Arrêt à ${Math.round((Date.now() - t0) / 60000)} min` +
+        ` sur ${MINUTES} demandées.`,
+    );
     break;
   }
   const s = {
@@ -442,12 +522,40 @@ const amplitude = Math.abs(
   kept[kept.length - 1].heapUsedMb - kept[0].heapUsedMb,
 );
 const tooShort = observedMin < MIN_MINUTES;
+
+// ── 🔴 A-T-ON MESURÉ CE QU'ON A DEMANDÉ ? ──────────────────────────────────
+//
+// `tooShort` compare la durée observée à un plancher ABSOLU (10 min) — jamais à
+// la durée DEMANDÉE. Un run de 90 min coupé à la 37ᵉ fenêtre franchissait donc
+// ce plancher avec 15,7 min et rendait `verdict: "clean"`, exit 0 : le banc
+// ACQUITTAIT le produit sur 17 % du travail commandé, sans que rien dans sa
+// sortie ni dans son JSON ne trahisse la troncature. C'est le pire des faux
+// verdicts — il ferme la question au lieu de la poser, et un rapport, la forge
+// ou le prochain lecteur y liront « pas de fuite ».
+//
+// Une fuite lente se cherche par la DURÉE : un run tronqué ne rend pas une
+// mesure « un peu plus courte », il rend une mesure qui ne répond plus à la
+// question posée (palier ou hausse sans fin ?). Il se déclare INCOMPLET, et
+// sort en code ≠ 0 — règle n°1 §5 de ce skill, qu'il s'appliquait à tous sauf
+// à lui-même.
+const tronque = samples.length < WINDOWS;
+const couverturePct = (samples.length / WINDOWS) * 100;
+
 const leaking =
   !tooShort &&
   heap.perHour > 20 &&
   heap.r2 > 0.7 &&
   amplitude >= MIN_AMPLITUDE_MB;
 const degrading = drift < -10;
+if (tronque) {
+  console.log(
+    `\n  ⊘ RUN TRONQUÉ — ${samples.length} fenêtres sur ${WINDOWS} demandées` +
+      ` (${observedMin.toFixed(1)} min retenues sur ${MINUTES}, ${couverturePct.toFixed(0)} % du run).` +
+      `\n    Ce qui suit décrit ce fragment, PAS le run commandé : une fuite lente se cherche` +
+      `\n    par la durée, et le palier éventuel se situe peut-être au-delà de ce qu'on a vu.` +
+      `\n    Verdict INCOMPLET — à rejouer entier avant d'en conclure quoi que ce soit.`,
+  );
+}
 if (anyErr) {
   console.log(
     "\n  ⚠ des fenêtres RETENUES ont vu des erreurs — verdict à relativiser.",
@@ -693,10 +801,22 @@ writeFileSync(
     {
       url: URL,
       minutes: MINUTES,
+      // Ce qui a été DEMANDÉ face à ce qui a été FAIT, côte à côte : un lecteur
+      // qui ne compare pas lui-même `observedMinutes` à `minutes` ne doit pas
+      // pouvoir prendre un fragment pour le run entier.
+      windowsDemandees: WINDOWS,
+      windowsObservees: samples.length,
+      tronque,
       windowSec: WINDOW,
       conn: CONN,
       skipped: SKIP,
       node: process.version,
+      // Le décor VIRTUALISÉ, constaté et non déduit : une VM d'hyperviseur qui
+      // réserve des vCPU ne se voit PAS dans `loadavg`, et fait pourtant chuter
+      // le débit de dizaines de pour cent. Sans ce champ, deux runs de la même
+      // commande sur la même machine se comparent alors qu'ils n'ont pas le même
+      // décor — c'est arrivé, à 40 % d'écart de débit.
+      vcpuVirtualises: VCPU_VIRTUALISES,
       samples,
       heapSlopeMbPerHour: +heap.perHour.toFixed(2),
       heapR2: +heap.r2.toFixed(3),
@@ -730,10 +850,24 @@ writeFileSync(
       rssMbPerMillionReq: tooShort ? null : +rssPerMreq.toFixed(3),
       observedMinutes: +observedMin.toFixed(1),
       amplitudeMb: +amplitude.toFixed(1),
-      verdict: tooShort ? "indeterminate" : leaking ? "leak" : "clean",
+      // `tronque` PRIME sur tout le reste : on ne peut pas acquitter (ni
+      // condamner) sur un run qui n'a pas eu lieu.
+      verdict: tronque
+        ? "incomplet"
+        : tooShort
+          ? "indeterminate"
+          : leaking
+            ? "leak"
+            : "clean",
     },
     null,
     2,
   ),
 );
 console.log(`  données : ${OUT}`);
+
+// Un banc qui n'a pas fait le travail commandé ne doit pas RESSEMBLER à un banc
+// réussi — ni pour la forge, ni pour un `&&` dans un enchaînement, ni pour un
+// agent qui lit un code de sortie. (⚠️ vérifier cet exit SANS pipe : sous zsh,
+// `$?` après un pipe est celui du dernier maillon.)
+if (tronque) process.exit(2);

@@ -3376,6 +3376,10 @@
                 "help": ""
               },
               {
+                "flag": "--format",
+                "help": ""
+              },
+              {
                 "flag": "--latency",
                 "help": ""
               },
@@ -3438,6 +3442,14 @@
                 "help": ""
               },
               {
+                "name": "SONDE_ESSAIS",
+                "help": ""
+              },
+              {
+                "name": "SONDE_TIMEOUT_MS",
+                "help": ""
+              },
+              {
                 "name": "THREADS",
                 "help": ""
               },
@@ -3447,6 +3459,10 @@
               },
               {
                 "name": "URL",
+                "help": ""
+              },
+              {
+                "name": "VCPU_VIRTUALISES",
                 "help": ""
               },
               {
