@@ -4696,7 +4696,7 @@
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
         "bodyLines": 549,
-        "approxTokens": 6569
+        "approxTokens": 6579
       },
       "requires": [],
       "resources": {
@@ -5360,8 +5360,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"jalon 10.0.0\", \"on ne l'a pas déjà fait ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"est-ce le bon moment pour celui-là ?\", \"quels tickets parlent de ce que j'ai changé ?\".",
       "cost": {
-        "bodyLines": 438,
-        "approxTokens": 7582
+        "bodyLines": 462,
+        "approxTokens": 8152
       },
       "requires": [],
       "resources": {
@@ -5437,6 +5437,215 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/ticket-effort.mjs",
+            "purpose": "ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt"
+            ],
+            "options": [
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--since",
+                "help": ""
+              },
+              {
+                "flag": "--state",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "OWNER",
+                "help": ""
+              },
+              {
+                "name": "REPO",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-open.mjs",
+            "purpose": "Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title \"fix(x): …\" --body-file corps.md \\"
+            ],
+            "options": [
+              {
+                "flag": "--assignee",
+                "help": ""
+              },
+              {
+                "flag": "--backlog",
+                "help": ""
+              },
+              {
+                "flag": "--body-file",
+                "help": ""
+              },
+              {
+                "flag": "--cl",
+                "help": ""
+              },
+              {
+                "flag": "--field-id",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--id",
+                "help": ""
+              },
+              {
+                "flag": "--jours",
+                "help": ""
+              },
+              {
+                "flag": "--label",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--milestone",
+                "help": ""
+              },
+              {
+                "flag": "--number",
+                "help": ""
+              },
+              {
+                "flag": "--ordre",
+                "help": ""
+              },
+              {
+                "flag": "--owner",
+                "help": ""
+              },
+              {
+                "flag": "--parent",
+                "help": ""
+              },
+              {
+                "flag": "--priorite",
+                "help": ""
+              },
+              {
+                "flag": "--project-id",
+                "help": ""
+              },
+              {
+                "flag": "--repo",
+                "help": ""
+              },
+              {
+                "flag": "--single-select-option-id",
+                "help": ""
+              },
+              {
+                "flag": "--title",
+                "help": ""
+              },
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "OWNER",
+                "help": ""
+              },
+              {
+                "name": "REPO",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-open.test.mjs",
+            "purpose": "Suite de la dérivation d'ordre d'un sous-ticket.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-progress.mjs",
+            "purpose": "Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer.",
+            "usage": [
+              "Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)"
+            ],
+            "options": [
+              {
+                "flag": "--field-id",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--id",
+                "help": ""
+              },
+              {
+                "flag": "--owner",
+                "help": ""
+              },
+              {
+                "flag": "--project-id",
+                "help": ""
+              },
+              {
+                "flag": "--single-select-option-id",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "OWNER",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-progress.test.mjs",
+            "purpose": "Suite du marquage automatique « In Progress ».",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/ticket-verify.mjs",
             "purpose": "ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies.",
             "usage": [
@@ -5476,6 +5685,7 @@
       },
       "related": [
         "nodefony-browser",
+        "nodefony-session",
         "nodefony-start-server"
       ],
       "conformance": {
@@ -5526,7 +5736,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "438",
+            "detail": "462",
             "advisory": true
           }
         ]

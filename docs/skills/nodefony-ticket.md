@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.5.0` |
 | Famille | Autres |
-| Corps | 438 lignes |
-| Coût d'activation | ~7 582 tokens (le corps est chargé à l'invocation) |
+| Corps | 462 lignes |
+| Coût d'activation | ~8 152 tokens (le corps est chargé à l'invocation) |
 | Description | 1005 / 1024 caractères |
 | Déclencheurs | 19 |
 | Ressources `references/` | 3 page(s) |
-| Scripts | 3 |
+| Scripts | 8 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -43,7 +43,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`browser`](nodefony-browser.md) · [`start-server`](nodefony-start-server.md)
+[`browser`](nodefony-browser.md) · [`session`](nodefony-session.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 
@@ -62,6 +62,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 5. Créer, ordonner, rattacher
 - 6. Fermer un ticket — le geste est TRIPLE
 - Pièges vécus
+- Les scripts de ce skill
 - Références (chargées à la demande)
 
 ## Références (chargées à la demande)
@@ -84,6 +85,11 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
+| `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a | `--format` `--grep` `--json` `--limit` `--since` `--state` | `OWNER` `REPO` |
+| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--assignee` `--backlog` `--body-file` `--cl` `--field-id` `--format` `--id` `--jours` `--label` `--limit` `--milestone` `--number` `--ordre` `--owner` `--parent` `--priorite` `--project-id` `--repo` `--single-select-option-id` `--title` `--url` | `OWNER` `REPO` |
+| `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
+| `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
+| `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
 | `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--json` `--limit` `--name-only` `--show-toplevel` `--state` `--touched-by` | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -91,8 +97,13 @@ script, donc toujours à jour après régénération.
 ```bash
 node scripts/francise.mjs            # diff seul, n'écrit rien
 node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
+node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt
+node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
+Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
 node ticket-verify.mjs                       # ancres de tous les tickets ouverts
 ```
+
+**Toutes les variables lues par ce skill** : `OWNER` · `REPO`
 
 ## Conformité au standard Agent Skills
 
@@ -111,7 +122,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 438 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 462 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

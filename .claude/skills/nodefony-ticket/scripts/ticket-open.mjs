@@ -14,7 +14,7 @@
  * ni estimation ne se trie pas, donc ne se prend jamais.
  *
  * Usage :
- *   node scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
+ *   node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
  *     [--milestone 10.0.0] [--label irrattrapable] [--jours 0.5] \
  *     [--priorite P0|P1|P2|P3] [--parent 63] [--ordre 12.5] [--backlog]
  *

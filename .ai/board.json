@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T17:14:05.413Z",
+  "generatedAt": "2026-08-27T17:59:19.815Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 8,
+      "closed": 10,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 45,
+      "open": 43,
       "title": "10.0.0"
     }
   ],
@@ -80,8 +80,8 @@
       "number": 92,
       "title": "fix(security): corriger le refus intermittent d'une session valide au handshake",
       "url": "https://github.com/nodefony/nodefony-core/issues/92",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -124,7 +124,7 @@
       "title": "feat(orm): livrer les migrations de schéma en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/17",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 5,
@@ -423,8 +423,8 @@
       "number": 42,
       "title": "fix(client): corriger l'adresse du serveur temps réel par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/42",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -780,7 +780,7 @@
       "title": "feat(studio): porter la console d'administration sur le noyau client",
       "url": "https://github.com/nodefony/nodefony-core/issues/91",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1",
       "priorite": "P1 — figé à la création",
       "jours": 3,

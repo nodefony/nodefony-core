@@ -149,6 +149,13 @@
   Une correction qui s'arrête au fichier où le rouge est tombé laisse le défaut chez le voisin, avec
   sa propre explication écrite au-dessus. Après avoir corrigé UN cas : chercher les frères par le
   geste (`rg` sur `revoke`), pas par le module.
+- [1× — 08-27h] **Le symétrique, aussi coûteux : une correction qui couvre PLUS que son ticket, sans
+  que le ticket voisin le sache.** #42 semblait entier ; les deux tiers avaient été livrés la veille
+  par #43 (le client ne devine plus d'adresse, la doc était déjà recalée), et seul le gate manquait.
+  Sans la vérification au terrain, je reprenais un travail fait. `ticket-verify --touched-by` dit
+  quels tickets un commit rend faux, mais il n'a rien signalé — il compare des ancres, pas des
+  intentions. Réflexe : avant de prendre un ticket, RELIRE son « fini quand » ligne à ligne contre
+  le code, pas contre son résumé.
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 

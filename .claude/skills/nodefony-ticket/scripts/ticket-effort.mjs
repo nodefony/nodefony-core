@@ -22,8 +22,8 @@
  * innocenterait l'estimation qu'il est censé juger.
  *
  * Usage :
- *   node scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt
- *   node scripts/ticket-effort.mjs 41 56 55     # ceux-là seulement
+ *   node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt
+ *   node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs 41 56 55     # ceux-là seulement
  */
 import { execFileSync } from "node:child_process";
 

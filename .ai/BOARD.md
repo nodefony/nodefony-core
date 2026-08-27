@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-27 17:14** (UTC).
+> Empreinte prise le **2026-08-27 17:59** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 45 | 8 | 2026-11-15 |
+| 10.0.0 | 43 | 10 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,12 +27,11 @@ Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 45 ouverts
+## Jalon 10.0.0 — 43 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 1.6 | P0 — bloque le reste | — | #54 | feat(client): simplifier la socket cliente pour un débutant |
-| 1.7 | P1 — figé à la création | 0.5 | #92 | fix(security): corriger le refus intermittent d'une session valide au handshake |
 | 2 | P0 — bloque le reste | 5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.1 | P1 — figé à la création | 0.5 | #57 | fix(orm): refuser une option de tri mal formée au lieu de l'ignorer |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
@@ -54,7 +53,6 @@ Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
 | 8.5 | P1 — figé à la création | 0.5 | #86 | feat(mail): envoyer un courriel en ligne de commande |
 | 8.6 | P1 — figé à la création | 1 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
 | 8.7 | P1 — figé à la création | 0.5 | #88 | docs(mail): documenter la configuration et le premier envoi |
-| 9.5 | P1 — figé à la création | 0.5 | #42 | fix(client): corriger l'adresse du serveur temps réel par défaut |
 | 10 | P2 — décision | 0.5 | #26 | refactor(client)!: retirer l'appel non typé de la socket cliente |
 | 11 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 11.5 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |

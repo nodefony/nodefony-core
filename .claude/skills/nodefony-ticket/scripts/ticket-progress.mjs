@@ -19,7 +19,7 @@
  * quand GitHub ne répond pas — un pilotage indisponible n'est pas une erreur de
  * développement.
  *
- * Usage : node scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
+ * Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>]   (défaut : HEAD)
  */
 import { execFileSync } from "node:child_process";
 

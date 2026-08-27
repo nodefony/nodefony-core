@@ -287,12 +287,12 @@ SEULEMENT :
 
    ```bash
    node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD   # tickets à relire
-   node scripts/ticket-effort.mjs                                                    # estimé vs constaté
+   node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs                                                    # estimé vs constaté
    ```
 
 4. **Redescendre les tickets « In Progress » que rien ne fait avancer.** Le statut monte tout
    seul — `.githooks/post-commit` le pose dès qu'un commit cite `#N` sans le fermer (raisonnement :
-   en-tête de [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)) — mais **rien ne le fait
+   en-tête de [`ticket-progress.mjs`](../nodefony-ticket/scripts/ticket-progress.mjs)) — mais **rien ne le fait
    redescendre**. Un ticket ouvert un jour, abandonné le lendemain, resterait « en cours » pour
    toujours : c'est précisément la fossilisation qui a tué ce champ la première fois (0 usage sur 64
    items). Le contrôle vaut le geste :

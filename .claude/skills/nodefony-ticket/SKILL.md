@@ -434,6 +434,30 @@ ignore les bords rend des verdicts qu'on croit exhaustifs :
   `title` figé : ce client rend une vue à lui, pas l'état du tableau.
 - **Un automate qui pose des lexiques doit borner sa zone de lecture au bloc « Le problème », citations exclues.** Vécu : détecter les termes sur le corps entier a posé sur un ticket de libellés de menu un lexique « surcharge par l'environnement, isomorphe, ADR » — des mots pris dans des **exemples de titres cités**. Un lexique hors sujet est pire que pas de lexique : il fait douter le lecteur d'avoir compris.
 
+## Les scripts de ce skill
+
+Ils vivent ICI, et non à la racine du dépôt, parce que **leur résultat dépend du protocole de cette
+page** : un ticket ouvert sans le titre normé, le lexique et l'ordre dérivé du parent se fait
+réécrire ; un écart estimé/constaté ne veut rien dire sans savoir ce qu'on en fait. Un script reste
+à la racine quand il est déterministe et qu'il n'y a rien à interpréter — ce qui n'est le cas
+d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot` vit dans
+`nodefony-session` et est appelé par npm).
+
+| Script                                                       | Ce qu'il fait                                                              | Appelé par                   |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- | ---------------------------- |
+| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau           | `npm run ticket:open`        |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer       | `.githooks/post-commit`      |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte le champ `Jours` au temps réellement constaté                    | à la main, au END de session |
+| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux | à la main, au END de session |
+| [`scripts/francise.mjs`](scripts/francise.mjs)               | repère les tournures à franciser dans un corps de ticket                   | à la main                    |
+| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)       | insère le bloc **Lexique** des abréviations détectées                      | à la main                    |
+
+Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
+`parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par
+[`scripts/ticket-open.test.mjs`](scripts/ticket-open.test.mjs) et
+[`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs), que lance
+`npm run test:pilotage`.
+
 ## Références (chargées à la demande)
 
 | Fichier                                                                    | Contenu                                                                                                                               |
