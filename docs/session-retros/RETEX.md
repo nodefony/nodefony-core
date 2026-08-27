@@ -855,6 +855,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-27] **Un SKILL que rien ne NOMME n'est jamais chargé — la règle existe et ne mord pas.**
+  `nodefony-ticket` était écrit, versionné, conforme, avec ses déclencheurs — et cité NULLE PART :
+  ni dans la table des skills du `CLAUDE.md`, ni par une seule phrase du banc de déclenchement, qui
+  l'annonçait « porte non testée ». Résultat : j'ai ouvert quinze tickets sans lui, et le user a dû
+  demander leur réécriture entière. Le coût ne se voit pas au moment où on saute le skill, il se
+  paie une session plus tard. Créer un skill n'est pas fini tant que trois choses ne sont pas là :
+  une entrée dans le `CLAUDE.md` (un POINTEUR, jamais la règle), au moins un cas au banc, et des
+  déclencheurs pris des mots RÉELLEMENT employés — pas de ceux qu'on imagine.
 - [1× — 08-25] **Un « flake » qui revient N'EST PAS un flake.** `websocket-fragmentation` est tombé
   sur Windows puis sur macOS en une heure, toujours en « timed out 60 s ». Traité deux fois comme
   un aléa de plateforme ; c'était une COURSE : le listener `message` était posé APRÈS l'`open`,
@@ -950,6 +958,21 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 08-27] **Une substitution de texte SANS frontière de mot fabrique des faux positifs qui
+  ont l'air d'un travail bien fait.** Un motif `ADR` sans limite a mordu sur « c**adr**e », `store`
+  sur « re**store** » : le ticket recevait un lexique définissant des mots qu'il n'employait pas —
+  et un lexique hors sujet est pire que pas de lexique, il fait douter le lecteur d'avoir compris.
+  Même mécanisme pour la ZONE lue : détecter les termes sur le corps entier a posé sur un ticket de
+  libellés de menu un lexique « surcharge, isomorphe, ADR », mots pris dans des **exemples cités**.
+  Deux réflexes, à poser AVANT de lancer la passe : borner la zone (ici le seul bloc « Le
+  problème », citations retirées) et exiger `(?<!\p{L})…(?!\p{L})` autour de tout motif.
+- [1× — 08-27] **Un remplacement mot à mot ne sait pas ACCORDER — le genre entraîne le
+  déterminant.** « aucun binding » est devenu « aucun liaison », « Le drift » → « Le dérive ». Une
+  liste de couples anglais→français doit porter les formes AVEC article (`un binding → une
+liaison`), essayées avant les formes nues. Et un motif qui porte du gras (`un **breaking
+change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon l'expression
+  régulière ne se construit même pas. Le contrôle qui rattrape tout en une ligne : après la passe,
+  chercher `(un|le|ce|aucun) (liaison|dérive|surcharge|route|rupture)` et l'inverse.
 - **`anchor-check` a validé une ancre devenue fausse.** J'avais inséré 30 lignes dans
   `envReport.ts` ; l'ancre `envReport.ts:147` de la doc pointait désormais une AUTRE fonction, et
   le gate a rendu « 6 ancres — 6 OK ». Il vérifie que le fichier existe et que la ligne est dans
@@ -1027,6 +1050,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
 
+- [1× — 08-27] **Un code de planification interne dans un titre n'est pas une abréviation, c'est un
+  pointeur MORT.** « exécuter R6 », « S5 DDL prod » : le lecteur n'a pas le document derrière, donc
+  le titre ne lui dit rien — reproche direct du user, deux fois dans la même session (« S ?? n'a
+  rien à faire dans un titre », « un idiot doit comprendre »). Vaut pour tout artefact qui SORT de
+  ma tête : ticket, message de commit, page publiée. Le test tient en une question — quelqu'un qui
+  n'a jamais ouvert ce dépôt sait-il ce dont on parle ? Si la réponse exige d'aller chercher un
+  tableau de bord, c'est raté. Et le sigle qui reste nécessaire (DDL, TOTP) se DÉFINIT sur place.
 - [1× — 08-25] **Une source qui fait autorité peut être PÉRIMÉE, et le dire avec aplomb.** Le guide
   npm de l'OpenSSF recommande encore d'authentifier une publication par un jeton d'automatisation
   — retirés du registre depuis novembre 2025, et remplacés par la publication de confiance
