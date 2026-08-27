@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T17:59:19.815Z",
+  "generatedAt": "2026-08-27T18:04:02.747Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -124,7 +124,7 @@
       "title": "feat(orm): livrer les migrations de schéma en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/17",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 5,
@@ -780,7 +780,7 @@
       "title": "feat(studio): porter la console d'administration sur le noyau client",
       "url": "https://github.com/nodefony/nodefony-core/issues/91",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1",
       "priorite": "P1 — figé à la création",
       "jours": 3,
