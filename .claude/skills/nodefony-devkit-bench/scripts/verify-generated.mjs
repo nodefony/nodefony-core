@@ -338,8 +338,21 @@ step(
         "app",
         "--preset",
         "complete",
+        // Le témoin naît avec un FRONT, et c'est `vue` — pas par préférence :
+        // le compilateur de composants monofichiers TRANSFORME le gabarit
+        // (un `src="/…"` littéral y devient un import d'asset du bundle),
+        // là où Angular garde son template dans une chaîne TypeScript et où
+        // JSX laisse la chaîne intacte. C'est donc le front où le build de
+        // production dit quelque chose que le mode développement ne dit pas —
+        // vécu sur la vitrine du dépôt, cassée depuis sa création et invisible
+        // jusqu'au premier build (`606add6c`).
+        //
+        // Rien d'autre à câbler : le `npm run build` de l'application générée
+        // enchaîne déjà `nodefony frontend:build` dès qu'un front existe
+        // (`templates/app/base/package.json.tpl:14`). L'étape « build » de ce
+        // banc bâtit donc le front sans une ligne de plus.
         "--frontend",
-        "none",
+        "vue",
         ...(LINKED ? ["--link"] : []),
         "--yes",
       ],

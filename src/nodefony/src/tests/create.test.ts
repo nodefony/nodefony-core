@@ -1413,6 +1413,55 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    it("🔴 une URL servie par le SERVEUR passe par une liaison, dans les QUATRE", () => {
+      // Ce que ce contrôle empêche, et qui a coûté une vitrine cassée depuis sa
+      // création (`606add6c`) : une URL d'asset écrite EN DUR dans un template.
+      // Le compilateur de composants monofichiers de Vue prend `src="/logo.png"`
+      // pour un asset du bundle et tente de le RÉSOUDRE — le build de production
+      // échoue alors sur un fichier qui n'a jamais eu à exister là, quand Vite en
+      // développement sert la même URL sans y toucher. Rien ne le voyait : un
+      // build de PROD est le seul juge, et le mode développement passait.
+      //
+      // Le contrôle porte sur les QUATRE fronts alors que deux seulement sont
+      // exposés (Vue et Svelte compilent leur gabarit ; Angular garde le sien
+      // dans une chaîne, JSX laisse la chaîne intacte). C'est délibéré : le
+      // défaut n'a frappé qu'UN membre d'une famille que l'on croyait
+      // identique, précisément parce que les quatre écrivaient la même ligne
+      // sans que rien n'exige qu'ils l'écrivent pareil. Une seule écriture
+      // possible — la liaison — et la divergence n'a plus où se loger.
+      const ATTRIBUT_ASSET = /(?:^|\s)(src|srcset|poster)\s*=\s*"\/(?!\/)/gu;
+      let vus = 0;
+      for (const fw of ["react", "vue", "angular", "svelte"]) {
+        const dest = path.join(tmp, `asset-${fw}`);
+        scaffold(dest, {
+          name: `asset-${fw}`,
+          preset: "complete",
+          frontend: fw,
+        });
+        for (const entry of readdirSync(path.join(dest, "frontend", "src"), {
+          recursive: true,
+          withFileTypes: true,
+        })) {
+          if (!entry.isFile()) continue;
+          if (!/\.(ts|tsx|vue|svelte|html)$/u.test(entry.name)) continue;
+          const file = path.join(entry.parentPath, entry.name);
+          const found = [
+            ...readFileSync(file, "utf8").matchAll(ATTRIBUT_ASSET),
+          ];
+          assert.deepEqual(
+            found.map((m) => m[0].trim()),
+            [],
+            `${fw}/${entry.name} : URL d'asset en dur — la porter par une ` +
+              `liaison (cf frontend/src/brand.ts), sinon le build de PRODUCTION ` +
+              `tente de la résoudre dans le bundle`,
+          );
+          vus += 1;
+        }
+      }
+      // Un motif qui ne lit aucun fichier reste vert pour toujours.
+      assert.isAbove(vus, 3, "aucun fichier de front lu — contrôle inopérant");
+    });
+
     it("none : aucun fichier frontend, pas d'AppController", () => {
       const dest = path.join(tmp, "napp");
       scaffold(dest, { name: "napp" });

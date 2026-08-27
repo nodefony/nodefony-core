@@ -37,8 +37,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # CE QUI RESTE VOLONTAIREMENT DEHORS — à lire avant de conclure « couvert »
 #
-#  · `--frontend` : l'application témoin naît `--frontend none`. Toute la
-#    famille « le front généré se bâtit-il » n'est éprouvée nulle part ici.
+#  · `--frontend` : l'application témoin naît `--frontend vue`, et son étape
+#    « build » bâtit donc le front POUR DE BON — c'est le seul endroit où le
+#    front d'une application GÉNÉRÉE est compilé. Un seul framework de vue est
+#    couvert ici, celui dont le compilateur transforme le gabarit ; les quatre
+#    fronts du DÉPÔT, eux, sont bâtis par `node.js.yml` (`npm run build:front`).
 #  · Les DIALECTES autres que SQLite : le banc génère bien des entités
 #    PostgreSQL — c'est indispensable, une clé `uuid` et une colonne texte sont
 #    le MÊME type en SQLite — mais il les génère `--no-tests` et vérifie

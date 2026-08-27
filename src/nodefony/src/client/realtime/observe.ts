@@ -117,7 +117,7 @@ export interface SharedConnection {
  * ```ts
  * const live = connectShared({ url: "/api/live/realtime" });
  * live.start();
- * observeChannelData(live.socket, "live:ticker", (t) => setTick(t));
+ * observeChannelData(live.socket, "live:events", (e) => setDernier(e));
  * ```
  *
  * @throws si ni `url` ni `client` ne sont fournis — l'adresse dépend de

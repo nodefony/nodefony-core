@@ -1164,8 +1164,9 @@ function dispatchScaffold(
     // controller --kind realtime` (même principe que HelloController — le
     // premier exemple realtime lu est celui que la commande régénérera).
     // C'est LUI que la carte « Temps réel » des vitrines consomme via la
-    // façade client (RealtimeClient / hooks nodefony/react) : canal
-    // `live:ticker`, actions `live:ping` / `live:snapshot`.
+    // façade client (RealtimeClient / hooks nodefony/react) : canal sortant
+    // `live:events`, canal entrant `live:dire`, actions `live:ping` /
+    // `live:snapshot`.
     renderLayer(
       eta,
       path.join(packageRoot, "templates", "controller", "realtime"),

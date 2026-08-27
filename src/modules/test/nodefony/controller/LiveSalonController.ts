@@ -52,9 +52,9 @@ let diffuser: RealtimePublish | null = null;
  * plateforme (`nodefony:*`) a, lui, un plancher d'authentification irréductible.
  */
 @controller("/api/live")
-class LiveTickerController extends RealtimeController {
+class LiveSalonController extends RealtimeController {
   constructor(context: Context) {
-    super("LiveTickerController", context);
+    super("LiveSalonController", context);
   }
 
   /**
@@ -122,4 +122,4 @@ class LiveTickerController extends RealtimeController {
   }
 }
 
-export default LiveTickerController;
+export default LiveSalonController;

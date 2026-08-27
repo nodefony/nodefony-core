@@ -121,6 +121,30 @@ jobs:
       - name: Build workspaces (turbo)
         run: npm run build
 
+      # Le FRONT, bâti pour de bon — la moitié des chemins que le mode
+      # développement ne prouve pas.
+      #
+      # Motif, vécu : la vitrine Vue du dépôt ne se bâtissait plus depuis sa
+      # création (`606add6c`). Le compilateur SFC transforme un `src="/…"`
+      # littéral en import d'asset du bundle et tente de le résoudre, quand
+      # Vite en développement sert la même URL sans y toucher. Les trois autres
+      # vitrines écrivaient la MÊME ligne et passaient : le signe qu'un gate
+      # manque, c'est qu'un défaut ne frappe qu'un membre d'une famille
+      # supposée identique. Rien ici ne bâtissait le front — `build:front`
+      # n'était appelé par aucun workflow —, et aucune assertion de test ne
+      # peut voir ça : elles lisent des chaînes dans des fichiers rendus.
+      #
+      # Sur TOUTES les variantes, contrairement aux autres gates du dépôt : un
+      # bundler résout des chemins, et c'est exactement là que Windows mord.
+      # La passe complète (6 bundles, cache vide) coûte ~8 s — le prix d'une
+      # couverture sur trois systèmes est ici dérisoire.
+      #
+      # ⚠️ Le build est INCRÉMENTAL (« à jour » = sauté). Il ne mord que parce
+      # que `public/dist/` est ignoré par git : un checkout est toujours vierge.
+      # Commiter ces dossiers rendrait ce gate muet sans un mot.
+      - name: Gate — le front se BÂTIT (vitrines + Studio)
+        run: npm run build:front
+
       - name: Typecheck
         run: npm run typecheck
         continue-on-error: false

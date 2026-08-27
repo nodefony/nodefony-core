@@ -304,8 +304,8 @@ Un écran non-React s'écrit donc en trois lignes, dans n'importe quel framework
 
 ```ts
 const live = connectShared({ url: "/api/live/realtime" });
-const off = observeChannelData<Tick>(live.socket, "live:ticker", (t) =>
-  setTick(t),
+const off = observeChannelData<Evenement>(live.socket, "live:events", (e) =>
+  setDernier(e),
 );
 live.start(); // au démontage : off() — surtout PAS live.socket.disconnect()
 ```
