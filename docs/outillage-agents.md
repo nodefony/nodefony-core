@@ -189,7 +189,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.3.0 · ⚙️ 9 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 2 scripts · 📎 3 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 2 scripts · 📎 3 réf" }
 ]
 ```
 <!-- skills-cards:end -->

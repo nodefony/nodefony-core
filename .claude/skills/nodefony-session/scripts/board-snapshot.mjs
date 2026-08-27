@@ -249,7 +249,13 @@ function renderMarkdown(live, generatedAt) {
   }
 
   for (const [jalon, items] of parJalon) {
-    lignes.push(`## Jalon ${jalon} — ${items.length} ouverts`, "");
+    // Un ticket sans jalon n'est pas un jalon nommé « sans jalon » : c'est le
+    // BACKLOG — aucun engagement de date, par opposition à un jalon qui en promet un.
+    const titre =
+      jalon === "sans jalon"
+        ? `## Backlog — aucune date promise · ${items.length} ouverts`
+        : `## Jalon ${jalon} — ${items.length} ouverts`;
+    lignes.push(titre, "");
     lignes.push(
       "| Ordre | Prio | Jours | Ticket | Titre |",
       "| --- | --- | ---: | --- | --- |",

@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-27T12:34:40.864Z",
+  "generatedAt": "2026-08-27T13:23:03.198Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 3,
+      "open": 15,
       "title": "10.1"
     },
     {
-      "closed": 3,
+      "closed": 4,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 33,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -80,14 +80,29 @@
       "number": 56,
       "title": "chore(pilotage): donner un ticket aux dettes qui n'en ont pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/56",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 1.8,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 58,
+      "title": "chore(framework): trancher la validation du corps des requêtes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/58",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 1.9,
+      "labels": [
+        "10.0.0",
+        "arbitrage"
       ]
     },
     {
@@ -102,6 +117,21 @@
       "ordre": 2,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 57,
+      "title": "fix(orm): refuser une option de tri mal formée au lieu de l'ignorer",
+      "url": "https://github.com/nodefony/nodefony-core/issues/57",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.1,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
       ]
     },
     {
@@ -131,6 +161,36 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 59,
+      "title": "fix(cluster): ne plus arracher les gestionnaires de signaux des modules",
+      "url": "https://github.com/nodefony/nodefony-core/issues/59",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.5,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 61,
+      "title": "feat(realtime): garder les canaux dynamiques par un motif de nom",
+      "url": "https://github.com/nodefony/nodefony-core/issues/61",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.6,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
       ]
     },
     {
@@ -218,6 +278,21 @@
       ]
     },
     {
+      "number": 60,
+      "title": "fix(studio): lire la liste des rôles depuis le serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/60",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7.1,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
       "number": 21,
       "title": "feat(cli): ajouter la commande de changement de mot de passe",
       "url": "https://github.com/nodefony/nodefony-core/issues/21",
@@ -269,6 +344,35 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 11,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 62,
+      "title": "fix(cli): sonder les ports réellement utilisés par l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/62",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 11.5,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 80,
+      "title": "chore(pilotage): confronter au code les cases de la feuille de route",
+      "url": "https://github.com/nodefony/nodefony-core/issues/80",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 11.6,
       "labels": [
         "10.0.0"
       ]
@@ -377,13 +481,13 @@
     },
     {
       "number": 49,
-      "title": "docs: corriger les 108 renvois au code devenus faux",
+      "title": "docs: rendre conformes les 11 pages qui échouent au contrôle",
       "url": "https://github.com/nodefony/nodefony-core/issues/49",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
-      "jours": 0.5,
+      "jours": 1,
       "ordre": 18,
       "labels": [
         "10.0.0",
@@ -584,6 +688,245 @@
       "ordre": 39,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 63,
+      "title": "test(bancs): rendre chaque banc indépendant du décor partagé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/63",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 1.5,
+      "ordre": 50,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 76,
+      "title": "test(bancs): constater le décor avant de lancer les suites",
+      "url": "https://github.com/nodefony/nodefony-core/issues/76",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 50.1,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 77,
+      "title": "test(bancs): donner à chaque banc son propre compte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/77",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 50.2,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 78,
+      "title": "test(core): remplacer les seuils absolus des tests de performance",
+      "url": "https://github.com/nodefony/nodefony-core/issues/78",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 50.3,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 64,
+      "title": "perf(dev): supprimer les 45 secondes de build au démarrage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/64",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 51,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 66,
+      "title": "feat(orm): exposer la taille du pool de connexions",
+      "url": "https://github.com/nodefony/nodefony-core/issues/66",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 52,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 67,
+      "title": "feat(orm): capturer le contexte des requêtes qui échouent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/67",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 53,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 71,
+      "title": "feat(security): rendre la hiérarchie de rôles extensible",
+      "url": "https://github.com/nodefony/nodefony-core/issues/71",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 54,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 79,
+      "title": "refactor(studio): dériver l'affichage des rôles servis par le serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/79",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 54.5,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 70,
+      "title": "feat(webhooks): séparer les événements métier du journal d'audit",
+      "url": "https://github.com/nodefony/nodefony-core/issues/70",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 55,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 68,
+      "title": "feat(studio): garder les préférences d'affichage côté serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/68",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 56,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 69,
+      "title": "feat(studio): signaler visiblement un serveur en dérogation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/69",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 57,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 74,
+      "title": "feat(studio): éditer la configuration d'un module à chaud",
+      "url": "https://github.com/nodefony/nodefony-core/issues/74",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 58,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 65,
+      "title": "test(paquets): rapatrier les preuves de bout en bout dans leur paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/65",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 59,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 72,
+      "title": "test(http): mesurer la tenue mémoire sur plusieurs heures",
+      "url": "https://github.com/nodefony/nodefony-core/issues/72",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 60,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 73,
+      "title": "perf(http): rejouer le profil processeur du chemin chaud",
+      "url": "https://github.com/nodefony/nodefony-core/issues/73",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 61,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 75,
+      "title": "chore(core): trancher l'héritage des dépendances déclarées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/75",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 62,
+      "labels": [
+        "10.1",
+        "arbitrage"
       ]
     }
   ]

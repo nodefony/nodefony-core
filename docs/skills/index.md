@@ -152,7 +152,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.3.0 · ⚙️ 9 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 2 scripts · 📎 3 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 2 scripts · 📎 3 réf" }
 ]
 ```
 
@@ -184,7 +184,7 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.2.0 | 253 | 3 | 2 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.3.0 | 316 | 3 | 2 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

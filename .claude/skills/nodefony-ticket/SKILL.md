@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "mets un lexique", "écris-le en français", "évite le jargon", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ajouter au board", "jalon 10.0.0", "on ne l'a pas déjà fait ?", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "est-ce le bon moment pour celui-là ?".
 ---
 
@@ -163,29 +163,92 @@ Un lot de plus de trois tickets qui partagent une cause **prend un parent**. Git
 sous-tickets nativement : le parent affiche une barre de progression, et le tableau de bord a les
 champs `Parent issue` et `Sub-issues progress`.
 
+### 🔴 Le déclencheur qu'on rate : plusieurs critères de fin INDÉPENDANTS
+
+Le seuil « plus de trois tickets » ne se voit que si l'on a déjà écrit les tickets. Or le cas
+courant est l'inverse : **on écrit UN ticket, et c'est son bloc « Fini quand » qui trahit le lot.**
+
+> **Si deux points du « Fini quand » peuvent être atteints séparément, par deux gestes qui ne se
+> touchent pas, ce n'est pas un ticket — c'est un parent qui s'ignore.**
+
+Le symptôme : un ticket de 1,5 j dont les trois critères visent trois fichiers sans rapport. Il ne
+sera jamais pris, parce qu'on ne prend pas « une journée et demie de trois choses » — alors que
+chacune tient dans une demi-heure de contexte déjà chargé. Le découper ne crée pas du travail : il
+rend prenable un travail qui ne l'était pas.
+
+Le test inverse, pour ne pas découper à tort : **les deux moitiés se font-elles dans la même
+session, dans les mêmes fichiers ?** Alors elles restent ensemble — un ticket par unité de travail,
+pas par ligne de constat.
+
+### Le geste
+
 ```bash
-# rattacher un enfant à un parent (les deux par NUMÉRO d'issue)
+# À LA CRÉATION — flag natif, le lien est posé d'emblée (le plus simple)
+gh issue create --title "…" --body-file corps.md --parent 63 --milestone "10.1" --label "10.1"
+
+# APRÈS COUP — rattacher un enfant existant (les deux par NUMÉRO d'issue)
 gh api graphql -f query='
   mutation($p:ID!,$c:ID!){ addSubIssue(input:{issueId:$p, subIssueId:$c}){ clientMutationId } }' \
   -f p="$(gh api repos/:owner/:repo/issues/PARENT --jq .node_id)" \
   -f c="$(gh api repos/:owner/:repo/issues/ENFANT --jq .node_id)"
+
+# VÉRIFIER le lien (ne jamais s'en tenir au message de création)
+gh api graphql -f query='query{repository(owner:"nodefony",name:"nodefony-core"){
+  issue(number:63){ subIssues(first:20){ nodes{ number title } } } }}'
 ```
 
 Le **parent** porte le contexte commun, la mesure d'ensemble et la liste des enfants ; il ne porte
-**aucun travail propre** et n'a donc pas d'estimation. Chaque **enfant** est autonome : on doit
-pouvoir le prendre sans lire le parent.
+**aucun travail propre**, donc aucune estimation en propre — sur le tableau de bord, son champ
+`Jours` reçoit la **somme** des enfants, et son corps le dit en toutes lettres pour qu'on ne compte
+pas deux fois. Chaque **enfant** est autonome : on doit pouvoir le prendre sans lire le parent.
+
+Un ticket qui porte du travail propre n'est **pas** un parent : s'il a un second volet plus lourd,
+celui-ci devient un ticket **frère** qui le nomme en `Dépend de`, et le premier renvoie vers lui
+dans son « Fini quand ».
 
 ## 4. Labels et champs du tableau de bord
 
 |                     |                                                                                                                      |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Jalon**           | `10.0.0` (échéance) · `10.1` (suit par npm)                                                                          |
+| **Jalon**           | `10.0.0` (échéance) · `10.1` (suit par npm) · **aucun jalon** = le backlog, label `backlog`                          |
 | **`irrattrapable`** | une version suivante ne peut PAS le réparer — dépendance publiée, contrat gelé                                       |
 | **`rattrapable`**   | une 10.0.1 le répare — premier à glisser si la date se tend                                                          |
 | **`arbitrage`**     | une décision à rendre, pas du travail à faire                                                                        |
 | **`Jours`**         | l'estimation, en nombre                                                                                              |
 | **`Priorité`**      | `P0` bloque le reste ou chemin critique · `P1` doit sortir dans le jalon · `P2` décision · `P3` fin de cycle ou 10.1 |
 | **`Ordre`**         | encode les DÉPENDANCES, pas une préférence — c'est lui qui se trie                                                   |
+
+### Un jalon promet une date — le backlog n'en promet aucune
+
+**Le critère : est-ce que je m'engage à le sortir dans la foulée ?** Si la réponse honnête est
+« quand j'aurai le temps », le ticket n'a **pas** de jalon — il porte `backlog`. Y mettre un jalon
+n'avance rien et abîme l'instrument : un jalon qui contient ce qu'on ne fera pas ment exactement
+comme un document écrit à la main, et son compteur d'avancement cesse d'être lisible.
+
+En pratique : un chantier de plusieurs jours, sans date, va au backlog ; un correctif d'une
+demi-journée déjà cadré va dans le jalon. Basculer coûte une commande, et se fait dans les deux
+sens :
+
+```bash
+gh issue edit <n> --remove-milestone --remove-label "10.1" --add-label "backlog"
+```
+
+### L'ordre VISUEL de la grille se pose, le GROUPEMENT non
+
+Le champ `Ordre` ne déplace rien : il faut repositionner physiquement chaque ligne, en chaîne —
+premier item sans `afterId` (il monte en tête), chacun des suivants `afterId` le précédent.
+
+```bash
+gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID!){
+  updateProjectV2ItemPosition(input:{projectId:$p,itemId:$i,afterId:$a}){clientMutationId}}' \
+  -f p="$PID" -f i="$ITEM" -f a="$PRECEDENT"
+```
+
+⚠️ **Le groupement d'une vue — par jalon, par statut — n'est PAS pilotable.** `updateProjectV2View`
+existe, mais sa configuration n'accepte que les colonnes visibles (`visibleFieldIds`) : vérifié par
+introspection du schéma. Le groupement se règle **dans l'interface web** — ouvrir la vue, menu ⌄ à
+droite de son onglet, `Group by` → `Milestone` —, et il est mémorisé par vue. Ne pas chercher une
+commande : il n'y en a pas.
 
 **Le critère de jalon** : _qu'est-ce qu'une 10.0.1 ne peut pas réparer ?_ Une page de doc se
 republie seule ; une dépendance publiée dans un `package.json`, non. Ne pas confondre avec « figé à
