@@ -399,6 +399,32 @@ describe("Admin data plane — http", () => {
 // QUE ses sessions. Preuve WIRE du modèle (la logique pure est dans
 // http/tests/unit/SessionsAdmin.test.ts).
 
+/**
+ * Compte JETABLE propre à CE fichier — jamais le compte partagé `user`.
+ *
+ * Tout cas qui RÉVOQUE doit posséder le compte qu'il vise : les fichiers de test
+ * tournent en parallèle d'un paquet à l'autre (turbo), contre le MÊME serveur,
+ * et `fileParallelism: false` ne borne que l'intérieur d'un paquet. Une session
+ * révoquée sur `user` est donc peut-être celle d'un banc voisin.
+ *
+ * Idempotent : `409` = créé par une passe précédente, cas normal dès la seconde
+ * exécution contre un serveur vivant.
+ */
+const JETABLE = "admin-dataplane-probe";
+const JETABLE_MDP = "secret-probe";
+
+async function assurerCompteJetable(): Promise<void> {
+  const cree = await req("POST", "/nodefony/user/api/users", auth(), {
+    identifier: JETABLE,
+    plainPassword: JETABLE_MDP,
+    roles: ["ROLE_USER"],
+  });
+  expect(
+    [201, 409],
+    `création du compte jetable (statut ${cree.status})`,
+  ).to.include(cree.status);
+}
+
 describe("Admin data plane — http self-service /sessions/mine", () => {
   it("anonyme → 401 (la zone firewall couvre AUSSI la route self-service)", async () => {
     const r = await req("GET", "/nodefony/http/api/sessions/mine");
@@ -470,17 +496,51 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
     expect(survived, "la session d'admin n'a PAS été révoquée").to.equal(true);
   });
 
-  it("je peux révoquer UNE de MES sessions par son ref (déconnexion d'appareil)", async () => {
-    const userCookie = await loginCookie("user", "secret");
-    const items = await allMySessions(userCookie);
-    expect(items.length).to.be.greaterThan(0);
-    const myRef = items[0]!.ref;
+  it("je révoque MON appareil — celui que le serveur désigne, pas le premier de la liste", async () => {
+    // Compte JETABLE : ce cas RÉVOQUE. Joué sur le compte partagé `user`, il
+    // tue une session que d'autres bancs sont en train d'utiliser — c'est ce
+    // qui est arrivé en forge (passe 33090827337) : un banc WebSocket s'est vu
+    // fermer son handshake en 1008 « Authentication required » quelques
+    // millisecondes après avoir obtenu un cookie valide.
+    await assurerCompteJetable();
+    // ORDRE VOULU : le témoin ouvre APRÈS, donc il est la session la plus
+    // RÉCENTE du compte — et c'est lui qui arrive en tête de `sessions/mine`.
+    // Prendre `items[0]` (ce que faisait ce cas) révoquerait donc le témoin.
+    const mien = await loginCookie(JETABLE, JETABLE_MDP);
+    const temoin = await loginCookie(JETABLE, JETABLE_MDP);
+    expect(mien, "login du compte jetable").to.not.equal("");
+    expect(temoin, "login du témoin").to.not.equal("");
+
+    const items = await allMySessions(mien);
+    const current = items.filter((s) => s.current === true);
+    expect(
+      current.length,
+      "le serveur désigne EXACTEMENT une session courante",
+    ).to.equal(1);
+    expect(
+      current[0]!.ref,
+      "la session courante n'est pas la première de la liste",
+    ).to.not.equal(items[0]!.ref);
+
     const revoke = await req(
       "POST",
-      `/nodefony/http/api/sessions/mine/${myRef}/revoke`,
-      { cookie: userCookie },
+      `/nodefony/http/api/sessions/mine/${current[0]!.ref}/revoke`,
+      { cookie: mien },
     );
     expect(revoke.status, "je révoque ma propre session").to.equal(200);
+
+    // J'ai révoqué LA MIENNE : je suis déconnecté…
+    const apres = await req("GET", "/nodefony/user/api/me", { cookie: mien });
+    expect(apres.status, "ma session est bien tombée").to.equal(401);
+    // …et le témoin a survécu. C'est la sentinelle du défaut : révoquer « une
+    // session au hasard du compte » l'emporterait, et un banc voisin avec elle.
+    const survivant = await req("GET", "/nodefony/user/api/me", {
+      cookie: temoin,
+    });
+    expect(
+      survivant.status,
+      "je n'ai révoqué QUE la mienne (aucune autre session du compte)",
+    ).to.equal(200);
   });
 });
 

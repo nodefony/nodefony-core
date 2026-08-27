@@ -38,6 +38,13 @@ export interface SessionSummary {
   updatedAt: number | null;
   /** Réserve multi-tenant (`null` = mono-tenant aujourd'hui — slot coût-0). */
   tenantId: string | null;
+  /**
+   * Vrai pour LA session d'où l'on regarde (« cet appareil »). Le serveur seul
+   * peut le dire : le navigateur ne connaît pas la référence HMAC de son propre
+   * cookie. Comparer les utilisateurs ne le remplace pas — dans « Mes sessions »
+   * toutes les lignes portent le même.
+   */
+  current: boolean;
 }
 
 /** Réponse paginée de l'énumération — miroir du handler `sessions/list`. */

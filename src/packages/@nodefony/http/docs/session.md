@@ -690,6 +690,14 @@ Les deux routes `mine` ne demandent pas de rôle, mais **ne sont pas anonymes** 
 API d'administration n'accepte que l'authenticator `session` (pas d'`anonymous`), et le périmètre est
 pris sur l'identité ALS, jamais sur un paramètre client (`HttpAdminApi.ts:451-457`).
 
+Chaque ligne rendue porte **`current`** — vrai pour LA session qui a émis la requête, et pour elle
+seule. C'est le « cet appareil » des consoles d'appareils connectés, et le client ne peut pas le
+déduire : la référence est un HMAC du cookie, que le navigateur ne sait pas calculer. Sans lui, aucune
+ligne n'est désignable — ni celle qu'on ferme, ni celle qu'il ne faut pas fermer. Comparer les
+utilisateurs ne le remplace pas : dans `sessions/mine`, toutes les lignes portent le même. La
+dérivation est faite une fois par page (`sessions-service.ts` `currentSessionRef`) ; `false` quand la
+requête ne porte pas de session (appel interne, invocation CLI).
+
 Codes de réponse à connaître : **501** si le store courant ne sait pas s'énumérer
 (`supportsEnumeration()` faux — `HttpAdminApi.ts:352`), **503** si le service de session est absent, **404** pour une `ref` inconnue ou
 une révocation sans effet, **401** sur `mine` sans identité.

@@ -21,6 +21,7 @@ import {
   Text,
   Modal,
   Alert,
+  Badge,
   Box,
   Button,
 } from "@mantine/core";
@@ -156,8 +157,29 @@ export const SessionsTable = observer(function SessionsTable({
         // colonne du store — le champ trié serait `id`, que l'on n'expose
         // justement jamais. Trier ici aurait produit un ordre au hasard.
         value: (r) => r.ref,
-        render: (r) => <Code>{r.ref}</Code>,
-        size: 150,
+        // « Cet appareil » vient du SERVEUR (`current`) : le navigateur ignore
+        // la référence HMAC de son propre cookie, et dans « Mes sessions » toutes
+        // les lignes portent le même utilisateur — sans ce marqueur, on ne peut
+        // désigner ni celle qu'on ferme, ni celle qu'il ne faut pas fermer.
+        render: (r) => (
+          <Group gap={6} wrap="nowrap">
+            <Code>{r.ref}</Code>
+            {r.current ? (
+              // `flex-shrink: 0` : sans lui la colonne comprime le badge avant la
+              // référence, et « cet appareil » s'affiche « CET A… » — un marqueur
+              // tronqué ne marque plus rien.
+              <Badge
+                size="xs"
+                variant="light"
+                color="blue"
+                style={{ flexShrink: 0 }}
+              >
+                cet appareil
+              </Badge>
+            ) : null}
+          </Group>
+        ),
+        size: 340,
       },
     ];
     if (showUser) {
@@ -248,7 +270,15 @@ export const SessionsTable = observer(function SessionsTable({
     return cols;
   }, [showUser, sortable]);
 
-  const isSelf =
+  // DEUX questions distinctes, longtemps confondues en une seule.
+  // `isCurrent` : cette ligne est-elle l'appareil d'où je regarde ? Verdict du
+  // SERVEUR — la révoquer me déconnecte à l'instant. Comparer les utilisateurs
+  // (ce qui se faisait ici) rendait vrai pour TOUTES les lignes de « Mes
+  // sessions », c'est-à-dire pour aucune en particulier.
+  // `isMyAccount` : cette ligne appartient-elle à mon compte ? C'est la bonne
+  // question pour « déconnecter partout », qui vise un COMPTE, pas un appareil.
+  const isCurrent = selected !== null && selected.current;
+  const isMyAccount =
     selected !== null &&
     selected.authenticated &&
     currentUser !== null &&
@@ -402,9 +432,11 @@ export const SessionsTable = observer(function SessionsTable({
                 Révoquer une session est immédiat et définitif — le client
                 concerné devra se reconnecter. L'id de session brut n'est jamais
                 exposé : seule la référence HMAC ci-dessus l'est.
-                {isSelf
-                  ? " ⚠ Cette session vous appartient : la révoquer (ou vous déconnecter partout) vous déconnectera."
-                  : ""}
+                {isCurrent
+                  ? " ⚠ C'est l'appareil d'où vous consultez cette page : la révoquer vous déconnectera immédiatement."
+                  : isMyAccount
+                    ? " ⚠ Cette session est à vous, sur un autre appareil : la révoquer ne vous déconnectera pas ici, « déconnecter partout » si."
+                    : ""}
               </Text>
             </Alert>
 

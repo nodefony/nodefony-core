@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-27T16:57:10.113Z",
+  "generated": "2026-08-27T17:47:55.122Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -26739,6 +26739,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",

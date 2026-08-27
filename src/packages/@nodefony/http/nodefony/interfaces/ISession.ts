@@ -60,6 +60,23 @@ export interface ISessionSummary {
   updatedAt: number | null;
   /** Réserve multi-tenant (toujours `null` en mono-tenant — slot coût-0). */
   tenantId: string | null;
+  /**
+   * Vrai si cette entrée est **la session qui porte la requête en cours** — le
+   * « cet appareil » des consoles d'appareils connectés.
+   *
+   * Sans elle, un client qui liste ses sessions ne peut désigner AUCUNE ligne :
+   * ni celle qu'il ne doit pas fermer, ni celle qu'il veut fermer. Deux
+   * conséquences vécues, la même cause : la console d'administration marquait
+   * « vous appartient » toutes les lignes (comparaison sur l'UTILISATEUR, jamais
+   * sur la session), et un banc révoquait « la sienne » en prenant la première
+   * de la liste — c'est-à-dire la plus récente du COMPTE, celle d'un voisin dès
+   * que deux clients partagent l'identité.
+   *
+   * `false` quand la requête ne porte pas de session (invocation CLI, appel
+   * interne) : l'énumération est alors faite par personne, aucune ligne n'est
+   * « celle-ci ».
+   */
+  current: boolean;
 }
 
 /**

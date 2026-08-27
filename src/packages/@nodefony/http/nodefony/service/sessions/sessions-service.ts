@@ -16,6 +16,7 @@ import {
   resolveAutoStore,
   readStoreLocation,
   countFacets,
+  RequestContext,
 } from "nodefony";
 import type { IPage } from "nodefony";
 import type {
@@ -114,6 +115,7 @@ export function computeSessionRef(secret: Buffer, id: string): string {
 export function toSessionSummary(
   rec: ISessionRecord,
   ref: string,
+  currentRef: string | null = null,
 ): ISessionSummary {
   const data = rec.data;
   const user = typeof data.user === "string" ? data.user : "";
@@ -127,6 +129,10 @@ export function toSessionSummary(
     createdAt: toEpoch(data.createdAt),
     updatedAt: toEpoch(data.updatedAt),
     tenantId: typeof meta.tenantId === "string" ? meta.tenantId : null,
+    // Comparaison de RÉFÉRENCES, jamais d'identifiants d'utilisateur : dans
+    // « mes sessions » toutes les lignes portent le même user, et c'est bien la
+    // ligne — pas le compte — que l'appelant doit pouvoir désigner.
+    current: currentRef !== null && ref === currentRef,
   };
 }
 
@@ -532,19 +538,39 @@ class SessionsService extends Service {
    * `user` est poussé au store (WHERE SQL) PUIS ré-appliqué ici (défense si un
    * store l'ignore). Pré-condition : {@link supportsEnumeration} (sinon throw).
    */
+  /**
+   * Référence publique de la session qui porte la **requête en cours**, lue dans
+   * le contexte de l'ALS — ou `null` quand la requête n'en porte aucune (CLI,
+   * appel interne, session jamais démarrée).
+   *
+   * Point UNIQUE de cette dérivation : marquer « cet appareil » se fait ici, et
+   * les deux énumérations (admin et self-service) s'en servent — sans quoi
+   * chaque appelant recalculerait la règle et l'une des copies dériverait.
+   * Un HMAC par page d'administration, jamais sur le chemin nominal.
+   */
+  currentSessionRef(): string | null {
+    if (!this.secret) return null;
+    const id = RequestContext.getContext<ContextType>()?.session?.id;
+    return typeof id === "string" && id.length > 0
+      ? computeSessionRef(this.secret, id)
+      : null;
+  }
+
   async listSessionsPage(
     query: ISessionListQuery,
   ): Promise<IPage<ISessionSummary>> {
     const storage = this.enumerable();
     const page = await storage.listPage!(query);
     const wantUser = query.user;
+    // Une seule dérivation pour toute la page (le HMAC ne dépend pas des lignes).
+    const currentRef = this.currentSessionRef();
     const items: ISessionSummary[] = [];
     for (const rec of page.items) {
       const user = typeof rec.data.user === "string" ? rec.data.user : "";
       // Ré-application défensive du filtre : un store qui l'ignorerait ne peut
       // pas faire fuiter la session d'un tiers dans « mes sessions ».
       if (wantUser !== undefined && user !== wantUser) continue;
-      items.push(toSessionSummary(rec, this.sessionRef(rec.id)));
+      items.push(toSessionSummary(rec, this.sessionRef(rec.id), currentRef));
     }
     return { ...page, items };
   }

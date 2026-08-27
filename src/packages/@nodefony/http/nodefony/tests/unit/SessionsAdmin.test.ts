@@ -83,6 +83,22 @@ describe("Sessions admin — redaction du DTO (unit)", () => {
     expect(summary.tenantId).to.equal(null);
   });
 
+  // « Cet appareil » se décide sur la RÉFÉRENCE de la ligne, jamais sur son
+  // utilisateur : dans « mes sessions » toutes les lignes portent le même.
+  it("current = false quand l'appelant ne porte aucune session", () => {
+    expect(summary.current).to.equal(false);
+  });
+
+  it("current = true pour la SEULE ligne dont la ref est celle de l'appelant", () => {
+    const autre: ISessionRecord = { ...rec, id: "raw-id-456" };
+    const refAutre = computeSessionRef(secret, autre.id);
+    expect(toSessionSummary(rec, ref, ref).current, "la mienne").to.equal(true);
+    expect(
+      toSessionSummary(autre, refAutre, ref).current,
+      "même utilisateur, autre appareil",
+    ).to.equal(false);
+  });
+
   it("session anonyme → authenticated false, ip/ua/dates null si absents", () => {
     const anon = toSessionSummary(
       {
