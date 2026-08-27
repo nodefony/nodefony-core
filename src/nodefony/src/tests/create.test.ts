@@ -1025,15 +1025,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(rdest, "frontend", "src", "App.tsx"),
         "utf8",
       );
-      assert.include(
-        rapp,
-        'RealtimeClient.shared({ url: "/api/live/realtime" })',
-      );
-      assert.include(rapp, "NodefonyProvider");
+      // React tient en DEUX concepts : le Provider, qui reçoit l'adresse, et un
+      // hook par besoin. Fabriquer la socket à la main et l'appeler `connect()`
+      // n'apprenaient rien au débutant — le Provider les fait.
+      assert.include(rapp, '<NodefonyProvider url="/api/live/realtime">');
+      assert.include(rapp, "useNodefony()");
       assert.include(rapp, "useNodefonyState()");
       assert.include(rapp, 'useNodefonyChannelData<Tick>("live:ticker")');
       assert.include(rapp, 'live.request("live:ping"');
       assert.notInclude(rapp, "new WebSocket(");
+      // Les deux concepts RETIRÉS ne doivent pas revenir par la bande : sans ces
+      // deux refus, on retomberait à quatre étapes sans qu'aucun test ne tombe.
+      assert.notInclude(rapp, "RealtimeClient.shared(");
+      assert.notInclude(rapp, ".connect()");
       // Vue et Angular — pas de bindings dédiés : la façade RealtimeClient.
       const vdest = path.join(tmp, "vlive");
       scaffold(vdest, { name: "vlive", preset: "complete", frontend: "vue" });

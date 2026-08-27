@@ -18,8 +18,13 @@
  * @module nodefony/react
  */
 import * as React from "react";
+// `RealtimeClient` est importé en VALEUR, pas seulement en type : le Provider
+// fabrique lui-même la socket quand on lui donne une `url` (cas simple). Le
+// module est le même que celui de `nodefony/client` — une app qui importe les
+// deux n'en embarque qu'une copie (`preserveModules`), et le singleton par URL
+// reste unique, ce qui est toute la garantie de `shared()`.
+import { RealtimeClient } from "../realtime/RealtimeClient";
 import type {
-  RealtimeClient,
   RealtimeState,
   NodefonyNotice,
   RealtimeIdentity,
@@ -48,21 +53,68 @@ import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
 export interface NodefonyProviderProps {
-  /** Instance partagée (dérivée de l'origine par l'app, cf RootStore Studio). */
-  client: RealtimeClient;
+  /**
+   * Adresse du serveur temps réel — la voie SIMPLE. Le Provider fabrique la
+   * socket partagée pour cette URL et la connecte lui-même.
+   *
+   * Deux consommateurs qui donnent la même URL obtiennent la MÊME socket
+   * ({@link RealtimeClient.shared}), donc une seule connexion réseau.
+   */
+  url?: string;
+  /**
+   * Socket déjà construite — la voie AVANCÉE, quand l'application possède son
+   * cycle de connexion (c'est le cas de la console d'administration, qui
+   * re-négocie la socket sur changement d'identité).
+   *
+   * Fournie, elle l'emporte sur `url` et le Provider ne touche pas au cycle :
+   * ni `connect`, ni `disconnect`.
+   */
+  client?: RealtimeClient;
   children?: React.ReactNode;
 }
 
 /**
  * Injecte le client temps réel Nodefony dans le sous-arbre. À monter une fois,
  * au-dessus des composants qui consomment les hooks `useNodefony*`.
+ *
+ * @example Cas simple — deux concepts, ce Provider et un hook :
+ * ```tsx
+ * <NodefonyProvider url="/api/live/realtime">
+ *   <Chat />
+ * </NodefonyProvider>
+ * ```
+ *
+ * @example Cas avancé — l'application possède le cycle de connexion :
+ * ```tsx
+ * <NodefonyProvider client={monClient}>…</NodefonyProvider>
+ * ```
  */
 export function NodefonyProvider(
   props: NodefonyProviderProps,
 ): React.ReactElement {
+  const { url, client } = props;
+  // `shared()` dédoublonne par URL absolue : deux Providers de même URL rendent
+  // la même instance. Le `useMemo` n'est donc pas là pour la justesse mais pour
+  // éviter la résolution d'URL à chaque rendu.
+  const socket = React.useMemo(
+    () => client ?? RealtimeClient.shared({ url }),
+    [client, url],
+  );
+  React.useEffect(() => {
+    // Une socket fournie appartient à l'application : ne pas toucher son cycle.
+    if (client) return;
+    // `connect()` est idempotent (no-op si connectée ou en cours) — le double
+    // montage du mode strict de React n'ouvre donc pas deux sockets.
+    void socket.connect().catch(() => {
+      /* la reconnexion automatique prend le relais ; l'état est lisible par `useNodefonyState` */
+    });
+    // PAS de `disconnect()` au démontage : la connexion appartient à la PAGE,
+    // pas à ce composant. Couper ici trancherait les requêtes en vol des autres
+    // consommateurs de la même socket partagée.
+  }, [socket, client]);
   return React.createElement(
     NodefonyContext.Provider,
-    { value: props.client },
+    { value: socket },
     props.children,
   );
 }

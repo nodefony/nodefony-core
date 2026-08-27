@@ -261,21 +261,45 @@ export class RealtimeClient<
     return client;
   }
 
+  /**
+   * Message d'une adresse manquante — LA seule formulation, employée par les
+   * deux chemins qui peuvent la constater.
+   *
+   * Il n'y a **pas** de valeur par défaut, et c'est délibéré : la route dépend
+   * de l'application, pas du framework. Deviner `/nodefony/api/realtime` — ce
+   * que faisait ce client — donnait une socket qui ne se connecte jamais et se
+   * contente de retenter, sans un mot. Un échec franc coûte trente secondes ;
+   * une socket silencieusement morte coûte une soirée.
+   */
+  private static missingUrl(): Error {
+    return new Error(
+      "[nodefony] adresse du serveur temps réel manquante.\n" +
+        '  Donne-la explicitement : RealtimeClient.shared({ url: "/api/live/realtime" })\n' +
+        '  ou, en React : <NodefonyProvider url="/api/live/realtime">\n' +
+        "  Il n'y a pas de valeur par défaut : la route dépend de ton application " +
+        "(une application générée monte /api/live/realtime, la console d'administration " +
+        "/nodefony/studio/api/realtime).",
+    );
+  }
+
   /** Résout une URL (relative ou absolue) en chaîne absolue stable = clé du singleton. */
   private static resolveUrl(url?: string): string {
-    if (typeof window === "undefined")
-      return url ?? "ws://localhost/nodefony/api/realtime";
-    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const fallback = `${wsProto}//${window.location.host}/nodefony/api/realtime`;
+    if (!url) throw RealtimeClient.missingUrl();
+    if (typeof window === "undefined") return url;
     try {
-      const u = new URL(url ?? fallback, window.location.href);
+      const u = new URL(url, window.location.href);
       // Normaliser http(s)→ws(s) : une URL RELATIVE résout vers le scheme de la
       // page (https) → sinon la clé `https://…` ≠ `wss://…` → 2 instances/2 sockets.
       if (u.protocol === "http:") u.protocol = "ws:";
       else if (u.protocol === "https:") u.protocol = "wss:";
       return u.toString();
     } catch {
-      return fallback;
+      // Une URL que `new URL()` refuse est une faute de frappe, pas un cas à
+      // rattraper : la rendre telle quelle laisserait le transport échouer plus
+      // loin, sans dire ce qui était mal écrit.
+      throw new Error(
+        `[nodefony] adresse du serveur temps réel illisible : ${JSON.stringify(url)}`,
+      );
     }
   }
 
@@ -320,8 +344,14 @@ export class RealtimeClient<
   async connect(url?: string): Promise<void> {
     if (this._state === "connected" || this._state === "connecting") return;
     this.intentionalClose = false;
-    this.opts.url = url ?? this.opts.url ?? this.defaultUrl();
+    this.opts.url = url ?? this.requireUrl();
     return this.openSocket();
+  }
+
+  /** L'URL configurée, ou l'échec franc — jamais une valeur devinée. */
+  private requireUrl(): string {
+    if (!this.opts.url) throw RealtimeClient.missingUrl();
+    return this.opts.url;
   }
 
   disconnect(): void {
@@ -966,12 +996,6 @@ export class RealtimeClient<
     });
   }
 
-  private defaultUrl(): string {
-    if (typeof window === "undefined") return "ws://localhost/realtime";
-    const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${window.location.host}/nodefony/api/realtime`;
-  }
-
   private openSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
@@ -981,7 +1005,7 @@ export class RealtimeClient<
           typeof window !== "undefined"
             ? window.location.href
             : "http://localhost";
-        const url = new URL(this.opts.url ?? this.defaultUrl(), base);
+        const url = new URL(this.requireUrl(), base);
         // Une URL relative hérite du scheme de la page (http/https) → WebSocket
         // exige ws/wss. Normaliser systématiquement (sinon throw "scheme must be…").
         if (url.protocol === "http:") url.protocol = "ws:";

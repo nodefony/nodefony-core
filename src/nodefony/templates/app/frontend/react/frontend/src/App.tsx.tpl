@@ -1,12 +1,13 @@
 import { useEffect, <% if (!it.complete) { %>useRef, <% } %>useState, version as reactVersion } from "react";
-<% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework : client + bindings React —
-// aucun `new WebSocket` à la main (reconnexion, re-subscribe, état : gérés).
-// Subpath `nodefony/client` : la porte client EXPLICITE, résolue à l'identique
-// par Vite, Node et le typecheck (la racine `nodefony` dépend d'une condition
+<% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework — aucun `new WebSocket` à la main
+// (reconnexion, re-subscribe, état : gérés). Deux concepts suffisent : le
+// Provider, qui reçoit l'adresse du serveur, et un hook par besoin.
+// Subpath `nodefony/react` : une porte EXPLICITE, résolue à l'identique par
+// Vite, Node et le typecheck (la racine `nodefony` dépend d'une condition
 // d'export que `tsgo --noEmit` ne voit pas).
-import { RealtimeClient } from "nodefony/client";
 import {
   NodefonyProvider,
+  useNodefony,
   useNodefonyState,
   useNodefonyChannelData,
 } from "nodefony/react";
@@ -67,16 +68,14 @@ interface Tick {
   pid: number;
 }
 
-// UNE socket par URL pour toute la page (`.shared`) — URL RELATIVE, résolue
-// contre la page (https → wss automatique). C'est la même façade que Studio.
-const live = RealtimeClient.shared({ url: "/api/live/realtime" });
-
 /**
  * Carte temps réel — consomme la FAÇADE (hooks `nodefony/react`) : abonnement
  * au montage, désabonnement au démontage, re-subscribe à la reconnexion, état
  * de connexion — tout est porté par le client. Zéro `WebSocket` à la main.
  */
 function LiveCard() {
+  // La socket du Provider — même instance que celle des hooks ci-dessous.
+  const live = useNodefony();
   const state = useNodefonyState();
   const tick = useNodefonyChannelData<Tick>("live:ticker");
   const [pong, setPong] = useState<string | null>(null);
@@ -178,14 +177,7 @@ function LiveCard() {
 <% } %>
   useEffect(() => {
     refreshHello();
-<% if (it.complete) { %>
-    // La socket Nodefony est PARTAGÉE par URL (`.shared`) et `connect()` est
-    // idempotent : le double-montage StrictMode (dev) ne coûte rien. Pas de
-    // `disconnect()` au démontage — la connexion appartient à la PAGE.
-    live.connect().catch(() => {
-      /* la carte affiche l'état (`error`) — la reconnexion est automatique */
-    });
-<% } else { %>
+<% if (it.complete) { %><% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
     // WS métier, génère la bonne couche (`nodefony create controller <nom>
@@ -371,7 +363,11 @@ function LiveCard() {
           {authMsg && <p className="nf-dim">{authMsg}</p>}
         </div>
 <% } %>
-<% if (it.complete) { %>        <NodefonyProvider client={live}>
+<% if (it.complete) { %>        {/* Deux concepts pour du temps réel : ce Provider, et un hook dans la
+            carte. Le Provider fabrique la socket partagée pour cette URL et la
+            connecte — l'URL est RELATIVE, résolue contre la page (https → wss).
+            Deux Providers de même URL n'ouvrent qu'UNE connexion. */}
+        <NodefonyProvider url="/api/live/realtime">
           <LiveCard />
         </NodefonyProvider>
 <% } else { %>        <div className="nf-card">
