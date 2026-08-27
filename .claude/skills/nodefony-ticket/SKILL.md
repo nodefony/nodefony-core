@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.3.0
+  version: 1.4.0
 description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "mets un lexique", "écris-le en français", "évite le jargon", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ajouter au board", "jalon 10.0.0", "on ne l'a pas déjà fait ?", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "est-ce le bon moment pour celui-là ?".
 ---
 
@@ -290,9 +290,31 @@ la preuve, le critère de fin et la trace — le faire dans la foulée n'autoris
 npm run ticket:open -- --title "docs(guides): retirer « mocha + bun » du hub" \
   --body-file tmp/t/1.md --milestone "10.0.0" --priorite P1 --jours 0.5
 #   --backlog          → pas de jalon, label `backlog` (aucune date promise)
-#   --parent 63        → sous-ticket
+#   --parent 63        → sous-ticket : l'ordre se DÉRIVE du parent (63.1, 63.2, …)
+#   --ordre 12.5       → ordre explicite, quand il n'y a pas de parent
 #   --label irrattrapable
 ```
+
+### 🔴 L'ordre d'une grappe suit les DÉPENDANCES, jamais les numéros d'issue
+
+Un sous-ticket sans ordre tombe en fin de tri et n'est **jamais proposé** — le même oubli muet que
+l'absence d'inscription au tableau, une case plus loin. Avec `--parent`, la commande le dérive
+(parent 50 → 50.1, 50.2, …) et **refuse** les deux cas où un ordre dérivé serait faux : un parent
+qui n'a pas d'ordre lui-même, et une grappe de plus de neuf enfants, qui mordrait sur le cran
+suivant. Sans parent ni `--ordre`, elle l'ANNONCE au lieu de se taire.
+
+Ce que la machine ne peut pas faire à ta place, c'est **classer les frères entre eux**. Le rang
+d'un enfant, c'est sa place dans la chaîne des dépendances : le socle avant ce qui s'y branche,
+la veille avant ce qu'elle tranche, le confort avant le chantier de fond s'il a été jugé
+prioritaire.
+
+> **Le remplissage mécanique ressemble à un arbitrage et n'en est pas un.** Vécu sur la grappe #54 :
+> sept sous-tickets rangés à `ordre = numéro d'issue − 4`. Conséquences invisibles à la lecture —
+> le socle commun aux quatre fronts passait **après** les trois liaisons qui en dépendent, le bus de
+> journalisation déclaré « première brique » passait **après** la brique qu'il fonde, le seul ticket
+> d'un **autre jalon** ouvrait la grappe, et le ticket que le parent désigne comme « le confort
+> d'abord » fermait la marche. Le contrôle qui tranche en une seconde : **si les ordres sont dans le
+> même sens que les numéros d'issue, personne n'a arbitré.**
 
 Le détail des champs reste utile quand on corrige un item existant :
 
