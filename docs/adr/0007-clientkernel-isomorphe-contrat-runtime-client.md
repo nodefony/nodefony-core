@@ -24,8 +24,13 @@ tags:
 
 Accepté (2026-07-03). **Design only** : cet ADR gèle le **contrat** (nom, périmètre, surface API,
 budgets, invariants) qui sera publié avec `nodefony@10.0.0`. **L'implémentation est différée en
-Phase 3.2 post-MVP** (1ᵉʳ consommateur = le debug-client). Comme l'ADR-0006, ce document EST la
-spécification à respecter le jour de l'implémentation.
+Phase 3.2 post-MVP**. Comme l'ADR-0006, ce document EST la spécification à respecter le jour de
+l'implémentation.
+
+**Révision du 2026-08-27 — D2 et le 1ᵉʳ consommateur.** Le contrat n'est finalement **pas publié**
+avec la 10.0.0 : rien ne l'exerçait, et il portait deux défauts qu'une implémentation aurait
+révélés (détail sous D2). Il rejoindra la surface publiée quand une **application réelle** l'aura
+éprouvé — **Studio**, et non le debug-client. Le reste de l'ADR est inchangé.
 
 ## Contexte (vérifié dans le code le 2026-07-03)
 
@@ -120,6 +125,25 @@ possède le rendu se bat contre React — ligne rouge. Sont exclus aussi, par d�
 HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur.
 
 ### D2 — Contrat d'abord : `IClientKernel` publié types-only en 10.0.0, implémentation différée
+
+> **Révisé le 2026-08-27 — le contrat N'est PAS publié en 10.0.0.** La décision ci-dessous tient
+> par son intention (spécifier avant d'implémenter) mais pas par son geste : elle a mis sur npm un
+> contrat que **rien n'exerçait**. Le précédent qu'elle invoque — `IRealtimeSocket`, publié avant
+> que le hub serveur ne soit complet — ne s'applique pas : celui-là avait `RealtimeClient` pour
+> l'implémenter, donc le compilateur l'a vérifié dès le premier jour. `IClientKernel` n'a jamais eu
+> ce garde-fou, et il portait déjà deux défauts qu'une implémentation aurait fait tomber : son
+> registre (`realtime?: IRealtimeSocket`) ne pouvait pas nourrir `NodefonyProvider`, qui exige la
+> classe `RealtimeClient` ; et `IRealtimeSocket` n'ayant ni `connect`, ni `disconnect`, ni `state`,
+> ni `identity`, le contrat ne savait pas exprimer le re-handshake d'identité de **D9**.
+>
+> Les coûts sont asymétriques : publier maintenant un contrat faux, c'est une **majeure** pour le
+> corriger ; l'ajouter une fois exercé, c'est une **mineure**. Le réexport est donc sorti du barrel
+> client. La spécification reste ce document, et le contrat reste dans le dépôt.
+>
+> Il revient dans la surface publiée le jour où une **application réelle l'exerce** — Studio, pas le
+> debug-client : seule une application complète (identité, socket, stores) éprouve la structure.
+> Gardé par `src/nodefony/src/tests/clientSurfaceExercised.test.ts`, qui refuse toute interface
+> publiée par le barrel client que rien n'exerce dans le dépôt.
 
 La 10.0.0 publie **l'interface** (`src/client/IClientKernel.ts`, exportée `export type` depuis le
 barrel client) : **0 octet de runtime, 0 risque, et le nom + la surface sont gelés SemVer**.
@@ -293,8 +317,9 @@ définitif (garde-fou déjà acté dans la vision).
 
 Ordre gelé (chaque étape livre un produit vert, méthode realtime) :
 
-1. **10.0.0 (design only)** : publier `IClientKernel` (types) + D4 (façade nettoyée) + budgets
-   D10 outillés. Studio inchangé.
+1. **10.0.0 (design only)** : D4 (façade nettoyée) + budgets D10 outillés. Studio inchangé.
+   ~~Publier `IClientKernel` (types)~~ — **révisé** : le contrat sort de la surface publiée tant
+   que rien ne l'exerce (cf D2). Il y revient à l'étape 4, une fois Studio porté dessus.
 2. **Phase 3.2a** : `ApiClient` core (D8.1) — Studio le consomme via un alias local le temps de
    migrer ses imports ; le debug-client naît directement dessus.
 3. **Phase 3.2b** : `createClientKernel` minimal (registre + lifecycle + identité D9) — le
@@ -346,10 +371,13 @@ ferait du kernel un moule du legacy Studio.
 **Critères d'acceptation de l'implémentation (Phase 3.2 — repris de cet ADR)**
 
 1. Prototype + `size-limit` : budgets D10 tenus, mesures dans le message de commit.
-2. Le debug-client consomme `createClientKernel` sans importer un seul module Studio.
+2. **Studio** — l'application réelle — tourne sur `createClientKernel` : c'est elle qui éprouve
+   l'architecture, le debug-client n'ayant ni identité qui bascule, ni caches à purger.
 3. Studio migré (D11.4) : e2e vertes, `RootStore` ≤ ~80 lignes (composition déléguée au kernel),
    la reaction identité supprimée au profit d'`onIdentityChange`.
-4. Le smoke test de parité release (npm pack → install vierge → `tsc --noEmit`) type-check un
+4. Le contrat est **rendu au barrel client** — `src/nodefony/src/tests/clientSurfaceExercised.test.ts`
+   passe au vert avec l'export remis, ce qui prouve mécaniquement que quelqu'un le tient — et le
+   smoke test de parité release (npm pack → install vierge → `tsc --noEmit`) type-check un
    `import type { IClientKernel } from "nodefony/client"`.
 
 ## Références

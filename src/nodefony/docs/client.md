@@ -514,14 +514,19 @@ savoir **où sont les limites** : ce sont des shims, pas des implémentations co
 d'événements ne distingue pas un écouteur « une fois » d'un écouteur ordinaire, et ne gère pas
 l'événement `error` spécial de Node.
 
-### Le kernel client — un contrat, pas encore une implémentation
+### Le kernel client — un contrat qui n'est pas encore publié
 
 `IClientKernel` (`client/IClientKernel.ts:82`) décrit le futur chef d'orchestre de la couche
 technique d'une application front : composition de services, cycle de vie navigateur, changement
-d'identité. Il est publié **en types seulement** — zéro octet de code — pour geler le nom et la surface
-avant l'implémentation. Le registre de services `NodefonyClientServices`
-(`client/IClientKernel.ts:69`) s'étend par augmentation de module, comme le registre de configuration
-côté serveur.
+d'identité. Le registre de services `NodefonyClientServices` (`client/IClientKernel.ts:69`) s'étend
+par augmentation de module, comme le registre de configuration côté serveur.
+
+**Tu ne peux pas encore l'importer**, et c'est délibéré : il a d'abord été publié en types seulement,
+puis retiré de la surface avant que la 10.0.0 ne le gèle. Personne ne l'implémentait, donc le
+compilateur ne l'avait jamais vérifié — et il portait deux défauts que la première implémentation
+aurait révélés. Une fois publié, les corriger aurait demandé une version majeure ; l'ajouter une
+fois qu'une application réelle l'exerce ne demandera qu'une mineure. La spécification, elle, vaut
+toujours : elle est dans le dépôt, et l'ADR-0007 en donne les onze décisions.
 
 ## 🏗️ Comment la lib arrive dans ton bundle
 

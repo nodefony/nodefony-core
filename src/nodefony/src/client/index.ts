@@ -63,14 +63,17 @@ export type {
   RealtimeHandler,
 } from "../realtime/IRealtimeSocket";
 
-// Contrat du kernel client isomorphe (ADR-0007) — types-only, 0 octet de runtime.
-// L'implémentation (`createClientKernel`) arrive en Phase 3.2.
-export type {
-  IClientKernel,
-  NodefonyClientServices,
-  ClientKernelEvent,
-  ClientKernelState,
-} from "./IClientKernel";
+// Le contrat du kernel client isomorphe (ADR-0007, `./IClientKernel.ts`) N'EST PAS
+// publié : rien ne l'implémente encore, donc rien ne l'a jamais confronté au
+// compilateur. Un contrat que personne n'exerce est une promesse invérifiable —
+// et celui-ci portait déjà deux défauts que la première implémentation aurait
+// révélés (son registre ne pouvait pas nourrir `NodefonyProvider`, et il ne
+// savait pas exprimer le re-handshake d'identité de sa propre décision D9).
+// Le publier le gelait SemVer : le corriger aurait coûté une majeure, alors que
+// l'ajouter une fois exercé ne coûte qu'une mineure.
+// La spécification, elle, reste dans le dépôt et vaut toujours.
+// Ces quatre types reviennent ici le jour où `createClientKernel()` les exerce —
+// `src/tests/clientSurfaceExercised.test.ts` refuse leur retour avant.
 
 /**
  * Génère un identifiant unique (UUID v4) côté client.
