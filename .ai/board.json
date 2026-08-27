@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T15:22:47.555Z",
+  "generatedAt": "2026-08-27T15:58:47.905Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -307,6 +307,105 @@
       ]
     },
     {
+      "number": 83,
+      "title": "feat(notification): doter le framework de l'envoi de messages sortants",
+      "url": "https://github.com/nodefony/nodefony-core/issues/83",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": null,
+      "ordre": 8.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 89,
+      "title": "docs(notification): faire la veille des canaux de communication attendus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/89",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 8.2,
+      "labels": [
+        "10.0.0",
+        "arbitrage"
+      ]
+    },
+    {
+      "number": 84,
+      "title": "feat(mail): créer le module et son service d'envoi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/84",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 85,
+      "title": "feat(mail): composer un courriel depuis un gabarit",
+      "url": "https://github.com/nodefony/nodefony-core/issues/85",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 86,
+      "title": "feat(mail): envoyer un courriel en ligne de commande",
+      "url": "https://github.com/nodefony/nodefony-core/issues/86",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 8.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 87,
+      "title": "test(mail): éprouver l'envoi contre un vrai serveur de test",
+      "url": "https://github.com/nodefony/nodefony-core/issues/87",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 88,
+      "title": "docs(mail): documenter la configuration et le premier envoi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/88",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 8.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 42,
       "title": "fix(client): corriger l'adresse du serveur temps réel par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/42",
@@ -551,29 +650,15 @@
       ]
     },
     {
-      "number": 34,
-      "title": "feat(client): implémenter le noyau applicatif côté navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/34",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1",
-      "priorite": "P3 — fin de cycle",
-      "jours": 5,
-      "ordre": 30,
-      "labels": [
-        "10.1"
-      ]
-    },
-    {
-      "number": 35,
-      "title": "feat(client): faire remonter les journaux du navigateur au serveur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/35",
+      "number": 43,
+      "title": "feat(client): accepter une adresse de serveur sur le composant racine",
+      "url": "https://github.com/nodefony/nodefony-core/issues/43",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
-      "jours": 3,
-      "ordre": 31,
+      "jours": 1,
+      "ordre": 30,
       "labels": [
         "10.0.0"
       ]
@@ -587,7 +672,7 @@
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
-      "ordre": 32,
+      "ordre": 31,
       "labels": [
         "10.0.0"
       ]
@@ -601,7 +686,7 @@
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
-      "ordre": 33,
+      "ordre": 32,
       "labels": [
         "10.0.0"
       ]
@@ -615,7 +700,7 @@
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
-      "ordre": 34,
+      "ordre": 33,
       "labels": [
         "10.0.0"
       ]
@@ -629,23 +714,37 @@
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
+      "ordre": 34,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 35,
+      "title": "feat(client): faire remonter les journaux du navigateur au serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/35",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
       "ordre": 35,
       "labels": [
         "10.0.0"
       ]
     },
     {
-      "number": 43,
-      "title": "feat(client): accepter une adresse de serveur sur le composant racine",
-      "url": "https://github.com/nodefony/nodefony-core/issues/43",
+      "number": 34,
+      "title": "feat(client): implémenter le noyau applicatif côté navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/34",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1",
       "priorite": "P3 — fin de cycle",
-      "jours": 1,
+      "jours": 5,
       "ordre": 36,
       "labels": [
-        "10.0.0"
+        "10.1"
       ]
     },
     {
@@ -942,105 +1041,6 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 83,
-      "title": "feat(notification): doter le framework de l'envoi de messages sortants",
-      "url": "https://github.com/nodefony/nodefony-core/issues/83",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": null,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 84,
-      "title": "feat(mail): créer le module et son service d'envoi",
-      "url": "https://github.com/nodefony/nodefony-core/issues/84",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 85,
-      "title": "feat(mail): composer un courriel depuis un gabarit",
-      "url": "https://github.com/nodefony/nodefony-core/issues/85",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 86,
-      "title": "feat(mail): envoyer un courriel en ligne de commande",
-      "url": "https://github.com/nodefony/nodefony-core/issues/86",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 87,
-      "title": "test(mail): éprouver l'envoi contre un vrai serveur de test",
-      "url": "https://github.com/nodefony/nodefony-core/issues/87",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 88,
-      "title": "docs(mail): documenter la configuration et le premier envoi",
-      "url": "https://github.com/nodefony/nodefony-core/issues/88",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 89,
-      "title": "docs(notification): faire la veille des canaux de communication attendus",
-      "url": "https://github.com/nodefony/nodefony-core/issues/89",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": null,
-      "labels": [
-        "10.0.0",
-        "arbitrage"
       ]
     },
     {

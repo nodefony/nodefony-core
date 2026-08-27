@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-27 15:22** (UTC).
+> Empreinte prise le **2026-08-27 15:58** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -47,6 +47,13 @@ Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0
 | 7 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 7.1 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
 | 8 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
+| 8.1 | P1 — figé à la création | — | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
+| 8.2 | P2 — décision | 1 | #89 | docs(notification): faire la veille des canaux de communication attendus |
+| 8.3 | P1 — figé à la création | 1 | #84 | feat(mail): créer le module et son service d'envoi |
+| 8.4 | P1 — figé à la création | 1 | #85 | feat(mail): composer un courriel depuis un gabarit |
+| 8.5 | P1 — figé à la création | 0.5 | #86 | feat(mail): envoyer un courriel en ligne de commande |
+| 8.6 | P1 — figé à la création | 1 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
+| 8.7 | P1 — figé à la création | 0.5 | #88 | docs(mail): documenter la configuration et le premier envoi |
 | 9.5 | P1 — figé à la création | 0.5 | #42 | fix(client): corriger l'adresse du serveur temps réel par défaut |
 | 10 | P2 — décision | 0.5 | #26 | refactor(client)!: retirer l'appel non typé de la socket cliente |
 | 11 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
@@ -60,22 +67,15 @@ Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0
 | 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
 | 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 31 | P3 — fin de cycle | 3 | #35 | feat(client): faire remonter les journaux du navigateur au serveur |
-| 32 | P3 — fin de cycle | 2 | #36 | refactor(client): extraire un socle commun aux quatre fronts |
-| 33 | P3 — fin de cycle | 1.5 | #37 | feat(client): ajouter les composables Vue 3 du temps réel |
-| 34 | P3 — fin de cycle | 2 | #38 | feat(client): ajouter les services Angular du temps réel |
-| 35 | P3 — fin de cycle | 1.5 | #39 | feat(client): ajouter les runes Svelte 5 du temps réel |
-| 36 | P3 — fin de cycle | 1 | #43 | feat(client): accepter une adresse de serveur sur le composant racine |
+| 30 | P3 — fin de cycle | 1 | #43 | feat(client): accepter une adresse de serveur sur le composant racine |
+| 31 | P3 — fin de cycle | 2 | #36 | refactor(client): extraire un socle commun aux quatre fronts |
+| 32 | P3 — fin de cycle | 1.5 | #37 | feat(client): ajouter les composables Vue 3 du temps réel |
+| 33 | P3 — fin de cycle | 2 | #38 | feat(client): ajouter les services Angular du temps réel |
+| 34 | P3 — fin de cycle | 1.5 | #39 | feat(client): ajouter les runes Svelte 5 du temps réel |
+| 35 | P3 — fin de cycle | 3 | #35 | feat(client): faire remonter les journaux du navigateur au serveur |
 | 37 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
-| — | P1 — figé à la création | — | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
-| — | P1 — figé à la création | 1 | #84 | feat(mail): créer le module et son service d'envoi |
-| — | P1 — figé à la création | 1 | #85 | feat(mail): composer un courriel depuis un gabarit |
-| — | P1 — figé à la création | 0.5 | #86 | feat(mail): envoyer un courriel en ligne de commande |
-| — | P1 — figé à la création | 1 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
-| — | P1 — figé à la création | 0.5 | #88 | docs(mail): documenter la configuration et le premier envoi |
-| — | P2 — décision | 1 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | — | P1 — figé à la création | 1 | #90 | test(devkit): auditer le module généré comme l'application générée |
 
 ## Jalon 10.1 — 15 ouverts
@@ -84,7 +84,7 @@ Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0
 | --- | --- | ---: | --- | --- |
 | 20 | P3 — fin de cycle | 1 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 23 | P3 — fin de cycle | 0.5 | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
-| 30 | P3 — fin de cycle | 5 | #34 | feat(client): implémenter le noyau applicatif côté navigateur |
+| 36 | P3 — fin de cycle | 5 | #34 | feat(client): implémenter le noyau applicatif côté navigateur |
 | 50 | P2 — décision | 1.5 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 50.1 | P3 — fin de cycle | 0.5 | #76 | test(bancs): constater le décor avant de lancer les suites |
 | 50.2 | P3 — fin de cycle | 0.5 | #77 | test(bancs): donner à chaque banc son propre compte |

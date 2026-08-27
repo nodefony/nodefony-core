@@ -399,6 +399,13 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 08-27] **Un champ de pilotage rempli MÉCANIQUEMENT ressemble à un arbitrage.** La grappe
+  #54 avait `ordre = numéro d'issue − 4` sur sept sous-tickets : le socle commun passait APRÈS les
+  trois liaisons qui en dépendent, le ticket d'un AUTRE jalon ouvrait la marche, et celui que le
+  parent désigne comme « le confort d'abord » finissait dernier. Rien ne criait, parce qu'un ordre
+  faux est un ordre quand même. Le contrôle qui tranche en une seconde : **si les ordres vont dans
+  le même sens que les numéros d'issue, personne n'a arbitré.**
+
 - **Le premier instrument qui ACQUITTE à tort — pire que ceux qui accusent.** Le soak s'est
   arrêté à la 37ᵉ fenêtre d'un run de 180, est resté DEUX HEURES pendu, puis a rendu
   `verdict: "clean"`, exit 0. Son garde-fou de durée comparait à un plancher ABSOLU (10 min) et
@@ -625,6 +632,11 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
 
 ## 🧨 Une commande de DÉCLARATION ne doit jamais désarmer ce qu'elle trouve
 
+- [1× — 08-27] **`docker compose --profile X down` ne borne PAS la descente au profil.** Voulant
+  arrêter le seul conteneur navigateur, j'ai emporté `nodefony-redis` — un service d'infra que
+  d'autres suites utilisent. Le drapeau qui SÉLECTIONNE à la montée ne RESTREINT pas à la
+  descente. Relancé aussitôt, mais le geste juste était `down <service>` nommé, ou `stop`.
+
 - `ai:mcp` sans option RETIRAIT l'en-tête `Authorization` posé la veille — deux fois en une heure sur
   la config du développeur, dont une par un `--json` de simple vérification. Le message disait
   « (remplaçait <la MÊME url>) » : un remplacement qui ne remplace rien de visible. Deux règles :
@@ -685,6 +697,18 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 08-27] **Mon cas « évidemment sale » de flottant était PROPRE.** J'avais écrit le test
+  d'arrondi sur `8.1 + 0.6`, en affirmant en commentaire qu'il valait `8.700000000000001` : le
+  calcul est exact, et le test restait vert une fois la garde débranchée. Il a fallu BALAYER la
+  plage pour trouver un cas réel (`1.1 + 0.1 = 1.2000000000000002`, un parmi 1 608). Une
+  intuition sur les flottants ne se cite pas, elle se cherche à la commande.
+- [1× — 08-27] **J'ai conclu « c'est la CI » sur DEUX points de mesure.** `gh run list --limit 300`
+  ne remontait qu'à trois jours ; pour les cinq jours précédents je n'avais aucun chiffre et j'ai
+  extrapolé la corrélation. La conclusion était juste — la preuve, non. Le rattrapage : reprendre
+  la série entière par l'API, puis la CONFIRMER par une mesure indépendante (7,3 jobs par run
+  contre 5,4–9,1 clones par run). Une corrélation qui ne couvre pas la période qu'elle explique
+  n'est pas une corrélation.
 
 - [1× — 08-27] **Mon propre audit se CONTREDISAIT, et c'est ce qui l'a sauvé.** Il annonçait
   `reflect-metadata` bundlé dans un `dist/` ET « jamais importé côté serveur » — deux verdicts
@@ -913,6 +937,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 08-27] **Une règle RECOPIÉE hors de son skill gagne contre le skill — et fait faire
+  l'inverse.** Le `CLAUDE.md` racine et la mémoire IA désignaient le conteneur comme « l'exception
+  qui lève la règle pas-de-Chromium » ; le skill dit depuis sa v1.1.0 que la voie normale est
+  LOCALE (rien à démarrer) et que le conteneur est un dernier recours. J'ai lancé le conteneur
+  sans ouvrir le skill : le résumé était sous mes yeux, pas lui. **Le paquet publié, lui, portait
+  déjà la bonne doctrine** — c'est le dépôt qui avait dérivé, pas ce qu'on distribue. Le contrôle :
+  quand un `CLAUDE.md` résume un skill, il ne doit garder que le RENVOI et le déclencheur, jamais
+  la doctrine — sinon l'agent applique le résumé périmé et n'ouvre jamais la source.
 
 - [1× — 08-27] **Un contrôle rangé dans un SKILL se périme sans le dire — et il l'a fait.** L'audit
   `external` supposait `const external: string[] = [...]` ; la migration rolldown a fait passer **20
