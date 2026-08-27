@@ -369,7 +369,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le MÊME gabarit que `create controller --kind realtime` (délégation,
       // zéro copie propre à l'app — corriger le gabarit corrige les deux).
       assert.include(live, "extends RealtimeController");
-      assert.include(live, '@RealtimeChannel("live:ticker")');
+      assert.include(live, '@RealtimeChannel("live:events")');
+      // Le canal parle sur ÉVÉNEMENT, jamais sur une horloge : un gabarit qui
+      // distribuerait un battement enseignerait le polling inversé à chaque
+      // application générée.
+      assert.notInclude(live, "setInterval");
+      assert.include(live, '@RealtimeInbound("live:dire")');
       // Policy INLINE visible : l'ouverture d'une action est un choix ÉCRIT,
       // la protection par rôle est démontrée à côté.
       assert.include(
@@ -391,7 +396,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
       assert.include(e2e, 'from "nodefony/client"');
       assert.include(e2e, 'live.request("live:ping"');
-      assert.include(e2e, 'live.subscribe("live:ticker")');
+      assert.include(e2e, 'live.subscribe("live:events")');
+      assert.include(e2e, 'live.emit("live:dire"');
     });
 
     it("secrets PAR-PROJET : .env.local porte 3 clés uniques, .gitignore les exclut", () => {
@@ -1132,7 +1138,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(rapp, '<NodefonyProvider url="/api/live/realtime">');
       assert.include(rapp, "useNodefony()");
       assert.include(rapp, "useNodefonyState()");
-      assert.include(rapp, 'useNodefonyChannelData<Tick>("live:ticker")');
+      assert.include(rapp, 'useNodefonyChannelData<Evenement>("live:events")');
       assert.include(rapp, 'live.request("live:ping"');
       assert.notInclude(rapp, "new WebSocket(");
       // Les deux concepts RETIRÉS ne doivent pas revenir par la bande : sans ces
@@ -1184,11 +1190,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "observeState(live.socket,",
           `${front} : état par le socle`,
         );
+        // Deux assertions, pas une : l'appel tient sur une ou plusieurs lignes
+        // selon la longueur du nom de front — un motif qui embarque le retour à
+        // la ligne mesurerait le formateur, pas le câblage.
         assert.include(
           src,
-          'observeChannelData<Tick>(live.socket, "live:ticker"',
+          "observeChannelData<Evenement>(",
           `${front} : canal par le socle`,
         );
+        assert.include(src, '"live:events"', `${front} : le bon canal`);
         // Ce qui ne doit PLUS jamais revenir : la socket fabriquée à la main, le
         // nom d'un événement local recopié, l'appariement subscribe/unsubscribe
         // refait à la main — les trois recopies que #36 a supprimées.
@@ -1204,12 +1214,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         assert.notInclude(
           src,
-          'live.subscribe("live:ticker")',
+          'live.subscribe("live:events")',
           `${front} : l'abonnement est apparié par le socle`,
         );
         assert.notInclude(
           src,
-          'live.unsubscribe("live:ticker")',
+          'live.unsubscribe("live:events")',
           `${front} : le désabonnement est apparié par le socle`,
         );
         assert.notInclude(src, "new WebSocket(", `${front} : plus de ws brut`);
@@ -1260,10 +1270,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(sapp, 'connectShared({ url: "/api/live/realtime" })');
-      assert.include(
-        sapp,
-        'observeChannelData<Tick>(live.socket, "live:ticker"',
-      );
+      assert.include(sapp, "observeChannelData<Evenement>(");
+      assert.include(sapp, '"live:events"');
       assert.include(sapp, "$state");
       assert.notInclude(sapp, "new WebSocket(");
       const sentry = readFileSync(
@@ -1959,7 +1967,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(src, "extends RealtimeController");
-      assert.include(src, '@RealtimeChannel("pulse:ticker")');
+      assert.include(src, '@RealtimeChannel("pulse:events")');
       // Actions par DÉCORATEUR, policy inline visible — plus d'override.
       assert.include(
         src,

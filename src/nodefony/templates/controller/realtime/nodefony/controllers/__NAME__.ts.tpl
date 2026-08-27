@@ -3,9 +3,22 @@ import {
   RealtimeController,
   RealtimeChannel,
   RealtimeAction,
+  RealtimeInbound,
 } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import type { ContextType } from "@nodefony/http";
+
+/**
+ * La diffusion du canal, tant qu'au moins un client écoute. `null` dès le départ
+ * du dernier abonné : un pod sans spectateur ne retient rien, et ne publie rien.
+ *
+ * Hors de la classe, parce qu'un controller est instancié PAR CONNEXION alors
+ * que le canal est unique pour le pod — c'est ce décalage qui permet à ce qu'une
+ * connexion envoie d'atteindre toutes les autres. (Un champ `static #` ferait le
+ * même travail, mais TypeScript refuse un identifiant privé statique dans une
+ * classe décorée : TS18036.)
+ */
+let diffuser: RealtimePublish | null = null;
 
 /**
  * <%= it.nameClass %> — endpoint temps réel de la socket Nodefony (JSON-RPC
@@ -24,9 +37,10 @@ import type { ContextType } from "@nodefony/http";
  * // URL RELATIVE, résolue contre la page (https → wss automatique) ;
  * // `.shared()` = UNE socket par URL, partagée par toute la page.
  * const socket = RealtimeClient.shared({ url: "<%= it.route %>/realtime" });
- * socket.on("<%= it.channel %>:ticker", (msg) => console.log("tick", msg));
+ * socket.on("<%= it.channel %>:events", (msg) => console.log("reçu", msg));
  * await socket.connect();
- * socket.subscribe("<%= it.channel %>:ticker");        // flux serveur → client
+ * socket.subscribe("<%= it.channel %>:events");        // flux serveur → client
+ * socket.emit("<%= it.channel %>:dire", { texte: "bonjour" }); // client → TOUS
  * const pong = await socket.request("<%= it.channel %>:ping", {}); // RPC aller-retour
  * ```
  * (React : `NodefonyProvider` + hooks `nodefony/react` — `useNodefony()`,
@@ -76,23 +90,48 @@ class <%= it.nameClass %> extends RealtimeController {
   }
 
 <% } %>  /**
-   * Canal démo : 1 tick/s TANT QU'au moins un client est abonné. Annoncé au
-   * `realtime:welcome` par le décorateur (rien d'autre à déclarer). Le provider
-   * est créé au 1ᵉʳ `subscribe` et son dispose est GARANTI au dernier
-   * `unsubscribe`/close (1 provider par canal par pod, fan-out par le hub) —
-   * zéro coût quand personne n'écoute.
+   * Le canal de démonstration. Annoncé au `realtime:welcome` par le décorateur
+   * (rien d'autre à déclarer). Son fournisseur est créé au 1ᵉʳ `subscribe` et son
+   * nettoyage est GARANTI au dernier `unsubscribe`/close (1 fournisseur par canal
+   * par pod, fan-out par le hub) — zéro coût quand personne n'écoute.
+   *
+   * Il ne produit RIEN tout seul : il retient de quoi diffuser, et c'est
+   * {@link dire} qui alimente. Un battement périodique — une trame par seconde et
+   * par client, pour ne rien dire — coûterait du réseau et du processeur en
+   * permanence, et enseignerait l'inverse de ce que cette socket défend : une
+   * socket qui se tait quand il ne se passe rien n'est pas endormie, elle est
+   * bien élevée. L'état de la connexion suffit à prouver qu'elle est vivante.
    *
    * Sans `policy`, un CANAL reste LIBRE (contrairement à une action) : un flux
    * se lit, une action agit. Pour le fermer : `@RealtimeChannel(name, { roles })`.
    */
-  @RealtimeChannel("<%= it.channel %>:ticker")
-  ticker(channel: string, publish: RealtimePublish): () => void {
-    let n = 0;
-    const timer = setInterval(() => {
-      publish(channel, { n: ++n, ts: Date.now(), pid: process.pid });
-    }, 1000);
-    timer.unref();
-    return () => clearInterval(timer);
+  @RealtimeChannel("<%= it.channel %>:events")
+  events(_channel: string, publish: RealtimePublish): () => void {
+    diffuser = publish;
+    return () => {
+      diffuser = null;
+    };
+  }
+
+  /**
+   * Ce qu'une page envoie, et que TOUTES reçoivent (canal FULL-DUPLEX entrant) —
+   * la démonstration tient en deux onglets ouverts côte à côte.
+   *
+   * `params` vient du réseau : il n'est pas fiable. On borne la longueur et on ne
+   * garde que ce qu'on sait typer ; le reste est jeté sans réponse. Affiché comme
+   * du TEXTE côté page (jamais injecté en HTML), ce salon est inoffensif.
+   */
+  @RealtimeInbound("<%= it.channel %>:dire")
+  dire(params: unknown): void {
+    const p = params as { texte?: unknown } | null;
+    const texte =
+      typeof p?.texte === "string" ? p.texte.trim().slice(0, 140) : "";
+    if (!texte) return;
+    diffuser?.("<%= it.channel %>:events", {
+      texte,
+      ts: Date.now(),
+      pid: process.pid,
+    });
   }
 }
 

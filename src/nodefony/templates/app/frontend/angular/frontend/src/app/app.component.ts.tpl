@@ -35,8 +35,8 @@ interface SecureData {
   pid: number;
 }
 
-/** Un tick du canal `live:ticker` (cf `nodefony/controllers/LiveController.ts`). */
-interface Tick {
+/** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
+interface Evenement {
   n: number;
   ts: number;
   pid: number;
@@ -201,17 +201,19 @@ const live = connectShared({ url: "/api/live/realtime" });
           <h2>3. Temps réel — la socket Nodefony</h2>
           <p class="nf-dim">
             <code>LiveController</code> (<code>--kind realtime</code>) publie le
-            canal <code>live:ticker</code> (1 tick/s tant qu'un client est
-            abonné) ; la page le consomme par la façade
+            canal <code>live:events</code> quand il se passe quelque chose —
+            jamais sur une horloge ; la page le consomme par la façade
             <code>RealtimeClient</code> — zéro <code>WebSocket</code> à la main.
+            Ouvrez un second onglet pour voir arriver ce que celui-ci envoie.
           </p>
           <p>
             état : <strong>{{ liveState() }}</strong>
-            @if (tick(); as t) {
-              <span> · tick <strong>#{{ t.n }}</strong> (pid {{ t.pid }})</span>
+            @if (dernier(); as e) {
+              <span> · reçu <strong>{{ e.texte }}</strong> (pid {{ e.pid }})</span>
             }
           </p>
           <button (click)="doPing()">RPC live:ping</button>
+          <button (click)="doDire()">envoyer sur le canal</button>
           @if (pingMs(); as ms) {
             <span class="nf-dim"> pong en {{ ms }} ms</span>
           }
@@ -259,7 +261,7 @@ export class AppComponent implements OnInit, OnDestroy {
 <% if (it.complete) { %>  authMsg = signal<string | null>(null);
   secureData = signal<SecureData | null>(null);
   liveState = signal(live.socket.state);
-  tick = signal<Tick | null>(null);
+  dernier = signal<Evenement | null>(null);
   pingMs = signal<number | null>(null);
   // Disposers des listeners locaux — rendus au ngOnDestroy (HMR détruit le composant).
   #offLive: (() => void)[] = [];
@@ -337,8 +339,8 @@ export class AppComponent implements OnInit, OnDestroy {
       observeState(live.socket, (state) => this.liveState.set(state)),
     );
     this.#offLive.push(
-      observeChannelData<Tick>(live.socket, "live:ticker", (t) =>
-        this.tick.set(t),
+      observeChannelData<Evenement>(live.socket, "live:events", (e) =>
+        this.dernier.set(e),
       ),
     );
     live.start();
@@ -381,6 +383,17 @@ export class AppComponent implements OnInit, OnDestroy {
     const t0 = performance.now();
     await live.socket.request("live:ping", {});
     this.pingMs.set(Math.round(performance.now() - t0));
+  }
+
+  /**
+   * Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir un
+   * second onglet et cliquer suffit à le voir. C'est ce partage qui fait
+   * l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
+   */
+  doDire() {
+    live.socket.emit("live:dire", {
+      texte: `bonjour de la page (${Date.now() % 1000})`,
+    });
   }
 <% } else { %>
   sendWs(msg: string) {

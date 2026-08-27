@@ -32,7 +32,7 @@ describe("<%= it.nameClass %> — socket", () => {
     const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx));
     const welcome = await h.connect();
     const params = welcome.params as Record<string, unknown>;
-    expect(params.channels).toContain("<%= it.channel %>:ticker");
+    expect(params.channels).toContain("<%= it.channel %>:events");
     expect(params.methods).toContain("<%= it.channel %>:ping");
     h.dispose();
   });
@@ -48,9 +48,30 @@ describe("<%= it.nameClass %> — socket", () => {
   it("accepte l'abonnement au canal libre, et le libère à la fermeture", async () => {
     const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx));
     await h.connect();
-    await h.subscribe("<%= it.channel %>:ticker");
+    await h.subscribe("<%= it.channel %>:events");
     expect(h.denials()).toHaveLength(0);
-    h.close(); // le provider du ticker est disposé — plus aucun timer ne tourne
+    h.close(); // le fournisseur du canal est disposé — plus rien ne diffuse
+    h.dispose();
+  });
+
+  it("ce qu'une connexion envoie ressort sur le canal (et rien d'autre)", async () => {
+    const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx));
+    await h.connect();
+    await h.subscribe("<%= it.channel %>:events");
+    await h.notify("<%= it.channel %>:dire", { texte: "bonjour" });
+    expect(h.messages("<%= it.channel %>:events")).toMatchObject([
+      { texte: "bonjour" },
+    ]);
+    h.dispose();
+  });
+
+  it("un canal qui n'existe pas est REFUSÉ, jamais ignoré en silence", async () => {
+    // Un abonnement sans réponse est indiscernable d'un canal calme : on
+    // chercherait le bug côté producteur alors qu'il est dans le NOM.
+    const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx));
+    await h.connect();
+    await h.subscribe("<%= it.channel %>:canal-inexistant");
+    expect(h.denials()).toMatchObject([{ reason: "unknown" }]);
     h.dispose();
   });
 });

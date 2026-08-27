@@ -61,9 +61,9 @@ const FEATURES = [
   },
 ];
 
-<% if (it.complete) { %>/** Un tick du canal `live:ticker` (cf `nodefony/controllers/LiveController.ts`). */
-interface Tick {
-  n: number;
+<% if (it.complete) { %>/** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
+interface Evenement {
+  texte: string;
   ts: number;
   pid: number;
 }
@@ -77,31 +77,39 @@ function LiveCard() {
   // La socket du Provider — même instance que celle des hooks ci-dessous.
   const live = useNodefony();
   const state = useNodefonyState();
-  const tick = useNodefonyChannelData<Tick>("live:ticker");
+  const dernier = useNodefonyChannelData<Evenement>("live:events");
   const [pong, setPong] = useState<string | null>(null);
   const ping = async () => {
     const t0 = performance.now();
     await live.request("live:ping", {});
     setPong(`pong en ${Math.round(performance.now() - t0)} ms`);
   };
+  // Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir
+  // un second onglet et cliquer suffit à le voir. C'est ce partage qui fait
+  // l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
+  const dire = () =>
+    live.emit("live:dire", { texte: `bonjour de la page (${Date.now() % 1000})` });
   return (
     <div className="nf-card">
       <h2>3. Temps réel — la socket Nodefony</h2>
       <p className="nf-dim">
         <code>LiveController</code> (<code>--kind realtime</code>) publie le
-        canal <code>live:ticker</code> (1 tick/s tant qu'un client est abonné) ;
-        la page le consomme par les hooks <code>nodefony/react</code>.
+        canal <code>live:events</code> quand il se passe quelque chose — jamais
+        sur une horloge ; la page le consomme par les hooks{" "}
+        <code>nodefony/react</code>. Ouvrez un second onglet pour voir arriver
+        ce que celui-ci envoie.
       </p>
       <p>
         état : <strong>{state}</strong>
-        {tick && (
+        {dernier && (
           <>
             {" "}
-            · tick <strong>#{tick.n}</strong> (pid {tick.pid})
+            · reçu <strong>{dernier.texte}</strong> (pid {dernier.pid})
           </>
         )}
       </p>
-      <button onClick={ping}>RPC live:ping</button>
+      <button onClick={ping}>RPC live:ping</button>{" "}
+      <button onClick={dire}>envoyer sur le canal</button>
       {pong && <span className="nf-dim"> {pong}</span>}
     </div>
   );

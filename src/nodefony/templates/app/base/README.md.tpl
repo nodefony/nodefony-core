@@ -40,7 +40,7 @@ Puis :
 <% } %><% if (it.complete) { %>- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
 - **ORM + persistance** — Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique
 - **Firewall + audit** — chaque requête traverse le pipeline sécurité (logs `audit`)
-- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:ticker` + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
+- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:events` (alimenté par `live:dire`, jamais par une horloge) + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
 - **Redis (opt-in)** — `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus
 <% } %>- **Probes cloud-native** — `curl http://127.0.0.1:5151/livez` (liveness k8s)
 

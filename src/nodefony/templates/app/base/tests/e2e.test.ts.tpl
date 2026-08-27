@@ -67,17 +67,17 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     expect(res.status).toBe(200);
   });
 <% if (it.complete) { %>
-  it("realtime — RPC live:ping + canal live:ticker par la FAÇADE", async () => {
+  it("realtime — RPC live:ping + aller-retour sur le canal live:events", async () => {
     // La MÊME façade que les vitrines navigateur — zéro `ws` à la main.
     const live = new RealtimeClient({ url: `${WS_BASE}/api/live/realtime` });
     try {
-      // Listener posé AVANT subscribe : le provider démarre au 1ᵉʳ abonné.
-      const tickP = new Promise<unknown>((resolve, reject) => {
+      // Listener posé AVANT subscribe : le fournisseur démarre au 1ᵉʳ abonné.
+      const recuP = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(
-          () => reject(new Error("timeout tick 10s")),
+          () => reject(new Error("timeout canal 10s")),
           10_000,
         );
-        live.on("live:ticker", (msg) => {
+        live.on("live:events", (msg) => {
           clearTimeout(timer);
           resolve(msg);
         });
@@ -86,11 +86,15 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       // Action OUVERTE ({ authenticated: false }) — répond même anonyme.
       const pong = (await live.request("live:ping", {})) as { pong: boolean };
       expect(pong.pong).toBe(true);
-      // Canal libre : 1 tick/s tant qu'au moins un client est abonné.
-      live.subscribe("live:ticker");
-      const tick = (await tickP) as { n: number; pid: number };
-      expect(tick.n).toBeGreaterThan(0);
-      expect(tick.pid).toBeGreaterThan(0);
+      // Canal libre. Il ne bat PAS tout seul : il parle quand il se passe
+      // quelque chose — ici, ce que cette connexion envoie et que toutes
+      // reçoivent. C'est ce partage qui fait l'intérêt d'une socket, pas un
+      // battement qui coûterait une trame par seconde et par client.
+      live.subscribe("live:events");
+      live.emit("live:dire", { texte: "bonjour e2e" });
+      const recu = (await recuP) as { texte: string; pid: number };
+      expect(recu.texte).toBe("bonjour e2e");
+      expect(recu.pid).toBeGreaterThan(0);
     } finally {
       // Le nettoyage vit dans le `finally` : une assertion qui tombe ne doit
       // jamais laisser une socket ouverte derrière le run.

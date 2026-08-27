@@ -42,9 +42,9 @@
   let error = $state<string | null>(null);
   let count = $state(0);
 <% if (it.complete) { %>
-  /** Un tick du canal `live:ticker` (cf `nodefony/controllers/LiveController.ts`). */
-  interface Tick {
-    n: number;
+  /** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
+  interface Evenement {
+    texte: string;
     ts: number;
     pid: number;
   }
@@ -53,7 +53,7 @@
   // contre la page (https → wss automatique). La même façade que Studio.
   const live = connectShared({ url: "/api/live/realtime" });
   let liveState = $state(live.socket.state);
-  let tick = $state<Tick | null>(null);
+  let dernier = $state<Evenement | null>(null);
   let pingMs = $state<number | null>(null);
   // Disposers des listeners locaux — rendus au démontage (HMR remonte le composant).
   let offLive: (() => void)[] = [];
@@ -135,7 +135,11 @@
     // identiques en React, Vue, Angular et Svelte.
     offLive.push(observeState(live.socket, (state) => (liveState = state)));
     offLive.push(
-      observeChannelData<Tick>(live.socket, "live:ticker", (t) => (tick = t)),
+      observeChannelData<Evenement>(
+        live.socket,
+        "live:events",
+        (e) => (dernier = e),
+      ),
     );
     live.start();
 <% } else { %>
@@ -178,6 +182,14 @@
     await live.socket.request("live:ping", {});
     pingMs = Math.round(performance.now() - t0);
   };
+
+  // Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir un
+  // second onglet et cliquer suffit à le voir. C'est ce partage qui fait
+  // l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
+  const doDire = () =>
+    live.socket.emit("live:dire", {
+      texte: `bonjour de la page (${Date.now() % 1000})`,
+    });
 <% } else { %>  const sendWs = () => {
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(wsInput);
@@ -324,15 +336,17 @@
       <h2>3. Temps réel — la socket Nodefony</h2>
       <p class="nf-dim">
         <code>LiveController</code> (<code>--kind realtime</code>) publie le
-        canal <code>live:ticker</code> (1 tick/s tant qu'un client est
-        abonné) ; la page le consomme par la façade
+        canal <code>live:events</code> quand il se passe quelque chose — jamais
+        sur une horloge ; la page le consomme par la façade
         <code>RealtimeClient</code> — zéro <code>WebSocket</code> à la main.
+        Ouvrez un second onglet pour voir arriver ce que celui-ci envoie.
       </p>
       <p>
         état : <strong>{liveState}</strong>
-        {#if tick} · tick <strong>#{tick.n}</strong> (pid {tick.pid}){/if}
+        {#if dernier} · reçu <strong>{dernier.texte}</strong> (pid {dernier.pid}){/if}
       </p>
       <button onclick={doPing}>RPC live:ping</button>
+      <button onclick={doDire}>envoyer sur le canal</button>
       {#if pingMs !== null}<span class="nf-dim"> pong en {pingMs} ms</span>{/if}
     </div>
 <% } else { %>    <div class="nf-card">
