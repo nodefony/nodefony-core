@@ -11,7 +11,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 # `nodefony-ticket`
 
-> Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).
+> Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-ticket**
 
@@ -27,23 +27,23 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.1.0` |
 | Famille | Autres |
-| Corps | 201 lignes |
-| Coût d'activation | ~3 429 tokens (le corps est chargé à l'invocation) |
-| Description | 944 / 1024 caractères |
-| Déclencheurs | 17 |
+| Corps | 206 lignes |
+| Coût d'activation | ~3 519 tokens (le corps est chargé à l'invocation) |
+| Description | 912 / 1024 caractères |
+| Déclencheurs | 20 |
 | Ressources `references/` | 3 page(s) |
-| Scripts | 1 |
+| Scripts | 2 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité). À charger AVANT d'ouvrir une issue ou d'en restructurer un lot : un ticket est lu par un humain pressé autant que par un agent, et un titre-phrase le rend illisible pour les deux.
+Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite.
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`on ne comprend pas ce titre` · `c'est quoi cette abréviation` · `mets un lexique` · `crée un ticket` · `ouvre une issue` · `nouveau ticket` · `note ça dans un ticket` · `fais-en des tickets` · `ticket parent` · `sous-tickets` · `découper cette issue` · `reformater les tickets` · `titre de ticket` · `estimer un ticket` · `priorité d'un ticket` · `ajouter au board` · `jalon 10.0.0`
+`crée un ticket` · `ouvre une issue` · `note ça dans un ticket` · `fais-en des tickets` · `corrige les tickets` · `reformule les issues` · `ce titre est incompréhensible` · `on ne comprend pas ce titre` · `c'est quoi cette abréviation` · `mets un lexique` · `écris-le en français` · `évite le jargon` · `renomme cette issue` · `ticket parent` · `sous-tickets` · `découper cette issue` · `estimer un ticket` · `priorité d'un ticket` · `ajouter au board` · `jalon 10.0.0`
 
 ## Ce que contient le corps
 
@@ -64,7 +64,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/conventional-commits.md` | Conventional Commits 1.0.0 — la spec, hors ligne | 53 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 76 |
-| `references/lexique.md` | Lexique des tickets — source unique | 65 |
+| `references/lexique.md` | Lexique des tickets — source unique | 124 |
 
 
 ## Scripts embarqués
@@ -74,11 +74,13 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
+| `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
+node scripts/francise.mjs            # diff seul, n'écrit rien
 node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
 ```
 
@@ -93,13 +95,13 @@ node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 944 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 912 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 201 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 206 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

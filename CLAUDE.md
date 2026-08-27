@@ -387,6 +387,7 @@ La doc externe (RFC) et la phase future P12 (couche IA) sont **déchargées dans
 | `nodefony-inspect` | Interroger le dépôt sans lire les sources : graphe symbolique (qui étend/implémente/importe), signature d'une méthode, config/routes d'un module, diff propre. AVANT un `grep` multi-modules. |
 | **`nodefony-html-report`** | **Tout livrable destiné à un HUMAIN** (audit, banc de perf, mesures, revue) → HTML autonome : `lib/report.mjs` (graphes SVG, tableaux triables, calculateurs, glisser-déposer, mode présentation, impression PDF, W3C validé) + specs W3C bundlées offline. Cf la règle de livrable ci-dessus. |
 | `nodefony-load-test` | Charge, stress, **et dimensionnement** (`scripts/capacity.mjs` → constantes d'un pod + rapport HTML avec calculateur de pods) |
+| **`nodefony-ticket`** | **Écrire, corriger ou trier des issues GitHub** — titre compréhensible sans connaître le dépôt, lexique des abréviations, parents/sous-tickets, champs du tableau de bord. À charger AVANT d'ouvrir ou de reformuler un ticket : un titre écrit sans lui se fait réécrire ensuite. |
 | `nodefony-debug` | **Un symptôme runtime, pas une feature** : test rouge inexpliqué, vert isolé/rouge en suite, crash au boot, fuite, régression à qualifier (baseline), 404 sur TOUT un banc (mode ≠ code) — recettes éprouvées |
 
 > **Un skill n'est atteint que si sa règle n'est PAS recopiée ici.** Quand ce fichier redonne la

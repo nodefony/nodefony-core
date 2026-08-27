@@ -47,10 +47,10 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **soak** (detect: soak) — un test de **tenue dans la durée** : on fait tourner le serveur des heures sous charge pour voir si la mémoire dérive.
 - **RSS** (detect: RSS) — _Resident Set Size_ : la mémoire réellement occupée par le process, telle que le système d'exploitation la voit.
 - **red-team** (detect: red-team|red team) — une campagne d'attaque menée contre son propre produit, pour trouver les failles avant qu'un tiers ne les trouve.
-- **liste d'exceptions** (detect: allowlist) — la liste des alertes qu'un scanner doit ignorer parce qu'elles sont connues et légitimes (un jeton d'exemple tiré d'une norme, un certificat de test).
+- **liste d'exceptions** (detect: allowlist|liste d'exceptions) — la liste des alertes qu'un scanner doit ignorer parce qu'elles sont connues et légitimes (un jeton d'exemple tiré d'une norme, un certificat de test).
 - **surcharge par l'environnement** (detect: override) — remplacer une valeur de configuration au démarrage par une variable d'environnement, sans toucher au code.
-- **sous-chemin** (detect: subpath) — une porte d'entrée secondaire d'un paquet npm (`nodefony/testing` à côté de `nodefony`), déclarée dans son `package.json`.
-- **liaison** (detect: binding|bindings) — la couche qui rend une brique du framework idiomatique dans un framework front donné : _hooks_ React, _composables_ Vue, services Angular, _runes_ Svelte.
+- **sous-chemin** (detect: subpath|subpaths|sous-chemin|sous-chemins) — une porte d'entrée secondaire d'un paquet npm (`nodefony/testing` à côté de `nodefony`), déclarée dans son `package.json`.
+- **liaison** (detect: binding|bindings|liaison|liaisons) — la couche qui rend une brique du framework idiomatique dans un framework front donné : _hooks_ React, _composables_ Vue, services Angular, _runes_ Svelte.
 - **isomorphe** (detect: isomorphe|isomorphisme) — le même code s'exécute des deux côtés, serveur et navigateur, avec la même API.
 - **scaffold** (detect: scaffold) — le générateur de code : ce que produit `nodefony create app` ou `create module`, et qui est **figé à la création** de l'application.
 - **injection de dépendances** (detect: DI) — le mécanisme qui fournit à une classe les services dont elle a besoin, au lieu qu'elle aille les chercher elle-même.
@@ -62,3 +62,62 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **gate** (detect: gate|gates) — un contrôle automatique bloquant : tant qu'il est rouge, la chaîne s'arrête.
 - **banc** (detect: banc|bancs) — un montage de mesure : un décor, une charge, et un chiffre en sortie.
 - **jalon** (detect: milestone) — la version dans laquelle un ticket doit sortir.
+
+## Anglicismes — l'équivalent à employer
+
+Ces mots ont un équivalent français net : les employer tels quels fait traduire le lecteur avant
+qu'il comprenne. La liste est lue par [`../scripts/francise.mjs`](../scripts/francise.mjs), qui
+n'agit **que hors du code** — un identifiant, un chemin ou une citation entre accents graves reste
+intact. Format : `- anglais → français`.
+
+**Les formes avec article d'abord** — un mot qui change de genre entraîne son déterminant, et le
+script ne sait pas accorder : sans ces lignes on obtient « aucun liaison » et « le dérive ». Les
+motifs les plus longs sont essayés en premier.
+
+- aucun binding → aucune liaison
+- un binding → une liaison
+- ce binding → cette liaison
+- le binding → la liaison
+- du binding → de la liaison
+- les bindings → les liaisons
+- des bindings → des liaisons
+- ces bindings → ces liaisons
+- trois bindings → trois liaisons
+- le drift → la dérive
+- du drift → de la dérive
+- un drift → une dérive
+- l'override → la surcharge
+- un endpoint → une route
+- par endpoint → par route
+- un **breaking change** → une **rupture**
+- un breaking change → une rupture
+- allowlist → liste d'exceptions
+- binding → liaison
+- bindings → liaisons
+- breaking change → rupture
+- dashboard → tableau de bord
+- design → conception
+- drift → dérive
+- endpoint → route
+- fallback → repli
+- lifecycle → cycle de vie
+- override → surcharge
+- release → publication
+- shim → paquet relais
+- subpath → sous-chemin
+- subpaths → sous-chemins
+
+**Ne se traduisent PAS**, et c'est délibéré : les termes officiels d'une technologie (_hook_ React,
+_composable_ Vue, _rune_ Svelte, _workflow_ GitHub Actions), les noms propres d'outils, et le
+vocabulaire du dépôt qui a sa propre entrée ci-dessus (`gate`, `banc`, `store`, `scaffold`,
+`tarball`, `soak`).
+
+## Ne jamais traduire — motifs figés
+
+Ces suites sont laissées telles quelles, comme du code : ce sont des **citations** (un statut
+d'ADR, un en-tête de tableau repris d'un document) ou des termes dont la traduction changerait le
+sens. Le script les protège avant toute substitution.
+
+- design only
+- Backend Node
+- Backend navigateur

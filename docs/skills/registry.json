@@ -5233,35 +5233,38 @@
     },
     {
       "name": "nodefony-ticket",
-      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord.",
       "family": "Autres",
       "version": "1.1.0",
       "keywords": [
         "fichier:ligne"
       ],
       "triggers": [
+        "crée un ticket",
+        "ouvre une issue",
+        "note ça dans un ticket",
+        "fais-en des tickets",
+        "corrige les tickets",
+        "reformule les issues",
+        "ce titre est incompréhensible",
         "on ne comprend pas ce titre",
         "c'est quoi cette abréviation",
         "mets un lexique",
-        "crée un ticket",
-        "ouvre une issue",
-        "nouveau ticket",
-        "note ça dans un ticket",
-        "fais-en des tickets",
+        "écris-le en français",
+        "évite le jargon",
+        "renomme cette issue",
         "ticket parent",
         "sous-tickets",
         "découper cette issue",
-        "reformater les tickets",
-        "titre de ticket",
         "estimer un ticket",
         "priorité d'un ticket",
         "ajouter au board",
         "jalon 10.0.0"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité). À charger AVANT d'ouvrir une issue ou d'en restructurer un lot : un ticket est lu par un humain pressé autant que par un agent, et un titre-phrase le rend illisible pour les deux. Déclencheurs : \"on ne comprend pas ce titre\", \"c'est quoi cette abréviation\", \"mets un lexique\", \"crée un ticket\", \"ouvre une issue\", \"nouveau ticket\", \"note ça dans un ticket\", \"fais-en des tickets\", \"ticket parent\", \"sous-tickets\", \"découper cette issue\", \"reformater les tickets\", \"titre de ticket\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"note ça dans un ticket\", \"fais-en des tickets\", \"corrige les tickets\", \"reformule les issues\", \"ce titre est incompréhensible\", \"on ne comprend pas ce titre\", \"c'est quoi cette abréviation\", \"mets un lexique\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"sous-tickets\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\".",
       "cost": {
-        "bodyLines": 201,
-        "approxTokens": 3429
+        "bodyLines": 206,
+        "approxTokens": 3519
       },
       "requires": [],
       "resources": {
@@ -5272,6 +5275,38 @@
         ],
         "referenceFilesTotal": 3,
         "scripts": [
+          {
+            "path": "scripts/francise.mjs",
+            "purpose": "Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français.",
+            "usage": [
+              "node scripts/francise.mjs            # diff seul, n'écrit rien"
+            ],
+            "options": [
+              {
+                "flag": "--body-file",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--state",
+                "help": ""
+              },
+              {
+                "flag": "--write",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
           {
             "path": "scripts/pose-lexique.mjs",
             "purpose": "Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts.",
@@ -5319,7 +5354,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "944",
+            "detail": "912",
             "advisory": false
           },
           {
@@ -5355,7 +5390,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "201",
+            "detail": "206",
             "advisory": true
           }
         ]

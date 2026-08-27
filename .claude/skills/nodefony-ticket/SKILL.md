@@ -2,7 +2,7 @@
 name: nodefony-ticket
 metadata:
   version: 1.1.0
-description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité). À charger AVANT d'ouvrir une issue ou d'en restructurer un lot : un ticket est lu par un humain pressé autant que par un agent, et un titre-phrase le rend illisible pour les deux. Déclencheurs : "on ne comprend pas ce titre", "c'est quoi cette abréviation", "mets un lexique", "crée un ticket", "ouvre une issue", "nouveau ticket", "note ça dans un ticket", "fais-en des tickets", "ticket parent", "sous-tickets", "découper cette issue", "reformater les tickets", "titre de ticket", "estimer un ticket", "priorité d'un ticket", "ajouter au board", "jalon 10.0.0".
+description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : "crée un ticket", "ouvre une issue", "note ça dans un ticket", "fais-en des tickets", "corrige les tickets", "reformule les issues", "ce titre est incompréhensible", "on ne comprend pas ce titre", "c'est quoi cette abréviation", "mets un lexique", "écris-le en français", "évite le jargon", "renomme cette issue", "ticket parent", "sous-tickets", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ajouter au board", "jalon 10.0.0".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -97,7 +97,12 @@ node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs --write    # appliq
 ```
 
 Il est idempotent (un bloc posé est remplacé, jamais empilé) et ne lit, pour décider, que le titre
-et le bloc « Le problème », citations retirées. Ne jamais recopier une définition dans un ticket : elle
+et le bloc « Le problème », citations retirées.
+
+Le pendant pour les anglicismes est [`scripts/francise.mjs`](scripts/francise.mjs) : il applique les
+couples `anglais → français` du même fichier, **hors du code seulement** — accents graves, blocs
+clôturés, liens et citations figées restent intacts. Écrire les formes avec article (`un binding →
+une liaison`) : un mot qui change de genre entraîne son déterminant, et aucun script n'accorde. Ne jamais recopier une définition dans un ticket : elle
 divergerait. **Au-delà de six entrées, le lexique n'est pas la réponse** — c'est le corps qui est
 écrit en jargon, et c'est lui qu'il faut réécrire.
 
