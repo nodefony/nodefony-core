@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T20:00:49.927Z",
+  "generatedAt": "2026-08-27T20:38:08.641Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -696,7 +696,7 @@
       "title": "feat(client): ajouter les composables Vue 3 du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/37",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
@@ -710,7 +710,7 @@
       "title": "feat(client): ajouter les services Angular du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/38",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
@@ -724,7 +724,7 @@
       "title": "feat(client): ajouter les runes Svelte 5 du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/39",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,

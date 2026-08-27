@@ -63,6 +63,21 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [2× — 08-27j] **Le statut « In Progress » remonte sur une simple MENTION, et c'est le RETEX qui
+  le pose.** Redescendus hier, #54/#37/#38/#39 étaient de nouveau « en cours » ce matin : le commit
+  de retex 08-27i les cite pour dire ce qui RESTE, et `ticket-progress.mjs` monte sur toute mention
+  non fermante. Le geste de clôture recrée donc le défaut qu'il vient de corriger — chaque soir.
+  La dérivation est bonne (le premier commit qui cite est un fait observable), mais elle n'a pas de
+  contre-exemple : un commit `docs(session)` ne fait avancer aucun ticket, par construction.
+
+- [1× — 08-27j] **Ma propre note de banc affirmait DEUX défauts ; un seul existait.** Elle disait
+  « un subscribe vers un canal refusé (`nodefony:audit`) OU inexistant est ignoré sans un mot ». La
+  sonde contre le pod a montré `nodefony:audit` avec `subscribers: 1` — le compte de banc porte
+  `ROLE_NODEFONY_ADMIN`, l'abonnement PASSAIT, le canal était simplement calme. Le « ou » avait été
+  écrit sans être vérifié, et je serais parti corriger un refus qui n'existait pas. **Un constat
+  qui énumère des cas doit les avoir constatés un par un** : la conjonction est la partie qu'on
+  n'éprouve jamais.
+
 - [1× — 08-27] **`gh issue create` fait la MOITIÉ du travail et rend un succès.** L'issue est
   créée, elle n'entre PAS au tableau de bord — donc dans aucun compteur d'avancement, ni ordre de
   travail, ni reste-à-faire, ni empreinte hors ligne. Le ticket ouvert ainsi est resté invisible du
@@ -687,6 +702,14 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
+- [1× — 08-27j] **Le test gravait le SILENCE, et son intitulé disait pourquoi c'était normal.**
+  « canal LIBRE non déclaré → autorisé mais 0 provider » avec `expect(denials).to.have.length(0)`
+  et le commentaire « pas refusé (canal applicatif libre) ». Il figeait exactement le trou que je
+  venais de fermer : un abonnement sans réponse, indiscernable d'un canal calme. Signal à
+  reconnaître, plus fin que « un intitulé sans pourquoi » : **un intitulé qui JUSTIFIE une absence**
+  (« pas de X, c'est normal parce que Y »). Ici la justification était vraie pour l'AUTORISATION et
+  fausse pour la RÉSOLUTION — deux étapes que le test confondait sans le dire.
+
 - « initSyslog 2x avec kernel → 2 listeners (**pas de deduplication**) » — aucune justification, un
   simple constat figé. Il gardait un vrai bug : `listenWithConditions` AJOUTE un abonné, donc
   reconfigurer le filtre ne servait à rien (l'ancien écrivait toujours) et chaque ligne acceptée par
@@ -773,6 +796,14 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 08-27j] **Un sabotage « concluant » ne prouvait rien : le run tournait dans le mauvais
+  workspace.** Pour vérifier qu'une garde neuve mordait, j'ai saboté puis lancé `npx vitest` — mais
+  le `python3` du même appel avait laissé le cwd à la RACINE. Sortie : `Tests no tests`, que j'ai
+  lue comme l'échec attendu. Deux fois de suite. Le vrai sabotage, relancé depuis le module, rend
+  une `AssertionError` NOMMÉE. **Un échec ne vaut comme preuve que si on lit son MOTIF** : « ça a
+  échoué » et « ça a échoué pour la raison visée » sont deux verdicts différents, et le premier
+  couvre aussi bien un décor cassé.
 
 - [1× — 08-27] **Trois « défauts » de suite n'étaient que ma sonde qui mesurait trop tôt.** Le
   message n'apparaissait pas dans le salon, le compteur de trames restait à zéro, le battement
@@ -1028,6 +1059,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 08-27j] **Le build de PRODUCTION est un gate que personne ne lançait — il cachait un front
+  cassé depuis sa création.** `npm run build:front` échouait sur la vitrine Vue (le compilateur SFC
+  transforme un `src="/…"` littéral en import d'asset, et ne résout rien), un jour après la
+  livraison des quatre vitrines. Invisible en développement, où Vite sert l'URL sans la résoudre —
+  et les trois autres fronts, écrivant la même ligne, passaient. C'est le user qui a demandé le
+  build prod. **Livrer un écran sans l'avoir bâti pour la production, c'est ne l'avoir éprouvé que
+  sur la moitié de ses chemins** ; le signe que le gate manque, c'est qu'un défaut ne frappe QU'UN
+  membre d'une famille supposée identique.
 
 - **Un gate qui rend 24 candidats dont 19 pour un fichier que tout le monde cite ne sera plus jamais lu** [1× — 08-27] : le bruit tue un contrôle aussi sûrement que son absence. Écarter les fichiers trop cités — en ANNONÇANT lesquels et combien — a ramené le lot à 3, exactement les bons. Et le seul nom de fichier ne désigne rien : `index.ts` faisait remonter un ticket d'un autre module ; le motif minimal est le chemin sur deux segments.
 
