@@ -23,7 +23,7 @@
   ],
   "dependencies": {
     "tslib": "2.8.1",
-    "vue": "3.5.41"
+    "vue": "3.5.42"
   },
   "peerDependencies": {
     "@nodefony/drizzle": "*",
@@ -42,7 +42,7 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@nodefony/orm-core": "*",
-    "@types/node": "26.3.0",
+    "@types/node": "26.4.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/coverage-v8": "4.1.11",
     "nodefony": "*",

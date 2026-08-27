@@ -48,7 +48,7 @@
     "@node-rs/argon2": "^2.1.0",
     "@node-rs/bcrypt": "^1.10.8",
     "@nodefony/orm-core": "*",
-    "@types/node": "26.3.0",
+    "@types/node": "26.4.0",
     "@vitest/coverage-v8": "4.1.11",
     "nodefony": "*",
     "rimraf": "6.1.3",
