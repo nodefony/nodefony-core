@@ -158,15 +158,17 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    > 🔴 **IL Y A UN NAVIGATEUR, et il MESURE — skill `nodefony-browser`.**
    > Il ne fait pas que capturer : il rend les **contrastes et tailles CALCULÉS** par le moteur de
    > rendu, l'arbre d'accessibilité, la console et les requêtes réelles — de quoi valider une
-   > correction de palette sans attendre un audit, et sans rien installer sur le poste.
+   > correction de palette sans attendre un audit.
+   > **La voie normale est LOCALE, et il n'y a RIEN à démarrer** : le pilote conduit un navigateur
+   > DÉJÀ posé sur la machine. Le conteneur est un **dernier recours** — trois cas seulement
+   > (comparer une mesure dans le temps, l'intégration continue, des identifiants sensibles) ; y
+   > aller par réflexe rallonge chaque tour de boucle, et n'apporte rien de plus à l'écran.
    > **Ne JAMAIS demander au user de jouer la sonde** (« fais un hard-reload et dis-moi la console ») :
-   > ce réflexe vient de la règle « pas de Chrome headless », dont l'exception — un environnement
-   > isolé — EST ce conteneur. Le hard-reload du développeur ne sert plus qu'au HMR, à l'animation
-   > et au rendu fin.
+   > son hard-reload ne sert plus qu'au HMR, à l'animation et au rendu fin.
    > **Le mode d'emploi n'est PAS ici** (le recopier rendrait le skill inatteignable) : le charger
-   > AVANT de vouloir constater quoi que ce soit à l'écran — trois contraintes structurelles (nom
-   > d'hôte, HTTPS, Vite joignable) font échouer toute improvisation, et deux pièges font conclure
-   > FAUX : mesurer avant que l'écran soit peuplé, et observer un bundle qui n'est pas celui bâti.
+   > AVANT de vouloir constater quoi que ce soit à l'écran — des contraintes structurelles font
+   > échouer toute improvisation, et deux pièges font conclure FAUX : mesurer avant que l'écran soit
+   > peuplé, et observer un bundle qui n'est pas celui bâti.
 
 4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
 5. **DÉLÉGUER sur DEUX déclencheurs — le VOLUME, mais aussi la NATURE de la tâche.** Le second est
