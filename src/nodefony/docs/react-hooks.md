@@ -145,7 +145,7 @@ import { RealtimeClient } from "nodefony/client";
 // `shared` réutilise l'instance existante pour une même URL : le shell, un widget
 // et la barre de debug ouvrent UNE socket, pas trois.
 export const socket = RealtimeClient.shared({
-  url: "/nodefony/api/realtime", // relative → ws:// ou wss:// selon la page
+  url: "/api/live/realtime", // relative → ws:// ou wss:// selon la page
   autoReconnect: true,
 });
 

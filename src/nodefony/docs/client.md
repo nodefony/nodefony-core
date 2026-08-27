@@ -163,8 +163,23 @@ socket.
 
 ### 1. La socket de l'application
 
-Un seul fichier, monté une fois au démarrage du front. `shared()` garantit **une seule connexion
-WebSocket** par URL sur la page, même si plusieurs modules l'appellent.
+Le client est une classe : on l'instancie, on la connecte.
+
+```typescript
+import { RealtimeClient } from "nodefony/client";
+
+const socket = new RealtimeClient({ url: "/api/live/realtime" });
+await socket.connect();
+```
+
+C'est ce que fait `shared()` — **plus une garantie** : une application veut **une seule** connexion
+WebSocket pour toute la page, et `new` en ouvre une par appel. `RealtimeClient.shared({ url })` rend
+donc la **même instance** pour la même URL, depuis n'importe quel fichier, sans passer la socket de
+main en main.
+
+> **Retenir** : `new` pour comprendre l'objet, `shared()` partout dans une application.
+
+Un seul fichier, monté une fois au démarrage du front.
 
 ```typescript
 // frontend/src/realtime.ts — la socket de l'app, importée partout ailleurs.
@@ -174,7 +189,7 @@ import type { NodefonyNotice } from "nodefony/client";
 // Instance PARTAGÉE par URL : deux appels = la même socket, pas deux connexions.
 // L'URL relative est normalisée (https → wss) avant l'ouverture.
 export const socket = RealtimeClient.shared({
-  url: "/nodefony/api/realtime",
+  url: "/api/live/realtime",
 });
 
 // Les criticités du temps réel arrivent déjà traduites et prêtes à afficher.
@@ -209,7 +224,7 @@ import { RealtimeClient } from "nodefony/client";
 
 // MÊME URL ⇒ MÊME instance que dans `realtime.ts` : `shared()` se relit de
 // n'importe quel fichier, sans passer la socket de main en main.
-const socket = RealtimeClient.shared({ url: "/nodefony/api/realtime" });
+const socket = RealtimeClient.shared({ url: "/api/live/realtime" });
 
 // Lecture — équivalent strict du GET REST sur la même route.
 export async function loadModules(): Promise<{ name: string }[]> {
