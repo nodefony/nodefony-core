@@ -186,7 +186,10 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" },
+  { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
+    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).",
+    "meta": "🟢 conforme v1.0.0 · 📎 2 réf" }
 ]
 ```
 <!-- skills-cards:end -->

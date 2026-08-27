@@ -3,8 +3,8 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-08-27",
-  "count": 24,
-  "conformant": 24,
+  "count": 25,
+  "conformant": 25,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -5229,6 +5229,103 @@
       "links": {
         "source": ".claude/skills/nodefony-tail-error-logs/SKILL.md",
         "doc": "docs/skills/nodefony-tail-error-logs.md"
+      }
+    },
+    {
+      "name": "nodefony-ticket",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [
+        "fichier:ligne"
+      ],
+      "triggers": [
+        "crée un ticket",
+        "ouvre une issue",
+        "nouveau ticket",
+        "note ça dans un ticket",
+        "fais-en des tickets",
+        "ticket parent",
+        "sous-tickets",
+        "découper cette issue",
+        "reformater les tickets",
+        "titre de ticket",
+        "estimer un ticket",
+        "priorité d'un ticket",
+        "ajouter au board",
+        "jalon 10.0.0"
+      ],
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité). À charger AVANT d'ouvrir une issue ou d'en restructurer un lot : un ticket est lu par un humain pressé autant que par un agent, et un titre-phrase le rend illisible pour les deux. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"nouveau ticket\", \"note ça dans un ticket\", \"fais-en des tickets\", \"ticket parent\", \"sous-tickets\", \"découper cette issue\", \"reformater les tickets\", \"titre de ticket\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\".",
+      "cost": {
+        "bodyLines": 139,
+        "approxTokens": 2153
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "conventional-commits.md",
+          "github-issues.md"
+        ],
+        "referenceFilesTotal": 2,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "777",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "139",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-ticket/SKILL.md",
+        "doc": "docs/skills/nodefony-ticket.md"
       }
     }
   ]
