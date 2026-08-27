@@ -679,6 +679,14 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   le résultat, et le `>/dev/null` posé sur l'appel qui écrit achevait de cacher l'échec. Ce qui a
   tranché : relire les champs par l'API. Ne jamais faire confiance à un `echo` qui répète ses
   propres arguments. [1× — 08-27]
+- **🔴 `npm install` sur un arbre DÉJÀ installé outrepasse une dépendance de pair ; `npm ci` la
+  refuse.** Monté TypeScript 7 : build 21/21, 3 160 tests verts, `npm outdated` vide — j'ai écrit
+  dans un commit que ma réserve « ne tenait pas ». La forge a rougi QUATRE chaînes sur cinq
+  plateformes : `@angular/build` déclare `peer typescript@">=6.0 <6.1"`, une plage fermée. Le seul
+  signe local était un `npm warn ERESOLVE overriding peer dependency` noyé dans cinq lignes
+  identiques. Toute montée de dépendance s'éprouve par `npm ci` (ou `--dry-run`), jamais par un
+  `npm install` sur son propre arbre : c'est le cas d'école de « prouver sur l'artefact REÇU ».
+  [1× — 08-27]
 - **Une sonde qui rend ZÉRO se suspecte avant le produit.** « frames: 0 » sur cinq sockets m'a fait
   douter du serveur : la clé n'existait pas, les données étaient sous `recues`/`envoyees`. `jq` sur
   une clé absente rend un compte de 0, jamais une erreur — le même silence que le champ manquant.
