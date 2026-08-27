@@ -52,6 +52,14 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- **Dégraisser un fichier casse ses LECTEURS, et aucun ne se plaint.** Après avoir sorti 113
+  lignes de `MIGRATION_STATUS.md` : le comptage du skill d'audit rendait `✅=0` (il lisait le seul
+  fichier vivant), une ancre `fichier:ligne` écrite deux heures plus tôt pointait une phrase sans
+  rapport, et huit règles disséminées affirmaient encore « l'avancement = ce fichier ». Aucune
+  barrière ne l'a signalé — `anchor-check` ne mord que sur fichier absent ou ligne hors fichier.
+  Avant de retirer d'une source, chercher qui la LIT : `rg --hidden` sur son nom, et exécuter les
+  recettes qui la parcourent. [1× — 08-27]
+
 - [1× — 08-25] **CodeQL n'a signalé QU'UN des trois frères.** L'alerte visait
   `generate-man.mjs` ; le même `existsSync(f) ? readFileSync(f) : …` vivait aussi dans
   `aiMcp.ts` — où le test préalable court-circuitait un `catch` qui distinguait pourtant DÉJÀ
@@ -490,6 +498,11 @@
   ligne. Découvert en injectant le défaut exprès, pas en le relisant. [1× — 08-24]
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
+
+- **Mon `--check` rendait ROUGE sur l'empreinte qu'il venait d'écrire** : il comparait l'objet
+  interne à l'objet écrit, lequel portait deux champs de plus. L'option dont le seul rôle est de
+  dire « à jour ou pas » disait faux dès sa première utilisation. Un mode de contrôle se lance sur
+  sa propre sortie AVANT d'être cru. [1× — 08-27]
 
 - [1× — 08-25] **Mon test d'attaque a cassé la forge sur une plateforme.** Pour prouver qu'une
   injection s'exécutait, j'ai fait lancer `; touch …` par un shell — et le `touch` de BSD, qui
@@ -966,6 +979,18 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- **`gh project item-list` a rendu 39 items quand l'API en comptait 40** — le ticket ajouté à la
+  minute était absent de sa sortie, sans erreur ni avertissement. Ce qui a tranché : redemander la
+  MÊME donnée par GraphQL. Même famille que le champ `title` figé : ce client rend une vue à lui,
+  pas l'état du tableau. Pour lister ou retrouver un item, GraphQL ; `item-list` pour un coup
+  d'œil, jamais pour décider. [1× — 08-27]
+- **Un renvoi « cf #9 » dans un corps de ticket pointait une demande de fusion de dépendances**,
+  pas une issue. Un renvoi mort ressemble exactement à un renvoi vivant : un numéro existe
+  toujours. Vérifier ce que DÉSIGNE le numéro, pas qu'il résolve. [1× — 08-27]
+- **`rg` saute les dossiers cachés sans `--hidden`** : un relevé « qui appelle ce script ? » a rendu
+  zéro appelant alors que `.claude/skills/` en contenait. Un relevé incomplet a l'air d'un relevé
+  complet. [1× — 08-27]
+
 - [1× — 08-27] **Un champ DÉRIVÉ d'une API peut être figé sur une valeur morte — et il a l'air
   d'une réponse.** `gh project item-list` rend un `title` par item : **38 sur 38** portaient encore
   l'ancien libellé de leur issue, renommée le matin même. J'ai failli annoncer au user que son
@@ -1007,6 +1032,14 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   et faux. [1× — 08-23b]
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- **Le verdict « en fait livré » se déclenche dès qu'une PARTIE du travail existe.** Sur 48 lignes
+  de feuille de route confrontées au code, 26 rendues « livrées » — plusieurs contredites par les
+  remarques du même relevé (« reste à généraliser », « bug CLI ⬜ »). Le même biais a classé
+  « corrigée » une dette qui ne l'était pas, en se fondant sur le seul module du lot qui l'était,
+  ce que la ligne indiquait déjà. La question qui manque : _TOUT_ le travail décrit est-il là ?
+  Corollaire : ne jamais appliquer un lot de verdicts délégués sans recontrôler ce qu'on va
+  changer — les 4 « corrigées » recontrôlées ont livré 1 faux. [1× — 08-27]
 
 - **Trois lots sur quatre ont classé la majorité des cas difficiles « INCHANGÉE — contexte correct
   pour le concept ».** J'ai répercuté ce verdict tel quel, en concluant « faux positifs pour
