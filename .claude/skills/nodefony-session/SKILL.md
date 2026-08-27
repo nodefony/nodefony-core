@@ -285,7 +285,7 @@ SEULEMENT :
    vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
 
    ```bash
-   node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+   npm run board:snapshot          # ou : node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
    ```
 
    Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le lire : un refus dit

@@ -24,6 +24,7 @@
     "build:packages": "turbo run build --filter=./src/packages/**",
     "build:front": "nodefony frontend:build",
     "build:all": "npm run build && npm run build:front",
+    "board:snapshot": "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",
     "clean": "turbo run clean && rimraf dist",
     "test": "turbo run build && turbo run test --continue",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npx nodefony check",

@@ -28,6 +28,7 @@
  * son moment de lancement appartient au cycle de session — c'est le critère
  * de `scripts-audit.mjs`.
  *
+ * @usage    npm run board:snapshot
  * @usage    node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
  * @usage    node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
  * @option   --check  ne rien écrire ; sortie 1 si l'empreinte a dérivé, 2 si GitHub est muet
@@ -315,7 +316,7 @@ if (CHECK) {
     process.exit(0);
   }
   console.error(
-    "❌ L'instantané a dérivé du tableau de bord. Régénérer : relancer ce script sans `--check`.",
+    "❌ L'instantané a dérivé du tableau de bord. Régénérer : `npm run board:snapshot`.",
   );
   process.exit(1);
 }

@@ -4695,7 +4695,7 @@
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
         "bodyLines": 522,
-        "approxTokens": 6171
+        "approxTokens": 6181
       },
       "requires": [],
       "resources": {
@@ -4708,6 +4708,7 @@
             "path": "scripts/board-snapshot.mjs",
             "purpose": "Instantané du pilotage — projette les tickets GitHub DANS le dépôt.",
             "usage": [
+              "npm run board:snapshot",
               "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",
               "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check"
             ],

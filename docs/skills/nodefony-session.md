@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Cycle de session |
 | Corps | 522 lignes |
-| Coût d'activation | ~6 171 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~6 181 tokens (le corps est chargé à l'invocation) |
 | Description | 592 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -104,7 +104,7 @@ script, donc toujours à jour après régénération.
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
-node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+npm run board:snapshot
 ```
 
 **Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER` · `QUERY`
@@ -116,6 +116,7 @@ node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
 Produit : .ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main
 
 ```bash
+npm run board:snapshot
 node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
 node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
 ```
