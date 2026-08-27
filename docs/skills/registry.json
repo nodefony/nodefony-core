@@ -2035,8 +2035,8 @@
       ],
       "description": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés, nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs, cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes de séquence mermaid sans toucher à leur source. Déclencheurs : \"rapport HTML\", \"rapport imprimable\", \"dashboard statique\", \"restituer des mesures\", \"quel graphe choisir\", \"diagramme de Sankey\", \"boîtes à moustaches\", \"deux axes\", \"échelle d'un graphe\", \"rendre un schéma mermaid\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
       "cost": {
-        "bodyLines": 354,
-        "approxTokens": 5278
+        "bodyLines": 360,
+        "approxTokens": 5412
       },
       "requires": [
         "redis",
@@ -2272,7 +2272,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "354",
+            "detail": "360",
             "advisory": true
           }
         ]

@@ -112,6 +112,12 @@ Vérifiées au source ; en cas de doute, le source fait foi.
   `data` = objet embarqué en JSON dans la page (c'est lui qui rend le rapport rejouable).
   Les quatre derniers ne servent qu'à une page de SITE et sont inertes sans eux (un rapport rend
   exactement le même markup qu'avant leur existence, vérifié sur les pages déjà publiées) :
+  🔴 **Les libellés passés à `nav` sont des NOMS, pas des titres d'article** : la colonne fait
+  quelques centimètres et `.site-nav` ne tronque rien — un libellé long s'y replie sur plusieurs
+  lignes et le lecteur ne balaie plus rien. Viser ≤ 32 caractères. Le CSS ne corrige pas ça
+  volontairement : un `text-overflow: ellipsis` masquerait le défaut au lieu de le montrer, et
+  personne ne le corrigerait plus. Côté corpus Nodefony, c'est le rôle du frontmatter `navTitle`
+  (→ skill `nodefony-documentation`, standard de rédaction).
   `nav`/`aside` basculent la page en grille pleine largeur — navigation à gauche, sommaire à droite,
   en-tête et pied COLLANTS sur fond opaque ; `head` ajoute des balises au `<head>` (description,
   icône, canonique — sans elles un moteur de recherche invente son extrait et chaque visiteur
