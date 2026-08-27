@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-27 18:04** (UTC).
+> Empreinte prise le **2026-08-27 20:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 43 | 10 | 2026-11-15 |
+| 10.0.0 | 42 | 11 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 43 ouverts
+## Jalon 10.0.0 — 42 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -65,7 +65,6 @@ Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
 | 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
 | 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 31 | P3 — fin de cycle | 2 | #36 | refactor(client): extraire un socle commun aux quatre fronts |
 | 32 | P3 — fin de cycle | 1.5 | #37 | feat(client): ajouter les composables Vue 3 du temps réel |
 | 33 | P3 — fin de cycle | 2 | #38 | feat(client): ajouter les services Angular du temps réel |
 | 34 | P3 — fin de cycle | 1.5 | #39 | feat(client): ajouter les runes Svelte 5 du temps réel |

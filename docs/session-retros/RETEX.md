@@ -34,6 +34,15 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 08-27] **Seize bancs WebSocket d'intégration, et aucun n'employait le client livré.** Tous
+  ouvraient une socket `ws` nue et composaient les trames JSON-RPC à la main : ils prouvaient le
+  SERVEUR, jamais que `RealtimeClient` et ses observateurs savent lui parler. Le user l'a dit d'une
+  phrase — « le serveur ne tourne même pas ». Le banc écrit ensuite (globale `WebSocket` → transport
+  navigateur → socle) a immédiatement corrigé deux hypothèses que le transport MOCK validait sans
+  broncher : `1006` ne s'ENVOIE pas (la RFC le réserve, `ws` refuse), et le format coalescé du
+  journal n'était juste que par chance. **Un mock répond ce qu'on a imaginé** — c'est précisément ce
+  qu'un décodeur de protocole ne doit jamais être cru sur parole.
+
 - **Un gabarit vérifié par `assert.include` sur son TEXTE rendu ne prouve rien de son comportement** [1× — 08-27] : la seule preuve du fournisseur React était qu'une chaîne figurait dans un fichier généré. Le monter pour de vrai (jsdom) et compter les connexions ouvertes a demandé une devDep, et c'est ce qui a révélé que le contrat tenait. Le même angle mort avait laissé publier un contrat que rien n'implémentait, le matin même.
 
 - [1× — 08-23d] **`savepoint()` est un NO-OP chez Mongoose** (MongoDB n'a pas de
@@ -298,6 +307,14 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 08-27] **Une adresse écrite EN DUR s'affichait parfaitement — dans une vitrine sur quatre.**
+  Le panneau de la vitrine Vue montrait `/api/live/realtime` en littéral quand les trois autres
+  lisaient l'instantané du client : rien ne clochait à l'écran, et le jour où l'endpoint changerait
+  la page aurait menti sans une erreur. Prise uniquement parce que le banc compare les QUATRE pages
+  au lieu de vérifier chacune — et parce que la mesure au navigateur a montré une valeur relative là
+  où les trois autres rendaient l'absolue. **Quatre écrans qui divergent s'affichent tous très bien,
+  chacun de son côté.**
+
 - **« Présenter MAL valait moins que ne rien présenter », et aucun test ne pouvait le voir.** Sur
   la porte MCP, chaque entrée était éprouvée SÉPARÉMENT et chacune était juste : sans en-tête →
   200 + outils publics ✅ ; jeton invalide → 401 ✅ ; en-tête vide → 400 ✅. L'absurdité
@@ -432,6 +449,31 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 08-27] **Un statut de pilotage posé sur une simple MENTION.** Le hook `post-commit` passe en
+  « In Progress » tout ticket qu'un commit cite sans le fermer. Mon message de livraison de #36
+  disait « les liaisons idiomatiques Vue, Angular et Svelte (#37/#38/#39) » — pour dire ce qui
+  RESTE — et les trois sont passés « en cours » alors que rien n'y avait été commencé. Trois
+  statuts faux, produits par une phrase honnête. Un automate qui lit une citation ne lit pas une
+  intention : le contrôle du mode END (« un commit récent le cite-t-il ? ») ne suffit donc pas, il
+  faut regarder ce que ce commit a FAIT du ticket.
+
+- [1× — 08-27] **Deux gardes NEUVES ne pouvaient pas échouer, et l'une par construction.** Écrites
+  le jour même, elles passaient au vert du premier coup ; les débrancher a montré que l'une prenait
+  sa tranche « après le démontage » à partir de `src.search(/onDestroy|…/)` — qui tombe sur
+  l'**import** en tête de fichier, donc sur le fichier ENTIER, où le mot recherché figure toujours.
+  L'autre exigeait qu'une page « pointe ses trois sœurs » : retirer une vitrine de la barre ne la
+  faisait pas tomber, le pied de page suffisait à la satisfaire. Ni relecture ni revue ne les
+  auraient vues — seul le sabotage les a révélées. **Une garde écrite pendant que le code est
+  correct ne prouve rien tant qu'on ne l'a pas vue rouge**, et le contre-exemple doit viser
+  EXACTEMENT ce qu'elle prétend interdire, pas quelque chose d'approchant.
+
+- [1× — 08-27] **Un outil de pilotage qui rend « rien à faire » précisément quand on s'en sert.**
+  `ticket-verify --touched-by HEAD` lançait `git diff --name-only HEAD` — l'arbre de travail contre
+  le commit. Or son seul moment d'emploi est JUSTE APRÈS un commit, où ce diff est vide par
+  construction : il répondait « aucun fichier touché — rien à relire » sur dix-huit fichiers
+  modifiés, et le mode END du skill le lance exactement comme ça. Un outil qui acquitte est pire
+  qu'un outil absent : l'absence se remarque. (`diff-tree` pour une révision, `diff` pour une plage.)
 
 - [1× — 08-27] **Un champ de pilotage rempli MÉCANIQUEMENT ressemble à un arbitrage.** La grappe
   #54 avait `ordre = numéro d'issue − 4` sur sept sous-tickets : le socle commun passait APRÈS les
@@ -731,6 +773,15 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 08-27] **Trois « défauts » de suite n'étaient que ma sonde qui mesurait trop tôt.** Le
+  message n'apparaissait pas dans le salon, le compteur de trames restait à zéro, le battement
+  n'arrivait jamais : à chaque fois l'écran était photographié AVANT l'aller-retour serveur (moins
+  d'une seconde). Une attente explicite sur un élément DISCRIMINANT (`attendre:.salon li .qui`) a
+  tout rendu vert sans toucher au produit. Le piège est écrit noir sur blanc dans le skill du
+  navigateur, et je l'ai repayé trois fois : **avant d'accuser la page, attendre ce qu'on prétend
+  mesurer.** Corollaire utile : `watch.mjs` a tranché en un run là où trois captures n'avaient rien
+  conclu — il montre les trames, pas un instant.
 
 - [1× — 08-27h] **Un appel Bash refusé par le garde-fou `cd` annule TOUT l'appel — pas seulement
   le `cd`.** Mon édition d'un fichier de test vivait dans le même appel qu'un `cd` relatif : le
@@ -1243,6 +1294,14 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
+
+- [1× — 08-27] **Une DÉMONSTRATION enseigne autant qu'une doc — et celle-ci enseignait le contraire
+  du framework.** Le canal de vitrine poussait une trame par seconde et par client pour ne rien
+  dire : coût réseau et processeur permanent, et surtout l'idée qu'une socket Nodefony serait du
+  polling inversé. Le user a posé la seule question qui compte — « à quoi ça sert ? » — et la réponse
+  était : à rien. L'état de la connexion prouvait déjà que le lien est vivant, sans une trame. Ce que
+  le produit MONTRE est copié bien plus sûrement que ce qu'il écrit : **un exemple qui contredit la
+  règle du framework la désarme.** (Le même battement vit encore dans les gabarits d'application.)
 
 - [1× — 08-27] **Un code de planification interne dans un titre n'est pas une abréviation, c'est un
   pointeur MORT.** « exécuter R6 », « S5 DDL prod » : le lecteur n'a pas le document derrière, donc
