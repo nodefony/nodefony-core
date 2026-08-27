@@ -6,8 +6,9 @@ import { onMounted, onUnmounted, ref, version as vueVersion } from "vue";
 import {
   connectShared,
   observeChannel,
-  observeChannelData,
+  observeSnapshot,
   observeState,
+  type SocketSnapshot,
 } from "nodefony/client";
 // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
 // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
@@ -17,13 +18,6 @@ interface ApiData {
   ts: number;
   pid: number;
   env: string;
-}
-
-/** Le battement du pod — cf `src/modules/test/.../LiveTickerController.ts`. */
-interface Tick {
-  n: number;
-  ts: number;
-  pid: number;
 }
 
 /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
@@ -39,6 +33,32 @@ const ACCENT = "#41b883";
 
 /** Le nom de CETTE vitrine — il marque les messages qu'elle envoie au salon. */
 const FRONT = "Vue";
+
+/**
+ * Combien de rechargements À CHAUD depuis le dernier chargement complet.
+ *
+ * `import.meta.hot.data` est la mémoire que Vite fait survivre au remplacement
+ * d'un module — et à lui seul. Le module étant ré-exécuté à chaque mise à jour,
+ * il suffit de compter ses exécutions : un chargement complet repart de zéro,
+ * une mise à jour à chaud incrémente. Aucun écouteur à poser, donc aucun à
+ * retirer.
+ *
+ * Sans ce chiffre, la carte échouait EN SILENCE : si Vite tombait en
+ * rechargement complet, le compteur de clics repartait à zéro et personne ne
+ * pouvait dire si la démonstration avait marché ou raté.
+ */
+/**
+ * La barre de debug s'auto-injecte en développement et expose ce handle — c'est
+ * la même poignée que la console d'administration emploie. On ne la remonte pas,
+ * on la pilote : `DebugBarHandle` (cf `nodefony/debugbar`).
+ */
+type Debugbar = { isVisible(): boolean; toggle(): void } | undefined;
+const debugbar = (): Debugbar =>
+  (globalThis as { __NODEFONY_DEBUGBAR__?: Debugbar }).__NODEFONY_DEBUGBAR__;
+
+const hot = (import.meta as { hot?: { data: Record<string, unknown> } }).hot;
+if (hot) hot.data.majs = ((hot.data.majs as number) ?? 0) + 1;
+const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
 
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [
@@ -58,6 +78,15 @@ const ETATS: Record<string, string> = {
 };
 
 const count = ref(0);
+
+const cliquer = (): void => {
+  count.value += 1;
+  // Le clic voyage : les autres vitrines l'apprennent par le serveur.
+  live.socket.emit("live:dire", {
+    texte: `clic n°${count.value}`,
+    front: FRONT,
+  });
+};
 const data = ref<ApiData | null>(null);
 const error = ref<string | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -67,11 +96,17 @@ let timer: ReturnType<typeof setInterval> | null = null;
 // la connexion appartient à la PAGE).
 const live = connectShared({ url: "/api/live/realtime" });
 const liveState = ref(live.socket.state);
-const tick = ref<Tick | null>(null);
 const messages = ref<Message[]>([]);
 const texte = ref("");
 const parHttp = ref<string | null>(null);
 const parSocket = ref<string | null>(null);
+const vue = ref<SocketSnapshot | null>(null);
+const barreVisible = ref(debugbar()?.isVisible() ?? false);
+
+const basculerBarre = (): void => {
+  debugbar()?.toggle();
+  barreVisible.value = debugbar()?.isVisible() ?? false;
+};
 
 const envoyer = (): void => {
   const dit = texte.value.trim();
@@ -93,6 +128,12 @@ const comparer = async (): Promise<void> => {
   parSocket.value = `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`;
 };
 
+/** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
+const derniereDe = (v: SocketSnapshot | null): string =>
+  v?.lastFrame.at
+    ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
+    : "—";
+
 const duree = (v: string | null): string => v?.split("\n")[0] ?? "";
 const corps = (v: string | null): string =>
   v?.split("\n").slice(1).join("\n") ?? "—";
@@ -103,8 +144,6 @@ const basculer = (): void => {
   if (liveState.value === "connected") live.socket.disconnect();
   else void live.socket.connect();
 };
-
-const heure = (t: Tick): string => new Date(t.ts).toLocaleTimeString();
 
 const pollApi = async (): Promise<void> => {
   try {
@@ -125,13 +164,11 @@ onMounted(() => {
   // Un observateur = un rappel + une libération. L'abonnement serveur est
   // ref-compté et REJOUÉ à chaque reconnexion : le socle s'en charge.
   offLive.push(observeState(live.socket, (state) => (liveState.value = state)));
-  offLive.push(
-    observeChannelData<Tick>(
-      live.socket,
-      "live:ticker",
-      (t) => (tick.value = t),
-    ),
-  );
+  // Le compteur de trames est rafraîchi par l'échantillonneur du client (1×/s) —
+  // pas par un timer de la page : une horloge de plus pour la même mesure.
+  // UN instantané, pas cinq lectures à la main : `observeSnapshot` le rafraîchit
+  // sur l'échantillonneur DÉJÀ en place (aucune horloge de plus, aucune trame).
+  offLive.push(observeSnapshot(live.socket, (v) => (vue.value = v)));
   offLive.push(
     observeChannel(live.socket, "live:salon", (m) => {
       messages.value = [...messages.value, m as Message].slice(-6);
@@ -166,6 +203,49 @@ onUnmounted(() => {
           {{ f.nom }}
         </a>
       </nav>
+      <div class="outils">
+        <span class="sonde-hote" tabindex="0">
+          <span class="sonde">
+            <span
+              class="dot"
+              :class="{
+                'dot--on': liveState === 'connected',
+                'dot--wait':
+                  liveState === 'connecting' || liveState === 'reconnecting',
+              }"
+            />
+            {{ ETATS[liveState] ?? liveState }}
+            <b>{{ vue?.frames ?? 0 }}</b> trames
+          </span>
+          <div class="sonde-detail" role="status">
+            <dl>
+              <dt>Adresse</dt>
+              <dd>{{ vue?.url ?? "—" }}</dd>
+              <dt>État</dt>
+              <dd>{{ ETATS[liveState] ?? liveState }}</dd>
+              <dt>Canaux</dt>
+              <dd>
+                {{ vue?.channels.join(", ") || "aucun" }}
+              </dd>
+              <dt>Trames reçues</dt>
+              <dd>{{ frames }}</dd>
+              <dt>Dernière</dt>
+              <dd>{{ derniere ?? "—" }}</dd>
+            </dl>
+            <p class="rien">
+              Tout cela vient du client lui-même : afficher ce panneau ne
+              provoque aucune trame.
+            </p>
+          </div>
+        </span>
+        <button
+          class="bascule"
+          :aria-pressed="barreVisible"
+          @click="basculerBarre"
+        >
+          Barre de debug
+        </button>
+      </div>
     </header>
 
     <main>
@@ -225,10 +305,12 @@ onUnmounted(() => {
             {{ ETATS[liveState] ?? liveState }}
           </p>
           <p class="live-meta">
-            <template v-if="tick">
-              battement du pod à {{ heure(tick) }} · process {{ tick.pid }}
+            <template v-if="vue?.lastFrame.at">
+              dernière trame : {{ derniereDe(vue) }}
             </template>
-            <template v-else>en attente du premier battement…</template>
+            <template v-else>
+              aucune trame — le serveur se tait tant qu'il n'a rien à dire
+            </template>
           </p>
           <button class="btn btn--ghost" @click="basculer">
             {{ liveState === "connected" ? "Couper la connexion" : "Rétablir" }}
@@ -337,12 +419,18 @@ observeChannel(live.socket, "live:salon", (m) =&gt; …)</code></pre>
 
           <div class="card">
             <h3>♻️ Rechargement à chaud</h3>
-            <button class="counter" @click="count++">
+            <button class="counter" @click="cliquer">
               {{ count }} clic{{ count > 1 ? "s" : "" }}
             </button>
             <p class="hint">
-              Édite <code>frontend/src/App.vue</code> : Vite recompile et le
-              compteur garde sa valeur.
+              {{ MAJS_A_CHAUD }} rechargement{{ MAJS_A_CHAUD > 1 ? "s" : "" }} à
+              chaud depuis le dernier chargement complet — l'état ci-dessus y a
+              survécu.
+            </p>
+            <p class="hint">
+              Édite <code>frontend/src/App.vue</code> : Vite recompile, le
+              compteur ne repart PAS à zéro. S'il y retombe, c'est un
+              rechargement complet, pas un rechargement à chaud.
             </p>
           </div>
         </div>

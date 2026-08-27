@@ -30,12 +30,18 @@ let diffuser: RealtimePublish | null = null;
  * donnent le même écran dans les quatre. Quatre endpoints donneraient quatre
  * démonstrations séparées — et une divergence pourrait s'y cacher.
  *
- * **Ce qu'il faut donner à VOIR**, et qu'un simple battement ne montre pas : ce
- * qui rend cette socket intéressante n'est pas qu'elle envoie des octets à
- * l'heure, c'est que le serveur pousse la même chose à TOUT LE MONDE. Ouvrir la
- * vitrine Vue et la vitrine React côte à côte, écrire dans l'une, voir arriver
- * dans l'autre : la démonstration tient en deux secondes et n'a besoin d'aucun
- * commentaire.
+ * **Ce qu'il faut donner à VOIR** : ce qui rend cette socket intéressante n'est
+ * pas qu'elle envoie des octets à l'heure, c'est que le serveur pousse la même
+ * chose à TOUT LE MONDE. Ouvrir la vitrine Vue et la vitrine React côte à côte,
+ * écrire dans l'une, voir arriver dans l'autre : la démonstration tient en deux
+ * secondes et n'a besoin d'aucun commentaire.
+ *
+ * **Ce qu'il ne faut SURTOUT PAS faire**, et qui a été retiré d'ici : un
+ * battement périodique. Une trame par seconde et par client, pour ne rien dire,
+ * coûte du réseau et du processeur en permanence — et enseigne l'inverse de ce
+ * que le framework défend. Une socket qui se tait quand il ne se passe rien
+ * n'est pas une socket endormie : c'est une socket bien élevée. L'état de la
+ * connexion suffit à prouver qu'elle est vivante, et il ne coûte aucune trame.
  *
  * L'adresse (`/api/live/realtime`) est celle qu'une application générée par
  * `nodefony create app --preset complete` monte chez elle : ce que le dépôt
@@ -113,22 +119,6 @@ class LiveTickerController extends RealtimeController {
       ts: Date.now(),
       pid: process.pid,
     });
-  }
-
-  /**
-   * Le battement du pod — une frame par seconde tant qu'au moins un abonné
-   * écoute. Il ne démontre rien à lui seul ; il sert de preuve que la connexion
-   * VIT (horloge qui avance) même quand personne n'écrit dans le salon.
-   */
-  @RealtimeChannel("live:ticker")
-  ticker(_channel: string, publish: RealtimePublish): () => void {
-    let n = 0;
-    const timer = setInterval(() => {
-      publish("live:ticker", { n: ++n, ts: Date.now(), pid: process.pid });
-    }, 1000);
-    // Un timer qui retient la boucle d'événements empêcherait le pod de sortir.
-    timer.unref?.();
-    return () => clearInterval(timer);
   }
 }
 

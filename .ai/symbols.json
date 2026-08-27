@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-27T19:14:34.927Z",
+  "generated": "2026-08-27T19:54:40.129Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 742,
-    "symbols": 3158,
+    "symbols": 3161,
     "classes": 365,
-    "interfaces": 891,
+    "interfaces": 892,
     "types": 394,
     "enums": 4,
-    "functions": 1209,
+    "functions": 1211,
     "constants": 295
   },
   "symbols": {
@@ -6491,6 +6491,15 @@
       "extends": null,
       "description": "Résultat de {@link connectShared} : la socket, à qui elle appartient, et comment la démarrer."
     },
+    "SocketSnapshot": {
+      "name": "SocketSnapshot",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le client sait de sa PROPRE socket, à un instant donné. Pourquoi ce contrat existe : quatre écrans lisaient déjà `subscribedChannels`, `framesReceived`, `lastFrameAt` et `lastFrameMethod` à …"
+    },
     "ObserveSyslogOptions": {
       "name": "ObserveSyslogOptions",
       "kind": "interface",
@@ -6612,6 +6621,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Observe un canal d'ÉTAT en **cadence adaptative** (AIMD piloté par le client) : la cadence recule sous famine et remonte quand c'est sain, sans changement serveur. `emit` reçoit chaque frame à trav…"
+    },
+    "socketSnapshot": {
+      "name": "socketSnapshot",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit l'instantané courant. Purement local : aucune trame n'est émise, rien n'est demandé au serveur — afficher cet état ne coûte donc rien au réseau."
+    },
+    "observeSnapshot": {
+      "name": "observeSnapshot",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe l'instantané : `emit` reçoit la valeur courante immédiatement, puis à chaque échantillon du client (une fois par seconde) et à chaque changement d'état — les deux seuls moments où il peut a…"
     },
     "observeSyslog": {
       "name": "observeSyslog",

@@ -162,6 +162,8 @@ export {
   observeSyslog,
   observeNotices,
   observeNoticeLog,
+  observeSnapshot,
+  socketSnapshot,
   adaptiveRebindKey,
 } from "./realtime/observe";
 export type {
@@ -173,6 +175,7 @@ export type {
   AdaptiveObserveOptions,
   ObserveSyslogOptions,
   ObserveNoticeLogOptions,
+  SocketSnapshot,
 } from "./realtime/observe";
 // Table des événements LOCAUX du client — les portes publiques (`onState`,
 // `onIdentity`, `onStats`, `onNotice`, `onDenied`, `onReconnect`) restent à préférer ; la table

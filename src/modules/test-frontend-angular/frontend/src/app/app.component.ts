@@ -5,8 +5,9 @@ import { Component, OnDestroy, OnInit, VERSION, signal } from "@angular/core";
 import {
   connectShared,
   observeChannel,
-  observeChannelData,
+  observeSnapshot,
   observeState,
+  type SocketSnapshot,
 } from "nodefony/client";
 // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
 // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
@@ -16,13 +17,6 @@ interface ApiData {
   ts: number;
   pid: number;
   env: string;
-}
-
-/** Le battement du pod — cf `src/modules/test/.../LiveTickerController.ts`. */
-interface Tick {
-  n: number;
-  ts: number;
-  pid: number;
 }
 
 /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
@@ -38,6 +32,32 @@ const ACCENT = "#dd0031";
 
 /** Le nom de CETTE vitrine — il marque les messages qu'elle envoie au salon. */
 const FRONT = "Angular";
+
+/**
+ * Combien de rechargements À CHAUD depuis le dernier chargement complet.
+ *
+ * `import.meta.hot.data` est la mémoire que Vite fait survivre au remplacement
+ * d'un module — et à lui seul. Le module étant ré-exécuté à chaque mise à jour,
+ * il suffit de compter ses exécutions : un chargement complet repart de zéro,
+ * une mise à jour à chaud incrémente. Aucun écouteur à poser, donc aucun à
+ * retirer.
+ *
+ * Sans ce chiffre, la carte échouait EN SILENCE : si Vite tombait en
+ * rechargement complet, le compteur de clics repartait à zéro et personne ne
+ * pouvait dire si la démonstration avait marché ou raté.
+ */
+/**
+ * La barre de debug s'auto-injecte en développement et expose ce handle — c'est
+ * la même poignée que la console d'administration emploie. On ne la remonte pas,
+ * on la pilote : `DebugBarHandle` (cf `nodefony/debugbar`).
+ */
+type Debugbar = { isVisible(): boolean; toggle(): void } | undefined;
+const debugbar = (): Debugbar =>
+  (globalThis as { __NODEFONY_DEBUGBAR__?: Debugbar }).__NODEFONY_DEBUGBAR__;
+
+const hot = (import.meta as { hot?: { data: Record<string, unknown> } }).hot;
+if (hot) hot.data.majs = ((hot.data.majs as number) ?? 0) + 1;
+const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
 
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [
@@ -71,6 +91,46 @@ const live = connectShared({ url: "/api/live/realtime" });
             >
           }
         </nav>
+        <div class="outils">
+          <span class="sonde-hote" tabindex="0">
+            <span class="sonde">
+              <span
+                class="dot"
+                [class.dot--on]="liveState() === 'connected'"
+                [class.dot--wait]="
+                  liveState() === 'connecting' || liveState() === 'reconnecting'
+                "
+              ></span>
+              {{ etatFr() }}
+              <b>{{ vue()?.frames ?? 0 }}</b> trames
+            </span>
+            <div class="sonde-detail" role="status">
+              <dl>
+                <dt>Adresse</dt>
+                <dd>{{ vue()?.url ?? "—" }}</dd>
+                <dt>État</dt>
+                <dd>{{ etatFr() }}</dd>
+                <dt>Canaux</dt>
+                <dd>{{ canaux() }}</dd>
+                <dt>Trames reçues</dt>
+                <dd>{{ vue()?.frames ?? 0 }}</dd>
+                <dt>Dernière</dt>
+                <dd>{{ derniereDe() }}</dd>
+              </dl>
+              <p class="rien">
+                Tout cela vient du client lui-même : afficher ce panneau ne
+                provoque aucune trame.
+              </p>
+            </div>
+          </span>
+          <button
+            class="bascule"
+            [attr.aria-pressed]="barreVisible()"
+            (click)="basculerBarre()"
+          >
+            Barre de debug
+          </button>
+        </div>
       </header>
 
       <main>
@@ -132,10 +192,10 @@ const live = connectShared({ url: "/api/live/realtime" });
               {{ etatFr() }}
             </p>
             <p class="live-meta">
-              @if (tick(); as t) {
-                battement du pod à {{ heure(t) }} · process {{ t.pid }}
+              @if (vue()?.lastFrame?.at) {
+                dernière trame : {{ derniereDe() }}
               } @else {
-                en attente du premier battement…
+                aucune trame — le serveur se tait tant qu'il n'a rien à dire
               }
             </p>
             <button class="btn btn--ghost" (click)="basculer()">
@@ -250,8 +310,14 @@ const live = connectShared({ url: "/api/live/realtime" });
                 {{ count() }} clic{{ count() > 1 ? "s" : "" }}
               </button>
               <p class="hint">
+                {{ majsAChaud }} rechargement{{ majsAChaud > 1 ? "s" : "" }} à
+                chaud depuis le dernier chargement complet — l'état ci-dessus y
+                a survécu.
+              </p>
+              <p class="hint">
                 Édite <code>frontend/src/app/app.component.ts</code> : Vite
-                recompile et le compteur garde sa valeur.
+                recompile, le compteur ne repart PAS à zéro. S'il y retombe,
+                c'est un rechargement complet, pas un rechargement à chaud.
               </p>
             </div>
           </div>
@@ -269,16 +335,18 @@ const live = connectShared({ url: "/api/live/realtime" });
 export class AppComponent implements OnInit, OnDestroy {
   readonly ngVersion = VERSION.full;
   readonly accent = ACCENT;
+  readonly majsAChaud = MAJS_A_CHAUD;
   readonly fronts = FRONTS;
   readonly count = signal(0);
   readonly data = signal<ApiData | null>(null);
   readonly error = signal<string | null>(null);
   readonly liveState = signal(live.socket.state);
-  readonly tick = signal<Tick | null>(null);
   readonly messages = signal<Message[]>([]);
   readonly texte = signal("");
   readonly parHttp = signal<string | null>(null);
   readonly parSocket = signal<string | null>(null);
+  readonly vue = signal<SocketSnapshot | null>(null);
+  readonly barreVisible = signal(debugbar()?.isVisible() ?? false);
   /** L'extrait montré à l'écran — le code que CETTE page exécute vraiment. */
   readonly extrait = `const live = connectShared({ url: "/api/live/realtime" })
 
@@ -303,6 +371,11 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
 
   increment(): void {
     this.count.update((c) => c + 1);
+    // Le clic voyage : les autres vitrines l'apprennent par le serveur.
+    live.socket.emit("live:dire", {
+      texte: `clic n°${this.count()}`,
+      front: FRONT,
+    });
   }
 
   stringify(d: ApiData): string {
@@ -321,8 +394,16 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
     return fr[this.liveState()] ?? this.liveState();
   }
 
-  heure(t: Tick): string {
-    return new Date(t.ts).toLocaleTimeString();
+  canaux(): string {
+    return this.vue()?.channels.join(", ") || "aucun";
+  }
+
+  /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
+  derniereDe(): string {
+    const v = this.vue();
+    return v?.lastFrame.at
+      ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
+      : "—";
   }
 
   envoyer(): void {
@@ -361,6 +442,11 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
     return new Date(ts).toLocaleTimeString();
   }
 
+  basculerBarre(): void {
+    debugbar()?.toggle();
+    this.barreVisible.set(debugbar()?.isVisible() ?? false);
+  }
+
   basculer(): void {
     if (this.liveState() === "connected") live.socket.disconnect();
     else void live.socket.connect();
@@ -374,11 +460,11 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
     this.#offLive.push(
       observeState(live.socket, (state) => this.liveState.set(state)),
     );
-    this.#offLive.push(
-      observeChannelData<Tick>(live.socket, "live:ticker", (t) =>
-        this.tick.set(t),
-      ),
-    );
+    // Le compteur de trames est rafraîchi par l'échantillonneur du client (1×/s)
+    // — pas par un timer de la page : une horloge de plus pour la même mesure.
+    // UN instantané, pas cinq lectures à la main : `observeSnapshot` le
+    // rafraîchit sur l'échantillonneur DÉJÀ en place (aucune horloge de plus).
+    this.#offLive.push(observeSnapshot(live.socket, (v) => this.vue.set(v)));
     this.#offLive.push(
       observeChannel(live.socket, "live:salon", (m) =>
         this.messages.update((liste) => [...liste, m as Message].slice(-6)),

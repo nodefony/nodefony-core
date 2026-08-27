@@ -122,6 +122,29 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
           "live.start()",
         );
       }
+      // L'auto-observation passe par UN contrat, pas par cinq lectures à la
+      // main : c'est ce qui empêche les quatre sondes de barre de diverger.
+      expect(src, `${front} : la sonde lit un instantané du socle`).toContain(
+        "observeSnapshot(",
+      );
+      // L'adresse aussi vient de l'instantané. Écrite en dur, elle survivrait
+      // au changement d'endpoint et mentirait — c'est le défaut qu'une vitrine
+      // portait, et qu'aucun contrôle ne voyait : elle S'AFFICHAIT très bien.
+      expect(
+        src.replace(/\s+/g, " "),
+        `${front} : l'adresse doit venir de l'instantané, pas d'un littéral`,
+      ).not.toContain("<dd>/api/live/realtime</dd>");
+      for (const brut of [
+        "subscribedChannels",
+        "framesReceived",
+        "lastFrameAt",
+        "lastFrameMethod",
+      ]) {
+        expect(
+          src,
+          `${front} : ${brut} se lit dans l'instantané, pas sur le client`,
+        ).not.toContain(`socket.${brut}`);
+      }
       // Ce que les quatre doivent DÉMONTRER, et pas seulement câbler.
       expect(
         src,
@@ -178,12 +201,29 @@ describe("vitrines — le même écran, et de quoi le comparer", () => {
       "Couper la connexion",
       "Ce que la page fait quand elle DEMANDE",
       "Rechargement à chaud",
+      // La sonde de socket et la bascule de la barre de debug, dans la barre.
+      "Barre de debug",
+      "sonde-detail",
     ];
     for (const { front, page } of VITRINES) {
       const src = lire(front, page);
       for (const phrase of communes) {
         expect(src, `${front} n'a pas « ${phrase} »`).toContain(phrase);
       }
+    }
+  });
+
+  it("aucune ne réintroduit un battement périodique", () => {
+    // Une trame par seconde et par client, pour ne rien dire, coûte du réseau
+    // et du processeur en permanence — et enseigne l'inverse de ce que le
+    // framework défend. Le canal a été retiré du serveur ; ce refus empêche
+    // qu'il revienne par une page.
+    for (const { front, page } of VITRINES) {
+      const src = lire(front, page);
+      expect(
+        src,
+        `${front} : un battement périodique est revenu`,
+      ).not.toContain("live:ticker");
     }
   });
 

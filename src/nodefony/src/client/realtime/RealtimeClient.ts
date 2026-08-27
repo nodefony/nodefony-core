@@ -527,6 +527,18 @@ export class RealtimeClient<
   }
 
   /**
+   * L'adresse du serveur temps réel, telle qu'elle a été donnée (ou résolue en
+   * absolu par {@link shared}). `null` tant qu'aucune n'a été fournie — le
+   * framework n'en devine aucune.
+   *
+   * Publiée pour l'auto-observation : un instantané de socket qui ne dit pas DE
+   * QUELLE socket il parle ne sert à rien dès qu'une page en tient plus d'une.
+   */
+  get url(): string | null {
+    return this.opts.url ?? null;
+  }
+
+  /**
    * Identité de la connexion, **annoncée par le serveur** au `realtime:welcome`
    * ({@link RealtimeIdentity}). `null` tant qu'aucun welcome n'a été reçu ; une
    * fois reçu, un visiteur anonyme a `authenticated: false` (jamais `null`). Un

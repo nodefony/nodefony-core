@@ -293,6 +293,83 @@ export function observeAdaptiveChannel(
   });
 }
 
+/* ────────────────────── auto-observation de la socket ─────────────────── */
+
+/**
+ * Ce que le client sait de sa PROPRE socket, à un instant donné.
+ *
+ * Pourquoi ce contrat existe : quatre écrans lisaient déjà `subscribedChannels`,
+ * `framesReceived`, `lastFrameAt` et `lastFrameMethod` à la main pour afficher
+ * la même chose — c'est-à-dire quatre lectures qui divergeront. La donnée est
+ * parfaitement agnostique ; seule sa mise en page appartient à la vue.
+ *
+ * La frontière est là, et elle est nette : **l'instantané est ici, la boîte qui
+ * l'affiche reste chez chaque front**. Publier un composant obligerait à en
+ * écrire un par framework de vue, et ferait entrer du DOM dans un module dont
+ * toute la valeur est de n'en avoir aucun.
+ */
+export interface SocketSnapshot {
+  /** L'adresse du serveur temps réel — de QUELLE socket cet instantané parle. */
+  url: string | null;
+  /** État de la connexion. */
+  state: RealtimeState;
+  /** Canaux effectivement tenus par cette connexion. */
+  channels: readonly string[];
+  /** Trames reçues depuis l'ouverture. */
+  frames: number;
+  /** Trames perdues faute de transport ouvert — un silence qui se compte. */
+  unsent: number;
+  /** Méthode et horodatage de la dernière trame reçue (`null` si aucune). */
+  lastFrame: { method: string | null; at: number | null };
+  /** Tentatives de reconnexion depuis la dernière connexion réussie. */
+  reconnectAttempts: number;
+  /** Échéance de la prochaine tentative (ms epoch), `null` hors reconnexion. */
+  nextRetryAt: number | null;
+  /** Identité résolue par le serveur, `null` avant le premier welcome. */
+  identity: RealtimeIdentity | null;
+}
+
+/**
+ * Lit l'instantané courant. Purement local : aucune trame n'est émise, rien
+ * n'est demandé au serveur — afficher cet état ne coûte donc rien au réseau.
+ */
+export function socketSnapshot(client: ObservableClient): SocketSnapshot {
+  return {
+    url: client.url,
+    state: client.state,
+    channels: client.subscribedChannels,
+    frames: client.framesReceived,
+    unsent: client.framesUnsent,
+    lastFrame: { method: client.lastFrameMethod, at: client.lastFrameAt },
+    reconnectAttempts: client.reconnectAttempts,
+    nextRetryAt: client.nextRetryAt,
+    identity: client.identity,
+  };
+}
+
+/**
+ * Observe l'instantané : `emit` reçoit la valeur courante immédiatement, puis à
+ * chaque échantillon du client (une fois par seconde) et à chaque changement
+ * d'état — les deux seuls moments où il peut avoir bougé de façon visible.
+ *
+ * L'horloge est celle de l'échantillonneur DÉJÀ en place ; une liaison qui
+ * poserait son propre `setInterval` ajouterait un second réveil par seconde
+ * pour la même mesure.
+ */
+export function observeSnapshot(
+  client: ObservableClient,
+  emit: Emit<SocketSnapshot>,
+): Dispose {
+  const pousser = (): void => emit(socketSnapshot(client));
+  pousser();
+  const offStats = client.onStats(pousser);
+  const offState = client.onState(pousser);
+  return () => {
+    offStats();
+    offState();
+  };
+}
+
 /* ─────────────────────────── journal & notices ────────────────────────── */
 
 /** Options de {@link observeSyslog}. */

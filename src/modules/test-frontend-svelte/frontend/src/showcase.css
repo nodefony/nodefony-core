@@ -361,6 +361,11 @@ section {
   .voie em {
     color: var(--accent);
   }
+
+  .bascule[aria-pressed="true"] {
+    color: #06121e;
+    background: var(--accent);
+  }
 }
 
 .live-state {
@@ -596,4 +601,115 @@ section {
 
 .bandeau .btn {
   margin-left: auto;
+}
+
+/* ─── Les outils de la barre : sonde de socket + bascule de la barre de debug ─ */
+
+.outils {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* La sonde de socket — le même rôle que dans la console d'administration :
+   savoir, sans quitter l'écran, si le temps réel est vivant. Elle affiche l'état
+   ET son débit ; une pastille seule ne dit rien à qui ne distingue pas les
+   couleurs (WCAG 1.4.1), le texte est donc toujours là. */
+.sonde {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sonde b {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.bascule {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+
+.bascule:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+.bascule[aria-pressed="true"] {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 55%, #000);
+  border-color: transparent;
+}
+
+/* Le détail de la sonde, au SURVOL — même rôle que la carte de survol de la
+   console d'administration : tout ce que le client sait de sa propre socket,
+   sans quitter l'écran et sans provoquer la moindre trame. `:focus-within` le
+   rend atteignable au clavier ; sans lui, l'information n'existerait que pour
+   qui se sert d'une souris. */
+.sonde-hote {
+  position: relative;
+}
+
+.sonde-detail {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  min-width: 280px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow-hover);
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: none;
+}
+
+.sonde-hote:hover .sonde-detail,
+.sonde-hote:focus-within .sonde-detail {
+  display: block;
+}
+
+.sonde-detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+}
+
+.sonde-detail dt {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.sonde-detail dd {
+  margin: 0;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.sonde-detail .rien {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
 }

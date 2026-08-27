@@ -3,11 +3,11 @@ import { useEffect, useState, version as reactVersion } from "react";
 // de `nodefony/client` — le même que consomment les vitrines Vue, Angular et
 // Svelte. Deux concepts, ici comme là-bas : un fournisseur qui reçoit
 // l'adresse, et un abonnement.
+import { observeSnapshot, type SocketSnapshot } from "nodefony/client";
 import {
   NodefonyProvider,
   useNodefony,
   useNodefonyChannel,
-  useNodefonyChannelData,
   useNodefonyState,
 } from "nodefony/react";
 // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
@@ -18,13 +18,6 @@ interface ApiData {
   ts: number;
   pid: number;
   env: string;
-}
-
-/** Le battement du pod — cf `src/modules/test/.../LiveTickerController.ts`. */
-interface Tick {
-  n: number;
-  ts: number;
-  pid: number;
 }
 
 /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
@@ -41,6 +34,32 @@ const ACCENT = "#61dafb";
 /** Le nom de CETTE vitrine — il marque les messages qu'elle envoie au salon. */
 const FRONT = "React";
 
+/**
+ * Combien de rechargements À CHAUD depuis le dernier chargement complet.
+ *
+ * `import.meta.hot.data` est la mémoire que Vite fait survivre au remplacement
+ * d'un module — et à lui seul. Le module étant ré-exécuté à chaque mise à jour,
+ * il suffit de compter ses exécutions : un chargement complet repart de zéro,
+ * une mise à jour à chaud incrémente. Aucun écouteur à poser, donc aucun à
+ * retirer.
+ *
+ * Sans ce chiffre, la carte échouait EN SILENCE : si Vite tombait en
+ * rechargement complet, le compteur de clics repartait à zéro et personne ne
+ * pouvait dire si la démonstration avait marché ou raté.
+ */
+/**
+ * La barre de debug s'auto-injecte en développement et expose ce handle — c'est
+ * la même poignée que la console d'administration emploie. On ne la remonte pas,
+ * on la pilote : `DebugBarHandle` (cf `nodefony/debugbar`).
+ */
+type Debugbar = { isVisible(): boolean; toggle(): void } | undefined;
+const debugbar = (): Debugbar =>
+  (globalThis as { __NODEFONY_DEBUGBAR__?: Debugbar }).__NODEFONY_DEBUGBAR__;
+
+const hot = (import.meta as { hot?: { data: Record<string, unknown> } }).hot;
+if (hot) hot.data.majs = ((hot.data.majs as number) ?? 0) + 1;
+const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
+
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [
   { nom: "React", href: "/react/app" },
@@ -48,6 +67,12 @@ const FRONTS = [
   { nom: "Angular", href: "/angular/app" },
   { nom: "Svelte", href: "/svelte/app" },
 ];
+
+/** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
+const derniereDe = (v: SocketSnapshot | null): string =>
+  v?.lastFrame.at
+    ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
+    : "—";
 
 /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
 const ETATS: Record<string, string> = {
@@ -74,11 +99,14 @@ const ETATS: Record<string, string> = {
 function LiveSection() {
   const live = useNodefony();
   const state = useNodefonyState();
-  const tick = useNodefonyChannelData<Tick>("live:ticker");
   const [messages, setMessages] = useState<Message[]>([]);
   const [texte, setTexte] = useState("");
   const [parHttp, setParHttp] = useState<string | null>(null);
   const [parSocket, setParSocket] = useState<string | null>(null);
+  // Ce que le client sait de sa PROPRE socket — un seul contrat, partagé avec la
+  // sonde de la barre et avec les trois autres vitrines.
+  const [vue, setVue] = useState<SocketSnapshot | null>(null);
+  useEffect(() => observeSnapshot(live, setVue), [live]);
 
   useNodefonyChannel(
     "live:salon",
@@ -135,9 +163,9 @@ function LiveSection() {
           {ETATS[state] ?? state}
         </p>
         <p className="live-meta">
-          {tick
-            ? `battement du pod à ${new Date(tick.ts).toLocaleTimeString()} · process ${tick.pid}`
-            : "en attente du premier battement…"}
+          {vue?.lastFrame.at
+            ? `dernière trame : ${derniereDe(vue)}`
+            : "aucune trame — le serveur se tait tant qu'il n'a rien à dire"}
         </p>
         <button
           className="btn btn--ghost"
@@ -239,8 +267,109 @@ const message = useNodefonyChannel("live:salon", (m) => …)`}</code>
   );
 }
 
-export function App() {
+/**
+ * Les outils de la barre : la sonde de socket et la bascule de la barre de debug.
+ *
+ * La sonde joue ici le rôle qu'elle tient dans la console d'administration —
+ * savoir en permanence, sans quitter l'écran, si le temps réel est vivant et
+ * combien il a livré. Elle ne coûte que deux appels au socle, les mêmes dans
+ * les quatre vitrines : c'est précisément ce que l'extraction achète.
+ */
+function OutilsBarre() {
+  const live = useNodefony();
+  const state = useNodefonyState();
+  const [vue, setVue] = useState<SocketSnapshot | null>(null);
+  const [barreVisible, setBarreVisible] = useState(
+    () => debugbar()?.isVisible() ?? false,
+  );
+
+  // UN instantané, pas cinq lectures à la main : `observeSnapshot` le rafraîchit
+  // sur l'échantillonneur DÉJÀ en place (aucune horloge de plus, aucune trame).
+  useEffect(() => observeSnapshot(live, setVue), [live]);
+
+  const connecte = state === "connected";
+  const attente = state === "connecting" || state === "reconnecting";
+  return (
+    <div className="outils">
+      <span className="sonde-hote" tabIndex={0}>
+        <span className="sonde">
+          <span
+            className={
+              connecte ? "dot dot--on" : attente ? "dot dot--wait" : "dot"
+            }
+          />
+          {ETATS[state] ?? state}
+          <b>{vue?.frames ?? 0}</b> trames
+        </span>
+        <div className="sonde-detail" role="status">
+          <dl>
+            <dt>Adresse</dt>
+            <dd>{vue?.url ?? "—"}</dd>
+            <dt>État</dt>
+            <dd>{ETATS[state] ?? state}</dd>
+            <dt>Canaux</dt>
+            <dd>{vue?.channels.join(", ") || "aucun"}</dd>
+            <dt>Trames reçues</dt>
+            <dd>{vue?.frames ?? 0}</dd>
+            <dt>Dernière</dt>
+            <dd>{derniereDe(vue)}</dd>
+          </dl>
+          <p className="rien">
+            Tout cela vient du client lui-même : afficher ce panneau ne provoque
+            aucune trame.
+          </p>
+        </div>
+      </span>
+      <button
+        className="bascule"
+        aria-pressed={barreVisible}
+        onClick={() => {
+          debugbar()?.toggle();
+          setBarreVisible(debugbar()?.isVisible() ?? false);
+        }}
+      >
+        Barre de debug
+      </button>
+    </div>
+  );
+}
+
+/**
+ * La carte du RECHARGEMENT À CHAUD — et, au passage, la façon la plus courte de
+ * voir le fan-out : un clic ici s'affiche dans le salon de TOUS les onglets
+ * ouverts, sans rien avoir à taper.
+ */
+function HmrCard() {
+  const live = useNodefony();
   const [count, setCount] = useState(0);
+
+  const cliquer = () => {
+    const n = count + 1;
+    setCount(n);
+    // Le clic voyage : les autres vitrines l'apprennent par le serveur.
+    live.emit("live:dire", { texte: `clic n°${n}`, front: FRONT });
+  };
+
+  return (
+    <div className="card">
+      <h3>♻️ Rechargement à chaud</h3>
+      <button className="counter" onClick={cliquer}>
+        {count} clic{count > 1 ? "s" : ""}
+      </button>
+      <p className="hint">
+        {MAJS_A_CHAUD} rechargement{MAJS_A_CHAUD > 1 ? "s" : ""} à chaud depuis
+        le dernier chargement complet — l'état ci-dessus y a survécu.
+      </p>
+      <p className="hint">
+        Édite <code>frontend/src/App.tsx</code> : Vite recompile, le compteur ne
+        repart PAS à zéro. S'il y retombe, c'est un rechargement complet, pas un
+        rechargement à chaud.
+      </p>
+    </div>
+  );
+}
+
+export function App() {
   const [data, setData] = useState<ApiData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -287,6 +416,7 @@ export function App() {
               </a>
             ))}
           </nav>
+          <OutilsBarre />
         </header>
 
         <main>
@@ -340,19 +470,7 @@ export function App() {
                 )}
               </div>
 
-              <div className="card">
-                <h3>♻️ Rechargement à chaud</h3>
-                <button
-                  className="counter"
-                  onClick={() => setCount((c) => c + 1)}
-                >
-                  {count} clic{count > 1 ? "s" : ""}
-                </button>
-                <p className="hint">
-                  Édite <code>frontend/src/App.tsx</code> : Vite recompile et le
-                  compteur garde sa valeur.
-                </p>
-              </div>
+              <HmrCard />
             </div>
           </section>
 

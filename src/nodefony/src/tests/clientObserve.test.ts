@@ -32,8 +32,10 @@ import {
   observeNoticeLog,
   observeNotices,
   observeReconnect,
+  observeSnapshot,
   observeState,
   observeSyslog,
+  socketSnapshot,
   adaptiveRebindKey,
   type ConnectSharedOptions,
   type SharedConnection,
@@ -274,6 +276,57 @@ describe("observeChannel — l'appariement abonnement/désabonnement", () => {
     expect(adaptiveRebindKey("nodefony:dashboard", 2000, true)).not.toBe(base);
     expect(adaptiveRebindKey("nodefony:dashboard", 1000, false)).not.toBe(base);
     expect(adaptiveRebindKey("nodefony:socket", 1000, true)).not.toBe(base);
+  });
+});
+
+describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
+  it("rend l'adresse, l'état, les canaux tenus et la dernière trame", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    observeChannel(client, "live:salon", () => {});
+    t.push("live:salon", { texte: "bonjour" });
+
+    const vu = socketSnapshot(client);
+    expect(vu.url).toBe("ws://loopback/realtime");
+    expect(vu.state).toBe("connected");
+    expect(vu.channels).toContain("live:salon");
+    expect(vu.frames).toBeGreaterThan(0);
+    expect(vu.lastFrame.method).toBe("live:salon");
+    expect(vu.lastFrame.at).toBeTypeOf("number");
+  });
+
+  it("ne provoque AUCUNE trame — l'afficher ne coûte rien au réseau", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    const avant = t.sent.length;
+    socketSnapshot(client);
+    socketSnapshot(client);
+    expect(t.sent.length, "un instantané a parlé au serveur").toBe(avant);
+  });
+
+  it("observeSnapshot : la valeur COURANTE, puis à chaque échantillon et transition", async () => {
+    vi.useFakeTimers();
+    const client = newClient();
+    await connected(client);
+    const vus: string[] = [];
+    const dispose = observeSnapshot(client, (v) => vus.push(v.state));
+    expect(vus).toEqual(["connected"]);
+
+    // L'échantillonneur du client (1×/s) — pas une horloge de la liaison.
+    vi.advanceTimersByTime(1000);
+    expect(vus.length).toBeGreaterThan(1);
+
+    const apresEchantillon = vus.length;
+    client.disconnect();
+    expect(vus[vus.length - 1], "une transition doit republier").toBe(
+      "disconnected",
+    );
+    expect(vus.length).toBeGreaterThan(apresEchantillon);
+
+    dispose();
+    const fige = vus.length;
+    vi.advanceTimersByTime(2000);
+    expect(vus.length, "libéré, il ne publie plus").toBe(fige);
   });
 });
 
