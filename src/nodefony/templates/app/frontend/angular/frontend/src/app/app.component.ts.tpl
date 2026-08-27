@@ -10,7 +10,11 @@ import {
 // gérés par le client. Aucun `new WebSocket` à la main. Subpath
 // `nodefony/client` : la porte client explicite, résolue à l'identique par
 // Vite, Node et le typecheck.
-import { RealtimeClient } from "nodefony/client";
+import {
+  connectShared,
+  observeState,
+  observeChannelData,
+} from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "../brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -38,9 +42,10 @@ interface Tick {
   pid: number;
 }
 
-// UNE socket par URL pour toute la page (`.shared`) — URL RELATIVE, résolue
-// contre la page (https → wss automatique). La même façade que Studio.
-const live = RealtimeClient.shared({ url: "/api/live/realtime" });
+// UNE socket par URL pour toute la page — URL RELATIVE, résolue contre la page
+// (https → wss automatique). `connectShared` porte le cycle de connexion : il
+// est le MÊME pour les quatre fronts et pour la console d'administration.
+const live = connectShared({ url: "/api/live/realtime" });
 <% } %>
 /**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
@@ -253,7 +258,7 @@ export class AppComponent implements OnInit, OnDestroy {
   count = signal(0);
 <% if (it.complete) { %>  authMsg = signal<string | null>(null);
   secureData = signal<SecureData | null>(null);
-  liveState = signal(live.state);
+  liveState = signal(live.socket.state);
   tick = signal<Tick | null>(null);
   pingMs = signal<number | null>(null);
   // Disposers des listeners locaux — rendus au ngOnDestroy (HMR détruit le composant).
@@ -323,17 +328,20 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.refreshHello();
 <% if (it.complete) { %>
-    // Abonnement par la façade : `on()` rend un disposer ; `subscribe()` est
-    // ref-compté et REJOUÉ à chaque (re)connexion ; `connect()` est idempotent.
-    // Pas de `disconnect()` au ngOnDestroy — la connexion appartient à la PAGE.
+    // Un observateur = un rappel + une libération. L'abonnement serveur est
+    // ref-compté et REJOUÉ à chaque (re)connexion, `start()` est idempotent, et
+    // rien ne coupe la socket au ngOnDestroy : elle appartient à la PAGE. Ces
+    // règles vivent dans `nodefony/client`, pas ici — c'est ce qui les garde
+    // identiques en React, Vue, Angular et Svelte.
     this.#offLive.push(
-      live.on("__state__", () => this.liveState.set(live.state)),
+      observeState(live.socket, (state) => this.liveState.set(state)),
     );
-    this.#offLive.push(live.on("live:ticker", (msg) => this.tick.set(msg as Tick)));
-    live.subscribe("live:ticker");
-    live.connect().catch(() => {
-      /* la carte affiche l'état (`error`) — la reconnexion est automatique */
-    });
+    this.#offLive.push(
+      observeChannelData<Tick>(live.socket, "live:ticker", (t) =>
+        this.tick.set(t),
+      ),
+    );
+    live.start();
 <% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
@@ -352,11 +360,10 @@ export class AppComponent implements OnInit, OnDestroy {
 <% } %>  }
 
   ngOnDestroy() {
-<% if (it.complete) { %>    // HMR/full-reload détruit le composant : on rend les listeners +
-    // l'abonnement — la socket PARTAGÉE (`.shared`), elle, reste ouverte.
+<% if (it.complete) { %>    // HMR/full-reload détruit le composant : on libère les observateurs, ce
+    // qui rend aussi l'abonnement — la socket PARTAGÉE reste ouverte.
     for (const off of this.#offLive) off();
     this.#offLive = [];
-    live.unsubscribe("live:ticker");
 <% } else { %>    // HMR/full-reload détruit le composant : fermer une socket encore en
     // CONNECTING lève un warning navigateur (« closed before the connection
     // is established ») — on attend l'open pour fermer proprement.
@@ -372,7 +379,7 @@ export class AppComponent implements OnInit, OnDestroy {
 <% if (it.complete) { %>
   async doPing() {
     const t0 = performance.now();
-    await live.request("live:ping", {});
+    await live.socket.request("live:ping", {});
     this.pingMs.set(Math.round(performance.now() - t0));
   }
 <% } else { %>

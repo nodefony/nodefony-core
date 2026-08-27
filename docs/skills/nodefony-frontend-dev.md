@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-08-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 | Version | `1.0.0` |
 | Famille | Développer le framework |
 | Corps | 114 lignes |
-| Coût d'activation | ~2 836 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~2 947 tokens (le corps est chargé à l'invocation) |
 | Description | 994 / 1024 caractères |
 | Déclencheurs | 19 |
 | Ressources `references/` | 6 page(s), 17 fichiers au total |
@@ -71,7 +71,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 270 |
 | `references/patterns.md` | Patterns d'écran front (Nodefony) — framework-agnostique | 168 |
-| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 371 |
+| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 418 |
 
 _(+ 11 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 

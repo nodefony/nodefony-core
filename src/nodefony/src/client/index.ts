@@ -38,6 +38,9 @@ export type {
   RealtimeIdentity,
   IRealtimeWelcome,
   IRealtimeDenied,
+  // Charge utile de `onReconnect` / `observeReconnect` : l'écran qui rend un
+  // compte à rebours doit pouvoir NOMMER ce qu'il reçoit.
+  RealtimeReconnectInfo,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 // Vocabulaire des sévérités RFC 5424 — isomorphe : la console
@@ -144,3 +147,35 @@ export type {
   AdaptiveChannelBinding,
   AdaptiveScheduler,
 } from "./realtime/AdaptiveRate";
+// Socle AGNOSTIQUE des liaisons de vue (`observe*` → `rappel + libération`) : la
+// logique de souscription et de cycle qui n'a rien de React, et que les liaisons
+// Vue/Angular/Svelte consomment au lieu de la recopier. Cf `./realtime/observe.ts`.
+export {
+  connectShared,
+  observeState,
+  observeIdentity,
+  observeReconnect,
+  observeChannel,
+  observeChannelData,
+  observeChannelStats,
+  observeAdaptiveChannel,
+  observeSyslog,
+  observeNotices,
+  observeNoticeLog,
+  adaptiveRebindKey,
+} from "./realtime/observe";
+export type {
+  Emit,
+  Dispose,
+  ObservableClient,
+  ConnectSharedOptions,
+  SharedConnection,
+  AdaptiveObserveOptions,
+  ObserveSyslogOptions,
+  ObserveNoticeLogOptions,
+} from "./realtime/observe";
+// Table des événements LOCAUX du client — les portes publiques (`onState`,
+// `onIdentity`, `onStats`, `onNotice`, `onDenied`, `onReconnect`) restent à préférer ; la table
+// sert aux implémentations et à l'inspection bas niveau.
+export { LOCAL_EVENTS, isLocalEvent } from "./realtime/localEvents";
+export type { LocalEvent } from "./realtime/localEvents";

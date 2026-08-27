@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-27T17:47:55.122Z",
+  "generated": "2026-08-27T18:33:34.579Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 739,
-    "symbols": 3133,
+    "files": 741,
+    "symbols": 3157,
     "classes": 364,
-    "interfaces": 887,
-    "types": 388,
+    "interfaces": 891,
+    "types": 394,
     "enums": 4,
-    "functions": 1196,
-    "constants": 294
+    "functions": 1209,
+    "constants": 295
   },
   "symbols": {
     "Cli": {
@@ -6196,15 +6196,6 @@
       "extends": null,
       "description": "Résultat de {@link useNodefonyAdaptiveChannelData} : dernière valeur + cadence réelle."
     },
-    "ChannelStatsSnapshot": {
-      "name": "ChannelStatsSnapshot",
-      "kind": "interface",
-      "file": "src/nodefony/src/client/react/index.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "description": "Stats observées d'un canal (telles que calculées par le client Core)."
-    },
     "UseSyslogOptions": {
       "name": "UseSyslogOptions",
       "kind": "interface",
@@ -6228,6 +6219,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Réglages adaptatifs du hook (cadence désirée fixée à part par `intervalMs`)."
+    },
+    "ChannelStatsSnapshot": {
+      "name": "ChannelStatsSnapshot",
+      "kind": "type",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Stats observées d'un canal (telles que calculées par le client Core). Alias du contrat isomorphe {@link MessageStats} : une copie locale de la forme aurait divergé du jour où le client ajoute un co…"
     },
     "NodefonyProvider": {
       "name": "NodefonyProvider",
@@ -6267,7 +6266,7 @@
       "file": "src/nodefony/src/client/react/index.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "`useNodefonyChannel()` — s'abonne à un canal pub/sub : `onMessage` est appelé à chaque message. Gère subscribe/unsubscribe serveur (ref-comptés) + re-subscribe au reconnect. Le handler peut changer…"
+      "description": "`useNodefonyChannel()` — s'abonne à un canal pub/sub : `onMessage` est appelé à chaque message. Le socle apparie subscribe/unsubscribe serveur (ref-comptés) et le re-subscribe au reconnect. Le hand…"
     },
     "useNodefonyChannelData": {
       "name": "useNodefonyChannelData",
@@ -6307,7 +6306,7 @@
       "file": "src/nodefony/src/client/react/index.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "`useNodefonySyslog()` — flux syslog prêt à l'emploi : ring buffer borné + filtre de sévérité. Gère le format **coalescé** du canal (`{ logs: Pdu[], dropped }`) ET le Pdu unique. Brique de la page L…"
+      "description": "`useNodefonySyslog()` — flux syslog prêt à l'emploi : ring buffer borné + filtre de sévérité. Le format **coalescé** du canal (`{ logs: Pdu[], dropped }`), l'entrée unique, la taille de l'anneau et…"
     },
     "useNodefonyNotifications": {
       "name": "useNodefonyNotifications",
@@ -6409,6 +6408,30 @@
       "decorators": [],
       "description": "BrowserWsTransport — transport {@link IRealtimeTransport} pour le navigateur : wrap d'un `WebSocket` natif. Volontairement « bête » : il ouvre/envoie/ferme et relaie les events. L'orchestration (re…"
     },
+    "LocalEvent": {
+      "name": "LocalEvent",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/localEvents.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un des noms d'événement local de la table {@link LOCAL_EVENTS}."
+    },
+    "isLocalEvent": {
+      "name": "isLocalEvent",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/localEvents.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vrai si `event` est un événement local du client (jamais un canal réseau). Sert aux couches qui inspectent la table des abonnements — une barre de debug, un inventaire de canaux — et qui doivent éc…"
+    },
+    "LOCAL_EVENTS": {
+      "name": "LOCAL_EVENTS",
+      "kind": "const",
+      "file": "src/nodefony/src/client/realtime/localEvents.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "localEvents — **noms des événements LOCAUX du client temps réel**. Ces six noms ne voyagent jamais sur le fil : ils ne servent qu'à propager, dans la page, ce que le client vient d'apprendre (chang…"
+    },
     "NodefonyNotice": {
       "name": "NodefonyNotice",
       "kind": "interface",
@@ -6449,6 +6472,170 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Faut-il tenter une reconnexion après ce close code WebSocket ? Pendant CLIENT de la sémantique RFC 6455 §7.4 émise par le serveur (`toWsCloseCode`). `false` pour les fermetures DÉFINITIVES (cf {@li…"
+    },
+    "ConnectSharedOptions": {
+      "name": "ConnectSharedOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link connectShared} — l'adresse, ou la socket déjà construite."
+    },
+    "SharedConnection": {
+      "name": "SharedConnection",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat de {@link connectShared} : la socket, à qui elle appartient, et comment la démarrer."
+    },
+    "ObserveSyslogOptions": {
+      "name": "ObserveSyslogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link observeSyslog}."
+    },
+    "ObserveNoticeLogOptions": {
+      "name": "ObserveNoticeLogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link observeNoticeLog}."
+    },
+    "Emit": {
+      "name": "Emit",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rappel d'une liaison de vue : reçoit la valeur courante."
+    },
+    "Dispose": {
+      "name": "Dispose",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Libération d'une souscription. Idempotente chez tous les observateurs de ce module."
+    },
+    "ObservableClient": {
+      "name": "ObservableClient",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Socket sur laquelle un observateur travaille. Volontairement le client NON paramétré : une liaison de vue ne connaît pas les cartes d'événements typées de l'application."
+    },
+    "AdaptiveObserveOptions": {
+      "name": "AdaptiveObserveOptions",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Options de {@link observeAdaptiveChannel} — la cadence désirée est passée à part."
+    },
+    "connectShared": {
+      "name": "connectShared",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout la socket partagée d'une adresse — ou adopte celle qu'on lui donne — et rend de quoi la démarrer sans jamais la couper. Trois règles tiennent dans cette fonction, et c'est pour cela qu'elle …"
+    },
+    "observeState": {
+      "name": "observeState",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe l'état de la connexion. `emit` reçoit l'état courant **immédiatement**, puis à chaque transition — une liaison n'a donc rien à initialiser à part."
+    },
+    "observeIdentity": {
+      "name": "observeIdentity",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe l'identité résolue par le serveur au welcome (`null` tant qu'aucun welcome n'est arrivé, et après un `disconnect()` volontaire). `emit` reçoit la valeur courante immédiatement, puis à chaqu…"
+    },
+    "observeReconnect": {
+      "name": "observeReconnect",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe les **tentatives de reconnexion** programmées par le back-off : numéro d'essai, délai retenu, échéance absolue. De quoi rendre un compte à rebours plutôt qu'un « déconnecté » muet. Contrair…"
+    },
+    "observeChannel": {
+      "name": "observeChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe un canal pub/sub : `emit` est appelé pour chaque message reçu. L'appariement `on`↔`subscribe` et `dispose`↔`unsubscribe` n'est pas réécrit ici : c'est {@link RealtimeClient.channel} qui l'e…"
+    },
+    "observeChannelData": {
+      "name": "observeChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe la **dernière valeur** reçue sur un canal — le cas le plus courant (dernière mesure d'un flux d'état). `emit` reçoit `initial` immédiatement, puis chaque nouvelle valeur : dernier arrivé ga…"
+    },
+    "observeChannelStats": {
+      "name": "observeChannelStats",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe les **statistiques** d'un canal (débit, série du VU-mètre, total), rafraîchies par l'échantillonneur du client une fois par seconde. `emit` reçoit l'instantané courant immédiatement, puis à…"
+    },
+    "adaptiveRebindKey": {
+      "name": "adaptiveRebindKey",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Clé de **re-liaison** d'un canal en cadence adaptative. Trois valeurs, et trois seulement, doivent défaire puis refaire l'abonnement : le canal de base, la cadence désirée et l'interrupteur adaptat…"
+    },
+    "observeAdaptiveChannel": {
+      "name": "observeAdaptiveChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe un canal d'ÉTAT en **cadence adaptative** (AIMD piloté par le client) : la cadence recule sous famine et remonte quand c'est sain, sans changement serveur. `emit` reçoit chaque frame à trav…"
+    },
+    "observeSyslog": {
+      "name": "observeSyslog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe le **journal du serveur** : anneau borné, filtre de sévérité, et surtout le format **coalescé** du canal (`{ logs: Pdu[], dropped }`) autant que l'entrée unique. `emit` reçoit le tableau co…"
+    },
+    "observeNotices": {
+      "name": "observeNotices",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe les **notices normalisées** du client : criticités qui cassent le temps réel (codes de fermeture RFC 6455 interprétés), erreurs poussées par le serveur, rétablissement de connexion. `emit` …"
+    },
+    "observeNoticeLog": {
+      "name": "observeNoticeLog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/observe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Observe un **historique borné** des dernières notices, filtrable par source : un journal léger des incidents temps réel, distinct des notifications éphémères. `emit` reçoit le tableau complet à cha…"
     },
     "RealtimeClient": {
       "name": "RealtimeClient",
@@ -6497,6 +6684,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Réponse de la méthode RPC standard `nodefony:kernel:ping` — CONVENTION Nodefony : tout endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond. Sert de liveness + base de mesure…"
+    },
+    "RealtimeReconnectInfo": {
+      "name": "RealtimeReconnectInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tentative de reconnexion programmée par le back-off — charge utile de {@link RealtimeClient.onReconnect}."
     },
     "RealtimeState": {
       "name": "RealtimeState",
@@ -24840,7 +25036,8 @@
       "RealtimeClient": [
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/debugbar/DebugBar.ts",
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts"
       ],
       "closeCodeToNotice": [
         "src/nodefony/src/client/index.ts",
@@ -25982,11 +26179,6 @@
       "IScaffoldContext": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
-      "RealtimeState": [
-        "src/nodefony/src/client/debugbar/DebugBar.ts",
-        "src/nodefony/src/client/debugbar/model.ts",
-        "src/nodefony/src/client/react/index.ts"
-      ],
       "DebugBarModel": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
@@ -26042,7 +26234,7 @@
       ],
       "PLATFORM_CHANNELS": [
         "src/nodefony/src/client/debugbar/DebugBar.ts",
-        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditBridge.ts",
@@ -26059,20 +26251,65 @@
       "DebugBarOptions": [
         "src/nodefony/src/client/debugbar/index.ts"
       ],
+      "RealtimeState": [
+        "src/nodefony/src/client/debugbar/model.ts",
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts"
+      ],
       "stripAnsi": [
         "src/nodefony/src/client/debugbar/model.ts"
       ],
       "NodefonyNotice": [
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "RealtimeIdentity": [
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "MessageStats": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts"
       ],
       "BindAdaptiveOptions": [
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "connectShared": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeChannel": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeState": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeChannelStats": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeIdentity": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeNotices": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeNoticeLog": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "observeSyslog": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "adaptiveRebindKey": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "ObserveSyslogOptions": [
+        "src/nodefony/src/client/react/index.ts"
+      ],
+      "ObserveNoticeLogOptions": [
+        "src/nodefony/src/client/react/index.ts"
       ],
       "RealtimeHandler": [
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
@@ -26089,6 +26326,13 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
+      "RealtimeReconnectInfo": [
+        "src/nodefony/src/client/realtime/observe.ts"
+      ],
+      "AdaptiveChannelBinding": [
+        "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "deniedToNotice": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
@@ -26102,6 +26346,9 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "RpcTracedResult": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "LOCAL_EVENTS": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "RealtimeTransportFactory": [
@@ -26118,9 +26365,6 @@
       "IRealtimeWelcome": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
-      ],
-      "AdaptiveChannelBinding": [
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "PLATFORM_METHODS": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts",

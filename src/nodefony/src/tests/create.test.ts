@@ -1139,36 +1139,81 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // deux refus, on retomberait à quatre étapes sans qu'aucun test ne tombe.
       assert.notInclude(rapp, "RealtimeClient.shared(");
       assert.notInclude(rapp, ".connect()");
-      // Vue et Angular — pas de bindings dédiés : la façade RealtimeClient.
+      // Vue, Angular et Svelte — pas de liaison dédiée : le SOCLE agnostique de
+      // `nodefony/client`. Le critère de #36 n'est pas « chacun marche », c'est
+      // « les trois écrivent la MÊME chose » : si l'un a besoin d'une ligne que
+      // les deux autres n'ont pas, l'extraction du noyau est incomplète. La
+      // boucle le rend observable — un front qui dérive nomme sa propre colonne.
       const vdest = path.join(tmp, "vlive");
       scaffold(vdest, { name: "vlive", preset: "complete", frontend: "vue" });
-      const vapp = readFileSync(
-        path.join(vdest, "frontend", "src", "App.vue"),
-        "utf8",
-      );
-      assert.include(
-        vapp,
-        'RealtimeClient.shared({ url: "/api/live/realtime" })',
-      );
-      assert.include(vapp, 'live.on("live:ticker"');
-      assert.include(vapp, 'live.subscribe("live:ticker")');
-      assert.notInclude(vapp, "new WebSocket(");
       const adest = path.join(tmp, "alive");
       scaffold(adest, {
         name: "alive",
         preset: "complete",
         frontend: "angular",
       });
-      const aapp = readFileSync(
-        path.join(adest, "frontend", "src", "app", "app.component.ts"),
-        "utf8",
-      );
-      assert.include(
-        aapp,
-        'RealtimeClient.shared({ url: "/api/live/realtime" })',
-      );
-      assert.include(aapp, 'live.on("live:ticker"');
-      assert.notInclude(aapp, "new WebSocket(");
+      const sdest2 = path.join(tmp, "slive2");
+      scaffold(sdest2, {
+        name: "slive2",
+        preset: "complete",
+        frontend: "svelte",
+      });
+      const vitrines: [string, string][] = [
+        ["vue", path.join(vdest, "frontend", "src", "App.vue")],
+        [
+          "angular",
+          path.join(adest, "frontend", "src", "app", "app.component.ts"),
+        ],
+        ["svelte", path.join(sdest2, "frontend", "src", "App.svelte")],
+      ];
+      for (const [front, fichier] of vitrines) {
+        const src = readFileSync(fichier, "utf8");
+        // Le cycle de connexion vient du socle, à l'identique pour tous.
+        assert.include(
+          src,
+          'connectShared({ url: "/api/live/realtime" })',
+          `${front} : la socket doit venir de connectShared`,
+        );
+        assert.include(
+          src,
+          "live.start()",
+          `${front} : démarrage par le socle`,
+        );
+        assert.include(
+          src,
+          "observeState(live.socket,",
+          `${front} : état par le socle`,
+        );
+        assert.include(
+          src,
+          'observeChannelData<Tick>(live.socket, "live:ticker"',
+          `${front} : canal par le socle`,
+        );
+        // Ce qui ne doit PLUS jamais revenir : la socket fabriquée à la main, le
+        // nom d'un événement local recopié, l'appariement subscribe/unsubscribe
+        // refait à la main — les trois recopies que #36 a supprimées.
+        assert.notInclude(
+          src,
+          "RealtimeClient.shared(",
+          `${front} : la socket ne se fabrique plus à la main`,
+        );
+        assert.notInclude(
+          src,
+          "__state__",
+          `${front} : un nom d'événement local ne se recopie pas`,
+        );
+        assert.notInclude(
+          src,
+          'live.subscribe("live:ticker")',
+          `${front} : l'abonnement est apparié par le socle`,
+        );
+        assert.notInclude(
+          src,
+          'live.unsubscribe("live:ticker")',
+          `${front} : le désabonnement est apparié par le socle`,
+        );
+        assert.notInclude(src, "new WebSocket(", `${front} : plus de ws brut`);
+      }
     });
 
     it("vue : SFC + plugin ; angular : composant + tsconfig.app.json", () => {
@@ -1202,7 +1247,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
 
     it("svelte : App.svelte (runes) + shim + plugin en devDeps — complete ET minimal", () => {
-      // Vitrine complète — mêmes preuves que vue (façade realtime, pas de
+      // Vitrine complète — mêmes preuves que vue (socle agnostique, pas de
       // WebSocket à la main), en syntaxe runes ($state) + mount() Svelte 5.
       const sdest = path.join(tmp, "slive");
       scaffold(sdest, {
@@ -1214,12 +1259,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(sdest, "frontend", "src", "App.svelte"),
         "utf8",
       );
+      assert.include(sapp, 'connectShared({ url: "/api/live/realtime" })');
       assert.include(
         sapp,
-        'RealtimeClient.shared({ url: "/api/live/realtime" })',
+        'observeChannelData<Tick>(live.socket, "live:ticker"',
       );
-      assert.include(sapp, 'live.on("live:ticker"');
-      assert.include(sapp, 'live.subscribe("live:ticker")');
       assert.include(sapp, "$state");
       assert.notInclude(sapp, "new WebSocket(");
       const sentry = readFileSync(

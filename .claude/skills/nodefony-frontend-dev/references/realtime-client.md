@@ -4,7 +4,7 @@ Référence du **client temps réel isomorphe** et de ses bindings React. Le cli
 
 > Pour l'isomorphisme (dual-build, subpaths, `customConditions`) et le RBAC `nodefony/roles` → voir [`isomorphic.md`](./isomorphic.md).
 
-Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1108 l). Contrats partagés : `src/nodefony/src/realtime/` (`JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`). Transport navigateur : `src/client/realtime/BrowserWsTransport.ts`. Hooks : `src/client/react/index.ts` (362 l).
+Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1300 l). Contrats partagés : `src/nodefony/src/realtime/` (`JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`). Transport navigateur : `src/client/realtime/BrowserWsTransport.ts`. Socle agnostique : `src/client/realtime/observe.ts` (330 l) + table `client/realtime/localEvents.ts`. Hooks : `src/client/react/index.ts` (395 l).
 
 ## Sommaire
 
@@ -18,7 +18,7 @@ Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1108 l). Contrats
 8. [Notices & refus de canal](#8-notices--refus-de-canal)
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
 10. [Cadence adaptative (`adaptiveChannel`)](#10-cadence-adaptative-adaptivechannel)
-11. [Hooks React `nodefony/react`](#11-hooks-react-nodefonyreact)
+11. [Liaisons de vue : socle agnostique `observe*` + hooks React](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
 12. [Gotchas](#12-gotchas)
 
 ---
@@ -31,14 +31,14 @@ Trois couches, séparées pour rester isomorphes (seule la dernière diffère cl
 RealtimeClient            ← la « socket » (orchestration : reconnect, heartbeat, stats,
   (IRealtimeSocket)          ref-count subscribe, identité, frameLog). RealtimeClient.ts:154
    └─ JsonRpcPeer         ← moteur protocole JSON-RPC 2.0 ISOMORPHE (classe une frame,
-        (IRealtimePeer)      route, corrèle les id, gère erreurs). realtime/JsonRpcPeer.ts:237
+        (IRealtimePeer)      route, corrèle les id, gère erreurs). realtime/JsonRpcPeer.ts:280
          └─ IRealtimeTransport  ← LES OCTETS — seul maillon qui diffère. Front =
                                   BrowserWsTransport (wrap WebSocket). IRealtimeTransport.ts:34
 ```
 
-- `RealtimeClient` **compose** un `JsonRpcPeer` (`RealtimeClient.ts:175`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
-- Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `RealtimeClient.ts:220`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
-- `RealtimeClient` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:183`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
+- `RealtimeClient` **compose** un `JsonRpcPeer` (`RealtimeClient.ts:199`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
+- Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `RealtimeClient.ts:248`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
+- `RealtimeClient` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:233`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
 
 Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:315-375`) : le rôle d'une frame se lit sur `method`, PAS sur `id` —
 `method`+`id` = **requête** entrante ; `method` seul = **notification** ; `id` sans `method` = **réponse** à une de nos requêtes sortantes.
@@ -55,7 +55,7 @@ static shared(opts?: RealtimeOptions): RealtimeClient;
 constructor(opts?: RealtimeOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
-`RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:236-246`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. C'est la forme utilisée par le front (Studio `RootStore.ts:54`).
+`RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:268-278`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. C'est la forme utilisée par le front (Studio `RootStore.ts:54`).
 
 `RealtimeOptions` (`RealtimeClient.ts:82-93`) :
 
@@ -91,13 +91,13 @@ get nextRetryAt(): number | null;           // ms epoch de la prochaine tentativ
 retryNow(): void;                           // force une reco immédiate, annule le backoff (:287)
 ```
 
-- **State machine** : `disconnected → connecting → connected → reconnecting → error`. Chaque transition émet l'event LOCAL `__state__` (`setState`, `:1101`).
+- **State machine** : `disconnected → connecting → connected → reconnecting → error`. Chaque transition émet l'event LOCAL `__state__` (`setState`, `:1289`).
 - **Backoff exponentiel** (`scheduleReconnect`, `:986-1004`) : `delay = min(reconnectDelay × 2^(attempt-1), reconnectDelayMax)`. Émet l'event local `__reconnect__` `{ attempt, delay, nextRetryAt }` → l'UI peut afficher un compte à rebours.
 - **Re-subscribe automatique** : à chaque (ré)ouverture, tous les canaux ref-comptés sont ré-émis au serveur (`openSocket` `:937-939`) — couvre le reconnect ET un `subscribe` appelé avant l'ouverture.
-- **Heartbeat** : ping `{ ts }` toutes les `heartbeatInterval` ms tant que le transport est OPEN (`startHeartbeat`, `:1006`). Timer `unref` (n'empêche pas la sortie de process côté Node/test).
+- **Heartbeat** : ping `{ ts }` toutes les `heartbeatInterval` ms tant que le transport est OPEN (`startHeartbeat`, `:1160`). Timer `unref` (n'empêche pas la sortie de process côté Node/test).
 - **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:156`, set `FATAL_CLOSE_CODES` `:140`).
 
-Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `RealtimeClient.ts:1078-1085`).
+Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `RealtimeClient.ts:1245-1247`).
 
 ---
 
@@ -118,10 +118,10 @@ channel(name): IRealtimeChannel;     // handle par-canal {on,send,open,close} (:
 
 **Ref-comptage** (`_subscriptions: Map<channel, count>`, `RealtimeClient.ts:189`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
 
-- `subscribe` : `count++` ; émet `subscribe` réseau **seulement** au 1ᵉʳ (`count === 1`, `:427`).
+- `subscribe` : `count++` ; émet `subscribe` réseau **seulement** au 1ᵉʳ (`count === 1`, `:501`).
 - `unsubscribe` : `count--` ; émet `unsubscribe` réseau **seulement** au dernier (`:438-440`).
 
-C'est l'autorité unique partagée par `nodefony/react` ET un store applicatif (cf §11). `channel(name)` (`:492`) donne un handle objet par-canal (`on`/`send`/`open`/`close`, contrat `IRealtimeChannel` `IRealtimeSocket.ts:87`) — forme naturelle des canaux à état.
+C'est l'autorité unique partagée par `nodefony/react` ET un store applicatif (cf §11). `channel(name)` (`:613`) donne un handle objet par-canal (`on`/`send`/`open`/`close`, contrat `IRealtimeChannel` `IRealtimeSocket.ts:87`) — forme naturelle des canaux à état.
 
 Convention de **cadence dans le nom du canal** (`channelRate.ts`) : `base` nu = cadence serveur par défaut ; `base:<ms>` = cadence explicite → 1 canal = 1 cadence = 1 ref-count.
 `rateChannel(base, intervalMs?, defaultMs?)` (`:44`) fabrique le nom (réexporté par `nodefony/client` ET `nodefony/react`) ; `parseRate` (`:63`) / `isRateChannel` (`:75`) côté serveur.
@@ -137,7 +137,7 @@ request<K, T>(method: K, params?, timeoutMs?): Promise<…>;       // forme RPC 
 ```
 
 - **Forme RPC** : `request("kernel:ping", params, timeout)` → requête JSON-RPC corrélée, Promise résolue avec `result`, rejette avec `RpcError` sur `error`/timeout (défaut 30000 ms).
-- **Forme PATH** (« API souveraine » : 1 action controller = N transports) : un argument commençant par `/` est détecté au runtime (charCode 47, `:587`) et réécrit en méthode `api.request` avec `params = { path }`. Le 2ᵉ argument devient alors le **timeout**. Exemple :
+- **Forme PATH** (« API souveraine » : 1 action controller = N transports) : un argument commençant par `/` est détecté au runtime (charCode 47, `:724`) et réécrit en méthode `api.request` avec `params = { path }`. Le 2ᵉ argument devient alors le **timeout**. Exemple :
   ```ts
   const modules = await socket.request("/nodefony/kernel/api/modules");
   // = la même action controller que le GET REST, via la socket.
@@ -216,7 +216,7 @@ get serverMethods(): readonly string[] | null;    // actions RPC annoncées (:46
 onIdentity(handler: (id: RealtimeIdentity | null) => void): () => void;  // event local __identity__ (:481)
 ```
 
-Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts:146`). Le client l'ingère (`ingestWelcome`, `:797`) : mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
+Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts:204`). Le client l'ingère (`ingestWelcome`, `:957`) : mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
 
 `RealtimeIdentity` (`RealtimeEventMap.ts:127-138`) : `{ type, authenticated, userIdentifier, roles, scopes }`. Brique du gating front : `authenticated:false` → écran login **sans** route `/auth/me`. Les `roles` sont **résolus serveur** (cf RBAC isomorphe, [`isomorphic.md`](./isomorphic.md) §6). Rafraîchie à chaque (re)welcome ; remise à `null` au `disconnect()` volontaire (une perte réseau garde la dernière identité jusqu'au prochain welcome → évite un flash login pendant une micro-reco).
 
@@ -230,7 +230,7 @@ onDenied(handler: (d: IRealtimeDenied) => void): () => void;   // refus d'un can
 ```
 
 - `onNotice` : flux de **notices normalisées** (`NodefonyNotice` `notice.ts:20` = `{ level, title?, message, source, code?, ts }`). Le client interprète les close codes RFC 6455 (`closeCodeToNotice`, `notice.ts:67` — `null` pour 1000/1001, pas de bruit), les erreurs serveur poussées, et émet une notice `success` au rétablissement de connexion. Brancher un centre de notifications (snackbar) — monter **une seule fois** (shell) pour ne pas dupliquer les toasts.
-- `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:170` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
+- `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:228` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
 
 ---
 
@@ -246,8 +246,8 @@ get frameLog(): readonly RealtimeFrame[];           // ring des dernières frame
 clearFrameLog(): void;                               // (:1034)
 ```
 
-- `MessageStats` (alias de `IChannelStats`, `IRealtimeSocket.ts:64`) = `{ method, msgCount, lastMessage, rate, series }`. Le débit `rate` (msg/s) + la `series` (VU-mètre, 32 points) sont échantillonnés **1×/s** (`startStatsSampler`, `:868`, timer `unref`), puis l'event local `__stats__` est émis pour les consommateurs réactifs.
-- `frameLog` : ring ALWAYS-ON des `FRAME_LOG_MAX = 300` dernières frames (`:123`), **redactées** (clés sensibles `token|password|secret|api_key|authorization|bearer` → `[redacted]`, `FRAME_REDACT_RE` `:126`). Coût à l'écriture = 1 push de réf brute ; construction + redaction **différées** à la lecture (ou au live `__frame__` si la console écoute). → l'inspecteur « retrace l'instant » dès l'ouverture, sans démarrer à vide.
+- `MessageStats` (alias de `IChannelStats`, `IRealtimeSocket.ts:64`) = `{ method, msgCount, lastMessage, rate, series }`. Le débit `rate` (msg/s) + la `series` (VU-mètre, 32 points) sont échantillonnés **1×/s** (`startStatsSampler`, `:1028`, timer `unref`), puis l'event local `__stats__` est émis pour les consommateurs réactifs.
+- `frameLog` : ring ALWAYS-ON des `FRAME_LOG_MAX = 300` dernières frames (`:134`), **redactées** (clés sensibles `token|password|secret|api_key|authorization|bearer` → `[redacted]`, `FRAME_REDACT_RE` `:137`). Coût à l'écriture = 1 push de réf brute ; construction + redaction **différées** à la lecture (ou au live `__frame__` si la console écoute). → l'inspecteur « retrace l'instant » dès l'ouverture, sans démarrer à vide.
 
 Events LOCAUX (jamais réseau, branchables via `on`) : `__state__`, `__identity__`, `__notice__`, `__denied__`, `__reconnect__`, `__stats__`, `__frame__`, `*` (wildcard : handler reçoit `(method, params)`).
 
@@ -268,16 +268,63 @@ Abonne un canal d'**ÉTAT** (latest-wins : stats, supervision) en **cadence adap
 
 ---
 
-## 11. Hooks React `nodefony/react`
+## 11. Liaisons de vue : socle agnostique `observe*` + hooks React
 
-Bindings React **fins et composables** (un hook = une responsabilité), tous préfixés `useNodefony*`. Adaptent le client (`on`/`emit`/`state`) à la réactivité React **sans MobX ni glue à recopier**. `react` est une peerDep **optionnelle** ; aucun JSX dans le Core (provider via `createElement`). Source : `src/client/react/index.ts`.
+### 11.1 Le socle — `nodefony/client`, pour les QUATRE fronts
 
-L'**app** reste maîtresse du cycle de connexion (`client.connect()` une fois au shell). Les hooks ne gèrent QUE l'abonnement aux canaux (subscribe/unsubscribe ref-comptés + re-subscribe au reconnect — autorité dans le client, §4).
+Souscrire à un canal, tenir une dernière valeur, borner un journal, filtrer par sévérité, se désabonner : **rien de cela n'appartient à un framework de vue**. Ces règles vivent dans `src/client/realtime/observe.ts` et sont consommées à l'identique par React, Vue, Angular, Svelte — et par les quatre gabarits d'application.
+
+Une liaison ne contient QUE la traduction _rappel + libération → réactivité locale_ (`useState`, `ref`, `signal`, rune). Tout le reste est une recopie qui divergera.
 
 ```ts
-// Montage (une fois, au shell) — react/index.ts:50
+// Cycle de connexion — la seule fonction qui fabrique/adopte une socket.
+function connectShared(opts: { url?: string; client?: RealtimeClient }): {
+  socket: RealtimeClient;
+  owned: boolean; // false = socket FOURNIE par l'app : son cycle ne se touche pas
+  start(): void; // connect() idempotent, rejet AVALÉ ; jamais de disconnect()
+};
+
+// Forme UNIQUE de tous les observateurs : `emit` reçoit la valeur COURANTE à la
+// souscription, puis chaque changement ; le retour libère tout.
+type Dispose = () => void;
+observeState(client, emit: (s: RealtimeState) => void): Dispose;
+observeIdentity(client, emit: (i: RealtimeIdentity | null) => void): Dispose;
+observeReconnect(client, emit: (i: RealtimeReconnectInfo) => void): Dispose; // ÉVÉNEMENT : rien de rejoué
+observeChannel(client, channel, emit: (payload: unknown) => void): Dispose;
+observeChannelData<T>(client, channel, emit: (v: T | null) => void, initial?): Dispose; // dernier gagne
+observeChannelStats(client, channel, emit: (s: MessageStats | null) => void): Dispose;
+observeAdaptiveChannel(client, base, emit, desiredMs, opts?): AdaptiveChannelBinding;
+observeSyslog(client, emit: (entries: unknown[]) => void, opts?): Dispose; // coalescé + anneau 500 + filtre
+observeNotices(client, emit: (n: NodefonyNotice) => void): Dispose;
+observeNoticeLog(client, emit: (n: NodefonyNotice[]) => void, opts?): Dispose; // anneau 50 + filtre source
+adaptiveRebindKey(base, desiredMs, enabled?): string; // les 3 SEULES valeurs qui refont l'abonnement
+```
+
+Un écran non-React s'écrit donc en trois lignes, dans n'importe quel framework :
+
+```ts
+const live = connectShared({ url: "/api/live/realtime" });
+const off = observeChannelData<Tick>(live.socket, "live:ticker", (t) =>
+  setTick(t),
+);
+live.start(); // au démontage : off() — surtout PAS live.socket.disconnect()
+```
+
+**Événements locaux** : `LOCAL_EVENTS` (`client/realtime/localEvents.ts`) est la source unique des six noms `__…__` ; les portes publiques sont `onState`/`onIdentity`/`onStats`/`onNotice`/`onDenied`/`onReconnect`. Écrire `on("__state__", …)` en clair est refusé par un gate (`tests/clientObserve.test.ts`), gabarits compris — ils avaient déjà divergé.
+
+### 11.2 Les hooks React `nodefony/react`
+
+Bindings React **fins et composables** (un hook = une responsabilité), tous préfixés `useNodefony*` — de **minces enveloppes** sur le socle ci-dessus, sans une règle en propre. `react` est une peerDep **optionnelle** ; aucun JSX dans le Core (provider via `createElement`). Source : `src/client/react/index.ts`.
+
+Le Provider porte le cycle de connexion (`connectShared`) ; les hooks ne gèrent QUE l'abonnement aux canaux (subscribe/unsubscribe ref-comptés + re-subscribe au reconnect — autorité dans le client, §4).
+
+```ts
+// Montage (une fois, au shell). `url` = voie SIMPLE (le Provider fabrique et
+// connecte la socket partagée) ; `client` = voie AVANCÉE, l'emporte sur `url`,
+// et son cycle n'est pas touché.
 function NodefonyProvider(props: {
-  client: RealtimeClient;
+  url?: string;
+  client?: RealtimeClient;
   children?: ReactNode;
 }): ReactElement;
 
@@ -365,6 +412,6 @@ Exemple consommateur réel (Studio) : `App.tsx:12` importe `NodefonyProvider` de
 - **Réponse mémorisée ≠ replay d'un `render` manuel** (côté serveur idempotence) : la valeur rejouée est la valeur RETOURNÉE par l'action.
 - **`onNotice`/`useNodefonyNotifications` : monter une seule fois** (shell) sinon toasts dupliqués.
 - **Canaux d'événements ≠ cadence adaptative** : ne JAMAIS `adaptiveChannel`/`useNodefonyAdaptiveChannel*` sur syslog/frames (chaque item compte) — réservé aux canaux d'ÉTAT latest-wins.
-- **Pas de buffering offline** : une frame émise hors connexion est droppée (`RealtimeClient.ts:1078`).
+- **Pas de buffering offline** : une frame émise hors connexion est droppée (`RealtimeClient.ts:1245`).
 - **`disconnect()` ≠ perte réseau** : volontaire → identité `null` (login) + requêtes en vol rejetées ; perte réseau → identité conservée + reco (selon close code, §3).
 - **Close code fatal (1008=401/403, 4004…) ne relance pas la reco** → état `error` ; l'app doit corriger (login) puis `connect()`/`retryNow()`.

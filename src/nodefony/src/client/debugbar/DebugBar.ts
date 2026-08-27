@@ -25,7 +25,6 @@
  * les appels, pas la page. Le `traceparent` W3C (RFC-propre) est aussi remonté.
  */
 import { RealtimeClient } from "../realtime/RealtimeClient";
-import type { RealtimeState } from "../realtime/RealtimeClient";
 import {
   DebugBarModel,
   type DebugBarView,
@@ -937,11 +936,11 @@ export class DebugBar {
     // Listeners TOUJOURS branchés (gratuit : `.on` ne génère aucun trafic réseau ;
     // les handlers ne firent que si un canal est abonné). L'état + le pouls de
     // frames restent vivants même OFF (la socket est partagée avec l'app hôte).
-    const offState = this.client.on("__state__", (...a) => {
-      this.model.setState(a[0] as RealtimeState);
+    const offState = this.client.onState((state) => {
+      this.model.setState(state);
       this.scheduleRender();
     });
-    const offTick = this.client.on("__stats__", () => {
+    const offTick = this.client.onStats(() => {
       // OFF → on N'ÉCHANTILLONNE PAS : le compteur de frames est GLOBAL au client
       // partagé (frames des autres consommateurs, ex. Studio) → sinon le graphe
       // « frames/s » continuerait de bouger alors que la barre est désactivée.

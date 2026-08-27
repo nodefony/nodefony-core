@@ -12,24 +12,46 @@
  * Aucun JSX (provider via `createElement`) → le build Core ne dépend pas d'un
  * transform JSX.
  *
+ * **Ce fichier ne contient PLUS de règle temps réel.** Souscrire, tenir un
+ * dernier reçu, borner un anneau, décoder le format coalescé du journal, ne
+ * jamais couper une socket partagée : tout cela vit dans le socle agnostique
+ * `nodefony/client` (`observe*`, `connectShared`), que les liaisons Vue, Angular
+ * et Svelte consomment à l'identique. Ici ne reste que la traduction *rappel +
+ * libération → réactivité React* — la seule chose qu'une liaison a le droit de
+ * contenir. Un hook qui réencoderait une règle la ferait diverger des trois
+ * autres fronts, en silence.
+ *
  * L'app reste maîtresse du **cycle de connexion** (`client.connect()`), montée
  * une fois (ex. au shell). Les hooks ne gèrent QUE l'abonnement aux canaux.
  *
  * @module nodefony/react
  */
 import * as React from "react";
-// `RealtimeClient` est importé en VALEUR, pas seulement en type : le Provider
-// fabrique lui-même la socket quand on lui donne une `url` (cas simple). Le
-// module est le même que celui de `nodefony/client` — une app qui importe les
-// deux n'en embarque qu'une copie (`preserveModules`), et le singleton par URL
-// reste unique, ce qui est toute la garantie de `shared()`.
-import { RealtimeClient } from "../realtime/RealtimeClient";
+// `RealtimeClient` n'est importé qu'en TYPE : la fabrication de la socket
+// partagée passe par `connectShared` (socle agnostique), qui porte la précédence
+// `client` sur `url` et le cycle de connexion — la même fonction que celle
+// appelée par les trois autres fronts.
+import type { RealtimeClient } from "../realtime/RealtimeClient";
 import type {
   RealtimeState,
   NodefonyNotice,
   RealtimeIdentity,
+  MessageStats,
 } from "../realtime/RealtimeClient";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
+import {
+  connectShared,
+  observeChannel,
+  observeState,
+  observeChannelStats,
+  observeIdentity,
+  observeNotices,
+  observeNoticeLog,
+  observeSyslog,
+  adaptiveRebindKey,
+  type ObserveSyslogOptions,
+  type ObserveNoticeLogOptions,
+} from "../realtime/observe";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le front
 // fabrique ses canaux cadencés depuis le même subpath que les hooks canal.
@@ -48,7 +70,6 @@ export type {
   RealtimeState,
   NodefonyNotice,
 } from "../realtime/RealtimeClient";
-import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
 
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
@@ -93,28 +114,20 @@ export function NodefonyProvider(
   props: NodefonyProviderProps,
 ): React.ReactElement {
   const { url, client } = props;
-  // `shared()` dédoublonne par URL absolue : deux Providers de même URL rendent
-  // la même instance. Le `useMemo` n'est donc pas là pour la justesse mais pour
-  // éviter la résolution d'URL à chaque rendu.
-  const socket = React.useMemo(
-    () => client ?? RealtimeClient.shared({ url }),
+  // `connectShared` dédoublonne par URL absolue : deux Providers de même URL
+  // rendent la même instance. Le `useMemo` n'est donc pas là pour la justesse
+  // mais pour éviter la résolution d'URL à chaque rendu.
+  const connection = React.useMemo(
+    () => connectShared({ url, client }),
     [client, url],
   );
-  React.useEffect(() => {
-    // Une socket fournie appartient à l'application : ne pas toucher son cycle.
-    if (client) return;
-    // `connect()` est idempotent (no-op si connectée ou en cours) — le double
-    // montage du mode strict de React n'ouvre donc pas deux sockets.
-    void socket.connect().catch(() => {
-      /* la reconnexion automatique prend le relais ; l'état est lisible par `useNodefonyState` */
-    });
-    // PAS de `disconnect()` au démontage : la connexion appartient à la PAGE,
-    // pas à ce composant. Couper ici trancherait les requêtes en vol des autres
-    // consommateurs de la même socket partagée.
-  }, [socket, client]);
+  // `start()` est idempotent, avale le rejet, et ne touche PAS au cycle d'une
+  // socket fournie — les trois règles vivent dans le socle, pas ici. Toujours
+  // pas de `disconnect()` au démontage : la connexion appartient à la PAGE.
+  React.useEffect(() => connection.start(), [connection]);
   return React.createElement(
     NodefonyContext.Provider,
-    { value: socket },
+    { value: connection.socket },
     props.children,
   );
 }
@@ -136,20 +149,20 @@ export function useNodefony(): RealtimeClient {
   return client;
 }
 
-// Ref-counting des abonnements + re-subscribe au reconnect = **dans le client**
-// (`RealtimeClient.subscribe/unsubscribe`, autorité unique partagée avec le store
-// MobX Studio). Le binding n'appelle que ces méthodes → deux composants (ou un
-// composant + le store) sur le même canal ne se coupent plus l'un l'autre.
-
 /**
  * `useNodefonyState()` — état de la connexion (`"connected" | "reconnecting" | …`).
  * `useSyncExternalStore` : re-render UNIQUEMENT au changement d'état (snapshot
  * primitif, sans tearing en mode concurrent).
+ *
+ * Branché sur `onState` — la porte publique — et non sur le nom de l'événement
+ * local, qui n'a pas à sortir du client.
  */
 export function useNodefonyState(): RealtimeState {
   const client = useNodefony();
   return React.useSyncExternalStore(
-    (cb) => client.on("__state__", cb),
+    // `observeState` émet la valeur courante à la souscription : React compare
+    // alors le snapshot, le trouve inchangé, et ne rend pas pour rien.
+    (cb) => observeState(client, () => cb()),
     () => client.state,
     () => client.state,
   );
@@ -166,7 +179,7 @@ export function useNodefonyState(): RealtimeState {
 export function useNodefonyIdentity(): RealtimeIdentity | null {
   const client = useNodefony();
   return React.useSyncExternalStore(
-    (cb) => client.onIdentity(() => cb()),
+    (cb) => observeIdentity(client, () => cb()),
     () => client.identity,
     () => client.identity,
   );
@@ -174,8 +187,8 @@ export function useNodefonyIdentity(): RealtimeIdentity | null {
 
 /**
  * `useNodefonyChannel()` — s'abonne à un canal pub/sub : `onMessage` est appelé
- * à chaque message. Gère subscribe/unsubscribe serveur (ref-comptés) +
- * re-subscribe au reconnect. Le handler peut changer à chaque render sans
+ * à chaque message. Le socle apparie subscribe/unsubscribe serveur (ref-comptés)
+ * et le re-subscribe au reconnect. Le handler peut changer à chaque render sans
  * re-déclencher l'abonnement (capturé via ref) ; passer `deps` si le canal
  * effectif dépend d'autres valeurs.
  */
@@ -189,14 +202,9 @@ export function useNodefonyChannel(
   handlerRef.current = onMessage;
 
   React.useEffect(() => {
-    const dispose = client.on(channel, (...args: unknown[]) =>
-      handlerRef.current(args[0]),
+    return observeChannel(client, channel, (payload) =>
+      handlerRef.current(payload),
     );
-    client.subscribe(channel);
-    return () => {
-      dispose();
-      client.unsubscribe(channel);
-    };
     // `deps` étend volontairement la liste (canal dynamique).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, channel, ...deps]);
@@ -238,8 +246,9 @@ export interface AdaptiveChannelData<T> {
  * Primitif commun à tous les dashboards d'état (Supervision, ORM…) → **logique live identique**.
  * Réservé aux canaux d'ÉTAT (latest-wins). Réglage `enabled` (off = abonnement fixe).
  *
- * Le ré-abonnement n'est relancé que si `base`, `desiredMs`, `enabled` ou `deps` changent
- * (le handler + les `opts` sont capturés par ref → identité instable sans re-bind).
+ * Le ré-abonnement n'est relancé que si `base`, `desiredMs`, `enabled` ou `deps` changent —
+ * la clé vient de {@link adaptiveRebindKey}, la MÊME que celle des autres liaisons (le
+ * handler + les `opts` sont capturés par ref → identité instable sans re-bind).
  */
 export function useNodefonyAdaptiveChannel(
   base: string,
@@ -256,6 +265,7 @@ export function useNodefonyAdaptiveChannel(
   const [intervalMs, setIntervalMs] = React.useState<number>(desiredMs);
   // Primitif → re-bind au toggle adaptatif ⇄ fixe (opts capturées par ref ne le font pas).
   const enabled = opts.enabled !== false;
+  const rebindKey = adaptiveRebindKey(base, desiredMs, enabled);
 
   React.useEffect(() => {
     const binding = client.adaptiveChannel(
@@ -270,7 +280,7 @@ export function useNodefonyAdaptiveChannel(
     );
     return () => binding.dispose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, base, desiredMs, enabled, ...deps]);
+  }, [client, rebindKey, ...deps]);
 
   return intervalMs;
 }
@@ -297,13 +307,13 @@ export function useNodefonyAdaptiveChannelData<T = unknown>(
   return { data, intervalMs };
 }
 
-/** Stats observées d'un canal (telles que calculées par le client Core). */
-export interface ChannelStatsSnapshot {
-  msgCount: number;
-  lastMessage: number | null;
-  rate: number;
-  series: number[];
-}
+/**
+ * Stats observées d'un canal (telles que calculées par le client Core).
+ *
+ * Alias du contrat isomorphe {@link MessageStats} : une copie locale de la forme
+ * aurait divergé du jour où le client ajoute un compteur.
+ */
+export type ChannelStatsSnapshot = MessageStats;
 
 /**
  * `useNodefonyChannelStats()` — stats live d'un canal (débit, série VU-mètre,
@@ -316,15 +326,11 @@ export function useNodefonyChannelStats(
   channel: string,
 ): ChannelStatsSnapshot | null {
   const client = useNodefony();
-  const read = (): ChannelStatsSnapshot | null =>
-    (client.getChannelStats(channel) as ChannelStatsSnapshot | undefined) ??
-    null;
-  const [stats, setStats] = React.useState<ChannelStatsSnapshot | null>(read);
-  React.useEffect(() => {
-    const dispose = client.on("__stats__", () => setStats(read()));
-    return dispose;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, channel]);
+  const [stats, setStats] = React.useState<ChannelStatsSnapshot | null>(null);
+  React.useEffect(
+    () => observeChannelStats(client, channel, setStats),
+    [client, channel],
+  );
   return stats;
 }
 
@@ -339,33 +345,23 @@ export interface UseSyslogOptions {
 
 /**
  * `useNodefonySyslog()` — flux syslog prêt à l'emploi : ring buffer borné +
- * filtre de sévérité. Gère le format **coalescé** du canal
- * (`{ logs: Pdu[], dropped }`) ET le Pdu unique. Brique de la page Logs — un
- * seul appel remplace l'effet + le buffer manuels.
+ * filtre de sévérité. Le format **coalescé** du canal (`{ logs: Pdu[], dropped }`),
+ * l'entrée unique, la taille de l'anneau et le canal par défaut viennent du
+ * socle ({@link observeSyslog}) : ce hook n'en connaît aucun. Brique de la page
+ * Logs — un seul appel remplace l'effet + le buffer manuels.
  */
 export function useNodefonySyslog(opts: UseSyslogOptions = {}): unknown[] {
-  const { max = 500, severities, channel = PLATFORM_CHANNELS.syslog } = opts;
+  const { max, severities, channel } = opts;
+  const client = useNodefony();
   const sevKey = severities ? severities.join(",") : "";
   const [entries, setEntries] = React.useState<unknown[]>([]);
 
-  useNodefonyChannel(
-    channel,
-    (payload) => {
-      const rec = payload as { logs?: unknown[] } | null;
-      const incoming = rec && Array.isArray(rec.logs) ? rec.logs : [payload];
-      const filtered = severities
-        ? incoming.filter((p) =>
-            severities.includes((p as { severity?: string }).severity ?? ""),
-          )
-        : incoming;
-      if (filtered.length === 0) return;
-      setEntries((prev) => {
-        const next = prev.concat(filtered);
-        return next.length > max ? next.slice(-max) : next;
-      });
-    },
-    [channel, max, sevKey],
-  );
+  React.useEffect(() => {
+    const options: ObserveSyslogOptions = { max, severities, channel };
+    return observeSyslog(client, setEntries, options);
+    // `severities` est un tableau recréé à chaque rendu : la clé le résume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, channel, max, sevKey]);
 
   return entries;
 }
@@ -387,7 +383,7 @@ export function useNodefonyNotifications(
   const handlerRef = React.useRef(onNotice);
   handlerRef.current = onNotice;
   React.useEffect(() => {
-    return client.onNotice((notice) => handlerRef.current(notice));
+    return observeNotices(client, (notice) => handlerRef.current(notice));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, ...deps]);
 }
@@ -402,23 +398,23 @@ export interface UseNoticeLogOptions {
 /**
  * `useNodefonyNoticeLog()` — ring buffer borné des dernières notices, filtrable
  * par source. Brique du hub temps réel (« incidents temps réel ») : un historique
- * léger des criticités realtime, distinct des toasts éphémères.
+ * léger des criticités realtime, distinct des toasts éphémères. La taille de
+ * l'anneau et le filtrage viennent du socle ({@link observeNoticeLog}).
  */
 export function useNodefonyNoticeLog(
   opts: UseNoticeLogOptions = {},
 ): NodefonyNotice[] {
-  const { max = 50, sources } = opts;
+  const { max, sources } = opts;
+  const client = useNodefony();
   const srcKey = sources ? sources.join(",") : "";
   const [notices, setNotices] = React.useState<NodefonyNotice[]>([]);
-  useNodefonyNotifications(
-    (notice) => {
-      if (sources && !sources.includes(notice.source)) return;
-      setNotices((prev) => {
-        const next = prev.concat(notice);
-        return next.length > max ? next.slice(-max) : next;
-      });
-    },
-    [max, srcKey],
-  );
+
+  React.useEffect(() => {
+    const options: ObserveNoticeLogOptions = { max, sources };
+    return observeNoticeLog(client, setNotices, options);
+    // `sources` est un tableau recréé à chaque rendu : la clé le résume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, max, srcKey]);
+
   return notices;
 }

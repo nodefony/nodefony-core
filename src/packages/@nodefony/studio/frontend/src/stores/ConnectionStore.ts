@@ -52,7 +52,7 @@ export interface SubscriptionStats extends SubscriptionMeta {
  * récupère un `dispose()` à appeler dans le useEffect cleanup. Le store track
  * les stats (msgCount, latence) pour le Drawer dans le topbar.
  *
- * Le badge topbar reflète `state` en live via le listener `__state__` du client.
+ * Le badge topbar reflète `state` en live via `client.onState()`.
  */
 export class ConnectionStore {
   state: RealtimeState = "disconnected";
@@ -70,7 +70,7 @@ export class ConnectionStore {
   /** URL de l'endpoint WS (affichée dans le hub). */
   endpointUrl = "";
   /** Miroirs des stats du `RealtimeClient` (source de vérité, Core isomorphe) —
-   *  rafraîchis sur l'event `__stats__` (1×/s). framesReceived = total frames. */
+   *  rafraîchis à chaque échantillon du client (1×/s). framesReceived = total frames. */
   framesReceived = 0;
   lastFrameAt: number | null = null;
   lastFrameMethod: string | null = null;
@@ -87,9 +87,9 @@ export class ConnectionStore {
   ) {
     this.endpointUrl = endpointUrl;
     makeAutoObservable(this, {}, { autoBind: true });
-    this.client.on("__state__", (s) => {
+    this.client.onState((s) => {
       runInAction(() => {
-        this.state = s as RealtimeState;
+        this.state = s;
         if (s === "connected") {
           this.lastError = null;
           this.connectedAt = Date.now();
@@ -106,15 +106,14 @@ export class ConnectionStore {
     });
     // Les stats (framesReceived + msgCount/rate/série par canal) sont calculées
     // par le RealtimeClient (Core) — source unique réutilisable. Le store n'en est
-    // qu'un MIROIR réactif (MobX), rafraîchi sur `__stats__` (émis 1×/s par le
-    // client). cf RealtimeClient.startStatsSampler / getChannelStats.
-    this.client.on("__stats__", () => this.syncStats());
+    // qu'un MIROIR réactif (MobX), rafraîchi à chaque échantillon (1×/s) par le
+    // client. cf RealtimeClient.startStatsSampler / getChannelStats.
+    this.client.onStats(() => this.syncStats());
     // Backoff de reconnexion (Core) → compte à rebours live dans l'overlay.
-    this.client.on("__reconnect__", (info) => {
-      const i = info as { attempt: number; nextRetryAt: number };
+    this.client.onReconnect((info) => {
       runInAction(() => {
-        this.reconnectAttempt = i.attempt;
-        this.nextRetryAt = i.nextRetryAt;
+        this.reconnectAttempt = info.attempt;
+        this.nextRetryAt = info.nextRetryAt;
       });
     });
     // La socket est PARTAGÉE (singleton) : elle peut être DÉJÀ ouverte (barre de
@@ -205,7 +204,7 @@ export class ConnectionStore {
   }
 
   /** Reconnexion manuelle (no-op si déjà connecté). Préserve les abonnements
-   *  (le listener __state__ les ré-émet au "connected"). */
+   *  (l'observateur d'état les ré-émet au "connected"). */
   reconnect(): void {
     void this.client.connect();
   }
@@ -237,7 +236,7 @@ export class ConnectionStore {
       // Le 1er connect a dépassé 3s : on N'APPELLE PAS disconnect() (qui poserait
       // intentionalClose=true et tuerait l'autoReconnect). Le RealtimeClient
       // continue d'essayer en arrière-plan ; le badge passera "connected" via le
-      // listener __state__ dès que le WS s'ouvre. On n'empêche pas le login.
+      // observateur d'état dès que le WS s'ouvre. On n'empêche pas le login.
       runInAction(() => {
         this.lastError = e instanceof Error ? e.message : String(e);
         this.latencyMs = null;

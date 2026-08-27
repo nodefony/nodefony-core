@@ -4,7 +4,11 @@
   // gérés par le client. Aucun `new WebSocket` à la main. Subpath
   // `nodefony/client` : la porte client explicite, résolue à l'identique par
   // Vite, Node et le typecheck.
-  import { RealtimeClient } from "nodefony/client";
+  import {
+    connectShared,
+    observeState,
+    observeChannelData,
+  } from "nodefony/client";
 <% } %>  import { NODEFONY_LOGO } from "./brand";
   // Mise en page et palette de la démonstration — feuille PARTAGÉE par les
   // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -47,8 +51,8 @@
 
   // UNE socket par URL pour toute la page (`.shared`) — URL RELATIVE, résolue
   // contre la page (https → wss automatique). La même façade que Studio.
-  const live = RealtimeClient.shared({ url: "/api/live/realtime" });
-  let liveState = $state(live.state);
+  const live = connectShared({ url: "/api/live/realtime" });
+  let liveState = $state(live.socket.state);
   let tick = $state<Tick | null>(null);
   let pingMs = $state<number | null>(null);
   // Disposers des listeners locaux — rendus au démontage (HMR remonte le composant).
@@ -124,23 +128,16 @@
   onMount(() => {
     refreshHello();
 <% if (it.complete) { %>
-    // Abonnement par la façade : `on()` rend un disposer ; `subscribe()` est
-    // ref-compté et REJOUÉ à chaque (re)connexion ; `connect()` est idempotent.
-    // Pas de `disconnect()` au démontage — la connexion appartient à la PAGE.
+    // Un observateur = un rappel + une libération. L'abonnement serveur est
+    // ref-compté et REJOUÉ à chaque (re)connexion, `start()` est idempotent, et
+    // rien ne coupe la socket au démontage : elle appartient à la PAGE. Ces
+    // règles vivent dans `nodefony/client`, pas ici — c'est ce qui les garde
+    // identiques en React, Vue, Angular et Svelte.
+    offLive.push(observeState(live.socket, (state) => (liveState = state)));
     offLive.push(
-      live.on("__state__", () => {
-        liveState = live.state;
-      }),
+      observeChannelData<Tick>(live.socket, "live:ticker", (t) => (tick = t)),
     );
-    offLive.push(
-      live.on("live:ticker", (msg) => {
-        tick = msg as Tick;
-      }),
-    );
-    live.subscribe("live:ticker");
-    live.connect().catch(() => {
-      /* la carte affiche l'état (`error`) — la reconnexion est automatique */
-    });
+    live.start();
 <% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du WS
@@ -159,11 +156,10 @@
 <% } %>  });
 
   onDestroy(() => {
-<% if (it.complete) { %>    // HMR remonte le composant : on rend les listeners + l'abonnement — la
-    // socket PARTAGÉE (`.shared`), elle, reste ouverte pour la page.
+<% if (it.complete) { %>    // HMR remonte le composant : on libère les observateurs, ce qui rend aussi
+    // l'abonnement — la socket PARTAGÉE, elle, reste ouverte pour la page.
     for (const off of offLive) off();
     offLive = [];
-    live.unsubscribe("live:ticker");
 <% } else { %>    // HMR remonte le composant : fermer une socket encore en CONNECTING lève un
     // warning navigateur (« closed before the connection is established ») —
     // on attend l'open pour fermer proprement.
@@ -179,7 +175,7 @@
 
 <% if (it.complete) { %>  const doPing = async () => {
     const t0 = performance.now();
-    await live.request("live:ping", {});
+    await live.socket.request("live:ping", {});
     pingMs = Math.round(performance.now() - t0);
   };
 <% } else { %>  const sendWs = () => {

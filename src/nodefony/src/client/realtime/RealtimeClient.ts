@@ -26,6 +26,9 @@ import {
   type JsonRpcFrameKind,
   type RpcTracedResult,
 } from "../../realtime/JsonRpcPeer";
+// Les six événements LOCAUX ont une table — personne ne les écrit en clair,
+// ici pas plus qu'ailleurs (cf `./localEvents.ts`).
+import { LOCAL_EVENTS } from "./localEvents";
 
 /**
  * Enveloppe d'un appel {@link RealtimeClient.call} : la valeur rendue par la
@@ -157,6 +160,19 @@ export interface KernelPingResult {
   uptime: number;
   pid: number;
   version?: string;
+}
+
+/**
+ * Tentative de reconnexion programmée par le back-off — charge utile de
+ * {@link RealtimeClient.onReconnect}.
+ */
+export interface RealtimeReconnectInfo {
+  /** Numéro de la tentative depuis la dernière connexion réussie (1 = la première). */
+  attempt: number;
+  /** Délai retenu avant cette tentative (ms), plafonné par `reconnectDelayMax`. */
+  delay: number;
+  /** Échéance absolue de la tentative (ms epoch) — pour un compte à rebours. */
+  nextRetryAt: number;
 }
 
 export class RealtimeClient<
@@ -367,7 +383,7 @@ export class RealtimeClient<
     this._identity = null;
     this._serverChannels = null;
     this._serverMethods = null;
-    this.fireLocal("__identity__", null);
+    this.fireLocal(LOCAL_EVENTS.identity, null);
     this.setState("disconnected");
   }
 
@@ -407,7 +423,7 @@ export class RealtimeClient<
     // Le type conditionnel de `on` ne se résout pas car `Listen` est générique
     // → cast pour bypasser. Aucun impact runtime, sécurité préservée par le type
     // du paramètre `handler` ci-dessus.
-    return this.on("__notice__", handler as never);
+    return this.on(LOCAL_EVENTS.notice, handler as never);
   }
 
   /**
@@ -423,7 +439,7 @@ export class RealtimeClient<
    * @returns dispose (désabonnement).
    */
   onDenied(handler: (denied: IRealtimeDenied) => void): () => void {
-    return this.on("__denied__", handler as never);
+    return this.on(LOCAL_EVENTS.denied, handler as never);
   }
 
   /**
@@ -541,7 +557,50 @@ export class RealtimeClient<
    * @returns dispose (désabonnement).
    */
   onIdentity(handler: (identity: RealtimeIdentity | null) => void): () => void {
-    return this.on("__identity__", handler as never);
+    return this.on(LOCAL_EVENTS.identity, handler as never);
+  }
+
+  /**
+   * S'abonne à l'**état de la connexion** (event LOCAL `__state__`, jamais réseau) :
+   * le handler est rappelé à chaque transition (`connecting`, `connected`,
+   * `reconnecting`, `error`, `disconnected`), jamais pour un état inchangé.
+   *
+   * C'est la porte à employer partout — un badge de connexion, une liaison de vue,
+   * une barre de debug. Écrire `on("__state__", …)` en clair marche aussi, mais
+   * recopie un nom d'événement interne dans du code applicatif : c'est ce qui a
+   * fait diverger les trois gabarits d'application.
+   *
+   * @param handler - reçoit le nouvel {@link RealtimeState}.
+   * @returns dispose (désabonnement).
+   */
+  onState(handler: (state: RealtimeState) => void): () => void {
+    return this.on(LOCAL_EVENTS.state, handler as never);
+  }
+
+  /**
+   * S'abonne au **tick d'échantillonnage des statistiques** (event LOCAL
+   * `__stats__`, jamais réseau), émis une fois par seconde après recalcul des
+   * débits par canal. Sans charge utile : lire ensuite {@link getChannelStats}
+   * ou {@link getStats}, dont les valeurs viennent d'être rafraîchies.
+   *
+   * @param handler - appelé à chaque échantillon.
+   * @returns dispose (désabonnement).
+   */
+  onStats(handler: () => void): () => void {
+    return this.on(LOCAL_EVENTS.stats, handler as never);
+  }
+
+  /**
+   * S'abonne aux **tentatives de reconnexion programmées** (event LOCAL
+   * `__reconnect__`, jamais réseau) : numéro d'essai, délai retenu par le
+   * back-off, et échéance absolue. De quoi afficher un compte à rebours plutôt
+   * qu'un « déconnecté » muet.
+   *
+   * @param handler - reçoit `{ attempt, delay, nextRetryAt }`.
+   * @returns dispose (désabonnement).
+   */
+  onReconnect(handler: (info: RealtimeReconnectInfo) => void): () => void {
+    return this.on(LOCAL_EVENTS.reconnect, handler as never);
   }
 
   /**
@@ -901,7 +960,7 @@ export class RealtimeClient<
     this._identity = w.identity ?? null;
     this._serverChannels = Array.isArray(w.channels) ? w.channels : null;
     this._serverMethods = Array.isArray(w.methods) ? w.methods : null;
-    this.fireLocal("__identity__", this._identity);
+    this.fireLocal(LOCAL_EVENTS.identity, this._identity);
   }
 
   /**
@@ -916,7 +975,7 @@ export class RealtimeClient<
     const reason = typeof p?.reason === "string" ? p.reason : "forbidden";
     const denied: IRealtimeDenied = { channel, reason };
     this.fireNotice(deniedToNotice(denied));
-    this.fireLocal("__denied__", denied);
+    this.fireLocal(LOCAL_EVENTS.denied, denied);
   }
 
   /**
@@ -975,14 +1034,14 @@ export class RealtimeClient<
         this._prevSampled.set(st.method, st.msgCount);
         st.series = [...st.series, st.rate].slice(-STATS_SERIES_POINTS);
       }
-      this.fireLocal("__stats__");
+      this.fireLocal(LOCAL_EVENTS.stats);
     }, 1000);
     (this.statsTimer as { unref?: () => void }).unref?.();
   }
 
   /** Émet une notice normalisée aux abonnés `onNotice` (event local, pas réseau). */
   private fireNotice(notice: NodefonyNotice): void {
-    this.fireLocal("__notice__", notice);
+    this.fireLocal(LOCAL_EVENTS.notice, notice);
   }
 
   /** Déclenche les handlers locaux d'un event interne (pas d'envoi réseau). */
@@ -1086,7 +1145,7 @@ export class RealtimeClient<
     this._nextRetryAt = Date.now() + delay;
     this.setState("reconnecting");
     // Event dédié → l'UI peut afficher tentative + compte à rebours live.
-    this.fireLocal("__reconnect__", {
+    this.fireLocal(LOCAL_EVENTS.reconnect, {
       attempt: this.reconnectAttempt,
       delay,
       nextRetryAt: this._nextRetryAt,
@@ -1233,7 +1292,7 @@ export class RealtimeClient<
     // un, celle-ci n'en émettra pas un second.
     if (s === "connected") this._unsentNotified = false;
     this._state = s;
-    this.fireLocal("__state__", s);
+    this.fireLocal(LOCAL_EVENTS.state, s);
   }
 }
 
