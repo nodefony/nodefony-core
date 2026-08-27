@@ -1407,6 +1407,10 @@
                 "help": ""
               },
               {
+                "flag": "--no-ignore",
+                "help": ""
+              },
+              {
                 "flag": "--no-tests",
                 "help": ""
               },

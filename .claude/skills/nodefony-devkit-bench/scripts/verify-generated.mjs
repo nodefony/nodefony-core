@@ -96,9 +96,25 @@ const LINKED = process.argv.includes("--link");
  * l'implémentation est PARTAGÉE (`lib/isolation.mjs`) et non recopiée — deux
  * copies de « isolé » divergent en silence, chacune passant ses propres contrôles.
  */
-const ROOT = LINKED
-  ? path.join(REPO, "tmp", "devkit-verify")
-  : path.join(os.tmpdir(), "nodefony-devkit-verify");
+/**
+ * Le décor vit HORS du dépôt dans les deux modes, et c'est structurel.
+ *
+ * `--link` le posait dans `REPO/tmp/devkit-verify`, par commodité — un décor
+ * qu'on retrouve à côté du code qu'on débogue. Le prix était invisible et
+ * total : le `.gitignore` du dépôt ignore `tmp/`, oxlint respecte les
+ * `.gitignore` REMONTANTS, et aucune option ne le désactive (`--no-ignore` ne
+ * porte que sur `.eslintignore`). L'étape de lint rendait donc
+ * « No files found to lint » — le banc entier s'arrêtait là, et jamais un seul
+ * mode `--link` n'a pu aller jusqu'au bout.
+ *
+ * La leçon vaut au-delà d'oxlint : **un décor de banc placé sous un chemin
+ * ignoré hérite en silence de règles écrites pour autre chose**. Deux dossiers
+ * distincts, pour qu'un run lié n'écrase pas un décor isolé conservé.
+ */
+const ROOT = path.join(
+  os.tmpdir(),
+  LINKED ? "nodefony-devkit-verify-link" : "nodefony-devkit-verify",
+);
 const APP = path.join(ROOT, "app");
 
 /**

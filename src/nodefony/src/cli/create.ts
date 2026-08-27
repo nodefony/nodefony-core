@@ -492,6 +492,31 @@ function runFormat(dest: string, files: string[]): void {
 }
 
 /**
+ * Le code de sortie de `create`, décidé à part — parce qu'il se teste.
+ *
+ * Le défaut qu'il ferme : la commande affichait « npm run build a échoué »
+ * puis rendait **0**. L'application existait bien, c'est vrai — mais elle
+ * n'était PAS utilisable, et aucun automate ne pouvait le savoir : ni une
+ * chaîne d'intégration continue, ni un banc, ni un agent qui enchaîne. C'est
+ * exactement ce qui a laissé le front d'une application générée ne pas se
+ * bâtir sans que rien ne tombe, le message se noyant dans la sortie.
+ *
+ * La règle : **ce qui est ÉCRIT reste écrit** (les fichiers ne sont pas
+ * retirés, les prochaines étapes sont affichées, `npm run build` y figure),
+ * mais le code de sortie DIT qu'il reste quelque chose à faire.
+ *
+ * L'installation sautée (`--no-install`) ne compte pas comme un échec : rien
+ * n'a été tenté, et la commande l'annonce dans ses prochaines étapes.
+ *
+ * @param installed - l'installation des dépendances a-t-elle eu lieu ?
+ * @param built - `npm run build` a-t-il réussi ? (faux aussi s'il n'a pas tourné)
+ * @returns `OK`, ou `SOFTWARE` si le build a été tenté et a échoué.
+ */
+export function createExitCode(installed: boolean, built: boolean): SysExit {
+  return installed && !built ? SysExit.SOFTWARE : SysExit.OK;
+}
+
+/**
  * `npm run build` dans l'app générée — le runtime charge `dist/index.js`
  * (garde fail-loud « NON CONSTRUIT » au boot) : sans ce build, le premier
  * `npm run dev` échoue. Suit l'install (pas de node_modules = pas de build) ;
@@ -1037,5 +1062,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         ? `  npx nodefony ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
         : ""),
   );
-  return SysExit.OK;
+  // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
+  // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
+  // ne peut distinguer une application prête d'une application à réparer.
+  return createExitCode(installed, built);
 }

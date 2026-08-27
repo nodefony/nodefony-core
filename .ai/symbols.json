@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-27T21:34:12.040Z",
+  "generated": "2026-08-27T21:43:44.722Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 743,
-    "symbols": 3185,
+    "symbols": 3186,
     "classes": 365,
     "interfaces": 895,
     "types": 398,
     "enums": 4,
-    "functions": 1226,
+    "functions": 1227,
     "constants": 297
   },
   "symbols": {
@@ -1364,6 +1364,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le plan d'un `--dry-run` : ce qui serait créé, et surtout le DIFF de ce qui serait réécrit. Les créations sont listées à plat (leur contenu n'écrase rien, l'inventaire suffit) ; les réécriture…"
+    },
+    "createExitCode": {
+      "name": "createExitCode",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le code de sortie de `create`, décidé à part — parce qu'il se teste. Le défaut qu'il ferme : la commande affichait « npm run build a échoué » puis rendait **0**. L'application existait bien, c'est …"
     },
     "doitDemanderLeType": {
       "name": "doitDemanderLeType",

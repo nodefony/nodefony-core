@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
   argvCablageMcp,
+  createExitCode,
   doitDemanderLeType,
   parseCreateArgv,
   planCablageMcp,
@@ -226,6 +227,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         parseCreateArgv(argv("create", "app", "ok", "--nope")),
         "error",
       );
+    });
+  });
+
+  describe("code de sortie — un artefact cassé ne se signale pas en 0", () => {
+    it("🔴 build tenté et RATÉ → SOFTWARE, pas OK", () => {
+      // Le défaut fermé : la commande écrivait « npm run build a échoué » puis
+      // rendait 0. Le message se noie dans la sortie, et aucun automate — chaîne
+      // d'intégration, banc, agent qui enchaîne — ne peut distinguer une
+      // application prête d'une application à réparer. C'est ce qui a laissé le
+      // front d'une application générée ne pas se bâtir sans que rien ne tombe.
+      assert.equal(createExitCode(true, false), SysExit.SOFTWARE);
+    });
+
+    it("build réussi → OK", () => {
+      assert.equal(createExitCode(true, true), SysExit.OK);
+    });
+
+    it("installation SAUTÉE → OK : rien n'a été tenté, et c'est dit", () => {
+      // `--no-install` saute aussi le build. Rendre un échec ici punirait un
+      // geste volontaire, que les prochaines étapes affichent déjà.
+      assert.equal(createExitCode(false, false), SysExit.OK);
     });
   });
 
