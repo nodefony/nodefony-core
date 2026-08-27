@@ -182,6 +182,18 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- **La doc enseignait une URL qui n'est montée NULLE PART.** `client.md` et `react-hooks.md`
+  ouvraient sur `RealtimeClient.shared({ url: "/nodefony/api/realtime" })` — aucune route ne sert
+  cette adresse (Studio expose `/nodefony/studio/api/realtime`, l'app générée `/api/live/realtime`).
+  Un débutant copiait l'exemple d'entrée et obtenait une socket qui ne se connecte jamais, **sans
+  message** : l'échec est une tentative WebSocket qui retente en boucle. Trouvé en vérifiant une
+  trouvaille de sous-agent qui ne visait que la valeur par défaut du code. [1× — 08-27]
+- **Le §10.9 du plan de release — « ce qui bloque encore » — était périmé sur 4 de ses 5 items** :
+  il annonçait bloquants le preset Svelte et devkit S1→S4 (livrés), deux rouges CI dont les
+  workflows n'existent plus, et « la CI n'a jamais tourné sur un runner réel » (7/8 verts). Un
+  document de pilotage qui ment envoie refaire du travail fini — c'est ce qui a déclenché tout
+  l'audit du jour. [1× — 08-27]
+
 - **Une mémoire m'a envoyé refaire une tâche déjà faite.** [2× — 08-27] (a) Un kit : « Publier
   docs/performance — dossier exhaustif PRÊT », alors que les dix pages étaient écrites, commitées
   et publiées sous `/performance/` depuis dix jours. (b) Un `_state` au RESUME : « PROCHAINE =
@@ -647,6 +659,15 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- **Un chiffre repris d'un audit se REMESURE avant d'entrer dans un ticket.** « 437 ancres en dérive »
+  venait d'une mesure d'une semaine ; rejouée, elle rendait **108 sur 4 421 (97,6 % justes), 0 LINE_OUT,
+  0 FILE_NOT_FOUND**. Le ticket annonçait 2 j de travail là où il en fallait 0,5, et surtout il
+  alarmait le user sur une doc « toute fausse » qui ne l'était pas. Un audit rend une PHOTO ; entre la
+  photo et le ticket, le code a bougé. [1× — 08-27]
+- **Le menu rendait `undefined` sur toutes les pages** après ma modification du scanner : le générateur
+  consomme le `dist` du module, pas le `.ts` que je venais d'éditer. Vu SEULEMENT parce que j'ai
+  regardé le HTML rendu au lieu de croire le build vert. Le piège n°1 du dépôt, encore. [1× — 08-27]
 
 - **Mon débranchement n'a RIEN débranché, et l'a écrit quand même.** `pkill -f "bin/nodefony
 production"` ne tuait rien (Nodefony renomme ses process) et mon `;` au lieu d'un `&&` imprimait
