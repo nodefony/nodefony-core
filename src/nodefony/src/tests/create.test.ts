@@ -1017,6 +1017,107 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    // GATE #42 — la doc du client enseigne une adresse que le scaffold MONTE.
+    //
+    // Elle a enseigné pendant des mois `/nodefony/api/realtime`, qui n'est
+    // montée nulle part : un débutant copiait l'exemple et obtenait une socket
+    // qui ne se connecte jamais, en silence, puisqu'un WebSocket qui échoue
+    // retente. Rien ne pouvait le signaler — les deux textes vivent à des
+    // endroits que personne ne relit ensemble. On les relit donc ICI, en
+    // confrontant la doc au controller RÉELLEMENT rendu, pas à une constante
+    // recopiée dans le test (qui dériverait avec le gabarit, sans un mot).
+    it("les adresses temps réel citées par la doc sont celles que le scaffold monte", () => {
+      const dest = path.join(tmp, "urlgate");
+      scaffold(dest, {
+        name: "urlgate",
+        preset: "complete",
+        frontend: "react",
+      });
+      const ctrl = readFileSync(
+        path.join(dest, "nodefony", "controllers", "LiveController.ts"),
+        "utf8",
+      );
+      const base = /@controller\("([^"]+)"\)/u.exec(ctrl)?.[1];
+      const sous = /path:\s*"([^"]*\/realtime)"/u.exec(ctrl)?.[1];
+      assert.isString(base, "la route de base du controller généré");
+      assert.isString(sous, "le chemin realtime du controller généré");
+      const montee = `${base}${sous}`;
+
+      // Les DEUX seules adresses réelles du dépôt : celle qu'une application
+      // générée monte, et celle de la console d'administration — cette dernière
+      // LUE dans son controller, jamais recopiée ici. Une constante de test se
+      // périme en silence le jour où la route bouge, ce qui est exactement le
+      // défaut que ce cas existe pour empêcher.
+      const studio = readFileSync(
+        path.join(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "..",
+          "..",
+          "..",
+          "packages",
+          "@nodefony",
+          "studio",
+          "nodefony",
+          "controller",
+          "StudioRealtimeController.ts",
+        ),
+        "utf8",
+      );
+      const sBase = /@controller\("([^"]+)"\)/u.exec(studio)?.[1];
+      const sSous = /path:\s*"([^"]*\/realtime)"/u.exec(studio)?.[1];
+      assert.isString(sBase, "route de base du controller Studio");
+      assert.isString(sSous, "chemin realtime du controller Studio");
+      const reelles = new Set([montee, `${sBase}${sSous}`]);
+
+      const racineDocs = path.join(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "..",
+        "..",
+        "docs",
+      );
+      for (const page of ["client.md", "react-hooks.md"]) {
+        const texte = readFileSync(path.join(racineDocs, page), "utf8");
+        // Toute ADRESSE terminée par `/realtime` citée entre guillemets, apostrophes
+        // ou accents graves — donc aussi bien un exemple de code qu'une mention en
+        // prose. Elle doit commencer par `/` ou par une interpolation d'hôte
+        // (`${WS_BASE}/api/live/realtime`) : sans cette exigence, le motif ramassait
+        // le NOM DU PAQUET `@nodefony/realtime` et accusait la doc à tort.
+        for (const m of texte.matchAll(
+          /["'`]((?:\$\{[^}]*\})?\/[^"'`\s]*\/realtime)["'`]/gu,
+        )) {
+          const citee = m[1]!.replace(/^\$\{[^}]*\}/u, "");
+          assert.isTrue(
+            reelles.has(citee),
+            `${page} enseigne « ${citee} », qu'aucune route ne monte — ` +
+              `adresses réelles : ${[...reelles].join(", ")}`,
+          );
+        }
+      }
+
+      // Le message d'erreur du client nomme ces mêmes routes à qui oublie
+      // l'adresse. S'il se met à nommer une route morte, il envoie le débutant
+      // exactement là où la doc l'envoyait.
+      const client = readFileSync(
+        path.join(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "..",
+          "client",
+          "realtime",
+          "RealtimeClient.ts",
+        ),
+        "utf8",
+      );
+      const conseils = codeOnly(client).matchAll(
+        /(\/[\w/-]*\/realtime)(?=["'\s),])/gu,
+      );
+      for (const m of conseils) {
+        assert.isTrue(
+          reelles.has(m[1]!),
+          `RealtimeClient conseille « ${m[1]} », qu'aucune route ne monte`,
+        );
+      }
+    });
+
     it("vitrines complete : la carte temps réel passe par la FAÇADE, plus aucun ws à la main", () => {
       // React — hooks `nodefony/react` (Provider + état + canal).
       const rdest = path.join(tmp, "rlive");

@@ -142,6 +142,13 @@
   donc en local pour se faire refuser vingt minutes plus tard en CI — l'aller-retour que ce hook
   existe pour supprimer. Coût de l'ensemble mesuré : **une seconde**. Il n'y avait aucun argument à
   l'asymétrie, seulement l'habitude d'avoir branché la première. [1× — 08-26]
+- [1× — 08-27h] **La leçon était DÉJÀ écrite, dans le fichier d'à côté — et n'avait pas franchi la
+  frontière de paquet.** `session-revocation.test.ts` porte un compte jetable et un commentaire qui
+  DÉCRIT exactement le symptôme d'aujourd'hui (« un banc WebSocket dont le handshake s'est vu fermer
+  en 1008 »). Le fichier équivalent de l'autre paquet, lui, révoquait encore sur le compte partagé.
+  Une correction qui s'arrête au fichier où le rouge est tombé laisse le défaut chez le voisin, avec
+  sa propre explication écrite au-dessus. Après avoir corrigé UN cas : chercher les frères par le
+  geste (`rg` sur `revoke`), pas par le module.
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
@@ -270,6 +277,17 @@
 - **Le défaut ne frappait que les commandes les plus SOIGNÉES.** Celles qu'on a travaillé à rendre
   rapides (zéro boot) sont précisément celles qui n'ont plus rien pour tenir. Une optimisation peut
   retirer un effet de bord dont personne n'avait noté qu'il servait de garde. [1× — 08-22f]
+- [1× — 08-27h] **Le ticket accusait une course d'écriture ; les JOURNAUX du run l'ont réfutée en
+  une commande.** `gh run download <id>` : les journaux serveur des deux plateformes en échec
+  étaient conservés en artefacts, et le même enchaînement s'y lisait — cinq millisecondes avant le
+  refus, un autre banc RÉVOQUAIT la session. Ma première reproduction (260 enchaînements
+  login→handshake) n'a rien montré, et c'était logique : je reproduisais l'HYPOTHÈSE du ticket, pas
+  le scénario du journal. Réflexe : quand une passe a laissé des artefacts, les lire AVANT de
+  reproduire quoi que ce soit — reproduire une supposition ne réfute rien.
+- [1× — 08-27h] **La même reproduction rendait 0/20 puis 20/20 — seul l'ORDRE avait changé.** La
+  liste étant triée par récence, le voisin n'emporte la session que s'il s'est connecté APRÈS. Une
+  reproduction qui échoue ne réfute donc pas un mécanisme : elle peut n'avoir que le mauvais ordre,
+  et l'ordre se lit sur le journal, il ne se devine pas.
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
@@ -329,6 +347,13 @@
 - **`requiresAuth` regardait comment l'identité est PROUVÉE, pas ce que l'appelant PEUT.** Une
   porte plus stricte en apparence cachait des données moins sensibles que celles qu'une autre
   rendait déjà au même appelant — et rendait la capacité inatteignable dans le mode nominal. [1× — 08-22f]
+- [1× — 08-27h] **La console comparait l'UTILISATEUR pour répondre à une question sur la SESSION.**
+  « Cette ligne est-elle à moi ? » et « cette ligne est-elle CELLE d'où je regarde ? » se
+  ressemblent, et dans un écran « mes sessions » la première est vraie PARTOUT — l'avertissement
+  s'affichait donc sur toutes les lignes, c'est-à-dire sur aucune. Signe qui aurait dû alerter :
+  deux consommateurs indépendants (la console, un banc) bricolaient chacun leur approximation du
+  même verdict. Quand deux clients contournent, c'est le CONTRAT qui manque l'information — ici,
+  aucun d'eux ne POUVAIT la calculer, la référence étant un HMAC du cookie.
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
 
@@ -700,6 +725,12 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-27h] **Un appel Bash refusé par le garde-fou `cd` annule TOUT l'appel — pas seulement
+  le `cd`.** Mon édition d'un fichier de test vivait dans le même appel qu'un `cd` relatif : le
+  refus l'a emportée, j'ai lu le message comme portant sur la seule commande fautive, et j'ai
+  enchaîné un typecheck vert qui ne couvrait donc rien de neuf. Découvert deux heures plus tard au
+  `git status`, qui ne listait pas le fichier. Après tout refus d'outil : constater l'état, jamais
+  déduire ce qui a survécu.
 - [1× — 08-27] **Mon cas « évidemment sale » de flottant était PROPRE.** J'avais écrit le test
   d'arrondi sur `8.1 + 0.6`, en affirmant en commentaire qu'il valait `8.700000000000001` : le
   calcul est exact, et le test restait vert une fois la garde débranchée. Il a fallu BALAYER la
