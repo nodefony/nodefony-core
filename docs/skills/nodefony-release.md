@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-08-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-release/SKILL.md"
 ---
@@ -28,11 +28,11 @@ source: ".claude/skills/nodefony-release/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Publier et distribuer |
 | Corps | 246 lignes |
-| Coût d'activation | ~4 496 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 504 tokens (le corps est chargé à l'invocation) |
 | Description | 1013 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 0 page(s) |
-| Scripts | 0 |
+| Scripts | 1 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -59,6 +59,21 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 4. ÉPROUVER — l'installation vierge
 - 5. Pièges
 - 6. Gate
+
+## Scripts embarqués
+
+Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
+script, donc toujours à jour après régénération.
+
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `scripts/compare-exports.mjs` | compare-exports.mjs — gate #2 de la migration rolldown (sentinelle). | — | — |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+node .claude/skills/nodefony-release/scripts/compare-exports.mjs <entryA.js> <entryB.js>   # diff A vs B
+```
 
 ## Conformité au standard Agent Skills
 

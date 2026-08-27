@@ -8,8 +8,8 @@
  * un seul process).
  *
  * Usage :
- *   node scripts/compare-exports.mjs <entryA.js> <entryB.js>   # diff A vs B
- *   node scripts/compare-exports.mjs <entry.js>                # liste triée (baseline)
+ *   node .claude/skills/nodefony-release/scripts/compare-exports.mjs <entryA.js> <entryB.js>   # diff A vs B
+ *   node .claude/skills/nodefony-release/scripts/compare-exports.mjs <entry.js>                # liste triée (baseline)
  *
  * Sortie : exit 0 si identiques (ou mode liste), exit 1 + diff sinon.
  */

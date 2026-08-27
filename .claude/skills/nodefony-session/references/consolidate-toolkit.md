@@ -74,6 +74,23 @@ jq -s --argjson r "$USD_EUR" '
 ' "$LATEST"
 ```
 
+### La vue d'ensemble — TOUS les transcripts du projet
+
+Le `jq` ci-dessus chiffre UNE session. Pour la dépense cumulée — quel modèle a coûté quoi, quelle
+part part en cache, quelles sessions pèsent — le script du skill agrège tous les transcripts et
+porte sa propre table de prix par modèle :
+
+```bash
+node .claude/skills/nodefony-session/scripts/session-cost.mjs
+```
+
+Il **dédoublonne par `messageId`** (les journaux répètent la même réponse à plusieurs lignes) et lit
+les transcripts sous `~/.claude/projects` — donc hors dépôt, et propre à ce poste : c'est aussi
+pourquoi il vit dans le skill et non dans l'outillage du produit.
+
+⚠️ La table de prix d'un script comme celle du `jq` ci-dessus se **périme** — un tarif se revérifie
+à la source avant d'être publié dans un retex, jamais recopié de mémoire.
+
 Lire le résultat :
 
 - **Décomposer le coût** input / output / cache-write / cache-read. Insight quasi systématique sur

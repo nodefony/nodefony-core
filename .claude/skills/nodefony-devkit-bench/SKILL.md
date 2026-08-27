@@ -430,7 +430,7 @@ node scripts/lib/exec-portable.selftest.mjs --prove   # amputée, elle doit fair
 ### Rendre la page publique du banc
 
 ```bash
-node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
+node .claude/skills/nodefony-devkit-bench/scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
 ```
 
 **Ce rendeur ne MESURE rien**, et c'est le contrat : le banc lance de vrais

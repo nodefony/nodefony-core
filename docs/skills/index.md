@@ -38,7 +38,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🧭", "title": "session", "href": "nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 1 script · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 2 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -120,7 +120,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.0.0" }
+    "meta": "🟢 conforme v2.0.0 · ⚙️ 1 script" }
 ]
 ```
 
@@ -149,7 +149,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 9 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 2 scripts · 📎 3 réf" }
@@ -166,7 +166,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 250 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 619 | 4 | 8 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 619 | 4 | 9 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 469 | 2 | 7 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 357 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 114 | 6 | 0 | ✅ |
@@ -175,11 +175,11 @@ source: "docs/skills/index.md"
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 359 | 4 | 43 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 359 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 142 | 2 | 11 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 2.0.0 | 246 | 0 | 0 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 2.0.0 | 246 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 522 | 1 | 1 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 522 | 1 | 2 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |

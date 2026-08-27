@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 592 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 1 |
+| Scripts | 2 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -88,7 +88,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 136 |
+| `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
 
 
 ## Scripts embarqués
@@ -99,6 +99,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` |
+| `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 

@@ -75,7 +75,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 1 script · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 2 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -157,7 +157,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "skills/nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.0.0" }
+    "meta": "🟢 conforme v2.0.0 · ⚙️ 1 script" }
 ]
 ```
 
@@ -186,7 +186,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 9 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 2 scripts · 📎 3 réf" }

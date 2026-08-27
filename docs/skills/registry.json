@@ -600,7 +600,7 @@
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
         "bodyLines": 619,
-        "approxTokens": 10762
+        "approxTokens": 10771
       },
       "requires": [
         "serveur UP",
@@ -1255,6 +1255,43 @@
               },
               {
                 "name": "NF_PG_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/build-devkit-report.mjs",
+            "purpose": "Construit la page « Un agent sait-il développer avec Nodefony ? ».",
+            "usage": [
+              "node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]"
+            ],
+            "options": [
+              {
+                "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--data",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--runs",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "DATA",
+                "help": ""
+              },
+              {
+                "name": "OUT",
                 "help": ""
               }
             ],
@@ -4263,13 +4300,25 @@
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
         "bodyLines": 246,
-        "approxTokens": 4496
+        "approxTokens": 4504
       },
       "requires": [],
       "resources": {
         "references": [],
         "referenceFilesTotal": 0,
-        "scripts": []
+        "scripts": [
+          {
+            "path": "scripts/compare-exports.mjs",
+            "purpose": "compare-exports.mjs — gate #2 de la migration rolldown (sentinelle).",
+            "usage": [
+              "node .claude/skills/nodefony-release/scripts/compare-exports.mjs <entryA.js> <entryB.js>   # diff A vs B"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
       },
       "related": [
         "nodefony-check-externals",
@@ -4684,6 +4733,15 @@
             ],
             "output": ".ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main",
             "selfDocumented": true
+          },
+          {
+            "path": "scripts/session-cost.mjs",
+            "purpose": "Agrège la consommation réelle de tous les transcripts Claude Code du projet.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },

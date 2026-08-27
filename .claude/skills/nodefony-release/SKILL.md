@@ -253,7 +253,7 @@ lancer, `nodefony-check-externals` pour la dérive des dépendances déclarées.
 chaque lundi (`release-smoke.yml`) — une passe hebdomadaire non lue est restée rouge trois
 semaines : la lire fait partie du gate.
 
-**Surface exportée — comparer deux builds** : `node scripts/compare-exports.mjs` compare ce que deux
+**Surface exportée — comparer deux builds** : `node .claude/skills/nodefony-release/scripts/compare-exports.mjs` compare ce que deux
 builds exportent réellement, par **import réel dans des process isolés** — la seule méthode qui vaille
 (compter les fichiers émis ment : chunks vides, granularité de tree-shaking). Sentinelle héritée de la
 migration de bundler, à relancer dès qu'on touche à la chaîne de build ou à un `index.ts` public.

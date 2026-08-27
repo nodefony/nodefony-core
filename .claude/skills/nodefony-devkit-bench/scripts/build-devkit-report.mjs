@@ -28,7 +28,7 @@ import {
   printButton,
   deckControls,
   fmt,
-} from "../.claude/skills/nodefony-html-report/lib/report.mjs";
+} from "../../nodefony-html-report/lib/report.mjs";
 import {
   bars,
   barsEtendue,
@@ -40,7 +40,7 @@ import {
   nombre,
   STYLE_GRAPHES,
   PALETTE,
-} from "../.claude/skills/nodefony-html-report/lib/echarts.mjs";
+} from "../../nodefony-html-report/lib/echarts.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
