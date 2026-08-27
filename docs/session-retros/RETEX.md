@@ -322,6 +322,13 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 08-28] **TROIS gabarits sur quatre portaient le même défaut ; le quatrième donnait la
+  forme juste.** Un `then` au corps muet (`promise/always-return`) faisait naître toute application
+  générée avec un front en lint ROUGE — React seul écrivait l'expression fléchée qui passe. Le
+  défaut n'a pas été trouvé en relisant les gabarits mais en faisant naître le témoin du banc AVEC
+  un front : c'est le décor qui manquait, pas l'assertion. **Corollaire pour l'inventaire : quand
+  une famille est censée écrire la même ligne, c'est la MINORITÉ divergente qui a souvent raison —
+  aller voir laquelle avant de choisir le patron.**
 - [1× — 08-27] **Une adresse écrite EN DUR s'affichait parfaitement — dans une vitrine sur quatre.**
   Le panneau de la vitrine Vue montrait `/api/live/realtime` en littéral quand les trois autres
   lisaient l'instantané du client : rien ne clochait à l'écran, et le jour où l'endpoint changerait
@@ -797,6 +804,17 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [3× — 08-28] **Le même sabotage a re-menti DEUX fois de plus, par le même cwd.** `Tests no tests`
+  - `exit 1` se lisent comme l'échec attendu, alors que rien n'a tourné. La cause n'est pas
+    l'étourderie : un `cd` en début de commande composée est parfois AVALÉ (garde-fou du harnais,
+    reset du shell), et le second bloc s'exécute ailleurs. Le remède qui a marché : dans le MÊME
+    appel, `cd <absolu> && <sabotage> && <run>`, et lire le motif — un rouge sans nom de test rouge
+    n'est pas une preuve. Vu aussi sur un `npm run lint` lancé depuis un workspace qui n'a pas ce
+    script : `exit 1` qui ne veut rien dire.
+- [1× — 08-28] **Un build INCRÉMENTAL répond « à jour » et ne compile rien — le gate est muet.**
+  Dans une application générée, `npm run build` disait « à jour · rien à faire » : le front avait
+  été bâti par `create app` lui-même. Une étape de banc qui s'y fierait ne prouverait RIEN. Il a
+  fallu `--force` pour distinguer une compilation d'une constatation de fraîcheur.
 - [1× — 08-27j] **Un sabotage « concluant » ne prouvait rien : le run tournait dans le mauvais
   workspace.** Pour vérifier qu'une garde neuve mordait, j'ai saboté puis lancé `npx vitest` — mais
   le `python3` du même appel avait laissé le cwd à la RACINE. Sortie : `Tests no tests`, que j'ai
@@ -1060,6 +1078,19 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-28] **Un verdict écrit en PROSE n'atteint aucun automate — seul le code de sortie
+  circule.** `create app` imprimait « npm run build a échoué » puis rendait **0**. Ni une chaîne
+  d'intégration, ni un banc, ni un agent qui enchaîne ne pouvaient distinguer une application prête
+  d'une application à réparer — et c'est ce qui a laissé un front généré ne pas se bâtir sans que
+  rien ne tombe. Le geste : extraire la décision en fonction PURE (`createExitCode`), pour qu'elle
+  se teste sans lancer un `npm install`, et vue rouge sur l'ancien retour.
+- [1× — 08-28] **Un décor de banc rangé sous un chemin IGNORÉ hérite en silence de règles écrites
+  pour autre chose.** Le mode `--link` posait son application témoin dans `REPO/tmp/`, par
+  commodité ; le `.gitignore` du dépôt ignore `tmp/`, oxlint respecte les `.gitignore` REMONTANTS,
+  et aucune option ne le désactive (`--no-ignore` ne porte que sur `.eslintignore`). Résultat :
+  « No files found to lint », et **ce mode n'était jamais allé au bout**. Le banc, lui, avait
+  raison — il portait la garde qui distingue « rien à redire » de « rien lu ». Remède : sortir le
+  décor du dépôt, pas contourner la règle.
 - [1× — 08-27j] **Le build de PRODUCTION est un gate que personne ne lançait — il cachait un front
   cassé depuis sa création.** `npm run build:front` échouait sur la vitrine Vue (le compilateur SFC
   transforme un `src="/…"` littéral en import d'asset, et ne résout rien), un jour après la
