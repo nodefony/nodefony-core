@@ -94,9 +94,18 @@ if gh api rate_limit --jq '.rate.remaining' >/dev/null 2>&1; then
              | sort_by(.ordre // 999) | .[:5] | .[]
              | "  \(.ordre // "-")  \(.["priorité"] // "-")  \(.jours // "-") j  #\(.content.number)  \(.content.title)"'
 else
-  echo "⚠️ GitHub INJOIGNABLE — avancement NON vérifié, ne pas conclure depuis le seul _state"
+  echo "⚠️ GitHub INJOIGNABLE — lire l'EMPREINTE commitée, et le dire au user :"
+  sed -n '1,40p' .ai/BOARD.md 2>/dev/null || echo "   (aucune empreinte — avancement NON vérifié)"
 fi
 ```
+
+> **L'empreinte, c'est `.ai/BOARD.md` + `.ai/board.json`** — une projection des tickets
+> **générée** par [`scripts/board-snapshot.mjs`](scripts/board-snapshot.mjs) et commitée, sur le
+> modèle de `.ai/symbols.json`. Elle existe pour ce cas précis : reprendre quand le réseau ne
+> répond pas. **Elle ne s'édite JAMAIS à la main** — c'est ce qui la rend incapable de diverger de
+> sa source, et toute la différence avec un document de pilotage écrit à la main. Dire au user
+> qu'on lit une empreinte, et de QUAND elle date : trois jours d'écart, c'est trois jours de
+> travail qu'elle ignore.
 
 > 🔴 **Lire `.content.title`, JAMAIS `.title`.** Le champ `title` d'un item de tableau de bord est
 > une copie dérivée qui reste sur l'ancien libellé : mesuré, **38 items sur 38** portaient un titre
@@ -272,8 +281,19 @@ SEULEMENT :
    travail déjà fait à la reprise suivante, et fausse le seul compteur d'avancement qui ne se
    périme pas. `gh issue close <n> --comment "<commit> — <ce qui est fini, observable>"`. Un
    ticket seulement AVANCÉ reçoit un commentaire, pas une fermeture.
-4. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
-5. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
+4. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
+   vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
+
+   ```bash
+   node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+   ```
+
+   Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le lire : un refus dit
+   soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
+   nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
+
+5. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
+6. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 
 > **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
 > coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex

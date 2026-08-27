@@ -1,0 +1,576 @@
+{
+  "generatedAt": "2026-08-27T11:47:23.103Z",
+  "source": "github:nodefony/nodefony-core",
+  "project": "nodefony/2",
+  "milestones": [
+    {
+      "closed": 1,
+      "dueOn": null,
+      "open": 3,
+      "title": "10.1"
+    },
+    {
+      "closed": 3,
+      "dueOn": "2026-11-15T00:00:00Z",
+      "open": 32,
+      "title": "10.0.0"
+    }
+  ],
+  "items": [
+    {
+      "number": 32,
+      "title": "chore: trancher les arbitrages avant la publication",
+      "url": "https://github.com/nodefony/nodefony-core/issues/32",
+      "type": "Issue",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0,
+      "ordre": 1,
+      "labels": [
+        "arbitrage"
+      ]
+    },
+    {
+      "number": 41,
+      "title": "fix(client): corriger le contrat du noyau client avant de le figer",
+      "url": "https://github.com/nodefony/nodefony-core/issues/41",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 1.5,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 54,
+      "title": "feat(client): simplifier la socket cliente pour un débutant",
+      "url": "https://github.com/nodefony/nodefony-core/issues/54",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": null,
+      "ordre": 1.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 55,
+      "title": "docs(release): recaler le plan de publication sur ce qui est livré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/55",
+      "type": "Issue",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.7,
+      "labels": [
+        "documentation",
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 17,
+      "title": "feat(orm): livrer les migrations de schéma en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/17",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 5,
+      "ordre": 2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 18,
+      "title": "feat(cli): rendre l'entité User à l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/18",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 3,
+      "ordre": 3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 19,
+      "title": "refactor(drizzle): rendre optionnels les pilotes de base de données",
+      "url": "https://github.com/nodefony/nodefony-core/issues/19",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 22,
+      "title": "ci(security): détecter les secrets commités dans le dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/22",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 53,
+      "title": "docs: remettre la documentation à niveau avant la version 10",
+      "url": "https://github.com/nodefony/nodefony-core/issues/53",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": null,
+      "ordre": 6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 45,
+      "title": "docs(guides): retirer « mocha + bun » et les pages fantômes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/45",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 46,
+      "title": "docs(core): documenter l'outillage de test livré aux applications",
+      "url": "https://github.com/nodefony/nodefony-core/issues/46",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 48,
+      "title": "docs(site): mettre les tutoriels avant l'architecture",
+      "url": "https://github.com/nodefony/nodefony-core/issues/48",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 33,
+      "title": "feat(studio): protéger toute la surface d'administration par un rôle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/33",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 21,
+      "title": "feat(cli): ajouter la commande de changement de mot de passe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/21",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 8,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 42,
+      "title": "fix(client): corriger l'adresse du serveur temps réel par défaut",
+      "url": "https://github.com/nodefony/nodefony-core/issues/42",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 26,
+      "title": "refactor(client)!: retirer l'appel non typé de la socket cliente",
+      "url": "https://github.com/nodefony/nodefony-core/issues/26",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 10,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 25,
+      "title": "ci(tests): remettre au vert le test de tenue dans la durée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/25",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 11,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 20,
+      "title": "test(security): attaquer les paquets publiés avant leur sortie",
+      "url": "https://github.com/nodefony/nodefony-core/issues/20",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 12,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 47,
+      "title": "docs(release): préparer la page d'accueil du jour de la publication",
+      "url": "https://github.com/nodefony/nodefony-core/issues/47",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 12.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 27,
+      "title": "chore(release): publier les paquets de la version 10 sur npm",
+      "url": "https://github.com/nodefony/nodefony-core/issues/27",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1.5,
+      "ordre": 13,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 23,
+      "title": "feat(cli): générer la page de signalement de faille des apps",
+      "url": "https://github.com/nodefony/nodefony-core/issues/23",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 14,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 24,
+      "title": "docs(security): expliquer comment obtenir un jeton",
+      "url": "https://github.com/nodefony/nodefony-core/issues/24",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 15,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 40,
+      "title": "docs(client): montrer la classe avant le raccourci shared()",
+      "url": "https://github.com/nodefony/nodefony-core/issues/40",
+      "type": "Issue",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 16,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 44,
+      "title": "feat(docs): raccourcir les libellés de menu des titres longs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/44",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 17,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 49,
+      "title": "docs: corriger les 108 renvois au code devenus faux",
+      "url": "https://github.com/nodefony/nodefony-core/issues/49",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 18,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 28,
+      "title": "feat(config): surcharger la config d'application par l'environnement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/28",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 20,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 29,
+      "title": "docs: recaler les ancres du corpus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/29",
+      "type": "Issue",
+      "status": "Done",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1.5,
+      "ordre": 21,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 30,
+      "title": "feat(mongoose): compléter les stockages manquants côté MongoDB",
+      "url": "https://github.com/nodefony/nodefony-core/issues/30",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 22,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 31,
+      "title": "chore: refermer les bogues résolus et les tests jamais lancés",
+      "url": "https://github.com/nodefony/nodefony-core/issues/31",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 23,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 34,
+      "title": "feat(client): implémenter le noyau applicatif côté navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/34",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 5,
+      "ordre": 30,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 35,
+      "title": "feat(client): faire remonter les journaux du navigateur au serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/35",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 31,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 36,
+      "title": "refactor(client): extraire un socle commun aux quatre fronts",
+      "url": "https://github.com/nodefony/nodefony-core/issues/36",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 32,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 37,
+      "title": "feat(client): ajouter les composables Vue 3 du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/37",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1.5,
+      "ordre": 33,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 38,
+      "title": "feat(client): ajouter les services Angular du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/38",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 34,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 39,
+      "title": "feat(client): ajouter les runes Svelte 5 du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/39",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1.5,
+      "ordre": 35,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 43,
+      "title": "feat(client): accepter une adresse de serveur sur le composant racine",
+      "url": "https://github.com/nodefony/nodefony-core/issues/43",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 36,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 50,
+      "title": "docs(tutoriels): écrire la partie 2, jusqu'au déploiement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/50",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 5,
+      "ordre": 37,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 51,
+      "title": "docs(guides): écrire les recettes d'exploitation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/51",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 38,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 52,
+      "title": "docs(guides): dégraisser l'essai sur l'outillage agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/52",
+      "type": "Issue",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 39,
+      "labels": [
+        "10.0.0"
+      ]
+    }
+  ]
+}

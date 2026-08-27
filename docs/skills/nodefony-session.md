@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 502 lignes |
-| Coût d'activation | ~5 866 tokens (le corps est chargé à l'invocation) |
+| Corps | 522 lignes |
+| Coût d'activation | ~6 171 tokens (le corps est chargé à l'invocation) |
 | Description | 592 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 0 |
+| Scripts | 1 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -91,6 +91,39 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 136 |
 
 
+## Scripts embarqués
+
+Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
+script, donc toujours à jour après régénération.
+
+| Script | Rôle | Options | Variables d'environnement |
+| --- | --- | --- | --- |
+| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` |
+
+**Invocation telle que documentée dans chaque script :**
+
+```bash
+node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+```
+
+**Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER`
+
+### Détail des scripts auto-documentés
+
+#### `scripts/board-snapshot.mjs`
+
+Produit : .ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main
+
+```bash
+node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--check` | ne rien écrire ; sortie 1 si l'empreinte a dérivé, 2 si GitHub est muet |
+| `--force` | passer outre la garde de plausibilité |
+
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
@@ -108,7 +141,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 502 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 522 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

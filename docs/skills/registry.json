@@ -4645,8 +4645,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 502,
-        "approxTokens": 5866
+        "bodyLines": 522,
+        "approxTokens": 6171
       },
       "requires": [],
       "resources": {
@@ -4654,7 +4654,38 @@
           "consolidate-toolkit.md"
         ],
         "referenceFilesTotal": 1,
-        "scripts": []
+        "scripts": [
+          {
+            "path": "scripts/board-snapshot.mjs",
+            "purpose": "Instantané du pilotage — projette les tickets GitHub DANS le dépôt.",
+            "usage": [
+              "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",
+              "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check"
+            ],
+            "options": [
+              {
+                "flag": "--check",
+                "help": "ne rien écrire ; sortie 1 si l'empreinte a dérivé, 2 si GitHub est muet"
+              },
+              {
+                "flag": "--force",
+                "help": "passer outre la garde de plausibilité"
+              }
+            ],
+            "env": [
+              {
+                "name": "PROJECT_NUMBER",
+                "help": ""
+              },
+              {
+                "name": "PROJECT_OWNER",
+                "help": ""
+              }
+            ],
+            "output": ".ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main",
+            "selfDocumented": true
+          }
+        ]
       },
       "related": [
         "nodefony-check-externals",
@@ -4711,7 +4742,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "502",
+            "detail": "522",
             "advisory": true
           }
         ]
