@@ -1,6 +1,6 @@
 /**
  * Tests de SURFACE PUBLIQUE des subpaths navigateur — `nodefony/client`,
- * `nodefony/react` et `nodefony/vue`.
+ * `nodefony/react`, `nodefony/vue` et `nodefony/angular`.
  *
  * Ce que ces sentinelles protègent : un consommateur navigateur doit pouvoir
  * **NOMMER** les types que la lib lui rend. `useNodefonyIdentity()` rend une
@@ -42,6 +42,12 @@ import type {
   NodefonyNotice as VueNotice,
   SocketSnapshot as VueSnapshot,
 } from "../client/vue/index";
+import type {
+  RealtimeIdentity as NgIdentity,
+  RealtimeState as NgState,
+  NodefonyNotice as NgNotice,
+  SocketSnapshot as NgSnapshot,
+} from "../client/angular/index";
 
 // ── Fixtures compile-only ─────────────────────────────────────────────────
 // `declare const` est ILLÉGAL dans un corps de fonction (TS1184) : au scope
@@ -61,6 +67,11 @@ declare const vueIdentity: VueIdentity;
 declare const vueState: VueState;
 declare const vueNotice: VueNotice;
 declare const vueSnapshot: VueSnapshot;
+
+declare const ngIdentity: NgIdentity;
+declare const ngState: NgState;
+declare const ngNotice: NgNotice;
+declare const ngSnapshot: NgSnapshot;
 
 function _typeOnly(): void {
   // ── `nodefony/client` — les types que le client rend ────────────────────
@@ -103,13 +114,30 @@ function _typeOnly(): void {
   const _n: RealtimeIdentity = vueIdentity;
   const _o: ReactIdentity = vueIdentity;
 
-  (void _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o);
+  // ── `nodefony/angular` — ce que les fonctions d'injection RENDENT ───────
+  // Même exigence : `injectNodefonyIdentity()` rend un
+  // `Signal<RealtimeIdentity | null>` ; sans réexport, le consommateur ne peut
+  // pas déclarer le champ de service qui l'accueille.
+  const _p: NgIdentity | null = ngIdentity;
+  const _q: NgState = ngState;
+  const _r: NgNotice = ngNotice;
+  const _s: NgSnapshot = ngSnapshot;
+
+  // Les QUATRE subpaths parlent du MÊME type, pas de quatre jumeaux : une
+  // identité lue via `nodefony/angular` s'assigne à une variable typée depuis
+  // `nodefony/client`, depuis `nodefony/react` et depuis `nodefony/vue`.
+  const _t: RealtimeIdentity = ngIdentity;
+  const _u: ReactIdentity = ngIdentity;
+  const _v: VueIdentity = ngIdentity;
+
+  // prettier-ignore
+  (void _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v);
 }
 
 void _typeOnly;
 
 describe("surface publique des subpaths navigateur", () => {
-  it("nomme les types rendus par `nodefony/client`, `/react` et `/vue` (compile-only)", () => {
+  it("nomme les types rendus par `nodefony/client`, `/react`, `/vue` et `/angular` (compile-only)", () => {
     // Rien à exécuter : la preuve est faite par `tsgo -p tsconfig.tests.json`.
     // Ce cas existe pour que la sentinelle apparaisse dans le rapport vitest —
     // un fichier de types muet dans le rapport finit par être oublié.

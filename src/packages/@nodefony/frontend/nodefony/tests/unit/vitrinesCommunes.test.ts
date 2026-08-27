@@ -15,8 +15,9 @@
  *
  * Ce qu'il tient :
  *  1. la feuille de style commune est identique — octet pour octet ;
- *  2. les quatre pages consomment le socle (React par ses hooks, qui en sont de
- *     minces enveloppes ; les trois autres directement) ;
+ *  2. les quatre pages consomment le socle — par leur liaison idiomatique quand
+ *     elle existe (React, Vue, Angular : de minces enveloppes du socle), en
+ *     direct pour celles qui attendent la leur ;
  *  3. aucune ne réintroduit la mécanique que le socle porte (socket fabriquée à
  *     la main, nom d'événement local recopié, abonnement apparié à la main) ;
  *  4. les quatre montrent les mêmes sections, et se pointent l'une l'autre.
@@ -50,7 +51,7 @@ const VITRINES = [
   {
     front: "angular",
     page: path.join("frontend", "src", "app", "app.component.ts"),
-    titre: "Angular 21",
+    titre: "Angular 22",
   },
   {
     front: "svelte",
@@ -135,14 +136,13 @@ const LIAISONS: Record<
   },
   angular: {
     jetons: [
-      'connectShared({ url: "/api/live/realtime" })',
-      "observeState(live.socket,",
-      'observeChannel(live.socket, "live:salon"',
-      "live.start()",
+      "injectNodefony()",
+      "injectNodefonyState()",
+      'injectNodefonyChannel("live:salon"',
     ],
-    instantane: "observeSnapshot(",
-    cite: "observeState(",
-    pourquoi: "Angular n'a pas encore sa liaison — socle en direct",
+    instantane: "injectNodefonySnapshot()",
+    cite: "injectNodefonyState()",
+    pourquoi: "Angular a ses fonctions d'injection (`nodefony/angular`)",
   },
   svelte: {
     jetons: [

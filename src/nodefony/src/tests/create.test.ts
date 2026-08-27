@@ -1198,16 +1198,46 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // qui est exactement l'endroit où un abonnement fuit sans se voir.
       assert.notInclude(vapp, "offLive");
 
-      // Angular et Svelte — pas encore de liaison dédiée (#38, #39) : le SOCLE
-      // agnostique de `nodefony/client`. Le critère de #36 n'est pas « chacun
-      // marche », c'est « les deux écrivent la MÊME chose » : si l'un a besoin
-      // d'une ligne que l'autre n'a pas, l'extraction du noyau est incomplète.
+      // Angular — fonctions d'injection `nodefony/angular`, et la MÊME forme
+      // qu'en React et en Vue : la politique reçoit l'adresse (ici un
+      // FOURNISSEUR d'injection, le vocabulaire d'Angular), une fonction par
+      // besoin, et RIEN à libérer. Le compte de concepts est le même.
       const adest = path.join(tmp, "alive");
       scaffold(adest, {
         name: "alive",
         preset: "complete",
         frontend: "angular",
       });
+      const aapp = readFileSync(
+        path.join(adest, "frontend", "src", "app", "app.component.ts"),
+        "utf8",
+      );
+      const amain = readFileSync(
+        path.join(adest, "frontend", "src", "main.ts"),
+        "utf8",
+      );
+      // L'adresse est écrite UNE fois, dans les providers — pas dans le
+      // composant, qui n'a aucune raison de la connaître.
+      assert.include(amain, 'provideNodefony({ url: "/api/live/realtime" })');
+      assert.include(aapp, "injectNodefony()");
+      assert.include(aapp, "injectNodefonyState()");
+      assert.include(
+        aapp,
+        'injectNodefonyChannelData<Evenement>("live:events")',
+      );
+      assert.include(aapp, '#live.request("live:ping"');
+      assert.notInclude(aapp, "new WebSocket(");
+      // Les mêmes refus qu'en React et en Vue : sans eux, on retomberait au
+      // câblage manuel sans qu'aucun test ne tombe.
+      assert.notInclude(aapp, "RealtimeClient.shared(");
+      assert.notInclude(aapp, "connectShared(");
+      // Et ce que la liaison fait DISPARAÎTRE : la liste de libérations, qui
+      // est exactement l'endroit où un abonnement fuit sans se voir.
+      assert.notInclude(aapp, "offLive");
+
+      // Svelte — pas encore de liaison dédiée (#39) : le SOCLE agnostique de
+      // `nodefony/client`, ce qui reste juste — c'est exactement ce que la
+      // liaison enveloppera le jour venu.
       const sdest2 = path.join(tmp, "slive2");
       scaffold(sdest2, {
         name: "slive2",
@@ -1215,10 +1245,6 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         frontend: "svelte",
       });
       const vitrines: [string, string][] = [
-        [
-          "angular",
-          path.join(adest, "frontend", "src", "app", "app.component.ts"),
-        ],
         ["svelte", path.join(sdest2, "frontend", "src", "App.svelte")],
       ];
       for (const [front, fichier] of vitrines) {

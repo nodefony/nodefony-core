@@ -6,7 +6,20 @@ export interface nodefonyOptions {
 
 declare global {
   interface Error {
-    toJSON(): Record<string, any>;
+    /**
+     * Sérialisation JSON d'une erreur — POSÉE AU RUNTIME par `Error.ts` sur
+     * `Error.prototype`, donc présente sur toute erreur qui traverse Nodefony.
+     *
+     * Déclarée **optionnelle**, et c'est délibéré : la rendre obligatoire
+     * augmente le type standard `Error` de tout le graphe, et rend alors
+     * **incompilable toute classe tierce qui écrit `implements Error`** — elle
+     * n'a aucune raison de connaître une méthode de Nodefony. Constaté sur
+     * `HttpErrorResponse` d'`@angular/common` (TS2420), qui suffisait à rendre
+     * `@angular/*` inutilisable dans un graphe de types Nodefony. Le seul
+     * appelant du dépôt passe déjà par `nodefonyError`, qui la déclare en
+     * propre : l'obligation ne servait personne et coûtait l'interopérabilité.
+     */
+    toJSON?(): Record<string, any>;
   }
 }
 

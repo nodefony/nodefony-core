@@ -175,6 +175,18 @@ class nodefonyError extends Error {
   [key: string]: any;
 
   /**
+   * Sérialisation JSON filtrée — POSÉE sur le prototype plus bas
+   * (`Object.defineProperty(nodefonyError.prototype, "toJSON", …)`), donc
+   * déclarée ici sans initialiseur (`declare` : aucun code émis).
+   *
+   * Sur `Error`, la même méthode est déclarée **optionnelle** : elle
+   * n'appartient pas au type standard, et l'imposer rendrait incompilable toute
+   * classe tierce qui écrit `implements Error` (cf `types/globals.ts`). Sur
+   * `nodefonyError`, elle est CERTAINE — c'est la classe qui la garantit.
+   */
+  declare toJSON: () => Record<string, any>;
+
+  /**
    * @param message - string ou `Error` natif à wrapper. Si Error, ses champs
    *   (message, code, stack) sont copiés ; le type est détecté.
    * @param code - statut HTTP ou code custom (utilisé par HttpError pour le

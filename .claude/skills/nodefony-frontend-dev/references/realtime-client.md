@@ -18,7 +18,7 @@ Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1300 l). Contrats
 8. [Notices & refus de canal](#8-notices--refus-de-canal)
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
 10. [Cadence adaptative (`adaptiveChannel`)](#10-cadence-adaptative-adaptivechannel)
-11. [Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
+11. [Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
 12. [Gotchas](#12-gotchas)
 
 ---
@@ -268,7 +268,7 @@ Abonne un canal d'**ÉTAT** (latest-wins : stats, supervision) en **cadence adap
 
 ---
 
-## 11. Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue
+## 11. Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular
 
 ### 11.1 Le socle — `nodefony/client`, pour les QUATRE fronts
 
@@ -435,7 +435,44 @@ Trois règles que Vue impose et que React ne montre pas — les rater ne casse r
 
 Les arguments « canal » et « cadence » sont des `MaybeRefOrGetter` : l'abonnement suit la valeur (ancien libéré avant nouveau pris). C'est ce qui remplace, en Vue, la liste `deps` que React doit se faire passer à la main.
 
-Angular (#38) et Svelte (#39) n'ont pas encore leur liaison : leurs vitrines consomment le socle en direct, et la sentinelle `vitrinesCommunes.test.ts` porte la table qui dit où en est chaque front.
+### 11.4 Les fonctions d'injection Angular `nodefony/angular`
+
+**Même surface, mêmes noms, mêmes garanties que React et Vue.** Source : `src/client/angular/index.ts`. Page publiée : `src/nodefony/docs/angular-services.md`.
+
+🔴 **AUCUN décorateur Angular n'est publié, et c'est structurel.** Un `@Injectable()` doit être TRANSFORMÉ par le compilateur d'Angular ; une bibliothèque qui en publie doit donc être bâtie par `ng-packagr` (partial compilation + linker) — seconde chaîne de build et couplage aux majeures d'Angular. Non compilé, il marche parfois en dev (si `@angular/compiler` traîne dans la page) et **casse en prod**. La forme retenue est celle qu'Angular emploie pour lui-même (`provideHttpClient`, `takeUntilDestroyed`). ⚠️ Ça ne restreint PAS l'app : ses `@Component`/`@Injectable` sont compilés par `@analogjs/vite-plugin-angular` (qui embarque `@angular/compiler-cli`).
+
+```ts
+// La politique s'installe en FOURNISSEUR d'injection (le vocabulaire d'Angular).
+// `url` = voie simple ; `client` = voie avancée, l'emporte, cycle non touché.
+// Sans l'un des deux : refus IMMÉDIAT, à la composition des providers.
+bootstrapApplication(App, { providers: [provideNodefony({ url: "/api/live/realtime" })] });
+
+provideNodefony(opts): EnvironmentProviders;
+injectNodefony(): RealtimeClient;                                // throw hors fournisseur
+injectNodefonyState(): Signal<RealtimeState>;
+injectNodefonyIdentity(): Signal<RealtimeIdentity | null>;
+injectNodefonyChannel(canal: Source<string>, onMessage): void;
+injectNodefonyChannelData<T>(canal: Source<string>, initial?): Signal<T | null>;
+injectNodefonyAdaptiveChannel(base, onMessage, desiredMs, opts?): Signal<number>;
+injectNodefonyAdaptiveChannelData<T>(base, desiredMs, opts?): { data, intervalMs };
+injectNodefonyChannelStats(canal): Signal<MessageStats | null>;
+injectNodefonySnapshot(): Signal<SocketSnapshot | null>;
+injectNodefonySyslog(opts?): Signal<unknown[]>;
+injectNodefonyNotifications(onNotice): void;
+injectNodefonyNoticeLog(opts?): Signal<NodefonyNotice[]>;
+export const NODEFONY_CLIENT: InjectionToken<RealtimeClient>;    // fournir une AUTRE socket à un sous-arbre
+export type Source<T> = T | (() => T);                           // un Signal EST une fonction
+```
+
+Trois règles propres à Angular :
+
+1. **🔴 La connexion s'ouvre HORS ZONE** (`inject(NgZone).runOutsideAngular` dans la fabrique du fournisseur). Avec `zone.js`, une socket ouverte DANS la zone relance une détection de changements **globale à chaque trame** : un canal 10 Hz = 10 détections/s pour toute l'app. Les valeurs passent par des **signals**, justes avec ou sans zone. Le banc le juge sur le moment où le TRANSPORT est fabriqué — c'est lui que `zone.js` remplace.
+2. **Refus IMMÉDIAT d'une adresse absente** : `connectShared` est appelé dans `provideNodefony`, pas dans la fabrique paresseuse — sinon l'erreur tomberait au premier rendu d'un composant, loin de sa cause.
+3. **Libération par le contexte d'injection** : `DestroyRef` pour une source constante, nettoyage d'`effect` pour une source signal. Une source constante n'alloue **aucun** effect (règle perf : rien « au cas où »).
+
+Banc : `src/tests/clientAngular.test.ts` (11 cas, `// @vitest-environment jsdom` + `import "@angular/compiler"` + `createApplication()`). Un injecteur fabriqué à la main NE SUFFIT PAS : `effect()` y lève `NG0201` faute de planificateur — seule une vraie `ApplicationRef` exerce le chemin réel.
+
+Svelte (#39) n'a pas encore sa liaison : sa vitrine consomme le socle en direct, et la sentinelle `vitrinesCommunes.test.ts` porte la table qui dit où en est chaque front.
 
 ---
 

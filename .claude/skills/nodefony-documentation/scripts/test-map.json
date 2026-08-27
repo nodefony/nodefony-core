@@ -9,6 +9,12 @@
       "src/packages/@nodefony/framework/nodefony/tests/integration/admin-dataplane.test.ts"
     ]
   },
+  "angular-services": {
+    "globs": [
+      "src/nodefony/src/tests/clientAngular.test.ts",
+      "src/nodefony/src/tests/clientObserve.test.ts"
+    ]
+  },
   "api-keys": {
     "unit": [
       "src/packages/@nodefony/security/tests/unit/apiKeyAuthenticator.test.ts",

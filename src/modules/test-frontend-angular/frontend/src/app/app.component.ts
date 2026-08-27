@@ -1,14 +1,19 @@
 import { Component, OnDestroy, OnInit, VERSION, signal } from "@angular/core";
-// Le socle AGNOSTIQUE de `nodefony/client` — le même que les vitrines React,
-// Vue et Svelte. Deux concepts : une connexion partagée qui reçoit l'adresse,
-// et un abonnement. Aucune règle de temps réel n'est écrite ici.
+// La liaison Angular de `nodefony/angular` — le pendant exact des hooks React
+// et des composables Vue. Des fonctions d'injection qui rendent des signals :
+// l'abonnement est libéré à la destruction du composant, sans un `ngOnDestroy`
+// à écrire. Aucune règle de temps réel n'est écrite ici — elles vivent toutes
+// dans le socle `nodefony/client`, que cette liaison enveloppe.
+//
+// Aucun décorateur Angular n'est publié par `nodefony` : une bibliothèque qui
+// en publie doit être bâtie par `ng-packagr`. La forme fonctionnelle est celle
+// qu'Angular emploie pour lui-même (`provideHttpClient`, `takeUntilDestroyed`).
 import {
-  connectShared,
-  observeChannel,
-  observeSnapshot,
-  observeState,
-  type SocketSnapshot,
-} from "nodefony/client";
+  injectNodefony,
+  injectNodefonyChannel,
+  injectNodefonySnapshot,
+  injectNodefonyState,
+} from "nodefony/angular";
 // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
 // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
 import "../showcase.css";
@@ -66,11 +71,6 @@ const FRONTS = [
   { nom: "Angular", href: "/angular/app" },
   { nom: "Svelte", href: "/svelte/app" },
 ];
-
-// UNE socket par URL pour toute la page. `connectShared` porte le cycle de
-// connexion (idempotent, rejet avalé, et JAMAIS de `disconnect()` au démontage :
-// la connexion appartient à la PAGE).
-const live = connectShared({ url: "/api/live/realtime" });
 
 @Component({
   selector: "app-root",
@@ -154,7 +154,7 @@ const live = connectShared({ url: "/api/live/realtime" });
               fill-rule="evenodd"
             />
           </svg>
-          <h1>Angular 21</h1>
+          <h1>Angular 22</h1>
           <p class="sub">
             Le même écran, le même socle, quatre frameworks. Servi par
             <strong>&#64;nodefony/frontend</strong> (Vite + HMR) et alimenté par
@@ -340,21 +340,38 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly count = signal(0);
   readonly data = signal<ApiData | null>(null);
   readonly error = signal<string | null>(null);
-  readonly liveState = signal(live.socket.state);
+  /**
+   * La socket elle-même — pour ce qu'on lui DIT (`emit`, `request`) et le
+   * bouton de coupure. La politique d'adresse est dans `main.ts` : un composant
+   * ne devine jamais l'hôte auquel il parle.
+   */
+  private readonly nodefony = injectNodefony();
+  readonly liveState = injectNodefonyState();
   readonly messages = signal<Message[]>([]);
   readonly texte = signal("");
   readonly parHttp = signal<string | null>(null);
   readonly parSocket = signal<string | null>(null);
-  readonly vue = signal<SocketSnapshot | null>(null);
+  readonly vue = injectNodefonySnapshot();
   readonly barreVisible = signal(debugbar()?.isVisible() ?? false);
   /** L'extrait montré à l'écran — le code que CETTE page exécute vraiment. */
-  readonly extrait = `const live = connectShared({ url: "/api/live/realtime" })
+  readonly extrait = `provideNodefony({ url: "/api/live/realtime" })  // main.ts
 
-observeState(live.socket, (état) => this.liveState.set(état))
-observeChannel(live.socket, "live:salon", (m) => …)`;
+readonly liveState = injectNodefonyState()
+injectNodefonyChannel("live:salon", (m) => …)`;
   private timer?: ReturnType<typeof setInterval>;
-  /** Libérations des observateurs — rendues au ngOnDestroy. */
-  #offLive: (() => void)[] = [];
+
+  /**
+   * L'abonnement se prend ICI, et nulle part ailleurs : un constructeur est un
+   * contexte d'injection, donc `DestroyRef` y est atteignable — la liaison rend
+   * l'abonnement au serveur à la destruction du composant, sans une ligne de
+   * `ngOnDestroy`. C'est tout l'écart avec le socle appelé en direct, où la
+   * libération était à tenir à la main.
+   */
+  constructor() {
+    injectNodefonyChannel("live:salon", (m) =>
+      this.messages.update((liste) => [...liste, m as Message].slice(-6)),
+    );
+  }
 
   private async pollApi(): Promise<void> {
     try {
@@ -372,7 +389,7 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
   increment(): void {
     this.count.update((c) => c + 1);
     // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-    live.socket.emit("live:dire", {
+    this.nodefony.emit("live:dire", {
       texte: `clic n°${this.count()}`,
       front: FRONT,
     });
@@ -411,7 +428,7 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
     if (!dit) return;
     // Une notification client → serveur : pas de réponse attendue, c'est le
     // serveur qui rediffuse à tous les abonnés du canal.
-    live.socket.emit("live:dire", { texte: dit, front: FRONT });
+    this.nodefony.emit("live:dire", { texte: dit, front: FRONT });
     this.texte.set("");
   }
 
@@ -424,7 +441,7 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
       `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`,
     );
     const t1 = performance.now();
-    const parLaSocket = await live.socket.request("/angular/api/data");
+    const parLaSocket = await this.nodefony.request("/angular/api/data");
     this.parSocket.set(
       `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`,
     );
@@ -448,36 +465,23 @@ observeChannel(live.socket, "live:salon", (m) => …)`;
   }
 
   basculer(): void {
-    if (this.liveState() === "connected") live.socket.disconnect();
-    else void live.socket.connect();
+    if (this.liveState() === "connected") this.nodefony.disconnect();
+    else void this.nodefony.connect();
   }
 
   ngOnInit(): void {
+    // Il ne reste ici que ce que la PAGE possède vraiment : son sondage HTTP.
+    // Le temps réel — connexion, abonnement, ré-abonnement à la reconnexion,
+    // libération — appartient à la liaison et aux providers.
     void this.pollApi();
     this.timer = setInterval(() => void this.pollApi(), 1000);
-    // Un observateur = un rappel + une libération. L'abonnement serveur est
-    // ref-compté et REJOUÉ à chaque reconnexion : le socle s'en charge.
-    this.#offLive.push(
-      observeState(live.socket, (state) => this.liveState.set(state)),
-    );
-    // Le compteur de trames est rafraîchi par l'échantillonneur du client (1×/s)
-    // — pas par un timer de la page : une horloge de plus pour la même mesure.
-    // UN instantané, pas cinq lectures à la main : `observeSnapshot` le
-    // rafraîchit sur l'échantillonneur DÉJÀ en place (aucune horloge de plus).
-    this.#offLive.push(observeSnapshot(live.socket, (v) => this.vue.set(v)));
-    this.#offLive.push(
-      observeChannel(live.socket, "live:salon", (m) =>
-        this.messages.update((liste) => [...liste, m as Message].slice(-6)),
-      ),
-    );
-    live.start();
   }
 
   ngOnDestroy(): void {
+    // Une seule chose à rendre : l'horloge du sondage HTTP. Les abonnements
+    // temps réel sont rendus par `DestroyRef`, et la socket PARTAGÉE reste
+    // ouverte pour la page — la couper trancherait les requêtes en vol des
+    // autres consommateurs.
     if (this.timer) clearInterval(this.timer);
-    // On libère les observateurs (ce qui rend l'abonnement) — la socket PARTAGÉE,
-    // elle, reste ouverte pour la page.
-    for (const off of this.#offLive) off();
-    this.#offLive = [];
   }
 }

@@ -8,13 +8,15 @@ import {
 } from "@angular/core";
 <% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework — reconnexion, re-subscribe, état :
 // gérés par le client. Aucun `new WebSocket` à la main. Subpath
-// `nodefony/client` : la porte client explicite, résolue à l'identique par
-// Vite, Node et le typecheck.
+// `nodefony/angular` : la liaison IDIOMATIQUE du framework — des fonctions
+// d'injection qui rendent des signals, et libèrent l'abonnement à la
+// destruction du composant. Le fournisseur s'installe dans `main.ts` : c'est
+// là, et là seulement, que l'adresse du serveur est écrite.
 import {
-  connectShared,
-  observeState,
-  observeChannelData,
-} from "nodefony/client";
+  injectNodefony,
+  injectNodefonyChannelData,
+  injectNodefonyState,
+} from "nodefony/angular";
 <% } %>import { NODEFONY_LOGO } from "../brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -41,11 +43,6 @@ interface Evenement {
   ts: number;
   pid: number;
 }
-
-// UNE socket par URL pour toute la page — URL RELATIVE, résolue contre la page
-// (https → wss automatique). `connectShared` porte le cycle de connexion : il
-// est le MÊME pour les quatre fronts et pour la console d'administration.
-const live = connectShared({ url: "/api/live/realtime" });
 <% } %>
 /**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
@@ -260,11 +257,15 @@ export class AppComponent implements OnInit, OnDestroy {
   count = signal(0);
 <% if (it.complete) { %>  authMsg = signal<string | null>(null);
   secureData = signal<SecureData | null>(null);
-  liveState = signal(live.socket.state);
-  dernier = signal<Evenement | null>(null);
+  // Les deux lignes qui suivent s'abonnent ET rendent l'abonnement à la
+  // destruction du composant — sans une ligne de `ngOnDestroy`. L'abonnement
+  // serveur est ref-compté et rejoué à chaque reconnexion ; ces règles vivent
+  // dans le socle du framework, identiques en React, Vue, Angular et Svelte.
+  liveState = injectNodefonyState();
+  dernier = injectNodefonyChannelData<Evenement>("live:events");
   pingMs = signal<number | null>(null);
-  // Disposers des listeners locaux — rendus au ngOnDestroy (HMR détruit le composant).
-  #offLive: (() => void)[] = [];
+  /** La socket elle-même — pour ce qu'on lui DIT (`emit`, `request`). */
+  #live = injectNodefony();
 <% } else { %>  wsLog = signal<string[]>([]);
   #ws: WebSocket | null = null;
 <% } %>  stringify = (v: unknown) => JSON.stringify(v, null, 2);
@@ -335,20 +336,10 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.refreshHello();
 <% if (it.complete) { %>
-    // Un observateur = un rappel + une libération. L'abonnement serveur est
-    // ref-compté et REJOUÉ à chaque (re)connexion, `start()` est idempotent, et
-    // rien ne coupe la socket au ngOnDestroy : elle appartient à la PAGE. Ces
-    // règles vivent dans `nodefony/client`, pas ici — c'est ce qui les garde
-    // identiques en React, Vue, Angular et Svelte.
-    this.#offLive.push(
-      observeState(live.socket, (state) => this.liveState.set(state)),
-    );
-    this.#offLive.push(
-      observeChannelData<Evenement>(live.socket, "live:events", (e) =>
-        this.dernier.set(e),
-      ),
-    );
-    live.start();
+    // Rien à câbler ici : l'abonnement a été pris à la construction du
+    // composant, et la connexion est ouverte par `provideNodefony` (main.ts),
+    // HORS ZONE — sans quoi, avec `zone.js`, chaque trame reçue relancerait une
+    // détection de changements sur toute l'application.
 <% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
@@ -367,10 +358,9 @@ export class AppComponent implements OnInit, OnDestroy {
 <% } %>  }
 
   ngOnDestroy() {
-<% if (it.complete) { %>    // HMR/full-reload détruit le composant : on libère les observateurs, ce
-    // qui rend aussi l'abonnement — la socket PARTAGÉE reste ouverte.
-    for (const off of this.#offLive) off();
-    this.#offLive = [];
+<% if (it.complete) { %>    // HMR/full-reload détruit le composant : la liaison rend l'abonnement
+    // toute seule (`DestroyRef`). La socket PARTAGÉE, elle, reste ouverte — la
+    // couper trancherait les requêtes en vol des autres consommateurs.
 <% } else { %>    // HMR/full-reload détruit le composant : fermer une socket encore en
     // CONNECTING lève un warning navigateur (« closed before the connection
     // is established ») — on attend l'open pour fermer proprement.
@@ -386,7 +376,7 @@ export class AppComponent implements OnInit, OnDestroy {
 <% if (it.complete) { %>
   async doPing() {
     const t0 = performance.now();
-    await live.socket.request("live:ping", {});
+    await this.#live.request("live:ping", {});
     this.pingMs.set(Math.round(performance.now() - t0));
   }
 
@@ -396,7 +386,7 @@ export class AppComponent implements OnInit, OnDestroy {
    * l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
    */
   doDire() {
-    live.socket.emit("live:dire", {
+    this.#live.emit("live:dire", {
       texte: `bonjour de la page (${Date.now() % 1000})`,
     });
   }
