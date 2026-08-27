@@ -2,10 +2,12 @@
 name: nodefony-session
 description: >
   Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) :
-  reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de
-  reprise. Le détail de chaque mode est dans le corps.
-  Déclencheurs : "reprends", "on en était où", "dernière session", "prépare le contexte",
-  "session sur <module>", "fin de session", "retex", "consolide les retex".
+  reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur
+  un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture
+  des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps.
+  Déclencheurs : "reprends", "on en était où", "dernière session", "où en est la publication",
+  "quels tickets restent", "prépare le contexte", "session sur <module>", "fin de session",
+  "retex", "consolide les retex".
 ---
 
 # nodefony-session
@@ -69,7 +71,46 @@ git log -6 --format="%h %ci %s"
 > user, et proposer de réécrire le `_state`. Ne JAMAIS restituer la « Priorité 1 » d'un `_state` que
 > les commits contredisent.
 
-## 3. Mini-état migration (SI la prochaine étape cible une phase P<n>)
+## 3. Avancement RÉEL — les tickets GitHub (le pilotage a QUITTÉ le plan)
+
+Depuis que la publication est pilotée par des issues, **c'est le jalon qui dit où on en est** — pas
+`MIGRATION_STATUS.md`, pas le `_state`, qui sont tous deux écrits à la main et vieillissent entre
+deux sessions. Un ticket, lui, a un état que personne n'oublie de changer.
+
+**Commencer par la joignabilité — et l'ÉNONCER si elle manque.** GitHub tombe, un jeton expire, on
+travaille hors ligne : conclure « rien n'a avancé » depuis un `gh` muet serait un faux verdict.
+
+```bash
+if gh api rate_limit --jq '.rate.remaining' >/dev/null 2>&1; then
+  echo "✅ GitHub joignable"
+  gh api repos/:owner/:repo/milestones \
+    --jq '.[] | "\(.title) — \(.open_issues) ouverts / \(.closed_issues) fermés — échéance \(.due_on[0:10] // "aucune")"'
+  echo "--- fermés depuis la dernière session ---"
+  gh issue list --state closed --limit 5 --json number,title,closedAt \
+    --jq '.[] | "#\(.number) \(.closedAt[0:10]) \(.title)"'
+  echo "--- ce qui vient, dans l'ordre du tableau de bord ---"
+  gh project item-list 2 --owner nodefony --limit 80 --format json \
+    | jq -r '[.items[] | select(.status != "Done" and (.milestone.title // "") == "10.0.0")]
+             | sort_by(.ordre // 999) | .[:5] | .[]
+             | "  \(.ordre // "-")  \(.["priorité"] // "-")  \(.jours // "-") j  #\(.content.number)  \(.content.title)"'
+else
+  echo "⚠️ GitHub INJOIGNABLE — avancement NON vérifié, ne pas conclure depuis le seul _state"
+fi
+```
+
+> 🔴 **Lire `.content.title`, JAMAIS `.title`.** Le champ `title` d'un item de tableau de bord est
+> une copie dérivée qui reste sur l'ancien libellé : mesuré, **38 items sur 38** portaient un titre
+> différent de leur issue. Restituer ce champ, c'est annoncer au user des tickets qu'il a fait
+> renommer. L'API GraphQL, elle, rend le titre courant — le tableau de bord affiché est à jour, seul
+> ce champ du client en ligne de commande ment.
+
+**Ce qu'on en tire pour la restitution** : le jalon donne le reste-à-faire, l'ordre donne LA
+prochaine chose à prendre, et les tickets fermés depuis la veille disent ce que le `_state` n'a
+peut-être pas enregistré. **Si l'ordre du tableau de bord et la « Priorité 1 » du `_state` se
+contredisent, le ticket gagne** — même raison que le garde-fou du §2 : ce qui est écrit à la main
+se périme, ce qui est un état ne se périme pas.
+
+## 4. Mini-état migration (SI la prochaine étape cible une phase P<n>)
 
 Composer avec le skill **`nodefony-migration-audit`, mode `tableau` / variante A uniquement** :
 barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHAINE ÉTAPE**
@@ -78,16 +119,19 @@ barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHA
 > Audit réel vérifié dans le code : `/migration-audit` ou dire « audit migration ».
 > Si la prochaine étape ne touche aucune phase (chore, fix, doc, skill) → **sauter** ce mini-état.
 
-## 4. Restituer (≤ 30 lignes)
+## 5. Restituer (≤ 30 lignes)
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
 3. **➡️ Prochaine étape** : la « Priorité 1 » du Reste — **SAUF si le garde-fou §2 a détecté un
    `_state` périmé** : alors la prochaine étape vient du **dernier commit + son kit**, et on dit au
    user que le `_state` était périmé.
-4. **Mini-état migration** (barres + encadré, via `nodefony-migration-audit`) — si phase concernée
-5. **Branche git** + non commités (alerte si dist périmé probable)
-6. **Question** : « On reprend ça, ou autre chose ? »
+4. **Avancement du jalon** : `N ouverts / M fermés`, échéance, et les 2-3 prochains tickets dans
+   l'ordre du tableau de bord — ou, si GitHub n'a pas répondu, la phrase « avancement non vérifié,
+   GitHub injoignable ». Ne jamais présenter un avancement déduit du seul `_state`.
+5. **Mini-état migration** (barres + encadré, via `nodefony-migration-audit`) — si phase concernée
+6. **Branche git** + non commités (alerte si dist périmé probable)
+7. **Question** : « On reprend ça, ou autre chose ? »
 
 > Aucun `_state.md` trouvé → fallback : dernier retex `docs/session-retros/` + phase active.
 > Si la prochaine étape cible un module précis → enchaîner sur le **mode START** (`start <module>`)
@@ -196,7 +240,7 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 RETEX = RETour d'EXpérience. **But réel** : amélioration continue de l'IA sur Nodefony — PAS un log
 de tokens. Cf `feedback_session_retros_purpose`.
 
-## ⚡ END courant = 5 étapes LÉGÈRES (ne PAS faire les stats lourdes)
+## ⚡ END courant = 6 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 
 Le END par défaut doit être **rapide** (reproche user 2026-05-31 : END trop lourd/pénible). Il fait
 SEULEMENT :
@@ -222,8 +266,12 @@ SEULEMENT :
 
 2. **Retex brut court** `docs/session-retros/<date>-<id>.md` : focus + Fait + frictions + commits.
    **SANS les tableaux de stats** (tool_use/coût € → déplacés en CONSOLIDATE). ~30 lignes.
-3. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
-4. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
+3. **Refermer les tickets que la session a soldés** — un ticket resté ouvert fait recompter un
+   travail déjà fait à la reprise suivante, et fausse le seul compteur d'avancement qui ne se
+   périme pas. `gh issue close <n> --comment "<commit> — <ce qui est fini, observable>"`. Un
+   ticket seulement AVANCÉ reçoit un commentaire, pas une fermeture.
+4. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
+5. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 
 > **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
 > coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex

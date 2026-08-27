@@ -4,20 +4,20 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-08-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
 
 # `nodefony-session`
 
-> Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise.
+> Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-session**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD).
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **0/1** recommandé (SHOULD).
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,17 +27,17 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 454 lignes |
-| Coût d'activation | ~5 005 tokens (le corps est chargé à l'invocation) |
-| Description | 406 / 1024 caractères |
-| Déclencheurs | 8 |
+| Corps | 500 lignes |
+| Coût d'activation | ~5 804 tokens (le corps est chargé à l'invocation) |
+| Description | 592 / 1024 caractères |
+| Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps.
+Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps.
 
 ## Skills voisins
 
@@ -49,15 +49,16 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`reprends` · `on en était où` · `dernière session` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex`
+`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex`
 
 ## Ce que contient le corps
 
 - Routage du mode
 - 1. Dernière session enregistrée + kit éventuel
 - 2. Phase active + git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
-- 3. Mini-état migration (SI la prochaine étape cible une phase P<n>)
-- 4. Restituer (≤ 30 lignes)
+- 3. Avancement RÉEL — les tickets GitHub (le pilotage a QUITTÉ le plan)
+- 4. Mini-état migration (SI la prochaine étape cible une phase P<n>)
+- 5. Restituer (≤ 30 lignes)
 - Usage
 - 1. Résolution dynamique du chemin (PAS de table hardcodée — elle se périme)
 - 2. Mode global (sans argument)
@@ -67,7 +68,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 6. Mode module — symboles exportés (`.ai/symbols.json`, O(1))
 - 7. Sortie finale (récap synthétique, ≤ 40 lignes)
 - Anti-patterns START
-- ⚡ END courant = 5 étapes LÉGÈRES (ne PAS faire les stats lourdes)
+- ⚡ END courant = 6 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 - Modèle SAS (pourquoi RETEX.md existe)
 - Boîte à outils CONSOLIDATE — déportée
 - 9. Sauvegarde OBLIGATOIRE (auto-save)
@@ -101,13 +102,13 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 406 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 592 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 454 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 500 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
