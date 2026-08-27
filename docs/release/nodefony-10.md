@@ -1,16 +1,18 @@
 ---
 title: Release Nodefony 10 — plan & décisions
 lang: fr
-status: DISCUSSION (historisation — on n'exécute PAS aujourd'hui)
+status: ACTIF — plan d'exécution de la 10.0.0 (interne ; le reste-à-faire vit dans le jalon 10.0.0)
 date: 2026-05-24
 audience: Lead Architect / mainteneur
 ---
 
 # Release Nodefony 10 — plan & décisions
 
-> **Doc VIVANT.** On ne release **pas** aujourd'hui : on **historise** les décisions au fil des
-> discussions pour les exécuter plus tard. Chaque section « Décisions » est figée une fois tranchée ;
-> les « Questions ouvertes » descendent dans « Décisions » quand on choisit.
+> **Doc VIVANT — et la publication est ENGAGÉE** : échéance **15 novembre 2026**, périmètre complet
+> (§10.9). Cette page porte les **décisions** et le **pourquoi** ; le **reste-à-faire**, lui, vit
+> dans le jalon [`10.0.0`](https://github.com/nodefony/nodefony-core/milestone/1) et son tableau de
+> bord — un ticket a un état que personne n'oublie de changer, une liste écrite à la main se périme.
+> Chaque section « Décisions » est figée une fois tranchée.
 
 ---
 
@@ -18,7 +20,10 @@ audience: Lead Architect / mainteneur
 
 - **Ne plus maintenir N packages npm indépendants** → le versioning croisé de N packages est l'enfer
   vécu sur les versions précédentes.
-- La release = **UNE version unique** ; le **build embarque les `dist/`** de tous les packages.
+- La release = **une seule version pour tous les paquets**, publiée d'un bloc (modèle N-paquets
+  verrouillés, tranché le 2026-07-02 — §6bis). ⚠️ La forme d'origine « une distribution unique dont
+  le build embarque les `dist/` » a été **abandonnée** ; c'est le verrouillage des versions, pas la
+  fusion des paquets, qui répond à la douleur ci-dessus.
 - Un dev qui crée une **app** part d'un **repo « dev-ready »** : la **même DX que ce repo de dev**
   (start.sh, build, Studio, HMR, `modules/`, config) **mais sans le source du framework** — il
   **consomme la distribution embarquée**.
@@ -415,27 +420,26 @@ jobs:
 
 ## 8. Critères de release 10.0.0 (Definition of Done)
 
-> ⚠️ **Ce tableau a été CORRIGÉ par les décisions du 2026-08-27 — voir §10.9.** En résumé :
-> `framework:*` sort du DoD (doublon avec `nodefony inspect`) · la ligne ORM « seul sqlite +
-> idempotence-pg faits » est périmée (S1→S4 livrent les 8 briques × 3 dialectes ; reste S5, dégelée
-> et dans le périmètre) · le bloqueur P6 est **levé** au dashboard · preset Svelte et devkit S1→S4
-> sont livrés · **entrent** au périmètre les bindings front Vue/Angular/Svelte, mongoose complet et
-> la symétrie des drivers. **Échéance : 15 novembre 2026, périmètre complet.**
-
 > **Gate = migration complète SAUF IA + média/SIP ; cloud-native en BASELINE.**
 > Cadrage : 10.0.0 = **framework fullstack complet** (web + realtime + ORM + sécurité +
 > cloud-native baseline). L'IA et le télécom (média/SIP) arrivent en **10.x / 11**.
+> **Échéance : 15 novembre 2026, périmètre complet** — la date découle du périmètre, jamais
+> l'inverse (décisions du 2026-08-27, §10.9). Le critère qui tranche ce qui entre : **un défaut
+> structurel contraint durablement une fois publié** — une forme d'API figée, une dépendance gravée
+> dans un paquet, ou un pan manquant du modèle.
 
 ### ✅ INCLUS — doivent être prêts pour 10.0.0
 
 <!-- prettier-ignore -->
 | Domaine | Phase | Gate précis |
 | --- | --- | --- |
-| **Sécurité** | P6 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.** |
-| **ORM** | P5/P7 | **Core stable** (✅) + **Drizzle production-ready = multi-dialecte sqlite/pg/mysql** (🔶 cf §6bis-A : seul sqlite + idempotence-pg faits ; pg/mysql repo générique à porter+prouver ; **comparatif ORM froid ✅ Drizzle confirmé** `a370b5a1`). Adapter Mongoose (NoSQL) = **acceptable en 10.x** (ne bloque pas). |
+| **Sécurité** | P6 | ✅ **Cœur MVP LIVRÉ — bloqueur levé** (firewall, auth, JWT, RBAC `@IsGranted`) : le tableau de bord le déclare (`MIGRATION_STATUS.md:563`). Reste le durcissement et les niches, **hors périmètre**. |
+| **ORM** | P5/P7 | **Core stable** (✅) + **Drizzle multi-dialecte sqlite/pg/mysql ✅ LIVRÉ** — les vagues S1→S4 portent les 8 briques sur les 3 dialectes (**comparatif ORM froid ✅ Drizzle confirmé** `a370b5a1`). **Reste : les migrations de schéma en production** (S5, #17), **dégelées et dans le périmètre** — un framework qui livre des entités sans voie de migration en production a un trou dans son modèle, et `drizzle-kit` est un contournement, pas une réponse. **Adapter Mongoose = DÛ COMPLET** (#30) : « une app doit tourner sans drizzle » est acté, donc 4 briques sur 7 est un chemin durable incomplet, pas une couverture adaptée. |
 | **Cloud-native** | P16 (**baseline**) | ✅ **Dockerfile livré** (gabarit de `create app`, prouvé par `smoke-docker.sh` sur une app GÉNÉRÉE) + **graceful shutdown complet** (drain 3 serveurs, probes `/livez` `/readyz` natives, bascule readiness au SIGTERM, `shutdownDeadline` kernel) — Phase 0.7. Config par env (12-factor) : `defineEnv` + `NF__*` déjà en place. **PAS** le P16 complet (HPA, opérateurs k8s, secret managers = **10.x**). |
-| **Reste** | P10/P11/P13/P14 | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend. |
-| **Preset Svelte** | P14 — **en DERNIER** | Ajouter `svelte5-vite` aux presets de `@nodefony/frontend` (aujourd'hui `react19`, `vue3`, `angular`, `vanilla`) + branchement `nodefony create module --frontend svelte`. **Placé volontairement juste avant la release** : coût faible (le builder Vite est agnostique, `@sveltejs/vite-plugin-svelte` est un plugin standard) et **aucune dépendance amont** — le faire tôt ne débloque rien, le faire en dernier le fait sortir sur la version définitive des presets. **Studio reste React 19 + Mantine**, mais pas faute d'écosystème : Svelte a des kits sérieux (Carbon Components Svelte côté enterprise/DataTable, shadcn-svelte sur Bits UI, Skeleton v3, Flowbite Svelte), et notre grille vient déjà de **TanStack Table headless** — qui a un adaptateur Svelte. La vraie raison est le coût de réécriture d'une app admin qui marche, pas une limite du framework. |
+| **Reste** | P10/P11/P13/P14 | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend. ⚠️ Les commandes `framework:*` **ne font PAS partie** du périmètre : `nodefony inspect` couvre déjà `routes`, `modules`, `services`, `config`, `stores`, `entities`, `graph` et `status` (`src/nodefony/src/kernel/commands/InspectCommand.ts:87`) — une commande `framework:routes:list` serait une **seconde implémentation de la même règle**. Côté ligne de commande il ne reste que `security:user:password` (#21). |
+| **Preset Svelte** | P14 | ✅ **LIVRÉ** — `svelte5-vite` rejoint `react19`, `vue3`, `angular` et `vanilla` dans les presets de `@nodefony/frontend`, et `nodefony create module --frontend svelte` est branché. **Studio reste React 19 + Mantine** : la raison est le coût de réécriture d'une app admin qui marche, pas une limite de l'écosystème Svelte (Carbon Components Svelte, shadcn-svelte, Skeleton v3, Flowbite Svelte — et notre grille vient déjà de **TanStack Table headless**, qui a un adaptateur Svelte). |
+| **Liaisons temps réel des quatre fronts** | P13/P14 | Le framework **annonce quatre fronts** et n'en équipe qu'un : 12 hooks + Provider sous `nodefony/react`, **rien** pour Vue 3, Angular et Svelte 5, où il faut câbler et nettoyer `RealtimeClient.shared()` à la main. Une promesse non tenue est structurelle → socle agnostique (#36), puis les composables Vue (#37), les services Angular (#38) et les runes Svelte (#39). |
+| **Symétrie des pilotes de base de données** | P7 | Les trois dialectes en **dépendance de pair optionnelle + import dynamique** (#19). Seul poste qu'**aucune version suivante ne répare** : `better-sqlite3` en dépendance dure d'un `@nodefony/drizzle` publié ne se retire plus sans changer l'arbre d'installation de tous ceux en `^10.0.0`. ⚠️ **Vite est dans la même dette** côté `@nodefony/frontend` — dépendance de pair que rien ne rend optionnelle à la source. |
 
 ### ✅ INCLUS aussi — socle AGENT-READY (devkit, ajouté 2026-07-24)
 
@@ -447,7 +451,7 @@ jobs:
 <!-- prettier-ignore -->
 | Domaine | Contenu | Gate précis |
 | --- | --- | --- |
-| **Scaffold v2** | vagues `devkit S1`→`S4` (design VALIDÉ 2026-07-24, cahier des charges = mémoire IA `project_scaffold_v2_design_kit`) : mécanique sûre (refus AVANT écriture, dry-run, mode machine `--describe-json`/`--answers-json`), app agent-ready (`AGENTS.md` généré + zone `app-notes`, accueil `/`, tests francs), exemples exemplaires (5 saveurs controller, vitrines sur façade client), entity bout-en-bout (pagination `IPage`+tri stable, PATCH, relations réelles, 409 unique, grammaire enum/défauts, test HTTP généré, contexte projet par dialecte) | banc de découvrabilité SCRIPTÉ : app témoin `--link` + 3 tâches (« CRUD produit », « protège une route », « canal temps réel ») — compte les endroits où l'agent DEVINE ; `create.test.ts` étendu (AGENTS.md, non-écrasement) |
+| **Scaffold v2** | ✅ **LIVRÉ** — vagues `devkit S1`→`S4` (design VALIDÉ 2026-07-24, cahier des charges = mémoire IA `project_scaffold_v2_design_kit`) : mécanique sûre (refus AVANT écriture, dry-run, mode machine `--describe-json`/`--answers-json`), app agent-ready (`AGENTS.md` généré + zone `app-notes`, accueil `/`, tests francs), exemples exemplaires (5 saveurs controller, vitrines sur façade client), entity bout-en-bout (pagination `IPage`+tri stable, PATCH, relations réelles, 409 unique, grammaire enum/défauts, test HTTP généré, contexte projet par dialecte) | banc de découvrabilité SCRIPTÉ : app témoin `--link` + 3 tâches (« CRUD produit », « protège une route », « canal temps réel ») — compte les endroits où l'agent DEVINE ; `create.test.ts` étendu (AGENTS.md, non-écrasement) |
 | **Module `@nodefony/devkit`** | nom TRANCHÉ (pas de `ai`/`agent` dans le nom — la collision avec P12 est évitée par construction ; commandes IA namespacées `ai:*`) ; `policy:"dev"` = coût nul en prod | — (lots 2+4+5 du devkit = 10.1) |
 | **L'application possède son entité `User`** | volet A du kit `project_user_entity_roles_kit` (GO user 2026-07-25). Symfony, Laravel, Django et Rails donnent tous la table `User` à l'application ; ici c'est l'adapter ORM qui la possède, et `create entity User` la refuse depuis 2026-07-25 (sinon le boot casse sur « colonne inconnue ») — donc un utilisateur métier avec des champs en plus n'a **aucune voie de première classe**. À livrer : le générateur (`create entity User --extends framework`), la spec de colonnes DÉRIVABLE (recopier la table la ferait diverger au premier changement du framework), la vérification AU BOOT (colonne du contrat absente → message franc, pas une erreur SQL à la première connexion), les deux adapters (drizzle + mongoose), et l'émission des FOREIGN KEY (décision RÉVISÉE 2026-07-25 : PRAGMA SQLite + tri topologique + cycle annoncé — ne PAS les émettre crée la divergence dev/prod, la production les posera par ses migrations). **Pourquoi dans 10.0.0 et pas 10.1** : même raison que le reste de ce tableau — le code d'une application est FIGÉ à sa création, un correctif ultérieur ne réparerait aucune app née en 10.0.0. Le volet B (source de hiérarchie de rôles pluggable) reste en 10.1 : la config statique demeure le défaut, personne n'est cassé. | une app témoin qui POSSÈDE son `User` avec deux champs métier démarre, se connecte, et les écrans Sessions/Users de Studio répondent encore ; une app dont l'entité OUBLIE une colonne du contrat échoue AU BOOT avec le nom de la colonne et de son lecteur ; chaque garde éprouvée par sa preuve négative (débrancher, vérifier que quelque chose tombe) |
 | **Pipeline pack au service du devkit** | symbols shippés + résolution corrigée (10.1), TSDoc préservé dans `dist/` (ne jamais minifier), `files` = `dist`+`docs` partout, smoke test ÉTENDU en banc de découvrabilité | une régression de découvrabilité se détecte AVANT publication |
@@ -746,10 +750,9 @@ run, lui, reste consultable sans le tag.
 
 ### 10.9 Périmètre et échéance — tranchés le 2026-08-27
 
-> ⚠️ **Cette section REMPLACE l'ancienne liste « ce qui bloque encore », périmée sur 4 de ses
-> 5 items** (elle annonçait bloquants le preset Svelte et devkit S1→S4, tous deux livrés ; deux
-> rouges CI dont les workflows n'existent plus ; et « la CI n'a jamais tourné sur un runner réel »,
-> faux depuis). Un document de pilotage qui ment envoie refaire du travail fini.
+> **Un document de pilotage qui ment envoie refaire du travail fini.** La liste « ce qui bloque
+> encore » qui vivait ici a été retirée pour cette raison : elle annonçait bloquants le preset
+> Svelte et les vagues `devkit S1→S4`, tous deux livrés.
 
 **Échéance : 15 novembre 2026. Périmètre complet.** La date découle du périmètre, jamais l'inverse.
 
@@ -763,33 +766,38 @@ d'API figée, une dépendance gravée dans un paquet, un pan manquant du modèle
 parapluies portant 20 sous-tickets, chacun ancré `fichier:ligne`. Les arbitrages tranchés sont dans
 [#32](https://github.com/nodefony/nodefony-core/issues/32).
 
-**Corrections au §8 (Definition of Done) apportées par ces décisions** :
+**Ce que ces décisions ont changé au §8** — elles y sont **fondues**, pas annotées : le tableau des
+critères de sortie dit la vérité courante dans ses propres cellules, et ce bloc ne garde que le
+_pourquoi_, qui ne se périme pas.
 
-- **`framework:*` SORT du DoD** — `nodefony inspect` couvre déjà `routes`, `modules`, `services`,
-  `config`, `stores`, `entities`, `graph`, `status` (`src/nodefony/src/kernel/commands/InspectCommand.ts:87`).
-  Une commande `framework:routes:list` serait une seconde implémentation de la même règle.
-- **ORM** : la ligne « seul sqlite + idempotence-pg faits » est PÉRIMÉE — S1→S4 livrent les 8 briques
-  sur les 3 dialectes. Reste **S5 DDL prod**, dégelée et **dans le périmètre** : un framework qui
-  livre des entités sans voie de migration en production a un trou dans son modèle.
-- **Sécurité P6** : le dashboard déclare le **bloqueur MVP LEVÉ** (`MIGRATION_STATUS.md:563`, P6 à
-  87 %). Le DoD annonçait encore un bloqueur ouvert.
-- **Preset Svelte et devkit S1→S4** : livrés.
-- **ENTRENT au périmètre** : les bindings front Vue, Angular et Svelte (le framework annonce quatre
-  fronts et n'en équipe qu'un), mongoose complet (« une app doit tourner sans drizzle » est acté),
-  et la symétrie des drivers SQL (seul poste irrattrapable au sens strict).
+- **Les commandes `framework:*` sortent du périmètre** — `nodefony inspect` couvre déjà la même
+  règle ; une seconde implémentation aurait divergé de la première au premier changement.
+- **Les migrations de schéma en production restent dues** (S5, #17) : un framework qui livre des
+  entités sans voie de migration a un trou dans son modèle, et `drizzle-kit` est un contournement.
+- **mongoose est dû complet** (#30) — « une app doit tourner sans drizzle » est acté, donc invoquer
+  la « couverture adaptée » pour une brique durable manquante, c'est habiller un trou.
+- **Les liaisons temps réel des quatre fronts entrent** (#36 → #39) : une promesse affichée et non
+  tenue est structurelle, elle ne se répare pas par une note de version.
+- **La symétrie des pilotes entre** (#19) : une dépendance dure dans un paquet publié ne se retire
+  plus sans casser les installations existantes — le seul poste irrattrapable au sens strict.
 
 ---
 
-### 10.10 Ancienne section — ce que ce plan NE couvrait PAS
+### 10.10 Ce que ce plan ne couvre PAS
 
-> Séquence R0→R6 : **R0 ✅ · R1 ✅ · R2 ✅ · R3 ✅ · R4 ✅ · R5 ✅ · R6 ⬜** (gestes GitHub hors
-> dépôt). Le DoD du §8, lui, reste ouvert — voir ci-dessous.
+> Séquence R0→R6 : **R0 ✅ · R1 ✅ · R2 ✅ · R3 ✅ · R4 ✅ · R5 ✅ · R6 ⬜** — les gestes GitHub
+> hors dépôt, portés par [#27](https://github.com/nodefony/nodefony-core/issues/27).
 
-Le DoD du §8 n'est pas atteint : **ORM multi-dialecte S5** (DDL prod) · **preset Svelte** (figé
-comme dernier geste avant release) · **devkit S1→S4** + volet A « l'application possède son
-`User` » · les **rouges CI jamais diagnostiqués** (« Tests intégration », « Filet CLI (windows) ») ·
-et le fait que **la CI n'a jamais tourné sur un runner réel**, aucun run complet des 16 tâches
-n'ayant eu lieu.
+**Le reste-à-faire a quitté ce fichier** : il vit dans le jalon
+[`10.0.0`](https://github.com/nodefony/nodefony-core/milestone/1) et son tableau de bord, où chaque
+poste a un état que personne n'oublie de changer — ce qu'une liste écrite à la main ne garantit
+jamais. Ce que le §8 laisse ouvert y est nommé par son ticket : migrations de schéma en production
+(#17) · entité `User` à l'application (#18) · symétrie des pilotes (#19) · liaisons des trois fronts
+restants (#36 → #39) · mongoose complet (#30) · publication npm (#27).
+
+**Hors périmètre, et assumé** : les modules IA (P12), le média WebRTC et la couche client SIP (P15),
+et le P16 complet (mise à l'échelle automatique, opérateurs Kubernetes, gestionnaires de secrets) —
+la baseline cloud-native suffit à la 10.0.0.
 
 ---
 
