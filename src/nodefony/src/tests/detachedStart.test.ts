@@ -390,6 +390,15 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     }
   });
 
+  // Plafond PROPRE, plus large que les 30 s du fichier de configuration.
+  // Ce cas ne mesure aucune durée : il attend qu'une readiness REFUSE de
+  // conclure. Nominalement ~2 s (`waitSec: 2`), mais il fabrique un décor à
+  // trois process — deux squatteurs et un enfant détaché — et, dans la passe
+  // complète, ces `spawn` entrent en concurrence avec 138 autres fichiers. Le
+  // cas est alors sorti en `Test timed out in 30000ms` alors qu'il passe en
+  // 20 s isolé, fichier entier compris : c'est la charge qui était mesurée,
+  // pas le code. Même raisonnement que le relèvement de 5 → 30 s du plafond
+  // global (`vitest.config.ts:34`) — un vrai blocage reste attrapé bien avant.
   it("ports tenus par un TIERS : le child n'écoute jamais → PAS de faux READY", async () => {
     // Le piège du banc devkit : un AUTRE serveur occupe les ports sondés. Une
     // readiness qui ne regarde que « ça écoute » déclare prêt — et tout ce qui
@@ -427,7 +436,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
-  });
+  }, 90_000);
 
   it("glissement de ports : le décalage config→effectif est RAPPORTÉ", async () => {
     // `portPolicy: "auto"` : les ports voulus sont pris, l'app glisse ailleurs.

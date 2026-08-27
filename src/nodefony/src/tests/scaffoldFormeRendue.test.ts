@@ -152,6 +152,13 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
     rmSync(path.join(racine, "cobaye-forme.ts"));
   });
 
+  // Plafond PROPRE, plus large que les 30 s du fichier de configuration : ce cas
+  // lance le formateur en SOUS-PROCESS une fois par fichier contrôlé, et il ne
+  // mesure aucune durée. Isolé, le fichier entier passe en ~5 s ; dans la passe
+  // complète, ce seul cas est sorti en `Test timed out in 30000ms`, les `spawn`
+  // du formateur entrant en concurrence avec 138 autres fichiers. Relever le
+  // plafond GLOBAL masquerait de vrais blocages ailleurs — c'est donc ici que
+  // la tolérance se pose, à l'endroit qui la justifie.
   it("l'application générée est elle-même conforme", () => {
     const fautifs: string[] = [];
     for (const f of ["index.ts", "nodefony.config.ts", "env.ts"]) {
@@ -167,7 +174,7 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
       if (verdict) fautifs.push(`${f} — ${verdict}`);
     }
     assert.deepEqual(fautifs, [], "fichiers d'application non conformes");
-  });
+  }, 90_000);
 
   for (const { type, nom } of TYPES) {
     it(`create ${type} rend du code que le formateur du projet accepte`, () => {
