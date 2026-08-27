@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-27T13:45:11.504Z",
+  "generatedAt": "2026-08-27T15:22:47.555Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 4,
+      "closed": 6,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 39,
+      "open": 46,
       "title": "10.0.0"
     }
   ],
@@ -94,8 +94,8 @@
       "number": 58,
       "title": "chore(framework): trancher la validation du corps des requêtes",
       "url": "https://github.com/nodefony/nodefony-core/issues/58",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -927,6 +927,134 @@
       "labels": [
         "10.1",
         "arbitrage"
+      ]
+    },
+    {
+      "number": 82,
+      "title": "fix(build): rétablir le contrôle des dépendances avalées par le bundler",
+      "url": "https://github.com/nodefony/nodefony-core/issues/82",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": null,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 83,
+      "title": "feat(notification): doter le framework de l'envoi de messages sortants",
+      "url": "https://github.com/nodefony/nodefony-core/issues/83",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": null,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 84,
+      "title": "feat(mail): créer le module et son service d'envoi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/84",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 85,
+      "title": "feat(mail): composer un courriel depuis un gabarit",
+      "url": "https://github.com/nodefony/nodefony-core/issues/85",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 86,
+      "title": "feat(mail): envoyer un courriel en ligne de commande",
+      "url": "https://github.com/nodefony/nodefony-core/issues/86",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 87,
+      "title": "test(mail): éprouver l'envoi contre un vrai serveur de test",
+      "url": "https://github.com/nodefony/nodefony-core/issues/87",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 88,
+      "title": "docs(mail): documenter la configuration et le premier envoi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/88",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 89,
+      "title": "docs(notification): faire la veille des canaux de communication attendus",
+      "url": "https://github.com/nodefony/nodefony-core/issues/89",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": null,
+      "labels": [
+        "10.0.0",
+        "arbitrage"
+      ]
+    },
+    {
+      "number": 90,
+      "title": "test(devkit): auditer le module généré comme l'application générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/90",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": null,
+      "labels": [
+        "10.0.0"
       ]
     }
   ]

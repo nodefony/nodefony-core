@@ -273,8 +273,11 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 >
 > - **5 CONFIRMÉS → montés au tableau des dettes ci-dessus** : `NF__HTTP__TRUSTPROXY=1` cassait le
 >   boot (✅ soldé) · `ClusterManager` arrache les handlers tiers · table de routes `static` globale ·
->   `@Body()` injecte le payload brut sans validation de schéma (`routerDecorators.ts:1178` —
->   design courant, la validation d'entrée reste un chantier) · `@inject` lit `getMetadata`
+>   `@Body()` injecte le payload brut sans validation de schéma (`routerDecorators.ts:1209` —
+>   **TRANCHÉ #58** : la validation vit dans le service, hooks `beforeCreate`/`beforeUpdate`
+>   d'`AbstractCrudService`, `await`és donc ouverts à l'asynchrone et communs à REST, socket et
+>   CLI ; le décorateur n'accueillera pas de schéma — la résolution des paramètres est synchrone,
+>   et la promettre asynchrone taxerait toute requête décorée) · `@inject` lit `getMetadata`
 >   (hérité) et non `getOwnMetadata` (`injector.ts:271` — lecture héritée volontaire ou non, à
 >   trancher avec le palier TS7/décorateurs).
 > - **2 RÉSOLUS depuis** : fan-out realtime (mutualisé — 1 sérialisation pour N abonnés,

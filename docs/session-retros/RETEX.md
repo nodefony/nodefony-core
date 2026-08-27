@@ -52,6 +52,12 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-27] **`gh issue create` fait la MOITIÉ du travail et rend un succès.** L'issue est
+  créée, elle n'entre PAS au tableau de bord — donc dans aucun compteur d'avancement, ni ordre de
+  travail, ni reste-à-faire, ni empreinte hors ligne. Le ticket ouvert ainsi est resté invisible du
+  pilotage jusqu'à un contrôle manuel. Un oubli qui ne crie pas coûte plus cher qu'une erreur : on
+  ne le cherche pas.
+
 - **Dégraisser un fichier casse ses LECTEURS, et aucun ne se plaint.** Après avoir sorti 113
   lignes de `MIGRATION_STATUS.md` : le comptage du skill d'audit rendait `✅=0` (il lisait le seul
   fichier vivant), une ancre `fichier:ligne` écrite deux heures plus tôt pointait une phrase sans
@@ -157,6 +163,13 @@
   gabarit d'app générée, sinon chaque app naît avec ces artefacts. `[1× — 08-23c]`
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
+
+- [1× — 08-27] **`-c core.hooksPath=.husky` a désarmé les hooks pendant deux commits, en silence.**
+  Le dépôt utilise `.githooks` ; pointer un dossier VIDE ne produit aucune erreur — git n'exécute
+  simplement rien. Ni prettier, ni oxlint, ni commitlint, ni le contrôle des fiches de skills. La
+  forge serait sortie rouge sur quatre fichiers. Aucun message ne dit « ce chemin de hooks n'existe
+  pas » : le succès et l'absence totale de contrôle sont indiscernables. Le nom mort venait d'un
+  skill qui l'annonçait encore.
 
 - **`nodefony check` accusait l'application témoin d'un défaut qui appartenait à MON poste** : deux
   manquements « le port 5151 est déjà tenu », parce que mon serveur de développement écoutait. Le
@@ -673,6 +686,17 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-27] **Mon propre audit se CONTREDISAIT, et c'est ce qui l'a sauvé.** Il annonçait
+  `reflect-metadata` bundlé dans un `dist/` ET « jamais importé côté serveur » — deux verdicts
+  incompatibles. Cause : ma détection cherchait `from "x"` et ratait `import "x";`, l'import à
+  effet de bord, précisément la forme du paquet en cause. Sans la contradiction visible dans le
+  MÊME rapport, la branche « dérive » aurait rendu un vert faux pendant des mois. Faire produire
+  deux mesures indépendantes à un instrument, c'est lui donner le moyen de se dénoncer.
+- [1× — 08-27] **Un `&&` a poussé l'état d'AVANT un commit refusé.** `git ci … ; git log -1 && git
+push` : le hook a rejeté le commit, `git log` a réussi (il affichait l'ANCIEN HEAD), donc le push
+  est parti — et j'ai lu « poussé ». Le maillon en échec n'était pas dans la chaîne `&&` ; celle-ci
+  ne prouvait donc rien de ce que je croyais qu'elle prouvait.
+
 - **`declare -A` n'existe pas en bash 3.2 (celui de macOS) — et mes propres « ok » l'ont masqué.**
   La table associative a échoué, l'identifiant d'option est parti VIDE, et six tickets ont reçu la
   priorité par défaut. Mon script affichait pourtant « #57 ok P1 » : il traçait mon INTENTION, pas
@@ -889,6 +913,19 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 08-27] **Un contrôle rangé dans un SKILL se périme sans le dire — et il l'a fait.** L'audit
+  `external` supposait `const external: string[] = [...]` ; la migration rolldown a fait passer **20
+  configs sur 21** à la forme en ligne. Il ne lisait plus RIEN, ne signalait rien, et personne ne
+  s'en est aperçu : c'est ainsi que `zod` est entré dans le paquet du module `test` et
+  `reflect-metadata` dans deux `dist/` publiés. Il ne balayait pas non plus `src/modules/*`. Le
+  déplacement dans le dépôt (`npm run externals:check`, appelé par la forge) n'est pas un rangement,
+  c'est ce qui le rend testable et corrigible avec le code qu'il garde.
+- [1× — 08-27] **Le dépôt a refusé mes deux nouveaux scripts : « personne ne les appelle ».** Le gate
+  de placement des scripts a bloqué le commit sur `ticket-open.mjs` et `ticket-progress.test.mjs`
+  — écrits, testés, et branchés nulle part. C'est exactement le défaut que la session venait de
+  corriger ailleurs, reproduit dans le même commit. Un script sans appelant est un script mort ;
+  ici c'est une machine qui l'a vu, pas moi.
 
 - [1× — 08-27] **Quand la SOURCE DE VÉRITÉ déménage, le rituel qui la lit ne suit pas tout seul.**
   Le pilotage de la publication est passé du plan Markdown aux issues il y a une session — et la
