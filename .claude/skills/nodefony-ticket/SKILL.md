@@ -143,6 +143,11 @@ sinon on fige une réponse avant d'avoir compris la question.
 et il se périme sans que personne le sache. Ce qui n'est pas vérifiable par lecture s'écrit
 `NON VÉRIFIABLE PAR LECTURE`.
 
+Une preuve d'**ABSENCE** — « aucun `X` nulle part » — se met sur sa PROPRE ligne, et s'écrit
+comme une **commande** (`rg -c 'X' src` rend `0`). Collée à une ancre, elle se fait lire comme
+son contexte : le contrôle cherche alors `X` autour de la ligne pointée, ne l'y trouve pas —
+forcément, c'est ce que le ticket affirme — et signale une ancre pourtant juste. Vécu sur #17.
+
 **Fini quand**
 Un critère OBSERVABLE : un test qui passe, une commande qui rend tel résultat, un écran qui
 répond. Jamais « c'est implémenté ». Si le critère porte sur une garde, exiger sa preuve

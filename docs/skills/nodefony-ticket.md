@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.5.0` |
 | Famille | Autres |
-| Corps | 398 lignes |
-| Coût d'activation | ~6 935 tokens (le corps est chargé à l'invocation) |
+| Corps | 403 lignes |
+| Coût d'activation | ~7 030 tokens (le corps est chargé à l'invocation) |
 | Description | 1005 / 1024 caractères |
 | Déclencheurs | 19 |
 | Ressources `references/` | 3 page(s) |
@@ -105,7 +105,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 398 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 403 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
