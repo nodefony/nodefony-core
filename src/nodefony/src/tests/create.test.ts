@@ -1145,13 +1145,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // deux refus, on retomberait à quatre étapes sans qu'aucun test ne tombe.
       assert.notInclude(rapp, "RealtimeClient.shared(");
       assert.notInclude(rapp, ".connect()");
-      // Vue, Angular et Svelte — pas de liaison dédiée : le SOCLE agnostique de
-      // `nodefony/client`. Le critère de #36 n'est pas « chacun marche », c'est
-      // « les trois écrivent la MÊME chose » : si l'un a besoin d'une ligne que
-      // les deux autres n'ont pas, l'extraction du noyau est incomplète. La
-      // boucle le rend observable — un front qui dérive nomme sa propre colonne.
+      // Vue — composables `nodefony/vue`, et la MÊME forme qu'en React : la
+      // politique reçoit l'adresse (ici un plugin, le vocabulaire de Vue), un
+      // composable par besoin, et RIEN à libérer. Ce qui compte n'est pas que
+      // les deux se ressemblent à la ligne près, c'est qu'un débutant y compte
+      // le même nombre de concepts.
       const vdest = path.join(tmp, "vlive");
       scaffold(vdest, { name: "vlive", preset: "complete", frontend: "vue" });
+      const vapp = readFileSync(
+        path.join(vdest, "frontend", "src", "App.vue"),
+        "utf8",
+      );
+      const vmain = readFileSync(
+        path.join(vdest, "frontend", "src", "main.ts"),
+        "utf8",
+      );
+      // L'adresse est écrite UNE fois, à l'installation du plugin — pas dans la
+      // page, qui n'a aucune raison de la connaître.
+      assert.include(vmain, '.use(nodefonyVue, { url: "/api/live/realtime" })');
+      assert.include(vapp, "useNodefony()");
+      assert.include(vapp, "useNodefonyState()");
+      assert.include(vapp, 'useNodefonyChannelData<Evenement>("live:events")');
+      assert.include(vapp, 'live.request("live:ping"');
+      assert.notInclude(vapp, "new WebSocket(");
+      // Les mêmes deux refus qu'en React, pour la même raison : sans eux, on
+      // retomberait au câblage manuel sans qu'aucun test ne tombe.
+      assert.notInclude(vapp, "RealtimeClient.shared(");
+      assert.notInclude(vapp, "connectShared(");
+      // Et ce que les composables font DISPARAÎTRE : la liste de libérations,
+      // qui est exactement l'endroit où un abonnement fuit sans se voir.
+      assert.notInclude(vapp, "offLive");
+
+      // Angular et Svelte — pas encore de liaison dédiée (#38, #39) : le SOCLE
+      // agnostique de `nodefony/client`. Le critère de #36 n'est pas « chacun
+      // marche », c'est « les deux écrivent la MÊME chose » : si l'un a besoin
+      // d'une ligne que l'autre n'a pas, l'extraction du noyau est incomplète.
       const adest = path.join(tmp, "alive");
       scaffold(adest, {
         name: "alive",
@@ -1165,7 +1193,6 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         frontend: "svelte",
       });
       const vitrines: [string, string][] = [
-        ["vue", path.join(vdest, "frontend", "src", "App.vue")],
         [
           "angular",
           path.join(adest, "frontend", "src", "app", "app.component.ts"),

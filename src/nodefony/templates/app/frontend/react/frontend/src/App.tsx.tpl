@@ -148,7 +148,10 @@ function LiveCard() {
         } else {
           setSecureData(null);
         }
-<% } %>      })
+<% } %>        // Un `then` REND une valeur — sinon le lint de l'application
+        // GÉNÉRÉE la refuse (`promise/always-return`).
+        return d;
+      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
 <% if (it.complete) { %>
   // Flux session BFF du framework (cookie opaque HttpOnly — le front ne voit

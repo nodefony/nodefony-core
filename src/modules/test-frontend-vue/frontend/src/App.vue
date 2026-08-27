@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, version as vueVersion } from "vue";
-// Le socle AGNOSTIQUE de `nodefony/client` — le même que les vitrines React,
-// Angular et Svelte. Deux concepts : une connexion partagée qui reçoit
-// l'adresse, et un abonnement. Aucune règle de temps réel n'est écrite ici.
+// Les composables de `nodefony/vue` — de MINCES enveloppes sur le socle
+// agnostique que consomment aussi React, Angular et Svelte. Aucune règle de
+// temps réel n'est écrite ici, et il n'y a plus rien à libérer à la main : la
+// portée du composant rend chaque abonnement à sa mort. L'adresse du serveur
+// est écrite UNE fois, dans `main.ts`, où le plugin s'installe.
 import {
-  connectShared,
-  observeChannel,
-  observeSnapshot,
-  observeState,
-  type SocketSnapshot,
-} from "nodefony/client";
+  useNodefony,
+  useNodefonyChannel,
+  useNodefonySnapshot,
+  useNodefonyState,
+} from "nodefony/vue";
 // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
 // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
 import "./showcase.css";
@@ -89,7 +90,7 @@ const count = ref(0);
 const cliquer = (): void => {
   count.value += 1;
   // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-  live.socket.emit("live:dire", {
+  live.emit("live:dire", {
     texte: `clic n°${count.value}`,
     front: FRONT,
   });
@@ -98,16 +99,21 @@ const data = ref<ApiData | null>(null);
 const error = ref<string | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 
-// UNE socket par URL pour toute la page. `connectShared` porte le cycle de
-// connexion (idempotent, rejet avalé, et JAMAIS de `disconnect()` au démontage :
-// la connexion appartient à la PAGE).
-const live = connectShared({ url: "/api/live/realtime" });
-const liveState = ref(live.socket.state);
+// La socket de la page — fournie par le plugin, partagée par tous ceux qui la
+// demandent. Le cycle de connexion ne se pilote pas ici : il appartient à la
+// PAGE, et le plugin l'a déjà lancé.
+const live = useNodefony();
+// L'état, l'instantané et le salon : trois composables, zéro libération à
+// écrire. Chacun rend son abonnement quand le composant meurt.
+const liveState = useNodefonyState();
+const vue = useNodefonySnapshot();
 const messages = ref<Message[]>([]);
+useNodefonyChannel("live:salon", (m) => {
+  messages.value = [...messages.value, m as Message].slice(-6);
+});
 const texte = ref("");
 const parHttp = ref<string | null>(null);
 const parSocket = ref<string | null>(null);
-const vue = ref<SocketSnapshot | null>(null);
 const barreVisible = ref(debugbar()?.isVisible() ?? false);
 
 const basculerBarre = (): void => {
@@ -120,7 +126,7 @@ const envoyer = (): void => {
   if (!dit) return;
   // Une notification client → serveur : pas de réponse attendue, c'est le
   // serveur qui rediffuse à tous les abonnés du canal.
-  live.socket.emit("live:dire", { texte: dit, front: FRONT });
+  live.emit("live:dire", { texte: dit, front: FRONT });
   texte.value = "";
 };
 
@@ -131,7 +137,7 @@ const comparer = async (): Promise<void> => {
   const json = (await r.json()) as { result?: unknown };
   parHttp.value = `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`;
   const t1 = performance.now();
-  const parLaSocket = await live.socket.request("/vue/api/data");
+  const parLaSocket = await live.request("/vue/api/data");
   parSocket.value = `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`;
 };
 
@@ -144,12 +150,9 @@ const derniereDe = (v: SocketSnapshot | null): string =>
 const duree = (v: string | null): string => v?.split("\n")[0] ?? "";
 const corps = (v: string | null): string =>
   v?.split("\n").slice(1).join("\n") ?? "—";
-// Libérations des observateurs — rendues au démontage (le HMR remonte le composant).
-let offLive: (() => void)[] = [];
-
 const basculer = (): void => {
-  if (liveState.value === "connected") live.socket.disconnect();
-  else void live.socket.connect();
+  if (liveState.value === "connected") live.disconnect();
+  else void live.connect();
 };
 
 const pollApi = async (): Promise<void> => {
@@ -165,31 +168,17 @@ const pollApi = async (): Promise<void> => {
   }
 };
 
+// Il ne reste ici que ce qui n'est PAS du temps réel : le sondage HTTP, avec
+// son horloge à poser et à retirer. La comparaison est le propos de la page —
+// trois abonnements temps réel n'ont plus une seule ligne de cycle de vie,
+// quand une seule horloge HTTP en demande deux.
 onMounted(() => {
   pollApi();
   timer = setInterval(pollApi, 1000);
-  // Un observateur = un rappel + une libération. L'abonnement serveur est
-  // ref-compté et REJOUÉ à chaque reconnexion : le socle s'en charge.
-  offLive.push(observeState(live.socket, (state) => (liveState.value = state)));
-  // Le compteur de trames est rafraîchi par l'échantillonneur du client (1×/s) —
-  // pas par un timer de la page : une horloge de plus pour la même mesure.
-  // UN instantané, pas cinq lectures à la main : `observeSnapshot` le rafraîchit
-  // sur l'échantillonneur DÉJÀ en place (aucune horloge de plus, aucune trame).
-  offLive.push(observeSnapshot(live.socket, (v) => (vue.value = v)));
-  offLive.push(
-    observeChannel(live.socket, "live:salon", (m) => {
-      messages.value = [...messages.value, m as Message].slice(-6);
-    }),
-  );
-  live.start();
 });
 
 onUnmounted(() => {
   if (timer) clearInterval(timer);
-  // On libère les observateurs (ce qui rend l'abonnement) — la socket PARTAGÉE,
-  // elle, reste ouverte pour la page.
-  for (const off of offLive) off();
-  offLive = [];
 });
 </script>
 
@@ -391,16 +380,16 @@ onUnmounted(() => {
               dans la page.
             </p>
             <p class="hint">
-              Le même socle que React consomme à travers ses hooks — ici on
-              l'appelle directement.
+              Ici, des <strong>composables</strong> — de minces enveloppes sur
+              ce socle, comme les hooks de React. Aucune libération à écrire :
+              la portée du composant rend l'abonnement à sa mort.
             </p>
           </div>
-          <pre
-            class="code"
-          ><code>const live = connectShared({ url: "/api/live/realtime" })
+          <pre class="code"><code>// main.ts — l'adresse, une seule fois
+app.use(nodefonyVue, { url: "/api/live/realtime" })
 
-observeState(live.socket, (état) =&gt; liveState.value = état)
-observeChannel(live.socket, "live:salon", (m) =&gt; …)</code></pre>
+const liveState = useNodefonyState()
+useNodefonyChannel("live:salon", (m) =&gt; …)</code></pre>
         </div>
       </section>
 

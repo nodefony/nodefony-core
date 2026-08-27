@@ -832,6 +832,29 @@ step(
 );
 
 step(
+  "le FRONT généré se bâtit — pour de bon, pas « à jour »",
+  "Un composant qui ne compile qu'en développement passe TOUT le reste du banc.",
+  // Étape séparée du build ci-dessus, et pour deux raisons qui se cumulent —
+  // sans elle, ce banc croirait couvrir le front sans jamais le compiler :
+  //
+  //  1. `nodefony frontend:build` est INCRÉMENTAL : le front a déjà été bâti
+  //     par `create app`, donc le `npm run build` précédent répond « à jour »
+  //     et ne compile RIEN. `--force` est ce qui distingue une compilation
+  //     d'une constatation de fraîcheur.
+  //  2. `create app` AVALE l'échec : il l'annonce (« npm run build a échoué »)
+  //     puis rend 0, parce que l'application, elle, est bien créée. Un banc qui
+  //     s'en remettrait au code de sortie de la création ne verrait donc jamais
+  //     un front cassé — c'est exactement ce qui a laissé une vitrine du dépôt
+  //     ne plus se bâtir pendant des semaines.
+  //
+  // Ce que ça attrape et que rien d'autre ne peut voir : le compilateur de
+  // composants monofichiers TRANSFORME le gabarit (une URL littérale y devient
+  // un import d'asset), et le mode développement sert la même page sans rien
+  // résoudre. Seul un build de PRODUCTION tranche.
+  () => run("npx", ["nodefony", "frontend:build", "--force"]),
+);
+
+step(
   "la COMMANDE générée s'EXÉCUTE, et son service RÉPOND",
   "Ni le typecheck ni un test ne voient qu'un service n'est pas enregistré au conteneur.",
   // La sonde porte sur le CONTENU de la sortie, et pas sur le code de retour :

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, version as vueVersion } from "vue";
 <% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework — reconnexion, re-subscribe, état :
-// gérés par le client. Aucun `new WebSocket` à la main. Subpath
-// `nodefony/client` : la porte client explicite, résolue à l'identique par
-// Vite, Node et le typecheck.
+// gérés par le client. Aucun `new WebSocket` à la main. Subpath `nodefony/vue` :
+// les COMPOSABLES du framework, de minces enveloppes sur le socle agnostique
+// que React, Angular et Svelte consomment aussi. Le plugin s'installe dans
+// `main.ts` — c'est là, et là seulement, que l'adresse du serveur est écrite.
 import {
-  connectShared,
-  observeState,
-  observeChannelData,
-} from "nodefony/client";
+  useNodefony,
+  useNodefonyChannelData,
+  useNodefonyState,
+} from "nodefony/vue";
 <% } %>import { NODEFONY_LOGO } from "./brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -49,15 +50,14 @@ interface Evenement {
   pid: number;
 }
 
-// UNE socket par URL pour toute la page — URL RELATIVE, résolue contre la page
-// (https → wss automatique). `connectShared` porte le cycle de connexion : il
-// est le MÊME pour les quatre fronts et pour la console d'administration.
-const live = connectShared({ url: "/api/live/realtime" });
-const liveState = ref(live.socket.state);
-const dernier = ref<Evenement | null>(null);
+// La socket de la page, fournie par le plugin — UNE seule pour tout le monde.
+// Les deux composables ci-dessous s'abonnent au montage et RENDENT l'abonnement
+// au démontage, sans une ligne à écrire : c'est la portée du composant qui
+// libère. L'abonnement serveur est ref-compté et rejoué à chaque reconnexion.
+const live = useNodefony();
+const liveState = useNodefonyState();
+const dernier = useNodefonyChannelData<Evenement>("live:events");
 const pingMs = ref<number | null>(null);
-// Disposers des listeners locaux — rendus au démontage (HMR remonte le composant).
-let offLive: (() => void)[] = [];
 <% } else { %>const wsInput = ref("ping");
 const wsLog = ref<string[]>([]);
 let ws: WebSocket | null = null;
@@ -80,16 +80,18 @@ const refreshHello = () =>
       if (d.who && d.who !== "anonyme") {
         fetch("/api/secure/hello", { credentials: "same-origin" })
           .then((r) => (r.ok ? r.json() : null))
-          .then((s) => {
-            secureData.value = s ? ((s.result ?? s) as SecureData) : null;
-          })
-          .catch(() => {
-            secureData.value = null;
-          });
+          // Le corps d'un `then` REND une valeur : un bloc muet est signalé par
+          // le lint (`promise/always-return`) — dans l'application générée, donc
+          // chez l'utilisateur, dont la passe naît rouge.
+          .then((s) => (secureData.value = s ? ((s.result ?? s) as SecureData) : null))
+          .catch(() => (secureData.value = null));
       } else {
         secureData.value = null;
       }
-<% } %>    })
+<% } %>      // Un `then` REND une valeur — sinon le lint de l'application
+      // GÉNÉRÉE la refuse (`promise/always-return`), et sa passe naît rouge.
+      return d;
+    })
     .catch((e) => {
       error.value = e instanceof Error ? e.message : String(e);
     });
@@ -129,20 +131,9 @@ const doLogout = async () => {
 onMounted(() => {
   refreshHello();
 <% if (it.complete) { %>
-  // Un observateur = un rappel + une libération. L'abonnement serveur est
-  // ref-compté et REJOUÉ à chaque (re)connexion, `start()` est idempotent, et
-  // rien ne coupe la socket au démontage : elle appartient à la PAGE. Ces règles
-  // vivent dans `nodefony/client`, pas ici — c'est ce qui les garde identiques
-  // en React, Vue, Angular et Svelte.
-  offLive.push(observeState(live.socket, (state) => (liveState.value = state)));
-  offLive.push(
-    observeChannelData<Evenement>(
-      live.socket,
-      "live:events",
-      (e) => (dernier.value = e),
-    ),
-  );
-  live.start();
+  // Rien à brancher ici pour le temps réel : les composables l'ont fait au
+  // `setup`, et le défont à la mort du composant. Ce qui reste dans ce hook
+  // n'est que du HTTP.
 <% } else { %>
   // WS même origine que la page (ws en http, wss en https).
   // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du WS
@@ -161,10 +152,9 @@ onMounted(() => {
 <% } %>});
 
 onUnmounted(() => {
-<% if (it.complete) { %>  // HMR remonte le composant : on libère les observateurs, ce qui rend aussi
-  // l'abonnement — la socket PARTAGÉE, elle, reste ouverte pour la page.
-  for (const off of offLive) off();
-  offLive = [];
+<% if (it.complete) { %>  // Rien à libérer : le rechargement à chaud remonte le composant, et sa portée
+  // a déjà rendu les abonnements. La socket PARTAGÉE, elle, reste ouverte pour
+  // la page — la couper ici trancherait les requêtes en vol des autres.
 <% } else { %>  // HMR remonte le composant : fermer une socket encore en CONNECTING lève un
   // warning navigateur (« closed before the connection is established ») —
   // on attend l'open pour fermer proprement.
@@ -180,7 +170,7 @@ onUnmounted(() => {
 
 <% if (it.complete) { %>const doPing = async () => {
   const t0 = performance.now();
-  await live.socket.request("live:ping", {});
+  await live.request("live:ping", {});
   pingMs.value = Math.round(performance.now() - t0);
 };
 
@@ -188,7 +178,7 @@ onUnmounted(() => {
 // second onglet et cliquer suffit à le voir. C'est ce partage qui fait l'intérêt
 // d'une socket — pas un battement qui parlerait pour ne rien dire.
 const doDire = () =>
-  live.socket.emit("live:dire", {
+  live.emit("live:dire", {
     texte: `bonjour de la page (${Date.now() % 1000})`,
   });
 <% } else { %>const sendWs = () => {

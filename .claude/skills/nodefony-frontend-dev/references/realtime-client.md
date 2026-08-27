@@ -4,7 +4,7 @@ Référence du **client temps réel isomorphe** et de ses bindings React. Le cli
 
 > Pour l'isomorphisme (dual-build, subpaths, `customConditions`) et le RBAC `nodefony/roles` → voir [`isomorphic.md`](./isomorphic.md).
 
-Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1300 l). Contrats partagés : `src/nodefony/src/realtime/` (`JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`). Transport navigateur : `src/client/realtime/BrowserWsTransport.ts`. Socle agnostique : `src/client/realtime/observe.ts` (330 l) + table `client/realtime/localEvents.ts`. Hooks : `src/client/react/index.ts` (395 l).
+Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1300 l). Contrats partagés : `src/nodefony/src/realtime/` (`JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`). Transport navigateur : `src/client/realtime/BrowserWsTransport.ts`. Socle agnostique : `src/client/realtime/observe.ts` (330 l) + table `client/realtime/localEvents.ts`. Liaisons : `src/client/react/index.ts` (React) · `src/client/vue/index.ts` (Vue 3).
 
 ## Sommaire
 
@@ -18,7 +18,7 @@ Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1300 l). Contrats
 8. [Notices & refus de canal](#8-notices--refus-de-canal)
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
 10. [Cadence adaptative (`adaptiveChannel`)](#10-cadence-adaptative-adaptivechannel)
-11. [Liaisons de vue : socle agnostique `observe*` + hooks React](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
+11. [Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
 12. [Gotchas](#12-gotchas)
 
 ---
@@ -268,7 +268,7 @@ Abonne un canal d'**ÉTAT** (latest-wins : stats, supervision) en **cadence adap
 
 ---
 
-## 11. Liaisons de vue : socle agnostique `observe*` + hooks React
+## 11. Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue
 
 ### 11.1 Le socle — `nodefony/client`, pour les QUATRE fronts
 
@@ -401,6 +401,41 @@ Détails d'implémentation utiles :
 - `useNodefonyAdaptiveChannel` re-bind seulement si `base`, `desiredMs`, `enabled` ou `deps` changent (handler + opts capturés par ref). `AdaptiveChannelHookOptions = Omit<BindAdaptiveOptions, "intervalMs" | "onRate">` (`:158`).
 
 Exemple consommateur réel (Studio) : `App.tsx:12` importe `NodefonyProvider` depuis `nodefony/react`, monté `App.tsx:278` au-dessus du shell avec `client={rootStore.realtime}` (client `RealtimeClient.shared`).
+
+### 11.3 Les composables Vue `nodefony/vue`
+
+**Même surface, mêmes noms, mêmes garanties que React** — traduite dans la langue de Vue, pas recopiée. Source : `src/client/vue/index.ts`. Page publiée : `src/nodefony/docs/vue-composables.md`.
+
+```ts
+// La politique s'installe en PLUGIN (le vocabulaire de Vue), pas en composant
+// enveloppant. `url` = voie simple ; `client` = voie avancée, l'emporte, cycle
+// non touché. Sans l'un des deux : refus (le framework ne devine aucune adresse).
+app.use(nodefonyVue, { url: "/api/live/realtime" });
+
+useNodefony(): RealtimeClient;                                   // throw hors plugin
+useNodefonyState(): Readonly<Ref<RealtimeState>>;
+useNodefonyIdentity(): Readonly<Ref<RealtimeIdentity | null>>;
+useNodefonyChannel(canal: MaybeRefOrGetter<string>, onMessage): void;
+useNodefonyChannelData<T>(canal: MaybeRefOrGetter<string>, initial?): Readonly<Ref<T | null>>;
+useNodefonyAdaptiveChannel(base, onMessage, desiredMs, opts?): Readonly<Ref<number>>;
+useNodefonyAdaptiveChannelData<T>(base, desiredMs, opts?): { data, intervalMs };
+useNodefonyChannelStats(canal): Readonly<Ref<MessageStats | null>>;
+useNodefonySnapshot(): Readonly<Ref<SocketSnapshot | null>>;     // aussi ajouté à React
+useNodefonySyslog(opts?): Readonly<Ref<unknown[]>>;
+useNodefonyNotifications(onNotice): void;
+useNodefonyNoticeLog(opts?): Readonly<Ref<NodefonyNotice[]>>;
+export const nodefonyClientKey: InjectionKey<RealtimeClient>;    // provide() manuel d'un sous-arbre
+```
+
+Trois règles que Vue impose et que React ne montre pas — les rater ne casse rien tout de suite :
+
+1. **Le client est `markRaw`.** Dans un `ref()`/`reactive()`, il serait proxifié : égalités de référence cassées, interception à chaque accès. Une page marche parfaitement avec un client proxifié, jusqu'au jour où une comparaison d'identité échoue.
+2. **La libération passe par `onScopeDispose`**, pas `onUnmounted` : seul le premier couvre une portée créée hors composant (`effectScope()`). **Un abonnement qui fuit ne se voit pas à l'écran** — seul le compte des trames `subscribe`/`unsubscribe` le dit (c'est ce que compte `src/tests/clientVue.test.ts`).
+3. **Hors portée, le composable LÈVE** au lieu de fuir en silence, et le message nomme le remède.
+
+Les arguments « canal » et « cadence » sont des `MaybeRefOrGetter` : l'abonnement suit la valeur (ancien libéré avant nouveau pris). C'est ce qui remplace, en Vue, la liste `deps` que React doit se faire passer à la main.
+
+Angular (#38) et Svelte (#39) n'ont pas encore leur liaison : leurs vitrines consomment le socle en direct, et la sentinelle `vitrinesCommunes.test.ts` porte la table qui dit où en est chaque front.
 
 ---
 

@@ -1,6 +1,6 @@
 /**
- * Tests de SURFACE PUBLIQUE des subpaths navigateur — `nodefony/client` et
- * `nodefony/react`.
+ * Tests de SURFACE PUBLIQUE des subpaths navigateur — `nodefony/client`,
+ * `nodefony/react` et `nodefony/vue`.
  *
  * Ce que ces sentinelles protègent : un consommateur navigateur doit pouvoir
  * **NOMMER** les types que la lib lui rend. `useNodefonyIdentity()` rend une
@@ -36,6 +36,12 @@ import type {
   RealtimeState as ReactState,
   NodefonyNotice as ReactNotice,
 } from "../client/react/index";
+import type {
+  RealtimeIdentity as VueIdentity,
+  RealtimeState as VueState,
+  NodefonyNotice as VueNotice,
+  SocketSnapshot as VueSnapshot,
+} from "../client/vue/index";
 
 // ── Fixtures compile-only ─────────────────────────────────────────────────
 // `declare const` est ILLÉGAL dans un corps de fonction (TS1184) : au scope
@@ -50,6 +56,11 @@ declare const notice: NodefonyNotice;
 declare const reactIdentity: ReactIdentity;
 declare const reactState: ReactState;
 declare const reactNotice: ReactNotice;
+
+declare const vueIdentity: VueIdentity;
+declare const vueState: VueState;
+declare const vueNotice: VueNotice;
+declare const vueSnapshot: VueSnapshot;
 
 function _typeOnly(): void {
   // ── `nodefony/client` — les types que le client rend ────────────────────
@@ -75,13 +86,30 @@ function _typeOnly(): void {
   // lieu de la réexporter, cette ligne casserait.
   const _i: RealtimeIdentity = reactIdentity;
 
-  (void _a, _b, _c, _d, _e, _f, _g, _h, _i);
+  // ── `nodefony/vue` — ce que les composables RENDENT ─────────────────────
+  // Même exigence, et pour la même raison : `useNodefonyIdentity()` rend une
+  // `Ref<RealtimeIdentity | null>` ; sans réexport, le consommateur ne peut
+  // pas déclarer la variable qui l'accueille.
+  const _j: VueIdentity | null = vueIdentity;
+  const _k: VueState = vueState;
+  const _l: VueNotice = vueNotice;
+  // `useNodefonySnapshot()` rend l'instantané de la socket : c'est le seul type
+  // que la liaison Vue rend et que React ne rendait pas encore.
+  const _m: VueSnapshot = vueSnapshot;
+
+  // Les TROIS subpaths parlent du MÊME type, pas de trois jumeaux : une
+  // identité lue via `nodefony/vue` s'assigne à une variable typée depuis
+  // `nodefony/client`, et à une autre typée depuis `nodefony/react`.
+  const _n: RealtimeIdentity = vueIdentity;
+  const _o: ReactIdentity = vueIdentity;
+
+  (void _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o);
 }
 
 void _typeOnly;
 
 describe("surface publique des subpaths navigateur", () => {
-  it("nomme les types rendus par `nodefony/client` et `nodefony/react` (compile-only)", () => {
+  it("nomme les types rendus par `nodefony/client`, `/react` et `/vue` (compile-only)", () => {
     // Rien à exécuter : la preuve est faite par `tsgo -p tsconfig.tests.json`.
     // Ce cas existe pour que la sentinelle apparaisse dans le rapport vitest —
     // un fichier de types muet dans le rapport finit par être oublié.

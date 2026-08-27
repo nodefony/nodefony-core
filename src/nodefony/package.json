@@ -36,6 +36,10 @@
       "types": "./dist/client/types/src/client/react/index.d.ts",
       "default": "./dist/client/client/react/index.js"
     },
+    "./vue": {
+      "types": "./dist/client/types/src/client/vue/index.d.ts",
+      "default": "./dist/client/client/vue/index.js"
+    },
     "./roles": {
       "types": "./dist/client/types/src/client/roles/index.d.ts",
       "default": "./dist/client/client/roles/index.js"
@@ -91,6 +95,7 @@
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
+    "vue": ">=3.5",
     "zod": "^4.4.0"
   },
   "peerDependenciesMeta": {
@@ -98,6 +103,9 @@
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },
@@ -122,6 +130,7 @@
     "typedoc": "0.28.20",
     "typedoc-plugin-markdown": "4.13.0",
     "vitest": "4.1.11",
+    "vue": "^3.5.42",
     "zod": "4.4.3"
   },
   "repository": {

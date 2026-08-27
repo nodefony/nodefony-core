@@ -89,22 +89,27 @@ const browserShim: Plugin = {
   },
 };
 
-// `react` = peerDep OPTIONNELLE du subpath `nodefony/react` → externe
-// (jamais bundlée ; c'est l'app qui fournit React).
+// `react` et `vue` = peerDeps OPTIONNELLES des subpaths `nodefony/react` et
+// `nodefony/vue` → externes (jamais bundlées ; c'est l'app qui les fournit).
+// Une seule copie de Vue doit vivre dans la page : bundler la nôtre donnerait
+// deux runtimes réactifs qui ne se voient pas l'un l'autre.
 const clientExternal = (id: string): boolean =>
   id === "react" ||
   id === "react-dom" ||
   id.startsWith("react/") ||
-  id.startsWith("react-dom/");
+  id.startsWith("react-dom/") ||
+  id === "vue" ||
+  id.startsWith("vue/");
 
 const clientConfig: RolldownOptions = defineConfig({
   // Multi-entry : `index` (barrel browser `nodefony`) + `debugbar` + `react` +
-  // `roles` (subpaths). preserveModules → RealtimeClient partagé émis 1×.
+  // `vue` + `roles` (subpaths). preserveModules → RealtimeClient partagé émis 1×.
   // Les subpaths ne sont JAMAIS réexportés depuis client/index.ts.
   input: [
     "src/client/index.ts",
     "src/client/debugbar/index.ts",
     "src/client/react/index.ts",
+    "src/client/vue/index.ts",
     "src/client/roles/index.ts",
   ],
   platform: "browser",

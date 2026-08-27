@@ -282,14 +282,19 @@ export class AppComponent implements OnInit, OnDestroy {
         if (d.who && d.who !== "anonyme") {
           fetch("/api/secure/hello", { credentials: "same-origin" })
             .then((r) => (r.ok ? r.json() : null))
-            .then((s: ({ result?: SecureData } & SecureData) | null) => {
-              this.secureData.set(s ? ((s.result ?? s) as SecureData) : null);
-            })
+            // Le corps d'un `then` REND une valeur : un bloc muet est signalé
+            // par le lint (`promise/always-return`) dans l'application générée.
+            .then((s: ({ result?: SecureData } & SecureData) | null) =>
+              this.secureData.set(s ? ((s.result ?? s) as SecureData) : null),
+            )
             .catch(() => this.secureData.set(null));
         } else {
           this.secureData.set(null);
         }
-<% } %>      })
+<% } %>        // Un `then` REND une valeur — sinon le lint de l'application
+        // GÉNÉRÉE la refuse (`promise/always-return`).
+        return d;
+      })
       .catch((e: unknown) => {
         this.error.set(e instanceof Error ? e.message : String(e));
       });

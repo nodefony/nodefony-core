@@ -85,7 +85,9 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
    les canaux, la cadence adaptative, les rôles évalués côté client.
 2. [Les hooks React](react-hooks.md) — la même socket, en idiomes React : abonnement, désabonnement au
    démontage, comptage de références. Ne câble pas le client à la main si tu es en React.
-3. [`@nodefony/realtime`](../../packages/@nodefony/realtime/docs/index.md) — le serveur en face : le
+3. [Les composables Vue](vue-composables.md) — la même surface, en idiomes Vue : un plugin sur
+   l'application, puis des composables dont la portée rend l'abonnement. Même chose si tu es en Vue.
+4. [`@nodefony/realtime`](../../packages/@nodefony/realtime/docs/index.md) — le serveur en face : le
    hub qui distribue les canaux, et le backplane quand l'application passe à plusieurs répliques.
 
 **Je veux tracer une requête de bout en bout** — l'enquête, quand quelque chose s'est mal passé.
@@ -102,15 +104,16 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Page                                 | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
-| ------------------------------------ | ----------------------------------------------------- | ---------------------------------------------- |
-| [Service](service.md)                | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
-| [Journalisation](syslog.md)          | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
-| [Kernel & Module](kernel.md)         | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
-| [CLI](cli.md)                        | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
-| [RequestContext](request-context.md) | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
-| [Client isomorphe](client.md)        | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
-| [Hooks React](react-hooks.md)        | la socket en idiomes React                            | ton front est en React                         |
+| Page                                  | Ce qu'elle résout                                     | Tu en as besoin quand…                         |
+| ------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| [Service](service.md)                 | la classe de base : injection, événements, journal    | tu écris n'importe quel composant              |
+| [Journalisation](syslog.md)           | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
+| [Kernel & Module](kernel.md)          | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
+| [CLI](cli.md)                         | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
+| [RequestContext](request-context.md)  | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
+| [Client isomorphe](client.md)         | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
+| [Hooks React](react-hooks.md)         | la socket en idiomes React                            | ton front est en React                         |
+| [Composables Vue](vue-composables.md) | la socket en idiomes Vue                              | ton front est en Vue 3                         |
 
 ```nodefony-cards
 [
@@ -134,7 +137,10 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
     "meta": "le même paquet, dans le navigateur" },
   { "icon": "⚛️", "title": "react-hooks", "href": "react-hooks.md",
     "desc": "Le fournisseur de contexte et les hooks : état de connexion, abonnement à un canal, données du dernier message, flux du journal, notifications. Dix composants qui écoutent dix canaux ouvrent une connexion, pas dix.",
-    "meta": "tout le désabonnement au démontage est géré" }
+    "meta": "tout le désabonnement au démontage est géré" },
+  { "icon": "💚", "title": "vue-composables", "href": "vue-composables.md",
+    "desc": "Un plugin sur l'application, puis les mêmes capacités en composables : état, identité, canaux, cadence adaptative, journal, notices. La portée du composant rend l'abonnement — il n'y a rien à libérer, et une fuite d'abonnement ne se voit jamais à l'écran.",
+    "meta": "ton front est en Vue 3" }
 ]
 ```
 
@@ -347,7 +353,8 @@ identifiant de requête s'appuie sur ce que `RequestContext` propage.
 - ⬆️ **Remonter** : [Toute la documentation](../../../docs/index.md)
 - 📄 **Les pages du cœur** : [Service](service.md) · [Journalisation](syslog.md) ·
   [Kernel & Module](kernel.md) · [CLI](cli.md) · [RequestContext](request-context.md) ·
-  [Client isomorphe](client.md) · [Hooks React](react-hooks.md)
+  [Client isomorphe](client.md) · [Hooks React](react-hooks.md) ·
+  [Composables Vue](vue-composables.md)
 - 🏛️ **Transverse** : [injection et portées](../../../docs/architecture/injection-portees.md) (la
   page canonique du conteneur) · [cycle de boot](../../../docs/architecture/cycle-boot-kernel.md) ·
   [pipeline de requête](../../../docs/architecture/pipeline-requete.md) ·

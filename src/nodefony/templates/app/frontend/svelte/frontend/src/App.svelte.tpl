@@ -79,16 +79,17 @@
         if (d.who && d.who !== "anonyme") {
           fetch("/api/secure/hello", { credentials: "same-origin" })
             .then((r) => (r.ok ? r.json() : null))
-            .then((s) => {
-              secureData = s ? ((s.result ?? s) as SecureData) : null;
-            })
-            .catch(() => {
-              secureData = null;
-            });
+            // Le corps d'un `then` REND une valeur : un bloc muet est signalé
+            // par le lint (`promise/always-return`) dans l'application générée.
+            .then((s) => (secureData = s ? ((s.result ?? s) as SecureData) : null))
+            .catch(() => (secureData = null));
         } else {
           secureData = null;
         }
-<% } %>      })
+<% } %>        // Un `then` REND une valeur — sinon le lint de l'application
+        // GÉNÉRÉE la refuse (`promise/always-return`).
+        return d;
+      })
       .catch((e) => {
         error = e instanceof Error ? e.message : String(e);
       });

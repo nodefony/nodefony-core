@@ -57,7 +57,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 **Utiliser** quand tu codes côté CLIENT avec Nodefony :
 
 - **isomorphisme** : partager du code `nodefony` front/back, `customConditions:["browser"]`, subpaths `nodefony/client|react|roles`.
-- **socket Nodefony** : `RealtimeClient` (subscribe/request/mutate/ping), socle agnostique `observe*` (une liaison de vue ne contient QUE rappel+libération → réactivité), hooks `useNodefony*`, canaux temps réel.
+- **socket Nodefony** : `RealtimeClient` (subscribe/request/mutate/ping), socle agnostique `observe*` (une liaison de vue ne contient QUE rappel+libération → réactivité), liaisons idiomatiques `nodefony/react` (hooks) et `nodefony/vue` (plugin + composables), canaux temps réel.
 - **builder/HMR** : `@nodefony/frontend` (`registerEntry`, Vite dev HMR, build prod, multi-bundle, `apiProxyPaths`).
 - **data-plane BFF** : `ApiClient` (`getAbsolute`/`postAbsolute`/…), `useResource`, session BFF cookie opaque, RBAC front.
 - **qualité front** : ergonomie, temps réel « calme », a11y (WCAG/ARIA), perf CSS compositor-only.
@@ -88,18 +88,18 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 > Trouve ta tâche → lis le fichier indiqué (lui seul). Chaque fichier = API + mécanismes + gotchas, vérité
 > courante, ancrés au source. `references/specs/` = best practices **bundlées offline** (0 réseau requis).
 
-| Ta tâche                                                                                                                    | Lis ce fichier                                  |
-| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC                                   | `references/isomorphic.md`                      |
-| Socket client `RealtimeClient`, socle agnostique `observe*`/`connectShared` (Vue, Angular, Svelte) + hooks `nodefony/react` | `references/realtime-client.md`                 |
-| Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)                                         | `references/build-hmr.md`                       |
-| Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)                                          | `references/data-bff.md`                        |
-| Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique                                        | `references/patterns.md`                        |
-| Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                                                 | `references/front-quality.md`                   |
-| Prouver une modif front **sans navigateur** (transform Vite, purge du prébundle, rechargement)                              | `references/build-hmr.md` §8                    |
-| **Voir et MESURER l'écran** — navigateur en conteneur (console, a11y, contrastes calculés)                                  | skill **`nodefony-browser`**                    |
-| Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                                                                | section _Gotchas_ dans chaque fichier ci-dessus |
-| **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                                                 | `references/specs/` (voir liste ci-dessous)     |
+| Ta tâche                                                                                                                                           | Lis ce fichier                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC                                                          | `references/isomorphic.md`                      |
+| Socket client `RealtimeClient`, socle agnostique `observe*`/`connectShared` (Angular, Svelte) + hooks `nodefony/react`, composables `nodefony/vue` | `references/realtime-client.md`                 |
+| Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)                                                                | `references/build-hmr.md`                       |
+| Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)                                                                 | `references/data-bff.md`                        |
+| Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique                                                               | `references/patterns.md`                        |
+| Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                                                                        | `references/front-quality.md`                   |
+| Prouver une modif front **sans navigateur** (transform Vite, purge du prébundle, rechargement)                                                     | `references/build-hmr.md` §8                    |
+| **Voir et MESURER l'écran** — navigateur en conteneur (console, a11y, contrastes calculés)                                                         | skill **`nodefony-browser`**                    |
+| Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                                                                                       | section _Gotchas_ dans chaque fichier ci-dessus |
+| **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                                                                        | `references/specs/` (voir liste ci-dessous)     |
 
 **`references/specs/` (offline, ~900 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
 (ARIA Authoring Practices) · `nng-10-heuristics.md` (Nielsen Norman — 10 heuristiques d'ergonomie) ·

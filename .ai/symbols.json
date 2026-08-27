@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-27T20:55:48.046Z",
+  "generated": "2026-08-27T21:34:12.040Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 742,
-    "symbols": 3162,
+    "files": 743,
+    "symbols": 3185,
     "classes": 365,
-    "interfaces": 891,
-    "types": 396,
+    "interfaces": 895,
+    "types": 398,
     "enums": 4,
-    "functions": 1211,
-    "constants": 295
+    "functions": 1226,
+    "constants": 297
   },
   "symbols": {
     "Cli": {
@@ -6308,6 +6308,14 @@
       "module": "@nodefony/core",
       "description": "`useNodefonyChannelStats()` — stats live d'un canal (débit, série VU-mètre, total). Source = le client Core (`getChannelStats`, échantillonné 1×/s). Implémenté en `state`+effet (pas `useSyncExterna…"
     },
+    "useNodefonySnapshot": {
+      "name": "useNodefonySnapshot",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonySnapshot()` — ce que la socket sait d'ELLE-MÊME : état, canaux tenus, trames reçues, trames perdues, dernière trame. Rafraîchi par l'échantillonneur déjà en place — aucune horloge de pl…"
+    },
     "useNodefonySyslog": {
       "name": "useNodefonySyslog",
       "kind": "function",
@@ -6839,6 +6847,170 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "NodefonyVueOptions": {
+      "name": "NodefonyVueOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages du plugin — l'un des deux au moins doit être donné."
+    },
+    "@nodefony/core:AdaptiveChannelData": {
+      "name": "AdaptiveChannelData",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat de {@link useNodefonyAdaptiveChannelData} : valeur + cadence réelle."
+    },
+    "@nodefony/core:UseSyslogOptions": {
+      "name": "UseSyslogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de {@link useNodefonySyslog}."
+    },
+    "@nodefony/core:UseNoticeLogOptions": {
+      "name": "UseNoticeLogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de {@link useNodefonyNoticeLog}."
+    },
+    "AdaptiveChannelOptions": {
+      "name": "AdaptiveChannelOptions",
+      "kind": "type",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réglages adaptatifs (la cadence désirée se passe à part, en argument)."
+    },
+    "@nodefony/core:ChannelStatsSnapshot": {
+      "name": "ChannelStatsSnapshot",
+      "kind": "type",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Statistiques observées d'un canal, telles que le client les calcule. Alias du contrat isomorphe {@link MessageStats} : une copie locale de la forme aurait divergé le jour où le client ajoute un com…"
+    },
+    "@nodefony/core:useNodefony": {
+      "name": "useNodefony",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefony()` — la socket brute (canaux, journal, statistiques…). Tête de gondole et échappatoire pour les cas avancés ; pour de l'état réactif, prendre les composables dédiés ci-dessous."
+    },
+    "@nodefony/core:useNodefonyState": {
+      "name": "useNodefonyState",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyState()` — l'état de la connexion (`\"connected\"`, `\"reconnecting\"`, …), tenu à jour. Branché sur la porte publique `onState`, jamais sur le nom de l'événement local, qui n'a pas à sorti…"
+    },
+    "@nodefony/core:useNodefonyIdentity": {
+      "name": "useNodefonyIdentity",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyIdentity()` — l'**identité résolue** de la connexion, annoncée par le serveur au `realtime:welcome` (`authenticated`, `roles`, `userIdentifier`, `scopes`). `null` tant qu'aucun welcome …"
+    },
+    "@nodefony/core:useNodefonyChannel": {
+      "name": "useNodefonyChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyChannel()` — s'abonne à un canal pub/sub : `onMessage` est appelé à chaque message. Le socle apparie `subscribe`/`unsubscribe` côté serveur (ref-comptés) et rejoue l'abonnement à chaque…"
+    },
+    "@nodefony/core:useNodefonyChannelData": {
+      "name": "useNodefonyChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyChannelData()` — la **dernière valeur** reçue sur un canal (le cas le plus courant : la dernière mesure d'un flux d'état). `null` tant que rien n'est arrivé."
+    },
+    "@nodefony/core:useNodefonyAdaptiveChannel": {
+      "name": "useNodefonyAdaptiveChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyAdaptiveChannel()` — comme {@link useNodefonyChannel}, mais en **cadence adaptative** (AIMD piloté par le client) : la cadence recule sous famine puis remonte quand c'est sain, sans rie…"
+    },
+    "@nodefony/core:useNodefonyAdaptiveChannelData": {
+      "name": "useNodefonyAdaptiveChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyAdaptiveChannelData()` — comme {@link useNodefonyChannelData}, mais en cadence adaptative. Mince surcouche de {@link useNodefonyAdaptiveChannel} : garde la dernière valeur et rend la ca…"
+    },
+    "@nodefony/core:useNodefonyChannelStats": {
+      "name": "useNodefonyChannelStats",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyChannelStats()` — statistiques vivantes d'un canal (débit, série pour un VU-mètre, total). La source est l'échantillonneur du client (1×/s) : aucune horloge n'est posée ici, et aucune t…"
+    },
+    "@nodefony/core:useNodefonySnapshot": {
+      "name": "useNodefonySnapshot",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonySnapshot()` — ce que la socket sait d'ELLE-MÊME : état, canaux tenus, trames reçues, trames perdues, dernière trame. Rafraîchi par l'échantillonneur déjà en place — aucune horloge de pl…"
+    },
+    "@nodefony/core:useNodefonySyslog": {
+      "name": "useNodefonySyslog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonySyslog()` — le flux du journal, prêt à afficher : anneau borné et filtre de sévérité. Le format **coalescé** du canal (`{ logs, dropped }`), l'entrée unique, la taille de l'anneau et le…"
+    },
+    "@nodefony/core:useNodefonyNotifications": {
+      "name": "useNodefonyNotifications",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyNotifications()` — le flux des **notices normalisées** du client : criticités qui cassent le temps réel (codes de fermeture RFC 6455 interprétés), erreurs poussées par le serveur, rétab…"
+    },
+    "@nodefony/core:useNodefonyNoticeLog": {
+      "name": "useNodefonyNoticeLog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyNoticeLog()` — l'anneau borné des dernières notices, filtrable par source : un historique léger des criticités, distinct des notifications éphémères. La taille de l'anneau et le filtrag…"
+    },
+    "nodefonyClientKey": {
+      "name": "nodefonyClientKey",
+      "kind": "const",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La clé sous laquelle le plugin fournit la socket. Exportée pour le cas légitime où un sous-arbre doit parler à une AUTRE socket que celle de l'application : `provide(nodefonyClientKey, uneAutre)` d…"
+    },
+    "nodefonyVue": {
+      "name": "nodefonyVue",
+      "kind": "const",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le plugin — à installer une fois, sur l'application. Il fait exactement deux choses : fournir la socket au sous-arbre, et lancer la connexion. Il n'en coupe aucune : la connexion appartient à la PA…"
     },
     "IAdminCaller": {
       "name": "IAdminCaller",
@@ -25095,7 +25267,8 @@
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/debugbar/DebugBar.ts",
         "src/nodefony/src/client/react/index.ts",
-        "src/nodefony/src/client/realtime/observe.ts"
+        "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "closeCodeToNotice": [
         "src/nodefony/src/client/index.ts",
@@ -26312,7 +26485,8 @@
       "RealtimeState": [
         "src/nodefony/src/client/debugbar/model.ts",
         "src/nodefony/src/client/react/index.ts",
-        "src/nodefony/src/client/realtime/observe.ts"
+        "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "stripAnsi": [
         "src/nodefony/src/client/debugbar/model.ts"
@@ -26320,54 +26494,77 @@
       "NodefonyNotice": [
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "RealtimeIdentity": [
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "MessageStats": [
         "src/nodefony/src/client/react/index.ts",
-        "src/nodefony/src/client/realtime/observe.ts"
+        "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "BindAdaptiveOptions": [
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "connectShared": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeChannel": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeState": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeChannelStats": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeIdentity": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeNotices": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeNoticeLog": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "observeSyslog": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
+      ],
+      "observeSnapshot": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "adaptiveRebindKey": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "ObserveSyslogOptions": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "ObserveNoticeLogOptions": [
-        "src/nodefony/src/client/react/index.ts"
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
+      ],
+      "SocketSnapshot": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "RealtimeHandler": [
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
@@ -26431,6 +26628,19 @@
       ],
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
+      ],
+      "inject": [
+        "src/nodefony/src/client/vue/index.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+      ],
+      "Dispose": [
+        "src/nodefony/src/client/vue/index.ts"
       ],
       "IAdminEndpoint": [
         "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
@@ -27174,15 +27384,6 @@
       ],
       "IUploadedFile": [
         "src/modules/test/nodefony/controller/DecoratorController.ts"
-      ],
-      "inject": [
-        "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
       ],
       "RealtimeChannel": [
         "src/modules/test/nodefony/controller/LiveSalonController.ts"

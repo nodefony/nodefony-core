@@ -97,35 +97,81 @@ describe("vitrines — la feuille de style est la MÊME dans les quatre", () => 
   });
 });
 
+/**
+ * Par quoi chaque vitrine s'abonne — et jusqu'où va la migration vers les
+ * liaisons idiomatiques (#54).
+ *
+ * Une liaison PUBLIÉE que sa propre vitrine n'emploie pas n'est exercée par
+ * personne : elle serait gelée SemVer sans avoir jamais été confrontée à un
+ * usage réel. C'est pour cette raison que cette table est une EXIGENCE et non
+ * une tolérance — dès que `nodefony/<front>` existe, la vitrine du front doit
+ * l'employer, et le socle direct n'y est plus acceptable.
+ *
+ * Les fronts qui n'ont pas encore leur liaison consomment le socle en direct,
+ * ce qui reste juste : c'est exactement ce que la liaison enveloppera.
+ */
+const LIAISONS: Record<
+  string,
+  { jetons: string[]; instantane: string; cite: string; pourquoi: string }
+> = {
+  react: {
+    jetons: [
+      '<NodefonyProvider url="/api/live/realtime">',
+      'useNodefonyChannel(\n    "live:salon"',
+    ],
+    instantane: "observeSnapshot(",
+    cite: "useNodefonyState()",
+    pourquoi: "React a ses hooks (`nodefony/react`)",
+  },
+  vue: {
+    jetons: [
+      "useNodefony()",
+      "useNodefonyState()",
+      'useNodefonyChannel("live:salon"',
+    ],
+    instantane: "useNodefonySnapshot()",
+    cite: "useNodefonyState()",
+    pourquoi: "Vue a ses composables (`nodefony/vue`)",
+  },
+  angular: {
+    jetons: [
+      'connectShared({ url: "/api/live/realtime" })',
+      "observeState(live.socket,",
+      'observeChannel(live.socket, "live:salon"',
+      "live.start()",
+    ],
+    instantane: "observeSnapshot(",
+    cite: "observeState(",
+    pourquoi: "Angular n'a pas encore sa liaison — socle en direct",
+  },
+  svelte: {
+    jetons: [
+      'connectShared({ url: "/api/live/realtime" })',
+      "observeState(live.socket,",
+      'observeChannel(live.socket, "live:salon"',
+      "live.start()",
+    ],
+    instantane: "observeSnapshot(",
+    cite: "observeState(",
+    pourquoi: "Svelte n'a pas encore sa liaison — socle en direct",
+  },
+};
+
 describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", () => {
-  it("chacune s'abonne par le socle (React par ses hooks, les autres en direct)", () => {
+  it("chacune s'abonne par SA liaison quand elle existe, par le socle sinon", () => {
     for (const { front } of VITRINES) {
       const src = lire(front, VITRINES.find((v) => v.front === front)!.page);
-      if (front === "react") {
-        expect(src, "react : le fournisseur reçoit l'ADRESSE").toContain(
-          '<NodefonyProvider url="/api/live/realtime">',
-        );
-        expect(src, "react : l'abonnement passe par un hook").toContain(
-          'useNodefonyChannel(\n    "live:salon"',
-        );
-      } else {
-        expect(src, `${front} : la socket vient de connectShared`).toContain(
-          'connectShared({ url: "/api/live/realtime" })',
-        );
-        expect(src, `${front} : l'état vient du socle`).toContain(
-          "observeState(live.socket,",
-        );
-        expect(src, `${front} : le salon vient du socle`).toContain(
-          'observeChannel(live.socket, "live:salon"',
-        );
-        expect(src, `${front} : le démarrage vient du socle`).toContain(
-          "live.start()",
-        );
+      const liaison = LIAISONS[front]!;
+      for (const jeton of liaison.jetons) {
+        expect(
+          src,
+          `${front} : attendu \`${jeton}\` — ${liaison.pourquoi}`,
+        ).toContain(jeton);
       }
       // L'auto-observation passe par UN contrat, pas par cinq lectures à la
       // main : c'est ce qui empêche les quatre sondes de barre de diverger.
       expect(src, `${front} : la sonde lit un instantané du socle`).toContain(
-        "observeSnapshot(",
+        liaison.instantane,
       );
       // L'adresse aussi vient de l'instantané. Écrite en dur, elle survivrait
       // au changement d'endpoint et mentirait — c'est le défaut qu'une vitrine
@@ -253,7 +299,7 @@ describe("vitrines — le même écran, et de quoi le comparer", () => {
       const src = lire(front, page);
       // Le bloc montré à l'écran cite les mêmes appels que ceux plus haut dans
       // le fichier : un extrait qui se périme est pire qu'aucun extrait.
-      const cite = front === "react" ? "useNodefonyState()" : "observeState(";
+      const cite = LIAISONS[front]!.cite;
       // (l'extrait affiché cite le même appel que le câblage réel, plus haut)
       const occurrences = src.split(cite).length - 1;
       expect(

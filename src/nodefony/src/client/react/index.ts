@@ -48,9 +48,11 @@ import {
   observeNotices,
   observeNoticeLog,
   observeSyslog,
+  observeSnapshot,
   adaptiveRebindKey,
   type ObserveSyslogOptions,
   type ObserveNoticeLogOptions,
+  type SocketSnapshot,
 } from "../realtime/observe";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le front
@@ -70,6 +72,7 @@ export type {
   RealtimeState,
   NodefonyNotice,
 } from "../realtime/RealtimeClient";
+export type { SocketSnapshot } from "../realtime/observe";
 
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
@@ -332,6 +335,23 @@ export function useNodefonyChannelStats(
     [client, channel],
   );
   return stats;
+}
+
+/**
+ * `useNodefonySnapshot()` — ce que la socket sait d'ELLE-MÊME : état, canaux
+ * tenus, trames reçues, trames perdues, dernière trame. Rafraîchi par
+ * l'échantillonneur déjà en place — aucune horloge de plus, aucune trame émise
+ * pour mesurer.
+ *
+ * La donnée est au socle, la **boîte qui l'affiche** reste à chaque front : les
+ * quatre vitrines lisaient ces cinq champs à la main, c'est-à-dire quatre
+ * lectures qui divergeront.
+ */
+export function useNodefonySnapshot(): SocketSnapshot | null {
+  const client = useNodefony();
+  const [snapshot, setSnapshot] = React.useState<SocketSnapshot | null>(null);
+  React.useEffect(() => observeSnapshot(client, setSnapshot), [client]);
+  return snapshot;
 }
 
 export interface UseSyslogOptions {
