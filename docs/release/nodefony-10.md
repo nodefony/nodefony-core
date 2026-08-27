@@ -415,6 +415,13 @@ jobs:
 
 ## 8. Critères de release 10.0.0 (Definition of Done)
 
+> ⚠️ **Ce tableau a été CORRIGÉ par les décisions du 2026-08-27 — voir §10.9.** En résumé :
+> `framework:*` sort du DoD (doublon avec `nodefony inspect`) · la ligne ORM « seul sqlite +
+> idempotence-pg faits » est périmée (S1→S4 livrent les 8 briques × 3 dialectes ; reste S5, dégelée
+> et dans le périmètre) · le bloqueur P6 est **levé** au dashboard · preset Svelte et devkit S1→S4
+> sont livrés · **entrent** au périmètre les bindings front Vue/Angular/Svelte, mongoose complet et
+> la symétrie des drivers. **Échéance : 15 novembre 2026, périmètre complet.**
+
 > **Gate = migration complète SAUF IA + média/SIP ; cloud-native en BASELINE.**
 > Cadrage : 10.0.0 = **framework fullstack complet** (web + realtime + ORM + sécurité +
 > cloud-native baseline). L'IA et le télécom (média/SIP) arrivent en **10.x / 11**.
@@ -737,7 +744,43 @@ run, lui, reste consultable sans le tag.
 2. `nodefony-docker` **et** `docker-nodefony` : archiver les deux (D6).
 3. Image publiée sous `nodefony/nodefony`.
 
-### 10.9 Ce que ce plan NE couvre PAS — et qui bloque encore la release
+### 10.9 Périmètre et échéance — tranchés le 2026-08-27
+
+> ⚠️ **Cette section REMPLACE l'ancienne liste « ce qui bloque encore », périmée sur 4 de ses
+> 5 items** (elle annonçait bloquants le preset Svelte et devkit S1→S4, tous deux livrés ; deux
+> rouges CI dont les workflows n'existent plus ; et « la CI n'a jamais tourné sur un runner réel »,
+> faux depuis). Un document de pilotage qui ment envoie refaire du travail fini.
+
+**Échéance : 15 novembre 2026. Périmètre complet.** La date découle du périmètre, jamais l'inverse.
+
+**Le critère** : un défaut est **structurel** s'il contraint durablement une fois publié — une forme
+d'API figée, une dépendance gravée dans un paquet, un pan manquant du modèle. Ce critère remplace
+« qu'est-ce qu'une 10.0.1 répare ? », qui ne servait qu'à arbitrer sous contrainte de date.
+
+**Le suivi vit dans les issues**, plus dans ce fichier : jalon
+[`10.0.0`](https://github.com/nodefony/nodefony-core/milestone/1) (45 j-h) et le board
+[Release 10.0.0](https://github.com/nodefony/nodefony-core/projects) — 15 entrées racine, dont deux
+parapluies portant 20 sous-tickets, chacun ancré `fichier:ligne`. Les arbitrages tranchés sont dans
+[#32](https://github.com/nodefony/nodefony-core/issues/32).
+
+**Corrections au §8 (Definition of Done) apportées par ces décisions** :
+
+- **`framework:*` SORT du DoD** — `nodefony inspect` couvre déjà `routes`, `modules`, `services`,
+  `config`, `stores`, `entities`, `graph`, `status` (`src/nodefony/src/kernel/commands/InspectCommand.ts:87`).
+  Une commande `framework:routes:list` serait une seconde implémentation de la même règle.
+- **ORM** : la ligne « seul sqlite + idempotence-pg faits » est PÉRIMÉE — S1→S4 livrent les 8 briques
+  sur les 3 dialectes. Reste **S5 DDL prod**, dégelée et **dans le périmètre** : un framework qui
+  livre des entités sans voie de migration en production a un trou dans son modèle.
+- **Sécurité P6** : le dashboard déclare le **bloqueur MVP LEVÉ** (`MIGRATION_STATUS.md:563`, P6 à
+  87 %). Le DoD annonçait encore un bloqueur ouvert.
+- **Preset Svelte et devkit S1→S4** : livrés.
+- **ENTRENT au périmètre** : les bindings front Vue, Angular et Svelte (le framework annonce quatre
+  fronts et n'en équipe qu'un), mongoose complet (« une app doit tourner sans drizzle » est acté),
+  et la symétrie des drivers SQL (seul poste irrattrapable au sens strict).
+
+---
+
+### 10.10 Ancienne section — ce que ce plan NE couvrait PAS
 
 > Séquence R0→R6 : **R0 ✅ · R1 ✅ · R2 ✅ · R3 ✅ · R4 ✅ · R5 ✅ · R6 ⬜** (gestes GitHub hors
 > dépôt). Le DoD du §8, lui, reste ouvert — voir ci-dessous.
