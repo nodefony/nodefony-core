@@ -173,6 +173,7 @@ jobs:
         run: |
           npm run test:externals
           npm run externals:check
+          npm run test:pilotage
 
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #

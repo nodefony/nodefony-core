@@ -280,10 +280,23 @@ la preuve, le critère de fin et la trace — le faire dans la foulée n'autoris
 
 ## 5. Créer, ordonner, rattacher
 
+> 🔴 **`gh issue create` n'inscrit PAS le ticket au tableau de bord.** L'issue existe, et elle
+> n'entre dans aucun compteur d'avancement : ni l'ordre de travail, ni le reste-à-faire, ni
+> l'empreinte hors ligne. Vécu sur #82, resté invisible du pilotage jusqu'à un contrôle manuel — un
+> oubli qui ne crie pas est pire qu'une erreur. **Ouvrir par la commande du dépôt**, qui fait
+> création, inscription et pose des champs d'un seul geste :
+
 ```bash
-# créer (corps dans un fichier — jamais en ligne : les backticks et les accents s'y perdent)
-gh issue create --title "docs(guides): retirer « mocha + bun » du hub" \
-  --body-file tmp/t/1.md --label "10.0.0" --milestone "10.0.0" --assignee "@me"
+npm run ticket:open -- --title "docs(guides): retirer « mocha + bun » du hub" \
+  --body-file tmp/t/1.md --milestone "10.0.0" --priorite P1 --jours 0.5
+#   --backlog          → pas de jalon, label `backlog` (aucune date promise)
+#   --parent 63        → sous-ticket
+#   --label irrattrapable
+```
+
+Le détail des champs reste utile quand on corrige un item existant :
+
+```bash
 
 # poser les champs du board (ids : gh project field-list <n> --owner <org>)
 item=$(gh project item-add <n> --owner <org> --url <url> --format json --jq '.id')

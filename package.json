@@ -48,6 +48,8 @@
     "check:filenames": "node scripts/check-portable-filenames.mjs",
     "externals:check": "node scripts/check-externals.mjs",
     "test:externals": "vitest run scripts/check-externals.test.mjs",
+    "test:pilotage": "vitest run scripts/ticket-progress.test.mjs",
+    "ticket:open": "node scripts/ticket-open.mjs",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
     "skills:doc": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     "format": "prettier --write .",

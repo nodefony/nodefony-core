@@ -251,7 +251,7 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 RETEX = RETour d'EXpérience. **But réel** : amélioration continue de l'IA sur Nodefony — PAS un log
 de tokens. Cf `feedback_session_retros_purpose`.
 
-## ⚡ END courant = 6 étapes LÉGÈRES (ne PAS faire les stats lourdes)
+## ⚡ END courant = 7 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 
 Le END par défaut doit être **rapide** (reproche user 2026-05-31 : END trop lourd/pénible). Il fait
 SEULEMENT :
@@ -281,7 +281,25 @@ SEULEMENT :
    travail déjà fait à la reprise suivante, et fausse le seul compteur d'avancement qui ne se
    périme pas. `gh issue close <n> --comment "<commit> — <ce qui est fini, observable>"`. Un
    ticket seulement AVANCÉ reçoit un commentaire, pas une fermeture.
-4. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
+4. **Redescendre les tickets « In Progress » que rien ne fait avancer.** Le statut monte tout
+   seul — `.githooks/post-commit` le pose dès qu'un commit cite `#N` sans le fermer (raisonnement :
+   en-tête de [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)) — mais **rien ne le fait
+   redescendre**. Un ticket ouvert un jour, abandonné le lendemain, resterait « en cours » pour
+   toujours : c'est précisément la fossilisation qui a tué ce champ la première fois (0 usage sur 64
+   items). Le contrôle vaut le geste :
+
+   ```bash
+   gh api graphql -f query='{repository(owner:"nodefony",name:"nodefony-core"){
+     projectV2(number:2){items(first:100){nodes{content{... on Issue{number title}}
+     fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}' \
+     --jq '.data.repository.projectV2.items.nodes[] | select(.fieldValueByName.name=="In Progress")
+           | "#\(.content.number) \(.content.title)"'
+   ```
+
+   Pour chacun : un commit récent le cite-t-il ? (`git log --oneline --grep="#<n>" -3`). Sinon, le
+   remettre à `Todo` — un statut qui ment est pire qu'un statut absent.
+
+5. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
    vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
 
    ```bash
@@ -292,8 +310,8 @@ SEULEMENT :
    soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
    nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
 
-5. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
-6. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
+6. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
+7. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 
 > **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
 > coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex

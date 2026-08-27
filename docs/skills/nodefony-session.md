@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 522 lignes |
-| Coût d'activation | ~6 181 tokens (le corps est chargé à l'invocation) |
+| Corps | 540 lignes |
+| Coût d'activation | ~6 465 tokens (le corps est chargé à l'invocation) |
 | Description | 592 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -68,7 +68,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 6. Mode module — symboles exportés (`.ai/symbols.json`, O(1))
 - 7. Sortie finale (récap synthétique, ≤ 40 lignes)
 - Anti-patterns START
-- ⚡ END courant = 6 étapes LÉGÈRES (ne PAS faire les stats lourdes)
+- ⚡ END courant = 7 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 - Modèle SAS (pourquoi RETEX.md existe)
 - Boîte à outils CONSOLIDATE — déportée
 - 9. Sauvegarde OBLIGATOIRE (auto-save)
@@ -143,7 +143,7 @@ node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 522 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 540 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
