@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.2.0` |
 | Famille | Autres |
-| Corps | 248 lignes |
-| Coût d'activation | ~4 611 tokens (le corps est chargé à l'invocation) |
+| Corps | 253 lignes |
+| Coût d'activation | ~4 735 tokens (le corps est chargé à l'invocation) |
 | Description | 995 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 3 page(s) |
@@ -102,7 +102,7 @@ node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 248 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 253 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

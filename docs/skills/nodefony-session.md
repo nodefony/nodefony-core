@@ -98,7 +98,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` |
+| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -107,7 +107,7 @@ script, donc toujours à jour après régénération.
 node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER`
+**Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER` · `QUERY`
 
 ### Détail des scripts auto-documentés
 

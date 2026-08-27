@@ -837,58 +837,28 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 
 ---
 
-## 🛣️ Chemins (détail effort → mémoire IA `core-dev/migration/phases-details.md`)
+## 🧭 Où lire le reste-à-faire — PAS ici
 
-- **MVP prod** : P0 → P1 → P2.2-2.5 + P3 minimal → P5.1-5.6 + 1 adapter (Drizzle) + session → **P6.1-6.8b ✅ LIVRÉ** + **config clean** + **CLI essentielles** (lifecycle + orm:migrate + user/security). Sécurité ✅ ; **reste MVP = config clean + CLI essentielles**.
-- **Studio MVP** : MVP → P14 (Vite + Core isomorphe) → P13.4/13.7 → P11.1-3 → P10. (Studio = 1er consommateur prod de `@nodefony/frontend`.)
-- **IA agentic** (phase FINALE, **différée**) : P12 (llm/vector/rag/memory refaits + agent + agent-guard + panels Studio).
+> **Ce fichier est une CARTE, plus un tableau de bord.** Le reste-à-faire de la 10.0.0 vit dans le
+> jalon [`10.0.0`](https://github.com/nodefony/nodefony-core/milestone/1) et son tableau de bord :
+> un ticket porte un état que personne n'oublie de changer, une liste écrite à la main se périme
+> entre deux sessions. Les trois sections qui vivaient ici — chemins, blockers, prochaine étape —
+> l'avaient prouvé : elles envoyaient encore travailler sur les commandes `framework:*`, sorties du
+> périmètre par [#32](https://github.com/nodefony/nodefony-core/issues/32).
 
----
+| Ce qu'on cherche           | Où                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| Ce qui reste, dans l'ordre | le tableau de bord, ou **hors ligne** l'empreinte commitée [`.ai/BOARD.md`](.ai/BOARD.md) |
+| Le périmètre et l'échéance | [`docs/release/nodefony-10.md`](docs/release/nodefony-10.md) §8 et §10.9                  |
+| Le POURQUOI d'une décision | ce fichier (§ Décisions), les `docs/adr/`, les `CLAUDE.md`/`MEMORY.md` de module          |
+| Ce qui est FAIT            | `git log` — jamais une case cochée à la main                                              |
 
-## 🚧 Blockers connus
+**L'empreinte `.ai/BOARD.md` est GÉNÉRÉE** (skill `nodefony-session`, `scripts/board-snapshot.mjs`)
+et ne s'édite pas : c'est ce qui l'empêche de mentir comme mentaient les sections retirées.
 
-| Sujet                     | Problème                                  | État                       |
-| ------------------------- | ----------------------------------------- | -------------------------- |
-| ~~`rollup.config.ts`~~    | ~~`@ts-ignore` sourcemap-path-transform~~ | ✅ caduc (Rollup supprimé) |
-| `IKernel.cli`             | typage `ICliKernel`                       | ✅                         |
-| `IModule.getController()` | `IController` générique                   | ✅                         |
-
----
-
-## ➡️ Prochaine étape (priorités revues à l'audit vérité 08-20)
-
-> **Acquis qui ferment le chemin** : chaîne scaffold `create …` COMPLÈTE (7 types, 3 fronts, saveurs,
-> catalogue versions — journal → `git log` + snapshot mémoire IA) · `doctor` ✅ (alias `check`) ·
-> P6 cœur + resource-server P6.9.x ✅ · S1-S4 multi-dialecte ✅ (8 briques × 3 dialectes) · dépôt
-> PUBLIC, README + SECURITY.md livrés, signalement privé activé, 0 vulnérabilité.
-
-### 🔴 AVANT la release 10.0.0 (dans l'ordre)
-
-1. **P8 — PUBLICATION NPM** (le bloqueur restant de P8) : chaîne `nodefony-release` (pack workspaces,
-   bascule `exports.types`, post-traitement `.d.ts`, smoke conteneur depuis les TARBALLS) — plan et
-   décisions : `docs/release/nodefony-10.md`. Y adosser les prérequis sécurité de la publication
-   (§ dettes) : **gitleaks en gate + allowlist** (🔴, dépôt désormais public), **provenance npm + 2FA**,
-   **red-team de la surface PUBLIÉE**, SECURITY.md/AGENTS.md générés dans l'app.
-2. **P11 — commandes métier essentielles** : `user:*` (dont `security:user:password`), `framework:*`.
-   (`orm:migrate` = S5c, voir 3.)
-3. **S5 — DDL prod** (P7.10, dégelé après 1+2) : lots S5a-d (`DrizzleMigrator`, table
-   `nodefony_migrations`, modes ddl) + P11.4 `orm:migrate` — design ✅ validé
-   (`orm-migrations-design-2026-07`). Traiter au passage la dette 🔴 « union TS sans `CHECK` SQL ».
-4. **Volet A — entité `User` à l'application** (dette 🔴 du tableau : le code d'une app est FIGÉ à sa
-   création, un correctif 10.1 ne réparerait aucune app née en 10.0.0) → `project_user_entity_roles_kit`.
-5. **Config app `NF__APP__*`** (reste ADR-0006) → `project_config_nf_app_kit` — si le temps le permet,
-   sinon 10.x (additif, pas une rupture).
-
-### ⏭️ APRÈS la release (10.x, ordre indicatif)
-
-- **P6.9d serveur d'autorisation OAuth 2.1** (décision user 08-20 : après 10.0.0 ; en attendant,
-  vérifier que la porte MCP accepte les PAT P6.12 = l'ergonomie sans P6.9d).
-- **P7.11 full NoSQL** (totp/audit/idempotency mongoose) · **P6.16 rpId par Host** · **P6.9b mTLS** ·
-  authz niveau B · logs auth dédiés · live `security:audit` Studio.
-- **Dette `NF_`** (renommage env, § dédié) · réécriture des preuves e2e du kit load-test dans leurs
-  paquets · bancs → 1 compte par fichier · volet B rôles pluggables · frontière canaux realtime (#3).
-- **P12 couche IA** (le protocole MCP au cœur l'attend) · **P13.6 Kafka** · **P15** · **P16 complet**
-  (16.J `/metrics`, secrets, docs DevOps) · **P17 multi-tenant**.
+**Ce que ce fichier garde**, et qu'aucun ticket ne porte : la carte des phases, les décisions
+stratégiques, les **dettes transverses ouvertes** (§ dédié — beaucoup n'ont pas encore de ticket)
+et l'état vérifié des sous-items P16.
 
 ---
 

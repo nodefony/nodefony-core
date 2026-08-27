@@ -88,37 +88,86 @@ function fetchLive() {
     ]),
   );
 
-  // `--limit` au-delà du défaut : sans lui, la liste tronque en silence.
-  const raw = JSON.parse(
-    sh("gh", [
-      "project",
-      "item-list",
-      PROJECT_NUMBER,
-      "--owner",
-      PROJECT_OWNER,
-      "--limit",
-      "200",
-      "--format",
-      "json",
-    ]),
-  );
+  // GraphQL, et NON `gh project item-list` : mesuré le 27 août, le client en
+  // ligne de commande rendait 39 items là où l'API en comptait 40 — un ticket
+  // ajouté à la minute était ABSENT de sa sortie, sans le moindre avertissement.
+  // Un instrument qui perd une ligne en silence est pire qu'un instrument muet.
+  const QUERY = `query($org:String!, $number:Int!, $after:String) {
+    organization(login:$org) {
+      projectV2(number:$number) {
+        items(first:100, after:$after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            fieldValues(first:20) {
+              nodes {
+                __typename
+                ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
+                ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+              }
+            }
+            content {
+              ... on Issue {
+                number title url state
+                milestone { title }
+                labels(first:20) { nodes { name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }`;
 
-  const items = (raw.items ?? [])
-    .filter((it) => it.content?.number)
-    .map((it) => ({
-      number: it.content.number,
-      // `.content.title` et JAMAIS `.title` : le champ recopié par le client en
-      // ligne de commande reste figé sur l'ancien libellé (mesuré : 38/38).
-      title: it.content.title,
-      url: it.content.url ?? null,
-      type: it.content.type ?? null,
-      status: it.status ?? null,
-      milestone: it.milestone?.title ?? null,
-      priorite: it["priorité"] ?? null,
-      jours: typeof it.jours === "number" ? it.jours : null,
-      ordre: typeof it.ordre === "number" ? it.ordre : null,
-      labels: Array.isArray(it.labels) ? it.labels : [],
-    }))
+  const noeuds = [];
+  let after = null;
+  for (;;) {
+    const argv = [
+      "api",
+      "graphql",
+      "-f",
+      `query=${QUERY}`,
+      "-F",
+      `org=${PROJECT_OWNER}`,
+      "-F",
+      `number=${PROJECT_NUMBER}`,
+    ];
+    if (after) argv.push("-F", `after=${after}`);
+    const page = JSON.parse(sh("gh", argv)).data.organization.projectV2.items;
+    noeuds.push(...page.nodes);
+    if (!page.pageInfo.hasNextPage) break;
+    after = page.pageInfo.endCursor;
+  }
+
+  /** Les valeurs de champ arrivent en liste : on les indexe par NOM de champ. */
+  const champs = (n) => {
+    const out = Object.create(null);
+    for (const v of n.fieldValues?.nodes ?? []) {
+      const nom = v.field?.name;
+      if (!nom) continue;
+      out[nom] = v.number ?? v.name ?? null;
+    }
+    return out;
+  };
+
+  const items = noeuds
+    .filter((n) => n.content?.number)
+    .map((n) => {
+      const f = champs(n);
+      return {
+        number: n.content.number,
+        // Le titre vient du CONTENU de l'issue, jamais du champ recopié par le
+        // tableau de bord : mesuré, 38 items sur 38 portaient l'ancien libellé.
+        title: n.content.title,
+        url: n.content.url ?? null,
+        state: n.content.state ?? null,
+        status: f.Status ?? null,
+        milestone: n.content.milestone?.title ?? null,
+        priorite: f["Priorité"] ?? null,
+        jours: typeof f.Jours === "number" ? f.Jours : null,
+        ordre: typeof f.Ordre === "number" ? f.Ordre : null,
+        labels: (n.content.labels?.nodes ?? []).map((l) => l.name),
+      };
+    })
     .sort(
       (a, b) => (a.ordre ?? 9999) - (b.ordre ?? 9999) || a.number - b.number,
     );

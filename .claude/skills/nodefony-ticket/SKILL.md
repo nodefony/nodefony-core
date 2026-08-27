@@ -239,9 +239,14 @@ gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID!){
   entière comme un seul mot. Écrire la liste en clair dans le `for`.
 - **Un corps passé en `--body` inline** perd ses backticks et ses accents selon le shell.
   Toujours `--body-file`.
-- **`gh project item-list` tronque par défaut** : passer `--limit` au-delà de ~30 items, sinon la
-  recherche d'un item par numéro d'issue rend une chaîne vide et le `item-edit` échoue sur
-  « Could not resolve to a node with the global id of '' ».
+- **🔴 `gh project item-list` OMET des items, `--limit` ou pas.** Mesuré : 39 rendus contre **40**
+  comptés par l'API au même instant — un ticket ajouté à la minute était absent, sans un mot. Le
+  symptôme visible est un `item-edit` qui échoue sur « Could not resolve to a node with the global
+  id of '' », parce que la recherche par numéro d'issue a rendu une chaîne vide ; le symptôme
+  INVISIBLE est un inventaire incomplet qu'on croit complet. **Pour lister ou retrouver un item,
+  passer par GraphQL** (`projectV2.items`, ou `issue.projectItems` pour un ticket précis) ;
+  `item-list` reste acceptable pour un coup d'œil, jamais pour décider. Même famille que le champ
+  `title` figé : ce client rend une vue à lui, pas l'état du tableau.
 - **Un automate qui pose des lexiques doit borner sa zone de lecture au bloc « Le problème », citations exclues.** Vécu : détecter les termes sur le corps entier a posé sur un ticket de libellés de menu un lexique « surcharge par l'environnement, isomorphe, ADR » — des mots pris dans des **exemples de titres cités**. Un lexique hors sujet est pire que pas de lexique : il fait douter le lecteur d'avoir compris.
 
 ## Références (chargées à la demande)
