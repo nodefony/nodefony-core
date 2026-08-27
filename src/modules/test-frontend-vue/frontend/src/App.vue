@@ -30,6 +30,13 @@ interface Message {
 
 /** La couleur du framework de vue — le SEUL écart de style entre les quatre. */
 const ACCENT = "#41b883";
+// Le logo est servi par le SERVEUR (`public/` du dépôt), pas empaqueté par
+// Vite. Écrit en `src="/…"` littéral, le compilateur SFC de Vue le prend pour
+// un asset du bundle et tente de le RÉSOUDRE — le build de production échoue
+// alors sur un fichier qui n'a jamais eu à exister ici (les trois autres
+// vitrines laissent la chaîne telle quelle, d'où un échec qui ne frappait que
+// Vue). Une liaison porte l'URL jusqu'au navigateur sans transformation.
+const LOGO = "/nodefony-logo.png";
 
 /** Le nom de CETTE vitrine — il marque les messages qu'elle envoie au salon. */
 const FRONT = "Vue";
@@ -190,7 +197,7 @@ onUnmounted(() => {
   <div :style="{ '--accent': ACCENT }">
     <header class="topbar">
       <a class="brand" href="/">
-        <img src="/nodefony-logo.png" alt="" draggable="false" />
+        <img :src="LOGO" alt="" draggable="false" />
         nodefony-core
       </a>
       <nav class="fronts" aria-label="Les quatre vitrines">
