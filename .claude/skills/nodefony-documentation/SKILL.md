@@ -150,7 +150,7 @@ Réf mémoire : [[feedback_studio_layout_rigor]].
 
 ## Recette — ajouter une page de doc (portail ou onglet module)
 
-1. **Contenu** : écrire le markdown (frontmatter `audience`/`section`/`version` — voir § Écriture).
+1. **Contenu** : écrire le markdown (frontmatter `audience`/`section`/`version`, plus `navTitle` dès que le titre dépasse 32 caractères — voir § Écriture).
    POC = en dur dans le controller ; module final = fichier `<module>/docs/*.md` co-localisé.
 2. **Data plane** : la page est exposée par `GET /nodefony/documentation/api/page/{slug}` (markdown +
    `vars` résolues serveur). L'index par `GET …/api/tree`.

@@ -30,6 +30,13 @@ conservées mais ignorées (utiles au RAG).
 - `status` = enum `DocStatus` : `stable` | `draft` | `temporary` | `experimental` | `deprecated`.
   Il décide AUSSI de la publication sur le site public (cf `publish` ci-dessous).
 - La date lue est **`updated`** — **jamais `last-updated`** (sinon date non affichée, fallback git).
+- 🔴 **`title` sert la PAGE, `navTitle` sert le MENU — deux usages, deux contraintes.** Un titre
+  d'article porte le sens (« Configuration unifiée — une source Zod par module + override env
+  générique `NF__*` + précédence », 93 caractères) ; le même texte dans une colonne de navigation
+  devient une phrase, et le lecteur ne balaie plus rien. **Écrire `navTitle` dès que `title` dépasse
+  32 caractères** — facultatif sinon, et les consommateurs prennent `navTitle ?? title`, donc aucune
+  page n'est cassée par son absence. Le libellé court est un **nom**, pas un résumé : pas de tiret
+  cadratin, pas de sous-titre, pas de verbe. `Configuration`, pas `Configurer son application`.
 - `section` frontmatter est parsé mais **non utilisé** pour le regroupement : les sections de l'index
   sont bâties depuis le **dossier parent** du fichier (`docScanner.ts` `group`).
 
