@@ -1,5 +1,6 @@
 ---
 title: "Jetons d'un émetteur TIERS — accepter Keycloak, Auth0 ou Entra sans leur céder l'application"
+navTitle: Émetteur tiers
 lang: fr
 module: "@nodefony/security"
 topic: external-jwt

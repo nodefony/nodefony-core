@@ -633,11 +633,15 @@ function buildNav(pages, current) {
   const rootPage = (file) =>
     pages.find((p) => p.source.kind === "root" && p.relPath === file);
 
+  // Le MENU rend `navTitle`, la PAGE rend `title` : une colonne de quelques
+  // centimètres ne tronque rien, un titre d'article s'y replie sur trois lignes
+  // et le balayage visuel meurt. Le filtre, lui, cherche dans les DEUX — taper
+  // un mot du titre long doit continuer de trouver la page.
   const li = (p) =>
     p
-      ? `<li data-t="${esc4(p.title.toLowerCase())}"><a href="${rel(current.url, p.url)}"${
+      ? `<li data-t="${esc4(`${p.navTitle} ${p.title}`.toLowerCase())}"><a href="${rel(current.url, p.url)}"${
           p.url === current.url ? ' aria-current="page"' : ""
-        }>${esc4(p.title)}</a></li>`
+        }${p.navTitle !== p.title ? ` title="${esc4(p.title)}"` : ""}>${esc4(p.navTitle)}</a></li>`
       : "";
 
   const group = (label, icon, items, open, cls = "") =>

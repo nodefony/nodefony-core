@@ -23,6 +23,17 @@ export interface ScannedDoc {
   meta: Frontmatter;
   /** Titre résolu (frontmatter `title`, sinon nom de fichier humanisé). */
   title: string;
+  /**
+   * Libellé de NAVIGATION — court, destiné aux menus et fils d'Ariane.
+   *
+   * Un titre d'article porte le sens et souvent un sous-titre ; la colonne de
+   * navigation, elle, fait quelques centimètres et ne tronque rien. Les deux
+   * usages n'ont donc pas la même contrainte, d'où deux champs.
+   *
+   * Résolu depuis le frontmatter `navTitle`, avec repli sur {@link title} :
+   * une page qui n'en déclare pas garde exactement le comportement d'avant.
+   */
+  navTitle: string;
 }
 
 /** `01-vue-ensemble.md` → `Vue Ensemble` (retire préfixe numérique + sépare). */
@@ -92,6 +103,12 @@ export async function scanDocsDir(
         group,
         meta,
         title: metaString(meta, "title") ?? humanizeFilename(base),
+        // `navTitle ?? title` : le repli garantit qu'aucune page existante ne
+        // change d'aspect tant qu'elle n'a pas déclaré son libellé court.
+        navTitle:
+          metaString(meta, "navTitle") ??
+          metaString(meta, "title") ??
+          humanizeFilename(base),
       };
     }),
   );
