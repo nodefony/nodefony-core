@@ -673,6 +673,20 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- **`declare -A` n'existe pas en bash 3.2 (celui de macOS) — et mes propres « ok » l'ont masqué.**
+  La table associative a échoué, l'identifiant d'option est parti VIDE, et six tickets ont reçu la
+  priorité par défaut. Mon script affichait pourtant « #57 ok P1 » : il traçait mon INTENTION, pas
+  le résultat, et le `>/dev/null` posé sur l'appel qui écrit achevait de cacher l'échec. Ce qui a
+  tranché : relire les champs par l'API. Ne jamais faire confiance à un `echo` qui répète ses
+  propres arguments. [1× — 08-27]
+- **Une sonde qui rend ZÉRO se suspecte avant le produit.** « frames: 0 » sur cinq sockets m'a fait
+  douter du serveur : la clé n'existait pas, les données étaient sous `recues`/`envoyees`. `jq` sur
+  une clé absente rend un compte de 0, jamais une erreur — le même silence que le champ manquant.
+  [1× — 08-27]
+- **Un chiffre faux dans mon PROPRE message de commit** : « 21 tickets créés » pour 24 réellement
+  ouverts, écrit dans le commit qui reprochait à un ticket son chiffre périmé. Compté par `gh` juste
+  après, corrigé avant la poussée. La règle « un chiffre se re-mesure » vaut d'abord pour ce que
+  j'écris moi-même. [1× — 08-27]
 - **Un chiffre repris d'un audit se REMESURE avant d'entrer dans un ticket.** « 437 ancres en dérive »
   venait d'une mesure d'une semaine ; rejouée, elle rendait **108 sur 4 421 (97,6 % justes), 0 LINE_OUT,
   0 FILE_NOT_FOUND**. Le ticket annonçait 2 j de travail là où il en fallait 0,5, et surtout il
@@ -979,6 +993,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- **Un KIT de chantier lu comme un ÉTAT : 9 items sur 11 étaient DÉJÀ FAITS.** Le tableau de bord
+  avait été dégraissé la veille pour cette raison exacte ; les kits de la mémoire de travail, eux,
+  continuaient d'annoncer du reste-à-faire livré depuis des semaines — commandes d'état et d'arrêt,
+  révocation de session, administration des utilisateurs, deux consoles, repli d'interface, arbre de
+  process sous Windows, et jusqu'au « bug WebSocket à 30 s », qui ne se reproduit pas sur 48 s
+  d'observation. Sans le contrôle exigé par le user, 8 tickets naissaient pour du travail fait. Un
+  kit est un PLAN : il dit ce qu'on voulait faire, jamais ce qui est. Le confronter au code et au
+  `git log` AVANT d'en tirer quoi que ce soit. [1× — 08-27]
 - **`gh project item-list` a rendu 39 items quand l'API en comptait 40** — le ticket ajouté à la
   minute était absent de sa sortie, sans erreur ni avertissement. Ce qui a tranché : redemander la
   MÊME donnée par GraphQL. Même famille que le champ `title` figé : ce client rend une vue à lui,

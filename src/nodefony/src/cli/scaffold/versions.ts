@@ -39,7 +39,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   oxlint: "^1.75.0",
   prettier: "^3.9.5",
   rolldown: "^1.2.6",
-  typescript: "^7.0.2",
+  typescript: "^6.0.3",
   vitest: "^4.1.10",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.1.4",
