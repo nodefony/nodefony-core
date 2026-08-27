@@ -507,6 +507,12 @@
   "studio": {
     "globs": ["src/packages/@nodefony/studio/nodefony/tests/**/*.test.ts"]
   },
+  "svelte-reactivite": {
+    "globs": [
+      "src/nodefony/src/tests/clientSvelte.test.ts",
+      "src/nodefony/src/tests/clientObserve.test.ts"
+    ]
+  },
   "syslog": {
     "unit": [
       "src/nodefony/src/tests/Syslog.test.ts",

@@ -1235,44 +1235,53 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // est exactement l'endroit où un abonnement fuit sans se voir.
       assert.notInclude(aapp, "offLive");
 
-      // Svelte — pas encore de liaison dédiée (#39) : le SOCLE agnostique de
-      // `nodefony/client`, ce qui reste juste — c'est exactement ce que la
-      // liaison enveloppera le jour venu.
+      // Svelte — liaisons `nodefony/svelte`, et la MÊME forme que les trois
+      // autres : la politique reçoit l'adresse (ici une configuration de
+      // module, Svelte n'ayant pas de contexte applicatif), une liaison par
+      // besoin, et RIEN à libérer.
       const sdest2 = path.join(tmp, "slive2");
       scaffold(sdest2, {
         name: "slive2",
         preset: "complete",
         frontend: "svelte",
       });
+      const sapp2 = readFileSync(
+        path.join(sdest2, "frontend", "src", "App.svelte"),
+        "utf8",
+      );
+      const smain2 = readFileSync(
+        path.join(sdest2, "frontend", "src", "main.ts"),
+        "utf8",
+      );
+      assert.include(
+        smain2,
+        'configureNodefony({ url: "/api/live/realtime" })',
+      );
+      assert.include(sapp2, "nodefony()");
+      assert.include(sapp2, "nodefonyState()");
+      assert.include(sapp2, 'nodefonyChannelData<Evenement>("live:events")');
+      assert.include(sapp2, 'live.request("live:ping"');
+      assert.notInclude(sapp2, "new WebSocket(");
+      assert.notInclude(sapp2, "RealtimeClient.shared(");
+      assert.notInclude(sapp2, "connectShared(");
+      assert.notInclude(sapp2, "offLive");
+
+      // Ce que les QUATRE doivent tenir en commun, une fois toutes migrées.
       const vitrines: [string, string][] = [
+        ["react", path.join(rdest, "frontend", "src", "App.tsx")],
+        ["vue", path.join(vdest, "frontend", "src", "App.vue")],
+        [
+          "angular",
+          path.join(adest, "frontend", "src", "app", "app.component.ts"),
+        ],
         ["svelte", path.join(sdest2, "frontend", "src", "App.svelte")],
       ];
       for (const [front, fichier] of vitrines) {
         const src = readFileSync(fichier, "utf8");
-        // Le cycle de connexion vient du socle, à l'identique pour tous.
-        assert.include(
-          src,
-          'connectShared({ url: "/api/live/realtime" })',
-          `${front} : la socket doit venir de connectShared`,
-        );
-        assert.include(
-          src,
-          "live.start()",
-          `${front} : démarrage par le socle`,
-        );
-        assert.include(
-          src,
-          "observeState(live.socket,",
-          `${front} : état par le socle`,
-        );
-        // Deux assertions, pas une : l'appel tient sur une ou plusieurs lignes
-        // selon la longueur du nom de front — un motif qui embarque le retour à
-        // la ligne mesurerait le formateur, pas le câblage.
-        assert.include(
-          src,
-          "observeChannelData<Evenement>(",
-          `${front} : canal par le socle`,
-        );
+        // Le canal est le MÊME dans les quatre : c'est ce qui rend les pages
+        // comparables. La FORME de l'abonnement, elle, appartient à chaque
+        // liaison — l'exiger identique reviendrait à exiger un cinquième
+        // dialecte, ce que la grappe #54 a précisément supprimé.
         assert.include(src, '"live:events"', `${front} : le bon canal`);
         // Ce qui ne doit PLUS jamais revenir : la socket fabriquée à la main, le
         // nom d'un événement local recopié, l'appariement subscribe/unsubscribe
@@ -1344,9 +1353,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(sdest, "frontend", "src", "App.svelte"),
         "utf8",
       );
-      assert.include(sapp, 'connectShared({ url: "/api/live/realtime" })');
-      assert.include(sapp, "observeChannelData<Evenement>(");
-      assert.include(sapp, '"live:events"');
+      assert.include(sapp, "nodefony()");
+      assert.include(sapp, 'nodefonyChannelData<Evenement>("live:events")');
       assert.include(sapp, "$state");
       assert.notInclude(sapp, "new WebSocket(");
       const sentry = readFileSync(

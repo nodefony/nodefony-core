@@ -40,6 +40,10 @@
       "types": "./dist/client/types/src/client/vue/index.d.ts",
       "default": "./dist/client/client/vue/index.js"
     },
+    "./svelte": {
+      "types": "./dist/client/types/src/client/svelte/index.d.ts",
+      "default": "./dist/client/client/svelte/index.js"
+    },
     "./angular": {
       "types": "./dist/client/types/src/client/angular/index.d.ts",
       "default": "./dist/client/client/angular/index.js"
@@ -101,6 +105,7 @@
     "react-dom": ">=18",
     "vue": ">=3.5",
     "@angular/core": ">=20",
+    "svelte": ">=5.7",
     "zod": "^4.4.0"
   },
   "peerDependenciesMeta": {
@@ -114,6 +119,9 @@
       "optional": true
     },
     "@angular/core": {
+      "optional": true
+    },
+    "svelte": {
       "optional": true
     }
   },
@@ -140,6 +148,7 @@
     "vitest": "4.1.11",
     "vue": "^3.5.42",
     "@angular/core": "^22.1.4",
+    "svelte": "^5.56.10",
     "zod": "4.4.3"
   },
   "repository": {

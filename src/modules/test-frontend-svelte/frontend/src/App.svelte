@@ -1,15 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  // Le socle AGNOSTIQUE de `nodefony/client` — le même que les vitrines React,
-  // Vue et Angular. Deux concepts : une connexion partagée qui reçoit
-  // l'adresse, et un abonnement. Aucune règle de temps réel n'est écrite ici.
+  // La liaison Svelte de `nodefony/svelte` — le pendant exact des hooks React,
+  // des composables Vue et des fonctions d'injection Angular. Aucune rune n'est
+  // publiée par le framework : les valeurs se lisent `.current`, et le système
+  // d'effets rend l'abonnement quand plus personne ne les lit. Aucune règle de
+  // temps réel n'est écrite ici — elles vivent dans le socle `nodefony/client`.
   import {
-    connectShared,
-    observeChannel,
-    observeSnapshot,
-    observeState,
-    type SocketSnapshot,
-  } from "nodefony/client";
+    nodefony,
+    nodefonyChannel,
+    nodefonySnapshot,
+    nodefonyState,
+  } from "nodefony/svelte";
   // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
   // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
   import "./showcase.css";
@@ -82,22 +83,27 @@
   const cliquer = (): void => {
     count += 1;
     // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-    live.socket.emit("live:dire", { texte: `clic n°${count}`, front: FRONT });
+    live.emit("live:dire", { texte: `clic n°${count}`, front: FRONT });
   };
   let data = $state<ApiData | null>(null);
   let error = $state<string | null>(null);
   let timer: ReturnType<typeof setInterval> | null = null;
 
-  // UNE socket par URL pour toute la page. `connectShared` porte le cycle de
-  // connexion (idempotent, rejet avalé, et JAMAIS de `disconnect()` au démontage :
-  // la connexion appartient à la PAGE).
-  const live = connectShared({ url: "/api/live/realtime" });
-  let liveState = $state(live.socket.state);
+  // La socket de la page — pour ce qu'on lui DIT (`emit`, `request`) et le
+  // bouton de coupure. L'adresse est écrite dans `main.ts` : une page ne devine
+  // jamais l'hôte auquel elle parle.
+  const live = nodefony();
+  // Les valeurs se lisent `.current` ; `$derived` les rend au reste du fichier
+  // sous le nom qu'il employait déjà. Rien à libérer : l'abonnement est rendu
+  // quand plus aucun effet ne lit la valeur.
+  const etatVivant = nodefonyState();
+  const liveState = $derived(etatVivant.current);
   let messages = $state<Message[]>([]);
   let texte = $state("");
   let parHttp = $state<string | null>(null);
   let parSocket = $state<string | null>(null);
-  let vue = $state<SocketSnapshot | null>(null);
+  const instantane = nodefonySnapshot();
+  const vue = $derived(instantane.current);
   let barreVisible = $state(debugbar()?.isVisible() ?? false);
 
   const basculerBarre = (): void => {
@@ -110,7 +116,7 @@
     if (!dit) return;
     // Une notification client → serveur : pas de réponse attendue, c'est le
     // serveur qui rediffuse à tous les abonnés du canal.
-    live.socket.emit("live:dire", { texte: dit, front: FRONT });
+    live.emit("live:dire", { texte: dit, front: FRONT });
     texte = "";
   };
 
@@ -121,7 +127,7 @@
     const json = (await r.json()) as { result?: unknown };
     parHttp = `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`;
     const t1 = performance.now();
-    const parLaSocket = await live.socket.request("/svelte/api/data");
+    const parLaSocket = await live.request("/svelte/api/data");
     parSocket = `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`;
   };
 
@@ -135,11 +141,10 @@
   const corps = (v: string | null): string =>
     v?.split("\n").slice(1).join("\n") ?? "—";
   // Libérations des observateurs — rendues au démontage (le HMR remonte le composant).
-  let offLive: (() => void)[] = [];
 
   const basculer = (): void => {
-    if (liveState === "connected") live.socket.disconnect();
-    else void live.socket.connect();
+    if (liveState === "connected") live.disconnect();
+    else void live.connect();
   };
 
 
@@ -156,31 +161,27 @@
     }
   };
 
+  // Le salon : la forme NON paresseuse de la liaison. Elle rend son teardown,
+  // ce que `$effect` attend — l'abonnement est donc pris qu'on affiche ou non,
+  // et rendu au démontage sans une ligne de `onDestroy`.
+  $effect(() =>
+    nodefonyChannel("live:salon", (m) => {
+      messages = [...messages, m as Message].slice(-6);
+    }),
+  );
+
   onMount(() => {
+    // Il ne reste ici que ce que la PAGE possède vraiment : son sondage HTTP.
     pollApi();
     timer = setInterval(pollApi, 1000);
-    // Un observateur = un rappel + une libération. L'abonnement serveur est
-    // ref-compté et REJOUÉ à chaque reconnexion : le socle s'en charge.
-    offLive.push(observeState(live.socket, (state) => (liveState = state)));
-    // Le compteur de trames est rafraîchi par l'échantillonneur du client (1×/s)
-    // — pas par un timer de la page : une horloge de plus pour la même mesure.
-    // UN instantané, pas cinq lectures à la main : `observeSnapshot` le
-    // rafraîchit sur l'échantillonneur DÉJÀ en place (aucune horloge de plus).
-    offLive.push(observeSnapshot(live.socket, (v) => (vue = v)));
-    offLive.push(
-      observeChannel(live.socket, "live:salon", (m) => {
-        messages = [...messages, m as Message].slice(-6);
-      }),
-    );
-    live.start();
   });
 
   onDestroy(() => {
+    // Une seule chose à rendre : l'horloge du sondage. Les abonnements temps
+    // réel sont rendus par le système d'effets, et la socket PARTAGÉE reste
+    // ouverte — la couper trancherait les requêtes en vol des autres
+    // consommateurs.
     if (timer) clearInterval(timer);
-    // On libère les observateurs (ce qui rend l'abonnement) — la socket PARTAGÉE,
-    // elle, reste ouverte pour la page.
-    for (const off of offLive) off();
-    offLive = [];
   });
 </script>
 
@@ -367,10 +368,10 @@
           </p>
         </div>
         <pre class="code"><code
-            >const live = connectShared(&#123; url: "/api/live/realtime" &#125;)
+            >configureNodefony(&#123; url: "/api/live/realtime" &#125;)  // main.ts
 
-observeState(live.socket, (état) =&gt; liveState = état)
-observeChannel(live.socket, "live:salon", (m) =&gt; …)</code
+const liveState = $derived(nodefonyState().current)
+$effect(() =&gt; nodefonyChannel("live:salon", (m) =&gt; …))</code
           ></pre>
       </div>
     </section>

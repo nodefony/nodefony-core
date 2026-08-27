@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-27T23:04:26.735Z",
+  "generated": "2026-08-27T23:50:03.172Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 744,
-    "symbols": 3209,
+    "files": 745,
+    "symbols": 3232,
     "classes": 365,
-    "interfaces": 899,
-    "types": 401,
+    "interfaces": 904,
+    "types": 404,
     "enums": 4,
-    "functions": 1242,
+    "functions": 1257,
     "constants": 298
   },
   "symbols": {
@@ -7018,6 +7018,162 @@
       "module": "@nodefony/core",
       "description": "Shim browser de `util.styleText` — identité (le navigateur n'a pas de TTY ANSI). Consommé par la façade couleur `src/colors.ts` → jamais d'ANSI côté client (parité ancien shim `cli-color` identity …"
     },
+    "Reactive": {
+      "name": "Reactive",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une valeur réactive à la mode de Svelte 5 : on la lit `.current`. Le même contrat que `MediaQuery.current` : lue dans un template ou un `$effect`, elle suit ; lue ailleurs, elle rend l'instantané c…"
+    },
+    "NodefonySvelteOptions": {
+      "name": "NodefonySvelteOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de {@link configureNodefony} — l'un des deux au moins doit être donné."
+    },
+    "SyslogOptions": {
+      "name": "SyslogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de {@link nodefonySyslog}."
+    },
+    "NoticeLogOptions": {
+      "name": "NoticeLogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de {@link nodefonyNoticeLog}."
+    },
+    "@nodefony/core:Source": {
+      "name": "Source",
+      "kind": "type",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une source de valeur : constante, ou fonction qui la lit. Donner une fonction qui lit un `$state` suffit à ce que l'abonnement SUIVE la valeur — c'est ce qui remplace, en Svelte, la liste de dépend…"
+    },
+    "@nodefony/core:AdaptiveChannelOptions": {
+      "name": "AdaptiveChannelOptions",
+      "kind": "type",
+      "file": "src/nodefony/src/client/vue/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réglages adaptatifs (la cadence désirée se passe à part, en argument)."
+    },
+    "configureNodefony": {
+      "name": "configureNodefony",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Installe la politique temps réel de l'application — à appeler UNE fois, dans le point d'entrée, avant `mount()`. Svelte n'a pas de contexte applicatif comparable à React : `setContext` ne se pose q…"
+    },
+    "nodefony": {
+      "name": "nodefony",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefony()` — la socket brute (canaux, journal, statistiques…). Tête de gondole et échappatoire pour les cas avancés ; pour de l'état réactif, prendre les liaisons dédiées ci-dessous."
+    },
+    "nodefonyState": {
+      "name": "nodefonyState",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyState()` — l'état de la connexion (`\"connected\"`, `\"reconnecting\"`, …), tenu à jour. Branché sur la porte publique `onState`, jamais sur le nom de l'événement local, qui n'a pas à sortir d…"
+    },
+    "nodefonyIdentity": {
+      "name": "nodefonyIdentity",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyIdentity()` — l'**identité résolue** de la connexion, annoncée par le serveur au `realtime:welcome` (`authenticated`, `roles`, `userIdentifier`, `scopes`). `null` tant qu'aucun welcome n'e…"
+    },
+    "nodefonyChannel": {
+      "name": "nodefonyChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyChannel()` — s'abonne à un canal pub/sub : `onMessage` est appelé à chaque message. Le socle apparie `subscribe`/`unsubscribe` côté serveur (ref-comptés) et rejoue l'abonnement à chaque re…"
+    },
+    "nodefonyChannelData": {
+      "name": "nodefonyChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyChannelData()` — la **dernière valeur** reçue sur un canal (le cas le plus courant : la dernière mesure d'un flux d'état). `null` tant que rien n'est arrivé. Le canal accepte une fonction …"
+    },
+    "nodefonyAdaptiveChannel": {
+      "name": "nodefonyAdaptiveChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyAdaptiveChannel()` — comme {@link nodefonyChannel}, mais en **cadence adaptative** (AIMD piloté par le client) : la cadence recule sous famine puis remonte quand c'est sain, sans rien chan…"
+    },
+    "nodefonyAdaptiveChannelData": {
+      "name": "nodefonyAdaptiveChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyAdaptiveChannelData()` — comme {@link nodefonyChannelData}, mais en cadence adaptative. Rend la dernière valeur **et** la cadence effective, les deux réactives. Réservé aux canaux d'ÉTAT. …"
+    },
+    "nodefonyChannelStats": {
+      "name": "nodefonyChannelStats",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyChannelStats()` — statistiques vivantes d'un canal (débit, série pour un VU-mètre, total). La source est l'échantillonneur du client (1×/s) : aucune horloge n'est posée ici, et aucune tram…"
+    },
+    "nodefonySnapshot": {
+      "name": "nodefonySnapshot",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonySnapshot()` — ce que la socket sait d'ELLE-MÊME : état, canaux tenus, trames reçues, trames perdues, dernière trame. Rafraîchi par l'échantillonneur déjà en place — aucune horloge de plus.…"
+    },
+    "nodefonySyslog": {
+      "name": "nodefonySyslog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonySyslog()` — le flux du journal, prêt à afficher : anneau borné et filtre de sévérité. Le format **coalescé** du canal (`{ logs, dropped }`), l'entrée unique, la taille de l'anneau et le ca…"
+    },
+    "nodefonyNotifications": {
+      "name": "nodefonyNotifications",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyNotifications()` — le flux des **notices normalisées** du client : criticités qui cassent le temps réel (codes de fermeture RFC 6455 interprétés), erreurs poussées par le serveur, rétablis…"
+    },
+    "nodefonyNoticeLog": {
+      "name": "nodefonyNoticeLog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/svelte/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`nodefonyNoticeLog()` — l'anneau borné des dernières notices, filtrable par source : un historique léger des criticités, distinct des notifications éphémères. La taille de l'anneau et le filtrage v…"
+    },
     "Websocket": {
       "name": "Websocket",
       "kind": "class",
@@ -7054,14 +7210,6 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Réglages de {@link useNodefonyNoticeLog}."
-    },
-    "@nodefony/core:AdaptiveChannelOptions": {
-      "name": "AdaptiveChannelOptions",
-      "kind": "type",
-      "file": "src/nodefony/src/client/vue/index.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Réglages adaptatifs (la cadence désirée se passe à part, en argument)."
     },
     "@nodefony/core:useNodefony": {
       "name": "useNodefony",
@@ -25432,6 +25580,7 @@
         "src/nodefony/src/client/debugbar/DebugBar.ts",
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "closeCodeToNotice": [
@@ -26589,6 +26738,7 @@
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "NodefonyNotice": [
@@ -26596,6 +26746,7 @@
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "RealtimeIdentity": [
@@ -26603,6 +26754,7 @@
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "RealtimeState": [
@@ -26610,6 +26762,7 @@
         "src/nodefony/src/client/debugbar/model.ts",
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "BindAdaptiveOptions": [
@@ -26617,75 +26770,90 @@
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "adaptiveRebindKey": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "connectShared": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeChannel": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeChannelStats": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeIdentity": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeNoticeLog": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeNotices": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeSnapshot": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeState": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "observeSyslog": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "Dispose": [
         "src/nodefony/src/client/angular/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "ObserveNoticeLogOptions": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "ObserveSyslogOptions": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "SocketSnapshot": [
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
       ],
       "DebugBarModel": [

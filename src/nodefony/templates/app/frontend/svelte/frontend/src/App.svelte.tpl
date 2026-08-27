@@ -2,13 +2,13 @@
   import { onMount, onDestroy } from "svelte";
 <% if (it.complete) { %>  // FAÇADE temps réel isomorphe du framework — reconnexion, re-subscribe, état :
   // gérés par le client. Aucun `new WebSocket` à la main. Subpath
-  // `nodefony/client` : la porte client explicite, résolue à l'identique par
+  // `nodefony/svelte` : la liaison IDIOMATIQUE du framework, résolue à l'identique par
   // Vite, Node et le typecheck.
   import {
-    connectShared,
-    observeState,
-    observeChannelData,
-  } from "nodefony/client";
+    nodefony,
+    nodefonyChannelData,
+    nodefonyState,
+  } from "nodefony/svelte";
 <% } %>  import { NODEFONY_LOGO } from "./brand";
   // Mise en page et palette de la démonstration — feuille PARTAGÉE par les
   // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -49,14 +49,16 @@
     pid: number;
   }
 
-  // UNE socket par URL pour toute la page (`.shared`) — URL RELATIVE, résolue
-  // contre la page (https → wss automatique). La même façade que Studio.
-  const live = connectShared({ url: "/api/live/realtime" });
-  let liveState = $state(live.socket.state);
-  let dernier = $state<Evenement | null>(null);
+  // La socket de la page — pour ce qu'on lui DIT (`emit`, `request`).
+  // L'adresse est écrite dans `main.ts`, et nulle part ailleurs.
+  const live = nodefony();
+  // Les valeurs se lisent `.current` ; `$derived` les rend au reste du fichier.
+  // Rien à libérer : l'abonnement est rendu quand plus aucun effet ne les lit.
+  const etatVivant = nodefonyState();
+  const liveState = $derived(etatVivant.current);
+  const flux = nodefonyChannelData<Evenement>("live:events");
+  const dernier = $derived(flux.current);
   let pingMs = $state<number | null>(null);
-  // Disposers des listeners locaux — rendus au démontage (HMR remonte le composant).
-  let offLive: (() => void)[] = [];
 <% } else { %>  let wsInput = $state("ping");
   let wsLog = $state<string[]>([]);
   let ws: WebSocket | null = null;
@@ -129,20 +131,9 @@
   onMount(() => {
     refreshHello();
 <% if (it.complete) { %>
-    // Un observateur = un rappel + une libération. L'abonnement serveur est
-    // ref-compté et REJOUÉ à chaque (re)connexion, `start()` est idempotent, et
-    // rien ne coupe la socket au démontage : elle appartient à la PAGE. Ces
-    // règles vivent dans `nodefony/client`, pas ici — c'est ce qui les garde
-    // identiques en React, Vue, Angular et Svelte.
-    offLive.push(observeState(live.socket, (state) => (liveState = state)));
-    offLive.push(
-      observeChannelData<Evenement>(
-        live.socket,
-        "live:events",
-        (e) => (dernier = e),
-      ),
-    );
-    live.start();
+    // Rien à câbler ici : les deux valeurs ci-dessus s'abonnent au premier
+    // affichage et rendent l'abonnement quand plus rien ne les lit. La
+    // connexion, elle, est ouverte par `configureNodefony` (main.ts).
 <% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du WS
@@ -161,10 +152,8 @@
 <% } %>  });
 
   onDestroy(() => {
-<% if (it.complete) { %>    // HMR remonte le composant : on libère les observateurs, ce qui rend aussi
-    // l'abonnement — la socket PARTAGÉE, elle, reste ouverte pour la page.
-    for (const off of offLive) off();
-    offLive = [];
+<% if (it.complete) { %>    // HMR remonte le composant : le système d'effets rend les abonnements tout
+    // seul — la socket PARTAGÉE, elle, reste ouverte pour la page.
 <% } else { %>    // HMR remonte le composant : fermer une socket encore en CONNECTING lève un
     // warning navigateur (« closed before the connection is established ») —
     // on attend l'open pour fermer proprement.
@@ -180,7 +169,7 @@
 
 <% if (it.complete) { %>  const doPing = async () => {
     const t0 = performance.now();
-    await live.socket.request("live:ping", {});
+    await live.request("live:ping", {});
     pingMs = Math.round(performance.now() - t0);
   };
 
@@ -188,7 +177,7 @@
   // second onglet et cliquer suffit à le voir. C'est ce partage qui fait
   // l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
   const doDire = () =>
-    live.socket.emit("live:dire", {
+    live.emit("live:dire", {
       texte: `bonjour de la page (${Date.now() % 1000})`,
     });
 <% } else { %>  const sendWs = () => {

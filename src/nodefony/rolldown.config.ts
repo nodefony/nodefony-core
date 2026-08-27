@@ -90,7 +90,8 @@ const browserShim: Plugin = {
 };
 
 // `react`, `vue` et `@angular/*` = peerDeps OPTIONNELLES des subpaths
-// `nodefony/react`, `nodefony/vue` et `nodefony/angular` → externes (jamais
+// `nodefony/react`, `nodefony/vue`, `nodefony/angular` et `nodefony/svelte` →
+// externes (jamais
 // bundlées ; c'est l'app qui les fournit). Une seule copie de chaque runtime
 // doit vivre dans la page : bundler la nôtre donnerait deux runtimes réactifs
 // qui ne se voient pas l'un l'autre — et, pour Angular, deux injecteurs.
@@ -101,11 +102,13 @@ const clientExternal = (id: string): boolean =>
   id.startsWith("react-dom/") ||
   id === "vue" ||
   id.startsWith("vue/") ||
-  id.startsWith("@angular/");
+  id.startsWith("@angular/") ||
+  id === "svelte" ||
+  id.startsWith("svelte/");
 
 const clientConfig: RolldownOptions = defineConfig({
   // Multi-entry : `index` (barrel browser `nodefony`) + `debugbar` + `react` +
-  // `vue` + `angular` + `roles` (subpaths). preserveModules → RealtimeClient
+  // `vue` + `angular` + `svelte` + `roles` (subpaths). preserveModules → RealtimeClient
   // partagé émis 1×. Les subpaths ne sont JAMAIS réexportés depuis
   // client/index.ts.
   input: [
@@ -114,6 +117,7 @@ const clientConfig: RolldownOptions = defineConfig({
     "src/client/react/index.ts",
     "src/client/vue/index.ts",
     "src/client/angular/index.ts",
+    "src/client/svelte/index.ts",
     "src/client/roles/index.ts",
   ],
   platform: "browser",

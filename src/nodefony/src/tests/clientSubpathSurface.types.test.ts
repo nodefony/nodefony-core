@@ -1,6 +1,6 @@
 /**
  * Tests de SURFACE PUBLIQUE des subpaths navigateur — `nodefony/client`,
- * `nodefony/react`, `nodefony/vue` et `nodefony/angular`.
+ * `nodefony/react`, `nodefony/vue`, `nodefony/angular` et `nodefony/svelte`.
  *
  * Ce que ces sentinelles protègent : un consommateur navigateur doit pouvoir
  * **NOMMER** les types que la lib lui rend. `useNodefonyIdentity()` rend une
@@ -48,6 +48,12 @@ import type {
   NodefonyNotice as NgNotice,
   SocketSnapshot as NgSnapshot,
 } from "../client/angular/index";
+import type {
+  RealtimeIdentity as SvIdentity,
+  RealtimeState as SvState,
+  NodefonyNotice as SvNotice,
+  SocketSnapshot as SvSnapshot,
+} from "../client/svelte/index";
 
 // ── Fixtures compile-only ─────────────────────────────────────────────────
 // `declare const` est ILLÉGAL dans un corps de fonction (TS1184) : au scope
@@ -72,6 +78,11 @@ declare const ngIdentity: NgIdentity;
 declare const ngState: NgState;
 declare const ngNotice: NgNotice;
 declare const ngSnapshot: NgSnapshot;
+
+declare const svIdentity: SvIdentity;
+declare const svState: SvState;
+declare const svNotice: SvNotice;
+declare const svSnapshot: SvSnapshot;
 
 function _typeOnly(): void {
   // ── `nodefony/client` — les types que le client rend ────────────────────
@@ -130,14 +141,28 @@ function _typeOnly(): void {
   const _u: ReactIdentity = ngIdentity;
   const _v: VueIdentity = ngIdentity;
 
+  // ── `nodefony/svelte` — ce que les liaisons RENDENT ─────────────────────
+  // Même exigence : `nodefonyIdentity()` rend un `Reactive<RealtimeIdentity |
+  // null>` ; sans réexport, le consommateur ne peut pas déclarer ce qu'il lit.
+  const _w: SvIdentity | null = svIdentity;
+  const _x: SvState = svState;
+  const _y: SvNotice = svNotice;
+  const _z: SvSnapshot = svSnapshot;
+
+  // Les QUATRE subpaths parlent du MÊME type, pas de quatre jumeaux.
+  const _aa: RealtimeIdentity = svIdentity;
+  const _ab: ReactIdentity = svIdentity;
+  const _ac: VueIdentity = svIdentity;
+  const _ad: NgIdentity = svIdentity;
+
   // prettier-ignore
-  (void _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v);
+  (void _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _aa, _ab, _ac, _ad);
 }
 
 void _typeOnly;
 
 describe("surface publique des subpaths navigateur", () => {
-  it("nomme les types rendus par `nodefony/client`, `/react`, `/vue` et `/angular` (compile-only)", () => {
+  it("nomme les types rendus par `nodefony/client`, `/react`, `/vue`, `/angular` et `/svelte` (compile-only)", () => {
     // Rien à exécuter : la preuve est faite par `tsgo -p tsconfig.tests.json`.
     // Ce cas existe pour que la sentinelle apparaisse dans le rapport vitest —
     // un fichier de types muet dans le rapport finit par être oublié.

@@ -90,7 +90,10 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 4. [Les fonctions d'injection Angular](angular-services.md) — la même surface encore, en idiomes
    Angular : un fournisseur dans les `providers`, puis des fonctions qui rendent des signals et
    libèrent l'abonnement à la destruction du composant. La connexion y est ouverte hors zone.
-5. [`@nodefony/realtime`](../../packages/@nodefony/realtime/docs/index.md) — le serveur en face : le
+5. [La réactivité Svelte](svelte-reactivite.md) — la même surface, une dernière fois : une
+   configuration de module, puis des valeurs qui se lisent `.current` et dont l'abonnement est rendu
+   par le système d'effets. Aucune rune n'est publiée, et l'abonnement y est paresseux.
+6. [`@nodefony/realtime`](../../packages/@nodefony/realtime/docs/index.md) — le serveur en face : le
    hub qui distribue les canaux, et le backplane quand l'application passe à plusieurs répliques.
 
 **Je veux tracer une requête de bout en bout** — l'enquête, quand quelque chose s'est mal passé.
@@ -147,7 +150,10 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
     "meta": "ton front est en Vue 3" },
   { "icon": "🅰️", "title": "angular-services", "href": "angular-services.md",
     "desc": "Un fournisseur dans les providers de l'application, puis les mêmes capacités en fonctions d'injection qui rendent des signals. La connexion est ouverte hors zone — sans quoi, avec zone.js, chaque trame reçue relancerait une détection de changements sur toute l'application.",
-    "meta": "ton front est en Angular" }
+    "meta": "ton front est en Angular" },
+  { "icon": "🔥", "title": "svelte-reactivite", "href": "svelte-reactivite.md",
+    "desc": "Une configuration de module, puis les mêmes capacités en valeurs qui se lisent .current. Aucune rune n'est publiée — une bibliothèque qui en publierait imposerait au consommateur de la compiler. L'abonnement est pris à la première lecture et rendu quand plus personne ne lit.",
+    "meta": "ton front est en Svelte 5" }
 ]
 ```
 
@@ -361,7 +367,8 @@ identifiant de requête s'appuie sur ce que `RequestContext` propage.
 - 📄 **Les pages du cœur** : [Service](service.md) · [Journalisation](syslog.md) ·
   [Kernel & Module](kernel.md) · [CLI](cli.md) · [RequestContext](request-context.md) ·
   [Client isomorphe](client.md) · [Hooks React](react-hooks.md) ·
-  [Composables Vue](vue-composables.md) · [Injection Angular](angular-services.md)
+  [Composables Vue](vue-composables.md) · [Injection Angular](angular-services.md) ·
+  [Réactivité Svelte](svelte-reactivite.md)
 - 🏛️ **Transverse** : [injection et portées](../../../docs/architecture/injection-portees.md) (la
   page canonique du conteneur) · [cycle de boot](../../../docs/architecture/cycle-boot-kernel.md) ·
   [pipeline de requête](../../../docs/architecture/pipeline-requete.md) ·

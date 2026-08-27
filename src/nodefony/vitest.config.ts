@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { oxcDecorators } from "../../vitest.oxc";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -33,6 +34,30 @@ export default defineConfig({
     // rouges sous `npm test`, où turbo lance les 21 espaces de travail en
     // parallèle et sature ce qu'ils attendent. Le défaut de 5 s mesurait donc
     // la charge du moment. Un vrai blocage reste attrapé, très en deçà.
+    // Svelte publie DEUX constructions derrière le même spécificateur, et
+    // choisit par condition d'export : `browser` rend `mount()`, tout le reste
+    // rend la construction serveur, où `mount()` LÈVE. Vitest exécute par le
+    // pipeline SSR de Vite, donc il prend la seconde — et le banc Svelte
+    // échouait sur « lifecycle_function_unavailable », ce qui ressemble à un
+    // défaut de la liaison alors que c'est une résolution de module.
+    //
+    // Deux ancres EXACTES plutôt qu'une condition globale : `conditions:
+    // ["browser"]` s'appliquerait à toutes les dépendances de toute la suite du
+    // cœur, pour le besoin d'un seul fichier. Et des ancres par PRÉFIXE
+    // détourneraient `svelte/internal/client` — celui qu'importent les fixtures
+    // compilées, et qui n'a qu'une seule construction.
+    alias: [
+      {
+        find: /^svelte$/,
+        replacement: r("../../node_modules/svelte/src/index-client.js"),
+      },
+      {
+        find: /^svelte\/reactivity$/,
+        replacement: r(
+          "../../node_modules/svelte/src/reactivity/index-client.js",
+        ),
+      },
+    ],
     testTimeout: 30000,
     hookTimeout: 30000,
     coverage: {
@@ -43,6 +68,17 @@ export default defineConfig({
       reportsDirectory: ".coverage",
     },
   },
+  // Le compilateur Svelte, pour le SEUL banc qui en a besoin
+  // (`clientSvelte.test.ts` et sa fixture `.svelte`).
+  //
+  // Pourquoi une fixture COMPILÉE plutôt qu'un simulacre : les runes et les
+  // effets de Svelte n'existent qu'APRÈS compilation. Un harnais qui les
+  // imiterait mesurerait le harnais. Or ce que ce banc doit prouver — l'instant
+  // où l'abonnement est pris, et celui où il est rendu — est décidé par le
+  // système d'effets réel, pas par la liaison.
+  //
+  // Le plugin ne touche que les `.svelte` : les autres bancs ne le voient pas.
+  plugins: [svelte({ compilerOptions: { dev: false } })],
   oxc: oxcDecorators,
   resolve: {
     alias: {},

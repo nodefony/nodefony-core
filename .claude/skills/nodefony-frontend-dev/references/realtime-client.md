@@ -18,7 +18,7 @@ Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1300 l). Contrats
 8. [Notices & refus de canal](#8-notices--refus-de-canal)
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
 10. [Cadence adaptative (`adaptiveChannel`)](#10-cadence-adaptative-adaptivechannel)
-11. [Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
+11. [Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular, liaisons Svelte](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
 12. [Gotchas](#12-gotchas)
 
 ---
@@ -268,7 +268,7 @@ Abonne un canal d'**ÉTAT** (latest-wins : stats, supervision) en **cadence adap
 
 ---
 
-## 11. Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular
+## 11. Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular, liaisons Svelte
 
 ### 11.1 Le socle — `nodefony/client`, pour les QUATRE fronts
 
@@ -472,7 +472,40 @@ Trois règles propres à Angular :
 
 Banc : `src/tests/clientAngular.test.ts` (11 cas, `// @vitest-environment jsdom` + `import "@angular/compiler"` + `createApplication()`). Un injecteur fabriqué à la main NE SUFFIT PAS : `effect()` y lève `NG0201` faute de planificateur — seule une vraie `ApplicationRef` exerce le chemin réel.
 
-Svelte (#39) n'a pas encore sa liaison : sa vitrine consomme le socle en direct, et la sentinelle `vitrinesCommunes.test.ts` porte la table qui dit où en est chaque front.
+### 11.5 Les liaisons Svelte `nodefony/svelte`
+
+**Même surface, mêmes noms, mêmes garanties que les trois autres.** Source : `src/client/svelte/index.ts`. Page publiée : `src/nodefony/docs/svelte-reactivite.md`.
+
+🔴 **AUCUNE rune n'est publiée, et c'est structurel.** `$state`/`$effect` sont des constructions du COMPILATEUR : elles n'existent que dans un `.svelte`/`.svelte.ts`. Les publier imposerait au consommateur de compiler `node_modules` — ce que le plugin svelte ne fait PAS par défaut — donc condition d'export `svelte` + `svelte-package` + couplage aux versions du compilateur. La liaison passe par **`createSubscriber`** (`svelte/reactivity`, `@since 5.7`), qui rend réactif un objet ORDINAIRE. ⚠️ Ça ne restreint PAS l'app : ses runes sont compilées par `@sveltejs/vite-plugin-svelte`.
+
+```ts
+// La politique est une CONFIGURATION DE MODULE : Svelte n'a pas de contexte
+// applicatif (`setContext` ne se pose qu'à l'init d'un composant).
+configureNodefony({ url: "/api/live/realtime" });   // main.ts, AVANT mount()
+
+nodefony(): RealtimeClient;                                    // throw hors configuration
+nodefonyState(): Reactive<RealtimeState>;                      // se lit .current
+nodefonyIdentity(): Reactive<RealtimeIdentity | null>;
+nodefonyChannel(canal: Source<string>, onMessage): Dispose;    // teardown → $effect
+nodefonyChannelData<T>(canal, initial?): Reactive<T | null>;
+nodefonyAdaptiveChannel(base, onMessage, desiredMs, opts?): Dispose;
+nodefonyAdaptiveChannelData<T>(base, desiredMs, opts?): { data, intervalMs };
+nodefonyChannelStats(canal): Reactive<MessageStats | null>;
+nodefonySnapshot(): Reactive<SocketSnapshot | null>;
+nodefonySyslog(opts?): Reactive<unknown[]>;
+nodefonyNotifications(onNotice): Dispose;
+nodefonyNoticeLog(opts?): Reactive<NodefonyNotice[]>;
+export interface Reactive<T> { readonly current: T }
+```
+
+Deux règles propres à Svelte :
+
+1. **🔴 L'abonnement est PARESSEUX — le SEUL écart de comportement des quatre fronts.** Pris au 1ᵉʳ `.current` lu DANS UN EFFET, rendu quand tous les effets lecteurs meurent. Une valeur créée mais jamais affichée ne s'abonne jamais (mesuré : 0 trame `subscribe`). Forme non paresseuse quand l'abonnement doit être pris quoi qu'il arrive : `$effect(() => nodefonyChannel("live:salon", onMsg))`.
+2. **Un canal qui change prend `+b` PUIS rend `-a`** — l'inverse de Vue et Angular, qui libèrent d'abord. Aucun trou. C'est l'ordre du système d'effets, pas de la liaison.
+
+Banc : `src/tests/clientSvelte.test.ts` (11 cas, `@vitest-environment jsdom` + fixtures `.svelte` COMPILÉES, montées puis démontées). ⚠️ `vitest.config.ts` du cœur porte **2 alias EXACTS** (`/^svelte$/`, `/^svelte\/reactivity$/` → `index-client.js`) : Svelte publie deux constructions par condition d'export, vitest prend la SERVEUR où `mount()` lève « lifecycle_function_unavailable » — et un alias par PRÉFIXE détournerait `svelte/internal/client`, celui qu'importent les fixtures compilées.
+
+**La grappe #54 est CLOSE** : les quatre fronts ont leur liaison, et la table de `vitrinesCommunes.test.ts` l'exige désormais de chacun.
 
 ---
 

@@ -15,9 +15,8 @@
  *
  * Ce qu'il tient :
  *  1. la feuille de style commune est identique — octet pour octet ;
- *  2. les quatre pages consomment le socle — par leur liaison idiomatique quand
- *     elle existe (React, Vue, Angular : de minces enveloppes du socle), en
- *     direct pour celles qui attendent la leur ;
+ *  2. les quatre pages consomment le socle par leur liaison idiomatique — de
+ *     minces enveloppes, une par framework de vue, sans une règle en propre ;
  *  3. aucune ne réintroduit la mécanique que le socle porte (socket fabriquée à
  *     la main, nom d'événement local recopié, abonnement apparié à la main) ;
  *  4. les quatre montrent les mêmes sections, et se pointent l'une l'autre.
@@ -99,8 +98,8 @@ describe("vitrines — la feuille de style est la MÊME dans les quatre", () => 
 });
 
 /**
- * Par quoi chaque vitrine s'abonne — et jusqu'où va la migration vers les
- * liaisons idiomatiques (#54).
+ * Par quoi chaque vitrine s'abonne — la grappe #54 est complète, les QUATRE
+ * fronts ont leur liaison.
  *
  * Une liaison PUBLIÉE que sa propre vitrine n'emploie pas n'est exercée par
  * personne : elle serait gelée SemVer sans avoir jamais été confrontée à un
@@ -108,8 +107,9 @@ describe("vitrines — la feuille de style est la MÊME dans les quatre", () => 
  * une tolérance — dès que `nodefony/<front>` existe, la vitrine du front doit
  * l'employer, et le socle direct n'y est plus acceptable.
  *
- * Les fronts qui n'ont pas encore leur liaison consomment le socle en direct,
- * ce qui reste juste : c'est exactement ce que la liaison enveloppera.
+ * Cette table reste, et c'est voulu : elle dit par QUOI chaque page s'abonne.
+ * Le jour où une cinquième liaison arrive, ou où l'une des quatre régresse vers
+ * un appel direct au socle, c'est ici que ça se voit.
  */
 const LIAISONS: Record<
   string,
@@ -145,15 +145,10 @@ const LIAISONS: Record<
     pourquoi: "Angular a ses fonctions d'injection (`nodefony/angular`)",
   },
   svelte: {
-    jetons: [
-      'connectShared({ url: "/api/live/realtime" })',
-      "observeState(live.socket,",
-      'observeChannel(live.socket, "live:salon"',
-      "live.start()",
-    ],
-    instantane: "observeSnapshot(",
-    cite: "observeState(",
-    pourquoi: "Svelte n'a pas encore sa liaison — socle en direct",
+    jetons: ["nodefony()", "nodefonyState()", 'nodefonyChannel("live:salon"'],
+    instantane: "nodefonySnapshot()",
+    cite: "nodefonyState()",
+    pourquoi: "Svelte a ses liaisons (`nodefony/svelte`)",
   },
 };
 
