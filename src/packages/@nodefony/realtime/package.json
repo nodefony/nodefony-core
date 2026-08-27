@@ -38,6 +38,7 @@
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
     "nodefony": "*",
+    "reflect-metadata": "0.2.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

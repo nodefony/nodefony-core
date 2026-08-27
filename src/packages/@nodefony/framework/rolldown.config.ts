@@ -9,6 +9,7 @@ export default defineNodefonyRolldownConfig({
     "graphql",
     "@graphql-tools/merge",
     "@graphql-tools/schema",
+    "reflect-metadata",
     "tslib",
     "zod",
   ],

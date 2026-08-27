@@ -156,6 +156,24 @@ jobs:
       - name: Gate — noms de fichiers portables (3 systèmes)
         run: npm run check:filenames
 
+      # Une dépendance absente de la liste `external` d'un rolldown.config est
+      # AVALÉE dans le `dist/` publié : l'application en reçoit une copie, et npm
+      # lui installe l'autre. Deux copies d'une bibliothèque à état global (un
+      # registre de métadonnées, un pilote) ne se voient pas l'une l'autre.
+      #
+      # Ce gate remplace un bloc de shell qui vivait dans un skill et supposait
+      # une écriture de config que la migration rolldown a rendue minoritaire :
+      # il a cessé de lire quoi que ce soit sans jamais le dire. Un contrôle qui
+      # n'est pas APPELÉ par la forge ne garde rien — c'est ce qui a laissé `zod`
+      # entrer dans le paquet du module `test`.
+      #
+      # L'étape suit le build : la mesure §1 lit les `dist/`, et un dist périmé
+      # ne prouverait rien.
+      - name: Gate — dépendances avalées par le bundler (external)
+        run: |
+          npm run test:externals
+          npm run externals:check
+
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #
       # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant

@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-08-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-check-externals/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-check-externals/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Publier et distribuer |
-| Corps | 114 lignes |
-| Coût d'activation | ~1 571 tokens (le corps est chargé à l'invocation) |
+| Corps | 116 lignes |
+| Coût d'activation | ~1 731 tokens (le corps est chargé à l'invocation) |
 | Description | 752 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 0 page(s) |
@@ -47,8 +47,8 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 ## Ce que contient le corps
 
-- 1. Audit (tous les modules)
-- 2. Interpréter — tout « missing » n'est pas un bug
+- 1. Lancer l'audit — la commande appartient au DÉPÔT
+- 2. Lire le rapport — deux mesures qui échouent différemment
 - 3. Corriger (rolldown.config.ts est PROTÉGÉ → accord user)
 - 4. Root cause (proposer, ne pas imposer)
 - Anti-patterns
@@ -71,7 +71,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 114 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 116 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

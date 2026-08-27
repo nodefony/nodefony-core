@@ -13,44 +13,43 @@ description: >
 
 # nodefony-check-externals
 
-Chaque module Nodefony maintient **à la main** sa liste `external` dans `rolldown.config.ts` ET ses
-`peerDependencies` dans `package.json` → **duplication = dérive**. Symptôme vécu : un peerDep absent
-de `external` est **bundlé** par rolldown → casse au build (ex. `@nodefony/user` non externalisé →
-rolldown suit jusqu'à `@node-rs/bcrypt` natif → `"hash" is not exported`). Ce skill détecte la dérive.
-Zéro prose.
+Chaque paquet Nodefony maintient **à la main** sa liste `external` dans `rolldown.config.ts` ET son
+manifeste dans `package.json` → **duplication = dérive**. Symptôme vécu : une dépendance absente de
+`external` est **bundlée** par rolldown — soit ça casse au build (`@nodefony/user` non externalisé →
+rolldown suit jusqu'à `@node-rs/bcrypt` natif → `"hash" is not exported`), soit ça passe inaperçu et
+le paquet publié embarque une copie d'une bibliothèque que npm installera **en plus**.
 
-## 1. Audit (tous les modules)
-
-```bash
-cd /Users/cci/repository/nodefony-core
-for cfg in src/nodefony/rolldown.config.ts src/packages/@nodefony/*/rolldown.config.ts; do
-  dir=$(dirname "$cfg"); pkg="$dir/package.json"; [ -f "$pkg" ] || continue
-  name=$(node -p "require('./$pkg').name" 2>/dev/null)
-  ext=$(awk '/const external/{f=1} f{print} /\];/{if(f)exit}' "$cfg" \
-        | grep -oE '"[^"]+"' | tr -d '"' | sort -u)
-  peers=$(node -p "Object.keys(require('./$pkg').peerDependencies||{}).join('\n')" 2>/dev/null | sort -u)
-  missing=$(comm -23 <(printf '%s\n' "$peers") <(printf '%s\n' "$ext") | grep -v '^$')
-  [ -n "$missing" ] && { echo "⛔ $name : peerDeps absents de external →"; echo "$missing" | sed 's/^/     /'; }
-done
-echo "--- fin ---"
-```
-
-> Hypothèse de format : `const external: string[] = [ ... ];` (tous les modules le suivent au
-> 2026-05). Si un module diverge, ajuster l'`awk`.
-
-## 2. Interpréter — tout « missing » n'est pas un bug
-
-Pour chaque peerDep absent de `external`, vérifier s'il est **importé par le code serveur** du module :
+## 1. Lancer l'audit — la commande appartient au DÉPÔT
 
 ```bash
-# ex. le peerDep "vite" est-il importé par du .ts bundlé (hors tests/frontend) ?
-grep -rnE "from ['\"]<dep>['\"]|require\(['\"]<dep>" src/packages/@nodefony/<mod>/nodefony src/packages/@nodefony/<mod>/index.ts
+node scripts/check-externals.mjs          # rapport lisible ; sort 1 si défaut
+node scripts/check-externals.mjs --json   # relevé brut
+npx vitest run scripts/check-externals.test.mjs   # la suite de l'audit lui-même (16 cas)
 ```
 
-- **Importé côté serveur + absent de external → ⛔ BUG** (sera bundlé). À corriger (étape 3).
-- **Jamais importé côté serveur** → ⚠️ inoffensif pour le bundler, mais l'entrée `external` est
-  légitime dès qu'un `await import()` la vise. Un `external` **sans peer correspondante n'est donc
-  PAS une dérive** — voir la règle ci-dessous.
+> 🔴 **Pourquoi une commande du dépôt et non un bloc de shell ici.** La version précédente de ce
+> skill portait un `awk` qui supposait `const external: string[] = [ ... ]`. La migration rolldown a
+> fait passer **20 configs sur 21** à `defineNodefonyRolldownConfig({ external: [...] })` : l'audit
+> a cessé de lire quoi que ce soit, **sans jamais le dire**, et personne ne s'en est aperçu — c'est
+> ainsi que `zod` s'est retrouvé bundlé dans le module `test`. Un contrôle qui vit dans le dépôt est
+> lancé, testé et corrigé avec lui ; un contrôle recopié dans un skill se périme en silence.
+
+## 2. Lire le rapport — deux mesures qui échouent différemment
+
+**§1 PREUVE — ce qui est réellement bundlé.** Lue dans les `dist/` (`dist/**/node_modules/<paquet>`),
+elle ne suppose rien du format des configs. C'est la mesure qui trouve, pas celle qui anticipe.
+⚠️ Elle ne vaut que sur un `dist/` **frais** — le rapport nomme les modules sans dist plutôt que de
+les compter verts. Avant de conclure sur un diff non commité :
+`npx turbo run build --force --filter=<paquet>`.
+
+**§2 DÉRIVE — le manifeste hors `external`.** Elle anticipe le prochain build. Tout manque n'est pas
+un défaut :
+
+- **⛔ défaut** — le paquet est importé par du code serveur bundlé (`index.ts` + `nodefony/**`, hors
+  tests) : il **sera** avalé. Le rapport nomme le fichier importateur.
+- **⚠️ information** — jamais importé côté serveur. Le `vite`, le `react` ou le `vue` d'un module à
+  frontend est dans ce cas : rolldown ne l'atteint pas. Ne rien y faire.
+- **audit sans objet** — le paquet emploie `externalDeps: true`, qui externalise tout le manifeste.
 
 ### 🔴 Un outil de BUILD ne se déclare JAMAIS en `peerDependencies` — même optionnelle
 
@@ -118,6 +117,9 @@ const external = [
 - Ajouter aveuglément tous les « missing » à external — vérifier d'abord l'usage serveur (étape 2).
 - Éditer `rolldown.config.ts` sans accord (fichier protégé).
 - Corriger un module à la main sans relancer l'audit global (la dérive est systémique).
+- **Conclure « vert » sur la §1 sans dist frais** — l'absence de preuve n'est pas une preuve
+  d'absence, et le rapport le dit explicitement (`sans dist, donc NON prouvés`).
+- **Recopier ici la commande d'audit** : c'est ce qui l'a laissée se périmer une première fois.
 
 ## Liens
 
