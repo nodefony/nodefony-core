@@ -34,12 +34,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
   "@node-rs/argon2": "^2.0.2",
-  "@types/node": "^26.1.1",
+  "@types/node": "^26.4.0",
   "@typescript/native-preview": "^7.0.0-dev.0",
   oxlint: "^1.75.0",
   prettier: "^3.9.5",
-  rolldown: "^1.1.5",
-  typescript: "^6.0.3",
+  rolldown: "^1.2.6",
+  typescript: "^7.0.2",
   vitest: "^4.1.10",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.1.4",
@@ -52,12 +52,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitejs/plugin-vue": "^6.0.7",
   svelte: "^5.56.8",
   "@sveltejs/vite-plugin-svelte": "^7.3.0",
-  "@angular/core": "^22.0.6",
-  "@angular/common": "^22.0.6",
-  "@angular/platform-browser": "^22.0.6",
-  "@analogjs/vite-plugin-angular": "^2.6.3",
-  "@angular/build": "^22.0.6",
-  "@angular/compiler-cli": "^22.0.6",
+  "@angular/core": "^22.1.4",
+  "@angular/common": "^22.1.4",
+  "@angular/platform-browser": "^22.1.4",
+  "@analogjs/vite-plugin-angular": "^2.7.1",
+  "@angular/build": "^22.1.6",
+  "@angular/compiler-cli": "^22.1.4",
 };
 
 /** Sous-ensemble du catalogue (helper des tables par framework). */
