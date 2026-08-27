@@ -136,6 +136,10 @@ const CASES = [
   ["mesure le contraste de cette couleur", "nodefony-browser"],
   ["est-ce que la page s'affiche ?", "nodefony-browser"],
   ["prends une capture d'écran de la page", "nodefony-browser"],
+  // — tickets
+  ["ouvre un ticket pour ça", "nodefony-ticket"],
+  ["ce titre de ticket est incompréhensible", "nodefony-ticket"],
+  ["mets un lexique dans les tickets", "nodefony-ticket"],
 ];
 
 /**
