@@ -59,9 +59,11 @@ describe("<%= it.nameClass %> — socket", () => {
     await h.connect();
     await h.subscribe("<%= it.channel %>:events");
     await h.notify("<%= it.channel %>:dire", { texte: "bonjour" });
-    expect(h.messages("<%= it.channel %>:events")).toMatchObject([
-      { texte: "bonjour" },
-    ]);
+    // La lecture est sortie de l'assertion À DESSEIN : sa longueur dépend du
+    // nom du canal, donc la forme que le formateur impose en dépendrait aussi.
+    // Un gabarit ne peut pas être conforme pour les noms courts SEULEMENT.
+    const recus = h.messages("<%= it.channel %>:events");
+    expect(recus).toMatchObject([{ texte: "bonjour" }]);
     h.dispose();
   });
 

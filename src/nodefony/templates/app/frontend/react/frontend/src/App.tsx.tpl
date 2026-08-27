@@ -88,7 +88,9 @@ function LiveCard() {
   // un second onglet et cliquer suffit à le voir. C'est ce partage qui fait
   // l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
   const dire = () =>
-    live.emit("live:dire", { texte: `bonjour de la page (${Date.now() % 1000})` });
+    live.emit("live:dire", {
+      texte: `bonjour de la page (${Date.now() % 1000})`,
+    });
   return (
     <div className="nf-card">
       <h2>3. Temps réel — la socket Nodefony</h2>
