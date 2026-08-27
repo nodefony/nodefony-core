@@ -2347,7 +2347,7 @@
       "description": "Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées, services enregistrés, config effective et provenance de chaque valeur) — mêmes valeurs que la console d'administration, sans ouvrir de port, ici comme dans une app. Donne aussi le diff propre. Ne crée rien (scaffolder → `nodefony-create-module`). Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"inspecter un module existant\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"symbols.json\".",
       "cost": {
         "bodyLines": 259,
-        "approxTokens": 3669
+        "approxTokens": 3670
       },
       "requires": [],
       "resources": {

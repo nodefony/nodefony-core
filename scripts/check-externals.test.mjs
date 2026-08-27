@@ -18,7 +18,6 @@ import {
   readExternals,
   usesAutoExternals,
   importedByServerCode,
-  bundledThirdParties,
 } from "./check-externals.mjs";
 
 const roots = [];
@@ -54,7 +53,11 @@ function repo({ config, pkg, sources = {}, dist = [] }) {
     mkdirSync(d, { recursive: true });
     writeFileSync(path.join(d, "index.js"), "// bundlé");
   }
-  return { root, module: () => auditRepo(root).report[0], audit: () => auditRepo(root) };
+  return {
+    root,
+    module: () => auditRepo(root).report[0],
+    audit: () => auditRepo(root),
+  };
 }
 
 const INLINE = (...deps) =>
@@ -64,7 +67,10 @@ const LEGACY = (...deps) =>
 
 describe("lecture de la liste external — les DEUX écritures", () => {
   it("reconnaît la forme inline de defineNodefonyRolldownConfig", () => {
-    expect([...readExternals(INLINE("zod", "tslib"))]).to.deep.equal(["zod", "tslib"]);
+    expect([...readExternals(INLINE("zod", "tslib"))]).to.deep.equal([
+      "zod",
+      "tslib",
+    ]);
   });
 
   // PIÈGE : c'est la seule forme que l'ancien audit lisait. Le core l'emploie encore.
@@ -77,7 +83,9 @@ describe("lecture de la liste external — les DEUX écritures", () => {
   });
 
   it("repère `externalDeps: true`, qui rend l'audit de dérive sans objet", () => {
-    expect(usesAutoExternals(INLINE().replace("external: []", "externalDeps: true"))).to.equal(true);
+    expect(
+      usesAutoExternals(INLINE().replace("external: []", "externalDeps: true")),
+    ).to.equal(true);
     expect(usesAutoExternals(INLINE("zod"))).to.equal(false);
   });
 });
@@ -93,33 +101,45 @@ describe("détection de l'import côté serveur", () => {
   const r = () => repo({ config: INLINE(), pkg: {}, sources });
 
   it("voit un import nommé", () => {
-    expect(importedByServerCode(r().root, "src/modules/demo", "zod")).to.equal("index.ts");
+    expect(importedByServerCode(r().root, "src/modules/demo", "zod")).to.equal(
+      "index.ts",
+    );
   });
 
   // PIÈGE VÉCU : chercher `from "x"` rate l'import à effet de bord — précisément la
   // forme de `reflect-metadata`, celle qui est réellement avalée dans ce dépôt.
   it("voit un import à EFFET DE BORD, sans liaison", () => {
-    expect(importedByServerCode(r().root, "src/modules/demo", "reflect-metadata")).to.equal(
-      "nodefony/side.ts",
-    );
+    expect(
+      importedByServerCode(r().root, "src/modules/demo", "reflect-metadata"),
+    ).to.equal("nodefony/side.ts");
   });
 
   it("voit un import dynamique", () => {
-    expect(importedByServerCode(r().root, "src/modules/demo", "lighthouse")).to.equal(
-      "nodefony/sub/deep.ts",
-    );
+    expect(
+      importedByServerCode(r().root, "src/modules/demo", "lighthouse"),
+    ).to.equal("nodefony/sub/deep.ts");
   });
 
   // PIÈGE : le bundler exclut `tests/` et `*.test.ts` — les compter ferait crier
   // l'audit sur des dépendances qui n'entrent jamais dans le paquet.
   it("IGNORE les sources que le bundler n'emporte pas (tests)", () => {
-    expect(importedByServerCode(r().root, "src/modules/demo", "vite")).to.equal(null);
-    expect(importedByServerCode(r().root, "src/modules/demo", "chai")).to.equal(null);
+    expect(importedByServerCode(r().root, "src/modules/demo", "vite")).to.equal(
+      null,
+    );
+    expect(importedByServerCode(r().root, "src/modules/demo", "chai")).to.equal(
+      null,
+    );
   });
 
   it("ne confond pas un préfixe avec un paquet (`zod-form` ≠ `zod`)", () => {
-    const f = repo({ config: INLINE(), pkg: {}, sources: { "index.ts": 'import x from "zod-form";\n' } });
-    expect(importedByServerCode(f.root, "src/modules/demo", "zod")).to.equal(null);
+    const f = repo({
+      config: INLINE(),
+      pkg: {},
+      sources: { "index.ts": 'import x from "zod-form";\n' },
+    });
+    expect(importedByServerCode(f.root, "src/modules/demo", "zod")).to.equal(
+      null,
+    );
   });
 });
 
@@ -186,7 +206,8 @@ describe("verdict d'ensemble", () => {
 
   it("`externalDeps: true` → aucune dérive calculée", () => {
     const f = repo({
-      config: 'export default defineNodefonyRolldownConfig({ externalDeps: true });\n',
+      config:
+        "export default defineNodefonyRolldownConfig({ externalDeps: true });\n",
       pkg: { peerDependencies: { zod: "^4.4.3" } },
       sources: { "index.ts": 'import { z } from "zod";\n' },
     });

@@ -209,8 +209,9 @@ describe("Controller — error handling (HTTP)", () => {
       JSON.stringify({ title: "ab", views: 3 }), // min(3) violé
     );
     expect(status).to.equal(422);
-    const err = (body as { error?: { fields?: { field: string; rule?: string }[] } })
-      .error;
+    const err = (
+      body as { error?: { fields?: { field: string; rule?: string }[] } }
+    ).error;
     expect(err?.fields, "error.fields absent du corps 422").to.be.an("array");
     expect(err?.fields?.map((f) => f.field)).to.include("title");
   });

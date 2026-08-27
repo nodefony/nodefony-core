@@ -434,11 +434,11 @@ fautifs, avec pour chacun son message et la règle qui a échoué.
 
 **Comment typer le paramètre**, puisque le décorateur ne promet rien :
 
-| Écriture                       | Ce que ça annonce                                     | Verdict                 |
-| ------------------------------ | ----------------------------------------------------- | ----------------------- |
-| `@Body() b: Partial<PostRow>`  | la ligne de **table** — `id` et horodatages compris   | promet trop             |
-| `@Body() b: unknown`           | rien, honnêtement                                     | juste, mais peu commode |
-| `@Body() b: CreatePost`        | le contrat d'**entrée**, `z.infer` du schéma          | ✅ à préférer            |
+| Écriture                      | Ce que ça annonce                                   | Verdict                 |
+| ----------------------------- | --------------------------------------------------- | ----------------------- |
+| `@Body() b: Partial<PostRow>` | la ligne de **table** — `id` et horodatages compris | promet trop             |
+| `@Body() b: unknown`          | rien, honnêtement                                   | juste, mais peu commode |
+| `@Body() b: CreatePost`       | le contrat d'**entrée**, `z.infer` du schéma        | ✅ à préférer           |
 
 `CreatePost` et `UpdatePost` sont générés à côté du schéma (`nodefony/entity/Post.schema.ts`) : le
 type et la validation dérivent de la même source, ils ne peuvent donc pas diverger. Un schéma

@@ -60,7 +60,7 @@ symbole qui existe :
 > que dans le verbose. Le verbose n'est pas versionné : après un `git clone` frais il faut le
 > régénérer.
 
-**Générer** — le hook de pré-commit (`.husky/pre-commit`) le fait dès qu'un `.ts` de la zone parsée
+**Générer** — le hook de pré-commit (`.githooks/pre-commit`) le fait dès qu'un `.ts` de la zone parsée
 est indexé ; à la main quand on veut voir l'effet d'un refactor sans commiter :
 
 ```bash

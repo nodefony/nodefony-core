@@ -78,7 +78,9 @@ export function importedByServerCode(root, dir, dep) {
     (f) => !/(^|[/\\])tests?[/\\]/.test(f) && !/\.(test|spec|d)\.ts$/.test(f),
   );
   const q = dep.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&");
-  const re = new RegExp(`(?:from|import|require)\\s*\\(?\\s*["']${q}(/[^"']*)?["']`);
+  const re = new RegExp(
+    `(?:from|import|require)\\s*\\(?\\s*["']${q}(/[^"']*)?["']`,
+  );
   for (const f of files) {
     try {
       if (re.test(readFileSync(path.join(root, dir, f), "utf8"))) return f;
@@ -124,16 +126,17 @@ export function auditRepo(root) {
     const src = readFileSync(path.join(root, cfg), "utf8");
     const auto = usesAutoExternals(src);
     const ext = readExternals(src);
-    const manifest = {
-      ...(pkg.dependencies || {}),
-      ...(pkg.peerDependencies || {}),
-    };
+    const manifest = { ...pkg.dependencies, ...pkg.peerDependencies };
     const drift = [];
     if (!auto) {
       for (const dep of Object.keys(manifest).sort()) {
         if (ext.has(dep)) continue;
         const importedAt = importedByServerCode(root, dir, dep);
-        drift.push({ dep, importedAt, severity: importedAt ? "fault" : "info" });
+        drift.push({
+          dep,
+          importedAt,
+          severity: importedAt ? "fault" : "info",
+        });
       }
     }
     report.push({
@@ -146,7 +149,10 @@ export function auditRepo(root) {
     });
   }
   const faults = report.reduce(
-    (n, r) => n + r.drift.filter((d) => d.severity === "fault").length + r.bundled.length,
+    (n, r) =>
+      n +
+      r.drift.filter((d) => d.severity === "fault").length +
+      r.bundled.length,
     0,
   );
   return { faults, report };
@@ -154,14 +160,19 @@ export function auditRepo(root) {
 
 /** Rend le rapport lisible. Séparé de la mesure pour rester testable. */
 export function formatReport({ report }) {
-  const out = [`configs auditées : ${report.length} (core + packages + modules)`, ""];
+  const out = [
+    `configs auditées : ${report.length} (core + packages + modules)`,
+    "",
+  ];
   out.push("── 1. PREUVE — paquets tiers présents dans un dist ──");
   const bundled = report.filter((r) => r.bundled.length);
   if (bundled.length) {
-    for (const r of bundled) out.push(`  ⛔ ${r.name} → ${r.bundled.join(", ")}`);
+    for (const r of bundled)
+      out.push(`  ⛔ ${r.name} → ${r.bundled.join(", ")}`);
   } else out.push("  (aucun)");
   const noDist = report.filter((r) => !r.distExists).map((r) => r.name);
-  if (noDist.length) out.push(`  ⚠️ sans dist, donc NON prouvés : ${noDist.join(", ")}`);
+  if (noDist.length)
+    out.push(`  ⚠️ sans dist, donc NON prouvés : ${noDist.join(", ")}`);
 
   out.push("", "── 2. DÉRIVE — manifeste hors `external` ──");
   let any = false;
@@ -172,17 +183,27 @@ export function formatReport({ report }) {
     if (!bad.length && !info.length) continue;
     any = true;
     out.push(`  ${r.name}`);
-    for (const d of bad) out.push(`     ⛔ ${d.dep} — importé par ${d.importedAt}`);
+    for (const d of bad)
+      out.push(`     ⛔ ${d.dep} — importé par ${d.importedAt}`);
     if (info.length)
-      out.push(`     ⚠️  jamais importé côté serveur : ${info.map((d) => d.dep).join(", ")}`);
+      out.push(
+        `     ⚠️  jamais importé côté serveur : ${info.map((d) => d.dep).join(", ")}`,
+      );
   }
   if (!any) out.push("  (aucune)");
   const autos = report.filter((r) => r.auto).map((r) => r.name);
-  if (autos.length) out.push("", `  (audit sans objet — externalDeps:true : ${autos.join(", ")})`);
+  if (autos.length)
+    out.push(
+      "",
+      `  (audit sans objet — externalDeps:true : ${autos.join(", ")})`,
+    );
   return out.join("\n");
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   const result = auditRepo(process.cwd());
   console.log(
     process.argv.includes("--json")
