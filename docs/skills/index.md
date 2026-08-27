@@ -151,8 +151,8 @@ source: "docs/skills/index.md"
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
     "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
-    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).",
-    "meta": "🟢 conforme v1.0.0 · 📎 2 réf" }
+    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et…",
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script · 📎 3 réf" }
 ]
 ```
 
@@ -184,7 +184,7 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.0.0 | 139 | 2 | 0 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.1.0 | 201 | 3 | 1 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

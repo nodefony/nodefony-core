@@ -5233,13 +5233,16 @@
     },
     {
       "name": "nodefony-ticket",
-      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité).",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [
         "fichier:ligne"
       ],
       "triggers": [
+        "on ne comprend pas ce titre",
+        "c'est quoi cette abréviation",
+        "mets un lexique",
         "crée un ticket",
         "ouvre une issue",
         "nouveau ticket",
@@ -5255,19 +5258,53 @@
         "ajouter au board",
         "jalon 10.0.0"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité). À charger AVANT d'ouvrir une issue ou d'en restructurer un lot : un ticket est lu par un humain pressé autant que par un agent, et un titre-phrase le rend illisible pour les deux. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"nouveau ticket\", \"note ça dans un ticket\", \"fais-en des tickets\", \"ticket parent\", \"sous-tickets\", \"découper cette issue\", \"reformater les tickets\", \"titre de ticket\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, découpage parent/sous-tickets, et pose des champs du tableau de bord (jalon, jours, priorité, ordre, rattrapabilité). À charger AVANT d'ouvrir une issue ou d'en restructurer un lot : un ticket est lu par un humain pressé autant que par un agent, et un titre-phrase le rend illisible pour les deux. Déclencheurs : \"on ne comprend pas ce titre\", \"c'est quoi cette abréviation\", \"mets un lexique\", \"crée un ticket\", \"ouvre une issue\", \"nouveau ticket\", \"note ça dans un ticket\", \"fais-en des tickets\", \"ticket parent\", \"sous-tickets\", \"découper cette issue\", \"reformater les tickets\", \"titre de ticket\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\".",
       "cost": {
-        "bodyLines": 139,
-        "approxTokens": 2153
+        "bodyLines": 201,
+        "approxTokens": 3429
       },
       "requires": [],
       "resources": {
         "references": [
           "conventional-commits.md",
-          "github-issues.md"
+          "github-issues.md",
+          "lexique.md"
         ],
-        "referenceFilesTotal": 2,
-        "scripts": []
+        "referenceFilesTotal": 3,
+        "scripts": [
+          {
+            "path": "scripts/pose-lexique.mjs",
+            "purpose": "Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts.",
+            "usage": [
+              "node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien"
+            ],
+            "options": [
+              {
+                "flag": "--body-file",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--state",
+                "help": ""
+              },
+              {
+                "flag": "--write",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
       },
       "related": [],
       "conformance": {
@@ -5282,7 +5319,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "777",
+            "detail": "944",
             "advisory": false
           },
           {
@@ -5318,7 +5355,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "139",
+            "detail": "201",
             "advisory": true
           }
         ]
