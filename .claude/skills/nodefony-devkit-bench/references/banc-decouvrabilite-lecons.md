@@ -7,7 +7,7 @@
 > sur ce qui a bougé) ; cette page porte le POURQUOI de chaque garde-fou du banc.
 >
 > **Maintenance** : édition en place. Pas de journal, pas de date : l'historique vit dans
-> `git log`, l'avancement dans `MIGRATION_STATUS.md`.
+> `git log`, l'avancement dans les **tickets**.
 
 ## Table des matières
 

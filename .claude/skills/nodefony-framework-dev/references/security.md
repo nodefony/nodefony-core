@@ -3,7 +3,8 @@
 > Chargé à la demande par `SKILL.md`. Ce fichier = comment CODER en sûreté + où vérifier.
 > Pour ATTAQUER/auditer un diff (red/blue-team, conformité RFC) → skill **`nodefony-security-review`**.
 > Usage des décorateurs `@IsGranted`/`@RequireScope`/`@CsrfProtect` → `references/http.md`.
-> (Avancement, phases, « ce qu'il reste » = `MIGRATION_STATUS.md`, PAS ici.)
+> (« Ce qu'il reste » pour la publication = les **tickets** ; phases et tâches restantes de la
+> migration = `MIGRATION_STATUS.md`. Dans les deux cas, PAS ici.)
 
 ## Sommaire
 

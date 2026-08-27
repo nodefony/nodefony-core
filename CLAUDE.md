@@ -821,7 +821,8 @@ MEMORY accumulaient des annotations datées (`(2026-MM-DD)`, `corrigé le …`, 
 une fois fait). Discipline (vaut AUSSI pour les **skills**, cf leur note _Maintenance_) :
 
 - **0 date** · **0 section** `RESTE`/`TODO`/`Changelog`/`État`/`Historique` · **0 réf d'avancement par phase**
-  (`P6.x`, « livré », « à faire ») → l'**avancement = `MIGRATION_STATUS.md` SEUL**, l'**historique = `git log`**.
+  (`P6.x`, « livré », « à faire ») → l'**avancement = les TICKETS** (jalon `10.0.0` ; hors ligne `.ai/BOARD.md`), la **carte des phases
+  = `MIGRATION_STATUS.md`**, l'**historique = `git log`**.
 - Mettre à jour = **éditer la section concernée EN PLACE**. Une leçon durable se **fond en RÈGLE** (dans Gotchas),
   pas en entrée datée.
 - Un fait **PÉRIMÉ** (contredit par le code) se **CORRIGE** (devise : ancrer au code, `fichier:ligne`) — jamais

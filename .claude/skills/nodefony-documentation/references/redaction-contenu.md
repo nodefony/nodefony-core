@@ -195,7 +195,8 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
 - **Première phrase auto-suffisante** (extraite dans `symbols.json` / résumé RAG).
 - Phrases courtes, voix active. Deux niveaux : accroche pour le débutant + détail pour l'expert.
 - **Pas de journal** dans le corps : ni date (sauf frontmatter `updated`), ni « TODO », ni « à venir »,
-  ni n° de phase de migration. Avancement = `MIGRATION_STATUS.md`, historique = `git log`.
+  ni n° de phase de migration. Avancement = les **tickets** (jalon + tableau de bord), carte des
+  phases = `MIGRATION_STATUS.md`, historique = `git log`.
 
 ## 7. Vérification (devise : « la confiance n'exclut pas le contrôle »)
 

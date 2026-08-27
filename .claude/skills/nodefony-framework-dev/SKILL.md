@@ -26,7 +26,8 @@ description: >
 > Mettre à jour = **éditer la section concernée en place**. **Pas de changelog ni de retex daté** ici —
 > l'historique vit dans `git log`. Une leçon durable se **fond en règle** dans `references/gotchas.md`.
 > Le **détail** (recettes longues, API, RFC) vit dans `references/*.md` (progressive disclosure) — garder
-> ce fichier **< 500 lignes**. Avancement/phases/roadmap = `MIGRATION_STATUS.md` **uniquement**, jamais ici.
+> ce fichier **< 500 lignes**. Avancement de la publication = **les tickets** (jalon `10.0.0`, empreinte hors ligne `.ai/BOARD.md`) ;
+> carte des phases et tâches restantes = `MIGRATION_STATUS.md`. Jamais ici, dans les deux cas.
 
 > **Périmètre** : front (full-stack côté client) → **`nodefony-frontend-dev`** (skill JUMEAU) ; app admin Studio spécifique (UI kit/Mantine) → `nodefony-studio-dev` (dérive de frontend-dev). Scaffolder un module
 > neuf → **`nodefony-create-module`** (ici = comment CODER dedans). RFC/normes → `references/rfc/` (bundlé

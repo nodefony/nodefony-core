@@ -9,7 +9,7 @@ metadata:
 
 > **Maintenance** : ce fichier décrit la vérité COURANTE des trois bancs. Mettre à
 > jour = éditer la section concernée en place. Pas de journal, pas de date :
-> l'historique vit dans `git log`, l'avancement dans `MIGRATION_STATUS.md`.
+> l'historique vit dans `git log`, l'avancement dans les **tickets**.
 
 ## Les DEUX buts — ne pas inventer, et ne pas tourner en rond
 

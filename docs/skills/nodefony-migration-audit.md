@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-08-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-migration-audit/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-migration-audit/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Inspecter et auditer |
-| Corps | 359 lignes |
-| Coût d'activation | ~6 014 tokens (le corps est chargé à l'invocation) |
+| Corps | 430 lignes |
+| Coût d'activation | ~7 327 tokens (le corps est chargé à l'invocation) |
 | Description | 675 / 1024 caractères |
 | Déclencheurs | 11 |
 | Ressources `references/` | 0 page(s) |
@@ -43,7 +43,7 @@ Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MI
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`inspect`](nodefony-inspect.md) · [`start-server`](nodefony-start-server.md)
+[`inspect`](nodefony-inspect.md) · [`start-server`](nodefony-start-server.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
@@ -56,6 +56,8 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Principe (ce qui marche — retour user 2026-05-20)
 - Workflow
 - Interactivité & UX (pour que le user COMPRENNE, pas juste lise)
+- Où va ce que l'audit trouve — DEUX adresses, plus une seule
+- Piège — le verdict « en fait livré » se déclenche trop tôt
 - Recettes de vérification (code, pas fichier)
 - Pièges connus (issus des audits 2026-05-20 + 2026-06-05)
 - Mémoire liée
@@ -77,7 +79,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 359 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 430 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

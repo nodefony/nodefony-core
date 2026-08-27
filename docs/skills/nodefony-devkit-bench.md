@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | Version | `1.3.0` |
 | Famille | Autres |
 | Corps | 619 lignes |
-| Coût d'activation | ~10 771 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~10 770 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 4 page(s) |

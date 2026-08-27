@@ -12,6 +12,23 @@ description: >
 
 # migration-audit
 
+> ## 🔴 Ce skill N'EST PLUS le pilotage — il est l'INSTRUMENT DE VÉRITÉ
+>
+> Depuis le 27 août 2026, **le reste-à-faire de la publication vit dans les tickets** (jalon
+> `10.0.0` et son tableau de bord ; empreinte hors ligne `.ai/BOARD.md`). Le pourcentage que ce
+> skill calcule ne dit **pas** où en est la 10.0.0 : il dit où en est la MIGRATION, ce qui n'est
+> pas la même chose et ne doit jamais être présenté comme tel.
+>
+> **Et `MIGRATION_STATUS.md` a été dégraissé** : les 113 lignes de tâches FAITES ont migré dans
+> [`docs/archives/migration-roadmap-2026-08-27.md`](../../../docs/archives/migration-roadmap-2026-08-27.md).
+> Le fichier vivant ne garde plus que les tâches non faites. **Conséquence directe : un comptage
+> qui ne lit que `MIGRATION_STATUS.md` rend `✅=0` — constaté.** Le comptage ci-dessous lit donc
+> les DEUX fichiers.
+>
+> **Ce qui n'a pas changé, et c'est l'essentiel** : confronter au CODE reste la seule façon de
+> savoir. Ce que cet audit trouve se verse maintenant à deux adresses différentes — voir
+> « Où va ce que l'audit trouve » ci-dessous.
+
 Revue **interactive et vérifiée dans le code** de la migration Nodefony. Le fichier `MIGRATION_STATUS.md` dérive (le tableau résumé n'est jamais re-synchronisé du détail). Ce skill confronte chaque phase au **code réel** et présente l'écart au user, **une phase à la fois**, pour qu'il comprenne l'état réel sans avaler 1600 lignes.
 
 > ## ⚠️ Charge-moi — ne refais PAS l'audit « à la main »
@@ -30,7 +47,12 @@ Revue **interactive et vérifiée dans le code** de la migration Nodefony. Le fi
 
 1. **Une phase = un message.** Titre de la phase + tableau `Fichier dit | Réel (code) | Preuve` + verdict en 1 ligne. Puis **STOP** — attendre que le user dise « suivante ».
 2. **Vérifier dans le CODE, jamais faire confiance au fichier.** `ls`/`find`/`grep` l'implémentation réelle (module existe ? test existe ? endpoint défini ? décorateur présent ?).
-3. **Source de vérité = la roadmap priorisée P0–P16** (sections `### P0`…`### P16`), PAS le tableau résumé « par composant » (périmé + granularité différente = sous-items vs tâches).
+3. **Source de vérité = la roadmap, désormais en DEUX morceaux** : les tâches NON FAITES dans
+   `MIGRATION_STATUS.md` (sections `### P0`…`### P17`), les tâches FAITES dans
+   `docs/archives/migration-roadmap-2026-08-27.md`. Ni l'un ni l'autre n'est le tableau résumé
+   « par composant » (périmé, granularité différente). ⚠️ **L'archive est une photo figée : on ne
+   l'édite pas.** Si l'audit montre qu'une tâche archivée « faite » ne l'est pas, elle revient dans
+   le fichier vivant, et l'archive garde sa trace d'origine.
 4. **Corriger à la fin**, après accord explicite du user (pas au fil de l'eau, sauf demande).
 5. **Persister l'avancement** entre tours dans la mémoire IA `project_migration_audit_progress` (le user peut couper et reprendre).
 
@@ -94,16 +116,35 @@ Sortie compacte pour **compréhension globale**, sans revue phase-par-phase. Deu
 > (la colonne `#`). Une tâche = **une ligne de tableau** dont la 1ʳᵉ cellule est un `P<n>.<x>`.
 > Statut : `✅` si la 1ʳᵉ cellule commence par ✅, `🔶` si 🔶, **sinon `⬜`** (pas de marque = à faire).
 
+> 🔴 **Lire les DEUX fichiers, et DÉDUPLIQUER.** Les tâches faites ne sont plus dans le fichier
+> vivant, et l'archive contient la roadmap INTÉGRALE — donc aussi des lignes non faites, qui
+> seraient comptées deux fois. Les deux pièges ont été mesurés le 2026-08-27 : un comptage sur le
+> seul fichier vivant rend `✅=0`, un comptage sur la concaténation double les `🔶`/`⬜`.
+
 ```bash
-# Borne la roadmap P0–P16 (s'arrête à "### Synthèse effort total")
-S=$(grep -n "^### P0" MIGRATION_STATUS.md | head -1 | cut -d: -f1)
-E=$(grep -n "^### Synthèse effort" MIGRATION_STATUS.md | head -1 | cut -d: -f1)
-awk -v s="$S" -v e="$E" 'NR>=s && NR<e' MIGRATION_STATUS.md | awk -F'|' '
-  /^### P[0-9]+/ { if(ph)printf "%s %d %d %d\n",ph,d,p,t; ph=$0; sub(/^### /,"",ph); sub(/ .*/,"",ph); d=p=t=0; next }
-  $2 ~ /P[0-9]+\.[0-9]/ {            # ligne de tâche : 1re cellule = le # de tâche
-    if($2 ~ /✅/) d++; else if($2 ~ /🔶/) p++; else t++ }   # statut = emoji 1re CELLULE
-  END { if(ph)printf "%s %d %d %d\n",ph,d,p,t }'
+# Le fichier VIVANT est lu en PREMIER : il prime sur l'archive, qui est une photo figée.
+awk -F'|' '
+  /^### P[0-9]+/ { ph=$0; sub(/^### /,"",ph); sub(/[^P0-9].*/,"",ph); next }
+  ph && $2 ~ /P[0-9]+\.[0-9]/ {
+    id=$2; gsub(/[^P0-9a-z.]/,"",id);
+    if (id in vu) next; vu[id]=1;                       # dédup par identifiant de tâche
+    if($2 ~ /✅/) d[ph]++; else if($2 ~ /🔶/) p[ph]++; else t[ph]++ }
+  END { for(k in d) V[k]; for(k in p) V[k]; for(k in t) V[k];
+        for(k in V) { printf "%-5s ✅%-3d 🔶%-3d ⬜%-3d\n", k, d[k], p[k], t[k];
+                      D+=d[k]; P+=p[k]; T+=t[k] }
+        printf "%-5s ✅%-3d 🔶%-3d ⬜%-3d  (%d tâches)\n", "TOTAL", D, P, T, D+P+T }' \
+  MIGRATION_STATUS.md docs/archives/migration-roadmap-2026-08-27.md | sort -V
 ```
+
+**⚠️ Ce que ce motif NE compte PAS — à dire quand on publie le chiffre.** Il ne voit que les lignes
+dont la 1ʳᵉ cellule porte un identifiant `P<n>.<x>`. En sont donc absentes : **P0, P1 et P4** (leurs
+lignes n'ont pas ce format), **P15** (écrite en prose) et **P16** (comptée en sous-items par axe,
+`| 16.A | …`). Ce n'est pas une conséquence du dégraissage — c'était déjà vrai avant, et c'est
+pourquoi le chiffre de ce motif (162 tâches au 2026-08-27) ne retrouve pas les 211 tâches de la
+carte. **Un total partiel se présente comme partiel**, ou il ment.
+
+**Contrôle qui prend deux secondes et qui a déjà servi** : si le total `✅` sort à **0**, ce n'est
+pas le projet qui a régressé, c'est qu'un des deux fichiers n'a pas été lu.
 
 **❌ Méthodes à NE PAS utiliser** (sources des chiffres faux) :
 
@@ -328,6 +369,36 @@ ASSAINISSEMENT  ·  MIGRATION_STATUS.md
 6. **Fin de boucle** : un **tableau récap visuel** (toutes phases, 1 ligne/phase, drapeau couleur) + une reco **« où concentrer l'effort »** (chemin critique réel : ce qui débloque le plus — typiquement P5→P6).
 
 > Règle d'or UX : le user doit pouvoir répondre en **1 mot** (« suivante ») et comprendre l'état d'une phase en **5 secondes**. Si un tableau dépasse ~12 lignes ou nécessite du scroll mental, le résumer.
+
+## Où va ce que l'audit trouve — DEUX adresses, plus une seule
+
+Avant, tout écart se corrigeait dans `MIGRATION_STATUS.md`. Depuis que le pilotage vit dans les
+tickets, l'écart se range selon sa NATURE :
+
+| Ce que l'audit trouve                                     | Où ça va                                                                                                     |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Une case **non cochée alors que le travail est livré**    | on corrige la ligne dans `MIGRATION_STATUS.md` — c'est de la vérité, pas du pilotage                         |
+| Une tâche **à faire qui concerne la publication 10.0.0**  | **un ticket** (skill `nodefony-ticket`), pas une ligne de plus : une ligne n'a pas d'état qu'on doit changer |
+| Une tâche à faire **hors 10.0.0** (phase différée, niche) | elle reste une ligne du fichier — elle n'encombre aucun jalon                                                |
+| Une **dette transverse** sans phase                       | le tableau des dettes du fichier, et un ticket si elle doit être traitée avant la publication                |
+| Une tâche d'une **phase différée** (P12, P15, P17)        | **rien à faire** : « pas commencé » n'y est pas du retard, c'est une décision                                |
+
+> 🔴 **Le dernier cas est celui qu'on rate.** Un module de P12 sans script `test`, un P15 à 0 % :
+> ce ne sont pas des dettes, ce sont des phases non câblées. Les inscrire au tableau des dettes
+> présente le futur comme du retard — relevé par le user le 2026-08-27, sur une ligne qui y était.
+
+## Piège — le verdict « en fait livré » se déclenche trop tôt
+
+Mesuré le 2026-08-27, en confrontant 48 lignes non faites au code par délégation : **26 rendues
+« en fait livré »**, dont plusieurs contredites par les remarques du même relevé (« reste à
+généraliser à toute la surface », « bug de la ligne de commande ⬜ », « reste la commande CLI »).
+Le même biais avait classé « corrigée » une dette qui ne l'était pas, en se fondant sur le seul
+module du lot qui l'était — ce que la ligne indiquait déjà elle-même.
+
+**La question qui manque, et qu'il faut poser pour chaque ligne** : _TOUT_ le travail décrit
+est-il là, ou seulement une partie ? Une case ne se coche pas sur « le concept existe quelque
+part ». Corollaire : **ne jamais cocher un lot de cases sur la foi d'un relevé délégué** — faire
+recontrôler, ou recontrôler soi-même, chaque case qu'on s'apprête à changer.
 
 ## Recettes de vérification (code, pas fichier)
 

@@ -19,7 +19,8 @@ description: >
 # nodefony-release — conduire une publication qui ne se rattrape pas
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
-> `git log`, l'avancement dans `MIGRATION_STATUS.md` et `docs/release/nodefony-10.md`.
+> `git log`, l'avancement dans **les tickets** (jalon `10.0.0`, empreinte hors ligne `.ai/BOARD.md`)
+> et le périmètre dans `docs/release/nodefony-10.md`.
 
 Le dépôt ne voit pas sa propre surface publiée. Les paquets du cœur pointent leurs types vers la
 **source** (`exports["."].types → ./index.ts`) pour éviter une course au build ; cette source est
