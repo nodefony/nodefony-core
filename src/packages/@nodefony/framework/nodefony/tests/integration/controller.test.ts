@@ -198,6 +198,33 @@ describe("Controller — error handling (HTTP)", () => {
     expect(status).to.equal(422);
   });
 
+  // Le trajet PROMIS par `docs/decorateurs.md` : le décorateur livre le corps brut,
+  // l'action le confronte à un schéma, le pipeline rend 422 + `error.fields`. Trois
+  // maillons, dont deux seulement étaient couverts (le renderer en unitaire, le
+  // décorateur en unitaire) — le trajet complet, lui, ne l'était pas.
+  it("POST /fw/validate/body (corps invalide) → 422 + error.fields nomme le champ", async () => {
+    const { status, body } = await httpReq(
+      "POST",
+      `${BASE}/validate/body`,
+      JSON.stringify({ title: "ab", views: 3 }), // min(3) violé
+    );
+    expect(status).to.equal(422);
+    const err = (body as { error?: { fields?: { field: string; rule?: string }[] } })
+      .error;
+    expect(err?.fields, "error.fields absent du corps 422").to.be.an("array");
+    expect(err?.fields?.map((f) => f.field)).to.include("title");
+  });
+
+  it("POST /fw/validate/body (corps valide) → 200", async () => {
+    const { status, body } = await httpReq(
+      "POST",
+      `${BASE}/validate/body`,
+      JSON.stringify({ title: "assez long", views: 3 }),
+    );
+    expect(status).to.equal(200);
+    expect((body as { title?: string }).title).to.equal("assez long");
+  });
+
   it("GET /fw/error/http-400 → 400 with body", async () => {
     const { status, body } = await httpReq("GET", `${BASE}/error/http-400`);
     expect(status).to.equal(400);

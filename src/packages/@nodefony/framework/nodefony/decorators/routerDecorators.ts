@@ -1174,6 +1174,37 @@ const Query = paramDecoratorFactory("query");
  * - `@Body({ stream: true })` → **flux brut** de la requête (`Readable`), sans
  *   parse en mémoire (P2.9 — gros uploads sans pic RAM ; le pipeline saute le
  *   parse busboy/JSON pour cette route).
+ *
+ * ## Le corps n'est PAS validé — le type écrit ici ne promet rien
+ *
+ * `@Body()` injecte le corps **tel qu'il a été parsé** : `@Body() dto: CreateOrder`
+ * compile, mais rien ne garantit qu'un `CreateOrder` soit arrivé. C'est un choix
+ * assumé, pas un oubli — valider ici ne garderait que la porte HTTP, et devrait
+ * rester **synchrone** ({@link resolveParamArg} l'est, et le rendre asynchrone
+ * taxerait toute requête à paramètres décorés).
+ *
+ * Où valider, donc :
+ *
+ * - **Une entité** → les hooks `beforeCreate` / `beforeUpdate` d'
+ *   `AbstractCrudService` : ils sont `await`és — donc une règle asynchrone
+ *   (unicité en base) y est possible — et ils gardent REST, WebSocket **et** la
+ *   CLI d'un seul geste. C'est ce que génère `nodefony create entity`.
+ * - **Un cas isolé** → `schema.parse(body)` en première ligne de l'action, sur le
+ *   modèle d'`assertPageQuery`. Rien d'autre à écrire : une `ZodError` qui remonte
+ *   devient un **422** (RFC 9110 §15.5.21) portant `error.fields` — quel champ,
+ *   quel message, quelle règle.
+ *
+ * Et typer le paramètre avec `z.infer<typeof createXSchema>` plutôt qu'avec
+ * `Partial<XRow>` : le premier décrit le contrat d'**entrée**, le second promet la
+ * ligne de **table** (`id`, horodatages) que le schéma effacera de toute façon.
+ *
+ * @example
+ * ```ts
+ * \@Post("/")
+ * async create(\@Body() payload: CreatePost) {
+ *   return this.createResource(payload); // le service valide dans beforeCreate
+ * }
+ * ```
  */
 function Body(keyOrOptions?: string | { stream?: boolean }) {
   const isOptions = typeof keyOrOptions === "object" && keyOrOptions !== null;

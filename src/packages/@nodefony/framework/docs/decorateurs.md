@@ -342,22 +342,22 @@ async index(@Param("page") page: string) { /* … */ }
 
 Onze décorateurs, tous produits par `paramDecoratorFactory()` (`routerDecorators.ts:1148`) sauf
 `@Body`, qui accepte une option supplémentaire. Chacun pose `{ source, key, index }` ; la valeur est
-calculée par `resolveParamArg()` (`routerDecorators.ts:1048`), une fonction **pure** — ce qui la rend
+calculée par `resolveParamArg()` (`routerDecorators.ts:1283`), une fonction **pure** — ce qui la rend
 testable sans démarrer de serveur.
 
 | Décorateur          | Sans clé renvoie…                    | Avec clé renvoie…                          | Ancre                                        |
 | ------------------- | ------------------------------------ | ------------------------------------------ | -------------------------------------------- |
-| `@Param("id")`      | toutes les variables d'URL (objet)   | la variable d'URL nommée                   | `Param` (`routerDecorators.ts:1143`)         |
+| `@Param("id")`      | toutes les variables d'URL (objet)   | la variable d'URL nommée                   | `Param` (`routerDecorators.ts:1168`)         |
 | `@Query("q")`       | toute la query string                | un paramètre de la query string            | `Query` (`routerDecorators.ts:1169`)         |
-| `@Body("field")`    | le corps parsé entier                | un champ du corps parsé                    | `Body()` (`routerDecorators.ts:1178`)        |
-| `@Headers("x-foo")` | tous les en-têtes de requête         | un en-tête (**lookup en minuscules**)      | `Headers` (`routerDecorators.ts:1201`)       |
-| `@Cookie("sid")`    | la map des cookies                   | un cookie (objet `Cookie`, champ `.value`) | `Cookie` (`routerDecorators.ts:1202`)        |
-| `@Session("user")`  | l'objet `Session` vivant             | `session.get(clé)`                         | `Session` (`routerDecorators.ts:1203`)       |
-| `@CurrentUser()`    | l'utilisateur résolu par le firewall | —                                          | `CurrentUser` (`routerDecorators.ts:1205`)   |
-| `@Req()`            | la requête brute du contexte         | —                                          | `Req` (`routerDecorators.ts:1181`)           |
-| `@Res()`            | la réponse du contexte               | —                                          | `Res` (`routerDecorators.ts:1207`)           |
-| `@UploadedFile()`   | le **premier** fichier téléversé     | —                                          | `UploadedFile` (`routerDecorators.ts:1208`)  |
-| `@UploadedFiles()`  | tous les fichiers téléversés         | —                                          | `UploadedFiles` (`routerDecorators.ts:1209`) |
+| `@Body("field")`    | le corps parsé entier                | un champ du corps parsé                    | `Body()` (`routerDecorators.ts:1209`)        |
+| `@Headers("x-foo")` | tous les en-têtes de requête         | un en-tête (**lookup en minuscules**)      | `Headers` (`routerDecorators.ts:1232`)       |
+| `@Cookie("sid")`    | la map des cookies                   | un cookie (objet `Cookie`, champ `.value`) | `Cookie` (`routerDecorators.ts:1233`)        |
+| `@Session("user")`  | l'objet `Session` vivant             | `session.get(clé)`                         | `Session` (`routerDecorators.ts:1234`)       |
+| `@CurrentUser()`    | l'utilisateur résolu par le firewall | —                                          | `CurrentUser` (`routerDecorators.ts:1236`)   |
+| `@Req()`            | la requête brute du contexte         | —                                          | `Req` (`routerDecorators.ts:1237`)           |
+| `@Res()`            | la réponse du contexte               | —                                          | `Res` (`routerDecorators.ts:1238`)           |
+| `@UploadedFile()`   | le **premier** fichier téléversé     | —                                          | `UploadedFile` (`routerDecorators.ts:1239`)  |
+| `@UploadedFiles()`  | tous les fichiers téléversés         | —                                          | `UploadedFiles` (`routerDecorators.ts:1240`) |
 
 La liste des sources possibles est fermée et typée : `ParamSource` (`routerDecorators.ts:365`).
 
@@ -369,13 +369,13 @@ justificatif (mot de passe, jeton). Hors zone authentifiée, la valeur est `unde
 n'authentifie rien, il expose ce qui a déjà été prouvé.
 
 **`@Session` active la session à lui seul.** La simple présence d'un paramètre `@Session` vaut
-déclaration d'intention : `resolveSessionIntent()` (`routerDecorators.ts:794`) la détecte et pose
+déclaration d'intention : `resolveSessionIntent()` (`routerDecorators.ts:819`) la détecte et pose
 l'intent, exactement comme `@UseSession()`. Une route sans l'un ni l'autre ne paie aucune session.
 
 **`@Body({ stream: true })` court-circuite le parsing.** Pour un gros téléversement (vidéo,
 sauvegarde), on injecte le **flux brut** de la requête au lieu du corps chargé en mémoire ; le
 pipeline saute alors le parsing pour cette route, décision prise en amont par
-`routeExpectsBodyStream()` (`routerDecorators.ts:1334`) :
+`routeExpectsBodyStream()` (`routerDecorators.ts:1365`) :
 
 ```typescript
 @Post("/upload")
@@ -387,8 +387,64 @@ async upload(@Body({ stream: true }) stream: NodeJS.ReadableStream) {
 
 > [!TIP]
 > L'ordre d'écriture des paramètres décorés n'a aucune importance : chaque valeur est placée à son
-> **index déclaré** par `buildParamArgs()` (`routerDecorators.ts:1316`), et les trous restent
+> **index déclaré** par `buildParamArgs()` (`routerDecorators.ts:1347`), et les trous restent
 > `undefined`. Tu peux mélanger décorés et non décorés — les non décorés reçoivent `undefined`.
+
+#### Le corps n'est pas validé — et c'est un choix
+
+`@Body()` injecte le corps **tel qu'il a été parsé**. Le type écrit à côté n'est pas vérifié à
+l'exécution : `@Body() dto: CreateOrder` compile, et un client peut très bien envoyer autre chose.
+
+Ce n'est pas un oubli. Valider ici ne garderait que la porte **HTTP** — la même écriture arrivant
+par WebSocket ou par une commande CLI passerait à côté — et la validation devrait rester
+**synchrone**, puisque `resolveParamArg()` l'est ; la rendre asynchrone coûterait une microtâche à
+toute requête à paramètres décorés, y compris celles qui ne valident rien.
+
+La validation vit donc **plus bas**, là où tous les chemins se rejoignent.
+
+**Une entité → les hooks du service.** `AbstractCrudService` appelle `beforeCreate` et
+`beforeUpdate` en `await` (`orm-core/nodefony/src/AbstractCrudService.ts:150` et `:175`) : une règle
+asynchrone — vérifier qu'un courriel est libre — y est donc possible, et le contrôle s'applique à
+REST, à la socket et à la CLI d'un seul geste. C'est exactement ce que `nodefony create entity`
+génère :
+
+```typescript
+protected override beforeCreate(data: Partial<PostRow>): Partial<PostRow> {
+  return createPostSchema.parse(data) as Partial<PostRow>;
+}
+```
+
+**Un cas isolé → le schéma en tête d'action.** Même geste qu'`assertPageQuery()`, la garde de
+pagination du cœur : une fonction appelée en première ligne, qui lève. Rien d'autre à écrire — une
+`ZodError` qui remonte devient un **422** portant `error.fields` :
+
+```typescript
+@Post("/subscribe")
+subscribe(@Body() body: unknown) {
+  const dto = subscribeSchema.parse(body); // lève → 422 + fields
+  return this.renderJson({ ok: true, email: dto.email });
+}
+```
+
+Le rendu est assuré par `toValidationFields()` (`http/nodefony/service/error-renderer.ts:126`), qui
+reconnaît l'erreur **par sa forme** (`name` + `issues`) et non par `instanceof` — une application
+qui embarque sa propre copie de zod est donc servie pareil. Le client reçoit **422** (RFC 9110
+§15.5.21 : le corps est lisible, c'est son contenu qui viole le contrat) et la liste des champs
+fautifs, avec pour chacun son message et la règle qui a échoué.
+
+**Comment typer le paramètre**, puisque le décorateur ne promet rien :
+
+| Écriture                       | Ce que ça annonce                                     | Verdict                 |
+| ------------------------------ | ----------------------------------------------------- | ----------------------- |
+| `@Body() b: Partial<PostRow>`  | la ligne de **table** — `id` et horodatages compris   | promet trop             |
+| `@Body() b: unknown`           | rien, honnêtement                                     | juste, mais peu commode |
+| `@Body() b: CreatePost`        | le contrat d'**entrée**, `z.infer` du schéma          | ✅ à préférer            |
+
+`CreatePost` et `UpdatePost` sont générés à côté du schéma (`nodefony/entity/Post.schema.ts`) : le
+type et la validation dérivent de la même source, ils ne peuvent donc pas diverger. Un schéma
+d'entrée ne décrit d'ailleurs pas la table — ni `id` ni horodatages n'y figurent, ils sont posés par
+le serveur —, et zod **retire** les champs inconnus : un client qui glisserait `{ "role": "admin" }`
+ne s'auto-promeut pas.
 
 ### Réponse — statut, en-têtes, redirection
 
@@ -581,7 +637,7 @@ pas toutes identiques — c'est la source d'erreur n°1.
 | --- | --- | --- |
 | `@Domain` | option `host` de la route > méthode > classe | `controller()` (`routerDecorators.ts:88`) |
 | `@BypassFirewall` | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:686` |
-| `@UseSession` | méthode > classe (fusion des champs) | `resolveSessionIntent()` (`routerDecorators.ts:794`) |
+| `@UseSession` | méthode > classe (fusion des champs) | `resolveSessionIntent()` (`routerDecorators.ts:819`) |
 | `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1530`) |
 | `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1444`) |
 | `@Anonymous` | méthode → annule tout ce que la classe a posé | `routerDecorators.ts:912` |

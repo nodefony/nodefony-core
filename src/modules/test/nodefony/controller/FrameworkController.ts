@@ -17,6 +17,18 @@ import {
   CsrfExempt,
 } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
+import { z } from "zod";
+
+/**
+ * Schéma de démonstration du trajet documenté dans `framework/docs/decorateurs.md`
+ * (« Le corps n'est pas validé — et c'est un choix ») : le décorateur `@Body` livre
+ * le corps brut, l'action le confronte au schéma, et le pipeline transforme le rejet
+ * en 422. Le contrat public tient à ce que ces trois maillons restent branchés.
+ */
+const demoBodySchema = z.object({
+  title: z.string().min(3),
+  views: z.number().int(),
+});
 
 @controller("/nodefony/test/fw")
 class FrameworkController extends Controller {
@@ -85,6 +97,18 @@ class FrameworkController extends Controller {
   @Get("/error/http-422")
   errorHttp422() {
     throw new HttpError(undefined, 422, this.context);
+  }
+
+  /**
+   * Le corps est refusé par un schéma — pas par un `HttpError` écrit à la main.
+   * C'est le geste que la documentation enseigne à l'utilisateur : `schema.parse()`
+   * en tête d'action, et rien d'autre. La réponse attendue est un **422** portant
+   * `error.fields`, produit par `toValidationFields()` côté renderer.
+   */
+  @Post("/validate/body")
+  validateBody(@Body() body: unknown) {
+    const dto = demoBodySchema.parse(body);
+    return this.renderJson({ ok: true, title: dto.title });
   }
 
   @Get("/error/http-400")

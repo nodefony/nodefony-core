@@ -12,5 +12,6 @@ export default defineNodefonyRolldownConfig({
     "@nodefony/realtime",
     "@nodefony/user",
     "tslib",
+    "zod",
   ],
 });

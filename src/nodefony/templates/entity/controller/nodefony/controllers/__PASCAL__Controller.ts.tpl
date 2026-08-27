@@ -21,6 +21,14 @@ import type { ContextType } from "@nodefony/http";
 import { parsePageQuery, parseFilters } from "nodefony";
 import type { IFilterSpec } from "nodefony";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
+// Le CONTRAT D'ENTRÉE, pas la ligne de table : `<%= it.pascal %>Row` porte `id` et
+// les horodatages, que le client n'a pas le droit d'envoyer et que le schéma
+// retire. Typer le corps avec ces types-là, c'est promettre exactement ce qui
+// est validé — les deux dérivent du même schéma, ils ne peuvent pas diverger.
+import type {
+  Create<%= it.pascal %>,
+  Update<%= it.pascal %>,
+} from "../entity/<%= it.pascal %>.schema";
 import { get<%= it.pascal %>Service } from "../service/<%= it.pascal %>Service";
 
 /** Taille de page par défaut, et plafond au-delà duquel on refuse d'aller. */
@@ -240,7 +248,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
   @Post("")
   @HttpCode(201)
   @Idempotent({ required: false })
-  async create(@Body() payload: Partial<<%= it.pascal %>Row>) {
+  async create(@Body() payload: Create<%= it.pascal %>) {
     const created = await this.createResource(payload);
     this.context?.response?.setHeader(
       "Location",
@@ -263,7 +271,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
   @Put("/{id}")
   async replace(
     @Param("id") id: string,
-    @Body() payload: Partial<<%= it.pascal %>Row>,
+    @Body() payload: Create<%= it.pascal %>,
   ) {
     const updated = await get<%= it.pascal %>Service().replace(id, payload);
     if (!updated) {
@@ -283,7 +291,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
   @Patch("/{id}")
   async patch(
     @Param("id") id: string,
-    @Body() payload: Partial<<%= it.pascal %>Row>,
+    @Body() payload: Update<%= it.pascal %>,
   ) {
     const updated = await this.updateResource({ id }, payload);
     if (!updated) {

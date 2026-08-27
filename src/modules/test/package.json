@@ -28,7 +28,8 @@
     "@nodefony/realtime": "*",
     "@nodefony/security": "*",
     "@nodefony/user": "*",
-    "nodefony": "*"
+    "nodefony": "*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nodefony/drizzle": "*",
@@ -42,7 +43,8 @@
     "cross-env": "10.1.0",
     "nodefony": "*",
     "rimraf": "6.1.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "zod": "^4.4.3"
   },
   "license": "",
   "readmeFilename": "README.md",
