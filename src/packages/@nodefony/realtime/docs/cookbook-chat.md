@@ -921,6 +921,7 @@ Rien n'échoue en silence, et rien ne renseigne l'attaquant sur **pourquoi** il 
 | Session révoquée **pendant** la connexion (déconnexion ailleurs) | Fermeture WebSocket, code **4001**, motif `session revoked`         | Vérification périodique ; une session morte ferme la socket.   |
 | Abonnement à un canal interdit                                   | Notification `realtime:denied` = `{ channel, reason: "forbidden" }` | Le canal n'est pas ouvert. Le motif reste générique.           |
 | Trop de canaux ouverts sur une connexion                         | Notification `realtime:denied` = `{ channel, reason: "limit" }`     | Garde anti-saturation, pas une décision de sécurité.           |
+| Nom de canal qu'aucun producteur ne sert                         | Notification `realtime:denied` = `{ channel, reason: "unknown" }`   | Faute de frappe ou module absent — jamais un silence.          |
 | Appel d'API refusé par le pont                                   | Erreur JSON-RPC, message `unauthorized`                             | Une requête reçoit une erreur ; une notification, un `denied`. |
 
 > [!IMPORTANT]

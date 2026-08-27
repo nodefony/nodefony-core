@@ -36,17 +36,31 @@ export interface NodefonyNotice {
  * Traduit un refus de canal (`realtime:denied`, {@link IRealtimeDenied}) en
  * {@link NodefonyNotice}. Pendant FRAME du {@link closeCodeToNotice} (qui traite
  * la fermeture de la CONNEXION) : ici la connexion vit, seul l'abonnement à CE
- * canal est refusé. Le message reste générique (le serveur ne révèle jamais quel
- * rôle/scope manque).
+ * canal n'a pas abouti.
+ *
+ * Le message SUIT le motif, parce que les trois n'appellent pas le même geste :
+ * un accès refusé demande une élévation de droits, un plafond atteint demande de
+ * libérer un abonnement, un canal sans producteur demande de relire son nom. Un
+ * « accès refusé » affiché sur une faute de frappe envoie chercher un droit qui
+ * n'a jamais manqué. Ce qui reste générique, et le restera, c'est le DÉTAIL de la
+ * politique : le serveur ne dit jamais quel rôle ou quel scope manque.
  *
  * @param denied - `{ channel, reason }` reçu du serveur.
  * @returns une notice prête à afficher (toujours, contrairement au close-code).
  */
 export function deniedToNotice(denied: IRealtimeDenied): NodefonyNotice {
+  const message =
+    denied.reason === "unknown"
+      ? `Canal « ${denied.channel} » inconnu du serveur : personne ne le produit (nom exact ? module chargé ?)`
+      : denied.reason === "limit"
+        ? `Canal « ${denied.channel} » non ouvert : trop d'abonnements sur cette connexion`
+        : `Accès au canal « ${denied.channel} » refusé`;
   return {
-    level: "error",
+    // Un canal inconnu est une erreur de CÂBLAGE, pas une panne : elle se corrige
+    // en une frappe, et n'a pas la gravité d'un refus d'autorisation.
+    level: denied.reason === "unknown" ? "warning" : "error",
     title: "Temps réel",
-    message: `Accès au canal « ${denied.channel} » refusé`,
+    message,
     source: "realtime",
     ts: Date.now(),
   };

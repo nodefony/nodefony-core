@@ -479,16 +479,28 @@ describe("MATRICE E2E — refus observable (contrat client)", () => {
     client.disconnect();
   });
 
-  it("canal LIBRE non déclaré (ni décorateur ni override) → autorisé mais 0 provider (base null)", async () => {
+  it("canal LIBRE non déclaré (ni décorateur ni override) → PASSE l'autorisation, puis 'unknown' faute de producteur", async () => {
+    // Les deux étapes sont distinctes, et ce cas les sépare : l'AUTORISATION
+    // laisse passer (canal applicatif libre — aucune politique ne le couvre),
+    // et c'est la RÉSOLUTION qui échoue (`createRealtimeChannel` de base rend
+    // `null` : personne ne produit ce nom). Le client l'apprend par un motif
+    // distinct de `forbidden`, parce que le geste à faire n'est pas le même :
+    // relire le nom du canal, pas demander un droit.
+    //
+    // Ce cas gravait auparavant le SILENCE (`denials` vide) : un abonnement sans
+    // réponse est indiscernable d'un canal calme, et on cherchait le défaut chez
+    // le producteur alors qu'il était dans le nom.
     const { client } = await connectAs(TOKENS.user);
     const ticks: unknown[] = [];
     const denials: unknown[] = [];
     client.on("random:unknown", (p) => ticks.push(p));
     client.onDenied((d) => denials.push(d));
-    client.subscribe("random:unknown"); // libre → autorisé, mais createRealtimeChannel base → null
+    client.subscribe("random:unknown");
     await flush();
     await flush();
-    expect(denials).to.have.length(0); // pas refusé (canal applicatif libre)
+    expect(denials).to.deep.equal([
+      { channel: "random:unknown", reason: "unknown" },
+    ]);
     expect(ticks).to.have.length(0); // aucun provider démarré
     client.disconnect();
   });

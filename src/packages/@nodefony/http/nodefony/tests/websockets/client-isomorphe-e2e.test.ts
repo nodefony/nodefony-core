@@ -425,12 +425,36 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
       expect(status, "le statut HTTP équivalent voyage dans l'erreur").toBe(
         404,
       );
+    },
+    TIMEOUT,
+  );
 
-      // ⚠️ Ce que ce banc NE peut PAS prouver, et qui manque au serveur : un
-      // `subscribe` vers un canal refusé (`nodefony:audit`) ou inexistant est
-      // ignoré SANS un mot — ni `realtime:denied`, ni erreur. L'écran reste
-      // muet, indiscernable d'un canal calme. `onDenied`/`observeNotices` sont
-      // donc inexerçables ici : le trou est côté serveur, pas côté client.
+  it(
+    "un canal sans producteur est REFUSÉ par une notification, pas par un silence",
+    async () => {
+      // Ce que ce banc constatait, et qui manquait au serveur : un `subscribe`
+      // vers un nom que personne ne produit était ignoré SANS un mot. L'écran
+      // restait muet, indiscernable d'un canal calme — et le développeur
+      // cherchait son bug côté producteur alors qu'il était dans le NOM.
+      //
+      // Le motif est `unknown`, distinct de `forbidden` : les deux appellent des
+      // gestes opposés (relire le nom / demander un droit). Il n'ouvre aucun
+      // oracle — un canal GARDÉ est tranché en amont par le verrou de frame, et
+      // rend `forbidden` qu'il existe ou non.
+      installWebSocket(cookie);
+      const live = connectShared({ url: HUB });
+      const refus: { channel: string; reason: string }[] = [];
+      const off = live.socket.onDenied((d) => refus.push(d));
+      live.start();
+      await until("connecté", () => live.socket.state === "connected");
+
+      live.socket.subscribe("app:canal-qui-nexiste-pas");
+      await until("refus reçu", () => refus.length > 0);
+      expect(refus[0]).toEqual({
+        channel: "app:canal-qui-nexiste-pas",
+        reason: "unknown",
+      });
+      off();
     },
     TIMEOUT,
   );

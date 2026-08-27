@@ -730,18 +730,29 @@ export abstract class RealtimeController<
       this.log(`WS subscribe → ${channel}`, "DEBUG");
       return;
     }
-    // Refus par le plancher système : on le DIT au client. Sans réponse, il
-    // attendrait des données qui ne viendront jamais — un écran vide sans cause
-    // visible. Motif générique (`forbidden`), comme partout : le détail de la
-    // politique n'est pas une information qu'on offre à qui essuie un refus.
-    if (getRealtimeHub().isClosedBySystemFloor(channel)) {
-      const denied: IRealtimeDenied = { channel, reason: "forbidden" };
-      state.peer.notify("realtime:denied", denied);
-      this.log(
-        `WS subscribe refusé (canal de plateforme, aucun module de sécurité) → ${channel}`,
-        "DEBUG",
-      );
-    }
+    // Un abonnement qui n'aboutit pas se DIT — TOUJOURS. Sans réponse, le client
+    // attendrait des données qui ne viendront jamais : un écran vide sans cause
+    // visible, indiscernable d'un canal calme. Deux causes, deux motifs, et
+    // aucune n'a le droit de rester muette.
+    const plancher = getRealtimeHub().isClosedBySystemFloor(channel);
+    // Plancher système : décision d'AUTORISATION → motif générique, comme partout
+    // (le détail de la politique ne s'offre pas à qui essuie un refus). Sinon, le
+    // hub n'a trouvé personne pour PRODUIRE ce canal : nom mal orthographié ou
+    // module absent. Le dire n'ouvre aucun oracle — un canal gardé est tranché en
+    // amont par le verrou de frame, donc rendu `forbidden` qu'il existe ou non.
+    const denied: IRealtimeDenied = {
+      channel,
+      reason: plancher ? "forbidden" : "unknown",
+    };
+    state.peer.notify("realtime:denied", denied);
+    // DEBUG et non WARNING : un log par subscribe refusé sous flood serait un
+    // amplificateur (même raison qu'au plafond de canaux).
+    this.log(
+      plancher
+        ? `WS subscribe refusé (canal de plateforme, aucun module de sécurité) → ${channel}`
+        : `WS subscribe refusé (aucun producteur pour ce canal) → ${channel}`,
+      "DEBUG",
+    );
   }
 
   /**

@@ -228,6 +228,24 @@ export interface IRealtimeWelcome {
 export interface IRealtimeDenied {
   /** Canal (ou méthode inbound) refusé(e). */
   channel: string;
-  /** Motif générique (`"forbidden"`) — jamais le détail de la policy. */
-  reason: string;
+  /** Motif générique (cf {@link RealtimeDeniedReason}) — jamais le détail de la policy. */
+  reason: RealtimeDeniedReason;
 }
+
+/**
+ * Motif d'un `realtime:denied`. Fermé exprès : le client doit pouvoir traiter
+ * TOUS les cas (le compilateur le lui rappelle), et un motif inventé côté
+ * serveur ne doit pas atteindre un écran qui ne sait pas le dire.
+ *
+ * - `"forbidden"` — décision d'AUTORISATION : le verrou de frame a refusé
+ *   (rôle/scope insuffisant), ou le plancher du namespace de plateforme est
+ *   fermé faute de module de sécurité. Générique par construction : dire
+ *   lequel des deux, ou quel rôle manque, serait un oracle.
+ * - `"limit"` — garde de RESSOURCE : le plafond de canaux de cette connexion
+ *   est atteint. Une borne n'est pas un secret, elle se nomme.
+ * - `"unknown"` — le canal n'a AUCUN producteur sur ce pod (nom mal orthographié,
+ *   module non chargé). Ce n'est pas un refus d'accès, et le distinguer ne
+ *   révèle rien : un canal gardé est tranché en amont, donc rendu `"forbidden"`
+ *   qu'il existe ou non.
+ */
+export type RealtimeDeniedReason = "forbidden" | "limit" | "unknown";

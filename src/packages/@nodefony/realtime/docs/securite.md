@@ -573,10 +573,14 @@ Le refus doit être observable sans devenir un oracle. Nodefony tranche ainsi :
 | Requête (avec `id`)                 | `-32001 "unauthorized"` — `JsonRpcPeer.receive()` (`JsonRpcPeer.ts:400`)         |
 | Notification (`subscribe`, inbound) | `realtime:denied { channel, reason: "forbidden" }` (`RealtimeController.ts:432`) |
 | Dépassement du plafond de canaux    | `realtime:denied { channel, reason: "limit" }`                                   |
+| Canal sans aucun producteur         | `realtime:denied { channel, reason: "unknown" }`                                 |
 
 Le message est **générique** dans les trois cas : jamais « il te manque `ROLE_ADMIN` », jamais le nom
 de la zone. Sans `realtime:denied`, une notification refusée serait droppée en silence (elle n'a pas
-de canal de réponse) et le client se croirait abonné. Le motif `limit` est volontairement distinct de
+de canal de réponse) et le client se croirait abonné. **Aucun abonnement ne reste sans réponse** :
+un canal que personne ne produit — nom mal orthographié, module non chargé — rend `unknown`, qui
+n'ouvre aucun oracle (un canal gardé est tranché en amont, donc `forbidden` qu'il existe ou non).
+Le motif `limit` est volontairement distinct de
 `forbidden` : une borne de ressource n'est pas un secret, et les confondre enverrait un développeur
 chercher un problème de droits.
 
@@ -789,7 +793,7 @@ n'est pas appliquée.
 | Deux zones, un seul authenticator enregistré                             | Le hub dédoublonne par identité d'instance — une instance partagée n'enregistre que le premier matcher | Une **instance** d'authenticator par zone                                                             |
 | Un admin déconnecté garde ses flux pendant une dizaine de secondes       | Le tick de révocation est périodique (30 s), pas immédiat                                              | Comportement attendu ; pour une coupure immédiate, fermer la socket côté serveur                      |
 | Une session révoquée ne ferme **jamais** la socket                       | La session n'était pas lisible au handshake → revalidateur `null`, `isValid()` répond toujours `true`  | Vérifier que le handshake traverse bien la zone (session chargée avant le controller realtime)        |
-| Le client se croit abonné, ne reçoit rien                                | Refus d'autorisation **ou** plafond atteint sur une notification (pas de réponse RPC)                  | Écouter `realtime:denied` ; distinguer `reason: "forbidden"` de `reason: "limit"`                     |
+| Le client se croit abonné, ne reçoit rien                                | Refus d'autorisation, plafond atteint, **ou nom de canal sans producteur** (pas de réponse RPC)        | Écouter `realtime:denied` : `forbidden` (droits), `limit` (borne), `unknown` (le nom ne désigne rien) |
 | `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 1 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Les seuils de back-pressure ne sont pas configurables aujourd'hui                                     |
 | Deux déploiements se parlent en cross-talk                               | Pas de `backplane.namespace` sur un Redis mutualisé (la base Redis ne cloisonne pas le pub/sub)        | Poser un `namespace` explicite par déploiement                                                        |
 | Le fan-out cross-pod s'arrête après avoir posé un secret                 | `backplane.secret` différent d'un pod à l'autre : les messages sont scellés, aucun ne se vérifie       | Le **même** secret sur tous les pods (`NF_REALTIME_BACKPLANE_SECRET`) ; suivre `ingressRejectedTotal` |

@@ -1,13 +1,13 @@
 {
-  "generated": "2026-08-27T19:54:40.129Z",
+  "generated": "2026-08-27T20:27:45.185Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 742,
-    "symbols": 3161,
+    "symbols": 3162,
     "classes": 365,
-    "interfaces": 892,
-    "types": 394,
+    "interfaces": 891,
+    "types": 396,
     "enums": 4,
     "functions": 1211,
     "constants": 295
@@ -4041,6 +4041,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Handler typé pour une RPC entrante (côté qui expose via `register`). Sync ou async — JSON-RPC 2.0 §5.1 : throw → réponse `-32603 internal_error`."
+    },
+    "RealtimeDeniedReason": {
+      "name": "RealtimeDeniedReason",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Motif d'un `realtime:denied`. Fermé exprès : le client doit pouvoir traiter TOUS les cas (le compilateur le lui rappelle), et un motif inventé côté serveur ne doit pas atteindre un écran qui ne sai…"
     },
     "expectType": {
       "name": "expectType",
@@ -15993,15 +16001,6 @@
       "extends": null,
       "description": "Fermeture demandée par le serveur (code RFC 6455 + raison)."
     },
-    "IHarnessDenied": {
-      "name": "IHarnessDenied",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
-      "exported": true,
-      "module": "@nodefony/realtime",
-      "extends": null,
-      "description": "Refus d'abonnement notifié au client (`realtime:denied`)."
-    },
     "IRealtimeHarnessOptions": {
       "name": "IRealtimeHarnessOptions",
       "kind": "interface",
@@ -16019,6 +16018,14 @@
       "module": "@nodefony/realtime",
       "extends": null,
       "description": "Vue de test d'un controller temps réel connecté : ce qu'il a reçu, ce qu'il a émis, et de quoi le piloter frame par frame."
+    },
+    "IHarnessDenied": {
+      "name": "IHarnessDenied",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Refus d'abonnement notifié au client (`realtime:denied`) — le contrat de protocole lui-même, en lecture seule. Le recopier ici le ferait diverger : un motif ajouté au protocole doit apparaître dans…"
     },
     "createRealtimeHarness": {
       "name": "createRealtimeHarness",
@@ -26375,6 +26382,7 @@
       "IRealtimeDenied": [
         "src/nodefony/src/client/realtime/notice.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RealtimeReconnectInfo": [

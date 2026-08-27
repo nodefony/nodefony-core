@@ -984,7 +984,13 @@ export class RealtimeClient<
   private ingestDenied(params: unknown): void {
     const p = params as { channel?: unknown; reason?: unknown } | null;
     const channel = typeof p?.channel === "string" ? p.channel : "";
-    const reason = typeof p?.reason === "string" ? p.reason : "forbidden";
+    // Motif NORMALISÉ sur le contrat : un serveur plus récent (ou un pont mal
+    // écrit) qui inventerait un motif ne doit pas faire tomber l'écran dans un
+    // cas que personne ne traite. Repli sur `forbidden`, le motif le plus
+    // prudent : il n'annonce jamais qu'un accès était possible.
+    const brut = p?.reason;
+    const reason: IRealtimeDenied["reason"] =
+      brut === "unknown" || brut === "limit" ? brut : "forbidden";
     const denied: IRealtimeDenied = { channel, reason };
     this.fireNotice(deniedToNotice(denied));
     this.fireLocal(LOCAL_EVENTS.denied, denied);

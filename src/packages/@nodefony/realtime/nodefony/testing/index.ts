@@ -29,6 +29,7 @@
  *
  * @packageDocumentation
  */
+import type { IRealtimeDenied } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type { RealtimeController } from "../src/server/RealtimeController";
 import {
@@ -64,11 +65,12 @@ export interface IHarnessClose {
   readonly reason?: string;
 }
 
-/** Refus d'abonnement notifié au client (`realtime:denied`). */
-export interface IHarnessDenied {
-  readonly channel: string;
-  readonly reason: string;
-}
+/**
+ * Refus d'abonnement notifié au client (`realtime:denied`) — le contrat de
+ * protocole lui-même, en lecture seule. Le recopier ici le ferait diverger : un
+ * motif ajouté au protocole doit apparaître dans le banc sans qu'on y pense.
+ */
+export type IHarnessDenied = Readonly<IRealtimeDenied>;
 
 /** Écart au décor par défaut du harnais. */
 export interface IRealtimeHarnessOptions {

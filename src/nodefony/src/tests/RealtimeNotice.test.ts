@@ -107,6 +107,25 @@ describe("RealtimeClient — deniedToNotice (refus de canal, pendant FRAME)", ()
     });
     expect(n.message).to.not.match(/ROLE_|scope/i);
   });
+
+  it("canal sans producteur : dit CANAL INCONNU, jamais « accès refusé »", () => {
+    // Le geste à faire n'est pas le même : relire le nom du canal, pas demander
+    // un droit. Un « accès refusé » sur une faute de frappe envoie chercher un
+    // droit qui n'a jamais manqué — c'est le diagnostic que ce motif évite.
+    const n = deniedToNotice({ channel: "app:typo", reason: "unknown" });
+    expect(n.message).to.contain("app:typo");
+    expect(n.message).to.not.match(/refus/i);
+    expect(n.message).to.match(/inconnu/i);
+    // Erreur de câblage, pas panne : un cran sous le refus d'autorisation.
+    expect(n.level).to.equal("warning");
+  });
+
+  it("plafond de canaux : dit la BORNE, et reste une erreur", () => {
+    const n = deniedToNotice({ channel: "app:flux", reason: "limit" });
+    expect(n.message).to.contain("app:flux");
+    expect(n.message).to.not.match(/refus/i);
+    expect(n.level).to.equal("error");
+  });
 });
 
 describe("RealtimeClient — isReconnectableCloseCode (respect sémantique RFC 6455)", () => {
