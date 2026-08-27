@@ -1,8 +1,8 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.4.0
-description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "mets un lexique", "écris-le en français", "évite le jargon", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ajouter au board", "jalon 10.0.0", "on ne l'a pas déjà fait ?", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "est-ce le bon moment pour celui-là ?".
+  version: 1.5.0
+description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "écris-le en français", "évite le jargon", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "jalon 10.0.0", "on ne l'a pas déjà fait ?", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "est-ce le bon moment pour celui-là ?", "quels tickets parlent de ce que j'ai changé ?".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -330,6 +330,53 @@ gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID!){
   updateProjectV2ItemPosition(input:{projectId:$p,itemId:$i,afterId:$a}){clientMutationId}}' \
   -f p="$PID" -f i="$ITEM" -f a="$PRECEDENT"
 ```
+
+## 6. Fermer un ticket — le geste est TRIPLE
+
+**Un ticket qu'on ferme change un fait, et ce fait est recopié ailleurs.** C'est le défaut le plus
+coûteux du pilotage par tickets, parce qu'il ne fait aucun bruit : le travail est bon, le ticket est
+fermé, et deux documents plus loin une phrase continue d'affirmer l'état d'avant. Personne ne la
+relit — on la croit, on estime dessus, on planifie dessus.
+
+Vécu sur #41 : le retrait d'un contrat de la surface publiée a rendu faux, du même coup, le bloc
+« ✅ ce qui est déjà fait » de **#34**, trois passages d'un **ADR**, une **page de doc publique** et
+une entrée du **journal de publication**. Aucun n'aurait été trouvé sans y penser.
+
+Donc, avant de fermer, trois recalages — dans cet ordre, parce que chacun révèle le suivant :
+
+| #   | Ce qu'on recale         | Comment on le TROUVE (jamais de mémoire)                                                                      |
+| --- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | **Le code**             | Le diff, les tests, le gate vu mordre — c'est le travail lui-même.                                            |
+| 2   | **Les tickets voisins** | `node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD`                             |
+| 3   | **La documentation**    | `rg -n '<le symbole ou le fait qui a changé>' --glob '*.md'` — puis `anchor-check.mjs` sur les pages touchées |
+
+```bash
+# Les tickets qui parlent de ce qu'on vient de changer (sélection MÉCANIQUE, verdict humain)
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD
+
+# Les ancres `fichier:ligne` de TOUS les tickets ouverts, résolues contre le code
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs
+node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs 34 54    # ceux-là seulement
+```
+
+### Pourquoi un automate, et pas un label « même sujet »
+
+La tentation est d'étiqueter les tickets d'un même sujet pour les retrouver. **Ça ne mordrait pas,
+et le dépôt en a déjà la preuve** : le champ `Status` du tableau de bord est resté à `In Progress`
+**0 fois sur 64** tant qu'il fallait le poser à la main — il n'a servi qu'une fois DÉRIVÉ du commit.
+Un label de sujet aurait exactement le même sort : il faut y penser à la création, y penser à la
+relecture, et il duplique ce que le **ticket parent** exprime déjà mieux (§3).
+
+L'automate, lui, ne demande à personne d'y penser. Il ne juge rien non plus — il dit quels tickets
+citent les fichiers du diff, et l'humain tranche. Deux limites à connaître, parce qu'un outil dont on
+ignore les bords rend des verdicts qu'on croit exhaustifs :
+
+- **Une ancre juste ne rend pas un ticket vrai.** #34 pointait des lignes qui existaient toujours et
+  affirmait au-dessus un état devenu faux. C'est le mode `--touched-by` qui l'attrape, pas la
+  résolution d'ancres.
+- **Un fichier que tout le monde cite n'est pas un indice.** Le journal de publication est cité par
+  19 tickets : les retenir noierait les trois vrais. L'outil les écarte et **le dit**, avec leurs
+  numéros — une troncature muette serait pire que le bruit.
 
 ## Pièges vécus
 

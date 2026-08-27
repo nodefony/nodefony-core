@@ -5333,7 +5333,7 @@
       "name": "nodefony-ticket",
       "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard.",
       "family": "Autres",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "keywords": [
         "fichier:ligne"
       ],
@@ -5343,7 +5343,6 @@
         "fais-en des tickets",
         "corrige les tickets",
         "ce titre est incompréhensible",
-        "mets un lexique",
         "écris-le en français",
         "évite le jargon",
         "renomme cette issue",
@@ -5351,18 +5350,18 @@
         "découper cette issue",
         "estimer un ticket",
         "priorité d'un ticket",
-        "ajouter au board",
         "jalon 10.0.0",
         "on ne l'a pas déjà fait ?",
         "ce ticket est-il encore vrai ?",
         "ferme ce ticket",
         "quel ticket prendre maintenant ?",
-        "est-ce le bon moment pour celui-là ?"
+        "est-ce le bon moment pour celui-là ?",
+        "quels tickets parlent de ce que j'ai changé ?"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"mets un lexique\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\", \"on ne l'a pas déjà fait ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"est-ce le bon moment pour celui-là ?\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"jalon 10.0.0\", \"on ne l'a pas déjà fait ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"est-ce le bon moment pour celui-là ?\", \"quels tickets parlent de ce que j'ai changé ?\".",
       "cost": {
-        "bodyLines": 351,
-        "approxTokens": 6132
+        "bodyLines": 398,
+        "approxTokens": 6935
       },
       "requires": [],
       "resources": {
@@ -5436,6 +5435,42 @@
             "env": [],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-verify.mjs",
+            "purpose": "ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies.",
+            "usage": [
+              "node ticket-verify.mjs                       # ancres de tous les tickets ouverts"
+            ],
+            "options": [
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--name-only",
+                "help": ""
+              },
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              },
+              {
+                "flag": "--state",
+                "help": ""
+              },
+              {
+                "flag": "--touched-by",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },
@@ -5452,7 +5487,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "995",
+            "detail": "1005",
             "advisory": false
           },
           {
@@ -5488,7 +5523,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "351",
+            "detail": "398",
             "advisory": true
           }
         ]

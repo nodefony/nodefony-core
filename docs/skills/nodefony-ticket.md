@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.4.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.5.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -25,14 +25,14 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.4.0` |
+| Version | `1.5.0` |
 | Famille | Autres |
-| Corps | 351 lignes |
-| Coût d'activation | ~6 132 tokens (le corps est chargé à l'invocation) |
-| Description | 995 / 1024 caractères |
-| Déclencheurs | 20 |
+| Corps | 398 lignes |
+| Coût d'activation | ~6 935 tokens (le corps est chargé à l'invocation) |
+| Description | 1005 / 1024 caractères |
+| Déclencheurs | 19 |
 | Ressources `references/` | 3 page(s) |
-| Scripts | 2 |
+| Scripts | 3 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -43,7 +43,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`crée un ticket` · `ouvre une issue` · `fais-en des tickets` · `corrige les tickets` · `ce titre est incompréhensible` · `mets un lexique` · `écris-le en français` · `évite le jargon` · `renomme cette issue` · `ticket parent` · `découper cette issue` · `estimer un ticket` · `priorité d'un ticket` · `ajouter au board` · `jalon 10.0.0` · `on ne l'a pas déjà fait ?` · `ce ticket est-il encore vrai ?` · `ferme ce ticket` · `quel ticket prendre maintenant ?` · `est-ce le bon moment pour celui-là ?`
+`crée un ticket` · `ouvre une issue` · `fais-en des tickets` · `corrige les tickets` · `ce titre est incompréhensible` · `écris-le en français` · `évite le jargon` · `renomme cette issue` · `ticket parent` · `découper cette issue` · `estimer un ticket` · `priorité d'un ticket` · `jalon 10.0.0` · `on ne l'a pas déjà fait ?` · `ce ticket est-il encore vrai ?` · `ferme ce ticket` · `quel ticket prendre maintenant ?` · `est-ce le bon moment pour celui-là ?` · `quels tickets parlent de ce que j'ai changé ?`
 
 ## Ce que contient le corps
 
@@ -54,6 +54,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 3. Parent et sous-tickets
 - 4. Labels et champs du tableau de bord
 - 5. Créer, ordonner, rattacher
+- 6. Fermer un ticket — le geste est TRIPLE
 - Pièges vécus
 - Références (chargées à la demande)
 
@@ -77,12 +78,14 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
+| `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--json` `--limit` `--name-only` `--show-toplevel` `--state` `--touched-by` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
 node scripts/francise.mjs            # diff seul, n'écrit rien
 node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
+node ticket-verify.mjs                       # ancres de tous les tickets ouverts
 ```
 
 ## Conformité au standard Agent Skills
@@ -96,13 +99,13 @@ node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 995 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1005 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 351 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 398 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
