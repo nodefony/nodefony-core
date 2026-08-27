@@ -4645,8 +4645,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 500,
-        "approxTokens": 5804
+        "bodyLines": 502,
+        "approxTokens": 5866
       },
       "requires": [],
       "resources": {
@@ -4660,7 +4660,8 @@
         "nodefony-check-externals",
         "nodefony-check-memory-health",
         "nodefony-inspect",
-        "nodefony-migration-audit"
+        "nodefony-migration-audit",
+        "nodefony-ticket"
       ],
       "conformance": {
         "ok": true,
@@ -4710,7 +4711,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "500",
+            "detail": "502",
             "advisory": true
           }
         ]
@@ -5235,38 +5236,38 @@
     },
     {
       "name": "nodefony-ticket",
-      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord.",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard.",
       "family": "Autres",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [
         "fichier:ligne"
       ],
       "triggers": [
         "crée un ticket",
         "ouvre une issue",
-        "note ça dans un ticket",
         "fais-en des tickets",
         "corrige les tickets",
-        "reformule les issues",
         "ce titre est incompréhensible",
-        "on ne comprend pas ce titre",
-        "c'est quoi cette abréviation",
         "mets un lexique",
         "écris-le en français",
         "évite le jargon",
         "renomme cette issue",
         "ticket parent",
-        "sous-tickets",
         "découper cette issue",
         "estimer un ticket",
         "priorité d'un ticket",
         "ajouter au board",
-        "jalon 10.0.0"
+        "jalon 10.0.0",
+        "on ne l'a pas déjà fait ?",
+        "ce ticket est-il encore vrai ?",
+        "ferme ce ticket",
+        "quel ticket prendre maintenant ?",
+        "est-ce le bon moment pour celui-là ?"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"note ça dans un ticket\", \"fais-en des tickets\", \"corrige les tickets\", \"reformule les issues\", \"ce titre est incompréhensible\", \"on ne comprend pas ce titre\", \"c'est quoi cette abréviation\", \"mets un lexique\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"sous-tickets\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"mets un lexique\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ajouter au board\", \"jalon 10.0.0\", \"on ne l'a pas déjà fait ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"est-ce le bon moment pour celui-là ?\".",
       "cost": {
-        "bodyLines": 206,
-        "approxTokens": 3519
+        "bodyLines": 248,
+        "approxTokens": 4611
       },
       "requires": [],
       "resources": {
@@ -5356,7 +5357,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "912",
+            "detail": "995",
             "advisory": false
           },
           {
@@ -5392,7 +5393,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "206",
+            "detail": "248",
             "advisory": true
           }
         ]

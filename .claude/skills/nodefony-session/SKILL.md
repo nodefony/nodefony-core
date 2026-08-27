@@ -125,7 +125,9 @@ barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHA
 2. **Décisions prises** (extraites du `_state.md`)
 3. **➡️ Prochaine étape** : la « Priorité 1 » du Reste — **SAUF si le garde-fou §2 a détecté un
    `_state` périmé** : alors la prochaine étape vient du **dernier commit + son kit**, et on dit au
-   user que le `_state` était périmé.
+   user que le `_state` était périmé. ⚠️ L'ordre du tableau de bord dit les **dépendances**, pas le
+   moment : quand un ticket est petit et que son contexte vient d'être chargé, c'est **maintenant**
+   qu'il coûte le moins cher — le skill `nodefony-ticket` porte la règle et son test.
 4. **Avancement du jalon** : `N ouverts / M fermés`, échéance, et les 2-3 prochains tickets dans
    l'ordre du tableau de bord — ou, si GitHub n'a pas répondu, la phrase « avancement non vérifié,
    GitHub injoignable ». Ne jamais présenter un avancement déduit du seul `_state`.

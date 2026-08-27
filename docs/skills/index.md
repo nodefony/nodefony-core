@@ -151,8 +151,8 @@ source: "docs/skills/index.md"
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
     "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
-    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs…",
-    "meta": "🟢 conforme v1.1.0 · ⚙️ 2 scripts · 📎 3 réf" }
+    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 2 scripts · 📎 3 réf" }
 ]
 ```
 
@@ -179,12 +179,12 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 500 | 1 | 0 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 502 | 1 | 0 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.1.0 | 206 | 3 | 2 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.2.0 | 248 | 3 | 2 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

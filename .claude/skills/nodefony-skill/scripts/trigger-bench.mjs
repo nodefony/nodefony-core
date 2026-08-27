@@ -142,6 +142,8 @@ const CASES = [
   ["mets un lexique dans les tickets", "nodefony-ticket"],
   ["corrige les titres des issues, on n'y comprend rien", "nodefony-ticket"],
   ["renomme cette issue en français", "nodefony-ticket"],
+  ["ce ticket, on ne l'a pas déjà fait ?", "nodefony-ticket"],
+  ["quel ticket prendre maintenant ?", "nodefony-ticket"],
 ];
 
 /**

@@ -188,8 +188,8 @@ serait sans effet à la régénération suivante.
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
     "meta": "🟢 conforme v1.3.0 · ⚙️ 8 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
-    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations en tête de corps, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs…",
-    "meta": "🟢 conforme v1.1.0 · ⚙️ 2 scripts · 📎 3 réf" }
+    "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 2 scripts · 📎 3 réf" }
 ]
 ```
 <!-- skills-cards:end -->

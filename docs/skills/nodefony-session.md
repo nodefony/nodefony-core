@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 500 lignes |
-| Coût d'activation | ~5 804 tokens (le corps est chargé à l'invocation) |
+| Corps | 502 lignes |
+| Coût d'activation | ~5 866 tokens (le corps est chargé à l'invocation) |
 | Description | 592 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -43,7 +43,7 @@ Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`migration-audit`](nodefony-migration-audit.md)
+[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`migration-audit`](nodefony-migration-audit.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
@@ -108,7 +108,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 500 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 502 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
