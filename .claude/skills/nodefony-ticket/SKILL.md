@@ -381,6 +381,24 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs 34 54    # ceux-là seulement
 ```
 
+### 🔴 La console d'administration est la RÉFÉRENCE de non-régression
+
+Studio est **la seule application réelle du dépôt** : une identité qui bascule, une socket qui se
+re-négocie, des caches à purger, des écrans qui consomment. Tout le reste est du code rendu ou des
+tests unitaires.
+
+> **Tout ticket qui touche le client OU le serveur — temps réel et isomorphisme en tête — se ferme
+> en ayant vérifié que la console d'administration marche encore.** Pas « compile encore » :
+> marche. On l'ouvre, on regarde la console du navigateur, on vérifie que la socket se connecte.
+
+Le geste est dans le skill `nodefony-browser` (voie LOCALE, rien à démarrer côté navigateur), après
+avoir relancé le serveur — `nodefony-start-server`.
+
+Le corollaire est plus dur à admettre : **ce que Studio n'utilise pas n'est éprouvé par personne.**
+Le fournisseur React publié par le framework en est l'exemple — Studio a sa propre glue, si bien que
+la seule preuve de ce fournisseur était une chaîne de caractères cherchée dans un fichier rendu.
+Quand un ticket ajoute une surface que Studio n'emploie pas, il doit dire qui l'emploiera, et quand.
+
 ### Pourquoi un automate, et pas un label « même sujet »
 
 La tentation est d'étiqueter les tickets d'un même sujet pour les retrouver. **Ça ne mordrait pas,

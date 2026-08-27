@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.5.0` |
 | Famille | Autres |
-| Corps | 420 lignes |
-| Coût d'activation | ~7 300 tokens (le corps est chargé à l'invocation) |
+| Corps | 438 lignes |
+| Coût d'activation | ~7 582 tokens (le corps est chargé à l'invocation) |
 | Description | 1005 / 1024 caractères |
 | Déclencheurs | 19 |
 | Ressources `references/` | 3 page(s) |
@@ -38,6 +38,12 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 ## Ce qu'il fait
 
 Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`browser`](nodefony-browser.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 
@@ -105,7 +111,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 420 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 438 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
