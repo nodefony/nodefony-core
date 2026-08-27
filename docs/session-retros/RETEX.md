@@ -855,6 +855,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-27] **Quand la SOURCE DE VÉRITÉ déménage, le rituel qui la lit ne suit pas tout seul.**
+  Le pilotage de la publication est passé du plan Markdown aux issues il y a une session — et la
+  reprise continuait de restituer un état écrit à la main, qui vieillit entre deux sessions quand
+  un ticket, lui, a un état. Le tableau de bord existait, personne ne le lisait au bon moment.
+  Deux gestes à faire le jour où l'on déplace une source : **brancher dessus le rituel qui la
+  consulte**, et **énoncer ce qui gagne en cas de contradiction** (ici : le ticket bat le
+  document). Et constater la joignabilité avant d'en tirer un verdict — un `gh` muet hors ligne
+  ferait conclure « rien n'a avancé ».
 - [1× — 08-27] **Un SKILL que rien ne NOMME n'est jamais chargé — la règle existe et ne mord pas.**
   `nodefony-ticket` était écrit, versionné, conforme, avec ses déclencheurs — et cité NULLE PART :
   ni dans la table des skills du `CLAUDE.md`, ni par une seule phrase du banc de déclenchement, qui
@@ -958,6 +966,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 08-27] **Un champ DÉRIVÉ d'une API peut être figé sur une valeur morte — et il a l'air
+  d'une réponse.** `gh project item-list` rend un `title` par item : **38 sur 38** portaient encore
+  l'ancien libellé de leur issue, renommée le matin même. J'ai failli annoncer au user que son
+  tableau de bord était périmé. Ce qui a tranché en dix secondes : redemander la MÊME donnée par
+  l'autre voie — GraphQL rend le titre courant, donc l'affichage est juste et c'est le champ du
+  client qui ment. **Devant une valeur surprenante, chercher une SECONDE voie vers la même donnée
+  avant d'accuser la source** ; et préférer par défaut le champ qui pointe l'objet réel
+  (`.content.title`) à celui que l'outil a recopié (`.title`).
 - [1× — 08-27] **Une substitution de texte SANS frontière de mot fabrique des faux positifs qui
   ont l'air d'un travail bien fait.** Un motif `ADR` sans limite a mordu sur « c**adr**e », `store`
   sur « re**store** » : le ticket recevait un lexique définissant des mots qu'il n'employait pas —
