@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-27T18:33:34.579Z",
+  "generated": "2026-08-27T19:14:34.927Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 741,
-    "symbols": 3157,
-    "classes": 364,
+    "files": 742,
+    "symbols": 3158,
+    "classes": 365,
     "interfaces": 891,
     "types": 394,
     "enums": 4,
@@ -9721,6 +9721,19 @@
         "controller"
       ],
       "description": "P2.4 — controller `initialize()` error boundary probe. This controller's `initialize()` ALWAYS throws, so any route on it exercises the controller-initialize crash path: Resolver.newController → `a…"
+    },
+    "LiveTickerController": {
+      "name": "LiveTickerController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/LiveTickerController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "RealtimeController",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Le canal temps réel COMMUN aux quatre vitrines de front (React, Vue, Angular, Svelte) — un seul endpoint, un seul canal, quatre pages qui s'y branchent. Pourquoi un seul, et pas un par module de vi…"
     },
     "OpenApiController": {
       "name": "OpenApiController",
@@ -22225,6 +22238,7 @@
       ],
       "RealtimeController": [
         "BackpressureRealtimeController",
+        "LiveTickerController",
         "TestM2mRealtimeController",
         "StudioRealtimeController"
       ],
@@ -22630,6 +22644,7 @@
         "GraphQlController",
         "HtmlController",
         "LifecycleController",
+        "LiveTickerController",
         "OpenApiController",
         "PipelineOrderController",
         "RestController",
@@ -23474,6 +23489,9 @@
       "BackpressureRealtimeController": [
         "src/modules/test/index.ts"
       ],
+      "LiveTickerController": [
+        "src/modules/test/index.ts"
+      ],
       "BenchOrmController": [
         "src/modules/test/index.ts"
       ],
@@ -23896,6 +23914,7 @@
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/LifecycleController.ts",
+        "src/modules/test/nodefony/controller/LiveTickerController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
@@ -23906,6 +23925,10 @@
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
+        "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -23926,6 +23949,7 @@
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/LifecycleController.ts",
+        "src/modules/test/nodefony/controller/LiveTickerController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
@@ -24254,6 +24278,7 @@
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/LifecycleController.ts",
+        "src/modules/test/nodefony/controller/LiveTickerController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
@@ -24413,6 +24438,7 @@
       "RealtimeController": [
         "src/packages/@nodefony/realtime/index.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/modules/test/nodefony/controller/LiveTickerController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -26997,6 +27023,7 @@
       ],
       "RealtimePublish": [
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/modules/test/nodefony/controller/LiveTickerController.ts",
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
@@ -27123,6 +27150,12 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+      ],
+      "RealtimeChannel": [
+        "src/modules/test/nodefony/controller/LiveTickerController.ts"
+      ],
+      "RealtimeInbound": [
+        "src/modules/test/nodefony/controller/LiveTickerController.ts"
       ],
       "readInitializeProbe": [
         "src/modules/test/nodefony/controller/PipelineOrderController.ts"

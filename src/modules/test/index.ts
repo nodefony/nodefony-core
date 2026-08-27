@@ -35,6 +35,7 @@ import SecureController from "./nodefony/secure/SecureController";
 import PipelineOrderController from "./nodefony/controller/PipelineOrderController";
 // Décor de banc contre-pression WS — monté SEULEMENT sous interrupteur (voir plus bas).
 import BackpressureRealtimeController from "./nodefony/controller/BackpressureRealtimeController";
+import LiveTickerController from "./nodefony/controller/LiveTickerController";
 
 import BenchOrmController, {
   SecureBenchOrmController,
@@ -118,6 +119,10 @@ const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
   ForeignAudienceController,
   // P6.8 — banc démo idempotence userland (@Idempotent, /nodefony/test/secure/idempotent/*)
   IdempotentDemoController,
+  // Le canal temps réel COMMUN des quatre vitrines de front (React, Vue,
+  // Angular, Svelte) : un seul endpoint `/api/live/realtime`, un seul canal
+  // `live:ticker`, quatre pages qui doivent s'y brancher à l'identique.
+  LiveTickerController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)
   ...(BENCH_WS_BACKPRESSURE ? [BackpressureRealtimeController] : []),
   // Décor du banc du cycle ORM (opt-in `NF_BENCH_ORM=1`)

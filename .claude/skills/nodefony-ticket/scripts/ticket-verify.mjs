@@ -98,7 +98,16 @@ try {
 }
 
 if (touchedBy) {
-  const files = execFileSync("git", ["diff", "--name-only", touchedBy], {
+  // `git diff --name-only HEAD` compare l'ARBRE DE TRAVAIL à HEAD : juste après
+  // le commit — le seul moment où ce mode sert — il rend VIDE, et l'outil
+  // répondait « rien à relire » alors qu'on venait de toucher vingt fichiers.
+  // Un instrument qui acquitte en silence est pire qu'un instrument absent.
+  // Une révision seule se lit donc avec `diff-tree` (le contenu DU commit) ;
+  // une plage `a..b` reste un `diff`.
+  const args = touchedBy.includes("..")
+    ? ["diff", "--name-only", touchedBy]
+    : ["diff-tree", "--no-commit-id", "--name-only", "-r", touchedBy];
+  const files = execFileSync("git", args, {
     cwd: REPO,
     encoding: "utf8",
   })

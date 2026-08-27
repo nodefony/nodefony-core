@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Controller, Get, controller } from "@nodefony/framework";
+import { Controller, Get, controller, route } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import { performance } from "node:perf_hooks";
@@ -38,11 +38,11 @@ class PocController extends Controller {
         this.context?.domain,
       ) ?? "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Nodefony POC — React via @nodefony/frontend</title>
+    <title>React 19 — vitrine temps réel Nodefony</title>
     ${viteTags}
   </head>
   <body>
@@ -56,7 +56,14 @@ class PocController extends Controller {
    * Endpoint léger pour bencher la latence backend pendant que Vite compile/HMR.
    * Renvoie un JSON minimal — pas de DB, pas de I/O, juste perf.now().
    */
-  @Get("/api/data")
+  // Deux transports pour UNE action : le `@Get` sert la requête HTTP, et
+  // `WEBSOCKET` dans `methods` autorise le pont `api.request` à la joindre par
+  // la socket. Sans cette déclaration, le pont refuse — une action décide des
+  // portes par lesquelles on l'atteint.
+  @route("front-react-api-data", {
+    path: "/api/data",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+  })
   apiData() {
     return this.renderJson({
       ts: performance.now(),

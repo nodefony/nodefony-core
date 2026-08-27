@@ -1,0 +1,599 @@
+/*
+ * showcase.css — la mise en page COMMUNE aux quatre vitrines de front.
+ *
+ * Les quatre pages (React, Vue, Angular, Svelte) doivent se ressembler ligne
+ * pour ligne : c'est ce qui rend une divergence visible à l'œil nu. Une feuille
+ * par framework aurait fait quatre chartes qui dérivent — donc ce fichier est
+ * le MÊME dans les quatre modules, et un test compare leurs empreintes
+ * (`src/modules/test/tests/vitrines-communes.test.ts`).
+ *
+ * Les jetons de couleur sont ceux de la page d'accueil du framework
+ * (`nodefony/views/index.eta`) : trois couleurs, celles du logo. Seule la
+ * variable `--accent` change d'une vitrine à l'autre — c'est la couleur du
+ * framework de vue, et le seul endroit où les quatre pages ont le droit de
+ * différer.
+ *
+ * Thème clair ET sombre : la page suit le réglage du système, sans bascule à
+ * cliquer. Un écran qui ne connaît qu'un thème est à moitié testé.
+ */
+
+:root {
+  --blue: #096bbf;
+  --cyan: #1ea0ec;
+  --green: #4a8b3e;
+  --bg: #fafbfd;
+  --bg-soft: #f1f5fa;
+  --fg: #0e1726;
+  --muted: #5b6b84;
+  --card: #ffffff;
+  --border: #e3e9f2;
+  --code-bg: #0e1726;
+  --code-fg: #d9e6f5;
+  --shadow: 0 1px 2px rgba(14, 23, 38, 0.05), 0 8px 24px rgba(14, 23, 38, 0.06);
+  --shadow-hover:
+    0 2px 4px rgba(14, 23, 38, 0.06), 0 14px 34px rgba(9, 107, 191, 0.14);
+  --accent: var(--blue);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0f1c;
+    --bg-soft: #0e1524;
+    --fg: #e8edf6;
+    --muted: #93a1ba;
+    --card: #111828;
+    --border: #223046;
+    --code-bg: #0b1220;
+    --code-fg: #cfe0f2;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-hover:
+      0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(30, 160, 236, 0.18);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  color: var(--fg);
+  background:
+    radial-gradient(
+      1100px 480px at 50% -14%,
+      color-mix(in srgb, var(--accent) 9%, transparent),
+      transparent 60%
+    ),
+    var(--bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ─── Barre du haut : la navigation ENTRE les quatre vitrines ───────────── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px clamp(18px, 4vw, 40px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--fg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand img {
+  height: 28px;
+  width: auto;
+}
+
+/* Les quatre vitrines, atteignables d'un clic — c'est ce qui permet de les
+   comparer côte à côte, et donc de VOIR une divergence. */
+.fronts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.fronts a {
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 8px;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.fronts a:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+
+.fronts a[aria-current="page"] {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 55%, #000);
+}
+
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 clamp(18px, 4vw, 40px) 56px;
+}
+
+/* ─── En-tête de page ───────────────────────────────────────────────────── */
+
+.hero {
+  text-align: center;
+  padding: clamp(40px, 7vw, 72px) 0 clamp(24px, 4vw, 40px);
+}
+
+.hero .logo {
+  height: 64px;
+  width: auto;
+}
+
+.hero h1 {
+  margin: 16px auto 8px;
+  font-size: clamp(1.9rem, 4.5vw, 2.9rem);
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+}
+
+.hero .sub {
+  color: var(--fg);
+  opacity: 0.82;
+  font-size: clamp(1rem, 2vw, 1.12rem);
+  font-weight: 500;
+  margin: 0 auto;
+  max-width: 660px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px 0 0;
+}
+
+.badge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.badge--accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* ─── Sections ──────────────────────────────────────────────────────────── */
+
+section {
+  padding: clamp(26px, 4vw, 40px) 0 0;
+}
+
+.kicker {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.sec-head h2 {
+  margin: 0 0 6px;
+  font-size: clamp(1.3rem, 2.6vw, 1.75rem);
+  letter-spacing: -0.02em;
+}
+
+.sec-head p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 640px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.route {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+.out {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.out--err {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  border-radius: 10px;
+  padding: 10px 20px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.btn--primary {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 55%, #000);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.btn--ghost {
+  color: var(--fg);
+  border-color: var(--border);
+  background: var(--card);
+}
+
+.btn--ghost:hover {
+  border-color: var(--accent);
+}
+
+/* ─── La carte TEMPS RÉEL — la vedette de la page ───────────────────────── */
+
+.live {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  align-items: start;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: clamp(18px, 3vw, 26px);
+  box-shadow: var(--shadow);
+}
+
+/* Sans cette ligne, une colonne de grille ne descend pas sous la largeur de son
+   contenu : le bloc de code déborde de la carte au lieu de défiler dedans. */
+.live > * {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .live {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sur fond sombre, c'est la teinte PURE qui porte le contraste — l'assombrir
+   ferait disparaître le bouton dans la page. */
+@media (prefers-color-scheme: dark) {
+  .btn--primary,
+  .counter,
+  .fronts a[aria-current="page"] {
+    color: #06121e;
+    background: var(--accent);
+  }
+
+  .salon .qui,
+  .voie em {
+    color: var(--accent);
+  }
+}
+
+.live-state {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* Une pastille de couleur SEULE ne dit rien à qui ne la distingue pas : l'état
+   est toujours écrit en toutes lettres à côté (WCAG 1.4.1). */
+.dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  margin-right: 0.45rem;
+  background: #9aa8bd;
+  vertical-align: middle;
+}
+
+.dot--on {
+  background: var(--green);
+}
+
+.dot--wait {
+  background: #d98324;
+}
+
+.live-n {
+  margin: 0;
+  font-size: clamp(2.6rem, 7vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  /* PAS `--accent` : mesuré à 2,5:1 avec le vert de Vue et pire avec le cyan de
+     React — un échec WCAG sur le plus gros chiffre de la page. La couleur du
+     framework reste au décor (pastille, badge, liseré) ; le texte prend la
+     couleur de texte, comme sur la page d'accueil du framework. */
+  color: var(--fg);
+}
+
+.live-n small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.live-meta {
+  margin: 12px 0 18px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-why {
+  margin: 0 0 14px;
+  color: var(--fg);
+  opacity: 0.88;
+  font-size: 0.95rem;
+}
+
+.live-why strong {
+  color: var(--accent);
+}
+
+.code {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+
+.code b {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.counter {
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+  /* Même raison que `.live-n` : du blanc sur cyan pur tombe sous le seuil. Le
+     mélange se calcule à l'USAGE, donc avec la valeur héritée de la vitrine. */
+  background: color-mix(in srgb, var(--accent) 55%, #000);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 22px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  margin: 12px 0 0;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.foot {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+/* ─── Le salon partagé — ce que le serveur pousse à TOUT LE MONDE ───────── */
+
+.saisie {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+  flex-wrap: wrap;
+}
+
+.saisie input {
+  flex: 1 1 200px;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--fg);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.saisie input::placeholder {
+  color: var(--muted);
+}
+
+.salon {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.salon li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg-soft);
+  font-size: 0.9rem;
+}
+
+/* Qui a écrit — la vitrine d'origine. C'est ce badge qui rend le fan-out
+   lisible : un message marqué « Vue » qui apparaît dans l'onglet React ne
+   s'explique que par le serveur. */
+.salon .qui {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 55%, #000);
+}
+
+.salon .quand {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.salon .vide {
+  color: var(--muted);
+  background: none;
+  padding: 8px 0;
+}
+
+/* ─── Une action, deux transports ───────────────────────────────────────── */
+
+.deux {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.deux > div {
+  min-width: 0;
+}
+
+.voie {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.voie em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--accent) 55%, #000);
+}
+
+.bandeau {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.bandeau .live-state,
+.bandeau .live-meta {
+  margin: 0;
+}
+
+.bandeau .btn {
+  margin-left: auto;
+}

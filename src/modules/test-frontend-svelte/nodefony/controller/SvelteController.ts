@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Controller, Get, controller } from "@nodefony/framework";
+import { Controller, Get, controller, route } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import { performance } from "node:perf_hooks";
@@ -34,11 +34,11 @@ class SvelteController extends Controller {
         this.context?.domain,
       ) ?? "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Nodefony POC — Svelte 5 via @nodefony/frontend</title>
+    <title>Svelte 5 — vitrine temps réel Nodefony</title>
     ${viteTags}
   </head>
   <body>
@@ -52,7 +52,14 @@ class SvelteController extends Controller {
    * Endpoint léger consommé par l'app Svelte (poll 1s). Renvoie un JSON
    * minimal — pas de DB, pas d'I/O.
    */
-  @Get("/api/data")
+  // Deux transports pour UNE action : le `@Get` sert la requête HTTP, et
+  // `WEBSOCKET` dans `methods` autorise le pont `api.request` à la joindre par
+  // la socket. Sans cette déclaration, le pont refuse — une action décide des
+  // portes par lesquelles on l'atteint.
+  @route("front-svelte-api-data", {
+    path: "/api/data",
+    requirements: { methods: ["GET", "WEBSOCKET"] },
+  })
   apiData() {
     return this.renderJson({
       ts: performance.now(),

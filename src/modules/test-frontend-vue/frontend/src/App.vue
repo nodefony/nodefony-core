@@ -1,5 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, version as vueVersion } from "vue";
+// Le socle AGNOSTIQUE de `nodefony/client` — le même que les vitrines React,
+// Angular et Svelte. Deux concepts : une connexion partagée qui reçoit
+// l'adresse, et un abonnement. Aucune règle de temps réel n'est écrite ici.
+import {
+  connectShared,
+  observeChannel,
+  observeChannelData,
+  observeState,
+} from "nodefony/client";
+// Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
+// page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
+import "./showcase.css";
 
 interface ApiData {
   ts: number;
@@ -7,12 +19,94 @@ interface ApiData {
   env: string;
 }
 
+/** Le battement du pod — cf `src/modules/test/.../LiveTickerController.ts`. */
+interface Tick {
+  n: number;
+  ts: number;
+  pid: number;
+}
+
+/** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
+interface Message {
+  texte: string;
+  front: string;
+  ts: number;
+  pid: number;
+}
+
+/** La couleur du framework de vue — le SEUL écart de style entre les quatre. */
+const ACCENT = "#41b883";
+
+/** Le nom de CETTE vitrine — il marque les messages qu'elle envoie au salon. */
+const FRONT = "Vue";
+
+/** Les quatre vitrines, pour les comparer d'un clic. */
+const FRONTS = [
+  { nom: "React", href: "/react/app" },
+  { nom: "Vue", href: "/vue/app" },
+  { nom: "Angular", href: "/angular/app" },
+  { nom: "Svelte", href: "/svelte/app" },
+];
+
+/** L'état de la connexion, dit en français — un écran ne parle pas machine. */
+const ETATS: Record<string, string> = {
+  connected: "connecté",
+  connecting: "connexion…",
+  reconnecting: "reconnexion automatique…",
+  disconnected: "coupé",
+  error: "erreur",
+};
+
 const count = ref(0);
 const data = ref<ApiData | null>(null);
 const error = ref<string | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 
-const tick = async (): Promise<void> => {
+// UNE socket par URL pour toute la page. `connectShared` porte le cycle de
+// connexion (idempotent, rejet avalé, et JAMAIS de `disconnect()` au démontage :
+// la connexion appartient à la PAGE).
+const live = connectShared({ url: "/api/live/realtime" });
+const liveState = ref(live.socket.state);
+const tick = ref<Tick | null>(null);
+const messages = ref<Message[]>([]);
+const texte = ref("");
+const parHttp = ref<string | null>(null);
+const parSocket = ref<string | null>(null);
+
+const envoyer = (): void => {
+  const dit = texte.value.trim();
+  if (!dit) return;
+  // Une notification client → serveur : pas de réponse attendue, c'est le
+  // serveur qui rediffuse à tous les abonnés du canal.
+  live.socket.emit("live:dire", { texte: dit, front: FRONT });
+  texte.value = "";
+};
+
+/** La MÊME action, appelée par les deux portes, chronométrée des deux côtés. */
+const comparer = async (): Promise<void> => {
+  const t0 = performance.now();
+  const r = await fetch("/vue/api/data");
+  const json = (await r.json()) as { result?: unknown };
+  parHttp.value = `${Math.round(performance.now() - t0)} ms\n${JSON.stringify(json.result ?? json, null, 2)}`;
+  const t1 = performance.now();
+  const parLaSocket = await live.socket.request("/vue/api/data");
+  parSocket.value = `${Math.round(performance.now() - t1)} ms\n${JSON.stringify(parLaSocket, null, 2)}`;
+};
+
+const duree = (v: string | null): string => v?.split("\n")[0] ?? "";
+const corps = (v: string | null): string =>
+  v?.split("\n").slice(1).join("\n") ?? "—";
+// Libérations des observateurs — rendues au démontage (le HMR remonte le composant).
+let offLive: (() => void)[] = [];
+
+const basculer = (): void => {
+  if (liveState.value === "connected") live.socket.disconnect();
+  else void live.socket.connect();
+};
+
+const heure = (t: Tick): string => new Date(t.ts).toLocaleTimeString();
+
+const pollApi = async (): Promise<void> => {
   try {
     const r = await fetch("/vue/api/data");
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -26,216 +120,239 @@ const tick = async (): Promise<void> => {
 };
 
 onMounted(() => {
-  tick();
-  timer = setInterval(tick, 1000);
+  pollApi();
+  timer = setInterval(pollApi, 1000);
+  // Un observateur = un rappel + une libération. L'abonnement serveur est
+  // ref-compté et REJOUÉ à chaque reconnexion : le socle s'en charge.
+  offLive.push(observeState(live.socket, (state) => (liveState.value = state)));
+  offLive.push(
+    observeChannelData<Tick>(
+      live.socket,
+      "live:ticker",
+      (t) => (tick.value = t),
+    ),
+  );
+  offLive.push(
+    observeChannel(live.socket, "live:salon", (m) => {
+      messages.value = [...messages.value, m as Message].slice(-6);
+    }),
+  );
+  live.start();
 });
+
 onUnmounted(() => {
   if (timer) clearInterval(timer);
+  // On libère les observateurs (ce qui rend l'abonnement) — la socket PARTAGÉE,
+  // elle, reste ouverte pour la page.
+  for (const off of offLive) off();
+  offLive = [];
 });
 </script>
 
 <template>
-  <main class="page">
-    <div class="hero">
-      <svg
-        class="logo"
-        viewBox="0 0 256 221"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M204.8 0H256L128 220.8 0 0h97.92L128 51.2 157.44 0z"
-          fill="#41B883"
-        />
-        <path
-          d="m0 0 128 220.8L256 0h-51.2L128 132.48 50.56 0z"
-          fill="#41B883"
-        />
-        <path
-          d="M50.56 0 128 133.12 204.8 0h-47.36L128 51.2 97.92 0z"
-          fill="#35495E"
-        />
-      </svg>
+  <div :style="{ '--accent': ACCENT }">
+    <header class="topbar">
+      <a class="brand" href="/">
+        <img src="/nodefony-logo.png" alt="" draggable="false" />
+        nodefony-core
+      </a>
+      <nav class="fronts" aria-label="Les quatre vitrines">
+        <a
+          v-for="f in FRONTS"
+          :key="f.href"
+          :href="f.href"
+          :aria-current="f.nom === 'Vue' ? 'page' : undefined"
+        >
+          {{ f.nom }}
+        </a>
+      </nav>
+    </header>
 
-      <h1>You did it!</h1>
-      <p class="subtitle">
-        Vue&nbsp;3 transpilé par <strong>@nodefony/frontend</strong> via Vite —
-        multi-framework aux côtés des bundles React, même superviseur.
-      </p>
-
-      <div class="badges">
-        <span class="badge badge--vue">Vue v{{ vueVersion }}</span>
-        <span class="badge">Vite&nbsp;dev&nbsp;server</span>
-        <span class="badge" v-if="data">env: {{ data.env }}</span>
-      </div>
-    </div>
-
-    <div class="cards">
-      <section class="card">
-        <h2>♻️ HMR check</h2>
-        <button class="counter" @click="count++">count is {{ count }}</button>
-        <p class="hint">
-          Édite <code>frontend/src/App.vue</code> — Vite recompile, l'état du
-          compteur est conservé.
+    <main>
+      <div class="hero">
+        <svg
+          class="logo"
+          viewBox="0 0 256 221"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M204.8 0H256L128 220.8 0 0h97.92L128 51.2 157.44 0z"
+            fill="#41b883"
+          />
+          <path
+            d="m0 0 128 220.8L256 0h-51.2L128 132.48 50.56 0z"
+            fill="#41b883"
+          />
+          <path
+            d="M50.56 0 128 133.12 204.8 0h-47.36L128 51.2 97.92 0z"
+            fill="#35495e"
+          />
+        </svg>
+        <h1>Vue 3</h1>
+        <p class="sub">
+          Le même écran, le même socle, quatre frameworks. Servi par
+          <strong>@nodefony/frontend</strong> (Vite + HMR) et alimenté par une
+          seule socket Nodefony.
         </p>
+        <div class="badges">
+          <span class="badge badge--accent">Vue v{{ vueVersion }}</span>
+          <span class="badge">Vite dev server</span>
+          <span class="badge" v-if="data">env : {{ data.env }}</span>
+        </div>
+      </div>
+
+      <section>
+        <div class="sec-head">
+          <p class="kicker">Temps réel</p>
+          <h2>Ce que cette socket change</h2>
+          <p>
+            Une seule socket pour la page, ouverte par le framework.
+            L'abonnement est compté par référence et rejoué à chaque reconnexion
+            : rien de tout cela n'est écrit dans la page.
+          </p>
+        </div>
+
+        <div class="bandeau">
+          <p class="live-state">
+            <span
+              class="dot"
+              :class="{
+                'dot--on': liveState === 'connected',
+                'dot--wait':
+                  liveState === 'connecting' || liveState === 'reconnecting',
+              }"
+            />
+            {{ ETATS[liveState] ?? liveState }}
+          </p>
+          <p class="live-meta">
+            <template v-if="tick">
+              battement du pod à {{ heure(tick) }} · process {{ tick.pid }}
+            </template>
+            <template v-else>en attente du premier battement…</template>
+          </p>
+          <button class="btn btn--ghost" @click="basculer">
+            {{ liveState === "connected" ? "Couper la connexion" : "Rétablir" }}
+          </button>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <h3>👥 Le serveur pousse à TOUS</h3>
+            <p style="margin-bottom: 14px">
+              Ouvrez cette page dans un second onglet — ou dans une autre
+              vitrine — et écrivez : les deux affichent la même chose, en
+              direct. Le message ne repasse jamais par une requête HTTP.
+            </p>
+            <div class="saisie">
+              <input
+                v-model="texte"
+                @keydown.enter="envoyer"
+                placeholder="Écrivez, puis Entrée…"
+                aria-label="Message à diffuser"
+              />
+              <button class="counter" @click="envoyer">Envoyer</button>
+            </div>
+            <ul class="salon">
+              <li v-if="messages.length === 0" class="vide">
+                Rien encore — écrivez quelque chose.
+              </li>
+              <li v-for="(m, i) in messages" :key="`${m.ts}-${i}`">
+                <span class="qui">{{ m.front }}</span>
+                <span>{{ m.texte }}</span>
+                <span class="quand">{{
+                  new Date(m.ts).toLocaleTimeString()
+                }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <h3>🔀 Une action, deux transports</h3>
+            <p style="margin-bottom: 14px">
+              <code>GET /vue/api/data</code> appelé par HTTP, puis par la
+              socket. Même route, même session, même sécurité — une seule action
+              de contrôleur derrière les deux portes.
+            </p>
+            <button class="counter" @click="comparer">
+              Appeler par les deux
+            </button>
+            <div class="deux" style="margin-top: 14px">
+              <div>
+                <p class="voie">
+                  HTTP <em>{{ duree(parHttp) }}</em>
+                </p>
+                <pre class="out">{{ corps(parHttp) }}</pre>
+              </div>
+              <div>
+                <p class="voie">
+                  Socket <em>{{ duree(parSocket) }}</em>
+                </p>
+                <pre class="out">{{ corps(parSocket) }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="live" style="margin-top: 16px">
+          <div>
+            <p class="live-why">
+              Ces <strong>trois lignes</strong> sont les mêmes dans les quatre
+              vitrines. Seule la syntaxe du framework de vue change : la logique
+              d'abonnement vit dans <strong>nodefony/client</strong>, jamais
+              dans la page.
+            </p>
+            <p class="hint">
+              Le même socle que React consomme à travers ses hooks — ici on
+              l'appelle directement.
+            </p>
+          </div>
+          <pre
+            class="code"
+          ><code>const live = connectShared({ url: "/api/live/realtime" })
+
+observeState(live.socket, (état) =&gt; liveState.value = état)
+observeChannel(live.socket, "live:salon", (m) =&gt; …)</code></pre>
+        </div>
       </section>
 
-      <section class="card">
-        <h2>🔌 Backend ping</h2>
-        <code class="route">GET /vue/api/data</code>
-        <pre v-if="error" class="out out--err">{{ error }}</pre>
-        <pre v-else-if="data" class="out">{{
-          JSON.stringify(data, null, 2)
-        }}</pre>
-        <p v-else class="hint">loading…</p>
+      <section>
+        <div class="sec-head">
+          <p class="kicker">Par comparaison</p>
+          <h2>Ce que la page fait quand elle DEMANDE</h2>
+          <p>
+            À gauche, une requête par seconde : c'est la page qui réclame. À
+            droite, le rechargement à chaud, qui garde l'état du composant.
+          </p>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>🔌 Requête HTTP</h3>
+            <code class="route">GET /vue/api/data — 1×/s</code>
+            <pre v-if="error" class="out out--err">{{ error }}</pre>
+            <pre v-else-if="data" class="out">{{
+              JSON.stringify(data, null, 2)
+            }}</pre>
+            <p v-else class="hint">chargement…</p>
+          </div>
+
+          <div class="card">
+            <h3>♻️ Rechargement à chaud</h3>
+            <button class="counter" @click="count++">
+              {{ count }} clic{{ count > 1 ? "s" : "" }}
+            </button>
+            <p class="hint">
+              Édite <code>frontend/src/App.vue</code> : Vite recompile et le
+              compteur garde sa valeur.
+            </p>
+          </div>
+        </div>
       </section>
-    </div>
-  </main>
+
+      <p class="foot">
+        La même page en <a href="/react/app">React</a>,
+        <a href="/angular/app">Angular</a> et <a href="/svelte/app">Svelte</a> —
+        ou la <a href="/nodefony">console d'administration</a>.
+      </p>
+    </main>
+  </div>
 </template>
-
-<style scoped>
-.page {
-  min-height: 100vh;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2.5rem;
-  padding: 4rem 1.5rem;
-  box-sizing: border-box;
-  font-family:
-    "Inter",
-    system-ui,
-    -apple-system,
-    sans-serif;
-  color: #2c3e50;
-  background:
-    radial-gradient(
-      1200px 600px at 50% -10%,
-      rgba(66, 184, 131, 0.18),
-      transparent
-    ),
-    #f7f9f8;
-}
-.hero {
-  text-align: center;
-  max-width: 640px;
-}
-.logo {
-  width: 96px;
-  height: auto;
-  filter: drop-shadow(0 8px 18px rgba(53, 73, 94, 0.18));
-  animation: float 4s ease-in-out infinite;
-}
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-h1 {
-  margin: 1.2rem 0 0.6rem;
-  font-size: 2.6rem;
-  font-weight: 800;
-  background: linear-gradient(120deg, #41b883, #35495e);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.subtitle {
-  margin: 0 auto;
-  font-size: 1.05rem;
-  line-height: 1.6;
-  color: #4b5b6b;
-}
-.badges {
-  margin-top: 1.4rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  justify-content: center;
-}
-.badge {
-  padding: 0.32rem 0.85rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  background: #e8eef0;
-  color: #35495e;
-  border: 1px solid #d6e0e2;
-}
-.badge--vue {
-  background: #41b883;
-  color: #fff;
-  border-color: #41b883;
-}
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-  max-width: 760px;
-}
-.card {
-  background: #fff;
-  border: 1px solid #e6ecec;
-  border-radius: 16px;
-  padding: 1.4rem 1.5rem;
-  box-shadow: 0 10px 30px rgba(53, 73, 94, 0.06);
-}
-.card h2 {
-  margin: 0 0 1rem;
-  font-size: 1.15rem;
-}
-.counter {
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0.6rem 1.1rem;
-  border-radius: 10px;
-  border: 1px solid #41b883;
-  background: #41b883;
-  color: #fff;
-  transition:
-    transform 0.08s ease,
-    box-shadow 0.2s ease;
-}
-.counter:hover {
-  box-shadow: 0 6px 16px rgba(66, 184, 131, 0.35);
-}
-.counter:active {
-  transform: translateY(1px);
-}
-.hint {
-  margin: 0.9rem 0 0;
-  font-size: 0.9rem;
-  color: #6b7a89;
-}
-.route {
-  display: inline-block;
-  margin-bottom: 0.6rem;
-  font-size: 0.85rem;
-  color: #35495e;
-}
-.out {
-  margin: 0;
-  padding: 0.8rem 1rem;
-  border-radius: 10px;
-  background: #0f172a;
-  color: #a7f3d0;
-  font-size: 0.85rem;
-  overflow: auto;
-}
-.out--err {
-  background: #fef2f2;
-  color: #b91c1c;
-}
-code {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  background: rgba(53, 73, 94, 0.08);
-  padding: 0.1rem 0.35rem;
-  border-radius: 5px;
-}
-</style>

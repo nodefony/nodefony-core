@@ -5665,6 +5665,10 @@
                 "help": ""
               },
               {
+                "flag": "--no-commit-id",
+                "help": ""
+              },
+              {
                 "flag": "--show-toplevel",
                 "help": ""
               },

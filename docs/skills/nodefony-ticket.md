@@ -90,7 +90,7 @@ script, donc toujours à jour après régénération.
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
 | `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |
-| `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--json` `--limit` `--name-only` `--show-toplevel` `--state` `--touched-by` | — |
+| `scripts/ticket-verify.mjs` | ticket-verify.mjs — confronte les tickets OUVERTS au code réel, par deux voies. | `--json` `--limit` `--name-only` `--no-commit-id` `--show-toplevel` `--state` `--touched-by` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
