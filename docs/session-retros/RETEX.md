@@ -34,6 +34,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- **Un gabarit vérifié par `assert.include` sur son TEXTE rendu ne prouve rien de son comportement** [1× — 08-27] : la seule preuve du fournisseur React était qu'une chaîne figurait dans un fichier généré. Le monter pour de vrai (jsdom) et compter les connexions ouvertes a demandé une devDep, et c'est ce qui a révélé que le contrat tenait. Le même angle mort avait laissé publier un contrat que rien n'implémentait, le matin même.
+
 - [1× — 08-23d] **`savepoint()` est un NO-OP chez Mongoose** (MongoDB n'a pas de
   savepoints). Un banc de coupure copié de drizzle l'utilisait pour « sonder » le
   serveur : il ne lui parlait JAMAIS et serait passé au vert sur une base éteinte. Avant
@@ -938,6 +940,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- **Un gate qui rend 24 candidats dont 19 pour un fichier que tout le monde cite ne sera plus jamais lu** [1× — 08-27] : le bruit tue un contrôle aussi sûrement que son absence. Écarter les fichiers trop cités — en ANNONÇANT lesquels et combien — a ramené le lot à 3, exactement les bons. Et le seul nom de fichier ne désigne rien : `index.ts` faisait remonter un ticket d'un autre module ; le motif minimal est le chemin sur deux segments.
+
 - [1× — 08-27] **Une règle RECOPIÉE hors de son skill gagne contre le skill — et fait faire
   l'inverse.** Le `CLAUDE.md` racine et la mémoire IA désignaient le conteneur comme « l'exception
   qui lève la règle pas-de-Chromium » ; le skill dit depuis sa v1.1.0 que la voie normale est
@@ -1070,6 +1074,9 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 - **Un gate ROUGE EN PERMANENCE ne garde rien non plus — on apprend à lire son rouge.** `format:scaffold` échouait depuis toujours sur des cas dits « structurels connus » ; personne ne relisait la liste. `App.tsx` y a accumulé **onze** écarts invisibles, livrés tels quels à qui générait une app. Le remède n'est pas de supprimer le gate mais de le rendre capable de VERT : il CONSTATE qu'une non-conformité dépend du nom (sa ligne fautive porte le nom de l'app), la nomme, et n'échoue que sur le reste. [1× — 08-25]
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- **Une preuve d'ABSENCE collée à une ancre salit l'ancre** [1× — 08-27] : « `fichier:ligne` — aucun `X` nulle part » fait chercher `X` autour de la ligne pointée, qui ne l'a évidemment pas. L'ancre était juste ; corriger son numéro l'aurait cassée. L'absence se met sur sa PROPRE ligne, écrite comme une commande qui la rend observable.
+- **Un chiffre de pilotage jamais confronté dérive d'un ordre de grandeur** [1× — 08-27] : le champ `Jours` vaut ×8 le temps constaté — non par négligence, mais parce que l'unité est calibrée sur quelqu'un qui code à la main. Un ticket surestimé se REPORTE, et le report fait repayer tout son contexte. Mesuré seulement parce que le user a relevé « 0,5 j pour 30 minutes ».
 
 - **Un KIT de chantier lu comme un ÉTAT : 9 items sur 11 étaient DÉJÀ FAITS.** Le tableau de bord
   avait été dégraissé la veille pour cette raison exacte ; les kits de la mémoire de travail, eux,

@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-27T15:58:47.905Z",
+  "generatedAt": "2026-08-27T17:14:05.413Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 15,
+      "open": 16,
       "title": "10.1"
     },
     {
-      "closed": 6,
+      "closed": 8,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 46,
+      "open": 45,
       "title": "10.0.0"
     }
   ],
@@ -35,8 +35,8 @@
       "number": 41,
       "title": "fix(client): corriger le contrat du noyau client avant de le figer",
       "url": "https://github.com/nodefony/nodefony-core/issues/41",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -51,7 +51,7 @@
       "title": "feat(client): simplifier la socket cliente pour un débutant",
       "url": "https://github.com/nodefony/nodefony-core/issues/54",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": null,
@@ -74,6 +74,20 @@
         "documentation",
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 92,
+      "title": "fix(security): corriger le refus intermittent d'une session valide au handshake",
+      "url": "https://github.com/nodefony/nodefony-core/issues/92",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.7,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
@@ -410,7 +424,7 @@
       "title": "fix(client): corriger l'adresse du serveur temps réel par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/42",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -653,8 +667,8 @@
       "number": 43,
       "title": "feat(client): accepter une adresse de serveur sur le composant racine",
       "url": "https://github.com/nodefony/nodefony-core/issues/43",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -759,6 +773,20 @@
       "ordre": 37,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 91,
+      "title": "feat(studio): porter la console d'administration sur le noyau client",
+      "url": "https://github.com/nodefony/nodefony-core/issues/91",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 37,
+      "labels": [
+        "10.1"
       ]
     },
     {

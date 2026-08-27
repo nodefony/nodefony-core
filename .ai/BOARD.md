@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-27 15:58** (UTC).
+> Empreinte prise le **2026-08-27 17:14** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,24 +15,24 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 15 | 1 | — |
-| 10.0.0 | 46 | 6 | 2026-11-15 |
+| 10.1 | 16 | 1 | — |
+| 10.0.0 | 45 | 8 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#41 — fix(client): corriger le contrat du noyau client avant de le figer**
+**#54 — feat(client): simplifier la socket cliente pour un débutant**
 
-Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0
+Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 46 ouverts
+## Jalon 10.0.0 — 45 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 1.5 | P0 — bloque le reste | 0.5 | #41 | fix(client): corriger le contrat du noyau client avant de le figer |
 | 1.6 | P0 — bloque le reste | — | #54 | feat(client): simplifier la socket cliente pour un débutant |
+| 1.7 | P1 — figé à la création | 0.5 | #92 | fix(security): corriger le refus intermittent d'une session valide au handshake |
 | 2 | P0 — bloque le reste | 5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.1 | P1 — figé à la création | 0.5 | #57 | fix(orm): refuser une option de tri mal formée au lieu de l'ignorer |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
@@ -67,7 +67,6 @@ Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0
 | 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
 | 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 30 | P3 — fin de cycle | 1 | #43 | feat(client): accepter une adresse de serveur sur le composant racine |
 | 31 | P3 — fin de cycle | 2 | #36 | refactor(client): extraire un socle commun aux quatre fronts |
 | 32 | P3 — fin de cycle | 1.5 | #37 | feat(client): ajouter les composables Vue 3 du temps réel |
 | 33 | P3 — fin de cycle | 2 | #38 | feat(client): ajouter les services Angular du temps réel |
@@ -78,13 +77,14 @@ Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 | — | P1 — figé à la création | 1 | #90 | test(devkit): auditer le module généré comme l'application générée |
 
-## Jalon 10.1 — 15 ouverts
+## Jalon 10.1 — 16 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 20 | P3 — fin de cycle | 1 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 23 | P3 — fin de cycle | 0.5 | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
 | 36 | P3 — fin de cycle | 5 | #34 | feat(client): implémenter le noyau applicatif côté navigateur |
+| 37 | P1 — figé à la création | 3 | #91 | feat(studio): porter la console d'administration sur le noyau client |
 | 50 | P2 — décision | 1.5 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 50.1 | P3 — fin de cycle | 0.5 | #76 | test(bancs): constater le décor avant de lancer les suites |
 | 50.2 | P3 — fin de cycle | 0.5 | #77 | test(bancs): donner à chaque banc son propre compte |
