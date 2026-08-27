@@ -179,12 +179,12 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 540 | 1 | 2 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 549 | 1 | 2 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.5.0 | 403 | 3 | 3 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.5.0 | 420 | 3 | 3 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

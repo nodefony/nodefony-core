@@ -4695,8 +4695,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 540,
-        "approxTokens": 6465
+        "bodyLines": 549,
+        "approxTokens": 6569
       },
       "requires": [],
       "resources": {
@@ -4806,7 +4806,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "540",
+            "detail": "549",
             "advisory": true
           }
         ]
@@ -5360,8 +5360,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"jalon 10.0.0\", \"on ne l'a pas déjà fait ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"est-ce le bon moment pour celui-là ?\", \"quels tickets parlent de ce que j'ai changé ?\".",
       "cost": {
-        "bodyLines": 403,
-        "approxTokens": 7030
+        "bodyLines": 420,
+        "approxTokens": 7300
       },
       "requires": [],
       "resources": {
@@ -5523,7 +5523,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "403",
+            "detail": "420",
             "advisory": true
           }
         ]

@@ -281,6 +281,15 @@ SEULEMENT :
    travail déjà fait à la reprise suivante, et fausse le seul compteur d'avancement qui ne se
    périme pas. `gh issue close <n> --comment "<commit> — <ce qui est fini, observable>"`. Un
    ticket seulement AVANCÉ reçoit un commentaire, pas une fermeture.
+
+   Fermer, c'est aussi **recaler ce que ce ticket rendait faux** — les tickets voisins et la
+   documentation, pas seulement le code (skill `nodefony-ticket`, § « Fermer un ticket ») :
+
+   ```bash
+   node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD   # tickets à relire
+   node scripts/ticket-effort.mjs                                                    # estimé vs constaté
+   ```
+
 4. **Redescendre les tickets « In Progress » que rien ne fait avancer.** Le statut monte tout
    seul — `.githooks/post-commit` le pose dès qu'un commit cite `#N` sans le fermer (raisonnement :
    en-tête de [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs)) — mais **rien ne le fait

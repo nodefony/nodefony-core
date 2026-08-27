@@ -162,6 +162,23 @@ négative — débrancher, constater que quelque chose tombe.
 Une estimation en **jours-homme** — `0,5 · 1 · 2 · 3 · 5` — jamais en points : l'auteur travaille
 seul et pense en jours.
 
+> ⚠️ **L'estimation est HAUTE d'un ordre de grandeur, et elle ne se corrige pas toute seule.**
+> Mesuré sur les tickets fermés : l'estimation vaut **×8** le temps constaté entre le premier et le
+> dernier commit du ticket. La cause n'est pas de la négligence — c'est que l'unité est calibrée sur
+> quelqu'un qui code à la main, alors que lire, chercher, éditer et vérifier tiennent en minutes.
+> Ce qui coûte aujourd'hui, c'est le **contexte à charger** et les **décisions à rendre**.
+>
+> Le coût de l'erreur n'est pas cosmétique : un ticket affiché « 3 j » se **reporte**, alors qu'il se
+> ferait dans la foulée — et le report fait repayer tout son contexte plus tard (§ « Quand le prendre »).
+>
+> ```bash
+> node scripts/ticket-effort.mjs          # estimé vs constaté sur les tickets fermés, et le biais médian
+> node scripts/ticket-effort.mjs 41 56    # ceux-là seulement
+> ```
+>
+> Le constaté est une **borne basse** — la fenêtre de commits ignore l'exploration, les décisions et
+> les essais abandonnés. À lire comme un ordre de grandeur qui recale, jamais comme une durée.
+
 ## 3. Parent et sous-tickets
 
 Un lot de plus de trois tickets qui partagent une cause **prend un parent**. GitHub gère les
