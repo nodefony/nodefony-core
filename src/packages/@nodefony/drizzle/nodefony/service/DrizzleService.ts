@@ -374,9 +374,18 @@ class DrizzleService extends Service {
       // qu'elle nuance (`isAheadOnly`).
       const enAvance = isAheadOnly(plan);
       const ok = report.exitCode === 0 || enAvance;
-      if (check === "fail") {
-        kernel.setReadiness(readinessName(name), ok, report.summary);
-      }
+      // L'état est PUBLIÉ dans les deux conduites ; seule `fail` le rend
+      // opposable au trafic. En `warn`, se taire faisait perdre bien plus que
+      // la rétention : le noyau garde vivant un exemplaire dont un contributeur
+      // signale un état externe, et sans inscription il n'y en avait plus —
+      // un module qui tombait sur une table absente redevenait fatal, et la
+      // commande qui répare inatteignable. Publier sans bloquer sépare les deux.
+      kernel.setReadiness(
+        readinessName(name),
+        ok,
+        report.summary,
+        check === "fail",
+      );
       if (enAvance) {
         // Ni CRITIC ni geste à taper : il n'y a rien à réparer, et l'action que
         // le rapport propose pour un fichier absent (`git checkout`) n'a aucun

@@ -43,6 +43,19 @@ export interface IReadinessContributor {
   readonly ready: boolean;
   /** Ce qui retient, en clair — absent quand le contributeur est prêt. */
   readonly reason?: string;
+  /**
+   * Ce verdict retient-il le trafic ? `false` = l'état est PUBLIÉ sans être
+   * opposable — le processus sert quand même.
+   *
+   * Cette distinction existe parce que « ce composant va mal » et « n'envoyez
+   * plus de trafic » sont deux affirmations différentes, et que les confondre
+   * a un coût : le noyau garde vivant un exemplaire dont la mise en service est
+   * retenue (il ne sert personne, le tuer ne répare rien et rend inatteignable
+   * la commande qui lèverait la cause). Un composant réglé pour ne PAS retenir
+   * perdait donc, du même geste, cette protection — sans que personne puisse
+   * le deviner.
+   */
+  readonly blocking?: boolean;
 }
 
 /**
@@ -53,6 +66,8 @@ export interface IReadinessContributor {
 interface ReadinessEntry {
   ready: boolean;
   reason: string | undefined;
+  /** `false` : l'état est publié, mais ne compte pas dans {@link ReadinessRegistry.blocked}. */
+  blocking: boolean;
 }
 
 /**
@@ -85,23 +100,40 @@ export class ReadinessRegistry {
    * @param name - nom du contributeur (`"drizzle:schema"`, `"cache"`…)
    * @param ready - verdict DÉJÀ calculé ; `false` retient la mise en service
    * @param reason - ce qui retient, en clair — ignoré quand `ready` est vrai
+   * @param blocking - `false` pour PUBLIER l'état sans retenir le trafic ; le
+   *   contributeur apparaît alors au diagnostic (et le noyau sait qu'un état
+   *   externe est en cours), mais `/readyz` continue de répondre 200.
    * @returns `true` si le verdict AGRÉGÉ a basculé (retenu ⇄ disponible)
    */
-  set(name: string, ready: boolean, reason?: string): boolean {
+  set(
+    name: string,
+    ready: boolean,
+    reason?: string,
+    blocking: boolean = true,
+  ): boolean {
     const wasBlocked = this.notReady > 0;
     const entry = this.entries[name];
+    // Un contributeur ne pèse sur la sonde que s'il est À LA FOIS non prêt et
+    // opposable : le compte est tenu à l'écriture, jamais recalculé, parce que
+    // c'est la LECTURE (`/readyz`, toutes les 2 s) qui doit rester gratuite.
+    const pese = (e: { ready: boolean; blocking: boolean }): boolean =>
+      !e.ready && e.blocking;
     if (entry === undefined) {
-      this.entries[name] = { ready, reason: ready ? undefined : reason };
+      const neuf = { ready, reason: ready ? undefined : reason, blocking };
+      this.entries[name] = neuf;
       this.tracked += 1;
-      if (!ready) {
+      if (pese(neuf)) {
         this.notReady += 1;
       }
     } else {
-      if (entry.ready !== ready) {
-        entry.ready = ready;
-        this.notReady += ready ? -1 : 1;
-      }
+      const pesait = pese(entry);
+      entry.ready = ready;
+      entry.blocking = blocking;
       entry.reason = ready ? undefined : reason;
+      const pese_maintenant = pese(entry);
+      if (pesait !== pese_maintenant) {
+        this.notReady += pese_maintenant ? 1 : -1;
+      }
     }
     return wasBlocked !== this.notReady > 0;
   }
@@ -119,7 +151,7 @@ export class ReadinessRegistry {
       return false;
     }
     const wasBlocked = this.notReady > 0;
-    if (!entry.ready) {
+    if (!entry.ready && entry.blocking) {
       this.notReady -= 1;
     }
     delete this.entries[name];
@@ -138,11 +170,16 @@ export class ReadinessRegistry {
     const out: IReadinessContributor[] = [];
     for (const name of Object.keys(this.entries).sort()) {
       const entry = this.entries[name] as ReadinessEntry;
-      out.push(
-        entry.reason === undefined
-          ? { name, ready: entry.ready }
-          : { name, ready: entry.ready, reason: entry.reason },
-      );
+      // `blocking` n'apparaît que lorsqu'il vaut `false` — même parti-pris que
+      // `reason` : la forme de sortie ne change que dans le cas qui l'exige, et
+      // un consommateur écrit avant cette distinction lit exactement ce qu'il
+      // lisait. Le cas courant reste « non prêt ⇒ retient ».
+      const base: IReadinessContributor = { name, ready: entry.ready };
+      out.push({
+        ...base,
+        ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+        ...(entry.blocking ? {} : { blocking: false }),
+      });
     }
     return out;
   }

@@ -278,3 +278,138 @@ describe("Kernel — le registre naît au premier inscrit et meurt avec le derni
     expect(kernel.readinessBlocked).to.equal(1);
   });
 });
+
+/**
+ * #110 — publier un état n'est pas retenir le trafic.
+ *
+ * Le noyau garde vivant un exemplaire dont la mise en service est retenue : il
+ * ne sert personne, le tuer ne répare rien, et ça rend inatteignable la commande
+ * même qui lèverait la cause — `orm:migrate` boote un noyau, donc sur une base
+ * pas encore migrée il faudrait avoir migré pour pouvoir migrer.
+ *
+ * Cette protection reposait sur la RÉTENTION. Un composant réglé pour tolérer sa
+ * propre panne (« journalise et sers quand même ») ne s'inscrivait donc plus du
+ * tout, et perdait la protection du même geste : en production, un module qui
+ * tombait sur une table absente redevenait fatal. Personne ne pouvait le
+ * deviner — les deux mécanismes vivent dans deux paquets différents.
+ */
+describe("Publier sans retenir — l'état est dit, le trafic passe (#110)", () => {
+  it("un contributeur non prêt NON bloquant ne retient pas le trafic", () => {
+    const reg = new ReadinessRegistry();
+    reg.set("drizzle:schema", false, "2 migrations en attente", false);
+    expect(reg.blocked, "la sonde ne doit pas retenir").to.equal(0);
+    // …mais il est INSCRIT : c'est sa présence qui apprend au noyau qu'un état
+    // externe est en cours.
+    expect(reg.size).to.equal(1);
+    expect(
+      reg
+        .report()
+        .filter((c) => !c.ready)
+        .map((c) => c.name),
+    ).to.deep.equal(["drizzle:schema"]);
+  });
+
+  it("le diagnostic DIT qu'il ne retient pas — sinon l'opérateur lit un blocage absent", () => {
+    const reg = new ReadinessRegistry();
+    reg.set("drizzle:schema", false, "en retard", false);
+    expect(reg.report()[0]).to.deep.equal({
+      name: "drizzle:schema",
+      ready: false,
+      reason: "en retard",
+      blocking: false,
+    });
+  });
+
+  it("le champ reste ABSENT dans le cas courant — la forme ne change que si elle doit", () => {
+    const reg = new ReadinessRegistry();
+    reg.set("cache", false, "froid");
+    expect(reg.report()[0]).to.deep.equal({
+      name: "cache",
+      ready: false,
+      reason: "froid",
+    });
+  });
+
+  it("basculer bloquant ⇄ non bloquant recompte, sans dériver", () => {
+    const reg = new ReadinessRegistry();
+    reg.set("schema", false, "en retard"); // bloquant
+    expect(reg.blocked).to.equal(1);
+    reg.set("schema", false, "en retard", false); // même verdict, plus opposable
+    expect(reg.blocked).to.equal(0);
+    reg.set("schema", false, "en retard"); // et retour
+    expect(reg.blocked).to.equal(1);
+    reg.set("schema", true);
+    expect(reg.blocked).to.equal(0);
+    // Une seule voix du début à la fin — le compte n'a pas dérivé.
+    expect(reg.size).to.equal(1);
+  });
+
+  it("retirer un contributeur NON bloquant ne décompte rien de faux", () => {
+    const reg = new ReadinessRegistry();
+    reg.set("bloquant", false, "x");
+    reg.set("informatif", false, "y", false);
+    expect(reg.blocked).to.equal(1);
+    reg.clear("informatif");
+    expect(reg.blocked, "le bloquant retient toujours").to.equal(1);
+    reg.clear("bloquant");
+    expect(reg.blocked).to.equal(0);
+  });
+
+  // ── Le critère du ticket : la TOLÉRANCE du démarrage ─────────────────────
+
+  it("PRODUCTION — un état publié sans retenue garde le démarrage tolérant", () => {
+    const kernel = new Kernel("production", null, { log: { active: false } });
+    kernel.path = racineBanc;
+    kernel.setReadiness("drizzle:schema", false, "table absente", false);
+    // `/readyz` sert : rien ne retient.
+    expect(kernel.readinessBlocked).to.equal(0);
+    // Mais un échec de démarrage n'est PAS fatal — c'est toute la question.
+    const fatal = (
+      kernel as unknown as {
+        isBootErrorFatal(
+          e: unknown,
+          o: string | undefined,
+          c: boolean | undefined,
+          t: boolean,
+          p: "lifecycle" | "init",
+        ): boolean;
+      }
+    ).isBootErrorFatal(
+      new Error('relation "session" does not exist'),
+      "drizzle",
+      undefined,
+      false,
+      "lifecycle",
+    );
+    expect(
+      fatal,
+      "un état externe en cours ne doit pas tuer l'exemplaire",
+    ).to.equal(false);
+  });
+
+  it("PRODUCTION — sans AUCUN contributeur, l'échec reste fatal", () => {
+    const kernel = new Kernel("production", null, { log: { active: false } });
+    kernel.path = racineBanc;
+    const fatal = (
+      kernel as unknown as {
+        isBootErrorFatal(
+          e: unknown,
+          o: string | undefined,
+          c: boolean | undefined,
+          t: boolean,
+          p: "lifecycle" | "init",
+        ): boolean;
+      }
+    ).isBootErrorFatal(
+      new Error("boom"),
+      "un-module",
+      undefined,
+      false,
+      "lifecycle",
+    );
+    expect(
+      fatal,
+      "rien ne signale d'état externe : la panne est réelle",
+    ).to.equal(true);
+  });
+});

@@ -2894,20 +2894,34 @@ class Kernel extends Service implements IKernel {
    * rythme. Dès qu'il repose `true`, le processus redevient disponible tout seul
    * — sans redéploiement, ce qui est toute la raison d'être du mécanisme.
    *
+   * **`blocking: false` publie l'état SANS retenir le trafic.** Un composant
+   * réglé pour tolérer sa propre panne (« journalise et sers quand même ») doit
+   * pouvoir le dire sans disparaître du registre : c'est sa présence, et non la
+   * rétention, qui apprend au noyau qu'un état EXTERNE est en cours et qu'un
+   * échec de démarrage ne doit donc pas être fatal
+   * ({@link Kernel.isBootErrorFatal}). Sans cette distinction, affaiblir la
+   * sonde faisait perdre la tolérance du démarrage — au moment précis où l'on
+   * cherchait de l'air.
+   *
    * Idempotent par nom : réenregistrer le même nom remplace son verdict.
    *
    * @param name - nom du contributeur, qui apparaîtra au journal (`"drizzle:schema"`)
    * @param ready - `false` retient la mise en service, `true` la libère
    * @param reason - ce qui retient, en clair (journalisé ; ignoré si `ready`)
    */
-  setReadiness(name: string, ready: boolean, reason?: string): void {
+  setReadiness(
+    name: string,
+    ready: boolean,
+    reason?: string,
+    blocking: boolean = true,
+  ): void {
     if (this.readiness === null) {
       // Personne ne s'était inscrit : le registre naît ICI, jamais au boot — y
       // compris quand le premier verdict est « prêt », car c'est ce même
       // contributeur qui dira plus tard « plus prêt ».
       this.readiness = new ReadinessRegistry();
     }
-    const flipped = this.readiness.set(name, ready, reason);
+    const flipped = this.readiness.set(name, ready, reason, blocking);
     if (flipped) {
       this.logReadinessFlip();
     }
