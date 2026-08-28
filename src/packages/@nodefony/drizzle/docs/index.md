@@ -119,7 +119,7 @@ n'écrit de `registerXStore(...)`.
 **dialect-spécifique** : `sqliteTable` n'est pas `pgTable`, les types de colonnes diffèrent. On ne peut
 donc pas « juste changer le dialecte ». Le module rétablit cette abstraction au niveau du framework —
 une spécification logique par entité, traduite dans le bon dialecte par le `colKit`
-(`buildFrameworkTable()`, `colKit.ts:437`). Le coût est assumé (une fabrique par entité framework),
+(`buildFrameworkTable()`, `colKit.ts:543`). Le coût est assumé (une fabrique par entité framework),
 la contrepartie est la type-safety intégrale.
 
 > [!IMPORTANT]
@@ -416,7 +416,7 @@ la piste à vérifier.
 
 Pour les dialectes réseau, la connexion fait un **ping réel** au démarrage : les pools `pg` et `mysql2`
 sont paresseux, sans ce `SELECT 1` une base morte « se connecterait » et n'échouerait qu'à la première
-requête métier (`#connectPostgres()`, `DrizzleOrm.ts:534` · `#connectMysql()`, `DrizzleOrm.ts:814`).
+requête métier (`#connectPostgres()`, `DrizzleOrm.ts:597` · `#connectMysql()`, `DrizzleOrm.ts:877`).
 
 ## Dialectes — une base par déploiement, un seul code
 
@@ -456,7 +456,7 @@ regarder si un comportement te surprend.
 | `OFFSET` sans `LIMIT` | fragment `-1` | rien (valide seul) | `LIMIT` sentinelle | Chaque moteur refuse une forme différente. |
 
 Toute cette traduction vit à **un seul endroit**, le `colKit` (`buildFrameworkTable()`,
-`colKit.ts:437` ; variante MySQL : `mysqlColumn()`, `colKit.ts:335`). Ajouter un dialecte, c'est
+`colKit.ts:543` ; variante MySQL : `mysqlColumn()`, `colKit.ts:444`). Ajouter un dialecte, c'est
 étendre le kit — jamais retoucher les entités.
 
 En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, `upsert`,
@@ -504,10 +504,10 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
 | `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:79`                       |
-| `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:115`                                          |
+| `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:167`                                          |
 | `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
-| `colKit` (interne)     | une spécification logique → la table du dialecte demandé               | `colKit.ts:437`                                              |
+| `buildFrameworkTable`  | une spécification logique → la table du dialecte demandé               | `colKit.ts:543`                                              |
 | `queryKit` (interne)   | le SQL brut des entités framework, émis **et exécuté** par dialecte    | `findUserIdBySocialProvider()` (`queryKit.ts:76`)            |
 | `registerStores`       | l'auto-enregistrement des huit briques                                 | `registerDrizzleFrameworkStores()` (`registerStores.ts:149`) |
 
@@ -623,7 +623,7 @@ const rows = await db.all(sql`
 `);
 ```
 
-C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1028`) : CTE,
+C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1091`) : CTE,
 fonctions de fenêtre, sous-requêtes corrélées, jointures arbitraires. Deux contreparties assumées :
 ce SQL n'est plus portable entre dialectes, et il **ne passe pas** par la sonde de profilage des
 requêtes.
@@ -783,7 +783,7 @@ faire lui-même).
 Côté écrans : **Database**, **ORM (vue d'ensemble et par entité)** et **Stores** — ce dernier répond à
 la question « où sont écrites mes données ? » pour chaque brique.
 
-La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1073`) :
+La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1136`) :
 
 - **SQLite** → `storage` : taille du fichier, mode de journal, pages libres (lus par `PRAGMA`) ;
 - **PostgreSQL / MySQL** → `pool` : taille, connexions libres, empruntées, en attente — **compteurs en
@@ -795,7 +795,7 @@ que promettre en silence — c'est le principe « superviser sans peser sur la p
 
 Chaque store expose aussi son **emplacement physique** pour l'écran Stores : le chemin du fichier
 SQLite, relativisé (anti-fuite d'information), et `undefined` pour un backend réseau — dont
-l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:221`).
+l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:261`).
 
 ## ⚡ Performance & mémoire
 
