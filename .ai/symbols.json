@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T14:20:29.447Z",
+  "generated": "2026-08-28T14:50:16.425Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 775,
-    "symbols": 3421,
+    "symbols": 3428,
     "classes": 379,
-    "interfaces": 950,
+    "interfaces": 952,
     "types": 414,
     "enums": 4,
-    "functions": 1327,
+    "functions": 1332,
     "constants": 347
   },
   "symbols": {
@@ -8769,6 +8769,24 @@
       "extends": null,
       "description": "État de sonde d'un port serveur."
     },
+    "ReadinessContributorState": {
+      "name": "ReadinessContributorState",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un contributeur de disponibilité, tel que le serveur le publie."
+    },
+    "ReadinessState": {
+      "name": "ReadinessState",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le serveur publie sur sa disponibilité."
+    },
     "RuntimeState": {
       "name": "RuntimeState",
       "kind": "interface",
@@ -8896,6 +8914,38 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Chemin du **state file runtime** — le canal par lequel le serveur DIT sur quels ports il écoute VRAIMENT. Il existe parce que le port n'est plus une convention : avec `servers.portPolicy: \"auto\"`, …"
+    },
+    "readinessStateFile": {
+      "name": "readinessStateFile",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin du **canal de disponibilité** — par lequel le serveur DIT *qui* retient sa mise en service, et pourquoi. ## Pourquoi un fichier, et pas la sonde HTTP Le serveur publie déjà ce détail sur `/n…"
+    },
+    "writeReadinessState": {
+      "name": "writeReadinessState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Publie qui retient la mise en service — **best-effort, jamais bloquant**. Écrit seulement quand l'état a changé (l'appelant en décide) : en régime établi, ce fichier ne coûte rien. Un système de fi…"
+    },
+    "clearReadinessState": {
+      "name": "clearReadinessState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Efface le canal de disponibilité — geste d'un processus qui s'arrête."
+    },
+    "readReadinessState": {
+      "name": "readReadinessState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit qui retient la mise en service, ou `null`. **Un fichier dont le process est MORT est ignoré** : sinon `status` nommerait le contributeur d'un serveur d'hier, ce qui est pire que de ne rien nomm…"
     },
     "writeRuntimeState": {
       "name": "writeRuntimeState",
@@ -27318,6 +27368,12 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IKernel.ts"
       ],
+      "clearReadinessState": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "writeReadinessState": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
@@ -28629,6 +28685,9 @@
       "portOwnership": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "readReadinessState": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "readSupervisorPid": [
         "src/nodefony/src/service/dev/devStatusReport.ts"

@@ -123,6 +123,136 @@ export function runtimeStateFile(cwd: string): string {
   return path.join(cwd, "node_modules", ".cache", "nodefony", "runtime.json");
 }
 
+/**
+ * Chemin du **canal de disponibilité** — par lequel le serveur DIT *qui* retient
+ * sa mise en service, et pourquoi.
+ *
+ * ## Pourquoi un fichier, et pas la sonde HTTP
+ *
+ * Le serveur publie déjà ce détail sur `/nodefony/kernel/api/livez`, mais
+ * **réservé à un appelant authentifié** : les noms décrivent l'architecture
+ * interne, et cette route est publique en production. La gradation est
+ * délibérée — l'anonyme reçoit un compte, jamais des noms — et l'ouvrir pour le
+ * confort d'un outil local serait payer en surface publique un service rendu sur
+ * une seule machine.
+ *
+ * Le système de fichiers **est** la frontière « local », et une bien meilleure
+ * que l'adresse d'appel : un conteneur voisin ou un mandataire présentent la
+ * boucle locale sans être l'exploitant. Ici, lire le fichier suppose déjà un
+ * accès au dossier du projet.
+ *
+ * Et il répond quand la sonde ne répond plus — pipeline saturé, boucle
+ * d'événements bloquée. C'est précisément le moment où l'on tape `status`.
+ *
+ * À côté du pidfile et du state file runtime, même dossier déjà gitignoré.
+ */
+export function readinessStateFile(cwd: string): string {
+  return path.join(cwd, "node_modules", ".cache", "nodefony", "readiness.json");
+}
+
+/** Un contributeur de disponibilité, tel que le serveur le publie. */
+export interface ReadinessContributorState {
+  /** Nom du contributeur, tel qu'il s'est inscrit. */
+  name: string;
+  /** `false` retient la mise en service. */
+  ready: boolean;
+  /** Ce qui retient, en clair — absent quand le contributeur est prêt. */
+  reason?: string;
+}
+
+/** Ce que le serveur publie sur sa disponibilité. */
+export interface ReadinessState {
+  /** PID du process qui l'a écrit — un fichier d'un mort ne vaut rien. */
+  pid: number;
+  /** Un par contributeur inscrit, triés par nom. */
+  contributors: ReadinessContributorState[];
+  /** Horodatage d'écriture (`Date.now()`). */
+  ts: number;
+}
+
+/**
+ * Publie qui retient la mise en service — **best-effort, jamais bloquant**.
+ *
+ * Écrit seulement quand l'état a changé (l'appelant en décide) : en régime
+ * établi, ce fichier ne coûte rien. Un système de fichiers en lecture seule, un
+ * dossier absent, un disque plein : on n'écrit pas, et le diagnostic retombe sur
+ * le compte que la sonde donne déjà. Publier son état ne doit jamais mettre en
+ * péril le processus qui sert.
+ *
+ * @param cwd - racine du projet.
+ * @param contributors - l'état de chaque contributeur, tel que le registre le rend.
+ */
+export function writeReadinessState(
+  cwd: string,
+  contributors: readonly ReadinessContributorState[],
+): void {
+  try {
+    const file = readinessStateFile(cwd);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      JSON.stringify({ pid: process.pid, contributors, ts: Date.now() }),
+      "utf8",
+    );
+  } catch {
+    /* best-effort — cf TSDoc */
+  }
+}
+
+/**
+ * Efface le canal de disponibilité — geste d'un processus qui s'arrête.
+ *
+ * @param cwd - racine du projet.
+ */
+export function clearReadinessState(cwd: string): void {
+  try {
+    rmSync(readinessStateFile(cwd), { force: true });
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Lit qui retient la mise en service, ou `null`.
+ *
+ * **Un fichier dont le process est MORT est ignoré** : sinon `status` nommerait
+ * le contributeur d'un serveur d'hier, ce qui est pire que de ne rien nommer —
+ * on chercherait une cause déjà disparue.
+ *
+ * @param cwd - racine du projet à interroger.
+ * @returns les contributeurs publiés, ou `null` si rien d'exploitable.
+ */
+export function readReadinessState(
+  cwd: string,
+): ReadinessContributorState[] | null {
+  try {
+    const raw = JSON.parse(
+      readFileSync(readinessStateFile(cwd), "utf8"),
+    ) as Partial<ReadinessState>;
+    if (!Array.isArray(raw.contributors)) {
+      return null;
+    }
+    const pid = typeof raw.pid === "number" ? raw.pid : 0;
+    if (pid > 0 && !isPidAlive(pid)) {
+      return null;
+    }
+    const out: ReadinessContributorState[] = [];
+    for (const c of raw.contributors) {
+      if (typeof c?.name !== "string" || typeof c?.ready !== "boolean") {
+        continue;
+      }
+      out.push(
+        typeof c.reason === "string"
+          ? { name: c.name, ready: c.ready, reason: c.reason }
+          : { name: c.name, ready: c.ready },
+      );
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 /** Ce que le serveur publie sur lui-même une fois ses serveurs en écoute. */
 export interface RuntimeState {
   /** PID du process qui écoute. */

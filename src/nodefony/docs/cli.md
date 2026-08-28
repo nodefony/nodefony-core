@@ -82,6 +82,20 @@ npx nodefony stop            # arrêt propre de tout runtime lancé depuis ce pr
 npx nodefony --help          # la liste complète, commandes de module incluses
 ```
 
+**Un serveur qui écoute n'est pas un serveur qui sert.** `status` porte une ligne
+`disponibilité` distincte des ports : un composant peut retenir la mise en service — un schéma de
+base en retard, un cache froid — pendant que les ports répondent parfaitement. Il NOMME alors ce
+qui retient, et pourquoi :
+
+```
+disponibilité : ⚠ RETENUE — drizzle:default (2 migrations en attente) ; /readyz rend 503
+```
+
+Le détail vient du serveur lui-même, par un fichier local qu'il tient à jour — jamais de la sonde
+publique, qui ne donne les noms qu'à un appelant authentifié. Quand ce détail manque ou ne
+concorde pas avec ce que le runtime vient de répondre, `status` affiche le compte sans nommer :
+un nom faux ferait chercher une cause déjà levée.
+
 **Plusieurs applications sur le même poste.** `status` et `stop` sont scopés au projet du
 répertoire courant : ils ne comptent ni n'arrêtent jamais le runtime du voisin. Quand un autre
 projet tourne, `status` le NOMME dans une table (nom du `package.json`, ports tenus, racine),

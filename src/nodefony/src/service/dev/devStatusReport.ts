@@ -14,6 +14,7 @@ import {
   isPidAlive,
   portOwnership,
   probePorts,
+  readReadinessState,
   readSupervisorPid,
   runtimeModes,
   splitByProject,
@@ -366,9 +367,13 @@ export async function collectDevStatus(
   const listening = ports.find(
     (p) => p.listening && owners[p.port] === undefined,
   );
-  const readiness = listening
+  const sonde = listening
     ? await (opts.probeReadiness ?? probeReadiness)(listening.port)
     : null;
+  // Le compte vient du runtime, le détail du fichier qu'il publie. On ne NOMME
+  // que si les deux concordent : nommer depuis un fichier en retard d'un cycle
+  // ferait chercher une cause déjà levée.
+  const readiness = withBlockedBy(sonde, cwd);
   return buildDevStatus(
     cwd,
     pid,
@@ -762,6 +767,45 @@ function runtimeLabel(mode: RuntimeMode | null): string {
 }
 
 /**
+ * Ajoute au verdict de la sonde le DÉTAIL que le serveur publie sur le disque.
+ *
+ * Deux sources, une règle : **le compte fait foi, le détail ne fait qu'illustrer.**
+ * Le compte vient du runtime interrogé à l'instant ; le détail vient d'un fichier
+ * qui peut avoir un cycle de retard. S'ils ne concordent pas — un contributeur
+ * libéré entre-temps, un fichier d'un process mort, aucun fichier —, on garde le
+ * compte seul. Un nom faux coûte plus cher qu'une absence de nom : il envoie
+ * chercher une cause qui n'existe plus.
+ *
+ * @param probe - verdict rendu par le runtime, ou `null` s'il n'a rien dit.
+ * @param cwd - racine du projet, où le serveur publie son détail.
+ * @returns le verdict, enrichi seulement si les deux sources s'accordent.
+ */
+function withBlockedBy(
+  probe: IReadinessProbe | null,
+  cwd: string,
+): IReadinessProbe | null {
+  if (probe === null || probe.blocked === 0) {
+    return probe;
+  }
+  const publies = readReadinessState(cwd);
+  if (publies === null) {
+    return probe;
+  }
+  const retenant = publies.filter((c) => !c.ready);
+  if (retenant.length !== probe.blocked) {
+    return probe;
+  }
+  return {
+    ...probe,
+    blockedBy: retenant.map((c) =>
+      c.reason === undefined
+        ? { name: c.name }
+        : { name: c.name, reason: c.reason },
+    ),
+  };
+}
+
+/**
  * Ligne de disponibilité — ce que l'orchestrateur ferait de ce pod. Retenu, elle
  * NOMME la conséquence (aucun trafic) : « 503 » seul n'apprend rien à qui n'a pas
  * la doctrine k8s en tête, et c'est précisément le moment où l'on cherche.
@@ -770,10 +814,16 @@ function readinessLine(probe: IReadinessProbe): string {
   if (probe.ready) {
     return `${ANSI.green}✓ prête${ANSI.reset} ${ANSI.dim}— /readyz rend 200${ANSI.reset}`;
   }
+  // Nommer quand on sait : « 1 composant retient » n'apprend rien à qui cherche,
+  // et c'est exactement le moment où l'on cherche. Le compte reste le repli.
   const qui =
-    probe.blocked > 0
-      ? `${probe.blocked} composant${probe.blocked > 1 ? "s" : ""} retien${probe.blocked > 1 ? "nent" : "t"} la mise en service`
-      : "boot pas terminé";
+    probe.blockedBy !== undefined && probe.blockedBy.length > 0
+      ? probe.blockedBy
+          .map((c) => (c.reason ? `${c.name} (${c.reason})` : c.name))
+          .join(", ")
+      : probe.blocked > 0
+        ? `${probe.blocked} composant${probe.blocked > 1 ? "s" : ""} retien${probe.blocked > 1 ? "nent" : "t"} la mise en service`
+        : "boot pas terminé";
   return (
     `${ANSI.yellow}⚠ RETENUE${ANSI.reset} ${ANSI.dim}— ${qui} ; ` +
     `/readyz rend 503, l'orchestrateur n'envoie AUCUN trafic${ANSI.reset}`

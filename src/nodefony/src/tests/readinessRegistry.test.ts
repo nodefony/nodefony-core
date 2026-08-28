@@ -1,7 +1,27 @@
-import { describe, it, beforeAll, afterAll } from "vitest";
+import {
+  describe,
+  it,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import { expect } from "chai";
+import os from "node:os";
+import path from "node:path";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import Kernel from "../kernel/Kernel";
 import { ReadinessRegistry } from "../kernel/readinessRegistry";
+import {
+  readReadinessState,
+  readinessStateFile,
+} from "../service/dev/devProcess";
 
 /**
  * SPEC — « un pod qui écoute n'est pas un pod qui peut servir ».
@@ -28,12 +48,31 @@ afterAll(() => {
   console.log = origConsoleLog;
 });
 
-const mkKernel = (): Kernel =>
-  new Kernel("development", null, { log: { active: false } });
+/**
+ * Racine temporaire commune : le noyau PUBLIE désormais l'état de disponibilité
+ * sous sa `path`, qui vaut `process.cwd()` par défaut. Sans cette isolation,
+ * chaque cas écrirait dans le dépôt lui-même — une suite qui salit l'arbre de
+ * travail, et un fichier résiduel que le prochain `status` lirait.
+ */
+let racineBanc = "";
+
+const mkKernel = (): Kernel => {
+  const kernel = new Kernel("development", null, { log: { active: false } });
+  kernel.path = racineBanc;
+  return kernel;
+};
 
 /** Le champ privé, lu pour PROUVER la libération — pas seulement son effet. */
 const registryOf = (kernel: Kernel): ReadinessRegistry | null =>
   (kernel as unknown as { readiness: ReadinessRegistry | null }).readiness;
+
+beforeEach(() => {
+  racineBanc = mkdtempSync(path.join(os.tmpdir(), "nf-kernel-banc-"));
+});
+
+afterEach(() => {
+  rmSync(racineBanc, { recursive: true, force: true });
+});
 
 describe("ReadinessRegistry — l'agrégat, tenu à l'écriture", () => {
   it("un seul contributeur non prêt retient, tous prêts libèrent", () => {
@@ -103,6 +142,69 @@ describe("ReadinessRegistry — l'agrégat, tenu à l'écriture", () => {
     ]);
     reg.set("schema", true);
     expect(reg.report()).to.deep.equal([{ name: "schema", ready: true }]);
+  });
+});
+
+describe("Kernel — le canal local qui NOMME ce qui retient", () => {
+  /**
+   * Le noyau publie sur le disque ce que la sonde publique ne rend qu'à un
+   * appelant authentifié. C'est ce fichier que lit `nodefony status`.
+   *
+   * ⚠️ Le kernel de banc écrit sous sa `path`, qui vaut `process.cwd()` par
+   * défaut : sans ce dossier temporaire, les cas écriraient dans le dépôt lui-même.
+   */
+  /** La racine du banc — `mkKernel` y publie déjà. */
+  const kernelIsole = mkKernel;
+  it("publie le NOM et la RAISON de ce qui retient", () => {
+    const kernel = kernelIsole();
+    kernel.setReadiness("drizzle:default", false, "2 migrations en attente");
+    expect(readReadinessState(racineBanc)).to.deep.equal([
+      {
+        name: "drizzle:default",
+        ready: false,
+        reason: "2 migrations en attente",
+      },
+    ]);
+  });
+
+  it("n'écrit PAS deux fois le même état — un verdict rejoué ne touche pas le disque", () => {
+    const kernel = kernelIsole();
+    kernel.setReadiness("drizzle:default", false, "2 migrations en attente");
+    // Un contributeur repose son verdict à son propre rythme (toutes les 15 s
+    // pour le schéma). Réécrire à chaque fois serait un coût pour rien.
+    writeFileSync(readinessStateFile(racineBanc), "SENTINELLE", "utf8");
+    kernel.setReadiness("drizzle:default", false, "2 migrations en attente");
+    expect(readFileSync(readinessStateFile(racineBanc), "utf8")).to.equal(
+      "SENTINELLE",
+      "le fichier a été réécrit alors que RIEN n'avait changé",
+    );
+    // Mais un changement réel, lui, repart bien sur le disque.
+    kernel.setReadiness("drizzle:default", false, "1 migration en attente");
+    expect(readReadinessState(racineBanc)?.[0]?.reason).to.equal(
+      "1 migration en attente",
+    );
+  });
+
+  it("efface le canal quand plus personne ne contribue", () => {
+    const kernel = kernelIsole();
+    kernel.setReadiness("drizzle:default", false, "en retard");
+    expect(existsSync(readinessStateFile(racineBanc))).to.equal(true);
+    kernel.clearReadiness("drizzle:default");
+    expect(existsSync(readinessStateFile(racineBanc))).to.equal(false);
+  });
+
+  it("un canal laissé par un process MORT est ignoré — jamais une cause disparue", () => {
+    const kernel = kernelIsole();
+    kernel.setReadiness("drizzle:default", false, "en retard");
+    const brut = JSON.parse(
+      readFileSync(readinessStateFile(racineBanc), "utf8"),
+    ) as Record<string, unknown>;
+    writeFileSync(
+      readinessStateFile(racineBanc),
+      JSON.stringify({ ...brut, pid: 999_999 }),
+      "utf8",
+    );
+    expect(readReadinessState(racineBanc)).to.equal(null);
   });
 });
 

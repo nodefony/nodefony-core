@@ -9,7 +9,7 @@
 import assert from "node:assert";
 import path from "node:path";
 import os from "node:os";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import {
   collectDevStatus,
   isStandaloneDevCommand,
@@ -18,6 +18,7 @@ import {
 import { projetsDuPoste, runStopReport } from "../service/dev/devStop";
 import {
   readRuntimeState,
+  writeReadinessState,
   writeRuntimeState,
   type DevProcessInfo,
   type PortState,
@@ -119,6 +120,110 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
       probeReadiness: async () => ({ ready: false, blocked: 1 }),
     });
     assert.deepStrictEqual(report.readiness, { ready: false, blocked: 1 });
+  });
+
+  it("NOMME qui retient la mise en service quand le serveur l'a publié", async () => {
+    // Le serveur écrit ce que le noyau sait déjà — et que la sonde publique ne
+    // rend qu'à un appelant authentifié.
+    writeReadinessState(mine, [
+      {
+        name: "drizzle:default",
+        ready: false,
+        reason: "2 migrations en attente",
+      },
+      { name: "cache", ready: true },
+    ]);
+    const report = await collectDevStatus(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [] }),
+      getCwd: () => null,
+      probe: async (): Promise<PortState[]> => busyPorts,
+      probeReadiness: async () => ({ ready: false, blocked: 1 }),
+    });
+    assert.deepStrictEqual(
+      report.readiness?.blockedBy,
+      [{ name: "drizzle:default", reason: "2 migrations en attente" }],
+      "le contributeur PRÊT n'a pas à figurer : on nomme ce qui RETIENT",
+    );
+  });
+
+  it("un contributeur SANS raison est nommé quand même — le nom seul vaut mieux qu'un compte", async () => {
+    writeReadinessState(mine, [{ name: "cache", ready: false }]);
+    const report = await collectDevStatus(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [] }),
+      getCwd: () => null,
+      probe: async (): Promise<PortState[]> => busyPorts,
+      probeReadiness: async () => ({ ready: false, blocked: 1 }),
+    });
+    assert.deepStrictEqual(report.readiness?.blockedBy, [{ name: "cache" }]);
+  });
+
+  it("ne nomme RIEN quand le détail ne concorde pas avec le compte du runtime", async () => {
+    // Le fichier a un cycle de retard : deux contributeurs y retiennent encore,
+    // le runtime n'en compte plus qu'un. Nommer ici enverrait chercher une
+    // cause déjà levée — pire qu'un compte nu.
+    writeReadinessState(mine, [
+      {
+        name: "drizzle:default",
+        ready: false,
+        reason: "2 migrations en attente",
+      },
+      { name: "cache", ready: false, reason: "froid" },
+    ]);
+    const report = await collectDevStatus(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [] }),
+      getCwd: () => null,
+      probe: async (): Promise<PortState[]> => busyPorts,
+      probeReadiness: async () => ({ ready: false, blocked: 1 }),
+    });
+    assert.strictEqual(report.readiness?.blockedBy, undefined);
+    assert.strictEqual(report.readiness?.blocked, 1, "le compte, lui, reste");
+  });
+
+  it("sans fichier publié, le rapport garde le compte et n'invente aucun nom", async () => {
+    const report = await collectDevStatus(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [] }),
+      getCwd: () => null,
+      probe: async (): Promise<PortState[]> => busyPorts,
+      probeReadiness: async () => ({ ready: false, blocked: 2 }),
+    });
+    assert.strictEqual(report.readiness?.blockedBy, undefined);
+  });
+
+  it("la LIGNE RENDUE porte le nom et la raison — c'est elle que l'utilisateur lit", async () => {
+    // Le rendu court-circuite hors d'un projet Nodefony : sans ce `package.json`,
+    // le banc mesurerait le message « ce dossier n'est pas un projet ».
+    mkdirSync(mine, { recursive: true });
+    writeFileSync(
+      path.join(mine, "package.json"),
+      JSON.stringify({ name: "banc", dependencies: { nodefony: "*" } }),
+      "utf8",
+    );
+    writeReadinessState(mine, [
+      {
+        name: "drizzle:default",
+        ready: false,
+        reason: "2 migrations en attente",
+      },
+    ]);
+    // La ligne de disponibilité ne se rend que pour un projet qui TOURNE : un
+    // serveur à nous, sur nos ports.
+    const mien = proc(4242, "server");
+    let out = "";
+    await runStatusReport(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [mien] }),
+      getCwd: (pid: number) => (pid === mien.pid ? mine : null),
+      probe: async (): Promise<PortState[]> => busyPorts,
+      probeReadiness: async () => ({ ready: false, blocked: 1 }),
+      write: (t) => (out += t),
+    });
+    assert.ok(
+      out.includes("drizzle:default (2 migrations en attente)"),
+      `la ligne de disponibilité doit NOMMER ce qui retient — obtenu :\n${out}`,
+    );
+    assert.ok(
+      !out.includes("1 composant retient"),
+      "le compte nu ne doit plus s'afficher quand on sait nommer",
+    );
   });
 
   it("les process d'un AUTRE projet ne sont NI comptés NI annoncés comme des ports à nous", async () => {

@@ -145,6 +145,18 @@ export interface IReadinessProbe {
   readonly ready: boolean;
   /** Nombre de composants qui retiennent la mise en service (0 = aucun). */
   readonly blocked: number;
+  /**
+   * QUI retient, et pourquoi — `undefined` quand le détail n'est pas
+   * disponible ou ne CONCORDE pas avec le compte que le runtime vient de
+   * rendre.
+   *
+   * Le compte vient du runtime interrogé à l'instant ; le détail vient du
+   * fichier que le serveur publie. **Deux sources doivent concorder pour qu'on
+   * nomme** : un fichier en retard d'un cycle désignerait un contributeur déjà
+   * libéré, et l'on chercherait une cause disparue — pire que de ne rien
+   * nommer.
+   */
+  readonly blockedBy?: readonly { name: string; reason?: string }[];
 }
 
 /**
