@@ -243,6 +243,16 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 08-28] **J'ai annoncé au user un défaut que je n'avais pas mesuré.** Ayant constaté que
+  Svelte prend le nouvel abonnement avant de rendre l'ancien, j'ai écrit que Vue et Angular
+  « laissent un trou d'une microtâche où le serveur ne pousse plus rien ». C'est faux pour le cas
+  courant : deux canaux DIFFÉRENTS, on quitte l'un et on rejoint l'autre, l'ordre est sans
+  conséquence. Le trou n'existerait que sur le MÊME canal (clé de ré-abonnement changée), et le
+  ref-comptage l'absorbe dès qu'un second composant tient le canal. **Une différence observée dans
+  un front ne devient un défaut chez les autres qu'après avoir été mesurée chez eux** — le user a
+  d'ailleurs immédiatement demandé « il faut corriger les autres ? », c'est-à-dire qu'il a agi sur
+  mon affirmation.
+
 - **La doc enseignait une URL qui n'est montée NULLE PART.** `client.md` et `react-hooks.md`
   ouvraient sur `RealtimeClient.shared({ url: "/nodefony/api/realtime" })` — aucune route ne sert
   cette adresse (Studio expose `/nodefony/studio/api/realtime`, l'app générée `/api/live/realtime`).
@@ -471,6 +481,14 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 08-28] **J'ai écrit un cas qui levait lui-même l'erreur qu'il prétendait éprouver.** La
+  socket est un état de MODULE, posé par les cas précédents : n'ayant pas de moyen évident de
+  retrouver l'état initial, j'ai écrit `expect(() => { throw new Error("…placeholder") })
+.toThrow(/configureNodefony/)`. Vert, et vérifiant le test au lieu du produit. Le remède tenait
+  en deux lignes (`vi.resetModules()` + réimport). **Le signe distinctif : le corps du `expect`
+  contient la valeur attendue au lieu d'appeler le code.** À relire systématiquement dans un banc
+  où l'état vit au module.
 
 - [1× — 08-27] **Un statut de pilotage posé sur une simple MENTION.** Le hook `post-commit` passe en
   « In Progress » tout ticket qu'un commit cite sans le fermer. Mon message de livraison de #36
@@ -804,6 +822,16 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-28] **Ma reproduction d'un échec d'intégration continue a été VERTE, et c'est un binaire
+  GLOBAL qui répondait.** La forge rendait `sh: nodefony: command not found` sur les six
+  plateformes ; j'ai retiré `node_modules/.bin/nodefony` pour reproduire, relancé, et tout a
+  marché — j'ai failli conclure que la forge se trompait. `which nodefony` disait
+  `~/.local/bin/nodefony` : une installation globale, invisible dans la commande, absente partout
+  ailleurs. **La commande est identique des deux côtés ; seul l'environnement diffère — et celui
+  du développeur est le seul qui ne ressemble à aucun autre.** Reproduire un « command not found »
+  exige de réduire le `PATH`, pas seulement de retirer le lien local. Corollaire pour la règle
+  « prouver sur l'artefact reçu » : l'artefact inclut le PATH.
+
 - [3× — 08-28] **Le même sabotage a re-menti DEUX fois de plus, par le même cwd.** `Tests no tests`
   - `exit 1` se lisent comme l'échec attendu, alors que rien n'a tourné. La cause n'est pas
     l'étourderie : un `cd` en début de commande composée est parfois AVALÉ (garde-fou du harnais,
@@ -1078,6 +1106,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-28] **Un gate ajouté la veille n'a jamais tourné VERT une seule fois — et personne ne
+  l'a vu, parce qu'il était rouge dès sa naissance.** L'étape « le front se BÂTIT » appelait le
+  binaire par son NOM (`nodefony frontend:build`) ; or `bin/nodefony` est produit par le build et
+  gitignoré, donc `npm ci` ne pose pas le lien `.bin` sur un checkout vierge. Six combinaisons de
+  plateformes rouges, quatre commits de suite. La règle « un gate neuf doit être vu ROUGE une
+  fois » ne suffit pas : **il faut aussi l'avoir vu VERT une fois**, sans quoi on ne distingue pas
+  « il mord » de « il ne peut pas s'exécuter ». Fermé par un gate qui refuse tout appel du binaire
+  par son nom, dans les scripts npm comme dans les étapes de la forge.
+
 - [1× — 08-28] **Un verdict écrit en PROSE n'atteint aucun automate — seul le code de sortie
   circule.** `create app` imprimait « npm run build a échoué » puis rendait **0**. Ni une chaîne
   d'intégration, ni un banc, ni un agent qui enchaîne ne pouvaient distinguer une application prête
@@ -1340,6 +1377,13 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   confirme n'importe quelle cause. [1× — 08-23b] ↝ [[feedback_bench_probe_false_verdicts]]
 
 ## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
+
+- [1× — 08-28] **Deux tests rouges accusaient mon diff ; c'était mon propre `npm run build` qui
+  tournait EN MÊME TEMPS.** Le script du cœur commence par `rimraf dist` : lancé pendant qu'une
+  suite en arrière-plan bootait un vrai CLI, il a effacé `dist/node/index.js` sous ses pieds
+  (`ERR_MODULE_NOT_FOUND`). Rejoués après le build, les deux cas étaient verts. **Une tâche de
+  fond et un build ne se chevauchent jamais impunément quand le build DÉTRUIT avant de
+  reconstruire** — et le rouge qui en sort ressemble trait pour trait à une régression.
 
 - [1× — 08-25] **Un `tail -200` qui se fait passer pour le journal.** Sur un serveur qui
   journalise chaque requête, 200 lignes couvrent TROIS secondes : l'échec du milieu de suite n'y

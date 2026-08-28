@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-27 22:01** (UTC).
+> Empreinte prise le **2026-08-28 00:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,22 +16,21 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 41 | 12 | 2026-11-15 |
+| 10.0.0 | 38 | 15 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#54 — feat(client): simplifier la socket cliente pour un débutant**
+**#17 — feat(orm): livrer les migrations de schéma en production**
 
-Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
+Ordre 2 · P0 — bloque le reste · 5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 41 ouverts
+## Jalon 10.0.0 — 38 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 1.6 | P0 — bloque le reste | — | #54 | feat(client): simplifier la socket cliente pour un débutant |
 | 2 | P0 — bloque le reste | 5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.1 | P1 — figé à la création | 0.5 | #57 | fix(orm): refuser une option de tri mal formée au lieu de l'ignorer |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
@@ -65,8 +64,6 @@ Ordre 1.6 · P0 — bloque le reste · — j · jalon 10.0.0
 | 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
 | 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 33 | P3 — fin de cycle | 2 | #38 | feat(client): ajouter les services Angular du temps réel |
-| 34 | P3 — fin de cycle | 1.5 | #39 | feat(client): ajouter les runes Svelte 5 du temps réel |
 | 35 | P3 — fin de cycle | 3 | #35 | feat(client): faire remonter les journaux du navigateur au serveur |
 | 37 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
