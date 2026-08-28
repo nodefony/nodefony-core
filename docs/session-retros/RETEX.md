@@ -1232,6 +1232,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-28k] **La forge était rouge depuis SIX commits, et cinq sessions ont clôturé dessus
+  sans la regarder — moi compris.** Dernier vert à 09:09, rouge à 10:11, et chaque session
+  suivante a écrit « vert » dans son retex sur la foi de ses suites LOCALES. La règle du dépôt dit
+  « la CI est gratuite, ne pas la doubler en local » — elle suppose qu'on la REGARDE, ce que le
+  mode END du skill de session ne contrôlait nulle part. Un `gh run list --limit 3` coûte deux
+  secondes et aurait coupé la dérive au premier commit. Le rouge, lui, disait vrai : la commande
+  de mise en production était devenue inatteignable sur toute base neuve.
+
 - [1× — 08-28] **Un gate ajouté la veille n'a jamais tourné VERT une seule fois — et personne ne
   l'a vu, parce qu'il était rouge dès sa naissance.** L'étape « le front se BÂTIT » appelait le
   binaire par son NOM (`nodefony frontend:build`) ; or `bin/nodefony` est produit par le build et
@@ -1490,6 +1498,23 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 08-28k] **Obéir au mode de schéma a rendu la commande de migration INATTEIGNABLE.** En
+  production, le démarrage ne fabrique plus les tables — décision juste. Mais `orm:migrate` boote
+  un kernel complet : sur une base pas encore migrée, le cycle applicatif tape `User`, l'échec est
+  fatal en production, et la commande meurt AVANT de s'exécuter. Pour migrer, il fallait avoir
+  migré. La garde de production interdisait le geste même qui la satisfait. Le test qui l'attrape
+  se pose sur le CHEMIN NOMINAL de l'utilisateur (« une base vierge, en production »), jamais sur
+  le décor du dépôt — tous les bancs existants posaient `NF_STORE=memory`, qui contourne
+  précisément ce trou, et leur TSDoc l'écrivait noir sur blanc sans que personne n'en tire la
+  conséquence.
+- [1× — 08-28k] **Une surcharge par variable d'environnement n'écrit QUE sur un chemin déjà
+  présent — sinon elle ne fait rien, en silence.** J'ai posé `NF__DRIZZLE__CONNECTORS__DEFAULT__DDL`
+  dans un décor de banc, relu le fichier rendu (elle y était), et conclu trop vite ; interrogée
+  dans l'application, la valeur effective était restée `none`. La clé n'existait pas dans la config
+  de l'application, donc il n'y avait rien à surcharger. Deuxième piège empilé sur le premier :
+  je l'avais d'abord posée AVANT un `...process.env` qui l'écrasait. Une surcharge se vérifie sur
+  la valeur EFFECTIVE lue par le produit (`--json` du statut), jamais sur la présence de la ligne.
 
 - [1× — 08-28g] **Un test de verrou reste VERT quand on débranche le verrou** — il ne prouve alors que le chemin nominal. Mon cas « aucun verrou zombie » prenait le verrou, tuait la connexion, puis migrait : avec `lock()` en no-op il passait tout aussi bien. Le rendre discriminant a demandé une assertion AVANT le geste — _constater que le verrou est bien TENU_ (un applicateur concurrent doit échouer) — et il tombe alors au débranchement. **Un test qui suit un chemin heureux de bout en bout ne discrimine rien ; c'est l'état intermédiaire qu'il faut affirmer.**
 
