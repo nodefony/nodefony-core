@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T13:35:22.660Z",
+  "generated": "2026-08-28T14:10:27.046Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 773,
-    "symbols": 3415,
+    "files": 775,
+    "symbols": 3421,
     "classes": 379,
-    "interfaces": 948,
-    "types": 413,
+    "interfaces": 950,
+    "types": 414,
     "enums": 4,
-    "functions": 1324,
+    "functions": 1327,
     "constants": 347
   },
   "symbols": {
@@ -18855,6 +18855,39 @@
       "decorators": [],
       "description": "Slug rejeté car potentiellement dangereux (traversée de répertoire, segment `..`, caractère hors charset). Sécurité : on ne touche JAMAIS au FS avec un tel slug."
     },
+    "ISchemaReader": {
+      "name": "ISchemaReader",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce dont la comparaison de schéma a besoin, et rien de plus."
+    },
+    "SqlQuery": {
+      "name": "SqlQuery",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Lecture du catalogue du serveur — quelles tables existent, quelles colonnes elles portent —, écrite UNE fois par dialecte et partagée par ses deux porteurs. ## Pourquoi ce fichier existe Deux compo…"
+    },
+    "schemaReader": {
+      "name": "schemaReader",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compose un lecteur de catalogue au-dessus d'un exécuteur de requêtes."
+    },
+    "toDollarParams": {
+      "name": "toDollarParams",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Traduit les paramètres `?` du dialecte commun en `$n` PostgreSQL. L'applicateur écrit ses requêtes une seule fois, avec la forme la plus répandue ; chaque pilote l'adapte. Aucune des requêtes de l'…"
+    },
     "IDestructiveFinding": {
       "name": "IDestructiveFinding",
       "kind": "interface",
@@ -18911,6 +18944,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Résumé d'une ligne, pour un message ou un journal."
+    },
+    "isDivergent": {
+      "name": "isDivergent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "La base s'écarte-t-elle du schéma que le code déclare ? Répond `false` sans rien interroger dans tous les cas où la réponse ne changerait rien : plan déjà porteur d'un verdict, connecteur absent du…"
     },
     "DrizzleMigrator": {
       "name": "DrizzleMigrator",
@@ -19489,7 +19530,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "extends": null,
+      "extends": "ISchemaReader",
       "description": "Pilote de base de données de l'applicateur — **une connexion, pas un pool**. `pg_advisory_lock` et `GET_LOCK` sont des verrous de SESSION : un pool les rend inopérants (verrou pris sur une connexio…"
     },
     "MigrationVerdictCode": {
@@ -23186,14 +23227,6 @@
       "decorators": [],
       "description": "Pilote PostgreSQL de l'applicateur — **une seule connexion**, pas un pool. `pg_advisory_lock` est un verrou de SESSION : avec un pool, il serait pris sur une connexion, le DDL exécuté sur une autre…"
     },
-    "toDollarParams": {
-      "name": "toDollarParams",
-      "kind": "function",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Traduit les paramètres `?` du dialecte commun en `$n` PostgreSQL. L'applicateur écrit ses requêtes une seule fois, avec la forme la plus répandue ; chaque pilote l'adapte. Aucune des requêtes de l'…"
-    },
     "PG_LOCK_KEY": {
       "name": "PG_LOCK_KEY",
       "kind": "const",
@@ -23994,6 +24027,9 @@
       ],
       "IMigrationTarget": [
         "IDrizzleMigratorOptions"
+      ],
+      "ISchemaReader": [
+        "IMigrationDriver"
       ],
       "Orm": [
         "DrizzleOrm",
@@ -27651,6 +27687,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "registerTokenStore": [
@@ -27725,6 +27762,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
@@ -29291,6 +29329,13 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
       ],
+      "isDivergent": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
       "OrmMigrateCommand": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
@@ -29342,7 +29387,6 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
@@ -31587,6 +31631,22 @@
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
+      "IMigrationPlan": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
+      ],
+      "verdictOf": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts"
+      ],
+      "hasGap": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "ISchemaComparison": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
       "IMigrationTarget": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
@@ -31630,10 +31690,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
-      "IMigrationPlan": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
-      ],
       "IMigrationRun": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
@@ -31658,6 +31714,13 @@
       "resolveConnectorTarget": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
+      "ISchemaReader": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
       "migrationHash": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
@@ -31673,6 +31736,22 @@
       "Orm": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "schemaReader": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
+      "toDollarParams": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts"
+      ],
+      "additiveSql": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "compareSchema": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "DrizzleRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"

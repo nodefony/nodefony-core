@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import type { IMigrationDriver } from "../types";
+import { schemaReader, toDollarParams, type ISchemaReader } from "../catalog";
+
+export { toDollarParams };
 
 /**
  * Clé du verrou consultatif PostgreSQL — **figée à vie**.
@@ -126,26 +129,19 @@ export class PostgresMigrationDriver implements IMigrationDriver {
     return result.rows as T[];
   }
 
+  /** Lecture du catalogue — implémentation PARTAGÉE avec l'ORM. */
+  readonly #catalog: ISchemaReader = schemaReader("postgres", (sql, params) =>
+    this.query(sql, params),
+  );
+
   /** @inheritdoc */
-  async tableExists(table: string): Promise<boolean> {
-    // `to_regclass` suit le `search_path` de la connexion — c'est la même
-    // résolution que celle des tables d'entités, et c'est ce qui rend
-    // l'isolation par schéma possible.
-    const rows = await this.query<{ found: boolean }>(
-      `SELECT to_regclass(?::text) IS NOT NULL AS found`,
-      [table],
-    );
-    return rows[0]?.found === true;
+  tableExists(table: string): Promise<boolean> {
+    return this.#catalog.tableExists(table);
   }
 
   /** @inheritdoc */
-  async columnsOf(table: string): Promise<string[]> {
-    const rows = await this.query<{ column_name: string }>(
-      `SELECT column_name FROM information_schema.columns ` +
-        `WHERE table_name = ? AND table_schema = ANY(current_schemas(false))`,
-      [table],
-    );
-    return rows.map((row) => row.column_name);
+  columnsOf(table: string): Promise<string[]> {
+    return this.#catalog.columnsOf(table);
   }
 
   /** @inheritdoc */
@@ -223,20 +219,4 @@ export class PostgresMigrationDriver implements IMigrationDriver {
       await client.end().catch(() => undefined);
     }
   }
-}
-
-/**
- * Traduit les paramètres `?` du dialecte commun en `$n` PostgreSQL.
- *
- * L'applicateur écrit ses requêtes une seule fois, avec la forme la plus
- * répandue ; chaque pilote l'adapte. Aucune des requêtes de l'applicateur ne
- * contient de littéral `?` — les valeurs, elles, sont bindées, jamais
- * concaténées.
- *
- * @param sql - requête écrite avec des `?`.
- * @returns la même requête, paramètres numérotés.
- */
-export function toDollarParams(sql: string): string {
-  let index = 0;
-  return sql.replace(/\?/g, () => `$${++index}`);
 }

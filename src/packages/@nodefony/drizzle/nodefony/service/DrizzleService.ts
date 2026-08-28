@@ -14,6 +14,7 @@ import {
   resolveDdlMode,
 } from "../src/migrator/resolve";
 import { buildReport, meaningOf } from "../src/migrator/explain";
+import { isDivergent } from "../src/migrator/divergence";
 import {
   dataLoss,
   renderDestructive,
@@ -356,8 +357,12 @@ class DrizzleService extends Service {
     }
     try {
       const plan = await migrator.status();
+      // La troisième source ne se paie que lorsque les deux premières n'ont
+      // plus rien à dire (cf `isDivergent`) : c'est exactement le moment où
+      // elle apprend quelque chose que personne d'autre ne voit.
       const report = buildReport(plan, {
         ddl,
+        divergent: await isDivergent(plan),
         divergenceBlocks: this.#config().migrations?.divergence === "fail",
       });
       const ok = report.exitCode === 0;

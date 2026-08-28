@@ -1,6 +1,6 @@
 import type { IColumnInfo } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../config/config";
-import type { IMigrationDriver } from "./types";
+import type { ISchemaReader } from "./catalog";
 
 /**
  * L'écart entre le schéma DÉCLARÉ dans le code et le schéma RÉELLEMENT en base.
@@ -87,19 +87,19 @@ export interface IExpectedTable {
  * Une requête par table, et **au démarrage uniquement** : rien de ceci n'existe
  * dans le chemin d'une requête.
  *
- * @param driver - pilote à connexion unique, déjà ouvert.
+ * @param reader - lecteur de catalogue du porteur (ORM connecté, ou pilote).
  * @param expected - schéma attendu (cf `DrizzleOrm.describeTables`).
  * @returns les écarts, séparés selon qu'ils se rattrapent ou non.
  */
 export async function compareSchema(
-  driver: IMigrationDriver,
+  reader: ISchemaReader,
   expected: readonly IExpectedTable[],
 ): Promise<ISchemaComparison> {
   const additive: ISchemaGap[] = [];
   const blocking: ISchemaGap[] = [];
   const missingTables: string[] = [];
   for (const attendue of expected) {
-    if (!(await driver.tableExists(attendue.table))) {
+    if (!(await reader.tableExists(attendue.table))) {
       missingTables.push(attendue.table);
       continue;
     }
@@ -107,7 +107,7 @@ export async function compareSchema(
     // un système de fichiers insensible, notamment) : comparer sur une forme
     // normalisée évite d'annoncer manquante une colonne qui est là.
     const reelles = new Set(
-      (await driver.columnsOf(attendue.table)).map((c) => c.toLowerCase()),
+      (await reader.columnsOf(attendue.table)).map((c) => c.toLowerCase()),
     );
     for (const col of attendue.columns) {
       if (reelles.has(col.name.toLowerCase())) {

@@ -30,6 +30,13 @@ import type {
   PoolConnection as MysqlPoolConnection,
 } from "mysql2/promise";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
+import { schemaReader, toDollarParams } from "../migrator/catalog";
+import {
+  additiveSql,
+  compareSchema,
+  hasGap,
+  type ISchemaComparison,
+} from "../migrator/schemaDiff";
 import type {
   IColumnInfo,
   IConnectionInfo,
@@ -253,6 +260,11 @@ export class DrizzleOrm extends Orm {
    * migrations.
    */
   readonly #deriveSchema: boolean;
+  /**
+   * Écart CONSTATÉ entre le schéma déclaré et la base — `null` tant qu'il n'y
+   * en a pas, ce qui est le cas courant : rien n'est alloué pour un état sain.
+   */
+  #drift: ISchemaComparison | null = null;
   readonly #filename: string;
   readonly #url: string | undefined;
 
@@ -271,6 +283,43 @@ export class DrizzleOrm extends Orm {
   /** Dialecte SQL de ce connecteur. */
   get dialect(): SqlDialect {
     return this.#dialect;
+  }
+
+  /**
+   * Écart constaté entre le schéma déclaré par le code et la base — `null`
+   * quand la base est conforme.
+   *
+   * Publié pour que trois surfaces disent la MÊME chose : le corps d'erreur
+   * rendu au client, la sonde de disponibilité, et l'écran d'administration.
+   * En mode dérivé il est renseigné au démarrage, après rattrapage de ce qui se
+   * rattrapait ; ailleurs il ne l'est que sur demande explicite
+   * ({@link DrizzleOrm.compareToDeclared}).
+   */
+  get schemaDrift(): ISchemaComparison | null {
+    return this.#drift;
+  }
+
+  /**
+   * Compare la base à ce que le code déclare — sans jamais rien modifier.
+   *
+   * C'est la **troisième source** : les outils de migration croisent les
+   * fichiers et l'historique, et concluent « tout est appliqué » sans avoir
+   * regardé la base. Croiser le schéma réel rend visible l'incident qu'aucun
+   * d'eux ne voit — historique complet, rien en attente, et pourtant la base ne
+   * correspond pas au code (un `ALTER` passé à la main, un correctif jamais
+   * reporté, deux environnements qui ont divergé).
+   *
+   * La lecture passe par la connexion DÉJÀ ouverte de ce connecteur : en
+   * ouvrir une seconde sur `:memory:` désignerait une base vide et rendrait un
+   * verdict faux.
+   *
+   * @returns les écarts, séparés selon qu'ils se rattrapent ou non.
+   */
+  compareToDeclared(): Promise<ISchemaComparison> {
+    return compareSchema(
+      schemaReader(this.#dialect, this.#rawQuery),
+      this.describeTables(),
+    );
   }
 
   /**
@@ -525,7 +574,15 @@ export class DrizzleOrm extends Orm {
         break;
     }
 
-    // 2) Résolution des relations déclaratives (eager-load manuel) — commun.
+    // 2) Le schéma dérivé se HEURTE à une base préexistante : rattraper ce qui
+    //    se rattrape, constater le reste — AVANT les index, qui portent sur des
+    //    colonnes et meurent quand l'une manque.
+    if (this.#deriveSchema) {
+      await this.#reconcileSchema();
+      await this.#createIndexes(entities);
+    }
+
+    // 3) Résolution des relations déclaratives (eager-load manuel) — commun.
     for (const entity of entities) {
       this.#relations[entity.name] = this.#resolveRelations(
         entity,
@@ -588,8 +645,209 @@ export class DrizzleOrm extends Orm {
         continue;
       }
       client.exec(this.#createTableSQL(table));
-      for (const statement of this.#createIndexesSQL(table)) {
-        client.exec(statement);
+    }
+  }
+
+  /**
+   * Exécute une requête paramétrée sur la connexion COURANTE du connecteur.
+   *
+   * Réservé à la lecture du catalogue et au rattrapage de schéma, au démarrage.
+   * Ce n'est pas une trappe publique : `getNativeConnection()` reste le chemin
+   * documenté pour du SQL applicatif.
+   *
+   * @param sql - requête, paramètres écrits `?` (traduits pour PostgreSQL).
+   * @param params - valeurs bindées.
+   * @returns les lignes rendues.
+   */
+  #rawQuery = async <T extends Record<string, unknown>>(
+    sql: string,
+    params: readonly unknown[] = [],
+  ): Promise<T[]> => {
+    switch (this.#dialect) {
+      case "sqlite": {
+        const statement = this.#client!.prepare(sql);
+        return statement.reader
+          ? (statement.all(...(params as unknown[])) as T[])
+          : [];
+      }
+      case "postgres": {
+        const result = await this.#pgPool!.query(
+          toDollarParams(sql),
+          params as unknown[],
+        );
+        return result.rows as T[];
+      }
+      case "mysql": {
+        const [rows] = await this.#mysqlPool!.query(sql, params as unknown[]);
+        return Array.isArray(rows) ? (rows as T[]) : [];
+      }
+    }
+  };
+
+  /**
+   * Exécute une instruction sans résultat sur la connexion courante.
+   *
+   * @param sql - instruction DDL.
+   */
+  async #rawExec(sql: string): Promise<void> {
+    switch (this.#dialect) {
+      case "sqlite":
+        this.#client!.exec(sql);
+        return;
+      case "postgres":
+        await this.#pgPool!.query(sql);
+        return;
+      case "mysql":
+        await this.#mysqlPool!.query(sql);
+        return;
+    }
+  }
+
+  /**
+   * Confronte le schéma DÉCLARÉ par le code à celui que la base porte
+   * vraiment, répare ce qui se répare, et publie le reste.
+   *
+   * **Le cas fréquent se répare tout seul** : le back ajoute un champ qui
+   * accepte le vide, la table existe déjà, la colonne manque — elle est ajoutée
+   * et journalisée en clair. Le développeur front tire la branche, le serveur
+   * redémarre, ça marche : il n'a rien à taper, et n'a pas eu à comprendre un
+   * domaine qui n'est pas le sien.
+   *
+   * **Ce qui ne se répare pas est ÉNONCÉ, jamais deviné** : une colonne
+   * obligatoire exigerait d'inventer une valeur pour les lignes existantes, et
+   * c'est une décision métier. Une table absente relève des migrations. Dans
+   * les deux cas l'écart est publié ({@link DrizzleOrm.schemaDrift}), journalisé
+   * avec le geste exact, et **le démarrage continue** : un serveur qui refuse de
+   * démarrer n'apprend rien de plus à celui qui le lance, et lui retire le seul
+   * outil qui pourrait le renseigner.
+   *
+   * ⚠️ Ne tourne QUE lorsque le schéma est dérivé du code (développement). En
+   * `migrate`/`none`, le même calcul est demandé explicitement par
+   * {@link DrizzleOrm.compareToDeclared} — il constate, il ne répare jamais.
+   */
+  async #reconcileSchema(): Promise<void> {
+    const comparison = await this.compareToDeclared();
+    if (!hasGap(comparison)) {
+      // Rien à signaler : on ne garde pas d'objet vide en mémoire pour la
+      // durée de vie du connecteur.
+      this.#drift = null;
+      return;
+    }
+    for (const gap of comparison.additive) {
+      await this.#rawExec(additiveSql(gap, this.#dialect));
+      this.log(
+        `schéma rattrapé : colonne « ${gap.column} » (${gap.type}) ajoutée à ` +
+          `la table « ${gap.table} » — le code la déclarait, la base ne l'avait pas.`,
+        "INFO",
+      );
+    }
+    const reste: ISchemaComparison = {
+      additive: [],
+      blocking: comparison.blocking,
+      missingTables: comparison.missingTables,
+    };
+    this.#drift = hasGap(reste) ? reste : null;
+    if (this.#drift) {
+      this.log(this.#explainDrift(this.#drift), "CRITIC");
+    }
+  }
+
+  /**
+   * Met en mots un écart que le démarrage ne sait pas réparer.
+   *
+   * @param drift - l'écart restant après rattrapage.
+   * @returns le texte à journaliser, geste compris.
+   */
+  #explainDrift(drift: ISchemaComparison): string {
+    const lignes: string[] = [
+      `La base du connecteur « ${this.name} » ne correspond pas au code, et ` +
+        `l'écart ne se rattrape pas tout seul :`,
+    ];
+    for (const table of drift.missingTables) {
+      lignes.push(`  · table « ${table} » absente`);
+    }
+    for (const gap of drift.blocking) {
+      lignes.push(
+        `  · colonne « ${gap.table}.${gap.column} » (${gap.type}) absente et ` +
+          `OBLIGATOIRE — la poser exigerait d'inventer une valeur pour les ` +
+          `lignes déjà présentes`,
+      );
+    }
+    lignes.push(
+      `  Les index et les requêtes qui portent sur ces colonnes échoueront.`,
+      `  En développement, le geste est : nodefony orm:reset --connector ${this.name}`,
+      `  (il SUPPRIME et recrée la base — jamais hors développement).`,
+      `  Sur une base qui porte des données, c'est une migration qu'il faut : ` +
+        `nodefony orm:migrate:status --connector ${this.name}`,
+    );
+    return lignes.join("\n");
+  }
+
+  /**
+   * Crée les index déclarés, table par table.
+   *
+   * **Séparé de la création des tables, et joué APRÈS le rattrapage** : un
+   * index porte sur des colonnes, et le poser sur une table à laquelle il en
+   * manque une échoue. C'était le mode de défaillance réel avant ce
+   * découpage — le serveur de développement ne démarrait plus du tout, sur une
+   * erreur de pilote (`no such column`) qui ne nommait ni le connecteur, ni le
+   * geste.
+   *
+   * @param entities - entités du connecteur.
+   */
+  async #createIndexes(entities: IEntity[]): Promise<void> {
+    // Une table encore en écart bloquant n'aura pas ses index : les poser
+    // échouerait, et cet échec-là est déjà DIT (cf `#explainDrift`).
+    const empechees = new Set<string>(this.#drift?.missingTables ?? []);
+    for (const gap of this.#drift?.blocking ?? []) {
+      empechees.add(gap.table);
+    }
+    for (const entity of entities) {
+      const table = this.#tables?.[entity.name];
+      if (!table) {
+        continue;
+      }
+      switch (this.#dialect) {
+        case "sqlite": {
+          const t = table as SQLiteTable;
+          if (empechees.has(getTableConfig(t).name)) {
+            continue;
+          }
+          for (const statement of this.#createIndexesSQL(t)) {
+            this.#client!.exec(statement);
+          }
+          break;
+        }
+        case "postgres": {
+          const t = table as PgTable;
+          if (empechees.has(getPgTableConfig(t).name)) {
+            continue;
+          }
+          for (const statement of this.#createIndexesPgSQL(t)) {
+            await this.#pgPool!.query(statement);
+          }
+          break;
+        }
+        case "mysql": {
+          const t = table as MySqlTable;
+          if (empechees.has(getMysqlTableConfig(t).name)) {
+            continue;
+          }
+          for (const statement of this.#createIndexesMysqlSQL(t)) {
+            try {
+              await this.#mysqlPool!.query(statement);
+            } catch (error) {
+              // MySQL n'a pas de `CREATE INDEX IF NOT EXISTS` : rejouer le DDL
+              // de développement sur une base existante lève `ER_DUP_KEYNAME`.
+              // C'est le SEUL cas toléré — toute autre erreur remonte, une
+              // table sans son index se paierait en requêtes lentes que rien
+              // n'expliquerait.
+              const code = (error as { code?: string }).code;
+              if (code !== "ER_DUP_KEYNAME") throw error;
+            }
+          }
+          break;
+        }
       }
     }
   }
@@ -762,9 +1020,6 @@ export class DrizzleOrm extends Orm {
         continue;
       }
       await pool.query(this.#createTablePgSQL(table));
-      for (const statement of this.#createIndexesPgSQL(table)) {
-        await pool.query(statement);
-      }
     }
   }
 
@@ -1014,18 +1269,6 @@ export class DrizzleOrm extends Orm {
         continue;
       }
       await pool.query(this.#createTableMysqlSQL(table));
-      for (const statement of this.#createIndexesMysqlSQL(table)) {
-        try {
-          await pool.query(statement);
-        } catch (error) {
-          // MySQL n'a pas de `CREATE INDEX IF NOT EXISTS` : rejouer le DDL de
-          // développement sur une base existante lève `ER_DUP_KEYNAME`. C'est le
-          // SEUL cas toléré — toute autre erreur remonte, une table sans son
-          // index se paierait en requêtes lentes que rien n'expliquerait.
-          const code = (error as { code?: string }).code;
-          if (code !== "ER_DUP_KEYNAME") throw error;
-        }
-      }
     }
   }
 

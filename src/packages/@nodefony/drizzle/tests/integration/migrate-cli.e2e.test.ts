@@ -329,7 +329,13 @@ suite("orm:migrate* — boot réel", () => {
         env,
       );
       assert.equal(assume.code, 0, assume.stderr.slice(-600));
-      assert.equal(parse(assume.stdout).verdict, "up-to-date");
+      // 🔴 Et le verdict n'est PAS « à jour » : la migration vient de retirer
+      // une colonne que le code déclare toujours, donc la base s'écarte
+      // vraiment de lui. C'est le cas d'école de la TROISIÈME source —
+      // l'historique est complet, rien n'est en attente, et pourtant. Le code
+      // de sortie reste 0 : en observation (défaut), superviser ne fait pas
+      // tomber un déploiement.
+      assert.equal(parse(assume.stdout).verdict, "divergent");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

@@ -1,4 +1,5 @@
 import type { IMigrationDriver } from "../types";
+import { schemaReader, type ISchemaReader } from "../catalog";
 
 /**
  * Préfixe de l'identité du verrou MySQL — **contrat inter-versions**.
@@ -130,26 +131,19 @@ export class MysqlMigrationDriver implements IMigrationDriver {
     return Array.isArray(rows) ? (rows as T[]) : [];
   }
 
+  /** Lecture du catalogue — implémentation PARTAGÉE avec l'ORM. */
+  readonly #catalog: ISchemaReader = schemaReader("mysql", (sql, params) =>
+    this.query(sql, params),
+  );
+
   /** @inheritdoc */
-  async tableExists(table: string): Promise<boolean> {
-    const rows = await this.query<{ n: number }>(
-      `SELECT COUNT(*) AS n FROM information_schema.tables ` +
-        `WHERE table_schema = DATABASE() AND table_name = ?`,
-      [table],
-    );
-    return Number(rows[0]?.n ?? 0) > 0;
+  tableExists(table: string): Promise<boolean> {
+    return this.#catalog.tableExists(table);
   }
 
   /** @inheritdoc */
-  async columnsOf(table: string): Promise<string[]> {
-    // `AS name` : MySQL rend `COLUMN_NAME` et MariaDB `column_name` selon la
-    // version — un alias explicite évite de dépendre de la casse rendue.
-    const rows = await this.query<{ name: string }>(
-      `SELECT column_name AS name FROM information_schema.columns ` +
-        `WHERE table_schema = DATABASE() AND table_name = ?`,
-      [table],
-    );
-    return rows.map((row) => String(row.name));
+  columnsOf(table: string): Promise<string[]> {
+    return this.#catalog.columnsOf(table);
   }
 
   /** @inheritdoc */

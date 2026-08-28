@@ -1,4 +1,5 @@
 import BetterSqlite3 from "better-sqlite3";
+import { schemaReader, type ISchemaReader } from "../catalog";
 import { HISTORY_TABLE, type IMigrationDriver } from "../types";
 
 /**
@@ -49,26 +50,19 @@ export class SqliteMigrationDriver implements IMigrationDriver {
     return Promise.resolve(statement.all(...(params as unknown[])) as T[]);
   }
 
+  /** Lecture du catalogue — implémentation PARTAGÉE avec l'ORM. */
+  readonly #catalog: ISchemaReader = schemaReader("sqlite", (sql, params) =>
+    this.query(sql, params),
+  );
+
   /** @inheritdoc */
-  async tableExists(table: string): Promise<boolean> {
-    const rows = await this.query<{ name: string }>(
-      `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`,
-      [table],
-    );
-    return rows.length > 0;
+  tableExists(table: string): Promise<boolean> {
+    return this.#catalog.tableExists(table);
   }
 
   /** @inheritdoc */
-  async columnsOf(table: string): Promise<string[]> {
-    if (!(await this.tableExists(table))) {
-      return [];
-    }
-    // `PRAGMA` n'accepte pas de paramètre lié ; le nom vient d'une constante du
-    // framework, jamais d'une entrée utilisateur.
-    const rows = await this.query<{ name: string }>(
-      `PRAGMA table_info("${table.replace(/"/g, '""')}")`,
-    );
-    return rows.map((row) => row.name);
+  columnsOf(table: string): Promise<string[]> {
+    return this.#catalog.columnsOf(table);
   }
 
   /** @inheritdoc */

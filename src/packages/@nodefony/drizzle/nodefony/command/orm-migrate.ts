@@ -16,6 +16,7 @@ import {
   summarizeDestructive,
 } from "../src/migrator/destructive";
 import { readMigrationEnv } from "../src/migrator/resolve";
+import { isDivergent } from "../src/migrator/divergence";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
@@ -188,6 +189,7 @@ class OrmMigrate extends OrmMigrateCommand {
       const plan = await migrator.status();
       const report = buildReport(plan, {
         ddl: resolution.ddl,
+        divergent: await isDivergent(plan),
         divergenceBlocks: config.migrations.divergence === "fail",
       });
 

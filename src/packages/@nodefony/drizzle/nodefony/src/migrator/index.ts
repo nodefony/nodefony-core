@@ -29,6 +29,16 @@ export {
   type IHistoryStep,
 } from "./history";
 export { migrationHash, normalizeSql } from "./hash";
+export { schemaReader, type ISchemaReader, type SqlQuery } from "./catalog";
+export { isDivergent } from "./divergence";
+export {
+  compareSchema,
+  additiveSql,
+  hasGap,
+  type ISchemaComparison,
+  type ISchemaGap,
+  type IExpectedTable,
+} from "./schemaDiff";
 export {
   frameworkMigrationsDir,
   defaultMigrationSources,

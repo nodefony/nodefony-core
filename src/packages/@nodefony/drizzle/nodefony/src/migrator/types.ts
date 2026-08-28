@@ -1,4 +1,5 @@
 import type { SqlDialect } from "../../config/config";
+import type { ISchemaReader } from "./catalog";
 
 /**
  * Contrats de l'applicateur de migrations — verdicts, entrées de journal,
@@ -195,7 +196,7 @@ export interface IMigrationRun {
  * du verrou jusqu'à sa libération, avec les mêmes pilotes chargés en lazy que
  * l'adapter — aucune dépendance nouvelle.
  */
-export interface IMigrationDriver {
+export interface IMigrationDriver extends ISchemaReader {
   /** Dialecte servi. */
   readonly dialect: SqlDialect;
   /**
@@ -212,10 +213,6 @@ export interface IMigrationDriver {
     sql: string,
     params?: readonly unknown[],
   ): Promise<T[]>;
-  /** La table existe-t-elle dans le schéma courant de la connexion ? */
-  tableExists(table: string): Promise<boolean>;
-  /** Colonnes de la table, telles que la base les déclare. */
-  columnsOf(table: string): Promise<string[]>;
   /** Ouvre une transaction (`BEGIN IMMEDIATE` en sqlite). */
   begin(): Promise<void>;
   commit(): Promise<void>;
