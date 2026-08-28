@@ -34,6 +34,7 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 08-28d] **`assert.rejects` n'appelle JAMAIS son validateur quand la fonction jette de façon synchrone** — et better-sqlite3 est synchrone. Le test rougissait en affichant l'erreur qu'il attendait pourtant (`CHECK constraint failed`), ce qui envoie chercher dans le produit un défaut qui est dans le banc. Le remède tient en un mot : `async () =>` au lieu de `() =>`. Second piège du même appel, dans la même heure : une déclaration `function` a un `prototype`, donc Node la prend pour une **classe d'erreur** et tente un `instanceof` qui échoue toujours — un validateur s'écrit en fonction fléchée. Deux fois, l'instrument accusait le produit.
 - [1× — 08-27] **Seize bancs WebSocket d'intégration, et aucun n'employait le client livré.** Tous
   ouvraient une socket `ws` nue et composaient les trames JSON-RPC à la main : ils prouvaient le
   SERVEUR, jamais que `RealtimeClient` et ses observateurs savent lui parler. Le user l'a dit d'une
@@ -63,6 +64,7 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-28d] **J'ai découpé un chantier en cinq lots et annoncé la grappe complète ; elle en couvrait cinq sur huit.** Un contrôle de couverture, section par section, a rendu deux livrables que personne ne portait (l'écran de suivi, décrit sur vingt lignes ; la recette de déploiement promise au générateur), puis une revue éditoriale en a trouvé un troisième — la commande de génération côté application, dont **deux tickets dépendaient déjà**. Le tableau récapitulatif d'un document de conception n'est pas le document : il résume les lots, il ne liste pas les livrables. Un découpage se confronte au corps, pas à son sommaire.
 - [1× — 08-28c] **J'ai corrigé l'ENCADRÉ sans corriger la phrase qu'il dément**, cinq lignes plus haut : le texte porteur affirmait encore le mécanisme que son propre encadré qualifiait de FAUX. Quand on ajoute un démenti, chercher ce qu'il dément — l'ajout ne supprime pas.
 - [1× — 08-28c] **Affirmé au user « impossible de couper `autoIndex` » sans avoir lu la fonction qui construit les options.** Elle fusionne le record du connecteur (`MongooseOrm.ts:72`, `:236`) : c'est possible, juste non typé. « Aucune configuration ne l'expose » se prouve en lisant le CHEMIN des options, pas en cherchant le nom de la clé.
 - [1× — 08-28c] **Une prémisse écartée en une demi-phrase gouvernait une décision d'architecture** : « pas d'abstraction à un implémenteur (mongoose = schemaless) » — or mongoose crée des index au démarrage, donc a bien une étape de déploiement. La conclusion restait juste, pour une **autre** raison. Une justification jamais vérifiée finit par être recopiée comme un fait.
@@ -1278,6 +1280,7 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 08-28d] **J'ai écrit une preuve au terrain qui pointait un chemin inexistant, et dont l'affirmation était l'inverse du réel.** Le ticket disait « `rg -c 'migrate' .claude/skills/nodefony-add-crud/SKILL.md` — le skill ne mentionne aucune migration » : le dossier n'existe pas (le skill vit dans le devkit), et il en parle **trois fois**, correctement — c'est précisément ce qui deviendra faux après le chantier. Une preuve inventée de bonne foi est indiscernable d'une preuve vérifiée : celui qui la contrôle ne trouve rien et doute de tout le corps. Une commande écrite dans un ticket se LANCE avant d'être écrite.
 - [1× — 08-28c] **Un COMPTE aussi se périme, pas seulement une ligne.** Une conception de sept semaines annonçait « 8 entités framework » (réel : **10**) et `DrizzleOrm.ts:163` (réel : `:249`). Le compte est plus dangereux que l'ancre : personne ne le vérifie, il se recopie dans les diagrammes et les scripts, et ici il dimensionnait le fichier de migration **gravé à vie**.
 
 - **Une preuve d'ABSENCE collée à une ancre salit l'ancre** [1× — 08-27] : « `fichier:ligne` — aucun `X` nulle part » fait chercher `X` autour de la ligne pointée, qui ne l'a évidemment pas. L'ancre était juste ; corriger son numéro l'aurait cassée. L'absence se met sur sa PROPRE ligne, écrite comme une commande qui la rend observable.
@@ -1411,6 +1414,7 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 
 ## 👯 Un JUMEAU non vérifié n'est pas vérifié — « aligné » n'est pas « prouvé »
 
+- [1× — 08-28d] **Mes tickets contredisaient la conception sur DEUX contrats publics, et je les croyais dérivés d'elle.** J'exigeais quatre codes de sortie distincts là où elle en fige trois ; j'écrivais `orm:status` là où elle écrit `orm:migrate:status` — un nom de commande gelé à la publication, cité par ses propres messages d'erreur testés comme contrats. Écrire « d'après le document » n'est pas l'avoir relu : ce qu'on dérive de mémoire diverge silencieusement de sa source, et un contrat gravé faux ne se répare plus qu'en rupture majeure. La confrontation ligne à ligne coûte deux minutes, et c'est le seul geste qui l'attrape.
 - [1× — 08-23e] Deux scripts de banc portent en en-tête « à garder alignés ». J'ai appliqué le même
   correctif aux deux, puis validé la sortie JSON **d'un seul**. L'autre ajoutait cinq `%s` au format
   sans les arguments correspondants et produisait du JSON invalide (`"warmupSec":,"durSec":,`) —

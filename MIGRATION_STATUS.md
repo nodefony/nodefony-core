@@ -220,8 +220,9 @@ Console Logs Studio = panneau P10 de facto livré.
 <!-- prettier-ignore -->
 | Dette | Grav. | Où elle vit maintenant |
 | --- | --- | --- |
-| Union TypeScript sans contrainte `CHECK` en SQL | 🔴 | [#17](https://github.com/nodefony/nodefony-core/issues/17) — avec les migrations : après, le schéma serait figé faux |
-| Compteur anti-clonage WebAuthn en entier 32 bits | 🟡 | [#17](https://github.com/nodefony/nodefony-core/issues/17) — même raison |
+| ~~Union TypeScript sans contrainte `CHECK` en SQL~~ | ✅ | **SOLDÉ** `81a9813c` — kind `enum` au colKit, `CHECK` émis dans le `CREATE TABLE` et vu mordre sur les 3 dialectes ([#94](https://github.com/nodefony/nodefony-core/issues/94)) |
+| ~~Compteur anti-clonage WebAuthn en entier 32 bits~~ | ✅ | **SOLDÉ** `81a9813c` — `signCount` **et** `lastUsedStep` (TOTP, débordait en 2038) en 64 bits ([#94](https://github.com/nodefony/nodefony-core/issues/94)) |
+| Échec de création d'index mongoose jamais écouté | ✅ | **SOLDÉ** `47b308f1` — `verifyIndexes()` constate l'écart et crie en `CRITIC` ([#93](https://github.com/nodefony/nodefony-core/issues/93)) |
 | L'entité `User` appartient au framework, pas à l'app | 🔴 | [#18](https://github.com/nodefony/nodefony-core/issues/18) |
 | Surcharge attrape-tout de la socket cliente | 🟡 | [#26](https://github.com/nodefony/nodefony-core/issues/26) |
 | Renvois au code en dérive dans le corpus doc | 🟠 | [#49](https://github.com/nodefony/nodefony-core/issues/49) |
@@ -321,7 +322,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (reste P5.0b batch/cron)
  P6  Security              █████████░  87%  29✅  3🔶  3⬜   cœur MVP + resource-server P6.9.x LIVRÉS ; reste P6.9d (serveur d'autorisation, APRÈS release), mTLS, rpId, authz B, logs auth
- P7  ORM drivers           ██████▍░░░  64%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; reste S5 DDL prod (gelé → après P8+P11) + P7.11 NoSQL
+ P7  ORM drivers           ██████▍░░░  64%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; reste S5 DDL prod (9 sous-tickets sous #17) + P7.11 NoSQL
  P8  CLI + Monitoring      █████████░  90%   4✅  1🔶  0⬜   (doctor ✅ ; chaîne de publication ✅ P8.5 — R6 = DETTE ASSUMÉE, jouée AU MOMENT de publier)
  P9  Polish + clôture      ████████░░  75%   3✅  0🔶  1⬜   (P9.4 : 0 vulnérabilité, re-prouvé 08-20)
  P10 Studio (admin web)    ████████░░  84%  12✅  3🔶  1⬜   (P10.6 🔶 : ROLE_NODEFONY_ADMIN actif sur /studio/api/create/* seul)
