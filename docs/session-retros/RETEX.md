@@ -197,6 +197,14 @@
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
+- [1× — 08-28l] **Un test qui affirme un ABSOLU sur un registre PARTAGÉ n'est vrai que dans le mode
+  où il a été écrit.** « il n'y a qu'un contributeur » passait en développement et tombait en
+  production, où le module de base inscrit sa propre voix dès que le contrôle de schéma vaut `fail`
+  — le défaut hors développement. Le test ne mesurait pas SA contribution, il mesurait l'état du
+  monde. Remède qui vaut au-delà : faire poser au test lui-même un tiers ÉTRANGER, pour qu'il rejoue
+  la condition de production au lieu de la subir — il devient discriminant, et le rouge se voit en
+  développement.
+
 - **Le défaut était documenté au lieu d'être corrigé.** `ai:mcp` écrivait la porte MCP dans le
   foyer pour Vibe et Codex, et l'ANNONÇAIT : « deux applications Nodefony se disputent le même nom,
   la seconde efface la première sans un mot ». Or l'URL d'une porte porte un PORT : une déclaration
@@ -354,6 +362,15 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 08-28l] **Le commentaire EXIGEAIT l'accord, et le code rendait autre chose.** `/readyz`
+  répondait sur `postReady`, le champ `ready` du plan d'administration sur `booted` — pour la même
+  question. Le commentaire au-dessus disait mot pour mot « deux vérités sur la disponibilité, c'en
+  est une de trop » : la règle était ÉCRITE, elle n'était simplement pas partagée. L'écart ne
+  s'ouvrait qu'en production, où la fin du démarrage arrive assez tard pour laisser plusieurs
+  secondes de désaccord — six commits rouges sur trois systèmes, et le cas qui comparait les deux
+  sondes accusait le produit pour la bonne raison. **Une intention écrite en commentaire ne fait pas
+  une implémentation unique** : chercher qui porte DÉJÀ la règle, et l'appeler.
+
 - [1× — 08-28h] **Un défaut qui vit dans la DIVERGENCE de deux lecteurs, et qui rendait le code du
   succès.** `filename` est optionnel dans le schéma de configuration parce que son défaut dépend du
   kernel — le service le résout au démarrage. Ma commande, elle, lisait la configuration telle
@@ -461,6 +478,14 @@
   même défaut, non encore poussé. [1× — 08-22f]
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
+
+- [1× — 08-28l] **Un banc rouge qui ne POUVAIT pas devenir vert.** Le harnais e2e généré appliquait
+  les migrations avant le trafic — c'est le patron de production, il a raison. Mais il applique ce
+  qui EXISTE, et personne n'écrivait jamais celles de l'application : les tables du framework
+  arrivaient, les tables applicatives non, 31 cas rendaient 500. Le rouge était juste, et sa cause
+  n'était pas dans le code jugé mais dans une commande ABSENTE. Corollaire : **livrer une capacité
+  oblige à revisiter les bancs qui l'attendaient sans le dire** — sinon ils restent rouges, et un
+  rouge permanent finit par se lire comme du décor.
 
 - [1× — 08-28h] **Le dépôt générait ses migrations par un script npm privé, et c'est ce qui a caché
   le trou.** `npm run generate:migrations` : le framework savait générer, personne n'avait remarqué
@@ -921,6 +946,13 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [2× — 08-28l] **Un COMPTE annoncé sans vérifier ce qui a été écrit.** La commande disait
+  « migration écrite depuis 6 tables » et en écrivait quatre : deux étaient d'un autre moteur, et
+  l'outil les ignore sans un mot. Le message répercutait donc le silence de l'outil, une couche plus
+  haut, dans une phrase que l'utilisateur croit. **Le même run, deux fois** : le décor du banc est
+  isolé (paquets installés depuis des tarballs), donc mon correctif n'y était pas — j'ai mesuré
+  l'ancienne version en croyant mesurer la nouvelle, jusqu'à vérifier l'empreinte du fichier chargé.
+
 - [1× — 08-28k] **Mon débranchement n'a JAMAIS eu lieu, et j'ai lu le vert comme une preuve.**
   Pour voir un gate neuf échouer, j'ai enchaîné `ls <copie de sauvegarde> && python3 <<'EOF' …`.
   Le `ls` a échoué — le fichier n'existait pas —, donc **le `&&` a coupé avant le script**, qui
@@ -1231,6 +1263,12 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 08-28l] **Commité sans le typecheck, alors que la suite était verte.** Le runner de tests ne
+  vérifie pas les types : quatre littéraux de test construisaient un objet sans un champ devenu
+  requis, 18 cas au vert, `tsgo` rouge. C'est écrit dans les gates du dépôt — « typecheck = gate
+  DISTINCT du build » — et sauté quand même, parce que le vert des tests ressemble à une preuve.
+  Le contrôle d'avant-poussée l'aurait arrêté : il n'a servi qu'à retarder le constat d'un commit.
 
 - [1× — 08-28k] **La forge était rouge depuis SIX commits, et cinq sessions ont clôturé dessus
   sans la regarder — moi compris.** Dernier vert à 09:09, rouge à 10:11, et chaque session

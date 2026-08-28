@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T17:12:47.834Z",
+  "generated": "2026-08-28T17:32:07.436Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3457,
+    "symbols": 3458,
     "classes": 380,
     "interfaces": 963,
     "types": 414,
     "enums": 4,
-    "functions": 1348,
+    "functions": 1349,
     "constants": 348
   },
   "symbols": {
@@ -19397,6 +19397,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Lance `drizzle-kit generate` et EXIGE la preuve qu'il a tourné."
+    },
+    "generationHappened": {
+      "name": "generationHappened",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "La génération a-t-elle EU LIEU ? — lue sur une sortie DÉCOLORÉE. L'outil ne rend pas de code d'échec (il sort 0 même quand il rate) : la seule preuve disponible est un marqueur dans son texte. Enco…"
     },
     "auditMigrationSql": {
       "name": "auditMigrationSql",

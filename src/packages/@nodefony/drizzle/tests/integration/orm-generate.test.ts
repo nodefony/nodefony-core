@@ -13,6 +13,7 @@ import {
   writeSchemaModule,
 } from "../../nodefony/src/migrator/appSchema";
 import {
+  generationHappened,
   runGenerate,
   stampFormatMarker,
 } from "../../nodefony/src/migrator/kit";
@@ -367,6 +368,35 @@ export const postTable = sqliteTable("post", { id: id() });
         // base qui les a déjà reçues.
         /illisible/,
       );
+    });
+  });
+
+  describe("la PREUVE que l'outil a travaillé — il rend 0 même en échec", () => {
+    // La sortie EXACTE d'une forge, qui pose FORCE_COLOR : la coche est
+    // entourée de séquences de style, et « [✓] » n'est plus une sous-chaîne.
+    const AVEC_COULEUR =
+      "\u001B[1m1 tables\u001B[22m\n" +
+      "[\u001B[32m✓\u001B[31m] Your SQL migration file \u2794 " +
+      "\u001B[1m\u001B[34mmigrations/sqlite/0000_premier.sql\u001B[39m\n";
+
+    it("reconnaît la coche même COLORÉE", () => {
+      assert.equal(generationHappened(AVEC_COULEUR), true);
+    });
+
+    it("reconnaît la coche nue, et « rien à faire »", () => {
+      assert.equal(
+        generationHappened("[✓] Your SQL migration file \u2794 x.sql"),
+        true,
+      );
+      assert.equal(
+        generationHappened("No schema changes, nothing to do"),
+        true,
+      );
+    });
+
+    it("REFUSE une sortie qui ne prouve rien — le silence n'est pas un succès", () => {
+      assert.equal(generationHappened(""), false);
+      assert.equal(generationHappened("Reading config file 'x.ts'\n"), false);
     });
   });
 

@@ -118,10 +118,7 @@ export function runGenerate({
     { cwd, encoding: "utf8" },
   );
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-  // Les deux seules fins normales de l'outil. Tout le reste — y compris un code
-  // 0 muet — signifie que la génération n'a pas eu lieu.
-  const ran = output.includes("No schema changes") || output.includes("[✓]");
-  if (result.status !== 0 || !ran) {
+  if (result.status !== 0 || !generationHappened(output)) {
     if (isInteractivePromptFailure(output)) {
       const rejouer =
         regenerateCommand ?? `nodefony orm:generate --name ${name}`;
@@ -146,6 +143,33 @@ export function runGenerate({
     );
   }
   return output;
+}
+
+/**
+ * La génération a-t-elle EU LIEU ? — lue sur une sortie DÉCOLORÉE.
+ *
+ * L'outil ne rend pas de code d'échec (il sort 0 même quand il rate) : la seule
+ * preuve disponible est un marqueur dans son texte. Encore faut-il le chercher
+ * dans le texte, et non dans sa mise en forme.
+ *
+ * 🔴 **Le piège, payé en intégration continue** : la forge pose `FORCE_COLOR`,
+ * l'outil colore alors sa coche — `[`, une séquence d'échappement, `✓`, une
+ * autre séquence, `]` — et `"[✓]"` n'est plus une sous-chaîne. La génération
+ * réussissait, le fichier était écrit, et l'appelant annonçait qu'elle n'avait
+ * pas eu lieu. Vert sur un poste sans terminal, rouge à la forge : la sonde
+ * mesurait la présentation.
+ *
+ * Fonction PURE, pour qu'elle s'éprouve sans lancer un process — une règle qui
+ * exige un sous-processus pour être vue rouge n'est jamais vue rouge.
+ *
+ * @param output - sortie complète de l'outil, telle qu'elle a été capturée.
+ * @returns `true` si l'outil dit avoir écrit, ou n'avoir rien eu à écrire.
+ */
+export function generationHappened(output: string): boolean {
+  // Les séquences de style SGR, et elles seules : on ne cherche pas à nettoyer
+  // un terminal, seulement à lire un marqueur sans sa couleur.
+  const plain = output.replace(/\u001B\[[0-9;]*m/g, "");
+  return plain.includes("No schema changes") || plain.includes("[✓]");
 }
 
 /**

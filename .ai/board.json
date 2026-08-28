@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T16:05:47.967Z",
+  "generatedAt": "2026-08-28T17:25:01.946Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 22,
+      "closed": 23,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 45,
       "title": "10.0.0"
@@ -194,8 +194,8 @@
       "number": 102,
       "title": "feat(orm): générer les migrations de l'application en une commande",
       "url": "https://github.com/nodefony/nodefony-core/issues/102",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -279,7 +279,7 @@
       "title": "test(orm): éprouver les migrations dans une application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/106",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -715,6 +715,20 @@
       "labels": [
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 107,
+      "title": "fix(orm): ne pas cracher une pile d'appels sur une base sans tables",
+      "url": "https://github.com/nodefony/nodefony-core/issues/107",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 12.7,
+      "labels": [
+        "10.0.0"
       ]
     },
     {

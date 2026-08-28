@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-28 16:05** (UTC).
+> Empreinte prise le **2026-08-28 17:25** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 17 | 1 | — |
-| 10.0.0 | 45 | 22 | 2026-11-15 |
+| 10.0.0 | 45 | 23 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -32,7 +32,6 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2 | P0 — bloque le reste | 7.5 | #17 | feat(orm): livrer les migrations de schéma en production |
-| 2.35 | P0 — bloque le reste | 1 | #102 | feat(orm): générer les migrations de l'application en une commande |
 | 2.5 | P0 — bloque le reste | 1.5 | #98 | feat(orm): ajouter les commandes orm:migrate et leur réglage |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 2.6 | P1 — figé à la création | 0.5 | #105 | feat(orm): nommer ce qui diverge dans le verdict des migrations |
@@ -65,6 +64,7 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | 12 | P3 — fin de cycle | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 12.5 | P3 — fin de cycle | 0.5 | #47 | docs(release): préparer la page d'accueil du jour de la publication |
 | 12.6 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
+| 12.7 | P1 — figé à la création | 0.5 | #107 | fix(orm): ne pas cracher une pile d'appels sur une base sans tables |
 | 13 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 | 14 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
 | 15 | P3 — fin de cycle | 0.5 | #24 | docs(security): expliquer comment obtenir un jeton |
