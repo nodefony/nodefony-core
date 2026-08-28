@@ -14,6 +14,12 @@ import {
   resolveDdlMode,
 } from "../src/migrator/resolve";
 import { buildReport, meaningOf } from "../src/migrator/explain";
+import {
+  dataLoss,
+  renderDestructive,
+  scanDestructive,
+  summarizeDestructive,
+} from "../src/migrator/destructive";
 import type { DdlMode } from "../config/config";
 import type {
   IDrizzleConfig,
@@ -268,6 +274,31 @@ class DrizzleService extends Service {
 
     if (ddl === "migrate") {
       try {
+        // 🔴 GARDE DESTRUCTIF — plus strict ici que sur la ligne de commande, et
+        // sans drapeau pour le lever.
+        //
+        // Un exemplaire qui redémarre ne doit JAMAIS supprimer une colonne tout
+        // seul : personne ne regarde à ce moment-là, et un redémarrage peut
+        // survenir pour n'importe quelle raison (mise à l'échelle, éviction,
+        // panne d'un nœud). Assumer une suppression est une décision humaine,
+        // elle se prend en tapant la commande — jamais en relançant un
+        // processus.
+        const prevu = await migrator.status();
+        const pertes = dataLoss(scanDestructive(prevu.pending));
+        if (pertes.length > 0) {
+          this.log(
+            `${summarizeDestructive(pertes, name)}\n` +
+              `  Le démarrage N'APPLIQUE PAS ces migrations : un exemplaire qui ` +
+              `redémarre ne supprime jamais de données de lui-même.\n` +
+              renderDestructive(pertes, true) +
+              `  À faire, une fois la décision prise : ` +
+              `nodefony orm:migrate --connector ${name} --allow-destructive`,
+            "CRITIC",
+          );
+          await this.#publishReadiness(name, migrator, ddl, check);
+          this.#watch(name, migrator, ddl, check);
+          return;
+        }
         const run = await migrator.migrate();
         if (run.applied.length > 0) {
           this.log(

@@ -1,5 +1,6 @@
 import type { CliKernel, OptionsCommandInterface } from "nodefony";
 import type { IMigrationFile } from "../src/migrator/types";
+import type { IDestructiveFinding } from "../src/migrator/destructive";
 import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
@@ -7,6 +8,14 @@ import {
   buildReport,
   renderStatus,
 } from "../src/migrator/explain";
+import {
+  dataLoss,
+  destructiveActions,
+  renderDestructive,
+  scanDestructive,
+  summarizeDestructive,
+} from "../src/migrator/destructive";
+import { readMigrationEnv } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
@@ -26,6 +35,7 @@ interface IMigrateOptions extends IMigrateSharedOptions {
   dryRun?: boolean;
   outOfOrder?: boolean;
   ignoreMissing?: boolean;
+  allowDestructive?: boolean;
 }
 
 /**
@@ -47,6 +57,8 @@ interface IDryRunReport {
   driver: unknown;
   /** Le SQL qui serait exécuté, migration par migration, dans l'ordre. */
   statements: { source: string; tag: string; sql: string[] }[];
+  /** Ce qui détruit ou casse, s'il y en a — vide sinon. */
+  destructive: IDestructiveFinding[];
 }
 
 /**
@@ -112,6 +124,10 @@ class OrmMigrate extends OrmMigrateCommand {
       "--ignore-missing",
       "accepte qu'une migration enregistrée n'ait plus de fichier (à ne taper que si le message le demande)",
     );
+    this.addOption(
+      "--allow-destructive",
+      "assume une migration qui SUPPRIME des données (colonne, table, lignes) — hors développement, elle est refusée sans ce drapeau",
+    );
   }
 
   override async generate(opts: IMigrateOptions = {}): Promise<this> {
@@ -123,6 +139,44 @@ class OrmMigrate extends OrmMigrateCommand {
     const style = this.style;
     try {
       const migrator = await this.migrator(resolution, config);
+
+      // ── GARDE DESTRUCTIF, avant toute écriture ────────────────────────────
+      // On regarde le SQL qui VA être exécuté. Une fois appliquée, une
+      // suppression ne se rattrape que par une restauration de la base —
+      // c'est-à-dire une interruption de service et une décision, jamais un
+      // retour arrière. L'outil ne sauvegarde pas (aucun ne le fait, et le
+      // faire donnerait une assurance qui n'existe pas) : il empêche
+      // d'appliquer sans savoir.
+      const avant = await migrator.status();
+      const trouvailles = scanDestructive(avant.pending);
+      const pertes = dataLoss(trouvailles);
+      const enDev =
+        readMigrationEnv(this.kernel as never).runtime === "development";
+      if (
+        pertes.length > 0 &&
+        opts.dryRun !== true &&
+        opts.allowDestructive !== true &&
+        !enDev
+      ) {
+        this.fail(
+          resolution.connector,
+          "NF_MIGRATE_DESTRUCTIVE",
+          summarizeDestructive(trouvailles, resolution.connector),
+          renderDestructive(trouvailles, true),
+          destructiveActions(resolution.connector).map((c) => action(c)),
+          opts.json,
+          EXIT.actionRequired,
+        );
+        return this;
+      }
+      if (trouvailles.length > 0 && opts.json !== true) {
+        // En développement, ou avec le drapeau, on applique — mais on ne le
+        // fait jamais en silence : ce qui disparaît est écrit à l'écran.
+        process.stderr.write(
+          style.yellow(renderDestructive(trouvailles, false)) + "\n",
+        );
+      }
+
       // La validation d'un essai est la MÊME que celle d'une application réelle
       // — c'est tout l'intérêt : un essai qui passerait là où le vrai refuse ne
       // servirait qu'à donner confiance à tort.
@@ -154,8 +208,12 @@ class OrmMigrate extends OrmMigrateCommand {
             tag: f.tag,
             sql: [...f.statements],
           })),
+          destructive: trouvailles,
         };
         let human = `${style.bold("Essai — RIEN n'a été appliqué.")}\n\n`;
+        if (trouvailles.length > 0) {
+          human += `${style.yellow(renderDestructive(trouvailles, false))}\n`;
+        }
         if (pending.length === 0) {
           human += `${style.green("Aucune migration en attente : il n'y a rien à appliquer.")}\n`;
         } else {

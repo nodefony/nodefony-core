@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T13:17:27.515Z",
+  "generated": "2026-08-28T13:35:22.660Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 771,
-    "symbols": 3399,
+    "files": 773,
+    "symbols": 3415,
     "classes": 379,
-    "interfaces": 944,
-    "types": 412,
+    "interfaces": 948,
+    "types": 413,
     "enums": 4,
-    "functions": 1313,
+    "functions": 1324,
     "constants": 347
   },
   "symbols": {
@@ -18855,6 +18855,63 @@
       "decorators": [],
       "description": "Slug rejeté car potentiellement dangereux (traversée de répertoire, segment `..`, caractère hors charset). Sécurité : on ne touche JAMAIS au FS avec un tel slug."
     },
+    "IDestructiveFinding": {
+      "name": "IDestructiveFinding",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une instruction qui mérite d'être vue avant d'être exécutée."
+    },
+    "DestructiveSeverity": {
+      "name": "DestructiveSeverity",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce qu'une migration s'apprête à DÉTRUIRE — constaté avant d'appliquer. ## Pourquoi ce garde existe, alors qu'aucun outil de migration n'en a La question posée était : « faut-il sauvegarder la base …"
+    },
+    "scanDestructive": {
+      "name": "scanDestructive",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Cherche, dans les migrations en attente, ce qui détruit ou casse."
+    },
+    "dataLoss": {
+      "name": "dataLoss",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Les trouvailles qui font vraiment disparaître des données."
+    },
+    "renderDestructive": {
+      "name": "renderDestructive",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Rend le bilan lisible par un humain — le fait, puis ce qu'il faut faire."
+    },
+    "destructiveActions": {
+      "name": "destructiveActions",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Les gestes proposés face à un refus destructif."
+    },
+    "summarizeDestructive": {
+      "name": "summarizeDestructive",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Résumé d'une ligne, pour un message ou un journal."
+    },
     "DrizzleMigrator": {
       "name": "DrizzleMigrator",
       "kind": "class",
@@ -19233,6 +19290,57 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Résolution du décor d'une commande de migration : QUI possède le connecteur, OÙ se trouve sa base, QUEL mode de schéma s'applique. **Pourquoi un fichier à part, et pourquoi il ne fait aucune entrée…"
+    },
+    "ISchemaGap": {
+      "name": "ISchemaGap",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "L'écart entre le schéma DÉCLARÉ dans le code et le schéma RÉELLEMENT en base. ## Pourquoi ce calcul existe, et ce qu'il permet que personne d'autre ne fait Les outils de migration connaissent **deu…"
+    },
+    "ISchemaComparison": {
+      "name": "ISchemaComparison",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce que la comparaison a trouvé."
+    },
+    "IExpectedTable": {
+      "name": "IExpectedTable",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Le schéma attendu d'une table, tel que le code le déclare."
+    },
+    "hasGap": {
+      "name": "hasGap",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "La base s'écarte-t-elle du code ?"
+    },
+    "compareSchema": {
+      "name": "compareSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compare le schéma déclaré au schéma réel, table par table. Une requête par table, et **au démarrage uniquement** : rien de ceci n'existe dans le chemin d'une requête."
+    },
+    "additiveSql": {
+      "name": "additiveSql",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le `ALTER TABLE` qui pose une colonne manquante. Aucune valeur par défaut n'est émise, et aucune contrainte : la colonne est ajoutée telle que le code la déclare, nullable. Ajouter un défaut ici re…"
     },
     "ILoadedSources": {
       "name": "ILoadedSources",
@@ -27621,6 +27729,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
@@ -29156,6 +29265,7 @@
       ],
       "readMigrationEnv": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
@@ -29197,9 +29307,32 @@
       ],
       "IMigrationFile": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "IDestructiveFinding": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+      ],
+      "dataLoss": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "destructiveActions": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+      ],
+      "renderDestructive": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "scanDestructive": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "summarizeDestructive": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "openMigrationDriver": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
@@ -29209,6 +29342,7 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
@@ -30537,6 +30671,7 @@
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],

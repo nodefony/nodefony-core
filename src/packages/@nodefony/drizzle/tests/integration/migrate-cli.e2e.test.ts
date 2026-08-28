@@ -255,6 +255,86 @@ suite("orm:migrate* — boot réel", () => {
     }
   }, 240_000);
 
+  it("🔴 une migration qui SUPPRIME des données est refusée — et dit pourquoi", async () => {
+    // Le garde qu'aucun applicateur de l'écosystème Node ne propose. Il ne
+    // sauvegarde pas la base — aucun outil ne le fait, et le faire donnerait
+    // une assurance qui n'existe pas — il empêche d'appliquer SANS SAVOIR.
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-destr-"));
+    const migrations = path.join(dir, "migrations");
+    const base = path.join(dir, "d.db");
+    await fs.mkdir(path.join(migrations, "sqlite", "meta"), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(migrations, "sqlite", "meta", "_journal.json"),
+      JSON.stringify({
+        version: "7",
+        dialect: "sqlite",
+        entries: [
+          {
+            idx: 0,
+            version: "6",
+            when: 1_700_000_000_000,
+            tag: "0000_nettoyage",
+            breakpoints: true,
+          },
+        ],
+      }),
+    );
+    await fs.writeFile(
+      path.join(migrations, "sqlite", "0000_nettoyage.sql"),
+      "-- nodefony:migration format=1\nALTER TABLE `User` DROP COLUMN `metadata`;\n",
+    );
+    const env = {
+      ...DECOR_MIGRATIONS,
+      NF_DATABASE_URL: `sqlite:${base}`,
+      NF__DRIZZLE__MIGRATIONS__DIR: migrations,
+    };
+    try {
+      const refus = await cli(["orm:migrate", "--json"], env);
+      assert.equal(
+        refus.code,
+        1,
+        "un refus destructif demande une décision humaine",
+      );
+      const error = (parse(refus.stdout).error ?? {}) as Record<
+        string,
+        unknown
+      >;
+      assert.equal(error.code, "NF_MIGRATE_DESTRUCTIVE");
+      assert.match(String(error.summary), /SUPPRIMENT des données/);
+      // Le geste exact est donné, jamais une allusion à une option à deviner.
+      const actions = error.nextActions as { command: string }[];
+      assert.ok(
+        actions.some((a) => a.command.includes("--allow-destructive")),
+        "le refus ne donne pas la commande qui l'assume",
+      );
+      assert.ok(
+        actions.some((a) => a.command.includes("--dry-run")),
+        "le refus ne propose pas de VOIR le SQL d'abord",
+      );
+      // 🔴 Et la base n'a rien reçu : ni la migration destructive, ni celles
+      // qui la précèdent. Un refus qui aurait appliqué la moitié du lot serait
+      // pire que pas de garde du tout.
+      const apres = await cli(["orm:migrate:status", "--json"], env);
+      const sources = parse(apres.stdout).sources as { applied: number }[];
+      assert.ok(
+        sources.every((s) => s.applied === 0),
+        "des migrations ont été appliquées malgré le refus",
+      );
+
+      // Assumée explicitement, elle passe — le garde informe, il n'interdit pas.
+      const assume = await cli(
+        ["orm:migrate", "--allow-destructive", "--json"],
+        env,
+      );
+      assert.equal(assume.code, 0, assume.stderr.slice(-600));
+      assert.equal(parse(assume.stdout).verdict, "up-to-date");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 240_000);
+
   it("🔴 le journal du démarrage ne fuit JAMAIS dans le flux `--json`", async () => {
     // Le cas qui casse un `| jq` : une seule ligne de journal sur la sortie
     // standard suffit. Elle doit partir sur la sortie d'erreur, où elle reste

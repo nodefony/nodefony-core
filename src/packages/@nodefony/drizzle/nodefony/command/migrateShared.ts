@@ -65,7 +65,9 @@ export type CommandFailureCode =
   /** La commande n'a pas pu joindre la base, ou a échoué à l'exécution. */
   | "NF_MIGRATE_UNAVAILABLE"
   /** Confirmation requise et non donnée. */
-  | "NF_MIGRATE_CONFIRM_REQUIRED";
+  | "NF_MIGRATE_CONFIRM_REQUIRED"
+  /** Des migrations en attente SUPPRIMENT des données, hors développement. */
+  | "NF_MIGRATE_DESTRUCTIVE";
 
 /** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
 export interface ICommandFailure {

@@ -1285,6 +1285,44 @@ export class DrizzleOrm extends Orm {
   }
 
   /**
+   * Décrit le schéma ENTIER attendu par le code : une entrée par table.
+   *
+   * Même calcul que {@link DrizzleOrm.describeEntity}, à l'échelle du
+   * connecteur — et c'est le point : le rattrapage de colonnes au démarrage, le
+   * constat de divergence et l'écran d'administration comparent tous « ce que
+   * le code déclare » à « ce que la base contient ». Trois lecteurs, un seul
+   * producteur ; recopier ce parcours ailleurs le ferait diverger du jour où
+   * un dialecte s'ajoute.
+   *
+   * @returns une entrée par table, avec son NOM EN BASE (≠ nom d'entité).
+   */
+  describeTables(): {
+    entity: string;
+    table: string;
+    columns: IColumnInfo[];
+  }[] {
+    const out: { entity: string; table: string; columns: IColumnInfo[] }[] = [];
+    for (const entity of this.#ownEntities()) {
+      const table = this.#tables?.[entity.name];
+      if (!table) {
+        continue;
+      }
+      const nom =
+        this.#dialect === "postgres"
+          ? getPgTableConfig(table as PgTable).name
+          : this.#dialect === "mysql"
+            ? getMysqlTableConfig(table as MySqlTable).name
+            : getTableConfig(table as SQLiteTable).name;
+      out.push({
+        entity: entity.name,
+        table: nom,
+        columns: this.describeEntity(entity.name),
+      });
+    }
+    return out;
+  }
+
+  /**
    * Décrit la connexion : driver `sqlite` (better-sqlite3) + cible (chemin du
    * fichier, `:memory:` pour les tests). Aucun credential (SQLite = fichier local).
    * Le chemin est **relativisé** à la racine du process : on ne fuite jamais
