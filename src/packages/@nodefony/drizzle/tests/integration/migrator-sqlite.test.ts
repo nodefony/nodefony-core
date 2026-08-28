@@ -481,4 +481,60 @@ describe("Applicateur de migrations (sqlite)", () => {
     }
     assert.deepEqual((await real.status()).pending, []);
   });
+
+  /**
+   * #109 — un module data-only ne doit pas recevoir les tables du framework.
+   *
+   * `frameworkEntities: false` dit « aucune entité ni fabrique framework », et
+   * le démarrage en mode dérivé l'honore : les entités ne sont pas enregistrées,
+   * donc rien n'est créé. Les migrations, elles, l'ignoraient — la même
+   * application fabriquait DEUX bases différentes selon qu'elle démarrait en
+   * développement ou qu'on la migrait en production, sans que rien le signale
+   * (le verdict de divergence ignore par construction ce que la base a en TROP).
+   */
+  it("un module data-only ne reçoit AUCUNE table du framework", async () => {
+    const sources = await defaultMigrationSources(undefined, {
+      framework: false,
+    });
+    assert.deepEqual(sources, [], "aucune source à appliquer");
+
+    const dataOnly = new DrizzleMigrator({
+      connector: "data-only",
+      dialect: "sqlite",
+      filename: dbFile,
+      sources,
+    });
+    const run = await dataOnly.migrate();
+    assert.deepEqual(run.applied, [], "rien n'est appliqué");
+
+    const driver = open();
+    try {
+      const rows = await driver.query<{ name: string }>(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name <> ? ` +
+          `AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+        [HISTORY_TABLE],
+      );
+      assert.deepEqual(
+        rows.map((r) => r.name),
+        [],
+        "aucune table du framework ne doit exister",
+      );
+    } finally {
+      await driver.close();
+    }
+  });
+
+  it("le défaut reste INCHANGÉ — ne rien dire, c'est vouloir le framework", async () => {
+    // La garde ne doit pas devenir un piège pour qui n'a rien demandé : sans
+    // l'option, et avec `framework: true`, le registre est celui d'avant.
+    const implicite = await defaultMigrationSources();
+    const explicite = await defaultMigrationSources(undefined, {
+      framework: true,
+    });
+    assert.deepEqual(implicite, explicite);
+    assert.deepEqual(
+      implicite.map((s) => s.name),
+      ["framework"],
+    );
+  });
 });

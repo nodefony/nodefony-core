@@ -265,6 +265,7 @@ class DrizzleService extends Service {
     };
     const sources = await defaultMigrationSources(
       appMigrationsDir(kernel, config.migrations?.dir ?? "migrations"),
+      { framework: config.frameworkEntities !== false },
     );
     const migrator = new DrizzleMigrator({
       connector: name,

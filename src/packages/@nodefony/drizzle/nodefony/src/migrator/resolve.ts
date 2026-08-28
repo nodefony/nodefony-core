@@ -340,7 +340,9 @@ export async function buildMigrator(
   kernel: Kernel | null,
 ): Promise<DrizzleMigrator> {
   const appDir = appMigrationsDir(kernel, config.migrations.dir);
-  const sources = await defaultMigrationSources(appDir);
+  const sources = await defaultMigrationSources(appDir, {
+    framework: config.frameworkEntities !== false,
+  });
   return new DrizzleMigrator({
     connector: resolution.connector,
     ...resolution.target,

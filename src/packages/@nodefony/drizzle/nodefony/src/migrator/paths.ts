@@ -69,19 +69,35 @@ export async function frameworkMigrationsDir(): Promise<string> {
  * registre, avec son propre rang. `framework` et `app` sont deux valeurs
  * réservées, pas une énumération.
  *
+ * **Le framework ne fournit ses migrations que s'il déclare ses entités.** Un
+ * module réglé `frameworkEntities: false` est data-only : il n'enregistre ni
+ * entité ni fabrique, et le démarrage en mode dérivé ne crée donc aucune table
+ * de session, de jeton, d'audit ni de webhook. Les inclure ici quand même
+ * faisait fabriquer DEUX bases différentes à la même application selon qu'elle
+ * démarrait en développement ou qu'on la migrait en production — et rien ne le
+ * disait, le verdict de divergence ignorant par construction ce que la base a
+ * en TROP.
+ *
+ * La règle vit ICI, à l'endroit unique où les sources se composent : ses deux
+ * appelants (le service au démarrage, les commandes) la recopieraient sinon, et
+ * deux copies divergent en silence.
+ *
  * @param appDir - dossier de migrations de l'application, s'il y en a un.
+ * @param options.framework - `false` quand le module est data-only.
  * @returns le registre, prêt pour l'applicateur.
  */
 export async function defaultMigrationSources(
   appDir?: string,
+  options: { framework?: boolean } = {},
 ): Promise<IMigrationSource[]> {
-  const sources: IMigrationSource[] = [
-    {
+  const sources: IMigrationSource[] = [];
+  if (options.framework !== false) {
+    sources.push({
       name: FRAMEWORK_SOURCE,
       dir: await frameworkMigrationsDir(),
       rank: FRAMEWORK_RANK,
-    },
-  ];
+    });
+  }
   if (appDir) {
     sources.push({ name: APP_SOURCE, dir: appDir, rank: APP_RANK });
   }
