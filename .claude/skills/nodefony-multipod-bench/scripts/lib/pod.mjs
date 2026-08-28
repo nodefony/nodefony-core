@@ -46,10 +46,41 @@ export async function jusqua(verif, maxMs) {
   return false;
 }
 
-/** Le port répond-il en HTTP ? (sans juger du code de retour) */
+/**
+ * L'APPLICATION répond-elle ? (sans juger du code de retour)
+ *
+ * Vise `/`, donc la pile entière — session comprise. C'est la question d'un
+ * banc qui veut savoir si l'application SERT encore, pas seulement si son port
+ * est ouvert : y répondre pendant que la base est tombée est un résultat, et le
+ * remplacer par une sonde de santé le ferait disparaître.
+ */
 export async function repond(port) {
   try {
     const r = await fetch(`http://127.0.0.1:${port}/`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    return r.status > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Le port ÉCOUTE-t-il ? — sonde de vie, court-circuit total du pipeline.
+ *
+ * C'est une AUTRE question que `repond`, et les confondre fabrique un verdict
+ * faux : un pod dont le schéma est en retard écoute, journalise, et retient la
+ * mise en service ; `/` échoue alors dans le magasin de session, et un banc qui
+ * sondait `/` concluait « n'a jamais écouté » — un message qui envoie chercher
+ * un port fermé là où il n'y a qu'une table absente (mesuré, deux heures).
+ *
+ * `/livez` ne touche ni la session ni la base : il répond tant que le processus
+ * sert. Un 503 compte donc comme « écoute » — la disponibilité se lit sur
+ * `/readyz`, pas ici.
+ */
+export async function ecoute(port, chemin = "/livez") {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}${chemin}`, {
       signal: AbortSignal.timeout(3000),
     });
     return r.status > 0;
@@ -64,6 +95,73 @@ export function nodefonyBin(racine = process.cwd()) {
 }
 
 /**
+ * Le pod est-il EN SERVICE ? — sonde de disponibilité (`/readyz`, 200 exigé).
+ *
+ * Troisième question, et la seule qui décide d'un déploiement : un pod peut
+ * écouter (`ecoute`) et servir des pages (`repond`) tout en étant retenu hors
+ * du service par un schéma en retard. Un banc qui n'exige jamais cet état
+ * mesure un pod qu'aucun orchestrateur n'aurait mis en ligne — et reste vert
+ * quand son décor est faux, ce qui est le pire des verdicts.
+ *
+ * @returns `true` uniquement sur 200 ; un 503 est un refus de service, pas une panne.
+ */
+export async function enService(port, chemin = "/readyz") {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}${chemin}`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    return r.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Applique les migrations sur la base du décor — le geste d'un DÉPLOIEMENT.
+ *
+ * En production le schéma n'est fabriqué par personne (`ddl: "none"`) : c'est
+ * un travail externe qui migre avant que le trafic n'arrive, et le produit le
+ * dit lui-même quand il retient la mise en service. Un banc qui démarre un pod
+ * en production sans ce geste ne mesure pas ce qu'il croit — il mesure une base
+ * vide, et son verdict tient à ce que la machine avait déjà en base (vécu : vert
+ * sur un poste dont la base traînait les tables d'une session en développement,
+ * rouge dans la forge sur une base neuve).
+ *
+ * ⚠️ `NODE_ENV=production` n'est pas un détail de décor : sans lui la commande
+ * démarre en mode `auto`, FABRIQUE le schéma en s'initialisant, puis refuse
+ * d'appliquer quoi que ce soit sur une base qu'elle vient elle-même de remplir
+ * (`NF_MIGRATE_BASELINE_REQUIRED`). La commande a raison ; c'est l'appelant qui
+ * doit dire dans quel monde il l'invoque.
+ *
+ * @param options.url - URL de la base (`NF_DATABASE_URL` du pod à venir).
+ * @param options.racine - racine de l'application (défaut : répertoire courant).
+ * @returns `{ ok, sortie }` — ne jette jamais : le banc décide quoi faire d'un échec.
+ */
+export function migrerBase({ url, racine = process.cwd() } = {}) {
+  try {
+    const sortie = execFileSync(
+      process.execPath,
+      [nodefonyBin(racine), "orm:migrate"],
+      {
+        cwd: racine,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          NODE_ENV: "production",
+          ...(url ? { NF_DATABASE_URL: url } : {}),
+        },
+      },
+    );
+    return { ok: true, sortie };
+  } catch (e) {
+    return {
+      ok: false,
+      sortie: `${e.stdout ?? ""}${e.stderr ?? ""}` || String(e.message),
+    };
+  }
+}
+
+/**
  * Démarre un pod et attend qu'il écoute.
  *
  * @param options.port - port HTTP (le port HTTPS est `port + 1`).
@@ -71,7 +169,8 @@ export function nodefonyBin(racine = process.cwd()) {
  * @param options.env - variables ajoutées à celles du process courant.
  * @param options.attenteMs - budget d'attente du boot (défaut 90 s).
  * @returns `{ enfant, port, journal, estMort, debout }` — `debout: false` veut
- *   dire « n'a jamais répondu », que le process soit mort ou simplement muet ;
+ *   dire « n'a jamais ÉCOUTÉ » (sonde `/livez`), que le process soit mort ou
+ *   simplement muet — un schéma en retard, lui, laisse le pod DEBOUT ;
  *   `journal` porte la sortie complète, seule chose qui explique un boot raté.
  */
 export async function demarrerPod({
@@ -100,11 +199,14 @@ export async function demarrerPod({
     mort = { code, sig };
   });
 
+  // La question ici est « le port écoute-t-il », pas « l'application sert-elle » :
+  // un pod qui retient sa mise en service (schéma en retard) écoute et doit être
+  // rendu DEBOUT — c'est au banc de juger ce qu'il en fait.
   const debout = await jusqua(async () => {
     if (mort) {
       return false;
     }
-    return repond(port);
+    return ecoute(port);
   }, attenteMs);
   return { enfant, port, journal, estMort: () => mort, debout };
 }
