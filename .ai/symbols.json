@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T10:01:22.527Z",
+  "generated": "2026-08-28T10:36:01.668Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 747,
-    "symbols": 3248,
-    "classes": 367,
+    "files": 748,
+    "symbols": 3250,
+    "classes": 368,
     "interfaces": 912,
     "types": 405,
     "enums": 4,
-    "functions": 1262,
+    "functions": 1263,
     "constants": 298
   },
   "symbols": {
@@ -15930,6 +15930,17 @@
       "decorators": [],
       "description": "Erreurs typées du socle ORM — **data-level uniquement** (aucun couplage à une couche API/transport : ces erreurs décrivent des fautes sur les données, pas sur une requête HTTP/GraphQL). Une surface…"
     },
+    "InvalidOrderOption": {
+      "name": "InvalidOrderOption",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/errors.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Levée quand l'option de lecture `order` n'est pas un tableau de couples `[champ, \"ASC\" | \"DESC\"]`. Symétrique de {@link UnknownCriteriaField}, sous la même règle « jamais un skip silencieux » : ava…"
+    },
     "Orm": {
       "name": "Orm",
       "kind": "class",
@@ -16066,6 +16077,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Singleton process-wide de la sonde de flux ORM."
+    },
+    "assertOrderOption": {
+      "name": "assertOrderOption",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/readOptions.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Vérifie que l'option de lecture `order` respecte le contrat portable `Array<[string, \"ASC\" | \"DESC\"]>`, ou lève {@link InvalidOrderOption}. Source de vérité **unique** partagée par tous les adapter…"
     },
     "ServiceWiring": {
       "name": "ServiceWiring",
@@ -22612,6 +22631,7 @@
         "LLMError",
         "MemoryError",
         "UnknownCriteriaField",
+        "InvalidOrderOption",
         "RagError",
         "VectorError",
         "DevkitError",
@@ -29422,6 +29442,9 @@
       "ISlowQuery": [
         "src/packages/@nodefony/orm-core/nodefony/src/QueryFlowMonitor.ts"
       ],
+      "InvalidOrderOption": [
+        "src/packages/@nodefony/orm-core/nodefony/src/readOptions.ts"
+      ],
       "IChunker": [
         "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
         "src/packages/@nodefony/rag/src/chunking/SentenceChunker.ts",
@@ -30245,6 +30268,10 @@
       ],
       "DrizzleTransaction": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "assertOrderOption": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "isFieldOperators": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",

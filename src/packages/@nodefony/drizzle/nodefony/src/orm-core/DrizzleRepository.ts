@@ -29,6 +29,7 @@ import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
 import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
+  assertOrderOption,
   isFieldOperators,
   isUpdateOperators,
   queryFlowMonitor,
@@ -632,11 +633,21 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return { entry, params: shape.params };
   }
 
-  /** Exécute le `SELECT` (critère + pagination + tri), retourne des objets plats. */
+  /**
+   * Exécute le `SELECT` (critère + pagination + tri), retourne des objets plats.
+   *
+   * Point de passage UNIQUE des options de lecture pour cet adapter (`find` y mène,
+   * `findOne` passe par `find`) : la garde sur `order` s'y pose donc une seule fois,
+   * en amont des trois endroits qui construisent un `ORDER BY` — chemin préparé,
+   * forme mémoïsée et chemin direct.
+   *
+   * @throws InvalidOrderOption si `options.order` n'est pas un tableau de couples.
+   */
   async #runSelect(
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<Record<string, unknown>[]> {
+    assertOrderOption(options?.order, getTableName(this.#table));
     const memo = this.#preparedSelect(criteria, options);
     if (memo !== null) {
       return this.#profPrepared(memo.entry, memo.params);

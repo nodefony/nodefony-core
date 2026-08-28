@@ -6,6 +6,7 @@ import {
   ormRegistry,
   paginate,
   LIKE_ESCAPE_CHAR,
+  InvalidOrderOption,
 } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { MongooseOrm } from "../../nodefony/src/orm-core/index";
@@ -181,6 +182,38 @@ describe.skipIf(!URI)(
       assert.equal(filtered.hasNext, false);
 
       await users.delete({}); // cleanup — ne pas polluer les tests suivants
+    });
+
+    it("order strict : forme mal formée → InvalidOrderOption (parité stricte avec Drizzle)", async () => {
+      await users.delete({});
+      await users.createMany([
+        { email: "o10@x.io", age: 10 },
+        { email: "o30@x.io", age: 30 },
+      ]);
+      // Le défaut historique était PARTAGÉ par les deux adapters : le test
+      // `options?.order?.length` est faux pour un objet, donc le tri disparaissait
+      // et la requête partait sans `sort` — des lignes non triées qu'on croit triées.
+      await assert.rejects(
+        users.find({}, { order: { age: "asc" } } as never),
+        InvalidOrderOption,
+      );
+      await assert.rejects(
+        users.find({}, { order: [["age", "desc"]] } as never),
+        InvalidOrderOption,
+      );
+      await assert.rejects(
+        users.findOne({}, { order: { age: "asc" } } as never),
+        InvalidOrderOption,
+      );
+      // `findOne` HONORE désormais le tri : il décide LAQUELLE des lignes revient.
+      // L'ignorer rendait un document arbitraire là où Drizzle rend le premier du
+      // tri demandé — même appel, deux résultats selon l'ORM.
+      const oldest = await users.findOne({}, { order: [["age", "DESC"]] });
+      assert.equal(oldest?.age, 30);
+      const youngest = await users.findOne({}, { order: [["age", "ASC"]] });
+      assert.equal(youngest?.age, 10);
+
+      await users.delete({});
     });
 
     it("relation one-to-many : ref ObjectId + écriture/lecture portable", async () => {

@@ -1,6 +1,7 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { RequestContext, redactSecrets } from "nodefony";
 import {
+  assertOrderOption,
   isFieldOperators,
   isUpdateOperators,
   likePatternToRegExp,
@@ -214,6 +215,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<T[]> {
+    assertOrderOption(options?.order, this.#model.modelName);
     const filter = this.#filter(criteria);
     return this.#prof(
       () => this.#descr("find", filter),
@@ -252,6 +254,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     criteria: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<T | null> {
+    assertOrderOption(options?.order, this.#model.modelName);
     const filter = this.#filter(criteria);
     return this.#prof(
       () => this.#descr("findOne", filter),
@@ -262,6 +265,20 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         }
         if (options?.relations?.length) {
           query = query.populate(options.relations);
+        }
+        if (options?.order?.length) {
+          // Le tri décide LAQUELLE des lignes est renvoyée : l'ignorer ici rendait
+          // un document arbitraire là où Drizzle (`findOne` → `find` + `limit 1`)
+          // rend le premier du tri demandé. Deux ORM, deux résultats, pour le même
+          // appel — exactement ce que le contrat portable interdit.
+          query = query.sort(
+            Object.fromEntries(
+              options.order.map(([field, dir]) => [
+                field,
+                dir === "DESC" ? -1 : 1,
+              ]),
+            ),
+          );
         }
         const doc = await query.exec();
         return doc ? this.#plain(doc) : null;

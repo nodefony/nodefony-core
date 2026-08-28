@@ -203,6 +203,14 @@ condition disparaît, la requête rend **toute** la table — et **conservé** p
 portabilité s'effondre en silence. D'où `UnknownCriteriaField` (`errors.ts:23`), levée **par les deux
 drivers** : on échoue tôt, et pareil.
 
+La même règle vaut pour les **options** : une forme de tri voisine mais fausse — `{ age: "asc" }` au
+lieu de `[["age", "ASC"]]` — faisait partir la requête **sans `ORDER BY`**, et l'appelant recevait des
+lignes non triées qu'il croyait triées. `assertOrderOption()` (`readOptions.ts:39`) est appelée par
+chaque adapter en amont de sa requête et lève `InvalidOrderOption` (`errors.ts:65`) ; le sens est
+vérifié en casse exacte, parce qu'un `"desc"` minuscule aurait trié à l'**envers**. Normaliser une
+entrée utilisateur (casse, `champ:sens`) appartient à la frontière qui la reçoit — `parsePageQuery`
+le fait —, jamais au repository.
+
 **4. Le contrat va plus loin que le CRUD scolaire.** `IRepository` (`IRepository.ts:197`) porte
 quinze verbes, pas cinq : les opérations **atomiques** (`upsert`, `increment`, `updateOne`,
 `findOneAndDelete`) sont dans le contrat parce qu'un `SELECT` suivi d'un `UPDATE` est une **course**,
@@ -415,16 +423,16 @@ verbes se choisissent sur **la garantie** qu'ils apportent, pas sur leur nom.
 | --------------------- | -------------------------------------------------------------------- | ---------------------------- |
 | `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                          | `IRepository.ts:213`         |
 | `count` / `exists`    | compter, ou juste savoir s'il y en a un (sans charger de colonne)    | `IRepository.ts:378`, `:335` |
-| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)       | `IRepository.ts:223`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots       | `IRepository.ts:235`         |
-| `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend       | `IRepository.ts:231`         |
-| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**          | `IRepository.ts:295`         |
-| `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction  | `IRepository.ts:258`         |
+| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)       | `IRepository.ts:240`         |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots       | `IRepository.ts:252`         |
+| `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend       | `IRepository.ts:269`         |
+| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**          | `IRepository.ts:312`         |
+| `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction  | `IRepository.ts:296`         |
 | `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit             | `IRepository.ts:287`         |
 | `delete`              | supprime tout ce qui matche, rend le nombre                          | `IRepository.ts:298`         |
 | `deleteOne`           | supprime **au plus une** ligne, rend un booléen                      | `IRepository.ts:328`         |
-| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique | `IRepository.ts:317`         |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                     | `IRepository.ts:389`         |
+| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique | `IRepository.ts:355`         |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                     | `IRepository.ts:406`         |
 
 > [!IMPORTANT]
 > `updateOne` est atomique **par construction** : une seule requête (`UPDATE … RETURNING` en SQL,
@@ -598,7 +606,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
 `DrizzleRepository.upsert()` (`DrizzleRepository.ts:868`) et `MongooseRepository.upsert()`
-(`MongooseRepository.ts:314`).
+(`MongooseRepository.ts:343`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |
 | -------------------------------------- | ----------------------------------- | ---------------------------------- |
@@ -606,9 +614,9 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Contrat `IRepository` (15 verbes)      | complet                             | complet                            |
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                   |
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1171`)          | oui (`MongooseOrm.ts:395`)         |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1234`)          | oui (`MongooseOrm.ts:558`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1073`)          | oui (`MongooseOrm.ts:366`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1136`)          | oui (`MongooseOrm.ts:529`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :
@@ -642,8 +650,10 @@ Le contrat minimal tient en peu de choses, parce que `orm-core` fournit déjà l
 2. **Implémenter `IRepository<T>`** en traduisant les critères. `isFieldOperators()` (`criteria.ts:42`)
    et `isUpdateOperators()` (`criteria.ts:87`) sont fournis pour que la détection soit **identique**
    partout — les réécrire, c'est fabriquer une divergence.
-3. **Lever `UnknownCriteriaField`** (`errors.ts:23`) sur un champ inconnu. C'est le prix de la
-   promesse de portabilité.
+3. **Lever `UnknownCriteriaField`** (`errors.ts:23`) sur un champ inconnu, et **appeler
+   `assertOrderOption()`** (`readOptions.ts:39`) une fois, en amont, sur `options.order`. C'est le
+   prix de la promesse de portabilité : un adapter qui retesterait la forme lui-même finirait par
+   diverger de l'autre.
 4. **Câbler le data plane** en une ligne à `onKernelBoot` : `wireOrmAdminPlane(this.kernel)`
    (`ormWiring.ts:31`) monte les routes admin, la santé et le diagnostic riche. Et
    `resolveOrmFlowEnabled(kernel)` (`ormWiring.ts:96`) décide si la sonde de flux s'allume — hors

@@ -550,8 +550,8 @@ use("@nodefony/mongoose", {
 
 Les deux connexions s'ouvrent en série au démarrage, dans l'ordre de déclaration
 (`connectAll()` (`MongooseService.ts:63`)), et se ferment toutes à l'arrêt
-(`disconnectAll()` (`MongooseService.ts:104`)). Un service peut demander l'une ou l'autre par son nom
-(`getOrm()` (`MongooseService.ts:112`)), mais l'usage courant reste le registre d'ORM.
+(`disconnectAll()` (`MongooseService.ts:134`)). Un service peut demander l'une ou l'autre par son nom
+(`getOrm()` (`MongooseService.ts:142`)), mais l'usage courant reste le registre d'ORM.
 
 ## 🔐 Le secret de connexion
 
@@ -561,10 +561,10 @@ données d'un coup. La règle est donc sans nuance.
 - **Jamais dans le dépôt.** Ni dans `nodefony.config.ts`, ni dans un fichier d'exemple, ni « juste
   pour le développement ». Le secret arrive par `MONGODB_URI` ou `NF_DATABASE_URL`.
 - **Ni dans les journaux, ni dans Studio.** L'URI est systématiquement nettoyée de tout
-  `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:309`)),
+  `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:595`)),
   y compris pour les URI multi-hôtes que l'analyseur d'URL standard ne sait pas découper. C'est cette
   cible nettoyée que voit le plan d'administration
-  (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:297`)) et le message de connexion au démarrage.
+  (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:80`)) et le message de connexion au démarrage.
 - **Les identifiants passés par `options`** (`user`, `pass`) suivent la même règle : ils viennent de
   l'environnement, pas du fichier. Le framework rédige d'ailleurs la valeur de tout override
   d'environnement dont le chemin ressemble à un secret, avant de le journaliser

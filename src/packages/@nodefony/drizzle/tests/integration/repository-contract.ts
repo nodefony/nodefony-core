@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { entityRegistry, ormRegistry, paginate } from "@nodefony/orm-core";
 import {
   UnknownCriteriaField,
+  InvalidOrderOption,
   LIKE_ESCAPE_CHAR,
   escapeLikeTerm,
 } from "@nodefony/orm-core";
@@ -549,6 +550,44 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     await assert.rejects(
       repo.find({ ghost: 1 } as never),
       UnknownCriteriaField,
+    );
+  });
+
+  it("order strict : forme mal formée → InvalidOrderOption (la requête ne part PAS sans ORDER BY)", async () => {
+    await seed();
+    // Le défaut historique : `options?.order?.length` est faux pour un objet, donc
+    // le bloc était sauté et le SELECT partait SANS tri — l'appelant recevait des
+    // lignes non triées qu'il croyait triées.
+    await assert.rejects(
+      repo.find({}, { order: { age: "asc" } } as never),
+      InvalidOrderOption,
+    );
+    await assert.rejects(
+      repo.find({}, { order: ["age"] } as never),
+      InvalidOrderOption,
+    );
+    // Casse basse : `dir === "DESC" ? desc : asc` aurait trié à l'ENVERS, sans un mot.
+    await assert.rejects(
+      repo.find({}, { order: [["age", "desc"]] } as never),
+      InvalidOrderOption,
+    );
+    // La garde est en amont des TROIS constructions d'ORDER BY (chemin direct,
+    // chemin préparé, forme mémoïsée) : un critère bindable emprunte le second.
+    await assert.rejects(
+      repo.find({ name: "alice" }, { order: { age: "asc" } } as never),
+      InvalidOrderOption,
+    );
+    // `findOne` passe par le même point : il est gardé par construction.
+    await assert.rejects(
+      repo.findOne({}, { order: { age: "asc" } } as never),
+      InvalidOrderOption,
+    );
+    // Et le tri conforme continue de trier — la garde ne coûte rien au nominal.
+    const rows = await repo.find({}, { order: [["age", "DESC"]] });
+    const ages = rows.map((r) => (r as { age: number }).age);
+    assert.deepEqual(
+      ages,
+      [...ages].sort((a, b) => b - a),
     );
   });
 

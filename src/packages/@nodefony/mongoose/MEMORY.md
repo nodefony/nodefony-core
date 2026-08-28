@@ -47,6 +47,7 @@ missing[], extra[], error?}`. **Jamais** `syncIndexes()` (il DROP les index non 
 - **Relations sans FK** : `one-to-many` = réf ObjectId sur l'enfant + virtual populate sur le parent ; `many-to-one`/`one-to-one` = réf sur la source ; `many-to-many` → native (throw, déclarer via `getNativeConnection`).
 - **Transactions = replica set obligatoire** (`session.withTransaction`, managé). Standalone = pas de tx.
 - **virtuals** : schéma `{toObject:{virtuals:true}, toJSON:{virtuals:true}}` pour exposer `id` + populates.
+- **`find` ET `findOne` gardent `order`** (`assertOrderOption` d'orm-core) et l'APPLIQUENT tous les deux : `findOne` triait auparavant par ordre naturel Mongo, donc rendait un autre document que Drizzle pour le même appel. Deux points d'appel ici parce que `findOne` construit sa propre requête — la LOGIQUE, elle, reste unique dans orm-core.
 - `describeConnection` est **sync** → `safeTarget()` nettoie l'URI (`new URL` → strip `user:pass`, fallback regex pour `mongodb://h1,h2/db`) ; version serveur indispo en sync (dispo via `probe().extra.serverVersion`).
 
 ## Liens

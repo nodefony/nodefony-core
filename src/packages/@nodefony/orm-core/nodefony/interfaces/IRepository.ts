@@ -181,7 +181,16 @@ export interface RepositoryReadOptions {
   /** Décalage (pagination). */
   offset?: number;
 
-  /** Tri : couples `[champ, sens]`. */
+  /**
+   * Tri : couples `[champ, sens]`, ex. `[["createdAt", "DESC"]]`.
+   *
+   * **Forme vérifiée à l'exécution** : toute autre forme lève `InvalidOrderOption`
+   * au lieu d'être ignorée — un objet (`{ age: "asc" }`) ou une casse basse
+   * (`"desc"`) faisait auparavant partir la requête sans tri, ou triait à
+   * l'envers, sans un mot. La normalisation d'une entrée utilisateur appartient à
+   * la frontière qui la reçoit (`parsePageQuery` accepte `champ:sens` en casse
+   * libre), jamais au repository.
+   */
   order?: Array<[string, "ASC" | "DESC"]>;
 }
 
@@ -201,14 +210,22 @@ export interface IRepository<T = unknown> {
    * @param criteria - filtre optionnel (partiellement typé).
    * @param options - eager-load / pagination / tri portables.
    * @returns la liste des entités trouvées (vide si aucune).
+   * @throws UnknownCriteriaField si un champ du critère est inconnu de l'entité.
+   * @throws InvalidOrderOption si `options.order` n'est pas un tableau de couples.
    */
   find(criteria?: Criteria<T>, options?: RepositoryReadOptions): Promise<T[]>;
 
   /**
    * Retourne la première entité correspondant au critère, ou `null`.
    *
+   * Le tri (`options.order`) décide LAQUELLE des lignes revient : il est honoré par
+   * tous les adapters, sans quoi le même appel rendrait un document différent selon
+   * l'ORM.
+   *
    * @param criteria - filtre de sélection (partiellement typé).
-   * @param options - eager-load portable (`relations`).
+   * @param options - eager-load portable (`relations`) et tri (`order`).
+   * @throws UnknownCriteriaField si un champ du critère est inconnu de l'entité.
+   * @throws InvalidOrderOption si `options.order` n'est pas un tableau de couples.
    */
   findOne(
     criteria: Criteria<T>,

@@ -46,7 +46,13 @@ export {
 export type { UpdateOperatorKey } from "./nodefony/src/criteria";
 
 // ─── Erreurs ORM data-level (aucun couplage API) ─────────────────────────────
-export { UnknownCriteriaField } from "./nodefony/src/errors";
+export {
+  UnknownCriteriaField,
+  InvalidOrderOption,
+} from "./nodefony/src/errors";
+
+// ─── Options de lecture — garde portable partagée par tous les adapters ───────
+export { assertOrderOption } from "./nodefony/src/readOptions";
 
 // ─── Runtime (P5.2) — registres singletons + classes de base ────────────────
 export { OrmRegistry, ormRegistry } from "./nodefony/src/OrmRegistry";

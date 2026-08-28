@@ -480,7 +480,7 @@ le même processus.
 
 Le service orchestre ce cycle de bout en bout : il ouvre une connexion par connecteur déclaré au
 démarrage (`MongooseService.connectAll()` (`MongooseService.ts:63`)) et referme tout à l'arrêt
-(`MongooseService.disconnectAll()` (`MongooseService.ts:104`)). Le module se déclare **non critique**
+(`MongooseService.disconnectAll()` (`MongooseService.ts:134`)). Le module se déclare **non critique**
 (`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le processus —
 l'application monte quand même, l'échec est journalisé, et c'est l'orchestrateur qui relèvera Mongo.
 
@@ -529,8 +529,8 @@ drivers. Les signatures exactes vivent dans le graphe généré
 | `withTransaction` | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération |
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
-(`MongooseRepository.upsert()` (`MongooseRepository.ts:314`),
-`MongooseRepository.increment()` (`MongooseRepository.ts:400`)) : un seul aller-retour, la
+(`MongooseRepository.upsert()` (`MongooseRepository.ts:343`),
+`MongooseRepository.increment()` (`MongooseRepository.ts:429`)) : un seul aller-retour, la
 comparaison est faite par le serveur. Ce n'est pas une optimisation cosmétique — c'est ce qui évite
 que deux requêtes simultanées lisent le même état et s'écrasent mutuellement.
 
@@ -585,7 +585,7 @@ await orm.transaction(async (tx) => {
 }); // commit si la fonction résout, annulation si elle échoue
 ```
 
-`MongooseOrm.transaction()` (`MongooseOrm.ts:320`) s'appuie sur les sessions Mongo « managées »
+`MongooseOrm.transaction()` (`MongooseOrm.ts:483`) s'appuie sur les sessions Mongo « managées »
 (commit, annulation et **reprises** gérées par le driver).
 
 > [!IMPORTANT]
@@ -596,7 +596,7 @@ await orm.transaction(async (tx) => {
 
 ### La trappe native — quand le contrat ne suffit plus
 
-`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:338`) rend la connexion Mongoose telle quelle :
+`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:501`) rend la connexion Mongoose telle quelle :
 agrégations, `$or`, index, `$text`, `bulkWrite`, changements de flux. Le module lui-même s'en sert
 là où le contrat portable ne suffit pas — par exemple pour la recherche texte du listing des
 webhooks, qui a besoin d'un `$or` sur deux champs
@@ -772,10 +772,10 @@ Schema). Le module fournit les sondes correspondantes :
 
 | Sonde                  | Ce qu'elle renvoie                                                          |
 | ---------------------- | --------------------------------------------------------------------------- |
-| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:352`)                    |
-| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:366`)              |
-| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:395`)    |
-| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:420`) |
+| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:515`)                    |
+| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:529`)              |
+| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:558`)    |
+| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:583`) |
 
 > [!IMPORTANT]
 > **Aucun identifiant ne sort jamais.** La cible affichée est nettoyée de tout `utilisateur:mot de

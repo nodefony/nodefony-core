@@ -94,3 +94,5 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - P5.1 = interfaces only → `index.js` quasi vide (tout en `export type`). Normal. Runtime arrive en P5.2.
 - Tx cross-ORM (2PC) NON gérée — limite documentée.
 - Inversion de dép STRICTE : orm-core n'importe jamais un driver concret ni http/framework.
+- **Contrat strict = 2 gardes, une seule implémentation chacune** : champ de critère inconnu → `UnknownCriteriaField` (levée par chaque adapter) ; option `order` mal formée → `assertOrderOption()` (`readOptions.ts`) → `InvalidOrderOption`. Un adapter APPELLE la garde en amont de sa requête, il ne re-teste jamais la forme lui-même. Motif : `options?.order?.length` est faux pour un objet — `{ age: "asc" }` partait sans `ORDER BY`, et `"desc"` en casse basse triait à l'ENVERS. La casse est exigée exacte ; normaliser une entrée utilisateur appartient à `parsePageQuery`, jamais au repository.
+- **`findOne` honore `order`** : le tri décide LAQUELLE des lignes revient. L'ignorer d'un côté (c'était le cas de Mongoose) rend un document différent selon l'ORM pour le même appel.

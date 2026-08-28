@@ -45,3 +45,41 @@ export class UnknownCriteriaField extends Error {
     this.known = known;
   }
 }
+
+/**
+ * Levée quand l'option de lecture `order` n'est pas un tableau de couples
+ * `[champ, "ASC" | "DESC"]`.
+ *
+ * Symétrique de {@link UnknownCriteriaField}, sous la même règle « jamais un skip
+ * silencieux » : avant cette garde, une forme voisine mais fausse — `{ age: "asc" }`
+ * au lieu de `[["age", "ASC"]]` — faisait partir la requête **sans `ORDER BY`**, et
+ * l'appelant recevait des lignes non triées qu'il croyait triées. Le sens est vérifié
+ * en casse exacte : un `"desc"` minuscule aurait produit un tri **ASC**, soit
+ * l'inverse de l'intention.
+ *
+ * TypeScript attrape déjà le cas au typage ; la surface réelle est l'appel non typé
+ * ou construit dynamiquement — exactement là où un tri faux ne se voit pas. La
+ * normalisation d'une entrée utilisateur (casse, `champ:sens`) appartient à la
+ * frontière qui la reçoit (`parsePageQuery`), jamais au repository.
+ */
+export class InvalidOrderOption extends Error {
+  /** Nom logique de l'entité ciblée. */
+  readonly entity: string;
+  /** Ce qui a été reçu, décrit par sa FORME (jamais la valeur : pas de fuite de données). */
+  readonly received: string;
+
+  /**
+   * @param entity - entité ciblée (nom logique).
+   * @param received - description de la forme reçue (ex. `an object`, `pair #0 is not an array`).
+   */
+  constructor(entity: string, received: string) {
+    super(
+      `Invalid "order" option on entity "${entity}": expected an array of ` +
+        `[field, "ASC" | "DESC"] pairs, received ${received}. ` +
+        `Example: { order: [["createdAt", "DESC"]] }.`,
+    );
+    this.name = "InvalidOrderOption";
+    this.entity = entity;
+    this.received = received;
+  }
+}

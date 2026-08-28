@@ -348,21 +348,21 @@ apportent, jamais sur leur nom.
 | Verbe                 | Ce qu'il garantit                                                  | Ancre                        |
 | --------------------- | ------------------------------------------------------------------ | ---------------------------- |
 | `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                    | `IRepository.ts:213`, `:192` |
-| `create`              | insère une ligne et rend sa version persistée (id, défauts)        | `IRepository.ts:223`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots     | `IRepository.ts:235`         |
-| `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend        | `IRepository.ts:231`         |
-| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**           | `IRepository.ts:295`         |
-| `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction    | `IRepository.ts:258`         |
+| `create`              | insère une ligne et rend sa version persistée (id, défauts)        | `IRepository.ts:240`         |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots     | `IRepository.ts:252`         |
+| `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend        | `IRepository.ts:269`         |
+| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**           | `IRepository.ts:312`         |
+| `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction    | `IRepository.ts:296`         |
 | `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit  | `IRepository.ts:287`         |
 | `delete`              | supprime tout ce qui matche, rend le nombre                        | `IRepository.ts:298`         |
 | `deleteOne`           | supprime **au plus une** ligne, rend un booléen                    | `IRepository.ts:328`         |
-| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique       | `IRepository.ts:317`         |
+| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique       | `IRepository.ts:355`         |
 | `count` / `exists`    | compter, ou juste savoir s'il y en a une (sans charger de colonne) | `IRepository.ts:378`, `:335` |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                   | `IRepository.ts:389`         |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                   | `IRepository.ts:406`         |
 
 > [!IMPORTANT]
 > **Il n'existe pas de méthode `update()`.** Le choix est explicite et il est intentionnel :
-> `IRepository.updateOne()` (`IRepository.ts:231`) pour une ligne — atomique, et elle **rend** la
+> `IRepository.updateOne()` (`IRepository.ts:269`) pour une ligne — atomique, et elle **rend** la
 > ligne modifiée —, `IRepository.updateMany()` (`IRepository.ts:274`) pour un lot — qui rend le
 > **nombre** de lignes touchées. Un verbe unique masquerait cette différence de garantie, qui est
 > précisément ce qu'on veut choisir en connaissance de cause.
@@ -393,7 +393,7 @@ await orm.transaction(async (tx) => {
 
 Deux réflexes de performance, dès le premier jour : préférer `IRepository.exists()`
 (`IRepository.ts:335`) à `findOne(...) !== null` — aucune colonne n'est chargée —, et
-`IRepository.increment()` (`IRepository.ts:287`) à une lecture suivie d'une écriture : une requête
+`IRepository.increment()` (`IRepository.ts:325`) à une lecture suivie d'une écriture : une requête
 au lieu de deux, et pas de course.
 
 ## 🔎 Filtrer — les opérateurs de critère
@@ -523,7 +523,7 @@ d'administration, la primitive est `AbstractCrudService.findPage()` (`AbstractCr
 
 | Symptôme                                                      | Cause                                                                                            | Correction                                                                                               |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts:231`), `updateMany` pour un lot (`IRepository.ts:274`)       |
+| `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts:269`), `updateMany` pour un lot (`IRepository.ts:274`)       |
 | « no entity registered under "Post" » au premier appel        | le fichier d'entité est importé, mais `defineEntity()` est **sans effet de bord**                | ajouter l'entité à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                          |
 | La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec l'ouverture du connecteur                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:66`)                     |
 | Une colonne ajoutée au schéma reste absente de la table       | le DDL du boot est un `CREATE TABLE IF NOT EXISTS` : aucun `ALTER` n'est émis                    | supprimer la base de développement et redémarrer, ou passer par une migration                            |
