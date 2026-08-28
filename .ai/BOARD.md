@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-28 04:38** (UTC).
+> Empreinte prise le **2026-08-28 08:45** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,24 +15,31 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 16 | 1 | — |
-| 10.0.0 | 39 | 15 | 2026-11-15 |
+| 10.1 | 17 | 1 | — |
+| 10.0.0 | 46 | 16 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#17 — feat(orm): livrer les migrations de schéma en production**
+**#57 — fix(orm): refuser une option de tri mal formée au lieu de l'ignorer**
 
-Ordre 2 · P0 — bloque le reste · 5 j · jalon 10.0.0
+Ordre 1.95 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 39 ouverts
+## Jalon 10.0.0 — 46 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 2 | P0 — bloque le reste | 5 | #17 | feat(orm): livrer les migrations de schéma en production |
-| 2.1 | P1 — figé à la création | 0.5 | #57 | fix(orm): refuser une option de tri mal formée au lieu de l'ignorer |
+| 1.95 | P1 — figé à la création | 0.5 | #57 | fix(orm): refuser une option de tri mal formée au lieu de l'ignorer |
+| 2 | P0 — bloque le reste | 6 | #17 | feat(orm): livrer les migrations de schéma en production |
+| 2.2 | P0 — bloque le reste | 0.5 | #95 | feat(http): laisser un composant retarder la mise en service |
+| 2.3 | P0 — bloque le reste | 1 | #96 | feat(orm): générer les fichiers de migration du framework |
+| 2.4 | P0 — bloque le reste | 1 | #97 | feat(orm): appliquer les migrations avec historique et verrou |
+| 2.5 | P0 — bloque le reste | 1 | #98 | feat(orm): ajouter les commandes orm:migrate et leur réglage |
+| 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
+| 2.7 | P1 — figé à la création | 1 | #100 | feat(studio): montrer l'état des migrations de chaque base |
+| 2.8 | P1 — figé à la création | 0.5 | #101 | feat(cli): livrer de quoi migrer dans l'application générée |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |

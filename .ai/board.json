@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-28T04:38:53.764Z",
+  "generatedAt": "2026-08-28T08:45:58.162Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 16,
+      "open": 17,
       "title": "10.1"
     },
     {
-      "closed": 15,
+      "closed": 16,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 39,
+      "open": 46,
       "title": "10.0.0"
     }
   ],
@@ -120,20 +120,6 @@
       ]
     },
     {
-      "number": 17,
-      "title": "feat(orm): livrer les migrations de schéma en production",
-      "url": "https://github.com/nodefony/nodefony-core/issues/17",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0",
-      "priorite": "P0 — bloque le reste",
-      "jours": 5,
-      "ordre": 2,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
       "number": 57,
       "title": "fix(orm): refuser une option de tri mal formée au lieu de l'ignorer",
       "url": "https://github.com/nodefony/nodefony-core/issues/57",
@@ -142,10 +128,136 @@
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
-      "ordre": 2.1,
+      "ordre": 1.95,
       "labels": [
         "10.0.0",
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 17,
+      "title": "feat(orm): livrer les migrations de schéma en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/17",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 6,
+      "ordre": 2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 94,
+      "title": "fix(orm): solder les dettes de type avant de graver le premier DDL",
+      "url": "https://github.com/nodefony/nodefony-core/issues/94",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 2.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 95,
+      "title": "feat(http): laisser un composant retarder la mise en service",
+      "url": "https://github.com/nodefony/nodefony-core/issues/95",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 2.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 96,
+      "title": "feat(orm): générer les fichiers de migration du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/96",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 97,
+      "title": "feat(orm): appliquer les migrations avec historique et verrou",
+      "url": "https://github.com/nodefony/nodefony-core/issues/97",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 98,
+      "title": "feat(orm): ajouter les commandes orm:migrate et leur réglage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/98",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 99,
+      "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
+      "url": "https://github.com/nodefony/nodefony-core/issues/99",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 100,
+      "title": "feat(studio): montrer l'état des migrations de chaque base",
+      "url": "https://github.com/nodefony/nodefony-core/issues/100",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 101,
+      "title": "feat(cli): livrer de quoi migrer dans l'application générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/101",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.8,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
@@ -212,7 +324,7 @@
       "title": "fix(mongoose): ne plus taire l'échec de création des index",
       "url": "https://github.com/nodefony/nodefony-core/issues/93",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

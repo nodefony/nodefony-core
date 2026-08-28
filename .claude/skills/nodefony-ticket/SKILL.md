@@ -1,8 +1,8 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.5.0
-description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "écris-le en français", "évite le jargon", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "jalon 10.0.0", "on ne l'a pas déjà fait ?", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "est-ce le bon moment pour celui-là ?", "quels tickets parlent de ce que j'ai changé ?".
+  version: 1.6.0
+description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "quels tickets parlent de ce que j'ai changé ?", "ce ticket est trop vague", "il manque le contexte pour le prendre".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -15,6 +15,11 @@ description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre
 **Un ticket a deux lecteurs : un humain pressé et un agent.** L'humain lit le titre dans une liste
 de trente ; l'agent lit le corps pour agir. Un titre qui est une _phrase_ échoue pour les deux —
 l'humain ne balaie plus, l'agent ne sait pas quoi faire.
+
+**Et il a une seconde raison d'être : ACHETER du temps.** C'est le seul artefact du dépôt qui
+transporte du contexte à travers le temps sans être relu à chaque tour — écrit une fois, lu au
+moment de prendre le travail. Tout ce qu'il énonce précisément est une exploration que personne ne
+repaiera (§3).
 
 ## ⚖️ La devise vaut ICI aussi — « la confiance n'exclut pas le contrôle »
 
@@ -179,7 +184,37 @@ seul et pense en jours.
 > Le constaté est une **borne basse** — la fenêtre de commits ignore l'exploration, les décisions et
 > les essais abandonnés. À lire comme un ordre de grandeur qui recale, jamais comme une durée.
 
-## 3. Parent et sous-tickets
+## 3. Le ticket est un instrument d'ÉCONOMIE — il achète du temps, ou il en coûte
+
+**Mesuré sur ce dépôt : ~72 % du coût d'une session est de la RELECTURE de contexte, ~10 % la
+production.** Ce qu'un agent écrit ne coûte presque rien ; ce qui coûte, c'est retrouver où
+regarder. Un ticket vague ne coûte donc pas « un peu moins » — il coûte **une session entière**,
+celle où quelqu'un rouvre les fichiers, refait les recherches et retrouve les décisions déjà prises.
+
+La question à se poser en écrivant, et c'est la seule : **qu'est-ce que celui qui prendra ce ticket
+devrait chercher, et que je sais DÉJÀ maintenant ?**
+
+| Ce qui achète du temps                                           | Ce que ça remplace                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Le **chemin exact** du fichier — pas « dans le module drizzle »  | une recherche multi-modules, et le risque de viser le mauvais fichier homonyme        |
+| La **commande prête à coller** — décor, suite, gate              | une recomposition approximative : un port oublié, et le banc se **skippe en silence** |
+| Le **décor nommé** (variables `NF_*`, conteneurs, interrupteurs) | un faux succès — **un skip compte comme vert**, et la régression sort en production   |
+| Le **piège déjà connu, avec sa conséquence**                     | une demi-session de redécouverte, parfois un défaut publié                            |
+| **Ce qu'il ne faut PAS explorer**, avec le motif                 | la fausse piste reprise et abandonnée une seconde fois                                |
+| **Ce qui existe et se réutilise** (patron, banc voisin)          | une réimplémentation à côté — deux copies d'une règle divergent en silence            |
+
+**Le revers, à traquer avec la même sévérité** : un ticket est relu à chaque fois qu'on le prend,
+l'estime ou le trie. Se coupent sans hésiter une justification **déjà tranchée ailleurs**, une
+**redite** d'un autre ticket de la grappe, le **contexte que le parent porte déjà**.
+
+> **Le test qui départage, en une question : cette phrase évite-t-elle une exploration, ou la
+> raconte-t-elle ?** La première mérite d'être écrite. La seconde se coupe.
+
+**La borne** : le ticket PORTE ce que seul son auteur sait, il POINTE vers ce qui vit déjà ailleurs —
+un pointeur exact coûte une ligne et vaut un paragraphe. Catalogue, exemples avant/après et cas
+limites → **[`references/economie.md`](references/economie.md)**.
+
+## 4. Parent et sous-tickets
 
 Un lot de plus de trois tickets qui partagent une cause **prend un parent**. GitHub gère les
 sous-tickets nativement : le parent affiche une barre de progression, et le tableau de bord a les
@@ -228,7 +263,7 @@ Un ticket qui porte du travail propre n'est **pas** un parent : s'il a un second
 celui-ci devient un ticket **frère** qui le nomme en `Dépend de`, et le premier renvoie vers lui
 dans son « Fini quand ».
 
-## 4. Labels et champs du tableau de bord
+## 5. Labels et champs du tableau de bord
 
 |                     |                                                                                                                      |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -300,7 +335,7 @@ Le test, en une question : **est-ce que je viens de lire ce qu'il faut pour le f
 Ce qui ne change pas : le ticket existe **quand même**, écrit avant d'être fait. C'est lui qui porte
 la preuve, le critère de fin et la trace — le faire dans la foulée n'autorise pas à sauter l'écrit.
 
-## 5. Créer, ordonner, rattacher
+## 6. Créer, ordonner, rattacher
 
 > 🔴 **`gh issue create` n'inscrit PAS le ticket au tableau de bord.** L'issue existe, et elle
 > n'entre dans aucun compteur d'avancement : ni l'ordre de travail, ni le reste-à-faire, ni
@@ -353,7 +388,7 @@ gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID!){
   -f p="$PID" -f i="$ITEM" -f a="$PRECEDENT"
 ```
 
-## 6. Fermer un ticket — le geste est TRIPLE
+## 7. Fermer un ticket — le geste est TRIPLE
 
 **Un ticket qu'on ferme change un fait, et ce fait est recopié ailleurs.** C'est le défaut le plus
 coûteux du pilotage par tickets, parce qu'il ne fait aucun bruit : le travail est bon, le ticket est
@@ -405,7 +440,7 @@ La tentation est d'étiqueter les tickets d'un même sujet pour les retrouver. *
 et le dépôt en a déjà la preuve** : le champ `Status` du tableau de bord est resté à `In Progress`
 **0 fois sur 64** tant qu'il fallait le poser à la main — il n'a servi qu'une fois DÉRIVÉ du commit.
 Un label de sujet aurait exactement le même sort : il faut y penser à la création, y penser à la
-relecture, et il duplique ce que le **ticket parent** exprime déjà mieux (§3).
+relecture, et il duplique ce que le **ticket parent** exprime déjà mieux (§4).
 
 L'automate, lui, ne demande à personne d'y penser. Il ne juge rien non plus — il dit quels tickets
 citent les fichiers du diff, et l'humain tranche. Deux limites à connaître, parce qu'un outil dont on
@@ -463,5 +498,6 @@ Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un 
 | Fichier                                                                    | Contenu                                                                                                                               |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | [`references/conventional-commits.md`](references/conventional-commits.md) | La spec 1.0.0 hors ligne : structure normative, table des types, règle `BREAKING CHANGE`, et ce que Nodefony ajoute par-dessus        |
+| [`references/economie.md`](references/economie.md)                         | Le ticket comme instrument d'économie : les six choses qui achètent du temps, ce qui se coupe, un avant/après, la borne               |
 | [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                   |
 | [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande |

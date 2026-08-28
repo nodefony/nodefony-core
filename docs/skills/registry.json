@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-27",
+  "generatedAt": "2026-08-28",
   "count": 25,
   "conformant": 25,
   "skills": [
@@ -5339,9 +5339,9 @@
     },
     {
       "name": "nodefony-ticket",
-      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard.",
+      "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées.",
       "family": "Autres",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "keywords": [
         "fichier:ligne"
       ],
@@ -5351,34 +5351,32 @@
         "fais-en des tickets",
         "corrige les tickets",
         "ce titre est incompréhensible",
-        "écris-le en français",
-        "évite le jargon",
         "renomme cette issue",
         "ticket parent",
         "découper cette issue",
         "estimer un ticket",
         "priorité d'un ticket",
-        "jalon 10.0.0",
-        "on ne l'a pas déjà fait ?",
         "ce ticket est-il encore vrai ?",
         "ferme ce ticket",
         "quel ticket prendre maintenant ?",
-        "est-ce le bon moment pour celui-là ?",
-        "quels tickets parlent de ce que j'ai changé ?"
+        "quels tickets parlent de ce que j'ai changé ?",
+        "ce ticket est trop vague",
+        "il manque le contexte pour le prendre"
       ],
-      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, et le moment où un ticket se fait dans la foulée plutôt que plus tard. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot : un titre qui commence par un code interne se fait réécrire ensuite. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"écris-le en français\", \"évite le jargon\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"jalon 10.0.0\", \"on ne l'a pas déjà fait ?\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"est-ce le bon moment pour celui-là ?\", \"quels tickets parlent de ce que j'ai changé ?\".",
+      "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"quels tickets parlent de ce que j'ai changé ?\", \"ce ticket est trop vague\", \"il manque le contexte pour le prendre\".",
       "cost": {
-        "bodyLines": 462,
-        "approxTokens": 8152
+        "bodyLines": 498,
+        "approxTokens": 8930
       },
       "requires": [],
       "resources": {
         "references": [
           "conventional-commits.md",
+          "economie.md",
           "github-issues.md",
           "lexique.md"
         ],
-        "referenceFilesTotal": 3,
+        "referenceFilesTotal": 4,
         "scripts": [
           {
             "path": "scripts/francise.mjs",
@@ -5712,7 +5710,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1005",
+            "detail": "1006",
             "advisory": false
           },
           {
@@ -5748,7 +5746,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "462",
+            "detail": "498",
             "advisory": true
           }
         ]
