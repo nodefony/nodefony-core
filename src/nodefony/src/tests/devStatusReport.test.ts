@@ -95,6 +95,32 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     probe: async (): Promise<PortState[]> => busyPorts,
   });
 
+  it("la disponibilité n'est JAMAIS demandée au runtime d'un autre projet", async () => {
+    // Le voisin tient les deux ports. Sonder ici afficherait SA disponibilité
+    // sous notre titre — la variante exacte du « 4 process · 2/2 ports UP ».
+    let interroge = 0;
+    const report = await collectDevStatus(mine, {
+      ...deps(),
+      probeReadiness: async () => {
+        interroge += 1;
+        return { ready: true, blocked: 0 };
+      },
+    });
+    assert.strictEqual(interroge, 0, "aucune sonde vers le voisin");
+    assert.strictEqual(report.readiness, null, "et donc aucun verdict inventé");
+  });
+
+  it("le runtime de CE projet est interrogé, et son verdict est rendu tel quel", async () => {
+    const report = await collectDevStatus(mine, {
+      // Personne d'autre sur le poste : les ports en écoute sont les nôtres.
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [] }),
+      getCwd: () => null,
+      probe: async (): Promise<PortState[]> => busyPorts,
+      probeReadiness: async () => ({ ready: false, blocked: 1 }),
+    });
+    assert.deepStrictEqual(report.readiness, { ready: false, blocked: 1 });
+  });
+
   it("les process d'un AUTRE projet ne sont NI comptés NI annoncés comme des ports à nous", async () => {
     const report = await collectDevStatus(mine, deps());
     // Le défaut exact rapporté : « 4 process · 2/2 ports UP » pour une app à l'arrêt.

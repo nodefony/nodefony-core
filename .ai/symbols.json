@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T05:21:39.645Z",
+  "generated": "2026-08-28T10:01:22.527Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 745,
-    "symbols": 3241,
-    "classes": 365,
-    "interfaces": 909,
+    "files": 747,
+    "symbols": 3248,
+    "classes": 367,
+    "interfaces": 912,
     "types": 405,
     "enums": 4,
-    "functions": 1260,
+    "functions": 1262,
     "constants": 298
   },
   "symbols": {
@@ -3103,6 +3103,26 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "ReadinessRegistry": {
+      "name": "ReadinessRegistry",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/readinessRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Les contributeurs et le compte de ceux qui retiennent la mise en service. Objet nu (`Object.create(null)`) plutôt que `Map` : quelques entrées, accès ponctuel, aucun héritage de prototype à craindr…"
+    },
+    "IReadinessContributor": {
+      "name": "IReadinessContributor",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/readinessRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Registre de disponibilité — ce qui RETIENT la mise en service d'un processus. Un pod qui écoute n'est pas un pod qui peut servir : son schéma de base peut être en retard, un cache peut n'être pas c…"
     },
     "toImportSpecifier": {
       "name": "toImportSpecifier",
@@ -8599,6 +8619,15 @@
       "module": "@nodefony/core",
       "description": "Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui déclare l'aire (`framework` pour le data plane `…"
     },
+    "IReadinessProbe": {
+      "name": "IReadinessProbe",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un runtime dit de sa DISPONIBILITÉ — « peut-il servir maintenant ? »."
+    },
     "BootProbe": {
       "name": "BootProbe",
       "kind": "type",
@@ -8630,6 +8659,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Extrait du journal d'un runtime les modules que le boot a IGNORÉS, avec leur motif. POURQUOI lire le journal plutôt que la route : `livez` ne nomme les modules qu'à un appelant authentifié, et une …"
+    },
+    "probeReadiness": {
+      "name": "probeReadiness",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/bootVerdict.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Demande au runtime s'il peut SERVIR — question distincte de « ses ports répondent-ils ». Un pod dont le schéma de base est en retard écoute parfaitement et ne sert rien : l'orchestrateur le tient h…"
     },
     "DetachedStartOptions": {
       "name": "DetachedStartOptions",
@@ -10276,6 +10313,19 @@
         "controller"
       ],
       "description": "Lecture PUBLIQUE du mouchard d'ordre du pipeline (`initializeProbe`). Le mouchard est posé par `SecureController.initialize()`, qui vit en **zone protégée** : un banc anonyme ne peut donc pas le re…"
+    },
+    "ReadinessController": {
+      "name": "ReadinessController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/ReadinessController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Décor du banc de DISPONIBILITÉ (S5-R) — la télécommande du registre porté par le Kernel (`setReadiness` / `clearReadiness`). Pourquoi une route : le banc d'intégration parle à un serveur RÉEL, dans…"
     },
     "RestController": {
       "name": "RestController",
@@ -22723,6 +22773,7 @@
         "LifecycleController",
         "OpenApiController",
         "PipelineOrderController",
+        "ReadinessController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -23170,6 +23221,7 @@
         "LiveSalonController",
         "OpenApiController",
         "PipelineOrderController",
+        "ReadinessController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -23564,6 +23616,7 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
+        "src/modules/test/nodefony/controller/ReadinessController.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "styleText": [
@@ -23982,6 +24035,9 @@
       "LifecycleController": [
         "src/modules/test/index.ts"
       ],
+      "ReadinessController": [
+        "src/modules/test/index.ts"
+      ],
       "DomainController": [
         "src/modules/test/index.ts"
       ],
@@ -24283,6 +24339,7 @@
         "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
+        "src/modules/test/nodefony/controller/ReadinessController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -24439,6 +24496,7 @@
         "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/LiveSalonController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
+        "src/modules/test/nodefony/controller/ReadinessController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -24475,6 +24533,7 @@
         "src/modules/test/nodefony/controller/LiveSalonController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
+        "src/modules/test/nodefony/controller/ReadinessController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -24803,6 +24862,7 @@
         "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/LiveSalonController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
+        "src/modules/test/nodefony/controller/ReadinessController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -26086,6 +26146,13 @@
       ],
       "IBootModuleGated": [
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "ReadinessRegistry": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "IReadinessContributor": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/types/IKernel.ts"
       ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
@@ -27396,6 +27463,12 @@
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "IProjectRuntime": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "probeReadiness": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "IReadinessProbe": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "clearSupervisorPidFile": [

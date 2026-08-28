@@ -279,8 +279,13 @@ SEULEMENT :
    **SANS les tableaux de stats** (tool_use/coût € → déplacés en CONSOLIDATE). ~30 lignes.
 3. **Refermer les tickets que la session a soldés** — un ticket resté ouvert fait recompter un
    travail déjà fait à la reprise suivante, et fausse le seul compteur d'avancement qui ne se
-   périme pas. `gh issue close <n> --comment "<commit> — <ce qui est fini, observable>"`. Un
-   ticket seulement AVANCÉ reçoit un commentaire, pas une fermeture.
+   périme pas. Un ticket seulement AVANCÉ reçoit un commentaire, pas une fermeture.
+
+   **La fermeture porte un COMPTE RENDU, pas une ligne** — commits, preuves, ce qui a débordé de
+   l'énoncé, ce qui n'a pas été fait. Sa forme et son script (`ticket-close.mjs`) vivent dans le
+   skill **`nodefony-ticket`** (§ « Le compte rendu de fermeture ») : le charger AVANT de fermer.
+   Recopier ici le geste rendrait le skill inatteignable — et c'est lui qui porte les deux blocs
+   qu'aucun automate ne connaît, ceux qui évitent une relecture de code des semaines plus tard.
 
    Fermer, c'est aussi **recaler ce que ce ticket rendait faux** — les tickets voisins et la
    documentation, pas seulement le code (skill `nodefony-ticket`, § « Fermer un ticket ») :

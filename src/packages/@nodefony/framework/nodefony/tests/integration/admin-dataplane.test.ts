@@ -345,6 +345,52 @@ describe("Admin data plane — liveness PUBLIQUE graduée (/livez)", () => {
     expect(b.git).to.be.an("object");
   });
 
+  /**
+   * UNE seule vérité sur la disponibilité. `livez.ready` et `/readyz` répondent
+   * à la même question — « ce pod peut-il servir ? » — et doivent donc rendre le
+   * même verdict, registre de disponibilité compris. Deux vérités enverraient
+   * l'exploitant chercher au mauvais endroit : `ready:true` ici pendant que le
+   * kubelet reçoit 503 là.
+   *
+   * Le CODE HTTP de `livez`, lui, ne bouge pas : il sert la chaîne de démarrage
+   * (`probeBootDegraded`), et un pod volontairement retenu est bel et bien
+   * DÉMARRÉ — le faire échouer au lancement serait faux.
+   */
+  it("livez.ready s'accorde avec /readyz quand un composant retient la mise en service", async () => {
+    const hold = (state: "ready" | "blocked") =>
+      req("GET", `/nodefony/test/readiness/set/banc:dataplane/${state}`);
+    try {
+      await hold("blocked");
+
+      const anon = await req("GET", "/nodefony/kernel/api/livez");
+      const b = anon.body as Record<string, unknown>;
+      expect(anon.status, "le code HTTP reste piloté par le boot").to.equal(
+        200,
+      );
+      expect(b.booted).to.equal(true);
+      expect(b.ready, "le pod ne peut PAS servir").to.equal(false);
+      expect(b.readinessBlocked).to.equal(1);
+      // …et l'anonyme n'apprend pas QUI retient (même gradation que modulesSkipped).
+      expect(b).to.not.have.property("readiness");
+
+      const readyz = await req("GET", "/readyz");
+      expect(readyz.status, "les deux sondes s'accordent").to.equal(503);
+
+      const priv = await req("GET", "/nodefony/kernel/api/livez", auth());
+      const pb = priv.body as Record<string, unknown>;
+      const contributors = pb.readiness as { name: string; ready: boolean }[];
+      expect(contributors.some((c) => c.name === "banc:dataplane")).to.equal(
+        true,
+      );
+    } finally {
+      await req("GET", "/nodefony/test/readiness/clear/banc:dataplane");
+    }
+
+    const back = await req("GET", "/nodefony/kernel/api/livez");
+    expect((back.body as Record<string, unknown>).ready).to.equal(true);
+    expect((await req("GET", "/readyz")).status).to.equal(200);
+  });
+
   it("/livez seule est ouverte — /info reste 401 sans session", async () => {
     const open = await req("GET", "/nodefony/kernel/api/livez");
     const closed = await req("GET", "/nodefony/kernel/api/info");

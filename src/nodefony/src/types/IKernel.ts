@@ -1,6 +1,7 @@
 import type { IService } from "./IService";
 import type { IModule } from "./IModule";
 import type { IBootReport } from "../kernel/bootReport";
+import type { IReadinessContributor } from "../kernel/readinessRegistry";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
@@ -141,4 +142,21 @@ export interface IKernel extends IService {
   setBootLines(phase: string, lines: string[]): void;
   /** Lignes de détail déclarées pour une phase de boot. */
   getBootLines(phase: string): string[];
+
+  // ─── Disponibilité (ce qui retient la mise en service — `/readyz`) ───────────
+  /**
+   * Nombre de composants qui retiennent la mise en service — `0` = disponible.
+   * Verdict DÉJÀ calculé : le lire ne déclenche aucune vérification.
+   */
+  readonly readinessBlocked: number;
+  /**
+   * Pose le verdict de disponibilité d'un composant nommé (schéma en retard,
+   * cache froid…). Un seul `false` suffit à faire rendre 503 à `/readyz` ;
+   * `/livez` reste 200 — un état externe ne se répare pas par un redémarrage.
+   */
+  setReadiness(name: string, ready: boolean, reason?: string): void;
+  /** Retire un contributeur : sa voix ne retient plus rien. */
+  clearReadiness(name: string): void;
+  /** État de chaque contributeur — pour un diagnostic, jamais pour la sonde. */
+  readinessReport(): IReadinessContributor[];
 }

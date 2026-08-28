@@ -4703,8 +4703,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 549,
-        "approxTokens": 6579
+        "bodyLines": 554,
+        "approxTokens": 6681
       },
       "requires": [],
       "resources": {
@@ -4814,7 +4814,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "549",
+            "detail": "554",
             "advisory": true
           }
         ]
@@ -5365,8 +5365,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"quels tickets parlent de ce que j'ai changé ?\", \"ce ticket est trop vague\", \"il manque le contexte pour le prendre\".",
       "cost": {
-        "bodyLines": 498,
-        "approxTokens": 8930
+        "bodyLines": 530,
+        "approxTokens": 9647
       },
       "requires": [],
       "resources": {
@@ -5438,6 +5438,51 @@
                 "help": ""
               }
             ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-close.mjs",
+            "purpose": "Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95"
+            ],
+            "options": [
+              {
+                "flag": "--comment",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--name-only",
+                "help": ""
+              },
+              {
+                "flag": "--reverse",
+                "help": ""
+              },
+              {
+                "flag": "--since",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/ticket-close.test.mjs",
+            "purpose": "Suite du compte rendu de fermeture.",
+            "usage": [],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -5745,8 +5790,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "498",
+            "ok": false,
+            "detail": "530",
             "advisory": true
           }
         ]

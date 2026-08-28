@@ -761,10 +761,21 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         "Liveness/readiness probe (PUBLIC) — détails runtime gradués par authentification",
       handler: (request: IAdminRequest) => {
         const report = kernel.getBootReport();
+        // `ready` répond à la MÊME question que `/readyz`, il doit donc rendre
+        // le MÊME verdict : le boot terminé ne suffit pas si un composant
+        // retient la mise en service (schéma de base en retard, cache froid).
+        // Deux vérités sur la disponibilité, c'est une de trop — un exploitant
+        // qui voit `ready:true` ici pendant que le kubelet reçoit 503 cherche au
+        // mauvais endroit. Le code HTTP, lui, reste piloté par le seul `booted` :
+        // il sert la chaîne de démarrage (`probeBootDegraded`), et un pod
+        // volontairement retenu est DÉMARRÉ — le faire échouer serait faux.
+        const blocked = kernel.readinessBlocked;
         const minimal = {
           status: kernel.booted ? "ok" : "booting",
           booted: kernel.booted,
-          ready: kernel.booted,
+          ready: kernel.booted && blocked === 0,
+          /** Nombre de composants qui retiennent la mise en service (0 = aucun). */
+          readinessBlocked: blocked,
           // Boot DÉGRADÉ = des modules ont été ignorés (fail-soft) OU aucun serveur
           // n'écoute alors qu'attendu. Booléen volontairement EXPOSÉ à l'anonyme
           // (sonde monitoring / superviseur dev) : signal de santé, AUCUNE fuite (pas
@@ -792,6 +803,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             // comment remédier (cf IBootReport / BootReport « vert mais cassé »).
             modulesSkipped: report.modulesSkipped,
             remediation: report.remediation,
+            // QUI retient la mise en service, et pourquoi — même gradation que
+            // `modulesSkipped` : le compte est public (signal de santé), les
+            // noms sont réservés (ils décrivent l'architecture interne).
+            readiness: kernel.readinessReport(),
             cluster: { isCluster: process.env.NF_CLUSTER === "1" },
             backplanes: {
               log: {

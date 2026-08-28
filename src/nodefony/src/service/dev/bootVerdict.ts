@@ -139,6 +139,56 @@ export function extractSkippedModules(journal: string): string[] {
   return [...vus];
 }
 
+/** Ce qu'un runtime dit de sa DISPONIBILITÉ — « peut-il servir maintenant ? ». */
+export interface IReadinessProbe {
+  /** `true` = le pod peut servir (boot fini ET rien ne le retient). */
+  readonly ready: boolean;
+  /** Nombre de composants qui retiennent la mise en service (0 = aucun). */
+  readonly blocked: number;
+}
+
+/**
+ * Demande au runtime s'il peut SERVIR — question distincte de « ses ports
+ * répondent-ils ». Un pod dont le schéma de base est en retard écoute
+ * parfaitement et ne sert rien : l'orchestrateur le tient hors du répartiteur de
+ * charge, et un rapport qui n'annoncerait que « 2/2 ports UP » serait faux et
+ * rassurant à tort — exactement le défaut que ce fichier existe pour éviter.
+ *
+ * Même canal que {@link probeBootDegraded} (le `livez` du plan d'administration,
+ * en boucle locale) : une seule sonde, un seul endroit à corriger.
+ *
+ * @param port - port en clair du runtime (boucle locale).
+ * @param deps - injection du client HTTP, pour éprouver sans réseau.
+ * @returns le verdict, ou `null` si rien d'exploitable n'a été obtenu — une
+ *   sonde muette ne certifie RIEN, elle se dit muette.
+ */
+export function probeReadiness(
+  port: number | undefined,
+  deps: {
+    readonly fetchLivez?: (port: number) => Promise<string | null>;
+  } = {},
+): Promise<IReadinessProbe | null> {
+  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) {
+    return Promise.resolve(null);
+  }
+  const fetchLivez = deps.fetchLivez ?? httpGetLivez;
+  return fetchLivez(port).then((body): IReadinessProbe | null => {
+    if (body === null) return null;
+    try {
+      const j = JSON.parse(body) as {
+        ready?: boolean;
+        readinessBlocked?: number;
+      };
+      // Un runtime d'une version antérieure ne connaît pas `readinessBlocked` :
+      // son `ready` reste exploitable, le compte vaut alors 0.
+      if (typeof j.ready !== "boolean") return null;
+      return { ready: j.ready, blocked: j.readinessBlocked ?? 0 };
+    } catch {
+      return null;
+    }
+  });
+}
+
 /**
  * GET `livez` en boucle locale, en clair. Rend `null` sur tout échec — c'est une
  * observation best-effort, jamais un point de rupture du démarrage.

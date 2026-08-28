@@ -3,6 +3,7 @@ import { expect } from "chai";
 import {
   extractSkippedModules,
   probeBootDegraded,
+  probeReadiness,
   waitBootVerdict,
 } from "../service/dev/bootVerdict";
 import { childExecArgv, parseDetachArgs } from "../service/dev/detachedStart";
@@ -237,5 +238,66 @@ describe("childExecArgv — ce qui suit le child, et ce qui ne le suit pas", () 
 
   it("rien à propager → rien", () => {
     expect(childExecArgv([])).to.deep.equal([]);
+  });
+});
+
+/**
+ * SPEC — « des ports qui répondent ne disent pas que le pod SERT ».
+ *
+ * Un composant peut retenir la mise en service (schéma de base en retard, cache
+ * froid) : le runtime écoute parfaitement et l'orchestrateur ne lui envoie
+ * pourtant aucun trafic. La sonde de disponibilité pose CETTE question — et,
+ * comme celle du boot, elle ne conclut rien quand elle n'obtient rien.
+ */
+describe("probeReadiness — la disponibilité se demande, elle ne se déduit pas", () => {
+  const body = (o: Record<string, unknown>) => () =>
+    Promise.resolve(JSON.stringify(o));
+
+  it("runtime disponible → ready, aucun composant ne retient", async () => {
+    const p = await probeReadiness(5151, {
+      fetchLivez: body({ booted: true, ready: true, readinessBlocked: 0 }),
+    });
+    expect(p).to.deep.equal({ ready: true, blocked: 0 });
+  });
+
+  it("un composant retient → PAS disponible, et il est COMPTÉ", async () => {
+    const p = await probeReadiness(5151, {
+      fetchLivez: body({ booted: true, ready: false, readinessBlocked: 2 }),
+    });
+    expect(p).to.deep.equal({ ready: false, blocked: 2 });
+  });
+
+  it("runtime d'une version antérieure (sans le compte) → verdict gardé, compte à 0", async () => {
+    const p = await probeReadiness(5151, {
+      fetchLivez: body({ booted: true, ready: true }),
+    });
+    expect(p).to.deep.equal({ ready: true, blocked: 0 });
+  });
+
+  it("sonde MUETTE ou illisible → null : elle ne certifie RIEN", async () => {
+    expect(
+      await probeReadiness(5151, { fetchLivez: () => Promise.resolve(null) }),
+    ).to.equal(null);
+    expect(
+      await probeReadiness(5151, {
+        fetchLivez: () => Promise.resolve("<html>"),
+      }),
+    ).to.equal(null);
+    expect(
+      await probeReadiness(5151, { fetchLivez: body({ booted: true }) }),
+      "un corps sans verdict ne vaut pas un verdict",
+    ).to.equal(null);
+  });
+
+  it("port absurde → aucune requête, aucun verdict", async () => {
+    let appele = false;
+    const p = await probeReadiness(0, {
+      fetchLivez: () => {
+        appele = true;
+        return Promise.resolve("{}");
+      },
+    });
+    expect(p).to.equal(null);
+    expect(appele).to.equal(false);
   });
 });

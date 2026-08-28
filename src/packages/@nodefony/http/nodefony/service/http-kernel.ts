@@ -976,9 +976,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         return this.#respondHealth(response, true);
       }
       if (url === this.#healthPaths.readiness) {
+        // Troisième condition : les composants qui retiennent la mise en service
+        // (schéma de base en retard, cache froid…) — `kernel.readinessBlocked`
+        // est un ENTIER déjà calculé par eux (`setReadiness`), pas une
+        // vérification déclenchée ici : la sonde ne doit tomber avec RIEN.
+        // Vaut 0 tant que personne ne s'inscrit — le registre n'est alors même
+        // pas alloué.
         return this.#respondHealth(
           response,
-          !this.#terminating && this.kernel?.postReady === true,
+          !this.#terminating &&
+            this.kernel?.postReady === true &&
+            this.kernel.readinessBlocked === 0,
         );
       }
     }

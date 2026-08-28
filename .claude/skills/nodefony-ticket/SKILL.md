@@ -416,6 +416,36 @@ node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs
 node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs 34 54    # ceux-là seulement
 ```
 
+### Le compte rendu de fermeture — quatre blocs, dont deux qu'aucun automate ne connaît
+
+**Fermer sur « fait » perd tout ce que la session a appris.** Le travail a produit des commits, des
+tests, une garde vue mordre — et presque toujours quelque chose qui **déborde de l'énoncé** : la
+protection demandée en séance, le voisin qu'il a fallu aligner. Rien de cela n'est retrouvable
+ensuite autrement qu'en relisant le code, c'est-à-dire au prix exact que le ticket existe pour
+éviter (§3). Le compte rendu est le seul endroit où ces faits atterrissent.
+
+```bash
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95            # brouillon
+node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --since <sha>
+```
+
+| Bloc                  | Qui le remplit                                                                                                       |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Commits**           | le script (`git log --grep '#N\b'`) — la borne de mot évite que `#9` ramène le travail de `#95`                      |
+| **Preuves**           | le script pour les fichiers de test ; **l'auteur** pour la garde vue mordre : ce qu'on a débranché, ce qui est tombé |
+| **Au-delà du ticket** | **l'auteur seul** — ce qui a débordé et POURQUOI                                                                     |
+| **Non fait**          | **l'auteur seul** — le point du « Fini quand » non couvert, et son motif                                             |
+
+Les deux derniers ne sont dans aucun dépôt : un script qui les devinerait rendrait un compte rendu
+plausible et faux. Le script imprime donc, mais **n'écrit rien sur GitHub** — fermer est
+irréversible pour le pilotage, et ne se délègue pas à un automate qui n'a pas lu le diff.
+
+> **Un débordement STRUCTURANT prend son propre ticket**, ouvert et refermé dans la foulée : le
+> compte rendu dit ce qui a été fait, il ne remplace pas l'endroit où l'on cherche.
+
+⚠️ **Le message de commit doit CITER le ticket** (`#95`, ou `Closes #95` pour le dernier) — sinon
+la timeline reste vide, le bloc « Commits » sort vide, et `ticket-progress.mjs` ne marque rien.
+
 ### 🔴 La console d'administration est la RÉFÉRENCE de non-régression
 
 Studio est **la seule application réelle du dépôt** : une identité qui bascule, une socket qui se
@@ -478,20 +508,22 @@ réécrire ; un écart estimé/constaté ne veut rien dire sans savoir ce qu'on 
 d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot` vit dans
 `nodefony-session` et est appelé par npm).
 
-| Script                                                       | Ce qu'il fait                                                              | Appelé par                   |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------- | ---------------------------- |
-| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau           | `npm run ticket:open`        |
-| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer       | `.githooks/post-commit`      |
-| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte le champ `Jours` au temps réellement constaté                    | à la main, au END de session |
-| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux | à la main, au END de session |
-| [`scripts/francise.mjs`](scripts/francise.mjs)               | repère les tournures à franciser dans un corps de ticket                   | à la main                    |
-| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)       | insère le bloc **Lexique** des abréviations détectées                      | à la main                    |
+| Script                                                       | Ce qu'il fait                                                                                          | Appelé par                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                       | `npm run ticket:open`             |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                   | `.githooks/post-commit`           |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte le champ `Jours` au temps réellement constaté                                                | à la main, au END de session      |
+| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                             | à la main, au END de session      |
+| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)       | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur) | à la main, avant `gh issue close` |
+| [`scripts/francise.mjs`](scripts/francise.mjs)               | repère les tournures à franciser dans un corps de ticket                                               | à la main                         |
+| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)       | insère le bloc **Lexique** des abréviations détectées                                                  | à la main                         |
 
 Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
 `parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par
 [`scripts/ticket-open.test.mjs`](scripts/ticket-open.test.mjs) et
-[`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs), que lance
-`npm run test:pilotage`.
+[`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs) ; celles du compte rendu
+(`fichiersDeTest`, `composer`) par [`scripts/ticket-close.test.mjs`](scripts/ticket-close.test.mjs).
+Toutes sont lancées par `npm run test:pilotage`.
 
 ## Références (chargées à la demande)
 

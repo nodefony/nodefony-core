@@ -1196,6 +1196,14 @@ export interface DevObservationDeps {
   readonly getCwd?: (pid: number) => string | null;
   /** Sonde TCP des ports (défaut : {@link probePorts}). */
   readonly probe?: (ports: readonly number[]) => Promise<PortState[]>;
+  /**
+   * Demande au runtime s'il peut SERVIR (défaut : `probeReadiness`, canal
+   * `livez`). Injectable pour éprouver un rapport sans réseau. Rend `null`
+   * quand rien d'exploitable n'a été obtenu — jamais un verdict deviné.
+   */
+  readonly probeReadiness?: (
+    port: number,
+  ) => Promise<{ readonly ready: boolean; readonly blocked: number } | null>;
   /** Écriture du rapport (défaut : `writeSync(1, …)` — un seul écrit, jamais tronqué). */
   readonly write?: (chunk: string) => void;
 }

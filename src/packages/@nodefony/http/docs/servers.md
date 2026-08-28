@@ -647,10 +647,10 @@ Violation)**, jamais par un code HTTP.
 
 Deux questions différentes, deux réponses différentes — les confondre casse les déploiements.
 
-| Probe     | Question                     | Réponse                                                                         |
-| --------- | ---------------------------- | ------------------------------------------------------------------------------- |
-| `/livez`  | Le processus est-il vivant ? | `200` tant qu'il sert, **y compris pendant le drain**.                          |
-| `/readyz` | Peut-il recevoir du trafic ? | `200` si le boot est complet **et** que l'arrêt n'a pas commencé ; `503` sinon. |
+| Probe     | Question                     | Réponse                                                                                                                           |
+| --------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `/livez`  | Le processus est-il vivant ? | `200` tant qu'il sert, **y compris pendant le drain**.                                                                            |
+| `/readyz` | Peut-il recevoir du trafic ? | `200` si le boot est complet, que l'arrêt n'a pas commencé **et** qu'aucun composant ne retient la mise en service ; `503` sinon. |
 
 Le détail qui compte : `livez` reste à `200` pendant l'arrêt gracieux. Répondre `503` là ferait
 redémarrer le pod **en plein drain** par le kubelet, et casserait précisément ce qu'on essaie de
@@ -667,6 +667,38 @@ rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de r
 | `livenessPath`  | string | `/livez`  | Chemin de la sonde de vie (`livenessProbe.httpGet.path` k8s).          |
 | `readinessPath` | string | `/readyz` | Chemin de la sonde de disponibilité.                                   |
 | `shutdownDelay` | ms     | `0`       | Délai entre la bascule `503` et le début du drain (propagation du LB). |
+
+### Retenir la mise en service — `kernel.setReadiness()`
+
+Un pod peut être parfaitement démarré et incapable de servir : son schéma de base est en retard,
+un cache n'est pas chaud, un service dont il dépend n'a pas encore répondu. Tout composant peut
+alors **retenir** `/readyz`, et l'orchestrateur en tire la conséquence : il n'envoie pas de trafic,
+l'ancien exemplaire continue de servir, le déploiement s'arrête proprement.
+
+```ts
+// Dans un service, au boot puis à chaque re-vérification.
+kernel.setReadiness("schema", false, "3 migrations en attente"); // → /readyz 503
+// …le travail de migration s'applique (depuis l'extérieur, par un Job) :
+kernel.setReadiness("schema", true); // → /readyz 200, sans redéploiement
+kernel.clearReadiness("schema"); // le composant s'arrête : sa voix ne compte plus
+```
+
+Trois règles à connaître :
+
+- **Le verdict est déjà calculé.** `setReadiness` prend un booléen, jamais une fonction : la sonde
+  ne déclenche aucune vérification. Une sonde qui interroge une base tombe avec elle — celle-ci
+  lit un entier, et répond même quand la base est injoignable.
+- **Un seul « pas prêt » suffit à retenir** ; il faut que tous soient prêts pour libérer. Un même
+  nom réenregistré ne compte qu'une voix.
+- **`livez` reste à `200`.** Un schéma en retard est un état EXTERNE : redémarrer le processus ne
+  le répare pas. C'est aussi pourquoi le pod redevient disponible **tout seul** dès que la cause
+  est levée.
+
+Ce que voit l'exploitant : le journal du pod NOMME ce qui retient (`CRITIC` à chaque bascule), le
+plan d'administration publie `ready` et `readinessBlocked` (`GET /nodefony/kernel/api/livez` ; les
+noms sont réservés à un appelant authentifié), et `nodefony status` affiche une ligne
+`disponibilité`. Le corps de `/readyz`, lui, reste une constante — c'est le prix à ne pas payer sur
+un chemin sondé toutes les 2 à 10 secondes.
 
 Le match est **strict** sur l'URL brute : `/livez?x=1` repart dans le pipeline normal. Les deux
 serveurs (HTTP et HTTPS) servent ces chemins — un kubelet configuré en `scheme: HTTPS` fonctionne.

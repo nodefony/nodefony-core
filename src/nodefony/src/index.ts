@@ -524,6 +524,10 @@ export type {
   IBootModuleGated,
 } from "./kernel/bootReport";
 
+// Disponibilité du processus — un composant qui a un état d'amorçage (schéma en
+// retard, cache froid) retient `/readyz` via `kernel.setReadiness(...)`.
+export type { IReadinessContributor } from "./kernel/readinessRegistry";
+
 export type { OptionsCommandInterface } from "./command/Command";
 
 // ─── Introspection des process de DÉVELOPPEMENT (ps + sonde ports + pidfile) ──

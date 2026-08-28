@@ -90,6 +90,24 @@ Les deux transports diffèrent parce que l'**ordre** diffère : en WS le control
 handshake (avant `connect()`), donc l'échec ne peut pas se rendre en réponse HTTP. Banc :
 `http/tests/http/lifecycle-init-crash.test.ts`.
 
+### ReadinessController (`/nodefony/test/readiness`) — télécommande du registre de disponibilité
+
+Décor du banc S5-R : le registre vit sur le Kernel, le banc parle à un serveur RÉEL dans un autre
+process. Sans ces routes il ne pourrait qu'observer `/readyz` répondre 200 — c'est-à-dire ne rien
+prouver.
+
+| Route                 | Méthode | Description                                                            |
+| --------------------- | ------- | ---------------------------------------------------------------------- |
+| `/set/{name}/{state}` | GET     | `kernel.setReadiness(name, state === "ready")` — `blocked` sinon       |
+| `/clear/{name}`       | GET     | `kernel.clearReadiness(name)`                                          |
+| `/report`             | GET     | `{ blocked, contributors }` — l'état que la sonde, elle, ne lit jamais |
+
+Attendu : un contributeur `blocked` fait passer `/readyz` de 200 à **503** pendant que `/livez`
+reste **200**, et le retour à 200 se fait sans redémarrage. Bancs :
+`http/tests/http/health.test.ts` et `framework/tests/integration/admin-dataplane.test.ts` (accord
+de `livez.ready` avec `/readyz`). ⚠️ Un contributeur oublié laisse tout le reste de la suite devant
+un pod hors service — le banc nettoie dans un `afterEach`.
+
 ### PipelineOrderController (`/nodefony/test/pipeline-order`) — mouchard d'ORDRE
 
 Prouve **quand** le hook `initialize()` d'un controller s'exécute. Le mouchard est écrit par

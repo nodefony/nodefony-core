@@ -19,6 +19,8 @@ import DecoratorController from "./nodefony/controller/DecoratorController";
 import AlsController from "./nodefony/controller/AlsController";
 import DiController from "./nodefony/controller/DiController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
+// S5-R — télécommande du registre de disponibilité (/readyz vu basculer 200⇄503).
+import ReadinessController from "./nodefony/controller/ReadinessController";
 import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
 import DbController from "./nodefony/controller/DbController";
@@ -95,6 +97,7 @@ const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
   AlsController,
   DiController,
   LifecycleController,
+  ReadinessController,
   DomainController,
   DomainClassController,
   DbController,

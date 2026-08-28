@@ -80,6 +80,8 @@ import type {
   IBootServerInfo,
   IBootModuleGated,
 } from "./bootReport";
+import { ReadinessRegistry } from "./readinessRegistry";
+import type { IReadinessContributor } from "./readinessRegistry";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
@@ -413,6 +415,15 @@ class Kernel extends Service implements IKernel {
   booted: boolean = false;
   ready: boolean = false;
   postReady: boolean = false;
+  /**
+   * Composants qui RETIENNENT la mise en service (cf `readinessRegistry.ts`).
+   *
+   * `null` tant que personne ne s'inscrit — et de nouveau `null` quand le
+   * dernier contributeur se retire : la sonde `/readyz` est sur le chemin le
+   * plus chaud du framework, elle ne doit rien payer pour un mécanisme dont
+   * aucune application ne se sert. Lire {@link Kernel.readinessBlocked}.
+   */
+  private readiness: ReadinessRegistry | null = null;
   /**
    * Supprime les bannières serveurs « Server Listen on… » (`showBanner`) — posé
    * par le `BootReporter` animé (dev TTY non-debug) : le bloc « ✓ Prêt » liste
@@ -2768,6 +2779,108 @@ class Kernel extends Service implements IKernel {
           serversExpected,
         ) ?? undefined,
     };
+  }
+
+  /**
+   * Nombre de composants qui retiennent la mise en service — `0` = disponible.
+   *
+   * C'est ce que lit la sonde `/readyz`, et c'est pour elle que ce membre est un
+   * ENTIER déjà calculé : une comparaison, aucune allocation, aucun `await`,
+   * aucune vérification déclenchée. Une sonde qui interrogerait la base tomberait
+   * avec elle ; celle-ci lit un verdict que le contributeur a posé lui-même.
+   *
+   * @returns le nombre de contributeurs non prêts (`0` quand personne n'est inscrit)
+   */
+  get readinessBlocked(): number {
+    return this.readiness === null ? 0 : this.readiness.blocked;
+  }
+
+  /**
+   * Pose le verdict de disponibilité d'un composant nommé — un schéma de base en
+   * retard, un cache froid, un service tiers muet. Tant qu'un seul contributeur
+   * répond `false`, `/readyz` rend **503** et l'orchestrateur n'envoie pas de
+   * trafic ; le processus reste VIVANT (`/livez` inchangé), car un état externe
+   * ne se répare pas en redémarrant le processus.
+   *
+   * Le verdict doit être DÉJÀ CALCULÉ : ce n'est pas une vérification que la
+   * sonde déclenchera, c'est un booléen que le composant met à jour à son propre
+   * rythme. Dès qu'il repose `true`, le processus redevient disponible tout seul
+   * — sans redéploiement, ce qui est toute la raison d'être du mécanisme.
+   *
+   * Idempotent par nom : réenregistrer le même nom remplace son verdict.
+   *
+   * @param name - nom du contributeur, qui apparaîtra au journal (`"drizzle:schema"`)
+   * @param ready - `false` retient la mise en service, `true` la libère
+   * @param reason - ce qui retient, en clair (journalisé ; ignoré si `ready`)
+   */
+  setReadiness(name: string, ready: boolean, reason?: string): void {
+    if (this.readiness === null) {
+      // Personne ne s'était inscrit : le registre naît ICI, jamais au boot — y
+      // compris quand le premier verdict est « prêt », car c'est ce même
+      // contributeur qui dira plus tard « plus prêt ».
+      this.readiness = new ReadinessRegistry();
+    }
+    const flipped = this.readiness.set(name, ready, reason);
+    if (flipped) {
+      this.logReadinessFlip();
+    }
+  }
+
+  /**
+   * Retire un contributeur du registre — sa voix ne compte plus. Geste d'un
+   * module qui s'arrête ; le registre est LIBÉRÉ quand le dernier part, pour que
+   * la sonde retrouve exactement le coût qu'elle avait avant toute inscription.
+   *
+   * @param name - nom du contributeur, tel que passé à {@link Kernel.setReadiness}
+   */
+  clearReadiness(name: string): void {
+    if (this.readiness === null) {
+      return;
+    }
+    const flipped = this.readiness.clear(name);
+    if (this.readiness.size === 0) {
+      this.readiness = null;
+    }
+    if (flipped) {
+      this.logReadinessFlip();
+    }
+  }
+
+  /**
+   * Restitue l'état de chaque contributeur — pour un diagnostic (journal,
+   * `status`, console d'administration), jamais pour la sonde.
+   *
+   * @returns un contributeur par inscription, triés par nom ; vide si aucun
+   */
+  readinessReport(): IReadinessContributor[] {
+    return this.readiness === null ? [] : this.readiness.report();
+  }
+
+  /**
+   * Dit au journal ce qui vient de basculer. Appelé UNIQUEMENT quand le verdict
+   * agrégé change (jamais à chaque pose de verdict identique) : un pod retenu
+   * plusieurs heures ne doit pas noyer son propre journal, et un exploitant qui
+   * voit un pod jamais disponible doit trouver ici le NOM de ce qui le retient —
+   * le corps de la sonde, lui, reste une constante pré-allouée.
+   */
+  private logReadinessFlip(): void {
+    // Le registre peut avoir été libéré à l'instant (dernier contributeur
+    // retiré) : c'est exactement le cas « plus rien ne retient ».
+    const retenant =
+      this.readiness === null
+        ? []
+        : this.readiness.report().filter((c) => !c.ready);
+    if (retenant.length === 0) {
+      this.log("Mise en service libérée — /readyz rend de nouveau 200", "INFO");
+      return;
+    }
+    const details = retenant
+      .map((c) => (c.reason ? `${c.name} (${c.reason})` : c.name))
+      .join(", ");
+    this.log(
+      `Mise en service RETENUE — /readyz rend 503 : ${details}`,
+      "CRITIC",
+    );
   }
 
   /**

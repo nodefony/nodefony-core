@@ -25,6 +25,7 @@ import {
   type RuntimeMode,
 } from "./devProcess";
 import { buildProjectTable, type IProjectRuntime } from "./devProjects";
+import { probeReadiness, type IReadinessProbe } from "./bootVerdict";
 import { runStopReport } from "./devStop";
 
 /**
@@ -156,6 +157,17 @@ export interface DevStatusReport {
    */
   readonly foreign: readonly DevProcessWithCwd[];
   /**
+   * Ce que le runtime dit de sa DISPONIBILITÉ — `null` quand la sonde n'a rien
+   * pu conclure (aucun port en écoute, runtime muet), jamais un verdict deviné.
+   *
+   * Distinct des ports : un pod dont un composant retient la mise en service
+   * (schéma de base en retard, cache froid) écoute parfaitement et ne reçoit
+   * pourtant AUCUN trafic — l'orchestrateur l'a sorti du répartiteur de charge.
+   * Annoncer « 2/2 ports UP » sans le dire serait le diagnostic faux et
+   * rassurant que ce rapport s'interdit.
+   */
+  readonly readiness: IReadinessProbe | null;
+  /**
    * Ports occupés par un projet identifié qui n'est PAS le nôtre (port → racine).
    * Sépare « pas à moi » de « pas mort » : sans cette table, un port du voisin se
    * lit comme un serveur à nous, ou comme un arrêt qui a échoué.
@@ -194,6 +206,12 @@ export function buildDevStatus(
    * doit l'annoncer plutôt que laisser croire à un décompte scopé.
    */
   projectScopeBlind = false,
+  /**
+   * Verdict de disponibilité fourni par l'appelant (la fonction reste PURE, cf
+   * `discoverySupported`) — `null` = non sondée, ce qui ne se lit jamais comme
+   * « prêt ».
+   */
+  readiness: IReadinessProbe | null = null,
 ): DevStatusReport {
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
@@ -300,6 +318,7 @@ export function buildDevStatus(
     inProject,
     foreign,
     portOwners: foreignPortOwners(foreign),
+    readiness,
   };
 }
 
@@ -338,6 +357,18 @@ export async function collectDevStatus(
     scoped.mine.length === 0 &&
     scoped.foreign.every((p) => p.cwd === null);
   const ports = await (opts.probe ?? probePorts)(defaultDevPorts(cwd));
+  // La disponibilité ne se demande qu'à un runtime qui écoute, et JAMAIS à celui
+  // d'un autre projet : afficher la disponibilité du voisin sous notre titre
+  // serait la variante exacte du « 4 process · 2/2 ports UP » que ce rapport a
+  // déjà eu à corriger. Sur des ports fermés, la sonde ne dirait rien de plus
+  // que « ✗ DOWN ». Best-effort : `null` (muette) ne vaut jamais « prête ».
+  const owners = foreignPortOwners(cwdBlind ? [] : scoped.foreign);
+  const listening = ports.find(
+    (p) => p.listening && owners[p.port] === undefined,
+  );
+  const readiness = listening
+    ? await (opts.probeReadiness ?? probeReadiness)(listening.port)
+    : null;
   return buildDevStatus(
     cwd,
     pid,
@@ -348,6 +379,7 @@ export async function collectDevStatus(
     observed.supported,
     cwdBlind ? [] : scoped.foreign,
     cwdBlind,
+    readiness,
   );
 }
 
@@ -707,6 +739,13 @@ function renderStatus(
     )}`,
     `  ${ANSI.dim}synthèse${ANSI.reset}      : ${summaryLine(report)}`,
   );
+  // « Les ports répondent » et « le pod sert » sont deux questions. Tant que la
+  // seconde n'a pas de réponse (sonde muette, ports fermés), on ne l'invente pas.
+  if (report.readiness !== null) {
+    lines.push(
+      `  ${ANSI.dim}disponibilité${ANSI.reset} : ${readinessLine(report.readiness)}`,
+    );
+  }
   for (const w of report.warnings)
     lines.push(`  ${ANSI.yellow}⚠ ${w}${ANSI.reset}`);
   renderForeign(lines, report, projects, sondesVoisines);
@@ -720,6 +759,25 @@ function runtimeLabel(mode: RuntimeMode | null): string {
   if (mode === "cluster") return "cluster";
   if (mode === "dev") return "dev";
   return "runtime"; // que des Vite orphelins ou mode indéterminé
+}
+
+/**
+ * Ligne de disponibilité — ce que l'orchestrateur ferait de ce pod. Retenu, elle
+ * NOMME la conséquence (aucun trafic) : « 503 » seul n'apprend rien à qui n'a pas
+ * la doctrine k8s en tête, et c'est précisément le moment où l'on cherche.
+ */
+function readinessLine(probe: IReadinessProbe): string {
+  if (probe.ready) {
+    return `${ANSI.green}✓ prête${ANSI.reset} ${ANSI.dim}— /readyz rend 200${ANSI.reset}`;
+  }
+  const qui =
+    probe.blocked > 0
+      ? `${probe.blocked} composant${probe.blocked > 1 ? "s" : ""} retien${probe.blocked > 1 ? "nent" : "t"} la mise en service`
+      : "boot pas terminé";
+  return (
+    `${ANSI.yellow}⚠ RETENUE${ANSI.reset} ${ANSI.dim}— ${qui} ; ` +
+    `/readyz rend 503, l'orchestrateur n'envoie AUCUN trafic${ANSI.reset}`
+  );
 }
 
 /** Ligne de synthèse : segments non-nuls seulement (s'adapte à dev / prod / cluster). */
