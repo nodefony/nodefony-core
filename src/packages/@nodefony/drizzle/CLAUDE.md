@@ -85,6 +85,14 @@ Deux usages :
   erreur. L'auditeur se pose **AVANT** le `connect`. Constaté au banc : cinq tests VERTS qui
   portaient deux crashs — le symptôme n'apparaît que dans « Unhandled Errors », jamais dans le
   compte de tests. Même défaut, même remède que sur le pool de `DrizzleOrm`.
+- 🔴 **En PostgreSQL, un nom de table passé à une fonction est un IDENTIFIANT — donc PLIÉ en
+  minuscules.** `to_regclass('User')` cherche `user`, rend `NULL`, et un lecteur de catalogue en
+  conclut que la table du framework n'existe pas : verdict `divergent` permanent sur **toute**
+  base PostgreSQL, et sonde de disponibilité qui retient le pod en mode `fail`. Le catalogue
+  s'interroge donc en comparant des **CHAÎNES** (`information_schema … WHERE table_name = ?`),
+  jamais en résolvant un identifiant — c'est aussi ce que fait `columnsOf`, et **les deux moitiés
+  d'un même lecteur doivent voir la même base**. Les bancs ne le voyaient pas : leurs tables
+  s'écrivent toutes en minuscules (`catalog.ts:66`, garde `schema-reconcile-dialects.e2e.test.ts`).
 - 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend
   pour du binaire et se tait). Un contrôle qui en conclut « le symbole n'existe plus » est faux.
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).

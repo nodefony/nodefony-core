@@ -182,6 +182,56 @@ for (const cible of CIBLES) {
         );
       });
 
+      it("🔴 VOIT une table dont le nom porte une MAJUSCULE", async () => {
+        // Le défaut que ce cas garde a touché TOUTE application PostgreSQL :
+        // `to_regclass('User')` traite son argument comme un IDENTIFIANT et le
+        // plie en minuscules, donc cherche `user`, donc rend NULL — et le
+        // lecteur déclarait absente la table `User` du framework. Verdict
+        // `divergent` permanent, et sonde de disponibilité qui retient le pod
+        // en mode `fail`. Les bancs existants ne le voyaient pas : leurs tables
+        // s'écrivent toutes en minuscules.
+        //
+        // Sqlite n'est pas exposé (`sqlite_master WHERE name = ?` compare une
+        // CHAÎNE, sans pliage possible) ; ce sont les serveurs qui portent le
+        // risque, et c'est donc ici que la garde vit.
+        const TABLE = "NfCasseTable";
+        const driver = await admin();
+        try {
+          await driver.exec(
+            `DROP TABLE IF EXISTS ${ident(TABLE, cible.dialect)}`,
+          );
+          await driver.exec(
+            `CREATE TABLE ${ident(TABLE, cible.dialect)} ` +
+              `(${ident("id", cible.dialect)} integer)`,
+          );
+          assert.equal(
+            await driver.tableExists(TABLE),
+            true,
+            "une table existante est déclarée absente — le lecteur plie la casse",
+          );
+          assert.deepEqual(
+            await driver.columnsOf(TABLE),
+            ["id"],
+            "les colonnes d'une table à majuscules doivent être lisibles",
+          );
+          // Et le lecteur ne confond pas les deux : la version pliée n'existe
+          // pas, il doit le dire.
+          assert.equal(
+            await driver.tableExists(TABLE.toLowerCase()),
+            false,
+            "le lecteur trouve une table qui n'existe pas — la casse est ignorée",
+          );
+        } finally {
+          try {
+            await driver.exec(
+              `DROP TABLE IF EXISTS ${ident(TABLE, cible.dialect)}`,
+            );
+          } finally {
+            await driver.close();
+          }
+        }
+      });
+
       it("ignore une colonne EN PLUS — les migrations libres restent légitimes", async () => {
         await semer(cible.ddl);
         const driver = await admin();

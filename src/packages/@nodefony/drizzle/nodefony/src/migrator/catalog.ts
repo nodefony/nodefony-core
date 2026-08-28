@@ -64,14 +64,26 @@ export function schemaReader(
           return rows.length > 0;
         }
         case "postgres": {
-          // `to_regclass` suit le `search_path` de la connexion — c'est la même
-          // résolution que celle des tables d'entités, et c'est ce qui rend
-          // l'isolation par schéma possible.
-          const rows = await query<{ found: boolean }>(
-            `SELECT to_regclass(?::text) IS NOT NULL AS found`,
+          // 🔴 JAMAIS `to_regclass(nom)` : PostgreSQL y voit un IDENTIFIANT, et
+          // plie en minuscules tout identifiant non cité. `to_regclass('User')`
+          // cherche donc `user`, rend NULL, et le lecteur déclare absente une
+          // table qui existe — sur TOUTE base PostgreSQL, puisque `User` est une
+          // table du framework. Le verdict `divergent` tombait alors en
+          // permanence, et avec lui la sonde de disponibilité en mode `fail`.
+          //
+          // Le catalogue compare des CHAÎNES, pas des identifiants : la casse y
+          // est celle de la table, sans pliage. C'est aussi, exactement, la
+          // résolution de `columnsOf` juste en dessous — les deux moitiés d'un
+          // même lecteur doivent voir la même base, sinon elles divergent en
+          // silence, ce qui est précisément ce qui est arrivé ici.
+          // `current_schemas(false)` suit le `search_path` de la connexion, donc
+          // l'isolation par schéma reste possible.
+          const rows = await query<{ found: number }>(
+            `SELECT 1 AS found FROM information_schema.tables ` +
+              `WHERE table_name = ? AND table_schema = ANY(current_schemas(false))`,
             [table],
           );
-          return rows[0]?.found === true;
+          return rows.length > 0;
         }
         case "mysql": {
           const rows = await query<{ n: number }>(
