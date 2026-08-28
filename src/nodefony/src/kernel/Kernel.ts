@@ -2851,6 +2851,38 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
+   * Ce processus a-t-il le droit de recevoir du trafic ?
+   *
+   * **La règle de mise en service, en UN seul endroit.** Elle est lue par la
+   * sonde `/readyz` (que le kubelet interroge) ET par le champ `ready` du plan
+   * d'administration (que lit un exploitant) : deux vérités sur la
+   * disponibilité, c'en est une de trop — quelqu'un qui voit `ready: true` d'un
+   * côté pendant que l'orchestrateur reçoit 503 de l'autre cherche au mauvais
+   * endroit. Les deux ont divergé (`booted` contre `postReady`), et l'écart ne
+   * s'est vu qu'en production, où la fin du cycle de démarrage arrive assez tard
+   * pour ouvrir une fenêtre de plusieurs secondes.
+   *
+   * Deux conditions, et rien d'autre :
+   *
+   * - **le cycle de démarrage est TERMINÉ** (`postReady`) — `booted` ne suffit
+   *   pas : les écouteurs de `onPostReady` montent encore des choses dont une
+   *   requête a besoin ;
+   * - **aucun composant ne retient la mise en service** — un entier déjà
+   *   calculé par eux ({@link Kernel.setReadiness}), jamais une vérification
+   *   déclenchée ici : une sonde ne doit tomber avec RIEN.
+   *
+   * Ce que ce getter ne connaît pas, volontairement : l'ARRÊT. Le drain
+   * appartient au transport, qui bascule sa propre sonde à 503 avant même de
+   * commencer à drainer — et `/livez`, lui, doit rester vert pendant ce
+   * temps, sans quoi un redémarrage casserait l'arrêt gracieux en cours.
+   *
+   * @returns `true` si le processus peut servir du trafic.
+   */
+  get servable(): boolean {
+    return this.postReady === true && this.readinessBlocked === 0;
+  }
+
+  /**
    * Pose le verdict de disponibilité d'un composant nommé — un schéma de base en
    * retard, un cache froid, un service tiers muet. Tant qu'un seul contributeur
    * répond `false`, `/readyz` rend **503** et l'orchestrateur n'envoie pas de

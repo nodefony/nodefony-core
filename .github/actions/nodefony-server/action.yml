@@ -68,6 +68,15 @@ inputs:
       écoutent ne prouvent pas qu'une requête aboutit.
     required: false
     default: https://127.0.0.1:5152/nodefony/test/index
+  ready-url:
+    description: >-
+      Sonde de MISE EN SERVICE, attendue à 200 avant de rendre la main. Vide =
+      ne pas l'attendre. Distincte de `health-url` : une route qui répond prouve
+      le routage, pas que le processus a le droit de servir — `/readyz` exige en
+      plus la fin du cycle de démarrage et l'accord de tous les composants qui
+      peuvent le retenir.
+    required: false
+    default: https://127.0.0.1:5152/readyz
 
 runs:
   using: composite
@@ -135,6 +144,38 @@ runs:
           sleep 1
         done
         echo "::error::$NF_CI_HEALTH n'a jamais rendu 200"
+        tail -40 "$NF_CI_LOG" 2>/dev/null || true
+        exit 1
+
+    # La mise en service est un ÉTAT du processus, pas une route qui répond.
+    #
+    # `/readyz` exige la fin du cycle de démarrage (`postReady`) ET l'accord de
+    # tout composant inscrit au registre de disponibilité. Le lanceur, lui, rend
+    # la main dès que les serveurs ÉCOUTENT : il reste donc une fenêtre où une
+    # route répond 200 pendant que la sonde répond encore 503. Un banc lancé dans
+    # cette fenêtre voit un 503 qu'il prend pour un défaut du produit — mesuré :
+    # `livez.ready` valait `true` (il lit `booted`) quand `/readyz` valait 503
+    # (il lit `postReady`), et les deux cas qui les comparent tombaient sur les
+    # trois systèmes à la fois.
+    #
+    # Attendre ici, c'est faire ce que fait un orchestrateur avant d'envoyer du
+    # trafic. Si l'attente expire, `nodefony status` NOMME ce qui retient.
+    - name: La mise en service est ACQUISE (/readyz)
+      if: inputs.action == 'start' && inputs.ready-url != ''
+      shell: bash
+      env:
+        NF_CI_READY: ${{ inputs.ready-url }}
+        NF_CI_LOG: ${{ inputs.log-file }}
+      run: |
+        for i in $(seq 1 30); do
+          if curl -sk -o /dev/null -w "%{http_code}" "$NF_CI_READY" | grep -q "200"; then
+            echo "✅ $NF_CI_READY → 200 (le pod peut servir)"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "::error::$NF_CI_READY n'a jamais rendu 200 — la mise en service est RETENUE"
+        node node_modules/nodefony/bin/nodefony status || true
         tail -40 "$NF_CI_LOG" 2>/dev/null || true
         exit 1
 

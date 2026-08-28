@@ -761,19 +761,20 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         "Liveness/readiness probe (PUBLIC) — détails runtime gradués par authentification",
       handler: (request: IAdminRequest) => {
         const report = kernel.getBootReport();
-        // `ready` répond à la MÊME question que `/readyz`, il doit donc rendre
-        // le MÊME verdict : le boot terminé ne suffit pas si un composant
-        // retient la mise en service (schéma de base en retard, cache froid).
-        // Deux vérités sur la disponibilité, c'est une de trop — un exploitant
-        // qui voit `ready:true` ici pendant que le kubelet reçoit 503 cherche au
-        // mauvais endroit. Le code HTTP, lui, reste piloté par le seul `booted` :
-        // il sert la chaîne de démarrage (`probeBootDegraded`), et un pod
-        // volontairement retenu est DÉMARRÉ — le faire échouer serait faux.
+        // `ready` répond à la MÊME question que `/readyz` : il rend donc le
+        // MÊME verdict, en lisant la MÊME règle (`kernel.servable`) au lieu de
+        // la recomposer. La recomposer, c'était déjà l'écrire autrement — ce
+        // champ lisait `booted` quand la sonde lisait `postReady`, et l'écart
+        // n'apparaissait qu'en production, où la fin du démarrage arrive assez
+        // tard pour que `ready: true` coexiste plusieurs secondes avec un 503
+        // servi au kubelet. Le code HTTP, lui, reste piloté par le seul
+        // `booted` : il sert la chaîne de démarrage (`probeBootDegraded`), et un
+        // pod volontairement retenu est DÉMARRÉ — le faire échouer serait faux.
         const blocked = kernel.readinessBlocked;
         const minimal = {
           status: kernel.booted ? "ok" : "booting",
           booted: kernel.booted,
-          ready: kernel.booted && blocked === 0,
+          ready: kernel.servable,
           /** Nombre de composants qui retiennent la mise en service (0 = aucun). */
           readinessBlocked: blocked,
           // Boot DÉGRADÉ = des modules ont été ignorés (fail-soft) OU aucun serveur

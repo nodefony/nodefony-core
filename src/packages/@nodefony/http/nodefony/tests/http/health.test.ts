@@ -98,7 +98,12 @@ describe("Health probes /livez + /readyz (cloud-native 0.7)", () => {
  * l'intérêt du mécanisme (le pod redevient disponible SEUL, sans redéploiement).
  */
 describe("Registre de disponibilité — /readyz retenu puis libéré (S5-R)", () => {
-  const CONTRIBUTORS = ["banc:schema", "banc:cache", "banc:upstream"];
+  const CONTRIBUTORS = [
+    "banc:schema",
+    "banc:cache",
+    "banc:upstream",
+    "banc:tiers",
+  ];
 
   const setReady = (name: string, ready: boolean) =>
     get(`/nodefony/test/readiness/set/${name}/${ready ? "ready" : "blocked"}`);
@@ -150,16 +155,27 @@ describe("Registre de disponibilité — /readyz retenu puis libéré (S5-R)", (
   });
 
   it("le même nom réenregistré ne compte qu'UNE voix (un seul geste libère)", async () => {
+    // Un contributeur ÉTRANGER, et PRÊT. C'est l'état d'un pod de PRODUCTION :
+    // le module de base y inscrit sa propre voix en permanence dès que
+    // `migrations.check` vaut `fail` — le défaut hors développement. Sans ce
+    // tiers, le cas affirmait un ABSOLU (« il n'y a qu'un contributeur au
+    // monde »), vrai sur un serveur de développement et faux partout ailleurs :
+    // il tombait en production sans rien apprendre sur ce qu'il prétend prouver.
+    await setReady("banc:tiers", true);
+
     await setReady("banc:schema", false);
     await setReady("banc:schema", false);
     await setReady("banc:schema", false);
 
     const report = (await get("/nodefony/test/readiness/report")).body as {
       blocked: number;
-      contributors: unknown[];
+      contributors: { name: string; ready: boolean }[];
     };
-    expect(report.blocked).to.equal(1);
-    expect(report.contributors).to.have.length(1);
+    expect(report.blocked, "un tiers PRÊT ne retient rien").to.equal(1);
+    expect(
+      report.contributors.filter((c) => c.name === "banc:schema"),
+      "trois inscriptions du même nom ne font qu'UNE voix",
+    ).to.have.length(1);
     expect((await get("/readyz")).status).to.equal(503);
 
     // Un SEUL geste libère — s'il avait compté trois voix, le pod serait resté

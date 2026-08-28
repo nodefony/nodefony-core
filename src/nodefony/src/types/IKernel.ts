@@ -150,6 +150,15 @@ export interface IKernel extends IService {
    */
   readonly readinessBlocked: number;
   /**
+   * Ce processus a-t-il le droit de recevoir du trafic ?
+   *
+   * La règle de mise en service, en UN point : cycle de démarrage TERMINÉ
+   * (`postReady`) et aucun composant qui retienne. Lue telle quelle par la
+   * sonde `/readyz` et par le champ `ready` du plan d'administration — les
+   * recomposer chacun de son côté les a déjà fait diverger.
+   */
+  readonly servable: boolean;
+  /**
    * Pose le verdict de disponibilité d'un composant nommé (schéma en retard,
    * cache froid…). Un seul `false` suffit à faire rendre 503 à `/readyz` ;
    * `/livez` reste 200 — un état externe ne se répare pas par un redémarrage.

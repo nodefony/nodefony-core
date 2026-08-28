@@ -976,17 +976,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         return this.#respondHealth(response, true);
       }
       if (url === this.#healthPaths.readiness) {
-        // Troisième condition : les composants qui retiennent la mise en service
-        // (schéma de base en retard, cache froid…) — `kernel.readinessBlocked`
-        // est un ENTIER déjà calculé par eux (`setReadiness`), pas une
-        // vérification déclenchée ici : la sonde ne doit tomber avec RIEN.
-        // Vaut 0 tant que personne ne s'inscrit — le registre n'est alors même
-        // pas alloué.
+        // Le droit de servir est porté par le Kernel (`servable`) : cycle de
+        // démarrage terminé ET aucun composant qui retienne. Il est LU ici, pas
+        // recomposé — le plan d'administration rend le même verdict au même
+        // instant, et deux vérités sur la disponibilité, c'en est une de trop.
+        //
+        // Ce qui reste local : l'ARRÊT. C'est le transport qui draine, et il
+        // bascule sa sonde AVANT de commencer — le load-balancer retire le pod
+        // pendant que les requêtes en vol se terminent.
         return this.#respondHealth(
           response,
-          !this.#terminating &&
-            this.kernel?.postReady === true &&
-            this.kernel.readinessBlocked === 0,
+          !this.#terminating && this.kernel?.servable === true,
         );
       }
     }
