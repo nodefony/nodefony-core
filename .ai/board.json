@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T04:35:34.819Z",
+  "generatedAt": "2026-08-28T04:38:53.764Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 15,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 38,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -202,6 +202,21 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.6,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 93,
+      "title": "fix(mongoose): ne plus taire l'échec de création des index",
+      "url": "https://github.com/nodefony/nodefony-core/issues/93",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.7,
       "labels": [
         "10.0.0",
         "rattrapable"
