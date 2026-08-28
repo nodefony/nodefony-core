@@ -905,6 +905,40 @@ step(
   },
 );
 
+/**
+ * Le geste que la documentation prescrit à un développeur, et que ce banc ne
+ * faisait pas — d'où un e2e qui ne pouvait pas passer.
+ *
+ * Le harnais e2e généré applique les migrations avant le trafic (c'est le patron
+ * de production : en `ddl: none`, le démarrage ne fabrique JAMAIS le schéma).
+ * Mais il applique ce qui EXISTE : celles du framework, livrées dans le paquet,
+ * et celles de l'application… si quelqu'un les a écrites. Le banc crée cinq
+ * entités et n'écrivait jamais les leurs : les tables du framework arrivaient,
+ * les tables applicatives non, et toutes les routes de ressources rendaient 500.
+ *
+ * Une seule commande manquait, celle qu'un développeur tape après avoir modifié
+ * une entité. La faire ici, c'est éprouver la chaîne entière — générer, puis
+ * appliquer — sur l'application que l'utilisateur reçoit.
+ */
+step(
+  "les migrations de l'application sont ÉCRITES",
+  "Le geste du développeur après une entité : `orm:generate`. Sans lui, la " +
+    "production démarre sur une base sans tables applicatives.",
+  () => {
+    const out = run(process.execPath, [
+      BIN,
+      "orm:generate",
+      "--name",
+      "schema_initial",
+    ]);
+    if (!/Migration \S+ écrite/u.test(out)) {
+      throw new Error(
+        `orm:generate n'a écrit aucune migration — sortie :\n${out}`,
+      );
+    }
+  },
+);
+
 if (withE2e) {
   step(
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",

@@ -1391,6 +1391,10 @@
                 "help": ""
               },
               {
+                "flag": "--name",
+                "help": ""
+              },
+              {
                 "flag": "--no-audit",
                 "help": ""
               },
