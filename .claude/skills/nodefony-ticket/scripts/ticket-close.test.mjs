@@ -6,8 +6,17 @@
  * attribuer le travail d'un AUTRE ticket (`#9` qui ramène `#95`), et rendre un
  * gabarit dont les trous ne se voient pas, donc qu'on colle tel quel.
  */
-import { describe, expect, it } from "vitest";
-import { composer, fichiersDeTest } from "./ticket-close.mjs";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import {
+  commitsDuTicket,
+  composer,
+  fichiersDeTest,
+  motifTicket,
+} from "./ticket-close.mjs";
 
 describe("les fichiers de test d'un diff", () => {
   it("retient les suites, quelle que soit leur forme", () => {
@@ -34,6 +43,84 @@ describe("les fichiers de test d'un diff", () => {
     expect(
       fichiersDeTest(["src/nodefony/src/kernel/readinessRegistry.ts"]),
     ).to.deep.equal([]);
+  });
+
+  // PIÈGE VÉCU : `src/modules/test/` est le module de DÉCOR du dépôt, pas une
+  // suite. Un motif au singulier le ramassait tout entier — controllers et
+  // `CLAUDE.md` compris —, noyant les six vraies preuves sous du bruit.
+  it("n'est PAS trompé par le module `test` du dépôt", () => {
+    expect(
+      fichiersDeTest([
+        "src/modules/test/index.ts",
+        "src/modules/test/CLAUDE.md",
+        "src/modules/test/nodefony/controller/ReadinessController.ts",
+      ]),
+    ).to.deep.equal([]);
+  });
+});
+
+/**
+ * Le motif se prouve contre un VRAI dépôt git, jamais contre l'idée qu'on se
+ * fait des expressions rationnelles.
+ *
+ * 🔴 Défaut constaté au premier usage réel de ce script : `--grep='#95\b'` ne
+ * mord sur RIEN — le moteur de git est une ERE POSIX, qui n'a pas de borne de
+ * mot. Le compte rendu sortait vide en annonçant « aucun commit ne cite #95 »
+ * juste après un commit qui le citait : un outil qui accuse à tort est pire
+ * qu'un outil absent. Aucun test sur la chaîne du motif n'aurait vu ça.
+ */
+describe("les commits d'un ticket, contre un dépôt git réel", () => {
+  let repo = "";
+  const git = (...args) =>
+    execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+
+  beforeAll(() => {
+    repo = mkdtempSync(path.join(tmpdir(), "nf-close-"));
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "banc@nodefony.local");
+    git("config", "user.name", "banc");
+    for (const sujet of [
+      "feat(a): premier — closes #9",
+      "feat(b): second — closes #95",
+      "feat(c): troisième, cite #950",
+    ]) {
+      writeFileSync(path.join(repo, `${sujet.length}.txt`), sujet);
+      git("add", "-A");
+      git("commit", "-q", "--no-verify", "-m", sujet);
+    }
+  });
+  afterAll(() => rmSync(repo, { recursive: true, force: true }));
+
+  const sujets = (numero) =>
+    git(
+      "log",
+      "--reverse",
+      "--format=%s",
+      `--grep=${motifTicket(numero)}`,
+      "-E",
+    )
+      .split("\n")
+      .filter(Boolean);
+
+  it("TROUVE le commit qui cite le ticket", () => {
+    expect(sujets(95)).to.deep.equal(["feat(b): second — closes #95"]);
+  });
+
+  it("ne confond pas #9 avec #95 ni #950", () => {
+    expect(sujets(9)).to.deep.equal(["feat(a): premier — closes #9"]);
+  });
+
+  it("`commitsDuTicket` rend le sha et le sujet", () => {
+    const cwd = process.cwd();
+    try {
+      process.chdir(repo);
+      const commits = commitsDuTicket(95);
+      expect(commits).to.have.length(1);
+      expect(commits[0].sujet).to.equal("feat(b): second — closes #95");
+      expect(commits[0].sha).to.match(/^[0-9a-f]{7,}$/);
+    } finally {
+      process.chdir(cwd);
+    }
   });
 });
 

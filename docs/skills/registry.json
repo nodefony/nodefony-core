@@ -5482,7 +5482,24 @@
             "path": "scripts/ticket-close.test.mjs",
             "purpose": "Suite du compte rendu de fermeture.",
             "usage": [],
-            "options": [],
+            "options": [
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--no-verify",
+                "help": ""
+              },
+              {
+                "flag": "--reverse",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false

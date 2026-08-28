@@ -45,9 +45,10 @@ const sh = (cmd, args) => {
 /**
  * Les fichiers de TEST d'une liste de fichiers touchés.
  *
- * Le motif est volontairement large (`.test.`, `.spec.`, un segment `tests/`) :
- * un banc oublié dans le compte rendu est une preuve que personne ne retrouvera,
- * alors qu'un fichier de trop se raye en une seconde à la relecture.
+ * Retenus : une extension de suite (`.test.`, `.spec.`) ou un segment `tests/`
+ * au PLURIEL. Le singulier est exclu à dessein — `src/modules/test/` est le
+ * module de DÉCOR du dépôt, pas une suite : le ramasser noyait les vraies
+ * preuves sous ses controllers et son `CLAUDE.md`.
  *
  * @param fichiers - chemins relatifs au dépôt, tels que `git` les rend.
  * @returns les chemins retenus, sans doublon, dans l'ordre d'apparition.
@@ -58,7 +59,7 @@ export function fichiersDeTest(fichiers) {
   for (const f of fichiers) {
     if (!f) continue;
     const estTest =
-      /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) || /(^|\/)tests?\//.test(f);
+      /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) || /(^|\/)tests\//.test(f);
     if (estTest && !vu.has(f)) {
       vu.add(f);
       out.push(f);
@@ -68,10 +69,24 @@ export function fichiersDeTest(fichiers) {
 }
 
 /**
- * Les commits qui citent un ticket, du plus ancien au plus récent.
+ * Le motif `--grep` qui isole UN ticket parmi ses voisins.
  *
- * `--grep` sur `#N` suivi d'une borne de mot : sans elle, `#9` ramènerait `#95`
- * et le compte rendu attribuerait à un ticket le travail d'un autre.
+ * 🔴 **Pas de `\\b`** : le moteur de git est une expression rationnelle POSIX
+ * étendue, qui n'a pas de borne de mot — un `--grep='#95\\b'` ne mord sur RIEN
+ * et le compte rendu sort vide en annonçant « aucun commit », ce qui ressemble
+ * exactement à un oubli de citation. Constaté sur ce script même, à son premier
+ * usage réel. La borne s'écrit donc en POSIX : un caractère non chiffre, ou la
+ * fin de ligne — sans quoi `#9` ramènerait le travail de `#95`.
+ *
+ * @param numero - le numéro du ticket.
+ * @returns le motif, en expression rationnelle POSIX étendue.
+ */
+export function motifTicket(numero) {
+  return `#${numero}([^0-9]|$)`;
+}
+
+/**
+ * Les commits qui citent un ticket, du plus ancien au plus récent.
  *
  * @param numero - le numéro du ticket, en chaîne ou en nombre.
  * @param depuis - référence git facultative bornant la recherche (`<sha>..HEAD`).
@@ -83,7 +98,7 @@ export function commitsDuTicket(numero, depuis) {
     "log",
     "--reverse",
     "--format=%h\t%s",
-    `--grep=#${numero}\\b`,
+    `--grep=${motifTicket(numero)}`,
     "-E",
     ...plage,
   ]);
