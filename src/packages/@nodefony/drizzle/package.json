@@ -29,6 +29,8 @@
     "start": "node dist/index.js",
     "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "clean": "rimraf dist",
+    "generate:migrations": "node scripts/generate-migrations.mjs",
+    "check:migrations": "node scripts/check-migrations-drift.mjs",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
@@ -61,6 +63,7 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.4.0",
     "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.10",
     "nodefony": "*",
     "rimraf": "6.1.3"
   },
@@ -87,7 +90,9 @@
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "migrations/*/*.sql",
+    "migrations/*/meta/_journal.json"
   ],
   "publishConfig": {
     "access": "public"

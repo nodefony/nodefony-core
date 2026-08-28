@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-28T10:36:01.668Z",
+  "generated": "2026-08-28T11:06:51.420Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 748,
-    "symbols": 3250,
+    "files": 751,
+    "symbols": 3280,
     "classes": 368,
     "interfaces": 912,
     "types": 405,
     "enums": 4,
     "functions": 1263,
-    "constants": 298
+    "constants": 328
   },
   "symbols": {
     "Cli": {
@@ -11764,6 +11764,146 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Définition d'une connexion Drizzle nommée (sous-objet de `connectors`)."
+    },
+    "accessToken": {
+      "name": "accessToken",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "deniedJti": {
+      "name": "deniedJti",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "subjectRevocation": {
+      "name": "subjectRevocation",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "session": {
+      "name": "session",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "idempotencyKey": {
+      "name": "idempotencyKey",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "user": {
+      "name": "user",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "auditEvent": {
+      "name": "auditEvent",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "totpSecret": {
+      "name": "totpSecret",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "webAuthnCredential": {
+      "name": "webAuthnCredential",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "webhookEndpoint": {
+      "name": "webhookEndpoint",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:accessToken": {
+      "name": "accessToken",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:deniedJti": {
+      "name": "deniedJti",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:subjectRevocation": {
+      "name": "subjectRevocation",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:session": {
+      "name": "session",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:idempotencyKey": {
+      "name": "idempotencyKey",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:user": {
+      "name": "user",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:auditEvent": {
+      "name": "auditEvent",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:totpSecret": {
+      "name": "totpSecret",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:webAuthnCredential": {
+      "name": "webAuthnCredential",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
+    "@nodefony/drizzle:webhookEndpoint": {
+      "name": "webhookEndpoint",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
     },
     "DrizzleService": {
       "name": "DrizzleService",
@@ -26665,6 +26805,9 @@
       ],
       "createIdempotencyTable": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "IDEMPOTENCY_ENTITY_NAME": [
@@ -28143,6 +28286,52 @@
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "createAccessTokenTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createDeniedJtiTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createSubjectRevocationTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createSessionTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createUserTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createAuditEventTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+      ],
+      "createTotpSecretTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createWebAuthnCredentialTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "createWebhookEndpointTable": [
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
+        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
@@ -28219,9 +28408,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "auditEventTable": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
-      ],
-      "createAuditEventTable": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
       ],
       "AuditEventRow": [

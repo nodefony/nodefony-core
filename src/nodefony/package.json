@@ -14,7 +14,8 @@
       "import": {
         "types": "./dist/types/index.d.ts",
         "default": "./dist/node/index.js"
-      }
+      },
+      "default": "./dist/node/index.js"
     },
     "./bundler": {
       "types": "./dist/types/bundler/index.d.ts",
