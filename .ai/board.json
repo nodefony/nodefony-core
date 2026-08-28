@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T13:41:37.647Z",
+  "generatedAt": "2026-08-28T14:27:41.236Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 21,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 43,
       "title": "10.0.0"
     }
   ],
@@ -265,7 +265,7 @@
       "title": "feat(cli): livrer de quoi migrer dans l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/101",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -657,6 +657,21 @@
       "ordre": 12.5,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 103,
+      "title": "feat(cli): dire qui retient la mise en service, et pourquoi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/103",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 12.5,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
       ]
     },
     {
