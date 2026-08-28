@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T14:27:41.236Z",
+  "generatedAt": "2026-08-28T15:02:10.578Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 21,
+      "closed": 22,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 43,
       "title": "10.0.0"
@@ -663,12 +663,27 @@
       "number": 103,
       "title": "feat(cli): dire qui retient la mise en service, et pourquoi",
       "url": "https://github.com/nodefony/nodefony-core/issues/103",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 12.5,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 104,
+      "title": "test(cli): un seul processus pour vérifier la forme du code généré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/104",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
-      "ordre": 12.5,
+      "ordre": 12.6,
       "labels": [
         "10.0.0",
         "rattrapable"
