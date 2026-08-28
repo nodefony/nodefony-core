@@ -3,14 +3,21 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import BetterSqlite3 from "better-sqlite3";
 import { is } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
+import {
+  getTableConfig,
+  SQLiteSyncDialect,
+  SQLiteTable,
+} from "drizzle-orm/sqlite-core";
 import {
   getTableConfig as getPgTableConfig,
+  PgDialect,
   PgTable,
 } from "drizzle-orm/pg-core";
 import {
   getTableConfig as getMysqlTableConfig,
+  MySqlDialect,
   MySqlTable,
 } from "drizzle-orm/mysql-core";
 // `import type` UNIQUEMENT (effacé à la compilation) → @types/pg et les types
@@ -104,6 +111,39 @@ interface DDLIndex {
     unique: boolean;
     columns: readonly { name?: string }[];
   };
+}
+
+/**
+ * Sous-ensemble structural d'une contrainte `CHECK`, tel que le rendent les
+ * trois `getTableConfig` (`.checks[]`).
+ */
+interface DDLCheck {
+  name: string;
+  value: SQL;
+}
+
+/**
+ * Rend le prédicat d'une contrainte `CHECK` en SQL littéral, avec la grammaire
+ * du dialecte demandé.
+ *
+ * Un `CHECK` ne peut porter **aucun paramètre lié** : une définition de table
+ * n'a pas de place où en fournir la valeur. Le prédicat qui en produirait un
+ * est donc écarté plutôt qu'émis avec un `?` que le serveur refuserait — le
+ * colKit, seul producteur de contraintes du framework, compose exclusivement en
+ * `sql.raw`.
+ *
+ * @param check - contrainte lue sur la table Drizzle.
+ * @param dialect - dialecte SQL cible (grammaire de citation et de paramètre).
+ * @returns le prédicat littéral, ou `null` s'il porte un paramètre lié.
+ */
+function renderCheck(check: DDLCheck, dialect: SqlDialect): string | null {
+  const query =
+    dialect === "postgres"
+      ? new PgDialect().sqlToQuery(check.value)
+      : dialect === "mysql"
+        ? new MySqlDialect().sqlToQuery(check.value)
+        : new SQLiteSyncDialect().sqlToQuery(check.value);
+  return query.params.length === 0 ? query.sql : null;
 }
 
 /**
@@ -246,7 +286,13 @@ export class DrizzleOrm extends Orm {
    * `"…"` (SQL standard, SQLite/PG) vs backtick MySQL (qui ne lit `"…"` qu'en
    * mode ANSI_QUOTES, jamais garanti). La prod reste pilotée par drizzle-kit.
    */
-  #buildCreateTable(name: string, columns: DDLColumn[], quote = '"'): string {
+  #buildCreateTable(
+    name: string,
+    columns: DDLColumn[],
+    quote = '"',
+    checks: readonly DDLCheck[] = [],
+    dialect: SqlDialect = "sqlite",
+  ): string {
     const defs = columns.map((col) => {
       const parts = [`${quote}${col.name}${quote}`, col.getSQLType()];
       if (col.primary) {
@@ -260,6 +306,23 @@ export class DrizzleOrm extends Orm {
       }
       return parts.join(" ");
     });
+    // Les `CHECK` sont émis ICI, contrairement aux index : une contrainte de
+    // table ne s'ajoute pas après coup de façon portable (SQLite ne sait pas
+    // l'attacher à une table existante). Le prix est connu et assumé — une base
+    // de développement déjà créée ne la reçoit pas, comme pour toute évolution
+    // de colonne sous `CREATE TABLE IF NOT EXISTS`. Le gain est qu'en
+    // développement le serveur refuse exactement ce qu'il refusera en
+    // production : la contrainte de la migration `0000` et celle du DDL dérivé
+    // sortent de la MÊME déclaration colKit.
+    for (const check of checks) {
+      const predicate = renderCheck(check, dialect);
+      if (predicate === null) {
+        continue;
+      }
+      defs.push(
+        `CONSTRAINT ${quote}${check.name}${quote} CHECK (${predicate})`,
+      );
+    }
     return `CREATE TABLE IF NOT EXISTS ${quote}${name}${quote} (${defs.join(", ")})`;
   }
 
@@ -315,8 +378,8 @@ export class DrizzleOrm extends Orm {
 
   /** Dérive le `CREATE TABLE` SQLite depuis la table Drizzle (dev/test). */
   #createTableSQL(table: SQLiteTable): string {
-    const { name, columns } = getTableConfig(table);
-    return this.#buildCreateTable(name, columns);
+    const { name, columns, checks } = getTableConfig(table);
+    return this.#buildCreateTable(name, columns, '"', checks, "sqlite");
   }
 
   /** Dérive les `CREATE INDEX` SQLite depuis la table Drizzle (dev/test). */
@@ -327,8 +390,8 @@ export class DrizzleOrm extends Orm {
 
   /** Dérive le `CREATE TABLE` Postgres depuis la table Drizzle (dev/test). */
   #createTablePgSQL(table: PgTable): string {
-    const { name, columns } = getPgTableConfig(table);
-    return this.#buildCreateTable(name, columns);
+    const { name, columns, checks } = getPgTableConfig(table);
+    return this.#buildCreateTable(name, columns, '"', checks, "postgres");
   }
 
   /** Dérive les `CREATE INDEX` Postgres depuis la table Drizzle (dev/test). */
@@ -339,8 +402,8 @@ export class DrizzleOrm extends Orm {
 
   /** Dérive le `CREATE TABLE` MySQL depuis la table Drizzle (dev/test). */
   #createTableMysqlSQL(table: MySqlTable): string {
-    const { name, columns } = getMysqlTableConfig(table);
-    return this.#buildCreateTable(name, columns, "`");
+    const { name, columns, checks } = getMysqlTableConfig(table);
+    return this.#buildCreateTable(name, columns, "`", checks, "mysql");
   }
 
   /**

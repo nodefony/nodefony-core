@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import BetterSqlite3 from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { getTableConfig } from "drizzle-orm/sqlite-core";
+import { getTableConfig, SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
+import {
+  getTableConfig as getPgTableConfig,
+  PgDialect,
+} from "drizzle-orm/pg-core";
 import type { PgTable } from "drizzle-orm/pg-core";
-import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import {
+  getTableConfig as getMysqlTableConfig,
+  MySqlDialect,
+} from "drizzle-orm/mysql-core";
 import type { MySqlTable } from "drizzle-orm/mysql-core";
 import {
   buildFrameworkTable,
@@ -34,6 +40,8 @@ const SPEC = {
     payload: { kind: "json" },
     enabled: { kind: "bool", notNull: true },
     hits: { kind: "int", notNull: true },
+    signals: { kind: "int64", notNull: true },
+    phase: { kind: "enum", values: ["draft", "live"], notNull: true },
     expiresAt: { kind: "epochMs", notNull: true },
     seenAt: { kind: "dateMs" },
   },
@@ -67,6 +75,10 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       assert.equal(cols.get("payload")?.getSQLType(), "text"); // json = text mode:"json"
       assert.equal(cols.get("enabled")?.getSQLType(), "integer"); // bool = integer mode:"boolean"
       assert.equal(cols.get("hits")?.getSQLType(), "integer");
+      // INTEGER SQLite est déjà 64-bit — int et int64 s'y confondent, la
+      // distinction ne se voit que sur les deux autres dialectes.
+      assert.equal(cols.get("signals")?.getSQLType(), "integer");
+      assert.equal(cols.get("phase")?.getSQLType(), "text"); // enum = text + CHECK
       assert.equal(cols.get("expiresAt")?.getSQLType(), "integer"); // epoch ms 64-bit
       // dateMs = integer ms epoch, exposé `Date` par le mode timestamp_ms.
       assert.equal(cols.get("seenAt")?.getSQLType(), "integer");
@@ -99,6 +111,9 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       assert.equal(cols.get("payload")?.getSQLType(), "jsonb");
       assert.equal(cols.get("enabled")?.getSQLType(), "boolean");
       assert.equal(cols.get("hits")?.getSQLType(), "integer");
+      // `int` PG est SIGNÉ 32-bit (2 147 483 647) → int64 = bigint.
+      assert.equal(cols.get("signals")?.getSQLType(), "bigint");
+      assert.equal(cols.get("phase")?.getSQLType(), "text"); // pas un type ENUM natif
       // epoch ms ≈ 1.7e12 déborde `integer` PG 32-bit → bigint obligatoire.
       assert.equal(cols.get("expiresAt")?.getSQLType(), "bigint");
       // dateMs = timestamptz(3) PG (même type JS `Date` que la variante SQLite).
@@ -129,6 +144,10 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       assert.equal(cols.get("payload")?.getSQLType(), "json");
       assert.equal(cols.get("enabled")?.getSQLType(), "boolean");
       assert.equal(cols.get("hits")?.getSQLType(), "int");
+      assert.equal(cols.get("signals")?.getSQLType(), "bigint"); // int64
+      // Un enum est TOUJOURS varchar en MySQL, indexé ou non : court par
+      // nature, et TEXT interdirait de l'indexer plus tard.
+      assert.equal(cols.get("phase")?.getSQLType(), "varchar(64)");
       // epoch ms déborde `int` MySQL 32-bit → bigint, comme PG.
       assert.equal(cols.get("expiresAt")?.getSQLType(), "bigint");
       // dateMs = datetime(3) (pas timestamp : borné 2038 + timezone session).
@@ -263,6 +282,70 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       } finally {
         client.close();
       }
+    });
+  });
+
+  describe("colonnes énumérées — la contrainte CHECK est DÉCLARÉE", () => {
+    it("sqlite : une contrainte nommée <table>_<col>_check, sans paramètre lié", () => {
+      const { checks } = getTableConfig(buildFrameworkTable("sqlite", SPEC));
+      assert.equal(checks.length, 1);
+      assert.equal(checks[0]?.name, "colkit_probe_phase_check");
+      const query = new SQLiteSyncDialect().sqlToQuery(checks[0]!.value);
+      assert.equal(query.sql, `"phase" IN ('draft', 'live')`);
+      assert.equal(
+        query.params.length,
+        0,
+        "un CHECK ne peut porter aucun paramètre lié : une définition de " +
+          "table n'a pas d'endroit où en fournir la valeur",
+      );
+    });
+
+    it("postgres : même contrainte, même quoting SQL standard", () => {
+      const { checks } = getPgTableConfig(
+        buildFrameworkTable("postgres", SPEC),
+      );
+      assert.equal(checks.length, 1);
+      const query = new PgDialect().sqlToQuery(checks[0]!.value);
+      assert.equal(query.sql, `"phase" IN ('draft', 'live')`);
+      assert.equal(query.params.length, 0);
+    });
+
+    it("mysql : identifiants en accents graves (cmd.exe des SGBD)", () => {
+      const { checks } = getMysqlTableConfig(
+        buildFrameworkTable("mysql", SPEC),
+      );
+      assert.equal(checks.length, 1);
+      const query = new MySqlDialect().sqlToQuery(checks[0]!.value);
+      assert.equal(query.sql, "`phase` IN ('draft', 'live')");
+      assert.equal(query.params.length, 0);
+    });
+
+    it("une apostrophe dans une valeur est doublée, jamais concaténée nue", () => {
+      const spec = {
+        name: "colkit_quote",
+        columns: {
+          id: { kind: "text", primaryKey: true },
+          mood: { kind: "enum", values: ["l'un", "autre"], notNull: true },
+        },
+      } satisfies IFrameworkTableSpec;
+      const { checks } = getTableConfig(buildFrameworkTable("sqlite", spec));
+      const query = new SQLiteSyncDialect().sqlToQuery(checks[0]!.value);
+      assert.equal(query.sql, `"mood" IN ('l''un', 'autre')`);
+    });
+
+    it("une table SANS index mais AVEC un enum déclare quand même sa contrainte", () => {
+      const spec = {
+        name: "colkit_noindex",
+        columns: {
+          id: { kind: "text", primaryKey: true },
+          state: { kind: "enum", values: ["on"], notNull: true },
+        },
+      } satisfies IFrameworkTableSpec;
+      const { checks, indexes } = getTableConfig(
+        buildFrameworkTable("sqlite", spec),
+      );
+      assert.equal(indexes.length, 0);
+      assert.equal(checks.length, 1, "le CHECK ne dépend pas des index");
     });
   });
 

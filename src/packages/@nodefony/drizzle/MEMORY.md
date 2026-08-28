@@ -23,8 +23,16 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   l'utilisateur aurait écrit.
 - Entités framework (User/Session/Token/Audit/Idempotency…) : `registerX(orm, dialect)` impératif via `wire()`
   (filtre les dialectes portés) — **pas** `@entities`, qui suppose un schéma statique.
-- DDL dev = `CREATE TABLE IF NOT EXISTS` dérivé → **modifier une entité n'altère RIEN** (aucun `ALTER`) ; ni les
-  `DEFAULT` SQL ni les index déclarés n'en sortent (drizzle-kit seul les lit). Défauts **toujours** `$defaultFn`.
+- DDL dev = `CREATE TABLE IF NOT EXISTS` dérivé → **modifier une entité n'altère RIEN** (aucun `ALTER`).
+  En sortent : les contraintes colonne (PK/NOT NULL/UNIQUE), les **index** (`CREATE INDEX` SÉPARÉ, donc
+  il atteint aussi une base déjà créée) et les **`CHECK` des colonnes `enum`** (clause DE TABLE, donc
+  seulement à la création — une base de dev antérieure ne l'a pas). N'en sortent PAS : les `DEFAULT` SQL
+  (défauts **toujours** `$defaultFn`) ni les clés étrangères — drizzle-kit seul les émet.
+- Kinds colKit : `text` · `json` · `bool` · `epochMs` · `int` (32 bits SIGNÉ sur les 3 dialectes — réservé
+  aux valeurs bornées par le domaine) · **`int64`** (bigint pg/mysql — tout compteur sans borne connue) ·
+  `dateMs` · **`enum`** (`values: [...]`, texte + `CHECK`). Un `CHECK` se grave à vie dans la migration
+  `0000` : ne le poser que sur un ensemble **fermé par construction** (états d'automate), jamais sur un
+  catalogue extensible (algorithmes, catégories) — dont l'union reste sur le type `Row`.
 
 ## Module bootable
 

@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import {
+  check as sqliteCheck,
   index as sqliteIndex,
   integer as sqliteInteger,
   sqliteTable,
@@ -13,6 +16,7 @@ import type {
 import {
   bigint as pgBigint,
   boolean as pgBoolean,
+  check as pgCheck,
   index as pgIndex,
   integer as pgInteger,
   jsonb as pgJsonb,
@@ -29,6 +33,7 @@ import type {
 import {
   bigint as mysqlBigint,
   boolean as mysqlBoolean,
+  check as mysqlCheck,
   customType as mysqlCustomType,
   datetime as mysqlDatetime,
   index as mysqlIndex,
@@ -70,6 +75,16 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
  *   `varchar(512)` (InnoDB ne peut pas indexer TEXT sans longueur de préfixe ;
  *   512 × 4 bytes utf8mb4 = 2048 < 3072, la limite d'index DYNAMIC, et couvre
  *   la clé d'idempotence ~330 chars max) ;
+ * - **entier 64 bits (`int64`) dès qu'une valeur peut croître sans borne
+ *   connue** : `int` est un entier 32 bits signé sur les trois dialectes
+ *   (2 147 483 647), et un compteur qui le dépasse ne rend pas une erreur
+ *   lisible — il tronque ou refuse l'écriture, des années après la mise en
+ *   production. `int` reste réservé aux valeurs bornées par le domaine (un
+ *   nombre de chiffres, un code de statut HTTP) ;
+ * - **valeurs énumérées bornées en base (`enum`) et non seulement dans le
+ *   type** — la contrainte `CHECK` est émise dans le `CREATE TABLE` (DDL
+ *   dérivé ET drizzle-kit), donc un écrivain qui contournerait la frontière
+ *   typée est refusé par le serveur ;
  * - défauts en **`$defaultFn`/`$onUpdateFn` (JS-level) uniquement** — le DDL
  *   dérivé (`getTableConfig` → `DrizzleOrm.#buildCreateTable`) n'émet PAS les
  *   `DEFAULT` SQL (gotcha `userTable`). Les `index` déclarés, eux, SONT émis
@@ -83,12 +98,10 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 
 /** Types logiques couverts par les entités framework (étendre ici si besoin). */
 export type FrameworkColKind =
-  "text" | "json" | "bool" | "epochMs" | "int" | "dateMs";
+  "text" | "json" | "bool" | "epochMs" | "int" | "int64" | "dateMs" | "enum";
 
-/** Spécification logique d'une colonne d'entité framework. */
-export interface IFrameworkColSpec {
-  /** Type logique — traduit vers le type natif du dialecte. */
-  kind: FrameworkColKind;
+/** Modificateurs communs à toutes les colonnes, quel que soit le type logique. */
+interface IFrameworkColMods {
   primaryKey?: boolean;
   notNull?: boolean;
   unique?: boolean;
@@ -97,6 +110,34 @@ export interface IFrameworkColSpec {
   /** Régénéré à chaque UPDATE (`$onUpdateFn`) — pendant SQL d'`updatedAt`. */
   onUpdateFn?: () => unknown;
 }
+
+/** Colonne scalaire — le type logique suffit à la décrire. */
+interface IFrameworkScalarColSpec extends IFrameworkColMods {
+  /** Type logique — traduit vers le type natif du dialecte. */
+  kind: Exclude<FrameworkColKind, "enum">;
+}
+
+/**
+ * Colonne à valeurs énumérées — stockée en texte, **bornée par un `CHECK`**
+ * émis dans le `CREATE TABLE` (DDL dérivé dev/test ET drizzle-kit en prod).
+ *
+ * ⚠️ **Un `CHECK` se grave à vie** : une fois la migration `0000` publiée, y
+ * ajouter une valeur impose une migration correctrice visible chez chaque
+ * utilisateur. Ne l'employer que sur un ensemble **fermé par construction** —
+ * les états d'un automate dont l'élargissement serait de toute façon une
+ * rupture de contrat (ex. `if`/`done` du protocole d'idempotence). Un
+ * **catalogue** appelé à s'étendre (algorithme de hachage, catégorie d'audit,
+ * type de sujet) reste un `text` : son union vit sur le type `Row`, où elle ne
+ * coûte rien à faire évoluer.
+ */
+interface IFrameworkEnumColSpec extends IFrameworkColMods {
+  kind: "enum";
+  /** Valeurs admises — au moins une, gravées dans la contrainte `CHECK`. */
+  values: readonly [string, ...string[]];
+}
+
+/** Spécification logique d'une colonne d'entité framework. */
+export type IFrameworkColSpec = IFrameworkScalarColSpec | IFrameworkEnumColSpec;
 
 /** Index déclaratif — émis par le DDL dérivé (dev) et par drizzle-kit (prod). */
 export interface IFrameworkIndexSpec {
@@ -160,6 +201,7 @@ function sqliteColumn(
   let base: unknown;
   switch (spec.kind) {
     case "text":
+    case "enum": // Valeurs bornées par un CHECK de table, pas par le type.
       base = sqliteText(name);
       break;
     case "json":
@@ -169,6 +211,7 @@ function sqliteColumn(
       base = sqliteInteger(name, { mode: "boolean" });
       break;
     case "epochMs": // SQLite : INTEGER = 64-bit → epoch ms sûr.
+    case "int64":
     case "int":
       base = sqliteInteger(name);
       break;
@@ -189,6 +232,10 @@ function pgColumn(name: string, spec: IFrameworkColSpec): PgColumnBuilderBase {
   let base: unknown;
   switch (spec.kind) {
     case "text":
+    case "enum": // Valeurs bornées par un CHECK de table, pas par un type ENUM
+      // natif : un `CREATE TYPE` est un objet SÉPARÉ de la table, absent des
+      // deux autres dialectes et invisible du DDL dérivé — le CHECK donne la
+      // MÊME garantie partout, avec une seule règle.
       base = pgText(name);
       break;
     case "json":
@@ -198,6 +245,7 @@ function pgColumn(name: string, spec: IFrameworkColSpec): PgColumnBuilderBase {
       base = pgBoolean(name);
       break;
     case "epochMs":
+    case "int64":
       // `integer` PG = 32-bit → déborde sur un epoch ms (≈ 1.7e12). `bigint
       // mode:"number"` reste exact sous 2^53 (Number.MAX_SAFE_INTEGER).
       base = pgBigint(name, { mode: "number" });
@@ -246,6 +294,50 @@ function indexColumns<C>(
   return cols as [C, ...C[]];
 }
 
+/** Contrainte `CHECK` dérivée d'une colonne `enum` — nom + prédicat SQL. */
+interface EnumCheck {
+  name: string;
+  value: SQL;
+}
+
+/**
+ * Dérive les contraintes `CHECK` des colonnes `enum` d'une spec.
+ *
+ * Le prédicat est composé en **`sql.raw` intégral** — donc sans le moindre
+ * paramètre lié : un placeholder n'a aucun sens dans une définition de table,
+ * et `drizzle-kit` comme le DDL dérivé rendent la clause telle quelle. Les
+ * valeurs viennent du code du framework, jamais d'une entrée ; l'apostrophe est
+ * malgré tout doublée — un littéral SQL se compose toujours de la même façon.
+ *
+ * Le nom de la contrainte est `<table>_<colonne>_check` : il apparaîtra dans le
+ * message d'erreur du serveur, et il est gravé dans la migration `0000`.
+ *
+ * @param spec - spec logique de la table.
+ * @param quote - caractère de citation des identifiants du dialecte.
+ * @returns une contrainte par colonne `enum` (vide s'il n'y en a aucune).
+ */
+function enumChecks(spec: IFrameworkTableSpec, quote: string): EnumCheck[] {
+  const checks: EnumCheck[] = [];
+  for (const [name, col] of Object.entries(spec.columns)) {
+    if (col.kind !== "enum") {
+      continue;
+    }
+    if (col.values.length === 0) {
+      throw new Error(
+        `[@nodefony/drizzle] colKit "${spec.name}": enum column "${name}" has no value.`,
+      );
+    }
+    const list = col.values
+      .map((value) => `'${value.replace(/'/g, "''")}'`)
+      .join(", ");
+    checks.push({
+      name: `${spec.name}_${name}_check`,
+      value: sql.raw(`${quote}${name}${quote} IN (${list})`),
+    });
+  }
+  return checks;
+}
+
 /** Construit la variante SQLite d'une spec. */
 function buildSqliteTable(spec: IFrameworkTableSpec): SQLiteTable {
   const columns: Record<string, SQLiteColumnBuilderBase> = {};
@@ -253,12 +345,13 @@ function buildSqliteTable(spec: IFrameworkTableSpec): SQLiteTable {
     columns[name] = sqliteColumn(name, col);
   }
   const indexes = spec.indexes;
-  if (!indexes?.length) {
+  const checks = enumChecks(spec, '"');
+  if (!indexes?.length && !checks.length) {
     return sqliteTable(spec.name, columns);
   }
   return sqliteTable(spec.name, columns, (t) => {
     const out: Record<string, unknown> = {};
-    for (const ix of indexes) {
+    for (const ix of indexes ?? []) {
       const cols = indexColumns(
         spec,
         ix,
@@ -267,6 +360,9 @@ function buildSqliteTable(spec: IFrameworkTableSpec): SQLiteTable {
       out[ix.name] = (
         ix.unique ? sqliteUniqueIndex(ix.name) : sqliteIndex(ix.name)
       ).on(...cols);
+    }
+    for (const ck of checks) {
+      out[ck.name] = sqliteCheck(ck.name, ck.value);
     }
     return out as never;
   });
@@ -279,12 +375,13 @@ function buildPgTable(spec: IFrameworkTableSpec): PgTable {
     columns[name] = pgColumn(name, col);
   }
   const indexes = spec.indexes;
-  if (!indexes?.length) {
+  const checks = enumChecks(spec, '"');
+  if (!indexes?.length && !checks.length) {
     return pgTable(spec.name, columns);
   }
   return pgTable(spec.name, columns, (t) => {
     const out: Record<string, unknown> = {};
-    for (const ix of indexes) {
+    for (const ix of indexes ?? []) {
       const cols = indexColumns(
         spec,
         ix,
@@ -293,6 +390,9 @@ function buildPgTable(spec: IFrameworkTableSpec): PgTable {
       out[ix.name] = (ix.unique ? pgUniqueIndex(ix.name) : pgIndex(ix.name)).on(
         ...cols,
       );
+    }
+    for (const ck of checks) {
+      out[ck.name] = pgCheck(ck.name, ck.value);
     }
     return out as never;
   });
@@ -308,6 +408,14 @@ function buildPgTable(spec: IFrameworkTableSpec): PgTable {
  * ≤ ~330 chars — `IDEMPOTENCY_KEY_MAX` 255 + identité sha256 + ponctuation).
  */
 const MYSQL_INDEXED_TEXT_LENGTH = 512;
+
+/**
+ * Largeur des colonnes `enum` en MySQL (`varchar(64)`) — fixe et généreuse : la
+ * valeur admise est bornée par la contrainte `CHECK`, pas par le type, donc
+ * ajouter une valeur à l'énumération ne doit pas devenir un changement de type
+ * de colonne. 64 chars couvre tout identifiant d'état, et reste indexable.
+ */
+const MYSQL_ENUM_LENGTH = 64;
 
 /**
  * Type `json` du dialecte mysql, TOLÉRANT au serveur : MySQL possède un type
@@ -348,6 +456,14 @@ function mysqlColumn(
           ? mysqlVarchar(name, { length: MYSQL_INDEXED_TEXT_LENGTH })
           : mysqlText(name);
       break;
+    case "enum":
+      // Toujours varchar : un ensemble énuméré est court, et TEXT interdirait
+      // d'indexer la colonne plus tard (InnoDB, cf MYSQL_INDEXED_TEXT_LENGTH).
+      // Longueur FIXE (≠ la plus longue valeur) : la contrainte est portée par
+      // le CHECK, et une largeur dérivée des valeurs ferait de tout ajout un
+      // changement de type de colonne.
+      base = mysqlVarchar(name, { length: MYSQL_ENUM_LENGTH });
+      break;
     case "json":
       // Compat MySQL (type binaire) + MariaDB (LONGTEXT) — cf mysqlJsonCompat.
       base = mysqlJsonCompat(name);
@@ -356,6 +472,7 @@ function mysqlColumn(
       base = mysqlBoolean(name); // alias tinyint(1).
       break;
     case "epochMs":
+    case "int64":
       // `int` MySQL = 32-bit → déborde sur un epoch ms, comme PG.
       base = mysqlBigint(name, { mode: "number" });
       break;
@@ -391,12 +508,13 @@ function buildMysqlTable(spec: IFrameworkTableSpec): MySqlTable {
     columns[name] = mysqlColumn(name, col, indexedCols.has(name));
   }
   const indexes = spec.indexes;
-  if (!indexes?.length) {
+  const checks = enumChecks(spec, "`");
+  if (!indexes?.length && !checks.length) {
     return mysqlTable(spec.name, columns);
   }
   return mysqlTable(spec.name, columns, (t) => {
     const out: Record<string, unknown> = {};
-    for (const ix of indexes) {
+    for (const ix of indexes ?? []) {
       const cols = indexColumns(
         spec,
         ix,
@@ -405,6 +523,9 @@ function buildMysqlTable(spec: IFrameworkTableSpec): MySqlTable {
       out[ix.name] = (
         ix.unique ? mysqlUniqueIndex(ix.name) : mysqlIndex(ix.name)
       ).on(...cols);
+    }
+    for (const ck of checks) {
+      out[ck.name] = mysqlCheck(ck.name, ck.value);
     }
     return out as never;
   });

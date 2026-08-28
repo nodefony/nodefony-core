@@ -218,7 +218,7 @@ main ; opt-out `frameworkEntities: false`.
   `disconnect`/`ping`/`describeConnection`/`describeEntity` routés.
   `getNativeConnection<DrizzleDb>()` inchangé.
 - **`colKit`** (`entity/colKit.ts`, garde-fou G1 de l'audit comparatif ORM) : **spec logique →
-  table du dialecte**. `IFrameworkTableSpec` (kinds `text`/`json`/`bool`/`epochMs`/`int`/`dateMs` +
+  table du dialecte**. `IFrameworkTableSpec` (kinds `text`/`json`/`bool`/`epochMs`/`int`/`int64`/`dateMs`/`enum` +
   pk/notNull/unique/`defaultFn`/`onUpdateFn` + index) → `buildFrameworkTable(dialect, spec)` ;
   `createFrameworkTableFactory(spec)` = factory `createXTable(dialect)` **mémoïsée** (1 instance
   par dialecte). **RÈGLE : toute entité à porter passe par le colKit** (ajouter un dialecte =

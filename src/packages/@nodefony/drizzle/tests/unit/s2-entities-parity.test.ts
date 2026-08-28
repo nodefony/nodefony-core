@@ -196,8 +196,10 @@ describe("S2 multi-dialecte — parité des entités (colKit)", () => {
     }
     assert.equal(
       pg.get("signCount")?.sqlType,
-      "integer",
-      "compteur anti-clone",
+      "bigint",
+      "compteur anti-clone : WebAuthn le définit en uint32 (jusqu'à " +
+        "4 294 967 295), au-delà de l'entier 32 bits SIGNÉ de PG — et la " +
+        "valeur vient de l'authenticator, rien ne la borne côté serveur",
     );
     assert.equal(pg.get("nickname")?.notNull, false, "nickname nullable");
     const pgIx = getPgTableConfig(
@@ -206,7 +208,7 @@ describe("S2 multi-dialecte — parité des entités (colKit)", () => {
     assert.deepEqual(pgIx, ["webauthn_credential_userId_idx"]);
   });
 
-  it("totp_secret : parité + PK userId (1 secret/user) + lastUsedStep int (pas un horodatage)", () => {
+  it("totp_secret : parité + PK userId (1 secret/user) + lastUsedStep 64-bit (anti-rejeu)", () => {
     assertParity(createTotpSecretTable, "totp_secret");
     const pg = pgView(createTotpSecretTable("postgres"));
     assert.equal(
@@ -217,8 +219,11 @@ describe("S2 multi-dialecte — parité des entités (colKit)", () => {
     assert.equal(pg.get("recoveryCodes")?.sqlType, "jsonb");
     assert.equal(
       pg.get("lastUsedStep")?.sqlType,
-      "integer",
-      "tranche T RFC 6238 = int 32-bit suffisant (≠ epochMs)",
+      "bigint",
+      "tranche T RFC 6238 : T = floor(epochSeconds / period), et `period` " +
+        "n'a pas de borne basse (schéma Zod : positive()). À period = 1 la " +
+        "tranche vaut l'horodatage Unix, qui dépasse l'entier 32 bits signé " +
+        "en 2038 — l'anti-rejeu cesserait de retenir, en silence",
     );
     for (const col of ["confirmedAt", "createdAt", "lastUsedAt"]) {
       assert.equal(pg.get(col)?.sqlType, "bigint", `totp_secret.${col}`);

@@ -50,8 +50,15 @@ const TOTP_SECRET_TABLE_SPEC = {
     recoveryCodes: { kind: "json", notNull: true, defaultFn: () => [] },
     /** Confirmation de l'enrôlement (epoch ms) ou `null` (anti-lock-out). */
     confirmedAt: { kind: "epochMs" },
-    /** Dernière tranche `T` validée (RFC 6238 §5.2, anti-rejeu) ou `null`. */
-    lastUsedStep: { kind: "int" },
+    /**
+     * Dernière tranche `T` validée (RFC 6238 §5.2, anti-rejeu) ou `null`.
+     *
+     * `int64` : `T = floor(epochSeconds / period)`, et `period` n'a pas de
+     * borne basse (schéma Zod : `positive()`). À `period` = 1 la tranche vaut
+     * l'horodatage Unix lui-même, qui dépasse l'entier 32 bits signé en 2038 —
+     * l'anti-rejeu cesserait alors de retenir, en silence.
+     */
+    lastUsedStep: { kind: "int64" },
     /** Création (epoch ms). */
     createdAt: { kind: "epochMs", notNull: true },
     /** Dernier usage réussi (epoch ms) ou `null`. */

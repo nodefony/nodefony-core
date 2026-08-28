@@ -70,7 +70,7 @@ const createIdempotencyTableFactory: FrameworkTableFactory =
     columns: {
       key: { kind: "text", primaryKey: true },
       fingerprint: { kind: "text", notNull: true },
-      state: { kind: "text", notNull: true },
+      state: { kind: "enum", values: ["if", "done"], notNull: true },
       response: { kind: "json" },
       expiresAt: { kind: "epochMs", notNull: true },
     },

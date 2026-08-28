@@ -34,8 +34,15 @@ const WEBAUTHN_CREDENTIAL_TABLE_SPEC = {
     userId: { kind: "text", notNull: true },
     /** Clé publique COSE encodée base64url. */
     publicKey: { kind: "text", notNull: true },
-    /** Compteur de signatures (anti-clone, §6.1.1). */
-    signCount: { kind: "int", notNull: true },
+    /**
+     * Compteur de signatures (anti-clone, §6.1.1).
+     *
+     * `int64` et non `int` : WebAuthn définit ce compteur comme un **uint32**
+     * (jusqu'à 4 294 967 295), qui déborde l'entier 32 bits SIGNÉ des trois
+     * dialectes. Un authenticator réel n'y arrivera pas, mais la valeur est
+     * fournie par le périphérique et rien ne la borne côté serveur.
+     */
+    signCount: { kind: "int64", notNull: true },
     /** Transports annoncés (`usb`|`nfc`|`ble`|`internal`|`hybrid`). */
     transports: { kind: "json", notNull: true, defaultFn: () => [] },
     /** BE flag (Backup Eligibility) — fixé à l'enregistrement. */

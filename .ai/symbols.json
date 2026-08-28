@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-27T23:50:03.172Z",
+  "generated": "2026-08-28T05:06:43.914Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 745,
-    "symbols": 3232,
+    "symbols": 3239,
     "classes": 365,
-    "interfaces": 904,
-    "types": 404,
+    "interfaces": 908,
+    "types": 405,
     "enums": 4,
-    "functions": 1257,
+    "functions": 1259,
     "constants": 298
   },
   "symbols": {
@@ -11251,15 +11251,6 @@
       "module": "@nodefony/drizzle",
       "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
     },
-    "IFrameworkColSpec": {
-      "name": "IFrameworkColSpec",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "extends": null,
-      "description": "Spécification logique d'une colonne d'entité framework."
-    },
     "IFrameworkIndexSpec": {
       "name": "IFrameworkIndexSpec",
       "kind": "interface",
@@ -11294,6 +11285,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "colKit — kit de colonnes partagé des **entités framework** (chantier portabilité multi-dialecte, garde-fou G1 du comparatif ORM mémoire IA `core-dev/audits/orm-comparatif-froid-2026-07.md`). **Pour…"
+    },
+    "IFrameworkColSpec": {
+      "name": "IFrameworkColSpec",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Spécification logique d'une colonne d'entité framework."
     },
     "buildFrameworkTable": {
       "name": "buildFrameworkTable",
