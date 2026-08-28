@@ -16,6 +16,16 @@ if ! node scripts/check-portable-filenames.mjs --staged; then
   exit 1
 fi
 
+# Frère du précédent, sur le CONTENU : un octet NUL dans une source la fait
+# passer pour BINAIRE aux yeux de grep et rg, qui cessent d'en rendre les lignes.
+# Le fichier compile, ses tests passent, et il a disparu de toute recherche du
+# dépôt — sans un mot. Vécu : trois recherches muettes pendant un diagnostic,
+# dont une preuve d'ABSENCE qui aurait été fausse. `\0` échappé produit la même
+# chaîne à l'exécution, donc la garde n'a pas d'échappatoire.
+if ! node scripts/check-no-nul-bytes.mjs --staged; then
+  exit 1
+fi
+
 # Garde anti-dérive : `.env.example` est GÉNÉRÉ depuis env.ts (catalogue defineEnv).
 # Si env.ts, .env.example ou l'en-tête curé est staged, vérifier qu'ils sont
 # synchronisés (sinon une var ajoutée à env.ts mais pas régénérée passerait). Placé

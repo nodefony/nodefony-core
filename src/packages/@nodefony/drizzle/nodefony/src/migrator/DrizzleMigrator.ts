@@ -666,7 +666,7 @@ export class DrizzleMigrator {
 
 /** Identité d'une migration : `(source, tag)`, jamais un horodatage. */
 function identity(row: { source: string; tag: string }): string {
-  return `${row.source} ${row.tag}`;
+  return `${row.source}\0${row.tag}`;
 }
 
 /**
