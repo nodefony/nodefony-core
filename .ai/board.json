@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T08:45:58.162Z",
+  "generatedAt": "2026-08-28T09:01:40.147Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 16,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 46,
+      "open": 47,
       "title": "10.0.0"
     }
   ],
@@ -142,7 +142,7 @@
       "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
-      "jours": 6,
+      "jours": 7.5,
       "ordre": 2,
       "labels": [
         "10.0.0"
@@ -191,6 +191,20 @@
       ]
     },
     {
+      "number": 102,
+      "title": "feat(orm): générer les migrations de l'application en une commande",
+      "url": "https://github.com/nodefony/nodefony-core/issues/102",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.35,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 97,
       "title": "feat(orm): appliquer les migrations avec historique et verrou",
       "url": "https://github.com/nodefony/nodefony-core/issues/97",
@@ -212,7 +226,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
-      "jours": 1,
+      "jours": 1.5,
       "ordre": 2.5,
       "labels": [
         "10.0.0"
