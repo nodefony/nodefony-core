@@ -96,7 +96,21 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - **`check:migrations`** (CI + local) rejoue la génération depuis les instantanés et refuse qu'un fichier apparaisse — juste quel que soit le nombre de migrations, contrairement à « régénérer 0000 et comparer ».
 - **Banc de parité migré ≡ dérivé**, 3 dialectes (`tests/integration/migrations-parity*.ts`) : colonnes/types/nullabilité/PK/index. Les index se comparent par COLONNES COUVERTES, jamais par nom (une contrainte `UNIQUE` = index nommé côté migration, auto-index côté dérivé). PG : deux SCHÉMAS dédiés ; MySQL : les deux phases se succèdent dans la base partagée — l'utilisateur applicatif ne peut pas créer de base (`ERROR 1044`), d'où `fileParallelism: false`.
 - **Le DDL dérivé CRÉE les index** (`#createIndexSQL`) — contrairement à ce que disaient 4 en-têtes d'entités, corrigés. Ce qu'il n'émet pas : les `DEFAULT` SQL.
-- **Reste** : les commandes `nodefony orm:migrate*` (l'applicateur, lui, est livré — ci-dessous).
+- **Le DDL dérivé RÉCONCILIE** (mode `auto` seul) : connexion en TROIS temps — tables, puis
+  `#reconcileSchema()`, puis `#createIndexes()`. Une colonne manquante NULLABLE est posée
+  (`additiveSql`) ; une colonne OBLIGATOIRE ou une table absente est publiée dans `orm.schemaDrift`
+  et journalisée `CRITIC` avec le geste. 🔴 **L'ordre n'est pas cosmétique** : un `CREATE INDEX` sur
+  une colonne absente TUE la connexion — les index d'une table en écart bloquant sont sautés.
+- **Lecture du catalogue = UNE implémentation** (`migrator/catalog.ts`, `schemaReader(dialect,
+query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit sur SA connexion :
+  ouvrir un pilote sur `:memory:` désignerait une base VIDE et rendrait un verdict faux.
+- **Verdict `divergent`** (`migrator/divergence.ts`, `isDivergent(plan)`) : ne se calcule QUE si
+  `verdictOf(plan) === "up-to-date"` — ailleurs le verdict est déjà décidé et la comparaison
+  coûterait une requête par table pour rien. Signale ce qui MANQUE, jamais ce qui est EN TROP
+  (migrations libres). Code de sortie 0 sauf `migrations.divergence: "fail"`.
+- **Reste** : `orm:generate` côté application (#102) et l'écran Studio (#100). ⚠️ Aucune surface ne
+  doit proposer `orm:generate` tant que #102 n'est pas fait — une action rendue par un refus doit
+  être une commande qui répond.
 
 ## Migrations — l'applicateur (`nodefony/src/migrator/`)
 
