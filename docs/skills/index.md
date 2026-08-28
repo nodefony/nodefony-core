@@ -184,7 +184,7 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.6.0 | 530 | 4 | 10 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.6.0 | 533 | 4 | 10 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

@@ -340,6 +340,14 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 08-28] **TROIS lecteurs répondaient à la même question, et je n'en avais inventorié
+  qu'un.** En rendant `/readyz` retenable, j'ai laissé `livez.ready` du plan d'administration valoir
+  `booted` — il aurait annoncé « prêt » pendant que l'orchestrateur recevait 503 — et
+  `nodefony status` afficher « 2/2 ports UP » sur un pod hors service, le diagnostic « faux et
+  rassurant » que ce rapport s'interdit dans son propre commentaire. C'est le user qui a nommé le
+  troisième. Le geste manquant : avant d'ajouter un terme à un verdict, chercher qui d'autre REND
+  ce verdict (`rg` sur le CONCEPT, pas sur le symbole) — et vérifier ce que chaque lecteur en fait,
+  car ici le code HTTP de `livez` devait justement NE PAS bouger (il sert la chaîne de démarrage).
 - [1× — 08-28] **TROIS gabarits sur quatre portaient le même défaut ; le quatrième donnait la
   forme juste.** Un `then` au corps muet (`promise/always-return`) faisait naître toute application
   générée avec un front en lint ROUGE — React seul écrivait l'expression fléchée qui passe. Le
@@ -643,6 +651,13 @@
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
+- [1× — 08-28] **L'outil que je venais d'écrire a accusé à tort, à son premier usage réel.** Le
+  compte rendu de fermeture annonçait « aucun commit ne cite #95 » juste après le commit qui le
+  citait : `git log --grep='#95\b'` ne mord sur RIEN, le moteur de git étant une expression
+  rationnelle POSIX étendue, sans borne de mot. Un outil de pilotage qui accuse est pire qu'un outil
+  absent — il envoie chercher un oubli inexistant. Aucun test sur la CHAÎNE du motif ne l'aurait vu ;
+  seul un dépôt git réel (trois commits citant `#9`, `#95`, `#950`) le prouve. Corollaire : un
+  script neuf se lance sur un cas dont on CONNAÎT la réponse avant d'être livré.
 - **Mon `--check` rendait ROUGE sur l'empreinte qu'il venait d'écrire** : il comparait l'objet
   interne à l'objet écrit, lequel portait deux champs de plus. L'option dont le seul rôle est de
   dire « à jour ou pas » disait faux dès sa première utilisation. Un mode de contrôle se lance sur
@@ -830,6 +845,21 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-28] **Mon `Write` a ÉCRASÉ une suite existante, et son retour ne l'a pas dit.** J'ai
+  créé `src/nodefony/src/tests/readiness.test.ts` sans regarder si le nom était libre — il l'était
+  pour MON concept (le registre de disponibilité), pas dans le dépôt : `checks/readiness.ts` a le
+  même nom pour une tout autre question, et ses **11 cas ont disparu**. Le seul signal était un mot
+  dans le retour de l'outil (« updated », pas « created »), et il ne m'a pas arrêté. Ce qui a
+  sauvé : `git status` affichait `M` là où j'attendais `??`. Le geste : avant d'écrire un fichier
+  neuf, `ls` le chemin — et lire ce que l'outil dit avoir FAIT, pas ce qu'on croyait demander.
+- [1× — 08-28] **Mon `turbo build` manuel et le superviseur de développement se sont marchés
+  dessus**, et le serveur a continué de servir l'ANCIEN code. Le rebuild du superviseur a échoué
+  (`Cannot find module …/bundler/index.js` — mon build effaçait le `dist` qu'il lisait), il a donc
+  conservé l'exemplaire en cours : mon débranchement n'a jamais atteint le serveur, et le banc
+  « passait » en prouvant l'inverse de ce que je croyais. En mode développement, **le superviseur
+  rebuild seul sur la modification de source** : lancer un build à la main pendant ce temps est un
+  geste actif, pas une précaution. Le contrôle qui tranche : `[dev] ✓ build OK` dans le journal,
+  puis l'empreinte du `dist`.
 - [1× — 08-28] **Ma reproduction d'un échec d'intégration continue a été VERTE, et c'est un binaire
   GLOBAL qui répondait.** La forge rendait `sh: nodefony: command not found` sur les six
   plateformes ; j'ai retiré `node_modules/.bin/nodefony` pour reproduire, relancé, et tout a

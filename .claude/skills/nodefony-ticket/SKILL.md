@@ -168,8 +168,11 @@ Une estimation en **jours-homme** — `0,5 · 1 · 2 · 3 · 5` — jamais en po
 seul et pense en jours.
 
 > ⚠️ **L'estimation est HAUTE d'un ordre de grandeur, et elle ne se corrige pas toute seule.**
-> Mesuré sur les tickets fermés : l'estimation vaut **×8** le temps constaté entre le premier et le
-> dernier commit du ticket. La cause n'est pas de la négligence — c'est que l'unité est calibrée sur
+> Mesuré sur les tickets fermés : l'estimation vaut **plusieurs fois** le temps constaté entre le
+> premier et le dernier commit du ticket. **Le facteur se REMESURE, il ne se recopie pas** — il
+> valait ×8 sur les premiers lots, ×3,5 puis ×2,3 à mesure que les tickets se sont précisés. Un
+> chiffre gravé ici serait faux au lot suivant : c'est `ticket-effort.mjs` qui fait foi, pas cette
+> page. La cause n'est pas de la négligence — c'est que l'unité est calibrée sur
 > quelqu'un qui code à la main, alors que lire, chercher, éditer et vérifier tiennent en minutes.
 > Ce qui coûte aujourd'hui, c'est le **contexte à charger** et les **décisions à rendre**.
 >

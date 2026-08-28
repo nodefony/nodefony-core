@@ -5365,8 +5365,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"quels tickets parlent de ce que j'ai changé ?\", \"ce ticket est trop vague\", \"il manque le contexte pour le prendre\".",
       "cost": {
-        "bodyLines": 530,
-        "approxTokens": 9647
+        "bodyLines": 533,
+        "approxTokens": 9714
       },
       "requires": [],
       "resources": {
@@ -5808,7 +5808,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "530",
+            "detail": "533",
             "advisory": true
           }
         ]
