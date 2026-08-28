@@ -85,7 +85,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme · ⚙️ 43 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
-    "meta": "🟢 conforme · ⚙️ 11 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme · ⚙️ 12 scripts · 📎 2 réf" },
   { "icon": "🚀", "title": "start-server", "href": "nodefony-start-server.md",
     "desc": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check.",
     "meta": "🟢 conforme · ⚙️ 2 scripts" },
@@ -174,7 +174,7 @@ source: "docs/skills/index.md"
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 259 | 0 | 0 | ✅ |
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 359 | 4 | 43 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 430 | 0 | 0 | ✅ |
-| [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 142 | 2 | 11 | ✅ |
+| [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.0.0 | 247 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |

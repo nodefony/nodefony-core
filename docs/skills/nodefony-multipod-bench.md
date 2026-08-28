@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-08-28
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 ---
@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 142 lignes |
-| Coût d'activation | ~2 927 tokens (le corps est chargé à l'invocation) |
+| Corps | 143 lignes |
+| Coût d'activation | ~3 026 tokens (le corps est chargé à l'invocation) |
 | Description | 988 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 11 |
+| Scripts | 12 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -86,6 +86,7 @@ script, donc toujours à jour après régénération.
 | `scripts/bench.mjs` | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD. | — | — |
 | `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--format` `--port` `--workers` | `BOX` `NF_DATABASE_URL` `WORKERS` |
 | `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `CLE` `MODE` `NF_DATABASE_URL` `PORT` `URL_BASE` |
+| `scripts/db-readiness-pod.mjs` | **Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.** | `--container` `--db` `--format` `--port` | `BASE` `PORT` |
 | `scripts/forge.mjs` | — | — | — |
 | `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages | — | — |
 | `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket | — | — |
@@ -101,6 +102,7 @@ script, donc toujours à jour après régénération.
 node bench.mjs <portRécepteur> <portÉmetteur> <connexions> <rafales>
 node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]
 node db-persistance-pod.mjs                          # sqlite fichier (local, sans docker)
+node db-readiness-pod.mjs [--container NOM] [--port P] [--db NOM]
 node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>
 node listen.mjs <port> <secondes>
 bash scripts/run.sh [dossier] [namespace]
@@ -108,7 +110,7 @@ bash scripts/setup.sh [dossier] [namespace]
 node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 ```
 
-**Toutes les variables lues par ce skill** : `APP` · `BOX` · `CLE` · `MODE` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `PORT` · `URL_BASE` · `WORKERS`
+**Toutes les variables lues par ce skill** : `APP` · `BASE` · `BOX` · `CLE` · `MODE` · `NF_BENCH_SECRET` · `NF_DATABASE_URL` · `PORT` · `URL_BASE` · `WORKERS`
 
 ## Conformité au standard Agent Skills
 
@@ -127,7 +129,7 @@ node soak.mjs <portRx> <portTx> <paliers> <secondesParPalier>
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 142 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 143 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

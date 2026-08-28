@@ -132,6 +132,33 @@ export async function enService(port, chemin = "/readyz") {
 }
 
 /**
+ * Traduit un boot raté en CAUSE, quand le journal en nomme une connue.
+ *
+ * « Le pod n'a jamais écouté » est vrai et inutile : il envoie chercher un port
+ * fermé, alors que la raison est écrite en toutes lettres quelques lignes plus
+ * haut. Deux causes reviennent, et toutes deux ont déjà coûté un diagnostic
+ * entier — un serveur de développement qui tient le verrou d'instance unique,
+ * et un port déjà pris.
+ *
+ * @param journal - sortie complète du pod, telle que `demarrerPod` la garde.
+ * @returns la cause en clair, ou `null` si le journal n'en nomme aucune connue.
+ */
+export function causeProbable(journal) {
+  const texte = Array.isArray(journal) ? journal.join("") : String(journal);
+  if (texte.includes("démarrage production refusé")) {
+    return (
+      "un runtime de DÉVELOPPEMENT de ce projet tourne — l'instance unique " +
+      "refuse le mode production. Arrêter d'abord : `nodefony stop`."
+    );
+  }
+  if (texte.includes("EADDRINUSE")) {
+    return "le port est déjà pris par un autre processus.";
+  }
+  return null;
+}
+
+/**
+ * Applique les migrations sur la base du décor/**
  * Applique les migrations sur la base du décor — le geste d'un DÉPLOIEMENT.
  *
  * En production le schéma n'est fabriqué par personne (`ddl: "none"`) : c'est

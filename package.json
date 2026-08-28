@@ -46,6 +46,7 @@
     "generate-symbols": "tsx scripts/generate-symbols.ts",
     "deps:check": "node scripts/check-deps-latest.mjs",
     "check:filenames": "node scripts/check-portable-filenames.mjs",
+    "check:nul": "node scripts/check-no-nul-bytes.mjs",
     "externals:check": "node scripts/check-externals.mjs",
     "test:externals": "vitest run scripts/check-externals.test.mjs",
     "test:pilotage": "vitest run .claude/skills/nodefony-ticket/scripts/ticket-progress.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-open.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-close.test.mjs",

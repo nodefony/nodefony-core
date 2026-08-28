@@ -442,6 +442,18 @@ jobs:
         env:
           NF_DATABASE_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
 
+      # La sonde de disponibilité, éprouvée sur un POD et non sur un plan. Les
+      # suites du migrateur calculent un verdict et le comparent ; aucune ne dit
+      # ce qu'un pod en FAIT, et c'est pourtant `/readyz` qui commande le
+      # répartiteur de charge. Deux défauts sont passés par ce trou, tous deux en
+      # production seulement (#108, #110). Le banc porte son contrôle négatif :
+      # une dérive réelle doit RETENIR, sans quoi un 200 partout ne prouverait
+      # que le mutisme de la sonde.
+      - name: La sonde de disponibilité dit-elle vrai sur un pod ?
+        run: node .claude/skills/nodefony-multipod-bench/scripts/db-readiness-pod.mjs --container nf-outage-pg
+        env:
+          NF_DATABASE_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
+
       # LE banc qui manquait, et le seul qui franchisse la frontière du CYCLE DE
       # VIE : les suites ORM éprouvent un connecteur sans serveur, le banc e2e
       # éprouve un serveur sans base. Aucun ne disait si une donnée écrite par

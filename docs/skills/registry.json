@@ -3979,8 +3979,8 @@
       ],
       "description": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : \"banc multi-pods\", \"tester en cluster\", \"cross-pod\", \"deux apps\", \"plusieurs pods\", \"injection backplane\", \"bus Redis partagé\", \"fan-out cross-pod\", \"prouver en réel\", \"backplane secret\", \"est-ce que ça marche à plusieurs instances ?\", \"les apps sont-elles cloisonnées ?\".",
       "cost": {
-        "bodyLines": 142,
-        "approxTokens": 2927
+        "bodyLines": 143,
+        "approxTokens": 3026
       },
       "requires": [
         "serveur UP",
@@ -4078,6 +4078,43 @@
               },
               {
                 "name": "URL_BASE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/db-readiness-pod.mjs",
+            "purpose": "**Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.**",
+            "usage": [
+              "node db-readiness-pod.mjs [--container NOM] [--port P] [--db NOM]"
+            ],
+            "options": [
+              {
+                "flag": "--container",
+                "help": ""
+              },
+              {
+                "flag": "--db",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--port",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BASE",
+                "help": ""
+              },
+              {
+                "name": "PORT",
                 "help": ""
               }
             ],
@@ -4268,7 +4305,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "142",
+            "detail": "143",
             "advisory": true
           }
         ]
