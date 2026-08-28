@@ -279,10 +279,12 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
   projet, il vous appartient. Aucune commande ne le régénère par-dessus vos
   modifications — et c'est voulu : fusionner un gabarit avec du code édité est un
   problème sans bonne réponse.
-- **Il ne produit pas de migration de base.** Une entité crée sa table au
-  prochain démarrage en développement (`CREATE TABLE IF NOT EXISTS`) ; la
-  **modifier ensuite n'altère rien**. En production, aucune migration n'est
-  générée à ce jour. La commande le dit dans ses notes de fin.
+- **Il ne produit pas de fichier de migration.** Une entité crée sa table au
+  prochain démarrage en développement (`CREATE TABLE IF NOT EXISTS`) ; un champ
+  ajouté qui **accepte le vide** y est posé au démarrage suivant, un champ
+  **obligatoire** ne l'est jamais. En production, le schéma s'applique par
+  `nodefony orm:migrate`, jamais par le générateur. La commande le dit dans ses
+  notes de fin.
 - **Il n'installe pas les dépendances d'une brique in-project.** Créer un
   contrôleur ou une entité n'appelle pas `npm`. Un **module**, si : sans le lien
   de workspace, le kernel ne peut pas l'importer par son nom.

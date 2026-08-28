@@ -313,10 +313,8 @@ chiffres **ne** prouvent pas. Le dossier [Performance](docs/performance/index.md
 protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
 s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 
-Ce qu'il faut savoir avant de bâtir dessus : **il n'existe pas encore de système de migration de
-schéma** — la base est dérivée au démarrage, ce qui convient au développement et pas à la
-production. Les versions JavaScript historiques (≤ 7.x) ne reçoivent plus de correctifs. Projet
-libre, développé bénévolement par une seule personne.
+Ce qu'il faut savoir avant de bâtir dessus : les versions JavaScript historiques (≤ 7.x) ne
+reçoivent plus de correctifs. Projet libre, développé bénévolement par une seule personne.
 
 Licence [CeCILL-B](LICENSE.txt) — libre de droit français, compatible BSD.
 **Christophe Camensuli** · [ccamensuli@gmail.com](mailto:ccamensuli@gmail.com)

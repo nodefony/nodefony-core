@@ -144,7 +144,7 @@ parcours suit un ordre qui a une raison.
 
 1. [Dialectes](#dialectes--une-base-par-déploiement-un-seul-code) — ce qui change vraiment entre
    SQLite, PostgreSQL et MySQL.
-2. [Migrations et création des tables](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas) —
+2. [Migrations et création des tables](#migrations--deux-chemins-un-seul-schéma) —
    **à lire avant le premier déploiement**, le DDL dérivé ne fait pas d'`ALTER`.
 3. [Pièges](#-pièges) — les symptômes qu'on rencontre en changeant de base.
 4. [Tests](#-tests--couverture) — comment prouver ton dialecte, au lieu de le supposer.
@@ -175,7 +175,7 @@ Le tableau pour situer en cinq secondes ; les cards en dessous pour savoir où l
 | [Transactions](#transactions--une-connexion-dédiée-jamais-le-pool)        | tout-ou-rien sur plusieurs écritures              | une opération ne doit jamais rester à moitié |
 | [Trappe SQL](#trappe-sql-brut--quand-labstraction-ne-suffit-plus)         | CTE, fenêtres, jointures arbitraires              | l'abstraction ne couvre pas ton besoin       |
 | [Les 8 stores](#les-huit-stores-du-framework--la-persistance-clé-en-main) | session, users, jetons, audit… durables           | jamais : c'est déjà branché                  |
-| [Migrations](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas)   | créer et faire évoluer les tables                 | avant le premier déploiement                 |
+| [Migrations](#migrations--deux-chemins-un-seul-schéma)                    | créer et faire évoluer les tables                 | avant le premier déploiement                 |
 | [Studio](#-observabilité--studio)                                         | voir les connexions, les entités, le graphe       | tu veux comprendre ce qui tourne             |
 
 ```nodefony-cards
@@ -198,7 +198,7 @@ Le tableau pour situer en cinq secondes ; les cards en dessous pour savoir où l
   { "icon": "🗃️", "title": "dialectes", "href": "#dialectes--une-base-par-déploiement-un-seul-code",
     "desc": "Ce qui reste identique (les noms de colonnes, le contrat du repository) et ce qui diverge, avec la raison : types epoch/date/JSON, absence de `RETURNING` en MySQL, `OFFSET` sans `LIMIT`.",
     "meta": "à lire avant de changer de base, pas après le premier incident" },
-  { "icon": "🚧", "title": "migrations", "href": "#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas",
+  { "icon": "🚧", "title": "migrations", "href": "#migrations--deux-chemins-un-seul-schéma",
     "desc": "En développement, les tables sont créées au démarrage par un DDL dérivé de tes schémas. Ce DDL ne fait aucun `ALTER`, n'émet ni `DEFAULT` SQL ni index : la section dit ce que ça implique en production, et ce que le framework ne fournit pas encore.",
     "meta": "le point à ne pas rater avant le premier déploiement" }
 ]
@@ -522,7 +522,7 @@ Trois conséquences à connaître **avant** de dépendre de ce mécanisme :
 3. il ne connaît que les colonnes, les clés primaires, `NOT NULL` et `UNIQUE`.
 
 C'est un confort de développement, pas un outil de migration. La suite est dans
-[Migrations](#migrations--ce-que-le-module-fait-et-ce-quil-ne-fait-pas).
+[Migrations](#migrations--deux-chemins-un-seul-schéma).
 
 ## 🧰 API publique — du repository au SQL brut
 
@@ -749,18 +749,20 @@ Deux mécanismes créent les tables, et il faut savoir lequel travaille pour toi
 `CREATE TABLE IF NOT EXISTS` dérivé de ton schéma — index compris. Tu n'as rien à lancer : la base
 part de zéro et fonctionne.
 
-**Sa limite tient en un mot : il ne fait jamais d'`ALTER`.**
+**Sa limite tient en un mot : il n'ajoute jamais ce qu'il faudrait inventer.**
 
-| Attente                               | Réalité                                                                                       |
-| ------------------------------------- | --------------------------------------------------------------------------------------------- |
-| « je modifie ma table, ça suit »      | **Non** — une table existante n'est jamais retouchée. Supprime-la, ou repars d'une base vide. |
-| « mes `.default()` SQL s'appliquent » | **Non** — le DDL dérivé ne les émet pas. Utilise `$defaultFn` (côté JS).                      |
-| « mes index sont créés »              | **Oui** — des deux côtés. Un banc de parité le vérifie table par table.                       |
+| Attente                                 | Réalité                                                                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| « j'ajoute un champ nullable, ça suit » | **Oui** — la colonne est posée au démarrage et journalisée. Voir [Migrations de schéma](migrations.md#en-développement--le-schéma-se-répare-tout-seul). |
+| « j'ajoute un champ obligatoire »       | **Non** — il faudrait inventer une valeur pour les lignes déjà là. L'écart est publié avec son geste : `nodefony orm:reset`, ou une migration.          |
+| « mes `.default()` SQL s'appliquent »   | **Non** — le DDL dérivé ne les émet pas. Utilise `$defaultFn` (côté JS).                                                                                |
+| « mes index sont créés »                | **Oui** — des deux côtés. Un banc de parité le vérifie table par table.                                                                                 |
 
 > [!CAUTION]
-> Ne déploie jamais sur le DDL dérivé. Il est conçu pour qu'une base **neuve** fonctionne, pas pour
-> faire évoluer une base **existante**. Un schéma modifié sur une base déjà créée échoue à
-> l'écriture, pas au démarrage — le pire des moments.
+> Ne déploie jamais sur le DDL dérivé. Il est conçu pour qu'une base **neuve** fonctionne, et pour
+> qu'une base de développement suive un ajout de champ — pas pour faire évoluer une base de
+> production. Il ne pose aucune trace dans l'historique : les tables qu'il crée n'ont, pour qui
+> arrive après, aucune origine connue.
 
 **En production**, le schéma vient de fichiers de migration versionnés. Ceux du framework sont
 **livrés dans le paquet** : `migrations/{sqlite,postgres,mysql}/`, un fichier par changement, plus le
@@ -769,8 +771,10 @@ entités que le DDL dérivé, et un banc vérifie sur les trois dialectes qu'une
 identique à une base **dérivée** — colonne par colonne, index compris. Sans cette preuve, les deux
 chemins divergeraient en silence.
 
-> La commande qui les applique (`nodefony orm:migrate`) n'existe pas encore. Ces fichiers sont donc
-> aujourd'hui la matière du déploiement, pas encore son outil.
+Les appliquer, les adopter, les réparer et surveiller leur état est le travail de cinq commandes
+`nodefony orm:migrate*` — avec leur verrou, leur historique et leur branchement sur la sonde de
+disponibilité. Tout est dans **[Migrations de schéma](migrations.md)**, qui porte aussi le patron de
+déploiement sans interruption et les droits du compte qui migre.
 
 ### Regénérer les migrations du framework
 
@@ -933,6 +937,8 @@ npm run test:load   # charge, limites, mémoire
 - 🧭 **L'abstraction au-dessus** : [`@nodefony/orm-core`](../../orm-core/docs/index.md) — contrats
   `IOrm`/`IRepository`/`ITransaction`, `Criteria` et opérateurs riches, registres. À lire pour tout ce
   qui est **portable** ; cette page-ci ne documente que le driver SQL.
+- 🗄️ **Déployer un schéma** : [Migrations de schéma](migrations.md) — les cinq commandes, le
+  rattrapage de développement, le travail d'orchestrateur et l'expansion/contraction.
 - 📗 **Tutoriel** : [créer une entité pas à pas](../../orm-core/docs/tutorial-entity.md)
 - 🧩 **L'autre driver** : [`@nodefony/mongoose`](../../mongoose/docs/index.md) — même contrat, MongoDB.
 - 🗄️ **Guides transverses** : [choisir sa persistance](../../../../../docs/guides/persistence.md) ·

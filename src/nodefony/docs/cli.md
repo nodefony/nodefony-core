@@ -246,8 +246,9 @@ Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 Le détail de chaque scaffold (options, gabarits, presets) vit dans les skills dédiés : `create app`
 (preset `complete`/`minimal`, front React/Vue/Angular), `create module`, `create entity`. En résumé —
 `create app` et `create entity` **exécutent** ce qu'ils génèrent au boot suivant (la table naît en
-`CREATE TABLE IF NOT EXISTS`), et **aucune migration n'est produite** : modifier une entité déjà créée
-n'altère pas la table.
+`CREATE TABLE IF NOT EXISTS`). Ajouter ensuite un champ **qui accepte le vide** le pose au boot
+suivant ; un champ **obligatoire** ne l'est jamais — il faudrait inventer la valeur des lignes déjà
+présentes. La production, elle, se migre : `nodefony orm:migrate`.
 
 Trois comportements de `create entity` qui surprennent si on ne les connaît pas :
 

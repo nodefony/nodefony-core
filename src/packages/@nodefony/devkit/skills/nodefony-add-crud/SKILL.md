@@ -5,8 +5,8 @@ description: >
   service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`,
   au lieu de l'écrire à la main. Porte la grammaire de champs (types, relations, index simples et
   composites), les réglages pour épouser une table SQL existante, et les trois vérités qu'on
-  découvre autrement en production : la table naît au démarrage, la modifier n'altère rien, et
-  aucune migration n'est produite. À charger AVANT d'écrire une entité, un repository ou un
+  découvre autrement en production : la table naît au démarrage, un champ ajouté n'est rattrapé que
+  s'il accepte le vide, et le déploiement s'applique par `orm:migrate`. À charger AVANT d'écrire une entité, un repository ou un
   controller de ressource.
   Déclencheurs : "ajoute une entité", "crée un CRUD", "nouvelle table", "modèle de données",
   "ressource REST", "endpoint CRUD", "je veux stocker des articles/commandes/utilisateurs",

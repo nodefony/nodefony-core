@@ -171,9 +171,9 @@ curl http://127.0.0.1:5151/api/articles
 Le même controller sert aussi ces lectures en **WebSocket** (les méthodes de lecture sont déclarées
 `GET` **et** `WEBSOCKET`) — encore le même code pour les deux transports.
 
-> Le scaffold **dit la vérité** : la table naît au boot suivant, mais **modifier** ensuite l'entité
-> n'altère pas la table existante (aucune migration n'est produite). Pour repartir propre en dev,
-> supprime le fichier SQLite et relance.
+> Le scaffold **dit la vérité** : la table naît au boot suivant. Ajouter ensuite un champ **qui
+> accepte le vide** le pose au démarrage d'après ; un champ **obligatoire**, non — la valeur des
+> lignes déjà là ne s'invente pas. Pour repartir propre en dev : `nodefony orm:reset`.
 
 ## ⚠️ Pièges (les erreurs de début)
 

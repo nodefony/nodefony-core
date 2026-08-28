@@ -367,9 +367,13 @@ function actionsOf(
         action(`nodefony orm:migrate:status${suffixe}`),
       ];
     case "divergent":
+      // 🔴 On ne propose QUE des commandes qui existent. La génération d'une
+      // migration correctrice côté application n'a pas encore son verbe : la
+      // suggérer enverrait l'utilisateur taper une commande inconnue, ce qui
+      // détruit la confiance dans TOUTES les autres actions rendues ici.
       return [
         action(`nodefony orm:migrate:status${suffixe} --json`),
-        action(`nodefony orm:generate --name rattrapage`),
+        action(`nodefony orm:reset${suffixe}`),
       ];
   }
 }

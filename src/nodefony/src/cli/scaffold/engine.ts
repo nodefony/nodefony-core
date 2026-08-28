@@ -3246,16 +3246,17 @@ function runEntityScaffold(
   }
   written.push("index.ts");
 
-  // Dire la vérité sur la base : le DDL dérivé du mode dev crée la table au boot, mais
-  // ne la modifie JAMAIS ensuite, et aucune migration n'est produite.
+  // Dire la vérité sur la base : le DDL dérivé du mode dev crée la table au boot et
+  // rattrape les colonnes qui acceptent le vide, mais jamais une colonne
+  // obligatoire — et la production se migre.
   const notes = [
     ...ormRuntimeNote,
     // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
     // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
     // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
     `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`,
-    `⚠ modifier l'entité ensuite n'altère PAS la table (pas d'ALTER en dev) — supprime la base de dev, ou passe par une migration`,
-    `⚠ production : aucune migration générée (orm:migrate n'existe pas encore)`,
+    `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
+    `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
   ];
   if (controller) {
     notes.push(

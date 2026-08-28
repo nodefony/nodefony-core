@@ -629,8 +629,9 @@ posé pour la suite seule : la production ne sème aucun compte sans mot de pass
 test e2e d'entité éprouve les DEUX faces — l'admin supprime, l'anonyme est refusé et la donnée
 survit. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
 DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
-table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN**
-(pas d'`ALTER`), aucune migration n'est produite. Design + alternatives rejetées :
+table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), un champ ajouté **qui accepte le
+vide** est posé au boot suivant, un champ **obligatoire** ne l'est jamais (`orm:reset`, ou une
+migration), et la production s'applique par `orm:migrate`. Design + alternatives rejetées :
 `create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).
 
 **Architecture 3 fronts** (préparée pour Studio — créer app/module/entity depuis
