@@ -170,6 +170,43 @@ export function verdictOf(
 }
 
 /**
+ * L'historique porte-t-il des migrations que CE code ne connaît pas, et rien
+ * d'autre ne cloche-t-il ?
+ *
+ * C'est l'état NORMAL de deux moments qu'on ne peut pas éviter : une mise à jour
+ * progressive, où les anciens exemplaires servent encore pendant que le travail
+ * de migration a déjà appliqué la suite ; et un retour arrière, où le code
+ * revient en arrière et la base reste en avance. Dans les deux cas, l'exemplaire
+ * n'a rien à appliquer, et tout ce qu'il connaît concorde.
+ *
+ * **Le verdict, lui, reste `drift` — et c'est juste** : ce qui est écrit dans
+ * l'historique ne se retrouve pas sur le disque. L'énumération des verdicts est
+ * GELÉE avec {@link MIGRATION_FORMAT_VERSION}, et un huitième mot casserait tout
+ * consommateur qui les traite exhaustivement. Ce qui était faux n'était pas le
+ * constat, c'était ce que la sonde de disponibilité en DÉDUISAIT : retenir le
+ * trafic sortait du service tous les anciens exemplaires dès la fin du travail
+ * de migration, avant que le premier nouveau soit prêt — une coupure totale sur
+ * un déploiement nominal, et l'impossibilité de revenir en arrière.
+ *
+ * Ce que cette fonction ne couvre PAS, et qui doit continuer de retenir : une
+ * empreinte qui a changé (`drifted`), une migration en attente ou en échec, une
+ * adoption requise. Une base en avance n'a rien de commun avec un fichier
+ * réécrit après coup.
+ *
+ * @param plan - plan calculé par le migrateur.
+ * @returns vrai si le seul écart est un historique en avance sur ce code.
+ */
+export function isAheadOnly(plan: IMigrationPlan): boolean {
+  return (
+    plan.missing.length > 0 &&
+    plan.drifted.length === 0 &&
+    plan.pending.length === 0 &&
+    plan.failed.length === 0 &&
+    !plan.baselineRequired
+  );
+}
+
+/**
  * Le code de sortie d'un verdict.
  *
  * **`divergent` ne fait pas tomber un déploiement** quand la configuration le

@@ -13,7 +13,7 @@ import {
   resolveCheckMode,
   resolveDdlMode,
 } from "../src/migrator/resolve";
-import { buildReport, meaningOf } from "../src/migrator/explain";
+import { buildReport, meaningOf, isAheadOnly } from "../src/migrator/explain";
 import { isDivergent } from "../src/migrator/divergence";
 import {
   dataLoss,
@@ -365,11 +365,31 @@ class DrizzleService extends Service {
         divergent: await isDivergent(plan),
         divergenceBlocks: this.#config().migrations?.divergence === "fail",
       });
-      const ok = report.exitCode === 0;
+      // Une base EN AVANCE sur ce code n'est pas une anomalie : c'est l'état
+      // normal d'une mise à jour progressive et d'un retour arrière. Le verdict
+      // reste `drift` — le fait est juste — mais la sonde ne doit pas en
+      // déduire une rétention : elle sortirait du service tous les anciens
+      // exemplaires dès la fin du travail de migration, avant que le premier
+      // nouveau soit prêt. La règle est écrite UNE fois, à côté du verdict
+      // qu'elle nuance (`isAheadOnly`).
+      const enAvance = isAheadOnly(plan);
+      const ok = report.exitCode === 0 || enAvance;
       if (check === "fail") {
         kernel.setReadiness(readinessName(name), ok, report.summary);
       }
-      if (!ok) {
+      if (enAvance) {
+        // Ni CRITIC ni geste à taper : il n'y a rien à réparer, et l'action que
+        // le rapport propose pour un fichier absent (`git checkout`) n'a aucun
+        // sens dans un exemplaire déployé — elle enverrait chercher un dépôt
+        // git dans un conteneur.
+        this.log(
+          `Drizzle « ${name} » : la base porte ${plan.missing.length} migration(s) ` +
+            `que ce code ne connaît pas — elle est EN AVANCE. C'est attendu ` +
+            `pendant un déploiement progressif ou après un retour arrière ; ` +
+            `rien à appliquer, le processus peut servir.`,
+          "INFO",
+        );
+      } else if (!ok) {
         this.log(
           `Drizzle « ${name} » : ${report.summary}\n` +
             `  ${meaningOf(report.verdict)}\n` +

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T18:29:46.684Z",
+  "generated": "2026-08-28T22:59:38.425Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3460,
+    "symbols": 3461,
     "classes": 380,
     "interfaces": 964,
     "types": 414,
     "enums": 4,
-    "functions": 1350,
+    "functions": 1351,
     "constants": 348
   },
   "symbols": {
@@ -19228,6 +19228,14 @@
       "module": "@nodefony/drizzle",
       "description": "Situation d'ensemble d'un plan, dans l'ordre de gravité. L'ordre n'est pas esthétique : il dit quel geste vient EN PREMIER. Une migration en échec doit être réparée avant qu'on parle de ce qui rest…"
     },
+    "isAheadOnly": {
+      "name": "isAheadOnly",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'historique porte-t-il des migrations que CE code ne connaît pas, et rien d'autre ne cloche-t-il ? C'est l'état NORMAL de deux moments qu'on ne peut pas éviter : une mise à jour progressive, où le…"
+    },
     "exitCodeOf": {
       "name": "exitCodeOf",
       "kind": "function",
@@ -29861,6 +29869,9 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "meaningOf": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "isAheadOnly": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "DdlMode": [

@@ -9,6 +9,7 @@ import {
   renderStatus,
   styleFor,
   verdictOf,
+  isAheadOnly,
   type MigrationVerdictName,
 } from "../../nodefony/src/migrator/explain";
 import type {
@@ -325,5 +326,82 @@ describe("migrations — le rendu humain ne pollue jamais un flux", () => {
       ddl: "none",
     });
     assert.equal(r.nextActions[0]?.command, "nodefony orm:migrate");
+  });
+});
+
+/**
+ * #108 — une base EN AVANCE sur le code ne doit pas retenir le trafic.
+ *
+ * La scène est celle d'une mise à jour progressive : le travail de migration a
+ * appliqué `app/0006`, les anciens exemplaires servent encore avec une image
+ * qui n'a pas ce fichier. Leur historique porte une entrée sans fichier local —
+ * et rien d'autre ne cloche. Les retenir sortait TOUS les anciens exemplaires
+ * du répartiteur de charge avant que le premier nouveau soit prêt.
+ *
+ * Le verdict reste `drift` (l'énumération est gelée, et le fait est juste) :
+ * c'est ce que la sonde en DÉDUIT qui change.
+ */
+describe("isAheadOnly — l'historique en avance n'est pas une dérive (#108)", () => {
+  const enAvance = { source: "app", tag: "0006_ajout" };
+
+  it("historique en avance, rien d'autre → EN AVANCE", () => {
+    assert.equal(isAheadOnly(plan({ missing: [enAvance] })), true);
+  });
+
+  it("le verdict, lui, reste `drift` — le fait est juste", () => {
+    assert.equal(verdictOf(plan({ missing: [enAvance] })), "drift");
+  });
+
+  // ── Ce qui doit CONTINUER de retenir ─────────────────────────────────────
+
+  it("une empreinte qui a changé n'est PAS une avance", () => {
+    assert.equal(
+      isAheadOnly(
+        plan({
+          missing: [enAvance],
+          drifted: [
+            {
+              source: "app",
+              tag: "0002_b",
+              expected: "sha256:a",
+              actual: "sha256:b",
+            },
+          ],
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("une migration en attente n'est PAS une avance", () => {
+    assert.equal(
+      isAheadOnly(
+        plan({ missing: [enAvance], pending: [fichier("app", "0007_c")] }),
+      ),
+      false,
+    );
+  });
+
+  it("une migration en échec n'est PAS une avance", () => {
+    assert.equal(
+      isAheadOnly(
+        plan({
+          missing: [enAvance],
+          failed: [applique("app", "0003_d", false)],
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("une adoption requise n'est PAS une avance", () => {
+    assert.equal(
+      isAheadOnly(plan({ missing: [enAvance], baselineRequired: true })),
+      false,
+    );
+  });
+
+  it("un plan sain n'est pas « en avance » — il n'y a rien devant", () => {
+    assert.equal(isAheadOnly(plan()), false);
   });
 });
