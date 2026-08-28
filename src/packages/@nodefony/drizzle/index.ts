@@ -24,6 +24,11 @@ import type {
   IDrizzleConfig,
   IDrizzleConfigInput,
 } from "./nodefony/interfaces/IDrizzleConfig";
+import OrmMigrate from "./nodefony/command/orm-migrate";
+import OrmMigrateStatus from "./nodefony/command/orm-migrate-status";
+import OrmMigrateBaseline from "./nodefony/command/orm-migrate-baseline";
+import OrmMigrateRepair from "./nodefony/command/orm-migrate-repair";
+import OrmReset from "./nodefony/command/orm-reset";
 
 // Augmente le registre du core (declaration merging) → `use("@nodefony/drizzle", …)` typé.
 declare module "nodefony" {
@@ -36,6 +41,17 @@ declare module "nodefony" {
 class Drizzle extends Module<IDrizzleConfig> {
   constructor(kernel: Kernel) {
     super("drizzle", kernel, import.meta.url, config);
+    // Les cinq verbes de migration. Ils vivent ici parce que ce module possède
+    // les connecteurs SQL — mais l'utilisateur tape `nodefony orm:migrate`, sans
+    // savoir qui l'héberge. C'est voulu : le jour où un second ORM apporte ses
+    // propres migrations, l'hébergement peut déménager sans que personne ne
+    // change une ligne de script, à condition que le sens des options reste
+    // neutre (résolution par le registre, jamais par la config d'un module).
+    this.addCommand(OrmMigrate);
+    this.addCommand(OrmMigrateStatus);
+    this.addCommand(OrmMigrateBaseline);
+    this.addCommand(OrmMigrateRepair);
+    this.addCommand(OrmReset);
   }
 
   /** JSON Schema de la config drizzle → data plane admin (config riche Studio). */
@@ -189,6 +205,50 @@ export {
   type IMigrationAction,
   type MigrationVerdictCode,
 } from "./nodefony/src/migrator/index";
+
+// ─── Rendu et résolution des migrations (CLI, data plane, sonde, agent) ─────
+// PUBLIÉS : la charge utile `--json` et sa grille de codes de sortie sont un
+// contrat que des passes d'intégration continue et des travaux de déploiement
+// lisent chez l'utilisateur. Ce qui n'est pas atteignable depuis le paquet
+// installé n'existe pas.
+export {
+  MIGRATION_FORMAT_VERSION,
+  EXIT,
+  buildReport,
+  verdictOf,
+  exitCodeOf,
+  meaningOf,
+  renderStatus,
+  renderRefusal,
+  styleFor,
+  action,
+  type IMigrationReport,
+  type IMigrationSourceReport,
+  type IReportContext,
+  type MigrationVerdictName,
+  type IStyle,
+} from "./nodefony/src/migrator/explain";
+export {
+  MIGRATE_URL_ENV,
+  readMigrationEnv,
+  resolveDdlMode,
+  resolveCheckMode,
+  resolveConnector,
+  resolveDivergenceMode,
+  knownConnectors,
+  appMigrationsDir,
+  buildMigrator,
+  type IMigrationEnv,
+  type IConnectorResolution,
+} from "./nodefony/src/migrator/resolve";
+export {
+  DDL_MODES,
+  MIGRATION_CHECK_MODES,
+  DIVERGENCE_MODES,
+  type DdlMode,
+  type MigrationCheckMode,
+  type DivergenceMode,
+} from "./nodefony/config/config";
 
 // ─── Classes adapter orm-core (usage direct / banc-test) ────────────────────
 export {

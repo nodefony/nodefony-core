@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-28T12:23:32.893Z",
+  "generated": "2026-08-28T13:17:27.515Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 762,
-    "symbols": 3341,
-    "classes": 373,
-    "interfaces": 931,
-    "types": 406,
+    "files": 771,
+    "symbols": 3399,
+    "classes": 379,
+    "interfaces": 944,
+    "types": 412,
     "enums": 4,
-    "functions": 1286,
-    "constants": 341
+    "functions": 1313,
+    "constants": 347
   },
   "symbols": {
     "Cli": {
@@ -11206,6 +11206,98 @@
       "module": "@nodefony/documentation",
       "description": "Construit le slug d'un fichier à partir de sa source et de son chemin relatif (POSIX, sans `.md`). Inverse jamais utilisé (slug = clé, pas chemin)."
     },
+    "OrmMigrateCommand": {
+      "name": "OrmMigrateCommand",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Classe de base des commandes `orm:*`. Elle n'impose rien du verbe : chaque commande écrit son `generate`. Elle impose la FORME de ce qui sort, parce que c'est cette forme qui fait la différence ent…"
+    },
+    "ICommandFailure": {
+      "name": "ICommandFailure",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce qu'une commande écrit quand elle n'a PAS pu rendre un état."
+    },
+    "IMigrateSharedOptions": {
+      "name": "IMigrateSharedOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Options communes à toutes les commandes de migration."
+    },
+    "CommandFailureCode": {
+      "name": "CommandFailureCode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Codes d'arrêt propres à la ligne de commande (l'applicateur a les siens)."
+    },
+    "OrmMigrateBaseline": {
+      "name": "OrmMigrateBaseline",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "OrmMigrateCommand",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony orm:migrate:baseline` — déclare une base existante « à niveau », SANS exécuter une seule instruction de schéma. ## Quand on en a besoin La base contient déjà les tables — parce qu'on bran…"
+    },
+    "OrmMigrateRepair": {
+      "name": "OrmMigrateRepair",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "OrmMigrateCommand",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony orm:migrate:repair` — lève les marqueurs d'échec, **après** inspection humaine. ## Ce que « réparer » veut dire ici, et ce que ça ne veut pas dire Cette commande **ne répare pas la base**…"
+    },
+    "OrmMigrateStatus": {
+      "name": "OrmMigrateStatus",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "OrmMigrateCommand",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony orm:migrate:status` — dit ce que la base a reçu, ce qui reste, et ce qu'il faut taper. **Lecture seule et sans verrou.** Elle n'écrit rien, pas même la table d'historique : un état qui se…"
+    },
+    "OrmMigrate": {
+      "name": "OrmMigrate",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "OrmMigrateCommand",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony orm:migrate` — applique les migrations restantes, sous verrou. ## Ce que la commande fait, dans cet ordre exact 1. **prend le verrou** de la base (verrou natif du serveur : il se libère t…"
+    },
+    "OrmReset": {
+      "name": "OrmReset",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "OrmMigrateCommand",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony orm:reset` — vide la base de DÉVELOPPEMENT et la laisse prête à être recréée. ## Le geste qu'elle remplace Jusqu'ici, le générateur d'applications disait « supprime ta base de dev, ou pas…"
+    },
     "SqlDialect": {
       "name": "SqlDialect",
       "kind": "type",
@@ -11213,6 +11305,30 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Dialecte SQL d'un connecteur Drizzle."
+    },
+    "DdlMode": {
+      "name": "DdlMode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Stratégie de fabrication du schéma d'un connecteur."
+    },
+    "MigrationCheckMode": {
+      "name": "MigrationCheckMode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Conduite de la sonde de disponibilité face à un schéma en retard."
+    },
+    "DivergenceMode": {
+      "name": "DivergenceMode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Conduite face à une base qui a divergé du schéma déclaré."
     },
     "DrizzleConfig": {
       "name": "DrizzleConfig",
@@ -11228,6 +11344,30 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/drizzle"
+    },
+    "DDL_MODES": {
+      "name": "DDL_MODES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Stratégies de fabrication du schéma d'un connecteur. Trois valeurs, et pas une de plus : ce qui fait le schéma est soit le démarrage à partir du code (`auto`), soit le démarrage à partir des fichie…"
+    },
+    "MIGRATION_CHECK_MODES": {
+      "name": "MIGRATION_CHECK_MODES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Conduites de la sonde de disponibilité quand le schéma est en retard. `fail` retient la mise en service (le processus ne reçoit pas de trafic), `warn` journalise et sert quand même, `off` ne regard…"
+    },
+    "DIVERGENCE_MODES": {
+      "name": "DIVERGENCE_MODES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Conduites face à une base qui ne correspond plus au code alors que l'historique est complet. Le défaut est `report` — et il est structurel, pas prudent : une application qui écrit des migrations li…"
     },
     "drizzleConfigSchema": {
       "name": "drizzleConfigSchema",
@@ -11915,6 +12055,31 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/drizzle`. Au boot du kernel (`onBoot`), instancie un {@link DrizzleOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le connecte ; chaque OR…"
+    },
+    "IConnectorTarget": {
+      "name": "IConnectorTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Coordonnées complètes d'un connecteur, prêtes à ouvrir une connexion."
+    },
+    "defaultConnectorFilename": {
+      "name": "defaultConnectorFilename",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "OÙ vit la base d'un connecteur — **une seule implémentation, deux lecteurs**. Le service qui connecte l'application au démarrage et les commandes de migration doivent désigner exactement la même ba…"
+    },
+    "resolveConnectorTarget": {
+      "name": "resolveConnectorTarget",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Résout les coordonnées d'un connecteur : dialecte, et fichier ou URL."
     },
     "DrizzleAuditStore": {
       "name": "DrizzleAuditStore",
@@ -18727,6 +18892,138 @@
       "module": "@nodefony/drizzle",
       "description": "Délai d'attente du verrou, par défaut."
     },
+    "IMigrationSourceReport": {
+      "name": "IMigrationSourceReport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce qu'une source de migrations donne à voir."
+    },
+    "IMigrationReport": {
+      "name": "IMigrationReport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "La charge utile figée — cœur NEUTRE au premier niveau, spécifique du pilote sous `driver`. Ce découpage est la seule chose qui permettra à un second ORM de remplir la même structure sans casser un …"
+    },
+    "IReportContext": {
+      "name": "IReportContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce que le rendu doit savoir en plus du plan lui-même."
+    },
+    "IStyle": {
+      "name": "IStyle",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Codes ANSI, neutralisés hors terminal (un `| jq` ne doit rien recevoir)."
+    },
+    "MigrationVerdictName": {
+      "name": "MigrationVerdictName",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Verdicts possibles — **énumération GELÉE** avec {@link MIGRATION_FORMAT_VERSION}. Y ajouter une valeur après publication casserait tout consommateur qui les traite exhaustivement (`case` sans `defa…"
+    },
+    "action": {
+      "name": "action",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Fabrique une action affichable et exécutable."
+    },
+    "verdictOf": {
+      "name": "verdictOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Situation d'ensemble d'un plan, dans l'ordre de gravité. L'ordre n'est pas esthétique : il dit quel geste vient EN PREMIER. Une migration en échec doit être réparée avant qu'on parle de ce qui rest…"
+    },
+    "exitCodeOf": {
+      "name": "exitCodeOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le code de sortie d'un verdict. **`divergent` ne fait pas tomber un déploiement** quand la configuration le laisse en observation : superviser n'est pas bloquer. C'est ce qui rend le constat utilis…"
+    },
+    "buildReport": {
+      "name": "buildReport",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compose la charge utile complète d'un état de migration."
+    },
+    "meaningOf": {
+      "name": "meaningOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce que le verdict veut dire — la CAUSE, entre le fait et le geste. C'est le bloc qu'on omet d'habitude, et c'est celui qui évite l'appel au collègue : l'utilisateur sait ce qui s'est passé, donc il…"
+    },
+    "styleFor": {
+      "name": "styleFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le styliste : couleurs en terminal, texte nu ailleurs."
+    },
+    "renderStatus": {
+      "name": "renderStatus",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Rendu humain d'un état de migration — l'écran que voit celui qui tape `orm:migrate:status`."
+    },
+    "renderRefusal": {
+      "name": "renderRefusal",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Rendu humain d'un REFUS de l'applicateur. Un refus est un contrat, pas un message : il énonce le fait, ce qu'il signifie, et donne la commande exacte à copier. L'utilisateur ne doit jamais avoir eu…"
+    },
+    "refusalInMode": {
+      "name": "refusalInMode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce qu'un refus veut dire QUAND ON CONNAÎT LE MODE DE SCHÉMA. Le même fait mécanique n'a pas la même cause selon le mode, et le geste change avec la cause. Constaté en exécutant la commande pour de …"
+    },
+    "MIGRATION_FORMAT_VERSION": {
+      "name": "MIGRATION_FORMAT_VERSION",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le RENDU des migrations : un seul producteur, quatre destinataires. La ligne de commande, la sortie `--json`, le plan d'administration et l'assistance affichée dans un corps d'erreur disent tous la…"
+    },
+    "EXIT": {
+      "name": "EXIT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Grille des codes de sortie — **figée, jamais réaffectée**."
+    },
     "migrationHash": {
       "name": "migrationHash",
       "kind": "function",
@@ -18847,6 +19144,95 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Rang de la source application : dernière appliquée, toujours. Les entités d'une application peuvent référencer les tables du framework et celles des modules ; l'inverse n'arrive jamais."
+    },
+    "IMigrationEnv": {
+      "name": "IMigrationEnv",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "L'environnement tel qu'on le CONSTATE — jamais déduit à l'intérieur."
+    },
+    "IConnectorResolution": {
+      "name": "IConnectorResolution",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce qu'un connecteur est, du point de vue des migrations."
+    },
+    "readMigrationEnv": {
+      "name": "readMigrationEnv",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Constate l'environnement depuis le kernel et le processus."
+    },
+    "resolveDdlMode": {
+      "name": "resolveDdlMode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le mode de schéma qui s'applique à un connecteur. Règle des défauts, et son pourquoi : **appliquer des migrations au démarrage n'est jamais un défaut**. C'est la norme unanime des outils de migrati…"
+    },
+    "resolveCheckMode": {
+      "name": "resolveCheckMode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "La conduite de la sonde de disponibilité face à un schéma en retard. En production, un exemplaire dont le schéma est en retard ne doit pas recevoir de trafic : il répondrait des erreurs de colonne …"
+    },
+    "knownConnectors": {
+      "name": "knownConnectors",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Tous les noms de connecteurs qui existent, tous ORM confondus. L'union du registre et de la configuration : le registre porte ce qui est connecté, la configuration ce qui est déclaré. Un connecteur…"
+    },
+    "resolveConnector": {
+      "name": "resolveConnector",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Résout un nom de connecteur en l'une des **trois** réponses possibles. Ces trois réponses sont un contrat, pas un détail d'implémentation : le jour où un second ORM apporte ses propres migrations, …"
+    },
+    "appMigrationsDir": {
+      "name": "appMigrationsDir",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Dossier de migrations de l'application, résolu depuis la racine que le kernel connaît. Jamais depuis le répertoire courant du processus : un espace de travail en a plusieurs, et la commande serait …"
+    },
+    "buildMigrator": {
+      "name": "buildMigrator",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit l'applicateur d'un connecteur résolu."
+    },
+    "resolveDivergenceMode": {
+      "name": "resolveDivergenceMode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Conduite face à la divergence, telle que la configuration la déclare."
+    },
+    "MIGRATE_URL_ENV": {
+      "name": "MIGRATE_URL_ENV",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Résolution du décor d'une commande de migration : QUI possède le connecteur, OÙ se trouve sa base, QUEL mode de schéma s'applique. **Pourquoi un fichier à part, et pourquoi il ne fait aucune entrée…"
     },
     "ILoadedSources": {
       "name": "ILoadedSources",
@@ -23320,6 +23706,7 @@
         "Symbols",
         "BatchTest",
         "DaemonTest",
+        "OrmMigrateCommand",
         "FrontendBuild",
         "FrontendDev",
         "FrontendStatus",
@@ -23415,6 +23802,13 @@
         "ToolExecutionError",
         "ToolValidationError",
         "AgentMaxIterationsError"
+      ],
+      "OrmMigrateCommand": [
+        "OrmMigrateBaseline",
+        "OrmMigrateRepair",
+        "OrmMigrateStatus",
+        "OrmMigrate",
+        "OrmReset"
       ],
       "IAdminRegistry": [
         "IAdminBroker"
@@ -23903,6 +24297,7 @@
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -24214,7 +24609,11 @@
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/ReadinessController.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "styleText": [
         "src/nodefony/src/colors.ts"
@@ -24447,6 +24846,7 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -24780,12 +25180,29 @@
       ],
       "IDrizzleConfig": [
         "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "IDrizzleConfigInput": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts"
+      ],
+      "OrmMigrate": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "OrmMigrateStatus": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "OrmMigrateBaseline": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "OrmMigrateRepair": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "OrmReset": [
+        "src/packages/@nodefony/drizzle/index.ts"
       ],
       "GcScheduler": [
         "src/packages/@nodefony/framework/index.ts",
@@ -26342,6 +26759,12 @@
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -27119,7 +27542,8 @@
         "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "registerTokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
@@ -27178,6 +27602,7 @@
       ],
       "SqlDialect": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
@@ -27187,12 +27612,15 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
@@ -27790,6 +28218,11 @@
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -28670,6 +29103,117 @@
       "DocSource": [
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
+      "DrizzleMigrator": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "MigrationVerdictError": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "IMigrationAction": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
+      ],
+      "EXIT": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+      ],
+      "MIGRATION_FORMAT_VERSION": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
+      "action": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
+      "refusalInMode": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "renderRefusal": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "styleFor": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "IMigrationReport": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "IStyle": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "buildMigrator": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "knownConnectors": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "readMigrationEnv": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "resolveConnector": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "MIGRATE_URL_ENV": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "IConnectorResolution": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "buildReport": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "renderStatus": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+      ],
+      "OrmMigrateCommand": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
+      "IMigrateSharedOptions": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
+      "IMigrationFile": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "openMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
       "sqliteFilenameFromUrl": [
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts"
       ],
@@ -28786,8 +29330,32 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
-      "IDrizzleConnectorConfig": [
+      "defaultConnectorFilename": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "defaultMigrationSources": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "appMigrationsDir": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "resolveCheckMode": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "resolveDdlMode": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "meaningOf": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "DdlMode": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "IDrizzleConnectorConfig": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts"
       ],
       "assertPageQuery": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
@@ -30884,11 +31452,9 @@
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
-      "openMigrationDriver": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
       "IMigrationTarget": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "deleteFailed": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
@@ -30913,37 +31479,25 @@
       ],
       "HISTORY_TABLE": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
       ],
-      "MigrationVerdictError": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
-      ],
       "IAppliedMigration": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts"
       ],
       "IMigrationApplied": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
-      "IMigrationDriver": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
-      ],
       "IMigrationDrift": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "IMigrationFile": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "IMigrationPlan": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "IMigrationRun": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
@@ -30954,10 +31508,20 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
       "IMigrationVerdict": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "MigrationVerdictCode": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "DivergenceMode": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "MigrationCheckMode": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "resolveConnectorTarget": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "migrationHash": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"

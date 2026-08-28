@@ -86,6 +86,21 @@ export interface DrizzleOrmOptions {
    * `mysql`. Requise pour ces dialectes.
    */
   url?: string;
+  /**
+   * Le schéma doit-il être DÉRIVÉ du code à la connexion ?
+   *
+   * `true` (défaut) : `CREATE TABLE IF NOT EXISTS` et les index déclarés sont
+   * émis à chaque connexion — c'est le confort du développement et l'usage
+   * direct en banc de test.
+   *
+   * `false` : la connexion ne touche PAS au schéma. C'est ce que veulent les
+   * modes `migrate` et `none` : le schéma y appartient aux migrations, et une
+   * création dérivée qui passerait par-dessus créerait précisément la
+   * divergence que les migrations existent pour empêcher — une table posée par
+   * le démarrage n'a aucune trace dans l'historique, donc plus personne ne sait
+   * d'où elle vient.
+   */
+  deriveSchema?: boolean;
 }
 
 /**
@@ -230,6 +245,14 @@ export class DrizzleOrm extends Orm {
   /** Repositories mémoïsés par nom d'entité (lazy). */
   #repositories: Record<string, IRepository> | null = null;
   readonly #dialect: SqlDialect;
+  /**
+   * Le schéma est-il dérivé du code à la connexion ? (cf `deriveSchema`)
+   *
+   * Fixé au constructeur : changer d'avis en cours de vie ferait qu'une
+   * reconnexion poserait des tables qu'un exploitant croyait sous contrôle des
+   * migrations.
+   */
+  readonly #deriveSchema: boolean;
   readonly #filename: string;
   readonly #url: string | undefined;
 
@@ -240,6 +263,7 @@ export class DrizzleOrm extends Orm {
   constructor(name: string, options: DrizzleOrmOptions = {}) {
     super(name);
     this.#dialect = options.dialect ?? "sqlite";
+    this.#deriveSchema = options.deriveSchema !== false;
     this.#filename = options.filename ?? ":memory:";
     this.#url = options.url;
   }
@@ -560,6 +584,9 @@ export class DrizzleOrm extends Orm {
       const table = entity.schema as SQLiteTable;
       this.#tables![entity.name] = table;
       entity.model = table;
+      if (!this.#deriveSchema) {
+        continue;
+      }
       client.exec(this.#createTableSQL(table));
       for (const statement of this.#createIndexesSQL(table)) {
         client.exec(statement);
@@ -731,6 +758,9 @@ export class DrizzleOrm extends Orm {
       const table = entity.schema as PgTable;
       this.#tables![entity.name] = table;
       entity.model = table;
+      if (!this.#deriveSchema) {
+        continue;
+      }
       await pool.query(this.#createTablePgSQL(table));
       for (const statement of this.#createIndexesPgSQL(table)) {
         await pool.query(statement);
@@ -980,6 +1010,9 @@ export class DrizzleOrm extends Orm {
       const table = entity.schema as MySqlTable;
       this.#tables![entity.name] = table;
       entity.model = table;
+      if (!this.#deriveSchema) {
+        continue;
+      }
       await pool.query(this.#createTableMysqlSQL(table));
       for (const statement of this.#createIndexesMysqlSQL(table)) {
         try {
