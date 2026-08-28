@@ -31,7 +31,8 @@ Deux usages :
 
 - **Schema-as-code** : `entity.schema` EST une table Drizzle (`sqliteTable(...)`).
   Pas de `define()`. L'adapter dérive le **DDL** via `getTableConfig()` (dev/test) ;
-  la **prod = `drizzle-kit`** (migrations).
+  la **prod = `drizzle-kit`** (migrations sous `migrations/<dialecte>/`, générées par
+  `npm run generate:migrations`, contrôle de dérive `npm run check:migrations`).
 - **Opérateurs riches** (ADR-0003 risque #3 — tranché ici) : objet `$`-préfixé
   typé (`FieldOperators<V>` de orm-core) → traduit en `eq()/gt()/inArray()/like()`.
   `$like` reste sémantique **SQL** (`%`/`_`), avec sa clause `ESCAPE '\'` émise
@@ -69,6 +70,15 @@ Deux usages :
 
 ## Gotchas
 
+- 🔴 **`drizzle-kit` REND 0 QUAND IL ÉCHOUE** — constaté deux fois (dossier `out` ABSOLU, qu'il
+  préfixe par `./` ; question de renommage sans terminal). Tout appel passe par `runGenerate`
+  (`scripts/drizzleKit.ts`), qui exige une PREUVE POSITIVE. Un contrôle qui conclut de « code 0 +
+  aucun fichier » déclare ALIGNÉ un schéma qui a dérivé : la panne innocente le produit.
+- 🔴 **`drizzle-kit` ne collecte que les tables exportées À PLAT** (mesuré : plate + nichée →
+  « 1 tables »). Regrouper les 10 constantes d'un schéma matérialisé dans un objet ⇒ migration
+  VIDE, verte.
+- **Le DDL dérivé CRÉE les index** (`#createIndexSQL`). Quatre en-têtes d'entités affirmaient le
+  contraire — corrigées. Ce qu'il n'émet pas : les `DEFAULT` SQL.
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
 - `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
@@ -300,7 +310,7 @@ ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `id
   (`repository-contract-{sqlite,postgres,mysql}*.test.ts`) — un écart de comportement = un bug
   du framework, par construction.
 
-**Restant** : DDL prod drizzle-kit (migrations versionnées par dialecte + `nodefony orm:migrate`).
+**Restant** : l'applicateur et `nodefony orm:migrate`. Les migrations, elles, EXISTENT — `migrations/<dialecte>/`, générées par `npm run generate:migrations`, avec un banc de parité qui prouve sur les 3 dialectes qu'une base migrée est identique à une base à DDL dérivé.
 
 ## Les stores que ce module fournit au framework
 
@@ -320,6 +330,6 @@ Tous auto-enregistrés, tous portés sur les **3 dialectes** (cf `*_PORTED` dans
 **Portabilité multi-dialecte** : `connector.dialect` + chargement paresseux de pg/mysql + **colKit**
 (`dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans
 RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé. Les 8
-briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. **Ce qui manque : le DDL
-de production (drizzle-kit)** — aujourd'hui les tables naissent d'un `CREATE TABLE IF NOT EXISTS`.
-Détail : section « Portabilité multi-dialecte ».
+briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. **Ce qui manque : l'APPLICATEUR** (`nodefony orm:migrate`) — les
+fichiers de migration, eux, sont générés, versionnés, publiés et prouvés équivalents au DDL dérivé
+sur les 3 dialectes. Détail : sections « Portabilité multi-dialecte » et « Migrations ».
