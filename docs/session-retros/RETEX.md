@@ -63,6 +63,10 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-28c] **J'ai corrigé l'ENCADRÉ sans corriger la phrase qu'il dément**, cinq lignes plus haut : le texte porteur affirmait encore le mécanisme que son propre encadré qualifiait de FAUX. Quand on ajoute un démenti, chercher ce qu'il dément — l'ajout ne supprime pas.
+- [1× — 08-28c] **Affirmé au user « impossible de couper `autoIndex` » sans avoir lu la fonction qui construit les options.** Elle fusionne le record du connecteur (`MongooseOrm.ts:72`, `:236`) : c'est possible, juste non typé. « Aucune configuration ne l'expose » se prouve en lisant le CHEMIN des options, pas en cherchant le nom de la clé.
+- [1× — 08-28c] **Une prémisse écartée en une demi-phrase gouvernait une décision d'architecture** : « pas d'abstraction à un implémenteur (mongoose = schemaless) » — or mongoose crée des index au démarrage, donc a bien une étape de déploiement. La conclusion restait juste, pour une **autre** raison. Une justification jamais vérifiée finit par être recopiée comme un fait.
+
 - [2× — 08-27j] **Le statut « In Progress » remonte sur une simple MENTION, et c'est le RETEX qui
   le pose.** Redescendus hier, #54/#37/#38/#39 étaient de nouveau « en cours » ce matin : le commit
   de retex 08-27i les cite pour dire ce qui RESTE, et `ticket-progress.mjs` monte sur toute mention
@@ -242,6 +246,8 @@
 - **Le verdict du gate se prend depuis SA cible** : il formate avec `cwd: dest` (le dossier de l'app générée). Reproduire la mesure ailleurs — même config, même version — rend un autre résultat, et on croit le sien. [1× — 08-25]
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
+
+- [1× — 08-28c] **Un document de conception VALIDÉ écrit « le service enregistre un contrôle sur `/readyz` »** comme si le mécanisme existait. Il n'existe pas : `/readyz` est un court-circuit à réponses pré-allouées (`http-kernel.ts:453`, `:501`), aucun module ne peut y enregistrer quoi que ce soit. Le filet cloud-native du chantier reposait donc sur une brique à créer **dans un autre module et dans le chemin le plus chaud**. Une conception qui dit « X enregistre » se relit toujours en cherchant le `register` correspondant.
 
 - [1× — 08-28] **J'ai annoncé au user un défaut que je n'avais pas mesuré.** Ayant constaté que
   Svelte prend le nouvel abonnement avant de rendre l'ancien, j'ai écrit que Vue et Angular
@@ -1272,6 +1278,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 08-28c] **Un COMPTE aussi se périme, pas seulement une ligne.** Une conception de sept semaines annonçait « 8 entités framework » (réel : **10**) et `DrizzleOrm.ts:163` (réel : `:249`). Le compte est plus dangereux que l'ancre : personne ne le vérifie, il se recopie dans les diagrammes et les scripts, et ici il dimensionnait le fichier de migration **gravé à vie**.
+
 - **Une preuve d'ABSENCE collée à une ancre salit l'ancre** [1× — 08-27] : « `fichier:ligne` — aucun `X` nulle part » fait chercher `X` autour de la ligne pointée, qui ne l'a évidemment pas. L'ancre était juste ; corriger son numéro l'aurait cassée. L'absence se met sur sa PROPRE ligne, écrite comme une commande qui la rend observable.
 - **Un chiffre de pilotage jamais confronté dérive d'un ordre de grandeur** [1× — 08-27] : le champ `Jours` vaut ×8 le temps constaté — non par négligence, mais parce que l'unité est calibrée sur quelqu'un qui code à la main. Un ticket surestimé se REPORTE, et le report fait repayer tout son contexte. Mesuré seulement parce que le user a relevé « 0,5 j pour 30 minutes ».
 
@@ -1336,6 +1344,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   et faux. [1× — 08-23b]
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 08-28c] **Il annonce lui-même qu'il renonce, et on ne le lit pas** : « étant donné la complexité et la longueur croissante de la tâche, je vais synthétiser » → 5 items sur 15 rendus « NON VÉRIFIABLE PAR LECTURE », dont **4 que `rg` tranche en une commande** (une commande CLI existe-t-elle ? un champ est-il en int ?). Un « non vérifiable » sur une question mécanique est un **abandon**, pas un verdict : le recompter soi-même, toujours.
 
 - **Le verdict « en fait livré » se déclenche dès qu'une PARTIE du travail existe.** Sur 48 lignes
   de feuille de route confrontées au code, 26 rendues « livrées » — plusieurs contredites par les
