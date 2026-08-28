@@ -96,7 +96,64 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - **`check:migrations`** (CI + local) rejoue la génération depuis les instantanés et refuse qu'un fichier apparaisse — juste quel que soit le nombre de migrations, contrairement à « régénérer 0000 et comparer ».
 - **Banc de parité migré ≡ dérivé**, 3 dialectes (`tests/integration/migrations-parity*.ts`) : colonnes/types/nullabilité/PK/index. Les index se comparent par COLONNES COUVERTES, jamais par nom (une contrainte `UNIQUE` = index nommé côté migration, auto-index côté dérivé). PG : deux SCHÉMAS dédiés ; MySQL : les deux phases se succèdent dans la base partagée — l'utilisateur applicatif ne peut pas créer de base (`ERROR 1044`), d'où `fileParallelism: false`.
 - **Le DDL dérivé CRÉE les index** (`#createIndexSQL`) — contrairement à ce que disaient 4 en-têtes d'entités, corrigés. Ce qu'il n'émet pas : les `DEFAULT` SQL.
-- **Reste** : l'applicateur et `nodefony orm:migrate`.
+- **Reste** : les commandes `nodefony orm:migrate*` (l'applicateur, lui, est livré — ci-dessous).
+
+## Migrations — l'applicateur (`nodefony/src/migrator/`)
+
+`DrizzleMigrator` : `status()` (lecture seule, sans verrou ni écriture — une sonde qui écrit n'est
+plus une sonde) · `migrate(opts)` · `baseline(upTo?)` · `repair({source?, updateHashes?})`.
+Exporté par `index.ts` (surface publiée : CLI, data plane, sonde, porte d'agent la consomment).
+
+- **Connexion UNIQUE, jamais un pool** (`drivers/{sqlite,postgres,mysql}Driver.ts`, fabrique
+  `openMigrationDriver`). `pg_advisory_lock`/`GET_LOCK` sont des verrous de SESSION : un pool
+  poserait le verrou sur une connexion, le DDL sur une autre, la libération sur une troisième — il
+  ne protégerait rien. C'est pourquoi l'applicateur n'utilise PAS `DrizzleOrm`, dont le pool fait
+  10 connexions. Mêmes imports lazy, zéro dépendance nouvelle.
+- **Identités GRAVÉES** (contrats inter-versions, testées à la chaîne près dans
+  `tests/unit/migratorContracts.test.ts`) : clé pg = `sha256("nodefony:migrations")[0..8]` en entier
+  signé big-endian = `9131242216657117845` (une RÈGLE, pas un choix) · nom mysql =
+  `nodefony:migrations:<DATABASE()>`, **qualifié côté serveur** parce que `GET_LOCK` est global à
+  l'instance ; repli haché déterministe au-delà de 44 caractères de nom de base (MySQL borne un nom
+  de verrou à 64) · table `nodefony_migrations`, **jamais qualifiée d'un schéma** (sinon
+  l'isolation PostgreSQL par `search_path` serait exclue à vie).
+- **Attente du verrou BORNÉE** : `pg_try_advisory_lock` en boucle jusqu'à `lockTimeoutMs` —
+  `pg_advisory_lock` attend sans limite. `SET lock_timeout` reste posé pour son vrai rôle : les
+  verrous de TABLE que prennent les `ALTER`.
+- **Amorçage de la table d'historique** (`history.ts`) : `CREATE` puis `ensureHistorySchema()`
+  (introspection + `HISTORY_STEPS` ordonnés, VIDE aujourd'hui), juste après le verrou et AVANT tout
+  `SELECT` — la table qui sert à migrer ne peut pas se faire migrer par une migration. **Pas de
+  colonne de version : la PRÉSENCE des colonnes EST la version.** Corollaire : jamais `SELECT *`,
+  jamais d'insertion positionnelle (`BASE_COLUMNS` nommées partout).
+- **Empreinte `sha256:<hex>` du contenu NORMALISÉ** (CRLF→LF) : un checkout Windows sous
+  `core.autocrlf` ferait sinon diverger toutes les empreintes ⇒ arrêt sur dérive permanent pour un
+  non-changement. Le préfixe est la seule porte de sortie pour changer d'algorithme sans réécrire
+  les bases.
+- **Sources = espace de noms OUVERT** (`{name, dir, rank}`) ; `framework` rang 0, `app` rang
+  1 000 000, modules entre les deux ; nom en départage = ordre déterministe. Une source vue en base
+  mais **absente du registre** (module désinstallé) est **ignorée en la nommant**, jamais un arrêt
+  global — sinon désinstaller un module bloquerait tout `migrate` à jamais.
+- **Plan par IDENTITÉ `(source, tag)`**, pas par repère haut : la mise à jour du framework insère
+  des migrations dans le passé de l'app, par construction.
+- **Validation fail-loud AVANT toute écriture**, verdicts `NF_MIGRATE_*` (`FAILED_MARKER`,
+  `HASH_MISMATCH`, `MISSING_FILE`, `OUT_OF_ORDER`, `BASELINE_REQUIRED`, `UNKNOWN_FORMAT`,
+  `LOCK_TIMEOUT`) portés par `MigrationVerdictError` : **le verdict structuré est la source, la
+  prose un rendu** (`code` + `facts` + `nextActions`) — un agent lit `code`, jamais une phrase.
+- **Format de fichier validé** : première ligne `-- nodefony:migration format=1` + version de
+  journal `"7"` ; un format inconnu est refusé **en nommant le fichier**, jamais lu au mieux.
+- **Transaction par migration** : pg/sqlite = `BEGIN` → statements → `INSERT` succès → `COMMIT` ;
+  échec ⇒ `ROLLBACK` puis marqueur d'échec **HORS** transaction (écrit dedans, il disparaîtrait avec
+  elle). **mysql = DDL NON transactionnel** ⇒ marqueur de début posé AVANT, état partiel assumé,
+  **jamais de reprise aveugle** : `repair()` après inspection humaine.
+- **Adoption explicite** (`baseline`) : historique vide + tables déjà présentes ⇒ refus
+  `BASELINE_REQUIRED`. Jamais automatique — l'auto retirerait le filet « mauvaise base ».
+- Preuves : `tests/integration/migrator-sqlite.test.ts` (14, dont l'application des migrations
+  RÉELLEMENT livrées) · `migrator-postgres.e2e.test.ts` (5, gate `NF_PG_URL`) ·
+  `migrator-mysql.e2e.test.ts` (5, gate `NF_MYSQL_URL`, passés sur MariaDB 11.4 ET MySQL 8.4) ·
+  `tests/unit/migratorContracts.test.ts` (9). **12 des 14 cas sqlite ont été vus ROUGES** par
+  débranchement ciblé de leur garde ; les deux verrous idem.
+- ⚠️ Ce qui n'est PAS prouvé : deux bases RÉELLES sur le même serveur mysql (l'utilisateur
+  applicatif n'a pas le droit de `CREATE DATABASE`, `ERROR 1044`) — la qualification est prouvée
+  par le nom composé côté serveur et par deux noms distincts obtenus simultanément.
 
 ## Core Components
 

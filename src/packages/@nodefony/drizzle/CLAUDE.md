@@ -79,6 +79,14 @@ Deux usages :
   VIDE, verte.
 - **Le DDL dérivé CRÉE les index** (`#createIndexSQL`). Quatre en-têtes d'entités affirmaient le
   contraire — corrigées. Ce qu'il n'émet pas : les `DEFAULT` SQL.
+- 🔴 **Une connexion réseau SANS auditeur `error` tue le PROCESS.** Un `EventEmitter` qui émet
+  `error` sans auditeur lève, et rien n'installe d'`uncaughtException` : un `pg_terminate_backend`,
+  un `KILL`, un pare-feu qui coupe feraient mourir le job de migration au lieu de rendre une
+  erreur. L'auditeur se pose **AVANT** le `connect`. Constaté au banc : cinq tests VERTS qui
+  portaient deux crashs — le symptôme n'apparaît que dans « Unhandled Errors », jamais dans le
+  compte de tests. Même défaut, même remède que sur le pool de `DrizzleOrm`.
+- 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend
+  pour du binaire et se tait). Un contrôle qui en conclut « le symbole n'existe plus » est faux.
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
 - `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
@@ -310,7 +318,7 @@ ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `id
   (`repository-contract-{sqlite,postgres,mysql}*.test.ts`) — un écart de comportement = un bug
   du framework, par construction.
 
-**Restant** : l'applicateur et `nodefony orm:migrate`. Les migrations, elles, EXISTENT — `migrations/<dialecte>/`, générées par `npm run generate:migrations`, avec un banc de parité qui prouve sur les 3 dialectes qu'une base migrée est identique à une base à DDL dérivé.
+**Restant** : les commandes `nodefony orm:migrate*`. Les migrations EXISTENT (`migrations/<dialecte>/`, `npm run generate:migrations`, banc de parité sur les 3 dialectes) et l'**applicateur** aussi (`nodefony/src/migrator/`, cf section « Migrations » plus bas) — ce qui manque est la porte en ligne de commande, sa config Zod et le branchement de la sonde de disponibilité.
 
 ## Les stores que ce module fournit au framework
 
@@ -330,6 +338,7 @@ Tous auto-enregistrés, tous portés sur les **3 dialectes** (cf `*_PORTED` dans
 **Portabilité multi-dialecte** : `connector.dialect` + chargement paresseux de pg/mysql + **colKit**
 (`dateMs`, `mysqlJsonCompat`) + **queryKit** + repository PK-portable (`#pickOne`, chemins mysql sans
 RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé. Les 8
-briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. **Ce qui manque : l'APPLICATEUR** (`nodefony orm:migrate`) — les
-fichiers de migration, eux, sont générés, versionnés, publiés et prouvés équivalents au DDL dérivé
-sur les 3 dialectes. Détail : sections « Portabilité multi-dialecte » et « Migrations ».
+briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. Les fichiers de
+migration sont générés, versionnés, publiés et prouvés équivalents au DDL dérivé sur les 3
+dialectes, et l'applicateur les pose sous verrou. **Ce qui manque : les COMMANDES**
+(`nodefony orm:migrate*`). Détail : sections « Portabilité multi-dialecte » et « Migrations ».

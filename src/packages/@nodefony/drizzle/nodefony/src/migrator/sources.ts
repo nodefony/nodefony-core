@@ -1,0 +1,247 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { SqlDialect } from "../../config/config";
+import { migrationHash, normalizeSql } from "./hash";
+import {
+  FORMAT_MARKER,
+  MigrationVerdictError,
+  STATEMENT_BREAKPOINT,
+  type IMigrationFile,
+  type IMigrationSource,
+} from "./types";
+
+/**
+ * Version du journal drizzle-kit que cet applicateur sait lire.
+ *
+ * On adopte le format d'un outil tiers : le lire « au mieux » reviendrait à
+ * découvrir un défaut de découpe APRÈS publication, quand le corriger
+ * changerait le sens de fichiers déjà livrés chez des utilisateurs.
+ */
+export const SUPPORTED_JOURNAL_VERSIONS: readonly string[] = ["7"];
+
+/** Entrée du journal `_journal.json` produit par drizzle-kit. */
+interface IJournalEntry {
+  idx: number;
+  tag: string;
+}
+
+/** Journal `_journal.json` produit par drizzle-kit. */
+interface IJournal {
+  version: string;
+  entries: IJournalEntry[];
+}
+
+/**
+ * Résultat du chargement d'un registre de sources.
+ *
+ * Les sources **absentes** ne sont pas une erreur : désinstaller un module ne
+ * doit pas bloquer la migration à jamais. Elles sont nommées ici pour que
+ * l'appelant puisse le DIRE, ce qui n'est pas la même chose que de s'arrêter.
+ */
+export interface ILoadedSources {
+  /** Fichiers de toutes les sources présentes, dans l'ordre d'application. */
+  files: IMigrationFile[];
+  /** Noms des sources déclarées dont le dossier n'existe pas. */
+  absent: string[];
+}
+
+/**
+ * Ordonne un registre de sources : rang croissant, nom en départage.
+ *
+ * `framework` porte le rang 0 (les entités d'application peuvent référencer ses
+ * tables), `app` le rang le plus élevé. Entre les deux, les modules à leur
+ * ordre de chargement. Le nom départage à rang égal pour que l'ordre soit
+ * **déterministe** : deux pods qui liraient le même registre dans deux ordres
+ * différents appliqueraient deux plans différents.
+ *
+ * @param sources - registre, dans n'importe quel ordre.
+ * @returns le même registre, trié.
+ */
+export function orderSources(
+  sources: readonly IMigrationSource[],
+): IMigrationSource[] {
+  return [...sources].sort(
+    (a, b) => a.rank - b.rank || a.name.localeCompare(b.name),
+  );
+}
+
+/**
+ * Charge toutes les sources d'un registre pour un dialecte donné.
+ *
+ * @param sources - registre de sources (espace de noms ouvert).
+ * @param dialect - dialecte du connecteur ; sélectionne le sous-dossier.
+ * @returns les fichiers ordonnés et les sources absentes, nommées.
+ * @throws MigrationVerdictError si un fichier ne porte pas le format attendu.
+ */
+export async function loadSources(
+  sources: readonly IMigrationSource[],
+  dialect: SqlDialect,
+): Promise<ILoadedSources> {
+  const files: IMigrationFile[] = [];
+  const absent: string[] = [];
+  for (const source of orderSources(sources)) {
+    const dir = path.join(source.dir, dialect);
+    const journal = await readJournal(dir, source.name);
+    if (journal === null) {
+      absent.push(source.name);
+      continue;
+    }
+    for (const entry of [...journal.entries].sort((a, b) => a.idx - b.idx)) {
+      files.push(await readMigrationFile(dir, source.name, entry));
+    }
+  }
+  return { files, absent };
+}
+
+/**
+ * Lit le journal d'une source, ou `null` si la source n'est pas installée.
+ *
+ * @param dir - dossier `<source>/<dialecte>`.
+ * @param source - nom logique de la source, pour nommer un refus.
+ * @returns le journal validé, ou `null` si le dossier n'existe pas.
+ * @throws MigrationVerdictError si la version du journal n'est pas reconnue.
+ */
+async function readJournal(
+  dir: string,
+  source: string,
+): Promise<IJournal | null> {
+  const file = path.join(dir, "meta", "_journal.json");
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw e;
+  }
+  const journal = JSON.parse(raw) as IJournal;
+  if (!SUPPORTED_JOURNAL_VERSIONS.includes(String(journal.version))) {
+    throw new MigrationVerdictError(
+      {
+        code: "NF_MIGRATE_UNKNOWN_FORMAT",
+        connector: "",
+        source,
+        facts: {
+          file,
+          journalVersion: String(journal.version),
+          supported: SUPPORTED_JOURNAL_VERSIONS,
+        },
+        nextActions: [
+          {
+            command: "npm update @nodefony/drizzle",
+            args: ["update", "@nodefony/drizzle"],
+          },
+        ],
+      },
+      `Le journal de migrations de la source « ${source} » est en version ` +
+        `${String(journal.version)}, que cette version du framework ne sait pas lire ` +
+        `(reconnue : ${SUPPORTED_JOURNAL_VERSIONS.join(", ")}).`,
+    );
+  }
+  return journal;
+}
+
+/**
+ * Lit un fichier de migration, valide son format et découpe ses statements.
+ *
+ * @param dir - dossier `<source>/<dialecte>`.
+ * @param source - nom logique de la source.
+ * @param entry - entrée du journal.
+ * @returns le fichier chargé, empreinte comprise.
+ * @throws MigrationVerdictError si le marqueur de format est absent ou autre.
+ */
+async function readMigrationFile(
+  dir: string,
+  source: string,
+  entry: IJournalEntry,
+): Promise<IMigrationFile> {
+  const file = path.join(dir, `${entry.tag}.sql`);
+  const content = await fs.readFile(file, "utf8");
+  const normalized = normalizeSql(content);
+  const marker = normalized.split("\n", 1)[0]?.trim() ?? "";
+  if (marker !== FORMAT_MARKER) {
+    throw new MigrationVerdictError(
+      {
+        code: "NF_MIGRATE_UNKNOWN_FORMAT",
+        connector: "",
+        source,
+        tag: entry.tag,
+        facts: { file, found: marker, expected: FORMAT_MARKER },
+        nextActions: [
+          {
+            command: "npm run generate:migrations",
+            args: ["run", "generate:migrations"],
+          },
+        ],
+      },
+      `Le fichier « ${file} » ne porte pas le format de migration attendu ` +
+        `(« ${FORMAT_MARKER} » ; lu : « ${marker} »). Il n'a PAS été appliqué.`,
+    );
+  }
+  return {
+    source,
+    tag: entry.tag,
+    idx: entry.idx,
+    // L'empreinte porte sur le fichier ENTIER — marqueur compris : c'est le
+    // fichier tel que livré qui est identifié, pas ce qu'on en exécute.
+    hash: migrationHash(content),
+    statements: splitStatements(normalized),
+    path: file,
+  };
+}
+
+/**
+ * Découpe un fichier de migration en statements exécutables.
+ *
+ * @param normalized - contenu normalisé (fins de ligne en LF).
+ * @returns les statements non vides, dans l'ordre du fichier.
+ */
+export function splitStatements(normalized: string): string[] {
+  return normalized
+    .split(STATEMENT_BREAKPOINT)
+    .map((statement) => stripComments(statement).trim())
+    .filter((statement) => statement.length > 0);
+}
+
+/**
+ * Retire les lignes de commentaire d'un statement.
+ *
+ * Sans ce nettoyage, un statement qui ne contiendrait QUE le marqueur de format
+ * serait envoyé au pilote — que certains drivers refusent, faute d'y trouver
+ * une commande.
+ *
+ * @param statement - statement brut.
+ * @returns le statement sans ses lignes de commentaire de tête.
+ */
+function stripComments(statement: string): string {
+  return statement
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+}
+
+/**
+ * Noms des tables qu'un lot de migrations CRÉE.
+ *
+ * Sert la garde d'adoption : un historique vide alors que ces tables existent
+ * déjà signale une base antérieure aux migrations, pas une base neuve. La
+ * liste est DÉRIVÉE des fichiers — une liste codée en dur mentirait dès la
+ * première migration livrée par un module tiers.
+ *
+ * @param files - fichiers de migration chargés.
+ * @returns les noms de tables, sans doublon.
+ */
+export function createdTables(files: readonly IMigrationFile[]): string[] {
+  const found = new Set<string>();
+  const pattern =
+    /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?([A-Za-z0-9_$]+)[`"']?/gi;
+  for (const file of files) {
+    for (const statement of file.statements) {
+      for (const match of statement.matchAll(pattern)) {
+        found.add(match[1] as string);
+      }
+    }
+  }
+  return [...found];
+}

@@ -152,6 +152,44 @@ export {
 } from "./nodefony/entity/sessionEntity";
 export type { SessionRow } from "./nodefony/entity/sessionEntity";
 
+// ─── Applicateur de migrations (consommé par les commandes `orm:migrate*`) ──
+// La surface est PUBLIÉE : sans elle, la ligne de commande, le plan
+// d'administration et la sonde de disponibilité ne pourraient pas l'atteindre
+// depuis le paquet installé — une capacité qu'on n'atteint pas n'existe pas.
+export {
+  DrizzleMigrator,
+  DEFAULT_LOCK_TIMEOUT_MS,
+  openMigrationDriver,
+  frameworkMigrationsDir,
+  defaultMigrationSources,
+  migrationHash,
+  loadSources,
+  orderSources,
+  HISTORY_TABLE,
+  FORMAT_MARKER,
+  FRAMEWORK_SOURCE,
+  APP_SOURCE,
+  FRAMEWORK_RANK,
+  APP_RANK,
+  PG_LOCK_KEY,
+  MYSQL_LOCK_NAME_SQL,
+  MigrationVerdictError,
+  type IDrizzleMigratorOptions,
+  type IMigrateOptions,
+  type IMigrationTarget,
+  type IMigrationSource,
+  type IMigrationFile,
+  type IMigrationPlan,
+  type IMigrationRun,
+  type IMigrationApplied,
+  type IMigrationDrift,
+  type IMigrationDriver,
+  type IAppliedMigration,
+  type IMigrationVerdict,
+  type IMigrationAction,
+  type MigrationVerdictCode,
+} from "./nodefony/src/migrator/index";
+
 // ─── Classes adapter orm-core (usage direct / banc-test) ────────────────────
 export {
   DrizzleOrm,

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-28T11:38:08.419Z",
+  "generated": "2026-08-28T12:23:32.893Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 751,
-    "symbols": 3280,
-    "classes": 368,
-    "interfaces": 912,
-    "types": 405,
+    "files": 762,
+    "symbols": 3341,
+    "classes": 373,
+    "interfaces": 931,
+    "types": 406,
     "enums": 4,
-    "functions": 1263,
-    "constants": 328
+    "functions": 1286,
+    "constants": 341
   },
   "symbols": {
     "Cli": {
@@ -18690,6 +18690,346 @@
       "decorators": [],
       "description": "Slug rejeté car potentiellement dangereux (traversée de répertoire, segment `..`, caractère hors charset). Sécurité : on ne touche JAMAIS au FS avec un tel slug."
     },
+    "DrizzleMigrator": {
+      "name": "DrizzleMigrator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Applicateur de migrations de schéma — **le composant qui fait passer une base d'une version à la suivante, et qui garde trace de son passage**. Cinq verbes : {@link DrizzleMigrator.status} (lecture…"
+    },
+    "IDrizzleMigratorOptions": {
+      "name": "IDrizzleMigratorOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "IMigrationTarget",
+      "description": "Options de construction de l'applicateur."
+    },
+    "IMigrateOptions": {
+      "name": "IMigrateOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Assouplissements explicites d'une passe d'application."
+    },
+    "DEFAULT_LOCK_TIMEOUT_MS": {
+      "name": "DEFAULT_LOCK_TIMEOUT_MS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Délai d'attente du verrou, par défaut."
+    },
+    "migrationHash": {
+      "name": "migrationHash",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/hash.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Empreinte d'un fichier de migration : **normalisée** et **auto-descriptive**. Deux gestes, deux raisons distinctes. **Normalisée** (CRLF → LF) : Windows est un impératif produit, et un checkout sou…"
+    },
+    "normalizeSql": {
+      "name": "normalizeSql",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/hash.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Normalise les fins de ligne d'un contenu SQL."
+    },
+    "IHistoryStep": {
+      "name": "IHistoryStep",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Table d'historique : sa création, son amorçage, et sa lecture. 🔴 **La table qui sert à migrer doit savoir se migrer ELLE-MÊME.** Un `CREATE TABLE IF NOT EXISTS` seul ne fait pas évoluer un schéma,…"
+    },
+    "ensureHistorySchema": {
+      "name": "ensureHistorySchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Crée la table d'historique si besoin, puis l'amène au format courant. À appeler **juste après le verrou et AVANT la moindre lecture** : c'est l'ordre qui rend l'évolution de la table possible sans …"
+    },
+    "readHistory": {
+      "name": "readHistory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Lit l'historique complet, **colonnes nommées une par une**. Jamais `SELECT *` : c'est ce qui rend l'ajout d'une colonne inoffensif pour un applicateur plus ancien, qui continue de lire exactement c…"
+    },
+    "insertHistory": {
+      "name": "insertHistory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "`INSERT` d'une ligne d'historique — **jamais positionnel**."
+    },
+    "finishHistory": {
+      "name": "finishHistory",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Marque une ligne d'historique terminée (chemin MySQL, DDL non transactionnel)."
+    },
+    "deleteFailed": {
+      "name": "deleteFailed",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Supprime les marqueurs d'échec d'une source, ou de toutes."
+    },
+    "HISTORY_STEPS": {
+      "name": "HISTORY_STEPS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Étapes d'amorçage postérieures au format d'origine. **Vide dans cette version** — l'étape 0 est le `CREATE` lui-même. Ce tableau est le point d'extension : ajouter une colonne à l'historique, aujou…"
+    },
+    "frameworkMigrationsDir": {
+      "name": "frameworkMigrationsDir",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Dossier des migrations livrées par ce paquet. **Trouvé en remontant jusqu'au `package.json` du paquet**, jamais par un nombre de niveaux codé en dur : la profondeur diffère entre les sources (`node…"
+    },
+    "defaultMigrationSources": {
+      "name": "defaultMigrationSources",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Registre de sources standard : le framework, puis l'application. L'espace de noms reste OUVERT — un module tiers ajoute la sienne au même registre, avec son propre rang. `framework` et `app` sont d…"
+    },
+    "FRAMEWORK_SOURCE": {
+      "name": "FRAMEWORK_SOURCE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique RÉSERVÉ de la source livrée par le framework."
+    },
+    "APP_SOURCE": {
+      "name": "APP_SOURCE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom logique RÉSERVÉ de la source livrée par l'application."
+    },
+    "FRAMEWORK_RANK": {
+      "name": "FRAMEWORK_RANK",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Rang de la source framework : première appliquée, toujours."
+    },
+    "APP_RANK": {
+      "name": "APP_RANK",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Rang de la source application : dernière appliquée, toujours. Les entités d'une application peuvent référencer les tables du framework et celles des modules ; l'inverse n'arrive jamais."
+    },
+    "ILoadedSources": {
+      "name": "ILoadedSources",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Résultat du chargement d'un registre de sources. Les sources **absentes** ne sont pas une erreur : désinstaller un module ne doit pas bloquer la migration à jamais. Elles sont nommées ici pour que …"
+    },
+    "orderSources": {
+      "name": "orderSources",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ordonne un registre de sources : rang croissant, nom en départage. `framework` porte le rang 0 (les entités d'application peuvent référencer ses tables), `app` le rang le plus élevé. Entre les deux…"
+    },
+    "loadSources": {
+      "name": "loadSources",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Charge toutes les sources d'un registre pour un dialecte donné."
+    },
+    "splitStatements": {
+      "name": "splitStatements",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Découpe un fichier de migration en statements exécutables."
+    },
+    "createdTables": {
+      "name": "createdTables",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Noms des tables qu'un lot de migrations CRÉE. Sert la garde d'adoption : un historique vide alors que ces tables existent déjà signale une base antérieure aux migrations, pas une base neuve. La lis…"
+    },
+    "SUPPORTED_JOURNAL_VERSIONS": {
+      "name": "SUPPORTED_JOURNAL_VERSIONS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Version du journal drizzle-kit que cet applicateur sait lire. On adopte le format d'un outil tiers : le lire « au mieux » reviendrait à découvrir un défaut de découpe APRÈS publication, quand le co…"
+    },
+    "MigrationVerdictError": {
+      "name": "MigrationVerdictError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur portant un {@link IMigrationVerdict} — le message n'est qu'un rendu."
+    },
+    "IMigrationAction": {
+      "name": "IMigrationAction",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Commande à exécuter pour lever un refus — l'agent lit `nextActions[0]`."
+    },
+    "IMigrationVerdict": {
+      "name": "IMigrationVerdict",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Verdict structuré : **la source**, dont la prose n'est qu'un rendu. Un producteur, quatre rendus (phrase de la CLI, `--json`, data plane, indication dans un corps d'erreur). Écrire le message pour …"
+    },
+    "IMigrationSource": {
+      "name": "IMigrationSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une source de migrations : un espace de noms OUVERT. `framework` et `app` sont deux valeurs **réservées**, pas une énumération : le registre d'entités est déjà ouvert à N modules, et un modèle à de…"
+    },
+    "IMigrationFile": {
+      "name": "IMigrationFile",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Un fichier de migration chargé depuis une source."
+    },
+    "IAppliedMigration": {
+      "name": "IAppliedMigration",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une ligne de la table d'historique, colonnes lues NOMMÉMENT."
+    },
+    "IMigrationDrift": {
+      "name": "IMigrationDrift",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une dérive constatée : le fichier a changé après avoir été appliqué."
+    },
+    "IMigrationPlan": {
+      "name": "IMigrationPlan",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "État complet, calculé en LECTURE SEULE. Même producteur pour la CLI, le data plane, la porte d'agent et la sonde de disponibilité — quatre consommateurs, une seule vérité."
+    },
+    "IMigrationApplied": {
+      "name": "IMigrationApplied",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Résultat de l'application d'une migration."
+    },
+    "IMigrationRun": {
+      "name": "IMigrationRun",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Résultat d'un `migrate()`."
+    },
+    "IMigrationDriver": {
+      "name": "IMigrationDriver",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Pilote de base de données de l'applicateur — **une connexion, pas un pool**. `pg_advisory_lock` et `GET_LOCK` sont des verrous de SESSION : un pool les rend inopérants (verrou pris sur une connexio…"
+    },
+    "MigrationVerdictCode": {
+      "name": "MigrationVerdictCode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Codes de refus stables de l'applicateur. Ils sont le contrat lu par une machine — un agent lit `code`, jamais une phrase française. Ajouter un code est additif ; en changer un est une rupture, au m…"
+    },
+    "HISTORY_TABLE": {
+      "name": "HISTORY_TABLE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Contrats de l'applicateur de migrations — verdicts, entrées de journal, historique, plan, et le pilote à connexion unique dont il a besoin. **Pourquoi un fichier de types séparé** : ces formes trav…"
+    },
+    "FORMAT_MARKER": {
+      "name": "FORMAT_MARKER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Marqueur de format que porte la première ligne de chaque fichier `.sql`. Le format de découpe est celui de drizzle-kit, adopté à vie ; un défaut découvert après publication ne pourrait plus être co…"
+    },
+    "STATEMENT_BREAKPOINT": {
+      "name": "STATEMENT_BREAKPOINT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Séparateur de statements produit par drizzle-kit."
+    },
     "DrizzleOrm": {
       "name": "DrizzleOrm",
       "kind": "class",
@@ -22293,6 +22633,94 @@
       "decorators": [],
       "description": "Encodeur composite de **migration d'algorithme** — accepte les hashs legacy à la vérification, ne produit que des hashs au format courant. Une base existante (ex. bcrypt) ne peut pas être convertie…"
     },
+    "IMigrationTarget": {
+      "name": "IMigrationTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Cible de connexion de l'applicateur."
+    },
+    "openMigrationDriver": {
+      "name": "openMigrationDriver",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ouvre le pilote à connexion unique du dialecte demandé. L'URL doit être une connexion **directe** au serveur : un répartiteur de connexions en mode transaction casse les verrous consultatifs de ses…"
+    },
+    "MysqlMigrationDriver": {
+      "name": "MysqlMigrationDriver",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IMigrationDriver"
+      ],
+      "decorators": [],
+      "description": "Pilote MySQL / MariaDB de l'applicateur — **une seule connexion**. `GET_LOCK` est un verrou de SESSION : un pool le rendrait inopérant. Il s'auto-libère à la mort de la connexion — aucun verrou zom…"
+    },
+    "MYSQL_LOCK_PREFIX": {
+      "name": "MYSQL_LOCK_PREFIX",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Préfixe de l'identité du verrou MySQL — **contrat inter-versions**. Au même titre que le nom de la table d'historique : deux versions du framework qui ne s'excluent plus, c'est pendant un déploieme…"
+    },
+    "MYSQL_LOCK_NAME_SQL": {
+      "name": "MYSQL_LOCK_NAME_SQL",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Expression SQL de l'identité du verrou — évaluée par le SERVEUR. **Pourquoi qualifier par `DATABASE()`** : `GET_LOCK` est global au SERVEUR, pas à la base. Sans cette qualification, deux applicatio…"
+    },
+    "PostgresMigrationDriver": {
+      "name": "PostgresMigrationDriver",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IMigrationDriver"
+      ],
+      "decorators": [],
+      "description": "Pilote PostgreSQL de l'applicateur — **une seule connexion**, pas un pool. `pg_advisory_lock` est un verrou de SESSION : avec un pool, il serait pris sur une connexion, le DDL exécuté sur une autre…"
+    },
+    "toDollarParams": {
+      "name": "toDollarParams",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Traduit les paramètres `?` du dialecte commun en `$n` PostgreSQL. L'applicateur écrit ses requêtes une seule fois, avec la forme la plus répandue ; chaque pilote l'adapte. Aucune des requêtes de l'…"
+    },
+    "PG_LOCK_KEY": {
+      "name": "PG_LOCK_KEY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Clé du verrou consultatif PostgreSQL — **figée à vie**. Elle est dérivée par une RÈGLE, pas choisie : les huit premiers octets de `sha256(\"nodefony:migrations\")`, lus en entier signé big-endian. Un…"
+    },
+    "SqliteMigrationDriver": {
+      "name": "SqliteMigrationDriver",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IMigrationDriver"
+      ],
+      "decorators": [],
+      "description": "Pilote SQLite de l'applicateur — connexion `better-sqlite3` dédiée. **Pas de verrou explicite** : SQLite est à écrivain unique par nature. Ce n'est pas un manque à combler, c'est la description exa…"
+    },
     "HttpContext": {
       "name": "HttpContext",
       "kind": "class",
@@ -22775,6 +23203,7 @@
         "RagError",
         "VectorError",
         "DevkitError",
+        "MigrationVerdictError",
         "FrontendError",
         "RealtimeError"
       ],
@@ -23061,6 +23490,9 @@
         "DocNotFoundError",
         "DocUnsafeSlugError"
       ],
+      "IMigrationTarget": [
+        "IDrizzleMigratorOptions"
+      ],
       "Orm": [
         "DrizzleOrm",
         "MongooseOrm"
@@ -23328,6 +23760,11 @@
         "Argon2idEncoder",
         "BcryptEncoder",
         "MigratingEncoder"
+      ],
+      "IMigrationDriver": [
+        "MysqlMigrationDriver",
+        "PostgresMigrationDriver",
+        "SqliteMigrationDriver"
       ],
       "IHttpContextInterface": [
         "HttpContext"
@@ -26754,8 +27191,13 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts"
       ],
       "registerTokenEntities": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
@@ -30442,6 +30884,93 @@
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
+      "openMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationTarget": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "deleteFailed": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "ensureHistorySchema": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "finishHistory": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "insertHistory": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "readHistory": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "createdTables": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "loadSources": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "HISTORY_TABLE": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
+      "MigrationVerdictError": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "IAppliedMigration": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts"
+      ],
+      "IMigrationApplied": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
+      "IMigrationDrift": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationFile": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "IMigrationPlan": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationRun": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationSource": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "IMigrationVerdict": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "MigrationVerdictCode": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "migrationHash": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "normalizeSql": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "FORMAT_MARKER": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "STATEMENT_BREAKPOINT": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
       "Orm": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
@@ -30995,6 +31524,15 @@
       ],
       "MigratingEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
+      ],
+      "MysqlMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts"
+      ],
+      "PostgresMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts"
+      ],
+      "SqliteMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts"
       ],
       "sanitizeRequestId": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
