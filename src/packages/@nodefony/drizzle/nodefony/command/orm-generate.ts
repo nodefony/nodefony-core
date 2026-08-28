@@ -68,6 +68,13 @@ interface IGenerateReport {
    * un fichier dont rien ne dépend ne doit pas retenir une migration juste.
    */
   unreadable: IUnreadableEntityFile[];
+  /**
+   * Tables écrites pour un AUTRE moteur, donc hors de cette migration.
+   *
+   * L'outil les ignore sans un mot ; les taire aussi ferait annoncer un nombre
+   * de tables supérieur à ce qui est réellement écrit.
+   */
+  otherDialect: Array<{ table: string; dialect: string; file: string }>;
   driver: {
     kind: "sql";
     dialect: SqlDialect;
@@ -284,6 +291,7 @@ class OrmGenerate extends OrmMigrateCommand {
             files: [relative(file)],
             warnings: [],
             unreadable: [],
+            otherDialect: [],
             driver: {
               kind: "sql",
               dialect: resolution.dialect,
@@ -344,7 +352,18 @@ class OrmGenerate extends OrmMigrateCommand {
     const frameworkRoot = path.dirname(await frameworkMigrationsDir());
     const belongsToFramework = (file: string): boolean =>
       !path.relative(frameworkRoot, file).startsWith("..");
-    const tables = found.filter((t) => !belongsToFramework(t.file));
+    const mine = found.filter((t) => !belongsToFramework(t.file));
+    // Une entité écrite pour un AUTRE moteur n'entre pas dans cette migration :
+    // l'outil l'ignorerait de toute façon, et annoncer son nombre de tables
+    // sans elle est la seule façon de ne pas mentir sur ce qui a été écrit.
+    const tables = mine.filter((t) => t.dialect === dialect);
+    const otherDialect = mine
+      .filter((t) => t.dialect !== dialect)
+      .map((t) => ({
+        table: t.tableName,
+        dialect: t.dialect ?? "inconnu",
+        file: relative(t.file),
+      }));
 
     // 2. Ce qui appartient au FRAMEWORK n'appartient pas à l'application.
     const frameworkTables = new Set(await this.#frameworkTables(dialect));
@@ -455,6 +474,7 @@ class OrmGenerate extends OrmMigrateCommand {
           files: [],
           warnings: [],
           unreadable,
+          otherDialect,
           driver: { kind: "sql", dialect, dir: relative(outDir) },
         },
         opts,
@@ -499,6 +519,7 @@ class OrmGenerate extends OrmMigrateCommand {
         files: written,
         warnings,
         unreadable,
+        otherDialect,
         driver: { kind: "sql", dialect, dir: relative(outDir) },
       },
       opts,
@@ -539,6 +560,14 @@ class OrmGenerate extends OrmMigrateCommand {
     let human = `${style.green("✓")} ${headline}\n`;
     if (report.files.length > 0) {
       human += `\n${report.files.map((f) => `  + ${f}`).join("\n")}\n`;
+    }
+    if (report.otherDialect.length > 0) {
+      human +=
+        `\n${style.dim(`Écrites pour un autre moteur, donc hors de cette migration :`)}\n` +
+        report.otherDialect
+          .map((o) => `  • ${o.table} (${o.dialect}) — ${o.file}`)
+          .join("\n") +
+        "\n";
     }
     if (report.unreadable.length > 0) {
       human +=

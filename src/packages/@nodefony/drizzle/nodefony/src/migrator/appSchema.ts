@@ -34,6 +34,9 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Table, getTableName, is } from "drizzle-orm";
+import { MySqlTable } from "drizzle-orm/mysql-core";
+import { PgTable } from "drizzle-orm/pg-core";
+import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { FORMAT_MARKER } from "./kit";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 
@@ -45,6 +48,8 @@ export interface IDiscoveredTable {
   exportName: string;
   /** Nom de la table en base — c'est lui qui compte, pas l'identifiant JS. */
   tableName: string;
+  /** Moteur pour lequel elle est écrite — `null` si aucun des trois. */
+  dialect: SqlDialect | null;
 }
 
 /** Ce qu'un fichier d'entité a refusé de livrer. */
@@ -144,13 +149,43 @@ export async function collectTables(
         if (!is(value, Table)) {
           continue;
         }
-        tables.push({ file, exportName, tableName: getTableName(value) });
+        tables.push({
+          file,
+          exportName,
+          tableName: getTableName(value),
+          dialect: dialectOf(value),
+        });
       }
     }
   } finally {
     hooks.deregister();
   }
   return { tables, unreadable };
+}
+
+/**
+ * Moteur pour lequel une table est écrite.
+ *
+ * Une entité d'application est du Drizzle **natif** : `sqliteTable`, `pgTable` et
+ * `mysqlTable` produisent trois objets différents, et une table écrite pour un
+ * moteur est simplement IGNORÉE par l'outil quand il en génère un autre — sans
+ * un mot, comme d'habitude. Constaté sur une application témoin : six tables
+ * découvertes, quatre écrites, et un message qui annonçait six.
+ *
+ * @param table - table relevée dans un fichier d'entité.
+ * @returns le dialecte, ou `null` si ce n'est aucun des trois.
+ */
+export function dialectOf(table: unknown): SqlDialect | null {
+  if (is(table, SQLiteTable)) {
+    return "sqlite";
+  }
+  if (is(table, PgTable)) {
+    return "postgres";
+  }
+  if (is(table, MySqlTable)) {
+    return "mysql";
+  }
+  return null;
 }
 
 /**

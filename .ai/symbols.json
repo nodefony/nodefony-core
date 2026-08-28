@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T17:04:19.619Z",
+  "generated": "2026-08-28T17:12:47.834Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3456,
+    "symbols": 3457,
     "classes": 380,
     "interfaces": 963,
     "types": 414,
     "enums": 4,
-    "functions": 1347,
+    "functions": 1348,
     "constants": 348
   },
   "symbols": {
@@ -18967,6 +18967,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Importe des fichiers d'entités et relève les tables qu'ils exportent. L'import est la seule façon HONNÊTE de savoir ce qu'un fichier fournit : lire un nom d'export au motif qu'il finit par `Table` …"
+    },
+    "dialectOf": {
+      "name": "dialectOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Moteur pour lequel une table est écrite. Une entité d'application est du Drizzle **natif** : `sqliteTable`, `pgTable` et `mysqlTable` produisent trois objets différents, et une table écrite pour un…"
     },
     "importSpecifier": {
       "name": "importSpecifier",

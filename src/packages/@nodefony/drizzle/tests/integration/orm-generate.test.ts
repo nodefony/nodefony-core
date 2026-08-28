@@ -98,6 +98,30 @@ export const quelqueChose = sqliteTable("tag", { id: text("id").primaryKey() });
     );
   });
 
+  it("dit pour QUEL moteur chaque table est écrite", async () => {
+    // Une entité d'application est du Drizzle natif : une table écrite pour un
+    // autre moteur est IGNORÉE par l'outil, sans un mot. Sans ce relevé, la
+    // commande annonce un nombre de tables supérieur à ce qu'elle a écrit —
+    // constaté sur une application témoin : six annoncées, quatre écrites.
+    await put(
+      path.join(ENTITIES, "Melange.ts"),
+      `import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { pgTable, text as pgText } from "drizzle-orm/pg-core";
+import { mysqlTable, varchar } from "drizzle-orm/mysql-core";
+export const ici = sqliteTable("ici", { id: text("id").primaryKey() });
+export const la = pgTable("la", { id: pgText("id").primaryKey() });
+export const ailleurs = mysqlTable("ailleurs", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+});
+`,
+    );
+    const { tables } = await collectTables(await entityFilesOf(APP));
+    assert.deepEqual(
+      Object.fromEntries(tables.map((t) => [t.tableName, t.dialect])),
+      { ici: "sqlite", la: "postgres", ailleurs: "mysql" },
+    );
+  });
+
   it("lit un fichier qui importe un VOISIN sans extension", async () => {
     // C'est ce que tout le monde écrit en TypeScript, et ce que Node refuse en
     // ESM. Sans la résolution posée par la découverte, un utilisateur qui
