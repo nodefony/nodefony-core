@@ -108,9 +108,42 @@ query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit 
   `verdictOf(plan) === "up-to-date"` — ailleurs le verdict est déjà décidé et la comparaison
   coûterait une requête par table pour rien. Signale ce qui MANQUE, jamais ce qui est EN TROP
   (migrations libres). Code de sortie 0 sauf `migrations.divergence: "fail"`.
-- **Reste** : `orm:generate` côté application (#102) et l'écran Studio (#100). ⚠️ Aucune surface ne
-  doit proposer `orm:generate` tant que #102 n'est pas fait — une action rendue par un refus doit
-  être une commande qui répond.
+- **Reste** : l'écran Studio des migrations (#100).
+
+## Migrations — écrire celles de l'APPLICATION (`orm:generate`)
+
+`nodefony/command/orm-generate.ts` + `nodefony/src/migrator/appSchema.ts`. Mécanisme : **les
+FICHIERS fournissent, le REGISTRE valide** (`IEntity.schema` = objet d'exécution SANS provenance de
+fichier ⇒ « matérialiser depuis le registre » est impossible, voie écartée au design).
+
+- **Découverte** : `listTargets(root)` (cœur, source unique de la convention de scaffold) →
+  `nodefony/entity/*.ts` par cible, `*.schema.ts` écartés (contrats Zod).
+- **Relevé** : import dynamique + `is(v, Table)` — jamais un nom d'export deviné. 🔴 Un fichier qui
+  importe un VOISIN sans extension est illisible pour Node (règle ESM) : `collectTables` pose un
+  hook `registerHooks` qui réessaie en `.ts`, comme un bundler. Sans lui, 9 entités du framework
+  sur 9 étaient illisibles.
+- **Module temporaire** : ré-exports **PLATS** sous alias `nf_<i>_<table>` (jamais `export *` : deux
+  fichiers exportant le même nom rendent le nom AMBIGU, et une ambiguïté ESM est une ABSENCE
+  silencieuse). Écrit sous `node_modules/.cache/nodefony/orm-generate/`, effacé en `finally`.
+- **Config drizzle-kit** : chemins RELATIFS (`out` absolu → l'outil écrit `.//Users/…` et rend 0),
+  `dialect` traduit (`postgres` → `postgresql`), `tablesFilter: ["*", "!<tables framework>",
+"!nodefony_migrations"]` — les tables framework sont DÉRIVÉES de `createdTables()` sur leurs
+  fichiers, jamais listées en dur.
+- **Trois refus, exit 1** (`missingProviders` / `usurpedTables`, fonctions PURES donc éprouvables
+  sans kernel) : entité enregistrée sans fournisseur · fichier d'app qui exporte une table du
+  framework · SQL destructif sans `--allow-destructive`. Un fichier illisible n'est un refus QUE
+  s'il prive une entité de son fournisseur ; sinon c'est un avertissement du rapport.
+- **Preuve = le JOURNAL**, jamais un message de l'outil (il rend 0 en échec). Puis marqueur de
+  format + relecture du SQL (`auditMigrationSql`).
+- `--custom --name <n>` : fichier VIDE + entrée de journal, sans drizzle-kit. `version` d'entrée par
+  dialecte (sqlite `6`, postgres `7`, mysql `5`) — RELEVÉE sur ce que l'outil écrit. Journal
+  illisible ⇒ refus (le réécrire ferait rejouer tout l'historique).
+- **Un seul dialecte** : celui du connecteur. Les entités d'app sont du Drizzle NATIF
+  (`sqliteTable` ≠ `pgTable`) ; seul le framework, qui passe par le colKit, rend les trois.
+- **`drizzle-kit`** = devDep de l'APP, posée par `create entity` (`scaffold/versions.ts`), pilotée
+  par la commande. Résolue en remontant les `node_modules` (jamais `npx` : `.cmd` sous Windows).
+- Socle partagé avec le script du framework : `nodefony/src/migrator/kit.ts` (PUBLIÉ — `scripts/`
+  ne l'est pas, `files` = `dist`/`docs`/`migrations`).
 
 ## Migrations — l'applicateur (`nodefony/src/migrator/`)
 

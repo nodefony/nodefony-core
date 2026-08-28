@@ -29,6 +29,7 @@ export interface IPackageFinding {
     | "undeclared-import"
     | "peer-only-sibling"
     | "unreachable-types"
+    | "unresolvable-by-require"
     | "stale-exception";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
@@ -104,6 +105,48 @@ function readManifest(dir: string): IScannedPackage | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Sous-chemins d'`exports` qui déclarent `import` sans `default`.
+ *
+ * **Ce n'est pas une concession au CommonJS.** Un seul artefact est publié, et
+ * il est ESM ; `import` reste la première condition essayée. `default` ne dit
+ * qu'une chose : quand un résolveur ne connaît AUCUNE de nos conditions, voici
+ * le fichier — au lieu de « ce paquet n'exporte rien », qui est faux et
+ * indébogable. Node sait charger un module ESM depuis un `require` depuis la 22.
+ *
+ * Le cas qui l'a fait écrire : un outil de génération de migrations résout en
+ * CommonJS ; une entité d'application qui importait un paquet du framework
+ * faisait échouer la génération sur une erreur de résolution sans rapport avec
+ * la faute. Treize paquets sur quinze étaient concernés — c'était une dérive,
+ * pas une décision : le cœur, lui, déclarait `default` depuis toujours.
+ *
+ * ⚠️ `default` doit être la DERNIÈRE condition : la résolution s'arrête à la
+ * première qui correspond, et celle-ci correspond toujours. Placée avant
+ * `import`, elle les court-circuiterait toutes.
+ *
+ * @param manifest - manifeste lu.
+ * @returns les sous-chemins fautifs (`.`, `./testing`…), vide si tout va bien.
+ */
+function conditionsWithoutDefault(manifest: Record<string, unknown>): string[] {
+  const exports = manifest.exports;
+  if (typeof exports !== "object" || exports === null) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const [sub, value] of Object.entries(
+    exports as Record<string, unknown>,
+  )) {
+    if (typeof value !== "object" || value === null) {
+      continue;
+    }
+    const conditions = value as Record<string, unknown>;
+    if (conditions.import !== undefined && conditions.default === undefined) {
+      out.push(sub);
+    }
+  }
+  return out;
 }
 
 /** Les paquets sous une racine : elle-même si c'en est un, sinon ses enfants. */
@@ -373,6 +416,13 @@ export function checkPackageDeps(
     }
 
     if (manifest.private !== true) {
+      for (const sub of conditionsWithoutDefault(manifest)) {
+        findings.push({
+          package: name,
+          kind: "unresolvable-by-require",
+          message: `${name} n'expose "${sub}" qu'en condition "import" — tout résolveur qui ne la connaît pas reçoit ERR_PACKAGE_PATH_NOT_EXPORTED : ajouter "default" (le MÊME fichier, en DERNIÈRE condition)`,
+        });
+      }
       const shipped = typesAreShipped(manifest);
       const known = typesUnreachable.includes(name);
       if (shipped === false && !known) {

@@ -67,7 +67,17 @@ export type CommandFailureCode =
   /** Confirmation requise et non donnée. */
   | "NF_MIGRATE_CONFIRM_REQUIRED"
   /** Des migrations en attente SUPPRIMENT des données, hors développement. */
-  | "NF_MIGRATE_DESTRUCTIVE";
+  | "NF_MIGRATE_DESTRUCTIVE"
+  /** Le nom de la migration manque, ou ne voyage pas sur les trois systèmes. */
+  | "NF_GENERATE_NAME"
+  /** Un fichier d'entité refuse de s'importer : le schéma serait AMPUTÉ. */
+  | "NF_GENERATE_UNREADABLE_ENTITY"
+  /** Une entité enregistrée qu'aucun fichier découvert ne fournit. */
+  | "NF_GENERATE_MISSING_ENTITY"
+  /** Un fichier de l'application fournit une table qui appartient au framework. */
+  | "NF_GENERATE_FRAMEWORK_TABLE"
+  /** La migration produite DÉTRUIT des données, et personne ne l'a dit. */
+  | "NF_GENERATE_DESTRUCTIVE";
 
 /** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
 export interface ICommandFailure {

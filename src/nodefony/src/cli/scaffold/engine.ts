@@ -2870,23 +2870,47 @@ function runEntityScaffold(
   // à la racine de l'app) — compile jusqu'ici puis échoue sur un import
   // introuvable, loin de la cause. On la déclare, et on dit qu'il faut installer.
   const ormRuntimeNote: string[] = [];
-  if (!projectDeps.has("drizzle-orm")) {
+  {
     const rootManifestPath = path.join(projectRoot, "package.json");
-    const rootManifest = JSON.parse(writer.read(rootManifestPath)) as Record<
-      string,
-      Record<string, string>
-    >;
-    rootManifest["dependencies"] ??= {};
-    rootManifest["dependencies"]["drizzle-orm"] =
-      SCAFFOLD_VERSIONS["drizzle-orm"];
-    writer.write(
-      rootManifestPath,
-      `${JSON.stringify(rootManifest, null, 2)}\n`,
+    let rootManifest: Record<string, Record<string, string>> | null = null;
+    const ensure = (
+      section: "dependencies" | "devDependencies",
+      dep: "drizzle-orm" | "drizzle-kit",
+      why: string,
+    ): void => {
+      if (projectDeps.has(dep)) {
+        return;
+      }
+      rootManifest ??= JSON.parse(writer.read(rootManifestPath)) as Record<
+        string,
+        Record<string, string>
+      >;
+      rootManifest[section] ??= {};
+      (rootManifest[section] as Record<string, string>)[dep] =
+        SCAFFOLD_VERSIONS[dep];
+      ormRuntimeNote.push(
+        `dépendance manquante ajoutée au package.json : ${dep}@${SCAFFOLD_VERSIONS[dep]} ` +
+          `(${why}) → lance \`npm install\` avant de compiler`,
+      );
+    };
+    ensure("dependencies", "drizzle-orm", "l'entité l'importe en direct");
+    // `drizzle-kit` n'est pas importé par le code : c'est `nodefony orm:generate`
+    // qui le pilote, pour ÉCRIRE les migrations. Il n'a donc rien à faire dans
+    // les dépendances d'exécution — mais sans lui, la première commande qui
+    // produit une migration échoue en disant qu'il manque, et l'utilisateur
+    // découvre l'existence d'un outil tiers au pire moment. Déclaré ici, il
+    // arrive avec la première entité, comme le reste.
+    ensure(
+      "devDependencies",
+      "drizzle-kit",
+      "`nodefony orm:generate` le pilote pour écrire les migrations",
     );
-    ormRuntimeNote.push(
-      `dépendance manquante ajoutée au package.json : drizzle-orm@${SCAFFOLD_VERSIONS["drizzle-orm"]} ` +
-        `(l'entité l'importe en direct) → lance \`npm install\` avant de compiler`,
-    );
+    if (rootManifest !== null) {
+      writer.write(
+        rootManifestPath,
+        `${JSON.stringify(rootManifest, null, 2)}\n`,
+      );
+    }
   }
 
   // `PostEntity` / `Post.ts` → `Post` (le suffixe donné n'est jamais redoublé).

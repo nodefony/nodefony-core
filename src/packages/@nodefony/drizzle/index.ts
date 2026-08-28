@@ -24,6 +24,7 @@ import type {
   IDrizzleConfig,
   IDrizzleConfigInput,
 } from "./nodefony/interfaces/IDrizzleConfig";
+import OrmGenerate from "./nodefony/command/orm-generate";
 import OrmMigrate from "./nodefony/command/orm-migrate";
 import OrmMigrateStatus from "./nodefony/command/orm-migrate-status";
 import OrmMigrateBaseline from "./nodefony/command/orm-migrate-baseline";
@@ -41,12 +42,13 @@ declare module "nodefony" {
 class Drizzle extends Module<IDrizzleConfig> {
   constructor(kernel: Kernel) {
     super("drizzle", kernel, import.meta.url, config);
-    // Les cinq verbes de migration. Ils vivent ici parce que ce module possède
+    // Les six verbes de migration. Ils vivent ici parce que ce module possède
     // les connecteurs SQL — mais l'utilisateur tape `nodefony orm:migrate`, sans
     // savoir qui l'héberge. C'est voulu : le jour où un second ORM apporte ses
     // propres migrations, l'hébergement peut déménager sans que personne ne
     // change une ligne de script, à condition que le sens des options reste
     // neutre (résolution par le registre, jamais par la config d'un module).
+    this.addCommand(OrmGenerate);
     this.addCommand(OrmMigrate);
     this.addCommand(OrmMigrateStatus);
     this.addCommand(OrmMigrateBaseline);

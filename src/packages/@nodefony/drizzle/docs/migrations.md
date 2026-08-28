@@ -88,6 +88,9 @@ nodefony orm:migrate:status
 # Applique ce qui est en attente (framework d'abord, application ensuite).
 nodefony orm:migrate
 
+# Écrire la migration qui aligne la base sur VOS entités.
+nodefony orm:generate --name ajout_du_titre
+
 # Voir le SQL sans l'appliquer — la même validation que la vraie.
 nodefony orm:migrate --dry-run
 
@@ -105,8 +108,7 @@ Toutes acceptent `--connector <nom>` (défaut : `default`) et `--json`. Le flux 
 `nodefony orm:migrate:status --json | jq` ne casse sur aucune ligne de journal.
 
 Les migrations du **framework** sont livrées dans le paquet : vous n'avez pas à les produire. Celles
-de votre **application** se génèrent aujourd'hui avec `drizzle-kit`, avec votre propre configuration ;
-un verbe `orm:generate` viendra les produire depuis Nodefony.
+de votre **application**, vous les écrivez avec `orm:generate` — voir la section suivante.
 
 Côté configuration, il n'y a rien à écrire pour le cas courant : le mode se résout par
 environnement. Ne le déclarer que pour s'en écarter — un serveur unique qui migre au démarrage :
@@ -134,6 +136,61 @@ export default defineConfig(() => ({
   ],
 }));
 ```
+
+## Écrire les migrations de votre application — `orm:generate`
+
+Vous modifiez une entité, vous tapez un verbe, vous relisez le fichier produit :
+
+```bash
+nodefony orm:generate --name ajout_du_titre
+```
+
+Il n'y a **rien à installer ni à configurer**. La commande trouve vos entités là où le générateur
+les écrit — `nodefony/entity/*.ts`, dans l'application et dans chacun de ses modules —, produit la
+migration dans `migrations/<dialecte>/`, et vous dit ce qu'elle a écrit. L'outil qui calcule la
+différence est piloté à l'intérieur ; vous n'avez ni sa configuration à tenir, ni son dossier de
+sortie à connaître, ni son journal à comprendre.
+
+Le dialecte est celui de votre connecteur : vos entités sont du Drizzle **natif**, donc écrites pour
+un moteur. C'est ce qui vous laisse toute la puissance du moteur dans une entité — et ce qui fait
+qu'une migration vaut pour lui seul.
+
+### Ce que la commande refuse, et pourquoi c'est une bonne nouvelle
+
+**Une migration est immuable dès qu'une base l'a reçue.** Une migration à laquelle il manque une
+table ne se corrige donc pas : elle se remplace par une suivante, sur toutes les bases qui ont déjà
+appliqué la première. C'est pour cela que trois situations arrêtent la commande avant qu'elle
+n'écrive quoi que ce soit — chacune nomme ce qui cloche :
+
+| Ce qui est refusé                                              | Ce que ça veut dire                                                                                                                                 |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| une entité enregistrée qu'aucun fichier ne fournit             | son fichier a été déplacé, renommé, ou ne s'importe pas seul — la migration serait écrite **sans sa table**                                         |
+| un fichier de l'application qui exporte une table du framework | la migration porterait un second `CREATE TABLE` pour cette table : elle passerait sur une base vierge, et échouerait sur toute base **déjà migrée** |
+| une migration qui **supprime** des données                     | à relire, puis à confirmer par `--allow-destructive` — les fichiers sont conservés, ce sont eux qu'il faut regarder                                 |
+
+Le troisième cas mérite une précision : quand une colonne disparaît et qu'une autre apparaît, aucun
+outil ne peut deviner s'il s'agit d'un **renommage** — les données suivent — ou d'une suppression
+suivie d'un ajout — les données sont perdues. C'est une intention, pas une différence de schéma.
+Rejouez alors la commande dans un terminal, et répondez à la question posée.
+
+### Une entité qui pointe vers une table du framework
+
+Déclarer une référence vers `User` dans votre entité est légitime, et ne pose aucun problème : ce
+qui est refusé, c'est de **ré-exporter** cette table depuis vos fichiers. Les tables du framework
+sont exclues du plan de votre application — elles ont leurs propres migrations, appliquées avant les
+vôtres. Pour une vraie clé étrangère SQL, écrivez une migration libre.
+
+### Ce qu'aucun schéma ne peut déduire — la migration libre
+
+Une vue, un déclencheur, un index particulier, un remplissage de données ne se déduisent d'aucune
+entité :
+
+```bash
+nodefony orm:generate --custom --name vue_des_ventes
+```
+
+Vous obtenez un fichier **vide**, déjà inscrit au journal, que vous écrivez à la main. Il est
+appliqué comme les autres : une seule fois, dans l'ordre, et son empreinte est gravée.
 
 ## En développement — le schéma se répare tout seul
 

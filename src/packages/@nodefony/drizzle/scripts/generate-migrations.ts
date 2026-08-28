@@ -19,44 +19,13 @@ import type { SqlDialect } from "../nodefony/interfaces/IDrizzleConfig";
 import type { IAuditRule } from "./drizzleKit";
 import {
   DIALECTS,
-  FORMAT_MARKER,
   MODULE_ROOT,
   assertJournalsAligned,
   auditMigrationSql,
   readTags,
   runGenerate,
+  stampFormatMarker,
 } from "./drizzleKit";
-
-/**
- * Pose le marqueur de format en tête des `.sql` qui ne l'ont pas encore.
- *
- * Écrit en fins de ligne `\n` quel que soit le système : le dépôt et le gabarit
- * d'application déclarent `* text=auto eol=lf`, sans quoi une copie de travail
- * Windows produirait une fausse dérive à chaque lecture.
- *
- * @param dialect - dialecte dont on marque les fichiers.
- * @returns le nombre de fichiers marqués.
- */
-function stampFormatMarker(dialect: SqlDialect): number {
-  const dir = path.join(MODULE_ROOT, "migrations", dialect);
-  if (!fs.existsSync(dir)) {
-    return 0;
-  }
-  let stamped = 0;
-  for (const name of fs.readdirSync(dir)) {
-    if (!name.endsWith(".sql")) {
-      continue;
-    }
-    const file = path.join(dir, name);
-    const body = fs.readFileSync(file, "utf8");
-    if (body.startsWith(FORMAT_MARKER)) {
-      continue;
-    }
-    fs.writeFileSync(file, `${FORMAT_MARKER}\n${body.replace(/\r\n/g, "\n")}`);
-    stamped++;
-  }
-  return stamped;
-}
 
 /**
  * Lit `--name` sur la ligne de commande.
@@ -116,7 +85,7 @@ function main(argv: string[]): void {
   const after = assertJournalsAligned("après génération");
   let stamped = 0;
   for (const dialect of DIALECTS) {
-    stamped += stampFormatMarker(dialect);
+    stamped += stampFormatMarker(path.join(MODULE_ROOT, "migrations", dialect));
   }
 
   // Ce que la génération vient d'écrire est RELU : un générateur de diff ne

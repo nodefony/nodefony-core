@@ -24,6 +24,13 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Version ÉPINGLÉE comme dans le monorepo : en 0.x la mineure porte les
   // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
   "drizzle-orm": "0.45.2",
+  // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
+  // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
+  // à faire dans une image de production, qui APPLIQUE des migrations déjà
+  // écrites. Épinglée pour la même raison que `drizzle-orm` : en 0.x la mineure
+  // porte les ruptures, et le format du journal qu'il écrit est lu par
+  // l'applicateur du framework.
+  "drizzle-kit": "0.31.10",
   // Le binding natif du hachage de mots de passe. `@nodefony/user` le déclare
   // en peerDependency OPTIONNELLE — et il a raison : son code l'importe
   // dynamiquement, une app qui ne hache jamais rien n'en a pas besoin. Mais le

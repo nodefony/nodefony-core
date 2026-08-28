@@ -326,7 +326,7 @@ ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `id
   (`repository-contract-{sqlite,postgres,mysql}*.test.ts`) — un écart de comportement = un bug
   du framework, par construction.
 
-**Restant** : `orm:generate` côté application (#102) et l'écran Studio des migrations (#100). Le reste est livré — génération, applicateur sous verrou, les cinq commandes `orm:migrate*` + `orm:reset`, la config Zod (`ddl` par connecteur, bloc `migrations`), la sonde de disponibilité, le garde destructif, le rattrapage de schéma en développement et le verdict `divergent`. Page utilisateur : [`docs/migrations.md`](docs/migrations.md).
+**Restant** : l'écran Studio des migrations (#100). Le reste est livré — génération (framework ET application), applicateur sous verrou, les six commandes `orm:generate`/`orm:migrate*` + `orm:reset`, la config Zod (`ddl` par connecteur, bloc `migrations`), la sonde de disponibilité, le garde destructif, le rattrapage de schéma en développement et le verdict `divergent`. Page utilisateur : [`docs/migrations.md`](docs/migrations.md).
 
 ## Les stores que ce module fournit au framework
 
@@ -348,6 +348,6 @@ Tous auto-enregistrés, tous portés sur les **3 dialectes** (cf `*_PORTED` dans
 RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé. Les 8
 briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. Les fichiers de
 migration sont générés, versionnés, publiés et prouvés équivalents au DDL dérivé sur les 3
-dialectes, et les cinq commandes les posent sous verrou. **Ce qui manque : `orm:generate` côté
-application (#102) et l'écran Studio (#100).** Détail : sections « Portabilité multi-dialecte » et
-« Migrations », page utilisateur [`docs/migrations.md`](docs/migrations.md).
+dialectes, et les six commandes les écrivent et les posent sous verrou. **Ce qui manque : l'écran
+Studio (#100).** Détail : sections « Portabilité multi-dialecte » et « Migrations », page
+utilisateur [`docs/migrations.md`](docs/migrations.md).
