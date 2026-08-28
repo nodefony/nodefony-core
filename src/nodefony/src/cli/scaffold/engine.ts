@@ -1078,6 +1078,14 @@ function dispatchScaffold(
     // l'écriture de cette ligne : le helper n'était pas rendu, et seul le
     // typecheck du code généré l'a dit.
     hasSecurity: preset === "complete",
+    // Même raison, même nom que dans `renderProjectAgents` : le décor e2e généré
+    // doit appliquer les migrations avant de démarrer en production (le
+    // démarrage n'y fabrique JAMAIS le schéma), et il ne le fait que si un ORM
+    // est là. Un nom différent d'une couche à l'autre pour la MÊME question
+    // laisse le gabarit se rendre à moitié, sans erreur — c'est ce qui est
+    // arrivé ici : la clé manquait, la condition valait `undefined`, et l'étape
+    // de migration disparaissait du fichier rendu en restant verte à l'écriture.
+    hasOrm: preset === "complete",
     frontend,
     front,
     // Base SQL retenue : `null` = sqlite (aucun service, aucune URL).

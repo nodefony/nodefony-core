@@ -530,6 +530,17 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 08-28k] **Toutes les tables de tous mes bancs s'écrivaient en minuscules — la casse
+  n'était donc éprouvée nulle part.** `to_regclass('User')` : PostgreSQL traite son argument
+  comme un IDENTIFIANT et le plie en minuscules, cherchait `user`, rendait NULL, et le lecteur
+  de catalogue déclarait ABSENTE la table `User` du framework. Sur **toute** base PostgreSQL :
+  verdict `divergent` permanent juste après avoir migré une base vierge, et sonde de
+  disponibilité qui retient le pod. Des dizaines de cas passaient sur PostgreSQL sans rien en
+  dire, parce que leurs fixtures (`nf_widget`, `idempotency_key`…) ne portaient aucune
+  majuscule. **Un banc dont les données sont toutes de la même forme ne prouve que cette
+  forme** — et le défaut est sorti d'un banc écrit pour autre chose (les commandes sur les
+  trois dialectes), pas d'une relecture.
+
 - [1× — 08-28g] **Cinq tests VERTS portaient deux crashs, et le compte de tests ne le disait pas.** Les pilotes réseau de l'applicateur de migrations n'avaient aucun auditeur `error` : mon banc tuait la connexion détentrice du verrou (`pg_terminate_backend`) — geste normal en production, OOM ou pare-feu — et l'`EventEmitter` levait, faute d'auditeur. Vitest affichait « 5 passed » ET « Errors 2 » sur une ligne séparée, plus bas, hors du bloc qu'on lit. Le défaut était RÉEL : le process de migration serait mort au lieu de rendre une erreur. **Un `Tests N passed` ne couvre pas les erreurs non capturées — lire aussi la ligne `Errors`, et l'exit code.** Le même défaut avait déjà été fermé sur le pool de `DrizzleOrm`, avec le même symptôme (« 6 tests passés, 1 erreur non capturée »).
 
 - [1× — 08-28] **J'ai écrit un cas qui levait lui-même l'erreur qu'il prétendait éprouver.** La
@@ -776,6 +787,15 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
 
+- [1× — 08-28k] **Le même gaspillage dans le PRODUIT, pas dans un banc — et c'est l'exploitant
+  qui paie.** Le verdict `divergent` des migrations dit qu'il y a un écart, jamais LEQUEL :
+  `compareToDeclared()` rend un objet complet (tables absentes, colonnes manquantes nommées,
+  séparées selon qu'elles se rattrapent) que `isDivergent()` réduit à `true`/`false` à un pas
+  de la sortie. Le détail est même déjà publié ailleurs (`schemaDrift` de l'ORM) : rien à
+  calculer, tout à laisser passer. Constaté au prix fort — une demi-heure de `psql` à comparer
+  table par table ce que le produit connaissait. **Un booléen rendu sur un calcul riche est une
+  décision de jeter**, et elle se prend sans qu'on la voie. Ticket #105.
+
 - [1× — 08-25e] **Le banc de tenue mesurait DEUX grandeurs et n'en jugeait qu'une.** Verdict « ✅ pas
   de fuite » sur un tas parfaitement plat, pendant que son RSS montait de 235 à 251 Mo avec un R² de
   0,92 et sans plafonner — en satisfaisant les trois conditions que le même fichier exige pour oser
@@ -900,6 +920,16 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 08-28k] **Mon débranchement n'a JAMAIS eu lieu, et j'ai lu le vert comme une preuve.**
+  Pour voir un gate neuf échouer, j'ai enchaîné `ls <copie de sauvegarde> && python3 <<'EOF' …`.
+  Le `ls` a échoué — le fichier n'existait pas —, donc **le `&&` a coupé avant le script**, qui
+  n'a jamais tourné. La sortie ne portait qu'une erreur `ls` et un `2` sans contexte ; j'y ai lu
+  « débranché », lancé la suite, obtenu 8/8 verts, et failli conclure que mon nouveau cas ne
+  mordait pas. Le correctif était encore en place tout du long. Ce n'est pas le `&&` le fautif,
+  c'est d'avoir cherché la preuve du débranchement dans le RÉSULTAT du test au lieu de
+  l'exiger de l'ÉTAT — deux lignes de `sed` sur le bloc modifié l'auraient tranché en une
+  seconde. Règle : avant de lire un verdict « débranché », AFFICHER le code actif.
 
 - [1× — 08-28f] **`drizzle-kit` rend le code 0 QUAND IL ÉCHOUE** — une exception non rattrapée part sur la sortie d'erreur et le process sort quand même à zéro. Mon contrôle de dérive en déduisait « rien à générer » de « code 0 + aucun fichier » : il a donc déclaré ALIGNÉ un schéma qui avait dérivé, dès son premier usage réel. La panne INNOCENTE le produit — pire qu'un faux positif, parce que personne ne rouvre un verdict vert. Le remède n'est pas de lire le code de sortie plus attentivement, c'est d'exiger une **preuve positive** que le travail a eu lieu (une ligne d'annonce de l'outil, et mieux : l'artefact — le journal a-t-il gagné son entrée ?). Corollaire vécu deux fois dans la même heure : l'outil échouait aussi sur un dossier de sortie ABSOLU, qu'il préfixe par `./` pour fabriquer `.//Users/…` — même symptôme, code 0.
 

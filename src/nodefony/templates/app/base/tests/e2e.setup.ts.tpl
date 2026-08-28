@@ -112,7 +112,20 @@ export async function setup(): Promise<void> {
       rmSync(`${fichier}${suffixe}`, { force: true });
     }
   }
-  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
+<% if (it.hasOrm) { %>  // Le schéma AVANT le trafic — le patron de production, appliqué ici tel quel.
+  //
+  // En production le démarrage ne fabrique JAMAIS le schéma (mode `ddl: none`) :
+  // c'est délibéré, parce que plusieurs exemplaires partent en même temps et
+  // qu'aucun d'eux ne doit toucher aux tables. C'est un travail d'orchestrateur,
+  // qui passe AVANT. Sans cette étape, la base qu'on vient d'effacer reste vide,
+  // la mise en service est retenue (`/readyz` rend 503), et `--wait` attend une
+  // disponibilité qui ne viendra jamais.
+  execFileSync(process.execPath, [bin, "orm:migrate"], {
+    stdio: "inherit",
+    timeout: 120_000,
+    env: { ...process.env, NODE_ENV: "production", NF_DATABASE_URL: URL_BASE_E2E },
+  });
+<% } %>  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {

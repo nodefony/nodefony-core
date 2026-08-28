@@ -2647,8 +2647,22 @@ class Kernel extends Service implements IKernel {
   ): boolean {
     const who = owner ?? "(anonyme)";
     const configError = BootConfigurationError.is(error);
+    // 🔴 Un exemplaire dont la mise en service est DÉJÀ RETENUE ne doit pas
+    // mourir. Il ne sert rien à personne — `/readyz` rend 503, l'orchestrateur
+    // ne lui envoie aucun trafic — donc le tuer n'évite aucun dégât ; ça produit
+    // seulement une boucle de redémarrage, et ça rend INATTEIGNABLE la commande
+    // même qui lèverait la rétention (`orm:migrate` boote un kernel : sur une
+    // base pas encore migrée, le cycle applicatif tape une table absente et la
+    // commande meurt avant de s'exécuter — pour migrer il faudrait avoir migré).
+    // La sonde de disponibilité n'a de sens que sur un exemplaire VIVANT.
+    //
+    // Une erreur de CONFIGURATION reste fatale : elle ne se répare pas en
+    // attendant, et un exemplaire qui l'attendrait attendrait pour toujours.
+    const retenuPar = this.#readinessHold();
     const fatal =
-      critical !== false && (this.environment === "production" || configError);
+      critical !== false &&
+      (configError ||
+        (this.environment === "production" && retenuPar === null));
     const msg = error instanceof Error ? error.message : String(error);
     const tag = timedOut ? " [timeout]" : "";
     this.log(
@@ -2685,12 +2699,43 @@ class Kernel extends Service implements IKernel {
         "WARNING",
       );
     }
+    // Le fail-soft dû à une RÉTENTION s'énonce, et il nomme qui retient : sans
+    // cela, on lit un exemplaire « démarré » en production là où le même code
+    // aurait crashé la veille, sans savoir pourquoi.
+    if (!fatal && retenuPar !== null) {
+      this.log(
+        `boot lifecycle: l'échec de "${who}" n'interrompt PAS le boot — la mise ` +
+          `en service est retenue par ${retenuPar}. Cet exemplaire reste vivant ` +
+          `et ne reçoit aucun trafic (/readyz rend 503) ; il attend le geste qui ` +
+          `lèvera la rétention.`,
+        "WARNING",
+      );
+    }
     // Fail-soft → agrégé dans le BootReport (le boot continue, mais on garde la
     // trace pour le verdict final : « N modules ignorés (raison) »).
     if (!fatal) {
       this.recordBootFailure({ module: who, reason: msg, phase, timedOut });
     }
     return fatal;
+  }
+
+  /**
+   * Qui retient la mise en service, en clair — ou `null` si rien ne la retient.
+   *
+   * Lu au moment d'un échec de boot pour décider si l'exemplaire doit mourir.
+   * Ne consulte que l'état DÉJÀ calculé par le registre : aucun appel réseau,
+   * aucune sonde déclenchée ici.
+   *
+   * @returns les contributeurs qui retiennent, séparés par « ; », ou `null`.
+   */
+  #readinessHold(): string | null {
+    const bloquants = this.readinessReport().filter((c) => !c.ready);
+    if (bloquants.length === 0) {
+      return null;
+    }
+    return bloquants
+      .map((c) => (c.reason ? `${c.name} (${c.reason})` : c.name))
+      .join(" ; ");
   }
 
   /**

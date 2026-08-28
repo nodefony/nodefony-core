@@ -559,10 +559,24 @@ jobs:
       # peuvent pas s'écrire. Les rendre muets en production (`skipIf`) rejouerait
       # le silence qu'on vient de supprimer partout ailleurs.
       #
+      # Le schéma AVANT tout le reste, en production — le patron que la doc
+      # prescrit à un exploitant, appliqué ici tel quel.
+      #
+      # En production, le démarrage ne fabrique PLUS le schéma (mode `ddl: none`,
+      # délibéré : plusieurs exemplaires partent en même temps). Toute étape qui
+      # boote ensuite — création de compte, serveur — trouverait une base vide,
+      # et la mise en service resterait retenue. Cette étape est donc la
+      # PREMIÈRE, et le banc dogfoode ainsi le chemin de production réel.
+      - name: Appliquer les migrations (production)
+        if: matrix.mode == 'production'
+        env:
+          NODE_ENV: production
+        run: node node_modules/nodefony/bin/nodefony orm:migrate
+
       # Le banc se donne donc ce compte lui-même, par la porte publique du
       # framework — la commande qu'un exploitant utiliserait. Avant le démarrage
-      # du serveur : la commande boot son propre kernel (qui crée les tables et
-      # seede `admin`), donc aucune écriture concurrente sur la base.
+      # du serveur : la commande boot son propre kernel (qui seede `admin`),
+      # donc aucune écriture concurrente sur la base.
       - name: Créer le second compte du banc (production)
         if: matrix.mode == 'production'
         env:

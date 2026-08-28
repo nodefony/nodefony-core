@@ -558,6 +558,43 @@ for (const cible of CIBLES) {
  * boots pour la même assertion.
  */
 suite("orm:migrate* — contrats de commande (sqlite)", () => {
+  it("🔴 migre une base VIERGE en production — sans béquille, comme un exploitant", async () => {
+    // LE contrat de la mise en production, et il était rompu : `orm:migrate`
+    // boote un kernel complet ; sur une base pas encore migrée, le cycle
+    // applicatif tape `User`, l'échec était FATAL en production, et la commande
+    // mourait avant de s'exécuter. Pour migrer, il aurait fallu avoir migré.
+    //
+    // Les autres cas de ce fichier posent `NF_STORE=memory` pour contourner ce
+    // trou (cf DECOR_MIGRATIONS) : celui-ci ne le pose PAS — c'est tout son
+    // objet. Un exemplaire dont la mise en service est retenue reste vivant, ne
+    // reçoit aucun trafic, et peut recevoir le geste qui lève la rétention.
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-vierge-"));
+    const base = path.join(dir, "vierge.db");
+    const env = {
+      NODE_ENV: "production",
+      NF_DATABASE_URL: `sqlite:${base}`,
+    };
+    try {
+      const applique = await cli(["orm:migrate", "--json"], env);
+      assert.equal(
+        applique.code,
+        0,
+        `la commande de migration est inatteignable sur une base vierge :\n${applique.stderr.slice(-1200)}`,
+      );
+      assert.equal(parse(applique.stdout).verdict, "up-to-date");
+
+      // Et le geste suivant d'un exploitant passe : la rétention est LEVÉE, pas
+      // seulement contournée.
+      const compte = await cli(
+        ["security:user:add", "banc", "--password", "secret"],
+        env,
+      );
+      assert.equal(compte.code, 0, compte.stderr.slice(-800));
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 300_000);
+
   it("un connecteur inconnu s'arrête sur 2, en nommant ceux qui existent", async () => {
     const r = await cli([
       "orm:migrate:status",

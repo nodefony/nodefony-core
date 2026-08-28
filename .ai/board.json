@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T15:02:10.578Z",
+  "generatedAt": "2026-08-28T15:36:58.189Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 22,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 44,
       "title": "10.0.0"
     }
   ],
@@ -236,6 +236,20 @@
       "number": 99,
       "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 105,
+      "title": "feat(orm): nommer ce qui diverge dans le verdict des migrations",
+      "url": "https://github.com/nodefony/nodefony-core/issues/105",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
