@@ -52,6 +52,18 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
 - **Transactions = replica set obligatoire** (`session.withTransaction`). Standalone = pas de tx.
 - **virtuals** : schéma `{toObject:{virtuals:true}, toJSON:{virtuals:true}}`.
 - **`describeConnection` est SYNC** → `safeTarget()` nettoie l'URI (strip `user:pass`). Version serveur indispo en sync.
+- 🔴 **Un index qui ne se construit pas = une contrainte ABSENTE, et mongoose ne le dit pas.** La
+  construction est lancée en tâche de fond à la compilation des modèles ; reproduit sur serveur réel :
+  collection avec doublons → index unique refusé → process vivant, exit 0, aucun message, seul `_id_`
+  en base. D'où `verifyIndexes()` (`MongooseOrm`) : `await model.init()` **puis** `diffIndexes()` —
+  l'ordre est OBLIGATOIRE, un diff avant `init()` annonce comme manquant ce qui est en cours de
+  construction. Tout manque → `CRITIC` nommant collection et index. Lancé au `connect()` mais **pas
+  attendu** (une construction dure des minutes) ; `pendingIndexAudit` permet de l'attendre.
+- 🔴 **Ne JAMAIS appeler `syncIndexes()` automatiquement** : il SUPPRIME les index non déclarés au
+  schéma. Constater au démarrage, réparer sur geste explicite.
+- **`autoIndex` est un champ TYPÉ du connecteur** (`config.ts`), qui prime sur une clé homonyme
+  d'`options` (`MongooseService.buildConnectOptions`). À `false` : rien n'est construit, le manque
+  est quand même CONSTATÉ et journalisé.
 
 ## Build / Test
 

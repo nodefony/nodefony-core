@@ -3,6 +3,7 @@ import {
   defineMongooseConfig,
   mongooseConfigJsonSchema,
 } from "../../nodefony/config/defineModuleConfig";
+import MongooseService from "../../nodefony/service/MongooseService";
 
 describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
   describe("défauts", () => {
@@ -33,6 +34,76 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
       assert.equal(c.connectors.app.host, "localhost"); // défaut
       assert.equal(c.connectors.app.port, 27017); // défaut
       assert.equal(c.connectors.app.dbname, "app");
+    });
+  });
+
+  /**
+   * `autoIndex` décide si les contraintes d'unicité sont construites au
+   * démarrage. Il passait déjà — noyé dans le fourre-tout `options`, sans type
+   * ni description — ce qui revenait à ne pas l'offrir : un réglage qu'on ne
+   * peut pas découvrir dans la configuration n'existe pas pour qui l'écrit.
+   */
+  describe("autoIndex — réglage typé du connecteur", () => {
+    it("absent par défaut : le comportement de mongoose (construire) est conservé", () => {
+      const c = defineMongooseConfig();
+      assert.equal(c.connectors.nodefony.autoIndex, undefined);
+      assert.equal(
+        MongooseService.buildConnectOptions(c.connectors.nodefony),
+        undefined,
+        "rien à poser : aucune option fabriquée pour rien",
+      );
+    });
+
+    it("déclaré, il atteint les options de connexion", () => {
+      const c = defineMongooseConfig({
+        connectors: { prod: { autoIndex: false } },
+      });
+      assert.equal(c.connectors.prod.autoIndex, false);
+      assert.deepEqual(MongooseService.buildConnectOptions(c.connectors.prod), {
+        autoIndex: false,
+      });
+    });
+
+    it("le champ typé PRIME sur une clé homonyme du fourre-tout `options`", () => {
+      const c = defineMongooseConfig({
+        connectors: {
+          prod: {
+            autoIndex: false,
+            options: { autoIndex: true, maxPoolSize: 5 },
+          },
+        },
+      });
+      const options = MongooseService.buildConnectOptions(c.connectors.prod);
+      assert.equal(
+        options?.autoIndex,
+        false,
+        "entre deux canaux, celui qui est déclaré gagne",
+      );
+      assert.equal(
+        options?.maxPoolSize,
+        5,
+        "le reste d'`options` est préservé",
+      );
+    });
+
+    it("non déclaré, une clé écrite dans `options` reste transmise", () => {
+      const c = defineMongooseConfig({
+        connectors: { prod: { options: { autoIndex: false } } },
+      });
+      assert.equal(
+        MongooseService.buildConnectOptions(c.connectors.prod)?.autoIndex,
+        false,
+      );
+    });
+
+    it("refuse une valeur non booléenne", () => {
+      assert.throws(() =>
+        defineMongooseConfig({
+          connectors: {
+            x: { autoIndex: "yes" as unknown as boolean },
+          },
+        }),
+      );
     });
   });
 

@@ -162,6 +162,10 @@ export {
   MongooseRepository,
   MongooseTransaction,
 } from "./nodefony/src/orm-core/index";
+// Verdict rendu par `MongooseOrm.verifyIndexes()` — publié parce qu'une méthode
+// publique dont on ne peut pas nommer le type de retour n'est utilisable qu'à
+// coups de `Awaited<ReturnType<…>>`.
+export type { IIndexAudit } from "./nodefony/src/orm-core/index";
 
 // ─── Adapter User Mongoose (contrat @nodefony/user — P5.8) ──────────────────
 // Entité (schéma) dans entity/, couche d'accès (repository) dans src/.

@@ -29,6 +29,13 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 
 ## Gotchas
 
+- `verifyIndexes()` : `model.init()` (attend la construction, REJETTE si refusée) → `diffIndexes()`
+  (`{toCreate,toDrop}`, dry-run) → `CRITIC` par index manquant. **Ordre imposé** : un `diffIndexes()`
+  avant `init()` rend un faux positif (construction en cours — mesuré). Lancé au `connect()`, non
+  attendu ; `pendingIndexAudit` = la promesse. Verdict structuré `IIndexAudit {entity, collection,
+missing[], extra[], error?}`. **Jamais** `syncIndexes()` (il DROP les index non déclarés).
+- `autoIndex` : champ Zod du connecteur, prime sur `options.autoIndex` (`buildConnectOptions`).
+  `false` → aucune construction, constat + `CRITIC` maintenus.
 - **Mongoose SAIT quand le serveur tombe — encore faut-il écouter.** Le setter de `readyState` émet l'état, piloté par `serverDescriptionChanged` (nœud simple) ou `topologyDescriptionChanged` (replica set : perte du primaire). `#wireLifecycle` traduit `disconnected`/`close`/`error` → `connectionLost`, `reconnected`/`connected` → `connectionRestored`. `error` est écouté AUSSI parce qu'une `Connection` est un EventEmitter : sans auditeur, une erreur émise tue le process.
 - **Détacher AVANT `close()`** dans `disconnect()` : `close()` émet `close`, et un arrêt VOLONTAIRE compté comme incident polluerait le tableau de bord à chaque shutdown.
 - **`savepoint()`/`rollbackTo()` sont des NO-OP** (MongoDB n’a pas de savepoints) — ⚠️ un banc qui s’en sert pour sonder le serveur ne lui parle JAMAIS et passe au vert sur une base éteinte. Une transaction Mongo se sonde par une **écriture**.

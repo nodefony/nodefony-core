@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T05:06:43.914Z",
+  "generated": "2026-08-28T05:21:39.645Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 745,
-    "symbols": 3239,
+    "symbols": 3241,
     "classes": 365,
-    "interfaces": 908,
+    "interfaces": 909,
     "types": 405,
     "enums": 4,
-    "functions": 1259,
+    "functions": 1260,
     "constants": 298
   },
   "symbols": {
@@ -19533,6 +19533,15 @@
       "implements": [],
       "decorators": [],
       "description": "Adapter Mongoose **branché sur `@nodefony/orm-core`** (P5.4). 2ᵉ adapter, **hétérogène** au SQL : valide que le contrat enrichi (`relations`/`withTransaction`) est réellement portable sur un store …"
+    },
+    "IIndexAudit": {
+      "name": "IIndexAudit",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Verdict d'index d'une entité — l'écart entre ce que le schéma DÉCLARE et ce que la base PORTE réellement. C'est le pendant documentaire de l'écart de schéma SQL : MongoDB n'a pas de DDL, mais un in…"
     },
     "MongooseRepository": {
       "name": "MongooseRepository",

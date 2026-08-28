@@ -247,15 +247,16 @@ mémoire.
 | `debug`             | `boolean`                     | `false`                                 | Trace **toutes** les opérations Mongoose du processus                     |
 | `frameworkEntities` | `boolean`                     | `true`                                  | Déclare le schéma du framework et rend ses stores sélectionnables         |
 
-Et cinq champs par connecteur :
+Et six champs par connecteur :
 
-| Champ     | Type                  | Défaut        | Effet                                                                    |
-| --------- | --------------------- | ------------- | ------------------------------------------------------------------------ |
-| `uri`     | `string` non vide     | _aucun_       | Adresse complète. **Prime** sur `host`/`port`/`dbname`, qui sont ignorés |
-| `host`    | `string` non vide     | `"localhost"` | Hôte du serveur. Ignoré si `uri` est fourni                              |
-| `port`    | entier, **1 à 65535** | `27017`       | Port TCP. Ignoré si `uri` est fourni                                     |
-| `dbname`  | `string` non vide     | `"nodefony"`  | Nom de la base. Ignoré si `uri` est fourni                               |
-| `options` | dictionnaire libre    | _aucun_       | `ConnectOptions` Mongoose : pool, délais, TLS, identifiants              |
+| Champ       | Type                  | Défaut        | Effet                                                                    |
+| ----------- | --------------------- | ------------- | ------------------------------------------------------------------------ |
+| `uri`       | `string` non vide     | _aucun_       | Adresse complète. **Prime** sur `host`/`port`/`dbname`, qui sont ignorés |
+| `host`      | `string` non vide     | `"localhost"` | Hôte du serveur. Ignoré si `uri` est fourni                              |
+| `port`      | entier, **1 à 65535** | `27017`       | Port TCP. Ignoré si `uri` est fourni                                     |
+| `dbname`    | `string` non vide     | `"nodefony"`  | Nom de la base. Ignoré si `uri` est fourni                               |
+| `autoIndex` | `boolean`             | _aucun_       | Construire les index au démarrage. Voir « Les index » ci-dessous         |
+| `options`   | dictionnaire libre    | _aucun_       | `ConnectOptions` Mongoose : pool, délais, TLS, identifiants              |
 
 ### `connectors` — une ou plusieurs bases
 
@@ -574,6 +575,74 @@ données d'un coup. La règle est donc sans nuance.
 > montrer `hôte/base` et **rien d'autre**. Si un `user:pass@` y apparaît, c'est un incident — le
 > secret est probablement écrit ailleurs qu'à l'endroit prévu.
 
+## 🔎 Les index — ce qui est construit, ce qui est seulement CONSTATÉ
+
+MongoDB n'a pas de schéma à déclarer, mais il a des **index**, et certains portent des contraintes
+d'unicité dont l'application dépend : l'identifiant d'un utilisateur, le condensat d'un jeton,
+l'identifiant d'une session. Un index unique absent n'est pas une lenteur — c'est une contrainte qui
+n'existe pas.
+
+Mongoose les construit au démarrage, en tâche de fond. Cette construction peut **échouer** : une
+collection qui contient déjà des doublons au moment d'une montée de version, un index existant de
+même nom mais de définition différente. Nodefony **constate** donc l'écart après chaque connexion et
+journalise tout index déclaré mais absent en **`CRITIC`**, en nommant la collection et l'index :
+
+```
+index DÉCLARÉS mais ABSENTS de la collection "users" (entité "User") : identifier_1
+— toute contrainte d'unicité qu'ils portent n'est PAS appliquée
+```
+
+Ce constat ne fait **jamais** de réparation. L'outil de mongoose qui répare, `syncIndexes()`,
+**supprime** au passage tout index non déclaré au schéma : sur une base qu'un exploitant a indexée à
+la main, la réparation automatique serait pire que le mal. Réparer reste un geste explicite.
+
+### `autoIndex` — construire, ou seulement constater
+
+Par défaut Mongoose construit. Sur une grosse collection, la construction bloque les opérations : la
+documentation de Mongoose recommande de la couper en production, une fois les index posés une bonne
+fois par un déploiement maîtrisé.
+
+```ts
+use("@nodefony/mongoose", {
+  connectors: {
+    nodefony: { autoIndex: false }, // ne construit plus ; constate et alerte toujours
+  },
+});
+```
+
+À `false`, un index manquant **n'est pas créé** — il est seulement constaté, et le `CRITIC` reste
+émis. C'est précisément l'intérêt : le pod ne bloque pas, et l'exploitant sait ce qu'il lui reste à
+poser.
+
+> `autoIndex` peut aussi être écrit dans le fourre-tout `options`. Quand les deux sont donnés, le
+> **champ déclaré gagne** (`MongooseService.buildConnectOptions()`).
+
+### Quand un index manque en production
+
+1. **Lire le `CRITIC`** : il nomme la collection et l'index (`identifier_1` = champ `identifier`,
+   ordre croissant), donc la contrainte qui n'est pas tenue.
+2. **Chercher la cause dans la donnée** avant l'index. Un index unique refusé signifie presque
+   toujours des **doublons déjà présents** :
+   ```js
+   db.users.aggregate([
+     { $group: { _id: "$identifier", n: { $sum: 1 } } },
+     { $match: { n: { $gt: 1 } } },
+   ]);
+   ```
+3. **Résoudre les doublons** — c'est une décision métier (fusionner, renommer, supprimer), jamais
+   un geste automatique.
+4. **Poser l'index**, en arrière-plan pour ne pas bloquer la collection :
+   ```js
+   db.users.createIndex(
+     { identifier: 1 },
+     { unique: true, name: "identifier_1" },
+   );
+   ```
+5. **Redémarrer un pod** et vérifier que le `CRITIC` a disparu.
+
+Tant que l'index manque, considérer la contrainte comme absente : le code qui compte sur elle
+(inscription, rotation de jeton) peut créer des doublons sans erreur.
+
 ## Quand la configuration ne passe pas
 
 Deux échecs très différents, deux comportements assumés.
@@ -653,6 +722,7 @@ frontière du plan d'administration.
 | Le store `mongoose` est introuvable pour les jetons                       | `frameworkEntities: false` — le module est en mode données seules                    | Repasser à `true`, ou choisir un backend qui porte la brique                                 |
 | `session: { store: "mongoose" }` marche malgré `frameworkEntities: false` | Attendu : la session s'enregistre à l'import, pas via ce champ                       | Rien à corriger — voir l'avertissement de la section `frameworkEntities`                     |
 | Une option de `options` n'a aucun effet                                   | Elle n'est pas validée par Zod ; Mongoose l'a ignorée ou refusée                     | Vérifier son nom exact dans les `ConnectOptions` de la version de Mongoose installée         |
+| `CRITIC` : « index DÉCLARÉS mais ABSENTS »                                | Construction refusée (doublons présents) ou `autoIndex: false`                       | Voir « Quand un index manque en production » — jamais de réparation automatique              |
 | Le serveur démarre sans base en développement, tombe en production        | Politique de boot : fail-soft en développement, arrêt franc en production            | Attendu — s'assurer que la base est joignable avant de déployer                              |
 | Deux ORM entrent en collision sur l'entité `session`                      | Un autre driver déclare le même nom de connecteur                                    | Garder `nodefony` pour Mongoose (c'est précisément à quoi sert ce nom distinct)              |
 

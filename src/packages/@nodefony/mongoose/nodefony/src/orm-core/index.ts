@@ -4,5 +4,6 @@
  * 2ᵉ adapter (store documentaire hétérogène), distinct du service legacy.
  */
 export { MongooseOrm } from "./MongooseOrm";
+export type { IIndexAudit } from "./MongooseOrm";
 export { MongooseRepository } from "./MongooseRepository";
 export { MongooseTransaction } from "./MongooseTransaction";

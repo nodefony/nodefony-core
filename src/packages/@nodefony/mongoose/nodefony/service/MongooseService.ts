@@ -86,17 +86,44 @@ class MongooseService extends Service {
     return `mongodb://${host}:${port}/${dbname}`;
   }
 
+  /**
+   * Options de connexion Mongoose d'un connecteur.
+   *
+   * `options` reste un fourre-tout transmis tel quel — Mongoose valide ses
+   * propres `ConnectOptions`, les re-modéliser en Zod serait une duplication
+   * qui dériverait. `autoIndex` fait exception, et une seule : il décide si les
+   * contraintes d'unicité sont construites au démarrage, ce qui mérite un champ
+   * typé, décrit, et visible dans la configuration d'un connecteur.
+   *
+   * Il **prime** donc sur une clé homonyme écrite dans `options` : entre deux
+   * canaux, celui qui est déclaré gagne — la même règle que les délais de
+   * connexion, où un choix explicite l'emporte sur un défaut.
+   *
+   * @param cfg - configuration validée du connecteur.
+   * @returns les options à passer à la connexion, ou `undefined` s'il n'y en a aucune.
+   */
+  static buildConnectOptions(
+    cfg: IMongooseConnectorConfig,
+  ): ConnectOptions | undefined {
+    if (cfg.autoIndex === undefined) {
+      return cfg.options as ConnectOptions | undefined;
+    }
+    return {
+      ...((cfg.options ?? {}) as ConnectOptions),
+      autoIndex: cfg.autoIndex,
+    };
+  }
+
   /** Connecte un connecteur (URI + options d'auth/pool). */
   async #connectOne(
     name: string,
     cfg: IMongooseConnectorConfig,
   ): Promise<void> {
     const uri = MongooseService.buildUri(cfg);
-    // `options` = `ConnectOptions` Mongoose (validées par Mongoose, pas re-modélisées en Zod).
     const orm = new MongooseOrm(
       name,
       uri,
-      cfg.options as ConnectOptions | undefined,
+      MongooseService.buildConnectOptions(cfg),
     );
     await orm.connect();
     this.#orms.set(name, orm);

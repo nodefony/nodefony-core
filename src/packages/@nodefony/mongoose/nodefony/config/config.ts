@@ -72,6 +72,17 @@ const connectorSchema = z
       .min(1)
       .default("nodefony")
       .describe("Nom de la base. Défaut `nodefony`. Ignoré si `uri` fournie."),
+    autoIndex: z
+      .boolean()
+      .optional()
+      .describe(
+        "Construire les index déclarés au démarrage (défaut mongoose : true). " +
+          "Mongoose recommande `false` en production : la construction bloque " +
+          "les opérations sur une grosse collection. ⚠️ À `false`, un index " +
+          "manquant N'EST PAS créé — il est seulement CONSTATÉ et journalisé " +
+          "en CRITIC ; le poser devient un geste d'exploitation. Prime sur une " +
+          "clé `autoIndex` écrite dans `options` (canal typé > fourre-tout).",
+      ),
     options: z
       .record(z.string(), z.unknown())
       .optional()

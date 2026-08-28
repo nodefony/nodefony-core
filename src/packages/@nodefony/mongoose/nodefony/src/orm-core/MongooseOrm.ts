@@ -26,6 +26,43 @@ import { MongooseTransaction } from "./MongooseTransaction";
 type LooseModel = Model<Record<string, unknown>>;
 
 /**
+ * Verdict d'index d'une entité — l'écart entre ce que le schéma DÉCLARE et ce
+ * que la base PORTE réellement.
+ *
+ * C'est le pendant documentaire de l'écart de schéma SQL : MongoDB n'a pas de
+ * DDL, mais un index unique qui n'existe pas est exactement une contrainte
+ * absente. Le verdict est rendu structuré parce qu'il a deux publics — le
+ * journal pour l'exploitant, et l'appelant (banc, sonde d'administration) qui
+ * doit pouvoir en décider.
+ */
+export interface IIndexAudit {
+  /** Nom de l'entité (clé du `entityRegistry`). */
+  entity: string;
+  /** Collection MongoDB sous-jacente. */
+  collection: string;
+  /** Index déclarés au schéma et ABSENTS de la base — la vraie alerte. */
+  missing: string[];
+  /** Index présents en base et non déclarés — informatif, jamais supprimé. */
+  extra: string[];
+  /** Motif d'un échec de construction, quand la base l'a refusée. */
+  error?: string;
+}
+
+/**
+ * Nom canonique d'un index à partir de sa définition (`{ identifier: 1 }` →
+ * `identifier_1`) — la convention de nommage de MongoDB lui-même, pour que le
+ * journal désigne l'index sous le nom qu'un exploitant lira dans la base.
+ */
+function indexName(definition: unknown): string {
+  if (!definition || typeof definition !== "object") {
+    return String(definition);
+  }
+  return Object.entries(definition as Record<string, unknown>)
+    .map(([field, direction]) => `${field}_${String(direction)}`)
+    .join("_");
+}
+
+/**
  * Adapter Mongoose **branché sur `@nodefony/orm-core`** (P5.4).
  *
  * 2ᵉ adapter, **hétérogène** au SQL : valide que le contrat enrichi
@@ -187,6 +224,131 @@ export class MongooseOrm extends Orm {
       this.#models[entity.name] = model;
       entity.model = model;
     }
+
+    // 4) Constat des index — LANCÉ, pas attendu (cf verifyIndexes).
+    const audit = this.verifyIndexes();
+    this.#indexAudit = audit;
+    // Le démarrage ne l'attend pas : sans ce filet, un rejet inattendu de la
+    // passe deviendrait un rejet ORPHELIN, qui tue le process en Node.
+    void audit.catch(() => undefined);
+  }
+
+  /**
+   * Constat d'index en cours — la promesse de la passe lancée au `connect()`.
+   *
+   * Exposée pour que ce qui doit SAVOIR puisse attendre (un banc, une sonde
+   * d'administration, un futur point de disponibilité) sans que le démarrage,
+   * lui, ait à le faire.
+   */
+  #indexAudit: Promise<IIndexAudit[]> | null = null;
+
+  /** Constat d'index de la connexion courante, ou `null` hors connexion. */
+  get pendingIndexAudit(): Promise<IIndexAudit[]> | null {
+    return this.#indexAudit;
+  }
+
+  /**
+   * Constate l'écart entre les index DÉCLARÉS par les schémas et ceux que la
+   * base porte réellement, et journalise tout manque en `CRITIC`.
+   *
+   * **Pourquoi c'est nécessaire.** Mongoose construit les index en tâche de
+   * fond à la compilation des modèles, et l'issue de cette construction n'était
+   * écoutée par personne. Or plusieurs de ces index portent des contraintes
+   * d'unicité dont dépend l'authentification. Reproduit sur un serveur réel :
+   * une collection portant déjà des doublons fait échouer la construction de
+   * l'index unique — et le process continue, code de sortie 0, **sans un seul
+   * message**, avec pour seul index `_id_`. La contrainte n'existe pas, et rien
+   * ne le dit : c'est la dégradation silencieuse que la doctrine interdit.
+   *
+   * **Pourquoi APRÈS `init()`.** Un `diffIndexes()` lancé aussitôt après la
+   * compilation annonce comme manquants des index dont la construction est
+   * simplement en cours — mesuré. `init()` est le point où la construction est
+   * terminée, en succès comme en échec ; c'est donc là, et pas avant, que
+   * l'écart veut dire quelque chose.
+   *
+   * **Pourquoi ce n'est pas attendu au démarrage.** Construire un index sur une
+   * grosse collection prend des minutes ; faire patienter le pod changerait son
+   * comportement bien au-delà de ce défaut. Le constat court donc en tâche de
+   * fond et parle dès qu'il sait — {@link MongooseOrm.pendingIndexAudit} permet
+   * de l'attendre quand il le faut.
+   *
+   * **Ce que cette méthode ne fait PAS** : réparer. `syncIndexes()` de mongoose
+   * SUPPRIME les index non déclarés — irréversible, et catastrophique sur une
+   * base qu'un exploitant a indexée à la main. Réparer reste un geste explicite.
+   *
+   * @returns un verdict par entité (vide si la connexion est déjà close).
+   */
+  async verifyIndexes(): Promise<IIndexAudit[]> {
+    const models = this.#models;
+    if (!models) {
+      return [];
+    }
+    const audits: IIndexAudit[] = [];
+    for (const [name, model] of Object.entries(models)) {
+      const audit: IIndexAudit = {
+        entity: name,
+        collection: model.collection?.name ?? name,
+        missing: [],
+        extra: [],
+      };
+      try {
+        // `init()` résout quand la construction est finie ; il REJETTE quand la
+        // base l'a refusée — le seul endroit où ce motif est disponible.
+        await model.init();
+      } catch (error) {
+        audit.error = error instanceof Error ? error.message : String(error);
+      }
+      try {
+        const diff = await model.diffIndexes();
+        audit.missing = diff.toCreate.map(indexName);
+        audit.extra = diff.toDrop.map(indexName);
+      } catch (error) {
+        // Une connexion refermée pendant le constat n'est pas un défaut du
+        // schéma : le dire serait un faux signal, et le taire une régression.
+        if (this.isConnected()) {
+          audit.error ??=
+            error instanceof Error ? error.message : String(error);
+        } else {
+          return audits;
+        }
+      }
+      this.#reportIndexAudit(audit);
+      audits.push(audit);
+    }
+    return audits;
+  }
+
+  /**
+   * Porte un verdict d'index au journal, à la hauteur de ce qu'il signifie.
+   *
+   * Un index manquant est un `CRITIC` : la contrainte que le code croit tenir
+   * n'est pas tenue. Un index en trop n'est qu'une information — il vient
+   * souvent d'un exploitant qui savait ce qu'il faisait, et rien ici ne le
+   * supprimera.
+   */
+  #reportIndexAudit(audit: IIndexAudit): void {
+    if (audit.error) {
+      this.log(
+        `index de "${audit.entity}" (collection "${audit.collection}") : ` +
+          `la base a refusé la construction — ${audit.error}`,
+        "CRITIC",
+      );
+    }
+    if (audit.missing.length > 0) {
+      this.log(
+        `index DÉCLARÉS mais ABSENTS de la collection "${audit.collection}" ` +
+          `(entité "${audit.entity}") : ${audit.missing.join(", ")} — toute ` +
+          `contrainte d'unicité qu'ils portent n'est PAS appliquée`,
+        "CRITIC",
+      );
+    }
+    if (audit.extra.length > 0) {
+      this.log(
+        `index présents en base et non déclarés sur "${audit.collection}" : ` +
+          `${audit.extra.join(", ")} — laissés en place`,
+        "INFO",
+      );
+    }
   }
 
   /**
@@ -297,6 +459,7 @@ export class MongooseOrm extends Orm {
     this.#connection = null;
     this.#models = null;
     this.#repositories = null;
+    this.#indexAudit = null;
   }
 
   getRepository<T = unknown>(name: string): IRepository<T> {
