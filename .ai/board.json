@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T10:08:28.756Z",
+  "generatedAt": "2026-08-28T11:43:24.931Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 18,
+      "closed": 20,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 45,
+      "open": 43,
       "title": "10.0.0"
     }
   ],
@@ -123,8 +123,8 @@
       "number": 57,
       "title": "fix(orm): refuser une option de tri mal formée au lieu de l'ignorer",
       "url": "https://github.com/nodefony/nodefony-core/issues/57",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -180,8 +180,8 @@
       "number": 96,
       "title": "feat(orm): générer les fichiers de migration du framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/96",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,

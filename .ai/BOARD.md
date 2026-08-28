@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-28 10:08** (UTC).
+> Empreinte prise le **2026-08-28 11:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,24 +16,22 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 17 | 1 | — |
-| 10.0.0 | 45 | 18 | 2026-11-15 |
+| 10.0.0 | 43 | 20 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#57 — fix(orm): refuser une option de tri mal formée au lieu de l'ignorer**
+**#17 — feat(orm): livrer les migrations de schéma en production**
 
-Ordre 1.95 · P1 — figé à la création · 0.5 j · jalon 10.0.0
+Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 45 ouverts
+## Jalon 10.0.0 — 43 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 1.95 | P1 — figé à la création | 0.5 | #57 | fix(orm): refuser une option de tri mal formée au lieu de l'ignorer |
 | 2 | P0 — bloque le reste | 7.5 | #17 | feat(orm): livrer les migrations de schéma en production |
-| 2.3 | P0 — bloque le reste | 1 | #96 | feat(orm): générer les fichiers de migration du framework |
 | 2.35 | P0 — bloque le reste | 1 | #102 | feat(orm): générer les migrations de l'application en une commande |
 | 2.4 | P0 — bloque le reste | 1 | #97 | feat(orm): appliquer les migrations avec historique et verrou |
 | 2.5 | P0 — bloque le reste | 1.5 | #98 | feat(orm): ajouter les commandes orm:migrate et leur réglage |

@@ -34,6 +34,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 08-28f] **J'ai fait échouer `test:all` en lançant mes propres tests sur la base qu'il utilisait au même moment** — des `DROP TABLE` sur MariaDB pendant que la suite tournait dessus. Deux tests rouges, dont j'ai d'abord cherché la cause dans mon diff. Le module SAIT pourtant que sa base est partagée : il porte `fileParallelism: false` et le commentaire qui l'explique. La sérialisation protège les fichiers d'une MÊME passe — elle ne protège de rien contre une seconde passe lancée à la main. Règle simple : pendant une suite qui touche une base réelle, on ne lance RIEN d'autre dessus ; et un échec pendant qu'on travaille en parallèle se rejoue seul avant d'être diagnostiqué.
+
 - [1× — 08-28d] **`assert.rejects` n'appelle JAMAIS son validateur quand la fonction jette de façon synchrone** — et better-sqlite3 est synchrone. Le test rougissait en affichant l'erreur qu'il attendait pourtant (`CHECK constraint failed`), ce qui envoie chercher dans le produit un défaut qui est dans le banc. Le remède tient en un mot : `async () =>` au lieu de `() =>`. Second piège du même appel, dans la même heure : une déclaration `function` a un `prototype`, donc Node la prend pour une **classe d'erreur** et tente un `instanceof` qui échoue toujours — un validateur s'écrit en fonction fléchée. Deux fois, l'instrument accusait le produit.
 - [1× — 08-27] **Seize bancs WebSocket d'intégration, et aucun n'employait le client livré.** Tous
   ouvraient une socket `ws` nue et composaient les trames JSON-RPC à la main : ils prouvaient le
@@ -63,6 +65,8 @@
   garde ; le chiffre de pente, lui, se rejoue. [1× — 08-26]
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
+
+- [1× — 08-28f] **Ma garde « pas de clé primaire en `text`/`blob`/`json` » était ancrée au DÉBUT de la chaîne** (`/^(text|blob|json)/`) — elle laissait donc passer `longtext`, `mediumtext`, `longblob`. Or `longtext` est précisément ce que MariaDB donne à une colonne JSON, qu'il implémente en alias de `LONGTEXT` : la garde était aveugle sur le serveur PAR DÉFAUT du décor, et verte. Trouvée non pas en relisant la garde, mais en comparant les deux moteurs sur demande du user. Une garde écrite pour un moteur se relit sur l'AUTRE avant d'être crue.
 
 - [1× — 08-28d] **J'ai découpé un chantier en cinq lots et annoncé la grappe complète ; elle en couvrait cinq sur huit.** Un contrôle de couverture, section par section, a rendu deux livrables que personne ne portait (l'écran de suivi, décrit sur vingt lignes ; la recette de déploiement promise au générateur), puis une revue éditoriale en a trouvé un troisième — la commande de génération côté application, dont **deux tickets dépendaient déjà**. Le tableau récapitulatif d'un document de conception n'est pas le document : il résume les lots, il ne liste pas les livrables. Un découpage se confronte au corps, pas à son sommaire.
 - [1× — 08-28c] **J'ai corrigé l'ENCADRÉ sans corriger la phrase qu'il dément**, cinq lignes plus haut : le texte porteur affirmait encore le mécanisme que son propre encadré qualifiait de FAUX. Quand on ajoute un démenti, chercher ce qu'il dément — l'ajout ne supprime pas.
@@ -248,6 +252,8 @@
 - **Le verdict du gate se prend depuis SA cible** : il formate avec `cwd: dest` (le dossier de l'app générée). Reproduire la mesure ailleurs — même config, même version — rend un autre résultat, et on croit le sien. [1× — 08-25]
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
+
+- [1× — 08-28f] **Quatre en-têtes d'entités et une page de doc affirmaient que le DDL de développement ne crée PAS les index.** Il les crée (`#createIndexSQL`) — mesuré en montant une base et en listant `sqlite_master`. L'affirmation avait été recopiée d'un fichier à l'autre, ce qui lui donnait l'air d'un fait établi : quatre occurrences concordantes ne sont pas quatre preuves, c'est une seule erreur copiée. Ce qu'elle coûtait : elle enseignait qu'un index n'existe qu'en production, donc que le développement ne peut rien dire des performances — et elle aurait fait accepter comme normal un banc de parité rouge sur les index.
 
 - [1× — 08-28c] **Un document de conception VALIDÉ écrit « le service enregistre un contrôle sur `/readyz` »** comme si le mécanisme existait. Il n'existe pas : `/readyz` est un court-circuit à réponses pré-allouées (`http-kernel.ts:453`, `:501`), aucun module ne peut y enregistrer quoi que ce soit. Le filet cloud-native du chantier reposait donc sur une brique à créer **dans un autre module et dans le chemin le plus chaud**. Une conception qui dit « X enregistre » se relit toujours en cherchant le `register` correspondant.
 
@@ -845,6 +851,8 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-28f] **`drizzle-kit` rend le code 0 QUAND IL ÉCHOUE** — une exception non rattrapée part sur la sortie d'erreur et le process sort quand même à zéro. Mon contrôle de dérive en déduisait « rien à générer » de « code 0 + aucun fichier » : il a donc déclaré ALIGNÉ un schéma qui avait dérivé, dès son premier usage réel. La panne INNOCENTE le produit — pire qu'un faux positif, parce que personne ne rouvre un verdict vert. Le remède n'est pas de lire le code de sortie plus attentivement, c'est d'exiger une **preuve positive** que le travail a eu lieu (une ligne d'annonce de l'outil, et mieux : l'artefact — le journal a-t-il gagné son entrée ?). Corollaire vécu deux fois dans la même heure : l'outil échouait aussi sur un dossier de sortie ABSOLU, qu'il préfixe par `./` pour fabriquer `.//Users/…` — même symptôme, code 0.
+
 - [1× — 08-28] **Mon `Write` a ÉCRASÉ une suite existante, et son retour ne l'a pas dit.** J'ai
   créé `src/nodefony/src/tests/readiness.test.ts` sans regarder si le nom était libre — il l'était
   pour MON concept (le registre de disponibilité), pas dans le dépôt : `checks/readiness.ts` a le
@@ -1400,6 +1408,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 08-28f] **Le garde-fou anti-`git checkout` du dépôt a refusé mon appel parce que les mots figuraient dans le TEXTE d'un message d'erreur que j'écrivais** — un message destiné à l'utilisateur, qui lui expliquait comment annuler des fichiers. La garde lit la commande, pas son intention, et une chaîne de caractères ressemble à un geste. Rien n'a été perdu (le python n'a pas tourné, l'erreur était nette), et le contournement a AMÉLIORÉ le produit : le message renvoie maintenant à « votre outil de gestion de versions » plutôt qu'à des commandes destructrices toutes prêtes. À garder en tête : une garde par motif textuel mord sur la documentation autant que sur les actes.
 
 - **Une garde MORTE-NÉE : `try/catch` autour d'un `import` STATIQUE.** Le shim `create-nodefony`
   protégeait l'absence de `nodefony` par un `try` autour de l'appel — Node résout les imports
