@@ -346,6 +346,15 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 08-28h] **Un défaut qui vit dans la DIVERGENCE de deux lecteurs, et qui rendait le code du
+  succès.** `filename` est optionnel dans le schéma de configuration parce que son défaut dépend du
+  kernel — le service le résout au démarrage. Ma commande, elle, lisait la configuration telle
+  quelle : `undefined`, donc le pilote SQLite retombait sur une base EN MÉMOIRE, vide, jetée à la
+  sortie du processus. `status` décrivait une base que l'application n'utilise pas, et `migrate` y
+  aurait « appliqué » les migrations en rendant **0**. Ni l'un ni l'autre n'est faux isolément : le
+  défaut est dans l'écart. **Une valeur par défaut résolue AILLEURS que dans son schéma se partage
+  en une seule implémentation, ou elle divergera en silence.**
+
 - [1× — 08-28] **TROIS lecteurs répondaient à la même question, et je n'en avais inventorié
   qu'un.** En rendant `/readyz` retenable, j'ai laissé `livez.ready` du plan d'administration valoir
   `booted` — il aurait annoncé « prêt » pendant que l'orchestrateur recevait 503 — et
@@ -444,6 +453,13 @@
   même défaut, non encore poussé. [1× — 08-22f]
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
+
+- [1× — 08-28h] **Le dépôt générait ses migrations par un script npm privé, et c'est ce qui a caché
+  le trou.** `npm run generate:migrations` : le framework savait générer, personne n'avait remarqué
+  qu'une application ne le pouvait pas — parce que le dépôt passait par un chemin qui n'est pas
+  celui de ses utilisateurs. Repéré par le user, pas par moi (« pourquoi encore des scripts !!! »).
+  **Quand le dépôt ne consomme pas sa propre commande, il ne peut pas voir ce qui manque à ses
+  utilisateurs** : le banc est vert et le produit est troué.
 
 - **J'ai contredit une décision que le dépôt portait DÉJÀ, écrite dans un test, avec son
   motif.** Une mémoire listait « `verify` ignore les e2e » parmi les écarts de l'application
@@ -713,6 +729,17 @@
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
+- [1× — 08-28h] **DEUX messages EXACTS qui envoyaient chercher au mauvais endroit, dans la même
+  commande.** (1) Un connecteur SQL enregistré hors configuration recevait « ne gère pas de
+  migrations de schéma » : il en gère parfaitement, il manque ses coordonnées de connexion. La
+  conception interdisait nommément cette phrase — « un message faux publié est appris par les
+  scripts qui le lisent » — et je l'ai quand même écrite, parce que je constatais la propriété sur
+  la seule configuration du module. (2) En mode `auto`, `orm:migrate` refuse toujours avec « cette
+  base porte déjà les tables » : c'est le DÉMARRAGE qui vient de les créer, quelques
+  millisecondes plus tôt. Le fait est vrai, la cause est ailleurs, et l'utilisateur cherche une
+  vieille base qui n'existe pas. **Un message n'est pas jugé sur son exactitude mais sur l'endroit
+  où il envoie chercher.** Les deux ne se voyaient qu'en EXÉCUTANT.
+
 - [1× — 08-25e] **TROIS attentes muettes le même jour, dans trois bancs différents — et la troisième
   cachait un défaut de TEST qu'on prenait pour un défaut PRODUIT.** `new Promise(r => ws.once("pong",
 r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans cause, une exécution
@@ -788,6 +815,17 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
   démarrage d'après argv » a un angle mort : le choix différé. `[1× — 08-21e]`
 
 ## 🧨 Une commande de DÉCLARATION ne doit jamais désarmer ce qu'elle trouve
+
+- [1× — 08-28h] **La question que personne n'avait posée : et si la migration DÉTRUIT ?**
+  `orm:migrate` appliquait un `DROP COLUMN` en production sans un mot — ni la conception validée,
+  ni le ticket, ni moi ne l'avions vu. La question est venue du user (« le backup c'est pas
+  obligatoire ??? »). La bonne réponse n'était pas celle qu'elle suggérait : aucun outil de
+  migration ne sauvegarde, et le faire donnerait une assurance qui n'existe pas — mais **l'absence
+  de sauvegarde rendait le silence de l'outil inacceptable**. L'outil ne sauvegarde pas : il
+  empêche d'appliquer SANS SAVOIR. Au démarrage, le garde est plus strict et sans drapeau pour le
+  lever — un exemplaire qui redémarre ne supprime jamais de données de lui-même, personne ne
+  regarde à ce moment-là. **Toute commande d'exploitation doit répondre à « et si ça détruit ? »
+  AVANT sa première ligne de code.**
 
 - [1× — 08-27] **`docker compose --profile X down` ne borne PAS la descente au profil.** Voulant
   arrêter le seul conteneur navigateur, j'ai emporté `nodefony-redis` — un service d'infra que

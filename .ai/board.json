@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T12:30:56.074Z",
+  "generatedAt": "2026-08-28T13:41:37.647Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -223,7 +223,7 @@
       "title": "feat(orm): ajouter les commandes orm:migrate et leur réglage",
       "url": "https://github.com/nodefony/nodefony-core/issues/98",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1.5,
@@ -265,7 +265,7 @@
       "title": "feat(cli): livrer de quoi migrer dans l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/101",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
