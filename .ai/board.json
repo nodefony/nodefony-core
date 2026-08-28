@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T11:43:24.931Z",
+  "generatedAt": "2026-08-28T12:30:56.074Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 20,
+      "closed": 21,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -208,8 +208,8 @@
       "number": 97,
       "title": "feat(orm): appliquer les migrations avec historique et verrou",
       "url": "https://github.com/nodefony/nodefony-core/issues/97",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,

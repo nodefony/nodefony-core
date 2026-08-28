@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-28 11:43** (UTC).
+> Empreinte prise le **2026-08-28 12:30** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 17 | 1 | — |
-| 10.0.0 | 43 | 20 | 2026-11-15 |
+| 10.0.0 | 42 | 21 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,13 +27,12 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 43 ouverts
+## Jalon 10.0.0 — 42 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2 | P0 — bloque le reste | 7.5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.35 | P0 — bloque le reste | 1 | #102 | feat(orm): générer les migrations de l'application en une commande |
-| 2.4 | P0 — bloque le reste | 1 | #97 | feat(orm): appliquer les migrations avec historique et verrou |
 | 2.5 | P0 — bloque le reste | 1.5 | #98 | feat(orm): ajouter les commandes orm:migrate et leur réglage |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 2.7 | P1 — figé à la création | 1 | #100 | feat(studio): montrer l'état des migrations de chaque base |

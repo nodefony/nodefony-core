@@ -386,6 +386,8 @@
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
 
+- [1× — 08-28g] **Un document de conception VALIDÉ portait une impossibilité mécanique, invisible jusqu'au contact.** Il prescrivait de réutiliser l'adapter pour la connexion de l'applicateur — or l'adapter ouvre un POOL, et les verrous prescrits par le même document (`pg_advisory_lock`, `GET_LOCK`) sont de SESSION : verrou sur une connexion, DDL sur une autre, libération sur une troisième. La conception se contredisait elle-même à deux paragraphes d'écart, et rien dans sa lecture ne le signalait. **Une conception se relit en confrontant ses prescriptions ENTRE ELLES, pas seulement au code** — troisième fois que le terrain corrige un document validé (cf 08-28c, 08-28f).
+
 - **`--publish` forçait `--write` : deux gestes couplés qui ne devaient pas l'être.** Révélé en
   écrivant le workflow, qui serait tombé DÈS SA PREMIÈRE PASSE — sur le changelog, sans aucun
   rapport avec la publication. Préparer écrit et se relit ; publier part d'un tag et ne doit RIEN
@@ -503,6 +505,8 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 08-28g] **Cinq tests VERTS portaient deux crashs, et le compte de tests ne le disait pas.** Les pilotes réseau de l'applicateur de migrations n'avaient aucun auditeur `error` : mon banc tuait la connexion détentrice du verrou (`pg_terminate_backend`) — geste normal en production, OOM ou pare-feu — et l'`EventEmitter` levait, faute d'auditeur. Vitest affichait « 5 passed » ET « Errors 2 » sur une ligne séparée, plus bas, hors du bloc qu'on lit. Le défaut était RÉEL : le process de migration serait mort au lieu de rendre une erreur. **Un `Tests N passed` ne couvre pas les erreurs non capturées — lire aussi la ligne `Errors`, et l'exit code.** Le même défaut avait déjà été fermé sur le pool de `DrizzleOrm`, avec le même symptôme (« 6 tests passés, 1 erreur non capturée »).
 
 - [1× — 08-28] **J'ai écrit un cas qui levait lui-même l'erreur qu'il prétendait éprouver.** La
   socket est un état de MODULE, posé par les cas précédents : n'ayant pas de moyen évident de
@@ -1408,6 +1412,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 08-28g] **Un test de verrou reste VERT quand on débranche le verrou** — il ne prouve alors que le chemin nominal. Mon cas « aucun verrou zombie » prenait le verrou, tuait la connexion, puis migrait : avec `lock()` en no-op il passait tout aussi bien. Le rendre discriminant a demandé une assertion AVANT le geste — _constater que le verrou est bien TENU_ (un applicateur concurrent doit échouer) — et il tombe alors au débranchement. **Un test qui suit un chemin heureux de bout en bout ne discrimine rien ; c'est l'état intermédiaire qu'il faut affirmer.**
 
 - [1× — 08-28f] **Le garde-fou anti-`git checkout` du dépôt a refusé mon appel parce que les mots figuraient dans le TEXTE d'un message d'erreur que j'écrivais** — un message destiné à l'utilisateur, qui lui expliquait comment annuler des fichiers. La garde lit la commande, pas son intention, et une chaîne de caractères ressemble à un geste. Rien n'a été perdu (le python n'a pas tourné, l'erreur était nette), et le contournement a AMÉLIORÉ le produit : le message renvoie maintenant à « votre outil de gestion de versions » plutôt qu'à des commandes destructrices toutes prêtes. À garder en tête : une garde par motif textuel mord sur la documentation autant que sur les actes.
 
