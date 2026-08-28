@@ -40,6 +40,7 @@ import {
   demarrerPod,
   arreterPod,
   rapporteur,
+  BancInterrompu,
 } from "./lib/pod.mjs";
 
 const RACINE = process.cwd();
@@ -91,11 +92,19 @@ async function leverPod(etiquette) {
   if (!pod.debout) {
     const mort = pod.estMort();
     console.log(
-      `  ✘ ${etiquette} n'a jamais répondu sur ${PORT}` +
+      `  ✘ ${etiquette} n'a jamais écouté sur ${PORT}` +
         (mort ? ` (mort : code=${mort.code} sig=${mort.sig})` : " (muet)") +
         `\n${pod.journal.join("").slice(-2000)}`,
     );
-    process.exit(1);
+    // Un pod peut être VIVANT sans écouter — boot bloqué, port déjà pris. Il
+    // n'a pas encore été rangé dans `pod`, donc le `finally` ne le verra
+    // jamais : c'est ICI, et nulle part ailleurs, qu'il faut l'arrêter. Et on
+    // JETTE au lieu de sortir : un `process.exit()` posé dans le `try` ne
+    // déroule aucun `finally`, le pod survit au banc avec son port et sa
+    // connexion à la base, et c'est le run SUIVANT qui échoue pour une raison
+    // qui n'est pas la sienne.
+    await arreterPod(pod);
+    throw new BancInterrompu();
   }
   console.log(`  ✔ ${etiquette} écoute sur ${PORT}`);
   return pod;
@@ -164,7 +173,11 @@ try {
     `c'est la MÊME ligne, pas une recréation (attendu ${empreinte}, lu ${relu.corps?.id ?? "—"})`,
   );
 } catch (e) {
-  console.log(`  ✘ ${String(e.message)}`);
+  // Un abandon a DÉJÀ tout dit, journal du boot compris : le réafficher
+  // n'ajoute qu'une seconde ligne au même constat.
+  if (!(e instanceof BancInterrompu)) {
+    console.log(`  ✘ ${String(e.message)}`);
+  }
   process.exitCode = 1;
 } finally {
   if (pod) {

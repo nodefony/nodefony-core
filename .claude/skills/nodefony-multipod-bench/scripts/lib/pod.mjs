@@ -34,6 +34,21 @@ export const docker = (...a) => {
   }
 };
 
+/**
+ * Abandon d'un banc — à JETER, jamais `process.exit()`.
+ *
+ * Un `process.exit()` posé dans le `try` ne déroule aucun `finally` : les pods
+ * déjà levés survivent au banc, gardent leur port ET leur connexion à la base,
+ * et c'est le run SUIVANT qui échoue — sur un `DROP DATABASE` refusé, ou sur un
+ * port occupé — pour une raison qui n'est pas la sienne. Mesuré : un décor
+ * laissé en vrac a coûté un diagnostic entier.
+ *
+ * Le motif dit aussi « ce qu'il fallait montrer l'a déjà été » : l'appelant a
+ * imprimé le journal du boot avant de jeter, le `catch` n'a donc rien à
+ * réafficher.
+ */
+export class BancInterrompu extends Error {}
+
 /** Attend qu'une condition devienne vraie, ou rend `false` au bout de `maxMs`. */
 export async function jusqua(verif, maxMs) {
   const t0 = Date.now();

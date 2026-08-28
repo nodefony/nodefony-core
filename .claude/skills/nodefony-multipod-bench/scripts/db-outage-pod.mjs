@@ -38,6 +38,7 @@ import {
   arreterPod,
   migrerBase,
   enService,
+  BancInterrompu,
 } from "./lib/pod.mjs";
 
 const WORKERS = Number.parseInt(arg("workers", "1"), 10);
@@ -63,16 +64,7 @@ const leverPod = (index) =>
 const pods = [];
 let verdictGlobal = 0;
 
-/**
- * Sentinelle d'abandon — arrête le banc EN PASSANT par le `finally`.
- *
- * Un `process.exit()` posé dans le `try` ne déroule aucun `finally` : les pods
- * déjà levés survivent au banc, gardent leur port ET leur connexion à la base,
- * et c'est le run SUIVANT qui échoue — sur un `DROP DATABASE` refusé, ou sur un
- * port occupé — pour une raison qui n'est pas la sienne. Mesuré : un décor
- * laissé en vrac a coûté un diagnostic entier.
- */
-class BancInterrompu extends Error {}
+/** Arrête le banc en passant par le `finally` — cf `BancInterrompu`. */
 const abandonner = (texte, journal = "") => {
   console.log(`  ✘ ${texte}${journal ? `\n${journal}` : ""}`);
   verdictGlobal = 1;
