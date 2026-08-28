@@ -18,11 +18,12 @@ import {
  * `AccessTokenRow` (forme repository) est **identique** à `IAccessTokenRecord`
  * → zéro mapping store ↔ entité.
  *
- * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet ni
- * `DEFAULT` ni index séparés, seulement les contraintes colonne (PK / NOT NULL /
- * UNIQUE). D'où `secretHash` en `unique` **colonne** (unicité réelle en dev) ;
- * les index déclarés sont lus par `drizzle-kit` (migrations prod) et sans effet
- * sur le DDL dérivé dev/test (perf seule, jamais de sémantique).
+ * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet pas de
+ * `DEFAULT`, seulement les contraintes colonne (PK / NOT NULL / UNIQUE). D'où
+ * `secretHash` en `unique` **colonne** (unicité réelle en dev). Les index
+ * déclarés, eux, sont bien créés des DEUX côtés — par `drizzle-kit` dans la
+ * migration, et par le DDL dérivé en développement — et le banc de parité le
+ * vérifie table par table (`tests/integration/migrations-parity.ts`).
  *
  * Les unions du contrat (`kind`, `subjectType`, `revokedReason`,
  * `IResourcePermission[]`) vivent sur les types `Row`/`IAccessTokenRecord`

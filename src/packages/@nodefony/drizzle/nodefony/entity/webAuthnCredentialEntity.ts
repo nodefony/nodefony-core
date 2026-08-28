@@ -15,10 +15,10 @@ import {
  * ⚠️ **Horodatages en epoch ms (kind `epochMs`, exposés `number`)** :
  * `IWebAuthnCredential` porte des `number` (`Date.now()`), pas des `Date`.
  *
- * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet ni
- * `DEFAULT` ni index séparés. Le store fournit TOUJOURS toutes les colonnes
- * `notNull` au `save` ; `transports` garde un `defaultFn` JS en filet. L'index
- * `userId` est lu par `drizzle-kit` (prod), sans effet sur le DDL dev/test.
+ * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet pas de
+ * `DEFAULT`. Le store fournit TOUJOURS toutes les colonnes `notNull` au `save` ;
+ * `transports` garde un `defaultFn` JS en filet. L'index `userId`, lui, est créé
+ * des DEUX côtés — migration et DDL dérivé.
  *
  * Le store ne lit/écrit JAMAIS `IWebAuthnCredential` directement : il traduit via
  * {@link WebAuthnCredentialRow} (forme plate SQL, `nickname: string | null`) — le

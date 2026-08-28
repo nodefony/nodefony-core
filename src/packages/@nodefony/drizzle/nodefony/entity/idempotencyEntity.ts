@@ -36,11 +36,11 @@ import type { IdempotentResponse } from "nodefony";
  * Déclarer n'est pas activer — l'entité et la fabrique existent, le store n'est
  * employé que si la config le nomme. Opt-out complet : `frameworkEntities: false`.
  *
- * ⚠️ **Pas de `.default()` SQL** : le DDL dérivé (`getTableConfig`) n'émet ni
- * `DEFAULT` ni index séparés (cf `DrizzleOrm.#createTableSQL`) — seules les
- * contraintes colonne (PK / NOT NULL). L'`index()` sur `expiresAt` est lu par
- * `drizzle-kit` (migrations prod, accélère le `gc`) et sans effet sur le DDL
- * dérivé dev/test. Toutes les colonnes sont posées explicitement par le store
+ * ⚠️ **Pas de `.default()` SQL** : le DDL dérivé (`getTableConfig`) n'émet pas
+ * de `DEFAULT` — seules les contraintes colonne (PK / NOT NULL). L'`index()` sur
+ * `expiresAt` (qui accélère le `gc`), lui, est créé des DEUX côtés : par
+ * `drizzle-kit` dans la migration, et par `DrizzleOrm.#createIndexSQL` en
+ * développement. Toutes les colonnes sont posées explicitement par le store
  * (jamais de défaut implicite manquant qui casserait l'INSERT).
  */
 /**
@@ -61,8 +61,8 @@ import type { IdempotentResponse } from "nodefony";
  *   qu'*in-flight* ; posée à `complete`, relue en `replayed`.
  * - `expiresAt` : échéance (epoch ms) — bail *in-flight* (`now + lease`) puis
  *   rétention (`now + ttl`). Au-delà = entrée morte → volable (`begin`) et
- *   purgeable (`gc`). NOT NULL → comparaison toujours définie. Index lu par
- *   drizzle-kit (accélère le `gc` ; sans effet sur le DDL dérivé dev/test).
+ *   purgeable (`gc`). NOT NULL → comparaison toujours définie. Indexé des deux
+ *   côtés (migration et DDL dérivé) — accélère le `gc`.
  */
 const createIdempotencyTableFactory: FrameworkTableFactory =
   createFrameworkTableFactory({

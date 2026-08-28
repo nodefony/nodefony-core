@@ -15,6 +15,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { SqlDialect } from "../nodefony/interfaces/IDrizzleConfig";
+import type { IAuditRule } from "./drizzleKit";
 import {
   DIALECTS,
   FORMAT_MARKER,
@@ -23,7 +25,7 @@ import {
   auditMigrationSql,
   readTags,
   runGenerate,
-} from "./drizzleKit.mjs";
+} from "./drizzleKit";
 
 /**
  * Pose le marqueur de format en tête des `.sql` qui ne l'ont pas encore.
@@ -35,7 +37,7 @@ import {
  * @param dialect - dialecte dont on marque les fichiers.
  * @returns le nombre de fichiers marqués.
  */
-function stampFormatMarker(dialect) {
+function stampFormatMarker(dialect: SqlDialect): number {
   const dir = path.join(MODULE_ROOT, "migrations", dialect);
   if (!fs.existsSync(dir)) {
     return 0;
@@ -63,7 +65,7 @@ function stampFormatMarker(dialect) {
  * @returns le nom validé.
  * @throws Error si le nom manque ou n'est pas un identifiant portable.
  */
-function parseName(argv) {
+function parseName(argv: string[]): string {
   const inline = argv.find((a) => a.startsWith("--name="));
   const flagAt = argv.indexOf("--name");
   const name = inline
@@ -87,7 +89,7 @@ function parseName(argv) {
 }
 
 /** Point d'entrée. */
-function main(argv) {
+function main(argv: string[]): void {
   const name = parseName(argv);
   const before = assertJournalsAligned("avant génération");
 
@@ -121,7 +123,12 @@ function main(argv) {
   // distingue pas une intention d'une différence, et ce qui détruit des données
   // ne doit jamais partir sans que quelqu'un l'ait vu et voulu.
   const added = after.slice(before.length);
-  const findings = [];
+  const findings: Array<{
+    level: "destructive" | "blocking";
+    dialect: SqlDialect;
+    tag: string;
+    rule: IAuditRule;
+  }> = [];
   for (const dialect of DIALECTS) {
     for (const tag of added) {
       const file = path.join(MODULE_ROOT, "migrations", dialect, `${tag}.sql`);
@@ -137,7 +144,7 @@ function main(argv) {
       }
     }
   }
-  const render = (level) =>
+  const render = (level: "destructive" | "blocking"): string =>
     findings
       .filter((f) => f.level === level)
       .map(

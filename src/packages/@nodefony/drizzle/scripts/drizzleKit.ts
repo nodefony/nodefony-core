@@ -14,6 +14,31 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { SqlDialect } from "../nodefony/interfaces/IDrizzleConfig";
+
+/** Ce qu'une règle d'audit rend quand elle reconnaît une instruction. */
+export interface IAuditRule {
+  /** Identifiant stable de la règle (cité dans les messages et les tests). */
+  id: string;
+  /** Ce que l'instruction fait à la base. */
+  what: string;
+  /** La manœuvre sûre — un refus qui ne dit pas quoi faire ne sert à rien. */
+  todo: string;
+}
+
+/** Verdict d'une relecture de migration. */
+export interface IMigrationAudit {
+  /** Ce qui détruit des données : refusé sans consentement explicite. */
+  destructive: IAuditRule[];
+  /** Ce qui verrouille en production : signalé, jamais bloquant. */
+  blocking: IAuditRule[];
+}
+
+/** Une règle d'audit, avec son motif et les dialectes qu'elle concerne. */
+interface IAuditPattern extends IAuditRule {
+  pattern: RegExp;
+  dialects?: readonly SqlDialect[];
+}
 
 /** Racine du module `@nodefony/drizzle`. */
 export const MODULE_ROOT = path.resolve(
@@ -28,7 +53,7 @@ export const MODULE_ROOT = path.resolve(
  * Les trois se génèrent TOUJOURS ensemble : un tag publié sur npm est immuable à
  * vie, donc trois journaux désalignés ne se renumérotent pas.
  */
-export const DIALECTS = ["sqlite", "postgres", "mysql"];
+export const DIALECTS: readonly SqlDialect[] = ["sqlite", "postgres", "mysql"];
 
 /** Marqueur de format posé en tête de chaque `.sql` — la porte de sortie. */
 export const FORMAT_MARKER = "-- nodefony:migration format=1";
@@ -44,7 +69,7 @@ export const FORMAT_MARKER = "-- nodefony:migration format=1";
  * @returns chemin absolu de `bin.cjs`.
  * @throws Error si `drizzle-kit` n'est pas installé.
  */
-export function resolveDrizzleKitBin() {
+export function resolveDrizzleKitBin(): string {
   let dir = MODULE_ROOT;
   for (;;) {
     const candidate = path.join(dir, "node_modules", "drizzle-kit", "bin.cjs");
@@ -63,7 +88,7 @@ export function resolveDrizzleKitBin() {
 }
 
 /** Chemin du journal d'un dialecte. */
-export const journalPath = (dialect) =>
+export const journalPath = (dialect: SqlDialect): string =>
   path.join(MODULE_ROOT, "migrations", dialect, "meta", "_journal.json");
 
 /**
@@ -72,12 +97,14 @@ export const journalPath = (dialect) =>
  * @param dialect - dialecte lu.
  * @returns les tags dans l'ordre du journal.
  */
-export function readTags(dialect) {
+export function readTags(dialect: SqlDialect): string[] {
   const file = journalPath(dialect);
   if (!fs.existsSync(file)) {
     return [];
   }
-  const journal = JSON.parse(fs.readFileSync(file, "utf8"));
+  const journal = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    entries?: Array<{ tag: string }>;
+  };
   return (journal.entries ?? []).map((entry) => entry.tag);
 }
 
@@ -90,7 +117,15 @@ export function readTags(dialect) {
  * @throws Error si le code est non nul, ou si rien ne prouve que la génération a
  *   eu lieu — l'absence de preuve n'est JAMAIS lue comme « rien à faire ».
  */
-export function runGenerate({ configRel, name, label }) {
+export function runGenerate({
+  configRel,
+  name,
+  label,
+}: {
+  configRel: string;
+  name: string;
+  label: string;
+}): string {
   const result = spawnSync(
     process.execPath,
     [
@@ -138,11 +173,13 @@ export function runGenerate({ configRel, name, label }) {
  * @returns les tags communs aux trois dialectes.
  * @throws Error si deux dialectes divergent.
  */
-export function assertJournalsAligned(when) {
-  const byDialect = new Map(DIALECTS.map((d) => [d, readTags(d)]));
-  const reference = byDialect.get(DIALECTS[0]);
+export function assertJournalsAligned(when: string): string[] {
+  const byDialect = new Map<SqlDialect, string[]>(
+    DIALECTS.map((d) => [d, readTags(d)]),
+  );
+  const reference = byDialect.get(DIALECTS[0]) as string[];
   for (const dialect of DIALECTS.slice(1)) {
-    const tags = byDialect.get(dialect);
+    const tags = byDialect.get(dialect) as string[];
     const same =
       tags.length === reference.length &&
       tags.every((tag, i) => tag === reference[i]);
@@ -171,7 +208,7 @@ export function assertJournalsAligned(when) {
  * Chaque entrée porte le motif, ce qui se passe, et ce qu'il faut faire — le
  * message d'un refus doit dire quoi faire, pas seulement ce qui est refusé.
  */
-const DESTRUCTIVE_PATTERNS = [
+const DESTRUCTIVE_PATTERNS: readonly IAuditPattern[] = [
   {
     id: "drop-table",
     pattern: /\bDROP\s+TABLE\b/i,
@@ -220,7 +257,7 @@ const DESTRUCTIVE_PATTERNS = [
  * derrière lui ; le parc de connexions se vide en quelques dizaines de secondes,
  * et l'application rend des 503 alors que la migration, elle, n'a rien de lent.
  */
-const BLOCKING_PATTERNS = [
+const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
   {
     id: "create-index-not-concurrent",
     dialects: ["postgres"],
@@ -254,14 +291,17 @@ const BLOCKING_PATTERNS = [
  * @param dialect - dialecte concerné (certains risques lui sont propres).
  * @returns `{ destructive, blocking }`, chacun décrivant ce qui a été reconnu.
  */
-export function auditMigrationSql(sql, dialect) {
+export function auditMigrationSql(
+  sql: string,
+  dialect: SqlDialect,
+): IMigrationAudit {
   // Les commentaires portent des mots-clés (« DROP COLUMN » dans une phrase) et
   // produiraient des refus fantômes.
   const code = sql
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("--"))
     .join("\n");
-  const match = (list) =>
+  const match = (list: readonly IAuditPattern[]): IAuditRule[] =>
     list
       .filter((rule) => !rule.dialects || rule.dialects.includes(dialect))
       .filter((rule) => rule.pattern.test(code))
@@ -284,6 +324,6 @@ export function auditMigrationSql(sql, dialect) {
  * @param output - sortie complète de l'outil.
  * @returns `true` si l'échec vient d'une question restée sans terminal.
  */
-export function isInteractivePromptFailure(output) {
+export function isInteractivePromptFailure(output: string): boolean {
   return /Interactive prompts require a TTY/i.test(output);
 }

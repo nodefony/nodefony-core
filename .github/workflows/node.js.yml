@@ -240,6 +240,22 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
 
+      # Les migrations du framework, confrontées aux entités qui les ont
+      # produites.
+      #
+      # Le risque qu'il ferme : une entité modifiée sans regénération. Rien ne le
+      # signale — l'application démarre, les tests passent (le développement crée
+      # ses tables depuis les entités), et c'est la PRODUCTION, qui applique les
+      # migrations, qui reçoit un schéma en retard. Le contrôle rejoue la
+      # génération depuis les instantanés versionnés et refuse qu'un fichier
+      # apparaisse.
+      #
+      # Il ne lit que des fichiers et ne demande aucun serveur : un seul système
+      # d'exploitation suffit.
+      - name: Gate — migrations alignées sur les entités
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run check:migrations -w @nodefony/drizzle
+
       # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
       #
       # Le contrôle existait et personne ne le lançait — ni ici, ni dans un

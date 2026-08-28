@@ -55,6 +55,27 @@ const MODULE_ROOT = path.resolve(
 /** Marqueur de format attendu en tête de chaque fichier de migration. */
 const FORMAT_MARKER = "-- nodefony:migration format=1";
 
+/**
+ * Les dix tables du schéma du framework, dans l'ordre alphabétique.
+ *
+ * Écrite ici plutôt que déduite : sur MySQL, la base est PARTAGÉE avec les autres
+ * suites (l'utilisateur applicatif ne peut pas en créer une), donc le banc doit
+ * savoir exactement ce qu'il a le droit d'effacer et d'observer. Une liste
+ * déduite du registre suivrait n'importe quelle erreur d'enregistrement.
+ */
+export const FRAMEWORK_TABLES = [
+  "access_token",
+  "audit_event",
+  "denied_jti",
+  "idempotency_key",
+  "session",
+  "subject_revocation",
+  "totp_secret",
+  "User",
+  "webauthn_credential",
+  "webhook_endpoint",
+] as const;
+
 /** Une colonne, telle qu'observée dans une base réelle. */
 export interface IObservedColumn {
   name: string;

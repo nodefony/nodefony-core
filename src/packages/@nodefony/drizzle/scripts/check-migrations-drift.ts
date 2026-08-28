@@ -18,7 +18,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DIALECTS, MODULE_ROOT, runGenerate } from "./drizzleKit.mjs";
+import type { SqlDialect } from "../nodefony/interfaces/IDrizzleConfig";
+import { DIALECTS, MODULE_ROOT, runGenerate } from "./drizzleKit";
 
 /**
  * Rejoue la génération d'un dialecte à côté, sans rien écrire dans le dépôt.
@@ -32,7 +33,7 @@ import { DIALECTS, MODULE_ROOT, runGenerate } from "./drizzleKit.mjs";
  * @returns les noms de fichiers `.sql` que la génération aurait ajoutés.
  * @throws Error si la sortie ne prouve pas que la génération a eu lieu.
  */
-function pendingFiles(dialect, workRel) {
+function pendingFiles(dialect: SqlDialect, workRel: string): string[] {
   const outRel = `${workRel}/${dialect}`;
   const outAbs = path.join(MODULE_ROOT, ...outRel.split("/"));
   const meta = path.join(MODULE_ROOT, "migrations", dialect, "meta");
@@ -74,7 +75,7 @@ function pendingFiles(dialect, workRel) {
 }
 
 /** Point d'entrée. */
-function main() {
+function main(): void {
   // Le dossier de travail vit SOUS le module, pas dans le temporaire du système :
   // la configuration écrite là importe `defineConfig`, et un fichier hors de
   // l'arborescence ne résout pas `drizzle-kit`. C'est le canal déjà utilisé par
@@ -85,7 +86,7 @@ function main() {
   const workAbs = fs.mkdtempSync(path.join(cacheAbs, "migrations-drift-"));
   const workRel = `${cacheRel}/${path.basename(workAbs)}`;
 
-  const drifted = [];
+  const drifted: Array<{ dialect: SqlDialect; pending: string[] }> = [];
   try {
     for (const dialect of DIALECTS) {
       const pending = pendingFiles(dialect, workRel);

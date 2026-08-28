@@ -741,30 +741,73 @@ Le détail fonctionnel de ces briques vit chez leur propriétaire :
 [webhooks](../../security/docs/webhooks.md) · [idempotence](../../framework/docs/idempotence.md) ·
 [stockage de session](../../../../../docs/guides/session-storage.md).
 
-## Migrations — ce que le module fait, et ce qu'il ne fait pas
+## Migrations — deux chemins, un seul schéma
 
-**Ce qu'il fait** : en développement et en test, chaque table déclarée est créée à la connexion par un
-`CREATE TABLE IF NOT EXISTS` dérivé de ton schéma. Tu n'as rien à lancer, la base part de zéro et
-fonctionne.
+Deux mécanismes créent les tables, et il faut savoir lequel travaille pour toi.
 
-**Ce qu'il ne fait pas**, et c'est le point à ne pas découvrir en production :
+**En développement et en test**, chaque table déclarée est créée à la connexion par un
+`CREATE TABLE IF NOT EXISTS` dérivé de ton schéma — index compris. Tu n'as rien à lancer : la base
+part de zéro et fonctionne.
 
-| Attente                               | Réalité                                                                  |
-| ------------------------------------- | ------------------------------------------------------------------------ |
-| « je modifie ma table, ça suit »      | **Non** — aucun `ALTER`. Une table existante n'est jamais retouchée.     |
-| « mes `.default()` SQL s'appliquent » | **Non** — le DDL dérivé ne les émet pas. Utilise `$defaultFn` (côté JS). |
-| « mes index sont créés »              | **Non** — ils ne sortent que via `drizzle-kit`.                          |
-| « `nodefony orm:migrate` existe »     | **Non** — la commande n'existe pas encore. Le scaffold le dit lui-même.  |
+**Sa limite tient en un mot : il ne fait jamais d'`ALTER`.**
 
-**En développement**, faire évoluer une table = supprimer le fichier SQLite (ou la table) et laisser le
-démarrage la recréer. **En production**, les migrations passent par `drizzle-kit`, l'outil du moteur :
-il lit tes schémas — y compris les index et les `DEFAULT` SQL que le DDL dérivé ignore — et produit des
-migrations versionnées par dialecte.
+| Attente                               | Réalité                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| « je modifie ma table, ça suit »      | **Non** — une table existante n'est jamais retouchée. Supprime-la, ou repars d'une base vide. |
+| « mes `.default()` SQL s'appliquent » | **Non** — le DDL dérivé ne les émet pas. Utilise `$defaultFn` (côté JS).                      |
+| « mes index sont créés »              | **Oui** — des deux côtés. Un banc de parité le vérifie table par table.                       |
 
 > [!CAUTION]
-> Ne compte pas sur le DDL dérivé pour un déploiement. Il est conçu pour qu'une base **neuve**
-> fonctionne, pas pour faire évoluer une base **existante**. Un schéma modifié sur une base déjà créée
-> échouera à l'écriture, pas au démarrage — le pire des moments.
+> Ne déploie jamais sur le DDL dérivé. Il est conçu pour qu'une base **neuve** fonctionne, pas pour
+> faire évoluer une base **existante**. Un schéma modifié sur une base déjà créée échoue à
+> l'écriture, pas au démarrage — le pire des moments.
+
+**En production**, le schéma vient de fichiers de migration versionnés. Ceux du framework sont
+**livrés dans le paquet** : `migrations/{sqlite,postgres,mysql}/`, un fichier par changement, plus le
+journal qui dit lesquels ont été appliqués. Ils sont produits par `drizzle-kit` à partir des mêmes
+entités que le DDL dérivé, et un banc vérifie sur les trois dialectes qu'une base **migrée** est
+identique à une base **dérivée** — colonne par colonne, index compris. Sans cette preuve, les deux
+chemins divergeraient en silence.
+
+> La commande qui les applique (`nodefony orm:migrate`) n'existe pas encore. Ces fichiers sont donc
+> aujourd'hui la matière du déploiement, pas encore son outil.
+
+### Regénérer les migrations du framework
+
+Concerne les contributeurs du framework, pas les applications.
+
+```bash
+# Les TROIS dialectes ensemble, sous le même nom — jamais un seul.
+npm run generate:migrations -w @nodefony/drizzle -- --name ajout_du_champ_x
+
+# Le schéma des entités a-t-il bougé sans regénération ?
+npm run check:migrations -w @nodefony/drizzle
+```
+
+Les trois dialectes se génèrent **ensemble** parce qu'un identifiant de migration publié sur npm est
+immuable à vie : trois journaux désalignés ne se renumérotent pas. Le contrôle de dérive tourne aussi
+en intégration continue — une entité modifiée sans regénération y devient rouge.
+
+### Les trois refus, et ce qu'ils protègent
+
+Un générateur de migrations compare deux schémas. Il ne voit pas une **intention** — et c'est
+précisément là que les données se perdent.
+
+| Ce qui arrive                             | Ce que tu obtiens                                                                                                                                                                                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tu **renommes** une colonne               | La génération s'arrête et demande un terminal interactif. Une colonne qui disparaît et une autre qui apparaît, c'est un renommage (les données suivent) ou une suppression puis un ajout (elles sont perdues) : seul toi peux trancher. |
+| La migration **détruit** des données      | Refus. `DROP TABLE`, `DROP COLUMN`, changement de type, `TRUNCATE` — les fichiers sont écrits pour que tu les relises, mais rien n'entre au journal sans `--allow-destructive`.                                                         |
+| La migration **verrouille** en production | Avertissement, sans blocage — un `CREATE INDEX` PostgreSQL non concurrent bloque les écritures de la table, un `SET NOT NULL` la scanne entière sous verrou exclusif. La manœuvre sûre est indiquée.                                    |
+
+> [!WARNING]
+> Après avoir répondu « renamed », **relis le fichier produit**. Quand une colonne est renommée _et_
+> que son type change, l'outil n'écrit que le renommage et oublie le changement de type
+> ([drizzle-orm#3826](https://github.com/drizzle-team/drizzle-orm/issues/3826)). Le contrôle de
+> dérive le rattrape — c'est aussi pour cela qu'il existe.
+
+Chaque fichier généré porte en tête `-- nodefony:migration format=1`. Ce n'est pas décoratif : un
+applicateur ne doit pas deviner le format de ce qu'il exécute, et c'est la porte de sortie prévue
+pour changer d'outil sans réécrire les bases existantes.
 
 ## 📡 Observabilité — Studio
 

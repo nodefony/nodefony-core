@@ -28,11 +28,12 @@ import {
  * typée), plus sur les colonnes — décision S1 : les types publics des entités
  * framework sont leurs interfaces `Row`, pas l'inférence Drizzle.
  *
- * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet ni
- * `DEFAULT` ni index séparés. Les index déclarés sont lus par `drizzle-kit`
- * (migrations prod) et sans effet sur le DDL dev/test (perf de filtrage seule,
- * jamais de sémantique) — ils couvrent les axes de la console d'audit (`ts` pour
- * la pagination chronologique, `category`/`actor`/`requestId` pour les filtres).
+ * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le DDL dérivé n'émet pas de
+ * `DEFAULT`, seulement les contraintes colonne. Les index déclarés, eux, sont
+ * créés des DEUX côtés — par `drizzle-kit` dans la migration, par le DDL dérivé
+ * en développement — et couvrent les axes de la console d'audit (`ts` pour la
+ * pagination chronologique, `category`/`actor`/`requestId` pour les filtres).
+ * Perf de filtrage seule, jamais de sémantique.
  */
 const AUDIT_EVENT_TABLE_SPEC = {
   name: "audit_event",
