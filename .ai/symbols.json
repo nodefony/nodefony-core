@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T17:32:07.436Z",
+  "generated": "2026-08-28T18:29:46.684Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3458,
+    "symbols": 3460,
     "classes": 380,
-    "interfaces": 963,
+    "interfaces": 964,
     "types": 414,
     "enums": 4,
-    "functions": 1349,
+    "functions": 1350,
     "constants": 348
   },
   "symbols": {
@@ -14660,6 +14660,15 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Result of rendering an error for an HTTP response. `body` will be passed verbatim to `context.render()` (which JSON-stringifies). `status` and `message` go into ServerResponse.writeHead(). `headers…"
+    },
+    "IErrorHint": {
+      "name": "IErrorHint",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Aide jointe au corps d'erreur — ce que le développeur doit faire, en clair. **Jamais en production**, et ce n'est pas une précaution de confort : une aide nomme la table et la colonne en cause, c'e…"
     },
     "IErrorWebsocketResult": {
       "name": "IErrorWebsocketResult",
@@ -30843,6 +30852,9 @@
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
       ],
       "IErrorWebsocketResult": [
+        "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
+      ],
+      "IErrorHint": [
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
       ],
       "toWsCloseCode": [

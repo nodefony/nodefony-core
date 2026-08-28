@@ -502,3 +502,159 @@ describe("DefaultErrorRenderer — ce qui fuit en production (F189)", () => {
     expect(r.message).to.equal("brut");
   });
 });
+
+/**
+ * #98 §3.7 (c) — le front ne voit JAMAIS une erreur SQL nue.
+ *
+ * Le développeur qui tire une branche où le back a modifié une entité reçoit un
+ * « column … does not exist » au milieu d'un travail qui n'est pas le sien. Le
+ * message du pilote dit CE QUI a échoué, jamais POURQUOI ni quoi faire : c'est
+ * le rôle du `hint`.
+ */
+describe("DefaultErrorRenderer — base en retard sur le code → hint (#98)", () => {
+  const renderer = new DefaultErrorRenderer();
+  let previous: unknown;
+
+  /** Erreur de pilote ENVELOPPÉE comme le fait Drizzle (`code` indéfini au premier niveau). */
+  function driverError(code: string | number, wrapped = true): Error {
+    const inner = new Error('column "severity" does not exist') as Error & {
+      code: unknown;
+    };
+    inner.code = code;
+    if (!wrapped) return inner;
+    const outer = new Error(
+      "Failed query: select from audit_event",
+    ) as Error & {
+      cause: unknown;
+    };
+    outer.name = "DrizzleQueryError";
+    outer.cause = inner;
+    return outer;
+  }
+
+  const hintOf = (
+    body: unknown,
+  ): { kind?: string; actions?: string[] } | undefined =>
+    (body as { hint?: { kind?: string; actions?: string[] } }).hint;
+
+  const pretendEnvironment = (environment: string): void => {
+    (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel({
+      environment,
+    });
+  };
+
+  beforeEach(() => {
+    previous = (Nodefony as unknown as { getKernel(): unknown }).getKernel();
+    pretendEnvironment("development");
+  });
+
+  afterEach(() => {
+    (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel(
+      previous as never,
+    );
+  });
+
+  it("PostgreSQL — colonne inconnue (42703) porte le hint", () => {
+    const r = renderer.renderHttp(
+      driverError("42703"),
+      fakeHttpContext() as never,
+    );
+    expect(hintOf(r.body)?.kind).to.equal("schema-mismatch");
+  });
+
+  it("PostgreSQL — table inconnue (42P01) porte le hint", () => {
+    const r = renderer.renderHttp(
+      driverError("42P01"),
+      fakeHttpContext() as never,
+    );
+    expect(hintOf(r.body)?.kind).to.equal("schema-mismatch");
+  });
+
+  it("MySQL — ER_BAD_FIELD_ERROR et son errno 1054 portent le hint", () => {
+    for (const code of ["ER_BAD_FIELD_ERROR", 1054] as const) {
+      const r = renderer.renderHttp(
+        driverError(code),
+        fakeHttpContext() as never,
+      );
+      expect(hintOf(r.body)?.kind, String(code)).to.equal("schema-mismatch");
+    }
+  });
+
+  it("MySQL — ER_NO_SUCH_TABLE et son errno 1146 portent le hint", () => {
+    for (const code of ["ER_NO_SUCH_TABLE", 1146] as const) {
+      const r = renderer.renderHttp(
+        driverError(code),
+        fakeHttpContext() as never,
+      );
+      expect(hintOf(r.body)?.kind, String(code)).to.equal("schema-mismatch");
+    }
+  });
+
+  it("erreur de pilote NUE (sans enveloppe Drizzle) porte le hint aussi", () => {
+    const r = renderer.renderHttp(
+      driverError("42703", false),
+      fakeHttpContext() as never,
+    );
+    expect(hintOf(r.body)?.kind).to.equal("schema-mismatch");
+  });
+
+  // Le hint donne des GESTES : sans eux il ne fait que renommer le problème.
+  it("le hint porte les gestes, copiables tels quels", () => {
+    const r = renderer.renderHttp(
+      driverError("42703"),
+      fakeHttpContext() as never,
+    );
+    const actions = hintOf(r.body)?.actions ?? [];
+    expect(actions.length).to.be.greaterThan(0);
+    expect(actions.join(" ")).to.contain("orm:migrate:status");
+    expect(actions.join(" ")).to.contain("orm:reset");
+  });
+
+  // ── Ce que le hint ne doit SURTOUT pas faire ──────────────────────────────
+
+  it("PRODUCTION — aucun hint, même sur un code reconnu", () => {
+    pretendEnvironment("production");
+    const r = renderer.renderHttp(
+      driverError("42703"),
+      fakeHttpContext() as never,
+    );
+    expect(hintOf(r.body)).to.equal(undefined);
+    // Une aide nomme des tables et des colonnes : c'est de la cartographie de
+    // schéma, et elle ne franchit pas la frontière.
+    expect(JSON.stringify(r.body)).to.not.contain("schema-mismatch");
+  });
+
+  it("SQLite — SQLITE_ERROR générique : PAS de hint (on ne devine pas)", () => {
+    const r = renderer.renderHttp(
+      driverError("SQLITE_ERROR"),
+      fakeHttpContext() as never,
+    );
+    expect(hintOf(r.body)).to.equal(undefined);
+  });
+
+  it("une panne qui n'a rien à voir ne porte pas de hint", () => {
+    const r = renderer.renderHttp(
+      driverError("ECONNREFUSED"),
+      fakeHttpContext() as never,
+    );
+    expect(hintOf(r.body)).to.equal(undefined);
+  });
+
+  it("un doublon reste un 409 SANS hint — ce n'est pas un schéma en retard", () => {
+    const r = renderer.renderHttp(
+      driverError("23505"),
+      fakeHttpContext() as never,
+    );
+    expect(r.status).to.equal(409);
+    expect(hintOf(r.body)).to.equal(undefined);
+  });
+
+  it("un `cause` cyclique ne fait pas boucler la reconnaissance", () => {
+    const a = new Error("a") as Error & { cause?: unknown };
+    const b = new Error("b") as Error & { cause?: unknown };
+    a.cause = b;
+    b.cause = a;
+    const r = renderer.renderHttp(a, fakeHttpContext() as never);
+    expect(hintOf(r.body)).to.equal(undefined);
+  });
+});

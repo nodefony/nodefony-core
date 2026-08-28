@@ -3,6 +3,7 @@ import type {
   IErrorRenderer,
   IErrorHttpResult,
   IErrorWebsocketResult,
+  IErrorHint,
 } from "../interfaces/IErrorRenderer";
 import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
 import HttpError from "../src/errors/httpError";
@@ -205,6 +206,81 @@ function isUniqueViolation(error: Error): boolean {
 }
 
 /**
+ * Codes rendus par les pilotes quand la requête porte sur une TABLE ou une
+ * COLONNE que la base n'a pas — la signature d'un schéma en retard sur le code.
+ *
+ * Jumelle de {@link UNIQUE_VIOLATION_CODES}, et pour la même raison : le code
+ * est le seul signal fiable. Reconnaître « does not exist » dans un message
+ * serait un piège — la formulation change d'un pilote et d'une version à
+ * l'autre, et la même phrase apparaît dans des erreurs qui n'ont rien à voir.
+ *
+ * **SQLite est volontairement absent** : il ne rend qu'un `SQLITE_ERROR`
+ * générique, partagé avec la syntaxe invalide et bien d'autres fautes. Le
+ * distinguer exige de consulter l'état de dérive que le connecteur calcule au
+ * démarrage — un canal qui n'existe pas encore côté transport. Mieux vaut ne
+ * rien dire que dire faux : une aide qui se trompe de cause coûte plus cher que
+ * pas d'aide du tout.
+ */
+const SCHEMA_MISMATCH_CODES = new Set<string>([
+  "42703", // PostgreSQL — undefined_column
+  "42P01", // PostgreSQL — undefined_table
+  "ER_BAD_FIELD_ERROR", // MySQL / MariaDB — colonne inconnue
+  "1054", // MySQL — errno de ER_BAD_FIELD_ERROR
+  "ER_NO_SUCH_TABLE", // MySQL / MariaDB — table inconnue
+  "1146", // MySQL — errno de ER_NO_SUCH_TABLE
+]);
+
+/**
+ * Vrai si l'erreur — ou l'une de ses causes — dit que la base ne porte pas ce
+ * que le code lui demande.
+ *
+ * Même descente dans `cause` que {@link isUniqueViolation}, et pour la même
+ * raison : Drizzle enveloppe toute erreur de pilote dans un `DrizzleQueryError`
+ * dont le `code` vaut `undefined`. Sans elle, la reconnaissance ne mord jamais.
+ *
+ * Ne coûte rien au chemin nominal : ne tourne que sur une erreur déjà levée, et
+ * l'appelant la court-circuite en production.
+ *
+ * @param error - erreur remontée par le pipeline.
+ * @returns vrai si un code de table ou de colonne inconnue est trouvé dans la chaîne.
+ */
+function isSchemaMismatch(error: Error): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const candidate = current as Error & { code?: unknown; errno?: unknown };
+    if (
+      (candidate.code !== undefined &&
+        SCHEMA_MISMATCH_CODES.has(String(candidate.code))) ||
+      (candidate.errno !== undefined &&
+        SCHEMA_MISMATCH_CODES.has(String(candidate.errno)))
+    ) {
+      return true;
+    }
+    current = candidate.cause;
+  }
+  return false;
+}
+
+/**
+ * L'aide rendue au développeur quand la base est en retard sur le code.
+ *
+ * Elle ne cite PAS le message du pilote : c'est lui que le lecteur vient de
+ * recevoir sans le comprendre, et le répéter n'apprend rien. Elle nomme la
+ * cause — le schéma — et donne les deux gestes, dans l'ordre où ils se tentent.
+ */
+const SCHEMA_MISMATCH_HINT: IErrorHint = {
+  kind: "schema-mismatch",
+  message:
+    "La base ne correspond pas au code : une table ou une colonne que le " +
+    "code déclare n'existe pas. C'est le schéma qui est en retard, pas la requête.",
+  actions: [
+    "Redémarrer le serveur — en développement, les colonnes qui acceptent le vide sont rattrapées au démarrage.",
+    "nodefony orm:migrate:status — dire ce qui manque, sans rien modifier.",
+    "nodefony orm:reset --connector default — SUPPRIME et recrée la base de développement.",
+  ],
+};
+
+/**
  * Default Nodefony error renderer — preserves the legacy JSON error shape.
  *
  * HTTP body (unchanged across the migration):
@@ -253,6 +329,14 @@ class DefaultErrorRenderer implements IErrorRenderer {
     obj.error = serialized as unknown as Error;
     obj.code = status;
     obj.message = message;
+    // L'aide au développeur, et JAMAIS en production : `isProduction()` passe
+    // en premier pour que la reconnaissance ne tourne même pas là où son
+    // résultat serait jeté — et pour qu'un schéma en retard reste, côté client,
+    // la panne opaque qu'il doit être. En production, ce n'est de toute façon
+    // pas au client de l'apprendre : le pod est déjà retenu hors service.
+    if (!isProduction() && isSchemaMismatch(error)) {
+      obj.hint = SCHEMA_MISMATCH_HINT;
+    }
 
     return {
       status,
