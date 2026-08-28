@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T00:43:30.366Z",
+  "generatedAt": "2026-08-28T04:35:34.819Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -124,7 +124,7 @@
       "title": "feat(orm): livrer les migrations de schéma en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/17",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 5,
