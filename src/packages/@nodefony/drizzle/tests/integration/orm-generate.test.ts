@@ -169,8 +169,8 @@ export const postTable = sqliteTable("post", { id: id() });
     const b = path.join(ENTITIES, "B.ts");
     const schema = path.join(APP, "work", "schema.ts");
     const body = await writeSchemaModule(schema, [
-      { file: a, exportName: "table", tableName: "alpha" },
-      { file: b, exportName: "table", tableName: "beta" },
+      { file: a, exportName: "table", tableName: "alpha", dialect: "sqlite" },
+      { file: b, exportName: "table", tableName: "beta", dialect: "sqlite" },
     ]);
     // Deux fichiers exportent `table` : en étoile, ESM rendrait le nom AMBIGU,
     // et un ré-export ambigu n'est pas une erreur — c'est une absence.
@@ -283,11 +283,13 @@ export const postTable = sqliteTable("post", { id: id() });
             file: "/app/nodefony/entity/Post.ts",
             exportName: "postTable",
             tableName: "post",
+            dialect: "sqlite",
           },
           {
             file: "/app/nodefony/entity/Moi.ts",
             exportName: "userTable",
             tableName: "User",
+            dialect: "sqlite",
           },
         ],
         framework,
