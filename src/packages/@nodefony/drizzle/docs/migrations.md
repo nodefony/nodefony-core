@@ -349,8 +349,8 @@ sauvegarde — pas un fichier `.bak` pris par un outil qui ne sait rien de votre
 Les outils de migration connaissent **deux** choses : les fichiers, et l'historique. Ils en
 concluent « tout est appliqué ». Ils ne regardent jamais la base.
 
-Nodefony croise une **troisième** source (`isDivergent()`, `divergence.ts:64`), et rend un constat
-qu'aucun outil ne produit en continu :
+Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts:72`), et rend un
+constat qu'aucun outil ne produit en continu :
 
 > l'historique est complet, aucune migration n'est en attente — **et pourtant la base ne correspond
 > pas au code**.
@@ -372,6 +372,45 @@ use("@nodefony/drizzle", {
   migrations: { divergence: "fail" }, // défaut : "report"
 });
 ```
+
+### Il dit CE QUI diverge, pas seulement QU'IL diverge
+
+Un verdict qui annonce un écart sans le nommer envoie ouvrir un client SQL et comparer table par
+table, sur une base de production, au pire moment. La sortie porte donc les tables et les colonnes,
+**séparées selon qu'elles se rattrapent ou non** — une colonne qui accepte le vide s'ajoute sans
+rien inventer, une colonne obligatoire exige une décision métier :
+
+```bash
+nodefony orm:migrate:status --json | jq '.divergence'
+```
+
+```json
+{
+  "missingTables": ["webhook_endpoint"],
+  "blocking": [
+    { "table": "User", "column": "tenantId", "type": "text", "nullable": false }
+  ],
+  "additive": [
+    {
+      "table": "audit_event",
+      "column": "metadata",
+      "type": "jsonb",
+      "nullable": true
+    }
+  ]
+}
+```
+
+La clé vit au premier niveau, dans le cœur neutre — pas sous `driver` : un second ORM remplira la
+même structure, et un `jq` écrit aujourd'hui ne doit pas graver le nom d'un pilote. **Sur une base
+conforme, la clé est ABSENTE** (jamais un objet vide) : `.divergence == null` suffit à tester.
+
+L'écran lisible en dit autant : le résumé nomme les trois premières entrées de chaque famille, et la
+liste complète ne se déroule que lorsqu'elle ne tient plus dans la phrase.
+
+Les gestes proposés suivent **l'environnement** : `orm:reset` efface, elle n'est acceptée qu'en
+développement, et elle n'est donc proposée que là. Ailleurs, la sortie renvoie vers l'écriture d'une
+migration correctrice (`orm:generate --custom`) puis son application.
 
 ## Codes de sortie et sortie `--json`
 
@@ -423,7 +462,7 @@ mineure ; en retirer ou en renommer un est interdit sur la série majeure.
 | Les cinq verbes sur un **boot réel**, dans les trois modes                                      | `migrate-cli.e2e.test.ts` (`NF_RUN_CLI_BOOT=1`)               |
 | Rattrapage additif, refus d'inventer, colonne en trop ignorée                                   | `schema-reconcile.test.ts`                                    |
 | Rattrapage sur **serveurs réels** (types, catalogue, index)                                     | `schema-reconcile-dialects.e2e.test.ts`                       |
-| Verdict `divergent`, et son absence quand un geste est déjà dû                                  | `migrate-divergence.test.ts`                                  |
+| Verdict `divergent`, son absence quand un geste est déjà dû, et le DÉTAIL qu'il nomme           | `migrate-divergence.test.ts`                                  |
 | Refus destructif : ce qui perd des données, ce qui n'en perd pas                                | `migrate-destructive.test.ts`                                 |
 | Parité entre le schéma migré et le schéma dérivé, sur les 3 dialectes                           | `migrations-parity-*.test.ts`                                 |
 

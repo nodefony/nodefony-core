@@ -104,10 +104,25 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - **Lecture du catalogue = UNE implémentation** (`migrator/catalog.ts`, `schemaReader(dialect,
 query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit sur SA connexion :
   ouvrir un pilote sur `:memory:` désignerait une base VIDE et rendrait un verdict faux.
-- **Verdict `divergent`** (`migrator/divergence.ts`, `isDivergent(plan)`) : ne se calcule QUE si
-  `verdictOf(plan) === "up-to-date"` — ailleurs le verdict est déjà décidé et la comparaison
+- **Verdict `divergent`** (`migrator/divergence.ts`, `describeDivergence(plan)`) : ne se calcule QUE
+  si `verdictOf(plan) === "up-to-date"` — ailleurs le verdict est déjà décidé et la comparaison
   coûterait une requête par table pour rien. Signale ce qui MANQUE, jamais ce qui est EN TROP
   (migrations libres). Code de sortie 0 sauf `migrations.divergence: "fail"`.
+- **Le détail NOMME, et il PRODUIT le verdict.** `describeDivergence` rend un `ISchemaComparison`
+  ou `null` ; `buildReport` en dérive `verdict` ET la clé `divergence` du rapport. Aucun booléen
+  posé à côté : deux champs pour un même fait finissent par se contredire. La clé vit au premier
+  niveau (cœur neutre, pas sous `driver`) et est **absente** — jamais vide — sur base conforme.
+  `summaryOf` nomme les 3 premières entrées par famille (`SUMMARY_GAPS`), le bloc écran ne se
+  déroule que lorsque la phrase a tronqué (`namesEverything`).
+- **Les gestes suivent l'ENVIRONNEMENT** : `resetAllowed(env)` (`migrator/resolve.ts`) est la source
+  unique de la liste blanche de l'effacement — lue par `orm:reset` qui refuse, ET par `actionsOf`
+  qui ne propose donc jamais une commande qui va refuser. Hors développement : `orm:generate
+--custom` puis `orm:migrate`.
+- **Assemblage du contexte de rendu : `OrmMigrateCommand.report(plan, resolution, config)`**
+  (`command/migrateShared.ts`). Les 4 commandes passent par lui — recopié, il divergeait d'un champ.
+- **Une base sans tables n'est pas une panne** : le rechargement de l'instantané des webhooks au
+  boot d'`orm:migrate` reconnaît le cas par `schemaMismatchOf` (`@nodefony/http`) et journalise en
+  INFO au lieu de cracher la pile. Ne JAMAIS écrire un second détecteur ici.
 - **Reste** : l'écran Studio des migrations (#100).
 
 ## Migrations — écrire celles de l'APPLICATION (`orm:generate`)

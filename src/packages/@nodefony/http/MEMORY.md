@@ -352,6 +352,22 @@ Extension de l'`AuditErrorEntry` :
 - Exporté dans `index.ts` : `DefaultErrorRenderer`, types `IErrorRenderer`, `IErrorHttpResult`, `IErrorWebsocketResult`
 - Préalable : P1.7 hooks security (AuthFailureHandler), P3.5 erreur enrichie audit
 
+### `schemaMismatchOf(error)` — détecteur UNIQUE « base en retard sur le code »
+
+- Exporté depuis `index.ts` : il a des lecteurs HORS de ce paquet (rechargement d'instantané au boot,
+  côté `@nodefony/security`). Deux reconnaissances du même fait divergeraient en silence.
+- Rend une **force de signal**, pas un booléen : `"certain"` quand un code dédié le dit
+  (`SCHEMA_MISMATCH_CODES` — PG `42703`/`42P01`, MySQL `ER_BAD_FIELD_ERROR`/`1054`/`ER_NO_SUCH_TABLE`/`1146`),
+  `"probable"` pour SQLite (code générique `SQLITE_ERROR` + message préfixé `no such table:` /
+  `no such column:`, cf `SQLITE_SCHEMA_PREFIXES`), `null` sinon.
+- **Chaque lecteur choisit son seuil.** Le corps d'erreur n'accepte que `certain` (il nomme des tables
+  à un client — une aide fausse coûte plus cher que pas d'aide) ; un appelant qui sait déjà ce qu'il a
+  demandé accepte `probable` (il ne publie rien, il décide de ne pas hurler).
+- Descend jusqu'à 5 `cause` (Drizzle enveloppe tout dans un `DrizzleQueryError` au `code` indéfini),
+  borne qui protège aussi des cycles. Ne tourne que sur une erreur déjà levée — zéro coût nominal.
+- Le `hint` du corps d'erreur reste **dev-only** : `isProduction()` est évalué AVANT, la
+  reconnaissance ne tourne même pas là où son résultat serait jeté.
+
 ## Abort signal — Context.signal
 
 - `Context.signal: AbortSignal` (getter lazy) — alloue `AbortController` + branche listener AU PREMIER ACCÈS
