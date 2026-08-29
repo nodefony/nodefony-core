@@ -198,8 +198,27 @@ Exporté par `index.ts` (surface publiée : CLI, data plane, sonde, porte d'agen
   des migrations dans le passé de l'app, par construction.
 - **Validation fail-loud AVANT toute écriture**, verdicts `NF_MIGRATE_*` (`FAILED_MARKER`,
   `HASH_MISMATCH`, `MISSING_FILE`, `OUT_OF_ORDER`, `BASELINE_REQUIRED`, `UNKNOWN_FORMAT`,
-  `LOCK_TIMEOUT`) portés par `MigrationVerdictError` : **le verdict structuré est la source, la
-  prose un rendu** (`code` + `facts` + `nextActions`) — un agent lit `code`, jamais une phrase.
+  `LOCK_TIMEOUT`, `UNKNOWN_TAG`, `UNKNOWN_SOURCE`, `JOURNAL_MISMATCH`) portés par
+  `MigrationVerdictError` : **le verdict structuré est la source, la prose un rendu** (`code` +
+  `facts` + `nextActions`) — un agent lit `code`, jamais une phrase. `REFUSAL_MEANING`
+  (`explain.ts`) est indexé par l'union des codes : **ajouter un code sans écrire sa phrase ne
+  compile pas**.
+- **Un ARGUMENT non reconnu est un refus, jamais un défaut silencieux.** `--up-to` inconnu →
+  `UNKNOWN_TAG` (sans lui la boucle d'adoption ne s'arrête nulle part et inscrit TOUT) ;
+  `--source` inconnue → `UNKNOWN_SOURCE` (sans lui le filtre SQL ne touche rien et rend « rien à
+  réparer », code 0). Les deux NOMMENT la casse quand elle seule diffère (`facts.caseMismatch`),
+  et le geste proposé porte la bonne graphie.
+- **`normalizeSql` retire la marque d'ordre des octets ET les CR** — même raison, le fichier a
+  VOYAGÉ : sans elle, le marqueur de format n'est plus reconnu et le refus affiche deux chaînes
+  visuellement identiques ; et l'empreinte diverge d'un poste Windows à l'image Linux.
+- **`stripComments` suit l'état « dans une chaîne littérale »** (apostrophe, `''` échappé) : une
+  ligne à deux tirets DANS une donnée multi-ligne (`--custom`) n'est pas un commentaire. La retirer
+  amputait l'insertion sans lever d'erreur.
+- **`checkMigrationName` (`migrator/name.ts`, PUBLIÉ)** est la source unique de la forme d'un nom
+  (`^[a-z0-9_]+$`, au moins une lettre ou un chiffre, ≤ 120). Invariant verrouillé : **toute
+  suggestion qu'elle produit repasse sa propre validation** — un geste proposé n'est jamais une
+  commande qui va refuser ; une saisie sans caractère latin ne rend AUCUNE suggestion plutôt que
+  `_`.
 - **Format de fichier validé** : première ligne `-- nodefony:migration format=1` + version de
   journal `"7"` ; un format inconnu est refusé **en nommant le fichier**, jamais lu au mieux.
 - **Transaction par migration** : pg/sqlite = `BEGIN` → statements → `INSERT` succès → `COMMIT` ;

@@ -452,6 +452,18 @@ mineure ; en retirer ou en renommer un est interdit sur la série majeure.
   migration si la base porte des données auxquelles vous tenez.
 - **Le rattrapage automatique n'existe qu'en mode `auto`.** En `migrate` et `none`, la comparaison
   constate et ne répare jamais.
+- **Un tag et un nom de source sont SENSIBLES À LA CASSE.** `--up-to 0003_Audit` et `--source App`
+  sont refusés, en nommant la bonne graphie. Ce n'est pas du zèle : sans point d'arrêt reconnu,
+  l'adoption déclarerait à niveau **tout** l'historique — et une base ne reçoit jamais une migration
+  qu'elle croit déjà avoir. Le refus sur `--source` évite l'autre moitié du piège : filtrer sur un
+  nom inconnu ne touche rien et rend pourtant « rien à réparer ».
+- **Un `.sql` peut être écrit avec une marque d'ordre des octets** (les éditeurs Windows et
+  PowerShell la posent). Elle est retirée à la lecture, et ne compte ni dans le marqueur de format
+  ni dans l'empreinte : un dépôt relu sous Windows ne fait donc pas diverger les empreintes posées
+  par l'image Linux qui a migré la base d'équipe.
+- **Une ligne qui commence par deux tirets À L'INTÉRIEUR d'une chaîne littérale reste de la
+  donnée.** C'est le cas d'un remplissage textuel multi-ligne écrit avec `orm:generate --custom` :
+  la retirer changerait silencieusement ce qui est inséré.
 
 ## 🧪 Tests & couverture
 
@@ -465,6 +477,10 @@ mineure ; en retirer ou en renommer un est interdit sur la série majeure.
 | Verdict `divergent`, son absence quand un geste est déjà dû, et le DÉTAIL qu'il nomme           | `migrate-divergence.test.ts`                                  |
 | Refus destructif : ce qui perd des données, ce qui n'en perd pas                                | `migrate-destructive.test.ts`                                 |
 | Parité entre le schéma migré et le schéma dérivé, sur les 3 dialectes                           | `migrations-parity-*.test.ts`                                 |
+| **Chaque réglage** sur son couple (refus sans lui, travail avec lui), 3 dialectes               | `migrate-reglages.test.ts`                                    |
+| Lecture et empreinte d'un fichier : marque d'ordre des octets, CRLF, chaînes littérales         | `tests/unit/migrationFichiers.test.ts`                        |
+| Le nom d'une migration, et l'invariant « une suggestion est toujours acceptable »               | `tests/unit/migrationName.test.ts`                            |
+| Le cycle complet **dans une application générée** (barrière de déploiement comprise)            | gabarit `tests/migrations.e2e.test.ts` de toute app à ORM     |
 
 Les bancs PostgreSQL et MySQL/MariaDB exigent leurs serveurs :
 
