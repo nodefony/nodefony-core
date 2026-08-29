@@ -240,6 +240,15 @@ export {
   Profiler,
 };
 
+// Détecteur UNIQUE du « schéma en retard sur le code ». Publié parce qu'il a
+// plusieurs lecteurs hors de ce paquet — le rechargement d'un instantané au
+// démarrage, notamment : deux reconnaissances du même fait divergeraient en
+// silence, et chacune passerait ses propres tests.
+export {
+  schemaMismatchOf,
+  type SchemaMismatchConfidence,
+} from "./nodefony/service/error-renderer";
+
 export type {
   ProfileEntry,
   ProfileSummary,

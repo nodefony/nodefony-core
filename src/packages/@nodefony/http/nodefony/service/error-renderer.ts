@@ -214,12 +214,10 @@ function isUniqueViolation(error: Error): boolean {
  * serait un piège — la formulation change d'un pilote et d'une version à
  * l'autre, et la même phrase apparaît dans des erreurs qui n'ont rien à voir.
  *
- * **SQLite est volontairement absent** : il ne rend qu'un `SQLITE_ERROR`
- * générique, partagé avec la syntaxe invalide et bien d'autres fautes. Le
- * distinguer exige de consulter l'état de dérive que le connecteur calcule au
- * démarrage — un canal qui n'existe pas encore côté transport. Mieux vaut ne
- * rien dire que dire faux : une aide qui se trompe de cause coûte plus cher que
- * pas d'aide du tout.
+ * **SQLite n'a pas sa place ici** : il ne rend qu'un `SQLITE_ERROR` générique,
+ * partagé avec la syntaxe invalide et bien d'autres fautes — le mettre dans
+ * cette table le rendrait aussi ferme que `42P01`, ce qu'il n'est pas. Il est
+ * reconnu à part, et plus faiblement, par {@link SQLITE_SCHEMA_PREFIXES}.
  */
 const SCHEMA_MISMATCH_CODES = new Set<string>([
   "42703", // PostgreSQL — undefined_column
@@ -231,20 +229,61 @@ const SCHEMA_MISMATCH_CODES = new Set<string>([
 ]);
 
 /**
- * Vrai si l'erreur — ou l'une de ses causes — dit que la base ne porte pas ce
- * que le code lui demande.
+ * Ce que SQLite dit, faute de code dédié.
+ *
+ * SQLite ne rend qu'un `SQLITE_ERROR` générique — partagé avec la syntaxe
+ * invalide et bien d'autres fautes —, donc le code seul ne tranche pas. Ces
+ * deux préfixes, eux, sont sans ambiguïté : ils viennent du source de SQLite,
+ * ils y sont stables depuis toujours, et aucune autre faute ne les produit.
+ *
+ * Ce n'est PAS un retour à la reconnaissance par message : on n'accepte que
+ * des débuts de message figés, et seulement après avoir constaté le code du
+ * pilote. Une formulation libre du genre « does not exist » resterait un
+ * piège — elle change d'un pilote et d'une version à l'autre.
+ */
+const SQLITE_SCHEMA_PREFIXES = ["no such table:", "no such column:"] as const;
+
+/**
+ * Force du signal « la base ne porte pas ce que le code demande ».
+ *
+ * Deux niveaux, parce que les pilotes ne disent pas la chose avec la même
+ * autorité — et parce que leurs lecteurs n'ont pas le même coût d'erreur.
+ *
+ * - `certain` : un code dédié le dit (PostgreSQL, MySQL). Rien d'autre ne
+ *   produit ce code.
+ * - `probable` : SQLite, dont le code est générique, mais dont le message
+ *   porte une signature figée (cf {@link SQLITE_SCHEMA_PREFIXES}).
+ */
+export type SchemaMismatchConfidence = "certain" | "probable";
+
+/**
+ * Reconnaît, dans une erreur ou l'une de ses causes, un schéma en retard sur
+ * le code — et dit avec quelle FORCE.
+ *
+ * Détecteur UNIQUE de ce fait dans tout le framework : le corps d'erreur rendu
+ * au développeur le lit, et le rechargement d'un instantané au démarrage
+ * aussi. Deux reconnaissances de la même chose divergeraient en silence, et
+ * chacune passerait ses propres tests.
+ *
+ * Chaque lecteur choisit son SEUIL, et c'est là que la graduation sert. Le
+ * corps d'erreur n'accepte que `certain` : il nomme des tables à un client, et
+ * une aide qui se trompe de cause coûte plus cher que pas d'aide du tout. Un
+ * appelant qui sait déjà ce qu'il a demandé — une table précise, au démarrage —
+ * peut accepter `probable` : il ne publie rien, il décide seulement de ne pas
+ * hurler.
  *
  * Même descente dans `cause` que {@link isUniqueViolation}, et pour la même
  * raison : Drizzle enveloppe toute erreur de pilote dans un `DrizzleQueryError`
  * dont le `code` vaut `undefined`. Sans elle, la reconnaissance ne mord jamais.
  *
- * Ne coûte rien au chemin nominal : ne tourne que sur une erreur déjà levée, et
- * l'appelant la court-circuite en production.
+ * Ne coûte rien au chemin nominal : ne tourne que sur une erreur déjà levée.
  *
- * @param error - erreur remontée par le pipeline.
- * @returns vrai si un code de table ou de colonne inconnue est trouvé dans la chaîne.
+ * @param error - erreur remontée par un pilote, éventuellement enveloppée.
+ * @returns la force du signal, ou `null` si rien ne dit ça.
  */
-function isSchemaMismatch(error: Error): boolean {
+export function schemaMismatchOf(
+  error: unknown,
+): SchemaMismatchConfidence | null {
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
     const candidate = current as Error & { code?: unknown; errno?: unknown };
@@ -254,11 +293,17 @@ function isSchemaMismatch(error: Error): boolean {
       (candidate.errno !== undefined &&
         SCHEMA_MISMATCH_CODES.has(String(candidate.errno)))
     ) {
-      return true;
+      return "certain";
+    }
+    if (
+      String(candidate.code) === "SQLITE_ERROR" &&
+      SQLITE_SCHEMA_PREFIXES.some((p) => candidate.message?.startsWith(p))
+    ) {
+      return "probable";
     }
     current = candidate.cause;
   }
-  return false;
+  return null;
 }
 
 /**
@@ -334,7 +379,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
     // résultat serait jeté — et pour qu'un schéma en retard reste, côté client,
     // la panne opaque qu'il doit être. En production, ce n'est de toute façon
     // pas au client de l'apprendre : le pod est déjà retenu hors service.
-    if (!isProduction() && isSchemaMismatch(error)) {
+    if (!isProduction() && schemaMismatchOf(error) === "certain") {
       obj.hint = SCHEMA_MISMATCH_HINT;
     }
 

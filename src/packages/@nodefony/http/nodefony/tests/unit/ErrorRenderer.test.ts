@@ -1,7 +1,9 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import { Nodefony } from "nodefony";
-import DefaultErrorRenderer from "../../service/error-renderer.js";
+import DefaultErrorRenderer, {
+  schemaMismatchOf,
+} from "../../service/error-renderer.js";
 import HttpError from "../../src/errors/httpError.js";
 
 // Minimal context shape — DefaultErrorRenderer.renderHttp only touches
@@ -656,5 +658,83 @@ describe("DefaultErrorRenderer — base en retard sur le code → hint (#98)", (
     b.cause = a;
     const r = renderer.renderHttp(a, fakeHttpContext() as never);
     expect(hintOf(r.body)).to.equal(undefined);
+  });
+
+  // Le corps d'erreur n'accepte QUE le niveau `certain` : il nomme des tables à
+  // un client, et une aide qui se trompe de cause coûte plus cher que pas
+  // d'aide. Un message SQLite sans équivoque ne change donc rien ICI — il sert
+  // ailleurs, là où l'appelant sait déjà ce qu'il a demandé.
+  it("🔴 SQLite au message SANS ÉQUIVOQUE : toujours pas de hint", () => {
+    const e = new Error("no such table: webhook_endpoint") as Error & {
+      code: string;
+    };
+    e.code = "SQLITE_ERROR";
+    expect(schemaMismatchOf(e), "le détecteur doit le voir").to.equal(
+      "probable",
+    );
+    const r = renderer.renderHttp(e, fakeHttpContext() as never);
+    expect(
+      hintOf(r.body),
+      "le corps d'erreur ne descend pas au probable",
+    ).to.equal(undefined);
+  });
+});
+
+/**
+ * Le détecteur lui-même — UNIQUE dans le framework, et GRADUÉ (#107).
+ *
+ * Il a plusieurs lecteurs qui n'ont pas le même coût d'erreur : le corps
+ * d'erreur, qui publie, et le rechargement d'un instantané au démarrage, qui
+ * décide seulement de ne pas hurler. La graduation est ce qui leur permet de
+ * partager UNE reconnaissance sans partager le même seuil.
+ */
+describe("schemaMismatchOf — un détecteur, deux forces de signal", () => {
+  const withCode = (code: unknown, message = "boom"): Error => {
+    const e = new Error(message) as Error & { code: unknown };
+    e.code = code;
+    return e;
+  };
+
+  it("un code dédié rend `certain` — PostgreSQL et MySQL", () => {
+    for (const code of ["42703", "42P01", "ER_NO_SUCH_TABLE", "1146"]) {
+      expect(schemaMismatchOf(withCode(code)), code).to.equal("certain");
+    }
+  });
+
+  it("un errno dédié rend `certain` lui aussi", () => {
+    const e = new Error("boom") as Error & { errno: number };
+    e.errno = 1054;
+    expect(schemaMismatchOf(e)).to.equal("certain");
+  });
+
+  it("SQLite rend `probable` — et SEULEMENT sur sa signature figée", () => {
+    expect(
+      schemaMismatchOf(
+        withCode("SQLITE_ERROR", "no such table: webhook_endpoint"),
+      ),
+    ).to.equal("probable");
+    expect(
+      schemaMismatchOf(withCode("SQLITE_ERROR", "no such column: metadata")),
+    ).to.equal("probable");
+    // Le code générique de SQLite couvre aussi la syntaxe invalide : sans la
+    // signature du message, on ne conclut PAS.
+    expect(
+      schemaMismatchOf(withCode("SQLITE_ERROR", 'near "SELCT": syntax error')),
+      "une faute de syntaxe n'est pas un schéma en retard",
+    ).to.equal(null);
+  });
+
+  it("descend dans les causes — Drizzle enveloppe tout", () => {
+    const inner = withCode("SQLITE_ERROR", "no such table: webhook_endpoint");
+    const outer = new Error("Failed query") as Error & { cause: unknown };
+    outer.cause = inner;
+    expect(schemaMismatchOf(outer)).to.equal("probable");
+  });
+
+  it("ce qui n'a rien à voir rend `null`", () => {
+    expect(schemaMismatchOf(withCode("ECONNREFUSED"))).to.equal(null);
+    expect(schemaMismatchOf(new Error("nu"))).to.equal(null);
+    expect(schemaMismatchOf("pas une erreur")).to.equal(null);
+    expect(schemaMismatchOf(null)).to.equal(null);
   });
 });

@@ -1,13 +1,13 @@
 {
-  "generated": "2026-08-29T00:43:21.862Z",
+  "generated": "2026-08-29T00:57:17.799Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3468,
+    "symbols": 3469,
     "classes": 380,
     "interfaces": 964,
-    "types": 414,
+    "types": 415,
     "enums": 4,
     "functions": 1358,
     "constants": 348
@@ -15079,6 +15079,22 @@
       ],
       "decorators": [],
       "description": "Default Nodefony error renderer — preserves the legacy JSON error shape. HTTP body (unchanged across the migration): { code: <http status>, message: <error message>, error: <HttpError.toJSON() — st…"
+    },
+    "SchemaMismatchConfidence": {
+      "name": "SchemaMismatchConfidence",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Force du signal « la base ne porte pas ce que le code demande ». Deux niveaux, parce que les pilotes ne disent pas la chose avec la même autorité — et parce que leurs lecteurs n'ont pas le même coû…"
+    },
+    "schemaMismatchOf": {
+      "name": "schemaMismatchOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Reconnaît, dans une erreur ou l'une de ses causes, un schéma en retard sur le code — et dit avec quelle FORCE. Détecteur UNIQUE de ce fait dans tout le framework : le corps d'erreur rendu au dévelo…"
     },
     "HttpKernel": {
       "name": "HttpKernel",
@@ -31816,6 +31832,9 @@
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookCipher.ts"
       ],
       "assertPublicUrl": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "schemaMismatchOf": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "WebhookDispatcher": [

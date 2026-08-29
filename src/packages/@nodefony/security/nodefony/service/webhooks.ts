@@ -43,6 +43,7 @@ import {
   generateEphemeralKey,
 } from "../src/webhook/webhookCipher";
 import { assertPublicUrl } from "../src/net/ssrfGuard";
+import { schemaMismatchOf } from "@nodefony/http";
 import {
   WebhookDispatcher,
   type IWebhookDeliveryRecord,
@@ -338,7 +339,32 @@ class WebhookService extends Service {
       const all = await this.#store.listAll();
       this.#endpoints = new Map(all.map((e) => [e.id, e]));
     } catch (e) {
-      this.log(e as Error, "ERROR");
+      // Une base SANS TABLES n'est pas une panne : c'est l'état normal avant la
+      // toute première migration — et c'est le nœud circulaire résiduel, pour
+      // migrer il faut booter, et le boot lit des tables que la migration
+      // s'apprête à créer. Cracher quinze lignes de pile rouge au PREMIER geste
+      // que l'utilisateur fait avec le framework, sans rien lui dire de leur
+      // normalité, coûte bien plus que le silence.
+      //
+      // La reconnaissance est celle du framework, jamais une seconde écrite ici
+      // (`schemaMismatchOf`, @nodefony/http) : deux copies de cette règle
+      // divergeraient, et chacune passerait ses propres tests. On accepte son
+      // niveau `probable` — SQLite n'a pas de code dédié — parce qu'on SAIT ce
+      // qu'on vient de demander : la table des points de livraison, et rien
+      // d'autre. Tout le reste remonte entier, avec sa pile : un `catch` large
+      // masquerait un vrai défaut de persistance, ce qui coûterait bien plus
+      // que le bruit qu'on supprime.
+      if (schemaMismatchOf(e) !== null) {
+        this.log(
+          "webhooks: la base ne porte pas encore la table des points de " +
+            "livraison — c'est l'état normal avant la première migration. " +
+            "Aucun abonnement chargé ; la lecture sera retentée. Pour savoir " +
+            "où en est le schéma : `nodefony orm:migrate:status`.",
+          "INFO",
+        );
+      } else {
+        this.log(e as Error, "ERROR");
+      }
     } finally {
       // Horodaté même en ÉCHEC : sans ça, un store en panne serait relu à chaque
       // événement d'audit — on transformerait une base indisponible en rafale de
