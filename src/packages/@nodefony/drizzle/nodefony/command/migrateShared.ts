@@ -8,6 +8,7 @@ import {
 import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
 import type { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
 import { MigrationVerdictError } from "../src/migrator/types";
+import { MigrationToolError } from "../src/migrator/refusals";
 import type { IMigrationAction } from "../src/migrator/types";
 import {
   EXIT,
@@ -334,6 +335,14 @@ export abstract class OrmMigrateCommand extends Command {
         process.stderr.write(renderRefusal(e.verdict, e.message, style, ddl));
       }
       process.exitCode = payload.exitCode;
+      return;
+    }
+    // Une cause qui porte DÉJÀ son remède se rend telle quelle : le fourre-tout
+    // ci-dessous explique tout par une base injoignable, ce qui est faux — et
+    // trompeur — dès que l'arrêt vient d'ailleurs.
+    if (e instanceof MigrationToolError) {
+      const { code, summary, meaning, nextActions, exitCode } = e.refusal;
+      this.fail(connector, code, summary, meaning, nextActions, json, exitCode);
       return;
     }
     const cause = e instanceof Error ? e.message : String(e);

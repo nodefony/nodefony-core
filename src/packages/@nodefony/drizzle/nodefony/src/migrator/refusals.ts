@@ -54,7 +54,9 @@ export type CommandFailureCode =
   /** La migration produite DÉTRUIT des données, et personne ne l'a dit. */
   | "NF_GENERATE_DESTRUCTIVE"
   /** Rien à écrire, et pourtant la base ne porte pas le schéma déclaré. */
-  | "NF_GENERATE_DATABASE_BEHIND";
+  | "NF_GENERATE_DATABASE_BEHIND"
+  /** L'outil qui ÉCRIT les migrations n'est pas installé. */
+  | "NF_GENERATE_TOOL_MISSING";
 
 /** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
 export interface ICommandFailure {
@@ -91,6 +93,50 @@ export interface IResolutionRefusal {
    * continue qui lisent ce chiffre, sans qu'aucun test ne le voie.
    */
   exitCode: 1 | 2;
+}
+
+/**
+ * L'outil qui ÉCRIT les migrations n'est pas installé.
+ *
+ * Refus À PART, et c'est tout son intérêt : sans lui, cette cause tombait dans
+ * le fourre-tout des commandes de migration, qui habille toute exception non
+ * typée d'un `meaning` écrit pour la base injoignable. La charge utile portait
+ * alors DEUX explications qui se contredisent — le fait disait « l'outil
+ * manque », l'explication disait « vérifie que la base est démarrée » — et ses
+ * deux gestes interrogeaient une base qui n'y était pour rien.
+ *
+ * @returns le refus, avec le geste qui répare.
+ */
+export function outilDeGenerationAbsent(): IResolutionRefusal {
+  return {
+    code: "NF_GENERATE_TOOL_MISSING",
+    summary:
+      "L'outil qui écrit les migrations (`drizzle-kit`) n'est pas installé : rien n'a été écrit.",
+    meaning:
+      "Écrire une migration demande un outil de DÉVELOPPEMENT, que l'application déclare mais qui n'est pas dans « node_modules » — un `npm install` manque, ou l'installation s'est faite sans les dépendances de développement (`--omit=dev`). La base n'est pas en cause : appliquer des migrations, lui, ne réclame aucun outil tiers.",
+    nextActions: [
+      action("npm install"),
+      action("npm install --save-dev drizzle-kit"),
+    ],
+    exitCode: 2,
+  };
+}
+
+/**
+ * Erreur portant un {@link IResolutionRefusal} déjà composé.
+ *
+ * Elle existe pour que la CAUSE porte son propre remède jusqu'à la sortie de la
+ * commande : reconnaître une cause au texte de son message serait une garde qui
+ * se casse au premier reformulage.
+ */
+export class MigrationToolError extends Error {
+  /**
+   * @param refusal - refus complet, seule source de la décision.
+   */
+  constructor(readonly refusal: IResolutionRefusal) {
+    super(refusal.summary);
+    this.name = "MigrationToolError";
+  }
 }
 
 /**

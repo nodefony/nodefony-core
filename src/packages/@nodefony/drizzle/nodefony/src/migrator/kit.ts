@@ -21,6 +21,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
+import { MigrationToolError, outilDeGenerationAbsent } from "./refusals";
 
 /** Ce qu'une règle d'audit rend quand elle reconnaît une instruction. */
 export interface IAuditRule {
@@ -71,12 +72,11 @@ export function resolveDrizzleKitBin(from: string): string {
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error(
-        "drizzle-kit introuvable — c'est une dépendance de DÉVELOPPEMENT " +
-          "(`npm install --save-dev drizzle-kit`), jamais une dépendance " +
-          "d'exécution : elle ne sert qu'à ÉCRIRE les migrations, pas à les " +
-          "appliquer.",
-      );
+      // Un refus TYPÉ, pas une `Error` nue : sans lui, la cause tombe dans le
+      // fourre-tout des commandes de migration, qui explique toute exception
+      // par une base injoignable — et publie deux explications qui se
+      // contredisent.
+      throw new MigrationToolError(outilDeGenerationAbsent());
     }
     dir = parent;
   }
