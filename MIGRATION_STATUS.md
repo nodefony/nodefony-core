@@ -322,7 +322,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (reste P5.0b batch/cron)
  P6  Security              █████████░  87%  29✅  3🔶  3⬜   cœur MVP + resource-server P6.9.x LIVRÉS ; reste P6.9d (serveur d'autorisation, APRÈS release), mTLS, rpId, authz B, logs auth
- P7  ORM drivers           ██████▍░░░  64%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; reste S5 DDL prod (8 sous-tickets ouverts sous #17 ; 8 fermés — sonde de disponibilité éprouvée sur POD) + P7.11 NoSQL
+ P7  ORM drivers           ███████▏░░  72%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; S5 DDL prod : 10 sous-tickets fermés sous #17 (génération, applicateur, commandes, sonde de disponibilité, app générée, écran de la console) ; reste #99 (banc d'agent) + P7.11 NoSQL
  P8  CLI + Monitoring      █████████░  90%   4✅  1🔶  0⬜   (doctor ✅ ; chaîne de publication ✅ P8.5 — R6 = DETTE ASSUMÉE, jouée AU MOMENT de publier)
  P9  Polish + clôture      ████████░░  75%   3✅  0🔶  1⬜   (P9.4 : 0 vulnérabilité, re-prouvé 08-20)
  P10 Studio (admin web)    ████████░░  84%  12✅  3🔶  1⬜   (P10.6 🔶 : ROLE_NODEFONY_ADMIN actif sur /studio/api/create/* seul)
