@@ -420,6 +420,17 @@
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
 
+- [1× — 08-29] **Un détecteur PRUDENT par conception bloquait le ticket qui en dépendait — la sortie
+  est de le GRADUER, pas de l'élargir.** Le détecteur de « schéma en retard » excluait SQLite
+  volontairement (code générique, « mieux vaut ne rien dire que dire faux ») ; or le cas de preuve
+  du ticket suivant ÉTAIT une trace SQLite, c'est-à-dire le défaut par défaut d'une application
+  fraîche. Élargir le détecteur aurait changé le comportement d'un ticket déjà clos et prouvé ;
+  en écrire un second était explicitement interdit. Il rend désormais une **force de signal**
+  (`certain` / `probable` / rien), et chaque lecteur choisit son seuil : celui qui PUBLIE au client
+  reste strict, celui qui sait déjà ce qu'il a demandé accepte le signal faible. **Deux lecteurs
+  peuvent partager une reconnaissance sans partager le même seuil — c'est le seuil qui appartient à
+  l'appelant, pas la reconnaissance.**
+
 - [1× — 08-28g] **Un document de conception VALIDÉ portait une impossibilité mécanique, invisible jusqu'au contact.** Il prescrivait de réutiliser l'adapter pour la connexion de l'applicateur — or l'adapter ouvre un POOL, et les verrous prescrits par le même document (`pg_advisory_lock`, `GET_LOCK`) sont de SESSION : verrou sur une connexion, DDL sur une autre, libération sur une troisième. La conception se contredisait elle-même à deux paragraphes d'écart, et rien dans sa lecture ne le signalait. **Une conception se relit en confrontant ses prescriptions ENTRE ELLES, pas seulement au code** — troisième fois que le terrain corrige un document validé (cf 08-28c, 08-28f).
 
 - **`--publish` forçait `--write` : deux gestes couplés qui ne devaient pas l'être.** Révélé en
@@ -823,7 +834,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
   de la sortie. Le détail est même déjà publié ailleurs (`schemaDrift` de l'ORM) : rien à
   calculer, tout à laisser passer. Constaté au prix fort — une demi-heure de `psql` à comparer
   table par table ce que le produit connaissait. **Un booléen rendu sur un calcul riche est une
-  décision de jeter**, et elle se prend sans qu'on la voie. Ticket #105.
+  décision de jeter**, et elle se prend sans qu'on la voie. Ticket #105 — **soldé** : le
+  producteur rend le détail, et c'est le détail qui PRODUIT le verdict (plus de booléen à côté).
 
 - [1× — 08-25e] **Le banc de tenue mesurait DEUX grandeurs et n'en jugeait qu'une.** Verdict « ✅ pas
   de fuite » sur un tas parfaitement plat, pendant que son RSS montait de 235 à 251 Mo avec un R² de
@@ -949,6 +961,23 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 08-29] **Le décor n'ARMAIT PAS le cas — et la preuve était verte.** Pour prouver qu'une
+  pile d'appels avait disparu au démarrage, j'ai lancé la commande sur une base vierge : zéro pile,
+  code 0. Le contrôle négatif a montré que le débranchement ne la faisait pas revenir **non plus** —
+  donc le service en cause n'avait jamais démarré : en production, sans sa clé de chiffrement, il
+  s'arrête AVANT le geste qu'on voulait observer (fail-safe). Il a fallu poser deux variables de
+  plus pour que le cas existe. **Un run vert sur un décor qui n'arme pas le cas est indiscernable
+  d'un correctif qui marche** — seul le contrôle négatif les sépare, et c'est la seule raison pour
+  laquelle je ne l'ai pas publié comme preuve.
+
+- [1× — 08-29] **Le cache turbo m'a rendu un `dist` d'AVANT le débranchement.** Source débranchée
+  (`if (false)`), `npm run build` lancé, run relancé — et la sortie portait le message du correctif
+  débranché. Trente secondes à ne rien comprendre, avec la tentation de conclure « le code chargé
+  n'est pas celui-là ». La règle du dépôt le dit déjà (`turbo` restaure un `dist` caché avec un
+  mtime NEUF), mais je ne l'applique que quand j'y pense : **tout débranchement de preuve se fait
+  avec `--force`, et se vérifie par une empreinte cherchée DANS l'artefact** (`grep` de la phrase
+  dans le `.js` bâti), jamais par une date ni par la réussite de la commande de build.
 
 - [1× — 08-29] Le gate d'outillage a refusé le même commit TROIS fois : fiche de skill périmée, scripts non cités, puis fiche re-périmée **par prettier** qui reformatait la ligne que je venais d'ajouter. La régénération va APRÈS le formateur, jamais avant.
 - [1× — 08-29] Un débranchement sur la source ne prouve rien tant que l'artefact n'a pas été rebâti : `false && …` a été ÉLIMINÉ par le bundler, et c'est en lisant `isAheadOnly` dans le `dist` (elle y rendait `false`) que le débranchement s'est constaté. Le pod exécute le bundle, pas le fichier édité.

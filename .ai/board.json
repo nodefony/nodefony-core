@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T00:15:10.270Z",
+  "generatedAt": "2026-08-29T08:35:31.065Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 26,
+      "closed": 28,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 46,
+      "open": 44,
       "title": "10.0.0"
     }
   ],
@@ -292,8 +292,8 @@
       "number": 105,
       "title": "feat(orm): nommer ce qui diverge dans le verdict des migrations",
       "url": "https://github.com/nodefony/nodefony-core/issues/105",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -777,8 +777,8 @@
       "number": 107,
       "title": "fix(orm): ne pas cracher une pile d'appels sur une base sans tables",
       "url": "https://github.com/nodefony/nodefony-core/issues/107",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
