@@ -173,6 +173,13 @@ outil ne peut deviner s'il s'agit d'un **renommage** — les données suivent �
 suivie d'un ajout — les données sont perdues. C'est une intention, pas une différence de schéma.
 Rejouez alors la commande dans un terminal, et répondez à la question posée.
 
+Un quatrième refus n'a rien à voir avec votre schéma : **l'outil qui écrit les migrations n'est pas
+installé** (`NF_GENERATE_TOOL_MISSING`). C'est une dépendance de DÉVELOPPEMENT — votre application
+la déclare, et un `npm install` la pose. Elle manque quand l'installation s'est faite sans les
+dépendances de développement (`--omit=dev`, une image de production). Le refus le dit et donne le
+geste ; il ne parle pas de votre base, qui n'y est pour rien — appliquer des migrations, lui, ne
+réclame aucun outil tiers.
+
 ### Une entité qui pointe vers une table du framework
 
 Déclarer une référence vers `User` dans votre entité est légitime, et ne pose aucun problème : ce
@@ -201,13 +208,13 @@ Au démarrage, en mode `auto`, la connexion se fait en **trois temps** — et l'
 
 1. les tables manquantes sont créées (`CREATE TABLE IF NOT EXISTS`) ;
 2. le schéma déclaré est **comparé** à celui de la base, table par table
-   (`compareSchema()`, `schemaDiff.ts:94`) ;
+   (`compareSchema()`, `schemaDiff.ts:122`) ;
 3. les index sont posés.
 
 Entre les deux, ce qui se rattrape est rattrapé :
 
 - **colonne manquante qui accepte le vide** → elle est ajoutée (`additiveSql()`,
-  `schemaDiff.ts:153`) et journalisée en clair. Le front n'a rien à taper : il tire, le serveur
+  `schemaDiff.ts:181`) et journalisée en clair. Le front n'a rien à taper : il tire, le serveur
   redémarre, ça marche.
 - **colonne manquante et obligatoire** → jamais posée. La créer exigerait d'inventer une valeur pour
   les lignes déjà présentes, ce qui est une décision métier, pas une décision d'outil. L'écart est
@@ -349,7 +356,7 @@ sauvegarde — pas un fichier `.bak` pris par un outil qui ne sait rien de votre
 Les outils de migration connaissent **deux** choses : les fichiers, et l'historique. Ils en
 concluent « tout est appliqué ». Ils ne regardent jamais la base.
 
-Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts:72`), et rend un
+Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts:105`), et rend un
 constat qu'aucun outil ne produit en continu :
 
 > l'historique est complet, aucune migration n'est en attente — **et pourtant la base ne correspond
