@@ -2,7 +2,11 @@ import type { IRepository } from "./IRepository";
 import type { ITransaction } from "./ITransaction";
 import type { IColumnInfo, IConnectionInfo } from "./IOrmGraph";
 import type { IOrmProbe } from "./IOrmProbe";
-import type { IOrmMigrationReply } from "./IOrmMigrations";
+import type {
+  IOrmMigrationApplyReply,
+  IOrmMigrationPlanReply,
+  IOrmMigrationReply,
+} from "./IOrmMigrations";
 
 /**
  * Contrat d'une instance ORM gérée par le framework (une par connexion logique).
@@ -122,4 +126,29 @@ export interface IOrm {
    * @returns l'état, ou l'empêchement qui explique pourquoi il n'y en a pas.
    */
   migrationStatus?(): Promise<IOrmMigrationReply>;
+
+  /**
+   * Ce qui S'APPLIQUERAIT, avec son SQL — **capacité optionnelle**, lecture
+   * seule.
+   *
+   * Sert la confirmation d'un geste d'application : on ne confirme pas une
+   * modification de schéma sur une promesse, on la confirme sur ce qu'elle va
+   * exécuter.
+   *
+   * @returns le plan, ou l'empêchement.
+   */
+  migrationPlan?(): Promise<IOrmMigrationPlanReply>;
+
+  /**
+   * Applique les migrations en attente — **capacité optionnelle, et ÉCRIVANTE**.
+   *
+   * ⚠️ Réservée au DÉVELOPPEMENT par l'implémentation, qui doit refuser
+   * ailleurs en le disant. Ce n'est pas une précaution d'interface : en
+   * production, les migrations s'appliquent dans un travail d'orchestrateur qui
+   * se termine AVANT que le premier nouvel exemplaire ne démarre — pas au clic
+   * de quelqu'un qui regarde une console pendant que le trafic passe.
+   *
+   * @returns ce qui a été appliqué, ou l'empêchement.
+   */
+  applyMigrations?(): Promise<IOrmMigrationApplyReply>;
 }

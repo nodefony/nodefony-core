@@ -15,6 +15,7 @@ import {
   defaultConnectorFilename,
   resolveConnectorTarget,
 } from "../../nodefony/src/connectorTarget";
+import { applyMigrationsFor } from "../../nodefony/src/migrator/status";
 import { DrizzleOrm } from "../../index";
 
 /**
@@ -334,5 +335,90 @@ describe("migrations — l'URL du travail de migration est lue par eux SEULS", (
       res.target.filename,
       path.resolve("/app/var/databases/nodefony-drizzle.db"),
     );
+  });
+});
+
+describe("migrations — appliquer depuis la console est RÉSERVÉ au développement", () => {
+  /**
+   * Ce que ce contrôle tient : la garde vit dans le PRODUIT, pas dans l'écran.
+   *
+   * Une console d'administration qui masquerait simplement son bouton hors
+   * développement ne protégerait que celui qui la regarde — un appel direct au
+   * plan d'administration passerait. En production, les migrations
+   * s'appliquent dans un travail d'orchestrateur qui se termine AVANT que le
+   * premier nouvel exemplaire ne démarre : les appliquer depuis un serveur qui
+   * sert le trafic revient à changer le schéma sous les pieds des exemplaires
+   * en service.
+   *
+   * Rien ici ne touche une base : le refus tombe AVANT toute connexion, ce que
+   * prouve la configuration `null` — un connecteur inexistant irait plus loin
+   * s'il n'était pas arrêté d'abord.
+   */
+  const kernelEn = (env: "development" | "production"): Kernel =>
+    ({ resolveRuntimeEnv: () => env }) as unknown as Kernel;
+
+  it("🔴 en production, le geste est REFUSÉ et dit par quoi passer", async () => {
+    const avant = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const r = await applyMigrationsFor(
+        "default",
+        null,
+        kernelEn("production"),
+      );
+      assert.equal(r.ok, false);
+      if (r.ok) return;
+      assert.equal(r.failure.error.code, "NF_MIGRATE_NOT_DEVELOPMENT");
+      // Le geste de remplacement est NOMMÉ : un refus sans issue se contourne.
+      assert.match(
+        r.failure.error.nextActions.map((a) => a.command).join(" "),
+        /orm:migrate --connector default/u,
+      );
+      // Et la recette de déploiement est citée : c'est elle qui fait le travail.
+      assert.match(r.failure.error.meaning, /migrate-job\.yaml/u);
+    } finally {
+      if (avant === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = avant;
+    }
+  });
+
+  it("🔴 en test aussi — la liste blanche ne connaît QUE le développement", async () => {
+    const avant = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "test";
+    try {
+      const r = await applyMigrationsFor(
+        "default",
+        null,
+        kernelEn("production"),
+      );
+      assert.equal(r.ok, false);
+      if (!r.ok) {
+        assert.equal(r.failure.error.code, "NF_MIGRATE_NOT_DEVELOPMENT");
+      }
+    } finally {
+      if (avant === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = avant;
+    }
+  });
+
+  it("en développement, la garde laisse passer — et c'est la CONFIGURATION qui arrête", async () => {
+    const avant = process.env["NODE_ENV"];
+    delete process.env["NODE_ENV"];
+    try {
+      const r = await applyMigrationsFor(
+        "default",
+        null,
+        kernelEn("development"),
+      );
+      assert.equal(r.ok, false);
+      if (!r.ok) {
+        // Un autre code : la garde d'environnement n'a PAS mordu, c'est
+        // l'absence de module qui arrête. Sans cette distinction, un test vert
+        // ne dirait pas laquelle des deux gardes a joué.
+        assert.equal(r.failure.error.code, "NF_MIGRATE_UNAVAILABLE");
+      }
+    } finally {
+      if (avant !== undefined) process.env["NODE_ENV"] = avant;
+    }
   });
 });

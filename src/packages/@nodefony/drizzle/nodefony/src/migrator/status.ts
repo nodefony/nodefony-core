@@ -1,6 +1,6 @@
 import type { Kernel } from "nodefony";
 import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
-import { buildReport, MIGRATION_FORMAT_VERSION } from "./explain";
+import { action, buildReport, MIGRATION_FORMAT_VERSION } from "./explain";
 import type { IMigrationReport } from "./explain";
 import { describeDivergence } from "./divergence";
 import { MigrationVerdictError } from "./types";
@@ -29,6 +29,31 @@ import type { ICommandFailure, IResolutionRefusal } from "./refusals";
  * l'applicateur a calculé, et traduit les refus par la prose unique de
  * {@link describeResolutionRefusal}.
  */
+
+/** Le plan avec son SQL, ou le refus. */
+export type IMigrationPlanResult =
+  | { ok: true; plan: IMigrationPlanPayload }
+  | { ok: false; failure: ICommandFailure };
+
+/** Ce qui s'appliquerait, avec le SQL de chaque migration en attente. */
+export interface IMigrationPlanPayload {
+  formatVersion: typeof MIGRATION_FORMAT_VERSION;
+  connector: string;
+  pending: { source: string; tag: string; statements: string[] }[];
+}
+
+/** Ce qu'une application a fait, ou le refus. */
+export type IMigrationApplyResult =
+  | { ok: true; run: IMigrationRunPayload }
+  | { ok: false; failure: ICommandFailure };
+
+/** Le compte rendu d'une application. */
+export interface IMigrationRunPayload {
+  formatVersion: typeof MIGRATION_FORMAT_VERSION;
+  connector: string;
+  runId: string;
+  applied: { source: string; tag: string; executionMs: number }[];
+}
 
 /** Le rapport, ou le refus — jamais les deux, jamais rien. */
 export type IMigrationStatusResult =
@@ -95,25 +120,28 @@ export async function composeReport(
 }
 
 /**
- * Lit l'état des migrations d'un connecteur, sans rien appliquer.
+ * Résout le connecteur pour les trois verbes — ou rend le refus.
  *
- * ⚠️ La variable de migration ({@link MIGRATE_URL_ENV}) n'est **pas** honorée
- * ici, et c'est délibéré : elle porte le compte qui a le droit de modifier le
- * schéma, réservé au travail de déploiement. Un serveur qui répond à une
- * requête d'administration n'a aucune raison de l'emprunter — l'emprunter
- * ferait de la console d'administration une porte vers un privilège que les
- * exemplaires en service n'ont pas.
+ * Les trois posent la même question dans le même ordre : le module est-il
+ * chargé, le connecteur existe-t-il, est-il migrable. Trois copies auraient
+ * fini par répondre trois choses différentes au même cas.
  *
- * @param wanted - connecteur demandé (`default` quand rien n'est précisé).
- * @param config - configuration validée du module, `null` s'il n'est pas chargé.
+ * @param wanted - connecteur demandé.
+ * @param config - configuration validée, `null` si le module n'est pas chargé.
  * @param kernel - kernel courant.
- * @returns l'état, ou le refus qui explique pourquoi il n'y en a pas.
+ * @returns le connecteur prêt et sa configuration, ou le refus.
  */
-export async function migrationStatusFor(
+function prepare(
   wanted: string,
   config: IDrizzleConfig | null,
   kernel: Kernel | null,
-): Promise<IMigrationStatusResult> {
+):
+  | {
+      ok: true;
+      resolution: Extract<IConnectorResolution, { kind: "ready" }>;
+      config: IDrizzleConfig;
+    }
+  | { ok: false; failure: ICommandFailure } {
   if (!config) {
     return { ok: false, failure: failureFrom(wanted, moduleAbsent()) };
   }
@@ -122,6 +150,11 @@ export async function migrationStatusFor(
     config,
     readMigrationEnv(kernel),
     kernel,
+    // ⚠️ La variable de migration n'est PAS honorée par le plan
+    // d'administration, et c'est délibéré : elle porte le compte qui a le
+    // droit de modifier le schéma, réservé au travail de déploiement. Un
+    // serveur qui répond à une requête d'administration n'a aucune raison de
+    // l'emprunter.
     { allowMigrateUrl: false },
   );
   if (resolution.kind !== "ready") {
@@ -133,53 +166,198 @@ export async function migrationStatusFor(
       ),
     };
   }
+  return { ok: true, resolution, config };
+}
+
+/**
+ * Traduit n'importe quel échec d'exécution en charge utile publiée.
+ *
+ * Un refus de l'applicateur porte DÉJÀ son verdict et ses gestes : on les rend
+ * tels quels. Tout le reste — base injoignable, droits manquants, verrou
+ * impossible — est une panne, et l'écran doit la MONTRER : un tableau vide qui
+ * ressemble à « tout va bien » est pire qu'une erreur.
+ *
+ * @param connector - connecteur concerné.
+ * @param e - ce qui a été levé.
+ * @returns la charge utile d'arrêt.
+ */
+function panne(connector: string, e: unknown): ICommandFailure {
+  if (e instanceof MigrationVerdictError) {
+    return {
+      formatVersion: MIGRATION_FORMAT_VERSION,
+      connector,
+      exitCode: e.verdict.code === "NF_MIGRATE_LOCK_TIMEOUT" ? 2 : 1,
+      error: {
+        code: e.verdict.code,
+        summary: e.message,
+        meaning: "",
+        nextActions: [...e.verdict.nextActions],
+      },
+    };
+  }
+  return {
+    formatVersion: MIGRATION_FORMAT_VERSION,
+    connector,
+    exitCode: 2,
+    error: {
+      code: "NF_MIGRATE_UNAVAILABLE",
+      summary: `Le connecteur « ${connector} » n'a pas pu être lu : ${e instanceof Error ? e.message : String(e)}`,
+      meaning:
+        "Toucher une base échoue quand celle-ci est injoignable, quand le compte n'a pas le droit de lire l'historique, ou quand le verrou est tenu par un autre travail.",
+      nextActions: [
+        action(`nodefony orm:migrate:status --connector ${connector}`),
+      ],
+    },
+  };
+}
+
+/**
+ * Lit l'état des migrations d'un connecteur, sans rien appliquer.
+ *
+ * @param wanted - connecteur demandé (`default` quand rien n'est précisé).
+ * @param config - configuration validée du module, `null` s'il n'est pas chargé.
+ * @param kernel - kernel courant.
+ * @returns l'état, ou le refus qui explique pourquoi il n'y en a pas.
+ */
+export async function migrationStatusFor(
+  wanted: string,
+  config: IDrizzleConfig | null,
+  kernel: Kernel | null,
+): Promise<IMigrationStatusResult> {
+  const prepared = prepare(wanted, config, kernel);
+  if (!prepared.ok) {
+    return prepared;
+  }
   try {
-    const migrator = await buildMigrator(resolution, config, kernel);
+    const migrator = await buildMigrator(
+      prepared.resolution,
+      prepared.config,
+      kernel,
+    );
     const plan = await migrator.status();
     return {
       ok: true,
-      report: await composeReport(plan, resolution, config, kernel),
+      report: await composeReport(
+        plan,
+        prepared.resolution,
+        prepared.config,
+        kernel,
+      ),
     };
   } catch (e) {
-    // Un refus de l'applicateur porte DÉJÀ son verdict et ses gestes : on les
-    // rend tels quels. Tout le reste — base injoignable, droits manquants,
-    // verrou impossible — est une panne, et l'écran doit la MONTRER : un
-    // tableau vide qui ressemble à « tout va bien » est pire qu'une erreur.
-    if (e instanceof MigrationVerdictError) {
-      return {
-        ok: false,
-        failure: {
-          formatVersion: MIGRATION_FORMAT_VERSION,
-          connector: resolution.connector,
-          exitCode: e.verdict.code === "NF_MIGRATE_LOCK_TIMEOUT" ? 2 : 1,
-          error: {
-            code: e.verdict.code,
-            summary: e.message,
-            meaning: "",
-            nextActions: [...e.verdict.nextActions],
-          },
-        },
-      };
-    }
+    return { ok: false, failure: panne(prepared.resolution.connector, e) };
+  }
+}
+
+/**
+ * Ce qui S'APPLIQUERAIT, avec son SQL — lecture seule.
+ *
+ * Sert la confirmation d'un geste d'application : une modification de schéma
+ * ne se confirme pas sur une promesse, elle se confirme sur les instructions
+ * qui vont être exécutées.
+ *
+ * @param wanted - connecteur demandé.
+ * @param config - configuration validée du module, `null` s'il n'est pas chargé.
+ * @param kernel - kernel courant.
+ * @returns le plan, ou le refus.
+ */
+export async function migrationPlanFor(
+  wanted: string,
+  config: IDrizzleConfig | null,
+  kernel: Kernel | null,
+): Promise<IMigrationPlanResult> {
+  const prepared = prepare(wanted, config, kernel);
+  if (!prepared.ok) {
+    return prepared;
+  }
+  try {
+    const migrator = await buildMigrator(
+      prepared.resolution,
+      prepared.config,
+      kernel,
+    );
+    const plan = await migrator.status();
     return {
-      ok: false,
-      failure: {
+      ok: true,
+      plan: {
         formatVersion: MIGRATION_FORMAT_VERSION,
-        connector: resolution.connector,
-        exitCode: 2,
-        error: {
-          code: "NF_MIGRATE_UNAVAILABLE",
-          summary: `L'état du connecteur « ${resolution.connector} » n'a pas pu être lu : ${e instanceof Error ? e.message : String(e)}`,
-          meaning:
-            "La lecture d'un état touche la base : elle échoue quand celle-ci est injoignable, quand le compte n'a pas le droit de lire l'historique, ou quand le verrou est tenu par un autre travail. Rien n'a été modifié.",
-          nextActions: [
-            {
-              command: `nodefony orm:migrate:status --connector ${resolution.connector}`,
-              args: ["orm:migrate:status", "--connector", resolution.connector],
-            },
-          ],
-        },
+        connector: plan.connector,
+        pending: plan.pending.map((f) => ({
+          source: f.source,
+          tag: f.tag,
+          statements: [...f.statements],
+        })),
       },
     };
+  } catch (e) {
+    return { ok: false, failure: panne(prepared.resolution.connector, e) };
+  }
+}
+
+/**
+ * Applique les migrations en attente — **DÉVELOPPEMENT seulement**.
+ *
+ * 🔴 Le refus hors développement n'est pas une précaution d'interface, c'est la
+ * doctrine : en production, les migrations s'appliquent dans un travail
+ * d'orchestrateur qui se termine AVANT que le premier nouvel exemplaire ne
+ * démarre. Les appliquer au clic de quelqu'un qui regarde une console pendant
+ * que le trafic passe, c'est modifier un schéma sous les pieds des exemplaires
+ * en service. La garde vit ICI, dans le produit — jamais dans l'écran, qui ne
+ * protège que celui qui le regarde.
+ *
+ * @param wanted - connecteur demandé.
+ * @param config - configuration validée du module, `null` s'il n'est pas chargé.
+ * @param kernel - kernel courant.
+ * @returns ce qui a été appliqué, ou le refus.
+ */
+export async function applyMigrationsFor(
+  wanted: string,
+  config: IDrizzleConfig | null,
+  kernel: Kernel | null,
+): Promise<IMigrationApplyResult> {
+  const env = readMigrationEnv(kernel);
+  if (!resetAllowed(env)) {
+    return {
+      ok: false,
+      failure: failureFrom(wanted, {
+        code: "NF_MIGRATE_NOT_DEVELOPMENT",
+        summary:
+          "Appliquer les migrations depuis la console d'administration est réservé au développement. Rien n'a été appliqué.",
+        meaning:
+          "En production, les migrations s'appliquent dans un travail dédié qui se termine AVANT que le premier nouvel exemplaire ne démarre — le fichier `deploy/migrate-job.yaml` d'une application générée en est la recette. Les appliquer depuis un serveur qui sert le trafic reviendrait à changer le schéma sous les pieds des exemplaires en service.",
+        nextActions: [
+          action(`nodefony orm:migrate --connector ${wanted}`),
+          action(`nodefony orm:migrate:status --connector ${wanted}`),
+        ],
+        exitCode: 1,
+      }),
+    };
+  }
+  const prepared = prepare(wanted, config, kernel);
+  if (!prepared.ok) {
+    return prepared;
+  }
+  try {
+    const migrator = await buildMigrator(
+      prepared.resolution,
+      prepared.config,
+      kernel,
+    );
+    const run = await migrator.migrate();
+    return {
+      ok: true,
+      run: {
+        formatVersion: MIGRATION_FORMAT_VERSION,
+        connector: prepared.resolution.connector,
+        runId: run.runId,
+        applied: run.applied.map((a) => ({
+          source: a.source,
+          tag: a.tag,
+          executionMs: a.executionMs,
+        })),
+      },
+    };
+  } catch (e) {
+    return { ok: false, failure: panne(prepared.resolution.connector, e) };
   }
 }

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T13:07:27.589Z",
+  "generated": "2026-08-29T13:32:42.805Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 782,
-    "symbols": 3499,
+    "symbols": 3513,
     "classes": 380,
-    "interfaces": 973,
-    "types": 419,
+    "interfaces": 978,
+    "types": 423,
     "enums": 4,
-    "functions": 1374,
+    "functions": 1379,
     "constants": 349
   },
   "symbols": {
@@ -16109,6 +16109,33 @@
       "extends": null,
       "description": "Ce qu'un ORM répond quand il ne PEUT pas rendre d'état. La même forme que l'arrêt publié par la ligne de commande : un écran qui reçoit ceci doit MONTRER l'empêchement, jamais un tableau vide qui r…"
     },
+    "IOrmPendingMigration": {
+      "name": "IOrmPendingMigration",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmMigrations.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Une migration en attente, avec le SQL qu'elle exécuterait."
+    },
+    "IOrmMigrationPlan": {
+      "name": "IOrmMigrationPlan",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmMigrations.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Ce qui S'APPLIQUERAIT — le plan, avec son SQL. Sert la confirmation avant application : un geste qui modifie un schéma ne se confirme pas sur une promesse, il se confirme sur ce qu'il va exécuter."
+    },
+    "IOrmMigrationApplied": {
+      "name": "IOrmMigrationApplied",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmMigrations.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Ce qu'une application a fait — ou l'empêchement qui l'a arrêtée."
+    },
     "IOrmMigrationReply": {
       "name": "IOrmMigrationReply",
       "kind": "type",
@@ -16116,6 +16143,22 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "L'état, ou l'empêchement — jamais les deux."
+    },
+    "IOrmMigrationPlanReply": {
+      "name": "IOrmMigrationPlanReply",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmMigrations.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Le plan, ou l'empêchement."
+    },
+    "IOrmMigrationApplyReply": {
+      "name": "IOrmMigrationApplyReply",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmMigrations.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Le compte rendu d'application, ou l'empêchement."
     },
     "isMigrationFailure": {
       "name": "isMigrationFailure",
@@ -19917,13 +19960,47 @@
       "module": "@nodefony/drizzle",
       "description": "Version du journal drizzle-kit que cet applicateur sait lire. On adopte le format d'un outil tiers : le lire « au mieux » reviendrait à découvrir un défaut de découpe APRÈS publication, quand le co…"
     },
+    "IMigrationPlanPayload": {
+      "name": "IMigrationPlanPayload",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce qui s'appliquerait, avec le SQL de chaque migration en attente."
+    },
+    "IMigrationRunPayload": {
+      "name": "IMigrationRunPayload",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Le compte rendu d'une application."
+    },
+    "IMigrationPlanResult": {
+      "name": "IMigrationPlanResult",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'état des migrations d'un connecteur, rendu en VALEUR — un producteur, deux portes. La ligne de commande et le plan d'administration de la console posent la même question et doivent recevoir le mê…"
+    },
+    "IMigrationApplyResult": {
+      "name": "IMigrationApplyResult",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce qu'une application a fait, ou le refus."
+    },
     "IMigrationStatusResult": {
       "name": "IMigrationStatusResult",
       "kind": "type",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "L'état des migrations d'un connecteur, rendu en VALEUR — un producteur, deux portes. La ligne de commande et le plan d'administration de la console posent la même question et doivent recevoir le mê…"
+      "description": "Le rapport, ou le refus — jamais les deux, jamais rien."
     },
     "failureFrom": {
       "name": "failureFrom",
@@ -19947,7 +20024,23 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Lit l'état des migrations d'un connecteur, sans rien appliquer. ⚠️ La variable de migration ({@link MIGRATE_URL_ENV}) n'est **pas** honorée ici, et c'est délibéré : elle porte le compte qui a le dr…"
+      "description": "Lit l'état des migrations d'un connecteur, sans rien appliquer."
+    },
+    "migrationPlanFor": {
+      "name": "migrationPlanFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce qui S'APPLIQUERAIT, avec son SQL — lecture seule. Sert la confirmation d'un geste d'application : une modification de schéma ne se confirme pas sur une promesse, elle se confirme sur les instruc…"
+    },
+    "applyMigrationsFor": {
+      "name": "applyMigrationsFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Applique les migrations en attente — **DÉVELOPPEMENT seulement**. 🔴 Le refus hors développement n'est pas une précaution d'interface, c'est la doctrine : en production, les migrations s'appliquent…"
     },
     "MigrationVerdictError": {
       "name": "MigrationVerdictError",
@@ -29840,7 +29933,8 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
       "refusalInMode": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
@@ -31390,6 +31484,16 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
+      "IOrmMigrationApplyReply": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "IOrmMigrationPlanReply": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
       "IOrmMigrationReply": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
@@ -31456,9 +31560,6 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IOrmFlowReport": [
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
-      ],
-      "IOrmMigrationFailure": [
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "setOrmHealthProvider": [

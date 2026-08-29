@@ -10,6 +10,9 @@ import {
   Divider,
   Group,
   List,
+  Loader,
+  Modal,
+  ScrollArea,
   Select,
   SimpleGrid,
   Stack,
@@ -26,20 +29,29 @@ import {
   IconClock,
   IconCopy,
   IconDatabaseExclamation,
+  IconPlayerPlay,
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
-import { useStore } from "../stores";
+import { useNotifications, useStore } from "../stores";
 import { useResource } from "../hooks";
 import { DataState, DocHint, PageLayout, WarnHint } from "../components/ui";
 import {
   isMigrationFailure,
+  type MigrationApplyReply,
   type MigrationEntry,
+  type MigrationPlan,
+  type MigrationPlanReply,
   type MigrationReply,
   type MigrationSource,
   type MigrationStatus,
   type OrmSummary,
 } from "../types/orm";
+
+/** Sous-ensemble de `/nodefony/kernel/api/info` (miroir, frontière isomorphe). */
+interface KernelInfo {
+  environment: string;
+}
 
 /**
  * L'état des migrations de chaque base — ce qu'on cherche quand un déploiement
@@ -313,7 +325,22 @@ function Divergence({ status }: { status: MigrationStatus }) {
 
 export const Migrations = observer(() => {
   const store = useStore();
+  const notifications = useNotifications();
   const [connector, setConnector] = useState<string | null>(null);
+  const [plan, setPlan] = useState<MigrationPlan | null>(null);
+  const [chargementPlan, setChargementPlan] = useState(false);
+  const [application, setApplication] = useState(false);
+
+  // 🔴 L'environnement décide de l'EXISTENCE du bouton, pas de son état
+  // désactivé : un bouton grisé apprend qu'un geste existe là où il ne doit
+  // pas exister. La garde qui compte, elle, vit dans le produit — le plan
+  // d'administration refuse hors développement, quel que soit l'écran.
+  const infoFetcher = useCallback(
+    () => store.api.getAbsolute<KernelInfo>("/nodefony/kernel/api/info"),
+    [store],
+  );
+  const info = useResource(infoFetcher);
+  const enDeveloppement = info.data?.environment === "development";
 
   const ormsFetcher = useCallback(
     () => store.api.getAbsolute<OrmSummary[]>("/nodefony/orm/api/orms"),
@@ -353,6 +380,69 @@ export const Migrations = observer(() => {
     : null;
   const VerdictIcon = verdict?.icon ?? IconArrowsExchange;
 
+  const enAttente = (status?.sources ?? []).reduce((n, s) => n + s.pending, 0);
+
+  /** Charge ce qui S'APPLIQUERAIT, et ouvre la confirmation dessus. */
+  const ouvrirConfirmation = useCallback(async () => {
+    setChargementPlan(true);
+    try {
+      const reply = await store.api.getAbsolute<MigrationPlanReply>(
+        `/nodefony/orm/api/migrations/plan?connector=${encodeURIComponent(courant)}`,
+      );
+      if (isMigrationFailure(reply)) {
+        notifications.notify("error", reply.error.summary, {
+          title: reply.error.code,
+          source: "api",
+        });
+        return;
+      }
+      setPlan(reply);
+    } catch (e) {
+      notifications.notify(
+        "error",
+        e instanceof Error ? e.message : "plan illisible",
+        { source: "api" },
+      );
+    } finally {
+      setChargementPlan(false);
+    }
+  }, [store, courant, notifications]);
+
+  /** Applique — après confirmation, et seulement en développement. */
+  const appliquer = useCallback(async () => {
+    setApplication(true);
+    try {
+      const reply = await store.api.postAbsolute<MigrationApplyReply>(
+        `/nodefony/orm/api/migrations/apply?connector=${encodeURIComponent(courant)}`,
+        {},
+      );
+      if (isMigrationFailure(reply)) {
+        // Le refus du produit est rendu TEL QUEL — c'est lui qui fait foi, y
+        // compris quand l'écran croyait le geste permis.
+        notifications.notify("error", reply.error.summary, {
+          title: reply.error.code,
+          source: "server",
+        });
+        return;
+      }
+      notifications.notify(
+        "success",
+        `${reply.applied.length} migration(s) appliquée(s) — passage ${reply.runId}`,
+        { title: "Migrations appliquées", source: "server" },
+      );
+      setPlan(null);
+      reload();
+    } catch (e) {
+      notifications.notify(
+        "error",
+        e instanceof Error ? e.message : "application impossible",
+        { source: "api" },
+      );
+    } finally {
+      setApplication(false);
+    }
+  }, [store, courant, notifications, reload]);
+
   return (
     <PageLayout
       title="Migrations"
@@ -378,6 +468,16 @@ export const Migrations = observer(() => {
             w={240}
             allowDeselect={false}
           />
+          {enDeveloppement && enAttente > 0 && (
+            <Button
+              color="orange"
+              leftSection={<IconPlayerPlay size={16} />}
+              loading={chargementPlan}
+              onClick={() => void ouvrirConfirmation()}
+            >
+              Appliquer ({enAttente})
+            </Button>
+          )}
           <Button
             variant="light"
             leftSection={<IconRefresh size={16} />}
@@ -522,6 +622,63 @@ export const Migrations = observer(() => {
           )}
         </Stack>
       </DataState>
+      <Modal
+        opened={plan !== null}
+        onClose={() => setPlan(null)}
+        title="Appliquer les migrations en attente"
+        size="lg"
+      >
+        {plan !== null && (
+          <Stack gap="md">
+            <Alert
+              color="orange"
+              variant="light"
+              icon={<IconAlertTriangle size={18} />}
+            >
+              Ce geste modifie le schéma de « {plan.connector} ». Il n'existe
+              qu'en développement : en production, les migrations s'appliquent
+              dans un travail d'orchestrateur qui se termine AVANT que le
+              premier nouvel exemplaire ne démarre.
+            </Alert>
+            {/* On ne confirme pas une modification de schéma sur une promesse :
+                les instructions qui vont être exécutées sont montrées. */}
+            <ScrollArea.Autosize mah={360}>
+              <Stack gap="sm">
+                {plan.pending.map((m) => (
+                  <div key={`${m.source}:${m.tag}`}>
+                    <Group gap="xs" mb={4}>
+                      <Badge variant="light">{m.source}</Badge>
+                      <Code>{m.tag}</Code>
+                    </Group>
+                    <Code block style={{ whiteSpace: "pre-wrap" }}>
+                      {m.statements.join(";\n\n")}
+                    </Code>
+                  </div>
+                ))}
+              </Stack>
+            </ScrollArea.Autosize>
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setPlan(null)}>
+                Annuler
+              </Button>
+              <Button
+                color="orange"
+                loading={application}
+                leftSection={
+                  application ? (
+                    <Loader size={14} />
+                  ) : (
+                    <IconPlayerPlay size={16} />
+                  )
+                }
+                onClick={() => void appliquer()}
+              >
+                Appliquer {plan.pending.length} migration(s)
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </PageLayout>
   );
 });

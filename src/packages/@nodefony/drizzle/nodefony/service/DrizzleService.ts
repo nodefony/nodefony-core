@@ -210,6 +210,27 @@ class DrizzleService extends Service {
         );
         return result.ok ? result.report : result.failure;
       },
+      migrationPlan: async () => {
+        const { migrationPlanFor } = await import("../src/migrator/status");
+        const result = await migrationPlanFor(
+          name,
+          this.#config(),
+          this.kernel as Kernel | null,
+        );
+        return result.ok ? result.plan : result.failure;
+      },
+      // 🔴 Le refus hors développement vit dans `applyMigrationsFor`, pas ici
+      // et surtout pas dans l'écran : une garde posée dans une interface ne
+      // protège que celui qui la regarde.
+      applyMigrations: async () => {
+        const { applyMigrationsFor } = await import("../src/migrator/status");
+        const result = await applyMigrationsFor(
+          name,
+          this.#config(),
+          this.kernel as Kernel | null,
+        );
+        return result.ok ? result.run : result.failure;
+      },
     });
     const target = dialect === "sqlite" ? filename : redactUrl(cfg.url);
     try {

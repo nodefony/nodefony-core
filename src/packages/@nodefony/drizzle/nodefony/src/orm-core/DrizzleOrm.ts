@@ -30,7 +30,11 @@ import type {
   PoolConnection as MysqlPoolConnection,
 } from "mysql2/promise";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
-import type { IOrmMigrationReply } from "@nodefony/orm-core";
+import type {
+  IOrmMigrationApplyReply,
+  IOrmMigrationPlanReply,
+  IOrmMigrationReply,
+} from "@nodefony/orm-core";
 import { notConfigured } from "../migrator/refusals";
 import { failureFrom } from "../migrator/status";
 import { schemaReader, toDollarParams } from "../migrator/catalog";
@@ -122,6 +126,12 @@ export interface DrizzleOrmOptions {
    * ORM construit à la main dans un banc.
    */
   migrationStatus?: () => Promise<IOrmMigrationReply>;
+
+  /** Qui sait dire ce qui S'APPLIQUERAIT — même origine que `migrationStatus`. */
+  migrationPlan?: () => Promise<IOrmMigrationPlanReply>;
+
+  /** Qui sait APPLIQUER — refuse hors développement, en le disant. */
+  applyMigrations?: () => Promise<IOrmMigrationApplyReply>;
 }
 
 /**
@@ -285,6 +295,13 @@ export class DrizzleOrm extends Orm {
   /** Injecté par le service — cf {@link DrizzleOrmOptions.migrationStatus}. */
   readonly #migrationStatus: (() => Promise<IOrmMigrationReply>) | undefined;
 
+  /** Injecté par le service — cf {@link DrizzleOrmOptions.migrationPlan}. */
+  readonly #migrationPlan: (() => Promise<IOrmMigrationPlanReply>) | undefined;
+
+  /** Injecté par le service — cf {@link DrizzleOrmOptions.applyMigrations}. */
+  readonly #applyMigrations:
+    (() => Promise<IOrmMigrationApplyReply>) | undefined;
+
   /**
    * @param name - clé unique de l'ORM dans le `ormRegistry` (ex. `"db_test"`).
    * @param options - options de connexion (`dialect`, `filename` sqlite, `url` pg).
@@ -296,6 +313,8 @@ export class DrizzleOrm extends Orm {
     this.#filename = options.filename ?? ":memory:";
     this.#url = options.url;
     this.#migrationStatus = options.migrationStatus;
+    this.#migrationPlan = options.migrationPlan;
+    this.#applyMigrations = options.applyMigrations;
   }
 
   /** Dialecte SQL de ce connecteur. */
@@ -1405,6 +1424,31 @@ export class DrizzleOrm extends Orm {
   async migrationStatus(): Promise<IOrmMigrationReply> {
     if (this.#migrationStatus) {
       return this.#migrationStatus();
+    }
+    return failureFrom(this.name, notConfigured(this.name, this.#dialect));
+  }
+
+  /**
+   * Ce qui S'APPLIQUERAIT, avec son SQL — lecture seule.
+   *
+   * @returns le plan, ou l'empêchement.
+   */
+  async migrationPlan(): Promise<IOrmMigrationPlanReply> {
+    if (this.#migrationPlan) {
+      return this.#migrationPlan();
+    }
+    return failureFrom(this.name, notConfigured(this.name, this.#dialect));
+  }
+
+  /**
+   * Applique les migrations en attente — **développement seulement**, le
+   * lecteur injecté refuse ailleurs en le disant.
+   *
+   * @returns ce qui a été appliqué, ou l'empêchement.
+   */
+  async applyMigrations(): Promise<IOrmMigrationApplyReply> {
+    if (this.#applyMigrations) {
+      return this.#applyMigrations();
     }
     return failureFrom(this.name, notConfigured(this.name, this.#dialect));
   }

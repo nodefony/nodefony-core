@@ -450,6 +450,32 @@ nodefony orm:migrate:status --json | jq -r '.verdict, .nextActions[0].command'
 Chaque sortie `--json` porte `formatVersion: 1` au premier niveau. Ajouter un champ est une version
 mineure ; en retirer ou en renommer un est interdit sur la série majeure.
 
+## Le même état, dans la console d'administration
+
+Ce que la ligne de commande rend, la console le montre — page **Migrations**
+(`/nodefony/migrate`) : le verdict, l'identité du connecteur, les gestes à copier, et une ligne par
+migration avec sa date, sa durée, son auteur, son déploiement et le motif de son échec.
+
+Trois points du plan d'administration la servent, tous derrière le rôle d'administration :
+
+| Point                                                | Ce qu'il rend                                                       |
+| ---------------------------------------------------- | ------------------------------------------------------------------- |
+| `GET /nodefony/orm/api/migrations?connector=`        | **exactement** la charge utile de `orm:migrate:status --json`       |
+| `GET /nodefony/orm/api/migrations/plan?connector=`   | ce qui S'APPLIQUERAIT, avec le SQL de chaque migration en attente   |
+| `POST /nodefony/orm/api/migrations/apply?connector=` | applique — **refusé hors développement**, en disant par quoi passer |
+
+Trois choses valent d'être dites, parce qu'elles décident de ce que vous pouvez croire à l'écran :
+
+- **L'écran ne calcule rien.** Il affiche l'objet que le plan lui rend, et cet objet est celui de la
+  commande — vérifié par égalité. Deux calculs de la même question finiraient par se contredire, et
+  c'est le jour d'un incident qu'on s'en apercevrait.
+- **Appliquer depuis la console n'existe qu'en développement**, et le refus vient du produit, pas de
+  l'interface : un appel direct au plan est refusé de la même façon. En production, les migrations
+  passent par un travail d'orchestrateur qui se termine AVANT que le premier nouvel exemplaire ne
+  démarre.
+- **Un connecteur qui ne porte pas de migrations reçoit une réponse qui le NOMME** (`501`), jamais
+  une page vide. Un écran qui se tait quand la donnée manque ressemble à « tout va bien ».
+
 ## ⚠️ Pièges
 
 - **Un fichier de migration déjà appliqué ne se modifie pas.** L'empreinte le détecte et le verdict

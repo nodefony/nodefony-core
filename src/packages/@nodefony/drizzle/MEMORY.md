@@ -138,7 +138,12 @@ query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit 
 - **Une base sans tables n'est pas une panne** : le rechargement de l'instantané des webhooks au
   boot d'`orm:migrate` reconnaît le cas par `schemaMismatchOf` (`@nodefony/http`) et journalise en
   INFO au lieu de cracher la pile. Ne JAMAIS écrire un second détecteur ici.
-- **Reste** : l'écran Studio des migrations (#100).
+- **Plan d'administration** : `IOrm.migrationStatus?/migrationPlan?/applyMigrations?` (capacités
+  OPTIONNELLES du contrat orm-core) → `GET /nodefony/orm/api/migrations{,/plan}` + `POST
+.../apply`. Producteur unique : `migrator/status.ts` (`migrationStatusFor`, `migrationPlanFor`,
+  `applyMigrationsFor`) — la CLI et l'écran publient le MÊME objet. `applyMigrationsFor` REFUSE
+  hors développement (`NF_MIGRATE_NOT_DEVELOPMENT`) : la garde vit dans le produit, pas dans
+  l'écran. La prose des refus de résolution vit dans `migrator/refusals.ts`, lue par les deux.
 
 ## Migrations — écrire celles de l'APPLICATION (`orm:generate`)
 

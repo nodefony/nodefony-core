@@ -121,6 +121,11 @@ export type {
   IOrmMigrationStatus,
   IOrmMigrationFailure,
   IOrmMigrationReply,
+  IOrmPendingMigration,
+  IOrmMigrationPlan,
+  IOrmMigrationPlanReply,
+  IOrmMigrationApplied,
+  IOrmMigrationApplyReply,
 } from "./nodefony/interfaces/IOrmMigrations";
 export { isMigrationFailure } from "./nodefony/interfaces/IOrmMigrations";
 

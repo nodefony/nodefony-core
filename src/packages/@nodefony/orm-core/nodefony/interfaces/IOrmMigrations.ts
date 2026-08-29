@@ -100,8 +100,47 @@ export interface IOrmMigrationFailure {
   };
 }
 
+/** Une migration en attente, avec le SQL qu'elle exécuterait. */
+export interface IOrmPendingMigration {
+  /** Origine — le framework, l'application, un module. */
+  source: string;
+  /** Identité immuable une fois publiée. */
+  tag: string;
+  /** Les instructions, dans l'ordre d'exécution. */
+  statements: string[];
+}
+
+/**
+ * Ce qui S'APPLIQUERAIT — le plan, avec son SQL.
+ *
+ * Sert la confirmation avant application : un geste qui modifie un schéma ne
+ * se confirme pas sur une promesse, il se confirme sur ce qu'il va exécuter.
+ */
+export interface IOrmMigrationPlan {
+  formatVersion: number;
+  connector: string;
+  pending: IOrmPendingMigration[];
+}
+
+/** Ce qu'une application a fait — ou l'empêchement qui l'a arrêtée. */
+export interface IOrmMigrationApplied {
+  formatVersion: number;
+  connector: string;
+  /** Identifiant du passage — groupe les migrations d'un même déploiement. */
+  runId: string;
+  /** Ce qui a été appliqué, dans l'ordre. */
+  applied: { source: string; tag: string; executionMs: number }[];
+}
+
 /** L'état, ou l'empêchement — jamais les deux. */
 export type IOrmMigrationReply = IOrmMigrationStatus | IOrmMigrationFailure;
+
+/** Le plan, ou l'empêchement. */
+export type IOrmMigrationPlanReply = IOrmMigrationPlan | IOrmMigrationFailure;
+
+/** Le compte rendu d'application, ou l'empêchement. */
+export type IOrmMigrationApplyReply =
+  IOrmMigrationApplied | IOrmMigrationFailure;
 
 /**
  * Y a-t-il un empêchement plutôt qu'un état ?
@@ -110,7 +149,7 @@ export type IOrmMigrationReply = IOrmMigrationStatus | IOrmMigrationFailure;
  * @returns `true` si c'est un empêchement.
  */
 export function isMigrationFailure(
-  reply: IOrmMigrationReply,
+  reply: IOrmMigrationReply | IOrmMigrationPlanReply | IOrmMigrationApplyReply,
 ): reply is IOrmMigrationFailure {
   return "error" in reply;
 }

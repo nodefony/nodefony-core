@@ -233,7 +233,35 @@ export type MigrationReply = MigrationStatus | MigrationFailure;
  * @returns `true` si c'est un empêchement.
  */
 export function isMigrationFailure(
-  reply: MigrationReply,
+  reply: MigrationReply | MigrationPlanReply | MigrationApplyReply,
 ): reply is MigrationFailure {
   return "error" in reply;
 }
+
+/** Une migration en attente, avec le SQL qu'elle exécuterait. */
+export interface PendingMigration {
+  source: string;
+  tag: string;
+  statements: string[];
+}
+
+/** Ce qui S'APPLIQUERAIT (data plane `migrations/plan`). */
+export interface MigrationPlan {
+  formatVersion: number;
+  connector: string;
+  pending: PendingMigration[];
+}
+
+/** Ce qu'une application a fait (data plane `migrations/apply`). */
+export interface MigrationApplied {
+  formatVersion: number;
+  connector: string;
+  runId: string;
+  applied: { source: string; tag: string; executionMs: number }[];
+}
+
+/** Le plan, ou l'empêchement. */
+export type MigrationPlanReply = MigrationPlan | MigrationFailure;
+
+/** Le compte rendu, ou l'empêchement. */
+export type MigrationApplyReply = MigrationApplied | MigrationFailure;

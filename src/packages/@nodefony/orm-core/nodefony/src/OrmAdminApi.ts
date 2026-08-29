@@ -15,7 +15,8 @@ import type {
 } from "../interfaces/IOrmGraph";
 import type { IOrmFlowReport } from "../interfaces/IOrmFlow";
 import type {
-  IOrmMigrationFailure,
+  IOrmMigrationApplyReply,
+  IOrmMigrationPlanReply,
   IOrmMigrationReply,
 } from "../interfaces/IOrmMigrations";
 import { ormRegistry } from "./OrmRegistry";
@@ -59,6 +60,70 @@ function vendorOf(orm: unknown): string {
   const cls = (orm as { constructor?: { name?: string } })?.constructor?.name;
   if (!cls) return "";
   return cls.replace(/Orm$/, "").toLowerCase();
+}
+
+/**
+ * Résout un connecteur et lui demande UNE de ses capacités de migration.
+ *
+ * Les trois points de migration posent la même question dans le même ordre —
+ * le connecteur existe-t-il, porte-t-il la capacité, que répond-elle — et
+ * trois copies de cette suite auraient fini par répondre trois choses
+ * différentes au même cas.
+ *
+ * @param request - requête admin (`?connector=`, défaut « default »).
+ * @param capability - nom de la méthode optionnelle demandée à l'ORM.
+ * @param absente - ce qu'on dit quand l'ORM ne la porte pas.
+ * @returns la réponse de l'ORM, ou une réponse d'administration explicite.
+ */
+async function migrationCapability(
+  request: IAdminRequest,
+  capability: "migrationStatus" | "migrationPlan" | "applyMigrations",
+  absente: string,
+): Promise<unknown> {
+  const connector = oneParam(request, "connector") ?? "default";
+  if (!ormRegistry.has(connector)) {
+    const connus = ormRegistry.list().join(", ");
+    return {
+      status: 404,
+      body: {
+        error: `aucun connecteur « ${connector} » — ceux que cette application déclare : ${connus || "aucun"}`,
+      },
+    };
+  }
+  const orm = ormRegistry.get(connector);
+  // Signature commune des trois capacités du point de vue de CE relais : une
+  // fonction sans argument dont on ne relit pas la forme — c'est le contrat
+  // `IOrm` qui la type, pas ce passe-plat, qui la rendrait sinon trois fois.
+  const fn = orm[capability] as
+    | (() => Promise<
+        IOrmMigrationReply | IOrmMigrationPlanReply | IOrmMigrationApplyReply
+      >)
+    | undefined;
+  // 🔴 L'ABSENCE de la capacité EST la réponse, et elle se NOMME.
+  //
+  // Un ORM qui ne migre pas par fichiers versionnés n'est pas en panne : sa
+  // base résorbe l'écart autrement. Répondre une page vide laisserait croire
+  // « rien à migrer, tout va bien » — un écran qui ment quand la donnée manque
+  // est pire qu'un écran absent.
+  if (typeof fn !== "function") {
+    return {
+      status: 501,
+      body: {
+        formatVersion: 1,
+        connector,
+        error: {
+          code: "NF_MIGRATE_NO_MIGRATIONS",
+          summary: `Le connecteur « ${connector} » est porté par ${vendorOf(orm) || orm.name}, dont la base ne se met pas à jour par des migrations de schéma.`,
+          meaning: `${absente} Les migrations par fichiers versionnés sont une mécanique SQL ; les autres bases résorbent l'écart entre le code et le schéma autrement.`,
+          nextActions: [],
+        },
+      },
+    };
+  }
+  // Un empêchement se rend en 200 : c'est une RÉPONSE, pas une panne du plan
+  // d'administration — l'écran doit pouvoir l'afficher tel quel, avec son
+  // code, sa phrase et ses gestes.
+  return fn.call(orm);
 }
 
 /** Résumé des ORM enregistrés (statut connexion + nombre d'entités). */
@@ -499,51 +564,35 @@ export function createOrmAdminApi(): IAdminApi {
       path: "migrations",
       summary:
         "État des migrations d'un connecteur (?connector=, défaut « default ») — MÊME objet que `orm:migrate:status --json`. 501 si l'ORM ne porte pas de migrations, 404 si le connecteur n'existe pas.",
-      handler: async (
-        request,
-      ): Promise<
-        | IOrmMigrationReply
-        | IAdminResponse<IOrmMigrationFailure | { error: string }>
-      > => {
-        const connector = oneParam(request, "connector") ?? "default";
-        if (!ormRegistry.has(connector)) {
-          const connus = ormRegistry.list().join(", ");
-          return {
-            status: 404,
-            body: {
-              error: `aucun connecteur « ${connector} » — ceux que cette application déclare : ${connus || "aucun"}`,
-            },
-          };
-        }
-        const orm = ormRegistry.get(connector);
-        // 🔴 L'ABSENCE de la capacité EST la réponse, et elle se NOMME.
-        //
-        // Un ORM qui ne migre pas par fichiers versionnés n'est pas en panne :
-        // sa base résorbe l'écart autrement. Répondre une page vide laisserait
-        // croire « rien à migrer, tout va bien » — un écran qui ment quand la
-        // donnée manque est pire qu'un écran absent.
-        if (typeof orm.migrationStatus !== "function") {
-          return {
-            status: 501,
-            body: {
-              formatVersion: 1,
-              connector,
-              error: {
-                code: "NF_MIGRATE_NO_MIGRATIONS",
-                summary: `Le connecteur « ${connector} » est porté par ${vendorOf(orm) || orm.name}, dont la base ne se met pas à jour par des migrations de schéma.`,
-                meaning:
-                  "Les migrations par fichiers versionnés sont une mécanique SQL. Les autres bases résorbent l'écart entre le code et le schéma autrement — la question est la même, la réponse n'est pas la même.",
-                nextActions: [],
-              },
-            },
-          };
-        }
-        const reply = await orm.migrationStatus();
-        // Un empêchement se rend en 200 : c'est une RÉPONSE, pas une panne du
-        // plan d'administration — l'écran doit pouvoir l'afficher tel quel,
-        // avec son code, sa phrase et ses gestes.
-        return reply;
-      },
+      handler: async (request) =>
+        migrationCapability(
+          request,
+          "migrationStatus",
+          "Ce connecteur ne suit pas de migrations.",
+        ),
+    },
+    {
+      path: "migrations/plan",
+      summary:
+        "Ce qui S'APPLIQUERAIT, avec son SQL (?connector=) — lecture seule, sert la confirmation avant application.",
+      handler: async (request) =>
+        migrationCapability(
+          request,
+          "migrationPlan",
+          "Ce connecteur ne sait pas dire ce qui s'appliquerait.",
+        ),
+    },
+    {
+      path: "migrations/apply",
+      method: "POST",
+      summary:
+        "Applique les migrations en attente (?connector=) — DÉVELOPPEMENT seulement : le pilote refuse ailleurs, en le disant. En production, les migrations passent par un travail d'orchestrateur.",
+      handler: async (request) =>
+        migrationCapability(
+          request,
+          "applyMigrations",
+          "Ce connecteur ne sait pas appliquer de migrations.",
+        ),
     },
     {
       path: "connection/health",

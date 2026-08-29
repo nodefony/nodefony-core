@@ -326,7 +326,7 @@ ni d'enregistrement app top-level) — LES 8 BRIQUES sur LES 3 DIALECTES** : `id
   (`repository-contract-{sqlite,postgres,mysql}*.test.ts`) — un écart de comportement = un bug
   du framework, par construction.
 
-**Restant** : l'écran Studio des migrations (#100). Le reste est livré — génération (framework ET application), applicateur sous verrou, les six commandes `orm:generate`/`orm:migrate*` + `orm:reset`, la config Zod (`ddl` par connecteur, bloc `migrations`), la sonde de disponibilité, le garde destructif, le rattrapage de schéma en développement et le verdict `divergent`. Page utilisateur : [`docs/migrations.md`](docs/migrations.md).
+**Livré de bout en bout** — génération (framework ET application), applicateur sous verrou, les six commandes `orm:generate`/`orm:migrate*` + `orm:reset`, la config Zod (`ddl` par connecteur, bloc `migrations`), la sonde de disponibilité, le garde destructif, le rattrapage de schéma en développement, le verdict `divergent`, et l'écran de la console d'administration (`/nodefony/migrate`) servi par trois points du plan ORM. Page utilisateur : [`docs/migrations.md`](docs/migrations.md).
 
 ## Les stores que ce module fournit au framework
 
@@ -348,6 +348,7 @@ Tous auto-enregistrés, tous portés sur les **3 dialectes** (cf `*_PORTED` dans
 RETURNING) + typage cross-dialecte (`DrizzleTable`/`execTable`) + OFFSET-sans-LIMIT routé. Les 8
 briques framework sont portées et prouvées sur PostgreSQL et MySQL/MariaDB. Les fichiers de
 migration sont générés, versionnés, publiés et prouvés équivalents au DDL dérivé sur les 3
-dialectes, et les six commandes les écrivent et les posent sous verrou. **Ce qui manque : l'écran
-Studio (#100).** Détail : sections « Portabilité multi-dialecte » et « Migrations », page
+dialectes, et les six commandes les écrivent et les posent sous verrou. L'état se lit AUSSI depuis
+la console d'administration, qui consomme le MÊME objet que `orm:migrate:status --json` — un
+producteur, deux portes. Détail : sections « Portabilité multi-dialecte » et « Migrations », page
 utilisateur [`docs/migrations.md`](docs/migrations.md).
