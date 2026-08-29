@@ -68,6 +68,34 @@ export interface ISchemaComparison {
   missingTables: string[];
 }
 
+/**
+ * Nomme ce qui manque, en trois mots plutôt qu'en trois lignes.
+ *
+ * Un refus qui dit « la base diverge » sans dire OÙ oblige à rouvrir un client
+ * SQL — c'est-à-dire exactement le geste que ces commandes existent pour éviter.
+ *
+ * Écrite ici parce qu'elle a DEUX lecteurs, et qu'ils doivent nommer l'écart de
+ * la même façon : l'adoption d'une base existante, et le générateur quand il
+ * n'a rien à écrire. Deux formulations pour un même fait apprendraient à leurs
+ * lecteurs qu'il s'agit de deux problèmes.
+ *
+ * @param c - les écarts, tels que la comparaison les rend.
+ * @returns une énumération courte, prête à entrer dans une phrase.
+ */
+export function summarizeGap(c: ISchemaComparison): string {
+  const bouts: string[] = [];
+  if (c.missingTables.length > 0) {
+    bouts.push(`table(s) absente(s) : ${c.missingTables.join(", ")}`);
+  }
+  const colonnes = [...c.blocking, ...c.additive].map(
+    (g) => `${g.table}.${g.column}`,
+  );
+  if (colonnes.length > 0) {
+    bouts.push(`colonne(s) absente(s) : ${colonnes.join(", ")}`);
+  }
+  return bouts.join(" · ");
+}
+
 /** La base s'écarte-t-elle du code ? */
 export function hasGap(c: ISchemaComparison): boolean {
   return (

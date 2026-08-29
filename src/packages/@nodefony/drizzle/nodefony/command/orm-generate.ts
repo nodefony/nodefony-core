@@ -27,6 +27,8 @@ import {
   type IAuditRule,
 } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
+import { gapAgainstDeclared } from "../src/migrator/divergence";
+import { summarizeGap } from "../src/migrator/schemaDiff";
 import { frameworkMigrationsDir } from "../src/migrator/paths";
 import { appMigrationsDir } from "../src/migrator/resolve";
 import { createdTables, loadSources } from "../src/migrator/sources";
@@ -454,6 +456,41 @@ class OrmGenerate extends OrmMigrateCommand {
     const after = await this.#tags(outDir);
     const added = after.filter((t) => !before.includes(t));
     if (added.length === 0) {
+      // 🔴 « Rien à écrire » n'est pas « rien à faire ».
+      //
+      // Le générateur compare les entités aux FICHIERS de migration, jamais à
+      // la base. Quand l'historique ment — une migration déclarée appliquée
+      // dont le SQL n'a pas tourné —, cette phrase est FAUSSE et, pire, elle
+      // ferme la dernière porte : `orm:migrate` n'a rien en attente,
+      // `orm:migrate:status` rend 0, et le générateur affirme qu'il n'y a rien
+      // à faire. Celui qui lit ces trois réponses conclut que l'outil ne peut
+      // plus rien pour lui — et va chercher ailleurs, c'est-à-dire dans la
+      // destruction de la base. Mesuré au banc de découvrabilité, tâche 33.
+      //
+      // Le produit SAIT pourtant voir cet écart : la même brique que le verdict
+      // `divergent`, qui NOMME les tables et colonnes manquantes.
+      const ecart = await gapAgainstDeclared(connector);
+      if (ecart !== null) {
+        this.fail(
+          connector,
+          "NF_GENERATE_DATABASE_BEHIND",
+          `Rien à écrire, et pourtant la base ne porte pas le schéma déclaré : ${summarizeGap(ecart)}.`,
+          "Les fichiers de migration décrivent déjà ce que le code déclare — il n'y a donc rien de " +
+            "neuf à générer. Mais la base, elle, ne l'a pas reçu : son historique affirme des " +
+            "migrations qu'elle n'a pas exécutées. C'est l'HISTORIQUE qu'il faut reprendre, pas le " +
+            "schéma — et surtout pas la base, qu'il ne sert à rien de refaire. Regarde ce que " +
+            "l'historique prétend appliqué, et rejoue ce qui ne l'a jamais été.",
+          [
+            action(
+              `nodefony orm:migrate:status --connector ${connector} --json`,
+            ),
+            action(`nodefony orm:migrate:repair --connector ${connector}`),
+          ],
+          opts.json,
+          EXIT.actionRequired,
+        );
+        return this;
+      }
       return this.#emit(
         {
           formatVersion: MIGRATION_FORMAT_VERSION,

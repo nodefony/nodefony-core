@@ -52,7 +52,9 @@ export type CommandFailureCode =
   /** Un fichier de l'application fournit une table qui appartient au framework. */
   | "NF_GENERATE_FRAMEWORK_TABLE"
   /** La migration produite DÉTRUIT des données, et personne ne l'a dit. */
-  | "NF_GENERATE_DESTRUCTIVE";
+  | "NF_GENERATE_DESTRUCTIVE"
+  /** Rien à écrire, et pourtant la base ne porte pas le schéma déclaré. */
+  | "NF_GENERATE_DATABASE_BEHIND";
 
 /** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
 export interface ICommandFailure {

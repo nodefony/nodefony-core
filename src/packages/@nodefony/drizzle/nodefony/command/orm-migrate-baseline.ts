@@ -7,30 +7,7 @@ import {
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 import { EXIT } from "../src/migrator/explain";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
-import type { ISchemaComparison } from "../src/migrator/schemaDiff";
-
-/**
- * Nomme ce qui manque, en trois mots plutôt qu'en trois lignes.
- *
- * Un refus qui dit « la base diverge » sans dire OÙ oblige à rouvrir un client
- * SQL — c'est-à-dire exactement le geste que ces commandes existent pour éviter.
- *
- * @param e - les écarts, tels que la comparaison les rend.
- * @returns une énumération courte, prête à entrer dans une phrase.
- */
-function nommerEcart(e: ISchemaComparison): string {
-  const bouts: string[] = [];
-  if (e.missingTables.length > 0) {
-    bouts.push(`table(s) absente(s) : ${e.missingTables.join(", ")}`);
-  }
-  const colonnes = [...e.blocking, ...e.additive].map(
-    (g) => `${g.table}.${g.column}`,
-  );
-  if (colonnes.length > 0) {
-    bouts.push(`colonne(s) absente(s) : ${colonnes.join(", ")}`);
-  }
-  return bouts.join(" · ");
-}
+import { summarizeGap } from "../src/migrator/schemaDiff";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -145,7 +122,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
           this.fail(
             resolution.connector,
             "NF_MIGRATE_BASELINE_AMBIGUOUS",
-            `La base ne correspond pas au schéma déclaré : ${nommerEcart(ecart)}. Rien n'a été inscrit.`,
+            `La base ne correspond pas au schéma déclaré : ${summarizeGap(ecart)}. Rien n'a été inscrit.`,
             "Adopter reviendrait à déclarer appliquées des migrations que cette base n'a jamais " +
               "reçues — une affirmation fausse gravée dans l'historique, qu'aucune commande ne " +
               "peut ensuite rattraper. Dis jusqu'où la base suit avec `--up-to <tag>` : les " +
