@@ -947,8 +947,35 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     return SysExit.OK;
   }
   if (type !== "app") {
-    // In-project : ni install, ni git — le projet existe. En dev, le
-    // superviseur rebuild/relance tout seul au prochain tick de watch.
+    // Une dépendance AJOUTÉE au manifeste se pose aussi dans `node_modules`.
+    //
+    // Déclarer sans installer est un demi-geste, et il se paie tout de suite :
+    // `create entity` ajoute l'outil qui ÉCRIT les migrations, puis le premier
+    // `nodefony orm:generate` échoue en disant qu'il manque — sur un paquet que
+    // le `package.json` annonce. Mesuré au banc de découvrabilité : trois
+    // agents sur trois l'ont installé à la main. Le générateur sait le faire,
+    // c'est donc à lui de le faire.
+    //
+    // Non bloquant, comme le reste de la post-génération : le code est écrit,
+    // un réseau absent ne doit pas transformer une génération réussie en échec.
+    const depsAjoutees = result.depsAdded ?? [];
+    if (parsed.install && depsAjoutees.length > 0) {
+      const racine = findProjectRoot(process.cwd());
+      const pose = racine !== null && runInstall(racine);
+      process.stdout.write(
+        pose
+          ? `\n✔ dépendance(s) installée(s) : ${depsAjoutees.join(", ")}\n`
+          : `\n⚠ npm install a échoué — relance-le à la racine du projet ` +
+              `(${depsAjoutees.join(", ")} est déclaré mais absent de node_modules)\n`,
+      );
+    } else if (depsAjoutees.length > 0) {
+      process.stdout.write(
+        `\n⚠ ${depsAjoutees.join(", ")} ajouté(s) au package.json et NON installé(s) ` +
+          `(--no-install) → lance \`npm install\`\n`,
+      );
+    }
+    // In-project : pas de git — le projet existe. En dev, le superviseur
+    // rebuild/relance tout seul au prochain tick de watch.
     process.stdout.write(
       `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
         result.files.map((f) => `  ${f}`).join("\n") +

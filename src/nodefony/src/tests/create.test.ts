@@ -4344,6 +4344,60 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(src, "author: `author-${n}`");
     });
 
+    it("l'application à ORM porte l'outil qui ÉCRIT les migrations", () => {
+      // `nodefony orm:generate` est le geste que les documents de l'application
+      // prescrivent juste après une entité modifiée — et il pilote un outil
+      // TIERS. Déclaré seulement au moment où `create entity` l'ajoute, le
+      // paquet n'est pas pour autant INSTALLÉ : la commande échoue alors du
+      // premier coup sur une application fraîche. Mesuré au banc de
+      // découvrabilité : trois agents sur trois l'ont posé à la main.
+      //
+      // Il n'a rien à faire dans les dépendances d'exécution — il ÉCRIT les
+      // migrations, il ne les applique pas —, ni dans une application sans ORM.
+      // Dans les DEUX presets, sans condition : `minimal` est fait pour
+      // GRANDIR, et le jour où il gagne l'ORM le mur reviendrait. Le coût est
+      // une dépendance de développement inutilisée ; le prix de l'autre choix
+      // est un refus au pire moment.
+      for (const preset of ["complete", "minimal"]) {
+        const dest = app(`kitdep-${preset}`, preset);
+        const pkg = readJson(path.join(dest, "package.json"));
+        assert.property(
+          pkg["devDependencies"],
+          "drizzle-kit",
+          `${preset} : l'outil qui écrit les migrations manque`,
+        );
+        // Il ÉCRIT les migrations, il ne les applique pas : rien à faire dans
+        // les dépendances d'exécution, qui partent dans l'image de production.
+        assert.notProperty(pkg["dependencies"] ?? {}, "drizzle-kit");
+      }
+    });
+
+    it("une dépendance ajoutée au manifeste est RAPPORTÉE, pas seulement écrite", () => {
+      // Le fait remonte dans le résultat, et c'est ce qui permet à la ligne de
+      // commande d'INSTALLER. Tant qu'il ne vivait que dans une note en
+      // français, le générateur déclarait un paquet que `node_modules` n'avait
+      // pas — et la commande suivante échouait sur lui.
+      // Le cas RÉEL que la garde du générateur couvre : une application créée
+      // avant que le gabarit ne déclare la dépendance — ou installée sans elle.
+      const dest = app("depsrap");
+      const manifeste = path.join(dest, "package.json");
+      const pkg = readJson(manifeste);
+      delete pkg["dependencies"]["drizzle-orm"];
+      writeFileSync(manifeste, `${JSON.stringify(pkg, null, 2)}\n`);
+
+      const res = entity(dest, { name: "Ticket", fields: "label:string!" });
+      assert.includeMembers(
+        res.depsAdded ?? [],
+        ["drizzle-orm"],
+        "l'entité importe drizzle-orm en direct : son ajout doit être rapporté",
+      );
+      assert.property(
+        readJson(manifeste)["dependencies"],
+        "drizzle-orm",
+        "la garde a rapporté un ajout qu'elle n'a pas écrit",
+      );
+    });
+
     it("la CI générée reste un YAML VALIDE, heredoc compris", () => {
       // Le défaut que ce cas ferme, vu sur l'artefact rendu : l'étape qui crée
       // les bases de test de MySQL porte un heredoc, dont le délimiteur de fin

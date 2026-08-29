@@ -105,6 +105,15 @@ export interface IScaffoldResult {
   /** Points d'entrée utiles du scaffold (routes, canaux…) — affichés tels quels. */
   notes?: string[];
   /**
+   * Dépendances AJOUTÉES au `package.json` du projet par cette génération.
+   *
+   * Le fait remonte plutôt que de rester dans une note en français : c'est lui
+   * qui décide s'il faut installer. Déclarer sans installer est un demi-geste —
+   * la commande suivante échoue alors sur un paquet que le manifeste annonce,
+   * et l'utilisateur répare à la main ce que le générateur savait faire.
+   */
+  depsAdded?: string[];
+  /**
    * Écritures PRÉVUES, avec l'ancien contenu quand il y en a un — présent
    * uniquement en dry-run (rien n'a touché le disque).
    */
@@ -2922,6 +2931,7 @@ function runEntityScaffold(
   // à la racine de l'app) — compile jusqu'ici puis échoue sur un import
   // introuvable, loin de la cause. On la déclare, et on dit qu'il faut installer.
   const ormRuntimeNote: string[] = [];
+  const depsAdded: string[] = [];
   {
     const rootManifestPath = path.join(projectRoot, "package.json");
     let rootManifest: Record<string, Record<string, string>> | null = null;
@@ -2940,9 +2950,10 @@ function runEntityScaffold(
       rootManifest[section] ??= {};
       (rootManifest[section] as Record<string, string>)[dep] =
         SCAFFOLD_VERSIONS[dep];
+      depsAdded.push(dep);
       ormRuntimeNote.push(
         `dépendance manquante ajoutée au package.json : ${dep}@${SCAFFOLD_VERSIONS[dep]} ` +
-          `(${why}) → lance \`npm install\` avant de compiler`,
+          `(${why})`,
       );
     };
     ensure("dependencies", "drizzle-orm", "l'entité l'importe en direct");
@@ -3353,7 +3364,13 @@ function runEntityScaffold(
     notes.push("controller non généré (--no-controller)");
   }
 
-  return { dest: target.dir, files: written.sort(), linked: [], notes };
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes,
+    depsAdded,
+  };
 }
 
 /**

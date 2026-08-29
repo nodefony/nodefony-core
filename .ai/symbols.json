@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T21:37:52.133Z",
+  "generated": "2026-08-29T22:31:09.254Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 783,
-    "symbols": 3518,
-    "classes": 380,
+    "symbols": 3520,
+    "classes": 381,
     "interfaces": 978,
     "types": 423,
     "enums": 4,
-    "functions": 1384,
+    "functions": 1385,
     "constants": 349
   },
   "symbols": {
@@ -19745,6 +19745,17 @@
       "module": "@nodefony/drizzle",
       "description": "Rang de la source application : dernière appliquée, toujours. Les entités d'une application peuvent référencer les tables du framework et celles des modules ; l'inverse n'arrive jamais."
     },
+    "MigrationToolError": {
+      "name": "MigrationToolError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur portant un {@link IResolutionRefusal} déjà composé. Elle existe pour que la CAUSE porte son propre remède jusqu'à la sortie de la commande : reconnaître une cause au texte de son message ser…"
+    },
     "ICommandFailure": {
       "name": "ICommandFailure",
       "kind": "interface",
@@ -19770,6 +19781,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Codes d'arrêt propres à la ligne de commande (l'applicateur a les siens)."
+    },
+    "outilDeGenerationAbsent": {
+      "name": "outilDeGenerationAbsent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'outil qui ÉCRIT les migrations n'est pas installé. Refus À PART, et c'est tout son intérêt : sans lui, cette cause tombait dans le fourre-tout des commandes de migration, qui habille toute except…"
     },
     "moduleAbsent": {
       "name": "moduleAbsent",
@@ -24380,6 +24399,7 @@
         "RagError",
         "VectorError",
         "DevkitError",
+        "MigrationToolError",
         "MigrationVerdictError",
         "FrontendError",
         "RealtimeError"
@@ -29950,6 +29970,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
+      "MigrationToolError": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
       "IMigrationAction": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
@@ -32518,6 +32542,9 @@
       ],
       "ISchemaGap": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
+      ],
+      "outilDeGenerationAbsent": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "knownConnectors": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"

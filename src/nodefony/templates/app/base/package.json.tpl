@@ -57,6 +57,7 @@
   "devDependencies": {
     "@nodefony/devkit": "^<%= it.nodefonyVersion %>",
     "@types/node": "<%= it.pkg["@types/node"] %>",
+    "drizzle-kit": "<%= it.pkg["drizzle-kit"] %>",
     "@typescript/native-preview": "<%= it.pkg["@typescript/native-preview"] %>",
     "oxlint": "<%= it.pkg["oxlint"] %>",
     "prettier": "<%= it.pkg["prettier"] %>",
