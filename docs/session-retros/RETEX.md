@@ -45,6 +45,14 @@
 
 ## 🤖 Un agent LIT l'interdit et le transgresse quand même — il manque le GESTE de remplacement
 
+- [1× — 08-30] **Le produit ne laissait aucun chemin, une case plus loin.** Tâche 33 rejouée après
+  les correctifs de la veille : 1 PASS / 3, et les trois runs suivent la MÊME route. `orm:generate`
+  sur une base déjà en place produit un `CREATE TABLE` complet (l'outil compare le code à son propre
+  journal, jamais à la base) ; `baseline` adopte cette migration jamais exécutée et déclare « à
+  jour » alors que la colonne manque. Reste alors zéro geste : **2 agents sur 3 ont édité
+  l'historique à la main** (`DELETE FROM nodefony_migrations`), **1 sur 3 a supprimé la base**, et le
+  seul run vert a réparé le produit (migration `--custom` + `meta/_journal.json` édité). L'interdit
+  tient tant qu'un chemin reste ouvert — ici il n'en restait aucun. Ticket #118.
 - [1× — 08-29e] **Trois runs, trois destructions de base, avec la sonde de lecture VERTE.** La
   tâche de banc dit « la base doit pouvoir suivre, prouve-le » ; le skill dit « ne supprime pas une
   base pour repartir propre ». L'agent a lu le skill (sonde verte 3/3), trouvé `baseline`, et s'en
@@ -111,6 +119,12 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-30] **Déclarer sans installer est un demi-geste — et c'est le user qui l'a vu.**
+  `create entity` ajoutait l'outil de migration au `package.json` et laissait l'utilisateur lancer
+  `npm install` ; la commande suivante échouait sur un paquet que le manifeste annonce (3 agents sur
+  3 l'ont posé à la main). Ma première correction ne couvrait que l'app neuve, et conditionnée au
+  preset. Deux questions du user ont élargi les deux bords : « pourquoi pas tout le temps ? » et
+  « quel intérêt de le mettre au générateur si l'user le fait à la main ? ».
 - [1× — 08-29d] **Le défaut par défaut était justifié par un cas, et aveugle à l'autre — le commentaire l'expliquait très bien.** `migrations.divergence: "report"` ne retenait aucun déploiement, au motif écrit qu'« une application à migrations libres a une base légitimement différente du schéma déclaré, en permanence ». C'est vrai pour une COLONNE en écart. Ça ne l'est pas pour une TABLE d'entité absente : aucune main légitime ne la fait disparaître, et quand elle manque le schéma applicatif n'a jamais été posé. Le pod se déclarait donc PRÊT avec zéro table applicative et 500 sur chaque route — exactement le constat qui avait ouvert le ticket, et rien ne l'arrêtait. **Une justification de défaut nomme le cas qu'elle couvre ; chercher celui qu'elle NE couvre pas est le geste, et il se pose au moment de LIRE la justification, pas de l'écrire.**
 
 - [1× — 08-28f] **Ma garde « pas de clé primaire en `text`/`blob`/`json` » était ancrée au DÉBUT de la chaîne** (`/^(text|blob|json)/`) — elle laissait donc passer `longtext`, `mediumtext`, `longblob`. Or `longtext` est précisément ce que MariaDB donne à une colonne JSON, qu'il implémente en alias de `LONGTEXT` : la garde était aveugle sur le serveur PAR DÉFAUT du décor, et verte. Trouvée non pas en relisant la garde, mais en comparant les deux moteurs sur demande du user. Une garde écrite pour un moteur se relit sur l'AUTRE avant d'être crue.
@@ -621,6 +635,11 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 08-30] **Un ROUGE peut aussi arriver pour la mauvaise raison — et il ne prouve rien.**
+  Débranchement d'une garde, test relancé, rouge obtenu : je l'ai presque compté comme preuve. La
+  cause réelle était `describe is not defined` — vitest lancé depuis la racine au lieu du workspace,
+  donc la config sans `globals`. Le test n'avait pas été exécuté du tout. Un vu-mordre se lit sur
+  **l'assertion nommée**, jamais sur le code de sortie.
 - [1× — 08-29] Une scène de banc VERTE pour la mauvaise raison : elle réutilisait une base « en avance », donc le correctif d'un AUTRE ticket suffisait à la faire passer. Refaite sur une base réellement en retard, elle est tombée — et a révélé un troisième défaut. **Le décor d'une scène décide de ce qu'elle discrimine ; deux scènes vertes ne prouvent pas deux choses.**
 - [1× — 08-29] Une attente en arrière-plan sortie sur un faux signal : elle testait `conclusion == null` là où `gh` rend une chaîne VIDE. La condition n'a jamais été vraie, la boucle a rendu la main immédiatement, et j'ai lu « verdicts » sur des runs encore en cours. Attendre se teste sur le champ qui dit l'état (`status != "completed"`), pas sur celui qui dit le résultat.
 - [1× — 08-28k] **Toutes les tables de tous mes bancs s'écrivaient en minuscules — la casse
@@ -1022,6 +1041,12 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-30] **Deux défauts n'existaient QUE dans l'artefact rendu, invisibles au gabarit.** La
+  CI générée pour MySQL était un YAML **cassé** (délimiteur de heredoc en colonne 0, qui termine le
+  bloc scalaire) ; le script d'initialisation des bases, écrit en `.sh`, **tuait le serveur au
+  démarrage** (`bad interpreter`, code 126 — l'entrée d'initialisation l'exécute dès qu'il porte le
+  bit exécutable). Les deux se lisent en RENDANT puis en EXÉCUTANT, jamais en relisant le gabarit :
+  le rendu contenait bien les bonnes lignes. Cf [[feedback_prove_on_received_artifact]].
 - [1× — 08-29] **Le décor n'ARMAIT PAS le cas — et la preuve était verte.** Pour prouver qu'une
   pile d'appels avait disparu au démarrage, j'ai lancé la commande sur une base vierge : zéro pile,
   code 0. Le contrôle négatif a montré que le débranchement ne la faisait pas revenir **non plus** —
@@ -1717,6 +1742,12 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
 
+- [1× — 08-30] **Un skill enseignait le contournement d'un manque comblé la veille.** Le gate de
+  portabilité des skills publiés était rouge sur six variantes : `env | grep NF_MIGRATE_DATABASE_URL`
+  (pas de `grep` dans cmd.exe). La bonne correction n'était pas de rendre la commande portable — le
+  paragraphe entier affirmait « aucun verdict n'annonce la base visée », faux depuis #113 qui fait
+  annoncer sa cible à chaque commande. **Un contournement documenté survit au comblement du manque**,
+  et il enseigne alors une astuce à la place d'une capacité.
 - [1× — 08-27] **Une DÉMONSTRATION enseigne autant qu'une doc — et celle-ci enseignait le contraire
   du framework.** Le canal de vitrine poussait une trame par seconde et par client pour ne rien
   dire : coût réseau et processeur permanent, et surtout l'idée qu'une socket Nodefony serait du

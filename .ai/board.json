@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T20:34:25.028Z",
+  "generatedAt": "2026-08-29T22:40:50.527Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 36,
+      "closed": 37,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 40,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -275,11 +275,47 @@
       ]
     },
     {
+      "number": 117,
+      "title": "fix(cli): installer l'outil de migration qu'une entité ajoute",
+      "url": "https://github.com/nodefony/nodefony-core/issues/117",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": null,
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.51,
+      "labels": []
+    },
+    {
+      "number": 116,
+      "title": "fix(orm): dire quel outil manque au lieu d'accuser la base",
+      "url": "https://github.com/nodefony/nodefony-core/issues/116",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": null,
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.52,
+      "labels": []
+    },
+    {
+      "number": 118,
+      "title": "fix(orm): ne pas régénérer une table que la base porte déjà",
+      "url": "https://github.com/nodefony/nodefony-core/issues/118",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.53,
+      "labels": []
+    },
+    {
       "number": 99,
       "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -404,8 +440,8 @@
       "number": 112,
       "title": "ci(scaffold): éprouver les migrations générées sur les trois moteurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/112",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
