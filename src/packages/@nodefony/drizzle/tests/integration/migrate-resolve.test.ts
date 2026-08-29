@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { Kernel } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
@@ -6,6 +8,7 @@ import { drizzleConfigSchema } from "../../nodefony/config/config";
 import type { IDrizzleConfig } from "../../nodefony/interfaces/IDrizzleConfig";
 import {
   MIGRATE_URL_ENV,
+  buildMigrator,
   resolveCheckMode,
   resolveConnector,
   resolveDdlMode,
@@ -420,5 +423,63 @@ describe("migrations — appliquer depuis la console est RÉSERVÉ au développe
     } finally {
       if (avant !== undefined) process.env["NODE_ENV"] = avant;
     }
+  });
+});
+
+describe("migrations — le refus des tables du framework est HONORÉ", () => {
+  /**
+   * 🔴 Le test du CÂBLAGE, et il manquait.
+   *
+   * Que `defaultMigrationSources` sache écarter le framework ne prouve rien :
+   * le défaut d'origine était que personne ne le lui DEMANDAIT. `buildMigrator`
+   * composait ses sources sans consulter la configuration, si bien qu'une
+   * application data-only fabriquait deux bases différentes selon qu'elle
+   * démarrait en développement ou qu'on la migrait en production — et rien ne
+   * le signalait, le verdict de divergence ignorant par construction ce que la
+   * base a en TROP.
+   *
+   * Ce contrôle passe donc par le point de câblage réel, pas par la brique
+   * qu'il appelle. Débrancher `frameworkEntities` dans `buildMigrator` doit le
+   * faire tomber ; débrancher la brique aussi.
+   */
+  let racine: string;
+  beforeEach(async () => {
+    // Une racine RÉELLE : `status()` ouvre la base, et une base ne s'ouvre pas
+    // dans un répertoire qui n'existe pas. C'est aussi ce qui rend le contrôle
+    // fidèle — il passe par le chemin que l'application emprunterait.
+    racine = await fs.mkdtemp(path.join(os.tmpdir(), "nf-migrate-cablage-"));
+    await fs.mkdir(path.join(racine, "var", "databases"), { recursive: true });
+  });
+  afterEach(async () => {
+    await fs.rm(racine, { recursive: true, force: true });
+  });
+
+  const cible = async (frameworkEntities: boolean) => {
+    const cfg = config({ frameworkEntities });
+    const res = resolveConnector("default", cfg, DEV, fauxKernel(racine));
+    assert.equal(res.kind, "ready");
+    if (res.kind !== "ready") {
+      throw new Error("résolution inattendue");
+    }
+    const migrator = await buildMigrator(res, cfg, fauxKernel(racine));
+    return migrator;
+  };
+
+  it("🔴 `frameworkEntities: false` retire la source framework des migrations", async () => {
+    const plan = await (await cible(false)).status();
+    assert.deepEqual(
+      plan.pending.map((f) => f.source),
+      [],
+      "un module data-only n'a AUCUNE migration à appliquer",
+    );
+  });
+
+  it("le défaut reste inchangé : ne rien dire, c'est vouloir le framework", async () => {
+    const plan = await (await cible(true)).status();
+    assert.ok(
+      plan.pending.some((f) => f.source === "framework"),
+      "sans refus explicite, les migrations du framework restent à appliquer — " +
+        "sinon le contrôle ci-dessus serait vert pour la mauvaise raison",
+    );
   });
 });

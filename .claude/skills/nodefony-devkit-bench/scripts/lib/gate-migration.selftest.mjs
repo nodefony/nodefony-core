@@ -23,8 +23,9 @@
 import { juger, CAUSES } from "./gate-migration.mjs";
 
 const PARFAIT = {
-  colonneAcceptee: true,
+  colonnePubliee: true,
   temoinPresent: true,
+  ecriture: 201,
   statusCode: 0,
   applique: 0,
 };
@@ -36,11 +37,28 @@ const cas = [
     faits: PARFAIT,
   },
   {
-    // L'agent a écrit la migration mais ne l'a jamais appliquée : la colonne
-    // n'existe pas, l'écriture est refusée par la base.
+    // L'agent a écrit la migration mais ne l'a jamais appliquée : la ressource
+    // ne publie pas la colonne.
     nom: "generee mais non appliquee",
     attendu: "colonne-absente",
-    faits: { ...PARFAIT, colonneAcceptee: false, statusCode: 1 },
+    faits: { ...PARFAIT, colonnePubliee: false, statusCode: 1 },
+  },
+  {
+    // 🔴 LE cas trouvé au premier run réel, et que le juge d'origine ne savait
+    // pas nommer : la base a suivi (colonne publiée, témoin là, état à jour),
+    // et pourtant plus aucune ressource ne peut naître — le contrat d'entrée
+    // ignore la colonne obligatoire, Zod la retire, l'insertion tombe sur la
+    // contrainte. Le juge disait « la base ne l'a pas » : faux, et il envoyait
+    // chercher au mauvais endroit.
+    nom: "base migree, contrat d'entree oublie",
+    attendu: "ressource-cassee",
+    faits: { ...PARFAIT, ecriture: 500 },
+  },
+  {
+    // Le même défaut vu par l'autre bout : la validation refuse le champ.
+    nom: "champ refuse par la validation",
+    attendu: "ressource-cassee",
+    faits: { ...PARFAIT, ecriture: 422 },
   },
   {
     // 🔴 LE cas qui justifie ce juge. La base a été supprimée et recréée : le
@@ -64,13 +82,15 @@ const cas = [
     faits: { ...PARFAIT, applique: 2 },
   },
   {
-    // Priorité : colonne absente ET donnée perdue → la colonne d'abord, parce
-    // qu'elle dit que le travail n'a pas eu lieu du tout.
+    // Priorité : la donnée perdue passe DEVANT tout. Sans elle en tête, une
+    // base refaite serait rangée « colonne absente » — un défaut de travail
+    // ordinaire, alors que des données de service ont disparu.
     nom: "rien fait ET base effacee",
-    attendu: "colonne-absente",
+    attendu: "donnee-perdue",
     faits: {
-      colonneAcceptee: false,
+      colonnePubliee: false,
       temoinPresent: false,
+      ecriture: 500,
       statusCode: 1,
       applique: 3,
     },

@@ -524,6 +524,83 @@ describe("Applicateur de migrations (sqlite)", () => {
     }
   });
 
+  /**
+   * 🔴 #109 — LA comparaison qui manquait : les DEUX chemins, sur la MÊME
+   * configuration, doivent fabriquer le MÊME ensemble de tables.
+   *
+   * Le contrôle précédent prouve un seul chemin — migrer sans source ne crée
+   * rien. Il ne dit pas que l'autre chemin, le démarrage en mode dérivé, arrive
+   * au même endroit ; or c'est exactement le défaut d'origine : la même
+   * application fabriquait deux bases différentes selon la façon dont elle
+   * arrivait, et RIEN ne le signalait (le verdict de divergence ignore par
+   * construction ce que la base a en TROP).
+   *
+   * Le démarrage dérivé est représenté par ce qu'il fait réellement quand le
+   * module est data-only : il n'enregistre AUCUNE entité de framework, donc il
+   * ne crée aucune table. Comparer les deux ensembles est donc la seule façon
+   * de constater qu'ils ne peuvent plus diverger.
+   */
+  it("🔴 les DEUX chemins fabriquent le même ensemble de tables", async () => {
+    /**
+     * Les tables d'une base, l'historique et l'interne de SQLite exclus.
+     *
+     * @param fichier - chemin de la base à lire.
+     * @returns les noms de table, triés.
+     */
+    const tablesDe = async (fichier: string): Promise<string[]> => {
+      const driver = new SqliteMigrationDriver(fichier);
+      try {
+        const rows = await driver.query<{ name: string }>(
+          `SELECT name FROM sqlite_master WHERE type = 'table' AND name <> ? ` +
+            `AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+          [HISTORY_TABLE],
+        );
+        return rows.map((r) => r.name);
+      } finally {
+        await driver.close();
+      }
+    };
+
+    // Chemin A — le démarrage en mode dérivé d'un module data-only : aucune
+    // entité de framework n'est enregistrée, donc aucune table n'est émise.
+    const baseDerivee = path.join(root, "derive.db");
+    const amorce = new SqliteMigrationDriver(baseDerivee);
+    await amorce.close();
+
+    // Chemin B — la migration du même module, sources résolues par la MÊME
+    // règle que celle que lit `buildMigrator`.
+    const baseMigree = path.join(root, "migree.db");
+    await new DrizzleMigrator({
+      connector: "data-only",
+      dialect: "sqlite",
+      filename: baseMigree,
+      sources: await defaultMigrationSources(undefined, { framework: false }),
+    }).migrate();
+
+    assert.deepEqual(
+      await tablesDe(baseMigree),
+      await tablesDe(baseDerivee),
+      "les deux chemins doivent fabriquer le MÊME schéma",
+    );
+
+    // La preuve NÉGATIVE, dans le même cas : rétablir la source framework alors
+    // que le module l'a refusée fait diverger les deux chemins — c'est le
+    // défaut d'origine, et il doit être visible ici.
+    const baseFautive = path.join(root, "fautive.db");
+    await new DrizzleMigrator({
+      connector: "data-only",
+      dialect: "sqlite",
+      filename: baseFautive,
+      sources: await defaultMigrationSources(undefined, { framework: true }),
+    }).migrate();
+    assert.notDeepEqual(
+      await tablesDe(baseFautive),
+      await tablesDe(baseDerivee),
+      "source framework rétablie : les deux chemins DOIVENT alors diverger — " +
+        "sans quoi ce contrôle ne garde rien",
+    );
+  });
+
   it("le défaut reste INCHANGÉ — ne rien dire, c'est vouloir le framework", async () => {
     // La garde ne doit pas devenir un piège pour qui n'a rien demandé : sans
     // l'option, et avec `framework: true`, le registre est celui d'avant.

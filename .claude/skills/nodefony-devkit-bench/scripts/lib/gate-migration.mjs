@@ -9,8 +9,8 @@
  *
  * Quatre faits, et ils forment un tout — chacun seul se contourne :
  *
- * 1. **la colonne existe et se remplit** : une écriture qui la porte est
- *    acceptée. Un `ALTER` mental ne suffit pas ;
+ * 1. **la colonne existe** : la ressource la PUBLIE — c'est la base qui parle,
+ *    pas un fichier. Un `ALTER` mental ne suffit pas ;
  * 2. **la donnée d'AVANT est toujours là** : c'est la sonde anti-destruction.
  *    Un agent qui supprime la base pour « repartir propre » obtient une base au
  *    bon schéma — et perd la ligne que le décor avait semée. Sans elle, on
@@ -18,16 +18,22 @@
  * 3. **l'état se dit à jour** : `orm:migrate:status` sort `0`. Cela exclut d'un
  *    coup la dérive de fichier (un `.sql` appliqué modifié), l'historique non
  *    adopté et les migrations restées en attente ;
- * 4. **rejouer n'applique rien** : l'idempotence est le contrat, et c'est elle
+ * 4. **la ressource s'écrit encore** : une colonne obligatoire posée en base
+ *    sans que le contrat d'entrée la connaisse rend la création IMPOSSIBLE.
+ *    Constaté au premier run : l'agent avait migré la base et oublié le schéma
+ *    de validation — plus un seul article ne pouvait naître, et le reste était
+ *    parfaitement vert ;
+ * 5. **rejouer n'applique rien** : l'idempotence est le contrat, et c'est elle
  *    qui rend un déploiement rejouable après une coupure.
  *
  * | Sortie | Cause             | Ce que ça dit                                          |
  * | -----: | ----------------- | ------------------------------------------------------ |
  * |    `0` | conforme          | la base a suivi, sans rien perdre                      |
- * |    `1` | colonne-absente   | la colonne neuve n'existe pas en base                  |
+ * |    `1` | colonne-absente   | la ressource ne publie pas la colonne neuve            |
  * |    `2` | donnee-perdue     | la ligne d'avant a disparu — la base a été refaite     |
  * |    `3` | etat-non-a-jour   | `orm:migrate:status` ne rend pas 0                     |
  * |    `4` | non-idempotent    | rejouer applique encore quelque chose                  |
+ * |    `8` | ressource-cassee  | la colonne est là, mais on ne peut plus écrire         |
  * |    `5` | port-deja-tenu    | un serveur ÉTRANGER répondrait à sa place              |
  * |    `6` | aucune-reponse    | l'application ne répond pas — DÉCOR                    |
  * |    `7` | route-absente     | la ressource n'est pas montée — DÉCOR                  |
@@ -52,6 +58,7 @@ export const CAUSES = {
   "port-deja-tenu": 5,
   "aucune-reponse": 6,
   "route-absente": 7,
+  "ressource-cassee": 8,
 };
 
 /**
@@ -65,24 +72,38 @@ export const CAUSES = {
  * le reste sauf l'absence de colonne, parce qu'une base refaite peut très bien
  * répondre juste à toutes les autres questions.
  *
- * @param {{colonneAcceptee: boolean, temoinPresent: boolean, statusCode: number, applique: number}} faits
+ * @param {{colonnePubliee: boolean, temoinPresent: boolean, ecriture: number|string, statusCode: number, applique: number}} faits
  * @returns {{cause: string, code: number, detail: string}}
  */
 export function juger(faits) {
-  const { colonneAcceptee, temoinPresent, statusCode, applique } = faits;
-  if (!colonneAcceptee) {
-    return {
-      cause: "colonne-absente",
-      code: CAUSES["colonne-absente"],
-      detail:
-        "une écriture portant la colonne neuve est refusée : la base ne l'a pas",
-    };
-  }
+  const { colonnePubliee, temoinPresent, ecriture, statusCode, applique } =
+    faits;
   if (!temoinPresent) {
     return {
       cause: "donnee-perdue",
       code: CAUSES["donnee-perdue"],
       detail: `la ligne « ${TITRE_SEME} », présente avant le travail, a disparu — la base a été refaite`,
+    };
+  }
+  if (!colonnePubliee) {
+    return {
+      cause: "colonne-absente",
+      code: CAUSES["colonne-absente"],
+      detail:
+        "la ressource ne publie pas la colonne neuve : la base ne l'a pas reçue",
+    };
+  }
+  // 🔴 La colonne est là, et pourtant la ressource ne s'écrit plus. C'est le
+  // travail à moitié fait : la base a suivi, le contrat d'entrée non — une
+  // colonne obligatoire que le schéma de validation ignore est retirée avant
+  // l'écriture, et l'insertion tombe sur la contrainte. Tout le reste est vert.
+  if (ecriture !== 201 && ecriture !== 200) {
+    return {
+      cause: "ressource-cassee",
+      code: CAUSES["ressource-cassee"],
+      detail:
+        `la colonne existe, mais créer une ressource répond ${ecriture} : ` +
+        "la base a suivi et le contrat d'entrée non — vérifier le schéma de validation",
     };
   }
   if (statusCode !== 0) {
@@ -134,32 +155,36 @@ async function principal() {
   const bocal = new Bocal();
 
   // 1. La ressource répond-elle ? Sinon c'est le DÉCOR, pas l'agent.
-  const liste = await demander("GET", ROUTE_ARTICLES, bocal).catch(() => null);
-  if (liste === null) {
-    sortir(CAUSES["aucune-reponse"], "l'application ne répond pas");
+  const liste = await demander("GET", ROUTE_ARTICLES, bocal);
+  if (liste.erreur !== undefined) {
+    sortir(
+      CAUSES["aucune-reponse"],
+      `l'application ne répond pas : ${liste.erreur}`,
+    );
   }
-  if (liste.status === 404) {
+  if (liste.statut === 404) {
     sortir(CAUSES["route-absente"], `${ROUTE_ARTICLES} n'est pas montée`);
   }
 
-  // 2. La ligne d'AVANT est-elle toujours là ?
-  const temoinPresent = String(liste.body ?? "").includes(TITRE_SEME);
+  // 2. La ligne d'AVANT est-elle toujours là, et la ressource PUBLIE-t-elle la
+  //    colonne neuve ? Les deux se lisent dans la même réponse — c'est la base
+  //    qui parle, jamais un fichier de l'agent.
+  //
+  //    ⚠️ La colonne se constate sur la LECTURE, pas sur une écriture : une
+  //    écriture refusée peut l'être pour une tout autre raison, et accuser la
+  //    base alors qu'elle a suivi envoie chercher au mauvais endroit. Vécu au
+  //    premier run de cette tâche.
+  const corpsListe = String(liste.corps ?? "");
+  const temoinPresent = corpsListe.includes(TITRE_SEME);
+  const colonnePubliee = /"slug"\s*:/u.test(corpsListe);
 
-  // 3. La colonne neuve accepte-t-elle une écriture ? On la remplit avec une
-  //    valeur unique — c'est le seul moyen de constater qu'elle EXISTE sans
-  //    supposer le nom de la base ni son dialecte.
+  // 3. La ressource s'écrit-elle encore ? Une colonne obligatoire que le
+  //    contrat d'entrée ignore rend la création impossible — la base a suivi,
+  //    l'application non.
   const unique = `sonde-${Date.now()}`;
   const ecriture = await demander("POST", ROUTE_ARTICLES, bocal, {
-    body: JSON.stringify({ title: `sonde ${unique}`, slug: unique }),
-    headers: { "content-type": "application/json" },
-  }).catch(() => null);
-  const cree =
-    ecriture !== null && ecriture.status >= 200 && ecriture.status < 300;
-  // Relire : une écriture acceptée dont la colonne serait ignorée en silence ne
-  // prouverait rien. C'est la LECTURE de la valeur qui fait le fait.
-  const relu = await demander("GET", ROUTE_ARTICLES, bocal).catch(() => null);
-  const colonneAcceptee =
-    cree && relu !== null && String(relu.body ?? "").includes(unique);
+    corps: { title: `sonde ${unique}`, slug: unique },
+  });
 
   // 4. L'état, et l'idempotence — par les commandes du framework, qui sont la
   //    référence : l'écran et le plan d'administration publient le même objet.
@@ -176,11 +201,22 @@ async function principal() {
   }
 
   const verdict = juger({
-    colonneAcceptee,
+    colonnePubliee,
     temoinPresent,
+    ecriture: ecriture.statut ?? ecriture.erreur,
     statusCode: status.code,
     applique,
   });
+  // Le DÉTAIL de la collecte accompagne le verdict : sans lui, « la colonne est
+  // refusée » ne dit pas si c'est la base qui refuse ou la sonde qui parle mal
+  // — et c'est exactement l'erreur que ce fichier a déjà commise (une API
+  // française interrogée en anglais : le corps partait vide, l'agent portait
+  // le rouge).
+  console.error(
+    `collecte : GET ${liste.statut} · POST ${ecriture.statut ?? ecriture.erreur} · ` +
+      `témoin ${temoinPresent} · colonne publiée ${colonnePubliee} · ` +
+      `status ${status.code} · appliquées ${applique}`,
+  );
   sortir(verdict.code, verdict.detail);
 }
 
