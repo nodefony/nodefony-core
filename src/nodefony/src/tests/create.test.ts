@@ -830,6 +830,156 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("migrations — la recette de déploiement, et les notes qui doivent dire vrai", () => {
+    /**
+     * Ce que ces contrôles tiennent : le jour où les migrations existent, une
+     * application générée doit POSSÉDER sa recette de déploiement — pas la
+     * recopier depuis une page de documentation — et ses notes ne doivent plus
+     * affirmer que `orm:migrate` n'existe pas. Ce texte est FIGÉ à la création :
+     * une phrase fausse laissée là est livrée dans chaque application, pour
+     * toujours.
+     *
+     * La preuve porte sur les fichiers RENDUS, jamais sur le gabarit : ce n'est
+     * pas le même artefact, et c'est le rendu que l'utilisateur reçoit.
+     */
+    const recipePath = (dest: string) =>
+      path.join(dest, "deploy", "migrate-job.yaml");
+
+    for (const [database, scheme, port] of [
+      ["postgres", "postgres", "5432"],
+      ["mariadb", "mysql", "3306"],
+      ["mysql", "mysql", "3306"],
+    ] as const) {
+      it(`--database ${database} : le travail de migration est rendu au nom de l'app, avec l'image et le secret qui vont avec`, () => {
+        const dest = path.join(tmp, `mig-${database}`);
+        scaffold(dest, { name: "demo", database });
+        const recipe = readFileSync(recipePath(dest), "utf8");
+        // Rendu à SON nom — pas un espace réservé qu'il faudrait remplacer.
+        assert.include(recipe, "generateName: demo-migrate-");
+        assert.include(recipe, "app.kubernetes.io/name: demo");
+        assert.include(recipe, "name: demo-db-migrator");
+        // La MÊME image que le Dockerfile généré (`docker build -t demo .`) —
+        // une migration jouée depuis une autre version applique un schéma que
+        // le code déployé ne connaît pas.
+        assert.include(recipe, "image: demo:${IMAGE_TAG}");
+        // La MÊME forme d'invocation que le `CMD` du Dockerfile : le binaire
+        // vit dans les node_modules de l'image, jamais dans le PATH.
+        assert.include(
+          recipe,
+          'command: ["node_modules/.bin/nodefony", "orm:migrate", "--json"]',
+        );
+        // Le compte qui migre n'est pas celui qui sert.
+        assert.include(recipe, "name: NF_MIGRATE_DATABASE_URL");
+        assert.include(recipe, "secretKeyRef:");
+        // Un Job est IMMUABLE et ne se rejoue pas en aveugle.
+        assert.include(recipe, "restartPolicy: Never");
+        assert.include(recipe, "backoffLimit: 0");
+        // L'exemple de secret parle de LA base retenue, pas d'une autre.
+        assert.include(recipe, `${scheme}://migrator:MOT_DE_PASSE@db:${port}/`);
+        // Aucun espace réservé de documentation n'a survécu au rendu.
+        for (const placeholder of ["myapp", "mon-application", "<TAG>"]) {
+          assert.notInclude(recipe, placeholder);
+        }
+        // Le README envoie vers la recette, et l'AGENTS.md la nomme : une
+        // recette que personne ne trouve n'existe pour personne.
+        const readme = readFileSync(path.join(dest, "README.md"), "utf8");
+        assert.include(readme, "deploy/migrate-job.yaml");
+        assert.include(readme, "npx nodefony orm:migrate:status");
+        assert.include(
+          readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+          "deploy/migrate-job.yaml",
+        );
+        assertNoEtaResidue(dest);
+      });
+    }
+
+    it("défaut sqlite : AUCUNE recette — et rien ne promet un fichier qui n'existe pas", () => {
+      const dest = path.join(tmp, "mig-sqlite");
+      scaffold(dest, { name: "solo" });
+      assert.isFalse(existsSync(recipePath(dest)));
+      // Le piège : `hasMigrateRecipe` se CONSTATE. Une app sqlite a bien un
+      // ORM — donc `hasOrm` est vrai — et une ligne conditionnée à l'ORM
+      // enverrait l'agent vers un fichier absent.
+      for (const file of ["AGENTS.md", "README.md"]) {
+        assert.notInclude(
+          readFileSync(path.join(dest, file), "utf8"),
+          "deploy/migrate-job.yaml",
+          `${file} promet une recette que l'app sqlite n'a pas`,
+        );
+      }
+      // Les commandes, elles, existent bel et bien en sqlite.
+      assert.include(
+        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+        "npx nodefony orm:migrate:status",
+      );
+    });
+
+    /**
+     * 🔴 La seule garde qui empêche une note fausse de survivre au chantier.
+     *
+     * Une chaîne qu'on oublie de changer ne se signale JAMAIS toute seule :
+     * elle compile, elle se rend, elle s'affiche — et elle enseigne le
+     * contraire de ce que le produit fait désormais. Les deux formulations
+     * cherchées ici sont celles que le générateur imprimait quand les
+     * migrations n'existaient pas.
+     */
+    it("🔴 les deux anciennes formulations ont disparu de TOUT ce qui est rendu", () => {
+      const perimees = [
+        /orm:migrate.{0,3} n'existe pas/u,
+        /supprime la base de dev/u,
+        /pas d'ALTER en dev/u,
+      ];
+      // Les deux dimensions qui font varier le texte rendu : la façade (elle
+      // décide des layers) et la base (elle décide de la recette). Le produit
+      // cartésien n'apprendrait rien de plus — aucune note ne dépend des deux.
+      const variantes: { name: string; answers: Record<string, string> }[] = [
+        { name: "front-none", answers: { frontend: "none" } },
+        { name: "front-react", answers: { frontend: "react" } },
+        { name: "front-vue", answers: { frontend: "vue" } },
+        { name: "front-angular", answers: { frontend: "angular" } },
+        { name: "db-postgres", answers: { database: "postgres" } },
+        { name: "db-mariadb", answers: { database: "mariadb" } },
+        { name: "db-mysql", answers: { database: "mysql" } },
+      ];
+      for (const variante of variantes) {
+        const dest = path.join(tmp, `perime-${variante.name}`);
+        scaffold(dest, { name: "demo", ...variante.answers });
+        for (const [rel, contenu] of snapshotTree(dest)) {
+          for (const perimee of perimees) {
+            assert.notMatch(
+              contenu,
+              perimee,
+              `${variante.name}/${rel} porte encore une formulation d'avant les migrations`,
+            );
+          }
+        }
+      }
+    });
+
+    it("🔴 la note de `create entity` ne renvoie plus à une commande absente", () => {
+      const dest = path.join(tmp, "mig-entity");
+      scaffold(dest, { name: "demo", database: "postgres" });
+      const r = runScaffold(
+        {
+          type: "entity",
+          answers: { name: "Article", fields: "title:string!" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const notes = (r.notes ?? []).join("\n");
+      // Ce que la note DOIT dire : la production se migre, et par quoi.
+      assert.include(notes, "orm:migrate");
+      for (const perimee of [
+        /orm:migrate.{0,3} n'existe pas/u,
+        /supprime la base de dev/u,
+      ]) {
+        assert.notMatch(notes, perimee);
+      }
+    });
+  });
+
   describe("moteur — preset minimal", () => {
     it("base saine : http+framework seuls, PAS d'infra docker", () => {
       const dest = path.join(tmp, "mini");

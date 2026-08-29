@@ -67,6 +67,26 @@ const VARIANTS = [
     app: "application-metier-facturation",
     answers: ["--preset", "complete", "--frontend", "react"],
   },
+  // Une base SQL retenue — le seul régime où `deploy/migrate-job.yaml` EXISTE,
+  // et où le compose rend un service de base de données.
+  //
+  // 🔴 Le raisonnement « deux extrêmes » ci-dessus a un angle mort : `complete`
+  // n'allume PAS tout ce qui est conditionnel. Le choix de base est une seconde
+  // dimension (`--database`), dont le défaut est sqlite — si bien qu'un fichier
+  // ENTIER du scaffold n'était rendu par aucune variante, donc jugé par ce gate
+  // sur rien. Sans frontend : ce qui varie ici est l'infra, pas la façade.
+  {
+    name: "complete+postgres",
+    app: "probe",
+    answers: [
+      "--preset",
+      "complete",
+      "--frontend",
+      "none",
+      "--database",
+      "postgres",
+    ],
+  },
 ];
 
 let failed = 0;

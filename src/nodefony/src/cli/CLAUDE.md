@@ -139,9 +139,9 @@ npx nodefony http:network -j
 npx nodefony proxy:generate nginx
 npx nodefony frontend:build
 npx nodefony security:user:add -a       # crée un utilisateur admin (module security)
-
-# Futur (non implémenté)
-npx nodefony orm:migrate
+npx nodefony orm:generate               # écrit les migrations (module drizzle)
+npx nodefony orm:migrate                # les applique — verrou + historique
+npx nodefony orm:migrate:status         # 0 = à jour, 1 = en retard
 ```
 
 ## niceBytes — helper formatage
@@ -677,6 +677,15 @@ service retenu est rendu **sans `profiles:`** (ce n'est pas une option : `docker
 compose up -d` doit le monter), et `.env` porte l'URL **active** — donc le récap
 de `create app` place `npm run infra:up` AVANT `npm run dev`. En `sqlite` :
 aucun service SQL, URL commentée, l'app démarre sans rien allumer.
+
+**Et la RECETTE DE DÉPLOIEMENT va avec** : une base SQL retenue fait rendre
+`deploy/migrate-job.yaml` (travail Kubernetes, `complete/deploy/` — nom de l'app,
+image du `Dockerfile`, secret DDL séparé du compte qui sert). Sans elle,
+l'utilisateur devrait recopier un manifeste depuis une page de documentation au
+moment où il déploie. `AGENTS.md` la nomme sous `hasMigrateRecipe`, qui se
+**CONSTATE** (`writer.exists`) — d'où le rendu de `renderProjectAgents` EN
+DERNIER dans `createApp` : une app sqlite a un ORM mais pas de recette, et une
+ligne conditionnée à l'ORM enverrait l'agent vers un fichier absent.
 
 > La question porte `askWhen: { key: "preset", equals: "complete" }` — condition
 > sur une RÉPONSE précédente, là où `askIf` interroge l'environnement. Non

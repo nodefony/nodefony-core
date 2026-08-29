@@ -197,7 +197,35 @@ docker stop -t 20 <container>   # SIGTERM → drain → exit 0
 > dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
 > sans erreur ni trace, à chaque déploiement.
 
-Un process Node = un pod/container ; le scaling horizontal vient de
+<% if (it.db) { %>### Migrations de schéma
+
+En développement, la base **suit le code** : les tables naissent au démarrage et
+un champ facultatif ajouté est posé au boot suivant. Rien de tout cela n'a lieu
+en production — le schéma s'y applique par des **migrations**, avant que le
+premier exemplaire ne démarre.
+
+```bash
+npx nodefony orm:generate            # écrit les migrations des entités modifiées
+npx nodefony orm:migrate --dry-run   # ce qui serait appliqué, sans rien écrire
+npx nodefony orm:migrate             # applique (verrou + historique)
+npx nodefony orm:migrate:status      # 0 = à jour · 1 = en retard — ta barrière de déploiement
+```
+
+`deploy/migrate-job.yaml` est le **travail Kubernetes** correspondant, déjà rendu
+au nom de cette application : même image que le Deployment, secret DDL séparé du
+compte qui sert le trafic, mode d'emploi en tête de fichier. Sans orchestrateur
+(un seul exemplaire), `ddl: "migrate"` dans la config du connecteur applique les
+migrations au démarrage — c'est le seul cas où c'est sûr.
+
+> Les pods démarrent sans jamais fabriquer le schéma : un exemplaire dont la base
+> est en retard répond **503 sur `/readyz`** (jamais sur `/livez`) et reste hors
+> du répartiteur de charge, l'ancienne version continuant de servir. Lance le
+> travail de migration : les pods deviennent disponibles **seuls**.
+
+Le détail — droits SQL des deux comptes, règle N-1, dérive d'un schéma modifié à
+la main : `node_modules/@nodefony/drizzle/docs/migrations.md`.
+
+<% } %>Un process Node = un pod/container ; le scaling horizontal vient de
 l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est chargé en dev seulement
 (`policy: "dev"`) — pour l'exposer en production, protège `/nodefony` par une
 zone firewall puis passe la policy à `"mandatory"` (la recette est commentée

@@ -120,6 +120,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 - **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
 - **Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
 <% } %><% if (it.hasOrm) { %>- **Entités, repositories, requêtes (ORM)** — `node_modules/@nodefony/orm-core/docs/`
+- **Migrations de schéma** (générer, appliquer, déployer, réparer) — `node_modules/@nodefony/drizzle/docs/migrations.md`
 <% } %><% if (it.hasRealtime) { %>- **Canaux temps réel, actions, protocole WS** — `node_modules/@nodefony/realtime/docs/`
 <% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
 <% } %><% if (it.hasStudio) { %>- **Console d'admin Studio (dev)** — `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony
@@ -180,10 +181,16 @@ Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 - **Où en est le serveur Vite** — `npx nodefony frontend:status [-j]`
 <% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-j] [-w]`
 - Créer un compte **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
+<% } %><% if (it.hasOrm) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate [--name <nom>] [--custom]`
+- **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n|--dry-run] [--json]`
+- **La base est-elle à jour ?** — `npx nodefony orm:migrate:status [--json]` — **0** = à jour, **1** = en retard : ta barrière de déploiement
+- **Repartir d'une base vierge EN DÉVELOPPEMENT** — `npx nodefony orm:reset [-c <connecteur>] [-y]` — refusée partout ailleurs
 <% } %>- **Dépendances en retard (agrégées, pas le brut de npm)** — `npx nodefony outdated [-j] [-a]`
 - **Cohérence du projet (classe non câblée, route qui répondra 404)** — `npx nodefony doctor [--json]` — depuis n'importe quel sous-dossier
 - **Plusieurs processus, un cœur chacun** — `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>`
 - **Construire l'image de container** — `docker build -t <%= it.appName %> .` — le `Dockerfile` est DÉJÀ là, ne le réécris pas
+<% if (it.hasMigrateRecipe) { %>- **Migrer le schéma avant un déploiement** — `deploy/migrate-job.yaml` est DÉJÀ rendu au nom de cette app (travail Kubernetes, même image, secret DDL séparé) — son mode d'emploi est en tête du fichier, ne le réécris pas
+<% } %>
 - **Complétion au TAB** — `source <(nodefony completion zsh)`
 
 Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE app,
@@ -492,7 +499,8 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **Un test qui n'a jamais échoué** — il ne garde rien — un test neuf est complaisant par défaut → casse-le exprès une fois, vérifie qu'il rougit
 - **« Tout est vert » alors qu'une suite ne s'est pas exécutée** — un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout → lis le NOMBRE de tests, pas la couleur
 - **`localhost` et `127.0.0.1` te jouent des tours** — ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas → une seule origine en développement, partout — URL ouverte comme callbacks
-<% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — le schéma de développement fait `CREATE TABLE IF NOT EXISTS` — une table existante n'est JAMAIS altérée → en dev, supprime la table (ou le fichier de base sous `var/`) et relance ; en production, une migration
+<% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — en développement, un champ AJOUTÉ qui accepte le vide est posé au boot suivant, un champ OBLIGATOIRE ne l'est jamais, et aucune colonne n'est jamais retirée → `npx nodefony orm:reset` en dev ; pour la production, `npx nodefony orm:generate` puis `npx nodefony orm:migrate`
+- **Un déploiement où « rien ne répond »** alors que les pods tournent — un exemplaire dont la base est en retard répond 503 sur `/readyz` (jamais sur `/livez`) et reste hors du répartiteur : c'est voulu, ce n'est pas une panne → `npx nodefony orm:migrate:status` dit qui est en retard ; applique les migrations, les pods se mettent en service SEULS
 <% } %><% if (it.hasSecurity) { %>- **Les routes authentifiées plafonnent** quand le reste tient la charge — le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements → compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge
 <% } %><% if (it.front) { %>- **En production, la modif front n'apparaît jamais** — hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT → `npm run build` → **redémarre le serveur** → rechargement forcé
 - **Ta modif front n'apparaît pas (en dev)** — le navigateur sert son cache — et le rechargement à chaud ne remplace ni un singleton ni un composant qui gagne des hooks : le code neuf tourne sur du vieil état → rechargement forcé, et vérifie que Vite a bien recompilé

@@ -567,6 +567,12 @@ interface IAgentsData {
   hasRealtime: boolean;
   hasStudio: boolean;
   front: boolean;
+  /**
+   * `deploy/migrate-job.yaml` est-il là ? Se CONSTATE (le fichier), ne se
+   * déduit pas d'un choix : un agent qu'on envoie vers une recette absente
+   * cherche pendant que l'application, elle, n'a rien à migrer (sqlite).
+   */
+  hasMigrateRecipe: boolean;
   /** Modules du projet (`modules/*`), chemin relatif à la racine. */
   modules: { name: string; dir: string }[];
 }
@@ -1114,26 +1120,6 @@ function dispatchScaffold(
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
-  // AGENTS.md + pointeur CLAUDE.md : l'app naît PARLANTE pour un agent —
-  // c'était le trou n°1 du scaffold (mutité totale). Régénéré ensuite par
-  // `create module` (l'inventaire des modules y vit).
-  renderProjectAgents(
-    eta,
-    packageRoot,
-    dest,
-    {
-      appName: String(answers.name),
-      nodefonyVersion: version,
-      hasSecurity: preset === "complete",
-      hasOrm: preset === "complete",
-      hasRealtime: preset === "complete",
-      hasStudio: preset === "complete",
-      front: front !== null,
-      modules: [],
-    },
-    written,
-    writer,
-  );
   // Accueil `GET /` : une app sans frontend répondait 404 à sa propre racine.
   // Rendu SEULEMENT sans front — avec un front, `AppController` tient `/`.
   if (!front) {
@@ -1285,6 +1271,36 @@ function dispatchScaffold(
       );
     }
   }
+  // AGENTS.md + pointeur CLAUDE.md : l'app naît PARLANTE pour un agent —
+  // c'était le trou n°1 du scaffold (mutité totale). Régénéré ensuite par
+  // `create module` (l'inventaire des modules y vit).
+  //
+  // Rendu EN DERNIER, après tous les layers, et c'est ce qui permet à
+  // `hasMigrateRecipe` de se CONSTATER plutôt que de se recalculer : le
+  // `writer` voit les écritures en attente (`exists`), donc la question « la
+  // recette de migration est-elle là ? » a la même réponse ici et dans
+  // `create module`, sur un projet déjà écrit. Deux calculs de la même
+  // condition auraient divergé au premier réglage.
+  renderProjectAgents(
+    eta,
+    packageRoot,
+    dest,
+    {
+      appName: String(answers.name),
+      nodefonyVersion: version,
+      hasSecurity: preset === "complete",
+      hasOrm: preset === "complete",
+      hasRealtime: preset === "complete",
+      hasStudio: preset === "complete",
+      front: front !== null,
+      hasMigrateRecipe: writer.exists(
+        path.join(dest, "deploy", "migrate-job.yaml"),
+      ),
+      modules: [],
+    },
+    written,
+    writer,
+  );
   let linked: string[] = [];
   if (answers.link === true) {
     if (!workspaces) {
@@ -1716,6 +1732,9 @@ function runModuleScaffold(
         hasRealtime: appDeps.has("@nodefony/realtime"),
         hasStudio: appDeps.has("@nodefony/studio"),
         front: appDeps.has("@nodefony/frontend"),
+        hasMigrateRecipe: writer.exists(
+          path.join(projectRoot, "deploy", "migrate-job.yaml"),
+        ),
         modules: listTargets(projectRoot, writer)
           .filter((t) => t.kind === "module")
           .map((t) => ({
