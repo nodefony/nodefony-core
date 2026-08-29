@@ -111,6 +111,59 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     assert.equal(report.verdict, "divergent");
   });
 
+  it("🔴 une TABLE d'entité ABSENTE retient, même en observation", async () => {
+    // La graduation qui sépare deux situations que le verdict confondait.
+    // Une colonne en écart peut venir d'une migration libre parfaitement
+    // légitime ; une table d'entité absente, non — aucune main légitime ne la
+    // fait disparaître. Elle veut dire que le schéma applicatif n'a jamais été
+    // posé, et l'application rendra 500 sur chacune de ses routes.
+    //
+    // C'est le cas qui a ouvert le chantier : les tables du framework en place,
+    // zéro table applicative, un pod qui se déclarait PRÊT.
+    await poser(`CREATE TABLE "sans_rapport" ("id" text PRIMARY KEY NOT NULL)`);
+    const etat = await plan();
+    const ecart = await describeDivergence(etat);
+    assert.ok(ecart, "la table déclarée est absente : il y a bien un écart");
+    assert.deepEqual(
+      ecart.missingTables,
+      ["idempotency_key"],
+      "l'écart doit NOMMER la table absente",
+    );
+
+    const observation = buildReport(etat, {
+      ddl: "none",
+      divergence: ecart,
+      divergenceMode: "report",
+    });
+    assert.equal(
+      observation.exitCode,
+      1,
+      "une table d'entité absente a laissé passer un déploiement",
+    );
+    // …et la phrase envoie chercher au bon endroit : la migration, pas un
+    // collègue qui aurait touché à la base.
+    assert.match(String(observation.summary), /jamais été générée/u);
+
+    // …et le GESTE proposé est celui qui marche. Le générateur sait produire
+    // une table que le code déclare ; envoyer écrire le SQL à la main
+    // (`--custom`) ferait recopier ce que la commande d'à côté écrit seule.
+    const gestes = observation.nextActions.map((a) => a.command);
+    assert.ok(
+      gestes.some((g) => /orm:generate(?!.*--custom)/u.test(g)),
+      `le geste ne propose pas la génération : ${JSON.stringify(gestes)}`,
+    );
+
+    // `off` reste `off` : qui l'a écrit ne veut RIEN, pas « presque rien ».
+    assert.equal(
+      buildReport(etat, {
+        ddl: "none",
+        divergence: ecart,
+        divergenceMode: "off",
+      }).exitCode,
+      0,
+    );
+  });
+
   it("superviser ne fait pas tomber un déploiement — le code de sortie reste 0", async () => {
     await poser(TABLE_D_EPOQUE);
     const etat = await plan();
@@ -118,7 +171,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     const observation = buildReport(etat, {
       ddl: "none",
       divergence: ecart,
-      divergenceBlocks: false,
+      divergenceMode: "report",
     });
     assert.equal(
       observation.exitCode,
@@ -129,7 +182,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     const barriere = buildReport(etat, {
       ddl: "none",
       divergence: ecart,
-      divergenceBlocks: true,
+      divergenceMode: "fail",
     });
     assert.equal(
       barriere.exitCode,

@@ -224,42 +224,112 @@ async function readMigrationFile(
 /**
  * Découpe un fichier de migration en statements exécutables.
  *
+ * ## Le séparateur EST un commentaire SQL — et c'est tout le problème
+ *
+ * `--> statement-breakpoint` commence par deux tirets : pour le moteur, c'est
+ * un commentaire, et rien ne le distingue d'un autre à l'œil nu. Deux ordres
+ * naïfs échouent donc, chacun pour sa raison, et les deux ont été constatés :
+ *
+ * - **découper puis retirer les commentaires** fait d'un séparateur écrit DANS
+ *   un commentaire un vrai séparateur. La ligne est coupée en deux, et le
+ *   fragment de droite — qui ne commence plus par deux tirets — part au pilote
+ *   comme une instruction. Le produit se le faisait à lui-même : le gabarit
+ *   qu'écrit `orm:generate --custom` porte la phrase qui NOMME le séparateur,
+ *   si bien que toute migration libre écrite en suivant son aide échouait sur
+ *   une erreur de syntaxe, en laissant dans l'historique une migration `failed`
+ *   — c'est-à-dire une base bloquée, à réparer à la main ;
+ * - **retirer les commentaires puis découper** emporte les séparateurs
+ *   eux-mêmes, et fond toutes les instructions du fichier en une seule.
+ *
+ * Il n'y a donc pas d'ordre à trouver : les deux décisions se prennent au MÊME
+ * moment, ligne par ligne, en sachant si l'on est dans une chaîne littérale.
+ * Un commentaire ne peut pas ouvrir un commentaire : dès que la ligne commence
+ * par deux tirets sans être le séparateur, tout ce qu'elle porte est du texte.
+ *
+ * Le séparateur n'est pas reconnu « ligne entière » pour autant : drizzle-kit
+ * le colle en fin d'instruction (`CREATE INDEX …;--> statement-breakpoint`), et
+ * l'exiger seul sur sa ligne ferait fusionner toutes les instructions d'une
+ * migration du framework.
+ *
  * @param normalized - contenu normalisé (fins de ligne en LF).
  * @returns les statements non vides, dans l'ordre du fichier.
  */
 export function splitStatements(normalized: string): string[] {
-  return normalized
-    .split(STATEMENT_BREAKPOINT)
-    .map((statement) => stripComments(statement).trim())
-    .filter((statement) => statement.length > 0);
+  const statements: string[] = [];
+  let courant: string[] = [];
+  let dansChaine = false;
+
+  /** Clôt le statement en cours — vide, il ne compte pas. */
+  const clore = (): void => {
+    const statement = courant.join("\n").trim();
+    if (statement.length > 0) {
+      statements.push(statement);
+    }
+    courant = [];
+    // Après un séparateur, une instruction NEUVE commence : aucune chaîne ne
+    // peut rester ouverte d'un statement à l'autre.
+    dansChaine = false;
+  };
+
+  for (const ligne of normalized.split("\n")) {
+    if (!dansChaine) {
+      const tete = ligne.trimStart();
+      if (tete.startsWith(STATEMENT_BREAKPOINT)) {
+        clore();
+        continue;
+      }
+      // Une ligne n'est un commentaire QUE si elle commence hors chaîne. Un
+      // remplissage écrit à la main (`--custom` sert exactement à ça) peut
+      // porter un texte multi-ligne dont une ligne commence par deux tirets :
+      // la retirer changerait silencieusement la donnée insérée.
+      if (tete.startsWith("--")) {
+        continue;
+      }
+      const coupe = indexHorsChaine(ligne, STATEMENT_BREAKPOINT);
+      if (coupe >= 0) {
+        courant.push(ligne.slice(0, coupe));
+        clore();
+        continue;
+      }
+    }
+    courant.push(ligne);
+    dansChaine = ferméSurChaîneOuverte(ligne, dansChaine);
+  }
+  clore();
+  return statements;
 }
 
 /**
- * Retire les lignes de commentaire d'un statement.
+ * Position du motif dans la ligne, en IGNORANT ce qui est dans une chaîne.
  *
- * Sans ce nettoyage, un statement qui ne contiendrait QUE le marqueur de format
- * serait envoyé au pilote — que certains drivers refusent, faute d'y trouver
- * une commande.
+ * Un remplissage écrit à la main peut contenir le texte du séparateur comme
+ * DONNÉE — c'est exactement l'usage de `--custom`. Le chercher au plus simple
+ * couperait l'instruction en plein milieu d'une valeur, et le pilote recevrait
+ * deux moitiés de SQL.
  *
- * @param statement - statement brut.
- * @returns le statement sans ses lignes de commentaire de tête.
+ * La ligne est supposée commencer hors chaîne : l'appelant ne pose la question
+ * que dans ce cas.
+ *
+ * @param ligne - ligne à balayer, débutant hors chaîne.
+ * @param motif - texte cherché.
+ * @returns l'indice, ou `-1` si le motif n'apparaît qu'à l'intérieur d'une chaîne.
  */
-function stripComments(statement: string): string {
-  const lignes = statement.split("\n");
-  const gardees: string[] = [];
-  let dansChaine = false;
-  for (const ligne of lignes) {
-    // Une ligne n'est un commentaire QUE si elle commence hors chaîne. Un
-    // remplissage écrit à la main (`--custom` sert exactement à ça) peut porter
-    // un texte multi-ligne dont une ligne commence par deux tirets : la retirer
-    // change silencieusement la donnée insérée, ou casse le SQL.
-    if (!dansChaine && ligne.trimStart().startsWith("--")) {
+function indexHorsChaine(ligne: string, motif: string): number {
+  let dans = false;
+  for (let i = 0; i < ligne.length; i += 1) {
+    if (ligne[i] === "'") {
+      if (dans && ligne[i + 1] === "'") {
+        i += 1;
+        continue;
+      }
+      dans = !dans;
       continue;
     }
-    gardees.push(ligne);
-    dansChaine = ferméSurChaîneOuverte(ligne, dansChaine);
+    if (!dans && ligne.startsWith(motif, i)) {
+      return i;
+    }
   }
-  return gardees.join("\n");
+  return -1;
 }
 
 /**

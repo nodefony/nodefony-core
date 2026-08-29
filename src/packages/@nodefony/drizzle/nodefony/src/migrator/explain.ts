@@ -1,4 +1,4 @@
-import type { SqlDialect } from "../../config/config";
+import type { DivergenceMode, SqlDialect } from "../../config/config";
 import type {
   IAppliedMigration,
   IMigrationAction,
@@ -223,6 +223,48 @@ export function isAheadOnly(plan: IMigrationPlan): boolean {
 }
 
 /**
+ * Une divergence RETIENT-elle un déploiement ?
+ *
+ * ## Pourquoi ce n'est pas un simple « le mode vaut-il `fail` »
+ *
+ * Le défaut est l'observation, et pour une bonne raison : une application qui
+ * écrit des migrations libres — vues, déclencheurs, colonnes ajoutées à la main
+ * — a une base légitimement différente du schéma déclaré, en permanence. Faire
+ * tomber ses déploiements là-dessus rendrait le constat inutilisable, et la
+ * première chose qu'on ferait serait de l'éteindre.
+ *
+ * **Mais ce raisonnement ne couvre pas une TABLE d'entité absente.** Aucune
+ * migration libre ne fait disparaître une table que le code déclare comme
+ * entité ; quand elle manque, c'est que le schéma applicatif n'a jamais été
+ * posé — la migration n'a pas été générée, pas commitée, ou pas appliquée. Ce
+ * n'est pas une base « différente », c'est une base sur laquelle l'application
+ * ne peut RIEN faire : chacune de ses routes rendra 500, et le pod se serait
+ * déclaré prêt.
+ *
+ * C'est exactement le constat qui a ouvert ce chantier : les onze tables du
+ * framework posées, zéro table applicative, et toutes les routes d'entités en
+ * erreur — sans qu'aucun verdict ne le dise assez fort pour arrêter quoi que
+ * ce soit.
+ *
+ * La graduation tient donc en trois lignes, et chaque lecteur y trouve son
+ * seuil : `off` ne retient jamais, `fail` retient tout écart, `report` — le
+ * défaut — retient ce qu'aucune main légitime ne produit.
+ *
+ * @param divergence - les écarts nommés, ou `null` quand il n'y en a pas.
+ * @param mode - `migrations.divergence`, tel que la configuration le déclare.
+ * @returns `true` si la situation doit retenir la mise en service.
+ */
+export function divergenceIsBlocking(
+  divergence: ISchemaComparison | null | undefined,
+  mode: DivergenceMode = "report",
+): boolean {
+  if (!divergence || mode === "off") {
+    return false;
+  }
+  return mode === "fail" || divergence.missingTables.length > 0;
+}
+
+/**
  * Le code de sortie d'un verdict.
  *
  * **`divergent` ne fait pas tomber un déploiement** quand la configuration le
@@ -231,7 +273,8 @@ export function isAheadOnly(plan: IMigrationPlan): boolean {
  * base légitimement différente du schéma déclaré, en permanence.
  *
  * @param verdict - situation d'ensemble.
- * @param divergenceBlocks - `true` quand `migrations.divergence` vaut `fail`.
+ * @param divergenceBlocks - `true` quand la divergence doit retenir la mise en
+ *   service, tel que {@link divergenceIsBlocking} en décide.
  * @returns `0`, `1` ou `2`.
  */
 export function exitCodeOf(
@@ -302,8 +345,16 @@ export interface IReportContext {
    * champs pour un même fait finissent par se contredire.
    */
   divergence?: ISchemaComparison | null;
-  /** `migrations.divergence` vaut-il `fail` ? */
-  divergenceBlocks?: boolean;
+  /**
+   * `migrations.divergence`, tel que la configuration le déclare.
+   *
+   * Le MODE, jamais un booléen calculé par l'appelant : le seuil qui décide
+   * qu'un écart retient un déploiement est une règle du produit
+   * ({@link divergenceIsBlocking}), pas une décision que chaque appelant
+   * reprendrait à son compte — deux copies finiraient par ne plus retenir les
+   * mêmes situations.
+   */
+  divergenceMode?: DivergenceMode;
   /**
    * `orm:reset` est-elle acceptée dans cet environnement ?
    *
@@ -334,9 +385,12 @@ export function buildReport(
     formatVersion: MIGRATION_FORMAT_VERSION,
     connector: plan.connector,
     verdict,
-    exitCode: exitCodeOf(verdict, ctx.divergenceBlocks === true),
+    exitCode: exitCodeOf(
+      verdict,
+      divergenceIsBlocking(divergence, ctx.divergenceMode),
+    ),
     summary: summaryOf(plan, verdict, divergence),
-    nextActions: actionsOf(plan, verdict, ctx.canReset === true),
+    nextActions: actionsOf(plan, verdict, ctx.canReset === true, divergence),
     sources,
     // Posée SEULEMENT quand elle a quelque chose à dire : un objet vide
     // publierait la clé sur toutes les bases conformes, et un consommateur
@@ -463,7 +517,15 @@ function summaryOf(
       return `La base du connecteur « ${c} » contient déjà des tables, mais aucune migration n'y est enregistrée. Nodefony ne devine pas : appliquer les migrations sur une base déjà peuplée écraserait peut-être une base qui n'est pas la bonne.`;
     case "divergent": {
       const quoi = divergence ? ` — ${nameGaps(divergence)}` : "";
-      return `Le connecteur « ${c} » a son historique complet et rien en attente, et la base ne correspond pourtant pas au schéma déclaré dans le code${quoi}. Quelqu'un a modifié la base directement, ou un correctif d'urgence n'a pas été reporté.`;
+      // La cause probable n'est PAS la même selon ce qui manque, et envoyer
+      // chercher au mauvais endroit coûte une heure : une TABLE d'entité
+      // absente veut dire que sa migration n'a jamais été écrite ou appliquée,
+      // pas que quelqu'un a touché à la base.
+      const pourquoi =
+        divergence && divergence.missingTables.length > 0
+          ? `L'application ne peut PAS servir ces entités : leur migration n'a jamais été générée, commitée ou appliquée.`
+          : `Quelqu'un a modifié la base directement, ou un correctif d'urgence n'a pas été reporté.`;
+      return `Le connecteur « ${c} » a son historique complet et rien en attente, et la base ne correspond pourtant pas au schéma déclaré dans le code${quoi}. ${pourquoi}`;
     }
   }
 }
@@ -474,12 +536,15 @@ function summaryOf(
  * @param plan - plan calculé en lecture seule.
  * @param verdict - situation d'ensemble.
  * @param canReset - `orm:reset` est-elle acceptée dans cet environnement ?
+ * @param divergence - les écarts nommés : le geste n'est pas le même selon
+ *   qu'il manque une colonne ou une table entière.
  * @returns les gestes, dans l'ordre où les tenter.
  */
 function actionsOf(
   plan: IMigrationPlan,
   verdict: MigrationVerdictName,
   canReset = false,
+  divergence: ISchemaComparison | null = null,
 ): IMigrationAction[] {
   const c = plan.connector;
   const suffixe = c === "default" ? "" : ` --connector ${c}`;
@@ -523,6 +588,19 @@ function actionsOf(
       // confiance dans toutes les autres actions rendues ici. Là où l'on ne
       // peut pas repartir de zéro, le geste réel est d'écrire soi-même le SQL
       // qui rattrape l'écart, puis de l'appliquer comme une migration.
+      //
+      // 🔴 Et le geste dépend de CE qui manque. Une TABLE d'entité absente se
+      // rattrape par le générateur — il sait la produire, puisque le code la
+      // déclare. Envoyer écrire du SQL à la main (`--custom`) serait exact pour
+      // une colonne en écart et absurde ici : on ferait recopier à la main ce
+      // que la commande d'à côté écrit toute seule.
+      if (divergence && divergence.missingTables.length > 0) {
+        return [
+          action(`nodefony orm:generate${suffixe} --name rattrapage_schema`),
+          action(`nodefony orm:migrate${suffixe}`),
+          action(`nodefony orm:migrate:status${suffixe} --json`),
+        ];
+      }
       return canReset
         ? [
             action(`nodefony orm:migrate:status${suffixe} --json`),

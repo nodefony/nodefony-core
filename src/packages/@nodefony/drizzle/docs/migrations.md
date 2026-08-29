@@ -364,14 +364,25 @@ reporté, deux environnements ont divergé. Le verdict s'appelle `divergent`, il
   sans rien apprendre ;
 - **il signale ce qui MANQUE, jamais ce qu'il trouve en trop.** Sans cette règle, toute application
   à migrations libres l'aurait allumé à vie — donc appris comme du bruit, donc mort ;
-- **il ne fait pas tomber un déploiement.** Le code de sortie reste `0`. Superviser n'est pas
-  bloquer. Pour en faire une barrière, il faut le demander :
+- **il ne fait pas tomber un déploiement — sauf quand une TABLE d'entité manque.** Le code de
+  sortie reste `0` pour une colonne en écart : superviser n'est pas bloquer, et une application à
+  migrations libres en a une en permanence. Mais aucune main légitime ne fait _disparaître_ une
+  table que le code déclare comme entité : quand elle manque, le schéma applicatif n'a jamais été
+  posé, l'application rendra 500 sur chacune de ses routes, et le processus **retient sa mise en
+  service** (`/readyz` répond 503). Le seuil se règle :
 
 ```typescript
 use("@nodefony/drizzle", {
-  migrations: { divergence: "fail" }, // défaut : "report"
+  // "report" (défaut) — affiche tout écart, ne retient QUE sur une table absente
+  // "fail"          — tout écart retient la mise en service
+  // "off"           — rien n'est comparé, rien n'est publié
+  migrations: { divergence: "fail" },
 });
 ```
+
+**La graduation est unique** (`divergenceIsBlocking()`, `explain.ts`) : la commande et la sonde de
+disponibilité lisent la même règle, donc votre passe d'intégration continue et votre orchestrateur
+ne peuvent pas se contredire.
 
 ### Il dit CE QUI diverge, pas seulement QU'IL diverge
 
@@ -412,16 +423,21 @@ Les gestes proposés suivent **l'environnement** : `orm:reset` efface, elle n'es
 développement, et elle n'est donc proposée que là. Ailleurs, la sortie renvoie vers l'écriture d'une
 migration correctrice (`orm:generate --custom`) puis son application.
 
+Ils suivent aussi **ce qui manque**. Une table d'entité absente se rattrape par le générateur — il
+sait la produire, puisque le code la déclare — et c'est `orm:generate --name …` qui est proposé, pas
+`--custom` : envoyer écrire à la main ce que la commande d'à côté écrit seule serait un geste juste
+pour une colonne et absurde pour une table.
+
 ## Codes de sortie et sortie `--json`
 
 La grille est **figée, et ne sera jamais réaffectée** — des passes d'intégration continue s'y
 adossent, et en changer le sens casserait des tests que nous ne voyons pas.
 
-| Code | Ce que ça veut dire                                                                       |
-| ---- | ----------------------------------------------------------------------------------------- |
-| `0`  | à jour, ou appliqué avec succès                                                           |
-| `1`  | une action humaine est requise : migrations en attente, dérive, échec, refus destructif   |
-| `2`  | la commande n'a pas pu travailler : base injoignable, verrou indisponible, usage invalide |
+| Code | Ce que ça veut dire                                                                                             |
+| ---- | --------------------------------------------------------------------------------------------------------------- |
+| `0`  | à jour, ou appliqué avec succès                                                                                 |
+| `1`  | une action humaine est requise : migrations en attente, dérive, échec, refus destructif, table d'entité absente |
+| `2`  | la commande n'a pas pu travailler : base injoignable, verrou indisponible, usage invalide                       |
 
 ```bash
 # Barrière d'intégration continue : la passe s'arrête si le schéma n'est pas à jour.
@@ -464,23 +480,28 @@ mineure ; en retirer ou en renommer un est interdit sur la série majeure.
 - **Une ligne qui commence par deux tirets À L'INTÉRIEUR d'une chaîne littérale reste de la
   donnée.** C'est le cas d'un remplissage textuel multi-ligne écrit avec `orm:generate --custom` :
   la retirer changerait silencieusement ce qui est inséré.
+- **Le séparateur d'instructions écrit DANS un commentaire n'en est pas un.** `--> statement-breakpoint`
+  commence lui-même par deux tirets : rien ne le distingue d'un commentaire à l'œil du moteur. Une
+  ligne de commentaire qui le CITE — ce que fait le gabarit d'une migration libre — ne coupe donc
+  rien.
 
 ## 🧪 Tests & couverture
 
-| Ce qui est prouvé                                                                               | Où                                                            |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Applicateur : identité ensembliste, dérive, ordre, échec puis réparation, adoption, idempotence | `tests/integration/migrator-sqlite.test.ts`                   |
-| Verrou entre process, absence de zombie, DDL non transactionnel                                 | `migrator-postgres.e2e.test.ts`, `migrator-mysql.e2e.test.ts` |
-| Les cinq verbes sur un **boot réel**, dans les trois modes                                      | `migrate-cli.e2e.test.ts` (`NF_RUN_CLI_BOOT=1`)               |
-| Rattrapage additif, refus d'inventer, colonne en trop ignorée                                   | `schema-reconcile.test.ts`                                    |
-| Rattrapage sur **serveurs réels** (types, catalogue, index)                                     | `schema-reconcile-dialects.e2e.test.ts`                       |
-| Verdict `divergent`, son absence quand un geste est déjà dû, et le DÉTAIL qu'il nomme           | `migrate-divergence.test.ts`                                  |
-| Refus destructif : ce qui perd des données, ce qui n'en perd pas                                | `migrate-destructive.test.ts`                                 |
-| Parité entre le schéma migré et le schéma dérivé, sur les 3 dialectes                           | `migrations-parity-*.test.ts`                                 |
-| **Chaque réglage** sur son couple (refus sans lui, travail avec lui), 3 dialectes               | `migrate-reglages.test.ts`                                    |
-| Lecture et empreinte d'un fichier : marque d'ordre des octets, CRLF, chaînes littérales         | `tests/unit/migrationFichiers.test.ts`                        |
-| Le nom d'une migration, et l'invariant « une suggestion est toujours acceptable »               | `tests/unit/migrationName.test.ts`                            |
-| Le cycle complet **dans une application générée** (barrière de déploiement comprise)            | gabarit `tests/migrations.e2e.test.ts` de toute app à ORM     |
+| Ce qui est prouvé                                                                                                            | Où                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Applicateur : identité ensembliste, dérive, ordre, échec puis réparation, adoption, idempotence                              | `tests/integration/migrator-sqlite.test.ts`                   |
+| Verrou entre process, absence de zombie, DDL non transactionnel                                                              | `migrator-postgres.e2e.test.ts`, `migrator-mysql.e2e.test.ts` |
+| Les cinq verbes sur un **boot réel**, dans les trois modes                                                                   | `migrate-cli.e2e.test.ts` (`NF_RUN_CLI_BOOT=1`)               |
+| Rattrapage additif, refus d'inventer, colonne en trop ignorée                                                                | `schema-reconcile.test.ts`                                    |
+| Rattrapage sur **serveurs réels** (types, catalogue, index)                                                                  | `schema-reconcile-dialects.e2e.test.ts`                       |
+| Verdict `divergent`, son absence quand un geste est déjà dû, et le DÉTAIL qu'il nomme                                        | `migrate-divergence.test.ts`                                  |
+| Refus destructif : ce qui perd des données, ce qui n'en perd pas                                                             | `migrate-destructive.test.ts`                                 |
+| Parité entre le schéma migré et le schéma dérivé, sur les 3 dialectes                                                        | `migrations-parity-*.test.ts`                                 |
+| **Chaque réglage** sur son couple (refus sans lui, travail avec lui), 3 dialectes                                            | `migrate-reglages.test.ts`                                    |
+| Lecture et empreinte d'un fichier : marque d'ordre des octets, CRLF, chaînes littérales                                      | `tests/unit/migrationFichiers.test.ts`                        |
+| Le nom d'une migration, et l'invariant « une suggestion est toujours acceptable »                                            | `tests/unit/migrationName.test.ts`                            |
+| Le cycle complet **dans une application générée** : génération, barrière de déploiement, `/readyz` 503, divergence provoquée | gabarit `tests/migrations.e2e.test.ts` de toute app à ORM     |
+| Le découpage en instructions : séparateur dans un commentaire, séparateur collé en fin de ligne                              | `tests/unit/migratorContracts.test.ts`                        |
 
 Les bancs PostgreSQL et MySQL/MariaDB exigent leurs serveurs :
 

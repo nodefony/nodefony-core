@@ -1,8 +1,18 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import Container from "../Container";
 import Module from "../kernel/Module";
 import type Kernel from "../kernel/Kernel";
 import type { DefaultOptionsService } from "../Service";
-import { readRuntimeState } from "../service/dev/devProcess";
+import { nodefonyBin } from "../cli/nodefonyBin";
+import {
+  readRuntimeState,
+  readinessStateFile,
+  runtimeStateFile,
+  signalProcessGroup,
+} from "../service/dev/devProcess";
 
 /**
  * Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL.
@@ -162,4 +172,175 @@ export function createTestModule(settings: ITestModuleOptions = {}): Module {
     settings.path ?? process.cwd(),
     settings.options ?? {},
   );
+}
+
+/** Réglages d'un exemplaire JETABLE — le port est le seul obligatoire. */
+export interface ISpareAppOptions {
+  /**
+   * Port HTTP de l'exemplaire — **imposé, jamais deviné**.
+   *
+   * L'exemplaire déjà démarré par le décor tient le port de l'application ;
+   * celui-ci doit en prendre un autre, et la sonde doit savoir à qui elle
+   * parle. Un port découvert après coup ferait retomber le test sur le premier
+   * serveur venu, exactement ce que {@link runningAppPort} refuse de faire.
+   */
+  port: number;
+  /** Port HTTPS, quand la configuration en ouvre un — même raison. */
+  httpsPort?: number;
+  /** Variables ajoutées à l'environnement de l'exemplaire. */
+  env?: NodeJS.ProcessEnv;
+  /** Racine de l'application ; le répertoire courant par défaut. */
+  root?: string;
+  /** Délai maximal d'attente de la première réponse, en ms (défaut 60 000). */
+  timeoutMs?: number;
+}
+
+/** Un exemplaire jetable, démarré et joignable. */
+export interface ISpareApp {
+  /** Port sur lequel il répond — celui qui a été demandé. */
+  port: number;
+  /** Tout ce qu'il a écrit sur ses deux flux jusqu'ici. */
+  output(): string;
+  /** L'arrête et REND à l'application son état d'exécution. */
+  stop(): Promise<void>;
+}
+
+/**
+ * Démarre un exemplaire JETABLE de l'application, dans un état choisi.
+ *
+ * ## À quoi ça sert
+ *
+ * Certaines choses ne s'observent que sur un processus qui démarre dans un état
+ * précis : un schéma en retard qui retient la mise en service (`/readyz` rend
+ * 503), une dépendance absente, un refus de démarrage. Le décor de la suite,
+ * lui, a démarré l'application dans l'état NORMAL — et c'est ce qu'on veut : les
+ * autres cas mesurent le fonctionnement.
+ *
+ * ## 🔴 Ce qu'il faut savoir, et qui ne se voit pas
+ *
+ * Un exemplaire Nodefony **publie ses ports** dans l'état d'exécution du projet
+ * (`node_modules/.cache/nodefony/`), et cet état est un fichier UNIQUE par
+ * racine d'application. Un second exemplaire lancé depuis le même dossier
+ * l'écrase donc, et {@link runningAppPort} — que tous les autres cas
+ * utilisent — se met à désigner le jetable, puis à lever une fois qu'il est
+ * mort. Le défaut n'apparaît pas dans le cas qui l'a créé : il tombe sur le
+ * SUIVANT, et accuse une route qui n'a rien fait.
+ *
+ * `stop()` restaure donc l'état d'exécution tel qu'il était avant le démarrage.
+ * C'est la raison d'être de cette fonction, bien plus que le `spawn` qu'elle
+ * fait à votre place.
+ *
+ * ```ts
+ * const jetable = await startSpareApp({
+ *   port: 5399,
+ *   env: { NODE_ENV: "production", NF_DATABASE_URL: "sqlite:/tmp/vierge.db" },
+ * });
+ * try {
+ *   const res = await fetch(`http://127.0.0.1:${jetable.port}/readyz`);
+ *   assert.equal(res.status, 503);
+ * } finally {
+ *   await jetable.stop();
+ * }
+ * ```
+ *
+ * @param options - port imposé, environnement, racine.
+ * @returns l'exemplaire, une fois qu'il répond.
+ * @throws Si le processus meurt avant de répondre, ou si le délai expire — avec
+ * ce qu'il a écrit, parce que c'est là que se trouve la cause.
+ */
+export async function startSpareApp(
+  options: ISpareAppOptions,
+): Promise<ISpareApp> {
+  const root = options.root ?? process.cwd();
+  const timeoutMs = options.timeoutMs ?? 60_000;
+  // L'état d'exécution est relevé AVANT le spawn : c'est la seule photo fidèle.
+  const etat = readStateFiles(root);
+
+  const child = spawn(process.execPath, [nodefonyBin(), "production"], {
+    cwd: root,
+    // Chef de son groupe : c'est ce qui permet d'emporter l'arbre à l'arrêt.
+    // Sous Windows, où les groupes n'existent pas, `signalProcessGroup` passe
+    // par le programme de kill d'arbre — la règle a UNE implémentation.
+    detached: process.platform !== "win32",
+    env: {
+      ...process.env,
+      NF_PORT: String(options.port),
+      ...(options.httpsPort === undefined
+        ? {}
+        : { NF_PORT_HTTPS: String(options.httpsPort) }),
+      ...options.env,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let sortie = "";
+  child.stdout?.on("data", (c: Buffer) => (sortie += c.toString()));
+  child.stderr?.on("data", (c: Buffer) => (sortie += c.toString()));
+  let mort: number | null = null;
+  child.on("exit", (code: number | null) => (mort = code ?? -1));
+
+  const arreter = async (): Promise<void> => {
+    if (mort === null && typeof child.pid === "number") {
+      signalProcessGroup(child.pid, "SIGKILL");
+    }
+    await once(child, "exit").catch(() => undefined);
+    restoreStateFiles(etat);
+  };
+
+  const limite = Date.now() + timeoutMs;
+  for (;;) {
+    if (mort !== null) {
+      restoreStateFiles(etat);
+      throw new Error(
+        `l'exemplaire jetable est mort avant de répondre (code ${mort}) :\n${sortie.slice(-2000)}`,
+      );
+    }
+    // `/livez` et non `/readyz` : on attend qu'il SERVE, pas qu'il soit prêt —
+    // un exemplaire dont la mise en service est retenue répond quand même.
+    const vivant = await fetch(`http://127.0.0.1:${options.port}/livez`)
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (vivant) {
+      break;
+    }
+    if (Date.now() > limite) {
+      await arreter();
+      throw new Error(
+        `l'exemplaire jetable n'a pas répondu sur le port ${options.port} en ${timeoutMs} ms :\n${sortie.slice(-2000)}`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  return { port: options.port, output: () => sortie, stop: arreter };
+}
+
+/** Contenu brut des fichiers d'état, ou `null` quand le fichier n'existe pas. */
+type EtatFichiers = ReadonlyArray<{ file: string; contenu: string | null }>;
+
+/** Relève les fichiers d'état qu'un exemplaire écrase en démarrant. */
+function readStateFiles(root: string): EtatFichiers {
+  return [runtimeStateFile(root), readinessStateFile(root)].map((file) => {
+    try {
+      return { file, contenu: readFileSync(file, "utf8") };
+    } catch {
+      return { file, contenu: null };
+    }
+  });
+}
+
+/** Rend les fichiers d'état à ce qu'ils étaient — y compris leur absence. */
+function restoreStateFiles(etat: EtatFichiers): void {
+  for (const { file, contenu } of etat) {
+    try {
+      if (contenu === null) {
+        rmSync(file, { force: true });
+      } else {
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, contenu, "utf8");
+      }
+    } catch {
+      /* best-effort : ne jamais faire échouer un arrêt sur un ménage */
+    }
+  }
 }

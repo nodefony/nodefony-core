@@ -84,6 +84,48 @@ describe("Applicateur de migrations — contrats gravés", () => {
     ]);
   });
 
+  it("🔴 le séparateur écrit DANS un commentaire n'en est pas un", () => {
+    // Vécu, et le produit se le faisait à lui-même : le gabarit que
+    // `orm:generate --custom` écrit porte la phrase « Séparer les instructions
+    // par --> statement-breakpoint ». Découper AVANT de retirer les
+    // commentaires coupait cette ligne en deux, et le fragment de droite —
+    // qui ne commence plus par deux tirets — partait au pilote comme une
+    // instruction. Toute migration libre écrite en suivant l'aide du produit
+    // échouait, et l'historique gardait la trace d'une migration `failed`.
+    const statements = splitStatements(
+      `${FORMAT_MARKER}\n` +
+        `-- Séparer les instructions par « --> statement-breakpoint ».\n` +
+        `ALTER TABLE a DROP COLUMN b;\n`,
+    );
+    assert.deepEqual(statements, ["ALTER TABLE a DROP COLUMN b;"]);
+  });
+
+  it("le séparateur COLLÉ en fin d'instruction reste un séparateur", () => {
+    // C'est la forme que drizzle-kit écrit réellement — le séparateur n'est pas
+    // seul sur sa ligne. Le reconnaître « ligne entière » serait plus simple et
+    // ferait fusionner toutes les instructions d'une migration du framework.
+    assert.deepEqual(
+      splitStatements(
+        `CREATE INDEX i ON t (a);--> statement-breakpoint\nCREATE INDEX j ON t (b);\n`,
+      ),
+      ["CREATE INDEX i ON t (a);", "CREATE INDEX j ON t (b);"],
+    );
+  });
+
+  it("le séparateur écrit dans une VALEUR est de la donnée, pas une coupure", () => {
+    // `--custom` sert à écrire du SQL libre, remplissages compris. Un texte qui
+    // contient les mots du séparateur ne doit pas couper l'instruction en deux
+    // moitiés — le pilote recevrait du SQL tronqué, et la donnée serait fausse.
+    assert.deepEqual(
+      splitStatements(
+        `INSERT INTO note (corps) VALUES ('avant --> statement-breakpoint apres');\n`,
+      ),
+      [
+        "INSERT INTO note (corps) VALUES ('avant --> statement-breakpoint apres');",
+      ],
+    );
+  });
+
   it("ordonne les sources par rang, le nom départageant", () => {
     const sources: IMigrationSource[] = [
       { name: "app", dir: "/app", rank: 1_000_000 },

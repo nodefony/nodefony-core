@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T10:35:58.589Z",
+  "generated": "2026-08-29T11:47:34.430Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 779,
-    "symbols": 3476,
+    "symbols": 3483,
     "classes": 380,
-    "interfaces": 964,
-    "types": 416,
+    "interfaces": 966,
+    "types": 417,
     "enums": 4,
-    "functions": 1363,
+    "functions": 1367,
     "constants": 349
   },
   "symbols": {
@@ -4743,6 +4743,24 @@
       "extends": null,
       "description": "Réglages d'un module de test — tous facultatifs."
     },
+    "ISpareAppOptions": {
+      "name": "ISpareAppOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages d'un exemplaire JETABLE — le port est le seul obligatoire."
+    },
+    "ISpareApp": {
+      "name": "ISpareApp",
+      "kind": "interface",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un exemplaire jetable, démarré et joignable."
+    },
     "runningAppPort": {
       "name": "runningAppPort",
       "kind": "function",
@@ -4758,6 +4776,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Un module JETABLE, prêt à porter un service dans un test. ```ts import { createTestModule } from \"nodefony/testing\"; import TaxService from \"../nodefony/service/TaxService\"; const tax = new TaxServ…"
+    },
+    "startSpareApp": {
+      "name": "startSpareApp",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Démarre un exemplaire JETABLE de l'application, dans un état choisi. ## À quoi ça sert Certaines choses ne s'observent que sur un processus qui démarre dans un état précis : un schéma en retard qui…"
     },
     "nodefonyOptions": {
       "name": "nodefonyOptions",
@@ -19284,6 +19310,14 @@
       "module": "@nodefony/drizzle",
       "description": "L'historique porte-t-il des migrations que CE code ne connaît pas, et rien d'autre ne cloche-t-il ? C'est l'état NORMAL de deux moments qu'on ne peut pas éviter : une mise à jour progressive, où le…"
     },
+    "divergenceIsBlocking": {
+      "name": "divergenceIsBlocking",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Une divergence RETIENT-elle un déploiement ? ## Pourquoi ce n'est pas un simple « le mode vaut-il `fail` » Le défaut est l'observation, et pour une bonne raison : une application qui écrit des migr…"
+    },
     "exitCodeOf": {
       "name": "exitCodeOf",
       "kind": "function",
@@ -19762,7 +19796,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Découpe un fichier de migration en statements exécutables."
+      "description": "Découpe un fichier de migration en statements exécutables. ## Le séparateur EST un commentaire SQL — et c'est tout le problème `--> statement-breakpoint` commence par deux tirets : pour le moteur, …"
     },
     "createdTables": {
       "name": "createdTables",
@@ -27938,6 +27972,9 @@
       "isLogColorEnabled": [
         "src/nodefony/src/syslog/Syslog.ts"
       ],
+      "nodefonyBin": [
+        "src/nodefony/src/testing/index.ts"
+      ],
       "readRuntimeState": [
         "src/nodefony/src/testing/index.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
@@ -27945,6 +27982,18 @@
         "src/nodefony/src/service/dev/devProjects.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "readinessStateFile": [
+        "src/nodefony/src/testing/index.ts"
+      ],
+      "runtimeStateFile": [
+        "src/nodefony/src/testing/index.ts"
+      ],
+      "signalProcessGroup": [
+        "src/nodefony/src/testing/index.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "IFilterSpec": [
         "src/nodefony/src/types/IAdminApi.ts",
@@ -28939,11 +28988,6 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "signalProcessGroup": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "formatForeignRuntimes": [
         "src/nodefony/src/service/dev/detachedStart.ts",
@@ -32145,13 +32189,14 @@
       "MigrationVerdictCode": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
+      "DivergenceMode": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
       "ISchemaGap": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "parseDatabaseUrl": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
-      ],
-      "DivergenceMode": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "MigrationCheckMode": [

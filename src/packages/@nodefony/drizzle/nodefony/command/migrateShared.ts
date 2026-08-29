@@ -401,10 +401,15 @@ export abstract class OrmMigrateCommand extends Command {
     resolution: Extract<IConnectorResolution, { kind: "ready" }>,
     config: IDrizzleConfig,
   ): Promise<IMigrationReport> {
+    const mode = config.migrations.divergence;
     return buildReport(plan, {
       ddl: resolution.ddl,
-      divergence: await describeDivergence(plan),
-      divergenceBlocks: config.migrations.divergence === "fail",
+      // `off` veut dire « rien » : on ne la CALCULE même pas. La comparer puis
+      // taire le résultat coûterait une requête par table pour une réponse que
+      // personne ne lira — et c'était le comportement, la clé n'ayant aucun
+      // lecteur.
+      divergence: mode === "off" ? null : await describeDivergence(plan),
+      divergenceMode: mode,
       canReset: resetAllowed(readMigrationEnv(this.kernel as Kernel | null)),
     });
   }

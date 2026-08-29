@@ -364,10 +364,12 @@ class DrizzleService extends Service {
       // où elle apprend quelque chose que personne d'autre ne voit. Elle rend
       // ce qui diverge, NOMMÉ — la phrase publiée à la sonde dit donc quelle
       // table manque, et non plus seulement qu'il en manque une.
+      const mode = this.#config().migrations?.divergence ?? "report";
       const report = buildReport(plan, {
         ddl,
-        divergence: await describeDivergence(plan),
-        divergenceBlocks: this.#config().migrations?.divergence === "fail",
+        // `off` : rien n'est calculé. Cf le même choix dans `migrateShared`.
+        divergence: mode === "off" ? null : await describeDivergence(plan),
+        divergenceMode: mode,
         canReset: resetAllowed(readMigrationEnv(kernel)),
       });
       // Une base EN AVANCE sur ce code n'est pas une anomalie : c'est l'état

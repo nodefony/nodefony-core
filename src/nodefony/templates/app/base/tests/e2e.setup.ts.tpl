@@ -122,7 +122,11 @@ export async function setup(): Promise<void> {
   execFileSync(process.execPath, [bin, "orm:migrate"], {
     stdio: "inherit",
     timeout: 120_000,
-    env: { ...process.env, NODE_ENV: "production", NF_DATABASE_URL: URL_BASE_E2E },
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      NF_DATABASE_URL: URL_BASE_E2E,
+    },
   });
 <% } %>  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
     stdio: "inherit",
