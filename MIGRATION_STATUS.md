@@ -311,7 +311,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 
 > **Recroisement du 2026-08-24** (19 sessions et ~107 commits `feat`/`fix` depuis l'audit vérité) : le **comptage est INCHANGÉ** — aucune tâche n'a changé de statut, le travail de la période porte sur des correctifs, l'outillage de banc et la porte MCP déjà tracés. **Trois écarts corrigés** : les chiffres de performance du § _Performance du pipeline HTTP_ étaient périmés (« base 9 347 RPS vs `node:http` nu ») et cadraient la comparaison contre un serveur qui ne fait pas le même travail → remplacés par le verdict mesuré du 08-23 (**92 % d'Express équipé**, p99 9,57 ms, soak 20 min sans fuite) ; le défaut de démarrage `production` (`dfdada9e`) n'était tracé nulle part ; deux cellules-journal de 8 093 et 3 551 caractères ont été condensées.
 
-> Comptage **autorité = emoji en 1ʳᵉ cellule** de la roadmap (1 ligne = 1 tâche, ⏭️ exclu). `◀` = bloqueur du chemin critique. **MVP sécurité ✅ atteint (P6, resource-server P6.9.x compris) · multi-dialecte S1-S4 ✅ · doctor ✅ → bloqueurs actuels = P8 publication npm + P11 (CLI métier), puis S5 (DDL prod).**
+> Comptage **autorité = emoji en 1ʳᵉ cellule** de la roadmap (1 ligne = 1 tâche, ⏭️ exclu). `◀` = bloqueur du chemin critique. **MVP sécurité ✅ atteint (P6, resource-server P6.9.x compris) · multi-dialecte S1-S5 ✅ (DDL de production livré : génération, applicateur sous verrou, cinq commandes, garde destructive, verdict `divergent`, et les migrations générées éprouvées sur les TROIS moteurs à la forge) · doctor ✅ → bloqueurs actuels = P8 publication npm + P11 (CLI métier).**
 
 ```
 ━━━━━━ NODEFONY · MIGRATION ━━━━━━━━━━━━━━━━━━━ vérifié code 2026-08-20 ━━━━━━
