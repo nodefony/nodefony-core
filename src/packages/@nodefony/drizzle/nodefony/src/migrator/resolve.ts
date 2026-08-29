@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { Kernel } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
+import { parseDatabaseUrl, sqliteFilenameFromUrl } from "nodefony";
 import type {
   DdlMode,
   DivergenceMode,
@@ -178,6 +179,22 @@ export type IConnectorResolution =
       driver: string;
     }
   | {
+      /**
+       * La variable de migration désigne une AUTRE base que le connecteur.
+       *
+       * Refuser est le seul comportement sûr : on ne peut ni appliquer du SQL
+       * d'un dialecte avec le pilote d'un autre, ni deviner laquelle des deux
+       * bases l'exploitant visait. L'ignorer produisait un faux succès de
+       * déploiement — la pire sortie possible d'une commande de migration.
+       */
+      kind: "url-mismatch";
+      connector: string;
+      /** Dialecte du connecteur déclaré. */
+      dialect: SqlDialect;
+      /** Dialecte que désigne la variable, ou `null` si elle est illisible. */
+      urlDialect: SqlDialect | null;
+    }
+  | {
       /** Aucun connecteur de ce nom, nulle part. */
       kind: "unknown";
       connector: string;
@@ -307,11 +324,41 @@ export function resolveConnector(
   const migrateUrl = options.allowMigrateUrl
     ? process.env[MIGRATE_URL_ENV]
     : undefined;
-  const fromMigrateUrl = Boolean(migrateUrl) && dialect !== "sqlite";
+
+  // 🔴 La variable du moindre privilège est SUIVIE, ou REFUSÉE — jamais jetée.
+  //
+  // Elle a été ignorée en silence dès que le connecteur était sqlite. Le
+  // scénario que ça produit est le pire de toute la chaîne : un travail de
+  // déploiement pose l'URL de la base de production avec son compte de
+  // migration, le connecteur résolu se trouve être sqlite (la variable du
+  // trafic n'est pas passée à CE conteneur — cas ordinaire, puisqu'un job de
+  // migration n'a pas besoin d'elle), et la commande migre alors une base
+  // locale éphémère en rendant « ✓ appliqué » et le code du SUCCÈS. Les
+  // exemplaires démarrent ensuite sur une base jamais migrée.
+  //
+  // Un dialecte qui ne concorde pas est donc une ERREUR D'USAGE, pas un cas à
+  // absorber : on ne peut ni appliquer du SQL PostgreSQL avec un pilote sqlite,
+  // ni deviner laquelle des deux bases l'exploitant visait.
+  if (migrateUrl) {
+    const vise = describeMigrateUrl(migrateUrl);
+    if (vise === null || vise !== dialect) {
+      return {
+        kind: "url-mismatch",
+        connector,
+        dialect,
+        urlDialect: vise,
+      };
+    }
+  }
+  const cible = migrateUrl ? parseDatabaseUrl(migrateUrl) : null;
+  const fromMigrateUrl = cible !== null;
   const target: IMigrationTarget = {
     dialect,
-    filename: base.filename,
-    url: fromMigrateUrl ? migrateUrl : base.url,
+    filename:
+      fromMigrateUrl && dialect === "sqlite"
+        ? sqliteFilenameFromUrl(cible.url)
+        : base.filename,
+    url: fromMigrateUrl && dialect !== "sqlite" ? cible.url : base.url,
   };
   return {
     kind: "ready",
@@ -321,6 +368,25 @@ export function resolveConnector(
     fromMigrateUrl,
     ddl: resolveDdlMode(declared.ddl, env),
   };
+}
+
+/**
+ * Dialecte que désigne une URL de migration, ou `null` si elle n'en désigne aucun.
+ *
+ * Ne jette jamais : une URL illisible est un cas d'usage à REFUSER avec une
+ * phrase, pas une exception qui remonte en pile d'appels au milieu d'un
+ * déploiement.
+ *
+ * @param url - valeur brute de la variable.
+ * @returns le dialecte SQL visé, ou `null` (URL invalide, ou base non SQL).
+ */
+function describeMigrateUrl(url: string): SqlDialect | null {
+  try {
+    const vue = parseDatabaseUrl(url);
+    return vue.family === "sql" ? vue.dialect : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

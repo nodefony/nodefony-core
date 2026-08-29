@@ -1,4 +1,10 @@
-import { Command, type CliKernel, type Kernel, type Module } from "nodefony";
+import {
+  Command,
+  resolveColorEnabled,
+  type CliKernel,
+  type Kernel,
+  type Module,
+} from "nodefony";
 import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
 import type { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
 import { MigrationVerdictError } from "../src/migrator/types";
@@ -62,6 +68,7 @@ export type CommandFailureCode =
   | "NF_MIGRATE_UNKNOWN_CONNECTOR"
   /** Le connecteur existe, mais sa base ne se migre pas par fichiers. */
   | "NF_MIGRATE_NO_MIGRATIONS"
+  | "NF_MIGRATE_URL_MISMATCH"
   /** Connecteur SQL enregistré, mais absent de la configuration du module. */
   | "NF_MIGRATE_NOT_CONFIGURED"
   /** Geste réservé au développement, demandé ailleurs. */
@@ -115,9 +122,27 @@ export interface IMigrateSharedOptions {
  * différence entre un outil qu'on sait utiliser et un outil qu'on subit.
  */
 export abstract class OrmMigrateCommand extends Command {
-  /** La sortie standard part-elle vers un terminal ? (couleurs, sinon texte nu) */
+  /**
+   * Faut-il colorer la sortie ?
+   *
+   * 🔴 La question n'est PAS « est-ce un terminal ? », et la confondre avec ça
+   * a deux conséquences que personne ne signale :
+   *
+   * - **`NO_COLOR` est ignoré.** C'est une convention publique
+   *   (no-color.org) qu'un utilisateur pose une fois pour toutes ses commandes ;
+   *   la manquer rend une sortie illisible sur un terminal à palette
+   *   inhabituelle, et le framework passe pour cassé.
+   * - **`FORCE_COLOR` est ignoré.** Sans lui, aucune sortie colorée n'est
+   *   CAPTURABLE : ni dans un fichier, ni dans une passe d'intégration continue
+   *   qui sait rendre les couleurs, ni dans un rapport de validation. On ne peut
+   *   alors pas relire ce que l'exploitant voit vraiment.
+   *
+   * La règle vit au CŒUR (`resolveColorEnabled`), qui sert déjà les journaux :
+   * la réécrire ici en ferait une SECONDE implémentation, et les deux
+   * divergeraient — le journal obéirait à `NO_COLOR`, la commande non.
+   */
   protected get tty(): boolean {
-    return process.stdout.isTTY === true;
+    return resolveColorEnabled(process.stdout.isTTY === true);
   }
 
   /** Mise en forme, neutralisée hors terminal. */
@@ -264,6 +289,30 @@ export abstract class OrmMigrateCommand extends Command {
         "Le nom attendu est celui d'une clé de `connectors` dans la configuration, pas un nom de base ni un dialecte. Sans `--connector`, la commande travaille sur « default ».",
         [
           action("nodefony orm:migrate:status"),
+          action("nodefony inspect config --json"),
+        ],
+        opts.json,
+      );
+      return null;
+    }
+    if (resolution.kind === "url-mismatch") {
+      // 🔴 Le faux succès de déploiement, fermé ici.
+      //
+      // La variable était ignorée en silence quand le connecteur était sqlite :
+      // un travail de migration posait l'URL de production, la commande migrait
+      // une base locale éphémère, et rendait « ✓ appliqué » avec le code du
+      // succès. Les exemplaires démarraient ensuite sur une base jamais migrée.
+      const vise =
+        resolution.urlDialect === null
+          ? "une base que cette commande ne sait pas lire"
+          : `une base ${resolution.urlDialect}`;
+      this.fail(
+        wanted,
+        "NF_MIGRATE_URL_MISMATCH",
+        `${MIGRATE_URL_ENV} désigne ${vise}, alors que le connecteur « ${wanted} » est déclaré en ${resolution.dialect}. Rien n'a été appliqué.`,
+        "Les deux ne peuvent pas être vraies en même temps : le SQL d'un dialecte ne s'applique pas avec le pilote d'un autre, et deviner laquelle des deux bases tu vises reviendrait à migrer la mauvaise en annonçant un succès. Soit la variable pointe la base du connecteur, soit c'est le connecteur qu'il faut choisir — la variable ne sert qu'à changer le COMPTE et l'hôte, jamais la nature de la base.",
+        [
+          action(`nodefony orm:migrate:status --connector ${wanted}`),
           action("nodefony inspect config --json"),
         ],
         opts.json,

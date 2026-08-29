@@ -228,17 +228,104 @@ describe("migrations — l'URL du travail de migration est lue par eux SEULS", (
     assert.equal(res.fromMigrateUrl, false);
   });
 
-  it("elle ne détourne jamais un connecteur SQLite (pas d'URL à honorer)", () => {
-    process.env[MIGRATE_URL_ENV] = "postgres://migrator@direct/db";
+  it("🔴 un dialecte qui NE CONCORDE PAS est refusé — jamais ignoré", () => {
+    // Le faux succès de déploiement, fermé ici. La variable était ignorée en
+    // silence dès que le connecteur était sqlite : un travail de migration
+    // posait l'URL de production, la commande migrait une base LOCALE
+    // éphémère, rendait « ✓ appliqué » et le code du SUCCÈS — puis les
+    // exemplaires démarraient sur une base jamais migrée. Le cas est ordinaire :
+    // un job de migration n'a pas besoin de la variable du trafic, donc le
+    // connecteur y retombe sur son défaut sqlite.
+    process.env[MIGRATE_URL_ENV] = "postgres://migrator@prod/db";
     const cfg = config({ connectors: { default: { dialect: "sqlite" } } });
     const res = resolveConnector(
       "default",
       cfg,
       DEV,
       fauxKernel("/app", "/app/var"),
-      {
-        allowMigrateUrl: true,
+      { allowMigrateUrl: true },
+    );
+    assert.equal(res.kind, "url-mismatch");
+    if (res.kind !== "url-mismatch") return;
+    assert.equal(res.dialect, "sqlite");
+    assert.equal(res.urlDialect, "postgres");
+  });
+
+  it("un dialecte SQL contre un autre est refusé aussi", () => {
+    process.env[MIGRATE_URL_ENV] = "mysql://migrator@prod/db";
+    const cfg = config({
+      connectors: {
+        default: { dialect: "postgres", url: "postgres://app@pool/db" },
       },
+    });
+    const res = resolveConnector("default", cfg, PROD, fauxKernel("/app"), {
+      allowMigrateUrl: true,
+    });
+    assert.equal(res.kind, "url-mismatch");
+    if (res.kind !== "url-mismatch") return;
+    assert.equal(res.urlDialect, "mysql");
+  });
+
+  it("une URL illisible est refusée SANS jeter — un refus, pas une pile", () => {
+    // Au milieu d'un déploiement, une exception non traitée ne dit ni quel
+    // connecteur, ni quoi faire.
+    process.env[MIGRATE_URL_ENV] = "ceci-nest-pas-une-url";
+    const cfg = config({
+      connectors: {
+        default: { dialect: "postgres", url: "postgres://app@pool/db" },
+      },
+    });
+    const res = resolveConnector("default", cfg, PROD, fauxKernel("/app"), {
+      allowMigrateUrl: true,
+    });
+    assert.equal(res.kind, "url-mismatch");
+    if (res.kind !== "url-mismatch") return;
+    assert.equal(res.urlDialect, null);
+  });
+
+  it("une base NON SQL (mongodb) est refusée — il n'y a rien à migrer là", () => {
+    process.env[MIGRATE_URL_ENV] = "mongodb://migrator@prod/db";
+    const cfg = config({
+      connectors: {
+        default: { dialect: "postgres", url: "postgres://app@pool/db" },
+      },
+    });
+    const res = resolveConnector("default", cfg, PROD, fauxKernel("/app"), {
+      allowMigrateUrl: true,
+    });
+    assert.equal(res.kind, "url-mismatch");
+    if (res.kind !== "url-mismatch") return;
+    assert.equal(res.urlDialect, null);
+  });
+
+  it("🔴 elle est SUIVIE en sqlite quand elle désigne bien une base sqlite", () => {
+    // Le pendant du refus : un usage légitime ne doit pas être puni. Une base
+    // de migration sqlite distincte de celle du trafic est parfaitement sensée
+    // — un banc, une reprise, une vérification hors ligne.
+    process.env[MIGRATE_URL_ENV] = "sqlite:/tmp/migration-cible.db";
+    const cfg = config({ connectors: { default: { dialect: "sqlite" } } });
+    const res = resolveConnector(
+      "default",
+      cfg,
+      DEV,
+      fauxKernel("/app", "/app/var"),
+      { allowMigrateUrl: true },
+    );
+    assert.equal(res.kind, "ready");
+    if (res.kind !== "ready") return;
+    assert.equal(res.fromMigrateUrl, true);
+    assert.equal(res.target.filename, "/tmp/migration-cible.db");
+  });
+
+  it("absente, le connecteur SQLite garde sa base par défaut", () => {
+    delete process.env[MIGRATE_URL_ENV];
+    const cfg = config({ connectors: { default: { dialect: "sqlite" } } });
+    const res = resolveConnector(
+      "default",
+      cfg,
+      DEV,
+      fauxKernel("/app", "/app/var"),
+      { allowMigrateUrl: true },
     );
     assert.equal(res.kind, "ready");
     if (res.kind !== "ready") return;
