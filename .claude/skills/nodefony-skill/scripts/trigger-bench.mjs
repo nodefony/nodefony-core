@@ -123,6 +123,18 @@ const CASES = [
   ["je veux stocker des articles dans mon app", "nodefony-add-crud"],
   ["ajoute une entité avec un CRUD", "nodefony-add-crud"],
   ["comment définir une relation entre deux entités", "nodefony-add-crud"],
+  // La porte du skill de migration : ce sont les phrases par lesquelles on y
+  // arrive VRAIMENT — un symptôme (« la colonne n'existe pas »), une intention
+  // (« déployer un changement de schéma »), jamais le nom du skill.
+  [
+    "j'ai ajouté un champ à une entité et la colonne n'existe pas en base",
+    "nodefony-migrate-schema",
+  ],
+  ["comment migrer le schéma de ma base", "nodefony-migrate-schema"],
+  [
+    "je dois déployer un changement de schéma en production",
+    "nodefony-migrate-schema",
+  ],
   ["crée un service métier partagé", "nodefony-add-service"],
   ["mon service est undefined dans le conteneur", "nodefony-add-service"],
   ["protège cette route", "nodefony-protect-route"],
