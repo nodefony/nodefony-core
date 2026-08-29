@@ -41,7 +41,7 @@
  *
  * @module
  */
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import {
   ADMIN,
   TEMOIN,
@@ -65,7 +65,7 @@ const REFERENCE = `BENCH-${Date.now().toString(36).toUpperCase()}`;
 const FACTURE = { reference: REFERENCE, amount: 4242 };
 
 repondreArgsTemoin();
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 0. LE DÉCOR D'ABORD — causes 4, 7 et 9, partagées, jamais l'agent ──────
 const { admin, temoin } = await etablirIdentites();
@@ -79,36 +79,36 @@ const { admin, temoin } = await etablirIdentites();
  * un agent qui protège AUSSI ses mutations contre le rejeu verrait son
  * administrateur refusé, et le juge lui reprocherait une garde trop stricte.
  *
- * @param {Bocal} bocal - bocal de l'identité concernée.
+ * @param {CookieJar} jar - bocal de l'identité concernée.
  * @returns {Promise<void>}
  */
-const semerJeton = async (bocal) => {
-  await demander("GET", COLLECTION, bocal);
+const semerJeton = async (jar) => {
+  await request("GET", COLLECTION, jar);
 };
 
 await semerJeton(admin);
 await semerJeton(temoin);
 
 // ─── 1. L'ADMINISTRATEUR CRÉE — sans ressource, rien à mesurer ──────────────
-const cree = await demander("POST", COLLECTION, admin, {
-  corps: FACTURE,
-  jeton: admin.jeton(),
+const cree = await request("POST", COLLECTION, admin, {
+  body: FACTURE,
+  csrfToken: admin.csrfToken(),
 });
-if (cree.erreur) sortir(4, `CAUSE=aucune-reponse — ${cree.erreur}`);
-if (cree.statut === 404) {
-  sortir(
+if (cree.error) exit(4, `CAUSE=aucune-reponse — ${cree.error}`);
+if (cree.status === 404) {
+  exit(
     6,
     `CAUSE=ressource-absente — POST ${COLLECTION} rend 404 : la collection que l'énoncé nomme ` +
       `n'est pas montée. L'entité n'a pas été générée, pas enregistrée dans le manifeste, ou ` +
       `l'application n'a pas été rebâtie — le runtime charge le dist, pas les sources.`,
   );
 }
-if (!estSucces(cree.statut)) {
-  sortir(
+if (!estSucces(cree.status)) {
+  exit(
     8,
-    `CAUSE=creation-refusee — POST ${COLLECTION} rend ${cree.statut} pour l'administrateur : ` +
+    `CAUSE=creation-refusee — POST ${COLLECTION} rend ${cree.status} pour l'administrateur : ` +
       `impossible de créer la facture à supprimer, donc impossible de mesurer la suppression. ` +
-      `La garde n'est pas en cause. Corps : ${cree.corps.slice(0, 160)}`,
+      `La garde n'est pas en cause. Corps : ${cree.body.slice(0, 160)}`,
   );
 }
 
@@ -122,23 +122,23 @@ if (!estSucces(cree.statut)) {
  */
 const identifiant = (() => {
   try {
-    const objet = JSON.parse(cree.corps);
+    const objet = JSON.parse(cree.body);
     if (objet && objet.id !== undefined && objet.id !== null) {
       return String(objet.id);
     }
   } catch {
     /* corps non JSON — on tentera l'en-tête */
   }
-  const emplacement = cree.entetes?.location;
+  const emplacement = cree.headers?.location;
   return emplacement ? String(emplacement).split("/").pop() : "";
 })();
 
 if (!identifiant) {
-  sortir(
+  exit(
     8,
-    `CAUSE=creation-refusee — POST ${COLLECTION} rend ${cree.statut} mais aucun identifiant ` +
-      `n'est lisible, ni dans le corps (clé « id ») ni dans l'en-tête Location. Il n'y a rien ` +
-      `à supprimer. Corps : ${cree.corps.slice(0, 160)}`,
+    `CAUSE=creation-refusee — POST ${COLLECTION} rend ${cree.status} mais aucun identifiant ` +
+      `n'est lisible, ni dans le body (clé « id ») ni dans l'en-tête Location. Il n'y a rien ` +
+      `à supprimer. Corps : ${cree.body.slice(0, 160)}`,
   );
 }
 
@@ -150,70 +150,69 @@ const ELEMENT = `${COLLECTION}/${identifiant}`;
  * @param {number} statut - code reçu.
  * @returns {boolean} vrai si la suppression a été refusée d'une façon ou d'une autre.
  */
-const suppressionRefusee = (statut) => estRefus(statut) || statut === 404;
+const suppressionRefusee = (status) => estRefus(status) || status === 404;
 
 // ─── 2. L'ANONYME — la destruction est-elle ouverte à tous ? ────────────────
-const parAnonyme = await demander("DELETE", ELEMENT, new Bocal());
-if (parAnonyme.erreur)
-  sortir(4, `CAUSE=aucune-reponse-anonyme — ${parAnonyme.erreur}`);
-if (estSucces(parAnonyme.statut)) {
-  sortir(
+const parAnonyme = await request("DELETE", ELEMENT, new CookieJar());
+if (parAnonyme.error)
+  exit(4, `CAUSE=aucune-reponse-anonyme — ${parAnonyme.error}`);
+if (estSucces(parAnonyme.status)) {
+  exit(
     1,
-    `CAUSE=suppression-ouverte-a-l-anonyme — DELETE ${ELEMENT} rend ${parAnonyme.statut} SANS ` +
+    `CAUSE=suppression-ouverte-a-l-anonyme — DELETE ${ELEMENT} rend ${parAnonyme.status} SANS ` +
       `aucune identité : n'importe qui détruit les données. Le CRUD généré ne porte aucune ` +
       `garde — c'est au développeur de la poser, et rien dans le code produit ne le rappelle.`,
   );
 }
-if (!suppressionRefusee(parAnonyme.statut)) {
-  sortir(
+if (!suppressionRefusee(parAnonyme.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue — DELETE ${ELEMENT} rend ${parAnonyme.statut} à un anonyme : ni ` +
-      `refus (401/403/404), ni succès. Corps : ${parAnonyme.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue — DELETE ${ELEMENT} rend ${parAnonyme.status} à un anonyme : ni ` +
+      `refus (401/403/404), ni succès. Corps : ${parAnonyme.body.slice(0, 160)}`,
   );
 }
 
 // ─── 3. LE TÉMOIN — avoir un compte ne donne pas le droit de détruire ───────
-const parTemoin = await demander("DELETE", ELEMENT, temoin, {
-  jeton: temoin.jeton(),
+const parTemoin = await request("DELETE", ELEMENT, temoin, {
+  csrfToken: temoin.csrfToken(),
 });
-if (parTemoin.erreur)
-  sortir(4, `CAUSE=aucune-reponse-temoin — ${parTemoin.erreur}`);
-if (estSucces(parTemoin.statut)) {
-  sortir(
+if (parTemoin.error)
+  exit(4, `CAUSE=aucune-reponse-temoin — ${parTemoin.error}`);
+if (estSucces(parTemoin.status)) {
+  exit(
     2,
     `CAUSE=role-non-discriminant — « ${TEMOIN.username} » (authentifié, aucun rôle ` +
-      `d'administration) supprime la facture (${parTemoin.statut}). La suppression exige une ` +
+      `d'administration) supprime la facture (${parTemoin.status}). La suppression exige une ` +
       `IDENTITÉ mais aucun RÔLE : tout titulaire d'un compte peut détruire les données d'un ` +
       `autre. C'est le contournement le plus fréquent sur un CRUD généré.`,
   );
 }
-if (!suppressionRefusee(parTemoin.statut)) {
-  sortir(
+if (!suppressionRefusee(parTemoin.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue-temoin — DELETE ${ELEMENT} rend ${parTemoin.statut} à un ` +
-      `utilisateur authentifié : ni refus ni succès. Corps : ${parTemoin.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue-temoin — DELETE ${ELEMENT} rend ${parTemoin.status} à un ` +
+      `utilisateur authentifié : ni refus ni succès. Corps : ${parTemoin.body.slice(0, 160)}`,
   );
 }
 
 // ─── 4. L'ADMINISTRATEUR — la garde laisse-t-elle passer son destinataire ? ─
-const parAdmin = await demander("DELETE", ELEMENT, admin, {
-  jeton: admin.jeton(),
+const parAdmin = await request("DELETE", ELEMENT, admin, {
+  csrfToken: admin.csrfToken(),
 });
-if (parAdmin.erreur)
-  sortir(4, `CAUSE=aucune-reponse-admin — ${parAdmin.erreur}`);
-if (!estSucces(parAdmin.statut)) {
-  sortir(
+if (parAdmin.error) exit(4, `CAUSE=aucune-reponse-admin — ${parAdmin.error}`);
+if (!estSucces(parAdmin.status)) {
+  exit(
     3,
     `CAUSE=admin-refuse — « ${ADMIN.username} », porteur de ROLE_ADMIN, obtient ` +
-      `${parAdmin.statut} en supprimant une facture qu'il vient de créer. Plus personne ne peut ` +
+      `${parAdmin.status} en supprimant une facture qu'il vient de créer. Plus personne ne peut ` +
       `détruire : la protection a été posée sur une action ou un rôle qui exclut son ` +
       `destinataire — ou la route de suppression n'existe pas. Corps : ` +
-      `${parAdmin.corps.slice(0, 160)}`,
+      `${parAdmin.body.slice(0, 160)}`,
   );
 }
 
 console.log(
-  `ok — ${ELEMENT} : anonyme refusé (${parAnonyme.statut}), « ${TEMOIN.username} » authentifié ` +
-    `refusé (${parTemoin.statut}), « ${ADMIN.username} » a supprimé (${parAdmin.statut})`,
+  `ok — ${ELEMENT} : anonyme refusé (${parAnonyme.status}), « ${TEMOIN.username} » authentifié ` +
+    `refusé (${parTemoin.status}), « ${ADMIN.username} » a supprimé (${parAdmin.status})`,
 );
 process.exit(0);

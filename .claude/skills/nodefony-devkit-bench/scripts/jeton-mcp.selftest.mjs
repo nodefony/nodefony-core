@@ -18,7 +18,7 @@ import {
 } from "./bench-discoverability.mjs";
 
 /** Un JWT jouet — seule la charge utile est lue, la signature n'est pas vérifiée. */
-const jeton = (expSecondes) =>
+const token = (expSecondes) =>
   `entete.${Buffer.from(JSON.stringify({ exp: expSecondes })).toString("base64url")}.signature`;
 
 /** Minutes qu'une passe consomme réellement — mesuré : 30 tâches en ~110 min. */
@@ -60,27 +60,27 @@ cas(
   ttlJetonMinutes(30, 3) > ttlJetonMinutes(30, 1),
 );
 
-console.log("━━ la ceinture CONSTATE ce que le jeton porte");
+console.log("━━ la ceinture CONSTATE ce que le token porte");
 cas(
-  "jeton absent → illisible (-1)",
+  "token absent → illisible (-1)",
   -1,
   minutesRestantesJeton(undefined, MAINTENANT),
 );
 cas(
-  "jeton illisible → -1",
+  "token illisible → -1",
   -1,
   minutesRestantesJeton("pas-un-jwt", MAINTENANT),
 );
 cas(
-  "jeton EXPIRÉ → durée négative (la porte refuse déjà)",
+  "token EXPIRÉ → durée négative (la porte refuse déjà)",
   true,
-  minutesRestantesJeton(jeton(MAINTENANT / 1000 - 600), MAINTENANT) < 0,
+  minutesRestantesJeton(token(MAINTENANT / 1000 - 600), MAINTENANT) < 0,
 );
 cas(
-  "jeton de 10 h → ~600 min restantes",
+  "token de 10 h → ~600 min restantes",
   600,
   Math.round(
-    minutesRestantesJeton(jeton(MAINTENANT / 1000 + 36_000), MAINTENANT),
+    minutesRestantesJeton(token(MAINTENANT / 1000 + 36_000), MAINTENANT),
   ),
 );
 
@@ -88,12 +88,12 @@ console.log("━━ le renouvellement se déclenche AVANT que la porte se ferme"
 // Le critère de la boucle : reste < tâches × 7.
 const declenche = (resteMin, nbTaches) => resteMin < nbTaches * 7;
 cas(
-  "un jeton de 30 min ne suffit pas à une passe de 30 tâches → renouvelé",
+  "un token de 30 min ne suffit pas à une passe de 30 tâches → renouvelé",
   true,
   declenche(30, 30),
 );
 cas(
-  "un jeton de 600 min suffit → PAS de renouvellement inutile",
+  "un token de 600 min suffit → PAS de renouvellement inutile",
   false,
   declenche(600, 30),
 );

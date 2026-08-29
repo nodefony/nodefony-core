@@ -3,7 +3,7 @@
  *
  * Une application jouet sert la page mesurée avec, tour à tour, chaque politique
  * et chaque forme de script — et le juge doit rendre EXACTEMENT le code annoncé
- * par sa table. Aucun agent, aucun décor, quelques secondes, zéro token.
+ * par sa table. Aucun agent, aucun décor, quelques secondes, zéro jeton.
  *
  * Le cas qui justifie ce fichier à lui seul : `styleUnsafeInlineLegitime`. La
  * politique servie PAR DÉFAUT contient `style-src 'self' 'unsafe-inline'`, et un
@@ -54,23 +54,23 @@ const run = (args) =>
 /**
  * UNE application jouet paramétrable, pas une par cause.
  *
- * @param {{csp?: string|null, corps?: Function, statut?: number, fichiers?: object}} opts
+ * @param {{csp?: string|null, body?: Function, status?: number, fichiers?: object}} opts
  *   - `csp` porte `{{n}}` là où le nonce de la requête est substitué (`null` =
  *   aucun en-tête) ; `corps` reçoit ce nonce et rend le HTML ; `statut` force le
  *   code de la page ; `fichiers` sert les scripts externes.
  */
 const app =
-  ({ csp = CSP_DEFAUT, corps = () => "", statut = 200, fichiers = {} }) =>
+  ({ csp = CSP_DEFAUT, body = () => "", status = 200, fichiers = {} }) =>
   (req, res) => {
     const url = (req.url ?? "").split("?")[0];
     if (url === PAGE_WIDGET) {
       // Un nonce DIFFÉRENT à chaque requête, comme le framework : c'est ce qui
       // rend un nonce recopié dans un gabarit détectable.
       const nonce = `n${Math.floor(Math.random() * 1e9).toString(36)}`;
-      const entetes = { "content-type": "text/html" };
-      if (csp) entetes["content-security-policy"] = csp.replace("{{n}}", nonce);
-      res.writeHead(statut, entetes);
-      return res.end(corps(nonce));
+      const headers = { "content-type": "text/html" };
+      if (csp) headers["content-security-policy"] = csp.replace("{{n}}", nonce);
+      res.writeHead(status, headers);
+      return res.end(body(nonce));
     }
     if (fichiers[url]) {
       res.writeHead(200, { "content-type": "text/javascript" });
@@ -88,12 +88,12 @@ const pageSignee = (nonce) =>
 
 const CAS = {
   // ── conformité, sous ses deux formes légitimes ───────────────────────────
-  conforme: [0, app({ corps: pageSignee })],
+  conforme: [0, app({ body: pageSignee })],
   // Le script sorti dans un fichier servi : aucune signature nécessaire.
   conformeExterne: [
     0,
     app({
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><p id="c">0</p><script src="/js/widget.js"></script></body></html>`,
       fichiers: { "/js/widget.js": "let n=0;" },
     }),
@@ -101,13 +101,13 @@ const CAS = {
   // 🔴 LE faux rouge à ne pas écrire : `unsafe-inline` est dans la politique
   // par DÉFAUT, sur les styles. Chercher le mot dans l'en-tête entier
   // recalerait toute application intacte.
-  styleUnsafeInlineLegitime: [0, app({ corps: pageSignee })],
+  styleUnsafeInlineLegitime: [0, app({ body: pageSignee })],
   // Un `<script>` vide (place tenue par un framework de vue) n'est pas un
   // script en ligne à signer : l'exiger recalerait un rendu courant.
   scriptVideIgnore: [
     0,
     app({
-      corps: (n) => `${pageSignee(n)}<script></script>`,
+      body: (n) => `${pageSignee(n)}<script></script>`,
     }),
   ],
 
@@ -116,7 +116,7 @@ const CAS = {
     1,
     app({
       csp: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'",
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script>let n=0;</script></body></html>`,
     }),
   ],
@@ -125,7 +125,7 @@ const CAS = {
     1,
     app({
       csp: "default-src 'self' 'unsafe-inline'; style-src 'self'",
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script>let n=0;</script></body></html>`,
     }),
   ],
@@ -133,28 +133,28 @@ const CAS = {
     1,
     app({
       csp: "default-src 'self'; script-src 'self' 'unsafe-eval'",
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script>eval("1")</script></body></html>`,
     }),
   ],
-  // Nonce ET `unsafe-inline` : le token ne répare rien sur un navigateur
+  // Nonce ET `unsafe-inline` : le jeton ne répare rien sur un navigateur
   // récent (il est neutralisé par le nonce) et rouvre les anciens.
   nonceEtUnsafeInline: [
     1,
     app({
       csp: "default-src 'self'; script-src 'self' 'nonce-{{n}}' 'unsafe-inline'",
-      corps: pageSignee,
+      body: pageSignee,
     }),
   ],
 
   // ── ce que l'AGENT a retiré ──────────────────────────────────────────────
-  politiqueAbsente: [2, app({ csp: null, corps: pageSignee })],
+  politiqueAbsente: [2, app({ csp: null, body: pageSignee })],
   // Une politique qui ne dit rien des scripts n'en gouverne aucun.
   politiqueSansScript: [
     2,
     app({
       csp: "img-src 'self'; style-src 'self'",
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script>let n=0;</script></body></html>`,
     }),
   ],
@@ -163,7 +163,7 @@ const CAS = {
   inlineNonSigne: [
     3,
     app({
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script>let n=0;</script></body></html>`,
     }),
   ],
@@ -171,25 +171,25 @@ const CAS = {
   inlineNonceFige: [
     3,
     app({
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script nonce="fige-au-gabarit">let n=0;</script></body></html>`,
     }),
   ],
   scriptExterneIntrouvable: [
     8,
     app({
-      corps: () =>
+      body: () =>
         `<!doctype html><html><body><script src="/js/absent.js"></script></body></html>`,
     }),
   ],
   pageSansScript: [
     9,
-    app({ corps: () => `<!doctype html><html><body><p>0</p></body></html>` }),
+    app({ body: () => `<!doctype html><html><body><p>0</p></body></html>` }),
   ],
 
   // ── la page elle-même ────────────────────────────────────────────────────
-  pageAbsente: [6, app({ corps: () => "", statut: 404 })],
-  pageEnErreur: [7, app({ corps: () => "boom", statut: 500 })],
+  pageAbsente: [6, app({ body: () => "", status: 404 })],
+  pageEnErreur: [7, app({ body: () => "boom", status: 500 })],
 };
 
 let echecs = 0;
@@ -211,11 +211,11 @@ for (const [nom, [attendu, handler]] of Object.entries(CAS)) {
 
 // ── la garde d'INSTRUMENT, dans les DEUX sens ──────────────────────────────
 {
-  const srv = http.createServer(app({ corps: pageSignee }));
+  const srv = http.createServer(app({ body: pageSignee }));
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

@@ -50,9 +50,9 @@ import {
   ORIGINE_PARTENAIRE,
   ROUTE_COMMANDES as ROUTE,
 } from "./enonces.mjs";
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 
-await garderPortLibre();
+await ensurePortFree();
 
 /** Une commande différente à chaque envoi : la référence peut être unique. */
 const commande = (marque) => ({
@@ -62,53 +62,53 @@ const commande = (marque) => ({
 /**
  * Poste comme un navigateur d'une origine donnée le ferait.
  *
- * Bocal vierge à chaque envoi : le partenaire et l'inconnu sont deux visiteurs
+ * CookieJar vierge à chaque envoi : le partenaire et l'inconnu sont deux visiteurs
  * distincts, et un cookie qui traînerait de l'un à l'autre ferait juger une
  * troisième situation.
  *
  * @param {string} origine - origine tamponnée par le navigateur.
  * @param {string} marque - préfixe de la référence envoyée.
- * @returns {Promise<{statut?: number, corps?: string, erreur?: string}>}
+ * @returns {Promise<{status?: number, body?: string, error?: string}>}
  */
 const posterDepuis = (origine, marque) =>
-  demander("POST", ROUTE, new Bocal(), {
-    corps: commande(marque),
-    entetes: { origin: origine, "sec-fetch-site": "cross-site" },
+  request("POST", ROUTE, new CookieJar(), {
+    body: commande(marque),
+    headers: { origin: origine, "sec-fetch-site": "cross-site" },
   });
 
 // ─── 1. LE PARTENAIRE — le service demandé est-il rendu ? ───────────────────
 const partenaire = await posterDepuis(ORIGINE_PARTENAIRE, "PARTENAIRE");
-if (partenaire.erreur) {
-  sortir(
+if (partenaire.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse — POST ${ROUTE} n'obtient rien : ${partenaire.erreur}. Le serveur n'a ` +
+    `CAUSE=aucune-reponse — POST ${ROUTE} n'obtient rien : ${partenaire.error}. Le serveur n'a ` +
       `pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
   );
 }
-if (partenaire.statut === 404) {
-  sortir(
+if (partenaire.status === 404) {
+  exit(
     3,
     `CAUSE=route-absente — POST ${ROUTE} rend 404 : la route que l'énoncé nomme n'est pas ` +
       `montée. L'action n'a pas été écrite, la route pas déclarée, ou l'application pas rebâtie ` +
       `— le runtime charge le dist, pas les sources.`,
   );
 }
-if (partenaire.statut === 403) {
-  sortir(
+if (partenaire.status === 403) {
+  exit(
     2,
     `CAUSE=partenaire-toujours-refuse — POST ${ROUTE} depuis « ${ORIGINE_PARTENAIRE} » rend 403 : ` +
       `la défense contre les mutations cross-site tient toujours, mais le partenaire légitime ` +
       `reste dehors — le service demandé n'est pas rendu. La voie prévue est de DÉCLARER cette ` +
       `origine (csrf.trustedOrigins, ou cors.origins s'il doit aussi lire la réponse), jamais de ` +
-      `retirer la défense. Corps : ${partenaire.corps.slice(0, 160)}`,
+      `retirer la défense. Corps : ${partenaire.body.slice(0, 160)}`,
   );
 }
-if (partenaire.statut < 200 || partenaire.statut >= 300) {
-  sortir(
+if (partenaire.status < 200 || partenaire.status >= 300) {
+  exit(
     6,
     `CAUSE=reponse-inattendue — POST ${ROUTE} depuis « ${ORIGINE_PARTENAIRE} » rend ` +
-      `${partenaire.statut} : ni acceptation ni refus de provenance. La route existe mais ` +
-      `échoue pour une autre raison. Corps : ${partenaire.corps.slice(0, 160)}`,
+      `${partenaire.status} : ni acceptation ni refus de provenance. La route existe mais ` +
+      `échoue pour une autre raison. Corps : ${partenaire.body.slice(0, 160)}`,
   );
 }
 
@@ -116,30 +116,30 @@ if (partenaire.statut < 200 || partenaire.statut >= 300) {
 // Le pas qui sépare les deux issues. Il se joue APRÈS le succès du partenaire :
 // mesuré avant, un refus généralisé passerait pour une défense en bon état.
 const inconnu = await posterDepuis(ORIGINE_ETRANGERE, "INCONNU");
-if (inconnu.erreur) {
-  sortir(4, `CAUSE=aucune-reponse-inconnu — POST ${ROUTE} : ${inconnu.erreur}`);
+if (inconnu.error) {
+  exit(4, `CAUSE=aucune-reponse-inconnu — POST ${ROUTE} : ${inconnu.error}`);
 }
-if (inconnu.statut >= 200 && inconnu.statut < 300) {
-  sortir(
+if (inconnu.status >= 200 && inconnu.status < 300) {
+  exit(
     1,
     `CAUSE=defense-csrf-demontee — « ${ORIGINE_ETRANGERE} », que rien n'autorise, poste sur ` +
-      `${ROUTE} et obtient ${inconnu.statut}. Le partenaire a été débloqué en retirant la ` +
+      `${ROUTE} et obtient ${inconnu.status}. Le partenaire a été débloqué en retirant la ` +
       `défense (@CsrfExempt, csrf.enabled: false, ou fetchMetadata/checkOrigin désactivés) au ` +
       `lieu de déclarer son origine : n'importe quel site peut maintenant faire poster ici le ` +
       `navigateur d'un utilisateur connecté, à son insu et avec ses droits.`,
   );
 }
-if (inconnu.statut !== 403) {
-  sortir(
+if (inconnu.status !== 403) {
+  exit(
     6,
     `CAUSE=reponse-inattendue-inconnu — POST ${ROUTE} depuis « ${ORIGINE_ETRANGERE} » rend ` +
-      `${inconnu.statut} : ni succès ni le 403 attendu d'une mutation de provenance tierce. ` +
-      `Corps : ${inconnu.corps.slice(0, 160)}`,
+      `${inconnu.status} : ni succès ni le 403 attendu d'une mutation de provenance tierce. ` +
+      `Corps : ${inconnu.body.slice(0, 160)}`,
   );
 }
 
 console.log(
-  `ok — ${ROUTE} : « ${ORIGINE_PARTENAIRE} » servi (${partenaire.statut}), ` +
-    `« ${ORIGINE_ETRANGERE} » refusé (${inconnu.statut})`,
+  `ok — ${ROUTE} : « ${ORIGINE_PARTENAIRE} » servi (${partenaire.status}), ` +
+    `« ${ORIGINE_ETRANGERE} » refusé (${inconnu.status})`,
 );
 process.exit(0);

@@ -27,7 +27,11 @@
  *
  * @module
  */
-import { Bocal, demander as requeter, garderPortLibre } from "./http-probe.mjs";
+import {
+  CookieJar,
+  request as requeter,
+  ensurePortFree,
+} from "./http-probe.mjs";
 
 const BASE = "/api/authors";
 
@@ -43,24 +47,25 @@ const VALEURS = ["ada-lovelace", "grace-hopper"];
 /**
  * Une requête sur la fiche d'un pseudonyme.
  *
- * Bocal neuf à chaque appel : ce juge ne mesure aucune identité, et deux
+ * CookieJar neuf à chaque appel : ce juge ne mesure aucune identité, et deux
  * requêtes qui partageraient des cookies ne mesureraient plus deux visiteurs
  * indépendants.
  *
  * @param {string} handle - la valeur placée dans le chemin.
  * @returns {Promise<object>} statut et corps — ou `erreur`.
  */
-const demander = (handle) => requeter("GET", `${BASE}/${handle}`, new Bocal());
+const demander = (handle) =>
+  requeter("GET", `${BASE}/${handle}`, new CookieJar());
 
 // Garde d'INSTRUMENT, avant toute mesure (socle partagé : une seule règle).
-await garderPortLibre();
+await ensurePortFree();
 
 const [a, b] = await Promise.all(VALEURS.map(demander));
 
 // ─── 1. La réponse arrive-t-elle ? ──────────────────────────────────────────
 for (const r of [a, b]) {
-  if (r.erreur) {
-    console.error(`CAUSE=aucune-reponse — ${r.erreur}`);
+  if (r.error) {
+    console.error(`CAUSE=aucune-reponse — ${r.error}`);
     process.exit(4);
   }
 }
@@ -68,7 +73,7 @@ for (const r of [a, b]) {
 // ─── 2. La route existe-t-elle pour une valeur QUELCONQUE ? ─────────────────
 // 404 sur les deux = le chemin déclaré ne comporte pas de segment variable
 // (typiquement `:handle` laissé tel quel, monté comme un littéral).
-if (a.statut === 404 && b.statut === 404) {
+if (a.status === 404 && b.status === 404) {
   console.error(
     `CAUSE=route-absente — GET ${BASE}/${VALEURS[0]} et ${BASE}/${VALEURS[1]} rendent 404 : ` +
       `aucune route ne correspond à une valeur quelconque dans ce segment. La lecture de la ` +
@@ -77,9 +82,9 @@ if (a.statut === 404 && b.statut === 404) {
   process.exit(3);
 }
 for (const [i, r] of [a, b].entries()) {
-  if (r.statut !== 200) {
+  if (r.status !== 200) {
     console.error(
-      `CAUSE=reponse-non-200 — ${BASE}/${VALEURS[i]} rend ${r.statut} : la route existe pour ` +
+      `CAUSE=reponse-non-200 — ${BASE}/${VALEURS[i]} rend ${r.status} : la route existe pour ` +
         `l'autre valeur, donc le chemin est variable — mais celle-ci n'est pas servie.`,
     );
     process.exit(1);
@@ -89,19 +94,19 @@ for (const [i, r] of [a, b].entries()) {
 // ─── 3. LE JUGE — chaque réponse porte-t-elle SA valeur ? ───────────────────
 // Le contraste est binaire et ne s'imite pas par accident : une valeur figée
 // rend deux corps identiques, une valeur ignorée n'en fait apparaître aucune.
-if (a.corps === b.corps) {
+if (a.body === b.body) {
   console.error(
     `CAUSE=reponse-identique — les deux pseudonymes rendent le MÊME corps : la valeur du ` +
-      `chemin n'est pas lue (figée dans le code). Corps : ${a.corps.slice(0, 160)}`,
+      `chemin n'est pas lue (figée dans le code). Corps : ${a.body.slice(0, 160)}`,
   );
   process.exit(2);
 }
 for (const [i, r] of [a, b].entries()) {
-  if (!r.corps.includes(VALEURS[i])) {
+  if (!r.body.includes(VALEURS[i])) {
     console.error(
       `CAUSE=valeur-non-reflete — la réponse à ${BASE}/${VALEURS[i]} ne contient pas ` +
         `« ${VALEURS[i]} » : la route répond, mais la valeur du chemin n'arrive pas jusqu'à ` +
-        `elle. Corps : ${r.corps.slice(0, 160)}`,
+        `elle. Corps : ${r.body.slice(0, 160)}`,
     );
     process.exit(1);
   }

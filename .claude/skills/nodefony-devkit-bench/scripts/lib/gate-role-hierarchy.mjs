@@ -58,7 +58,7 @@ import {
   ROLE_FACTURATION,
   ROUTE_FACTURATION,
 } from "./enonces.mjs";
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import {
   ADMIN,
   TEMOIN,
@@ -100,21 +100,21 @@ const repondreArgsPorteur = () => {
 
 repondreArgsTemoin();
 repondreArgsPorteur();
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 0. LE DÉCOR D'ABORD — quatre identités avant la moindre mesure ─────────
 const { admin, temoin } = await etablirIdentites();
 
 const sessionPorteur = await ouvrirSession(PORTEUR);
 if (sessionPorteur.injoignable) {
-  sortir(
+  exit(
     4,
     `CAUSE=aucune-reponse-porteur — l'application a cessé de répondre entre deux connexions : ` +
       `${sessionPorteur.injoignable}.`,
   );
 }
 if (sessionPorteur.echec) {
-  sortir(
+  exit(
     11,
     `CAUSE=identite-porteur-indisponible — impossible d'ouvrir une session ` +
       `« ${PORTEUR.username} » : ${sessionPorteur.echec}. Ce compte est créé par le gate ` +
@@ -122,113 +122,113 @@ if (sessionPorteur.echec) {
       `l'administrateur ne se distingue pas d'une route cassée. Verdict non rendu.`,
   );
 }
-const porteur = sessionPorteur.bocal;
+const porteur = sessionPorteur.jar;
 
 // ─── 1. L'ANONYME — la route est-elle ouverte à tous ? ──────────────────────
-const parAnonyme = await demander("GET", ROUTE_FACTURATION, new Bocal());
-if (parAnonyme.erreur) {
-  sortir(
+const parAnonyme = await request("GET", ROUTE_FACTURATION, new CookieJar());
+if (parAnonyme.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse — GET ${ROUTE_FACTURATION} n'obtient rien : ${parAnonyme.erreur}. Le ` +
+    `CAUSE=aucune-reponse — GET ${ROUTE_FACTURATION} n'obtient rien : ${parAnonyme.error}. Le ` +
       `serveur n'a pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
   );
 }
-if (parAnonyme.statut === 404) {
-  sortir(
+if (parAnonyme.status === 404) {
+  exit(
     6,
     `CAUSE=route-absente — GET ${ROUTE_FACTURATION} rend 404 : la route que l'énoncé nomme n'est ` +
       `pas montée. L'action n'a pas été écrite, la route pas déclarée, ou l'application pas ` +
       `rebâtie — le runtime charge le dist, pas les sources.`,
   );
 }
-if (estSucces(parAnonyme.statut)) {
-  sortir(
+if (estSucces(parAnonyme.status)) {
+  exit(
     1,
-    `CAUSE=route-ouverte-a-l-anonyme — GET ${ROUTE_FACTURATION} rend ${parAnonyme.statut} SANS ` +
+    `CAUSE=route-ouverte-a-l-anonyme — GET ${ROUTE_FACTURATION} rend ${parAnonyme.status} SANS ` +
       `aucune identité, alors que l'énoncé la réserve à ${ROLE_FACTURATION}. ` +
-      `Corps : ${parAnonyme.corps.slice(0, 160)}`,
+      `Corps : ${parAnonyme.body.slice(0, 160)}`,
   );
 }
-if (!estRefus(parAnonyme.statut)) {
-  sortir(
+if (!estRefus(parAnonyme.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue — GET ${ROUTE_FACTURATION} rend ${parAnonyme.statut} à un ` +
-      `anonyme : ni refus (401/403) ni succès. Corps : ${parAnonyme.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue — GET ${ROUTE_FACTURATION} rend ${parAnonyme.status} à un ` +
+      `anonyme : ni refus (401/403) ni succès. Corps : ${parAnonyme.body.slice(0, 160)}`,
   );
 }
 
 // ─── 2. LE TÉMOIN — être authentifié ne doit pas valoir être autorisé ───────
-const parTemoin = await demander("GET", ROUTE_FACTURATION, temoin);
-if (parTemoin.erreur) {
-  sortir(
+const parTemoin = await request("GET", ROUTE_FACTURATION, temoin);
+if (parTemoin.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-temoin — GET ${ROUTE_FACTURATION} : ${parTemoin.erreur}`,
+    `CAUSE=aucune-reponse-temoin — GET ${ROUTE_FACTURATION} : ${parTemoin.error}`,
   );
 }
-if (estSucces(parTemoin.statut)) {
-  sortir(
+if (estSucces(parTemoin.status)) {
+  exit(
     2,
     `CAUSE=role-non-discriminant — « ${TEMOIN.username} », authentifié mais SANS ` +
-      `${ROLE_FACTURATION}, obtient ${parTemoin.statut} sur GET ${ROUTE_FACTURATION}. La route ` +
+      `${ROLE_FACTURATION}, obtient ${parTemoin.status} sur GET ${ROUTE_FACTURATION}. La route ` +
       `exige une identité, pas un RÔLE : toute personne connectée lit la facturation.`,
   );
 }
-if (!estRefus(parTemoin.statut)) {
-  sortir(
+if (!estRefus(parTemoin.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue-temoin — GET ${ROUTE_FACTURATION} rend ${parTemoin.statut} à ` +
-      `« ${TEMOIN.username} » : ni refus ni succès. Corps : ${parTemoin.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue-temoin — GET ${ROUTE_FACTURATION} rend ${parTemoin.status} à ` +
+      `« ${TEMOIN.username} » : ni refus ni succès. Corps : ${parTemoin.body.slice(0, 160)}`,
   );
 }
 
 // ─── 3. LE PORTEUR — le rôle de l'énoncé sert-il sa propre route ? ──────────
-const parPorteur = await demander("GET", ROUTE_FACTURATION, porteur);
-if (parPorteur.erreur) {
-  sortir(
+const parPorteur = await request("GET", ROUTE_FACTURATION, porteur);
+if (parPorteur.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-porteur — GET ${ROUTE_FACTURATION} : ${parPorteur.erreur}`,
+    `CAUSE=aucune-reponse-porteur — GET ${ROUTE_FACTURATION} : ${parPorteur.error}`,
   );
 }
-if (!estSucces(parPorteur.statut)) {
-  sortir(
+if (!estSucces(parPorteur.status)) {
+  exit(
     3,
     `CAUSE=porteur-refuse — « ${PORTEUR.username} », qui porte ${ROLE_FACTURATION} ` +
-      `littéralement, obtient ${parPorteur.statut} sur GET ${ROUTE_FACTURATION}. Le rôle nommé ` +
+      `littéralement, obtient ${parPorteur.status} sur GET ${ROUTE_FACTURATION}. Le rôle nommé ` +
       `par l'énoncé ne donne pas accès à la route qu'il est censé ouvrir : la garde a été posée ` +
       `sur un autre rôle, ou sur une condition qui exclut son destinataire. ` +
-      `Corps : ${parPorteur.corps.slice(0, 120)}`,
+      `Corps : ${parPorteur.body.slice(0, 120)}`,
   );
 }
 
 // ─── 4. L'ADMINISTRATEUR sur la route de l'énoncé — exigence explicite ──────
-const parAdmin = await demander("GET", ROUTE_FACTURATION, admin);
-if (parAdmin.erreur) {
-  sortir(
+const parAdmin = await request("GET", ROUTE_FACTURATION, admin);
+if (parAdmin.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-admin — GET ${ROUTE_FACTURATION} : ${parAdmin.erreur}`,
+    `CAUSE=aucune-reponse-admin — GET ${ROUTE_FACTURATION} : ${parAdmin.error}`,
   );
 }
-if (!estSucces(parAdmin.statut)) {
-  sortir(
+if (!estSucces(parAdmin.status)) {
+  exit(
     12,
-    `CAUSE=admin-refuse — « ${ADMIN.username} » obtient ${parAdmin.statut} sur GET ` +
+    `CAUSE=admin-refuse — « ${ADMIN.username} » obtient ${parAdmin.status} sur GET ` +
       `${ROUTE_FACTURATION}, alors que l'énoncé demande explicitement qu'un administrateur ` +
       `puisse consulter sans qu'on lui attribue un rôle de plus. Le porteur du rôle, lui, est ` +
-      `bien servi (${parPorteur.statut}) : la route fonctionne, c'est la couverture de ` +
+      `bien servi (${parPorteur.status}) : la route fonctionne, c'est la couverture de ` +
       `l'administration qui manque.`,
   );
 }
 
 // ─── 5. LE REPÈRE, en anonyme — la garde du décor tient-elle toujours ? ─────
-const repereAnonyme = await demander("GET", REPERE_FACTURATION, new Bocal());
-if (repereAnonyme.erreur) {
-  sortir(
+const repereAnonyme = await request("GET", REPERE_FACTURATION, new CookieJar());
+if (repereAnonyme.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-repere — GET ${REPERE_FACTURATION} : ${repereAnonyme.erreur}`,
+    `CAUSE=aucune-reponse-repere — GET ${REPERE_FACTURATION} : ${repereAnonyme.error}`,
   );
 }
-if (repereAnonyme.statut === 404) {
-  sortir(
+if (repereAnonyme.status === 404) {
+  exit(
     8,
     `CAUSE=repere-hierarchie-absent — GET ${REPERE_FACTURATION} rend 404 : la route posée par le ` +
       `décor AVANT l'agent (et commitée à part) a disparu. Elle n'était pas dans le périmètre de ` +
@@ -236,40 +236,40 @@ if (repereAnonyme.statut === 404) {
       `route. Sans elle, ce verdict ne peut pas être rendu.`,
   );
 }
-if (estSucces(repereAnonyme.statut)) {
-  sortir(
+if (estSucces(repereAnonyme.status)) {
+  exit(
     13,
-    `CAUSE=repere-hierarchie-ouvert — GET ${REPERE_FACTURATION} rend ${repereAnonyme.statut} à un ` +
+    `CAUSE=repere-hierarchie-ouvert — GET ${REPERE_FACTURATION} rend ${repereAnonyme.status} à un ` +
       `ANONYME. Cette route porte le même ${ROLE_FACTURATION} que celle de l'énoncé, posée par le ` +
       `décor et jamais touchée par l'agent — et elle est devenue publique. Une protection bien ` +
       `plus large que la seule route mesurée a cédé.`,
   );
 }
-if (!estRefus(repereAnonyme.statut)) {
-  sortir(
+if (!estRefus(repereAnonyme.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue-repere — GET ${REPERE_FACTURATION} rend ${repereAnonyme.statut} à ` +
-      `un anonyme : ni refus ni succès. Corps : ${repereAnonyme.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue-repere — GET ${REPERE_FACTURATION} rend ${repereAnonyme.status} à ` +
+      `un anonyme : ni refus ni succès. Corps : ${repereAnonyme.body.slice(0, 160)}`,
   );
 }
 
 // ─── 6. LE REPÈRE, en administrateur — LA question de la tâche ──────────────
 // Mesuré en dernier : tout ce qui précède a réussi, donc ce qui se joue ici est
 // bien la GÉNÉRALISATION, et rien d'autre.
-const repereAdmin = await demander("GET", REPERE_FACTURATION, admin);
-if (repereAdmin.erreur) {
-  sortir(
+const repereAdmin = await request("GET", REPERE_FACTURATION, admin);
+if (repereAdmin.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-repere — GET ${REPERE_FACTURATION} : ${repereAdmin.erreur}`,
+    `CAUSE=aucune-reponse-repere — GET ${REPERE_FACTURATION} : ${repereAdmin.error}`,
   );
 }
-if (!estSucces(repereAdmin.statut)) {
-  sortir(
+if (!estSucces(repereAdmin.status)) {
+  exit(
     14,
-    `CAUSE=hierarchie-non-declaree — « ${ADMIN.username} » obtient ${repereAdmin.statut} sur GET ` +
+    `CAUSE=hierarchie-non-declaree — « ${ADMIN.username} » obtient ${repereAdmin.status} sur GET ` +
       `${REPERE_FACTURATION}, qui exige ${ROLE_FACTURATION} et qu'AUCUN décorateur écrit par ` +
       `l'agent ne couvre. Il accède pourtant à ${ROUTE_FACTURATION} (constaté plus haut, ` +
-      `${parAdmin.statut}) : la couverture de l'administration ne vient donc PAS d'une ` +
+      `${parAdmin.status}) : la couverture de l'administration ne vient donc PAS d'une ` +
       `hiérarchie déclarée globalement (security.roleHierarchy), mais d'un mécanisme qui ne vaut ` +
       `que pour la route qu'il vient d'écrire — une liste de rôles sur l'action, typiquement. ` +
       `Toute route future gardée par ${ROLE_FACTURATION} restera fermée à l'administration.`,
@@ -278,8 +278,8 @@ if (!estSucces(repereAdmin.statut)) {
 
 console.log(
   `ok — ${ROUTE_FACTURATION} : anonyme et « ${TEMOIN.username} » refusés, ` +
-    `« ${PORTEUR.username} » servi (${parPorteur.statut}), « ${ADMIN.username} » servi ` +
-    `(${parAdmin.statut}) ; hiérarchie constatée sur ${REPERE_FACTURATION}, que l'agent n'a ` +
-    `jamais touchée (${repereAdmin.statut})`,
+    `« ${PORTEUR.username} » servi (${parPorteur.status}), « ${ADMIN.username} » servi ` +
+    `(${parAdmin.status}) ; hiérarchie constatée sur ${REPERE_FACTURATION}, que l'agent n'a ` +
+    `jamais touchée (${repereAdmin.status})`,
 );
 process.exit(0);

@@ -9,14 +9,14 @@
  *  2. le COMPTAGE — la réponse peut prendre n'importe quelle forme, et compter
  *     des objets supposerait une structure que l'énoncé n'impose pas.
  *
- * Aucune application n'est montée : le contrôle appelle `juger` et
- * `compterSemes`, jamais une copie de leur règle.
+ * Aucune application n'est montée : le contrôle appelle `judge` et
+ * `countSeeded`, jamais une copie de leur règle.
  *
  *   node gate-liste-bornee.selftest.mjs
  *
  * Sorties : 0 tout est distingué · 1 au moins un défaut.
  */
-import { juger, compterSemes } from "./gate-liste-bornee.mjs";
+import { judge, countSeeded } from "./gate-liste-bornee.mjs";
 import { MARQUE_SEMIS } from "./enonces.mjs";
 
 const V = 150;
@@ -64,7 +64,7 @@ const cas = [
 
 let defauts = 0;
 for (const c of cas) {
-  const { code, message } = juger(c.m);
+  const { code, message } = judge(c.m);
   const ok = code === c.attendu;
   if (!ok) defauts += 1;
   console.log(
@@ -76,7 +76,7 @@ for (const c of cas) {
 const formes = [
   {
     nom: "page du framework",
-    corps: JSON.stringify({
+    body: JSON.stringify({
       items: [
         { reference: `${MARQUE_SEMIS}1` },
         { reference: `${MARQUE_SEMIS}2` },
@@ -87,27 +87,27 @@ const formes = [
   },
   {
     nom: "tableau nu",
-    corps: JSON.stringify([{ reference: `${MARQUE_SEMIS}1` }]),
+    body: JSON.stringify([{ reference: `${MARQUE_SEMIS}1` }]),
     attendu: 1,
   },
   {
     nom: "enveloppe maison",
-    corps: JSON.stringify({
+    body: JSON.stringify({
       data: { rows: [{ ref: `${MARQUE_SEMIS}7`, price: 1 }] },
     }),
     attendu: 1,
   },
-  { nom: "réponse vide", corps: JSON.stringify({ items: [] }), attendu: 0 },
+  { nom: "réponse vide", body: JSON.stringify({ items: [] }), attendu: 0 },
   {
     // Une réponse qui ne contient QUE des lignes d'une autre origine ne doit
     // rien compter : la marque est ce qui rattache un élément au décor.
     nom: "lignes étrangères au décor",
-    corps: JSON.stringify({ items: [{ reference: "AUTRE-CHOSE-1" }] }),
+    body: JSON.stringify({ items: [{ reference: "AUTRE-CHOSE-1" }] }),
     attendu: 0,
   },
 ];
 for (const f of formes) {
-  const obtenu = compterSemes(f.corps);
+  const obtenu = countSeeded(f.body);
   if (obtenu !== f.attendu) {
     defauts += 1;
     console.log(

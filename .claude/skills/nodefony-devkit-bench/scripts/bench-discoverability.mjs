@@ -125,7 +125,7 @@ import {
   lireCause,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
-import { portDeLAppSousTest } from "./lib/http-probe.mjs";
+import { appPortUnderTest } from "./lib/http-probe.mjs";
 import { envDecor, nfEcartees } from "./lib/env-decor.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
@@ -379,9 +379,9 @@ let TTL_JETON_MIN = 120;
  * @param {number} maintenantMs - l'instant de référence.
  * @returns {number} minutes restantes ; `-1` si illisible ou absent.
  */
-export const minutesRestantesJeton = (jeton, maintenantMs) => {
-  if (typeof jeton !== "string") return -1;
-  const charge = jeton.split(".")[1];
+export const minutesRestantesJeton = (token, maintenantMs) => {
+  if (typeof token !== "string") return -1;
+  const charge = token.split(".")[1];
   if (!charge) return -1;
   try {
     const { exp } = JSON.parse(
@@ -2365,7 +2365,7 @@ export const TASKS = [
         // Le contournement du jeton : le fabriquer soi-même. Un agent qui a
         // `@CsrfProtect` n'a aucune raison de signer quoi que ce soit.
         kind: "code",
-        name: "pas de jeton anti-rejeu fabriqué à la main",
+        name: "pas de token anti-rejeu fabriqué à la main",
         pattern: /createHmac\s*\(|timingSafeEqual\s*\(/u,
         where: "addedTs",
         unless: /@CsrfProtect\s*\(/u,
@@ -2386,7 +2386,7 @@ export const TASKS = [
         // rien retenir, tout partager. Un rouge indifférencié accuserait au
         // hasard — la faute déjà payée sur la tâche 14.
         kind: "gate",
-        name: "jeton exigé puis accepté, panier isolé par visiteur",
+        name: "token exigé puis accepté, panier isolé par visiteur",
         cmd: [
           "sh",
           "-c",
@@ -4060,7 +4060,7 @@ function monterDecor(runDir, app) {
     // n'a été émis, donc la porte servira l'ANONYME à qui la joint. Son état
     // réel se constate juste avant l'agent, décor figé (voir plus bas).
     console.log(
-      "  · porte MCP déclarée, AUCUN jeton — elle servira l'anonyme ; " +
+      "  · porte MCP déclarée, AUCUN token — elle servira l'anonyme ; " +
         "le décor ne démarre pas l'application (une prémisse de tâche le peut)",
     );
     return;
@@ -4147,7 +4147,7 @@ function emettreJetonMcp(app, envMcp, ttlMin) {
     ],
     { cwd: app, encoding: "utf8", env: { ...envMcp, NODE_ENV: "development" } },
   );
-  const jeton = (() => {
+  const token = (() => {
     if (emission.status !== 0) return null;
     try {
       return JSON.parse(emission.stdout ?? "{}").access_token ?? null;
@@ -4155,22 +4155,22 @@ function emettreJetonMcp(app, envMcp, ttlMin) {
       return null;
     }
   })();
-  if (jeton) {
-    APP_ENV.NF_MCP_TOKEN = jeton;
+  if (token) {
+    APP_ENV.NF_MCP_TOKEN = token;
     // La durée DEMANDÉE n'est pas la durée OBTENUE : l'émetteur peut la borner.
     // On annonce ce que le jeton porte, pas ce qu'on a réclamé.
-    const reste = minutesRestantesJeton(jeton, Date.now());
+    const reste = minutesRestantesJeton(token, Date.now());
     console.log(
-      `  · porte MCP AUTHENTIFIÉE (jeton admin:read, ${Math.round(reste)} min ` +
+      `  · porte MCP AUTHENTIFIÉE (token admin:read, ${Math.round(reste)} min ` +
         `— ${ttlMin} demandées)`,
     );
-    return jeton;
+    return token;
   }
   // Le DIRE, et ne pas continuer comme si de rien n'était : la mesure qui
   // suit porterait sur un agent amputé de ses outils réservés, et le rapport
   // l'attribuerait au devkit.
   console.log(
-    `  ⚠️ jeton MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
+    `  ⚠️ token MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
   );
   // Les lignes UTILES, pas la première : `npm notice run …` occupe les deux
   // premières et faisait passer un bruit pour la cause — deux diagnostics
@@ -4509,13 +4509,13 @@ function runTask(app, runDir, task) {
       { encoding: "utf8" },
     );
     const vivante = (sonde.stdout ?? "").trim() === "200";
-    const identite = mcpAuthentifie() ? "jeton posé" : "ANONYME";
+    const identite = mcpAuthentifie() ? "token posé" : "ANONYME";
     // 🔴 « Quelqu'un répond » n'est PAS « l'application sous test répond ». Un
     // run laissé vivant tient les mêmes ports dédiés et porte le même nom :
     // cette ligne a déjà annoncé « application EN MARCHE » à propos de
     // l'application du run PRÉCÉDENT, et l'agent l'a interrogée en confiance.
     // Le discriminant est local : l'état de runtime que publie CETTE app.
-    const cible = portDeLAppSousTest(PORTS.NF_PORT, app);
+    const cible = appPortUnderTest(PORTS.NF_PORT, app);
     console.log(
       !vivante
         ? `  ⚠️ aucune réponse sur ${PORTS.NF_PORT_HTTPS} — l'agent trouvera la porte MORTE`
@@ -5774,7 +5774,7 @@ function main() {
         const requis = tasks.length * 7;
         if (reste < requis) {
           console.log(
-            `  · jeton MCP à ${Math.round(reste)} min — insuffisant pour cette ` +
+            `  · token MCP à ${Math.round(reste)} min — insuffisant pour cette ` +
               `passe (~${requis} min estimées), renouvellement`,
           );
           emettreJetonMcp(
@@ -5879,7 +5879,7 @@ function main() {
     decor:
       (LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)") +
       (MCP_ATTEIGNABLE
-        ? ` · MCP ${MCP_REGIME}${mcpAuthentifie() ? " (jeton posé)" : ""}`
+        ? ` · MCP ${MCP_REGIME}${mcpAuthentifie() ? " (token posé)" : ""}`
         : " · MCP non atteint"),
     agent: AGENT,
     // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la

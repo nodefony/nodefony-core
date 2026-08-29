@@ -47,7 +47,7 @@
  *
  * @output une ligne `CAUSE=<nom> — <explication>` puis sortie du code ci-dessus
  */
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import { ADMIN, estRefus, estSucces, ouvrirSession } from "./identites.mjs";
 import { REPERE_ZONE_PROTEGEE, ROUTE_MACHINE } from "./enonces.mjs";
 
@@ -62,8 +62,8 @@ const EMISSION = "/nodefony/security/api/keys";
  * client — quel que soit le nom du cookie. Les cookies anti-rejeu (CSRF) ne
  * comptent pas : ils ne portent aucune identité.
  */
-const cookieDeSession = (entetes) => {
-  const brut = entetes?.["set-cookie"];
+const cookieDeSession = (headers) => {
+  const brut = headers?.["set-cookie"];
   if (!brut) return null;
   const tous = Array.isArray(brut) ? brut : [brut];
   const suspect = tous.find((c) => !/csrf/iu.test(c));
@@ -71,19 +71,19 @@ const cookieDeSession = (entetes) => {
 };
 
 const main = async () => {
-  await garderPortLibre();
+  await ensurePortFree();
 
   // ─── Décor : une identité d'administration, puis une clé ────────────────
   const admin = await ouvrirSession(ADMIN);
   if (admin.injoignable) {
-    sortir(
+    exit(
       4,
       `CAUSE=aucune-reponse — l'application ne répond pas : ${admin.injoignable}. ` +
         `Le serveur n'a pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
     );
   }
   if (admin.echec) {
-    sortir(
+    exit(
       8,
       `CAUSE=identite-admin-indisponible — impossible d'ouvrir une session ` +
         `« ${ADMIN.username} » : ${admin.echec}. C'est le DÉCOR du banc qui ` +
@@ -91,42 +91,42 @@ const main = async () => {
     );
   }
 
-  const emise = await demander("POST", EMISSION, admin.bocal, {
-    corps: { name: "bench-m2m" },
-    jeton: admin.bocal.jeton(),
+  const emise = await request("POST", EMISSION, admin.jar, {
+    body: { name: "bench-m2m" },
+    csrfToken: admin.jar.csrfToken(),
   });
   const cle =
-    emise.statut === 201
-      ? (JSON.parse(emise.corps || "{}").token ?? null)
+    emise.status === 201
+      ? (JSON.parse(emise.body || "{}").token ?? null)
       : null;
   if (!cle) {
-    sortir(
+    exit(
       9,
-      `CAUSE=emission-de-cle-impossible — POST ${EMISSION} rend ${emise.statut} ` +
+      `CAUSE=emission-de-cle-impossible — POST ${EMISSION} rend ${emise.status} ` +
         `et aucune clé exploitable. Les clés d'API sont-elles activées dans ce ` +
         `décor ? C'est le banc qui n'a pas su se fournir, pas l'agent qui a mal ` +
-        `travaillé. Corps : ${(emise.corps ?? "").slice(0, 160)}`,
+        `travaillé. Corps : ${(emise.body ?? "").slice(0, 160)}`,
     );
   }
 
   // ─── 1. La clé ouvre la route ──────────────────────────────────────────
-  const avecCle = await demander("POST", ROUTE_MACHINE, new Bocal(), {
-    corps: { reference: "BENCH-M2M-1" },
-    entetes: { authorization: `Bearer ${cle}` },
+  const avecCle = await request("POST", ROUTE_MACHINE, new CookieJar(), {
+    body: { reference: "BENCH-M2M-1" },
+    headers: { authorization: `Bearer ${cle}` },
   });
-  if (avecCle.erreur) {
-    sortir(
+  if (avecCle.error) {
+    exit(
       4,
-      `CAUSE=aucune-reponse — POST ${ROUTE_MACHINE} n'obtient rien : ${avecCle.erreur}.`,
+      `CAUSE=aucune-reponse — POST ${ROUTE_MACHINE} n'obtient rien : ${avecCle.error}.`,
     );
   }
-  if (!estSucces(avecCle.statut)) {
-    sortir(
+  if (!estSucces(avecCle.status)) {
+    exit(
       1,
       `CAUSE=cle-refusee — POST ${ROUTE_MACHINE} avec une clé d'API VALIDE rend ` +
-        `${avecCle.statut}. Le service partenaire ne peut pas déposer : la zone ` +
+        `${avecCle.status}. Le service partenaire ne peut pas déposer : la zone ` +
         `n'accepte pas l'authentificateur « apikey », ou la route n'y tombe pas. ` +
-        `Corps : ${(avecCle.corps ?? "").slice(0, 160)}`,
+        `Corps : ${(avecCle.body ?? "").slice(0, 160)}`,
     );
   }
 
@@ -134,9 +134,9 @@ const main = async () => {
   // Contrôlé AVANT le refus sans clé : c'est la moitié « stateless » de la
   // tâche, et un agent peut très bien avoir posé une zone qui marche et tient
   // quand même un registre.
-  const seme = cookieDeSession(avecCle.entetes);
+  const seme = cookieDeSession(avecCle.headers);
   if (seme) {
-    sortir(
+    exit(
       3,
       `CAUSE=session-semee — la réponse à un porteur de clé pose un cookie ` +
         `(${seme}). La zone tient donc un registre serveur : elle n'est pas ` +
@@ -147,51 +147,51 @@ const main = async () => {
   }
 
   // ─── 2. Sans clé, la porte reste fermée ────────────────────────────────
-  const sansCle = await demander("POST", ROUTE_MACHINE, new Bocal(), {
-    corps: { reference: "BENCH-M2M-2" },
+  const sansCle = await request("POST", ROUTE_MACHINE, new CookieJar(), {
+    body: { reference: "BENCH-M2M-2" },
   });
-  if (!estRefus(sansCle.statut)) {
-    sortir(
+  if (!estRefus(sansCle.status)) {
+    exit(
       2,
-      `CAUSE=ouverte-sans-cle — POST ${ROUTE_MACHINE} rend ${sansCle.statut} SANS ` +
+      `CAUSE=ouverte-sans-cle — POST ${ROUTE_MACHINE} rend ${sansCle.status} SANS ` +
         `la moindre preuve. Aucune garde n'a été posée : la route tombe dans une ` +
         `zone qui accepte l'anonyme, et n'importe qui peut déposer.`,
     );
   }
 
   // ─── 4. Le témoin HORS énoncé ──────────────────────────────────────────
-  const temoinAnonyme = await demander(
+  const temoinAnonyme = await request(
     "GET",
     REPERE_ZONE_PROTEGEE,
-    new Bocal(),
+    new CookieJar(),
   );
-  if (!estRefus(temoinAnonyme.statut)) {
-    sortir(
+  if (!estRefus(temoinAnonyme.status)) {
+    exit(
       6,
       `CAUSE=temoin-ouvert — GET ${REPERE_ZONE_PROTEGEE} rend ` +
-        `${temoinAnonyme.statut} à un anonyme. Cette route n'est PAS celle de ` +
+        `${temoinAnonyme.status} à un anonyme. Cette route n'est PAS celle de ` +
         `l'énoncé : elle mesure la garde COLLECTIVE. Ouvrir l'API machine ne ` +
         `doit rien ouvrir d'autre.`,
     );
   }
-  const temoinAdmin = await demander("GET", REPERE_ZONE_PROTEGEE, admin.bocal);
-  if (!estSucces(temoinAdmin.statut)) {
-    sortir(
+  const temoinAdmin = await request("GET", REPERE_ZONE_PROTEGEE, admin.jar);
+  if (!estSucces(temoinAdmin.status)) {
+    exit(
       7,
       `CAUSE=temoin-ferme-a-l-admin — GET ${REPERE_ZONE_PROTEGEE} rend ` +
-        `${temoinAdmin.statut} à une session d'ADMINISTRATION valide. La zone ` +
+        `${temoinAdmin.status} à une session d'ADMINISTRATION valide. La zone ` +
         `web ne reconnaît plus les sessions : l'application entière a sans doute ` +
         `basculé en stateless, ce qui emporte la révocation avec elle.`,
     );
   }
 
-  sortir(
+  exit(
     0,
-    `OK — clé acceptée (${avecCle.statut}), anonyme refusé (${sansCle.statut}), ` +
+    `OK — clé acceptée (${avecCle.status}), anonyme refusé (${sansCle.status}), ` +
       `aucun cookie posé, zone web intacte.`,
   );
 };
 
 main().catch((e) => {
-  sortir(4, `CAUSE=juge-en-erreur — le juge lui-même a échoué : ${e.message}`);
+  exit(4, `CAUSE=juge-en-erreur — le juge lui-même a échoué : ${e.message}`);
 });

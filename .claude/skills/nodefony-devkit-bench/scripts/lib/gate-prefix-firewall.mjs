@@ -52,7 +52,7 @@ import {
   ROUTE_COMPTE_PROFIL,
   ROUTE_PUBLIQUE_HORS_PREFIXE,
 } from "./enonces.mjs";
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import {
   TEMOIN,
   estRefus,
@@ -65,74 +65,74 @@ import {
 const ROUTES_ENONCE = [ROUTE_COMPTE_PROFIL, ROUTE_COMPTE_FACTURES];
 
 repondreArgsTemoin();
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 0. LE DÉCOR D'ABORD — causes 4, 7 et 9, jamais l'agent ────────────────
 const { temoin } = await etablirIdentites();
 
 // ─── 1. L'ANONYME sur les deux routes DE L'ÉNONCÉ ──────────────────────────
 for (const route of ROUTES_ENONCE) {
-  const r = await demander("GET", route, new Bocal());
-  if (r.erreur) {
-    sortir(
+  const r = await request("GET", route, new CookieJar());
+  if (r.error) {
+    exit(
       4,
-      `CAUSE=aucune-reponse — GET ${route} n'obtient rien : ${r.erreur}. Le serveur n'a pas ` +
+      `CAUSE=aucune-reponse — GET ${route} n'obtient rien : ${r.error}. Le serveur n'a pas ` +
         `démarré, ou pas sur ce port. Rien n'a été mesuré.`,
     );
   }
-  if (r.statut === 404) {
-    sortir(
+  if (r.status === 404) {
+    exit(
       6,
       `CAUSE=route-absente — GET ${route} rend 404 : une des deux routes que l'énoncé nomme ` +
         `n'est pas montée. L'action n'a pas été écrite, la route pas déclarée, ou l'application ` +
         `pas rebâtie — le runtime charge le dist, pas les sources.`,
     );
   }
-  if (estSucces(r.statut)) {
-    sortir(
+  if (estSucces(r.status)) {
+    exit(
       1,
-      `CAUSE=prefixe-ouvert-a-l-anonyme — GET ${route} rend ${r.statut} SANS aucune identité, ` +
+      `CAUSE=prefixe-ouvert-a-l-anonyme — GET ${route} rend ${r.status} SANS aucune identité, ` +
         `alors que l'énoncé réserve « mon compte » aux personnes connectées. ` +
-        `Corps : ${r.corps.slice(0, 160)}`,
+        `Corps : ${r.body.slice(0, 160)}`,
     );
   }
-  if (!estRefus(r.statut)) {
-    sortir(
+  if (!estRefus(r.status)) {
+    exit(
       10,
-      `CAUSE=reponse-inattendue — GET ${route} rend ${r.statut} à un anonyme : ni refus ` +
-        `(401/403) ni succès. Corps : ${r.corps.slice(0, 160)}`,
+      `CAUSE=reponse-inattendue — GET ${route} rend ${r.status} à un anonyme : ni refus ` +
+        `(401/403) ni succès. Corps : ${r.body.slice(0, 160)}`,
     );
   }
 }
 
 // ─── 2. LE TÉMOIN — le service est-il rendu à qui y a droit ? ──────────────
 for (const route of ROUTES_ENONCE) {
-  const r = await demander("GET", route, temoin);
-  if (r.erreur) {
-    sortir(4, `CAUSE=aucune-reponse-temoin — GET ${route} : ${r.erreur}`);
+  const r = await request("GET", route, temoin);
+  if (r.error) {
+    exit(4, `CAUSE=aucune-reponse-temoin — GET ${route} : ${r.error}`);
   }
-  if (!estSucces(r.statut)) {
-    sortir(
+  if (!estSucces(r.status)) {
+    exit(
       3,
-      `CAUSE=prefixe-inaccessible — « ${TEMOIN.username} », authentifié, obtient ${r.statut} sur ` +
+      `CAUSE=prefixe-inaccessible — « ${TEMOIN.username} », authentifié, obtient ${r.status} sur ` +
         `GET ${route}, alors que l'énoncé ouvre « mon compte » à toute personne connectée. La ` +
         `garde exige davantage qu'une identité — un rôle, typiquement — et le service décrit ` +
-        `n'est pas rendu. Corps : ${r.corps.slice(0, 120)}`,
+        `n'est pas rendu. Corps : ${r.body.slice(0, 120)}`,
     );
   }
 }
 
 // ─── 3. LE REPÈRE — une ZONE, ou deux décorateurs ? ────────────────────────
 // Le pas décisif, et le seul que les routes de l'énoncé ne peuvent pas rendre.
-const repere = await demander("GET", REPERE_PREFIXE_COMPTE, new Bocal());
-if (repere.erreur) {
-  sortir(
+const repere = await request("GET", REPERE_PREFIXE_COMPTE, new CookieJar());
+if (repere.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-repere — GET ${REPERE_PREFIXE_COMPTE} : ${repere.erreur}`,
+    `CAUSE=aucune-reponse-repere — GET ${REPERE_PREFIXE_COMPTE} : ${repere.error}`,
   );
 }
-if (repere.statut === 404) {
-  sortir(
+if (repere.status === 404) {
+  exit(
     8,
     `CAUSE=repere-de-prefixe-absent — GET ${REPERE_PREFIXE_COMPTE} rend 404 : la ressource posée ` +
       `par le décor avec le générateur du framework, AVANT l'agent et commitée à part, a disparu. ` +
@@ -140,10 +140,10 @@ if (repere.statut === 404) {
       `deux décorateurs recopiés. Sans elle, ce verdict ne peut pas être rendu.`,
   );
 }
-if (estSucces(repere.statut)) {
-  sortir(
+if (estSucces(repere.status)) {
+  exit(
     2,
-    `CAUSE=repere-de-prefixe-ouvert — GET ${REPERE_PREFIXE_COMPTE} rend ${repere.statut} à un ` +
+    `CAUSE=repere-de-prefixe-ouvert — GET ${REPERE_PREFIXE_COMPTE} rend ${repere.status} à un ` +
       `ANONYME. Cette route est sous le MÊME préfixe que ${ROUTE_COMPTE_PROFIL} et ` +
       `${ROUTE_COMPTE_FACTURES}, posée par le décor et jamais mentionnée à l'agent — et elle est ` +
       `restée ouverte. Les deux routes de l'énoncé ont donc été protégées une par une, pas par ` +
@@ -151,31 +151,31 @@ if (estSucces(repere.statut)) {
       `aussi, sans que rien ne le signale.`,
   );
 }
-if (!estRefus(repere.statut)) {
-  sortir(
+if (!estRefus(repere.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue-repere — GET ${REPERE_PREFIXE_COMPTE} rend ${repere.statut} à un ` +
-      `anonyme : ni refus ni succès. Corps : ${repere.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue-repere — GET ${REPERE_PREFIXE_COMPTE} rend ${repere.status} à un ` +
+      `anonyme : ni refus ni succès. Corps : ${repere.body.slice(0, 160)}`,
   );
 }
 
 // ─── 4. HORS PRÉFIXE — la protection a-t-elle débordé ? ────────────────────
-const publique = await demander(
+const publique = await request(
   "GET",
   ROUTE_PUBLIQUE_HORS_PREFIXE,
-  new Bocal(),
+  new CookieJar(),
 );
-if (publique.erreur) {
-  sortir(
+if (publique.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse-publique — GET ${ROUTE_PUBLIQUE_HORS_PREFIXE} : ${publique.erreur}`,
+    `CAUSE=aucune-reponse-publique — GET ${ROUTE_PUBLIQUE_HORS_PREFIXE} : ${publique.error}`,
   );
 }
-if (!estSucces(publique.statut)) {
-  sortir(
+if (!estSucces(publique.status)) {
+  exit(
     11,
     `CAUSE=prefixe-elargi-hors-cible — GET ${ROUTE_PUBLIQUE_HORS_PREFIXE} rend ` +
-      `${publique.statut} à un anonyme, alors que cette route n'a rien à voir avec « mon ` +
+      `${publique.status} à un anonyme, alors que cette route n'a rien à voir avec « mon ` +
       `compte » : elle vient du preset, et la zone livrée la laissait publique. La protection a ` +
       `été posée sur un préfixe plus large que celui demandé — l'application entière est devenue ` +
       `privée pour qu'un espace le soit.`,
@@ -185,6 +185,6 @@ if (!estSucces(publique.statut)) {
 console.log(
   `ok — /api/account : anonyme refusé sur les ${ROUTES_ENONCE.length} routes de l'énoncé, ` +
     `« ${TEMOIN.username} » servi ; repère du même préfixe couvert sans avoir été nommé ` +
-    `(${repere.statut}) ; ${ROUTE_PUBLIQUE_HORS_PREFIXE} toujours public (${publique.statut})`,
+    `(${repere.status}) ; ${ROUTE_PUBLIQUE_HORS_PREFIXE} toujours public (${publique.status})`,
 );
 process.exit(0);

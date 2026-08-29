@@ -21,7 +21,7 @@
  *
  * @module
  */
-import { Bocal, demander, sortir } from "./http-probe.mjs";
+import { CookieJar, request, exit } from "./http-probe.mjs";
 
 /** Point d'entrée d'authentification du framework — jamais écrit par l'agent. */
 export const LOGIN = "/nodefony/security/api/auth/login";
@@ -48,10 +48,10 @@ export const TEMOIN = {
 };
 
 /** Un refus du framework : 401 (identité exigée) ou 403 (rôle refusé). */
-export const estRefus = (statut) => statut === 401 || statut === 403;
+export const estRefus = (status) => status === 401 || status === 403;
 
 /** Un succès : n'importe quel 2xx — 200 pour une lecture, 204 pour un DELETE. */
-export const estSucces = (statut) => statut >= 200 && statut < 300;
+export const estSucces = (status) => status >= 200 && status < 300;
 
 /**
  * `--temoin-args` : rend les arguments de création du compte témoin.
@@ -73,7 +73,7 @@ export const repondreArgsTemoin = () => {
 };
 
 /**
- * Ouvre une session et rend son bocal — ou la raison de l'échec.
+ * Ouvre une session et rend son jar — ou la raison de l'échec.
  *
  * Distingue l'application INJOIGNABLE du compte introuvable : « rien ne
  * répond » et « ce compte n'existe pas » appellent deux gestes différents, et
@@ -81,28 +81,28 @@ export const repondreArgsTemoin = () => {
  * jamais démarré.
  *
  * @param {{username: string, password: string}} identite - identifiants.
- * @returns {Promise<{bocal?: Bocal, echec?: string, injoignable?: string}>} bocal, ou motif.
+ * @returns {Promise<{jar?: CookieJar, echec?: string, injoignable?: string}>} jar, ou motif.
  */
 export const ouvrirSession = async (identite) => {
-  const bocal = new Bocal();
-  const r = await demander("POST", LOGIN, bocal, { corps: identite });
-  if (r.erreur) return { injoignable: r.erreur };
-  if (r.statut !== 200) {
+  const jar = new CookieJar();
+  const r = await request("POST", LOGIN, jar, { body: identite });
+  if (r.error) return { injoignable: r.error };
+  if (r.status !== 200) {
     return {
-      echec: `POST ${LOGIN} rend ${r.statut} — ${r.corps.slice(0, 160)}`,
+      echec: `POST ${LOGIN} rend ${r.status} — ${r.body.slice(0, 160)}`,
     };
   }
   // Le 200 ne suffit pas : c'est le COOKIE rejoué qui doit établir l'identité.
-  const moi = await demander("GET", MOI, bocal);
-  if (moi.erreur) return { injoignable: `GET ${MOI} — ${moi.erreur}` };
-  if (moi.statut !== 200 || !moi.corps.includes(identite.username)) {
+  const moi = await request("GET", MOI, jar);
+  if (moi.error) return { injoignable: `GET ${MOI} — ${moi.error}` };
+  if (moi.status !== 200 || !moi.body.includes(identite.username)) {
     return {
       echec:
-        `GET ${MOI} rend ${moi.statut} et ne reconnaît pas « ${identite.username} » : ` +
-        `le cookie de session n'est pas rejoué. Corps : ${moi.corps.slice(0, 120)}`,
+        `GET ${MOI} rend ${moi.status} et ne reconnaît pas « ${identite.username} » : ` +
+        `le cookie de session n'est pas rejoué. Corps : ${moi.body.slice(0, 120)}`,
     };
   }
-  return { bocal };
+  return { jar };
 };
 
 /**
@@ -112,19 +112,19 @@ export const ouvrirSession = async (identite) => {
  * mesure n'a de sens, et rendre un verdict sur l'agent serait l'accuser d'une
  * panne du banc.
  *
- * @returns {Promise<{admin: Bocal, temoin: Bocal}>} les deux bocaux prêts.
+ * @returns {Promise<{admin: CookieJar, temoin: CookieJar}>} les deux bocaux prêts.
  */
 export const etablirIdentites = async () => {
   const admin = await ouvrirSession(ADMIN);
   if (admin.injoignable) {
-    sortir(
+    exit(
       4,
       `CAUSE=aucune-reponse — l'application ne répond pas sur ${LOGIN} : ${admin.injoignable}. ` +
         `Le serveur n'a pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
     );
   }
   if (admin.echec) {
-    sortir(
+    exit(
       7,
       `CAUSE=identite-admin-indisponible — impossible d'ouvrir une session « ${ADMIN.username} » : ` +
         `${admin.echec}. C'est le DÉCOR du banc qui manque (compte semé au premier démarrage par ` +
@@ -134,14 +134,14 @@ export const etablirIdentites = async () => {
 
   const temoin = await ouvrirSession(TEMOIN);
   if (temoin.injoignable) {
-    sortir(
+    exit(
       4,
       `CAUSE=aucune-reponse-temoin — l'application a cessé de répondre entre deux connexions : ` +
         `${temoin.injoignable}.`,
     );
   }
   if (temoin.echec) {
-    sortir(
+    exit(
       9,
       `CAUSE=identite-temoin-indisponible — impossible d'ouvrir une session « ${TEMOIN.username} » : ` +
         `${temoin.echec}. Le compte témoin est créé par le gate (security:user:add), pas par ` +
@@ -149,5 +149,5 @@ export const etablirIdentites = async () => {
     );
   }
 
-  return { admin: admin.bocal, temoin: temoin.bocal };
+  return { admin: admin.jar, temoin: temoin.jar };
 };

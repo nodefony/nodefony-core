@@ -9,7 +9,7 @@
  *
  * Un serveur jouet joue chaque cause à tour de rôle sur le port du juge ; le
  * juge doit rendre exactement le code attendu. Aucun agent, aucun décor,
- * quelques secondes, zéro token.
+ * quelques secondes, zéro jeton.
  *
  *   node lib/gate-route-param.selftest.mjs
  *
@@ -126,7 +126,7 @@ for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

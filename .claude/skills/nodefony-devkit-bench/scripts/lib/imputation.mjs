@@ -209,7 +209,7 @@ export const IMPUTATIONS = Object.freeze({
   // le repère et son rôle sont posés avant l'agent, et servis à qui les couvre.
   "hierarchie-non-declaree": AGENT,
   "defense-csrf-demontee": AGENT,
-  "mutation-sans-jeton": AGENT,
+  "mutation-sans-token": AGENT,
   "politique-absente": AGENT,
   "politique-script-desserree": AGENT,
   "script-inline-non-signe": AGENT,

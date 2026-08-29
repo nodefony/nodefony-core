@@ -13,7 +13,7 @@
  *
  * Le principe : chaque sonde reçoit deux échantillons FIGÉS — un qu'elle doit
  * accepter, un qu'elle doit refuser. Aucun agent n'est lancé, aucun décor n'est
- * monté ; le contrôle coûte quelques secondes et zéro token.
+ * monté ; le contrôle coûte quelques secondes et zéro jeton.
  *
  * Il appelle `evaluateProbe` du banc, jamais une copie de la règle : un
  * auto-contrôle qui réimplémente ce qu'il vérifie ne vérifie que lui-même.
@@ -423,7 +423,7 @@ const SAMPLES = {
           expect: false,
         },
         {
-          label: "statut posé à la main",
+          label: "status posé à la main",
           matter: { addedTs: `    this.response.statusCode = 401;` },
           expect: false,
         },
@@ -1282,7 +1282,7 @@ const SAMPLES = {
       },
     ],
   },
-  "16 :: pas de jeton anti-rejeu fabriqué à la main": {
+  "16 :: pas de token anti-rejeu fabriqué à la main": {
     pass: { addedTs: `  @CsrfProtect()\n  add(@Body("sku") sku: string) {` },
     fail: {
       addedTs: `    const token = createHmac("sha256", secret).update(sid).digest("hex");`,

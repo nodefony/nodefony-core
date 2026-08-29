@@ -27,7 +27,7 @@
  * @module
  */
 import http from "node:http";
-import { PORT, HOTE, garderPortLibre } from "./http-probe.mjs";
+import { PORT, HOST, ensurePortFree } from "./http-probe.mjs";
 
 const CHEMIN = "/api/media/gate-sample.mp4";
 
@@ -44,53 +44,53 @@ const CHEMIN = "/api/media/gate-sample.mp4";
 const demander = (headers) =>
   new Promise((resolve) => {
     const r = http.request(
-      { host: HOTE, port: PORT, path: CHEMIN, headers },
+      { host: HOST, port: PORT, path: CHEMIN, headers },
       (res) => {
         let n = 0;
         res.on("data", (c) => (n += c.length));
         res.on("end", () =>
           resolve({
-            statut: res.statusCode,
+            status: res.statusCode,
             plage: res.headers["content-range"],
             octets: n,
           }),
         );
       },
     );
-    r.on("error", (e) => resolve({ erreur: e.message }));
+    r.on("error", (e) => resolve({ error: e.message }));
     r.setTimeout(15_000, () => {
       r.destroy();
-      resolve({ erreur: "aucune réponse en 15 s" });
+      resolve({ error: "aucune réponse en 15 s" });
     });
     r.end();
   });
 
 // Garde d'INSTRUMENT, avant toute mesure (socle partagé : une seule règle).
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 1. PRÉALABLE — l'échantillon est-il servi, tout court ? ─────────────────
-const plein = await demander({});
-if (plein.erreur) {
-  console.error(`CAUSE=aucune-reponse — ${plein.erreur}`);
+const plein = await request({});
+if (plein.error) {
+  console.error(`CAUSE=aucune-reponse — ${plein.error}`);
   process.exit(4);
 }
-if (plein.statut !== 200) {
+if (plein.status !== 200) {
   console.error(
-    `CAUSE=echantillon-non-servi — GET sans Range rend ${plein.statut} : la route ou le ` +
+    `CAUSE=echantillon-non-servi — GET sans Range rend ${plein.status} : la route ou le ` +
       `dossier ne mène pas à \`media/\`, que l'énoncé nomme. La façade n'est PAS en cause.`,
   );
   process.exit(3);
 }
 
 // ─── 2. LE JUGE — une demande de MORCEAU (RFC 9110 §14) ─────────────────────
-const morceau = await demander({ Range: "bytes=0-99" });
-if (morceau.erreur) {
-  console.error(`CAUSE=aucune-reponse-sur-plage — ${morceau.erreur}`);
+const morceau = await request({ Range: "bytes=0-99" });
+if (morceau.error) {
+  console.error(`CAUSE=aucune-reponse-sur-plage — ${morceau.error}`);
   process.exit(1);
 }
-if (morceau.statut !== 206 || !morceau.plage || morceau.octets !== 100) {
+if (morceau.status !== 206 || !morceau.plage || morceau.octets !== 100) {
   console.error(
-    `CAUSE=plages-non-honorees — statut=${morceau.statut} content-range=${morceau.plage} ` +
+    `CAUSE=plages-non-honorees — status=${morceau.status} content-range=${morceau.plage} ` +
       `octets=${morceau.octets} · le fichier EST servi : c'est la façade qui ne traite pas \`Range\``,
   );
   process.exit(1);

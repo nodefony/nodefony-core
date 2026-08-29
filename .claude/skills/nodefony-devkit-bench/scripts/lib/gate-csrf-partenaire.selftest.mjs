@@ -3,7 +3,7 @@
  *
  * Une application jouet applique tour à tour chaque politique de provenance, et
  * le juge doit rendre EXACTEMENT le code annoncé par sa table. Aucun agent,
- * aucun décor, quelques secondes, zéro token.
+ * aucun décor, quelques secondes, zéro jeton.
  *
  * Ce juge tranche entre deux résultats que la route mesurée ne distingue pas :
  * un partenaire débloqué en DÉCLARANT son origine, et un partenaire débloqué en
@@ -43,20 +43,20 @@ const run = (args) =>
     p.on("close", (status) => resolve({ status, stdout: out, stderr: err }));
   });
 
-const repondre = (res, statut, objet) => {
-  res.writeHead(statut, { "content-type": "application/json" });
+const repondre = (res, status, objet) => {
+  res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(objet));
 };
 
 /**
  * UNE application jouet paramétrable, pas une par cause.
  *
- * @param {{politique?: Function, statut?: number}} opts
+ * @param {{politique?: Function, status?: number}} opts
  *   - `politique` reçoit l'origine tamponnée et rend le statut servi ;
  *   `statut` force la réponse quelle que soit l'origine (route absente…).
  */
 const app =
-  ({ politique, statut }) =>
+  ({ politique, status }) =>
   (req, res) => {
     const url = (req.url ?? "").split("?")[0];
     if (url !== ROUTE_COMMANDES || req.method !== "POST") {
@@ -64,7 +64,7 @@ const app =
     }
     // Le corps est lu et jeté : ce juge mesure la PROVENANCE, jamais le contenu.
     req.resume();
-    if (statut !== undefined) return repondre(res, statut, { forced: true });
+    if (status !== undefined) return repondre(res, status, { forced: true });
     const origine = req.headers.origin ?? "";
     return repondre(res, politique(origine), { origine });
   };
@@ -82,10 +82,10 @@ const CAS = {
 
   // ── ce que l'AGENT n'a pas livré ─────────────────────────────────────────
   partenaireToujoursRefuse: [2, app({ politique: () => 403 })],
-  routeAbsente: [3, app({ statut: 404 })],
+  routeAbsente: [3, app({ status: 404 })],
 
   // ── réponses qui ne se rangent nulle part ────────────────────────────────
-  partenaireEnErreur: [6, app({ statut: 500 })],
+  partenaireEnErreur: [6, app({ status: 500 })],
   inconnuInattendu: [
     6,
     app({ politique: (o) => (o === ORIGINE_PARTENAIRE ? 201 : 500) }),
@@ -121,7 +121,7 @@ for (const [nom, [attendu, handler]] of Object.entries(CAS)) {
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

@@ -94,7 +94,7 @@ export function estComposantLocal(m) {
  * @param {{modules: unknown[]|null, routes: unknown[]|null, dossierModulesSurDisque: boolean}} etat
  * @returns {{code: number, message: string}} le code de sortie et sa cause.
  */
-export function juger({ modules, routes, dossierModulesSurDisque }) {
+export function judge({ modules, routes, dossierModulesSurDisque }) {
   if (modules === null) {
     return {
       code: 5,
@@ -172,7 +172,7 @@ function main() {
     }
   }
   const routes = modules === null ? null : demanderALApp("routes");
-  const { code, message } = juger({ modules, routes, dossierModulesSurDisque });
+  const { code, message } = judge({ modules, routes, dossierModulesSurDisque });
   console.log(message);
   process.exit(code);
 }

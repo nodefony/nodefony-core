@@ -5,13 +5,13 @@
  * Un juge qui rend un rouge unique fait chercher au hasard : ici, quatre
  * situations très différentes produisent un échec, et deux d'entre elles
  * n'accusent PAS l'agent. Chacune reçoit donc un état figé, et l'on vérifie que
- * le juge la distingue — en appelant `juger`, jamais une copie de sa règle.
+ * le juge la distingue — en appelant `judge`, jamais une copie de sa règle.
  *
  *   node gate-module-local.selftest.mjs
  *
  * Sorties : 0 toutes les causes distinguées · 1 au moins une confusion.
  */
-import { juger, estComposantLocal } from "./gate-module-local.mjs";
+import { judge, estComposantLocal } from "./gate-module-local.mjs";
 
 // Un décor réaliste : ce que `inspect modules` rend dans une app générée, relevé
 // sur une application réelle plutôt que reconstitué de mémoire.
@@ -133,7 +133,7 @@ const cas = [
 
 let defauts = 0;
 for (const c of cas) {
-  const { code, message } = juger(c.etat);
+  const { code, message } = judge(c.etat);
   const ok = code === c.attendu;
   if (!ok) defauts += 1;
   console.log(

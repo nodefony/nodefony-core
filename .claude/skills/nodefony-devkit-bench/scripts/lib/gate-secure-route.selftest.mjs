@@ -3,7 +3,7 @@
  *
  * Aucun agent, aucune application, aucun décor à monter : une application jouet
  * joue tour à tour chaque défaillance, et le juge doit rendre EXACTEMENT le code
- * annoncé par sa table. Quelques secondes, zéro token.
+ * annoncé par sa table. Quelques secondes, zéro jeton.
  *
  * Ce contrôle existe parce qu'un juge de sécurité est le pire endroit où mettre
  * un défaut : son rouge est crédible (« l'agent a mal protégé »), son vert
@@ -50,7 +50,7 @@ const run = (args) =>
     p.on("close", (status) => resolve({ status, stdout: out, stderr: err }));
   });
 
-/** Lit le corps d'une requête, JSON ou rien. */
+/** Lit le body d'une requête, JSON ou rien. */
 const corpsDe = (req) =>
   new Promise((resolve) => {
     let brut = "";
@@ -72,8 +72,8 @@ const quiEst = (req) => {
   return "anonyme";
 };
 
-const repondre = (res, statut, objet) => {
-  res.writeHead(statut, { "content-type": "application/json" });
+const repondre = (res, status, objet) => {
+  res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(objet));
 };
 
@@ -114,9 +114,9 @@ const app =
     }
 
     if (url === CIBLE) {
-      const { statut, corps } = cible(quiEst(req));
-      res.writeHead(statut, { "content-type": "application/json" });
-      return res.end(typeof corps === "string" ? corps : JSON.stringify(corps));
+      const { status, body } = cible(quiEst(req));
+      res.writeHead(status, { "content-type": "application/json" });
+      return res.end(typeof body === "string" ? body : JSON.stringify(body));
     }
 
     return repondre(res, 404, { error: "not found" });
@@ -125,10 +125,10 @@ const app =
 /** Une route correctement protégée : refus, refus, service. */
 const cibleConforme = (qui) =>
   qui === "anonyme"
-    ? { statut: 401, corps: { error: "Authentication required" } }
+    ? { status: 401, body: { error: "Authentication required" } }
     : qui === "temoin"
-      ? { statut: 403, corps: { error: "Access denied" } }
-      : { statut: 200, corps: { report: "ok" } };
+      ? { status: 403, body: { error: "Access denied" } }
+      : { status: 200, body: { report: "ok" } };
 
 const ROLES = {
   // ── conformité, sous ses deux formes légitimes de refus ──────────────────
@@ -140,49 +140,49 @@ const ROLES = {
     app({
       cible: (qui) =>
         qui === "admin"
-          ? { statut: 200, corps: { report: "ok" } }
-          : { statut: 403, corps: { error: "Access denied" } },
+          ? { status: 200, body: { report: "ok" } }
+          : { status: 403, body: { error: "Access denied" } },
     }),
   ],
 
   // ── ce que l'AGENT a raté ────────────────────────────────────────────────
   routeOuverte: [
     1,
-    app({ cible: () => ({ statut: 200, corps: { report: "ok" } }) }),
+    app({ cible: () => ({ status: 200, body: { report: "ok" } }) }),
   ],
   roleNonDiscriminant: [
     2,
     app({
       cible: (qui) =>
         qui === "anonyme"
-          ? { statut: 401, corps: { error: "Authentication required" } }
-          : { statut: 200, corps: { report: "ok" } },
+          ? { status: 401, body: { error: "Authentication required" } }
+          : { status: 200, body: { report: "ok" } },
     }),
   ],
   adminRefuse: [
     3,
-    app({ cible: () => ({ statut: 403, corps: { error: "Access denied" } }) }),
+    app({ cible: () => ({ status: 403, body: { error: "Access denied" } }) }),
   ],
-  routeAbsente: [6, app({ cible: () => ({ statut: 404, corps: {} }) })],
+  routeAbsente: [6, app({ cible: () => ({ status: 404, body: {} }) })],
   corpsInattendu: [
     8,
     app({
       cible: (qui) =>
         qui === "admin"
-          ? { statut: 200, corps: { data: [] } }
+          ? { status: 200, body: { data: [] } }
           : cibleConforme(qui),
     }),
   ],
   reponseInattendue: [
     10,
-    app({ cible: () => ({ statut: 500, corps: { error: "boom" } }) }),
+    app({ cible: () => ({ status: 500, body: { error: "boom" } }) }),
   ],
   reponseInattendueTemoin: [
     10,
     app({
       cible: (qui) =>
         qui === "temoin"
-          ? { statut: 500, corps: { error: "boom" } }
+          ? { status: 500, body: { error: "boom" } }
           : cibleConforme(qui),
     }),
   ],
@@ -222,7 +222,7 @@ for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

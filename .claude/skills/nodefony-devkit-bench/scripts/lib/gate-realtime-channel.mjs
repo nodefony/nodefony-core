@@ -78,7 +78,7 @@ import {
   CHEMIN_REALTIME_LIVE,
   CHEMIN_REALTIME_OPS,
 } from "./enonces.mjs";
-import { HOTE, PORT, garderPortLibre, sortir } from "./http-probe.mjs";
+import { HOST, PORT, ensurePortFree, exit } from "./http-probe.mjs";
 import { LOGIN, etablirIdentites, repondreArgsTemoin } from "./identites.mjs";
 
 /** Généreuse : le canal publie 1×/s, deux à trois ticks doivent y tenir. */
@@ -111,15 +111,15 @@ const CONNEXION_TIMEOUT_MS = 5000;
  * Ne rejette JAMAIS : une panne (refus de connexion, fermeture avant welcome,
  * timeout) devient `{ erreur }`, que l'appelant traduit en cause — un `throw`
  * ici ferait sortir le juge sur une trace Node, illisible dans l'`evidence`
- * d'un rapport (même discipline que `demander()` dans `http-probe.mjs`).
+ * d'un rapport (même discipline que `request()` dans `http-probe.mjs`).
  *
  * @param {string} chemin - chemin du handshake (ex. `/api/ops/realtime`).
  * @param {string|null} cookie - en-tête `Cookie` à poser, ou `null` (anonyme).
- * @returns {Promise<{ws?: WebSocket, welcome?: object, frames: object[], erreur?: string}>}
+ * @returns {Promise<{ws?: WebSocket, welcome?: object, frames: object[], error?: string}>}
  */
 const ouvrirConnexion = (chemin, cookie) =>
   new Promise((resolve) => {
-    const url = `ws://${HOTE}:${PORT}${chemin}`;
+    const url = `ws://${HOST}:${PORT}${chemin}`;
     const frames = [];
     let ws;
     try {
@@ -127,7 +127,7 @@ const ouvrirConnexion = (chemin, cookie) =>
         ? new WebSocket(url, { headers: { cookie } })
         : new WebSocket(url);
     } catch (e) {
-      resolve({ frames, erreur: e instanceof Error ? e.message : String(e) });
+      resolve({ frames, error: e instanceof Error ? e.message : String(e) });
       return;
     }
     let tranchee = false;
@@ -145,7 +145,7 @@ const ouvrirConnexion = (chemin, cookie) =>
       }
       trancher({
         frames,
-        erreur: `aucun realtime:welcome en ${CONNEXION_TIMEOUT_MS} ms`,
+        error: `aucun realtime:welcome en ${CONNEXION_TIMEOUT_MS} ms`,
       });
     }, CONNEXION_TIMEOUT_MS);
     const surMessageAccueil = (ev) => {
@@ -167,11 +167,11 @@ const ouvrirConnexion = (chemin, cookie) =>
     ws.addEventListener("close", (ev) => {
       trancher({
         frames,
-        erreur: `connexion fermée avant welcome (code ${ev.code})`,
+        error: `connexion fermée avant welcome (code ${ev.code})`,
       });
     });
     ws.addEventListener("error", () => {
-      trancher({ frames, erreur: "erreur de connexion websocket" });
+      trancher({ frames, error: "erreur de connexion websocket" });
     });
   });
 
@@ -225,12 +225,12 @@ const ecouterCanal = (ws, framesDejaRecues, canal, fenetreMs) =>
   });
 
 repondreArgsTemoin();
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 0. LE DÉCOR D'ABORD — les identités HTTP, avant la moindre trame WS ───
 const { admin, temoin } = await etablirIdentites();
-const cookieAdmin = admin.entete();
-const cookieTemoin = temoin.entete();
+const cookieAdmin = admin.header();
+const cookieTemoin = temoin.header();
 
 // ─── 1. DÉCOUVERTE — l'ADMINISTRATEUR, sur les deux chemins possibles ──────
 const CHEMINS_CANDIDATS = [CHEMIN_REALTIME_OPS, CHEMIN_REALTIME_LIVE];
@@ -240,7 +240,7 @@ let uneConnexionAReussi = false;
 
 for (const chemin of CHEMINS_CANDIDATS) {
   const res = await ouvrirConnexion(chemin, cookieAdmin);
-  if (res.erreur) continue;
+  if (res.error) continue;
   uneConnexionAReussi = true;
   const canaux = Array.isArray(res.welcome?.channels)
     ? res.welcome.channels
@@ -259,14 +259,14 @@ for (const chemin of CHEMINS_CANDIDATS) {
 
 if (!cheminCible) {
   if (!uneConnexionAReussi) {
-    sortir(
+    exit(
       4,
       `CAUSE=aucune-reponse-ws — ni ${CHEMIN_REALTIME_OPS} ni ${CHEMIN_REALTIME_LIVE} n'acceptent ` +
         `de connexion WebSocket, alors que l'application répond au login (${LOGIN}, vérifié plus ` +
         `haut). Rien n'a été mesuré côté temps réel.`,
     );
   }
-  sortir(
+  exit(
     3,
     `CAUSE=canal-absent — ni GET ${CHEMIN_REALTIME_OPS} ni GET ${CHEMIN_REALTIME_LIVE} n'annoncent ` +
       `le canal « ${CANAL_OPS_ALERTES} » à leur realtime:welcome. La connexion WebSocket fonctionne ` +
@@ -283,7 +283,7 @@ const adminRecoit = await ecouterCanal(
   FENETRE_RECEPTION_MS,
 );
 if (!adminRecoit) {
-  sortir(
+  exit(
     8,
     `CAUSE=admin-refuse — « admin » s'abonne à « ${CANAL_OPS_ALERTES} » sur ${cheminCible} (canal ` +
       `annoncé au welcome) et ne reçoit RIEN en ${FENETRE_RECEPTION_MS} ms, alors que l'énoncé ` +
@@ -297,7 +297,7 @@ if (!adminRecoit) {
 // STRICT que demandé : on ne l'accuse pas — le témoin gratuit, plus bas, dira
 // si ce resserrement a débordé sur autre chose que le seul canal de l'énoncé.
 const resAnon = await ouvrirConnexion(cheminCible, null);
-if (!resAnon.erreur) {
+if (!resAnon.error) {
   const anonRecoit = await ecouterCanal(
     resAnon.ws,
     resAnon.frames,
@@ -305,7 +305,7 @@ if (!resAnon.erreur) {
     FENETRE_SILENCE_MS,
   );
   if (anonRecoit) {
-    sortir(
+    exit(
       1,
       `CAUSE=canal-ouvert-a-l-anonyme — un visiteur SANS identité reçoit « ${CANAL_OPS_ALERTES} » ` +
         `sur ${cheminCible}, alors que l'énoncé réserve ce flux aux administrateurs. Le canal a été ` +
@@ -317,7 +317,7 @@ if (!resAnon.erreur) {
 
 // ─── 4. LE TÉMOIN — authentifié, SANS rôle d'administration ────────────────
 const resTemoin = await ouvrirConnexion(cheminCible, cookieTemoin);
-if (!resTemoin.erreur) {
+if (!resTemoin.error) {
   const temoinRecoit = await ecouterCanal(
     resTemoin.ws,
     resTemoin.frames,
@@ -325,7 +325,7 @@ if (!resTemoin.erreur) {
     FENETRE_SILENCE_MS,
   );
   if (temoinRecoit) {
-    sortir(
+    exit(
       2,
       `CAUSE=canal-non-discriminant — « bench-temoin », authentifié mais SANS rôle d'administration, ` +
         `reçoit « ${CANAL_OPS_ALERTES} » sur ${cheminCible}. Le canal exige une IDENTITÉ, pas un ` +
@@ -338,11 +338,11 @@ if (!resTemoin.erreur) {
 // Mesuré en dernier : tout le reste a déjà réussi, donc ce qui se joue ici est
 // bien un DÉBORDEMENT de la protection posée, et rien d'autre.
 const resWitness = await ouvrirConnexion(CHEMIN_REALTIME_LIVE, null);
-if (resWitness.erreur) {
-  sortir(
+if (resWitness.error) {
+  exit(
     6,
     `CAUSE=canal-temoin-ferme — GET ${CHEMIN_REALTIME_LIVE} refuse même le HANDSHAKE d'un anonyme ` +
-      `(${resWitness.erreur}). Ce canal, posé par le décor SANS politique et jamais mentionné à ` +
+      `(${resWitness.error}). Ce canal, posé par le décor SANS politique et jamais mentionné à ` +
       `l'agent, publiait déjà 1×/s avant lui : une politique bien plus large que le seul canal ` +
       `« ${CANAL_OPS_ALERTES} » a fermé la zone entière — la démo de l'application est morte avec.`,
   );
@@ -354,7 +354,7 @@ const witnessRecoit = await ecouterCanal(
   FENETRE_RECEPTION_MS,
 );
 if (!witnessRecoit) {
-  sortir(
+  exit(
     6,
     `CAUSE=canal-temoin-ferme — un anonyme n'obtient plus AUCUNE trame « ${CANAL_TEMOIN_PUBLIC} » ` +
       `sur ${CHEMIN_REALTIME_LIVE} en ${FENETRE_RECEPTION_MS} ms. Ce canal, posé par le décor SANS ` +

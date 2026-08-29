@@ -249,11 +249,11 @@ function mcpEchecAdmin(
     return mcpText(read.message, true);
   }
   const rendu = JSON.stringify(read.body, null, 2);
-  const corps =
+  const body =
     rendu.length <= MCP_ERROR_BODY_MAX_CHARS
       ? rendu
-      : `${rendu.slice(0, MCP_ERROR_BODY_MAX_CHARS)}\n… corps du refus tronqué (${rendu.length} caractères)`;
-  return mcpText(`${read.message}\n\n${corps}`, true);
+      : `${rendu.slice(0, MCP_ERROR_BODY_MAX_CHARS)}\n… body du refus tronqué (${rendu.length} caractères)`;
+  return mcpText(`${read.message}\n\n${body}`, true);
 }
 
 /**
@@ -683,7 +683,7 @@ export function builtinMcpTools(
           outline: {
             type: "boolean",
             description:
-              "Rendre le PLAN de la page au lieu de son corps — le premier " +
+              "Rendre le PLAN de la page au lieu de son body — le premier " +
               "geste sur une page volumineuse",
           },
           limit: {

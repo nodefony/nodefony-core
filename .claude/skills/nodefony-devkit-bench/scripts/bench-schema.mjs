@@ -271,7 +271,7 @@ export const SCHEMAS = {
     /** Six tables sur cent — celles qui portent énumérations et relations. */
     tables: [
       "Membership", // énumération de rôle + double lien
-      "Booking", // énumération de statut, refs multiples
+      "Booking", // énumération de status, refs multiples
       "Schedule", // cible de DEUX liens distincts depuis EventType
       "Webhook", // TABLEAU d'énumération (WebhookTriggerEvents[])
       "ApiKey", // horodatage de création seul
@@ -2100,7 +2100,7 @@ async function main() {
     if (!isolation.ok && !LINKED) {
       console.error(
         `\n🛑 décor NON isolé — le banc mesurerait un agent mieux servi que\n` +
-          `   l'utilisateur réel. Arrêt avant l'agent (aucun jeton dépensé).\n` +
+          `   l'utilisateur réel. Arrêt avant l'agent (aucun token dépensé).\n` +
           `   Décor : ${app}`,
       );
       process.exit(3);

@@ -12,7 +12,7 @@
  *  3. le succès n'est PAS le cas par défaut — le verdict conforme exige les
  *     quatre faits, pas l'absence de faute constatée.
  *
- * Aucune application n'est montée : le contrôle appelle `juger`, jamais une
+ * Aucune application n'est montée : le contrôle appelle `judge`, jamais une
  * copie de sa règle.
  *
  *   node gate-migration.selftest.mjs
@@ -20,7 +20,7 @@
  *
  * Sorties : 0 tout est distingué · 1 au moins un défaut.
  */
-import { juger, CAUSES } from "./gate-migration.mjs";
+import { judge, CAUSES } from "./gate-migration.mjs";
 
 const PARFAIT = {
   colonnePubliee: true,
@@ -100,7 +100,7 @@ const cas = [
 const PROVE = process.argv.includes("--prove");
 let rouges = 0;
 for (const c of cas) {
-  const v = juger(c.faits);
+  const v = judge(c.faits);
   // En mode preuve, on ampute la règle la plus subtile — l'ordre qui place la
   // donnée perdue avant l'état — et l'on vérifie que le contrôle S'EN APERÇOIT.
   const cause =

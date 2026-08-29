@@ -3,7 +3,7 @@
  *
  * Une application jouet joue tour à tour chaque défaillance, et le juge doit
  * rendre EXACTEMENT le code annoncé par sa table. Aucun agent, aucun décor,
- * quelques secondes, zéro token.
+ * quelques secondes, zéro jeton.
  *
  * Le cas central est `decoreRouteParRoute` : les deux routes de l'énoncé
  * refusent correctement l'anonyme — un `@IsGranted` a bien été posé sur
@@ -77,8 +77,8 @@ const quiEst = (req) => {
   return "anonyme";
 };
 
-const repondre = (res, statut, objet) => {
-  res.writeHead(statut, { "content-type": "application/json" });
+const repondre = (res, status, objet) => {
+  res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(objet));
 };
 
@@ -222,7 +222,7 @@ for (const [nom, [attendu, handler]] of Object.entries(CAS)) {
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

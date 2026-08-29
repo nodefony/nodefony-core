@@ -993,7 +993,7 @@ step(
           "-e",
           `fetch("http://127.0.0.1:${PORTS.NF_PORT}/api/posts")` +
             `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
-            `{ console.error("statut " + r.status); process.exit(1); } })` +
+            `{ console.error("status " + r.status); process.exit(1); } })` +
             `.catch((e) => { console.error(String(e.message ?? e)); process.exit(1); })`,
         ],
         { encoding: "utf8", timeout: 30_000 },
@@ -1047,18 +1047,18 @@ step(
       // environnement, le CLI démarre en production et la porte n'existe pas.
       { NODE_ENV: "development" },
     );
-    const jeton = JSON.parse(out);
-    if (typeof jeton.access_token !== "string" || !jeton.access_token) {
-      throw new Error("aucun jeton rendu");
+    const token = JSON.parse(out);
+    if (typeof token.access_token !== "string" || !token.access_token) {
+      throw new Error("aucun token rendu");
     }
     // L'audience INSCRITE, pas celle demandée : c'est elle que la porte
     // comparera à son propre URI, et elle seule dit que le jeton ouvrira.
     const charge = JSON.parse(
-      Buffer.from(jeton.access_token.split(".")[1], "base64url").toString(),
+      Buffer.from(token.access_token.split(".")[1], "base64url").toString(),
     );
     if (!String(charge.aud ?? "").endsWith("/nodefony/mcp")) {
       throw new Error(
-        `jeton émis pour « ${charge.aud} » — ce n'est pas la porte MCP`,
+        `token émis pour « ${charge.aud} » — ce n'est pas la porte MCP`,
       );
     }
   },

@@ -48,7 +48,7 @@
  * @module
  */
 import { readFileSync, existsSync } from "node:fs";
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 
 const LECTURE = "/api/cart";
 const MUTATION = "/api/cart/items";
@@ -60,19 +60,19 @@ const MUTATION = "/api/cart/items";
 const SKU = "ZX9-QUARTZ-77";
 
 // Garde d'INSTRUMENT, avant toute mesure (socle partagé : une seule règle).
-await garderPortLibre();
+await ensurePortFree();
 
-const visiteur = new Bocal();
-const inconnu = new Bocal();
+const visiteur = new CookieJar();
+const inconnu = new CookieJar();
 
 // ─── 1. La lecture répond-elle, et sème-t-elle de quoi muter ? ───────────────
-const lecture = await demander("GET", LECTURE, visiteur);
-if (lecture.erreur) sortir(4, `CAUSE=aucune-reponse — ${lecture.erreur}`);
-if (lecture.statut !== 200) {
-  sortir(
+const lecture = await request("GET", LECTURE, visiteur);
+if (lecture.error) exit(4, `CAUSE=aucune-reponse — ${lecture.error}`);
+if (lecture.status !== 200) {
+  exit(
     3,
-    `CAUSE=lecture-non-servie — GET ${LECTURE} rend ${lecture.statut} : la route de lecture ` +
-      `que l'énoncé nomme n'est pas servie. Ni la session ni le jeton ne sont en cause.`,
+    `CAUSE=lecture-non-servie — GET ${LECTURE} rend ${lecture.status} : la route de lecture ` +
+      `que l'énoncé nomme n'est pas servie. Ni la session ni le token ne sont en cause.`,
   );
 }
 
@@ -102,74 +102,73 @@ const routesSures = () => {
 
 // Le cookie n'est pas encore là ? Les autres routes sûres du périmètre peuvent
 // le semer — c'est le trajet d'un vrai client, pas une supposition du juge.
-if (!visiteur.jeton()) {
+if (!visiteur.csrfToken()) {
   for (const chemin of routesSures()) {
-    const r = await demander("GET", chemin, visiteur);
-    if (r.erreur) continue;
-    if (visiteur.jeton()) break;
+    const r = await request("GET", chemin, visiteur);
+    if (r.error) continue;
+    if (visiteur.csrfToken()) break;
   }
 }
 
 // ─── 2. LE juge du jeton — la mutation NUE doit être refusée ────────────────
 // `curl` sans en-tête de navigateur passe la défense de provenance : un 2xx ici
 // prouve donc qu'aucun jeton n'est exigé.
-const nue = await demander("POST", MUTATION, visiteur, { corps: { sku: SKU } });
-if (nue.erreur) sortir(4, `CAUSE=aucune-reponse-sur-mutation — ${nue.erreur}`);
-if (nue.statut >= 200 && nue.statut < 300) {
-  sortir(
+const nue = await request("POST", MUTATION, visiteur, { body: { sku: SKU } });
+if (nue.error) exit(4, `CAUSE=aucune-reponse-sur-mutation — ${nue.error}`);
+if (nue.status >= 200 && nue.status < 300) {
+  exit(
     1,
-    `CAUSE=mutation-sans-jeton — POST ${MUTATION} SANS \`x-csrf-token\` rend ${nue.statut}. ` +
+    `CAUSE=mutation-sans-token — POST ${MUTATION} SANS \`x-csrf-token\` rend ${nue.status}. ` +
       `Un client non-navigateur passe la défense de provenance : la mutation n'exige donc ` +
       `aucune preuve d'intention. C'est le contournement — l'origine vérifiée, rien de plus.`,
   );
 }
-if (nue.statut !== 403) {
-  sortir(
+if (nue.status !== 403) {
+  exit(
     8,
-    `CAUSE=mutation-refusee-autrement — POST ${MUTATION} rend ${nue.statut}, ni 403 ni succès : ` +
-      `route absente ou corps refusé. La défense CSRF n'est PAS en cause. Corps : ` +
-      `${nue.corps.slice(0, 160)}`,
+    `CAUSE=mutation-refusee-autrement — POST ${MUTATION} rend ${nue.status}, ni 403 ni succès : ` +
+      `route absente ou body refusé. La défense CSRF n'est PAS en cause. Corps : ` +
+      `${nue.body.slice(0, 160)}`,
   );
 }
 
 // ─── 3. …puis ACCEPTÉE une fois le jeton rejoué ─────────────────────────────
-const jeton = visiteur.jeton();
-const armee = await demander("POST", MUTATION, visiteur, {
-  corps: { sku: SKU },
-  jeton,
+const token = visiteur.csrfToken();
+const armee = await request("POST", MUTATION, visiteur, {
+  body: { sku: SKU },
+  csrfToken: token,
 });
-if (armee.erreur)
-  sortir(4, `CAUSE=aucune-reponse-sur-mutation-armee — ${armee.erreur}`);
-if (!(armee.statut >= 200 && armee.statut < 300)) {
-  sortir(
+if (armee.error)
+  exit(4, `CAUSE=aucune-reponse-sur-mutation-armee — ${armee.error}`);
+if (!(armee.status >= 200 && armee.status < 300)) {
+  exit(
     2,
-    `CAUSE=jeton-rejoue-refuse — la mutation refuse ${armee.statut} MÊME avec le jeton ` +
-      `(${jeton ? "cookie lu" : "aucun cookie semé par AUCUNE route sûre du périmètre"}). ` +
+    `CAUSE=jeton-rejoue-refuse — la mutation refuse ${armee.status} MÊME avec le token ` +
+      `(${token ? "cookie lu" : "aucun cookie semé par AUCUNE route sûre du périmètre"}). ` +
       `La protection est posée mais inutilisable : une requête sûre vers une route protégée ` +
       `doit semer le cookie que la mutation rejoue.`,
   );
 }
 
 // ─── 4. L'état survit-il à la requête, POUR CE visiteur ? ───────────────────
-const relu = await demander("GET", LECTURE, visiteur);
-if (relu.erreur)
-  sortir(4, `CAUSE=aucune-reponse-sur-relecture — ${relu.erreur}`);
-if (!relu.corps.includes(SKU)) {
-  sortir(
+const relu = await request("GET", LECTURE, visiteur);
+if (relu.error) exit(4, `CAUSE=aucune-reponse-sur-relecture — ${relu.error}`);
+if (!relu.body.includes(SKU)) {
+  exit(
     6,
     `CAUSE=etat-non-persiste — après un ajout accepté, GET ${LECTURE} ne contient pas ` +
-      `« ${SKU} » : rien ne survit d'une requête à l'autre. Corps : ${relu.corps.slice(0, 160)}`,
+      `« ${SKU} » : rien ne survit d'une requête à l'autre. Corps : ${relu.body.slice(0, 160)}`,
   );
 }
 
 // ─── 5. …et RESTE le sien ───────────────────────────────────────────────────
-// Bocal vierge = un autre visiteur. Un registre global au niveau du module
+// CookieJar vierge = un autre visiteur. Un registre global au niveau du module
 // passerait les quatre contrôles précédents et tomberait ici.
-const autre = await demander("GET", LECTURE, inconnu);
-if (autre.erreur)
-  sortir(4, `CAUSE=aucune-reponse-second-visiteur — ${autre.erreur}`);
-if (autre.corps.includes(SKU)) {
-  sortir(
+const autre = await request("GET", LECTURE, inconnu);
+if (autre.error)
+  exit(4, `CAUSE=aucune-reponse-second-visiteur — ${autre.error}`);
+if (autre.body.includes(SKU)) {
+  exit(
     7,
     `CAUSE=etat-partage — un visiteur SANS cookie voit « ${SKU} » : l'état est global au ` +
       `serveur, pas attaché à une session. Deux personnes partageraient le même panier.`,
@@ -177,6 +176,6 @@ if (autre.corps.includes(SKU)) {
 }
 
 console.log(
-  `ok — jeton exigé puis accepté, « ${SKU} » persiste pour son visiteur et pour lui seul`,
+  `ok — token exigé puis accepté, « ${SKU} » persiste pour son visiteur et pour lui seul`,
 );
 process.exit(0);

@@ -3,7 +3,7 @@
  *
  * Une application jouet joue tour à tour chaque défaillance, et le juge doit
  * rendre EXACTEMENT le code annoncé par sa table. Aucun agent, aucun décor,
- * quelques secondes, zéro token.
+ * quelques secondes, zéro jeton.
  *
  * Node ne fournit PAS de `WebSocketServer` : ce jouet fait lui-même l'upgrade
  * RFC 6455 (`Sec-WebSocket-Accept` = SHA1(clé + GUID) en base64) et le framing
@@ -83,8 +83,8 @@ const quiEst = (cookieHeader) => {
   return "anonyme";
 };
 
-const repondre = (res, statut, objet) => {
-  res.writeHead(statut, { "content-type": "application/json" });
+const repondre = (res, status, objet) => {
+  res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(objet));
 };
 
@@ -379,7 +379,7 @@ for (const [nom, [attendu, opts]] of Object.entries(CAS)) {
   await ecouter(srv);
   const res = await run([JUGE, "--check-port-free"]);
   await fermer(srv);
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

@@ -50,7 +50,7 @@ export type GitHookName = (typeof GIT_HOOK_NAMES)[number];
  * @returns le script complet, marqueur compris.
  */
 export function renderGitHook(name: GitHookName): string {
-  const corps =
+  const body =
     name === "pre-commit"
       ? `# Léger VOLONTAIREMENT (typecheck + lint, pas de tests) : le filet complet
 # est l'intégration continue — un commit doit rester rapide.
@@ -63,7 +63,7 @@ npm run verify`;
 # Bypass d'urgence : git commit/push --no-verify.
 # Désactiver : git config --unset core.hooksPath
 
-${corps}
+${body}
 `;
 }
 

@@ -60,15 +60,15 @@ const portLibre = () =>
 const porteFactice = (port, count) =>
   new Promise((resolve) => {
     const srv = http.createServer((req, res) => {
-      let corps = "";
-      req.on("data", (c) => (corps += c));
+      let body = "";
+      req.on("data", (c) => (body += c));
       req.on("end", () => {
         // On vérifie AU PASSAGE que le juge demande bien le bon outil : un juge
         // qui interrogerait un autre sujet rendrait un chiffre juste par
         // accident, et le selftest le laisserait passer.
         let demande = {};
         try {
-          demande = JSON.parse(corps);
+          demande = JSON.parse(body);
         } catch {
           /* le juge n'a pas envoyé de JSON — l'assertion ci-dessous le dira */
         }

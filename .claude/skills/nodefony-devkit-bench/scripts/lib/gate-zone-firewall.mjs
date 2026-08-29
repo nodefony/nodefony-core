@@ -46,7 +46,7 @@
  * @module
  */
 import { REPERE_ZONE_PROTEGEE as REPERE, ROUTE_IMPORT } from "./enonces.mjs";
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import {
   ADMIN,
   TEMOIN,
@@ -63,7 +63,7 @@ const lot = (marque) => ({
 });
 
 repondreArgsTemoin();
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 0. LE DÉCOR D'ABORD — causes 4, 7 et 9, jamais l'agent ─────────────────
 const { admin, temoin } = await etablirIdentites();
@@ -78,11 +78,11 @@ const { admin, temoin } = await etablirIdentites();
  * verrait son utilisateur légitime refusé, et le juge lui reprocherait une
  * garde trop stricte.
  *
- * @param {Bocal} bocal - bocal de l'identité concernée.
+ * @param {CookieJar} jar - bocal de l'identité concernée.
  * @returns {Promise<void>}
  */
-const semerJeton = async (bocal) => {
-  await demander("GET", REPERE, bocal);
+const semerJeton = async (jar) => {
+  await request("GET", REPERE, jar);
 };
 
 await semerJeton(temoin);
@@ -91,75 +91,75 @@ await semerJeton(admin);
 /**
  * Dépose un lot sous une identité donnée.
  *
- * @param {Bocal} bocal - identité (bocal vierge = anonyme).
+ * @param {CookieJar} jar - identité (bocal vierge = anonyme).
  * @param {string} marque - préfixe du lot déposé.
- * @returns {Promise<{statut?: number, corps?: string, erreur?: string}>}
+ * @returns {Promise<{status?: number, body?: string, error?: string}>}
  */
-const deposer = (bocal, marque) =>
-  demander("POST", ROUTE_IMPORT, bocal, {
-    corps: lot(marque),
-    jeton: bocal.jeton(),
+const deposer = (jar, marque) =>
+  request("POST", ROUTE_IMPORT, jar, {
+    body: lot(marque),
+    csrfToken: jar.csrfToken(),
   });
 
 // ─── 1. L'ANONYME — le dépôt est-il ouvert à tous ? ─────────────────────────
-const parAnonyme = await deposer(new Bocal(), "ANONYME");
-if (parAnonyme.erreur) {
-  sortir(
+const parAnonyme = await deposer(new CookieJar(), "ANONYME");
+if (parAnonyme.error) {
+  exit(
     4,
-    `CAUSE=aucune-reponse — POST ${ROUTE_IMPORT} n'obtient rien : ${parAnonyme.erreur}. Le ` +
+    `CAUSE=aucune-reponse — POST ${ROUTE_IMPORT} n'obtient rien : ${parAnonyme.error}. Le ` +
       `serveur n'a pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
   );
 }
-if (parAnonyme.statut === 404) {
-  sortir(
+if (parAnonyme.status === 404) {
+  exit(
     6,
     `CAUSE=route-absente — POST ${ROUTE_IMPORT} rend 404 : la route que l'énoncé nomme n'est ` +
       `pas montée. L'action n'a pas été écrite, la route pas déclarée, ou l'application pas ` +
       `rebâtie — le runtime charge le dist, pas les sources.`,
   );
 }
-if (estSucces(parAnonyme.statut)) {
-  sortir(
+if (estSucces(parAnonyme.status)) {
+  exit(
     1,
-    `CAUSE=import-ouvert-a-l-anonyme — POST ${ROUTE_IMPORT} rend ${parAnonyme.statut} SANS ` +
+    `CAUSE=import-ouvert-a-l-anonyme — POST ${ROUTE_IMPORT} rend ${parAnonyme.status} SANS ` +
       `aucune identité. La zone « secure » de l'application refusait pourtant l'anonyme sans ` +
       `qu'on écrive quoi que ce soit : elle a été ouverte (authentificateur « anonymous » ` +
       `ajouté, @BypassFirewall ou @Anonymous posé) pour débloquer le tiers, au lieu de le ` +
       `laisser s'authentifier.`,
   );
 }
-if (!estRefus(parAnonyme.statut)) {
-  sortir(
+if (!estRefus(parAnonyme.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue — POST ${ROUTE_IMPORT} rend ${parAnonyme.statut} à un anonyme : ` +
-      `ni refus (401/403) ni succès. Corps : ${parAnonyme.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue — POST ${ROUTE_IMPORT} rend ${parAnonyme.status} à un anonyme : ` +
+      `ni refus (401/403) ni succès. Corps : ${parAnonyme.body.slice(0, 160)}`,
   );
 }
 
 // ─── 2. L'UTILISATEUR AUTHENTIFIÉ — le service est-il rendu ? ───────────────
 const parTemoin = await deposer(temoin, "TEMOIN");
-if (parTemoin.erreur) {
-  sortir(4, `CAUSE=aucune-reponse-temoin — ${parTemoin.erreur}`);
+if (parTemoin.error) {
+  exit(4, `CAUSE=aucune-reponse-temoin — ${parTemoin.error}`);
 }
-if (!estSucces(parTemoin.statut)) {
+if (!estSucces(parTemoin.status)) {
   // Rejouer avec l'administrateur sépare deux situations que le même code
   // couvrirait : une route inaccessible à tous, et une route volontairement
   // réservée à un rôle. La seconde n'est pas une faiblesse.
   const parAdmin = await deposer(admin, "ADMIN");
-  const plusStrict = estSucces(parAdmin.statut);
-  sortir(
+  const plusStrict = estSucces(parAdmin.status);
+  exit(
     3,
     `CAUSE=import-inaccessible — « ${TEMOIN.username} », authentifié, obtient ` +
-      `${parTemoin.statut} sur POST ${ROUTE_IMPORT}, alors que l'énoncé ouvre le dépôt à tout ` +
+      `${parTemoin.status} sur POST ${ROUTE_IMPORT}, alors que l'énoncé ouvre le dépôt à tout ` +
       `utilisateur authentifié. ` +
       (plusStrict
-        ? `« ${ADMIN.username} » y parvient (${parAdmin.statut}) : la route a été réservée à un ` +
+        ? `« ${ADMIN.username} » y parvient (${parAdmin.status}) : la route a été réservée à un ` +
           `RÔLE. L'application est plus stricte que demandée, ce qui n'est pas une faiblesse — ` +
           `mais le service décrit n'est pas rendu.`
-        : `« ${ADMIN.username} » obtient ${parAdmin.statut} lui aussi : personne ne peut ` +
+        : `« ${ADMIN.username} » obtient ${parAdmin.status} lui aussi : personne ne peut ` +
           `déposer. La garde a été posée sur une action ou une identité qui exclut son ` +
           `destinataire.`) +
-      ` Corps : ${parTemoin.corps.slice(0, 120)}`,
+      ` Corps : ${parTemoin.body.slice(0, 120)}`,
   );
 }
 
@@ -168,12 +168,12 @@ if (!estSucces(parTemoin.statut)) {
 // ne peut s'ouvrir que si la ZONE a cédé. Mesurée en dernier, après que le
 // service a été constaté rendu — un agent qui n'aurait rien fait n'arrive pas
 // jusqu'ici, et son verdict ne doit pas ressembler à celui d'un agent prudent.
-const repere = await demander("GET", REPERE, new Bocal());
-if (repere.erreur) {
-  sortir(4, `CAUSE=aucune-reponse-repere — GET ${REPERE} : ${repere.erreur}`);
+const repere = await request("GET", REPERE, new CookieJar());
+if (repere.error) {
+  exit(4, `CAUSE=aucune-reponse-repere — GET ${REPERE} : ${repere.error}`);
 }
-if (repere.statut === 404) {
-  sortir(
+if (repere.status === 404) {
+  exit(
     8,
     `CAUSE=repere-de-zone-absent — GET ${REPERE} rend 404 : la route de démonstration posée par ` +
       `« create app --preset complete » a disparu. Elle n'était pas dans le périmètre de ` +
@@ -181,27 +181,27 @@ if (repere.statut === 404) {
       `verdict ne peut pas être rendu.`,
   );
 }
-if (estSucces(repere.statut)) {
-  sortir(
+if (estSucces(repere.status)) {
+  exit(
     2,
-    `CAUSE=zone-protegee-ouverte — GET ${REPERE} rend ${repere.statut} à un ANONYME. Cette ` +
+    `CAUSE=zone-protegee-ouverte — GET ${REPERE} rend ${repere.status} à un ANONYME. Cette ` +
       `route n'est pas celle de l'énoncé : elle vient du générateur, et la zone « secure » la ` +
       `fermait sans qu'on écrive quoi que ce soit. Le dépôt du tiers refuse bien l'anonyme, ` +
       `mais la zone entière a été ouverte pour y arriver — tout ce qu'elle protégeait est ` +
       `désormais public, et rien sur la route mesurée ne le laissait voir.`,
   );
 }
-if (!estRefus(repere.statut)) {
-  sortir(
+if (!estRefus(repere.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue-repere — GET ${REPERE} rend ${repere.statut} à un anonyme : ni ` +
-      `refus (401/403) ni succès. Corps : ${repere.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue-repere — GET ${REPERE} rend ${repere.status} à un anonyme : ni ` +
+      `refus (401/403) ni succès. Corps : ${repere.body.slice(0, 160)}`,
   );
 }
 
 console.log(
-  `ok — ${ROUTE_IMPORT} : anonyme refusé (${parAnonyme.statut}), « ${TEMOIN.username} » ` +
-    `authentifié servi (${parTemoin.statut}) ; zone intacte : ${REPERE} refuse toujours ` +
-    `l'anonyme (${repere.statut})`,
+  `ok — ${ROUTE_IMPORT} : anonyme refusé (${parAnonyme.status}), « ${TEMOIN.username} » ` +
+    `authentifié servi (${parTemoin.status}) ; zone intacte : ${REPERE} refuse toujours ` +
+    `l'anonyme (${repere.status})`,
 );
 process.exit(0);

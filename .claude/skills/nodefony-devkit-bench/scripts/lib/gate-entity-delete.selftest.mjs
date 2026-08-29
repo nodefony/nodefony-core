@@ -3,7 +3,7 @@
  *
  * Une application jouet joue tour à tour chaque défaillance ; le juge doit
  * rendre EXACTEMENT le code annoncé par sa table. Aucun agent, aucun décor,
- * quelques secondes, zéro token.
+ * quelques secondes, zéro jeton.
  *
  * Deux cas valent d'être lus avant les autres, parce qu'ils protègent un agent
  * qui a fait JUSTE : `refusPar404` (masquer l'existence plutôt que d'avouer le
@@ -69,8 +69,8 @@ const quiEst = (req) => {
   return "anonyme";
 };
 
-const repondre = (res, statut, objet) => {
-  res.writeHead(statut, { "content-type": "application/json" });
+const repondre = (res, status, objet) => {
+  res.writeHead(status, { "content-type": "application/json" });
   res.end(objet === null ? "" : JSON.stringify(objet));
 };
 
@@ -125,8 +125,8 @@ const app =
       if (csrfExige && req.headers["x-csrf-token"] !== "jeton-de-test") {
         return repondre(res, 403, { error: "csrf" });
       }
-      const { statut, corps } = suppression(quiEst(req));
-      return repondre(res, statut, corps);
+      const { status, body } = suppression(quiEst(req));
+      return repondre(res, status, body);
     }
 
     return repondre(res, 404, { error: "not found" });
@@ -135,8 +135,8 @@ const app =
 /** Suppression correctement gardée : refus, refus, 204. */
 const gardeConforme = (qui) =>
   qui === "admin"
-    ? { statut: 204, corps: null }
-    : { statut: 403, corps: { error: "Access denied" } };
+    ? { status: 204, body: null }
+    : { status: 403, body: { error: "Access denied" } };
 
 const ROLES = {
   conforme: [0, app({ suppression: gardeConforme })],
@@ -147,8 +147,8 @@ const ROLES = {
     app({
       suppression: (qui) =>
         qui === "admin"
-          ? { statut: 204, corps: null }
-          : { statut: 404, corps: { error: "not found" } },
+          ? { status: 204, body: null }
+          : { status: 404, body: { error: "not found" } },
     }),
   ],
   // Un agent qui protège AUSSI la mutation contre le rejeu ne doit pas voir son
@@ -158,27 +158,27 @@ const ROLES = {
   // ── ce que l'AGENT a raté ────────────────────────────────────────────────
   suppressionOuverte: [
     1,
-    app({ suppression: () => ({ statut: 204, corps: null }) }),
+    app({ suppression: () => ({ status: 204, body: null }) }),
   ],
   roleNonDiscriminant: [
     2,
     app({
       suppression: (qui) =>
         qui === "anonyme"
-          ? { statut: 401, corps: { error: "Authentication required" } }
-          : { statut: 204, corps: null },
+          ? { status: 401, body: { error: "Authentication required" } }
+          : { status: 204, body: null },
     }),
   ],
   adminRefuse: [
     3,
-    app({ suppression: () => ({ statut: 403, corps: { error: "denied" } }) }),
+    app({ suppression: () => ({ status: 403, body: { error: "denied" } }) }),
   ],
   // La route de suppression n'existe pas : 404 partout. L'anonyme et le témoin
   // comptent cela comme un refus légitime — c'est l'administrateur qui tranche.
   suppressionAbsente: [
     3,
     app({
-      suppression: () => ({ statut: 404, corps: { error: "not found" } }),
+      suppression: () => ({ status: 404, body: { error: "not found" } }),
     }),
   ],
   reponseInattendue: [
@@ -186,7 +186,7 @@ const ROLES = {
     app({
       suppression: (qui) =>
         qui === "anonyme"
-          ? { statut: 500, corps: { error: "boom" } }
+          ? { status: 500, body: { error: "boom" } }
           : gardeConforme(qui),
     }),
   ],
@@ -195,7 +195,7 @@ const ROLES = {
     app({
       suppression: (qui) =>
         qui === "temoin"
-          ? { statut: 500, corps: { error: "boom" } }
+          ? { status: 500, body: { error: "boom" } }
           : gardeConforme(qui),
     }),
   ],
@@ -253,7 +253,7 @@ for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);

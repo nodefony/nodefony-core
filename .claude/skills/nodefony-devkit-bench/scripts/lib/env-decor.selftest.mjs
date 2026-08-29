@@ -72,7 +72,7 @@ const env = envDecor(PORTS);
 
 verifier(
   env.NF_MCP_TOKEN === undefined,
-  "le jeton MCP du POSTE n'entre pas dans le décor",
+  "le token MCP du POSTE n'entre pas dans le décor",
   `lu : ${env.NF_MCP_TOKEN}`,
 );
 verifier(
@@ -110,7 +110,7 @@ verifier(
   verifier(
     rendu.NF_MCP_TOKEN === "jeton-du-banc" &&
       rendu.HOME === "/tmp/foyer-jetable",
-    "une couche postérieure GAGNE — jeton du BANC, et foyer JETABLE sur le vrai `HOME`",
+    "une couche postérieure GAGNE — token du BANC, et foyer JETABLE sur le vrai `HOME`",
     `NF_MCP_TOKEN=${rendu.NF_MCP_TOKEN} HOME=${rendu.HOME}`,
   );
 }

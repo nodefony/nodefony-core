@@ -29,11 +29,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import {
-  Bocal,
-  demander,
-  portDeLAppSousTest,
-  portTenu,
-  sortir,
+  CookieJar,
+  request,
+  appPortUnderTest,
+  portTaken,
+  exit,
 } from "./http-probe.mjs";
 
 /** Le chemin de la porte MCP d'une application Nodefony. */
@@ -53,7 +53,7 @@ const CHEMIN_MCP = "/nodefony/mcp";
  * @returns {Promise<{compte: number}|{echec: string}>}
  */
 async function compteParLaPorte() {
-  if (!(await portTenu())) {
+  if (!(await portTaken())) {
     return { echec: "aucune application n'écoute" };
   }
   // 🔴 Quelqu'un répond — mais QUI ? Un run précédent laissé vivant tient les
@@ -61,12 +61,12 @@ async function compteParLaPorte() {
   // rend un chiffre EXACT à propos d'une autre application, et personne ne peut
   // le voir : c'est arrivé, et le seul verdict juste de la passe fut le rouge
   // de `nodefony check` (« le port est tenu par un autre processus »).
-  const cible = portDeLAppSousTest();
+  const cible = appPortUnderTest();
   if (!cible.sien) {
     return { echec: `un serveur répond, mais ${cible.motif}` };
   }
-  const rep = await demander("POST", CHEMIN_MCP, new Bocal(), {
-    corps: {
+  const rep = await request("POST", CHEMIN_MCP, new CookieJar(), {
+    body: {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
@@ -75,15 +75,15 @@ async function compteParLaPorte() {
         arguments: { subject: "routes" },
       },
     },
-    entetes: { accept: "application/json, text/event-stream" },
+    headers: { accept: "application/json, text/event-stream" },
   });
-  if (rep.erreur) return { echec: `porte injoignable : ${rep.erreur}` };
-  if (rep.statut !== 200) return { echec: `porte en ${rep.statut}` };
+  if (rep.error) return { echec: `porte injoignable : ${rep.error}` };
+  if (rep.status !== 200) return { echec: `porte en ${rep.status}` };
   // Le texte de l'outil est du JSON DANS du JSON : l'enveloppe JSON-RPC porte un
   // bloc `text` qui contient la réponse. On lit le `count` de ce second niveau.
   let compte = null;
   try {
-    const enveloppe = JSON.parse(rep.corps ?? "{}");
+    const enveloppe = JSON.parse(rep.body ?? "{}");
     const bloc = enveloppe?.result?.content?.[0]?.text;
     if (typeof bloc === "string") {
       compte = JSON.parse(bloc)?.count ?? null;
@@ -137,7 +137,7 @@ function compteParKernelFroid(bin) {
 /**
  * @param {string} bin - chemin du binaire `nodefony` de l'application témoin.
  */
-export async function juger(bin) {
+export async function judge(bin) {
   const parLaPorte = await compteParLaPorte();
   let compte;
   let source;
@@ -149,7 +149,7 @@ export async function juger(bin) {
     if ("echec" in froid) {
       // Ni l'un ni l'autre : on n'a RIEN mesuré. Le dire, et sortir sur un code
       // distinct — imputer cela à l'agent serait inventer un verdict.
-      sortir(
+      exit(
         5,
         `aucun compte de routes obtenu — porte : ${parLaPorte.echec} ; ` +
           `kernel froid : ${froid.echec}`,
@@ -165,12 +165,12 @@ export async function juger(bin) {
   }
 
   if (!existsSync("AUDIT.md")) {
-    sortir(1, "AUDIT.md absent");
+    exit(1, "AUDIT.md absent");
     return;
   }
   const rapport = readFileSync("AUDIT.md", "utf8");
   if (!new RegExp(`\\b${compte}\\b`).test(rapport)) {
-    sortir(1, `routes réelles=${compte} selon ${source}, absent du rapport`);
+    exit(1, `routes réelles=${compte} selon ${source}, absent du rapport`);
     return;
   }
   process.stdout.write(`routes=${compte}, annoncé — source : ${source}\n`);
@@ -180,8 +180,8 @@ export async function juger(bin) {
 if (process.argv[1] && process.argv[1].endsWith("gate-routes-count.mjs")) {
   const bin = process.argv[2];
   if (!bin) {
-    sortir(5, "chemin du binaire `nodefony` non fourni");
+    exit(5, "chemin du binaire `nodefony` non fourni");
   } else {
-    await juger(bin);
+    await judge(bin);
   }
 }

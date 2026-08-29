@@ -45,7 +45,7 @@
  * @module
  */
 import { spawnSync } from "node:child_process";
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import { ROUTE_ARTICLES, TITRE_SEME } from "./prepare-base-migree.mjs";
 
 /** Les causes, telles que la table ci-dessus les fixe. */
@@ -75,7 +75,7 @@ export const CAUSES = {
  * @param {{colonnePubliee: boolean, temoinPresent: boolean, ecriture: number|string, statusCode: number, applique: number}} faits
  * @returns {{cause: string, code: number, detail: string}}
  */
-export function juger(faits) {
+export function judge(faits) {
   const { colonnePubliee, temoinPresent, ecriture, statusCode, applique } =
     faits;
   if (!temoinPresent) {
@@ -148,22 +148,22 @@ function commande(args) {
  */
 async function principal() {
   if (process.argv.includes("--check-port-free")) {
-    await garderPortLibre();
+    await ensurePortFree();
     process.exit(0);
   }
-  await garderPortLibre();
-  const bocal = new Bocal();
+  await ensurePortFree();
+  const jar = new CookieJar();
 
   // 1. La ressource répond-elle ? Sinon c'est le DÉCOR, pas l'agent.
-  const liste = await demander("GET", ROUTE_ARTICLES, bocal);
-  if (liste.erreur !== undefined) {
-    sortir(
+  const liste = await request("GET", ROUTE_ARTICLES, jar);
+  if (liste.error !== undefined) {
+    exit(
       CAUSES["aucune-reponse"],
-      `l'application ne répond pas : ${liste.erreur}`,
+      `l'application ne répond pas : ${liste.error}`,
     );
   }
-  if (liste.statut === 404) {
-    sortir(CAUSES["route-absente"], `${ROUTE_ARTICLES} n'est pas montée`);
+  if (liste.status === 404) {
+    exit(CAUSES["route-absente"], `${ROUTE_ARTICLES} n'est pas montée`);
   }
 
   // 2. La ligne d'AVANT est-elle toujours là, et la ressource PUBLIE-t-elle la
@@ -174,7 +174,7 @@ async function principal() {
   //    écriture refusée peut l'être pour une tout autre raison, et accuser la
   //    base alors qu'elle a suivi envoie chercher au mauvais endroit. Vécu au
   //    premier run de cette tâche.
-  const corpsListe = String(liste.corps ?? "");
+  const corpsListe = String(liste.body ?? "");
   const temoinPresent = corpsListe.includes(TITRE_SEME);
   const colonnePubliee = /"slug"\s*:/u.test(corpsListe);
 
@@ -182,8 +182,8 @@ async function principal() {
   //    contrat d'entrée ignore rend la création impossible — la base a suivi,
   //    l'application non.
   const unique = `sonde-${Date.now()}`;
-  const ecriture = await demander("POST", ROUTE_ARTICLES, bocal, {
-    corps: { title: `sonde ${unique}`, slug: unique },
+  const ecriture = await request("POST", ROUTE_ARTICLES, jar, {
+    body: { title: `sonde ${unique}`, slug: unique },
   });
 
   // 4. L'état, et l'idempotence — par les commandes du framework, qui sont la
@@ -200,10 +200,10 @@ async function principal() {
     applique = rejeu.code === 0 ? 0 : 1;
   }
 
-  const verdict = juger({
+  const verdict = judge({
     colonnePubliee,
     temoinPresent,
-    ecriture: ecriture.statut ?? ecriture.erreur,
+    ecriture: ecriture.status ?? ecriture.error,
     statusCode: status.code,
     applique,
   });
@@ -213,14 +213,14 @@ async function principal() {
   // française interrogée en anglais : le corps partait vide, l'agent portait
   // le rouge).
   console.error(
-    `collecte : GET ${liste.statut} · POST ${ecriture.statut ?? ecriture.erreur} · ` +
+    `collecte : GET ${liste.status} · POST ${ecriture.status ?? ecriture.error} · ` +
       `témoin ${temoinPresent} · colonne publiée ${colonnePubliee} · ` +
       `status ${status.code} · appliquées ${applique}`,
   );
-  sortir(verdict.code, verdict.detail);
+  exit(verdict.code, verdict.detail);
 }
 
-// Ne s'exécute QUE lancé directement : l'auto-contrôle importe `juger` sans
+// Ne s'exécute QUE lancé directement : l'auto-contrôle importe `judge` sans
 // vouloir monter quoi que ce soit — un module qui agit à l'import rendrait son
 // propre contrôle impossible.
 if (process.argv[1]?.endsWith("gate-migration.mjs")) {

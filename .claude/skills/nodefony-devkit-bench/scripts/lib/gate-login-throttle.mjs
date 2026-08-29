@@ -41,7 +41,7 @@
  *
  * @output une ligne `CAUSE=<nom> — <explication>` puis sortie du code ci-dessus
  */
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 
 /** Identifiant martelé — à nous, inexistant, sans effet sur les autres juges. */
 const IDENTIFIANT = "bench-bourrage";
@@ -60,24 +60,24 @@ const TENTATIVES = 12;
 const LOGIN = "/nodefony/security/api/auth/login";
 
 const main = async () => {
-  await garderPortLibre();
+  await ensurePortFree();
 
   let vues = 0;
   let premierRefus = null;
   for (let i = 0; i < TENTATIVES; i += 1) {
-    const bocal = new Bocal();
-    const r = await demander("POST", LOGIN, bocal, {
-      corps: { username: IDENTIFIANT, password: `mauvais-${i}` },
+    const jar = new CookieJar();
+    const r = await request("POST", LOGIN, jar, {
+      body: { username: IDENTIFIANT, password: `mauvais-${i}` },
     });
-    if (r.erreur) {
-      sortir(
+    if (r.error) {
+      exit(
         4,
-        `CAUSE=aucune-reponse — POST ${LOGIN} n'obtient rien : ${r.erreur}. ` +
+        `CAUSE=aucune-reponse — POST ${LOGIN} n'obtient rien : ${r.error}. ` +
           `Le serveur n'a pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
       );
     }
-    if (r.statut === 404) {
-      sortir(
+    if (r.status === 404) {
+      exit(
         6,
         `CAUSE=route-de-login-absente — POST ${LOGIN} rend 404. La route de ` +
           `connexion du framework n'est pas montée (module de sécurité chargé ?) : ` +
@@ -85,14 +85,14 @@ const main = async () => {
       );
     }
     vues += 1;
-    if (r.statut === 429) {
+    if (r.status === 429) {
       premierRefus = r;
       break;
     }
   }
 
   if (premierRefus === null) {
-    sortir(
+    exit(
       1,
       `CAUSE=jamais-freine — ${vues} tentatives de connexion ratées d'affilée sur ` +
         `« ${IDENTIFIANT} », et pas un seul 429. Le throttling de login est ` +
@@ -106,9 +106,9 @@ const main = async () => {
   // RFC 6585 §4 : un 429 SANS `Retry-After` dit « non » sans dire « quand ».
   // Le client n'a alors d'autre choix que de réessayer au hasard — ce qui,
   // pour un client légitime, ressemble à une panne.
-  const retry = premierRefus.entetes?.["retry-after"];
+  const retry = premierRefus.headers?.["retry-after"];
   if (!retry) {
-    sortir(
+    exit(
       2,
       `CAUSE=pas-de-retry-after — 429 obtenu après ${vues} tentatives, mais sans ` +
         `en-tête \`Retry-After\` (RFC 6585 §4). Le refus est là, la façon d'en ` +
@@ -116,12 +116,12 @@ const main = async () => {
     );
   }
 
-  sortir(
+  exit(
     0,
     `OK — bourrage freiné à la ${vues}ᵉ tentative (429, Retry-After: ${retry}).`,
   );
 };
 
 main().catch((e) => {
-  sortir(4, `CAUSE=juge-en-erreur — le juge lui-même a échoué : ${e.message}`);
+  exit(4, `CAUSE=juge-en-erreur — le juge lui-même a échoué : ${e.message}`);
 });

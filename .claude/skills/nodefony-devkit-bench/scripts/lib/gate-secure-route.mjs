@@ -56,7 +56,7 @@
  *
  * @module
  */
-import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
 import {
   ADMIN,
   TEMOIN,
@@ -70,7 +70,7 @@ import {
 const CIBLE = "/api/reports";
 
 repondreArgsTemoin();
-await garderPortLibre();
+await ensurePortFree();
 
 // ─── 0. LE DÉCOR D'ABORD — un juge sans identités ne rend pas de verdict ────
 // Les causes 4, 7 et 9 sortent depuis `identites.mjs` : elles n'accusent pas
@@ -78,30 +78,30 @@ await garderPortLibre();
 const { admin, temoin } = await etablirIdentites();
 
 // ─── 1. L'ANONYME — la protection agit-elle, tout court ? ───────────────────
-const anonyme = await demander("GET", CIBLE, new Bocal());
-if (anonyme.erreur) sortir(4, `CAUSE=aucune-reponse — ${anonyme.erreur}`);
-if (anonyme.statut === 404) {
-  sortir(
+const anonyme = await request("GET", CIBLE, new CookieJar());
+if (anonyme.error) exit(4, `CAUSE=aucune-reponse — ${anonyme.error}`);
+if (anonyme.status === 404) {
+  exit(
     6,
     `CAUSE=route-absente — GET ${CIBLE} rend 404 pour un anonyme : la route que l'énoncé ` +
       `nomme n'est pas montée. Ni la protection ni les rôles ne sont en cause.`,
   );
 }
-if (estSucces(anonyme.statut)) {
-  sortir(
+if (estSucces(anonyme.status)) {
+  exit(
     1,
-    `CAUSE=route-ouverte-a-l-anonyme — GET ${CIBLE} rend ${anonyme.statut} SANS aucune ` +
+    `CAUSE=route-ouverte-a-l-anonyme — GET ${CIBLE} rend ${anonyme.status} SANS aucune ` +
       `identité. Rien ne protège la route : le décorateur est absent, posé sur une autre ` +
       `action, ou le motif de la zone ne couvre pas ce chemin. Corps : ` +
-      `${anonyme.corps.slice(0, 160)}`,
+      `${anonyme.body.slice(0, 160)}`,
   );
 }
-if (!estRefus(anonyme.statut)) {
-  sortir(
+if (!estRefus(anonyme.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue — GET ${CIBLE} rend ${anonyme.statut} à un anonyme : ni refus ` +
+    `CAUSE=reponse-inattendue — GET ${CIBLE} rend ${anonyme.status} à un anonyme : ni refus ` +
       `(401/403), ni succès, ni absence (404). La route existe mais échoue pour une autre ` +
-      `raison. Corps : ${anonyme.corps.slice(0, 160)}`,
+      `raison. Corps : ${anonyme.body.slice(0, 160)}`,
   );
 }
 
@@ -109,55 +109,54 @@ if (!estRefus(anonyme.statut)) {
 // C'est L'étage qui porte l'information : refuser l'anonyme est gratuit, une
 // zone quelconque y suffit. Refuser quelqu'un d'authentifié SANS le rôle exige
 // une autorisation branchée sur cette route-là.
-const vuTemoin = await demander("GET", CIBLE, temoin);
-if (vuTemoin.erreur)
-  sortir(4, `CAUSE=aucune-reponse-temoin — ${vuTemoin.erreur}`);
-if (estSucces(vuTemoin.statut)) {
-  sortir(
+const vuTemoin = await request("GET", CIBLE, temoin);
+if (vuTemoin.error) exit(4, `CAUSE=aucune-reponse-temoin — ${vuTemoin.error}`);
+if (estSucces(vuTemoin.status)) {
+  exit(
     2,
     `CAUSE=role-non-discriminant — « ${TEMOIN.username} » (authentifié, aucun rôle ` +
-      `d'administration) obtient ${vuTemoin.statut} sur ${CIBLE}. La route exige une IDENTITÉ ` +
+      `d'administration) obtient ${vuTemoin.status} sur ${CIBLE}. La route exige une IDENTITÉ ` +
       `mais aucun RÔLE : toute personne ayant un compte y accède. C'est le contournement le ` +
       `plus fréquent — une zone du firewall sans clause d'autorisation.`,
   );
 }
-if (!estRefus(vuTemoin.statut)) {
-  sortir(
+if (!estRefus(vuTemoin.status)) {
+  exit(
     10,
-    `CAUSE=reponse-inattendue-temoin — ${CIBLE} rend ${vuTemoin.statut} à un utilisateur ` +
-      `authentifié : ni refus ni succès. Corps : ${vuTemoin.corps.slice(0, 160)}`,
+    `CAUSE=reponse-inattendue-temoin — ${CIBLE} rend ${vuTemoin.status} à un utilisateur ` +
+      `authentifié : ni refus ni succès. Corps : ${vuTemoin.body.slice(0, 160)}`,
   );
 }
 
 // ─── 3. L'ADMINISTRATEUR — la garde laisse-t-elle passer son destinataire ? ─
-const vuAdmin = await demander("GET", CIBLE, admin);
-if (vuAdmin.erreur) sortir(4, `CAUSE=aucune-reponse-admin — ${vuAdmin.erreur}`);
-if (!estSucces(vuAdmin.statut)) {
-  sortir(
+const vuAdmin = await request("GET", CIBLE, admin);
+if (vuAdmin.error) exit(4, `CAUSE=aucune-reponse-admin — ${vuAdmin.error}`);
+if (!estSucces(vuAdmin.status)) {
+  exit(
     3,
     `CAUSE=admin-refuse — « ${ADMIN.username} », porteur de ROLE_ADMIN, obtient ` +
-      `${vuAdmin.statut} sur ${CIBLE}. La route refuse TOUT LE MONDE. Deux causes connues, ` +
+      `${vuAdmin.status} sur ${CIBLE}. La route refuse TOUT LE MONDE. Deux causes connues, ` +
       `et le juge ne peut pas les départager depuis l'extérieur : (a) la route n'est couverte ` +
-      `par AUCUNE zone du firewall — sans zone, aucun jeton n'est posé dans le contexte et ` +
+      `par AUCUNE zone du firewall — sans zone, aucun token n'est posé dans le contexte et ` +
       `l'autorisation refuse par défaut ; (b) le rôle exigé n'est pas celui que porte le ` +
-      `compte. Corps : ${vuAdmin.corps.slice(0, 160)}`,
+      `compte. Corps : ${vuAdmin.body.slice(0, 160)}`,
   );
 }
 
 // ─── 4. …et sert bien ce que l'énoncé demandait ─────────────────────────────
 // Sans ce dernier pas, une route qui rend 200 sur un corps vide passerait :
 // « protégée » et « fonctionnelle » sont deux affirmations distinctes.
-if (!/report/i.test(vuAdmin.corps) || !/\bok\b/i.test(vuAdmin.corps)) {
-  sortir(
+if (!/report/i.test(vuAdmin.body) || !/\bok\b/i.test(vuAdmin.body)) {
+  exit(
     8,
-    `CAUSE=corps-inattendu — l'administrateur obtient bien ${vuAdmin.statut}, mais le corps ne ` +
+    `CAUSE=corps-inattendu — l'administrateur obtient bien ${vuAdmin.status}, mais le corps ne ` +
       `porte pas le rapport demandé par l'énoncé. La garde est juste, la route ne sert pas ce ` +
-      `qu'elle doit. Corps : ${vuAdmin.corps.slice(0, 160)}`,
+      `qu'elle doit. Corps : ${vuAdmin.body.slice(0, 160)}`,
   );
 }
 
 console.log(
-  `ok — ${CIBLE} : anonyme refusé (${anonyme.statut}), « ${TEMOIN.username} » authentifié ` +
-    `refusé (${vuTemoin.statut}), « ${ADMIN.username} » servi (${vuAdmin.statut})`,
+  `ok — ${CIBLE} : anonyme refusé (${anonyme.status}), « ${TEMOIN.username} » authentifié ` +
+    `refusé (${vuTemoin.status}), « ${ADMIN.username} » servi (${vuAdmin.status})`,
 );
 process.exit(0);

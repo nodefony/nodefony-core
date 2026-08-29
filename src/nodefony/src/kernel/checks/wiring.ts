@@ -303,11 +303,11 @@ function prefixeLitteral(pattern: string): string {
  * @returns le préfixe à employer, ou `null` si la zone est saine.
  */
 function zoneEnumere(pattern: string): string | null {
-  const corps = pattern.replace(/^\^/u, "");
-  const prefixe = prefixeLitteral(pattern);
-  const segments = prefixe.split("/").filter(Boolean).length;
-  if (/\$/u.test(corps)) return prefixe;
-  if (/\([^)]*\|/u.test(corps) && segments >= 2) return prefixe;
+  const body = pattern.replace(/^\^/u, "");
+  const prefix = prefixeLitteral(pattern);
+  const segments = prefix.split("/").filter(Boolean).length;
+  if (/\$/u.test(body)) return prefix;
+  if (/\([^)]*\|/u.test(body) && segments >= 2) return prefix;
   return null;
 }
 
@@ -454,15 +454,15 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   const areasBlock = AREAS_BLOCK_RE.exec(sansCommentaires(manifeste))?.[1];
   if (areasBlock) {
     for (const [, pattern] of areasBlock.matchAll(AREA_PATTERN_RE)) {
-      const prefixe = zoneEnumere(pattern);
-      if (!prefixe) continue;
+      const prefix = zoneEnumere(pattern);
+      if (!prefix) continue;
       findings.push({
         kind: "firewall-area-enumere",
         file: path.relative(cwd, manifestePath),
         message:
           `la zone "${pattern}" énumère des routes au lieu de couvrir un espace — ` +
-          `écris pattern: "^${prefixe}". Tel quel, les routes visées sont bien ` +
-          `protégées et TOUTE route ajoutée ensuite sous ${prefixe} naîtra publique, ` +
+          `écris pattern: "^${prefix}". Tel quel, les routes visées sont bien ` +
+          `protégées et TOUTE route ajoutée ensuite sous ${prefix} naîtra publique, ` +
           `sans qu'aucun test ne le voie : la zone existe et paraît couvrir l'espace`,
       });
     }
@@ -556,7 +556,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
           ],
           [
             REPONSE_ECRITURE_BRUTE_RE,
-            `la réponse est écrite directement dans le socle (end/writeHead) — le corps part ` +
+            `la réponse est écrite directement dans le socle (end/writeHead) — le body part ` +
               `sans passer par le pipeline`,
           ],
         ];
@@ -569,7 +569,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
               `${quoi}. Court-circuitée ainsi, la réponse perd la négociation de contenu, ` +
               `l'encodage, le nonce CSP de la requête et les hooks de fin de réponse ` +
               `(journal, profileur) — tout cela sans qu'aucun test ne le voie, puisque le ` +
-              `corps arrive bien. Emploie ${facades}`,
+              `body arrive bien. Emploie ${facades}`,
           });
         }
       }

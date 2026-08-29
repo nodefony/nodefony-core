@@ -102,14 +102,14 @@ function app({
     // `@CsrfProtect`, et une route sûre DÉDIÉE distribue le jeton. La lecture
     // ne sème alors rien — un juge qui ne frappe qu'elle recale à tort.
     const semeIci = !jetonSemeSurRouteDediee || url === "/api/cart/token";
-    const entetes = {
+    const headers = {
       "content-type": "application/json",
       "set-cookie": semeIci
         ? [`nodefony=${sid}; Path=/`, `csrf-token=${jetonAttendu}; Path=/`]
         : [`nodefony=${sid}; Path=/`],
     };
     if (url === "/api/cart/token" && req.method === "GET") {
-      res.writeHead(200, entetes);
+      res.writeHead(200, headers);
       res.end(JSON.stringify({ token: jetonAttendu }));
       return;
     }
@@ -119,30 +119,30 @@ function app({
         : sessionOk
           ? (paniers.get(sid) ?? [])
           : [];
-      res.writeHead(200, entetes);
+      res.writeHead(200, headers);
       res.end(JSON.stringify({ items: panier }));
       return;
     }
     if (url === "/api/cart/items" && req.method === "POST") {
-      const corps = await lireCorps(req);
+      const body = await lireCorps(req);
       if (refusTout) {
-        res.writeHead(refusTout, entetes);
-        res.end(JSON.stringify({ error: "corps refusé" }));
+        res.writeHead(refusTout, headers);
+        res.end(JSON.stringify({ error: "body refusé" }));
         return;
       }
       if (jetonExige && req.headers["x-csrf-token"] !== jetonAttendu) {
-        res.writeHead(403, entetes);
+        res.writeHead(403, headers);
         res.end(JSON.stringify({ error: "csrf" }));
         return;
       }
-      const { sku } = JSON.parse(corps || "{}");
+      const { sku } = JSON.parse(body || "{}");
       if (etatGlobal) global.push(sku);
       else if (sessionOk) paniers.set(sid, [...(paniers.get(sid) ?? []), sku]);
-      res.writeHead(201, entetes);
+      res.writeHead(201, headers);
       res.end(JSON.stringify({ added: sku }));
       return;
     }
-    res.writeHead(404, entetes);
+    res.writeHead(404, headers);
     res.end(JSON.stringify({ error: "not found" }));
   };
 }
@@ -217,7 +217,7 @@ for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));
-  dire(res.status === 5, "portTenu", 5, res.status, (res.stderr || "").trim());
+  dire(res.status === 5, "portTaken", 5, res.status, (res.stderr || "").trim());
 }
 {
   const res = await run([JUGE, "--check-port-free"]);
