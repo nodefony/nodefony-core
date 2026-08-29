@@ -194,6 +194,22 @@ class DrizzleService extends Service {
       filename,
       url: cfg.url,
       deriveSchema: ddl === "auto",
+      // L'état des migrations se lit dans la CONFIGURATION (fichiers, mode de
+      // schéma, coordonnées) : l'ORM, lui, ne connaît que sa connexion. Le
+      // lecteur est donc posé ici, par le seul objet qui détienne les deux.
+      //
+      // Il rend la MÊME charge utile que `orm:migrate:status --json` — un
+      // producteur, deux portes. L'écran de la console d'administration et la
+      // ligne de commande ne peuvent donc pas se contredire.
+      migrationStatus: async () => {
+        const { migrationStatusFor } = await import("../src/migrator/status");
+        const result = await migrationStatusFor(
+          name,
+          this.#config(),
+          this.kernel as Kernel | null,
+        );
+        return result.ok ? result.report : result.failure;
+      },
     });
     const target = dialect === "sqlite" ? filename : redactUrl(cfg.url);
     try {

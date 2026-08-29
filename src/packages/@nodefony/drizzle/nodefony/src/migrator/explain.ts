@@ -91,6 +91,39 @@ export interface IMigrationSourceReport {
   drifted: { tag: string; expected: string; actual: string }[];
   /** Identités enregistrées dont le fichier a disparu. */
   missing: string[];
+  /**
+   * UNE LIGNE PAR MIGRATION, dans l'ordre d'application — ce que les compteurs
+   * ci-dessus agrègent.
+   *
+   * Ajoutée pour l'écran d'administration, qui doit montrer QUAND chaque
+   * migration est passée, en combien de temps et sous quel déploiement.
+   * L'applicateur le savait déjà : le plan porte `startedAt`, `executionMs`,
+   * `appliedBy` et `runId` depuis toujours, et le rapport les jetait à un pas
+   * de la sortie — l'exploitant devait alors ouvrir un client SQL sur
+   * l'historique pour une réponse que le produit avait calculée.
+   *
+   * Ajout ADDITIF : les lecteurs du format 1 qui ne la connaissent pas
+   * l'ignorent, aucun champ existant ne change de sens.
+   */
+  entries: IMigrationEntryReport[];
+}
+
+/** Une migration, telle que l'historique et les fichiers la décrivent. */
+export interface IMigrationEntryReport {
+  /** Identité immuable une fois publiée. */
+  tag: string;
+  /** Où en est cette migration pour CE connecteur. */
+  status: "applied" | "pending" | "failed" | "drifted" | "missing";
+  /** Début de l'application, en millisecondes — absent si jamais appliquée. */
+  appliedAt?: number;
+  /** Durée de l'application, en millisecondes. */
+  durationMs?: number;
+  /** Ce qui l'a appliquée, tel que l'historique l'a retenu. */
+  appliedBy?: string;
+  /** Déploiement qui l'a portée — groupe les migrations d'un même passage. */
+  runId?: string;
+  /** Motif de l'échec, quand elle a échoué. */
+  error?: string;
 }
 
 /**
@@ -304,31 +337,61 @@ function groupSources(plan: IMigrationPlan): IMigrationSourceReport[] {
         pendingTags: [],
         drifted: [],
         missing: [],
+        entries: [],
       };
       byName.set(name, entry);
     }
     return entry;
   };
+  // Le DÉTAIL est posé en même temps que le compteur qu'il alimente : deux
+  // parcours séparés finiraient par ne plus dire la même chose, et c'est
+  // exactement l'écart qu'un écran d'administration rend visible au pire
+  // moment.
+  const detail = (row: IAppliedMigration): IMigrationEntryReport => ({
+    tag: row.tag,
+    status: row.success ? "applied" : "failed",
+    appliedAt: row.startedAt,
+    ...(row.executionMs !== null ? { durationMs: row.executionMs } : {}),
+    ...(row.appliedBy !== null ? { appliedBy: row.appliedBy } : {}),
+    runId: row.runId,
+    ...(row.error !== null ? { error: row.error } : {}),
+  });
   for (const row of plan.applied as readonly IAppliedMigration[]) {
-    ensure(row.source).applied += 1;
+    const entry = ensure(row.source);
+    entry.applied += 1;
+    entry.entries.push(detail(row));
   }
   for (const file of plan.pending as readonly IMigrationFile[]) {
     const entry = ensure(file.source);
     entry.pending += 1;
     entry.pendingTags.push(file.tag);
+    entry.entries.push({ tag: file.tag, status: "pending" });
   }
   for (const row of plan.failed as readonly IAppliedMigration[]) {
-    ensure(row.source).failed += 1;
+    const entry = ensure(row.source);
+    entry.failed += 1;
+    entry.entries.push(detail(row));
   }
   for (const d of plan.drifted as readonly IMigrationDrift[]) {
-    ensure(d.source).drifted.push({
+    const entry = ensure(d.source);
+    entry.drifted.push({
       tag: d.tag,
       expected: d.expected,
       actual: d.actual,
     });
+    // Une dérive porte sur une migration DÉJÀ appliquée : sa ligne existe, on
+    // la requalifie au lieu d'en ajouter une seconde qui la contredirait.
+    const deja = entry.entries.find((e) => e.tag === d.tag);
+    if (deja) {
+      deja.status = "drifted";
+    } else {
+      entry.entries.push({ tag: d.tag, status: "drifted" });
+    }
   }
   for (const m of plan.missing) {
-    ensure(m.source).missing.push(m.tag);
+    const entry = ensure(m.source);
+    entry.missing.push(m.tag);
+    entry.entries.push({ tag: m.tag, status: "missing" });
   }
   return [...byName.values()];
 }

@@ -30,6 +30,9 @@ import type {
   PoolConnection as MysqlPoolConnection,
 } from "mysql2/promise";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
+import type { IOrmMigrationReply } from "@nodefony/orm-core";
+import { notConfigured } from "../migrator/refusals";
+import { failureFrom } from "../migrator/status";
 import { schemaReader, toDollarParams } from "../migrator/catalog";
 import {
   additiveSql,
@@ -108,6 +111,17 @@ export interface DrizzleOrmOptions {
    * d'où elle vient.
    */
   deriveSchema?: boolean;
+
+  /**
+   * Qui sait lire l'état des migrations de CE connecteur.
+   *
+   * Injecté par le service du module, seul à détenir la configuration (fichiers
+   * de migration, mode `ddl`, coordonnées) — l'ORM, lui, ne connaît que sa
+   * connexion. Sans lui, {@link DrizzleOrm.migrationStatus} répond que le
+   * connecteur n'est pas déclaré dans la configuration, ce qui est le cas d'un
+   * ORM construit à la main dans un banc.
+   */
+  migrationStatus?: () => Promise<IOrmMigrationReply>;
 }
 
 /**
@@ -268,6 +282,9 @@ export class DrizzleOrm extends Orm {
   readonly #filename: string;
   readonly #url: string | undefined;
 
+  /** Injecté par le service — cf {@link DrizzleOrmOptions.migrationStatus}. */
+  readonly #migrationStatus: (() => Promise<IOrmMigrationReply>) | undefined;
+
   /**
    * @param name - clé unique de l'ORM dans le `ormRegistry` (ex. `"db_test"`).
    * @param options - options de connexion (`dialect`, `filename` sqlite, `url` pg).
@@ -278,6 +295,7 @@ export class DrizzleOrm extends Orm {
     this.#deriveSchema = options.deriveSchema !== false;
     this.#filename = options.filename ?? ":memory:";
     this.#url = options.url;
+    this.#migrationStatus = options.migrationStatus;
   }
 
   /** Dialecte SQL de ce connecteur. */
@@ -1369,6 +1387,26 @@ export class DrizzleOrm extends Orm {
       throw new Error(`DrizzleOrm "${this.name}": not connected.`);
     }
     return this.#db as C;
+  }
+
+  /**
+   * État des migrations de ce connecteur — la MÊME charge utile que
+   * `orm:migrate:status --json`, jamais un second calcul.
+   *
+   * Le travail est fait par le lecteur injecté à la construction : lui seul
+   * détient la configuration (fichiers, mode `ddl`, coordonnées), quand cet
+   * objet ne connaît que sa connexion. Sans lecteur — un ORM construit à la
+   * main dans un banc —, la réponse dit exactement cela, et surtout PAS « ne
+   * porte pas de migrations » : ce serait faux d'un connecteur SQL, et un
+   * message faux publié est appris par les scripts qui le lisent.
+   *
+   * @returns l'état, ou l'empêchement qui explique pourquoi il n'y en a pas.
+   */
+  async migrationStatus(): Promise<IOrmMigrationReply> {
+    if (this.#migrationStatus) {
+      return this.#migrationStatus();
+    }
+    return failureFrom(this.name, notConfigured(this.name, this.#dialect));
   }
 
   /**

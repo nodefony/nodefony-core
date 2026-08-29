@@ -14,6 +14,10 @@ import type {
   IOrmSummary,
 } from "../interfaces/IOrmGraph";
 import type { IOrmFlowReport } from "../interfaces/IOrmFlow";
+import type {
+  IOrmMigrationFailure,
+  IOrmMigrationReply,
+} from "../interfaces/IOrmMigrations";
 import { ormRegistry } from "./OrmRegistry";
 import { entityRegistry } from "./EntityRegistry";
 import { connectionMonitor } from "./ConnectionMonitor";
@@ -37,6 +41,7 @@ import { queryFlowMonitor } from "./QueryFlowMonitor";
  *  - `GET /nodefony/orm/api/entity/{name}`  → une entité (`?connector=`)
  *  - `GET /nodefony/orm/api/graph`          → graphe complet (`?connector=`)
  *  - `GET /nodefony/orm/api/export/{format}`→ export (`dbml`), `?connector=`
+ *  - `GET /nodefony/orm/api/migrations`     → état des migrations (`?connector=`)
  */
 
 /** Première valeur d'un param de query (`?connector=default`). */
@@ -488,6 +493,56 @@ export function createOrmAdminApi(): IAdminApi {
           }
         }
         return counts;
+      },
+    },
+    {
+      path: "migrations",
+      summary:
+        "État des migrations d'un connecteur (?connector=, défaut « default ») — MÊME objet que `orm:migrate:status --json`. 501 si l'ORM ne porte pas de migrations, 404 si le connecteur n'existe pas.",
+      handler: async (
+        request,
+      ): Promise<
+        | IOrmMigrationReply
+        | IAdminResponse<IOrmMigrationFailure | { error: string }>
+      > => {
+        const connector = oneParam(request, "connector") ?? "default";
+        if (!ormRegistry.has(connector)) {
+          const connus = ormRegistry.list().join(", ");
+          return {
+            status: 404,
+            body: {
+              error: `aucun connecteur « ${connector} » — ceux que cette application déclare : ${connus || "aucun"}`,
+            },
+          };
+        }
+        const orm = ormRegistry.get(connector);
+        // 🔴 L'ABSENCE de la capacité EST la réponse, et elle se NOMME.
+        //
+        // Un ORM qui ne migre pas par fichiers versionnés n'est pas en panne :
+        // sa base résorbe l'écart autrement. Répondre une page vide laisserait
+        // croire « rien à migrer, tout va bien » — un écran qui ment quand la
+        // donnée manque est pire qu'un écran absent.
+        if (typeof orm.migrationStatus !== "function") {
+          return {
+            status: 501,
+            body: {
+              formatVersion: 1,
+              connector,
+              error: {
+                code: "NF_MIGRATE_NO_MIGRATIONS",
+                summary: `Le connecteur « ${connector} » est porté par ${vendorOf(orm) || orm.name}, dont la base ne se met pas à jour par des migrations de schéma.`,
+                meaning:
+                  "Les migrations par fichiers versionnés sont une mécanique SQL. Les autres bases résorbent l'écart entre le code et le schéma autrement — la question est la même, la réponse n'est pas la même.",
+                nextActions: [],
+              },
+            },
+          };
+        }
+        const reply = await orm.migrationStatus();
+        // Un empêchement se rend en 200 : c'est une RÉPONSE, pas une panne du
+        // plan d'administration — l'écran doit pouvoir l'afficher tel quel,
+        // avec son code, sa phrase et ses gestes.
+        return reply;
       },
     },
     {

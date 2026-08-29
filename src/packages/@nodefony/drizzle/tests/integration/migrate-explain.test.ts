@@ -12,6 +12,7 @@ import {
   isAheadOnly,
   type MigrationVerdictName,
 } from "../../nodefony/src/migrator/explain";
+import type { IOrmMigrationStatus } from "@nodefony/orm-core";
 import type {
   IMigrationPlan,
   IMigrationVerdict,
@@ -413,5 +414,99 @@ describe("isAheadOnly — l'historique en avance n'est pas une dérive (#108)", 
 
   it("un plan sain n'est pas « en avance » — il n'y a rien devant", () => {
     assert.equal(isAheadOnly(plan()), false);
+  });
+});
+
+describe("migrations — le DÉTAIL que le rapport jetait à un pas de la sortie", () => {
+  /**
+   * Ce que ces contrôles tiennent : l'applicateur SAIT depuis toujours quand
+   * chaque migration est passée, en combien de temps, sous quel déploiement et
+   * pourquoi elle a échoué — le plan porte ces champs. Le rapport n'en
+   * publiait que des COMPTEURS : l'exploitant qui voulait la date d'une
+   * migration devait ouvrir un client SQL sur l'historique, sur une base de
+   * production, au pire moment.
+   *
+   * Et une contrainte de structure : cette liste est le CŒUR NEUTRE. Un second
+   * ORM doit pouvoir la remplir sans que l'écran change d'une ligne — c'est ce
+   * que prouve l'assignation au contrat d'`orm-core`, en bas.
+   */
+  const rapport = (patch: Partial<IMigrationPlan> = {}) =>
+    buildReport(plan(patch), { ddl: "migrate", divergence: null });
+
+  it("une migration appliquée porte sa DATE, sa durée, son auteur et son déploiement", () => {
+    const r = rapport({ applied: [applique("app", "0001_init")] });
+    const source = r.sources.find((s) => s.name === "app");
+    assert.ok(source);
+    assert.equal(source.applied, 1);
+    assert.deepEqual(source.entries, [
+      {
+        tag: "0001_init",
+        status: "applied",
+        appliedAt: 1_700_000_000_000,
+        durationMs: 1000,
+        appliedBy: "hôte",
+        runId: "r",
+      },
+    ]);
+  });
+
+  it("une migration en ÉCHEC porte son motif — sinon l'écran dit « ça a raté » et rien d'autre", () => {
+    const r = rapport({ failed: [applique("app", "0002_x", false)] });
+    const entree = r.sources[0]?.entries[0];
+    assert.equal(entree?.status, "failed");
+    assert.equal(entree?.error, "colonne inconnue");
+    // Jamais de durée inventée sur ce qui ne s'est pas terminé.
+    assert.equal(entree?.durationMs, undefined);
+  });
+
+  it("une migration en attente n'invente NI date NI durée", () => {
+    const r = rapport({ pending: [fichier("app", "0003_z")] });
+    assert.deepEqual(r.sources[0]?.entries, [
+      { tag: "0003_z", status: "pending" },
+    ]);
+  });
+
+  it("🔴 une DÉRIVE requalifie la ligne existante, elle n'en ajoute pas une seconde", () => {
+    // Une migration qui a dérivé est une migration DÉJÀ appliquée : deux
+    // lignes pour le même tag feraient afficher à l'écran une migration
+    // appliquée ET dérivée, comme si c'étaient deux objets.
+    const r = rapport({
+      applied: [applique("app", "0001_init")],
+      drifted: [
+        { source: "app", tag: "0001_init", expected: "a", actual: "b" },
+      ],
+    });
+    const source = r.sources.find((s) => s.name === "app");
+    assert.equal(source?.entries.length, 1);
+    assert.equal(source?.entries[0]?.status, "drifted");
+    // La date reste : c'est elle qui dit QUAND la version d'origine est passée.
+    assert.equal(source?.entries[0]?.appliedAt, 1_700_000_000_000);
+  });
+
+  it("les compteurs et le détail parlent de la MÊME chose", () => {
+    const r = rapport({
+      applied: [applique("app", "0001_init"), applique("app", "0002_y")],
+      pending: [fichier("app", "0003_z")],
+      failed: [applique("app", "0004_w", false)],
+    });
+    const source = r.sources.find((s) => s.name === "app");
+    assert.ok(source);
+    assert.equal(
+      source.entries.length,
+      source.applied + source.pending + source.failed,
+      "un compteur qui ne correspond pas à son détail est un écran qui ment",
+    );
+  });
+
+  it("🔴 le rapport SATISFAIT le contrat neutre d'orm-core — sans lui, l'écran serait propre au pilote", () => {
+    const r = rapport({ applied: [applique("app", "0001_init")] });
+    // L'assignation EST la preuve : le gate typecheck refuse de compiler le
+    // jour où l'une des deux formes bouge sans l'autre. Le contrôle runtime
+    // qui suit ne garde que ce qu'un type ne dit pas — que les valeurs sont
+    // bien là.
+    const neutre: IOrmMigrationStatus = r;
+    assert.equal(neutre.connector, "default");
+    assert.equal(neutre.driver.kind, "sql");
+    assert.equal(neutre.sources[0]?.entries[0]?.tag, "0001_init");
   });
 });

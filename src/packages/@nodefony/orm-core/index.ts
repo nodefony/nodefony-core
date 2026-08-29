@@ -114,6 +114,15 @@ export type {
   IOrmPoolProbe,
   IOrmProbe,
 } from "./nodefony/interfaces/IOrmProbe";
+export type {
+  IOrmMigrationAction,
+  IOrmMigrationEntry,
+  IOrmMigrationSource,
+  IOrmMigrationStatus,
+  IOrmMigrationFailure,
+  IOrmMigrationReply,
+} from "./nodefony/interfaces/IOrmMigrations";
+export { isMigrationFailure } from "./nodefony/interfaces/IOrmMigrations";
 
 // ─── Décorateurs (P5.3) — @entity / @repository (WeakMap, sans reflect) ──────
 export {

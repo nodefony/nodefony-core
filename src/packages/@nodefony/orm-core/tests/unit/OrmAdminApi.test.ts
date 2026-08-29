@@ -230,4 +230,86 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     const res = (await ep.handler(req({ name: "Nope" }))) as { status: number };
     assert.equal(res.status, 404);
   });
+
+  describe("migrations — l'état, ou l'empêchement NOMMÉ", () => {
+    /**
+     * Ce que ces contrôles tiennent : l'écran de la console d'administration
+     * ne calcule RIEN. Il affiche ce que l'ORM lui rend — et quand il n'y a
+     * rien à afficher, il doit recevoir de quoi le DIRE. Un tableau vide
+     * ressemble à « tout va bien » : c'est le pire mode de défaillance d'un
+     * écran d'exploitation, et c'est celui qu'on ferme ici.
+     */
+    const endpoint = () =>
+      createOrmAdminApi()
+        .adminEndpoints()
+        .find((e) => e.path === "migrations")!;
+
+    it("connecteur inconnu → 404 qui NOMME ceux qui existent", async () => {
+      const res = (await endpoint().handler(
+        req({}, { connector: "nope" }),
+      )) as {
+        status: number;
+        body: { error: string };
+      };
+      assert.equal(res.status, 404);
+      assert.match(res.body.error, /nope/u);
+      // Le message liste les connecteurs réels : sans eux, l'utilisateur ne
+      // sait pas s'il s'est trompé de nom ou si rien n'est enregistré.
+      assert.match(res.body.error, new RegExp(ORM, "u"));
+    });
+
+    it("🔴 ORM sans migrations → 501 qui le NOMME, jamais une page vide", async () => {
+      const res = (await endpoint().handler(req({}, { connector: ORM }))) as {
+        status: number;
+        body: { error: { code: string; summary: string } };
+      };
+      assert.equal(res.status, 501);
+      assert.equal(res.body.error.code, "NF_MIGRATE_NO_MIGRATIONS");
+      // La phrase dit CE QUI porte ce connecteur — un écran qui affiche
+      // « non pris en charge » sans dire par qui n'apprend rien.
+      assert.match(res.body.error.summary, new RegExp(ORM, "u"));
+    });
+
+    it("l'ORM répond → le plan RELAIE, sans rien recalculer", async () => {
+      const rapport = {
+        formatVersion: 1,
+        connector: ORM,
+        verdict: "pending",
+        summary: "2 migrations en attente",
+        nextActions: [
+          { command: "nodefony orm:migrate", args: ["orm:migrate"] },
+        ],
+        sources: [
+          {
+            name: "app",
+            applied: 1,
+            pending: 2,
+            failed: 0,
+            entries: [{ tag: "0000_init", status: "applied", appliedAt: 42 }],
+          },
+        ],
+        driver: { kind: "sql", dialect: "sqlite" },
+      };
+      ormRegistry.unregister(ORM);
+      ormRegistry.register(ORM, {
+        ...stubOrm,
+        migrationStatus: async () => rapport,
+      });
+      const res = await endpoint().handler(req({}, { connector: ORM }));
+      // Égalité PROFONDE, pas « contient » : un relais qui reformate est un
+      // second producteur, et deux producteurs finissent par se contredire.
+      assert.deepEqual(res, rapport);
+    });
+
+    it("sans ?connector, c'est « default » — jamais le premier venu", async () => {
+      const res = (await endpoint().handler(req())) as {
+        status: number;
+        body: { error: string };
+      };
+      // `default` n'est pas enregistré dans ce banc : la réponse doit le
+      // nommer LUI, ce qui prouve qu'aucun connecteur n'a été deviné.
+      assert.equal(res.status, 404);
+      assert.match(res.body.error, /default/u);
+    });
+  });
 });

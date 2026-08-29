@@ -13,24 +13,29 @@ import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
   action,
-  buildReport,
   refusalInMode,
   renderRefusal,
   styleFor,
   type IMigrationReport,
   type IStyle,
 } from "../src/migrator/explain";
-import { describeDivergence } from "../src/migrator/divergence";
 import type { IMigrationPlan } from "../src/migrator/types";
 import {
   buildMigrator,
-  knownConnectors,
   readMigrationEnv,
-  resetAllowed,
   resolveConnector,
   MIGRATE_URL_ENV,
   type IConnectorResolution,
 } from "../src/migrator/resolve";
+import { composeReport } from "../src/migrator/status";
+import {
+  describeResolutionRefusal,
+  moduleAbsent,
+  type CommandFailureCode,
+  type ICommandFailure,
+} from "../src/migrator/refusals";
+
+export type { ICommandFailure } from "../src/migrator/refusals";
 
 /**
  * Socle commun des commandes `orm:*` — ce qui garantit qu'aucune d'elles ne
@@ -61,52 +66,6 @@ import {
 
 /** Nom du module qui porte la configuration des connecteurs SQL. */
 const MODULE_NAME = "drizzle";
-
-/** Codes d'arrêt propres à la ligne de commande (l'applicateur a les siens). */
-export type CommandFailureCode =
-  /** Aucun connecteur de ce nom, nulle part. */
-  | "NF_MIGRATE_UNKNOWN_CONNECTOR"
-  /** Le connecteur existe, mais sa base ne se migre pas par fichiers. */
-  | "NF_MIGRATE_NO_MIGRATIONS"
-  | "NF_MIGRATE_URL_MISMATCH"
-  /** Connecteur SQL enregistré, mais absent de la configuration du module. */
-  | "NF_MIGRATE_NOT_CONFIGURED"
-  /** Geste réservé au développement, demandé ailleurs. */
-  | "NF_MIGRATE_NOT_DEVELOPMENT"
-  /** La commande n'a pas pu joindre la base, ou a échoué à l'exécution. */
-  | "NF_MIGRATE_UNAVAILABLE"
-  /** Confirmation requise et non donnée. */
-  | "NF_MIGRATE_CONFIRM_REQUIRED"
-  /** Des migrations en attente SUPPRIMENT des données, hors développement. */
-  | "NF_MIGRATE_DESTRUCTIVE"
-  /** Le nom de la migration manque, ou ne voyage pas sur les trois systèmes. */
-  | "NF_GENERATE_NAME"
-  /** Un fichier d'entité refuse de s'importer : le schéma serait AMPUTÉ. */
-  | "NF_GENERATE_UNREADABLE_ENTITY"
-  /** Une entité enregistrée qu'aucun fichier découvert ne fournit. */
-  | "NF_GENERATE_MISSING_ENTITY"
-  /** Un fichier de l'application fournit une table qui appartient au framework. */
-  | "NF_GENERATE_FRAMEWORK_TABLE"
-  /** La migration produite DÉTRUIT des données, et personne ne l'a dit. */
-  | "NF_GENERATE_DESTRUCTIVE";
-
-/** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
-export interface ICommandFailure {
-  formatVersion: typeof MIGRATION_FORMAT_VERSION;
-  connector: string;
-  exitCode: 1 | 2;
-  /**
-   * Présent ⇔ la commande n'a pas pu faire son travail. C'est le discriminant :
-   * une sortie qui porte `verdict` est un état lu, une sortie qui porte `error`
-   * est un arrêt. Aucune n'a jamais les deux.
-   */
-  error: {
-    code: CommandFailureCode | MigrationVerdictError["verdict"]["code"];
-    summary: string;
-    meaning: string;
-    nextActions: IMigrationAction[];
-  };
-}
 
 /** Options communes à toutes les commandes de migration. */
 export interface IMigrateSharedOptions {
@@ -259,102 +218,39 @@ export abstract class OrmMigrateCommand extends Command {
     const wanted = opts.connector ?? "default";
     const config = this.drizzleConfig();
     if (!config) {
+      const refus = moduleAbsent();
       this.fail(
         wanted,
-        "NF_MIGRATE_UNAVAILABLE",
-        `Le module « @nodefony/${MODULE_NAME} » n'est pas chargé par cette application : il n'y a aucun connecteur SQL à migrer.`,
-        "Les migrations sont portées par le module qui déclare les connecteurs. Sans lui, la commande n'a ni base, ni fichiers, ni historique à consulter.",
-        [action("nodefony inspect modules")],
+        refus.code,
+        refus.summary,
+        refus.meaning,
+        refus.nextActions,
         opts.json,
+        refus.exitCode,
       );
       return null;
     }
-    const env = readMigrationEnv(this.kernel as Kernel | null);
     const resolution = resolveConnector(
       wanted,
       config,
-      env,
+      readMigrationEnv(this.kernel as Kernel | null),
       this.kernel as Kernel | null,
       { allowMigrateUrl },
     );
-    if (resolution.kind === "unknown") {
-      const liste =
-        resolution.known.length > 0
-          ? resolution.known.map((n) => `« ${n} »`).join(", ")
-          : "aucun";
+    if (resolution.kind !== "ready") {
+      // La prose de chaque refus vit dans `refusals.ts` — l'écran de la console
+      // d'administration la rend telle quelle. Écrire ici « connecteur
+      // inconnu » et là-bas autre chose donnerait deux réponses à la même
+      // question, chacune vraie dans son test.
+      const refus = describeResolutionRefusal(wanted, resolution, config);
       this.fail(
         wanted,
-        "NF_MIGRATE_UNKNOWN_CONNECTOR",
-        `Aucun connecteur ne s'appelle « ${wanted} ». Ceux que cette application déclare : ${liste}.`,
-        "Le nom attendu est celui d'une clé de `connectors` dans la configuration, pas un nom de base ni un dialecte. Sans `--connector`, la commande travaille sur « default ».",
-        [
-          action("nodefony orm:migrate:status"),
-          action("nodefony inspect config --json"),
-        ],
+        refus.code,
+        refus.summary,
+        refus.meaning,
+        refus.nextActions,
         opts.json,
-      );
-      return null;
-    }
-    if (resolution.kind === "url-mismatch") {
-      // 🔴 Le faux succès de déploiement, fermé ici.
-      //
-      // La variable était ignorée en silence quand le connecteur était sqlite :
-      // un travail de migration posait l'URL de production, la commande migrait
-      // une base locale éphémère, et rendait « ✓ appliqué » avec le code du
-      // succès. Les exemplaires démarraient ensuite sur une base jamais migrée.
-      const vise =
-        resolution.urlDialect === null
-          ? "une base que cette commande ne sait pas lire"
-          : `une base ${resolution.urlDialect}`;
-      this.fail(
-        wanted,
-        "NF_MIGRATE_URL_MISMATCH",
-        `${MIGRATE_URL_ENV} désigne ${vise}, alors que le connecteur « ${wanted} » est déclaré en ${resolution.dialect}. Rien n'a été appliqué.`,
-        "Les deux ne peuvent pas être vraies en même temps : le SQL d'un dialecte ne s'applique pas avec le pilote d'un autre, et deviner laquelle des deux bases tu vises reviendrait à migrer la mauvaise en annonçant un succès. Soit la variable pointe la base du connecteur, soit c'est le connecteur qu'il faut choisir — la variable ne sert qu'à changer le COMPTE et l'hôte, jamais la nature de la base.",
-        [
-          action(`nodefony orm:migrate:status --connector ${wanted}`),
-          action("nodefony inspect config --json"),
-        ],
-        opts.json,
-      );
-      return null;
-    }
-    if (resolution.kind === "unsupported") {
-      // 🔴 DEUX causes, DEUX messages — les confondre publie une phrase FAUSSE.
-      //
-      // Vécu sur cette application même : un connecteur SQL créé en direct par
-      // un banc (hors configuration du module) recevait « ne gère pas de
-      // migrations de schéma ». C'est un connecteur SQLite : il en gère
-      // parfaitement, il manque seulement ses coordonnées de connexion. La
-      // conception l'interdit explicitement — un message faux, une fois publié,
-      // est appris par les scripts qui le lisent.
-      if (resolution.sqlLike) {
-        this.fail(
-          wanted,
-          "NF_MIGRATE_NOT_CONFIGURED",
-          `Le connecteur « ${wanted} » est bien une base SQL (${resolution.driver}), mais il n'est pas déclaré dans la configuration de « @nodefony/${MODULE_NAME} » : la commande n'a pas ses coordonnées de connexion.`,
-          "Un connecteur créé directement dans du code (un banc de test, un module qui instancie son ORM lui-même) est enregistré au moment où il se connecte, mais la commande, elle, lit la configuration — c'est elle qui porte le fichier ou l'URL, et un secret ne se lit pas dans un objet déjà connecté. Déclare-le dans `connectors` pour pouvoir le migrer.",
-          [
-            action("nodefony inspect config --json"),
-            action(
-              `nodefony orm:migrate:status --connector ${knownConnectors(config)[0] ?? "default"}`,
-            ),
-          ],
-          opts.json,
-        );
-        return null;
-      }
-      this.fail(
-        wanted,
-        "NF_MIGRATE_NO_MIGRATIONS",
-        `Le connecteur « ${wanted} » est porté par ${resolution.owner}, dont la base ne se met pas à jour par des migrations de schéma.`,
-        "Les migrations par fichiers versionnés sont une mécanique SQL. Les autres bases résorbent l'écart entre le code et le schéma autrement — la question est la même, la réponse n'est pas la même. Aucune commande ne peut migrer ce connecteur aujourd'hui.",
-        [
-          action(
-            `nodefony orm:migrate:status --connector ${knownConnectors(config)[0] ?? "default"}`,
-          ),
-        ],
-        opts.json,
+        refus.exitCode,
       );
       return null;
     }
@@ -382,14 +278,11 @@ export abstract class OrmMigrateCommand extends Command {
   }
 
   /**
-   * Compose la charge utile d'un état — le SEUL endroit où le contexte du
-   * rendu est assemblé.
+   * Compose la charge utile d'un état.
    *
-   * Les quatre commandes de migration publient le même objet ; recopier son
-   * assemblage dans chacune les faisait déjà diverger d'un champ à l'autre, et
-   * la prochaine à naître aurait oublié celui du jour. La troisième source ne
-   * se paie qu'ici, une fois : `describeDivergence` s'abstient toute seule
-   * quand le verdict est déjà décidé.
+   * L'assemblage lui-même vit dans `migrator/status.ts` : le plan
+   * d'administration publie le MÊME objet, et deux assemblages divergeaient
+   * d'un champ à l'autre sans qu'aucun test ne le voie.
    *
    * @param plan - plan calculé par l'applicateur, en lecture seule.
    * @param resolution - connecteur prêt (porte le mode de schéma effectif).
@@ -401,34 +294,14 @@ export abstract class OrmMigrateCommand extends Command {
     resolution: Extract<IConnectorResolution, { kind: "ready" }>,
     config: IDrizzleConfig,
   ): Promise<IMigrationReport> {
-    const mode = config.migrations.divergence;
-    return buildReport(plan, {
-      ddl: resolution.ddl,
-      // `off` veut dire « rien » : on ne la CALCULE même pas. La comparer puis
-      // taire le résultat coûterait une requête par table pour une réponse que
-      // personne ne lira — et c'était le comportement, la clé n'ayant aucun
-      // lecteur.
-      divergence: mode === "off" ? null : await describeDivergence(plan),
-      divergenceMode: mode,
-      canReset: resetAllowed(readMigrationEnv(this.kernel as Kernel | null)),
-    });
+    return composeReport(
+      plan,
+      resolution,
+      config,
+      this.kernel as Kernel | null,
+    );
   }
 
-  /**
-   * Traduit N'IMPORTE QUELLE erreur en arrêt lisible — c'est le filet.
-   *
-   * Deux familles, et elles ne se répondent pas pareil. Un refus de
-   * l'applicateur porte déjà son verdict et ses gestes : on les rend tels
-   * quels, et le code de sortie dit « action requise » — la base est intacte,
-   * c'est l'humain qui doit trancher. Tout le reste — base injoignable, droits
-   * manquants, verrou impossible à prendre — est une panne : code `2`, et on
-   * dit quand même où regarder.
-   *
-   * @param e - ce qui a été levé.
-   * @param connector - connecteur concerné.
-   * @param json - la commande a-t-elle reçu `--json` ?
-   * @param ddl - mode de schéma effectif, quand il change la cause du refus.
-   */
   protected failFrom(
     e: unknown,
     connector: string,

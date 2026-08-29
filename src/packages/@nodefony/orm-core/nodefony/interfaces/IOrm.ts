@@ -2,6 +2,7 @@ import type { IRepository } from "./IRepository";
 import type { ITransaction } from "./ITransaction";
 import type { IColumnInfo, IConnectionInfo } from "./IOrmGraph";
 import type { IOrmProbe } from "./IOrmProbe";
+import type { IOrmMigrationReply } from "./IOrmMigrations";
 
 /**
  * Contrat d'une instance ORM gérée par le framework (une par connexion logique).
@@ -102,4 +103,23 @@ export interface IOrm {
    * @returns métriques driver, ou objet vide si rien à rapporter.
    */
   probe?(): Promise<IOrmProbe>;
+
+  /**
+   * État des migrations de ce connecteur — **capacité optionnelle**, et son
+   * ABSENCE est une réponse.
+   *
+   * Un ORM qui ne l'implémente pas ne porte pas de migrations par fichiers
+   * versionnés : le plan d'administration le DIT en le nommant, plutôt que de
+   * rendre une page vide. Les autres bases résorbent l'écart entre le code et
+   * le schéma autrement — la question est la même, la réponse n'est pas la
+   * même.
+   *
+   * ⚠️ **Lecture seule, et sans privilège emprunté** : cette méthode ne doit
+   * rien appliquer, et ne doit pas emprunter le compte réservé au travail de
+   * migration. Un serveur qui répond à une requête d'administration n'a aucune
+   * raison de détenir le droit de modifier un schéma.
+   *
+   * @returns l'état, ou l'empêchement qui explique pourquoi il n'y en a pas.
+   */
+  migrationStatus?(): Promise<IOrmMigrationReply>;
 }
