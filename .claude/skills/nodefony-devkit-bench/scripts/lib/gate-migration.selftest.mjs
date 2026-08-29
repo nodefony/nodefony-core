@@ -77,6 +77,17 @@ const cas = [
     faits: { ...PARFAIT, statusCode: 1 },
   },
   {
+    // Le VERDICT lu, pas seulement le code. Vécu : un run rendait
+    // « etat-non-a-jour » alors que l'agent finissait `up-to-date` — l'état
+    // bascule après le `npm run build` du gate. Le détail ne portait que le
+    // code, indistinguable entre « en attente », « dérive » et « non adopté »,
+    // et il a fallu rouvrir le transcript pour trancher.
+    nom: "l etat non a jour NOMME le verdict qu il a lu",
+    attendu: "etat-non-a-jour",
+    faits: { ...PARFAIT, statusCode: 1, statusVerdict: "divergent" },
+    detailContient: "divergent",
+  },
+  {
     nom: "rejouer applique encore",
     attendu: "non-idempotent",
     faits: { ...PARFAIT, applique: 2 },
@@ -105,12 +116,20 @@ for (const c of cas) {
   // donnée perdue avant l'état — et l'on vérifie que le contrôle S'EN APERÇOIT.
   const cause =
     PROVE && c.nom === "base supprimee puis recreee" ? "conforme" : v.cause;
+  // Un cas peut exiger, en plus de la cause, que le DÉTAIL nomme ce qui a été
+  // lu : une cause juste dont la phrase n'instruit rien renvoie au transcript.
+  const detailOk =
+    c.detailContient === undefined || v.detail.includes(c.detailContient);
   const ok =
     cause === c.attendu &&
-    (cause !== c.attendu || v.code === CAUSES[c.attendu]);
+    (cause !== c.attendu || v.code === CAUSES[c.attendu]) &&
+    detailOk;
   if (!ok) {
     rouges += 1;
-    console.error(`✗ ${c.nom} : attendu « ${c.attendu} », obtenu « ${cause} »`);
+    const pourquoi = !detailOk
+      ? `le détail ne nomme pas « ${c.detailContient} » : ${v.detail}`
+      : `attendu « ${c.attendu} », obtenu « ${cause} »`;
+    console.error(`✗ ${c.nom} : ${pourquoi}`);
   } else {
     console.log(`✓ ${c.nom} → ${cause} (${v.code})`);
   }

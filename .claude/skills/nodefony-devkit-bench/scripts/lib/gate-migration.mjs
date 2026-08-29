@@ -72,12 +72,18 @@ export const CAUSES = {
  * le reste sauf l'absence de colonne, parce qu'une base refaite peut très bien
  * répondre juste à toutes les autres questions.
  *
- * @param {{colonnePubliee: boolean, temoinPresent: boolean, ecriture: number|string, statusCode: number, applique: number}} faits
+ * @param {{colonnePubliee: boolean, temoinPresent: boolean, ecriture: number|string, statusCode: number, applique: number, statusVerdict?: string}} faits
  * @returns {{cause: string, code: number, detail: string}}
  */
 export function judge(faits) {
-  const { colonnePubliee, temoinPresent, ecriture, statusCode, applique } =
-    faits;
+  const {
+    colonnePubliee,
+    temoinPresent,
+    ecriture,
+    statusCode,
+    applique,
+    statusVerdict,
+  } = faits;
   if (!temoinPresent) {
     return {
       cause: "donnee-perdue",
@@ -107,10 +113,20 @@ export function judge(faits) {
     };
   }
   if (statusCode !== 0) {
+    // 🔴 Le VERDICT lu, pas seulement le code de sortie. Le code `1` couvre
+    // « en attente », « dérive », « échec » et « base en écart » — quatre
+    // situations aux gestes opposés. Vécu : un run rangé « etat-non-a-jour »
+    // pendant que l'agent finissait `up-to-date` (l'état bascule après le
+    // `npm run build` du gate) ; il a fallu rouvrir le transcript pour le
+    // savoir, alors que la commande l'avait dit.
+    const lu =
+      typeof statusVerdict === "string" && statusVerdict.length > 0
+        ? ` — verdict lu : ${statusVerdict}`
+        : " — verdict ILLISIBLE (sortie non analysable)";
     return {
       cause: "etat-non-a-jour",
       code: CAUSES["etat-non-a-jour"],
-      detail: `orm:migrate:status rend ${statusCode} : en attente, dérive, ou historique non adopté`,
+      detail: `orm:migrate:status rend ${statusCode}${lu}`,
     };
   }
   if (applique !== 0) {
@@ -125,6 +141,27 @@ export function judge(faits) {
     code: 0,
     detail: "la base a suivi, la donnée d'avant est là, rejouer ne fait rien",
   };
+}
+
+/**
+ * Extrait l'objet JSON d'une sortie de commande.
+ *
+ * Les commandes écrivent leur objet sur la sortie standard et leur journal sur
+ * la sortie d'erreur ; on les concatène, donc la première ligne qui commence par
+ * une accolade est la charge utile. Ne jette jamais : une sortie illisible est
+ * un FAIT à rapporter, pas une exception au milieu d'un juge.
+ *
+ * @param {string} sortie - sortie combinée de la commande.
+ * @returns {Record<string, unknown>|null}
+ */
+function lireJson(sortie) {
+  const ligne = sortie.split("\n").find((l) => l.trim().startsWith("{"));
+  if (ligne === undefined) return null;
+  try {
+    return JSON.parse(ligne);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -190,15 +227,22 @@ async function principal() {
   //    référence : l'écran et le plan d'administration publient le même objet.
   const status = commande(["orm:migrate:status", "--json"]);
   const rejeu = commande(["orm:migrate", "--json"]);
-  let applique = 0;
-  try {
-    const doc = JSON.parse(
-      rejeu.sortie.split("\n").find((l) => l.trim().startsWith("{")) ?? "{}",
-    );
-    applique = Array.isArray(doc.applied) ? doc.applied.length : 0;
-  } catch {
-    applique = rejeu.code === 0 ? 0 : 1;
-  }
+  // Le verdict que la commande a RENDU — c'est lui qui distingue « en attente »
+  // de « dérive » et d'« historique non adopté », que le code `1` confond.
+  const docStatus = lireJson(status.sortie);
+  const statusVerdict =
+    typeof docStatus?.verdict === "string" ? docStatus.verdict : undefined;
+  // Sémantique conservée à l'identique : une sortie SANS objet vaut « rien
+  // appliqué » (une commande peut légitimement ne rien écrire), tandis qu'un
+  // objet ILLISIBLE sur une commande en échec compte pour une migration — c'est
+  // le seul cas où l'on ne peut pas conclure au calme.
+  const docRejeu = lireJson(rejeu.sortie);
+  const rejeuIllisible = docRejeu === null && /\{/u.test(rejeu.sortie);
+  const applique = Array.isArray(docRejeu?.applied)
+    ? docRejeu.applied.length
+    : rejeuIllisible && rejeu.code !== 0
+      ? 1
+      : 0;
 
   const verdict = judge({
     colonnePubliee,
@@ -206,6 +250,7 @@ async function principal() {
     ecriture: ecriture.status ?? ecriture.error,
     statusCode: status.code,
     applique,
+    statusVerdict,
   });
   // Le DÉTAIL de la collecte accompagne le verdict : sans lui, « la colonne est
   // refusée » ne dit pas si c'est la base qui refuse ou la sonde qui parle mal
@@ -215,7 +260,7 @@ async function principal() {
   console.error(
     `collecte : GET ${liste.status} · POST ${ecriture.status ?? ecriture.error} · ` +
       `témoin ${temoinPresent} · colonne publiée ${colonnePubliee} · ` +
-      `status ${status.code} · appliquées ${applique}`,
+      `status ${status.code} (verdict ${statusVerdict ?? "ILLISIBLE"}) · appliquées ${applique}`,
   );
   exit(verdict.code, verdict.detail);
 }
