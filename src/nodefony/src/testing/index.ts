@@ -2,6 +2,7 @@ import Container from "../Container";
 import Module from "../kernel/Module";
 import type Kernel from "../kernel/Kernel";
 import type { DefaultOptionsService } from "../Service";
+import { readRuntimeState } from "../service/dev/devProcess";
 
 /**
  * Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL.
@@ -51,6 +52,52 @@ import type { DefaultOptionsService } from "../Service";
 // sous-chemin « testing », elle était inatteignable pour son usage principal.
 // Ré-exportée ici : les suites qui l'importent de `nodefony/testing` ne bougent pas.
 export { nodefonyBin } from "../cli/nodefonyBin";
+
+/**
+ * Port de l'application DÉMARRÉE, ou une erreur qui dit pourquoi on l'ignore.
+ *
+ * ## Pourquoi ce n'est pas `?? 5151`
+ *
+ * Un port de repli semble anodin — il ne l'est pas. Quand l'état d'exécution
+ * est illisible (l'application n'a pas démarré, elle a démarré ailleurs, le
+ * répertoire courant n'est pas sa racine), le repli envoie la suite interroger
+ * **le premier serveur qui traîne sur cette machine**. Constaté : un serveur de
+ * développement laissé ouvert par un autre projet a répondu `404` à tous les
+ * cas, et la suite a accusé les routes de l'application au lieu de son décor.
+ *
+ * Un test qui parle au mauvais serveur ne se contente pas d'échouer : il rend
+ * un verdict FAUX, et on cherche le défaut dans le code mesuré.
+ *
+ * Le port ne se devine donc pas. Il se lit — ou la suite s'arrête en disant
+ * quoi vérifier.
+ *
+ * ```ts
+ * import { runningAppPort } from "nodefony/testing";
+ *
+ * const res = await fetch(`http://127.0.0.1:${runningAppPort()}/api/hello`);
+ * ```
+ *
+ * @param root - racine de l'application ; le répertoire courant par défaut,
+ *   ce qui convient à une suite lancée depuis la racine du projet.
+ * @returns le premier port sur lequel l'application écoute.
+ * @throws Quand aucun état d'exécution n'est lisible, ou qu'il n'annonce aucun
+ *   port — jamais un repli silencieux.
+ */
+export function runningAppPort(root: string = process.cwd()): number {
+  const state = readRuntimeState(root);
+  const port = state?.ports?.[0];
+  if (typeof port !== "number") {
+    throw new Error(
+      `aucune application Nodefony démarrée sous « ${root} » : ` +
+        `l'état d'exécution est illisible ou n'annonce aucun port. ` +
+        `Vérifie que le décor a bien lancé « nodefony production --detach --wait », ` +
+        `et que la suite tourne depuis la racine de l'application. ` +
+        `(Un port de repli ferait interroger un serveur ÉTRANGER, et le ` +
+        `verdict porterait sur lui.)`,
+    );
+  }
+  return port;
+}
 
 /** Réglages d'un module de test — tous facultatifs. */
 export interface ITestModuleOptions {

@@ -1,3 +1,4 @@
+import { runningAppPort } from "nodefony/testing";
 import { readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
@@ -16,7 +17,7 @@ import { RealtimeClient } from "nodefony/client";
  * Client WebSocket = `WebSocket` NATIF Node (≥ 22) — zéro dépendance de test.
  *
  * Le port n'est PAS écrit en dur : le serveur publie ses ports effectifs
- * (`readRuntimeState`) — un test qui suppose 5151 casse dès que l'app déclare son
+ * (`runningAppPort`) — un test qui suppose 5151 casse dès que l'app déclare son
  * port (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé l'a fait glisser en dev.
  */
 let BASE = "http://127.0.0.1:5151";
@@ -27,7 +28,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     // Le serveur est PRÊT (le setup global n'est sorti qu'après la readiness) :
     // ses ports sont publiés. Le premier est celui du serveur en clair (une app
     // TLS-only adaptera ces deux lignes).
-    const port = readRuntimeState(process.cwd())?.ports[0] ?? 5151;
+    const port = runningAppPort();
     BASE = `http://127.0.0.1:${port}`;
     WS_BASE = `ws://127.0.0.1:${port}`;
   });

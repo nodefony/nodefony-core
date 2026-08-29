@@ -26,6 +26,7 @@ import {
   stampFormatMarker,
   type IAuditRule,
 } from "../src/migrator/kit";
+import { checkMigrationName } from "../src/migrator/name";
 import { frameworkMigrationsDir } from "../src/migrator/paths";
 import { appMigrationsDir } from "../src/migrator/resolve";
 import { createdTables, loadSources } from "../src/migrator/sources";
@@ -168,36 +169,24 @@ class OrmGenerate extends OrmMigrateCommand {
    * @returns le nom validé, ou `null` si la commande est déjà arrêtée.
    */
   #nameOrFail(opts: IGenerateOptions, connector: string): string | null {
-    const name = opts.name;
-    if (!name) {
-      this.fail(
-        connector,
-        "NF_GENERATE_NAME",
-        "Il manque le nom de la migration.",
-        "Le nom entre dans le tag du fichier, et un tag ne se renomme plus une fois la migration appliquée quelque part : c'est lui qui dit à chaque base ce qu'elle a déjà reçu. Choisis-le pour qu'il se lise dans six mois — ce qui change, pas quand.",
-        [action("nodefony orm:generate --name ajout_du_titre")],
-        opts.json,
-        EXIT.actionRequired,
-      );
-      return null;
+    const verdict = checkMigrationName(opts.name);
+    if (verdict.ok) {
+      return verdict.name;
     }
-    if (!/^[a-z0-9_]+$/.test(name)) {
-      this.fail(
-        connector,
-        "NF_GENERATE_NAME",
-        `Le nom « ${name} » ne convient pas : minuscules, chiffres et « _ » seulement.`,
-        "Il devient un nom de fichier sur trois systèmes. Un espace, un accent ou une majuscule produisent un fichier qui ne se retrouve pas d'une machine à l'autre — et le journal, lui, garde le nom d'origine.",
-        [
-          action(
-            `nodefony orm:generate --name ${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
-          ),
-        ],
-        opts.json,
-        EXIT.actionRequired,
-      );
-      return null;
-    }
-    return name;
+    this.fail(
+      connector,
+      "NF_GENERATE_NAME",
+      verdict.reason,
+      "Le nom entre dans le tag du fichier, et un tag ne se renomme plus une fois la migration appliquée quelque part : c'est lui qui dit à chaque base ce qu'elle a déjà reçu. Il devient aussi un nom de fichier sur trois systèmes — un espace, un accent ou une majuscule produisent un fichier qui ne se retrouve pas d'une machine à l'autre. Choisis-le pour qu'il se lise dans six mois : ce qui change, pas quand.",
+      [
+        action(
+          `nodefony orm:generate --name ${verdict.suggestion ?? "ajout_du_titre"}`,
+        ),
+      ],
+      opts.json,
+      EXIT.actionRequired,
+    );
+    return null;
   }
 
   /**

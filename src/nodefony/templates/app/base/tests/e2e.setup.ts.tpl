@@ -1,9 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import path from "node:path";
-import { nodefonyBin } from "nodefony/testing";
-<% if (it.hasSecurity) { %>import { readRuntimeState } from "nodefony";
-<% } %>
+import { nodefonyBin, runningAppPort } from "nodefony/testing";
 /**
  * Démarre l'application UNE fois pour toute la suite E2E, et l'arrête à la fin.
  *
@@ -18,9 +16,10 @@ import { nodefonyBin } from "nodefony/testing";
  *   - `nodefony stop` : arrêt propre de tout runtime de l'application.
  *
  * Les tests ne reçoivent pas le port par ce fichier : ils le lisent eux-mêmes
- * avec `readRuntimeState(process.cwd())`. Un port écrit en dur casse dès que
- * l'application déclare le sien (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé
- * l'a fait glisser.
+ * avec `runningAppPort()`. Un port écrit en dur casse dès que l'application
+ * déclare le sien (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé l'a fait
+ * glisser — et un port de REPLI est pire encore, il fait interroger le premier
+ * serveur venu sur la machine.
  */
 
 /**
@@ -53,7 +52,7 @@ const bin = nodefonyBin();
  * Surcharge : `NF_E2E_DATABASE_URL` — pour éprouver la suite sur le dialecte
  * réel de production (PostgreSQL, MySQL) plutôt que sur SQLite.
  */
-const URL_BASE_E2E =
+export const URL_BASE_E2E =
   process.env.NF_E2E_DATABASE_URL ??
   `sqlite:${path.resolve("var/databases/e2e.db")}`;
 <% if (it.hasSecurity) { %>
@@ -81,7 +80,7 @@ export const MOT_DE_PASSE_ADMIN = "e2e-admin-jetable";
  * m'authentifier » qu'un test qui conclut « accès refusé » sur un décor cassé.
  */
 export async function connexionAdmin(): Promise<string> {
-  const port = readRuntimeState(process.cwd())?.ports[0] ?? 5151;
+  const port = runningAppPort();
   const res = await fetch(
     `http://127.0.0.1:${port}/nodefony/security/api/auth/login`,
     {

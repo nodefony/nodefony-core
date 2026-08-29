@@ -516,6 +516,14 @@ function renderLayer(
     if (rendered.includes("<%")) {
       throw new Error(`tag eta résiduel dans ${rel}`);
     }
+    // Un gabarit ENTIÈREMENT conditionnel s'enveloppe dans son `if` et ne rend
+    // rien quand la condition est fausse. Écrire le fichier vide poserait dans
+    // le projet un test qui ne teste rien, ou une config que rien ne lit — et
+    // personne ne saurait dire s'il est vide par erreur ou par conception.
+    // Un fichier vide n'ayant aucun usage légitime, l'absence est le bon rendu.
+    if (rendered.trim() === "") {
+      continue;
+    }
     writer.write(path.join(destDir, rel), rendered);
     written.push(rel);
   }

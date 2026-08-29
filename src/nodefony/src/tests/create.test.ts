@@ -1893,6 +1893,29 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         existsSync(path.join(dest, "tests", "e2e.setup.ts")),
         "le setup global e2e doit être généré",
       );
+      // La suite de migration de l'application : elle prouve chez l'UTILISATEUR
+      // ce que le dépôt du framework ne prouve que chez lui. Un préréglage avec
+      // ORM doit la porter — sans elle, une chaîne de migration cassée à
+      // l'installation ne se voit qu'en production.
+      assert.isTrue(
+        existsSync(path.join(dest, "tests", "migrations.e2e.test.ts")),
+        "la suite de migration de l'application doit être générée",
+      );
+      const e2eMigrations = readFileSync(
+        path.join(dest, "tests", "migrations.e2e.test.ts"),
+        "utf8",
+      );
+      // Une application générée n'a PAS `globals` : ses tests importent leurs
+      // primitives. Un fichier écrit avec la convention du dépôt du framework
+      // échoue ici sur `beforeAll is not defined` — mesuré sur une application
+      // réelle, pas déduit.
+      assert.include(e2eMigrations, 'from "vitest"');
+      // Le port se LIT, il ne se devine pas : un repli `?? 5151` fait
+      // interroger le premier serveur venu sur la machine, et le verdict porte
+      // alors sur LUI. Constaté : un serveur de dev laissé ouvert rendait 404 à
+      // toute la suite, qui accusait les routes de l'application.
+      assert.include(e2eMigrations, "runningAppPort()");
+      assert.notInclude(e2eMigrations, "?? 5151");
       // La suite tourne sur une base À ELLE. Partagée avec le développement,
       // elle y sème un compte `admin` au mot de passe publié dans ce fichier ;
       // le seed étant idempotent, `admin` / `admin` cesse ensuite de marcher

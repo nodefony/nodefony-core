@@ -1,3 +1,4 @@
+import { runningAppPort } from "nodefony/testing";
 import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
 <% if (it.hasSecurity) { %>import { connexionAdmin } from "./e2e.setup";
@@ -57,7 +58,7 @@ const entetes = (): Record<string, string> => ({
 
 describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   beforeAll(async () => {
-    const port = readRuntimeState(process.cwd())?.ports[0] ?? 5151;
+    const port = runningAppPort();
     BASE = `http://127.0.0.1:${port}`;
 <% if (it.hasSecurity) { %>    AUTH = { cookie: await connexionAdmin() };
 <% } %>  });

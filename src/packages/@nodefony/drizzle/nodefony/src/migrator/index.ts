@@ -29,6 +29,12 @@ export {
   type IHistoryStep,
 } from "./history";
 export { migrationHash, normalizeSql } from "./hash";
+export {
+  checkMigrationName,
+  suggestMigrationName,
+  MIGRATION_NAME_MAX,
+  type MigrationNameCheck,
+} from "./name";
 export { schemaReader, type ISchemaReader, type SqlQuery } from "./catalog";
 export { describeDivergence } from "./divergence";
 export {

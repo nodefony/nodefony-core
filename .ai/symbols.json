@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-29T09:08:50.059Z",
+  "generated": "2026-08-29T09:27:37.346Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 778,
-    "symbols": 3470,
+    "files": 779,
+    "symbols": 3475,
     "classes": 380,
     "interfaces": 964,
-    "types": 415,
+    "types": 416,
     "enums": 4,
-    "functions": 1359,
-    "constants": 348
+    "functions": 1362,
+    "constants": 349
   },
   "symbols": {
     "Cli": {
@@ -4742,6 +4742,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Réglages d'un module de test — tous facultatifs."
+    },
+    "runningAppPort": {
+      "name": "runningAppPort",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Port de l'application DÉMARRÉE, ou une erreur qui dit pourquoi on l'ignore. ## Pourquoi ce n'est pas `?? 5151` Un port de repli semble anodin — il ne l'est pas. Quand l'état d'exécution est illisib…"
     },
     "createTestModule": {
       "name": "createTestModule",
@@ -19495,6 +19503,38 @@
       "module": "@nodefony/drizzle",
       "description": "Marqueur de format posé en tête de chaque `.sql` — la porte de sortie."
     },
+    "MigrationNameCheck": {
+      "name": "MigrationNameCheck",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/name.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Verdict d'une vérification de nom."
+    },
+    "suggestMigrationName": {
+      "name": "suggestMigrationName",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/name.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Dérive un nom acceptable d'une saisie qui ne l'est pas."
+    },
+    "checkMigrationName": {
+      "name": "checkMigrationName",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/name.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Vérifie un nom de migration, et dit ce qu'il faudrait taper à la place."
+    },
+    "MIGRATION_NAME_MAX": {
+      "name": "MIGRATION_NAME_MAX",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/name.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce qu'un nom de migration a le droit d'être — et ce qu'on propose sinon. **Pourquoi une fonction pure, à part de la commande** : ce nom entre dans le tag du fichier, et un tag ne se renomme plus un…"
+    },
     "frameworkMigrationsDir": {
       "name": "frameworkMigrationsDir",
       "kind": "function",
@@ -27897,6 +27937,14 @@
       "isLogColorEnabled": [
         "src/nodefony/src/syslog/Syslog.ts"
       ],
+      "readRuntimeState": [
+        "src/nodefony/src/testing/index.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devProjects.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
       "IFilterSpec": [
         "src/nodefony/src/types/IAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
@@ -28658,13 +28706,6 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "readRuntimeState": [
-        "src/nodefony/src/kernel/checks/runCheck.ts",
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devProjects.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
@@ -29704,6 +29745,9 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "IAuditRule": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
+      ],
+      "checkMigrationName": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "frameworkMigrationsDir": [
