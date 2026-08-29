@@ -226,6 +226,9 @@
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
 
+- [1× — 08-29c] **Un superviseur de développement ORPHELIN a fait rendre 404 à toute une suite, qui a accusé les routes qu'elle mesurait.** Il tenait `127.0.0.1:5151` (relancé par launchd, parent perdu) pendant que l'application générée écoutait sur `*:5151` : deux serveurs, un seul port, et `curl` atteint le plus spécifique. J'ai d'abord suspecté mon diff — à raison, mais la comparaison des plans de génération l'a innocenté, et c'est un `lsof` qui a tranché. **Avant de diagnostiquer un 404 sur un banc de bout en bout : `lsof -nP -iTCP:<port> -sTCP:LISTEN`, et compter les lignes.**
+- [1× — 08-29c] **Le repli `?? 5151` de quatre gabarits de test fabriquait ce faux verdict.** Un port de repli n'est pas une commodité : quand l'état d'exécution est illisible, il envoie la suite interroger le premier serveur venu sur la machine. Un test qui parle au mauvais serveur ne se contente pas d'échouer — il rend un verdict FAUX, et l'on cherche le défaut dans le code mesuré. Remplacé par une fonction unique qui LÈVE en disant quoi vérifier.
+
 - [1× — 08-27] **`-c core.hooksPath=.husky` a désarmé les hooks pendant deux commits, en silence.**
   Le dépôt utilise `.githooks` ; pointer un dossier VIDE ne produit aucune erreur — git n'exécute
   simplement rien. Ni prettier, ni oxlint, ni commitlint, ni le contrôle des fiches de skills. La
@@ -735,6 +738,8 @@
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
+- [1× — 08-29c] **Quatre réglages de commande ne faisaient pas ce qu'ils annonçaient, et AUCUN n'était testé.** `--up-to <tag inconnu>` ne rencontrait jamais sa condition d'arrêt et adoptait TOUT l'historique en rendant 0 ; `--source <inconnue>` filtrait en SQL sur un nom inexistant et rendait « rien à réparer » ; un `.sql` annoncé par le journal mais absent remontait un `ENOENT` nu ; et `NF_MIGRATE_DATABASE_URL` était **jetée en silence** dès que le connecteur était sqlite — un travail de déploiement migrait alors une base locale éphémère et rendait le code du SUCCÈS. Le point commun : chacun a un chemin « heureux » testé, et le chemin où l'argument est FAUX n'existait dans aucun banc. **Le contrôle : pour chaque drapeau, écrire le couple — le refus SANS lui, le travail AVEC.** C'est ce couple qui a rendu les quatre défauts visibles en une passe.
+
 - [1× — 08-28] **L'outil que je venais d'écrire a accusé à tort, à son premier usage réel.** Le
   compte rendu de fermeture annonçait « aucun commit ne cite #95 » juste après le commit qui le
   citait : `git log --grep='#95\b'` ne mord sur RIEN, le moteur de git étant une expression
@@ -856,6 +861,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
+- [1× — 08-29c] **Un test nommé « elle ne détourne jamais un connecteur SQLite » gravait un faux succès de déploiement.** Il décrivait exactement le comportement fautif — la variable de migration ignorée — avec l'assurance d'un contrat. Personne ne le relit en se demandant s'il a raison : un test vert est une preuve, pas une question. Il n'est tombé que parce que j'ai capturé les ÉCRANS RÉELS pour les faire valider, et qu'un écran annonçait « ✓ appliqué » sur la mauvaise base. **Un test dont le titre commence par « ne … jamais » mérite qu'on demande POURQUOI jamais.**
+
 - [1× — 08-27j] **Le test gravait le SILENCE, et son intitulé disait pourquoi c'était normal.**
   « canal LIBRE non déclaré → autorisé mais 0 provider » avec `expect(denials).to.have.length(0)`
   et le commentaire « pas refusé (canal applicatif libre) ». Il figeait exactement le trou que je
@@ -939,6 +946,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
   démarrer l'application — mais doit dire ce qu'il ne sait pas.
 
 ## 🖥️ L'interactif se prouve au PTY — et chaque couche peut salir la sortie
+
+- [1× — 08-29c] **Mon rapport d'écrans est sorti entièrement MONOCHROME, et j'ai failli le livrer ainsi.** J'avais posé `FORCE_COLOR=1` en croyant la question réglée : les commandes lisaient `process.stdout.isTTY` en direct, sans honorer ni `FORCE_COLOR` ni `NO_COLOR`, alors que le cœur porte déjà la règle. Conséquence de fond : **aucune sortie colorée n'était capturable** — ni dans un fichier, ni en intégration continue, ni dans un rapport. Le défaut n'a été trouvé qu'en REGARDANT la page rendue ; un compte de séquences ANSI sur la capture l'aurait dit plus tôt, et c'est le contrôle à faire dès qu'on capture une sortie censée être colorée.
 
 - `[1× — 08-21c]` **`script(1)` + `printf` piloté = prouver un prompt TTY sans machine ni
   main** : `(sleep 4; printf 'blog'; sleep 1; printf '\r') | script -q cap.txt npx nodefony
@@ -1638,6 +1647,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   rien à mesurer.
 
 ## 👯 Un JUMEAU non vérifié n'est pas vérifié — « aligné » n'est pas « prouvé »
+
+- [1× — 08-29c] **J'ai écrit un gabarit de test avec la convention du DÉPÔT, pas celle d'une application générée.** Le dépôt tourne en `globals: true` ; une application générée, non — ses tests importent leurs primitives. Le fichier a échoué sur `beforeAll is not defined`, dans l'application, à l'exécution. Même famille au cas suivant : le banc visait la base de DÉVELOPPEMENT et non celle de la suite, donc il rendait « en retard » — un verdict juste, sur la mauvaise base. **Un gabarit ne se relit pas, il se GÉNÈRE puis se LANCE** : les deux défauts étaient invisibles à la lecture et évidents à la première exécution.
 
 - [1× — 08-28d] **Mes tickets contredisaient la conception sur DEUX contrats publics, et je les croyais dérivés d'elle.** J'exigeais quatre codes de sortie distincts là où elle en fige trois ; j'écrivais `orm:status` là où elle écrit `orm:migrate:status` — un nom de commande gelé à la publication, cité par ses propres messages d'erreur testés comme contrats. Écrire « d'après le document » n'est pas l'avoir relu : ce qu'on dérive de mémoire diverge silencieusement de sa source, et un contrat gravé faux ne se répare plus qu'en rupture majeure. La confrontation ligne à ligne coûte deux minutes, et c'est le seul geste qui l'attrape.
 - [1× — 08-23e] Deux scripts de banc portent en en-tête « à garder alignés ». J'ai appliqué le même
