@@ -11,10 +11,11 @@ import {
 import {
   DrizzleMigrator,
   describeDivergence,
+  gapAgainstDeclared,
   type IMigrationSource,
 } from "../../nodefony/src/migrator/index";
 import { buildReport } from "../../nodefony/src/migrator/explain";
-import { writeSource } from "./migrator-fixtures";
+import { appendMigration, writeSource } from "./migrator-fixtures";
 
 /**
  * Le verdict `divergent` — la TROISIÈME source.
@@ -38,6 +39,20 @@ const TABLE_D_EPOQUE =
   `  "fingerprint" text NOT NULL,\n` +
   `  "state" text NOT NULL,\n` +
   `  "expiresAt" integer NOT NULL\n` +
+  `)`;
+
+/**
+ * La table CONFORME — celle que le code déclare aujourd'hui, `response`
+ * comprise. Sert le contrôle négatif : sans elle, on ne saurait pas si la
+ * brique répond « écart » à tout ce qu'on lui donne.
+ */
+const TABLE_ACTUELLE =
+  `CREATE TABLE "idempotency_key" (\n` +
+  `  "key" text PRIMARY KEY NOT NULL,\n` +
+  `  "fingerprint" text NOT NULL,\n` +
+  `  "state" text NOT NULL,\n` +
+  `  "expiresAt" integer NOT NULL,\n` +
+  `  "response" text\n` +
   `)`;
 
 describe("Verdict divergent — l'historique est complet, la base est fausse", () => {
@@ -339,5 +354,71 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
       null,
       "tant qu'un geste est déjà dû, la troisième source ne se paie pas",
     );
+  });
+
+  /*
+   *   #114 — ce que l'ADOPTION doit refuser.
+   *
+   *   `orm:migrate:baseline` affirme « la base est à l'état que décrivent ces
+   *   migrations ». L'affirmation n'était jamais vérifiée : la boucle inscrivait
+   *   tout fichier absent de l'historique, y compris une migration écrite une
+   *   minute plus tôt et jamais exécutée. L'historique disait alors « tout est
+   *   appliqué » sur une base qui n'avait pas la colonne — et plus aucune
+   *   commande n'offrait de geste. Mesuré au banc de découvrabilité : le seul
+   *   chemin restant était de détruire la base.
+   *
+   *   La brique qui tranche doit répondre AVANT toute écriture. C'est ce qui la
+   *   distingue de `describeDivergence`, qui refuse de parler tant que le plan
+   *   n'est pas à jour — juste pour un rapport d'état, inutilisable pour
+   *   décider d'agir.
+   */
+  describe("constater la base AVANT d'écrire dans l'historique (#114)", () => {
+    it("l'écart est visible SANS que le plan soit à jour", async () => {
+      await poser(TABLE_D_EPOQUE);
+
+      // Une migration NEUVE, jamais appliquée : le plan n'est plus « à jour ».
+      await appendMigration(sources[0]!.dir, "sqlite", {
+        tag: "0001_jamais_appliquee",
+        statements: ["SELECT 1"],
+      });
+      const etat = await plan();
+      assert.equal(
+        etat.pending.length,
+        1,
+        "le décor doit porter une migration en attente, sinon ce cas n'arme rien",
+      );
+
+      // La source du rapport se TAIT — c'est son contrat, et c'est le trou.
+      assert.equal(
+        await describeDivergence(etat),
+        null,
+        "le rapport d'état ne parle pas tant que le plan n'est pas à jour",
+      );
+
+      // Celle de l'adoption, elle, RÉPOND.
+      const ecart = await gapAgainstDeclared(ORM);
+      assert.ok(
+        ecart,
+        "l'adoption doit pouvoir constater la base avant d'écrire quoi que ce soit",
+      );
+      assert.ok(
+        ecart.blocking.length + ecart.additive.length > 0,
+        "l'écart doit NOMMER la colonne manquante, pas seulement exister",
+      );
+    });
+
+    /*
+     *   Le contrôle NÉGATIF, et il est indispensable : une garde qui mordrait
+     *   sur une base conforme punirait qui n'a rien demandé — et l'adoption
+     *   d'une base à jour est précisément l'usage nominal de la commande.
+     */
+    it("une base CONFORME ne déclenche rien", async () => {
+      await poser(TABLE_ACTUELLE);
+      assert.equal(
+        await gapAgainstDeclared(ORM),
+        null,
+        "aucun écart : l'adoption doit passer sans un mot de plus",
+      );
+    });
   });
 });

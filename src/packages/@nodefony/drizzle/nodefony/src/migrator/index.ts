@@ -36,7 +36,7 @@ export {
   type MigrationNameCheck,
 } from "./name";
 export { schemaReader, type ISchemaReader, type SqlQuery } from "./catalog";
-export { describeDivergence } from "./divergence";
+export { describeDivergence, gapAgainstDeclared } from "./divergence";
 export {
   compareSchema,
   additiveSql,

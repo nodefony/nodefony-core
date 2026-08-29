@@ -5,6 +5,32 @@ import {
   renderStatus,
 } from "../src/migrator/explain";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
+import { EXIT } from "../src/migrator/explain";
+import { gapAgainstDeclared } from "../src/migrator/divergence";
+import type { ISchemaComparison } from "../src/migrator/schemaDiff";
+
+/**
+ * Nomme ce qui manque, en trois mots plutôt qu'en trois lignes.
+ *
+ * Un refus qui dit « la base diverge » sans dire OÙ oblige à rouvrir un client
+ * SQL — c'est-à-dire exactement le geste que ces commandes existent pour éviter.
+ *
+ * @param e - les écarts, tels que la comparaison les rend.
+ * @returns une énumération courte, prête à entrer dans une phrase.
+ */
+function nommerEcart(e: ISchemaComparison): string {
+  const bouts: string[] = [];
+  if (e.missingTables.length > 0) {
+    bouts.push(`table(s) absente(s) : ${e.missingTables.join(", ")}`);
+  }
+  const colonnes = [...e.blocking, ...e.additive].map(
+    (g) => `${g.table}.${g.column}`,
+  );
+  if (colonnes.length > 0) {
+    bouts.push(`colonne(s) absente(s) : ${colonnes.join(", ")}`);
+  }
+  return bouts.join(" · ");
+}
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -46,6 +72,19 @@ interface IBaselineOptions extends IMigrateSharedOptions {
  * nulle, les migrations qui n'y sont pas encore. Rejouée, elle n'inscrit que ce
  * qui manque : elle est donc sûre à relancer.
  *
+ * ## Ce qu'elle REFUSE
+ *
+ * Adopter, c'est affirmer que la base est à l'état que décrivent ces
+ * migrations. Quand la base s'écarte du schéma déclaré, l'affirmation serait
+ * fausse — et une affirmation fausse gravée dans l'historique n'est rattrapable
+ * par aucune commande. La commande constate donc la base AVANT d'écrire, et
+ * refuse (`NF_MIGRATE_BASELINE_AMBIGUOUS`) en nommant ce qui manque.
+ *
+ * Deux cas y échappent, et pour la même raison — quelqu'un a déjà dit ce que la
+ * garde essaie de deviner : `--up-to`, qui borne l'adoption explicitement, et
+ * une cible détournée par `NF_MIGRATE_DATABASE_URL`, où la comparaison porterait
+ * sur la base de la configuration et non sur celle qu'on migre.
+ *
  * @example Adopter jusqu'à une migration précise
  * ```bash
  * nodefony orm:migrate:baseline --up-to 0003_audit_severity
@@ -76,6 +115,56 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
     const style = this.style;
     try {
       const migrator = await this.migrator(resolution, config);
+
+      // 🔴 CONSTATER la base AVANT d'écrire dans l'historique.
+      //
+      // Adopter, c'est AFFIRMER que la base est à l'état que décrivent ces
+      // migrations. L'affirmation n'était jamais vérifiée : la boucle inscrivait
+      // tout fichier absent de l'historique, y compris une migration écrite une
+      // minute plus tôt et jamais exécutée. L'état obtenu est le pire de la
+      // chaîne — l'historique dit « tout est appliqué », la base n'a pas la
+      // colonne, et plus AUCUNE commande n'offre de geste. Mesuré au banc : le
+      // seul chemin restant était de détruire la base.
+      //
+      // La garde ne se déclenche que sans `--up-to` : borner l'adoption, c'est
+      // précisément dire soi-même jusqu'où la base suit, et personne n'a alors à
+      // le deviner. Et elle ne mord que sur un écart RÉEL — une base conforme
+      // s'adopte sans un mot de plus, sinon la garde punirait qui n'a rien
+      // demandé.
+      //
+      // ⚠️ Elle ne s'applique pas non plus quand la cible est DÉTOURNÉE : la
+      // comparaison interroge l'ORM du registre, connecté à la base de la
+      // CONFIGURATION — pas à celle que `NF_MIGRATE_DATABASE_URL` désigne. La
+      // faire mordre là reviendrait à juger une base sur l'état d'une AUTRE,
+      // c'est-à-dire à rendre exactement le genre de verdict faux qu'elle
+      // existe pour empêcher. L'en-tête du rapport dit déjà que la cible est
+      // détournée (#113) : celui qui adopte dans ce cas sait ce qu'il fait.
+      if (opts.upTo === undefined && !resolution.fromMigrateUrl) {
+        const ecart = await gapAgainstDeclared(resolution.connector);
+        if (ecart !== null) {
+          this.fail(
+            resolution.connector,
+            "NF_MIGRATE_BASELINE_AMBIGUOUS",
+            `La base ne correspond pas au schéma déclaré : ${nommerEcart(ecart)}. Rien n'a été inscrit.`,
+            "Adopter reviendrait à déclarer appliquées des migrations que cette base n'a jamais " +
+              "reçues — une affirmation fausse gravée dans l'historique, qu'aucune commande ne " +
+              "peut ensuite rattraper. Dis jusqu'où la base suit avec `--up-to <tag>` : les " +
+              "migrations postérieures resteront en attente et s'appliqueront normalement.",
+            [
+              action(
+                `nodefony orm:migrate:status --connector ${resolution.connector}`,
+              ),
+              action(
+                `nodefony orm:migrate:baseline --up-to <tag> --connector ${resolution.connector}`,
+              ),
+            ],
+            opts.json,
+            EXIT.actionRequired,
+          );
+          return this;
+        }
+      }
+
       const adopted = await migrator.baseline(opts.upTo);
       const plan = await migrator.status();
       const report = await this.report(plan, resolution, config);

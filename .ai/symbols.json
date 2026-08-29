@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T17:51:50.490Z",
+  "generated": "2026-08-29T20:21:28.669Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 783,
-    "symbols": 3516,
+    "symbols": 3518,
     "classes": 380,
     "interfaces": 978,
     "types": 423,
     "enums": 4,
-    "functions": 1382,
+    "functions": 1384,
     "constants": 349
   },
   "symbols": {
@@ -19308,6 +19308,14 @@
       "module": "@nodefony/drizzle",
       "description": "Résumé d'une ligne, pour un message ou un journal."
     },
+    "gapAgainstDeclared": {
+      "name": "gapAgainstDeclared",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce que la base porte face à ce que le code DÉCLARE, sans condition de verdict. Séparé de {@link describeDivergence} parce que les deux répondent à des questions différentes, et que la seconde REFUS…"
+    },
     "describeDivergence": {
       "name": "describeDivergence",
       "kind": "function",
@@ -29942,6 +29950,7 @@
       "EXIT": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
       ],
       "MIGRATION_FORMAT_VERSION": [
@@ -30108,6 +30117,15 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+      ],
+      "gapAgainstDeclared": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
+      ],
+      "ISchemaComparison": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "IMigrationFile": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
@@ -32434,11 +32452,6 @@
       ],
       "hasGap": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
-      ],
-      "ISchemaComparison": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "IMigrationTarget": [

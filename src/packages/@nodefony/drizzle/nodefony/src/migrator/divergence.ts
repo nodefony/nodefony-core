@@ -48,6 +48,39 @@ function comparable(connector: string): IComparableOrm | null {
 }
 
 /**
+ * Ce que la base porte face à ce que le code DÉCLARE, sans condition de verdict.
+ *
+ * Séparé de {@link describeDivergence} parce que les deux répondent à des
+ * questions différentes, et que la seconde REFUSE de répondre avant que le plan
+ * soit à jour — ce qui est juste pour un rapport d'état (un écart n'a de sens
+ * qu'une fois tout appliqué) et faux pour qui doit décider AVANT d'agir.
+ *
+ * Le cas qui a exigé cette séparation : l'adoption d'une base existante. Elle
+ * doit constater l'état RÉEL avant d'écrire quoi que ce soit dans l'historique
+ * — après, il est trop tard, l'affirmation est déjà gravée.
+ *
+ * Ne modifie jamais rien, et ne jette jamais : une base muette n'est pas une
+ * divergence, c'est une panne, qui a sa propre voie de signalement.
+ *
+ * @param connector - nom du connecteur à interroger.
+ * @returns les écarts nommés, ou `null` (rien à dire, ou rien d'interrogeable).
+ */
+export async function gapAgainstDeclared(
+  connector: string,
+): Promise<ISchemaComparison | null> {
+  const orm = comparable(connector);
+  if (!orm?.isConnected()) {
+    return null;
+  }
+  try {
+    const comparison = await orm.compareToDeclared();
+    return hasGap(comparison) ? comparison : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ce qui diverge, NOMMÉ — ou `null` quand il n'y a rien à dire.
  *
  * Producteur UNIQUE de la troisième source : le verdict, la phrase française,
@@ -75,17 +108,8 @@ export async function describeDivergence(
   if (verdictOf(plan) !== "up-to-date") {
     return null;
   }
-  const orm = comparable(plan.connector);
-  if (!orm?.isConnected()) {
-    return null;
-  }
-  try {
-    const comparison = await orm.compareToDeclared();
-    return hasGap(comparison) ? comparison : null;
-  } catch {
-    // La base n'a pas répondu, ou le catalogue est illisible : ce n'est PAS une
-    // divergence, et le prétendre retiendrait un pod pour une panne qui a déjà
-    // sa propre voie de signalement.
-    return null;
-  }
+  // La base n'a pas répondu, le connecteur n'est pas comparable, ou il n'y a
+  // aucun écart : la brique ci-dessus le dit déjà, et une seconde lecture de la
+  // base pour la même question finirait par rendre une autre réponse.
+  return gapAgainstDeclared(plan.connector);
 }

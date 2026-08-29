@@ -41,6 +41,8 @@ export type CommandFailureCode =
   | "NF_MIGRATE_CONFIRM_REQUIRED"
   /** Des migrations en attente SUPPRIMENT des données, hors développement. */
   | "NF_MIGRATE_DESTRUCTIVE"
+  /** Adopter TOUT graverait une affirmation fausse : la base ne suit pas. */
+  | "NF_MIGRATE_BASELINE_AMBIGUOUS"
   /** Le nom de la migration manque, ou ne voyage pas sur les trois systèmes. */
   | "NF_GENERATE_NAME"
   /** Un fichier d'entité refuse de s'importer : le schéma serait AMPUTÉ. */
