@@ -11,6 +11,10 @@ import {
   editDistance,
   closestMatch,
   diagnoseResolveFailure,
+  declaredTypeAtPath,
+  declaredKeysAtPath,
+  coerceEnvValueForType,
+  resolveFailureHint,
 } from "../config/envOverride";
 import { defineEnv, envString } from "../config/index";
 import Kernel from "../kernel/Kernel";
@@ -643,5 +647,143 @@ describe("envOverride — fail-closed (NF__* invalide rejeté par la validation 
     const report = k.getBootReport();
     assert.strictEqual(report.modulesSkipped.length, 1);
     assert.strictEqual(report.modulesSkipped[0].module, "@nodefony/valcfg");
+  });
+});
+
+/**
+ * #111 — une clé DÉCLARÉE mais absente de la valeur doit être surchargeable.
+ *
+ * La résolution ne consultait que les clés PRÉSENTES. Une clé `optional()` sans
+ * défaut n'existe pas dans l'objet : elle était donc déclarée « inconnue » et la
+ * surcharge refusée — pour un réglage pourtant déclaré, documenté et lu par le
+ * code. Ce sont précisément ceux dont l'ABSENCE est signifiante, résolus par
+ * environnement quand on ne les écrit pas, et donc ceux qu'un exploitant a le
+ * plus besoin de poser sur une image déjà construite.
+ *
+ * Le schéma est du JSON pur (`Module.configSchema()`) : le cœur n'importe pas zod.
+ */
+describe("envOverride — le SCHÉMA dit ce que la valeur ignore (#111)", () => {
+  /** Forme réelle rendue par `z.toJSONSchema` : `migrations.check` déclarée, sans défaut. */
+  const schema = {
+    type: "object",
+    properties: {
+      migrations: {
+        type: "object",
+        properties: {
+          dir: { type: "string" },
+          check: { type: "string", enum: ["fail", "warn", "off"] },
+          lockTimeoutMs: { type: "integer" },
+        },
+        required: ["dir", "lockTimeoutMs"],
+      },
+      strict: { type: "boolean" },
+    },
+  };
+
+  it("lit le type déclaré d'un chemin, même absent de la valeur", () => {
+    assert.strictEqual(
+      declaredTypeAtPath(schema, ["migrations", "check"]),
+      "string",
+    );
+    assert.strictEqual(declaredTypeAtPath(schema, ["strict"]), "boolean");
+    assert.strictEqual(declaredTypeAtPath(schema, ["migrations"]), "object");
+  });
+
+  it("un chemin NON déclaré rend null — la garde ne s'assouplit pas", () => {
+    assert.strictEqual(
+      declaredTypeAtPath(schema, ["migrations", "chek"]),
+      null,
+    );
+    assert.strictEqual(declaredTypeAtPath(schema, ["inexistant"]), null);
+    assert.strictEqual(declaredTypeAtPath(undefined, ["strict"]), null);
+  });
+
+  it("pose une clé déclarée mais absente, au TYPE du schéma", () => {
+    const cfg: Record<string, unknown> = {
+      migrations: { dir: "migrations", lockTimeoutMs: 30000 },
+    };
+    assert.strictEqual(
+      applyResolvedPath(cfg, ["migrations", "check"], "warn", "warn", schema),
+      true,
+    );
+    assert.deepStrictEqual(cfg.migrations, {
+      dir: "migrations",
+      lockTimeoutMs: 30000,
+      check: "warn",
+    });
+  });
+
+  it("un booléen absent devient un BOOLÉEN, pas le nombre 1", () => {
+    // Sans le type du schéma il n'y a rien à imiter, et la devinette générique
+    // rendrait `1` — que le parse du module refuserait, pour une surcharge
+    // pourtant correcte.
+    const cfg: Record<string, unknown> = {};
+    assert.strictEqual(
+      applyResolvedPath(cfg, ["strict"], 1, "1", schema),
+      true,
+    );
+    assert.strictEqual(cfg.strict, true);
+  });
+
+  it("crée le conteneur manquant quand la feuille est déclarée", () => {
+    const cfg: Record<string, unknown> = {};
+    assert.strictEqual(
+      applyResolvedPath(cfg, ["migrations", "check"], "off", "off", schema),
+      true,
+    );
+    assert.deepStrictEqual(cfg, { migrations: { check: "off" } });
+  });
+
+  // ── Ce qui doit CONTINUER d'être refusé ──────────────────────────────────
+
+  it("une faute de frappe reste REFUSÉE — pas de clé fantôme", () => {
+    const cfg: Record<string, unknown> = { migrations: { dir: "migrations" } };
+    assert.strictEqual(
+      applyResolvedPath(cfg, ["migrations", "chek"], "warn", "warn", schema),
+      false,
+    );
+    assert.deepStrictEqual(cfg, { migrations: { dir: "migrations" } });
+  });
+
+  it("SANS schéma, le comportement est rigoureusement celui d'avant", () => {
+    const cfg: Record<string, unknown> = { migrations: { dir: "migrations" } };
+    assert.strictEqual(
+      applyResolvedPath(cfg, ["migrations", "check"], "warn", "warn"),
+      false,
+    );
+    assert.deepStrictEqual(cfg, { migrations: { dir: "migrations" } });
+  });
+
+  it("le « did you mean » propose AUSSI les clés déclarées", () => {
+    const cfg: Record<string, unknown> = {
+      migrations: { dir: "migrations", lockTimeoutMs: 30000 },
+    };
+    const sans = resolveFailureHint(cfg, ["migrations", "chek"]);
+    const avec = resolveFailureHint(cfg, ["migrations", "chek"], schema);
+    // Sans le schéma, `check` n'est nulle part : on envoie chercher une faute de
+    // frappe dans un nom qui n'existe pas encore dans la valeur.
+    assert.ok(!sans.includes("check"), "liste amputée sans le schéma");
+    assert.ok(avec.includes("check"), "la clé déclarée apparaît");
+  });
+
+  it("les clés déclarées se lisent à n'importe quel niveau", () => {
+    assert.deepStrictEqual(declaredKeysAtPath(schema, ["migrations"]).sort(), [
+      "check",
+      "dir",
+      "lockTimeoutMs",
+    ]);
+    assert.deepStrictEqual(declaredKeysAtPath(schema, []).sort(), [
+      "migrations",
+      "strict",
+    ]);
+    assert.deepStrictEqual(declaredKeysAtPath(schema, ["inconnu"]), []);
+  });
+
+  it("convertit selon le type déclaré, et retombe sur la devinette sinon", () => {
+    assert.strictEqual(coerceEnvValueForType("on", "boolean"), true);
+    assert.strictEqual(coerceEnvValueForType("42", "integer"), 42);
+    assert.strictEqual(coerceEnvValueForType("1", "string"), "1");
+    // Type non reconnu : on ne prétend pas savoir, la devinette générique agit.
+    assert.strictEqual(coerceEnvValueForType("true", "unknown"), true);
   });
 });

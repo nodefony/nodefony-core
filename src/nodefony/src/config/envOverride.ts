@@ -180,6 +180,85 @@ function resolveKey(node: Record<string, unknown>, seg: string): string | null {
 }
 
 /**
+ * Type déclaré par un JSON Schema pour un chemin — `null` si le chemin n'y est
+ * pas déclaré, ou si le schéma prend une forme que cette lecture ne comprend pas.
+ *
+ * **Le schéma dit ce que la VALEUR ignore.** Une clé optionnelle sans défaut
+ * n'existe pas dans l'objet de configuration : la résolution par les clés
+ * présentes la déclare donc « inconnue » et refuse la surcharge, pour une clé
+ * pourtant déclarée, documentée et lue par le code. Ce sont précisément les
+ * réglages dont l'ABSENCE est signifiante — ceux que le framework résout par
+ * environnement quand on ne les écrit pas — et donc ceux qu'un exploitant a le
+ * plus besoin de poser sur une image déjà construite.
+ *
+ * Le core n'importe PAS zod : chaque module publie son schéma en JSON pur
+ * (`Module.configSchema()`), et cette fonction n'y navigue que par `properties`.
+ * Toute autre forme — `anyOf`, `$ref`, union — rend `null` : on n'assouplit que
+ * ce qu'on COMPREND, et le refus d'aujourd'hui reste le comportement par défaut.
+ *
+ * @param schema - JSON Schema du module, tel que `Module.configSchema()` le rend.
+ * @param path - segments du chemin (minuscules).
+ * @returns le `type` JSON Schema de la feuille, `"unknown"` si déclarée sans type, ou `null`.
+ */
+export function declaredTypeAtPath(
+  schema: unknown,
+  path: string[],
+): string | null {
+  if (path.length === 0 || schema === null || typeof schema !== "object") {
+    return null;
+  }
+  let node = schema as Record<string, unknown>;
+  for (let i = 0; i < path.length; i++) {
+    const props = node.properties;
+    if (props === null || typeof props !== "object") {
+      return null;
+    }
+    const bag = props as Record<string, unknown>;
+    const key = resolveKey(bag, path[i]);
+    if (key === null) {
+      return null;
+    }
+    const next = bag[key];
+    if (next === null || typeof next !== "object") {
+      return null;
+    }
+    node = next as Record<string, unknown>;
+  }
+  const t = node.type;
+  return typeof t === "string" ? t : "unknown";
+}
+
+/**
+ * Convertit une chaîne d'environnement vers le type que le SCHÉMA déclare.
+ *
+ * Sert quand la clé est absente de la valeur : il n'y a alors rien à imiter, et
+ * {@link coerceEnvValueLike} devinerait — `"1"` deviendrait le nombre `1` là où
+ * un booléen est attendu, et le parse du module refuserait une surcharge
+ * pourtant correcte.
+ *
+ * @param raw - la chaîne d'environnement.
+ * @param type - le `type` JSON Schema de la feuille.
+ * @returns la valeur convertie ; la devinette générique si le type est inconnu.
+ */
+export function coerceEnvValueForType(raw: string, type: string): unknown {
+  const t = raw.trim();
+  if (type === "string") {
+    return t;
+  }
+  if (type === "boolean") {
+    const bas = t.toLowerCase();
+    if (BOOLEENS_VRAIS.has(bas)) return true;
+    if (BOOLEENS_FAUX.has(bas)) return false;
+    return t;
+  }
+  if (type === "number" || type === "integer") {
+    const n = Number(t);
+    return Number.isNaN(n) ? t : n;
+  }
+  return coerceEnvValue(t);
+}
+
+/**
  * Pose `value` dans `target` au `path` donné, en résolvant chaque segment contre
  * les clés EXISTANTES (insensible à la casse). N'altère QUE des chemins déjà
  * présents dans la config (= champs ayant un défaut) — un chemin inconnu n'est pas
@@ -191,31 +270,58 @@ function resolveKey(node: Record<string, unknown>, seg: string): string | null {
  * qu'on connaît à la fois la chaîne d'origine et le type attendu. Sans `raw`, le
  * comportement est inchangé — aucun appelant existant ne bouge.
  *
+ * Quand `schema` est fourni, un chemin ABSENT de la valeur mais DÉCLARÉ par le
+ * schéma est créé — c'est le cas d'une clé optionnelle sans défaut, dont
+ * l'absence est signifiante et que rien ne permettait de poser jusqu'ici. La
+ * garde reste entière pour ce qui n'est ni présent ni déclaré : c'est elle qui
+ * empêche une clé fantôme à la mauvaise casse, que le parse du module
+ * strippe ensuite SANS un mot.
+ *
  * @param target - objet de config du module (muté en place).
  * @param path - segments du chemin (minuscules).
  * @param value - valeur à poser (devinée par {@link coerceEnvValue}).
  * @param raw - la chaîne d'environnement d'origine, quand elle est connue.
- * @returns `true` si appliqué, `false` si le chemin ne résout pas vers une clé connue.
+ * @param schema - JSON Schema du module ({@link declaredTypeAtPath}), s'il en publie un.
+ * @returns `true` si appliqué, `false` si le chemin n'est ni présent ni déclaré.
  */
 export function applyResolvedPath(
   target: Record<string, unknown>,
   path: string[],
   value: unknown,
   raw?: string,
+  schema?: unknown,
 ): boolean {
   if (path.length === 0) return false;
+  const declaredType =
+    schema === undefined ? null : declaredTypeAtPath(schema, path);
   let node: Record<string, unknown> = target;
   for (let i = 0; i < path.length - 1; i++) {
     const key = resolveKey(node, path[i]);
-    if (key === null) return false;
+    if (key === null) {
+      // Le conteneur manque. On ne le crée QUE si le schéma déclare la feuille :
+      // sans cette condition on fabriquerait l'arborescence d'une faute de
+      // frappe, et la surcharge paraîtrait appliquée jusqu'à disparaître au parse.
+      if (declaredType === null) return false;
+      const neuf: Record<string, unknown> = {};
+      node[path[i]] = neuf;
+      node = neuf;
+      continue;
+    }
     const next = node[key];
     if (typeof next !== "object" || next === null || Array.isArray(next)) {
       return false;
     }
     node = next as Record<string, unknown>;
   }
-  const leaf = resolveKey(node, path[path.length - 1]);
-  if (leaf === null) return false;
+  const feuille = path[path.length - 1];
+  const leaf = resolveKey(node, feuille);
+  if (leaf === null) {
+    if (declaredType === null) return false;
+    // Rien à imiter : c'est le SCHÉMA qui dit le type, pas la valeur d'à côté.
+    node[feuille] =
+      raw === undefined ? value : coerceEnvValueForType(raw, declaredType);
+    return true;
+  }
   node[leaf] = raw === undefined ? value : coerceEnvValueLike(raw, node[leaf]);
   return true;
 }
@@ -361,23 +467,64 @@ export function diagnoseResolveFailure(
 }
 
 /**
+ * Clés déclarées par le schéma au niveau `prefix` — vide si le schéma ne dit
+ * rien de ce niveau, ou s'il prend une forme que cette lecture ne comprend pas.
+ *
+ * @param schema - JSON Schema du module, ou `undefined`.
+ * @param prefix - segments déjà traversés (minuscules).
+ * @returns les noms de propriétés déclarés à ce niveau.
+ */
+export function declaredKeysAtPath(
+  schema: unknown,
+  prefix: string[],
+): string[] {
+  if (schema === null || typeof schema !== "object") return [];
+  let node = schema as Record<string, unknown>;
+  for (const seg of prefix) {
+    const props = node.properties;
+    if (props === null || typeof props !== "object") return [];
+    const bag = props as Record<string, unknown>;
+    const key = resolveKey(bag, seg);
+    if (key === null) return [];
+    const next = bag[key];
+    if (next === null || typeof next !== "object") return [];
+    node = next as Record<string, unknown>;
+  }
+  const props = node.properties;
+  return props !== null && typeof props === "object"
+    ? Object.keys(props as Record<string, unknown>)
+    : [];
+}
+
+/**
  * Construit le suffixe de message « did you mean » d'un chemin d'override qui n'a
  * pas résolu contre `target` : nomme le segment fautif, propose la clé la plus
  * proche et liste les clés disponibles. Chaîne vide si rien d'exploitable.
  * Partagé par les overrides de MODULE (Kernel) et d'APP (defineConfig).
  *
+ * **Les clés DÉCLARÉES comptent autant que les présentes.** Une clé optionnelle
+ * sans défaut n'existe pas dans la valeur : ne lister que celle-ci proposerait à
+ * l'utilisateur une liste amputée, et lui ferait chercher une faute de frappe
+ * dans un nom parfaitement écrit — l'inverse du service qu'un « did you mean »
+ * doit rendre.
+ *
  * @param target - objet de config cible (lu seul, non muté).
  * @param path - segments du chemin de l'override (minuscules).
+ * @param schema - JSON Schema du module, quand il en publie un.
  * @returns un suffixe commençant par ` — …`, ou `""`.
  */
 export function resolveFailureHint(
   target: Record<string, unknown>,
   path: string[],
+  schema?: unknown,
 ): string {
   const diag = diagnoseResolveFailure(target, path);
-  if (!diag || diag.available.length === 0) return "";
-  const suggestion = closestMatch(diag.segment, diag.available);
-  const keys = diag.available.join(", ");
+  if (!diag) return "";
+  const declarees = declaredKeysAtPath(schema, path.slice(0, diag.index));
+  const disponibles = [...new Set([...diag.available, ...declarees])].sort();
+  if (disponibles.length === 0) return "";
+  const suggestion = closestMatch(diag.segment, disponibles);
+  const keys = disponibles.join(", ");
   return suggestion
     ? ` — segment "${diag.segment}" inconnu, vouliez-vous dire « ${suggestion} » ? (clés: ${keys})`
     : ` — segment "${diag.segment}" inconnu (clés disponibles: ${keys})`;

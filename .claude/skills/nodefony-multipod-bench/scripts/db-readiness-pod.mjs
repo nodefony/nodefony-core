@@ -157,24 +157,20 @@ try {
   await arreterPod(pod);
   pod = null;
 
-  // ── 3. LA MÊME DÉRIVE, en observation ────────────────────────────────────
-  // NON JOUÉE, et c'est ce banc qui l'a découvert : `migrations.check` ne peut
-  // pas être posée par l'environnement. La surcharge `NF__<MODULE>__<CHEMIN>`
-  // navigue dans la VALEUR de la configuration, jamais dans son schéma ; une
-  // clé `optional()` sans défaut n'y figure pas, et le noyau refuse le chemin
-  // en annonçant « segment inconnu » pour une clé pourtant déclarée et lue
-  // (#111). Or c'est le seul moyen dont dispose un exploitant sur une image
-  // déjà construite.
-  //
-  // Le décor était prêt : celui de la scène 2, une base réellement EN RETARD,
-  // où l'indulgence d'une base en avance ne peut rien — donc seule la conduite
-  // expliquerait le verdict. La scène revient telle quelle dès que #111 est
-  // fait ; l'ANNONCER vaut mieux que la retirer, une scène supprimée ne se
-  // réclame jamais.
-  console.log(
-    "\nScène 3 — sonde en observation (check: warn) : NON JOUÉE (#111)\n" +
-      "  ⊘ `migrations.check` n'est pas posable par l'environnement — le pod\n" +
-      "    en observation reste donc non éprouvé de bout en bout.",
+  // ── 3. LA MÊME DÉRIVE, en observation : le pod doit SERVIR ───────────────
+  // Le décor est celui de la scène 2 — une base réellement EN RETARD, pas en
+  // avance : l'indulgence due à une base en avance ne peut donc rien pour ce
+  // pod, et seule la conduite explique le verdict. C'est ce qui rend cette
+  // scène discriminante, et ce qui PROUVE au passage que la surcharge par
+  // l'environnement mord réellement — une clé optionnelle sans défaut n'était
+  // pas posable avant #111, et l'on relisait 503 sans comprendre pourquoi.
+  console.log("\nScène 3 — la MÊME base, sonde en observation (check: warn)");
+  const r3 = await leverPod({ NF__DRIZZLE__MIGRATIONS__CHECK: "warn" });
+  pod = r3.pod;
+  dire(pod.estMort() === null, "le pod est VIVANT — la conduite ne le tue pas");
+  dire(
+    r3.servable,
+    "…et il SERT (/readyz 200) — « journalise et sers quand même » tient parole",
   );
 } catch (e) {
   if (!(e instanceof BancInterrompu)) {

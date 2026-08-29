@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-28T23:40:29.467Z",
+  "generated": "2026-08-29T00:09:52.689Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3461,
+    "symbols": 3464,
     "classes": 380,
     "interfaces": 964,
     "types": 414,
     "enums": 4,
-    "functions": 1351,
+    "functions": 1354,
     "constants": 348
   },
   "symbols": {
@@ -2315,6 +2315,22 @@
       "module": "@nodefony/core",
       "description": "La valeur d'environnement convertie vers le type de ce qu'elle REMPLACE. Une variable d'environnement est toujours une chaîne ; seul le schéma sait ce qu'il attend. {@link coerceEnvValue} devine sa…"
     },
+    "declaredTypeAtPath": {
+      "name": "declaredTypeAtPath",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type déclaré par un JSON Schema pour un chemin — `null` si le chemin n'y est pas déclaré, ou si le schéma prend une forme que cette lecture ne comprend pas. **Le schéma dit ce que la VALEUR ignore.…"
+    },
+    "coerceEnvValueForType": {
+      "name": "coerceEnvValueForType",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Convertit une chaîne d'environnement vers le type que le SCHÉMA déclare. Sert quand la clé est absente de la valeur : il n'y a alors rien à imiter, et {@link coerceEnvValueLike} devinerait — `\"1\"` …"
+    },
     "applyResolvedPath": {
       "name": "applyResolvedPath",
       "kind": "function",
@@ -2362,6 +2378,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rejoue la résolution de `path` contre `target` pour DIAGNOSTIQUER un échec : renvoie le 1ᵉʳ segment qui ne correspond à aucune clé (ou qui traverse un non-objet) + les clés disponibles à ce niveau.…"
+    },
+    "declaredKeysAtPath": {
+      "name": "declaredKeysAtPath",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Clés déclarées par le schéma au niveau `prefix` — vide si le schéma ne dit rien de ce niveau, ou s'il prend une forme que cette lecture ne comprend pas."
     },
     "resolveFailureHint": {
       "name": "resolveFailureHint",

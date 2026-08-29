@@ -1616,6 +1616,20 @@ class Kernel extends Service implements IKernel {
   private applyEnvConfigOverrides(): void {
     const overrides = parseNfEnvOverrides(process.env);
     if (!overrides.length) return;
+    /**
+     * Le schéma d'un module, quand il en publie un — jamais une hypothèse.
+     *
+     * `configSchema()` est une méthode de `Module`, mais rien ne garantit qu'un
+     * module l'ait : un paquet tiers, un module ancien ou un objet de banc
+     * peuvent n'être que compatibles de forme. Appeler à l'aveugle ferait tomber
+     * le BOOT sur une amélioration de confort — le pire échange possible.
+     */
+    const schemaDe = (m: Module): unknown => {
+      const f = (m as unknown as { configSchema?: unknown }).configSchema;
+      return typeof f === "function"
+        ? ((f as () => unknown).call(m) ?? undefined)
+        : undefined;
+    };
     for (const ov of overrides) {
       const mod = this.findModuleBySegment(ov.moduleSeg);
       if (!mod) {
@@ -1631,11 +1645,17 @@ class Kernel extends Service implements IKernel {
       // qu'on découvre le type attendu (le défaut du schéma, déjà en place), et
       // la devinette de `coerceEnvValue` s'y corrige — `TRUSTPROXY=1` doit
       // devenir `true`, pas `Number(1)` que le Zod refuse.
+      // Le SCHÉMA du module accompagne la valeur : une clé déclarée mais sans
+      // défaut n'existe pas dans `options`, et la résolution par les seules clés
+      // présentes la refusait — pour un réglage pourtant déclaré, documenté et
+      // lu. Un module qui ne publie pas de schéma retrouve exactement le
+      // comportement d'avant (`configSchema()` rend `null`).
       const applied = applyResolvedPath(
         mod.options as Record<string, unknown>,
         ov.path,
         ov.value,
         ov.raw,
+        schemaDe(mod),
       );
       if (applied) {
         // Journaliser la valeur RÉELLEMENT posée, jamais la devinette : un
@@ -1655,7 +1675,11 @@ class Kernel extends Service implements IKernel {
       } else {
         this.log(
           `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})` +
-            resolveFailureHint(mod.options as Record<string, unknown>, ov.path),
+            resolveFailureHint(
+              mod.options as Record<string, unknown>,
+              ov.path,
+              schemaDe(mod),
+            ),
           "WARNING",
         );
       }
