@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T17:25:01.946Z",
+  "generatedAt": "2026-08-29T00:15:10.270Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 23,
+      "closed": 26,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 45,
+      "open": 46,
       "title": "10.0.0"
     }
   ],
@@ -219,6 +219,48 @@
       ]
     },
     {
+      "number": 108,
+      "title": "fix(orm): ne pas retenir un pod dont la base est en avance",
+      "url": "https://github.com/nodefony/nodefony-core/issues/108",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 110,
+      "title": "fix(orm): garder le démarrage tolérant quand la sonde ne retient pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/110",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.45,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 111,
+      "title": "fix(core): rendre surchargeable une clé de config absente par défaut",
+      "url": "https://github.com/nodefony/nodefony-core/issues/111",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.46,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 98,
       "title": "feat(orm): ajouter les commandes orm:migrate et leur réglage",
       "url": "https://github.com/nodefony/nodefony-core/issues/98",
@@ -298,6 +340,20 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.8,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 109,
+      "title": "fix(orm): honorer le refus des tables du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/109",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.85,
       "labels": [
         "10.0.0"
       ]

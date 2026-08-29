@@ -479,6 +479,7 @@
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
+- [1× — 08-29] Un ticket écrit la veille demandait un verdict NEUF ; le code l'interdisait — l'énumération est GELÉE avec le format `--json`, un mot de plus casserait tout consommateur exhaustif. Le correctif a dû porter ailleurs : le fait restait juste, c'est ce que la SONDE en déduisait qui était faux. **Écrire un critère de fin sans lire la contrainte du code produit un critère inapplicable.**
 - [1× — 08-28l] **Un banc rouge qui ne POUVAIT pas devenir vert.** Le harnais e2e généré appliquait
   les migrations avant le trafic — c'est le patron de production, il a raison. Mais il applique ce
   qui EXISTE, et personne n'écrivait jamais celles de l'application : les tables du framework
@@ -555,6 +556,8 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 08-29] Une scène de banc VERTE pour la mauvaise raison : elle réutilisait une base « en avance », donc le correctif d'un AUTRE ticket suffisait à la faire passer. Refaite sur une base réellement en retard, elle est tombée — et a révélé un troisième défaut. **Le décor d'une scène décide de ce qu'elle discrimine ; deux scènes vertes ne prouvent pas deux choses.**
+- [1× — 08-29] Une attente en arrière-plan sortie sur un faux signal : elle testait `conclusion == null` là où `gh` rend une chaîne VIDE. La condition n'a jamais été vraie, la boucle a rendu la main immédiatement, et j'ai lu « verdicts » sur des runs encore en cours. Attendre se teste sur le champ qui dit l'état (`status != "completed"`), pas sur celui qui dit le résultat.
 - [1× — 08-28k] **Toutes les tables de tous mes bancs s'écrivaient en minuscules — la casse
   n'était donc éprouvée nulle part.** `to_regclass('User')` : PostgreSQL traite son argument
   comme un IDENTIFIANT et le plie en minuscules, cherchait `user`, rendait NULL, et le lecteur
@@ -773,6 +776,7 @@
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
+- [1× — 08-29] « pod 1 n'a jamais écouté sur 5251 » : le pod écoutait, journalisait et servait la requête — c'est `/` qui mourait dans le magasin de session, faute de table. La sonde du banc interrogeait `/`, donc la réponse dépendait de toute l'application. Trois questions distinctes exigent trois sondes : le port (`/livez`), le service (`/readyz` 200), l'application (`/`). Le même banc a ensuite accusé le port alors qu'un runtime de développement tenait le verrou d'instance unique — cause désormais NOMMÉE (`causeProbable`).
 - [1× — 08-28h] **DEUX messages EXACTS qui envoyaient chercher au mauvais endroit, dans la même
   commande.** (1) Un connecteur SQL enregistré hors configuration recevait « ne gère pas de
   migrations de schéma » : il en gère parfaitement, il manque ses coordonnées de connexion. La
@@ -946,6 +950,8 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 08-29] Le gate d'outillage a refusé le même commit TROIS fois : fiche de skill périmée, scripts non cités, puis fiche re-périmée **par prettier** qui reformatait la ligne que je venais d'ajouter. La régénération va APRÈS le formateur, jamais avant.
+- [1× — 08-29] Un débranchement sur la source ne prouve rien tant que l'artefact n'a pas été rebâti : `false && …` a été ÉLIMINÉ par le bundler, et c'est en lisant `isAheadOnly` dans le `dist` (elle y rendait `false`) que le débranchement s'est constaté. Le pod exécute le bundle, pas le fichier édité.
 - [2× — 08-28l] **Un COMPTE annoncé sans vérifier ce qui a été écrit.** La commande disait
   « migration écrite depuis 6 tables » et en écrivait quatre : deux étaient d'un autre moteur, et
   l'outil les ignore sans un mot. Le message répercutait donc le silence de l'outil, une couche plus
@@ -1444,6 +1450,7 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 08-29] **Un octet NUL rendait deux sources INVISIBLES à `grep` et `rg`** — séparateur écrit en littéral dans une clé. Les outils classent le fichier binaire et cessent d'en rendre les lignes : trois recherches successives ont rendu ZÉRO pendant un diagnostic, dont une preuve d'ABSENCE qui aurait été fausse. Le fichier compilait, ses tests passaient. `\0` échappé produit le même caractère et rend le fichier au texte ; gate `check-no-nul-bytes.mjs`.
 - [1× — 08-28i] **Deux affirmations fausses dans un ticket que j'allais publier, toutes deux « évidentes ».** Une ancre à `:207` (le `http.get` est à `:208`) et un compte annoncé « 3 sites » quand la commande en rend **8** — j'avais écrit le chiffre de mémoire après avoir lu une sortie filtrée. Les deux ont été rattrapées en LANÇANT ce que le ticket annonce, avant de le publier. La règle du skill (« un chiffre vient d'une mesure d'aujourd'hui ») ne mord que si l'on se rappelle qu'un chiffre lu il y a trois minutes dans une sortie tronquée n'est pas une mesure.
 
 - [1× — 08-28d] **J'ai écrit une preuve au terrain qui pointait un chemin inexistant, et dont l'affirmation était l'inverse du réel.** Le ticket disait « `rg -c 'migrate' .claude/skills/nodefony-add-crud/SKILL.md` — le skill ne mentionne aucune migration » : le dossier n'existe pas (le skill vit dans le devkit), et il en parle **trois fois**, correctement — c'est précisément ce qui deviendra faux après le chantier. Une preuve inventée de bonne foi est indiscernable d'une preuve vérifiée : celui qui la contrôle ne trouve rien et doute de tout le corps. Une commande écrite dans un ticket se LANCE avant d'être écrite.
@@ -1537,6 +1544,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
 
+- [1× — 08-29] La surcharge par l'environnement refusait une clé DÉCLARÉE parce qu'elle naviguait dans la VALEUR de la config, jamais dans son schéma : une clé `optional()` sans défaut n'y figure pas. Le message annonçait « segment inconnu » pour un réglage documenté et lu — l'utilisateur relit l'orthographe de sa variable, la trouve juste, et ne peut pas deviner. Ce sont exactement les réglages dont l'ABSENCE est signifiante qui tombaient.
+- [1× — 08-29] Affaiblir une sonde faisait perdre AUTRE CHOSE : le noyau tolérait un échec de démarrage tant qu'une rétention existait, et `check: "warn"` n'inscrivait plus rien. Le réglage qu'on pose pour se donner de l'air transformait une table absente en boucle de redémarrage. **Publier un état et retenir le trafic sont deux actes.**
 - [1× — 08-28k] **Obéir au mode de schéma a rendu la commande de migration INATTEIGNABLE.** En
   production, le démarrage ne fabrique plus les tables — décision juste. Mais `orm:migrate` boote
   un kernel complet : sur une base pas encore migrée, le cycle applicatif tape `User`, l'échec est
@@ -1642,6 +1651,7 @@ xargs kill -9`) — c'est-à-dire exactement ce qu'un agent lit puis applique. E
 
 ## 👻 Un process qui n'écoute AUCUN port échappe à toute purge par port
 
+- [1× — 08-29] `process.exit()` posé dans un `try` ne déroule AUCUN `finally` : les pods déjà levés survivaient au banc avec leur port ET leur connexion à la base, et le run suivant échouait sur un `DROP DATABASE` refusé — pour une raison qui n'était pas la sienne. Pire dans un cas : le pod fautif n'était pas encore rangé dans la variable que le `finally` inspecte, donc personne ne l'aurait arrêté. Abandonner se fait par une sentinelle qu'on JETTE.
 - [1× — 08-23e] Un superviseur de développement orphelin (son enfant tué en `-9`) survit sans tenir
   le moindre port : invisible à `lsof`, absent d'un `pkill -f bin/nodefony` (son titre de process est
   autre), et pourtant bien vivant. Deux conséquences opposées le même soir — il **interdisait** tout

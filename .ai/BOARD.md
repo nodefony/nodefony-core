@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-28 17:25** (UTC).
+> Empreinte prise le **2026-08-29 00:15** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 17 | 1 | — |
-| 10.0.0 | 45 | 23 | 2026-11-15 |
+| 10.0.0 | 46 | 26 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 45 ouverts
+## Jalon 10.0.0 — 46 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -38,6 +38,7 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | 2.7 | P1 — figé à la création | 1 | #100 | feat(studio): montrer l'état des migrations de chaque base |
 | 2.7 | P0 — bloque le reste | 1 | #106 | test(orm): éprouver les migrations dans une application générée |
 | 2.8 | P1 — figé à la création | 0.5 | #101 | feat(cli): livrer de quoi migrer dans l'application générée |
+| 2.85 | P1 — figé à la création | 0.5 | #109 | fix(orm): honorer le refus des tables du framework |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
