@@ -807,4 +807,10 @@ const REFUSAL_MEANING: Record<IMigrationVerdict["code"], string> = {
     "Un fichier ne porte pas le format que cet applicateur sait lire. Lire au mieux un fichier d'un format inconnu, c'est exécuter du SQL découpé au hasard — donc jamais.",
   NF_MIGRATE_LOCK_TIMEOUT:
     "Un autre processus applique des migrations sur cette base, ou en a laissé le verrou pris. Le verrou est tenu par une connexion : il se libère tout seul quand la connexion meurt. Vérifie qu'aucun autre travail de migration ne tourne, puis relance.",
+  NF_MIGRATE_UNKNOWN_TAG:
+    "Le tag demandé ne désigne aucune migration connue — une faute de frappe, ou une casse qui diffère. Le refus est là pour une raison précise : sans point d'arrêt, l'adoption déclare à niveau TOUTES les migrations, y compris celles que la base n'a jamais reçues. Elle ne les recevrait alors plus jamais.",
+  NF_MIGRATE_JOURNAL_MISMATCH:
+    "Le journal d'une source annonce une migration dont le fichier n'est pas dans le dossier. La source est incohérente avec elle-même : une copie incomplète, un fichier ignoré par le gestionnaire de versions, ou un paquet publié sans ses migrations. Rien n'a été appliqué — l'applicateur ne devine jamais le contenu d'un fichier absent.",
+  NF_MIGRATE_UNKNOWN_SOURCE:
+    "La source demandée n'est pas déclarée par cette application. Filtrer sur un nom inconnu ne touche aucune ligne et rend pourtant « rien à réparer » : le marqueur d'échec resterait en place, et la migration suivante échouerait pour la même raison.",
 };

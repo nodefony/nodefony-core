@@ -1,16 +1,18 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
-import type { SqlDialect } from "../../nodefony/config/config";
 import {
-  HISTORY_TABLE,
-  openMigrationDriver,
-} from "../../nodefony/src/migrator/index";
-
-const run = promisify(execFile);
+  ACTIF,
+  ciblesPour,
+  cli,
+  citer,
+  DECOR_MIGRATIONS,
+  MIGRATIONS,
+  assertDialecte,
+  parse,
+  surBaseNeuve,
+} from "./migrate-cli-harness";
 
 /**
  * Les commandes de migration, éprouvées sur un BOOT RÉEL, sur les TROIS dialectes.
@@ -39,11 +41,6 @@ const run = promisify(execFile);
  * en sqlite. Une commande qui répond en sqlite et meurt sur PostgreSQL est un
  * incident de production complet, et il ne se voit nulle part ailleurs.
  *
- * 🔴 D'où l'assertion qui garde tout ce banc : **chaque cas vérifie que le
- * dialecte RÉELLEMENT servi est celui qu'il croit exercer** (`driver.dialect`).
- * Sans elle, un décor mal posé ferait retomber la commande sur sqlite et le banc
- * « PostgreSQL » serait vert sans avoir jamais parlé à PostgreSQL.
- *
  * ## Ce que ce banc coûte, et pourquoi il est fermé par défaut
  *
  * Chaque cas démarre un ou plusieurs kernels complets (quelques secondes
@@ -62,302 +59,14 @@ const run = promisify(execFile);
  *   npx vitest run tests/integration/migrate-cli.e2e.test.ts
  * ```
  *
- * ⚠️ Exige un `npm run build` préalable : c'est le paquet BÂTI que le kernel
- * charge, pas les sources — mesurer les sources ici prouverait autre chose que
- * ce que l'utilisateur exécute.
+ * Le décor (lancement du CLI, base vierge par dialecte, garde de dialecte) vit
+ * dans `migrate-cli-harness.ts` — il est partagé avec le banc des réglages.
  */
 
-const ACTIF = process.env.NF_RUN_CLI_BOOT === "1";
 const suite = ACTIF ? describe : describe.skip;
 
-const PG_URL = process.env.NF_PG_URL;
-const MYSQL_URL = process.env.NF_MYSQL_URL;
-
-/**
- * Schéma PostgreSQL dédié à ce banc.
- *
- * Jamais `public` : les autres suites y travaillent, et un banc qui s'installe
- * dans un schéma partagé rend un verdict qui dépend de ses voisins. Ici c'est
- * plus fort encore — ce banc applique TOUT le jeu de migrations du framework,
- * donc il écraserait leurs tables.
- */
-const SCHEMA_PG = "nf_migrate_cli";
-
-/** Racine du dépôt — il est lui-même une application Nodefony. */
-const ROOT = path.resolve(import.meta.dirname, "../../../../../..");
-
-/** Dossier des migrations livrées par ce paquet. */
-const MIGRATIONS = path.resolve(import.meta.dirname, "../../migrations");
-
-/**
- * Le décor dans lequel les migrations veulent dire quelque chose.
- *
- * Deux variables, et chacune répare une confusion découverte en exécutant :
- *
- * - **`NODE_ENV=production`** donne le mode `none` : le démarrage ne fabrique
- *   plus le schéma. En développement (`auto`), c'est lui qui crée les tables,
- *   et `migrate` refuse alors à juste titre sur une base pourtant créée à
- *   l'instant — le refus est exact, mais il n'apprend rien sur les migrations.
- *   C'est aussi ce qui garantit que le rattrapage additif ne vient PAS reposer
- *   la colonne que le cas « divergent » retire à la main.
- * - **`NF_STORE=memory`** empêche l'application de démarrage de lire la base.
- *   Sans elle, l'application meurt au démarrage sur `no such table: User`
- *   AVANT que la commande ne s'exécute : sur une base pas encore migrée, le
- *   code applicatif qui provisionne l'annuaire tape une table qui n'existe pas
- *   encore. C'est un vrai trou de la chaîne — un exemplaire devrait attendre
- *   sa migration, pas mourir en boucle —, mais il vit dans le gabarit
- *   d'application (ticket #101), pas dans les commandes éprouvées ici.
- */
-const DECOR_MIGRATIONS = {
-  NODE_ENV: "production",
-  NF_STORE: "memory",
-} as const;
-
-interface IRun {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-/**
- * Lance la ligne de commande et rend ce que le processus a VRAIMENT produit.
- *
- * Le code de sortie est lu sur le processus, jamais déduit d'une valeur de
- * retour : c'est précisément là que les codes se perdent.
- */
-async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<IRun> {
-  try {
-    const { stdout, stderr } = await run("npx", ["nodefony", ...args], {
-      cwd: ROOT,
-      env: { ...process.env, ...env },
-      maxBuffer: 32 * 1024 * 1024,
-    });
-    return { code: 0, stdout, stderr };
-  } catch (e) {
-    const err = e as { code?: number; stdout?: string; stderr?: string };
-    return {
-      code: typeof err.code === "number" ? err.code : -1,
-      stdout: err.stdout ?? "",
-      stderr: err.stderr ?? "",
-    };
-  }
-}
-
-/**
- * Extrait l'objet JSON d'une sortie standard.
- *
- * ⚠️ On ne « cherche pas la ligne qui ressemble à du JSON » : ce serait
- * accepter la pollution qu'on prétend interdire. La sortie standard entière
- * doit se parser — c'est ça, un flux pur.
- */
-function parse(stdout: string): Record<string, unknown> {
-  const brut = stdout.trim();
-  // `npx` écrit ses propres avis quand il lance un binaire du projet ; ils
-  // partent avant que le processus n'existe. On les retire par la GAUCHE, en
-  // exigeant que tout ce qui suit la première accolade se parse d'un bloc.
-  const debut = brut.indexOf("{");
-  assert.notEqual(debut, -1, `aucun objet JSON dans la sortie :\n${brut}`);
-  const objet = brut.slice(debut);
-  return JSON.parse(objet) as Record<string, unknown>;
-}
-
-/**
- * Cite un identifiant SQL dans la grammaire du dialecte.
- *
- * @param dialect - dialecte cible.
- * @param nom - identifiant à citer.
- * @returns l'identifiant cité.
- */
-function citer(dialect: SqlDialect, nom: string): string {
-  return dialect === "mysql" ? `\`${nom}\`` : `"${nom}"`;
-}
-
-/**
- * Tables créées par les migrations livrées pour ce dialecte.
- *
- * **Dérivée de la SOURCE, jamais écrite à la main** : une liste figée serait
- * juste le jour où on l'écrit, puis muette à la migration suivante — et le banc
- * laisserait derrière lui des tables qui fausseraient son voisin, sans que rien
- * ne le signale.
- *
- * @param dialect - dialecte dont on lit le jeu de migrations.
- * @returns les noms de tables, sans doublon.
- */
-async function tablesLivrees(dialect: SqlDialect): Promise<string[]> {
-  const dir = path.join(MIGRATIONS, dialect);
-  const fichiers = (await fs.readdir(dir)).filter((f) => f.endsWith(".sql"));
-  const noms = new Set<string>();
-  for (const fichier of fichiers) {
-    const sql = await fs.readFile(path.join(dir, fichier), "utf8");
-    for (const m of sql.matchAll(
-      /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z0-9_]+)[`"]?/gi,
-    )) {
-      noms.add(m[1] as string);
-    }
-  }
-  return [...noms];
-}
-
-/** Une base vierge, prête à recevoir les migrations d'un cas. */
-interface IBase {
-  /** URL à poser dans `NF_DATABASE_URL`. */
-  url: string;
-  /** Exécute du DDL d'administration SUR cette base (l'`ALTER` fait à la main). */
-  sql(statements: string[]): Promise<void>;
-  /** Rend la base à son état d'avant — appelé quoi qu'il arrive. */
-  liberer(): Promise<void>;
-}
-
-/** Un dialecte à exercer, et la façon de lui fournir une base vierge. */
-interface ICible {
-  dialect: SqlDialect;
-  /**
-   * Suffixe du `describe`.
-   *
-   * Parenthésé (`(postgres)`) parce que c'est la forme que le rapporteur de
-   * gates du dépôt cherche pour prouver qu'un dialecte a bien été exercé.
-   */
-  label: string;
-  actif: boolean;
-  neuve(): Promise<IBase>;
-}
-
-/**
- * Ouvre un pilote d'administration sur une cible et y joue du DDL.
- *
- * @param cible - dialecte et coordonnées de connexion.
- * @param statements - DDL à exécuter dans l'ordre.
- */
-async function execSur(
-  cible: { dialect: SqlDialect; url?: string; filename?: string },
-  statements: string[],
-): Promise<void> {
-  const pilote = await openMigrationDriver(cible);
-  try {
-    for (const statement of statements) {
-      await pilote.exec(statement);
-    }
-  } finally {
-    await pilote.close();
-  }
-}
-
-/**
- * URL PostgreSQL ancrée sur le schéma du banc.
- *
- * @param base - URL du serveur.
- * @param schema - schéma à poser en `search_path`.
- * @returns l'URL, `options` compris.
- */
-function urlSchema(base: string, schema: string): string {
-  const url = new URL(base);
-  url.searchParams.set("options", `-c search_path=${schema}`);
-  return url.toString();
-}
-
-const CIBLES: ICible[] = [
-  {
-    dialect: "sqlite",
-    label: "(sqlite)",
-    actif: true,
-    neuve: async () => {
-      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-migrate-cli-"));
-      const filename = path.join(dir, "banc.db");
-      return {
-        url: `sqlite:${filename}`,
-        sql: (statements) =>
-          execSur({ dialect: "sqlite", filename }, statements),
-        liberer: () => fs.rm(dir, { recursive: true, force: true }),
-      };
-    },
-  },
-  {
-    dialect: "postgres",
-    label: "(postgres)",
-    actif: Boolean(PG_URL),
-    // Un schéma dédié, détruit et recréé : c'est une base parfaitement vierge
-    // sans toucher à `public`, où travaillent les autres suites.
-    neuve: async () => {
-      const serveur = PG_URL as string;
-      const recreer = [
-        `DROP SCHEMA IF EXISTS ${SCHEMA_PG} CASCADE`,
-        `CREATE SCHEMA ${SCHEMA_PG}`,
-      ];
-      await execSur({ dialect: "postgres", url: serveur }, recreer);
-      const url = urlSchema(serveur, SCHEMA_PG);
-      return {
-        url,
-        sql: (statements) => execSur({ dialect: "postgres", url }, statements),
-        liberer: () =>
-          execSur({ dialect: "postgres", url: serveur }, [
-            `DROP SCHEMA IF EXISTS ${SCHEMA_PG} CASCADE`,
-          ]),
-      };
-    },
-  },
-  {
-    dialect: "mysql",
-    label: "(mysql)",
-    actif: Boolean(MYSQL_URL),
-    // 🔴 Pas de schéma dédié ici, et ce n'est PAS un choix : l'utilisateur
-    // applicatif du décor n'a pas le droit de créer une base (`ERROR 1044`,
-    // constaté). L'isolation se fait donc par SUPPRESSION des tables que les
-    // migrations livrées créent — la même règle, une autre implémentation,
-    // imposée par ce que le serveur permet.
-    neuve: async () => {
-      const url = MYSQL_URL as string;
-      const tables = [...(await tablesLivrees("mysql")), HISTORY_TABLE];
-      const vider = [
-        "SET FOREIGN_KEY_CHECKS = 0",
-        ...tables.map((t) => `DROP TABLE IF EXISTS \`${t}\``),
-        "SET FOREIGN_KEY_CHECKS = 1",
-      ];
-      await execSur({ dialect: "mysql", url }, vider);
-      return {
-        url,
-        sql: (statements) => execSur({ dialect: "mysql", url }, statements),
-        liberer: () => execSur({ dialect: "mysql", url }, vider),
-      };
-    },
-  },
-];
-
-/**
- * Déroule un cas sur une base vierge, et la libère quoi qu'il arrive.
- *
- * @param cible - dialecte exercé.
- * @param corps - le cas, qui reçoit la base et l'environnement à passer au CLI.
- */
-async function surBaseNeuve(
-  cible: ICible,
-  corps: (base: IBase, env: NodeJS.ProcessEnv) => Promise<void>,
-): Promise<void> {
-  const base = await cible.neuve();
-  try {
-    await corps(base, { ...DECOR_MIGRATIONS, NF_DATABASE_URL: base.url });
-  } finally {
-    await base.liberer();
-  }
-}
-
-/**
- * Vérifie qu'une sortie décrit bien le dialecte que le cas croit exercer.
- *
- * 🔴 C'est la garde de tout ce banc : un décor mal posé fait retomber la
- * commande sur la base par défaut, et le cas « PostgreSQL » passerait sans avoir
- * jamais parlé à PostgreSQL.
- *
- * @param doc - charge utile `--json` d'une commande.
- * @param dialect - dialecte attendu.
- */
-function assertDialecte(doc: Record<string, unknown>, dialect: SqlDialect) {
-  const driver = doc.driver as Record<string, unknown> | undefined;
-  assert.equal(
-    driver?.dialect,
-    dialect,
-    `la commande a servi « ${String(driver?.dialect)} » au lieu de « ${dialect} » — décor non appliqué`,
-  );
-}
+/** Cibles de CE banc — son propre schéma PostgreSQL, jamais celui d'un voisin. */
+const CIBLES = ciblesPour("nf_migrate_cli");
 
 for (const cible of CIBLES) {
   const casDialecte = ACTIF && cible.actif ? describe : describe.skip;

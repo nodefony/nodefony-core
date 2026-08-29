@@ -56,7 +56,13 @@ export type MigrationVerdictCode =
   /** Un fichier ne porte pas le format que cet applicateur sait lire. */
   | "NF_MIGRATE_UNKNOWN_FORMAT"
   /** Le verrou n'a pas pu être obtenu dans le délai imparti. */
-  | "NF_MIGRATE_LOCK_TIMEOUT";
+  | "NF_MIGRATE_LOCK_TIMEOUT"
+  /** Le tag demandé (`--up-to`) ne désigne aucune migration connue. */
+  | "NF_MIGRATE_UNKNOWN_TAG"
+  /** La source demandée (`--source`) n'est pas déclarée par cette application. */
+  | "NF_MIGRATE_UNKNOWN_SOURCE"
+  /** Le journal d'une source annonce un fichier que le dossier ne contient pas. */
+  | "NF_MIGRATE_JOURNAL_MISMATCH";
 
 /** Commande à exécuter pour lever un refus — l'agent lit `nextActions[0]`. */
 export interface IMigrationAction {

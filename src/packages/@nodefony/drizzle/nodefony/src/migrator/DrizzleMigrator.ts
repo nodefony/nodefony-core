@@ -204,6 +204,9 @@ export class DrizzleMigrator {
         this.#options.sources,
         this.#options.dialect,
       );
+      if (upTo !== undefined) {
+        this.#assertKnownTag(upTo, loaded.files);
+      }
       const history = await readHistory(driver);
       const known = new Set(history.map((row) => identity(row)));
       for (const file of loaded.files) {
@@ -252,6 +255,9 @@ export class DrizzleMigrator {
     cleared: { source: string; tag: string }[];
     rehashed: { source: string; tag: string }[];
   }> {
+    if (options.source !== undefined) {
+      this.#assertKnownSource(options.source);
+    }
     const driver = await openMigrationDriver(this.#options);
     try {
       await driver.lock(this.#options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
@@ -655,6 +661,114 @@ export class DrizzleMigrator {
         nextActions: detail.actions,
       },
       message,
+    );
+  }
+
+  /**
+   * Refuse un `--up-to` qui ne désigne aucune migration connue.
+   *
+   * Sans ce contrôle, la boucle d'adoption ne rencontre jamais sa condition
+   * d'arrêt et inscrit **tout** l'historique : une faute de frappe déclare à
+   * niveau des migrations que la base n'a jamais reçues, et elle ne les
+   * recevra plus jamais. Le geste le plus destructeur de la chaîne est aussi
+   * celui qui se tapait sans filet.
+   *
+   * @param upTo - tag demandé.
+   * @param files - fichiers connus, toutes sources confondues.
+   * @throws MigrationVerdictError quand le tag est inconnu.
+   */
+  #assertKnownTag(upTo: string, files: readonly IMigrationFile[]): void {
+    if (files.some((file) => file.tag === upTo)) {
+      return;
+    }
+    const tags = files.map((file) => file.tag);
+    // La casse d'abord : un tag recopié depuis un tableau, un journal en
+    // majuscules ou une complétion de terminal ne diffère souvent que par là.
+    const casse = tags.find((tag) => tag.toLowerCase() === upTo.toLowerCase());
+    const action = casse ?? tags[tags.length - 1];
+    throw this.#verdict(
+      "NF_MIGRATE_UNKNOWN_TAG",
+      {
+        tag: upTo,
+        facts: { known: tags, ...(casse ? { caseMismatch: casse } : {}) },
+        actions: action
+          ? [
+              {
+                command: `nodefony orm:migrate:baseline --connector ${this.connector} --up-to ${action}`,
+                args: [
+                  "orm:migrate:baseline",
+                  "--connector",
+                  this.connector,
+                  "--up-to",
+                  action,
+                ],
+              },
+            ]
+          : [
+              {
+                command: `nodefony orm:migrate:status --connector ${this.connector}`,
+                args: ["orm:migrate:status", "--connector", this.connector],
+              },
+            ],
+      },
+      casse
+        ? `Le tag « ${upTo} » n'existe pas, mais « ${casse} » oui : un tag de ` +
+            `migration est SENSIBLE à la casse. Sans ce refus, l'adoption ne ` +
+            `se serait arrêtée nulle part et aurait déclaré à niveau TOUTES ` +
+            `les migrations connues.`
+        : `Le tag « ${upTo} » ne désigne aucune migration connue. L'adoption ` +
+            `s'arrête ici plutôt que de déclarer à niveau TOUT l'historique : ` +
+            `une base ne reçoit jamais une migration qu'elle croit déjà avoir.`,
+    );
+  }
+
+  /**
+   * Refuse un `--source` que cette application ne déclare pas.
+   *
+   * Le filtre part sinon en SQL sur un nom qui n'existe pas : zéro ligne
+   * touchée, code 0, « Rien à réparer ». L'exploitant croit avoir réparé et
+   * relance une migration qui échouera pour la même raison qu'avant.
+   *
+   * @param source - nom demandé.
+   * @throws MigrationVerdictError quand la source n'est pas déclarée.
+   */
+  #assertKnownSource(source: string): void {
+    const noms = this.#options.sources.map((s) => s.name);
+    if (noms.includes(source)) {
+      return;
+    }
+    const casse = noms.find(
+      (nom) => nom.toLowerCase() === source.toLowerCase(),
+    );
+    throw this.#verdict(
+      "NF_MIGRATE_UNKNOWN_SOURCE",
+      {
+        source,
+        facts: { known: noms, ...(casse ? { caseMismatch: casse } : {}) },
+        actions: [
+          {
+            command: casse
+              ? `nodefony orm:migrate:repair --connector ${this.connector} --source ${casse}`
+              : `nodefony orm:migrate:repair --connector ${this.connector}`,
+            args: casse
+              ? [
+                  "orm:migrate:repair",
+                  "--connector",
+                  this.connector,
+                  "--source",
+                  casse,
+                ]
+              : ["orm:migrate:repair", "--connector", this.connector],
+          },
+        ],
+      },
+      casse
+        ? `La source « ${source} » n'est pas déclarée, mais « ${casse} » oui : ` +
+            `un nom de source est SENSIBLE à la casse. Réparer sur un nom ` +
+            `inconnu ne touche rien et rend pourtant « rien à réparer ».`
+        : `La source « ${source} » n'est pas déclarée par cette application. ` +
+            `Réparer sur un nom inconnu ne touche rien et rend pourtant ` +
+            `« rien à réparer » — le marqueur d'échec resterait en place.`,
     );
   }
 

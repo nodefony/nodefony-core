@@ -157,7 +157,37 @@ async function readMigrationFile(
   entry: IJournalEntry,
 ): Promise<IMigrationFile> {
   const file = path.join(dir, `${entry.tag}.sql`);
-  const content = await fs.readFile(file, "utf8");
+  let content: string;
+  try {
+    content = await fs.readFile(file, "utf8");
+  } catch (cause) {
+    // Le journal annonce ce fichier ; le dossier ne l'a pas. Laisser remonter
+    // l'erreur système nue donnerait un `ENOENT` sans connecteur, sans source
+    // et sans geste — un refus que ni un humain ni un agent ne peut traiter,
+    // au beau milieu d'un déploiement.
+    throw new MigrationVerdictError(
+      {
+        code: "NF_MIGRATE_JOURNAL_MISMATCH",
+        connector: "",
+        source,
+        tag: entry.tag,
+        facts: {
+          file,
+          reason: cause instanceof Error ? cause.message : String(cause),
+        },
+        nextActions: [
+          {
+            command: "npm run generate:migrations",
+            args: ["run", "generate:migrations"],
+          },
+        ],
+      },
+      `Le journal de la source « ${source} » annonce la migration ` +
+        `« ${entry.tag} », mais son fichier « ${file} » est introuvable. ` +
+        `Cette source est incohérente avec elle-même : rien n'a été appliqué, ` +
+        `et l'applicateur ne devine jamais le contenu d'un fichier absent.`,
+    );
+  }
   const normalized = normalizeSql(content);
   const marker = normalized.split("\n", 1)[0]?.trim() ?? "";
   if (marker !== FORMAT_MARKER) {
@@ -215,10 +245,48 @@ export function splitStatements(normalized: string): string[] {
  * @returns le statement sans ses lignes de commentaire de tête.
  */
 function stripComments(statement: string): string {
-  return statement
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n");
+  const lignes = statement.split("\n");
+  const gardees: string[] = [];
+  let dansChaine = false;
+  for (const ligne of lignes) {
+    // Une ligne n'est un commentaire QUE si elle commence hors chaîne. Un
+    // remplissage écrit à la main (`--custom` sert exactement à ça) peut porter
+    // un texte multi-ligne dont une ligne commence par deux tirets : la retirer
+    // change silencieusement la donnée insérée, ou casse le SQL.
+    if (!dansChaine && ligne.trimStart().startsWith("--")) {
+      continue;
+    }
+    gardees.push(ligne);
+    dansChaine = ferméSurChaîneOuverte(ligne, dansChaine);
+  }
+  return gardees.join("\n");
+}
+
+/**
+ * Dit si la fin de la ligne se trouve à l'INTÉRIEUR d'une chaîne littérale.
+ *
+ * Balayage volontairement minimal : seule l'apostrophe compte, et `''` est son
+ * échappement — c'est la grammaire commune aux trois dialectes. Il ne s'agit
+ * pas d'analyser du SQL, seulement de savoir si la ligne suivante peut porter
+ * un commentaire.
+ *
+ * @param ligne - ligne à balayer.
+ * @param ouverte - vrai si une chaîne était déjà ouverte en début de ligne.
+ * @returns vrai si une chaîne reste ouverte à la fin de la ligne.
+ */
+function ferméSurChaîneOuverte(ligne: string, ouverte: boolean): boolean {
+  let dans = ouverte;
+  for (let i = 0; i < ligne.length; i += 1) {
+    if (ligne[i] !== "'") {
+      continue;
+    }
+    if (dans && ligne[i + 1] === "'") {
+      i += 1;
+      continue;
+    }
+    dans = !dans;
+  }
+  return dans;
 }
 
 /**
