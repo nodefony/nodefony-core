@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-08-29T15:27:14.616Z",
+  "generatedAt": "2026-08-29T20:34:25.028Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 17,
+      "open": 16,
       "title": "10.1"
     },
     {
-      "closed": 32,
+      "closed": 36,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 40,
       "title": "10.0.0"
@@ -348,14 +348,70 @@
       "number": 109,
       "title": "fix(orm): honorer le refus des tables du framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/109",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.85,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 113,
+      "title": "feat(orm): dire quelle base une commande de migration vise",
+      "url": "https://github.com/nodefony/nodefony-core/issues/113",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.9,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 114,
+      "title": "fix(orm): ne pas adopter une migration que la base n'a jamais reçue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/114",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.91,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 115,
+      "title": "fix(orm): ne pas annoncer un schéma inchangé quand la base diverge",
+      "url": "https://github.com/nodefony/nodefony-core/issues/115",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.92,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 112,
+      "title": "ci(scaffold): éprouver les migrations générées sur les trois moteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/112",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.95,
+      "labels": [
+        "10.1"
       ]
     },
     {
@@ -1180,20 +1236,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 53,
-      "labels": [
-        "10.1"
-      ]
-    },
-    {
-      "number": 112,
-      "title": "ci(scaffold): éprouver les migrations générées sur les trois moteurs",
-      "url": "https://github.com/nodefony/nodefony-core/issues/112",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 53.5,
       "labels": [
         "10.1"
       ]

@@ -57,6 +57,8 @@
   runs passaient pour des succès : schéma correct, état à jour, ressource qui s'écrit, tests verts.
   Une donnée témoin transforme « ne détruis pas » d'une consigne en un FAIT mesurable.
 
+- [1× — 08-29f] **Le geste de remplacement ne suffit pas si le PRODUIT ferme la dernière porte.** Après avoir écrit dans le skill « éprouve une migration sur une base d'ESSAI », le banc est resté rouge 3/3 — et le transcript montre que l'agent avait CHARGÉ le skill (une première) et appliqué sa méthode. Il a détruit parce que trois réponses, vraies chacune séparément, ne laissaient plus AUCUN geste : `orm:migrate` n'a rien en attente, `orm:migrate:status` rend 0, `orm:generate` répond « le schéma n'a pas bougé ». Qui lit ces trois-là conclut que l'outil ne peut plus rien pour lui. Un interdit ne tient que si un chemin reste OUVERT — et c'est l'outil, pas la doc, qui doit le laisser ouvert.
+
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
 - **Importer `test-all.ts` pour une seule fonction relançait l'infra, le build et la batterie
@@ -307,6 +309,8 @@
 - **`os.tmpdir()` n'est PAS `/tmp` sous macOS** : c'est un dossier privé par utilisateur sous `/var/folders/…`. On cherchait dans `/tmp` (224 Ko) pendant que **13 Go** grossissaient à côté. Un outil qui agit sur un chemin doit l'ANNONCER, sinon l'appelant cherche ailleurs. [1× — 08-25]
 - **Le verdict du gate se prend depuis SA cible** : il formate avec `cwd: dest` (le dossier de l'app générée). Reproduire la mesure ailleurs — même config, même version — rend un autre résultat, et on croit le sien. [1× — 08-25]
 
+- [1× — 08-29f] **Ma propre garde jugeait une AUTRE base que celle dont elle décidait le sort.** Elle interroge l'ORM du registre — connecté à la base de la CONFIGURATION — pour décider si l'on peut adopter celle que la commande MIGRE ; dès que `NF_MIGRATE_DATABASE_URL` est posée, ce sont deux bases différentes. Trouvé en écrivant la garde, pas après : le réflexe qui l'a attrapé est de se demander, pour chaque fait consulté, DE QUI il parle.
+
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
 - [1× — 08-29d] **Deux réglages documentés ne faisaient pas ce qu'ils promettaient, chacun à sa façon.** `migrations.divergence: "off"` — décrite « `off` : rien » — n'avait AUCUN lecteur : la comparaison tournait quand même, au prix d'une requête par table, et son résultat était publié ; elle se comportait donc comme `report`. Et le commentaire de `NF_E2E_DATABASE_URL`, dans le gabarit du décor livré à chaque application, promettait « éprouver la suite sur le dialecte réel de production (PostgreSQL, MySQL) » : constaté en essayant, une application SQLite pointée vers PostgreSQL refuse de démarrer en nommant l'entité non portée. **Une valeur d'énumération se cherche par son LECTEUR (`rg` sur la valeur, pas sur la clé), et une promesse de variable d'environnement s'ESSAIE — c'est en dix secondes qu'on sait si elle tient.**
@@ -534,6 +538,8 @@
   pas le même chemin dès qu'une plateforme distingue les deux. Et mes tests du jour portaient le
   même défaut, non encore poussé. [1× — 08-22f]
 
+- [1× — 08-29f] **Un filtre appliqué au chemin ABSOLU rend le watch aveugle, sans un mot.** Exclure les dossiers de travail (`tmp`, `var`) du watch de développement est juste — mais `ignored` reçoit un chemin absolu, et `TMPDIR` vaut `/var/folders/…` sur macOS, là où nos propres bancs de scaffold créent l'application. Chaque entrée aurait été rejetée. La règle ne vaut que DANS le projet : relativiser AVANT de filtrer (axiome de portabilité n°2), et le prouver en débranchant la seule relativisation.
+
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
 - [1× — 08-29] Un ticket écrit la veille demandait un verdict NEUF ; le code l'interdisait — l'énumération est GELÉE avec le format `--json`, un mot de plus casserait tout consommateur exhaustif. Le correctif a dû porter ailleurs : le fait restait juste, c'est ce que la SONDE en déduisait qui était faux. **Écrire un critère de fin sans lire la contrainte du code produit un critère inapplicable.**
@@ -610,6 +616,8 @@
 - **L'état de câblage n'a pas à être mémorisé : il EST dans les fichiers.** Un agent qui porte la
   clé a été câblé un jour ⇒ rotation muette. Un fichier d'état parallèle aurait menti à la première
   édition manuelle. `[1× — 08-22]`
+
+- [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
@@ -1266,6 +1274,10 @@ production"` ne tuait rien (Nodefony renomme ses process) et mon `;` au lieu d'u
 - **Un `rm -rf` composé que zsh REFUSE n'exécute AUCUNE de ses parties** — un glob sans correspondance annule la commande entière. J'ai annoncé « décors nettoyés » sur un compte que je n'avais pas relié au geste ; 156 Mo étaient toujours là. Même famille que la chaîne `&&` interrompue. [1× — 08-25]
 - **Prettier lancé sur une copie sous `tmp/` ne traite RIEN** : le `.prettierignore` du dépôt écarte ce dossier, la commande sort **0** sans avoir lu le fichier — j'en ai conclu « 0 écart » sur un fichier que le gate déclarait non conforme. La sortie masquée (`>/dev/null`) a caché que rien n'avait été traité. [1× — 08-25]
 
+- [1× — 08-29f] **Le décor se RÉPARAIT tout seul avant que je le mesure.** Armé une base à laquelle il manque une table, lancé la commande : la garde n'a pas mordu, et j'ai failli conclure au défaut. En développement, `ddl: auto` recrée la table au démarrage — l'écart n'existait plus quand la commande regardait. Le cas ne se produit qu'en production, ce qui est exactement le décor du banc. Un décor s'arme dans le MODE où le défaut vit.
+- [1× — 08-29f] **Deux sondes à moi ont mesuré autre chose que ce que je croyais, le même jour.** `assert.notProperty` n'existe pas dans `node:assert` (c'est chai) et rend un `TypeError` qu'on peut lire comme un défaut du produit ; et exiger l'écran ET le JSON d'une SEULE invocation `--json` est impossible — `--json` n'émet pas l'écran. Les deux fois, le rouge accusait le code. Avant de croire un banc neuf qui accuse, relire ce qu'il DEMANDE.
+- [1× — 08-29f] **Un vert de vitest ne prouve pas que ça compile.** Un import manquant est passé sous vitest (oxc n'inspecte aucun type) et n'a été vu que par `tsgo` — après avoir fait échouer un banc de boot réel sur un message qui accusait le rechargement du superviseur. Le journal détaché a nommé la vraie cause : un build en échec.
+
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
 Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrire ici.
@@ -1733,6 +1745,8 @@ xargs kill -9`) — c'est-à-dire exactement ce qu'un agent lit puis applique. E
   de juillet dont la leçon était JUSTE (les orphelins échappent à `pkill -f`), à un mot près.
   Corriger le code sans balayer ce qui l'ENSEIGNE laisse la classe de bug se réintroduire par la
   documentation. Le balayage se fait sur le CONCEPT, pas sur le fichier corrigé.
+
+- [1× — 08-29f] **Le document d'accueil PRESCRIVAIT le geste interdit**, et l'agent l'a copié à la lettre — drapeaux compris (`npx nodefony orm:reset -c default -y`, la ligne d'`AGENTS.md` telle quelle). Le skill qui l'interdit était installé dans l'application et n'a JAMAIS été ouvert : aucun `Read`, aucun appel `Skill`. Il ne s'est chargé qu'après avoir écrit « charge d'abord le skill `X` » dans le renvoi. Deux leçons qui se complètent : ce qu'un agent lit, il l'exécute ; et ce qui n'est pas nommé à l'endroit qu'il lit n'existe pas.
 
 ## 👻 Un process qui n'écoute AUCUN port échappe à toute purge par port
 

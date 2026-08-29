@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-29 15:27** (UTC).
+> Empreinte prise le **2026-08-29 20:34** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 17 | 1 | — |
-| 10.0.0 | 40 | 32 | 2026-11-15 |
+| 10.1 | 16 | 1 | — |
+| 10.0.0 | 40 | 36 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -33,7 +33,7 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | --- | --- | ---: | --- | --- |
 | 2 | P0 — bloque le reste | 7.5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 2.85 | P1 — figé à la création | 0.5 | #109 | fix(orm): honorer le refus des tables du framework |
+| 2.95 | P1 — figé à la création | 1 | #112 | ci(scaffold): éprouver les migrations générées sur les trois moteurs |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
@@ -72,7 +72,7 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 | — | P1 — figé à la création | 1 | #90 | test(devkit): auditer le module généré comme l'application générée |
 
-## Jalon 10.1 — 17 ouverts
+## Jalon 10.1 — 16 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -87,7 +87,6 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | 51 | P3 — fin de cycle | 0.5 | #64 | perf(dev): supprimer les 45 secondes de build au démarrage |
 | 52 | P3 — fin de cycle | 0.5 | #66 | feat(orm): exposer la taille du pool de connexions |
 | 53 | P3 — fin de cycle | 1 | #67 | feat(orm): capturer le contexte des requêtes qui échouent |
-| 53.5 | P1 — figé à la création | 1 | #112 | ci(scaffold): éprouver les migrations générées sur les trois moteurs |
 | 54.5 | P3 — fin de cycle | 2 | #79 | refactor(studio): dériver l'affichage des rôles servis par le serveur |
 | 57 | P3 — fin de cycle | 0.5 | #69 | feat(studio): signaler visiblement un serveur en dérogation |
 | 60 | P3 — fin de cycle | 0.5 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
