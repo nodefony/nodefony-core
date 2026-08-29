@@ -306,17 +306,40 @@ export function resolveDatabase(
   scheme: string;
   port: number;
   url: string;
+  database: string;
+  databaseE2e: string;
+  databaseScratch: string;
+  urlE2e: string;
+  urlScratch: string;
 } | null {
   if (choice === "sqlite") {
     return null;
   }
   const params = DATABASE_PARAMS[choice];
+  // Identifiants du compose généré : mêmes défauts `${VAR:-…}` que les
+  // services, donc l'URL marche sans qu'aucune variable ne soit exportée.
+  const dsn = (database: string): string =>
+    `${params.scheme}://${appName}:${appName}-dev@127.0.0.1:${params.port}/${database}`;
   return {
     choice,
     ...params,
-    // Identifiants du compose généré : mêmes défauts `${VAR:-…}` que les
-    // services, donc l'URL marche sans qu'aucune variable ne soit exportée.
-    url: `${params.scheme}://${appName}:${appName}-dev@127.0.0.1:${params.port}/${appName}`,
+    database: appName,
+    // Deux bases de plus, et ce ne sont pas des raffinements : sur un moteur
+    // SERVEUR, une suite de tests ne peut pas se fabriquer une base comme elle
+    // efface un fichier SQLite — `CREATE DATABASE` est un privilège
+    // d'administration que l'utilisateur applicatif n'a pas (constaté sur
+    // MySQL : `GRANT ALL ON <base>.*` seulement). Elles sont donc FOURNIES par
+    // le décor, ici comme en recette, et leurs noms se dérivent une seule fois.
+    //
+    //  - `<app>_e2e`         : la base de la suite e2e, jamais celle du dev ;
+    //  - `<app>_e2e_scratch` : la base VIERGE dont la suite de migrations a
+    //    besoin pour éprouver « en retard », « divergent » et la rétention de
+    //    mise en service — elle est salie puis remise à zéro à chaque cas.
+    databaseE2e: `${appName}_e2e`,
+    databaseScratch: `${appName}_e2e_scratch`,
+    url: dsn(appName),
+    urlE2e: dsn(`${appName}_e2e`),
+    urlScratch: dsn(`${appName}_e2e_scratch`),
   };
 }
 
@@ -2505,22 +2528,24 @@ export function sampleValue(
     const value = field.defaultValue ?? field.values?.[0] ?? "";
     return { fixed: value, expr: JSON.stringify(value) };
   }
+  // Un identifiant bien formé — jamais `nom-1`. Deux raisons distinctes le
+  // réclament, et la seconde ne se voit QUE sur un moteur qui distingue les
+  // types : le schéma Zod exige la forme (`z.string().uuid()`), et la COLONNE
+  // est de type `uuid` en PostgreSQL. En SQLite, un `uuid` et un texte sont la
+  // même chose — d'où un échantillon textuel qui passait ici et faisait rendre
+  // 500 à la ressource ailleurs (« invalid input syntax for type uuid »).
+  const echantillonUuid = (): { fixed: unknown; expr: string } => ({
+    fixed: `00000000-0000-4000-8000-${"1".padStart(12, "0")}`,
+    expr: `\`00000000-0000-4000-8000-\${String(n).padStart(12, "0")}\``,
+  });
   if (type === "ref") {
     // Une référence vers une clé auto-incrémentée est un NOMBRE : le schéma la
-    // valide comme tel, une chaîne y serait refusée.
-    return id === "serial"
-      ? { fixed: 1, expr: "n" }
-      : { fixed: `${name}-1`, expr: `\`${name}-\${n}\`` };
+    // valide comme tel, une chaîne y serait refusée. Sinon la colonne porte le
+    // type de la clé visée — un `uuid` ({@link foreignKeyColumn}).
+    return id === "serial" ? { fixed: 1, expr: "n" } : echantillonUuid();
   }
   if (type === "uuid") {
-    // Le schéma exige un identifiant bien formé (`z.string().uuid()`), donc pas
-    // `nom-1`. On fabrique une version 4 valide dont seule la fin varie.
-    const tail = (n: string): string =>
-      `00000000-0000-4000-8000-${n.padStart(12, "0")}`;
-    return {
-      fixed: tail("1"),
-      expr: `\`00000000-0000-4000-8000-\${String(n).padStart(12, "0")}\``,
-    };
+    return echantillonUuid();
   }
   if (type === "decimal") {
     // Le schéma impose une écriture décimale : `nom-1` la viole.

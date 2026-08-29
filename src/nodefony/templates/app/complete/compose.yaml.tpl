@@ -84,6 +84,10 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Les deux bases de la suite e2e (du SQL, pas un script shell : un `.sh`
+      # exécutable dont le montage perd le bit tue le serveur au démarrage),
+      # créées à la PREMIÈRE initialisation du volume (`down -v` pour rejouer).
+      - ./docker/db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [
@@ -112,6 +116,10 @@ services:
       - "127.0.0.1:${MARIADB_PORT:-3306}:3306"
     volumes:
       - mariadb-data:/var/lib/mysql
+      # Les deux bases de la suite e2e (du SQL, pas un script shell : un `.sh`
+      # exécutable dont le montage perd le bit tue le serveur au démarrage),
+      # créées à la PREMIÈRE initialisation du volume (`down -v` pour rejouer).
+      - ./docker/db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # healthcheck.sh = outil officiel de l'image mariadb.
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -139,6 +147,10 @@ services:
       - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      # Les deux bases de la suite e2e (du SQL, pas un script shell : un `.sh`
+      # exécutable dont le montage perd le bit tue le serveur au démarrage),
+      # créées à la PREMIÈRE initialisation du volume (`down -v` pour rejouer).
+      - ./docker/db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [

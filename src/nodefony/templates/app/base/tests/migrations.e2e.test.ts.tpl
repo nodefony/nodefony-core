@@ -1,5 +1,5 @@
 <% if (it.hasOrm) { %>import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile<% if (it.db) { %>, execFileSync<% } %> } from "node:child_process";
 import {
   appendFileSync,
   cpSync,
@@ -110,12 +110,51 @@ function json(stdout: string): Record<string, unknown> {
   return JSON.parse(stdout.trim()) as Record<string, unknown>;
 }
 
+<% if (it.db) { %>/**
+ * La base JETABLE de cette suite — celle qu'on a le droit de salir.
+ *
+ * Elle est FOURNIE par le décor (`<%= it.db.databaseScratch %>`), jamais
+ * fabriquée ici : sur un moteur serveur, `CREATE DATABASE` est un privilège
+ * d'administration que l'utilisateur applicatif n'a pas. Le compose généré la
+ * crée ; votre recette doit faire de même.
+ */
+const URL_JETABLE =
+  process.env.NF_E2E_SCRATCH_DATABASE_URL ?? "<%= it.db.urlScratch %>";
+
+<% } %>/**
+ * Une base jetable VIERGE, prête à recevoir des migrations.
+ *
+<% if (it.db) { %> * Une base de serveur ne s'efface pas comme un fichier : on retire ses TABLES,
+ * par le geste que le framework prévoit pour ça et qui n'existe qu'en
+ * développement. Elle est partagée par tous les cas de cette suite, qui
+ * s'exécutent l'un après l'autre — d'où la remise à zéro AVANT chaque usage,
+ * et jamais après : un cas qui échoue laisse alors sa base à inspecter.
+<% } else { %> * Un fichier neuf par appel : rien à nettoyer, rien à partager.
+<% } %> *
+ * @param dir - dossier de travail du cas appelant.
+ * @returns l'URL de la base.
+ */
+function baseVierge(dir: string): string {
+<% if (it.db) { %>  void dir; // aucun fichier à poser : la base vit sur le serveur.
+  execFileSync(process.execPath, [bin, "orm:reset", "--yes"], {
+    stdio: "ignore",
+    timeout: 120_000,
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      NF_DATABASE_URL: URL_JETABLE,
+    },
+  });
+  return URL_JETABLE;
+<% } else { %>  return `sqlite:${path.join(dir, "base.db")}`;
+<% } %>}
+
 /** Base jetable, pour éprouver le cas « en retard » sans toucher à celle des tests. */
 let jetable: { dir: string; url: string };
 
 beforeAll(() => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "e2e-migrations-"));
-  jetable = { dir, url: `sqlite:${path.join(dir, "vierge.db")}` };
+  jetable = { dir, url: baseVierge(dir) };
 });
 
 afterAll(() => {
@@ -299,7 +338,7 @@ function decorJetable(avecExistantes = true): {
     dir,
     migrations,
     env: {
-      NF_DATABASE_URL: `sqlite:${path.join(dir, "base.db")}`,
+      NF_DATABASE_URL: baseVierge(dir),
       NF__DRIZZLE__MIGRATIONS__DIR: migrations,
     },
   };

@@ -678,6 +678,16 @@ compose up -d` doit le monter), et `.env` porte l'URL **active** — donc le ré
 de `create app` place `npm run infra:up` AVANT `npm run dev`. En `sqlite` :
 aucun service SQL, URL commentée, l'app démarre sans rien allumer.
 
+**Un moteur SERVEUR réclame TROIS bases, et le décor les FOURNIT.** `<app>` (le
+développement), `<app>_e2e` (la suite e2e — jamais celle du développement) et
+`<app>_e2e_scratch` (la base vierge que la suite de migrations salit puis remet
+à zéro). La suite ne les crée pas elle-même, et ne le doit pas : `CREATE
+DATABASE` est un privilège d'administration que l'utilisateur applicatif n'a pas
+(constaté sur MySQL — `GRANT ALL ON <base>.*` et rien d'autre). Elles naissent
+donc du décor : `docker/db/init-nodefony-e2e.sql` monté dans le compose (rejoué
+au seul `down -v`), et une étape de la CI générée. Noms dérivés une seule fois
+(`resolveDatabase`). En `sqlite`, rien de tout ça : un fichier s'efface.
+
 **Et la RECETTE DE DÉPLOIEMENT va avec** : une base SQL retenue fait rendre
 `deploy/migrate-job.yaml` (travail Kubernetes, `complete/deploy/` — nom de l'app,
 image du `Dockerfile`, secret DDL séparé du compte qui sert). Sans elle,

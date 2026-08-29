@@ -61,7 +61,29 @@ jobs:
           cache: npm
 
       - run: npm ci
-
+<% if (it.db) { %>
+      # Les deux bases que la suite e2e exige — le service n'en crée qu'une.
+      # `CREATE DATABASE` est un privilège d'administration : c'est le décor qui
+      # les fournit, jamais la suite (elle n'aurait pas le droit, et ne doit pas
+      # l'avoir). Même raison et mêmes noms que `docker/db/init-nodefony-e2e.sql`
+      # côté compose. `shell:` est déclaré : sans lui, la forge prend celui de la
+      # plateforme.
+      - name: bases de la suite e2e
+        shell: bash
+        run: |
+<% if (it.db.choice === "postgres") { %>          export PGPASSWORD='<%= it.appName %>-dev'
+          for base in <%= it.db.databaseE2e %> <%= it.db.databaseScratch %>; do
+            psql -h 127.0.0.1 -p <%= it.db.port %> -U <%= it.appName %> -d <%= it.appName %> \
+              -c "CREATE DATABASE \"$base\""
+          done
+<% } else { %>          mysql -h 127.0.0.1 -P <%= it.db.port %> -uroot -p'<%= it.appName %>-dev' <<'SQL'
+          CREATE DATABASE IF NOT EXISTS `<%= it.db.databaseE2e %>`;
+          CREATE DATABASE IF NOT EXISTS `<%= it.db.databaseScratch %>`;
+          GRANT ALL PRIVILEGES ON `<%= it.db.databaseE2e %>`.* TO '<%= it.appName %>'@'%';
+          GRANT ALL PRIVILEGES ON `<%= it.db.databaseScratch %>`.* TO '<%= it.appName %>'@'%';
+          FLUSH PRIVILEGES;
+          SQL
+<% } %><% } %>
       # typecheck + lint + tests + `nodefony check` — l'ordre du script.
       - run: npm run verify
 

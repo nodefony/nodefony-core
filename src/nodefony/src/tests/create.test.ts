@@ -4326,6 +4326,82 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, 'entityRegistry.unregister("Author", ORM)');
     });
 
+    it("l'échantillon d'une RÉFÉRENCE est un uuid — la colonne l'est aussi", () => {
+      // La colonne qui porte une relation prend le type de la clé visée : `uuid`
+      // dès que l'identifiant n'est pas `serial` (`foreignKeyColumn`). Un
+      // échantillon textuel (`author-1`) passe en SQLite, où un `uuid` et un
+      // texte sont le MÊME type — et fait rendre 500 à la ressource en
+      // PostgreSQL : « invalid input syntax for type uuid ». Mesuré au banc du
+      // code généré, sur une application PostgreSQL.
+      const dest = app("eapp4m");
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
+      const src = readFileSync(
+        path.join(dest, "tests", "post.e2e.test.ts"),
+        "utf8",
+      );
+      assert.include(src, "00000000-0000-4000-8000-");
+      assert.notInclude(src, "author: `author-${n}`");
+    });
+
+    it("la CI générée reste un YAML VALIDE, heredoc compris", () => {
+      // Le défaut que ce cas ferme, vu sur l'artefact rendu : l'étape qui crée
+      // les bases de test de MySQL porte un heredoc, dont le délimiteur de fin
+      // doit rester DANS la marge du bloc `run: |` — c'est la désindentation du
+      // scalaire YAML qui le remet en colonne 0 pour le shell. Écrit en colonne
+      // 0 dans le gabarit, il TERMINE le bloc, et le workflow entier cesse de
+      // se parser. Rien ne le disait : le rendu contenait bien les bonnes
+      // lignes, et les assertions du dépôt lisent des chaînes.
+      //
+      // Le contrôle est structurel et sans dépendance : dans un workflow, la
+      // colonne 0 n'appartient qu'aux clés de premier niveau.
+      for (const database of ["postgres", "mysql"]) {
+        const dest = path.join(tmp, `ciyml-${database}`);
+        scaffold(dest, {
+          name: `ciyml${database}`,
+          preset: "complete",
+          frontend: "none",
+          database,
+        });
+        const src = readFileSync(
+          path.join(dest, ".github", "workflows", "ci.yml"),
+          "utf8",
+        );
+        src.split("\n").forEach((ligne, i) => {
+          if (ligne === "" || ligne.startsWith(" ") || ligne.startsWith("#")) {
+            return;
+          }
+          assert.match(
+            ligne,
+            /^[a-z][\w-]*:/u,
+            `${database} — ligne ${i + 1} hors structure : « ${ligne} »`,
+          );
+        });
+      }
+    });
+
+    it("sur un moteur SERVEUR, le test d'entité n'ouvre aucune base en mémoire", () => {
+      // Une entité écrite pour PostgreSQL n'a pas de schéma SQLite : l'ORM
+      // refuse de la monter en mémoire, en nommant l'entité. Le test généré
+      // garde donc ce qui vaut partout — le CONTRAT d'entrée — et laisse la
+      // couche données à la suite e2e, qui parle au serveur réel.
+      const dest = path.join(tmp, "eapp4n");
+      scaffold(dest, {
+        name: "eapp4n",
+        preset: "complete",
+        frontend: "none",
+        database: "postgres",
+      });
+      entity(dest, { name: "Ticket", fields: "label:string!" });
+      const src = readFileSync(
+        path.join(dest, "tests", "ticket.test.ts"),
+        "utf8",
+      );
+      assert.notInclude(src, ":memory:");
+      assert.notInclude(src, "DrizzleOrm");
+      assert.include(src, "createTicketSchema.parse({})");
+    });
+
     it("sans champ unique, le cas 409 n'est PAS généré (il ne pourrait pas passer)", () => {
       const dest = app("eapp4j");
       entity(dest, { name: "Post", fields: "title:string" });

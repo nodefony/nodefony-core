@@ -115,7 +115,16 @@ npm test             # unitaires : l'app se CHARGE (imports, décorateurs, confi
 npm run test:e2e     # build + boot RÉEL (production --detach --wait) + HTTP + WS + probes
 ```
 
-**Réflexe** : quelque chose semble cassé → `npm test` AVANT de relire du code ou
+<% if (it.db) { %>> **Les e2e ont besoin de DEUX bases de plus**, sur ton serveur
+> <%= it.db.label %> : `<%= it.db.databaseE2e %>` (la suite ne touche jamais
+> celle du développement) et `<%= it.db.databaseScratch %>` (la base vierge que
+> la suite de migrations salit puis remet à zéro). Le compose les crée à sa
+> PREMIÈRE initialisation — sur une infra déjà montée, `docker compose down -v`
+> les fera naître, ou crée-les à la main. Elles ne se fabriquent pas toutes
+> seules au moment des tests : `CREATE DATABASE` est un privilège
+> d'administration, que ton compte applicatif n'a pas — et ne doit pas avoir.
+
+<% } %>**Réflexe** : quelque chose semble cassé → `npm test` AVANT de relire du code ou
 de redémarrer. En une seconde il prouve que l'app s'importe, que les décorateurs
 compilent et que la config valide — ou te donne le fichier exact qui casse.
 

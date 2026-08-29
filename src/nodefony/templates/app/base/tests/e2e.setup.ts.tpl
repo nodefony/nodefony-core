@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { rmSync } from "node:fs";
+<% if (!it.db) { %>import { rmSync } from "node:fs";
 import path from "node:path";
-import { nodefonyBin, runningAppPort } from "nodefony/testing";
+<% } %>import { nodefonyBin, runningAppPort } from "nodefony/testing";
 /**
  * Démarre l'application UNE fois pour toute la suite E2E, et l'arrête à la fin.
  *
@@ -58,10 +58,16 @@ const bin = nodefonyBin();
  * démarrer sur un autre en nommant l'entité fautive. Viser un moteur différent
  * suppose de porter chaque entité (`createXTable("postgres")`) — un chantier,
  * pas une variable.
- */
+<% if (it.db) { %> *
+ * Sur <%= it.db.label %>, c'est une base À PART sur le même serveur —
+ * `<%= it.db.databaseE2e %>`, que votre décor FOURNIT : le compose généré la
+ * crée, et votre recette doit faire de même. Une suite de tests ne se fabrique
+ * pas une base : `CREATE DATABASE` est un privilège d'administration que
+ * l'utilisateur applicatif n'a pas.
+<% } %> */
 export const URL_BASE_E2E =
-  process.env.NF_E2E_DATABASE_URL ??
-  `sqlite:${path.resolve("var/databases/e2e.db")}`;
+<% if (it.db) { %>  process.env.NF_E2E_DATABASE_URL ?? "<%= it.db.urlE2e %>";<% } else { %>  process.env.NF_E2E_DATABASE_URL ??
+  `sqlite:${path.resolve("var/databases/e2e.db")}`;<% } %>
 <% if (it.hasSecurity) { %>
 /**
  * Mot de passe du compte d'administration, POUR LA SUITE DE TESTS UNIQUEMENT.
@@ -110,14 +116,29 @@ export async function connexionAdmin(): Promise<string> {
 <% } %>
 export async function setup(): Promise<void> {
   // Repartir d'une base VIERGE : une suite dont le verdict dépend de ce qu'un
-  // run précédent a laissé n'est pas reproductible. Les compagnons `-wal` et
-  // `-shm` partent avec le fichier, sinon SQLite ressuscite l'état d'avant.
+  // run précédent a laissé n'est pas reproductible.
+<% if (it.db) { %>  //
+  // Sur un moteur serveur, une base ne s'EFFACE pas — on retire ses tables.
+  // `orm:reset` est le geste que le framework prévoit pour ça, et il n'existe
+  // qu'en développement : cette base-ci n'a pas d'autre usage que la suite.
+  execFileSync(process.execPath, [bin, "orm:reset", "--yes"], {
+    stdio: "inherit",
+    timeout: 120_000,
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      NF_DATABASE_URL: URL_BASE_E2E,
+    },
+  });
+<% } else { %>  // Les compagnons `-wal` et `-shm` partent avec le fichier, sinon SQLite
+  // ressuscite l'état d'avant.
   if (URL_BASE_E2E.startsWith("sqlite:")) {
     const fichier = URL_BASE_E2E.slice("sqlite:".length);
     for (const suffixe of ["", "-wal", "-shm"]) {
       rmSync(`${fichier}${suffixe}`, { force: true });
     }
   }
+<% } %>
 <% if (it.hasOrm) { %>  // Le schéma AVANT le trafic — le patron de production, appliqué ici tel quel.
   //
   // En production le démarrage ne fabrique JAMAIS le schéma (mode `ddl: none`) :
