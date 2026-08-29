@@ -49,8 +49,15 @@ const bin = nodefonyBin();
  * lieu de son décor. Un fichier à part supprime les deux pannes d'un coup, et
  * rend la suite reproductible.
  *
- * Surcharge : `NF_E2E_DATABASE_URL` — pour éprouver la suite sur le dialecte
- * réel de production (PostgreSQL, MySQL) plutôt que sur SQLite.
+ * Surcharge : `NF_E2E_DATABASE_URL` — pour éprouver la suite sur un AUTRE
+ * serveur que celui du développement (une instance PostgreSQL de recette, par
+ * exemple).
+ *
+ * ⚠️ **Elle ne change pas le DIALECTE de vos entités.** Elles sont écrites pour
+ * celui que vous avez choisi à la création de l'application, et l'ORM refuse de
+ * démarrer sur un autre en nommant l'entité fautive. Viser un moteur différent
+ * suppose de porter chaque entité (`createXTable("postgres")`) — un chantier,
+ * pas une variable.
  */
 export const URL_BASE_E2E =
   process.env.NF_E2E_DATABASE_URL ??
