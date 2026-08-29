@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T15:57:19.687Z",
+  "generated": "2026-08-29T17:51:50.490Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 782,
-    "symbols": 3515,
+    "files": 783,
+    "symbols": 3516,
     "classes": 380,
     "interfaces": 978,
     "types": 423,
     "enums": 4,
-    "functions": 1381,
+    "functions": 1382,
     "constants": 349
   },
   "symbols": {
@@ -12372,6 +12372,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Compte les utilisateurs qui matchent les filtres (`COUNT(*)` natif filtré) — base commune du `total` de la page ET du garde-fou `countActiveAdmins` (`{ enabled: true, role: adminRole }`)."
+    },
+    "describeTargetSafely": {
+      "name": "describeTargetSafely",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/safeTarget.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Comment DÉSIGNER la base d'un connecteur sans rien faire fuiter. **Pourquoi une règle à part, et pourquoi elle est PURE.** Trois endroits doivent nommer la même base — l'adaptateur, qui la publie a…"
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -28431,6 +28439,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/safeTarget.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
@@ -29990,10 +29999,6 @@
       "resolveConnector": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
-      ],
-      "MIGRATE_URL_ENV": [
-        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
       ],
       "IConnectorResolution": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
@@ -32492,6 +32497,9 @@
       "knownConnectors": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
       ],
+      "MIGRATE_URL_ENV": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
+      ],
       "parseDatabaseUrl": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
@@ -32516,6 +32524,10 @@
       ],
       "STATEMENT_BREAKPOINT": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "describeTargetSafely": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "IResolutionRefusal": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"

@@ -170,6 +170,10 @@ export interface IMigrationReport {
     dialect: SqlDialect;
     ddl: string;
     historyTable: string;
+    /** La base visée, sans identifiant ni mot de passe. */
+    target?: string;
+    /** `true` quand la cible vient de `NF_MIGRATE_DATABASE_URL`. */
+    fromMigrateUrl?: boolean;
   };
 }
 
@@ -427,6 +431,27 @@ export interface IReportContext {
    * Défaut prudent : `false` — on ne suppose pas le droit d'effacer.
    */
   canReset?: boolean;
+  /**
+   * La base RÉELLEMENT visée, telle que {@link describeTargetSafely} la
+   * désigne — sans identifiant ni mot de passe.
+   *
+   * Absente quand l'appelant ne la connaît pas ; jamais devinée ici.
+   */
+  target?: string;
+  /**
+   * La cible vient-elle de `NF_MIGRATE_DATABASE_URL` plutôt que de la
+   * configuration du connecteur ?
+   *
+   * C'est le fait qui manquait, et son absence coûtait cher : une variable
+   * oubliée dans un terminal détourne SILENCIEUSEMENT chaque commande de
+   * migration vers une autre base, qui rend « appliqué » et le code du succès
+   * pendant que la vraie ne reçoit rien. Le seul symptôme arrivait plus tard,
+   * au démarrage d'une application sur un schéma qui n'avait pas bougé.
+   *
+   * Publié à côté de la cible, et pas à sa place : savoir QUELLE base ne dit
+   * pas POURQUOI c'est celle-là.
+   */
+  fromMigrateUrl?: boolean;
 }
 
 /**
@@ -464,6 +489,13 @@ export function buildReport(
       dialect: plan.dialect,
       ddl: ctx.ddl,
       historyTable: HISTORY_TABLE,
+      // Posées SEULEMENT quand l'appelant les connaît : une clé publiée à
+      // `undefined` apprendrait à ses lecteurs à la tester non-vide plutôt
+      // que présente — même règle que `divergence`.
+      ...(ctx.target === undefined ? {} : { target: ctx.target }),
+      ...(ctx.fromMigrateUrl === undefined
+        ? {}
+        : { fromMigrateUrl: ctx.fromMigrateUrl }),
     },
   };
 }
@@ -775,8 +807,24 @@ export function renderStatus(report: IMigrationReport, style: IStyle): string {
   };
   let out =
     `${style.bold(`Connecteur ${report.connector}`)} ` +
-    `${style.dim(`(${report.driver.dialect}, schéma : ${report.driver.ddl}, historique : ${report.driver.historyTable})`)}\n` +
-    `  ${badge[report.verdict]}\n\n`;
+    `${style.dim(`(${report.driver.dialect}, schéma : ${report.driver.ddl}, historique : ${report.driver.historyTable})`)}\n`;
+  // 🔴 La base DÉTOURNÉE se dit dans l'EN-TÊTE, pas dans un journal.
+  //
+  // Un message de journal est passé par un seuil : émis en `INFO` puis en
+  // `WARNING`, celui-ci n'est JAMAIS sorti — le boot silencieux des commandes
+  // les avale tous les deux, et l'avertissement n'existait que dans le code.
+  // L'en-tête, lui, sort toujours, et il emprunte le chemin du rapport : ce
+  // que l'écran affiche et ce que `--json` publie ne peuvent plus diverger.
+  //
+  // Le cas qu'il referme : une variable de migration oubliée dans un terminal
+  // détourne chaque commande vers une AUTRE base, qui rend « appliqué » et le
+  // code du succès pendant que la vraie n'a rien reçu.
+  if (report.driver.fromMigrateUrl === true) {
+    out += `  ${style.yellow(
+      `⚠ NF_MIGRATE_DATABASE_URL détourne ce connecteur vers ${report.driver.target ?? "une autre base"}`,
+    )}\n`;
+  }
+  out += `  ${badge[report.verdict]}\n\n`;
   for (const s of report.sources) {
     const bits = [
       `${s.applied} appliquée${s.applied > 1 ? "s" : ""}`,

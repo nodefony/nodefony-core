@@ -59,6 +59,7 @@ import {
   type DrizzleTable,
   type DrizzleResolvedRelation,
 } from "./DrizzleRepository";
+import { describeTargetSafely } from "../safeTarget";
 import { DrizzleTransaction } from "./DrizzleTransaction";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 
@@ -1661,10 +1662,7 @@ export class DrizzleOrm extends Orm {
       // le data plane).
       return {
         driver: this.#dialect,
-        target: this.#safeUrlTarget(
-          this.#dialect,
-          this.#dialect === "postgres" ? "5432" : "3306",
-        ),
+        target: this.#safeUrlTarget(),
         ormVersion: DrizzleOrm.#ormVersion(),
       };
     }
@@ -1677,16 +1675,11 @@ export class DrizzleOrm extends Orm {
   }
 
   /** Cible réseau affichable : `host:port/db`, **sans** user/password (anti-leak). */
-  #safeUrlTarget(fallback: string, defaultPort: string): string {
-    if (!this.#url) {
-      return fallback;
-    }
-    try {
-      const u = new URL(this.#url);
-      return `${u.hostname}:${u.port || defaultPort}${u.pathname}`;
-    } catch {
-      return fallback;
-    }
+  #safeUrlTarget(): string {
+    return describeTargetSafely({
+      dialect: this.#dialect,
+      url: this.#url,
+    });
   }
 
   /** Version de la lib `drizzle-orm` (résolue + cachée une seule fois). */
@@ -1730,11 +1723,10 @@ export class DrizzleOrm extends Orm {
   /** Cible affichable : `:memory:` tel quel, sinon chemin relatif au cwd
    *  (basename si hors projet) — jamais d'absolu (anti info-leak). */
   #safeTarget(): string {
-    if (this.#filename === ":memory:" || !path.isAbsolute(this.#filename)) {
-      return this.#filename;
-    }
-    const rel = path.relative(process.cwd(), this.#filename);
-    return rel && !rel.startsWith("..") ? rel : path.basename(this.#filename);
+    return describeTargetSafely({
+      dialect: "sqlite",
+      filename: this.#filename,
+    });
   }
 
   /** Version du moteur SQLite (`SELECT sqlite_version()`), si connecté. */

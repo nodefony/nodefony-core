@@ -359,6 +359,63 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
     );
   }, 120_000);
 
+  it("🔴 la commande DIT sur quelle base elle travaille quand la variable la détourne", async () => {
+    // Le défaut : `NF_MIGRATE_DATABASE_URL` remplaçait la connexion des quatre
+    // commandes de migration SANS un mot. Une variable oubliée dans un
+    // terminal détournait chaque commande suivante, qui rendait « appliqué »
+    // et le code du SUCCÈS pendant que la vraie base ne recevait rien — le
+    // seul symptôme arrivant plus tard, au démarrage sur un schéma inchangé.
+    //
+    // On l'éprouve sur une base du MÊME dialecte : c'est le cas que le refus
+    // `NF_MIGRATE_URL_MISMATCH` ne couvre pas, et donc le seul qui était muet.
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cible-"));
+    const ailleurs = path.join(dir, "essai.sqlite");
+    try {
+      const env = { NF_MIGRATE_DATABASE_URL: `sqlite:${ailleurs}` };
+      // DEUX invocations, et ce n'est pas un détail de confort : `--json`
+      // n'émet PAS l'écran, il émet la charge utile. Les exiger d'un seul run
+      // ferait échouer la sonde sur ce qu'elle n'a jamais demandé — et c'est
+      // exactement ce qu'elle a fait au premier jet.
+      const r = await cli(["orm:migrate:status", "--json"], env);
+      const lisible = await cli(["orm:migrate:status"], env);
+      const tout = `${lisible.stdout}${lisible.stderr}`;
+
+      // 1. La charge utile PORTE la cible — c'est elle qu'un automate lit.
+      const driver = (parse(r.stdout).driver ?? {}) as Record<string, unknown>;
+      assert.equal(
+        driver.fromMigrateUrl,
+        true,
+        `la provenance n'est pas publiée : ${JSON.stringify(driver)}`,
+      );
+      assert.match(
+        String(driver.target ?? ""),
+        /essai\.sqlite$/u,
+        `la cible n'est pas publiée : ${JSON.stringify(driver)}`,
+      );
+
+      // 2. Et un humain le voit — dans l'EN-TÊTE du rapport, pas dans un
+      //    journal : émis en `INFO` puis en `WARNING`, l'avertissement n'est
+      //    jamais sorti, le boot silencieux des commandes avalant les deux.
+      assert.match(
+        tout,
+        /NF_MIGRATE_DATABASE_URL/u,
+        `rien n'annonce la substitution à l'écran :\n${tout}`,
+      );
+      assert.match(tout, /essai\.sqlite/u, "l'écran ne NOMME pas la cible");
+
+      // 3. Le contrôle NÉGATIF : sans la variable, aucune annonce parasite.
+      //    Une alerte permanente ne s'entend plus.
+      const sans = await cli(["orm:migrate:status"], {});
+      assert.doesNotMatch(
+        `${sans.stdout}${sans.stderr}`,
+        /NF_MIGRATE_DATABASE_URL détourne/u,
+        "le connecteur n'est PAS détourné : rien ne doit l'annoncer",
+      );
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 180_000);
+
   it("🔴 `orm:reset` refuse hors développement — liste BLANCHE, pas liste noire", async () => {
     // `staging` n'est pas `production` : une garde écrite « si production »
     // laisserait passer celui-ci, et c'est exactement là que l'accident arrive.

@@ -12,6 +12,7 @@ import {
   resolveConnector,
 } from "./resolve";
 import type { IConnectorResolution } from "./resolve";
+import { describeTargetSafely } from "../safeTarget";
 import { describeResolutionRefusal, moduleAbsent } from "./refusals";
 import type { ICommandFailure, IResolutionRefusal } from "./refusals";
 
@@ -116,6 +117,11 @@ export async function composeReport(
     divergence: mode === "off" ? null : await describeDivergence(plan),
     divergenceMode: mode,
     canReset: resetAllowed(readMigrationEnv(kernel)),
+    // La base RÉELLEMENT visée, et d'où elle vient. La résolution le sait
+    // depuis toujours ; personne ne le publiait, si bien qu'une variable de
+    // migration oubliée détournait chaque commande en silence.
+    target: describeTargetSafely(resolution.target),
+    fromMigrateUrl: resolution.fromMigrateUrl,
   });
 }
 

@@ -24,7 +24,6 @@ import {
   buildMigrator,
   readMigrationEnv,
   resolveConnector,
-  MIGRATE_URL_ENV,
   type IConnectorResolution,
 } from "../src/migrator/resolve";
 import { composeReport } from "../src/migrator/status";
@@ -254,12 +253,11 @@ export abstract class OrmMigrateCommand extends Command {
       );
       return null;
     }
-    if (resolution.fromMigrateUrl) {
-      this.log(
-        `${MIGRATE_URL_ENV} est posée : la connexion du connecteur « ${wanted} » est remplacée par celle du travail de migration.`,
-        "INFO",
-      );
-    }
+    // La substitution est ANNONCÉE par le rapport lui-même (son en-tête nomme
+    // la base détournée) et publiée dans sa charge utile — jamais par un
+    // journal : émis ici en `INFO` puis en `WARNING`, le message n'est JAMAIS
+    // sorti, le boot silencieux des commandes avalant les deux. Un
+    // avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
     return { resolution, config };
   }
 
