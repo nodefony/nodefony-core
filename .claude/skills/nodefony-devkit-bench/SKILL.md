@@ -171,7 +171,40 @@ node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --no-e2e  # plus rapide
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep    # garder le décor
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link    # boucle courte, verdict amputé
+node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --database postgres  # le MÊME banc, un autre moteur
 ```
+
+### Les trois moteurs — une application PAR moteur, jamais une variable
+
+`--database <sqlite|postgres|mysql|mariadb>` change le moteur de l'application
+témoin, et il faut bien qu'il la RECRÉE : le dialecte est une décision prise à
+la création, les entités sont écrites pour lui (`createXTable("postgres")`), et
+l'ORM refuse de démarrer sur un autre en nommant l'entité fautive. Pointer une
+application SQLite vers un serveur PostgreSQL n'éprouve donc rien — c'est
+pourquoi `NF_E2E_DATABASE_URL` ne suffit pas, et pourquoi la forge lance trois
+passes plutôt qu'une matrice de variables.
+
+Ce que cela a déjà trouvé, et qu'aucune passe SQLite ne pouvait voir : un
+échantillon de clé étrangère écrit en TEXTE (`author-1`) face à une colonne
+`uuid` — chaque POST rendait 500 en PostgreSQL, pendant que SQLite, où un `uuid`
+et un texte sont le MÊME type, restait vert de bout en bout.
+
+**Le décor, sur un moteur serveur : TROIS bases, et c'est structurel.** Une
+suite de tests ne fabrique pas sa base — `CREATE DATABASE` est un privilège
+d'administration que l'utilisateur applicatif n'a pas (constaté sur MySQL :
+`GRANT ALL ON <base>.*` et rien d'autre). Le décor les fournit, ici comme dans
+le compose que le générateur écrit :
+
+| Base              | Rôle                                                            |
+| ----------------- | --------------------------------------------------------------- |
+| `app`             | le développement — celle que le `.env` généré joint             |
+| `app_e2e`         | la suite e2e, jamais celle du développement                     |
+| `app_e2e_scratch` | la base VIERGE de la suite de migrations (salie, remise à zéro) |
+
+Les noms se dérivent une seule fois (`resolveDatabase`, `engine.ts`) ; le
+serveur doit porter le rôle `app` / `app-dev`. À la forge, le job `dialectes`
+de `scaffold.yml` les crée ; en local, une fois pour toutes sur le conteneur du
+compose. Sans elles, l'étape e2e tombe en nommant la base absente.
 
 **Prérequis : le checkout est BÂTI** (`npm run build`). Les tarballs sont
 fabriqués depuis le `dist/` local : le banc éprouve ce que tu viens de compiler,
@@ -607,6 +640,7 @@ un message qui parle de colonne inconnue. Nommer autrement dans un banc.
 | `ResourceController`, contrat de ressource, DDL de développement | vérité, complet                                                 |
 | `AGENTS.md` généré, docs embarquées, nommage des générateurs     | découvrabilité                                                  |
 | une capacité NEUVE offerte aux agents (générateur, commande)     | découvrabilité — **après y avoir ajouté sa tâche**              |
+| le SQL généré, une migration, un type de colonne                 | vérité, `--database postgres` PUIS `--database mysql`           |
 | une vague `devkit S<n>` que tu veux déclarer finie               | les deux                                                        |
 
 ## Quand passer la main

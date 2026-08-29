@@ -86,6 +86,41 @@ const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
 const LINKED = process.argv.includes("--link");
 
 /**
+ * Lit une option `--nom valeur` de la ligne de commande.
+ *
+ * @param {string} nom - l'option, tirets compris.
+ * @param {string} defaut - la valeur retenue quand l'option est absente.
+ * @returns {string} la valeur.
+ */
+function option(nom, defaut) {
+  const i = process.argv.indexOf(nom);
+  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : defaut;
+}
+
+/**
+ * Le MOTEUR de base de données de l'application témoin.
+ *
+ * Il ne se surcharge PAS par une variable d'environnement, et c'est le coeur du
+ * sujet : le dialecte n'est pas un reglage d'execution, c'est une decision prise
+ * a la CREATION de l'application. Les entites sont ecrites pour lui
+ * (`createXTable("postgres")`), et l'ORM refuse de demarrer sur un autre en
+ * nommant l'entite fautive. Pointer une application SQLite vers un serveur
+ * PostgreSQL ne l'eprouve donc pas : il faut une AUTRE application.
+ *
+ * C'est aussi pourquoi le decor porte le moteur dans son chemin : deux passes
+ * de moteurs differents ne doivent jamais se marcher dessus, ni l'une conserver
+ * le decor que l'autre vient d'ecraser.
+ */
+const DATABASE = option("--database", "sqlite");
+const MOTEURS = ["sqlite", "postgres", "mysql", "mariadb"];
+if (!MOTEURS.includes(DATABASE)) {
+  process.stderr.write(
+    `--database ${DATABASE} inconnu — attendus : ${MOTEURS.join(", ")}\n`,
+  );
+  process.exit(78);
+}
+
+/**
  * Où vit le décor. HORS du dépôt par défaut : la distance fait partie du
  * verdict, elle ne s'obtient pas en interdisant un chemin.
  *
@@ -113,7 +148,8 @@ const LINKED = process.argv.includes("--link");
  */
 const ROOT = path.join(
   os.tmpdir(),
-  LINKED ? "nodefony-devkit-verify-link" : "nodefony-devkit-verify",
+  (LINKED ? "nodefony-devkit-verify-link" : "nodefony-devkit-verify") +
+    (DATABASE === "sqlite" ? "" : `-${DATABASE}`),
 );
 const APP = path.join(ROOT, "app");
 
@@ -369,6 +405,10 @@ step(
         // banc bâtit donc le front sans une ligne de plus.
         "--frontend",
         "vue",
+        // Le moteur est un argument de CRÉATION, pas d'exécution : c'est lui
+        // qui décide du dialecte dans lequel les entités seront écrites.
+        "--database",
+        DATABASE,
         ...(LINKED ? ["--link"] : []),
         "--yes",
       ],

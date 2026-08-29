@@ -80,7 +80,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `NF_RUN_CLUSTER_E2E` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
-| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) | aucun (SQLite) |
+| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **trois moteurs** (une application par moteur, ubuntu) | PostgreSQL, MySQL (job `dialectes`) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
 | `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`/`front`/`studio`) — manuel + hebdomadaire | conteneurs docker |
 | `release-preflight.yml` | OIDC · outils · jeton · docker | les ACCÈS de publication existent avant d'en avoir besoin (identité, versions minimales, quota) | — |
@@ -296,8 +296,7 @@ Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 | `idempotency-cluster-e2e` | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé |
 | Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée |
 | Banc reverse-proxy (`reverse-proxy.test.ts`) | décor à DEUX versants — conteneurs `--profile proxy`, serveur en `NF_BIND_ALL=1`, certificats dérivés, `nodefony.com` résolu côté client. Un montage automatique à moitié réussi rendrait le vert menteur qu'on passe ce guide à combattre : il se lance à la main (`PROXY_GATE`, mode d'emploi dans `docker/README.md`) |
-| Le FRONT d'une application générée (`scaffold.yml`) | l'application témoin naît `--frontend none`. Rien n'éprouve que le front produit se bâtit — c'est le trou le plus large de ce workflow, et il est nommé ici pour qu'on cesse de lire son vert comme une couverture complète |
-| Les autres DIALECTES du code généré (`scaffold.yml`) | le banc génère bien des entités PostgreSQL — indispensable, une clé `uuid` et une colonne texte sont le MÊME type en SQLite — mais `--no-tests`, et il vérifie qu'elles QUITTENT le câblage. Aucune base n'est jointe : les dialectes sont éprouvés par `orm.yml`, sur le code du dépôt |
+| Les autres FRAMEWORKS de vue d'une application générée (`scaffold.yml`) | l'application témoin naît `--frontend vue`, et son front est bâti pour de bon (`frontend:build --force`) — mais un seul des quatre est couvert. Vue est retenu parce que son compilateur TRANSFORME le gabarit, là où Angular et JSX laissent la chaîne intacte |
 | Le banc de DÉCOUVRABILITÉ (`bench-discoverability.mjs`) | il lance de vrais agents et coûte de l'argent. Seuls ses auto-contrôles tournent, dans `node.js.yml` — ce sont eux qui décident si un verdict de banc veut dire quelque chose |
 
 **Perf dehors, mémoire dedans** : une latence dépend de la machine, une fuite

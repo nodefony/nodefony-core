@@ -23,6 +23,7 @@ import { describe, it } from "vitest";
 import { assert } from "chai";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { DATABASE_PARAMS } from "../cli/scaffold/engine";
 import {
   PG_GATE,
   MYSQL_GATE,
@@ -213,5 +214,75 @@ describe("Workflows à liste blanche — les actions locales sont déclarées", 
         );
       });
     }
+  }
+});
+
+/**
+ * **Les images du banc des dialectes doivent être celles du catalogue du
+ * générateur.**
+ *
+ * Même raisonnement que ci-dessus, sur un autre couple : `DATABASE_PARAMS`
+ * (`cli/scaffold/engine.ts`) se déclare source unique de l'image docker de
+ * chaque moteur — le compose généré et la CI de l'application la lisent de là.
+ * Mais un `services:` de GitHub ne peut pas importer du TypeScript : le job
+ * `dialectes` de `scaffold.yml` retape les images à la main.
+ *
+ * Ce qu'une divergence coûterait : le banc éprouverait le code généré contre un
+ * serveur qui n'est PAS celui que l'application recevra — un `postgres:17` ici
+ * pendant que le compose livré pose un `postgres:16`. Le vert serait rendu sur
+ * la mauvaise version, et rien ne le dirait.
+ */
+describe("scaffold.yml — les images des dialectes viennent du catalogue", () => {
+  const fichier = path.join(WORKFLOWS, "scaffold.yml");
+
+  it("le workflow existe (sinon ce test ne garde rien)", () => {
+    assert.isTrue(
+      existsSync(fichier),
+      `${fichier} introuvable — le banc des dialectes n'est plus gardé`,
+    );
+  });
+
+  const contenu = existsSync(fichier) ? readFileSync(fichier, "utf8") : "";
+  const images = [...contenu.matchAll(/^\s*image:\s*(\S+)\s*$/gmu)].map(
+    (m) => m[1] as string,
+  );
+  const catalogue = Object.values(DATABASE_PARAMS).map((p) => p.image);
+
+  it("chaque image déclarée appartient au catalogue du générateur", () => {
+    assert.isNotEmpty(images, "aucun service déclaré dans scaffold.yml");
+    for (const image of images) {
+      assert.include(
+        catalogue,
+        image,
+        `l'image « ${image} » n'est dans AUCUNE entrée de DATABASE_PARAMS — ` +
+          `le banc éprouverait un serveur que l'application ne recevra pas`,
+      );
+    }
+  });
+
+  // La MATRICE, pas seulement les services : un moteur peut être déclaré en
+  // service et n'être exercé par aucune passe — le job resterait vert sans
+  // avoir rien mesuré, exactement le silence que ce workflow existe pour
+  // interdire.
+  const matrice = /database:\s*\[([^\]]*)\]/u.exec(contenu)?.[1] ?? "";
+
+  for (const moteur of ["postgres", "mysql"] as const) {
+    it(`${moteur} est exercé avec l'image du catalogue`, () => {
+      assert.include(
+        images,
+        DATABASE_PARAMS[moteur].image,
+        `le job des dialectes n'exerce pas ${moteur} sur ` +
+          `${DATABASE_PARAMS[moteur].image}`,
+      );
+    });
+
+    it(`${moteur} est une passe de la matrice`, () => {
+      assert.include(
+        matrice,
+        `"${moteur}"`,
+        `« ${moteur} » n'est plus dans la matrice du job des dialectes : ` +
+          `son service tournerait sans qu'aucune application ne le vise`,
+      );
+    });
   }
 });

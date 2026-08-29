@@ -42,12 +42,11 @@
 #    front d'une application GÉNÉRÉE est compilé. Un seul framework de vue est
 #    couvert ici, celui dont le compilateur transforme le gabarit ; les quatre
 #    fronts du DÉPÔT, eux, sont bâtis par `node.js.yml` (`npm run build:front`).
-#  · Les DIALECTES autres que SQLite : le banc génère bien des entités
-#    PostgreSQL — c'est indispensable, une clé `uuid` et une colonne texte sont
-#    le MÊME type en SQLite — mais il les génère `--no-tests` et vérifie
-#    qu'elles QUITTENT le câblage. Aucune base n'est jointe. Corollaire utile :
-#    ce job n'a besoin d'aucun service, donc l'absence de Docker sur les
-#    runners macOS ne lui coûte rien.
+#  · Les DIALECTES autres que SQLite, POUR CE JOB-CI : il n'a besoin d'aucun
+#    service, donc l'absence de Docker sur les runners macOS et Windows ne lui
+#    coûte rien. Ils sont éprouvés par le job `dialectes` ci-dessous — une
+#    application PAR MOTEUR, sur ubuntu, sa suite de migrations jouée contre un
+#    vrai serveur.
 #  · Le banc de DÉCOUVRABILITÉ (`bench-discoverability.mjs`), qui lance de vrais
 #    agents et coûte de l'argent : il n'a rien à faire dans une passe
 #    automatique. Seuls ses auto-contrôles tournent, dans `node.js.yml`.
@@ -302,3 +301,187 @@ jobs:
             echec-commande.log
           retention-days: 7
           if-no-files-found: ignore
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # LES AUTRES MOTEURS — parce qu'une chaîne de migration qui marche en SQLite
+  # et casse en PostgreSQL revient au même que ne rien avoir livré.
+  #
+  # Ce n'est PAS le job du dessus avec une variable en plus : le dialecte est
+  # une décision prise à la CRÉATION de l'application — les entités sont écrites
+  # pour lui, et l'ORM refuse de démarrer sur un autre en nommant l'entité
+  # fautive. Il faut donc TROIS applications, pas une variable d'environnement.
+  #
+  # Ce que ce job a déjà trouvé, et que rien d'autre ne pouvait voir : un
+  # échantillon de clé étrangère écrit en texte (`author-1`) face à une colonne
+  # `uuid` — la ressource rendait 500 sur chaque POST en PostgreSQL, pendant que
+  # SQLite, où un `uuid` et un texte sont le MÊME type, restait vert.
+  #
+  # Sur ubuntu SEULEMENT, et ce n'est pas un renoncement : les `services:` de
+  # GitHub sont des conteneurs Docker, indisponibles sur les runners macOS et
+  # Windows. Ce que les trois systèmes doivent prouver (chemins, serveurs,
+  # arrêt d'arbre) l'est par le job ci-dessus ; ce que ce job-ci prouve est le
+  # SQL, qui ne dépend pas du système.
+  dialectes:
+    name: Migrations générées (${{ matrix.database }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # SQLite est déjà couvert par le job ci-dessus, sur les trois systèmes.
+        database: ["postgres", "mysql"]
+
+    # Les DEUX services tournent dans les deux passes, et c'est voulu : GitHub
+    # ne sait pas déclarer un service conditionné par la matrice. Deux
+    # conteneurs au repos coûtent moins qu'un YAML dupliqué qui divergera.
+    #
+    # Identifiants : ceux que le GÉNÉRATEUR écrit dans le `.env` de
+    # l'application témoin — `<app>` / `<app>-dev` / `<app>`, où `<app>` est le
+    # nom de l'application du banc (`verify-generated.mjs`, constante `APP`).
+    # Les images viennent du MÊME catalogue que le compose généré
+    # (`DATABASE_PARAMS`, `engine.ts`) ; le gate `dialectes:images` du dépôt
+    # refuse qu'elles divergent.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - "127.0.0.1:5432:5432"
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app-dev
+          POSTGRES_DB: app
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4
+        ports:
+          - "127.0.0.1:3306:3306"
+        env:
+          MYSQL_ROOT_PASSWORD: app-dev
+          MYSQL_USER: app
+          MYSQL_PASSWORD: app-dev
+          MYSQL_DATABASE: app
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uapp -papp-dev --silent"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces (turbo)
+        run: npm run build
+
+      - name: Générer le graphe symbolique (absent d'un checkout frais)
+        run: npm run generate-symbols
+
+      # Les deux bases que la suite e2e de l'application exige — le service n'en
+      # crée qu'une. `CREATE DATABASE` est un privilège d'administration que
+      # l'utilisateur applicatif n'a pas, et ne doit pas avoir : c'est le décor
+      # qui les fournit, ici comme dans le compose que le générateur écrit.
+      # Mêmes noms des deux côtés, dérivés une seule fois (`resolveDatabase`).
+      - name: Bases de la suite e2e
+        shell: bash
+        run: |
+          set -eo pipefail
+          if [ "${{ matrix.database }}" = "postgres" ]; then
+            export PGPASSWORD=app-dev
+            for base in app_e2e app_e2e_scratch; do
+              psql -h 127.0.0.1 -p 5432 -U app -d app -c "CREATE DATABASE \"$base\""
+            done
+          else
+            mysql -h 127.0.0.1 -P 3306 -uroot -papp-dev <<'SQL'
+          CREATE DATABASE IF NOT EXISTS `app_e2e`;
+          CREATE DATABASE IF NOT EXISTS `app_e2e_scratch`;
+          GRANT ALL PRIVILEGES ON `app_e2e`.* TO 'app'@'%';
+          GRANT ALL PRIVILEGES ON `app_e2e_scratch`.* TO 'app'@'%';
+          FLUSH PRIVILEGES;
+          SQL
+          fi
+
+      # Le banc entier, sur une application créée POUR ce moteur. La suite de
+      # migrations qu'elle porte (`tests/migrations.e2e.test.ts`) s'y exécute
+      # dans l'étape « la ressource RÉPOND vraiment » : c'est là que le SQL
+      # généré est appliqué pour de bon, sur le moteur visé.
+      - name: Banc de vérité — moteur ${{ matrix.database }}
+        shell: bash
+        run: |
+          set -eo pipefail
+          node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs \
+            --database ${{ matrix.database }} --keep 2>&1 \
+            | tee verify-${{ matrix.database }}.log
+
+      - name: Récupérer le rapport du banc (si échec)
+        if: failure()
+        shell: bash
+        run: |
+          node -e "
+          const os = require('node:os');
+          const path = require('node:path');
+          const fs = require('node:fs');
+          const base = path.join(os.tmpdir(), 'nodefony-devkit-verify-${{ matrix.database }}');
+          for (const [nom, cible] of [
+            ['report.json', 'verify-report.json'],
+            ['echec.log', 'echec-commande.log'],
+          ]) {
+            const src = path.join(base, nom);
+            if (fs.existsSync(src)) fs.copyFileSync(src, cible);
+            else console.log('aucun ' + nom + ' a ' + base);
+          }
+          const journal = path.join(base, 'app', 'tmp', 'nodefony-detached.log');
+          if (fs.existsSync(journal)) fs.copyFileSync(journal, 'app-detached.log');
+          "
+
+      - name: Journal et rapport (si échec)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dialecte-${{ matrix.database }}
+          path: |
+            verify-${{ matrix.database }}.log
+            verify-report.json
+            echec-commande.log
+            app-detached.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # LE VERDICT — un moteur non lancé ne compte pas comme vert.
+  #
+  # Sans ce job, une matrice qui ne DÉMARRE pas (annulation, service qui ne
+  # devient jamais sain, erreur de syntaxe dans le YAML d'un service) laisse la
+  # branche verte : GitHub ne réclame pas un job qui n'existe pas. C'est le même
+  # raisonnement que le gate d'infra des suites du dépôt — une cible déclarée et
+  # non exercée est un échec, pas un silence.
+  verdict:
+    name: Trois moteurs exercés
+    runs-on: ubuntu-latest
+    needs: [generated, dialectes]
+    if: always()
+    steps:
+      - name: Chaque moteur a rendu un verdict
+        shell: bash
+        run: |
+          echo "sqlite (3 systèmes) : ${{ needs.generated.result }}"
+          echo "postgres + mysql    : ${{ needs.dialectes.result }}"
+          for r in "${{ needs.generated.result }}" "${{ needs.dialectes.result }}"; do
+            if [ "$r" != "success" ]; then
+              echo "::error::un moteur n'a pas été exercé avec succès ($r)"
+              exit 1
+            fi
+          done
