@@ -592,6 +592,50 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "ai:sync");
     });
 
+    it("🔴 un geste DESTRUCTEUR n'est jamais enseigné sans son remplaçant", () => {
+      // Mesuré au banc de découvrabilité, deux runs sur deux : l'agent tape
+      // `npx nodefony orm:reset -c default -y` — la ligne de CE fichier copiée
+      // à la lettre, drapeaux compris — puis `rm` la base quatre fois, et la
+      // donnée témoin disparaît. Il n'a pas désobéi : ce document est le SEUL
+      // qu'il ouvre d'office, le skill qui l'interdit n'est jamais chargé, et
+      // ce document PRESCRIVAIT la destruction comme la façon de « repartir
+      // d'une base vierge ».
+      //
+      // La leçon dépasse cette commande : ce qu'un agent lit, il l'exécute. Un
+      // interdit rangé ailleurs ne pèse rien face à un exemple écrit ICI —
+      // donc le geste dangereux porte sa conséquence, et l'alternative se
+      // trouve sur place.
+      const dest = path.join(tmp, "agents-destructif");
+      scaffold(dest, {
+        name: "destructif",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+
+      // 1. La commande destructrice existe toujours — la retirer serait pire :
+      //    l'agent la trouverait par `--help`, sans le moindre avertissement.
+      assert.include(agents, "orm:reset");
+
+      // 2. CHAQUE ligne qui la cite dit ce qu'elle coûte. C'est l'assertion qui
+      //    mord : sans elle, la ligne d'origine passait.
+      const lignes = agents.split("\n").filter((l) => l.includes("orm:reset"));
+      assert.isAtLeast(lignes.length, 1);
+      for (const ligne of lignes) {
+        assert.match(
+          ligne,
+          /DÉTRUIT|perd les données|détruit les données/u,
+          `une ligne enseigne « orm:reset » sans dire qu'elle détruit : ${ligne}`,
+        );
+      }
+
+      // 3. Et le remplaçant est là, exécutable : éprouver une migration
+      //    AILLEURS. C'est ce qui manquait — un interdit sans son geste de
+      //    remplacement ne tient pas.
+      assert.include(agents, "NF_MIGRATE_DATABASE_URL");
+      assert.include(agents, "nodefony-migrate-schema");
+    });
+
     it("🔴 l'app GÉNÉRÉE dit comment CHERCHER une doc que `rg` n'indexe pas", () => {
       // Le motif est structurel : la documentation des paquets vit sous
       // `node_modules`, que git ignore et que les outils de recherche excluent.

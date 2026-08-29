@@ -120,7 +120,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 - **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
 - **Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
 <% } %><% if (it.hasOrm) { %>- **Entités, repositories, requêtes (ORM)** — `node_modules/@nodefony/orm-core/docs/`
-- **Migrations de schéma** (générer, appliquer, déployer, réparer) — `node_modules/@nodefony/drizzle/docs/migrations.md`
+- **Migrations de schéma** (générer, appliquer, ÉPROUVER sans risque, déployer, réparer) — charge d'abord le skill `nodefony-migrate-schema` ; le détail des verdicts vit dans `node_modules/@nodefony/drizzle/docs/migrations.md`
 <% } %><% if (it.hasRealtime) { %>- **Canaux temps réel, actions, protocole WS** — `node_modules/@nodefony/realtime/docs/`
 <% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
 <% } %><% if (it.hasStudio) { %>- **Console d'admin Studio (dev)** — `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony
@@ -184,7 +184,8 @@ Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 <% } %><% if (it.hasOrm) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate [--name <nom>] [--custom]`
 - **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n|--dry-run] [--json]`
 - **La base est-elle à jour ?** — `npx nodefony orm:migrate:status [--json]` — **0** = à jour, **1** = en retard : ta barrière de déploiement
-- **Repartir d'une base vierge EN DÉVELOPPEMENT** — `npx nodefony orm:reset [-c <connecteur>] [-y]` — refusée partout ailleurs
+- **Éprouver une migration SANS toucher à ta base** — `NF_MIGRATE_DATABASE_URL="sqlite:/tmp/essai.sqlite" npx nodefony orm:migrate` — migre AILLEURS ; c'est ainsi qu'on prouve qu'une migration s'applique, jamais en refaisant la base
+- **Repartir d'une base vierge EN DÉVELOPPEMENT** — `npx nodefony orm:reset [-c <connecteur>] [-y]` — refusée partout ailleurs, et **elle DÉTRUIT les données** : ce n'est jamais la façon d'éprouver une migration, ni la réponse à une migration qui refuse
 <% } %>- **Dépendances en retard (agrégées, pas le brut de npm)** — `npx nodefony outdated [-j] [-a]`
 - **Cohérence du projet (classe non câblée, route qui répondra 404)** — `npx nodefony doctor [--json]` — depuis n'importe quel sous-dossier
 - **Plusieurs processus, un cœur chacun** — `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>`
@@ -499,7 +500,7 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **Un test qui n'a jamais échoué** — il ne garde rien — un test neuf est complaisant par défaut → casse-le exprès une fois, vérifie qu'il rougit
 - **« Tout est vert » alors qu'une suite ne s'est pas exécutée** — un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout → lis le NOMBRE de tests, pas la couleur
 - **`localhost` et `127.0.0.1` te jouent des tours** — ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas → une seule origine en développement, partout — URL ouverte comme callbacks
-<% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — en développement, un champ AJOUTÉ qui accepte le vide est posé au boot suivant, un champ OBLIGATOIRE ne l'est jamais, et aucune colonne n'est jamais retirée → `npx nodefony orm:reset` en dev ; pour la production, `npx nodefony orm:generate` puis `npx nodefony orm:migrate`
+<% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — en développement, un champ AJOUTÉ qui accepte le vide est posé au boot suivant, un champ OBLIGATOIRE ne l'est jamais, et aucune colonne n'est jamais retirée → écris la migration (`npx nodefony orm:generate` puis `npx nodefony orm:migrate`), qui vaut en dev comme en production ; `npx nodefony orm:reset` refait la base à neuf et **perd les données** — à ne taper que sur une base dont le contenu ne compte pour personne
 - **Un déploiement où « rien ne répond »** alors que les pods tournent — un exemplaire dont la base est en retard répond 503 sur `/readyz` (jamais sur `/livez`) et reste hors du répartiteur : c'est voulu, ce n'est pas une panne → `npx nodefony orm:migrate:status` dit qui est en retard ; applique les migrations, les pods se mettent en service SEULS
 <% } %><% if (it.hasSecurity) { %>- **Les routes authentifiées plafonnent** quand le reste tient la charge — le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements → compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge
 <% } %><% if (it.front) { %>- **En production, la modif front n'apparaît jamais** — hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT → `npm run build` → **redémarre le serveur** → rechargement forcé
