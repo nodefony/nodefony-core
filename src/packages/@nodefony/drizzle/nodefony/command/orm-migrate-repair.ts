@@ -1,6 +1,5 @@
 import type { CliKernel, OptionsCommandInterface } from "nodefony";
-import { buildReport, renderStatus } from "../src/migrator/explain";
-import { isDivergent } from "../src/migrator/divergence";
+import { renderStatus } from "../src/migrator/explain";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
@@ -83,11 +82,7 @@ class OrmMigrateRepair extends OrmMigrateCommand {
         updateHashes: opts.updateHashes === true,
       });
       const plan = await migrator.status();
-      const report = buildReport(plan, {
-        ddl: resolution.ddl,
-        divergent: await isDivergent(plan),
-        divergenceBlocks: config.migrations.divergence === "fail",
-      });
+      const report = await this.report(plan, resolution, config);
       const payload = { ...report, repaired: done };
       let human = "";
       if (done.cleared.length === 0 && done.rehashed.length === 0) {

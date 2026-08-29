@@ -5,7 +5,6 @@ import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
   action,
-  buildReport,
   renderStatus,
 } from "../src/migrator/explain";
 import {
@@ -16,7 +15,6 @@ import {
   summarizeDestructive,
 } from "../src/migrator/destructive";
 import { readMigrationEnv } from "../src/migrator/resolve";
-import { isDivergent } from "../src/migrator/divergence";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
@@ -187,11 +185,7 @@ class OrmMigrate extends OrmMigrateCommand {
         ignoreMissing: opts.ignoreMissing === true,
       });
       const plan = await migrator.status();
-      const report = buildReport(plan, {
-        ddl: resolution.ddl,
-        divergent: await isDivergent(plan),
-        divergenceBlocks: config.migrations.divergence === "fail",
-      });
+      const report = await this.report(plan, resolution, config);
 
       if (opts.dryRun === true) {
         const pending = plan.pending as readonly IMigrationFile[];

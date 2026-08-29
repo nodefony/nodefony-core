@@ -505,6 +505,41 @@ for (const cible of CIBLES) {
           "le mode d'observation ne doit pas changer le code de sortie",
         );
         assert.equal(apres.code, doc.exitCode);
+
+        // 🔴 Le verdict dit qu'il y a un écart ; la charge utile doit dire
+        // LEQUEL. Sans cette clé, l'exploitant ouvre un client SQL et compare
+        // table par table sur une base de production — pour une réponse que le
+        // produit avait déjà calculée.
+        const detail = doc.divergence as
+          | {
+              additive: { table: string; column: string }[];
+              blocking: { table: string; column: string }[];
+              missingTables: string[];
+            }
+          | undefined;
+        assert.ok(detail, "`divergence` absente du verdict `divergent`");
+        assert.ok(
+          [...detail.additive, ...detail.blocking].some(
+            (g) => g.table === "audit_event" && g.column === "metadata",
+          ),
+          `la colonne retirée n'est pas nommée : ${JSON.stringify(detail)}`,
+        );
+        assert.match(String(doc.summary), /audit_event\.metadata/);
+        // Le détail est au premier niveau, dans le cœur NEUTRE : un second ORM
+        // remplira la même structure, et un `jq` d'utilisateur ne doit pas
+        // avoir gravé un chemin qui passe par le nom d'un pilote.
+        assert.ok(
+          !("divergence" in (doc.driver as Record<string, unknown>)),
+          "le détail a fui sous `driver`",
+        );
+        // Hors développement, aucun geste ne peut être une commande qui refuse.
+        const gestes = (doc.nextActions as { command: string }[]).map(
+          (a) => a.command,
+        );
+        assert.ok(
+          !gestes.some((c) => c.includes("orm:reset")),
+          `« orm:reset » est refusée en production : ${gestes.join(" | ")}`,
+        );
       });
     }, 300_000);
 

@@ -70,6 +70,26 @@ export function readMigrationEnv(kernel: Kernel | null): IMigrationEnv {
 }
 
 /**
+ * L'effacement d'une base est-il ACCEPTÉ dans cet environnement ?
+ *
+ * **Liste blanche, jamais liste noire** : seul `development` passe. Un
+ * `staging`, un `test`, un environnement que personne n'a pensé à nommer sont
+ * refusés — c'est exactement ce qu'une garde écrite « si production » laisserait
+ * passer, et c'est là que l'accident se produit.
+ *
+ * Écrite ici parce qu'elle a DEUX lecteurs qui doivent dire la même chose :
+ * `orm:reset`, qui refuse ; et le rendu des migrations, qui ne doit pas proposer
+ * un geste que l'autre va rejeter. Deux copies de cette règle divergeraient, et
+ * la sortie promettrait alors une commande impossible.
+ *
+ * @param env - environnement constaté.
+ * @returns `true` si `orm:reset` est recevable.
+ */
+export function resetAllowed(env: IMigrationEnv): boolean {
+  return env.runtime === "development" && env.nodeEnv !== "test";
+}
+
+/**
  * Le mode de schéma qui s'applique à un connecteur.
  *
  * Règle des défauts, et son pourquoi : **appliquer des migrations au démarrage

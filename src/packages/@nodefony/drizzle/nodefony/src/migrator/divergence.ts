@@ -48,33 +48,44 @@ function comparable(connector: string): IComparableOrm | null {
 }
 
 /**
- * La base s'écarte-t-elle du schéma que le code déclare ?
+ * Ce qui diverge, NOMMÉ — ou `null` quand il n'y a rien à dire.
  *
- * Répond `false` sans rien interroger dans tous les cas où la réponse ne
+ * Producteur UNIQUE de la troisième source : le verdict, la phrase française,
+ * la charge utile `--json` et la sonde de disponibilité lisent tous ce même
+ * retour. Rendre un booléen ici et recalculer le détail ailleurs ferait deux
+ * lectures de la base pour une seule question, et deux réponses qui finiraient
+ * par se contredire.
+ *
+ * Répond `null` sans rien interroger dans tous les cas où la réponse ne
  * changerait rien : plan déjà porteur d'un verdict, connecteur absent du
  * registre, connecteur non connecté, ORM d'une autre nature (mongoose n'a pas
- * de schéma déclaré à comparer).
+ * de schéma déclaré à comparer). Répond `null` aussi quand la comparaison a eu
+ * lieu et n'a rien trouvé — l'absence d'écart ne garde pas d'objet vide en
+ * mémoire, et l'appelant n'a qu'un test à écrire.
  *
  * **Ne modifie jamais rien** — le rattrapage additif est le travail du mode de
  * schéma dérivé, au démarrage, et de lui seul.
  *
  * @param plan - plan calculé par l'applicateur, en lecture seule.
- * @returns `true` si la base porte un écart, `false` sinon.
+ * @returns les écarts nommés, ou `null` s'il n'y en a pas à publier.
  */
-export async function isDivergent(plan: IMigrationPlan): Promise<boolean> {
+export async function describeDivergence(
+  plan: IMigrationPlan,
+): Promise<ISchemaComparison | null> {
   if (verdictOf(plan) !== "up-to-date") {
-    return false;
+    return null;
   }
   const orm = comparable(plan.connector);
   if (!orm?.isConnected()) {
-    return false;
+    return null;
   }
   try {
-    return hasGap(await orm.compareToDeclared());
+    const comparison = await orm.compareToDeclared();
+    return hasGap(comparison) ? comparison : null;
   } catch {
     // La base n'a pas répondu, ou le catalogue est illisible : ce n'est PAS une
     // divergence, et le prétendre retiendrait un pod pour une panne qui a déjà
     // sa propre voie de signalement.
-    return false;
+    return null;
   }
 }

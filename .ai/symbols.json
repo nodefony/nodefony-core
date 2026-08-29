@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T00:09:52.689Z",
+  "generated": "2026-08-29T00:43:21.862Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 778,
-    "symbols": 3464,
+    "symbols": 3468,
     "classes": 380,
     "interfaces": 964,
     "types": 414,
     "enums": 4,
-    "functions": 1354,
+    "functions": 1358,
     "constants": 348
   },
   "symbols": {
@@ -19147,13 +19147,13 @@
       "module": "@nodefony/drizzle",
       "description": "Résumé d'une ligne, pour un message ou un journal."
     },
-    "isDivergent": {
-      "name": "isDivergent",
+    "describeDivergence": {
+      "name": "describeDivergence",
       "kind": "function",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "La base s'écarte-t-elle du schéma que le code déclare ? Répond `false` sans rien interroger dans tous les cas où la réponse ne changerait rien : plan déjà porteur d'un verdict, connecteur absent du…"
+      "description": "Ce qui diverge, NOMMÉ — ou `null` quand il n'y a rien à dire. Producteur UNIQUE de la troisième source : le verdict, la phrase française, la charge utile `--json` et la sonde de disponibilité lisen…"
     },
     "DrizzleMigrator": {
       "name": "DrizzleMigrator",
@@ -19551,6 +19551,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Constate l'environnement depuis le kernel et le processus."
+    },
+    "resetAllowed": {
+      "name": "resetAllowed",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'effacement d'une base est-il ACCEPTÉ dans cet environnement ? **Liste blanche, jamais liste noire** : seul `development` passe. Un `staging`, un `test`, un environnement que personne n'a pensé à …"
     },
     "resolveDdlMode": {
       "name": "resolveDdlMode",
@@ -29588,6 +29596,10 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
       ],
+      "buildReport": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
       "refusalInMode": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
@@ -29603,6 +29615,16 @@
       "IStyle": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
+      "describeDivergence": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "IMigrationPlan": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
+      ],
       "buildMigrator": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
@@ -29612,6 +29634,11 @@
       "readMigrationEnv": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "resetAllowed": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
@@ -29701,25 +29728,11 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
       ],
-      "buildReport": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
-      ],
       "renderStatus": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
-      ],
-      "isDivergent": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-repair.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-status.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "IMigrationFile": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
@@ -32009,11 +32022,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
-      "IMigrationPlan": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
-      ],
       "verdictOf": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts"
       ],
@@ -32023,6 +32031,7 @@
       ],
       "ISchemaComparison": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "IMigrationTarget": [
@@ -32070,6 +32079,9 @@
       ],
       "MigrationVerdictCode": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "ISchemaGap": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "DivergenceMode": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"

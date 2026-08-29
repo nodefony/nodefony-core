@@ -2,10 +2,8 @@ import type { CliKernel, OptionsCommandInterface } from "nodefony";
 import {
   MIGRATION_FORMAT_VERSION,
   action,
-  buildReport,
   renderStatus,
 } from "../src/migrator/explain";
-import { isDivergent } from "../src/migrator/divergence";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
@@ -80,11 +78,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
       const migrator = await this.migrator(resolution, config);
       const adopted = await migrator.baseline(opts.upTo);
       const plan = await migrator.status();
-      const report = buildReport(plan, {
-        ddl: resolution.ddl,
-        divergent: await isDivergent(plan),
-        divergenceBlocks: config.migrations.divergence === "fail",
-      });
+      const report = await this.report(plan, resolution, config);
       const payload = {
         ...report,
         adopted: adopted.map((a) => ({ source: a.source, tag: a.tag })),

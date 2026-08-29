@@ -3,7 +3,7 @@ import type { SqlDialect } from "../config/config";
 import { openMigrationDriver } from "../src/migrator/drivers/index";
 import type { IMigrationDriver } from "../src/migrator/types";
 import { MIGRATION_FORMAT_VERSION, action } from "../src/migrator/explain";
-import { readMigrationEnv } from "../src/migrator/resolve";
+import { readMigrationEnv, resetAllowed } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
@@ -109,7 +109,7 @@ class OrmReset extends OrmMigrateCommand {
     const style = this.style;
 
     const env = readMigrationEnv(this.kernel as Kernel | null);
-    if (env.runtime !== "development" || env.nodeEnv === "test") {
+    if (!resetAllowed(env)) {
       const constate =
         env.nodeEnv ??
         process.env.NF_ENV ??

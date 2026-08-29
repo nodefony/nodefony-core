@@ -10,11 +10,12 @@ import { defaultMigrationSources } from "../src/migrator/paths";
 import {
   appMigrationsDir,
   readMigrationEnv,
+  resetAllowed,
   resolveCheckMode,
   resolveDdlMode,
 } from "../src/migrator/resolve";
 import { buildReport, meaningOf, isAheadOnly } from "../src/migrator/explain";
-import { isDivergent } from "../src/migrator/divergence";
+import { describeDivergence } from "../src/migrator/divergence";
 import {
   dataLoss,
   renderDestructive,
@@ -359,12 +360,15 @@ class DrizzleService extends Service {
     try {
       const plan = await migrator.status();
       // La troisième source ne se paie que lorsque les deux premières n'ont
-      // plus rien à dire (cf `isDivergent`) : c'est exactement le moment où
-      // elle apprend quelque chose que personne d'autre ne voit.
+      // plus rien à dire (cf `describeDivergence`) : c'est exactement le moment
+      // où elle apprend quelque chose que personne d'autre ne voit. Elle rend
+      // ce qui diverge, NOMMÉ — la phrase publiée à la sonde dit donc quelle
+      // table manque, et non plus seulement qu'il en manque une.
       const report = buildReport(plan, {
         ddl,
-        divergent: await isDivergent(plan),
+        divergence: await describeDivergence(plan),
         divergenceBlocks: this.#config().migrations?.divergence === "fail",
+        canReset: resetAllowed(readMigrationEnv(kernel)),
       });
       // Une base EN AVANCE sur ce code n'est pas une anomalie : c'est l'état
       // normal d'une mise à jour progressive et d'un retour arrière. Le verdict

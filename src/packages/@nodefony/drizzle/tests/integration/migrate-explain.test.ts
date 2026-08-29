@@ -220,7 +220,17 @@ describe("migrations — aucune situation ne sort sans un geste", () => {
     for (const v of TOUS_LES_VERDICTS) {
       const r = buildReport(cas[v], {
         ddl: "none",
-        divergent: v === "divergent",
+        // Le verdict `divergent` naît du DÉTAIL des écarts, pas d'un booléen
+        // posé à côté : c'est ce qui garantit qu'il ne peut pas exister sans
+        // que la sortie sache dire ce qui diverge.
+        divergence:
+          v === "divergent"
+            ? {
+                additive: [],
+                blocking: [],
+                missingTables: ["une_table_du_code"],
+              }
+            : null,
       });
       assert.equal(r.verdict, v, `le cas « ${v} » ne produit pas son verdict`);
       assert.ok(r.summary.length > 20, `« ${v} » : le fait est trop court`);

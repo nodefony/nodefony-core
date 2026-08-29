@@ -206,6 +206,11 @@ export {
   type IMigrationVerdict,
   type IMigrationAction,
   type MigrationVerdictCode,
+  // Les écarts NOMMÉS que porte `IMigrationReport.divergence` : un type
+  // référencé par une charge utile publique doit être nommable par celui qui
+  // la lit, sinon la clé n'est atteignable qu'en la retypant à la main.
+  type ISchemaComparison,
+  type ISchemaGap,
 } from "./nodefony/src/migrator/index";
 
 // ─── Rendu et résolution des migrations (CLI, data plane, sonde, agent) ─────
@@ -235,6 +240,7 @@ export {
   readMigrationEnv,
   resolveDdlMode,
   resolveCheckMode,
+  resetAllowed,
   resolveConnector,
   resolveDivergenceMode,
   knownConnectors,

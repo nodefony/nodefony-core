@@ -7,16 +7,20 @@ import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
   action,
+  buildReport,
   refusalInMode,
   renderRefusal,
   styleFor,
   type IMigrationReport,
   type IStyle,
 } from "../src/migrator/explain";
+import { describeDivergence } from "../src/migrator/divergence";
+import type { IMigrationPlan } from "../src/migrator/types";
 import {
   buildMigrator,
   knownConnectors,
   readMigrationEnv,
+  resetAllowed,
   resolveConnector,
   MIGRATE_URL_ENV,
   type IConnectorResolution,
@@ -326,6 +330,34 @@ export abstract class OrmMigrateCommand extends Command {
     config: IDrizzleConfig,
   ): Promise<DrizzleMigrator> {
     return buildMigrator(resolution, config, this.kernel as Kernel | null);
+  }
+
+  /**
+   * Compose la charge utile d'un état — le SEUL endroit où le contexte du
+   * rendu est assemblé.
+   *
+   * Les quatre commandes de migration publient le même objet ; recopier son
+   * assemblage dans chacune les faisait déjà diverger d'un champ à l'autre, et
+   * la prochaine à naître aurait oublié celui du jour. La troisième source ne
+   * se paie qu'ici, une fois : `describeDivergence` s'abstient toute seule
+   * quand le verdict est déjà décidé.
+   *
+   * @param plan - plan calculé par l'applicateur, en lecture seule.
+   * @param resolution - connecteur prêt (porte le mode de schéma effectif).
+   * @param config - configuration validée du module.
+   * @returns la charge utile, prête pour `--json` comme pour l'écran.
+   */
+  protected async report(
+    plan: IMigrationPlan,
+    resolution: Extract<IConnectorResolution, { kind: "ready" }>,
+    config: IDrizzleConfig,
+  ): Promise<IMigrationReport> {
+    return buildReport(plan, {
+      ddl: resolution.ddl,
+      divergence: await describeDivergence(plan),
+      divergenceBlocks: config.migrations.divergence === "fail",
+      canReset: resetAllowed(readMigrationEnv(this.kernel as Kernel | null)),
+    });
   }
 
   /**

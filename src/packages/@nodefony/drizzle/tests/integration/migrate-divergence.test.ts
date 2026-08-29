@@ -10,7 +10,7 @@ import {
 } from "../../nodefony/entity/idempotencyEntity";
 import {
   DrizzleMigrator,
-  isDivergent,
+  describeDivergence,
   type IMigrationSource,
 } from "../../nodefony/src/migrator/index";
 import { buildReport } from "../../nodefony/src/migrator/explain";
@@ -102,24 +102,22 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     assert.equal(etat.drifted.length, 0, "aucune empreinte n'a bougé");
     assert.equal(etat.failed.length, 0, "aucun échec");
 
-    assert.equal(
-      await isDivergent(etat),
-      true,
+    const ecart = await describeDivergence(etat);
+    assert.ok(
+      ecart,
       "la troisième source doit voir ce que les deux autres ne peuvent pas voir",
     );
-    const report = buildReport(etat, {
-      ddl: "none",
-      divergent: await isDivergent(etat),
-    });
+    const report = buildReport(etat, { ddl: "none", divergence: ecart });
     assert.equal(report.verdict, "divergent");
   });
 
   it("superviser ne fait pas tomber un déploiement — le code de sortie reste 0", async () => {
     await poser(TABLE_D_EPOQUE);
     const etat = await plan();
+    const ecart = await describeDivergence(etat);
     const observation = buildReport(etat, {
       ddl: "none",
-      divergent: true,
+      divergence: ecart,
       divergenceBlocks: false,
     });
     assert.equal(
@@ -130,7 +128,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     );
     const barriere = buildReport(etat, {
       ddl: "none",
-      divergent: true,
+      divergence: ecart,
       divergenceBlocks: true,
     });
     assert.equal(
@@ -151,7 +149,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
         `)`,
     );
     const etat = await plan();
-    assert.equal(await isDivergent(etat), false);
+    assert.equal(await describeDivergence(etat), null);
     assert.equal(buildReport(etat, { ddl: "none" }).verdict, "up-to-date");
   });
 
@@ -166,7 +164,102 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
         `  "colonne_d_une_migration_libre" text\n` +
         `)`,
     );
-    assert.equal(await isDivergent(await plan()), false);
+    assert.equal(await describeDivergence(await plan()), null);
+  });
+
+  it("le rapport NOMME ce qui manque — sinon il envoie ouvrir un client SQL", async () => {
+    // Le verdict seul (« la base ne correspond pas au code ») fait comparer
+    // table par table à la main, sur une base de production, au pire moment.
+    // L'information EXISTE : elle était jetée à un pas de la sortie.
+    await poser(TABLE_D_EPOQUE);
+    const report = buildReport(await plan(), {
+      ddl: "none",
+      divergence: await describeDivergence(await plan()),
+    });
+    assert.equal(report.verdict, "divergent");
+    assert.ok(report.divergence, "la clé du détail doit être publiée");
+    assert.deepEqual(
+      report.divergence.additive.map((g) => `${g.table}.${g.column}`),
+      ["idempotency_key.response"],
+      "la colonne manquante doit être nommée, et rangée comme rattrapable",
+    );
+    assert.deepEqual(report.divergence.blocking, []);
+    assert.deepEqual(report.divergence.missingTables, []);
+    // La phrase lisible en dit AU MOINS la première : un exploitant qui ne lit
+    // pas de JSON doit savoir où regarder.
+    assert.match(report.summary, /idempotency_key\.response/);
+  });
+
+  it("une TABLE entièrement absente est nommée comme telle", async () => {
+    // Autre famille d'écart, autre rangement : ce n'est pas une colonne qui
+    // manque, c'est la table. Les confondre ferait proposer un `ALTER` là où
+    // il faut un `CREATE`.
+    await poser(`CREATE TABLE "sans_rapport" ("x" text)`);
+    const detail = await describeDivergence(await plan());
+    assert.ok(detail);
+    assert.deepEqual(detail.missingTables, ["idempotency_key"]);
+    assert.deepEqual(detail.additive, []);
+    const report = buildReport(await plan(), {
+      ddl: "none",
+      divergence: detail,
+    });
+    assert.match(report.summary, /table absente : « idempotency_key »/);
+  });
+
+  it("🔴 base CONFORME : la clé est ABSENTE, pas vide", async () => {
+    // Le contrôle qui empêche ce banc de ne prouver que la présence d'un
+    // champ. Publier un objet vide sur toute base saine apprendrait au
+    // consommateur à le tester non-vide au lieu de le tester présent.
+    await poser(
+      `CREATE TABLE "idempotency_key" (\n` +
+        `  "key" text PRIMARY KEY NOT NULL,\n` +
+        `  "fingerprint" text NOT NULL,\n` +
+        `  "state" text NOT NULL,\n` +
+        `  "response" text,\n` +
+        `  "expiresAt" integer NOT NULL\n` +
+        `)`,
+    );
+    const report = buildReport(await plan(), {
+      ddl: "none",
+      divergence: await describeDivergence(await plan()),
+    });
+    assert.equal(report.verdict, "up-to-date");
+    assert.equal(
+      "divergence" in report,
+      false,
+      "sur une base à jour, il n'y a rien à nommer : la clé ne doit pas exister",
+    );
+  });
+
+  it("🔴 le geste proposé ne peut pas être une commande que l'environnement REFUSE", async () => {
+    // `orm:reset` efface, et n'est reçue qu'en développement (liste blanche).
+    // La proposer ailleurs envoie taper une commande qui refuse — et détruit
+    // la confiance dans toutes les autres actions rendues.
+    await poser(TABLE_D_EPOQUE);
+    const etat = await plan();
+    const divergence = await describeDivergence(etat);
+
+    const dehors = buildReport(etat, { ddl: "none", divergence });
+    const dedans = buildReport(etat, {
+      ddl: "none",
+      divergence,
+      canReset: true,
+    });
+    const cmds = (r: ReturnType<typeof buildReport>): string[] =>
+      r.nextActions.map((a) => a.command);
+
+    assert.ok(
+      !cmds(dehors).some((c) => c.includes("orm:reset")),
+      `hors développement, aucun geste ne doit être « orm:reset » : ${cmds(dehors).join(" | ")}`,
+    );
+    assert.ok(
+      cmds(dehors).some((c) => c.includes("orm:generate")),
+      "il faut dire ce qu'on fait À LA PLACE : écrire la migration correctrice",
+    );
+    assert.ok(
+      cmds(dedans).some((c) => c.includes("orm:reset")),
+      "en développement, repartir de zéro reste le geste le plus court",
+    );
   });
 
   it("la divergence ne se calcule PAS quand une migration est en attente", async () => {
@@ -189,8 +282,8 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     const etat = await plan();
     assert.equal(etat.pending.length, 1, "une migration attend");
     assert.equal(
-      await isDivergent(etat),
-      false,
+      await describeDivergence(etat),
+      null,
       "tant qu'un geste est déjà dû, la troisième source ne se paie pas",
     );
   });

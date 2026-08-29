@@ -30,7 +30,7 @@ export {
 } from "./history";
 export { migrationHash, normalizeSql } from "./hash";
 export { schemaReader, type ISchemaReader, type SqlQuery } from "./catalog";
-export { isDivergent } from "./divergence";
+export { describeDivergence } from "./divergence";
 export {
   compareSchema,
   additiveSql,

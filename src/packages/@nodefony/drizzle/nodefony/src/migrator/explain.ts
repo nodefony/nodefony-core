@@ -8,6 +8,7 @@ import type {
   IMigrationVerdict,
 } from "./types";
 import { HISTORY_TABLE } from "./types";
+import type { ISchemaComparison, ISchemaGap } from "./schemaDiff";
 
 /**
  * Le RENDU des migrations : un seul producteur, quatre destinataires.
@@ -115,6 +116,21 @@ export interface IMigrationReport {
   nextActions: IMigrationAction[];
   /** Une source par entrée, dans l'ordre d'application. */
   sources: IMigrationSourceReport[];
+  /**
+   * CE QUI diverge, nommé — présent au seul verdict `divergent`, absent
+   * partout ailleurs.
+   *
+   * Le verdict dit qu'il y a un écart ; cette clé dit LEQUEL. Sans elle,
+   * l'exploitant ouvre un client SQL et compare table par table, sur une base
+   * de production, au pire moment — alors que le produit connaissait déjà la
+   * réponse. Elle vit au premier niveau, dans le cœur NEUTRE : un second ORM
+   * remplira la même structure, et un `jq` d'utilisateur ne doit pas avoir
+   * gravé un chemin qui passe par le nom d'un pilote.
+   *
+   * Son ABSENCE est un fait, pas un oubli : sur une base conforme, il n'y a
+   * rien à nommer.
+   */
+  divergence?: ISchemaComparison;
   /** Tout ce qui est propre au pilote SQL vit ici, et nulle part ailleurs. */
   driver: {
     kind: "sql";
@@ -278,10 +294,25 @@ function groupSources(plan: IMigrationPlan): IMigrationSourceReport[] {
 export interface IReportContext {
   /** Mode de schéma effectif du connecteur. */
   ddl: string;
-  /** La base a-t-elle divergé du schéma déclaré ? */
-  divergent?: boolean;
+  /**
+   * Les écarts NOMMÉS entre la base et le schéma déclaré, tels que
+   * `describeDivergence` les rend — `null` ou absent quand il n'y en a pas.
+   *
+   * C'est le détail qui décide du verdict, pas un booléen posé à côté : deux
+   * champs pour un même fait finissent par se contredire.
+   */
+  divergence?: ISchemaComparison | null;
   /** `migrations.divergence` vaut-il `fail` ? */
   divergenceBlocks?: boolean;
+  /**
+   * `orm:reset` est-elle acceptée dans cet environnement ?
+   *
+   * Elle efface : la règle est une liste blanche que porte `resetAllowed`, et
+   * elle est lue ici pour ne JAMAIS proposer un geste qui va refuser. Une
+   * action rendue puis rejetée détruit la confiance dans toutes les autres.
+   * Défaut prudent : `false` — on ne suppose pas le droit d'effacer.
+   */
+  canReset?: boolean;
 }
 
 /**
@@ -296,16 +327,21 @@ export function buildReport(
   plan: IMigrationPlan,
   ctx: IReportContext,
 ): IMigrationReport {
-  const verdict = verdictOf(plan, ctx.divergent === true);
+  const divergence = ctx.divergence ?? null;
+  const verdict = verdictOf(plan, divergence !== null);
   const sources = groupSources(plan);
   return {
     formatVersion: MIGRATION_FORMAT_VERSION,
     connector: plan.connector,
     verdict,
     exitCode: exitCodeOf(verdict, ctx.divergenceBlocks === true),
-    summary: summaryOf(plan, verdict),
-    nextActions: actionsOf(plan, verdict),
+    summary: summaryOf(plan, verdict, divergence),
+    nextActions: actionsOf(plan, verdict, ctx.canReset === true),
     sources,
+    // Posée SEULEMENT quand elle a quelque chose à dire : un objet vide
+    // publierait la clé sur toutes les bases conformes, et un consommateur
+    // apprendrait à la tester non-vide au lieu de la tester présente.
+    ...(divergence ? { divergence } : {}),
     driver: {
       kind: "sql",
       dialect: plan.dialect,
@@ -315,10 +351,76 @@ export function buildReport(
   };
 }
 
+/** Combien d'écarts par famille la PHRASE nomme avant de dire « et N de plus ». */
+const SUMMARY_GAPS = 3;
+
+/**
+ * La phrase a-t-elle nommé TOUS les écarts, ou en a-t-elle tronqué ?
+ *
+ * Sert au seul rendu à l'écran : quand la phrase dit déjà tout, dérouler la
+ * même chose juste au-dessus est du bruit — et le bruit est ce qui fait
+ * arrêter de lire une sortie d'incident.
+ *
+ * @param d - les écarts.
+ * @returns `true` si aucune famille n'a été tronquée.
+ */
+function namesEverything(d: ISchemaComparison): boolean {
+  return (
+    d.missingTables.length <= SUMMARY_GAPS &&
+    d.blocking.length <= SUMMARY_GAPS &&
+    d.additive.length <= SUMMARY_GAPS
+  );
+}
+
+/**
+ * Ce qui diverge, EN TOUTES LETTRES — tables et colonnes nommées.
+ *
+ * C'est la moitié utile du verdict `divergent`. Sans elle, « la base ne
+ * correspond pas au schéma déclaré » envoie ouvrir un client SQL et comparer
+ * table par table, sur une base de production, au pire moment — pour une
+ * réponse que le produit avait déjà calculée.
+ *
+ * **Bornée à trois entrées par famille**, dans l'ordre de gravité : une phrase
+ * qui déroule quarante colonnes n'est plus lue. Le compte total reste dit, et
+ * `IMigrationReport.divergence` porte la liste ENTIÈRE pour qui la veut.
+ *
+ * @param d - les écarts, tels que la comparaison les a séparés.
+ * @returns la phrase, sans point final ni majuscule initiale.
+ */
+function nameGaps(d: ISchemaComparison): string {
+  const parts: string[] = [];
+  const borne = (noms: string[], un: string, plusieurs: string): void => {
+    if (noms.length === 0) {
+      return;
+    }
+    const reste =
+      noms.length > SUMMARY_GAPS
+        ? `, et ${noms.length - SUMMARY_GAPS} de plus`
+        : "";
+    parts.push(
+      `${noms.length > 1 ? plusieurs : un} ${noms.slice(0, SUMMARY_GAPS).join(", ")}${reste}`,
+    );
+  };
+  const col = (g: ISchemaGap): string => `« ${g.table}.${g.column} »`;
+  borne(
+    d.missingTables.map((t) => `« ${t} »`),
+    "table absente :",
+    "tables absentes :",
+  );
+  borne(
+    d.blocking.map(col),
+    "colonne manquante et OBLIGATOIRE :",
+    "colonnes manquantes et OBLIGATOIRES :",
+  );
+  borne(d.additive.map(col), "colonne manquante :", "colonnes manquantes :");
+  return parts.join(" ; ");
+}
+
 /** Le FAIT, en une phrase, sans terme d'art. */
 function summaryOf(
   plan: IMigrationPlan,
   verdict: MigrationVerdictName,
+  divergence: ISchemaComparison | null = null,
 ): string {
   const c = plan.connector;
   switch (verdict) {
@@ -359,15 +461,25 @@ function summaryOf(
     }
     case "adopt":
       return `La base du connecteur « ${c} » contient déjà des tables, mais aucune migration n'y est enregistrée. Nodefony ne devine pas : appliquer les migrations sur une base déjà peuplée écraserait peut-être une base qui n'est pas la bonne.`;
-    case "divergent":
-      return `Le connecteur « ${c} » a son historique complet et rien en attente — mais la base ne correspond pas au schéma déclaré dans le code. Quelqu'un a modifié la base directement, ou un correctif d'urgence n'a pas été reporté.`;
+    case "divergent": {
+      const quoi = divergence ? ` — ${nameGaps(divergence)}` : "";
+      return `Le connecteur « ${c} » a son historique complet et rien en attente, et la base ne correspond pourtant pas au schéma déclaré dans le code${quoi}. Quelqu'un a modifié la base directement, ou un correctif d'urgence n'a pas été reporté.`;
+    }
   }
 }
 
-/** Ce qu'il faut TAPER, du plus direct au plus assumé. */
+/**
+ * Ce qu'il faut TAPER, du plus direct au plus assumé.
+ *
+ * @param plan - plan calculé en lecture seule.
+ * @param verdict - situation d'ensemble.
+ * @param canReset - `orm:reset` est-elle acceptée dans cet environnement ?
+ * @returns les gestes, dans l'ordre où les tenter.
+ */
 function actionsOf(
   plan: IMigrationPlan,
   verdict: MigrationVerdictName,
+  canReset = false,
 ): IMigrationAction[] {
   const c = plan.connector;
   const suffixe = c === "default" ? "" : ` --connector ${c}`;
@@ -404,14 +516,25 @@ function actionsOf(
         action(`nodefony orm:migrate:status${suffixe}`),
       ];
     case "divergent":
-      // 🔴 On ne propose QUE des commandes qui existent. La génération d'une
-      // migration correctrice côté application n'a pas encore son verbe : la
-      // suggérer enverrait l'utilisateur taper une commande inconnue, ce qui
-      // détruit la confiance dans TOUTES les autres actions rendues ici.
-      return [
-        action(`nodefony orm:migrate:status${suffixe} --json`),
-        action(`nodefony orm:reset${suffixe}`),
-      ];
+      // 🔴 On ne propose QUE des commandes qui existent, et QUE celles que cet
+      // environnement ACCEPTE. `orm:reset` efface : elle n'est reçue qu'en
+      // développement (liste blanche, cf `resetAllowed`), et la proposer
+      // ailleurs enverrait taper une commande qui refuse — ce qui détruit la
+      // confiance dans toutes les autres actions rendues ici. Là où l'on ne
+      // peut pas repartir de zéro, le geste réel est d'écrire soi-même le SQL
+      // qui rattrape l'écart, puis de l'appliquer comme une migration.
+      return canReset
+        ? [
+            action(`nodefony orm:migrate:status${suffixe} --json`),
+            action(`nodefony orm:reset${suffixe}`),
+          ]
+        : [
+            action(`nodefony orm:migrate:status${suffixe} --json`),
+            action(
+              `nodefony orm:generate${suffixe} --custom --name rattrapage_schema`,
+            ),
+            action(`nodefony orm:migrate${suffixe}`),
+          ];
   }
 }
 
@@ -535,7 +658,56 @@ export function renderStatus(report: IMigrationReport, style: IStyle): string {
   if (report.sources.length === 0) {
     out += `  ${style.dim("aucune source de migrations")}\n`;
   }
+  // Le bloc ne s'affiche que lorsque la phrase a TRONQUÉ : sinon il redirait
+  // mot pour mot ce que le résumé énonce trois lignes plus bas. Un producteur
+  // unique impose de nommer dans le résumé — c'est la surface que lisent aussi
+  // la sonde, `--json` et le corps d'erreur —, l'écran est le seul endroit où
+  // l'on peut éviter de le lire deux fois.
+  if (report.divergence && !namesEverything(report.divergence)) {
+    out += renderDivergence(report.divergence, style);
+  }
   out += `\n${renderBlocks(style, report.summary, meaningOf(report.verdict), report.nextActions)}`;
+  return out;
+}
+
+/** Combien d'écarts on déroule à l'écran avant de renvoyer au `--json`. */
+const DIVERGENCE_LINES = 10;
+
+/**
+ * La LISTE des écarts, à l'écran — ce que le résumé n'a pas la place de dire.
+ *
+ * Le résumé nomme les trois premiers de chaque famille, parce qu'une phrase
+ * doit rester lisible ; ici on déroule, parce que c'est précisément la liste
+ * que l'exploitant serait allé chercher à la main dans un client SQL. Au-delà
+ * de {@link DIVERGENCE_LINES} entrées, on s'arrête et on dit où est le reste :
+ * un écran de quarante lignes ne se lit pas davantage qu'une phrase de
+ * quarante noms.
+ *
+ * @param d - les écarts, séparés selon qu'ils se rattrapent ou non.
+ * @param style - mise en forme.
+ * @returns le bloc, prêt à concaténer.
+ */
+function renderDivergence(d: ISchemaComparison, style: IStyle): string {
+  const lignes: string[] = [
+    ...d.missingTables.map((t) => `${"table".padEnd(9)} ${t}`),
+    ...d.blocking.map(
+      (g: ISchemaGap) =>
+        `${"colonne".padEnd(9)} ${g.table}.${g.column} ` +
+        style.red(`(${g.type}, OBLIGATOIRE — ne se rattrape pas)`),
+    ),
+    ...d.additive.map(
+      (g: ISchemaGap) =>
+        `${"colonne".padEnd(9)} ${g.table}.${g.column} ` +
+        style.dim(`(${g.type}, se rattrape)`),
+    ),
+  ];
+  let out = `\n  ${style.bold("Ce qui manque dans la base :")}\n`;
+  for (const l of lignes.slice(0, DIVERGENCE_LINES)) {
+    out += `    ${l}\n`;
+  }
+  if (lignes.length > DIVERGENCE_LINES) {
+    out += `    ${style.dim(`… et ${lignes.length - DIVERGENCE_LINES} autre(s) — la liste entière est dans « --json », sous « divergence »`)}\n`;
+  }
   return out;
 }
 

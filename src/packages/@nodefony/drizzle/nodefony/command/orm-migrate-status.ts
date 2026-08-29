@@ -1,6 +1,5 @@
 import type { CliKernel, OptionsCommandInterface } from "nodefony";
-import { buildReport, renderStatus } from "../src/migrator/explain";
-import { isDivergent } from "../src/migrator/divergence";
+import { renderStatus } from "../src/migrator/explain";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 /**
@@ -66,11 +65,7 @@ class OrmMigrateStatus extends OrmMigrateCommand {
     try {
       const migrator = await this.migrator(resolution, config);
       const plan = await migrator.status();
-      const report = buildReport(plan, {
-        ddl: resolution.ddl,
-        divergent: await isDivergent(plan),
-        divergenceBlocks: config.migrations.divergence === "fail",
-      });
+      const report = await this.report(plan, resolution, config);
       this.emitReport(report, renderStatus(report, this.style), opts.json);
     } catch (e) {
       this.failFrom(e, resolution.connector, opts.json, resolution.ddl);
