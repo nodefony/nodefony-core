@@ -6,7 +6,8 @@ description: >
   au lieu de l'écrire à la main. Porte la grammaire de champs (types, relations, index simples et
   composites), les réglages pour épouser une table SQL existante, et les trois vérités qu'on
   découvre autrement en production : la table naît au démarrage, un champ ajouté n'est rattrapé que
-  s'il accepte le vide, et le déploiement s'applique par `orm:migrate`. À charger AVANT d'écrire une entité, un repository ou un
+  s'il accepte le vide, et la production s'applique par des migrations — dont le cycle complet vit
+  dans le skill `nodefony-migrate-schema`. À charger AVANT d'écrire une entité, un repository ou un
   controller de ressource.
   Déclencheurs : "ajoute une entité", "crée un CRUD", "nouvelle table", "modèle de données",
   "ressource REST", "endpoint CRUD", "je veux stocker des articles/commandes/utilisateurs",
@@ -144,7 +145,9 @@ refus tombe tout seul.
 1. **La table naît au prochain démarrage en développement** (`CREATE TABLE IF NOT EXISTS`).
 2. **La modifier n'altère rien** — aucun `ALTER` n'est émis. Une colonne ajoutée à une entité déjà
    créée n'apparaîtra pas dans une base existante.
-3. **Aucune migration n'est produite.** Le passage en production est un geste à part.
+3. **La production ne fabrique JAMAIS le schéma.** Elle l'applique par des migrations, écrites par
+   `npx nodefony orm:generate` et posées par `npx nodefony orm:migrate` — c'est un geste à part,
+   avec ses refus et ses interdits : skill **`nodefony-migrate-schema`**.
 
 ## Ce qui refuse AVANT d'écrire
 
@@ -184,5 +187,6 @@ npx nodefony inspect entities    # ce que l'application enregistre VRAIMENT
 | Besoin                                   | Skill                           |
 | ---------------------------------------- | ------------------------------- |
 | Un service métier injectable             | `nodefony-add-service`          |
+| Faire suivre une base DÉJÀ en place      | `nodefony-migrate-schema`       |
 | Réserver une route à certaines personnes | `nodefony-protect-route`        |
 | Un flux temps réel                       | `nodefony-add-realtime-channel` |

@@ -318,6 +318,8 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-m2m-stateless.selftes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selftest.mjs  # bourrage de login
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-migration.selftest.mjs --prove  # la base DÉJÀ en place a suivi — 4 faits, la donnée perdue en tête
+node .claude/skills/nodefony-devkit-bench/scripts/lib/prepare-base-migree.mjs --selftest   # le décor : mode de production, sinon la tâche est vide de sens
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/jeton-mcp.selftest.mjs   # la porte reste-t-elle ouverte tout le run ?
 node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove   # le décor et ses 3 règles vues rouges : aucune NF_ du poste n'entre

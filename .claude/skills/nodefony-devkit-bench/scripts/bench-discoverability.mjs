@@ -111,6 +111,11 @@ import {
   ROUTE_SYNTHESE,
 } from "./lib/enonces.mjs";
 import {
+  ENTITE as ENTITE_MIGREE,
+  ROUTE_ARTICLES,
+  TITRE_SEME,
+} from "./lib/prepare-base-migree.mjs";
+import {
   assertIsolated,
   installFromTarballs,
   packTarballs,
@@ -579,6 +584,20 @@ const JUGE_LISTE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-liste-bornee.mjs",
+);
+
+/** Juge « la base DÉJÀ en place a suivi » — interroge l'application, pas les fichiers. */
+const JUGE_MIGRATION = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-migration.mjs",
+);
+
+/** Décor « base au schéma précédent » — mode de production, historique, ligne témoin. */
+const PREPARE_BASE_MIGREE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "prepare-base-migree.mjs",
 );
 
 /**
@@ -3440,6 +3459,111 @@ export const TASKS = [
         where: "added",
         invert: true,
       },
+    ],
+  },
+
+  {
+    id: 33,
+    name: "faire suivre une base DÉJÀ en place",
+    // Le décor est tout : sans lui, la tâche est vide de sens.
+    //
+    // Une application en développement rattrape seule une colonne ajoutée qui
+    // accepte le vide — l'agent n'aurait rien à faire, et la tâche serait verte
+    // sans qu'aucune migration n'existe. Le connecteur est donc posé en mode
+    // `none`, le mode de PRODUCTION où le démarrage ne fabrique jamais le
+    // schéma. La colonne neuve n'apparaît alors QUE par une migration appliquée.
+    //
+    // Et une ligne est semée AVANT : elle transforme « ne supprime pas la base »
+    // d'une consigne en un FAIT mesurable. Un agent qui efface et recrée obtient
+    // une base au bon schéma — le juge le voit quand même, parce que la ligne a
+    // disparu. C'est la seule façon de distinguer un travail juste d'un geste
+    // catastrophique qui répond juste à toutes les autres questions.
+    //
+    // L'énoncé ne nomme AUCUNE commande, et c'est le sujet : la tâche mesure si
+    // l'agent trouve le chemin, pas s'il sait exécuter un chemin qu'on lui a
+    // donné.
+    prepare:
+      `npx --no-install nodefony create entity ${ENTITE_MIGREE} title:string! ` +
+      `--route ${ROUTE_ARTICLES} --yes >/dev/null 2>&1; ` +
+      `node ${PREPARE_BASE_MIGREE}; ` +
+      `npx --no-install nodefony orm:generate --name schema_initial >/dev/null 2>&1; ` +
+      `npx --no-install nodefony orm:migrate >/dev/null 2>&1; ` +
+      `npm run build >/dev/null 2>&1; ` +
+      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+      `curl -s -X POST http://127.0.0.1:${PORTS.NF_PORT}${ROUTE_ARTICLES} ` +
+      `-H 'content-type: application/json' ` +
+      `-d '{"title":"${TITRE_SEME}"}' >/dev/null 2>&1; ` +
+      `npx --no-install nodefony stop >/dev/null 2>&1`,
+    prompt:
+      `Ajoute un champ \`slug\` unique à l'entité ${ENTITE_MIGREE} de cette application. ` +
+      "Sa base contient déjà des données en service : elle doit pouvoir suivre " +
+      "ce changement en production, sans être vidée ni recréée. Prouve-le.",
+    probes: [
+      sondeLecture(
+        "a lu ce que le framework dit des migrations",
+        /migrations?\.md|migrate-schema|AGENTS\.md/iu,
+      ),
+      {
+        // OBSERVÉE, pas jugée : le verdict porte sur l'état de la base, pas sur
+        // le chemin pris. Un agent qui obtiendrait le même résultat autrement
+        // aurait fait juste — ce qu'on veut apprendre, c'est lequel il choisit.
+        kind: "transcript",
+        name: "a employé le générateur de migrations",
+        pattern: commandeQuiContient("orm:generate"),
+        observe: true,
+      },
+      {
+        kind: "transcript",
+        name: "a appliqué par la commande du framework",
+        pattern: commandeQuiContient("orm:migrate"),
+        observe: true,
+      },
+      {
+        // 🔴 L'INTERDIT, et il est jugé. La documentation d'un outil tiers
+        // enseigne « supprime la base et recommence » ; sur une base en service
+        // c'est la pire réponse possible. Le juge le voit AUSSI par la donnée
+        // perdue — les deux sondes se recouvrent exprès : le motif attrape
+        // l'intention, le juge attrape le fait.
+        kind: "transcript",
+        name: "n'a jamais proposé de supprimer la base",
+        pattern:
+          /orm:reset|DROP\s+DATABASE|DROP\s+TABLE|rm\s+[^\n]*\.db|unlink[^\n]*\.db/iu,
+        invert: true,
+      },
+      {
+        // Le second interdit : faire disparaître un fichier de migration DÉJÀ
+        // appliqué. Son identité est enregistrée dans la base — le retirer rend
+        // l'historique bancal pour toujours.
+        //
+        // ⚠️ La MODIFICATION d'un tel fichier n'est pas sondée ici, et ce n'est
+        // pas un oubli : le banc n'a pas de matière « fichiers modifiés », et
+        // surtout le juge la voit MIEUX — une empreinte qui change fait
+        // basculer l'état en dérive, donc `orm:migrate:status` ne rend plus 0,
+        // donc la cause `etat-non-a-jour`. Une sonde de texte aurait mesuré
+        // l'intention là où un fait est disponible.
+        kind: "code",
+        name: "la migration d'origine n'a pas été supprimée",
+        pattern: /schema_initial[^\n]*\.sql/u,
+        where: "deletedFiles",
+        invert: true,
+      },
+      {
+        // LE juge : quatre faits pris sur l'application qui tourne, aucun lu
+        // dans un fichier. `--check-port-free` d'abord — un serveur étranger
+        // répondrait à sa place et rendrait un verdict sur une autre app.
+        kind: "gate",
+        name: "la base a suivi, sans rien perdre",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_MIGRATION} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_MIGRATION}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
 ];
