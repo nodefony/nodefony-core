@@ -546,6 +546,13 @@
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
 
+- [1× — 08-30] **La forge a vu ce qu'aucun poste ne pouvait voir, et la doctrine d'injection l'a
+  rendu éprouvable ici.** Un chemin publié dans un rapport sortait en `var\db.sqlite` sous Windows
+  seulement : deux plateformes désignaient différemment la MÊME base, dans une charge utile que des
+  scripts comparent. Corrigé en normalisant (**un chemin qui VOYAGE s'écrit en `/`**), puis rendu
+  testable partout en INJECTANT la grammaire (`typeof path`, `path.win32` au test) — vu rouge sur
+  macOS. Une fonction qui lit `path` global ne s'éprouve que sur la plateforme qu'elle décrit.
+
 - **La CI Windows était rouge sur deux tests qui SUIVAIENT pourtant l'axiome** (composés au
   `path.join`, jamais littéraux). Le code rendait un chemin ABSOLU (`path.resolve` → `D:\…`),
   l'attendu était seulement ENRACINÉ (`\…`). `resolve` d'un côté et `join` de l'autre ne décrivent
