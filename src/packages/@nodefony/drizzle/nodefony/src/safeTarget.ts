@@ -30,21 +30,31 @@ import type { SqlDialect } from "../config/config";
  *
  * @param cible - dialecte et coordonnées, telles que la résolution les rend.
  * @param cwd - répertoire de référence pour relativiser un chemin de fichier.
+ * @param grammaire - grammaire de chemins à employer. Injectée pour une seule
+ *   raison : une fonction qui lit `path` global ne s'éprouve que sur la
+ *   plateforme qu'elle décrit, c'est-à-dire jamais ici. Avec `path.win32`, le
+ *   cas Windows se joue sur n'importe quel système.
  * @returns une désignation affichable, sans identifiant ni mot de passe.
  */
 export function describeTargetSafely(
   cible: { dialect: SqlDialect; filename?: string; url?: string },
   cwd: string = process.cwd(),
+  grammaire: typeof path = path,
 ): string {
   if (cible.dialect === "sqlite") {
     const fichier = cible.filename ?? ":memory:";
-    if (fichier === ":memory:" || !path.isAbsolute(fichier)) {
+    if (fichier === ":memory:" || !grammaire.isAbsolute(fichier)) {
       return fichier;
     }
-    const relatif = path.relative(cwd, fichier);
+    const relatif = grammaire.relative(cwd, fichier);
+    // Ce chemin VOYAGE — il part dans un rapport lu à l'écran et dans la charge
+    // utile `--json`, que des scripts comparent. Il s'écrit donc en `/` sur les
+    // trois systèmes : `relative` rend `var\db.sqlite` sous Windows, et deux
+    // plateformes publieraient alors deux désignations différentes de la MÊME
+    // base. Un chemin qu'on OUVRE s'écrit natif ; celui-ci ne s'ouvre pas.
     return relatif && !relatif.startsWith("..")
-      ? relatif
-      : path.basename(fichier);
+      ? relatif.split(grammaire.sep).join("/")
+      : grammaire.basename(fichier);
   }
   const defaut = cible.dialect === "postgres" ? "5432" : "3306";
   if (cible.url === undefined || cible.url === "") {

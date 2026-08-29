@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { describeTargetSafely } from "../../nodefony/src/safeTarget";
 import { buildReport } from "../../nodefony/src/migrator/explain";
 import type { IMigrationPlan } from "../../nodefony/src/migrator/types";
@@ -80,6 +81,25 @@ describe("désigner la base visée sans fuiter d'identifiant (#113)", () => {
         describeTargetSafely(
           { dialect: "sqlite", filename: "/srv/app/var/db.sqlite" },
           "/srv/app",
+        ),
+        "var/db.sqlite",
+      );
+    });
+
+    it("🔴 sous WINDOWS aussi, la désignation s'écrit en `/`", () => {
+      // Le défaut, constaté à la forge et sur elle seule : `path.relative` rend
+      // `var\db.sqlite` sous Windows, et deux plateformes publiaient deux
+      // désignations différentes de la MÊME base — dans un rapport que des
+      // scripts comparent.
+      //
+      // Le cas se joue ICI, sur n'importe quel système, parce que la grammaire
+      // de chemins est INJECTÉE : une fonction qui lit `path` global ne
+      // s'éprouve que sur la plateforme qu'elle décrit.
+      assert.equal(
+        describeTargetSafely(
+          { dialect: "sqlite", filename: "C:\\proj\\var\\db.sqlite" },
+          "C:\\proj",
+          path.win32,
         ),
         "var/db.sqlite",
       );
