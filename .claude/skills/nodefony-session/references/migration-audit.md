@@ -1,16 +1,16 @@
----
-name: nodefony-migration-audit
-description: >
-  Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au
-  code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique
-  (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs +
-  MD modules → fichier d'audit persistant + assainissement de la FORME du dashboard (anti-obésité).
-  Déclencheurs : "audit migration", "état des lieux migration", "où en est la migration",
-  "avancement migration", "vérifier MIGRATION_STATUS", "revue phase par phase", "mets à jour le migration",
-  "gros point migration", "fichier vérité", "audit vérité", "assainir le dashboard migration".
----
+# Référence — auditer l'avancement de la migration, phase par phase
 
-# migration-audit
+> Chargé à la demande par **`nodefony-session`**. C'était un skill autonome ; il ne l'est plus, et
+> pour une raison qui vaut d'être dite : **le pilotage a quitté le plan**. L'avancement se lit
+> désormais sur les TICKETS (jalon, tableau de bord, empreinte hors ligne), qui ont un état que
+> personne n'oublie de changer — là où `MIGRATION_STATUS.md` est écrit à la main et vieillit entre
+> deux sessions. Le geste décrit ici reste utile une à deux fois par cycle, quand on veut confronter
+> la CARTE DES PHASES au code réel ; il ne mérite plus sa propre porte d'entrée.
+>
+> **Deux briques sont de la valeur DURE, à ne jamais ré-improviser** — elles ont été payées
+> plusieurs fois : le **comptage `awk` sur la 1ʳᵉ cellule** (à la main, on compte les emoji
+> n'importe où, et les chiffres sont faux) et la **méthode de dégraissage** (sans elle le tableau
+> de bord ré-enfle jusqu'à devenir illisible).
 
 > ## 🔴 Ce skill N'EST PLUS le pilotage — il est l'INSTRUMENT DE VÉRITÉ
 >

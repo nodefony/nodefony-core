@@ -2387,7 +2387,7 @@
       "description": "Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées, services enregistrés, config effective et provenance de chaque valeur) — mêmes valeurs que la console d'administration, sans ouvrir de port, ici comme dans une app. Donne aussi le diff propre. Ne crée rien (scaffolder → `nodefony-create-module`). Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"inspecter un module existant\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"symbols.json\".",
       "cost": {
         "bodyLines": 259,
-        "approxTokens": 3670
+        "approxTokens": 3668
       },
       "requires": [],
       "resources": {
@@ -2398,8 +2398,8 @@
       "related": [
         "nodefony-create-module",
         "nodefony-framework-dev",
-        "nodefony-migration-audit",
         "nodefony-security-review",
+        "nodefony-session",
         "nodefony-start-server"
       ],
       "conformance": {
@@ -3893,28 +3893,31 @@
       }
     },
     {
-      "name": "nodefony-migration-audit",
-      "summary": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts.",
-      "family": "Inspecter et auditer",
+      "name": "nodefony-migrate-schema",
+      "summary": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` — jamais par un `ALTER` écrit à la main ni par la suppression d'une base.",
+      "family": "Développer le back",
       "version": null,
-      "keywords": [],
-      "triggers": [
-        "audit migration",
-        "état des lieux migration",
-        "où en est la migration",
-        "avancement migration",
-        "vérifier MIGRATION_STATUS",
-        "revue phase par phase",
-        "mets à jour le migration",
-        "gros point migration",
-        "fichier vérité",
-        "audit vérité",
-        "assainir le dashboard migration"
+      "keywords": [
+        "orm:generate",
+        "orm:migrate",
+        "ALTER"
       ],
-      "description": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD modules → fichier d'audit persistant + assainissement de la FORME du dashboard (anti-obésité). Déclencheurs : \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"mets à jour le migration\", \"gros point migration\", \"fichier vérité\", \"audit vérité\", \"assainir le dashboard migration\".",
+      "triggers": [
+        "j'ai ajouté un champ à une entité",
+        "la colonne n'existe pas en base",
+        "migrer le schéma",
+        "orm:migrate",
+        "orm:generate",
+        "appliquer les migrations",
+        "déployer un changement de schéma",
+        "adopter une base existante",
+        "réparer une migration en échec",
+        "no such column"
+      ],
+      "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"adopter une base existante\", \"réparer une migration en échec\", \"no such column\".",
       "cost": {
-        "bodyLines": 430,
-        "approxTokens": 7327
+        "bodyLines": 15,
+        "approxTokens": 426
       },
       "requires": [],
       "resources": {
@@ -3922,11 +3925,7 @@
         "referenceFilesTotal": 0,
         "scripts": []
       },
-      "related": [
-        "nodefony-inspect",
-        "nodefony-start-server",
-        "nodefony-ticket"
-      ],
+      "related": [],
       "conformance": {
         "ok": true,
         "checks": [
@@ -3939,7 +3938,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "675",
+            "detail": "830",
             "advisory": false
           },
           {
@@ -3975,14 +3974,14 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "430",
+            "detail": "15",
             "advisory": true
           }
         ]
       },
       "links": {
-        "source": ".claude/skills/nodefony-migration-audit/SKILL.md",
-        "doc": "docs/skills/nodefony-migration-audit.md"
+        "source": ".claude/skills/nodefony-migrate-schema/SKILL.md",
+        "doc": "docs/skills/nodefony-migrate-schema.md"
       }
     },
     {
@@ -4757,7 +4756,9 @@
       "summary": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise.",
       "family": "Cycle de session",
       "version": null,
-      "keywords": [],
+      "keywords": [
+        "MIGRATION_STATUS.md"
+      ],
       "triggers": [
         "reprends",
         "on en était où",
@@ -4768,19 +4769,28 @@
         "session sur <module>",
         "fin de session",
         "retex",
-        "consolide les retex"
+        "consolide les retex",
+        "audit migration",
+        "état des lieux migration",
+        "où en est la migration",
+        "avancement migration",
+        "vérifier MIGRATION_STATUS",
+        "revue phase par phase",
+        "gros point migration",
+        "assainir le dashboard migration"
       ],
-      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
+      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 554,
-        "approxTokens": 6681
+        "bodyLines": 556,
+        "approxTokens": 6805
       },
       "requires": [],
       "resources": {
         "references": [
-          "consolidate-toolkit.md"
+          "consolidate-toolkit.md",
+          "migration-audit.md"
         ],
-        "referenceFilesTotal": 1,
+        "referenceFilesTotal": 2,
         "scripts": [
           {
             "path": "scripts/board-snapshot.mjs",
@@ -4832,7 +4842,7 @@
         "nodefony-check-externals",
         "nodefony-check-memory-health",
         "nodefony-inspect",
-        "nodefony-migration-audit",
+        "nodefony-start-server",
         "nodefony-ticket"
       ],
       "conformance": {
@@ -4847,7 +4857,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "592",
+            "detail": "960",
             "advisory": false
           },
           {
@@ -4883,7 +4893,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "554",
+            "detail": "556",
             "advisory": true
           }
         ]

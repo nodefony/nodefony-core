@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-28
+updated: 2026-08-29
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -27,29 +27,29 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 554 lignes |
-| Coût d'activation | ~6 681 tokens (le corps est chargé à l'invocation) |
-| Description | 592 / 1024 caractères |
-| Déclencheurs | 10 |
-| Ressources `references/` | 1 page(s) |
+| Corps | 556 lignes |
+| Coût d'activation | ~6 805 tokens (le corps est chargé à l'invocation) |
+| Description | 960 / 1024 caractères |
+| Déclencheurs | 18 |
+| Ressources `references/` | 2 page(s) |
 | Scripts | 2 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps.
+Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps.
 
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`migration-audit`](nodefony-migration-audit.md) · [`ticket`](nodefony-ticket.md)
+[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`start-server`](nodefony-start-server.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex`
+`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex` · `audit migration` · `état des lieux migration` · `où en est la migration` · `avancement migration` · `vérifier MIGRATION_STATUS` · `revue phase par phase` · `gros point migration` · `assainir le dashboard migration`
 
 ## Ce que contient le corps
 
@@ -89,6 +89,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
+| `references/migration-audit.md` | Référence — auditer l'avancement de la migration, phase par phase | 441 |
 
 
 ## Scripts embarqués
@@ -137,13 +138,13 @@ node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 592 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 960 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 554 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 556 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

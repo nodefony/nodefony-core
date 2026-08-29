@@ -98,7 +98,7 @@ const CASES = [
     "est-ce que le paquet publié marche vraiment ? smoke test des tarballs",
     "nodefony-release",
   ],
-  ["où en est la migration ?", "nodefony-migration-audit"],
+  ["où en est la migration ?", "nodefony-session"],
   ["fais un rapport HTML imprimable de ces mesures", "nodefony-html-report"],
   ["c'est quoi la phase 12, la couche IA agentic ?", "nodefony-roadmap"],
   // — bancs du scaffold : ce qu'il PRODUIT, et ce qu'un agent en TROUVE
@@ -192,8 +192,8 @@ const ACCEPTED_OVERLAPS = new Map([
   ],
   ["memory leak|nodefony-check-memory-health", "idem — gate mémoire"],
   [
-    "phase 12|nodefony-migration-audit",
-    "« phase 12 » seul = question de statut → migration-audit ; le contexte IA élit roadmap",
+    "phase 12|nodefony-session",
+    "« phase 12 » seul = question de statut → session ; le contexte IA élit roadmap",
   ],
   [
     "realtime|nodefony-frontend-dev",

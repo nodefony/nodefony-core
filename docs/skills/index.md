@@ -38,7 +38,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🧭", "title": "session", "href": "nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 2 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 2 scripts · 📎 2 réf" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -102,9 +102,6 @@ source: "docs/skills/index.md"
   { "icon": "🔬", "title": "inspect", "href": "nodefony-inspect.md",
     "desc": "Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées, services…",
     "meta": "🟢 conforme v1.0.0" },
-  { "icon": "🗺️", "title": "migration-audit", "href": "nodefony-migration-audit.md",
-    "desc": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD…",
-    "meta": "🟢 conforme" },
   { "icon": "🛡️", "title": "security-review", "href": "nodefony-security-review.md",
     "desc": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).",
     "meta": "🟢 conforme" }
@@ -173,13 +170,13 @@ source: "docs/skills/index.md"
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 360 | 3 | 8 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 259 | 0 | 0 | ✅ |
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 359 | 4 | 43 | ✅ |
-| [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 430 | 0 | 0 | ✅ |
+| [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.0.0 | 247 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 147 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 554 | 1 | 2 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 556 | 2 | 2 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |

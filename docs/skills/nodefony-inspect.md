@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-27
+updated: 2026-08-29
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-inspect/SKILL.md"
 ---
@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-inspect/SKILL.md"
 | Version | `1.0.0` |
 | Famille | Inspecter et auditer |
 | Corps | 259 lignes |
-| Coût d'activation | ~3 670 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~3 668 tokens (le corps est chargé à l'invocation) |
 | Description | 981 / 1024 caractères |
 | Déclencheurs | 15 |
 | Ressources `references/` | 0 page(s) |
@@ -43,7 +43,7 @@ Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les rel
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`migration-audit`](nodefony-migration-audit.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md)
+[`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`security-review`](nodefony-security-review.md) · [`session`](nodefony-session.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 

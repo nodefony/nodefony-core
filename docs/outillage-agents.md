@@ -75,7 +75,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 2 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 2 scripts · 📎 2 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -139,9 +139,6 @@ serait sans effet à la régénération suivante.
   { "icon": "🔬", "title": "inspect", "href": "skills/nodefony-inspect.md",
     "desc": "Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées, services…",
     "meta": "🟢 conforme v1.0.0" },
-  { "icon": "🗺️", "title": "migration-audit", "href": "skills/nodefony-migration-audit.md",
-    "desc": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD…",
-    "meta": "🟢 conforme" },
   { "icon": "🛡️", "title": "security-review", "href": "skills/nodefony-security-review.md",
     "desc": "Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any).",
     "meta": "🟢 conforme" }

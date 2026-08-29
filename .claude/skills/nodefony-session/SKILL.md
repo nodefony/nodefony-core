@@ -4,10 +4,14 @@ description: >
   Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) :
   reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur
   un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture
-  des tickets soldés et mémoire de reprise. Le détail de chaque mode est dans le corps.
+  des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases —
+  confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se
+  refait pas à la main. Le détail de chaque mode est dans le corps.
   Déclencheurs : "reprends", "on en était où", "dernière session", "où en est la publication",
   "quels tickets restent", "prépare le contexte", "session sur <module>", "fin de session",
-  "retex", "consolide les retex".
+  "retex", "consolide les retex", "audit migration", "état des lieux migration",
+  "où en est la migration", "avancement migration", "vérifier MIGRATION_STATUS",
+  "revue phase par phase", "gros point migration", "assainir le dashboard migration".
 ---
 
 # nodefony-session
@@ -121,11 +125,13 @@ se périme, ce qui est un état ne se périme pas.
 
 ## 4. Mini-état migration (SI la prochaine étape cible une phase P<n>)
 
-Composer avec le skill **`nodefony-migration-audit`, mode `tableau` / variante A uniquement** :
+Composer avec **[`references/migration-audit.md`](references/migration-audit.md), mode `tableau` /
+variante A uniquement** :
 barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHAINE ÉTAPE**
 (première phase non finie du chemin critique). Compact — **PAS** l'audit interactif code-par-code.
 
-> Audit réel vérifié dans le code : `/migration-audit` ou dire « audit migration ».
+> Audit réel vérifié dans le code : dire « audit migration » — la référence porte le protocole,
+> dont le comptage `awk` qu'on ne refait pas à la main sans se tromper.
 > Si la prochaine étape ne touche aucune phase (chore, fix, doc, skill) → **sauter** ce mini-état.
 
 ## 5. Restituer (≤ 30 lignes)
@@ -140,7 +146,7 @@ barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHA
 4. **Avancement du jalon** : `N ouverts / M fermés`, échéance, et les 2-3 prochains tickets dans
    l'ordre du tableau de bord — ou, si GitHub n'a pas répondu, la phrase « avancement non vérifié,
    GitHub injoignable ». Ne jamais présenter un avancement déduit du seul `_state`.
-5. **Mini-état migration** (barres + encadré, via `nodefony-migration-audit`) — si phase concernée
+5. **Mini-état migration** (barres + encadré, via `references/migration-audit.md`) — si phase concernée
 6. **Branche git** + non commités (alerte si dist périmé probable)
 7. **Question** : « On reprend ça, ou autre chose ? »
 

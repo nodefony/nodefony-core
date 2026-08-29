@@ -827,7 +827,7 @@ const CATALOG = {
   "check-memory-health": ["🧠", "Exécuter, diagnostiquer, mesurer"],
   "load-test": ["📈", "Exécuter, diagnostiquer, mesurer"],
   "multipod-bench": ["🛰️", "Exécuter, diagnostiquer, mesurer"],
-  "migration-audit": ["🗺️", "Inspecter et auditer"],
+  "migrate-schema": ["🗄️", "Développer le back"],
   "security-review": ["🛡️", "Inspecter et auditer"],
   inspect: ["🔬", "Inspecter et auditer"],
   "check-externals": ["🔗", "Publier et distribuer"],

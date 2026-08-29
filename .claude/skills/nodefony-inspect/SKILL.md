@@ -37,7 +37,7 @@ requête indexée ou un `git diff` ciblé — jamais en chargeant des fichiers e
 | Comprendre **ce que fait** une fonction | lire son corps — l'index ne porte pas le code |
 | Créer un module / un service | `nodefony-create-module` |
 | Comprendre une architecture ou une API du cœur | `nodefony-framework-dev` |
-| État d'avancement d'une phase | `nodefony-migration-audit` |
+| État d'avancement d'une phase | `nodefony-session` |
 | Revue de sécurité du diff | `nodefony-security-review` |
 
 **Le gain** : `cat src/.../HttpContext.ts` coûte ~4 000 tokens ; la requête `jq` équivalente en coûte
