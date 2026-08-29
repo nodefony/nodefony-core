@@ -107,7 +107,8 @@ C'est le décor d'une installation propre, et celui d'un nouvel environnement.
 
 ```bash
 # sqlite : un fichier qui n'existe pas encore suffit — le pilote le crée.
-export NF_MIGRATE_DATABASE_URL="sqlite:$(mktemp -d)/essai.sqlite"
+# PowerShell : $env:NF_MIGRATE_DATABASE_URL = "sqlite:./var/databases/essai.sqlite"
+export NF_MIGRATE_DATABASE_URL="sqlite:./var/databases/essai.sqlite"
 
 npx nodefony orm:migrate --dry-run --json   # le plan : ce qui s'appliquerait, rien d'écrit
 npx nodefony orm:migrate --json             # applique — sur la base d'essai
@@ -155,11 +156,14 @@ silencieusement chaque commande de migration suivante vers la base d'essai : `or
 « appliqué » et le code du succès, pendant que ta vraie base ne reçoit rien. Le seul symptôme
 arrive plus tard, quand l'application démarre sur un schéma qui n'a pas bougé.
 
-Aucun verdict n'annonce aujourd'hui la base visée : **c'est l'environnement qui te le dit**, et il
-est le seul à le savoir.
+Tu n'as rien à interroger pour savoir où tu tapes : **chaque commande de migration annonce la base
+qu'elle vise**. Quand une variable la détourne, l'en-tête de l'état le dit en toutes lettres —
+« ⚠ NF_MIGRATE_DATABASE_URL détourne ce connecteur vers … » — et la charge utile `--json` porte le
+même fait (`driver.target`). C'est le même chemin pour l'écran et pour la machine : les deux ne
+peuvent pas diverger.
 
 ```bash
-env | grep NF_MIGRATE_DATABASE_URL   # vide = tu vises bien la base du connecteur
+nodefony orm:migrate:status
 ```
 
 > ⚠️ **`orm:migrate:baseline` n'est pas un outil d'essai.** Il sert à ADOPTER une base qui porte
