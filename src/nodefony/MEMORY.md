@@ -373,6 +373,26 @@ leur liste explicite auditée par `nodefony-check-externals`). Entrée rolldown 
 peerDep OPTIONNELLE). Invariants gravés : nom propre toujours externe (anti self-import),
 side-effect `reflect-metadata` préservé, `nodefony` exact-match only. Tests `tests/bundler.test.ts`.
 
+## `nodefony/testing` (`src/testing/`) — outillage de test publié
+
+Sous-chemin exporté, importé par les tests de **toute application générée**.
+
+- `nodefonyBin()` — le lanceur, résolu par le framework (`src/cli/nodefonyBin.ts`, ré-exporté ici).
+  Jamais `node_modules/.bin/nodefony` : sous Windows npm y écrit un `.cmd`, que Node refuse.
+- `runningAppPort(root?)` — port de l'application démarrée, **ou une erreur qui dit quoi vérifier**.
+  🔴 Jamais de repli `?? 5151` : un port de repli fait interroger le premier serveur venu, et le
+  verdict porte alors sur LUI (vécu : superviseur orphelin → 404 sur toute une suite).
+- `createTestModule(opts?)` — module jetable portant conteneur + bus, pour éprouver un service SEUL.
+  ⚠️ Pas de résolution par conteneur (`@inject` passe par `Nodefony.getKernel()`, absent ici) : un
+  test unitaire DONNE la dépendance au constructeur.
+- `startSpareApp({port, httpsPort?, env?, root?, timeoutMs?})` → `{port, output(), stop()}` —
+  exemplaire JETABLE dans un état choisi (schéma en retard, dépendance absente). Attend `/livez`,
+  lève avec la sortie si le process meurt. Chef de groupe + `signalProcessGroup` à l'arrêt.
+  🔴 **Sa raison d'être est `stop()`, pas le `spawn`** : un second exemplaire écrase
+  `node_modules/.cache/nodefony/{runtime,readiness}.json`, et `runningAppPort()` désigne alors le
+  jetable puis LÈVE — la panne tombe sur le cas SUIVANT. `stop()` restaure les deux fichiers, y
+  compris leur absence. Le port est IMPOSÉ, jamais découvert (même raison que `runningAppPort`).
+
 ## Client isomorphe (`src/client/`) — subpaths navigateur
 
 Build rolldown dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), shims `node:util/events/cli-color`, sortie `dist/client/`.

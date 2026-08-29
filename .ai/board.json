@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T10:40:18.483Z",
+  "generatedAt": "2026-08-29T12:08:37.541Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 29,
+      "closed": 30,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -320,8 +320,8 @@
       "number": 106,
       "title": "test(orm): éprouver les migrations dans une application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/106",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -1180,6 +1180,20 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 53,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 112,
+      "title": "ci(scaffold): éprouver les migrations générées sur les trois moteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/112",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 53.5,
       "labels": [
         "10.1"
       ]

@@ -101,13 +101,28 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   (`additiveSql`) ; une colonne OBLIGATOIRE ou une table absente est publiée dans `orm.schemaDrift`
   et journalisée `CRITIC` avec le geste. 🔴 **L'ordre n'est pas cosmétique** : un `CREATE INDEX` sur
   une colonne absente TUE la connexion — les index d'une table en écart bloquant sont sautés.
+- **Découpage en instructions** (`migrator/sources.ts`, `splitStatements`) : le séparateur
+  `--> statement-breakpoint` EST un commentaire SQL, donc les deux ordres naïfs échouent — découper
+  d'abord promeut un séparateur écrit DANS un commentaire (le gabarit de `orm:generate --custom`
+  cite la phrase : toute migration libre échouait), nettoyer d'abord emporte les vrais séparateurs.
+  Balayage ligne par ligne, une seule passe, avec l'état « dans une chaîne ». Le séparateur n'est
+  PAS reconnu « ligne entière » : drizzle-kit le colle en fin d'instruction. `indexHorsChaine`
+  ignore celui qui vit dans une valeur littérale.
 - **Lecture du catalogue = UNE implémentation** (`migrator/catalog.ts`, `schemaReader(dialect,
 query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit sur SA connexion :
   ouvrir un pilote sur `:memory:` désignerait une base VIDE et rendrait un verdict faux.
 - **Verdict `divergent`** (`migrator/divergence.ts`, `describeDivergence(plan)`) : ne se calcule QUE
   si `verdictOf(plan) === "up-to-date"` — ailleurs le verdict est déjà décidé et la comparaison
   coûterait une requête par table pour rien. Signale ce qui MANQUE, jamais ce qui est EN TROP
-  (migrations libres). Code de sortie 0 sauf `migrations.divergence: "fail"`.
+  (migrations libres). En mode `off`, elle n'est même pas APPELÉE (les deux lecteurs le testent).
+- **La rétention est GRADUÉE — `divergenceIsBlocking(divergence, mode)` (`migrator/explain.ts`) est
+  la source unique**, lue par la commande ET par la sonde de disponibilité. `off` ne retient jamais ·
+  `fail` retient tout écart · `report` (défaut) retient **si `missingTables` est non vide**. 🔴 Une
+  TABLE d'entité absente n'est pas une dérive : aucune migration libre ne la produit, elle veut dire
+  que le schéma applicatif n'a jamais été posé — le pod se déclarait PRÊT avec 500 sur chaque route.
+  `summaryOf` change alors de cause probable (« jamais générée, commitée ou appliquée » au lieu de
+  « quelqu'un a modifié la base »), et `actionsOf` propose `orm:generate --name` — pas `--custom`,
+  qui ferait recopier à la main ce que le générateur écrit seul.
 - **Le détail NOMME, et il PRODUIT le verdict.** `describeDivergence` rend un `ISchemaComparison`
   ou `null` ; `buildReport` en dérive `verdict` ET la clé `divergence` du rapport. Aucun booléen
   posé à côté : deux champs pour un même fait finissent par se contredire. La clé vit au premier

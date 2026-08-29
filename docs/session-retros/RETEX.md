@@ -34,6 +34,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 08-29d] **Rien n'exerçait l'artefact que le produit ÉCRIT LUI-MÊME, et il était piégé.** Le gabarit qu'`orm:generate --custom` dépose porte la phrase « Séparer les instructions par `--> statement-breakpoint` ». Or le découpage cherchait ce texte AVANT de retirer les commentaires : la ligne d'aide était coupée en deux, et sa moitié droite — qui ne commence plus par deux tirets — partait au pilote comme une instruction. **Toute migration libre écrite en suivant l'aide du produit échouait**, en gravant une migration `failed` dans l'historique, c'est-à-dire une base bloquée. Les bancs unitaires de `splitStatements` étaient verts depuis toujours : ils lui donnaient des cas FABRIQUÉS À LA MAIN, jamais le fichier que la commande d'à côté produit. Trouvé en jouant le cycle complet dans une application générée, pas en relisant la fonction. **Ce qu'un générateur écrit doit être RELU par le consommateur qui le lira en vrai, au moins une fois, dans un banc.**
+
 - [1× — 08-28j] **Ma feature a rendu les tests EXISTANTS écrivains dans le dépôt.** Le noyau publie désormais l'état de disponibilité sous `kernel.path`, qui vaut `process.cwd()` : les cas de `readinessRegistry.test.ts` — écrits bien avant, et qui n'avaient jamais rien écrit — se sont mis à déposer un `readiness.json` dans l'arbre de travail. Découvert par hasard, en listant le dossier pour autre chose. **Ajouter un EFFET DE BORD à une méthode déjà appelée par des tests change ce que ces tests font, sans qu'aucun d'eux ne rougisse.** Le contrôle : après avoir rendu une méthode écrivante, chercher qui l'appelle DÉJÀ dans les bancs — et vérifier l'arbre (`git status`, `ls` du dossier visé) après une passe.
 
 - [1× — 08-28j] **Un rouge sous charge que j'ai failli m'attribuer.** `scaffoldFormeRendue` a dépassé son délai de 30 s pendant `test:all`, juste après un diff qui touche le noyau. Le réflexe « suspecter son propre diff » était le bon — mais la mesure a tranché autrement : 5,2 s isolé, et **58 s la veille en passant**, parce que le délai est PAR CAS et non par fichier. La cause réelle est un banc qui démarre **un processus par fichier vérifié**. Deux chiffres à confronter avant d'accuser qui que ce soit : la durée ISOLÉE, et la durée du MÊME banc au run précédent.
@@ -69,6 +71,8 @@
   garde ; le chiffre de pente, lui, se rejoue. [1× — 08-26]
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
+
+- [1× — 08-29d] **Le défaut par défaut était justifié par un cas, et aveugle à l'autre — le commentaire l'expliquait très bien.** `migrations.divergence: "report"` ne retenait aucun déploiement, au motif écrit qu'« une application à migrations libres a une base légitimement différente du schéma déclaré, en permanence ». C'est vrai pour une COLONNE en écart. Ça ne l'est pas pour une TABLE d'entité absente : aucune main légitime ne la fait disparaître, et quand elle manque le schéma applicatif n'a jamais été posé. Le pod se déclarait donc PRÊT avec zéro table applicative et 500 sur chaque route — exactement le constat qui avait ouvert le ticket, et rien ne l'arrêtait. **Une justification de défaut nomme le cas qu'elle couvre ; chercher celui qu'elle NE couvre pas est le geste, et il se pose au moment de LIRE la justification, pas de l'écrire.**
 
 - [1× — 08-28f] **Ma garde « pas de clé primaire en `text`/`blob`/`json` » était ancrée au DÉBUT de la chaîne** (`/^(text|blob|json)/`) — elle laissait donc passer `longtext`, `mediumtext`, `longblob`. Or `longtext` est précisément ce que MariaDB donne à une colonne JSON, qu'il implémente en alias de `LONGTEXT` : la garde était aveugle sur le serveur PAR DÉFAUT du décor, et verte. Trouvée non pas en relisant la garde, mais en comparant les deux moteurs sur demande du user. Une garde écrite pour un moteur se relit sur l'AUTRE avant d'être crue.
 
@@ -267,6 +271,8 @@
 - **Le verdict du gate se prend depuis SA cible** : il formate avec `cwd: dest` (le dossier de l'app générée). Reproduire la mesure ailleurs — même config, même version — rend un autre résultat, et on croit le sien. [1× — 08-25]
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
+
+- [1× — 08-29d] **Deux réglages documentés ne faisaient pas ce qu'ils promettaient, chacun à sa façon.** `migrations.divergence: "off"` — décrite « `off` : rien » — n'avait AUCUN lecteur : la comparaison tournait quand même, au prix d'une requête par table, et son résultat était publié ; elle se comportait donc comme `report`. Et le commentaire de `NF_E2E_DATABASE_URL`, dans le gabarit du décor livré à chaque application, promettait « éprouver la suite sur le dialecte réel de production (PostgreSQL, MySQL) » : constaté en essayant, une application SQLite pointée vers PostgreSQL refuse de démarrer en nommant l'entité non portée. **Une valeur d'énumération se cherche par son LECTEUR (`rg` sur la valeur, pas sur la clé), et une promesse de variable d'environnement s'ESSAIE — c'est en dix secondes qu'on sait si elle tient.**
 
 - [1× — 08-28i] **Sept documents affirmaient encore que Nodefony ne sait pas migrer, une session APRÈS la livraison des commandes.** Le plus coûteux n'est pas le README : c'est le GABARIT (`engine.ts`), dont le texte est **figé dans chaque application créée** — « ⚠ production : aucune migration générée (orm:migrate n'existe pas encore) ». Une affirmation dans un gabarit ne se périme pas comme une page : elle est **recopiée chez l'utilisateur** au moment où il crée son application, et elle y reste. Le geste qui les trouve tous coûte dix secondes (`rg` sur la formule, pas sur le concept) ; ce qui manque, c'est de se demander « qui d'autre AFFIRME ce que je viens de rendre faux ? » au moment du commit, pas trois sessions plus tard.
 
@@ -1307,6 +1313,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 08-29d] **`format:scaffold` était rouge depuis le commit de la veille**, et la session qui l'avait rendu rouge a clôturé sans le lancer — trois non-conformités dans les gabarits de test, dont une ligne vide finale qui n'apparaît QUE dans le rendu. Le gate n'est pas dans le pre-commit (il génère trois applications, c'est trop lourd) : il ne mord que si on y pense. Le signe qui aurait dû alerter : **la session précédente avait TOUCHÉ des gabarits**, et le seul gate qui juge un gabarit est celui-là. **Après avoir édité un gabarit, lancer le gate qui juge son RENDU — la liste des gates ne se parcourt pas de mémoire, elle se dérive de ce qu'on vient de toucher.**
 
 - [1× — 08-28l] **Commité sans le typecheck, alors que la suite était verte.** Le runner de tests ne
   vérifie pas les types : quatre littéraux de test construisaient un objet sans un champ devenu
