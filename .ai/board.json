@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T12:08:37.541Z",
+  "generatedAt": "2026-08-29T15:27:14.616Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 30,
+      "closed": 32,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 40,
       "title": "10.0.0"
     }
   ],
@@ -279,7 +279,7 @@
       "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -306,8 +306,8 @@
       "number": 100,
       "title": "feat(studio): montrer l'état des migrations de chaque base",
       "url": "https://github.com/nodefony/nodefony-core/issues/100",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -334,8 +334,8 @@
       "number": 101,
       "title": "feat(cli): livrer de quoi migrer dans l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/101",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

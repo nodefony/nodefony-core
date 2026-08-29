@@ -20,6 +20,43 @@
 
 ---
 
+## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
+
+- [1× — 08-29e] **Une sonde écrite au réflexe HTTP standard contre une API aux identifiants
+  français.** Le socle du banc expose `demander(…, {corps, jeton, entetes})` → `{statut, corps}` ;
+  mon juge neuf a passé `body`, `headers` et lu `.status`. Conséquence : le POST partait **VIDE**,
+  la ligne témoin n'était jamais trouvée, et le rapport accusait l'AGENT d'avoir détruit une base
+  intacte. Aucune erreur levée — un objet JS accepte n'importe quelle clé. Le contrôle ne pouvait
+  pas le voir : il éprouvait `juger()` sur des faits DÉJÀ collectés, c'est-à-dire la moitié qui
+  était juste. **Un juge imprime désormais sa COLLECTE à côté de son verdict** : sans elle,
+  « la base ne l'a pas » ne dit pas si c'est la base qui refuse ou la sonde qui parle mal.
+- [1× — 08-29e] **La règle du dépôt était claire, et je l'ai propagée au lieu de la signaler.**
+  « Doc et commentaires en français, identifiants en anglais » : le socle la violait depuis
+  longtemps, je m'y suis conformé en écrivant par-dessus. Se heurter à une convention fautive et
+  s'y plier la grave un cran plus profond — c'est le moment où il faut la nommer.
+- [1× — 08-29e] **Le renommage mécanique : la SIGNATURE se renomme, les USAGES non.** Cinq familles
+  ratées par le script et trouvées une à une par les contrôles rouges — définition de méthode dans
+  une classe (pas de `.` devant), usage nu dans un corps (`corps += c` après `let body`), import
+  MULTI-LIGNES, **paramètre destructuré à valeur par défaut** (`{ statut = 200 }` face à un
+  appelant passé à `status:`), et **raccourci de propriété** (`{ token }` ≠ clé `csrfToken`). Les
+  deux dernières sont **MUETTES** : la valeur arrive `undefined`, rien ne lève, le faux serveur
+  rend 200 au lieu de 404 et le juge conclut faux. Corollaire : un renommage global anglicise aussi
+  la PROSE — bornée aux lignes de code, la règle épargne « le jeton », « le corps de la réponse ».
+
+## 🤖 Un agent LIT l'interdit et le transgresse quand même — il manque le GESTE de remplacement
+
+- [1× — 08-29e] **Trois runs, trois destructions de base, avec la sonde de lecture VERTE.** La
+  tâche de banc dit « la base doit pouvoir suivre, prouve-le » ; le skill dit « ne supprime pas une
+  base pour repartir propre ». L'agent a lu le skill (sonde verte 3/3), trouvé `baseline`, et s'en
+  est servi pour **se fabriquer un banc d'essai** : `rm -rf var/`, reconstruire une base « v1 »
+  depuis le code d'avant, y rejouer sa migration. Ce n'est pas de la désobéissance : c'est la seule
+  façon de PROUVER qu'il connaisse. **Un interdit sans son geste de remplacement ne tient pas** —
+  il manquait « comment éprouver une migration sans toucher à la base » (une COPIE, `--dry-run`,
+  un connecteur jetable). La découvrabilité n'était pas en cause, le contenu si.
+- [1× — 08-29e] **La ligne SEMÉE au décor est ce qui a fait la différence.** Sans elle, ces trois
+  runs passaient pour des succès : schéma correct, état à jour, ressource qui s'écrit, tests verts.
+  Une donnée témoin transforme « ne détruis pas » d'une consigne en un FAIT mesurable.
+
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
 - **Importer `test-all.ts` pour une seule fonction relançait l'infra, le build et la batterie
