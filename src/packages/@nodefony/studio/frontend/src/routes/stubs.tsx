@@ -18,15 +18,6 @@ export const Npm = () => (
   />
 );
 
-export const Migrate = () => (
-  <StubPage
-    title="Migrations"
-    description="Status migrations ORM, apply/rollback, history."
-    phase="P11.4 + P7.x"
-    legacyRef="monitoring-bundle/views/migrate/"
-  />
-);
-
 export const Settings = () => (
   <StubPage
     title="Settings"

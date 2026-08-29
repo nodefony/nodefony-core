@@ -76,6 +76,9 @@ const Database = lazy(() =>
 const OrmEntity = lazy(() =>
   import("./routes/OrmEntity").then((m) => ({ default: m.OrmEntity })),
 );
+const Migrations = lazy(() =>
+  import("./routes/Migrations").then((m) => ({ default: m.Migrations })),
+);
 const OrmOverview = lazy(() =>
   import("./routes/OrmOverview").then((m) => ({ default: m.OrmOverview })),
 );
@@ -124,7 +127,6 @@ const Webhooks = lazy(() =>
 import {
   Services,
   Npm,
-  Migrate,
   Settings,
   Agents,
   Knowledge,
@@ -221,7 +223,7 @@ const router = createBrowserRouter([
               { path: "databases", element: <Database /> },
               { path: "stores", element: <Stores /> },
               { path: "orm-entity", element: <OrmEntity /> },
-              { path: "migrate", element: <Migrate /> },
+              { path: "migrate", element: <Migrations /> },
               { path: "services", element: <Services /> },
               { path: "modules", element: <Modules /> },
               { path: "modules/:name", element: <ModuleDetail /> },

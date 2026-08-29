@@ -143,3 +143,97 @@ export interface RankItem {
   value: number;
   href?: string;
 }
+
+// ─── Migrations (data plane `/nodefony/orm/api/migrations?connector=`) ────────
+//
+// Ces types MIROIRENT le cœur NEUTRE publié par `orm-core`
+// (`IOrmMigrationStatus`) — pas la forme du pilote SQL. Ce qui est propre à un
+// pilote vit sous `driver`, dont l'écran ne lit que `kind` : le jour où un
+// second ORM porte des migrations, la page n'a pas à changer d'une ligne.
+
+/** Une commande à taper, telle que le produit la propose. */
+export interface MigrationAction {
+  command: string;
+  args: string[];
+}
+
+/** Une migration, telle que l'historique et les fichiers la décrivent. */
+export interface MigrationEntry {
+  tag: string;
+  status: "applied" | "pending" | "failed" | "drifted" | "missing" | string;
+  appliedAt?: number;
+  durationMs?: number;
+  appliedBy?: string;
+  runId?: string;
+  error?: string;
+}
+
+/** Les migrations d'une origine — le framework, l'application, un module. */
+export interface MigrationSource {
+  name: string;
+  applied: number;
+  pending: number;
+  failed: number;
+  pendingTags?: string[];
+  drifted?: { tag: string; expected: string; actual: string }[];
+  missing?: string[];
+  entries: MigrationEntry[];
+}
+
+/** Ce qui diverge entre la base et le schéma déclaré, nommé. */
+export interface MigrationDivergence {
+  missingTables?: string[];
+  blocking?: { table: string; column: string; reason?: string }[];
+  additive?: { table: string; column: string; reason?: string }[];
+}
+
+/** L'état complet d'un connecteur. */
+export interface MigrationStatus {
+  formatVersion: number;
+  connector: string;
+  verdict: string;
+  exitCode?: 0 | 1 | 2;
+  summary: string;
+  nextActions: MigrationAction[];
+  sources: MigrationSource[];
+  divergence?: MigrationDivergence;
+  driver: {
+    kind: string;
+    dialect?: string;
+    ddl?: string;
+    historyTable?: string;
+  };
+}
+
+/**
+ * Ce que le plan rend quand il n'y a PAS d'état à montrer.
+ *
+ * Un écran qui reçoit ceci doit MONTRER l'empêchement : un tableau vide
+ * ressemble à « tout va bien », et c'est le pire mode de défaillance d'un
+ * écran d'exploitation.
+ */
+export interface MigrationFailure {
+  formatVersion: number;
+  connector: string;
+  error: {
+    code: string;
+    summary: string;
+    meaning: string;
+    nextActions: MigrationAction[];
+  };
+}
+
+/** L'état, ou l'empêchement — jamais les deux. */
+export type MigrationReply = MigrationStatus | MigrationFailure;
+
+/**
+ * Y a-t-il un empêchement plutôt qu'un état ?
+ *
+ * @param reply - ce que le plan d'administration a rendu.
+ * @returns `true` si c'est un empêchement.
+ */
+export function isMigrationFailure(
+  reply: MigrationReply,
+): reply is MigrationFailure {
+  return "error" in reply;
+}

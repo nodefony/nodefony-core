@@ -271,7 +271,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Migrations",
         icon: IconArrowsExchange,
         roles: VIEW_ROLES.dev,
-        wip: true,
       },
     ],
   },
