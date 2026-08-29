@@ -12,7 +12,12 @@
  */
 
 import assert from "node:assert";
-import { isIgnoredWatchPath } from "../service/dev/DevSupervisor";
+import { EventEmitter } from "node:events";
+import {
+  attachWatcherErrorGuard,
+  isIgnoredWatchPath,
+  shouldIgnoreWatchEntry,
+} from "../service/dev/DevSupervisor";
 
 describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () => {
   describe("le paquet @nodefony/frontend est du code SERVEUR → surveillé", () => {
@@ -134,6 +139,36 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
       assert.strictEqual(isIgnoredWatchPath("src/foo.spec.ts", true), true);
     });
 
+    // Vécu (CI Windows) : `src/nodefony/tmp/copied` est créé puis SUPPRIMÉ par la
+    // suite de tests pendant qu'un serveur détaché tourne. Le scan du watcher
+    // tombait alors sur un dossier en train de disparaître → `EBUSY` sous Windows,
+    // et le superviseur mourait. Un dossier de TRAVAIL n'est pas une source.
+    it("les dossiers de TRAVAIL (tmp/, var/) ne sont pas des sources", () => {
+      assert.strictEqual(
+        isIgnoredWatchPath("src/nodefony/tmp/copied/dummy.ts", true),
+        true,
+      );
+      // Le DOSSIER lui-même : c'est lui que chokidar veut scanner.
+      assert.strictEqual(isIgnoredWatchPath("src/nodefony/tmp", false), true);
+      assert.strictEqual(isIgnoredWatchPath("var/sessions", false), true);
+      // …en grammaire Windows aussi (axiome : normaliser AVANT de filtrer).
+      assert.strictEqual(
+        isIgnoredWatchPath("src\\nodefony\\tmp\\copied\\dummy.ts", true),
+        true,
+      );
+    });
+
+    it("… mais un nom qui CONTIENT tmp/var reste surveillé", () => {
+      assert.strictEqual(
+        isIgnoredWatchPath("src/nodefony/src/service/tmpDir.ts", true),
+        false,
+      );
+      assert.strictEqual(
+        isIgnoredWatchPath("src/packages/@nodefony/vars/index.ts", true),
+        false,
+      );
+    });
+
     it("un FICHIER non-TS n'intéresse pas le runtime serveur", () => {
       assert.strictEqual(isIgnoredWatchPath("src/app/style.css", true), true);
       // …mais un DOSSIER sans extension doit rester traversable (sinon on
@@ -154,6 +189,82 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
       ]) {
         assert.strictEqual(isIgnoredWatchPath(p, true), false, p);
       }
+    });
+  });
+  describe("une erreur d'OBSERVATION ne tue pas le superviseur", () => {
+    /*
+     *   Vécu (CI Windows, `Filet CLI`) : un `EBUSY` remonté par le scan de
+     *   chokidar arrivait sur un `EventEmitter` SANS écouteur `error` — Node
+     *   transforme alors l'événement en exception non rattrapée, et le
+     *   superviseur (donc tout le serveur de développement) meurt.
+     *
+     *   Le watch est un capteur : ce qu'il n'arrive pas à lire se SIGNALE, il ne
+     *   se paie pas d'un arrêt.
+     */
+    it("un « error » émis par le watcher est absorbé et JOURNALISÉ", () => {
+      const watcher = new EventEmitter();
+      const said: string[] = [];
+      attachWatcherErrorGuard(watcher, (m) => said.push(m));
+
+      const boom = Object.assign(new Error("scandir"), {
+        code: "EBUSY",
+        path: "src/nodefony/tmp/copied",
+      });
+      assert.doesNotThrow(() => watcher.emit("error", boom));
+
+      assert.strictEqual(said.length, 1);
+      assert.match(said[0]!, /EBUSY/);
+      assert.match(said[0]!, /tmp[/\\]copied/);
+    });
+
+    // Contrôle NÉGATIF : sans le garde, le même émetteur JETTE. C'est la preuve
+    // que le test précédent mesure bien quelque chose.
+    it("sans le garde, le même émetteur jette (le garde mord)", () => {
+      const nu = new EventEmitter();
+      assert.throws(() => nu.emit("error", new Error("scandir")));
+    });
+  });
+
+  describe("la règle ne vaut que DANS le projet (chokidar donne de l'absolu)", () => {
+    /*
+     *   `tmp` et `var` sont des dossiers de travail DU PROJET — ailleurs, ce sont
+     *   des noms ordinaires. Sur macOS `TMPDIR` vaut `/var/folders/…`, et nos
+     *   propres bancs de scaffold créent l'application là. Filtrer sur le chemin
+     *   ABSOLU y rejetterait CHAQUE entrée : watch aveugle, sans un mot.
+     */
+    const app = "/var/folders/8y/q7n8/T/nf-create-app-Xy42";
+
+    it("une app posée sous /var/folders reste surveillée", () => {
+      assert.strictEqual(
+        shouldIgnoreWatchEntry(app, `${app}/src/nodefony/service/Db.ts`, true),
+        false,
+      );
+      assert.strictEqual(
+        shouldIgnoreWatchEntry(app, `${app}/nodefony.config.ts`, true),
+        false,
+      );
+    });
+
+    it("… et son PROPRE dossier de travail y reste ignoré", () => {
+      assert.strictEqual(
+        shouldIgnoreWatchEntry(app, `${app}/tmp/build`, false),
+        true,
+      );
+      assert.strictEqual(
+        shouldIgnoreWatchEntry(app, `${app}/var/sessions`, false),
+        true,
+      );
+    });
+
+    it("les autres règles valent toujours en absolu", () => {
+      assert.strictEqual(
+        shouldIgnoreWatchEntry(app, `${app}/src/x/dist/index.js`, true),
+        true,
+      );
+      assert.strictEqual(
+        shouldIgnoreWatchEntry(app, `${app}/src/mod/frontend/main.ts`, true),
+        true,
+      );
     });
   });
 });

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-29T15:17:46.929Z",
+  "generated": "2026-08-29T15:57:19.687Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 782,
-    "symbols": 3513,
+    "symbols": 3515,
     "classes": 380,
     "interfaces": 978,
     "types": 423,
     "enums": 4,
-    "functions": 1379,
+    "functions": 1381,
     "constants": 349
   },
   "symbols": {
@@ -9513,6 +9513,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce chemin doit-il être IGNORÉ par le watch des sources backend ? Le superviseur ne surveille que le **serveur** : les sources client ont leur propre boucle (HMR Vite), les artefacts (`dist`) sont p…"
+    },
+    "shouldIgnoreWatchEntry": {
+      "name": "shouldIgnoreWatchEntry",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Applique {@link isIgnoredWatchPath} à une entrée telle que chokidar la fournit — c'est-à-dire en chemin **absolu**. ⚠️ Le piège que cette fonction referme : les segments qui désignent un dossier de…"
+    },
+    "attachWatcherErrorGuard": {
+      "name": "attachWatcherErrorGuard",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend une erreur du watcher NON FATALE : la signale et poursuit la surveillance. Le watch est un **capteur**, pas une garantie : un dossier qui disparaît pendant son scan, un lien symbolique cassé, …"
     },
     "resolveQueryDriver": {
       "name": "resolveQueryDriver",
@@ -25508,7 +25524,8 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
       ],
       "EventEmitter": [
-        "src/nodefony/src/Event.ts"
+        "src/nodefony/src/Event.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "IService": [
         "src/nodefony/src/Service.ts",

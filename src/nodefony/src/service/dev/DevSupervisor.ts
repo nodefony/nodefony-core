@@ -9,6 +9,7 @@ import {
   writeFileSync,
   type Stats,
 } from "node:fs";
+import type { EventEmitter } from "node:events";
 import net from "node:net";
 import path from "node:path";
 import readline from "node:readline";
@@ -88,9 +89,76 @@ export function isIgnoredWatchPath(p: string, isFile = false): boolean {
   // Sources client d'un module (HMR Vite) — mais PAS le paquet `@nodefony/frontend`.
   if (/(^|[/\\])(?<!@nodefony[/\\])frontend([/\\]|$)/.test(p)) return true;
   if (/(^|[/\\])(node_modules|dist|\.git|tests)([/\\]|$)/.test(p)) return true;
+  // Dossiers de TRAVAIL : réécrits en permanence par le runtime et les suites de
+  // tests, ils ne contiennent aucune source. Les scanner n'apporte rien et coûte
+  // un crash : sous Windows, lire un dossier en train d'être supprimé rend `EBUSY`.
+  if (/(^|[/\\])(tmp|var)([/\\]|$)/.test(p)) return true;
   if (/\.(test|spec)\.ts$/.test(p)) return true;
   if (isFile && !p.endsWith(".ts")) return true;
   return false;
+}
+
+/**
+ * Applique {@link isIgnoredWatchPath} à une entrée telle que chokidar la fournit —
+ * c'est-à-dire en chemin **absolu**.
+ *
+ * ⚠️ Le piège que cette fonction referme : les segments qui désignent un dossier de
+ * travail (`tmp`, `var`) sont des noms ORDINAIRES ailleurs. Sur macOS, `TMPDIR` vaut
+ * `/var/folders/…` — une application lancée depuis un dossier temporaire (ce que font
+ * nos propres bancs de scaffold) verrait donc CHAQUE entrée rejetée, et le watch
+ * deviendrait aveugle sans un mot. La règle ne vaut que **dans** le projet : on
+ * relativise au répertoire du projet AVANT de filtrer.
+ *
+ * @param cwd - racine du projet surveillé.
+ * @param p - chemin fourni par le watcher (absolu ou déjà relatif).
+ * @param isFile - `true` si l'entrée est un fichier.
+ */
+export function shouldIgnoreWatchEntry(
+  cwd: string,
+  p: string,
+  isFile = false,
+): boolean {
+  const relative = path.relative(cwd, path.resolve(cwd, p));
+  // Hors du projet (`..`) : rien à dire, on laisse les autres règles trancher.
+  return isIgnoredWatchPath(relative.startsWith("..") ? p : relative, isFile);
+}
+
+/**
+ * Rend une erreur du watcher NON FATALE : la signale et poursuit la surveillance.
+ *
+ * Le watch est un **capteur**, pas une garantie : un dossier qui disparaît pendant
+ * son scan, un lien symbolique cassé, une permission refusée sont des faits du
+ * système de fichiers, pas des fautes du superviseur. Sans écouteur `error`, Node
+ * convertit l'événement en exception non rattrapée — et le serveur de développement
+ * entier meurt d'un incident d'observation.
+ *
+ * ⚠️ **Portée exacte** : ce garde ne couvre que ce que chokidar émet LUI-MÊME
+ * (`_handleError`, dont l'`EPERM` de Windows). Une erreur levée par le flux de
+ * parcours interne ne passe PAS par le watcher — chokidar branche `close` et `end`
+ * sur ses streams, jamais `error` — et reste donc fatale. C'est pourquoi le cas vécu
+ * en intégration continue (la suite de tests supprimait `src/nodefony/tmp/copied`
+ * pendant qu'un serveur détaché tournait ; le parcours rendait `EBUSY` et le process
+ * sortait en 1) se referme en amont, en ne DESCENDANT pas dans les dossiers de
+ * travail — cf {@link isIgnoredWatchPath}, et non ici.
+ *
+ * Le prix d'une erreur avalée est réel — le watch peut avoir perdu une branche —
+ * donc on la DIT : un rechargement qui ne part plus sans un mot est un mystère.
+ *
+ * @param watcher - l'émetteur à protéger (le `FSWatcher` de chokidar en production).
+ * @param log - reçoit le message à journaliser.
+ */
+export function attachWatcherErrorGuard(
+  watcher: EventEmitter,
+  log: (message: string) => void,
+): void {
+  watcher.on("error", (error: unknown) => {
+    const err = error as NodeJS.ErrnoException;
+    const code = err?.code ? `${err.code} ` : "";
+    const where = err?.path ? ` sur ${err.path}` : "";
+    log(
+      `watch : ${code}${err?.message ?? String(error)}${where} — ignoré, surveillance maintenue`,
+    );
+  });
 }
 
 /**
@@ -1028,8 +1096,11 @@ export class DevSupervisor {
       cwd: this.#cwd,
       ignoreInitial: true,
       ignored: (p: string, stats?: Stats) =>
-        isIgnoredWatchPath(p, stats?.isFile() ?? false),
+        shouldIgnoreWatchEntry(this.#cwd, p, stats?.isFile() ?? false),
     });
+    attachWatcherErrorGuard(this.#watcher, (message) =>
+      this.#log(message, "yellow"),
+    );
     this.#watcher.on("all", (_event, file: string) => {
       if (!file.endsWith(".ts")) return;
       this.#dirty.add(file);
