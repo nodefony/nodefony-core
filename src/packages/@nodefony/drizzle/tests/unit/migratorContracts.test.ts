@@ -77,6 +77,7 @@ describe("Applicateur de migrations — contrats gravés", () => {
       `${FORMAT_MARKER}\nCREATE TABLE a (id TEXT);\n` +
         `--> statement-breakpoint\nCREATE TABLE b (id TEXT);\n` +
         `--> statement-breakpoint\n-- rien que du commentaire\n`,
+      "sqlite",
     );
     assert.deepEqual(statements, [
       "CREATE TABLE a (id TEXT);",
@@ -96,6 +97,7 @@ describe("Applicateur de migrations — contrats gravés", () => {
       `${FORMAT_MARKER}\n` +
         `-- Séparer les instructions par « --> statement-breakpoint ».\n` +
         `ALTER TABLE a DROP COLUMN b;\n`,
+      "sqlite",
     );
     assert.deepEqual(statements, ["ALTER TABLE a DROP COLUMN b;"]);
   });
@@ -107,6 +109,7 @@ describe("Applicateur de migrations — contrats gravés", () => {
     assert.deepEqual(
       splitStatements(
         `CREATE INDEX i ON t (a);--> statement-breakpoint\nCREATE INDEX j ON t (b);\n`,
+        "sqlite",
       ),
       ["CREATE INDEX i ON t (a);", "CREATE INDEX j ON t (b);"],
     );
@@ -119,6 +122,7 @@ describe("Applicateur de migrations — contrats gravés", () => {
     assert.deepEqual(
       splitStatements(
         `INSERT INTO note (corps) VALUES ('avant --> statement-breakpoint apres');\n`,
+        "sqlite",
       ),
       [
         "INSERT INTO note (corps) VALUES ('avant --> statement-breakpoint apres');",

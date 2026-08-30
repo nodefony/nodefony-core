@@ -94,7 +94,7 @@ export async function loadSources(
       continue;
     }
     for (const entry of [...journal.entries].sort((a, b) => a.idx - b.idx)) {
-      files.push(await readMigrationFile(dir, source.name, entry));
+      files.push(await readMigrationFile(dir, source.name, entry, dialect));
     }
   }
   return { files, absent };
@@ -195,6 +195,7 @@ async function readJournal(
  * @param dir - dossier `<source>/<dialecte>`.
  * @param source - nom logique de la source.
  * @param entry - entrée du journal.
+ * @param dialect - dialecte du connecteur ; choisit la grammaire de découpe.
  * @returns le fichier chargé, empreinte comprise.
  * @throws MigrationVerdictError si le marqueur de format est absent ou autre.
  */
@@ -202,6 +203,7 @@ async function readMigrationFile(
   dir: string,
   source: string,
   entry: IJournalEntry,
+  dialect: SqlDialect,
 ): Promise<IMigrationFile> {
   const file = path.join(dir, `${entry.tag}.sql`);
   let content: string;
@@ -263,7 +265,7 @@ async function readMigrationFile(
     // L'empreinte porte sur le fichier ENTIER — marqueur compris : c'est le
     // fichier tel que livré qui est identifié, pas ce qu'on en exécute.
     hash: migrationHash(content),
-    statements: splitStatements(normalized),
+    statements: splitStatements(normalized, dialect),
     path: file,
   };
 }
@@ -298,13 +300,32 @@ async function readMigrationFile(
  * l'exiger seul sur sa ligne ferait fusionner toutes les instructions d'une
  * migration du framework.
  *
+ * ## La grammaire de chaîne est celle du MOTEUR, pas une moyenne des trois
+ *
+ * Savoir si l'on est dans une chaîne n'a pas la même réponse partout : MySQL
+ * échappe l'apostrophe par une contre-oblique, PostgreSQL délimite les corps
+ * par `$tag$`. Une grammaire fausse ne lève AUCUNE erreur — le scanner croit
+ * sortir d'une chaîne où il est encore, la ligne suivante commençant par deux
+ * tirets est retirée comme un commentaire alors qu'elle est de la DONNÉE, ou
+ * un séparateur porté par un texte coupe l'instruction en deux. La migration
+ * s'inscrit ensuite en succès avec l'empreinte du fichier entier : plus aucun
+ * verdict ne peut le voir. Le dialecte est donc un paramètre REQUIS, jamais un
+ * défaut — le fichier vit déjà sous `<source>/<dialecte>/`, l'appelant l'a.
+ *
  * @param normalized - contenu normalisé (fins de ligne en LF).
+ * @param dialect - dialecte du connecteur ; choisit la grammaire de chaîne.
  * @returns les statements non vides, dans l'ordre du fichier.
  */
-export function splitStatements(normalized: string): string[] {
+export function splitStatements(
+  normalized: string,
+  dialect: SqlDialect,
+): string[] {
+  const grammaire = GRAMMAIRES_CHAINE[dialect];
   const statements: string[] = [];
   let courant: string[] = [];
-  let dansChaine = false;
+  // Curseur alloué UNE fois pour tout le fichier : le balayage écrit dedans
+  // plutôt que de rendre un objet par ligne.
+  const curseur: ICurseurChaine = { ouverte: "", coupe: -1 };
 
   /** Clôt le statement en cours — vide, il ne compte pas. */
   const clore = (): void => {
@@ -315,11 +336,11 @@ export function splitStatements(normalized: string): string[] {
     courant = [];
     // Après un séparateur, une instruction NEUVE commence : aucune chaîne ne
     // peut rester ouverte d'un statement à l'autre.
-    dansChaine = false;
+    curseur.ouverte = "";
   };
 
   for (const ligne of normalized.split("\n")) {
-    if (!dansChaine) {
+    if (curseur.ouverte === "") {
       const tete = ligne.trimStart();
       if (tete.startsWith(STATEMENT_BREAKPOINT)) {
         clore();
@@ -332,7 +353,8 @@ export function splitStatements(normalized: string): string[] {
       if (tete.startsWith("--")) {
         continue;
       }
-      const coupe = indexHorsChaine(ligne, STATEMENT_BREAKPOINT);
+      balayerLigne(ligne, STATEMENT_BREAKPOINT, grammaire, curseur);
+      const coupe = curseur.coupe;
       if (coupe >= 0) {
         courant.push(ligne.slice(0, coupe));
         clore();
@@ -345,76 +367,192 @@ export function splitStatements(normalized: string): string[] {
         const reste = ligne.slice(coupe + STATEMENT_BREAKPOINT.length);
         if (reste.trim() !== "") {
           courant.push(reste);
-          dansChaine = ferméSurChaîneOuverte(reste, dansChaine);
+          balayerLigne(reste, "", grammaire, curseur);
         }
         continue;
       }
+      // Pas de coupe : le balayage a lu la ligne entière, `ouverte` est à jour.
+      courant.push(ligne);
+      continue;
     }
     courant.push(ligne);
-    dansChaine = ferméSurChaîneOuverte(ligne, dansChaine);
+    balayerLigne(ligne, "", grammaire, curseur);
   }
   clore();
   return statements;
 }
 
 /**
- * Position du motif dans la ligne, en IGNORANT ce qui est dans une chaîne.
+ * Ce qu'une grammaire de chaîne autorise, pour UN moteur.
  *
- * Un remplissage écrit à la main peut contenir le texte du séparateur comme
- * DONNÉE — c'est exactement l'usage de `--custom`. Le chercher au plus simple
- * couperait l'instruction en plein milieu d'une valeur, et le pilote recevrait
- * deux moitiés de SQL.
- *
- * La ligne est supposée commencer hors chaîne : l'appelant ne pose la question
- * que dans ce cas.
- *
- * @param ligne - ligne à balayer, débutant hors chaîne.
- * @param motif - texte cherché.
- * @returns l'indice, ou `-1` si le motif n'apparaît qu'à l'intérieur d'une chaîne.
+ * Trois différences suffisent à couvrir les trois dialectes ; les nommer plutôt
+ * que tester le dialecte dans le scanner garde UNE implémentation du balayage,
+ * et rend chaque écart lisible à l'endroit où il est décidé.
  */
-function indexHorsChaine(ligne: string, motif: string): number {
-  let dans = false;
-  for (let i = 0; i < ligne.length; i += 1) {
-    if (ligne[i] === "'") {
-      if (dans && ligne[i + 1] === "'") {
-        i += 1;
-        continue;
-      }
-      dans = !dans;
-      continue;
-    }
-    if (!dans && ligne.startsWith(motif, i)) {
-      return i;
-    }
-  }
-  return -1;
+interface IGrammaireChaine {
+  /** Une contre-oblique échappe le caractère suivant dans une chaîne `'…'`. */
+  readonly contreObliqueDansApostrophe: boolean;
+  /** Le préfixe `E'…'` ouvre une chaîne où la contre-oblique échappe. */
+  readonly apostropheEchappeePrefixee: boolean;
+  /** Les corps `$tag$…$tag$` sont des chaînes littérales. */
+  readonly dollarQuote: boolean;
 }
 
 /**
- * Dit si la fin de la ligne se trouve à l'INTÉRIEUR d'une chaîne littérale.
+ * La grammaire de chaîne de chaque moteur supporté.
  *
- * Balayage volontairement minimal : seule l'apostrophe compte, et `''` est son
- * échappement — c'est la grammaire commune aux trois dialectes. Il ne s'agit
- * pas d'analyser du SQL, seulement de savoir si la ligne suivante peut porter
- * un commentaire.
+ * SQLite suit le standard et rien de plus : une contre-oblique y est un
+ * caractère ordinaire, et `$$` n'est pas un délimiteur. Lui appliquer la
+ * grammaire de MySQL serait aussi faux que l'inverse — c'est pourquoi le
+ * routage se fait dans les DEUX sens, et pas seulement pour ajouter des cas.
+ */
+const GRAMMAIRES_CHAINE: Readonly<Record<SqlDialect, IGrammaireChaine>> = {
+  sqlite: {
+    contreObliqueDansApostrophe: false,
+    apostropheEchappeePrefixee: false,
+    dollarQuote: false,
+  },
+  postgres: {
+    contreObliqueDansApostrophe: false,
+    apostropheEchappeePrefixee: true,
+    dollarQuote: true,
+  },
+  mysql: {
+    contreObliqueDansApostrophe: true,
+    apostropheEchappeePrefixee: false,
+    dollarQuote: false,
+  },
+};
+
+/**
+ * État du balayage, porté d'une ligne à l'autre.
+ *
+ * Mutable et réutilisé : un fichier de migration peut compter des milliers de
+ * lignes, et rendre un objet par ligne allouerait pour rien.
+ */
+interface ICurseurChaine {
+  /**
+   * Délimiteur qu'il reste à trouver pour refermer la chaîne courante — `''`
+   * hors chaîne, `'` ou `e'` dans une apostrophe, `$tag$` dans un corps.
+   */
+  ouverte: string;
+  /** Indice du motif rencontré hors chaîne, ou `-1`. */
+  coupe: number;
+}
+
+/** Vrai si `c` peut faire partie d'un identifiant SQL non quoté. */
+function estCaractereIdentifiant(c: string | undefined): boolean {
+  return c !== undefined && /[A-Za-z0-9_$]/.test(c);
+}
+
+/**
+ * Balaye une ligne : met à jour l'état de chaîne, et repère le motif.
+ *
+ * UNE seule implémentation pour les deux questions que pose la découpe — « où
+ * couper ? » et « la ligne suivante peut-elle porter un commentaire ? ». Elles
+ * se répondaient auparavant dans deux fonctions jumelles, chacune avec sa copie
+ * de la grammaire : deux copies divergent, et chacune reste verte dans son
+ * propre test.
+ *
+ * Le balayage s'ARRÊTE sur le motif : l'appelant repart alors du reste de la
+ * ligne, avec une chaîne close par construction (un statement neuf commence).
+ * Passer un motif vide balaye donc la ligne entière.
  *
  * @param ligne - ligne à balayer.
- * @param ouverte - vrai si une chaîne était déjà ouverte en début de ligne.
- * @returns vrai si une chaîne reste ouverte à la fin de la ligne.
+ * @param motif - texte cherché hors chaîne ; vide pour ne rien chercher.
+ * @param grammaire - grammaire de chaîne du moteur visé.
+ * @param curseur - état lu ET écrit : chaîne ouverte, indice du motif.
  */
-function ferméSurChaîneOuverte(ligne: string, ouverte: boolean): boolean {
-  let dans = ouverte;
+function balayerLigne(
+  ligne: string,
+  motif: string,
+  grammaire: IGrammaireChaine,
+  curseur: ICurseurChaine,
+): void {
+  curseur.coupe = -1;
+  let ouverte = curseur.ouverte;
   for (let i = 0; i < ligne.length; i += 1) {
-    if (ligne[i] !== "'") {
+    const c = ligne[i] as string;
+    if (ouverte.startsWith("$")) {
+      // Un corps délimité par des dollars ne se referme QUE sur son propre
+      // marqueur : un `$$` nu croisé dans un `$corps$` ne termine rien.
+      if (ligne.startsWith(ouverte, i)) {
+        i += ouverte.length - 1;
+        ouverte = "";
+      }
       continue;
     }
-    if (dans && ligne[i + 1] === "'") {
+    if (ouverte !== "") {
+      if (
+        c === "\\" &&
+        (grammaire.contreObliqueDansApostrophe || ouverte === "e'")
+      ) {
+        // La contre-oblique emporte le caractère suivant — l'apostrophe qu'elle
+        // protège ne referme donc rien.
+        i += 1;
+        continue;
+      }
+      if (c === "'") {
+        if (ligne[i + 1] === "'") {
+          i += 1;
+          continue;
+        }
+        ouverte = "";
+      }
+      continue;
+    }
+    if (c === "'") {
+      ouverte = "'";
+      continue;
+    }
+    if (
+      grammaire.apostropheEchappeePrefixee &&
+      (c === "E" || c === "e") &&
+      ligne[i + 1] === "'" &&
+      !estCaractereIdentifiant(ligne[i - 1])
+    ) {
+      ouverte = "e'";
       i += 1;
       continue;
     }
-    dans = !dans;
+    if (grammaire.dollarQuote && c === "$") {
+      const tag = delimiteurDollar(ligne, i);
+      if (tag !== null) {
+        ouverte = tag;
+        i += tag.length - 1;
+        continue;
+      }
+    }
+    if (motif !== "" && ligne.startsWith(motif, i)) {
+      curseur.coupe = i;
+      curseur.ouverte = ouverte;
+      return;
+    }
   }
-  return dans;
+  curseur.ouverte = ouverte;
+}
+
+/**
+ * Le délimiteur `$tag$` qui commence à `debut`, ou `null`.
+ *
+ * Le tag est optionnel (`$$`) et suit les règles d'un identifiant : ce qui
+ * exclut `$1`, un paramètre de requête, qu'il ne faut surtout pas lire comme
+ * l'ouverture d'une chaîne.
+ *
+ * @param ligne - ligne balayée.
+ * @param debut - indice du `$` candidat.
+ * @returns le délimiteur complet, ou `null` si ce n'en est pas un.
+ */
+function delimiteurDollar(ligne: string, debut: number): string | null {
+  let i = debut + 1;
+  while (i < ligne.length && /[A-Za-z0-9_]/.test(ligne[i] as string)) {
+    // Un tag ne commence pas par un chiffre — `$1` est un paramètre.
+    if (i === debut + 1 && /[0-9]/.test(ligne[i] as string)) {
+      return null;
+    }
+    i += 1;
+  }
+  return ligne[i] === "$" ? ligne.slice(debut, i + 1) : null;
 }
 
 /**

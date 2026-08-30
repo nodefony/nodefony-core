@@ -84,7 +84,7 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
 
   describe("découpe — un commentaire n'est un commentaire qu'hors chaîne", () => {
     it("retire les lignes de commentaire, marqueur de format compris", () => {
-      const statements = splitStatements(normalizeSql(CORPS));
+      const statements = splitStatements(normalizeSql(CORPS), "sqlite");
       assert.equal(statements.length, 2);
       assert.ok(statements[0]?.startsWith("CREATE TABLE"));
       assert.ok(statements[1]?.startsWith("CREATE INDEX"));
@@ -102,7 +102,7 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
         "-- ceci est du texte, pas un commentaire",
         "derniere');",
       ].join("\n");
-      const [statement] = splitStatements(normalizeSql(sql));
+      const [statement] = splitStatements(normalizeSql(sql), "sqlite");
       assert.ok(statement);
       assert.match(statement, /ceci est du texte/);
       assert.match(statement, /premiere/);
@@ -119,7 +119,7 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
         STATEMENT_BREAKPOINT,
         "SELECT 1;",
       ].join("\n");
-      const statements = splitStatements(normalizeSql(sql));
+      const statements = splitStatements(normalizeSql(sql), "sqlite");
       assert.equal(statements.length, 2);
       assert.doesNotMatch(statements[0] as string, /vrai commentaire/);
     });
@@ -128,11 +128,11 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
       // Un statement vide envoyé au pilote est refusé par certains drivers ;
       // c'est ce que la découpe existe pour éviter.
       const sql = [FORMAT_MARKER, "-- rien à faire ici"].join("\n");
-      assert.deepEqual(splitStatements(normalizeSql(sql)), []);
+      assert.deepEqual(splitStatements(normalizeSql(sql), "sqlite"), []);
     });
 
     it("un fichier VIDE ne rend aucun statement, et ne jette pas", () => {
-      assert.deepEqual(splitStatements(normalizeSql("")), []);
+      assert.deepEqual(splitStatements(normalizeSql(""), "sqlite"), []);
     });
 
     it("un point-virgule DANS une chaîne ne coupe rien", () => {
@@ -143,7 +143,7 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
         FORMAT_MARKER,
         "INSERT INTO nf_note (corps) VALUES ('un; deux; trois');",
       ].join("\n");
-      assert.equal(splitStatements(normalizeSql(sql)).length, 1);
+      assert.equal(splitStatements(normalizeSql(sql), "sqlite").length, 1);
     });
 
     it("garde le texte non ASCII intact — accents, idéogrammes, emoji", () => {
@@ -154,7 +154,7 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
         FORMAT_MARKER,
         `INSERT INTO nf_note (corps) VALUES ('${texte}');`,
       ].join("\n");
-      const [statement] = splitStatements(normalizeSql(sql));
+      const [statement] = splitStatements(normalizeSql(sql), "sqlite");
       assert.ok(statement?.includes(texte));
     });
   });

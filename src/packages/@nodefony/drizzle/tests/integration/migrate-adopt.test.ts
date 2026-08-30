@@ -367,7 +367,7 @@ for (const cible of CIBLES) {
         // décrit donc aussi les tables du framework, qui existent déjà sur les
         // serveurs partagés. Ce qu'on éprouve ici est que le fragment décrivant
         // la table adoptée s'EXÉCUTE, ce qu'aucune expression régulière ne dit.
-        const instructions = splitStatements(ecrit).filter((i) =>
+        const instructions = splitStatements(ecrit, cible.dialect).filter((i) =>
           i.includes(TABLE),
         );
         assert.ok(
