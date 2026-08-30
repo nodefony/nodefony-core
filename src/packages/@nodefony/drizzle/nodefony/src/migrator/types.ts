@@ -237,6 +237,34 @@ export interface IMigrationDriver extends ISchemaReader {
   close(): Promise<void>;
 }
 
+/**
+ * Le verrou d'applicateur n'a pas été obtenu dans le délai imparti.
+ *
+ * Une classe, et pas une `Error` nue, pour une raison précise : c'est ce qui
+ * permet à l'applicateur de la reconnaître et de la rendre sous le code
+ * `NF_MIGRATE_LOCK_TIMEOUT`, publié dans le contrat et lu par les
+ * orchestrateurs pour décider d'ATTENDRE puis de reprendre. Levée nue, elle
+ * tombait dans le fourre-tout des pannes : le code promis n'était jamais émis,
+ * et les branches qui l'attendaient — jusqu'au code de sortie — étaient
+ * inatteignables.
+ *
+ * Un verrou tenu n'est pas une panne : c'est le déploiement d'à côté qui
+ * travaille, et la réponse est d'attendre.
+ */
+export class MigrationLockTimeoutError extends Error {
+  /**
+   * @param timeoutMs - délai d'attente écoulé.
+   * @param message - phrase française destinée à un humain.
+   */
+  constructor(
+    readonly timeoutMs: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "MigrationLockTimeoutError";
+  }
+}
+
 /** Erreur portant un {@link IMigrationVerdict} — le message n'est qu'un rendu. */
 export class MigrationVerdictError extends Error {
   /**

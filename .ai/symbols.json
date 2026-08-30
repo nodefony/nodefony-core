@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-30T08:50:20.381Z",
+  "generated": "2026-08-30T09:08:23.127Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3546,
-    "classes": 381,
+    "symbols": 3547,
+    "classes": 382,
     "interfaces": 984,
     "types": 423,
     "enums": 4,
@@ -20254,6 +20254,17 @@
       "module": "@nodefony/drizzle",
       "description": "Applique les migrations en attente — **DÉVELOPPEMENT seulement**. 🔴 Le refus hors développement n'est pas une précaution d'interface, c'est la doctrine : en production, les migrations s'appliquent…"
     },
+    "MigrationLockTimeoutError": {
+      "name": "MigrationLockTimeoutError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Le verrou d'applicateur n'a pas été obtenu dans le délai imparti. Une classe, et pas une `Error` nue, pour une raison précise : c'est ce qui permet à l'applicateur de la reconnaître et de la rendre…"
+    },
     "MigrationVerdictError": {
       "name": "MigrationVerdictError",
       "kind": "class",
@@ -24553,6 +24564,7 @@
         "VectorError",
         "DevkitError",
         "MigrationToolError",
+        "MigrationLockTimeoutError",
         "MigrationVerdictError",
         "FrontendError",
         "RealtimeError"
@@ -32705,11 +32717,19 @@
       "readHistory": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
+      "APP_SOURCE": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
       "createdTables": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "loadSources": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "MigrationLockTimeoutError": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts"
       ],
       "IAppliedMigration": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",

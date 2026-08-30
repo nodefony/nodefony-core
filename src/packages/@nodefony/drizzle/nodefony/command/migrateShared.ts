@@ -350,7 +350,14 @@ export abstract class OrmMigrateCommand extends Command {
       connector,
       "NF_MIGRATE_UNAVAILABLE",
       `La commande n'a pas pu travailler sur le connecteur « ${connector} » : ${cause}`,
-      "La base n'a pas répondu, ou le compte utilisé n'a pas les droits nécessaires. Rien n'a été modifié : l'applicateur valide tout avant d'écrire quoi que ce soit. Vérifie que la base est démarrée et joignable, puis regarde les droits du compte — celui qui migre a besoin de pouvoir créer et modifier des tables, ce que le compte qui sert le trafic n'a normalement pas.",
+      // 🔴 Ce texte est le FOURRE-TOUT : il s'affiche pour tout ce qui n'a pas
+      // su se nommer. Il ne peut donc affirmer NI la cause, NI l'état de la
+      // base. Il l'a fait — « Rien n'a été modifié » — au pire moment qui
+      // soit : un échec de migration en plein déploiement, où le marqueur
+      // venait d'être posé et où les migrations précédentes du même passage
+      // étaient appliquées. Ce cas-là porte désormais son propre verdict ; ce
+      // qui reste ici est, par construction, ce dont on ne sait rien.
+      "La commande s'est arrêtée sans avoir pu nommer la cause. Les deux explications les plus fréquentes : la base n'a pas répondu, ou le compte utilisé n'a pas les droits nécessaires — celui qui migre a besoin de pouvoir créer et modifier des tables, ce que le compte qui sert le trafic n'a normalement pas. Avant de reprendre, CONSTATER l'état : `orm:migrate:status` dit ce que la base porte et ce que l'historique en dit.",
       [
         action("nodefony orm:migrate:status --json"),
         action("nodefony inspect config --json"),

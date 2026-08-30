@@ -208,6 +208,27 @@ jobs:
         working-directory: src/packages/@nodefony/drizzle
         run: npm test
 
+      # 🔴 Les bancs les plus critiques du chantier des migrations — migrer une
+      # base vierge en production, le refus destructif, la liste blanche de
+      # l'effacement, l'annonce du détournement de base, l'adoption d'une base
+      # héritée — vivent derrière `NF_RUN_CLI_BOOT`, qui n'était posé NULLE
+      # PART. Ils démarrent un kernel complet par cas, donc ils sont fermés par
+      # défaut ; mais fermés partout, ils n'avaient jamais tourné que sur le
+      # poste de leur auteur, et un interrupteur fermé ne rend qu'un
+      # avertissement jaune : un test sauté compte vert.
+      #
+      # Le décor dont ils ont besoin — PostgreSQL et MariaDB — est déjà monté
+      # par ce travail. C'est donc ici, et nulle part ailleurs, que ces cas
+      # peuvent être exercés sur autre chose que sqlite.
+      - name: Drizzle — commandes de migration sur un démarrage RÉEL
+        working-directory: src/packages/@nodefony/drizzle
+        env:
+          NF_RUN_CLI_BOOT: "1"
+        run: >-
+          npx vitest run
+          tests/integration/migrate-cli.e2e.test.ts
+          tests/integration/migrate-adopt-cli.e2e.test.ts
+
       # Huit mesures qui ne tournaient nulle part — le dernier banc du dépôt à
       # être resté hors de toute passe sans que ce soit un choix.
       #

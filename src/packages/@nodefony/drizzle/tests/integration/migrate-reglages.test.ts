@@ -215,6 +215,7 @@ async function refus(corps: () => Promise<unknown>): Promise<{
   message: string;
   facts: Record<string, unknown>;
   commande: string;
+  gestes: string[];
 }> {
   let leve: unknown;
   try {
@@ -236,6 +237,7 @@ async function refus(corps: () => Promise<unknown>): Promise<{
     message: leve.message,
     facts: verdict.facts as Record<string, unknown>,
     commande: verdict.nextActions[0]?.command ?? "",
+    gestes: verdict.nextActions.map((a) => a.command),
   };
 }
 
@@ -252,6 +254,7 @@ async function refus(corps: () => Promise<unknown>): Promise<{
 function assertRefusUtilisable(verdict: {
   message: string;
   commande: string;
+  gestes: string[];
 }): void {
   assert.ok(
     verdict.message.length > 40,
@@ -262,10 +265,28 @@ function assertRefusUtilisable(verdict: {
     /\b(error|failed|invalid|unknown|missing)\b/i,
     `refus non traduit : « ${verdict.message} »`,
   );
+  // 🔴 Le premier geste n'est PAS forcément une commande du produit : quand un
+  // fichier de migration a été modifié après coup, le geste le plus sûr est de
+  // le RESTAURER, et le ré-alignement des empreintes — que la commande de
+  // réparation documente comme « presque toujours faux » — ne vient qu'après.
+  // Exiger `nodefony ` en tête forcerait à mettre le geste dangereux devant,
+  // et un agent exécute le premier geste sans lire la prose.
+  //
+  // Ce qui reste exigible, et qui est le vrai contrat : le refus propose au
+  // moins un geste, et AU MOINS UN d'entre eux est une commande du produit —
+  // sans quoi le refus renverrait l'utilisateur hors de l'outil.
+  assert.ok(
+    verdict.gestes.length > 0,
+    "un refus sans aucun geste est une impasse",
+  );
+  assert.ok(
+    verdict.gestes.some((g) => g.startsWith("nodefony ")),
+    `aucun geste n'est une commande nodefony : ${verdict.gestes.join(" | ")}`,
+  );
   assert.match(
     verdict.commande,
-    /^nodefony /,
-    `le geste proposé n'est pas une commande nodefony : « ${verdict.commande} »`,
+    /^(nodefony |git )/,
+    `geste de tête inutilisable : « ${verdict.commande} »`,
   );
 }
 
@@ -667,7 +688,20 @@ for (const cible of CIBLES) {
         const verdict = await refus(() => migrator().migrate());
         assert.equal(verdict.code, "NF_MIGRATE_HASH_MISMATCH");
         assertRefusUtilisable(verdict);
-        assert.match(verdict.commande, /--update-hashes/);
+        // 🔴 L'ordre EST le contrat : restaurer le fichier d'abord, réaligner
+        // les empreintes ensuite. Le ré-alignement grave la version trafiquée
+        // comme conforme — les autres bases ne recevront jamais la correction,
+        // et la dérive devient invisible. Le mettre en tête revenait à le
+        // recommander, puisqu'un agent exécute le premier geste.
+        assert.match(
+          verdict.commande,
+          /^git checkout -- /,
+          `le geste sûr doit venir en premier : ${verdict.gestes.join(" | ")}`,
+        );
+        assert.ok(
+          verdict.gestes.some((g) => g.includes("--update-hashes")),
+          `le ré-alignement doit rester offert : ${verdict.gestes.join(" | ")}`,
+        );
       });
     });
 

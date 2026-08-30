@@ -1,5 +1,6 @@
 import type { IMigrationDriver } from "../types";
 import { schemaReader, type ISchemaReader } from "../catalog";
+import { MigrationLockTimeoutError } from "../types";
 
 /**
  * Préfixe de l'identité du verrou MySQL — **contrat inter-versions**.
@@ -175,7 +176,8 @@ export class MysqlMigrationDriver implements IMigrationDriver {
     );
     const got = rows[0]?.got;
     if (Number(got) !== 1) {
-      throw new Error(
+      throw new MigrationLockTimeoutError(
+        timeoutMs,
         `Verrou de migration MySQL non obtenu en ${timeoutMs} ms ` +
           `(${got === null ? "erreur du serveur" : "délai dépassé"}) : ` +
           `une autre migration est en cours sur cette base.`,

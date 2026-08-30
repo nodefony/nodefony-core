@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { IMigrationDriver } from "../types";
 import { schemaReader, toDollarParams, type ISchemaReader } from "../catalog";
+import { MigrationLockTimeoutError } from "../types";
 
 export { toDollarParams };
 
@@ -188,7 +189,8 @@ export class PostgresMigrationDriver implements IMigrationDriver {
         return;
       }
       if (Date.now() >= deadline) {
-        throw new Error(
+        throw new MigrationLockTimeoutError(
+          timeoutMs,
           `Verrou de migration PostgreSQL non obtenu en ${timeoutMs} ms ` +
             `(clé ${PG_LOCK_KEY.toString()}) : une autre migration est en cours.`,
         );

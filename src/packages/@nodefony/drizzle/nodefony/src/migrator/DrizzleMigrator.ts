@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import os from "node:os";
+import path from "node:path";
 import type { SqlDialect } from "../../config/config";
 import { openMigrationDriver, type IMigrationTarget } from "./drivers/index";
 import {
@@ -9,9 +10,11 @@ import {
   insertHistory,
   readHistory,
 } from "./history";
+import { APP_SOURCE } from "./paths";
 import { createdTables, loadSources } from "./sources";
 import {
   HISTORY_TABLE,
+  MigrationLockTimeoutError,
   MigrationVerdictError,
   type IAppliedMigration,
   type IMigrationApplied,
@@ -154,14 +157,30 @@ export class DrizzleMigrator {
     const driver = await openMigrationDriver(this.#options);
     const runId = randomUUID();
     const applied: IMigrationApplied[] = [];
+    // 🔴 Un essai à blanc n'écrit RIEN, et « rien » comprend la table
+    // d'historique et le verrou. Le contrat publié dit « sans rien écrire » ;
+    // le code prenait le verrou puis créait la table avant de rendre le plan.
+    // Deux conséquences, toutes deux constatées : un compte en lecture seule —
+    // le réflexe même de l'essai à blanc — échouait sur un défaut de droits au
+    // lieu de rendre son plan, et l'essai laissait derrière lui une table sur
+    // une base jusque-là vierge, ce qui rend fausse la seule preuve simple
+    // qu'on puisse en donner : que la base n'a pas bougé.
+    const essaiBlanc = options.dryRun === true;
     try {
-      await driver.lock(this.#options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
-      await ensureHistorySchema(driver);
+      if (!essaiBlanc) {
+        await this.#prendreVerrou(driver);
+        await ensureHistorySchema(driver);
+      }
       const loaded = await loadSources(
         this.#options.sources,
         this.#options.dialect,
       );
-      const history = await readHistory(driver);
+      // Sans la table, il n'y a pas d'historique — et il n'y a pas à la créer
+      // pour le constater.
+      const history =
+        essaiBlanc && !(await driver.tableExists(HISTORY_TABLE))
+          ? []
+          : await readHistory(driver);
       const plan = await this.#computePlan(
         driver,
         loaded.files,
@@ -169,7 +188,7 @@ export class DrizzleMigrator {
         loaded.absent,
       );
       this.#assertApplicable(plan, loaded.files, options);
-      if (options.dryRun === true) {
+      if (essaiBlanc) {
         return { runId, applied: [] };
       }
       for (const file of plan.pending) {
@@ -193,12 +212,80 @@ export class DrizzleMigrator {
    * @param upTo - dernier tag inscrit (inclus) ; toutes les restantes si omis.
    * @returns les migrations inscrites.
    */
+  /**
+   * Prend le verrou d'applicateur, ou rend un VERDICT plutôt qu'une erreur nue.
+   *
+   * Un verrou tenu n'est pas une panne : c'est le déploiement d'à côté qui
+   * travaille, et la seule bonne réponse est d'attendre puis de reprendre.
+   * C'est précisément ce que le code `NF_MIGRATE_LOCK_TIMEOUT` dit à un
+   * orchestrateur — un code publié dans le contrat, avec sa phrase et son
+   * propre code de sortie, et que POURTANT personne n'émettait : les pilotes
+   * levaient une erreur nue, qui tombait dans le fourre-tout des pannes. Les
+   * branches qui attendaient ce code étaient donc inatteignables.
+   *
+   * @param driver - pilote ouvert sur la base.
+   * @throws MigrationVerdictError si le verrou n'est pas obtenu à temps.
+   */
+  async #prendreVerrou(driver: IMigrationDriver): Promise<void> {
+    const timeoutMs = this.#options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
+    try {
+      await driver.lock(timeoutMs);
+    } catch (e) {
+      if (!(e instanceof MigrationLockTimeoutError)) {
+        throw e;
+      }
+      throw this.#verdict(
+        "NF_MIGRATE_LOCK_TIMEOUT",
+        {
+          facts: { timeoutMs: String(e.timeoutMs) },
+          actions: [
+            {
+              command: `nodefony orm:migrate:status --connector ${this.connector} --json`,
+              args: [
+                "orm:migrate:status",
+                "--connector",
+                this.connector,
+                "--json",
+              ],
+            },
+            {
+              command: `nodefony orm:migrate --connector ${this.connector}`,
+              args: ["orm:migrate", "--connector", this.connector],
+            },
+          ],
+        },
+        e.message,
+      );
+    }
+  }
+
+  /**
+   * Dossier des migrations de l'application, tel qu'on l'écrit dans un GESTE.
+   *
+   * Dérivé du registre de sources, jamais littéral : une application peut
+   * ranger ses migrations ailleurs, et un geste qui nomme un dossier inexistant
+   * est un geste qu'on ne peut pas suivre.
+   *
+   * Écrit avec des barres obliques, toujours : ce chemin VOYAGE — il part dans
+   * une commande que quelqu'un copie, y compris sous Windows, où `git` les
+   * accepte et où le séparateur natif serait une échappée.
+   *
+   * @returns le chemin à citer, terminé par une barre.
+   */
+  #migrationsPath(): string {
+    const app = this.#options.sources.find((s) => s.name === APP_SOURCE);
+    if (app === undefined) {
+      return "migrations/";
+    }
+    return `${path.basename(app.dir).split(path.sep).join("/")}/`;
+  }
+
   async baseline(upTo?: string): Promise<IMigrationApplied[]> {
     const driver = await openMigrationDriver(this.#options);
     const runId = randomUUID();
     const adopted: IMigrationApplied[] = [];
     try {
-      await driver.lock(this.#options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
+      await this.#prendreVerrou(driver);
       await ensureHistorySchema(driver);
       const loaded = await loadSources(
         this.#options.sources,
@@ -269,7 +356,7 @@ export class DrizzleMigrator {
     }
     const driver = await openMigrationDriver(this.#options);
     try {
-      await driver.lock(this.#options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
+      await this.#prendreVerrou(driver);
       await ensureHistorySchema(driver);
       const cleared = await deleteFailed(driver, options.source);
       const rehashed: { source: string; tag: string }[] = [];
@@ -419,7 +506,20 @@ export class DrizzleMigrator {
           source: drift.source,
           tag: drift.tag,
           facts: { expected: drift.expected, actual: drift.actual },
+          // 🔴 Le geste SÛR d'abord. Ce refus ne proposait que le ré-alignement
+          // des empreintes — que la commande de réparation documente elle-même
+          // comme « presque toujours faux ». Un agent exécute le premier geste
+          // sans lire la prose : il déclarait alors conforme un fichier
+          // trafiqué, les autres bases ne recevaient jamais la correction, et
+          // la dérive devenait invisible pour toujours. Le même état, lu par
+          // `orm:migrate:status`, proposait déjà la restauration en premier :
+          // deux réponses à une seule question, et c'est la dangereuse qui
+          // vivait dans le refus qui ARRÊTE le geste.
           actions: [
+            {
+              command: `git checkout -- ${this.#migrationsPath()}`,
+              args: ["checkout", "--", this.#migrationsPath()],
+            },
             {
               command: `nodefony orm:migrate:repair --update-hashes --connector ${this.connector}`,
               args: [
@@ -601,7 +701,7 @@ export class DrizzleMigrator {
           success: false,
           error: truncate((e as Error).message),
         });
-        throw e;
+        throw this.#echecApplication(file, e as Error, false);
       }
       const executionMs = Math.round(performance.now() - began);
       await finishHistory(driver, {
@@ -615,6 +715,24 @@ export class DrizzleMigrator {
 
     await driver.begin();
     try {
+      // 🔴 On revérifie DANS la transaction. Le moteur sérialise les
+      // transactions, pas le « lire puis agir » : le plan a été calculé avant
+      // le `BEGIN`, et sqlite n'a pas de verrou d'applicateur — son verrou est
+      // un geste vide, parce qu'il est à écrivain unique par nature. Deux
+      // processus ordinaires — le rattrapage au démarrage et un `orm:migrate`
+      // tapé dans un terminal — lisaient donc le même « à appliquer », et le
+      // second rejouait ce que le premier venait de poser : « table already
+      // exists », annulation, et une erreur SQL nue sur une base pourtant
+      // saine. Trois lignes rendent au moteur ce que son propre commentaire
+      // revendiquait.
+      const dejaLa = await readHistory(driver);
+      if (dejaLa.some((r) => r.source === file.source && r.tag === file.tag)) {
+        return {
+          source: file.source,
+          tag: file.tag,
+          executionMs: Math.round(performance.now() - began),
+        };
+      }
       for (const statement of file.statements) {
         await driver.exec(statement);
       }
@@ -638,8 +756,65 @@ export class DrizzleMigrator {
         success: false,
         error: truncate((e as Error).message),
       }).catch(() => undefined);
-      throw e;
+      throw this.#echecApplication(file, e as Error, true);
     }
+  }
+
+  /**
+   * Habille l'échec d'une migration en VERDICT, plutôt qu'en exception nue.
+   *
+   * C'est le cas d'incident nominal du produit : un travail de déploiement
+   * applique, et la quatrième migration bute sur une contrainte. Laissée nue,
+   * l'erreur tombait dans le fourre-tout des pannes, qui affirme trois choses
+   * fausses au pire moment — que la base n'a pas répondu (elle a très bien
+   * répondu, c'est le SQL qui a échoué), que rien n'a été modifié (le marqueur
+   * d'échec vient d'être posé, les migrations précédentes du même passage sont
+   * appliquées, et sur un moteur sans DDL transactionnel la moitié de la
+   * fautive peut être en place), et en rendant 2 — « la commande n'a pas pu
+   * travailler » — là où la grille range un échec de migration en 1, celui qui
+   * appelle un humain. Un orchestrateur qui réessaie sur 2 rejouait un échec
+   * déterministe.
+   *
+   * @param file - migration qui a échoué.
+   * @param cause - erreur rendue par le moteur.
+   * @param transactionnel - le DDL de ce moteur est-il transactionnel ?
+   * @returns le verdict à lever.
+   */
+  #echecApplication(
+    file: IMigrationFile,
+    cause: Error,
+    transactionnel: boolean,
+  ): MigrationVerdictError {
+    const etat = transactionnel
+      ? `Cette migration a été ANNULÉE — le schéma de ce moteur entre ou n'entre pas, jamais à moitié. Les migrations appliquées AVANT elle, dans ce même passage, restent en place.`
+      : `Ce moteur n'annule pas le schéma : cette migration peut être appliquée À MOITIÉ. Inspecter la base avant toute reprise — c'est pour cela que la reprise n'est pas automatique.`;
+    return this.#verdict(
+      "NF_MIGRATE_FAILED_MARKER",
+      {
+        source: file.source,
+        tag: file.tag,
+        facts: { error: truncate(cause.message) },
+        actions: [
+          {
+            command: `nodefony orm:migrate:status --connector ${this.connector} --json`,
+            args: [
+              "orm:migrate:status",
+              "--connector",
+              this.connector,
+              "--json",
+            ],
+          },
+          {
+            command: `nodefony orm:migrate:repair --connector ${this.connector}`,
+            args: ["orm:migrate:repair", "--connector", this.connector],
+          },
+        ],
+      },
+      `La migration « ${file.tag} » (source « ${file.source} ») a échoué : ` +
+        `${truncate(cause.message)}\n\n${etat}\n\n` +
+        `Son échec est INSCRIT : le prochain passage refusera de reprendre tant ` +
+        `que le marqueur n'aura pas été levé, après inspection.`,
+    );
   }
 
   /**
