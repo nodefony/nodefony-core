@@ -40,6 +40,7 @@ import {
   isMigrationFailure,
   type MigrationApplyReply,
   type MigrationEntry,
+  type MigrationFailure,
   type MigrationPlan,
   type MigrationPlanReply,
   type MigrationReply,
@@ -369,7 +370,21 @@ export const Migrations = observer(() => {
   );
   const { data, loading, error, reload } = useResource(statusFetcher);
 
-  const empechement = data !== null && isMigrationFailure(data) ? data : null;
+  /**
+   * Refus rendu par une APPLICATION tentée depuis cet écran.
+   *
+   * Séparé du refus de lecture : le premier vient de l'état de la base, le
+   * second d'un geste que l'exploitant vient de faire. Les deux se rendent au
+   * même endroit et de la même façon — un refus jeté dans une notification
+   * perd son « ce que ça veut dire » et ses gestes, que la ligne de commande
+   * affiche pour le même code.
+   */
+  const [refusApplication, setRefusApplication] =
+    useState<MigrationFailure | null>(null);
+
+  const empechement =
+    refusApplication ??
+    (data !== null && isMigrationFailure(data) ? data : null);
   const status = data !== null && !isMigrationFailure(data) ? data : null;
   const verdict = status
     ? (VERDICTS[status.verdict] ?? {
@@ -381,6 +396,19 @@ export const Migrations = observer(() => {
   const VerdictIcon = verdict?.icon ?? IconArrowsExchange;
 
   const enAttente = (status?.sources ?? []).reduce((n, s) => n + s.pending, 0);
+
+  /**
+   * Le geste d'application est-il seulement PERMIS ?
+   *
+   * 🔴 C'est le VERDICT qui décide, jamais un recompte fait ici. Cette page
+   * proclame qu'elle ne calcule rien, puis calculait la condition de son seul
+   * bouton : sur un verdict `failed` ou `drift` avec des migrations en attente
+   * — une migration échouée suivie des suivantes, le cas courant —, elle
+   * offrait le geste que le produit allait refuser. C'est exactement le
+   * mensonge d'interface que cette page dit combattre. Le produit publie déjà
+   * sa conclusion : on la lit.
+   */
+  const applicable = status?.verdict === "pending";
 
   /** Charge ce qui S'APPLIQUERAIT, et ouvre la confirmation dessus. */
   const ouvrirConfirmation = useCallback(async () => {
@@ -419,10 +447,19 @@ export const Migrations = observer(() => {
       if (isMigrationFailure(reply)) {
         // Le refus du produit est rendu TEL QUEL — c'est lui qui fait foi, y
         // compris quand l'écran croyait le geste permis.
+        //
+        // 🔴 ENTIER, et pas seulement son résumé : une notification jetait le
+        // « ce que ça veut dire » et les gestes, que la ligne de commande
+        // affiche pour le même refus. L'empêchement est donc porté par le bloc
+        // qui sait les rendre, et l'état est resynchronisé — sinon l'écran
+        // reste sur un verdict d'avant, périmé à l'appui.
+        setRefusApplication(reply);
+        setPlan(null);
         notifications.notify("error", reply.error.summary, {
           title: reply.error.code,
           source: "server",
         });
+        reload();
         return;
       }
       notifications.notify(
@@ -468,7 +505,7 @@ export const Migrations = observer(() => {
             w={240}
             allowDeselect={false}
           />
-          {enDeveloppement && enAttente > 0 && (
+          {enDeveloppement && applicable && enAttente > 0 && (
             <Button
               color="orange"
               leftSection={<IconPlayerPlay size={16} />}

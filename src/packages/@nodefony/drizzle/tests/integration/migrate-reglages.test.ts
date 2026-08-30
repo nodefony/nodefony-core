@@ -538,6 +538,91 @@ for (const cible of CIBLES) {
       });
     });
 
+    describe("`--forget` — l'issue d'un historique qui MENT", () => {
+      /**
+       * L'état sans issue, reproduit tel qu'il se produit.
+       *
+       * Une adoption inscrit les migrations SANS exécuter leur SQL. Bornée au
+       * mauvais endroit — ou héritée d'une version antérieure aux gardes —,
+       * elle laisse un historique complet devant une base qui ne porte pas les
+       * tables. Rien n'est « en attente », rien n'a « échoué » : aucune
+       * commande n'avait de prise.
+       */
+      const adopterSansAppliquer = async (): Promise<void> => {
+        await migrator().baseline();
+      };
+
+      it("🔴 sans lui, un historique qui ment n'a AUCUNE sortie", async () => {
+        await adopterSansAppliquer();
+        const avant = await migrator().status();
+        assert.equal(avant.pending.length, 0, "rien n'est en attente");
+        assert.equal(avant.failed.length, 0, "rien n'a échoué");
+
+        // C'est le constat qui justifie l'option : la réparation ordinaire ne
+        // voit RIEN à faire, parce qu'elle ne connaît que les marqueurs
+        // d'échec. Sans `--forget`, l'exploitant tourne en rond.
+        const ordinaire = await migrator().repair();
+        assert.equal(ordinaire.cleared.length, 0);
+        assert.equal(ordinaire.rehashed.length, 0);
+        assert.equal((await migrator().status()).pending.length, 0);
+      });
+
+      it("désinscrit l'entrée NOMMÉE, et elle est rejouée au passage suivant", async () => {
+        await adopterSansAppliquer();
+        const inscrites = (await migrator().status()).applied;
+        const cible = inscrites.find((r) => r.source === "app");
+        assert.ok(cible, "le décor doit porter une migration applicative");
+
+        const fait = await migrator().repair({
+          forget: [{ source: cible.source, tag: cible.tag }],
+        });
+        assert.deepEqual(
+          fait.forgotten.map((f) => `${f.source}/${f.tag}`),
+          [`${cible.source}/${cible.tag}`],
+        );
+
+        // La preuve porte sur l'ÉTAT, pas sur la valeur rendue : la migration
+        // doit être redevenue en attente.
+        const apres = await migrator().status();
+        assert.ok(
+          apres.pending.some(
+            (f) => f.source === cible.source && f.tag === cible.tag,
+          ),
+          `la migration désinscrite doit être en attente : ${apres.pending
+            .map((f) => `${f.source}/${f.tag}`)
+            .join(", ")}`,
+        );
+
+        // Et elle s'applique VRAIMENT : c'est ce que l'option existe pour
+        // rendre possible.
+        const rejoue = await migrator().migrate();
+        assert.ok(
+          rejoue.applied.some(
+            (a) => a.source === cible.source && a.tag === cible.tag,
+          ),
+        );
+      });
+
+      it("🔴 une entrée qui n'existe pas ne rend RIEN — et n'invente pas un succès", async () => {
+        await adopterSansAppliquer();
+        const fait = await migrator().repair({
+          forget: [{ source: "app", tag: "0999_jamais_ecrite" }],
+        });
+        assert.deepEqual(fait.forgotten, []);
+      });
+
+      it("🔴 une SOURCE inconnue est refusée — sans quoi l'oubli porterait à côté", async () => {
+        await adopterSansAppliquer();
+        const verdict = await refus(() =>
+          migrator().repair({
+            forget: [{ source: "aplication", tag: "0000_app_note" }],
+          }),
+        );
+        assert.equal(verdict.code, "NF_MIGRATE_UNKNOWN_SOURCE");
+        assertRefusUtilisable(verdict);
+      });
+    });
+
     describe("`--out-of-order` — la trace d'une fusion de branches", () => {
       it("refuse par défaut, en nommant le geste qui assume", async () => {
         await espacerJournal("framework");

@@ -169,12 +169,21 @@ n'écrive quoi que ce soit — chacune nomme ce qui cloche :
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | une entité enregistrée qu'aucun fichier ne fournit             | son fichier a été déplacé, renommé, ou ne s'importe pas seul — la migration serait écrite **sans sa table**                                         |
 | un fichier de l'application qui exporte une table du framework | la migration porterait un second `CREATE TABLE` pour cette table : elle passerait sur une base vierge, et échouerait sur toute base **déjà migrée** |
-| une migration qui **supprime** des données                     | à relire, puis à confirmer par `--allow-destructive` — les fichiers sont conservés, ce sont eux qu'il faut regarder                                 |
+| une migration qui **supprime** des données                     | les fichiers **sont écrits** et conservés : ce sont eux qu'il faut lire. C'est leur mise en service qui est retenue, et elle a sa propre garde      |
 
-Le troisième cas mérite une précision : quand une colonne disparaît et qu'une autre apparaît, aucun
-outil ne peut deviner s'il s'agit d'un **renommage** — les données suivent — ou d'une suppression
-suivie d'un ajout — les données sont perdues. C'est une intention, pas une différence de schéma.
-Rejouez alors la commande dans un terminal, et répondez à la question posée.
+Le troisième cas mérite deux précisions.
+
+D'abord, quand une colonne disparaît et qu'une autre apparaît, aucun outil ne peut deviner s'il
+s'agit d'un **renommage** — les données suivent — ou d'une suppression suivie d'un ajout — les
+données sont perdues. C'est une intention, pas une différence de schéma. Rejouez alors la commande
+dans un terminal, et répondez à la question posée.
+
+Ensuite, **il n'y a rien à regénérer pour « assumer »** : au moment où ce refus paraît, les
+fichiers sont déjà écrits et inscrits au journal. Relancer la génération ne produirait plus rien —
+elle répondrait « le schéma n'a pas bougé ». Les deux issues réelles sont donc celles que le refus
+propose : annuler les fichiers avec votre outil de gestion de versions, ou les appliquer. C'est
+`orm:migrate` qui met en service, et c'est lui qui porte la garde `--allow-destructive` hors du
+développement.
 
 Un quatrième refus n'a rien à voir avec votre schéma : **l'outil qui écrit les migrations n'est pas
 installé** (`NF_GENERATE_TOOL_MISSING`). C'est une dépendance de DÉVELOPPEMENT — votre application
@@ -230,6 +239,18 @@ Deux faits qu'elle publie, et qu'il faut lire :
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | des tables **lues sans être déclarées** | la base est partagée. L'outil de lecture ne sait pas restreindre son champ ; la génération suivante proposera de les **supprimer**. Relisez le fichier. |
 | un corps **resté en commentaire**       | la référence ne recréerait rien sur une base neuve — l'outil a changé sa mise en forme.                                                                 |
+
+Deux nettoyages ont lieu sans que vous ayez à y penser, et il vaut mieux savoir qu'ils existent :
+
+- **Les objets d'une table exclue ne sont pas repris.** L'exclusion porte sur les tables, jamais sur
+  ce qui gravite autour : la séquence de la table d'historique entrait dans la référence, qui
+  échouait alors sur un environnement neuf — la séquence y est déjà posée par les migrations du
+  framework — et dont la génération suivante proposait la suppression, que la base refuse.
+- **PostgreSQL : le schéma visé est celui de votre connexion, et il est retiré de la référence.**
+  Si votre application vit ailleurs que dans `public` (le montage habituel d'une base mutualisée),
+  la lecture se fait bien dans VOTRE schéma — sans quoi elle décrirait les tables de quelqu'un
+  d'autre. Mais la référence, elle, est écrite sans le nommer : vos entités ne le nomment pas non
+  plus, et une référence qualifiée ferait poser une question de renommage au premier champ ajouté.
 
 > ⚠️ **Sur MariaDB, cette commande refuse — et elle dit pourquoi.** MariaDB n'a pas de type JSON
 > natif : il l'écrit en `longtext` assorti d'un `CHECK (json_valid(…))`. L'outil qui relit les
@@ -398,7 +419,7 @@ sauvegarde — pas un fichier `.bak` pris par un outil qui ne sait rien de votre
 Les outils de migration connaissent **deux** choses : les fichiers, et l'historique. Ils en
 concluent « tout est appliqué ». Ils ne regardent jamais la base.
 
-Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts:105`), et rend un
+Nodefony croise une **troisième** source (`describeDivergence()`, `divergence.ts:127`), et rend un
 constat qu'aucun outil ne produit en continu :
 
 > l'historique est complet, aucune migration n'est en attente — **et pourtant la base ne correspond
@@ -477,6 +498,41 @@ sait la produire, puisque le code la déclare — et c'est `orm:generate --name 
 `--custom` : envoyer écrire à la main ce que la commande d'à côté écrit seule serait un geste juste
 pour une colonne et absurde pour une table.
 
+## Quand l'historique MENT — `repair --forget`
+
+Il existe un état que ni les fichiers ni l'historique ne peuvent signaler seuls : **une migration
+inscrite comme réussie que personne n'a jamais exécutée.** L'historique est complet, rien n'est en
+attente, aucun marqueur d'échec — et pourtant la base ne porte pas les tables.
+
+Deux chemins y mènent, tous deux réels :
+
+- une **adoption bornée au mauvais endroit** : `orm:migrate:baseline --up-to <tag>` inscrit tout ce
+  qui précède le tag, et si l'on s'est trompé de borne, ce qui suit a été gravé sans être appliqué ;
+- une base **héritée** d'une version antérieure aux gardes actuelles.
+
+Le verdict `divergent` le voit et NOMME ce qui manque. Mais aucune commande ne « rejoue » une
+migration que l'historique donne pour appliquée : la réparation ordinaire ne connaît que les
+marqueurs d'ÉCHEC, et répond « rien à réparer ». C'est une impasse, et une impasse fait faire des
+gestes qu'on regrette — au banc de découvrabilité, le seul chemin restant était d'effacer la base.
+
+```bash
+nodefony orm:migrate:status --json                      # NOMME les tables qui manquent
+nodefony orm:migrate:repair --forget app/0003_facture   # désinscrit CETTE migration
+nodefony orm:migrate                                    # elle est rejouée
+```
+
+Trois propriétés, et elles sont volontaires :
+
+| Propriété                        | Pourquoi                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **il faut la NOMMER**            | `<source>/<tag>` exactement. Ni motif, ni lot, ni « toutes celles de cette source » : un oubli en masse est le geste qu'on ne veut pas rendre facile.         |
+| **la base n'est PAS touchée**    | seule la ligne d'historique disparaît. Si la migration avait bien été appliquée, son rejeu échouera — bruyamment, et c'est le comportement voulu.             |
+| **c'est le produit qui le fait** | l'interdit de toucher à la table d'historique vise la main dans un client SQL, sans trace. Le geste existe donc ici, borné et journalisé, plutôt qu'ailleurs. |
+
+> ⚠️ N'utilisez cette option que sur un état CONSTATÉ. Le point de départ n'est pas ce refus, c'est
+> `orm:migrate:status` : c'est lui qui dit quelles tables manquent, donc quelle migration n'a
+> jamais tourné.
+
 ## Codes de sortie et sortie `--json`
 
 La grille est **figée, et ne sera jamais réaffectée** — des passes d'intégration continue s'y
@@ -534,7 +590,13 @@ Trois choses valent d'être dites, parce qu'elles décident de ce que vous pouve
   mi-course, la reprise aveugle est interdite, et c'est `orm:migrate:repair` — après inspection
   humaine — qui tranche.
 - **`orm:migrate:repair --update-hashes` réécrit les empreintes.** Il fait taire une dérive au lieu
-  de la corriger. Ne l'utilisez qu'en sachant précisément pourquoi.
+  de la corriger : les autres bases ont reçu l'ancienne version du fichier et ne recevront jamais la
+  nouvelle. C'est pour cela que le refus propose d'abord de RÉTABLIR le fichier, et ce
+  ré-alignement seulement en second — ne l'utilisez qu'en sachant que la modification était sans
+  effet (une reformulation, un commentaire).
+- **`orm:migrate --dry-run` n'écrit rien du tout** — pas même la table d'historique, et il ne prend
+  pas le verrou. Un compte en lecture seule suffit donc à voir le plan, et la base reste
+  bit-à-bit celle d'avant : c'est ce qui rend l'essai vérifiable.
 - **Une migration en attente qui se range AVANT la dernière appliquée est refusée** (deux branches
   fusionnées). `--out-of-order` l'assume, et il faut l'assumer sciemment : l'ordre d'application ne
   sera plus celui du journal.

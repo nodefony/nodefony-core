@@ -97,33 +97,40 @@ n'a jamais les deux — c'est le discriminant à tester.
 
 ### Refus de l'applicateur — l'état de la base ou des fichiers
 
-| Code                               | Ce qui s'est passé                                             | Le geste                                                                       |
-| ---------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `NF_MIGRATE_BASELINE_REQUIRED`     | tables présentes, historique vide                              | `orm:migrate:baseline` — adopte explicitement, n'exécute aucun SQL             |
-| `NF_MIGRATE_BASELINE_AMBIGUOUS`    | la base s'écarte du schéma déclaré : adopter graverait un faux | `--up-to <tag>` pour borner, ou `--from-database` si aucune migration n'existe |
-| `NF_MIGRATE_BASELINE_NOT_EMPTY`    | `--from-database` demandé, mais des migrations existent déjà   | `orm:migrate:baseline` sans option — l'historique des fichiers fait foi        |
-| `NF_GENERATE_DATABASE_NOT_ADOPTED` | aucune migration écrite, et la base porte déjà ces tables      | `orm:migrate:baseline --from-database`, puis regénérer                         |
-| `NF_MIGRATE_FAILED_MARKER`         | une migration a échoué ou n'a jamais fini                      | lire l'erreur enregistrée, corriger la base, puis `orm:migrate:repair`         |
-| `NF_MIGRATE_HASH_MISMATCH`         | le fichier d'une migration appliquée a changé                  | rétablir le fichier ; sinon écrire une migration correctrice                   |
-| `NF_MIGRATE_OUT_OF_ORDER`          | une migration en attente se range avant la dernière appliquée  | renommer la nouvelle pour qu'elle suive la dernière appliquée                  |
-| `NF_MIGRATE_MISSING_FILE`          | une migration appliquée n'a plus de fichier                    | rétablir le fichier — il fait partie de l'historique                           |
-| `NF_MIGRATE_UNKNOWN_FORMAT`        | un fichier n'est pas au format que cet applicateur lit         | vérifier le journal de la source ; ne pas éditer à la main                     |
-| `NF_MIGRATE_LOCK_TIMEOUT`          | le verrou est tenu par un autre travail                        | attendre, puis rejouer — le verbe est idempotent                               |
-| `NF_MIGRATE_JOURNAL_MISMATCH`      | le journal annonce un fichier que le dossier ne contient pas   | rétablir le fichier, ou régénérer la source                                    |
+| Code                               | Ce qui s'est passé                                             | Le geste                                                                                                                         |
+| ---------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `NF_MIGRATE_BASELINE_REQUIRED`     | tables présentes, historique vide                              | `orm:migrate:baseline` — adopte explicitement, n'exécute aucun SQL                                                               |
+| `NF_MIGRATE_BASELINE_AMBIGUOUS`    | la base s'écarte du schéma déclaré : adopter graverait un faux | `--up-to <tag>` pour borner, ou `--from-database` si aucune migration n'existe                                                   |
+| `NF_MIGRATE_BASELINE_NOT_EMPTY`    | `--from-database` demandé, mais des migrations existent déjà   | `orm:migrate:baseline` sans option — l'historique des fichiers fait foi                                                          |
+| `NF_GENERATE_DATABASE_NOT_ADOPTED` | aucune migration écrite, et la base porte déjà ces tables      | `orm:migrate:baseline --from-database`, puis regénérer                                                                           |
+| `NF_MIGRATE_FAILED_MARKER`         | une migration a échoué, ou n'a jamais fini                     | lire l'erreur enregistrée, constater la base, puis `orm:migrate:repair`                                                          |
+| `NF_MIGRATE_HASH_MISMATCH`         | le fichier d'une migration appliquée a changé                  | RÉTABLIR le fichier (premier geste proposé) ; `repair --update-hashes` ensuite, et seulement si la modification était sans effet |
+| `NF_MIGRATE_OUT_OF_ORDER`          | une migration en attente se range avant la dernière appliquée  | renommer la nouvelle pour qu'elle suive la dernière appliquée                                                                    |
+| `NF_MIGRATE_MISSING_FILE`          | une migration appliquée n'a plus de fichier                    | rétablir le fichier — il fait partie de l'historique                                                                             |
+| `NF_MIGRATE_UNKNOWN_FORMAT`        | un fichier n'est pas au format que cet applicateur lit         | vérifier le journal de la source ; ne pas éditer à la main                                                                       |
+| `NF_MIGRATE_LOCK_TIMEOUT`          | le verrou est tenu par un autre travail                        | attendre, puis rejouer — le verbe est idempotent. Sort en **2** : ce n'est pas une panne, c'est le déploiement d'à côté          |
+| `NF_MIGRATE_JOURNAL_MISMATCH`      | le journal annonce un fichier que le dossier ne contient pas   | rétablir le fichier, ou régénérer la source                                                                                      |
 
 ### Refus d'usage — la demande elle-même
 
-| Code                           | Ce qui s'est passé                                             | Le geste                                              |
-| ------------------------------ | -------------------------------------------------------------- | ----------------------------------------------------- |
-| `NF_MIGRATE_UNKNOWN_CONNECTOR` | aucun connecteur de ce nom                                     | le message liste ceux que l'application déclare       |
-| `NF_MIGRATE_UNKNOWN_TAG`       | `--up-to` désigne une migration inconnue                       | relire `sources[].pendingTags`                        |
-| `NF_MIGRATE_UNKNOWN_SOURCE`    | `--source` n'est pas déclarée par cette application            | relire `sources[].name`                               |
-| `NF_MIGRATE_URL_MISMATCH`      | la variable de migration désigne une base d'un AUTRE dialecte  | corriger la variable, ou choisir le bon connecteur    |
-| `NF_MIGRATE_NOT_CONFIGURED`    | connecteur SQL non déclaré dans la configuration               | le déclarer pour pouvoir le suivre                    |
-| `NF_MIGRATE_NO_MIGRATIONS`     | ce connecteur est porté par une base qui ne se migre pas ainsi | rien à migrer ici — ce n'est pas une panne            |
-| `NF_MIGRATE_NOT_DEVELOPMENT`   | geste réservé au développement, demandé ailleurs               | passer par le travail de déploiement                  |
-| `NF_MIGRATE_DESTRUCTIVE`       | des migrations en attente SUPPRIMENT des données               | relire le fichier produit, puis assumer explicitement |
-| `NF_MIGRATE_UNAVAILABLE`       | la commande n'a pas pu joindre la base                         | vérifier la connexion et les droits                   |
+| Code                           | Ce qui s'est passé                                             | Le geste                                                                                             |
+| ------------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `NF_MIGRATE_UNKNOWN_CONNECTOR` | aucun connecteur de ce nom                                     | le message liste ceux que l'application déclare                                                      |
+| `NF_MIGRATE_UNKNOWN_TAG`       | `--up-to` désigne une migration inconnue                       | relire `sources[].pendingTags`                                                                       |
+| `NF_MIGRATE_UNKNOWN_SOURCE`    | `--source` n'est pas déclarée par cette application            | relire `sources[].name`                                                                              |
+| `NF_MIGRATE_URL_MISMATCH`      | la variable de migration désigne une base d'un AUTRE dialecte  | corriger la variable, ou choisir le bon connecteur                                                   |
+| `NF_MIGRATE_NOT_CONFIGURED`    | connecteur SQL non déclaré dans la configuration               | le déclarer pour pouvoir le suivre                                                                   |
+| `NF_MIGRATE_NO_MIGRATIONS`     | ce connecteur est porté par une base qui ne se migre pas ainsi | rien à migrer ici — ce n'est pas une panne                                                           |
+| `NF_MIGRATE_NOT_DEVELOPMENT`   | geste réservé au développement, demandé ailleurs               | passer par le travail de déploiement                                                                 |
+| `NF_MIGRATE_DESTRUCTIVE`       | des migrations en attente SUPPRIMENT des données               | relire le fichier produit, puis assumer explicitement                                                |
+| `NF_MIGRATE_UNAVAILABLE`       | la commande s'est arrêtée sans pouvoir nommer la cause         | constater l'état (`orm:migrate:status`) avant de reprendre                                           |
+| `NF_MIGRATE_CONFIRM_REQUIRED`  | `orm:reset` demandé hors terminal, ou en sortie machine        | relancer avec `--yes` si l'effacement est voulu                                                      |
+| `NF_GENERATE_NAME`             | le nom de migration demandé n'est pas utilisable               | reprendre la suggestion que le message donne                                                         |
+| `NF_GENERATE_MISSING_ENTITY`   | une entité est enregistrée sans fichier qui la fournisse       | `nodefony inspect entities --json` pour la situer                                                    |
+| `NF_GENERATE_FRAMEWORK_TABLE`  | une entité de l'application usurpe une table du framework      | la renommer, ou écrire une migration libre (`--custom`)                                              |
+| `NF_GENERATE_DESTRUCTIVE`      | la migration ÉCRITE supprime des données                       | relire le fichier, puis annuler (`git checkout`) ou appliquer — la mise en service a sa propre garde |
+| `NF_GENERATE_DATABASE_BEHIND`  | rien à écrire, et pourtant la base ne porte pas le schéma      | `repair --forget <source>/<tag>` : l'historique affirme une migration jamais exécutée                |
+| `NF_GENERATE_TOOL_MISSING`     | l'outil de génération n'est pas installé                       | l'installer en dépendance de développement                                                           |
 
 ## Un contrat qui ne bougera pas
 

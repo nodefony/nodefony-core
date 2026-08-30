@@ -3498,6 +3498,12 @@ export const TASKS = [
       `npx --no-install nodefony create entity ${ENTITE_MIGREE} title:string! ` +
       `--route ${ROUTE_ARTICLES} --yes >/dev/null 2>&1 && ` +
       `node ${PREPARE_BASE_MIGREE} && ` +
+      // 🔴 CONSTRUIRE d'abord. Une commande Nodefony refuse de travailler sur
+      // un projet non bâti — elle le DIT, mais la chaîne l'envoie dans le
+      // néant, et la prémisse tombait sur une sortie 1 sans un mot. Trois
+      // répétitions ont été payées pour un verdict vide avant qu'on ne
+      // rejoue la chaîne à la main.
+      `npm run build >/dev/null 2>&1 && ` +
       `npx --no-install nodefony orm:generate --name schema_initial >/dev/null 2>&1 && ` +
       `npx --no-install nodefony orm:migrate >/dev/null 2>&1 && ` +
       `npm run build >/dev/null 2>&1 && ` +

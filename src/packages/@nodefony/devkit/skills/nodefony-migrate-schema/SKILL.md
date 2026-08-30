@@ -208,15 +208,18 @@ nodefony orm:migrate:status
 Un refus n'est pas une panne : c'est le produit qui s'arrête devant une décision qui t'appartient.
 Le `code` est stable — **lis-le, il désigne le geste**.
 
-| Code                               | Ce qui s'est passé                                          | Le geste                                                 |
-| ---------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
-| `NF_MIGRATE_BASELINE_REQUIRED`     | la base porte déjà les tables, sans aucun historique        | `orm:migrate:baseline` (l'adopter)                       |
-| `NF_GENERATE_DATABASE_NOT_ADOPTED` | aucune migration n'existe, et la base porte déjà ces tables | `orm:migrate:baseline --from-database`, PUIS regénérer   |
-| `NF_MIGRATE_BASELINE_NOT_EMPTY`    | `--from-database` demandé alors que des migrations existent | `orm:migrate:baseline` sans option                       |
-| `NF_MIGRATE_FAILED_MARKER`         | une migration a échoué, ou n'a jamais fini                  | LIRE l'erreur, puis `orm:migrate:repair`                 |
-| `NF_MIGRATE_HASH_MISMATCH`         | un fichier déjà appliqué a été modifié                      | rétablir le fichier, ou écrire une migration correctrice |
-| `NF_MIGRATE_OUT_OF_ORDER`          | une migration en attente se range avant la dernière posée   | renommer la nouvelle après la dernière appliquée         |
-| `NF_MIGRATE_MISSING_FILE`          | une migration appliquée n'a plus de fichier                 | rétablir le fichier — il fait partie de l'historique     |
+| Code                               | Ce qui s'est passé                                          | Le geste                                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `NF_MIGRATE_BASELINE_REQUIRED`     | la base porte déjà les tables, sans aucun historique        | `orm:migrate:baseline` (l'adopter)                                                                                   |
+| `NF_GENERATE_DATABASE_NOT_ADOPTED` | aucune migration n'existe, et la base porte déjà ces tables | `orm:migrate:baseline --from-database`, PUIS regénérer                                                               |
+| `NF_MIGRATE_BASELINE_NOT_EMPTY`    | `--from-database` demandé alors que des migrations existent | `orm:migrate:baseline` sans option                                                                                   |
+| `NF_MIGRATE_FAILED_MARKER`         | une migration a échoué, ou n'a jamais fini                  | LIRE l'erreur, puis `orm:migrate:repair`                                                                             |
+| `NF_MIGRATE_HASH_MISMATCH`         | un fichier déjà appliqué a été modifié                      | RÉTABLIR le fichier (1er geste) ; `--update-hashes` seulement si la modification était sans effet                    |
+| `NF_MIGRATE_OUT_OF_ORDER`          | une migration en attente se range avant la dernière posée   | renommer la nouvelle après la dernière appliquée                                                                     |
+| `NF_MIGRATE_MISSING_FILE`          | une migration appliquée n'a plus de fichier                 | rétablir le fichier — il fait partie de l'historique                                                                 |
+| `NF_GENERATE_DATABASE_BEHIND`      | rien à écrire, et pourtant la base ne porte pas le schéma   | l'historique affirme une migration jamais exécutée : `orm:migrate:repair --forget <source>/<tag>` puis `orm:migrate` |
+| `NF_MIGRATE_LOCK_TIMEOUT`          | un autre travail de migration tient le verrou               | ATTENDRE puis rejouer — ce n'est pas une panne, et le verbe est idempotent                                           |
+| `NF_MIGRATE_DESTRUCTIVE`           | les migrations en attente SUPPRIMENT des données            | lire le SQL (`--dry-run`), puis assumer avec `--allow-destructive`                                                   |
 
 Les codes exhaustifs, avec un exemple de charge utile pour chacun :
 [`references/verdicts.md`](references/verdicts.md).
@@ -231,6 +234,10 @@ commet.
    s'écrit dans une migration NEUVE.
 2. **Ne jamais toucher à la table d'historique à la main.** Elle est le seul témoin de ce qui a été
    appliqué ; une ligne ajoutée ou retirée à la main fait mentir tous les verdicts suivants.
+   L'interdit porte sur le client SQL, pas sur le produit : quand l'historique affirme une migration
+   que la base n'a jamais reçue, le geste existe et il est borné —
+   `orm:migrate:repair --forget <source>/<tag>` désinscrit UNE entrée nommée, pour qu'elle soit
+   rejouée. Il ne touche pas la base ; si la migration avait bien été appliquée, son rejeu échouera.
 3. **Ne jamais renuméroter ni renommer une migration publiée.** L'identité voyage : elle est
    enregistrée dans chaque base où la migration est passée.
 

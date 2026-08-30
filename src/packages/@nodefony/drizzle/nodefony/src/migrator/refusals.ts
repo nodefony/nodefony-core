@@ -45,8 +45,6 @@ export type CommandFailureCode =
   | "NF_MIGRATE_BASELINE_AMBIGUOUS"
   /** Le nom de la migration manque, ou ne voyage pas sur les trois systèmes. */
   | "NF_GENERATE_NAME"
-  /** Un fichier d'entité refuse de s'importer : le schéma serait AMPUTÉ. */
-  | "NF_GENERATE_UNREADABLE_ENTITY"
   /** Une entité enregistrée qu'aucun fichier découvert ne fournit. */
   | "NF_GENERATE_MISSING_ENTITY"
   /** Un fichier de l'application fournit une table qui appartient au framework. */

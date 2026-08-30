@@ -42,33 +42,77 @@ export const ROUTE_ARTICLES = "/api/articles";
 export const TITRE_SEME = "article-temoin-a-ne-pas-perdre";
 
 /**
- * L'ancre du connecteur par défaut dans le manifeste d'une application générée.
+ * Les DEUX formes sous lesquelles une application déclare le module de base.
  *
- * On vise la déclaration du module de base de données, seule forme dont
- * l'existence est garantie dès qu'une application persiste.
+ * 🔴 Une ancre unique était un fil trop fin : le gabarit déclare le module en
+ * chaîne NUE (`"@nodefony/drizzle",`) et non par un appel, et le décor a cessé
+ * de se poser sans qu'aucun code ne change ici. Le banc l'a dit correctement —
+ * « prémisse NON posée, tâche non jouée » — mais trois répétitions ont été
+ * payées pour un verdict vide. On reconnaît donc les deux écritures, et un
+ * autotest les tient.
  */
-const ANCRE = /use\("@nodefony\/drizzle",\s*\{/u;
+const ANCRE_APPEL = /use\("@nodefony\/drizzle",\s*\{/u;
+const ANCRE_NUE = /(^|\n)(\s*)"@nodefony\/drizzle",/u;
+
+/** Le réglage que le décor pose, et son commentaire. */
+const REGLAGE =
+  "// Décor du banc : le mode de PRODUCTION, où le démarrage ne\n" +
+  "    // fabrique jamais le schéma. Une colonne neuve n'apparaît alors que\n" +
+  "    // par une migration appliquée.\n" +
+  '    connectors: { default: { ddl: "none" } },';
+
+/**
+ * La racine visée est-elle une application TÉMOIN, et non le dépôt lui-même ?
+ *
+ * Le dépôt du framework est reconnaissable sans ambiguïté : il déclare des
+ * espaces de travail npm, ce qu'aucune application générée ne fait. Le test est
+ * PUR — on lui donne un lecteur — pour être éprouvable sans fabriquer d'arbre.
+ *
+ * @param {string} racine - racine candidate.
+ * @param {(f: string) => string} [lire] - lecteur de fichier (injecté pour l'autotest).
+ * @returns {boolean} vrai si la racine peut recevoir un décor de banc.
+ */
+export function estApplicationTemoin(racine, lire = undefined) {
+  const lecteur = lire ?? ((f) => readFileSync(f, "utf8"));
+  let manifeste;
+  try {
+    manifeste = JSON.parse(lecteur(path.join(racine, "package.json")));
+  } catch {
+    // Pas de manifeste lisible : ce n'est pas une application installée, donc
+    // rien à quoi poser un décor. On refuse, plutôt que de deviner.
+    return false;
+  }
+  return manifeste.workspaces === undefined;
+}
 
 /**
  * Pose le mode de schéma `none` sur le connecteur par défaut.
  *
  * @param {string} source - contenu de `nodefony.config.ts`.
  * @returns {string} le manifeste modifié.
- * @throws Si l'ancre est absente — le gabarit a changé de forme.
+ * @throws Si aucune des deux formes n'est présente — le gabarit a changé.
  */
 export function poserModeNone(source) {
-  if (!ANCRE.test(source)) {
-    throw new Error(
-      "ancre introuvable dans nodefony.config.ts : la déclaration " +
-        '`use("@nodefony/drizzle", {` a changé de forme — décor non posé',
-    );
-  }
   if (/ddl:\s*"none"/u.test(source)) {
     return source;
   }
-  return source.replace(
-    ANCRE,
-    'use("@nodefony/drizzle", {\n    // Décor du banc : le mode de PRODUCTION, où le démarrage ne\n    // fabrique jamais le schéma. Une colonne neuve n\'apparaît alors que\n    // par une migration appliquée.\n    connectors: { default: { ddl: "none" } },',
+  if (ANCRE_APPEL.test(source)) {
+    return source.replace(
+      ANCRE_APPEL,
+      `use("@nodefony/drizzle", {\n    ${REGLAGE}`,
+    );
+  }
+  if (ANCRE_NUE.test(source)) {
+    return source.replace(
+      ANCRE_NUE,
+      (_m, avant, indent) =>
+        `${avant}${indent}use("@nodefony/drizzle", {\n${indent}  ${REGLAGE.split("\n").join("\n" + indent.slice(2))}\n${indent}}),`,
+    );
+  }
+  throw new Error(
+    "ancre introuvable dans nodefony.config.ts : le module " +
+      "`@nodefony/drizzle` n'y est déclaré ni en appel `use(...)` ni en " +
+      "chaîne nue — le gabarit a changé de forme, décor non posé",
   );
 }
 
@@ -79,6 +123,19 @@ export function poserModeNone(source) {
  * @returns {void}
  */
 export function poserDecor(racine) {
+  // 🔴 JAMAIS le dépôt du framework. Ce script modifie un manifeste et sème une
+  // ligne en base : lancé depuis une mauvaise racine — un `cd` oublié, un
+  // diagnostic à la main —, il pose son décor de banc dans le dépôt lui-même.
+  // C'est arrivé : la déclaration du module ORM du dépôt s'est retrouvée
+  // réécrite en mode de production, silencieusement. Un outil de décor doit
+  // refuser tout ce qui n'est pas un décor.
+  if (!estApplicationTemoin(racine)) {
+    throw new Error(
+      `refus de poser le décor dans « ${racine} » : ce n'est pas une ` +
+        "application témoin de banc mais le dépôt du framework (ou une racine " +
+        "qui lui ressemble). Passer la racine de l'application générée.",
+    );
+  }
   const manifeste = path.join(racine, "nodefony.config.ts");
   const avant = readFileSync(manifeste, "utf8");
   const apres = poserModeNone(avant);
@@ -88,7 +145,13 @@ export function poserDecor(racine) {
 }
 
 /**
- * Auto-contrôle : les deux branches, plus le refus.
+ * Auto-contrôle : les DEUX écritures, l'idempotence, plus le refus.
+ *
+ * 🔴 Le cas de la chaîne NUE est celui qui manquait, et son absence a coûté
+ * trois répétitions pour un verdict vide : le gabarit déclare le module ainsi,
+ * l'autotest ne connaissait que l'appel, et il restait vert pendant que le
+ * décor ne se posait plus. Un autotest qui ne couvre pas la forme RÉELLE du
+ * gabarit ne garde rien.
  *
  * @returns {void}
  */
@@ -98,6 +161,25 @@ function selftest() {
   const pose = poserModeNone(nu);
   if (!/ddl:\s*"none"/u.test(pose)) {
     throw new Error("le mode `none` n'a pas été posé");
+  }
+
+  // La forme que le gabarit d'application écrit RÉELLEMENT.
+  const chaineNue =
+    'import { defineConfig, use } from "nodefony";\n' +
+    "export default defineConfig((ctx) => ({\n  modules: [\n" +
+    '    /** ORM Drizzle (SQL). */\n    "@nodefony/drizzle",\n\n' +
+    '    use("@nodefony/http", {}),\n  ],\n}));\n';
+  const poseNue = poserModeNone(chaineNue);
+  if (!/ddl:\s*"none"/u.test(poseNue)) {
+    throw new Error(
+      "la déclaration en chaîne nue — celle du gabarit — n'a pas été traitée",
+    );
+  }
+  if (/^\s*"@nodefony\/drizzle",/mu.test(poseNue)) {
+    throw new Error("la chaîne nue doit avoir été REMPLACÉE, pas doublée");
+  }
+  if (poserModeNone(poseNue) !== poseNue) {
+    throw new Error("poser deux fois doit être sans effet (chaîne nue)");
   }
   if (poserModeNone(pose) !== pose) {
     throw new Error("poser deux fois doit être sans effet (idempotence)");
@@ -111,7 +193,29 @@ function selftest() {
   if (!refuse) {
     throw new Error("un manifeste SANS l'ancre doit faire échouer le décor");
   }
-  console.log("✓ prepare-base-migree : pose, idempotence, refus");
+  // 🔴 La garde de périmètre : un décor de banc ne se pose JAMAIS dans le
+  // dépôt du framework. Vécu — un diagnostic lancé depuis la mauvaise racine a
+  // réécrit la déclaration du module ORM du dépôt, en silence.
+  const depot = () =>
+    JSON.stringify({ name: "nodefony-core", workspaces: ["src/*"] });
+  const appli = () => JSON.stringify({ name: "bench-app" });
+  if (estApplicationTemoin("/peu-importe", depot)) {
+    throw new Error("le dépôt du framework doit être REFUSÉ comme cible");
+  }
+  if (!estApplicationTemoin("/peu-importe", appli)) {
+    throw new Error("une application générée doit être acceptée");
+  }
+  if (
+    estApplicationTemoin("/peu-importe", () => {
+      throw new Error("absent");
+    })
+  ) {
+    throw new Error("sans manifeste lisible, on refuse plutôt que de deviner");
+  }
+
+  console.log(
+    "✓ prepare-base-migree : pose (2 formes), idempotence, refus, périmètre",
+  );
 }
 
 if (process.argv.includes("--selftest")) {
