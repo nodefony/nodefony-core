@@ -51,6 +51,26 @@ export const MYSQL_URL = process.env.NF_MYSQL_URL;
 /** Racine du dépôt — il est lui-même une application Nodefony. */
 export const ROOT = path.resolve(import.meta.dirname, "../../../../../..");
 
+/**
+ * Le binaire du framework, atteint par son CHEMIN — jamais par `npx`.
+ *
+ * 🔴 `npx nodefony` ne résout pas partout. Sur le runner d'intégration continue
+ * il rend « sh: 1: nodefony: not found » et un code 127 : la commande ne
+ * s'exécute pas du tout, la sortie est vide, et TOUTES les assertions du banc
+ * tombent ensuite en cascade sur des causes qui n'ont rien à voir — « aucun
+ * objet JSON dans la sortie », « la garde n'a pas mordu ». On accuse alors le
+ * produit pour une commande qui n'a jamais démarré.
+ *
+ * Le défaut était invisible : ce step ne tournait pas, un step antérieur du même
+ * job échouant avant lui.
+ *
+ * Invoquer le script par `process.execPath` supprime la résolution : c'est ce
+ * que fait déjà le banc du code généré. C'est aussi ce qui tient sous Windows,
+ * où le point d'entrée d'un paquet est un `.cmd` que Node refuse de lancer sans
+ * shell.
+ */
+const BIN = path.join(ROOT, "src", "nodefony", "bin", "nodefony");
+
 /** Dossier des migrations livrées par ce paquet. */
 export const MIGRATIONS = path.resolve(import.meta.dirname, "../../migrations");
 
@@ -95,7 +115,7 @@ export async function cli(
   env: NodeJS.ProcessEnv = {},
 ): Promise<IRun> {
   try {
-    const { stdout, stderr } = await run("npx", ["nodefony", ...args], {
+    const { stdout, stderr } = await run(process.execPath, [BIN, ...args], {
       cwd: ROOT,
       env: { ...process.env, ...env },
       maxBuffer: 32 * 1024 * 1024,
