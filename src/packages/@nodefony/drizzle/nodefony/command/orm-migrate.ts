@@ -255,7 +255,10 @@ class OrmMigrate extends OrmMigrateCommand {
       // porte le conseil quand la sortie standard est réservée au JSON : elle
       // est libre par contrat, et c'est exactement à cela qu'elle sert.
       if (touchesExistingRows(avant.pending)) {
-        const conseil = verifierLesDonnees(resolution.connector);
+        // La cible vient du RAPPORT, pas d'une reconstruction : c'est la
+        // même valeur que la sortie machine publie, donc celle que l'agent
+        // relit. La recomposer ici en ferait une seconde vérité.
+        const conseil = verifierLesDonnees(resolution.connector, report.driver);
         if (opts.json === true) {
           process.stderr.write(`${conseil}\n`);
         } else {

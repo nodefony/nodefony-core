@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-30T21:06:10.430Z",
+  "generated": "2026-08-30T22:10:10.797Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3549,
+    "symbols": 3552,
     "classes": 382,
     "interfaces": 984,
     "types": 423,
     "enums": 4,
-    "functions": 1405,
-    "constants": 351
+    "functions": 1406,
+    "constants": 353
   },
   "symbols": {
     "Cli": {
@@ -10547,6 +10547,14 @@
       "module": "modules/test",
       "description": "Décor d'une application qui DÉCLARE une table à elle, pour le banc d'adoption en ligne de commande. ## Pourquoi ce fichier existe `orm:migrate:baseline --from-database` n'adopte que les tables de l…"
     },
+    "USURPED_FRAMEWORK_TABLE": {
+      "name": "USURPED_FRAMEWORK_TABLE",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Table du FRAMEWORK dont la variante « usurpe » prend le nom. Choisie parce qu'elle ne sert qu'aux routes idempotentes : rien de ce que le banc fait par ailleurs n'en dépend, et le refus attendu por…"
+    },
     "ADOPT_FIXTURE_CONNECTOR": {
       "name": "ADOPT_FIXTURE_CONNECTOR",
       "kind": "const",
@@ -10562,6 +10570,14 @@
       "exported": true,
       "module": "modules/test",
       "description": "La table telle que l'application la déclare — ou `undefined` hors banc. Le type est délibérément `unknown` : les trois variantes n'ont pas de type commun en Drizzle, et personne ici ne lit de colon…"
+    },
+    "usurpedFixtureTable": {
+      "name": "usurpedFixtureTable",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Une table de l'application qui porte le nom d'une table du framework. Exportée UNIQUEMENT sous la consigne « +usurpe » : un export permanent entrerait dans toute génération lancée depuis le dépôt e…"
     },
     "registerBenchOrmEntities": {
       "name": "registerBenchOrmEntities",
@@ -19694,6 +19710,14 @@
       "module": "@nodefony/drizzle",
       "extends": null,
       "description": "Table d'historique : sa création, son amorçage, et sa lecture. 🔴 **La table qui sert à migrer doit savoir se migrer ELLE-MÊME.** Un `CREATE TABLE IF NOT EXISTS` seul ne fait pas évoluer un schéma,…"
+    },
+    "colonneHistoriqueAbsente": {
+      "name": "colonneHistoriqueAbsente",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le moteur se plaint-il d'une COLONNE d'historique qu'il ne trouve pas ? Reconnaît la table d'historique d'une AUTRE provenance : la table porte le bon nom, elle n'a pas les bonnes colonnes. `CREATE…"
     },
     "ensureHistorySchema": {
       "name": "ensureHistorySchema",
@@ -30150,12 +30174,24 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
+      "HISTORY_TABLE": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
       "MigrationVerdictError": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
+      ],
+      "colonneHistoriqueAbsente": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
       "MigrationToolError": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
@@ -30338,14 +30374,6 @@
       "loadSources": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "HISTORY_TABLE": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
       ],
       "IMigrationDriver": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",

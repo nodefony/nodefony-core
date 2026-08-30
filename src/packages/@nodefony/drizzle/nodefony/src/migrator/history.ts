@@ -59,6 +59,45 @@ const BASE_COLUMNS = [
   "applied_by",
 ] as const;
 
+/**
+ * Le moteur se plaint-il d'une COLONNE d'historique qu'il ne trouve pas ?
+ *
+ * Reconnaît la table d'historique d'une AUTRE provenance : la table porte le
+ * bon nom, elle n'a pas les bonnes colonnes. `CREATE TABLE IF NOT EXISTS` ne
+ * la répare pas — elle existe —, et la première lecture échoue sur un message
+ * de moteur brut, que le fourre-tout des pannes habille alors de deux causes
+ * FAUSSES : « la base n'a pas répondu » et « les droits manquent ». Mesuré au
+ * banc : c'est ce message qui a renvoyé un agent détruire une base de
+ * production après qu'il eut pourtant suivi le conseil de travailler sur une
+ * copie — copie qu'il avait dû fabriquer à la main, avec un historique inventé.
+ *
+ * PURE, et une grammaire par moteur : les trois formulent la même panne dans
+ * trois langues, et un motif écrit pour l'une est muet pour les deux autres.
+ * Bornée aux colonnes que ce fichier déclare : une colonne APPLICATIVE
+ * manquante est un tout autre incident, qui a déjà sa voie.
+ *
+ * @param message - message d'erreur rendu par le pilote.
+ * @returns la colonne d'historique introuvable, ou `null`.
+ */
+export function colonneHistoriqueAbsente(message: string): string | null {
+  const motifs = [
+    /no such column:\s*(?:[\w."`]*\.)?[`"']?(\w+)[`"']?/i, // sqlite
+    /column\s+[`"']?(?:[\w.]*\.)?[`"']?(\w+)[`"']?\s+does not exist/i, // postgres
+    /unknown column\s+[`"']?(?:[\w.]*\.)?[`"']?(\w+)[`"']?/i, // mysql
+  ];
+  for (const motif of motifs) {
+    const trouve = motif.exec(message);
+    const nom = trouve?.[1]?.toLowerCase();
+    if (
+      nom !== undefined &&
+      (BASE_COLUMNS as readonly string[]).includes(nom)
+    ) {
+      return nom;
+    }
+  }
+  return null;
+}
+
 /** DDL de création par dialecte, au format d'origine. */
 const CREATE_SQL: Record<SqlDialect, string> = {
   sqlite:

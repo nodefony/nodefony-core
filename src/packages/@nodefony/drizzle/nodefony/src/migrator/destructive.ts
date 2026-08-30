@@ -329,24 +329,46 @@ export function touchesExistingRows(
  * les yeux, et celui qu'il inventait — repartir d'une base vide — détruit
  * précisément ce qu'il fallait observer.
  *
- * Elle nomme les deux interpréteurs : « VAR=x commande » est de la syntaxe
- * POSIX, que celui de Windows refuse.
+ * 🔴 Elle NOMME la base, et c'est ce qui manquait au premier jet. Dire « une
+ * copie de la base » sans dire laquelle laisse deviner un chemin : mesuré au
+ * banc, l'agent a suivi le conseil, visé le mauvais fichier, vu son `cp`
+ * échouer en silence, puis FABRIQUÉ une base au client SQL — avec une table
+ * d'historique inventée. La migration a été refusée sur cette base bancale, et
+ * c'est ce refus qui l'a renvoyé détruire la vraie. Le produit connaissait
+ * pourtant l'emplacement : il le publie dans sa propre sortie.
+ *
+ * Elle nomme aussi les deux interpréteurs : « VAR=x commande » est de la
+ * syntaxe POSIX, que celui de Windows refuse.
  *
  * @param connector - connecteur visé, pour composer la commande.
+ * @param cible - la base telle que le rapport la publie (`driver.target`),
+ *   et son dialecte : on copie un FICHIER en sqlite, on exporte ailleurs.
  * @returns la phrase à rendre après une application réussie.
  */
-export function verifierLesDonnees(connector: string): string {
+export function verifierLesDonnees(
+  connector: string,
+  cible?: { dialect: string; target?: string },
+): string {
   const suffixe = connector === "default" ? "" : ` --connector ${connector}`;
+  const sqlite = cible?.dialect === "sqlite";
+  const nommee = cible?.target ?? "<la base de ce connecteur>";
+  // 🔴 Comment OBTENIR la copie, pas seulement quoi en faire. Une base
+  // d'historique écrite à la main n'a pas les colonnes du framework, et la
+  // migration y échoue pour une raison qui n'a rien à voir avec elle.
+  const copie = sqlite
+    ? `copie le fichier « ${nommee} » (par exemple vers « essai.db ») — ne la RECRÉE pas à la main, l'historique du framework a ses propres colonnes`
+    : `fabrique la copie par un export du moteur (« pg_dump » / « mysqldump ») depuis « ${nommee} » — ne la RECRÉE pas à la main, l'historique du framework a ses propres colonnes`;
+  const url = sqlite ? "sqlite:essai.db" : "<url de la copie>";
   return (
     "Ces migrations ont modifié des tables qui portaient déjà des lignes. " +
     "Pour VÉRIFIER que les données ont suivi, ne repars pas d'une base " +
     "vide : ce sont ces lignes-là qui sont la réponse, les effacer efface la " +
     "question. Deux moyens. Compter et regarder sur place — « SELECT " +
     "COUNT(*) » sur les tables touchées, et les valeurs des colonnes " +
-    "nouvellement remplies. Ou rejouer le même lot sur une COPIE de la base, " +
-    "sans toucher à celle-ci, en désignant la copie par NF_MIGRATE_DATABASE_URL :" +
-    `\n  NF_MIGRATE_DATABASE_URL=<url de la copie> nodefony orm:migrate${suffixe}\n` +
-    '  (PowerShell : $env:NF_MIGRATE_DATABASE_URL = "<url de la copie>" ; ' +
+    "nouvellement remplies. Ou rejouer le même lot sur une COPIE, sans " +
+    `toucher à celle-ci : ${copie}, puis désigne-la par ` +
+    `NF_MIGRATE_DATABASE_URL :\n  NF_MIGRATE_DATABASE_URL=${url} nodefony orm:migrate${suffixe}\n` +
+    `  (PowerShell : $env:NF_MIGRATE_DATABASE_URL = "${url}" ; ` +
     `nodefony orm:migrate${suffixe})`
   );
 }

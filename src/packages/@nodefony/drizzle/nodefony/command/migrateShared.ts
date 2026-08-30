@@ -7,7 +7,8 @@ import {
 } from "nodefony";
 import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
 import type { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
-import { MigrationVerdictError } from "../src/migrator/types";
+import { HISTORY_TABLE, MigrationVerdictError } from "../src/migrator/types";
+import { colonneHistoriqueAbsente } from "../src/migrator/history";
 import { MigrationToolError } from "../src/migrator/refusals";
 import type { IMigrationAction } from "../src/migrator/types";
 import {
@@ -346,6 +347,30 @@ export abstract class OrmMigrateCommand extends Command {
       return;
     }
     const cause = e instanceof Error ? e.message : String(e);
+    // 🔴 AVANT le fourre-tout : une table d'historique d'une autre provenance.
+    // Elle porte le bon nom, pas les bonnes colonnes — « CREATE TABLE IF NOT
+    // EXISTS » ne la répare donc pas, et la lecture échoue. Sans ce cas, le
+    // texte ci-dessous accusait la base de n'avoir pas répondu et le compte de
+    // manquer de droits : DEUX affirmations fausses, sur une base qui répond
+    // parfaitement. Mesuré au banc, c'est ce message qui a fait détruire une
+    // base réelle — l'agent y avait rejoué sa migration sur une copie
+    // fabriquée à la main, et le refus ne lui laissait aucun autre chemin.
+    const colonne = colonneHistoriqueAbsente(cause);
+    if (colonne !== null) {
+      this.fail(
+        connector,
+        "NF_MIGRATE_HISTORY_FOREIGN",
+        `La table « ${HISTORY_TABLE} » de cette base n'est pas celle du framework : la colonne « ${colonne} » y manque. Rien n'a été appliqué.`,
+        `Une table de ce nom existe déjà, avec d'autres colonnes — le framework ne la remplace jamais, et ne peut pas la lire. Deux provenances, deux gestes. Base d'ESSAI fabriquée à la main : ne pas écrire l'historique soi-même, mais COPIER la base d'origine (le fichier en sqlite, un export « pg_dump » / « mysqldump » ailleurs) — c'est cette copie qui porte déjà le bon historique. Base RÉELLE venue d'un autre outil de migration : la table porte le même nom par coïncidence ; la renommer, ou faire porter le framework sur une autre base. Dans tous les cas la base n'est PAS en cause : elle a répondu, et ce n'est pas une question de droits.`,
+        [
+          action("nodefony orm:migrate:status --json"),
+          action("nodefony inspect config --json"),
+        ],
+        json,
+        EXIT.actionRequired,
+      );
+      return;
+    }
     this.fail(
       connector,
       "NF_MIGRATE_UNAVAILABLE",
