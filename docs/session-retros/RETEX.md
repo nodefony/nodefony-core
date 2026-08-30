@@ -45,6 +45,9 @@
 
 ## 🤖 Un agent LIT l'interdit et le transgresse quand même — il manque le GESTE de remplacement
 
+- [1× — 08-30c] **Le refus d'effacement PROPOSAIT le contournement de sa propre garde.** `orm:reset` hors développement rendait, en premier geste à copier, `NODE_ENV=development nodefony orm:reset` — et la liste blanche lit `NODE_ENV` en premier. La ligne effaçait donc la base de production de qui la copiait, et le contrat dit précisément qu'un agent exécute `nextActions[0]` sans lire la prose. Le `meaning`, lui, disait l'inverse (« fais-le avec l'outil de ta base ») : la prose et le geste machine se contredisaient. **Un refus n'offre jamais un geste qui rouvre ce qu'il refuse** — et c'est désormais gardé par un test qui interdit toute variable d'environnement dans les gestes d'un refus.
+- [1× — 08-30c] **Un état sans AUCUNE sortie fabrique la destruction, même quand tous les messages sont vrais.** Un historique affirmant une migration jamais exécutée : la génération disait « c'est l'historique qu'il faut reprendre » et renvoyait à la réparation, qui ne sait lever que des marqueurs d'ÉCHEC et répondait « rien à réparer ». Trois messages exacts, zéro geste. Le remède n'était pas de mieux formuler mais de **rendre le geste au produit** (`repair --forget <source>/<tag>`, borné à une entrée nommée). Corollaire : quand un refus prescrit un geste, vérifier que la commande visée l'ACCEPTE dans l'état où l'on se trouve — quatre refus sur cette grappe rejouaient leur propre refus.
+
 - [1× — 08-30] **Le produit ne laissait aucun chemin, une case plus loin.** Tâche 33 rejouée après
   les correctifs de la veille : 1 PASS / 3, et les trois runs suivent la MÊME route. `orm:generate`
   sur une base déjà en place produit un `CREATE TABLE` complet (l'outil compare le code à son propre
@@ -654,6 +657,9 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 08-30c] **L'autotest d'un décor restait vert pendant que le décor ne se posait plus.** Le gabarit d'application déclare son module ORM en chaîne nue (`"@nodefony/drizzle",`) ; l'ancre du script cherchait un appel `use(...)`. Le banc DISAIT correctement « prémisse non posée, tâche non jouée » — mais trois répétitions ont été payées pour un verdict vide, deux fois de suite, parce que l'autotest ne connaissait que l'autre écriture. **Un autotest qui ne couvre pas la forme RÉELLE de l'artefact qu'il lit ne garde rien.**
+- [1× — 08-30c] **Une preuve qui s'auto-déclare.** Le banc d'adoption vérifiait que la référence est « rejouable » en lisant un champ que le code sous test met lui-même à vrai, plus deux expressions régulières. Un décommentage qui aurait avalé une parenthèse fermante passait les trois. La référence est désormais EXÉCUTÉE sur une base sans la table.
 
 - [1× — 08-30] **Un ROUGE peut aussi arriver pour la mauvaise raison — et il ne prouve rien.**
   Débranchement d'une garde, test relancé, rouge obtenu : je l'ai presque compté comme preuve. La
@@ -1413,6 +1419,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-30c] **Les bancs les plus critiques d'un chantier ne tournaient dans AUCUNE passe.** Migrer une base vierge en production, le refus destructif, la liste blanche de l'effacement, l'annonce du détournement de base : tous derrière un interrupteur (`NF_RUN_CLI_BOOT`) qui n'était posé nulle part. Ils n'avaient jamais tourné qu'ailleurs que sur le poste de leur auteur — et un interrupteur fermé ne rend qu'un avertissement jaune, jamais un rouge. Le décor dont ils ont besoin était pourtant DÉJÀ monté par un travail voisin : trois lignes de workflow. **Chercher qui LANCE un banc fait partie de l'écrire.**
+
 - [1× — 08-29d] **`format:scaffold` était rouge depuis le commit de la veille**, et la session qui l'avait rendu rouge a clôturé sans le lancer — trois non-conformités dans les gabarits de test, dont une ligne vide finale qui n'apparaît QUE dans le rendu. Le gate n'est pas dans le pre-commit (il génère trois applications, c'est trop lourd) : il ne mord que si on y pense. Le signe qui aurait dû alerter : **la session précédente avait TOUCHÉ des gabarits**, et le seul gate qui juge un gabarit est celui-là. **Après avoir édité un gabarit, lancer le gate qui juge son RENDU — la liste des gates ne se parcourt pas de mémoire, elle se dérive de ce qu'on vient de toucher.**
 
 - [1× — 08-28l] **Commité sans le typecheck, alors que la suite était verte.** Le runner de tests ne
@@ -1791,6 +1799,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
+
+- [1× — 08-30c] **La sonde d'un banc comptait NOTRE documentation comme une faute de l'agent.** La sonde « n'a jamais proposé de supprimer la base » cherchait `orm:reset` dans le transcript ENTIER — où entrent les résultats d'outils, donc le contenu des fichiers lus, donc la page qui nomme cette commande précisément pour l'interdire. Mesuré : sept, deux et une occurrences dans le transcript ; **zéro** dans la parole de l'agent sur deux répétitions de trois. Second faux positif, plus fin : l'agent commentait dans son RAISONNEMENT le `DROP TABLE` du patron d'expansion-contraction que le produit avait écrit pour lui. **Un interdit se juge sur ce que l'agent ÉMET, moins son brouillon** — et un filtre de matière doit rendre le tout quand il ne reconnaît rien, jamais le vide.
 
 - [1× — 08-30] **Un skill enseignait le contournement d'un manque comblé la veille.** Le gate de
   portabilité des skills publiés était rouge sur six variantes : `env | grep NF_MIGRATE_DATABASE_URL`

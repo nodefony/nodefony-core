@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T07:54:03.649Z",
+  "generatedAt": "2026-08-30T10:05:07.777Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 37,
+      "closed": 39,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 39,
       "title": "10.0.0"
@@ -138,8 +138,8 @@
       "number": 17,
       "title": "feat(orm): livrer les migrations de schéma en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/17",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 7.5,
@@ -302,8 +302,8 @@
       "number": 118,
       "title": "fix(orm): ne pas régénérer une table que la base porte déjà",
       "url": "https://github.com/nodefony/nodefony-core/issues/118",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -314,8 +314,8 @@
       "number": 99,
       "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -522,6 +522,34 @@
       "labels": [
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 119,
+      "title": "fix(orm): lire les chaînes SQL avec la grammaire du moteur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/119",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 120,
+      "title": "test(orm): prouver les refus des commandes, pas leurs briques",
+      "url": "https://github.com/nodefony/nodefony-core/issues/120",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.8,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
@@ -1444,6 +1472,20 @@
       "ordre": null,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 121,
+      "title": "fix(orm): rendre le même verdict sur la casse d'une table",
+      "url": "https://github.com/nodefony/nodefony-core/issues/121",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": null,
+      "labels": [
+        "backlog"
       ]
     }
   ]

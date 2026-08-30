@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-30 07:54** (UTC).
+> Empreinte prise le **2026-08-30 10:05** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,13 +16,13 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 39 | 37 | 2026-11-15 |
+| 10.0.0 | 39 | 39 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#17 — feat(orm): livrer les migrations de schéma en production**
+**#18 — feat(cli): rendre l'entité User à l'application**
 
-Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
+Ordre 3 · P0 — bloque le reste · 3 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -31,12 +31,12 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 2 | P0 — bloque le reste | 7.5 | #17 | feat(orm): livrer les migrations de schéma en production |
-| 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
 | 4.6 | P1 — figé à la création | 1 | #61 | feat(realtime): garder les canaux dynamiques par un motif de nom |
+| 4.7 | P1 — figé à la création | 0.5 | #119 | fix(orm): lire les chaînes SQL avec la grammaire du moteur |
+| 4.8 | P1 — figé à la création | 0.5 | #120 | test(orm): prouver les refus des commandes, pas leurs briques |
 | 6 | P1 — figé à la création | 0.5 | #22 | ci(security): détecter les secrets commités dans le dépôt |
 | 6 | P1 — figé à la création | — | #53 | docs: remettre la documentation à niveau avant la version 10 |
 | 6.5 | P1 — figé à la création | 0.5 | #45 | docs(guides): retirer « mocha + bun » et les pages fantômes |
@@ -71,17 +71,6 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 | — | P1 — figé à la création | 1 | #90 | test(devkit): auditer le module généré comme l'application générée |
 
-## Backlog — aucune date promise · 6 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 2.53 | P0 — bloque le reste | 1 | #118 | fix(orm): ne pas régénérer une table que la base porte déjà |
-| 54 | P3 — fin de cycle | 1 | #71 | feat(security): rendre la hiérarchie de rôles extensible |
-| 55 | P3 — fin de cycle | 2 | #70 | feat(webhooks): séparer les événements métier du journal d'audit |
-| 56 | P3 — fin de cycle | 1 | #68 | feat(studio): garder les préférences d'affichage côté serveur |
-| 58 | P3 — fin de cycle | 3 | #74 | feat(studio): éditer la configuration d'un module à chaud |
-| 59 | P3 — fin de cycle | 3 | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
-
 ## Jalon 10.1 — 16 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
@@ -102,4 +91,15 @@ Ordre 2 · P0 — bloque le reste · 7.5 j · jalon 10.0.0
 | 60 | P3 — fin de cycle | 0.5 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
 | 61 | P3 — fin de cycle | 0.5 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 62 | P2 — décision | 0.5 | #75 | chore(core): trancher l'héritage des dépendances déclarées |
+
+## Backlog — aucune date promise · 6 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 54 | P3 — fin de cycle | 1 | #71 | feat(security): rendre la hiérarchie de rôles extensible |
+| 55 | P3 — fin de cycle | 2 | #70 | feat(webhooks): séparer les événements métier du journal d'audit |
+| 56 | P3 — fin de cycle | 1 | #68 | feat(studio): garder les préférences d'affichage côté serveur |
+| 58 | P3 — fin de cycle | 3 | #74 | feat(studio): éditer la configuration d'un module à chaud |
+| 59 | P3 — fin de cycle | 3 | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
+| — | P2 — décision | 0.5 | #121 | fix(orm): rendre le même verdict sur la casse d'une table |
 
