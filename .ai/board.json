@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T23:27:14.522Z",
+  "generatedAt": "2026-08-30T07:54:03.649Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -303,7 +303,7 @@
       "title": "fix(orm): ne pas régénérer une table que la base porte déjà",
       "url": "https://github.com/nodefony/nodefony-core/issues/118",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P0 — bloque le reste",
       "jours": 1,

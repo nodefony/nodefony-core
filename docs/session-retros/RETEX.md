@@ -251,6 +251,13 @@
   quels tickets un commit rend faux, mais il n'a rien signalé — il compare des ancres, pas des
   intentions. Réflexe : avant de prendre un ticket, RELIRE son « fini quand » ligne à ligne contre
   le code, pas contre son résumé.
+- [1× — 08-30] **Trois moteurs, trois vérités — et deux défauts d'OUTIL qu'un seul cachait.**
+  Une liste POSITIVE dans `tablesFilter` passe sur SQLite et PostgreSQL et **tue** l'introspection
+  sur MySQL ; MariaDB écrit JSON en `longtext` + `CHECK (json_valid…)` et fait mourir l'outil, code 1
+  et sortie d'erreur VIDE. Livrer après le seul vert SQLite aurait publié une commande cassée sur
+  deux moteurs sur quatre. La bifurcation du test se fait sur le serveur **constaté**
+  (`SELECT VERSION()`), jamais sur le port : les deux serveurs MySQL du dépôt partagent la même
+  variable et se jouent en deux passes.
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
@@ -543,6 +550,12 @@
   deux consommateurs indépendants (la console, un banc) bricolaient chacun leur approximation du
   même verdict. Quand deux clients contournent, c'est le CONTRAT qui manque l'information — ici,
   aucun d'eux ne POUVAIT la calculer, la référence étant un HMAC du cookie.
+- [1× — 08-30] **`lib: ["DOM"]` fait compiler un identifiant qui n'existe pas dans la portée.**
+  `name` nu, écrit dans une méthode où il n'était pas déclaré, s'est résolu sur la globale
+  `Window.name` : typecheck VERT, chaîne vide au runtime dans un message d'erreur destiné à
+  l'utilisateur. Le typecheck contrôle les types, pas la PROVENANCE. Les autres pièges du même
+  ensemble : `length`, `status`, `origin`, `close`, `top`, `event`. Repéré à la relecture du diff,
+  pas par un outil.
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
 
@@ -812,6 +825,11 @@
   la racine du DOSSIER de sortie — où le fichier existe — au lieu de la racine du domaine, où il
   n'existe pas. Il rendait donc « 0 cassé » sur un site dont tous les liens auraient été morts en
   ligne. Découvert en injectant le défaut exprès, pas en le relisant. [1× — 08-24]
+- [1× — 08-30] **Un `beforeAll` qui JETTE ne rend pas les tests rouges : il les rend SKIPPÉS.**
+  Le hook ouvrait une base SQLite dont le dossier n'existait pas encore (créé par `beforeEach`) —
+  toute la suite est passée en `↓`, donc en vert muet. Attrapé par le gate du dépôt (« 2 tests sur 7
+  n'ont pas tourné »), jamais par la lecture. Corollaire : borner un hook à ce qui le CONCERNE (ici,
+  ne poser la question qu'au dialecte visé) plutôt que de le faire tourner « pour tout le monde ».
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -1574,6 +1592,12 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   outil qu'on ne lance jamais ne se contente pas de dormir : il POURRIT, et on s'en aperçoit le jour
   où on compte dessus. [1× — 08-24]
 - **Un gate ROUGE EN PERMANENCE ne garde rien non plus — on apprend à lire son rouge.** `format:scaffold` échouait depuis toujours sur des cas dits « structurels connus » ; personne ne relisait la liste. `App.tsx` y a accumulé **onze** écarts invisibles, livrés tels quels à qui générait une app. Le remède n'est pas de supprimer le gate mais de le rendre capable de VERT : il CONSTATE qu'une non-conformité dépend du nom (sa ligne fautive porte le nom de l'app), la nomme, et n'échoue que sur le reste. [1× — 08-25]
+- [1× — 08-30] **Une garde qui LIT un code de sortie ne vaut que si l'interprète le PROPAGE.**
+  Le lanceur du banc contrôlait `prep.status !== 0` — correctement — mais le décor était écrit
+  `sh -c "a; b; c"`, qui ne rend que le statut de la DERNIÈRE commande. L'étape centrale échouait,
+  la dernière (`stop`) réussissait, et la tâche était jugée sur une prémisse absente. Sept `prepare`
+  sur huit chaînaient en `&&` ; le huitième non, et rien ne le disait. **La règle a été posée dans le
+  LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
@@ -1645,6 +1669,13 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   générique (`router?: Router;`) ferait reculer une ancre d'un point précis vers un simple typage,
   parfois 900 lignes plus haut. Écarté volontairement — visiblement décalé vaut mieux que plausible
   et faux. [1× — 08-23b]
+- [1× — 08-30] **La PREUVE d'un ticket se périme comme une ancre — et elle accuse alors le mauvais
+  composant.** #118 citait un run de banc daté ; ce run était antérieur de 40 min au correctif qui
+  installait l'outil de migration (#117). Sa conclusion — « l'outil lit son journal, pas la base » —
+  était fausse **pour ce décor** : le décor n'avait rien produit. Reproduire l'affirmation AVANT de
+  coder dessus a coûté un test de 20 lignes et évité de corriger un composant sain. Une preuve
+  d'issue porte une DATE implicite : la confronter au `git log` du correctif le plus récent qui
+  touche le même chemin.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
 
@@ -1711,6 +1742,18 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   pour la mauvaise raison. C'est en regardant si le PROCESS avait survécu — une seconde question,
   sur un autre observable — que le vrai défaut est apparu. Une sonde qui n'observe qu'un symptôme
   confirme n'importe quelle cause. [1× — 08-23b] ↝ [[feedback_bench_probe_false_verdicts]]
+- [1× — 08-30] **Deux commandes du produit se PRESCRIVAIENT l'une l'autre en se refusant.**
+  `orm:migrate:status` rendait `adopt` et nommait `orm:migrate:baseline` ; `baseline` refusait ce
+  décor exact (`BASELINE_AMBIGUOUS`) en proposant `--up-to <tag>`, où le seul tag disponible était la
+  migration mensongère. Les deux gardes étaient JUSTES prises séparément — l'enfermement ne se voit
+  qu'en suivant le geste que le produit prescrit, jusqu'au bout. À faire systématiquement : exécuter
+  la `nextAction` que rend un refus, et regarder ce qu'elle répond.
+- [1× — 08-30] **Une option qui a l'air de RESTREINDRE peut ne restreindre que la SORTIE.**
+  `tablesFilter` de l'outil de migration ne borne pas la lecture : il lit la base entière puis
+  filtre. Conséquence invisible — une table d'un autre logiciel entre dans la référence adoptée, et
+  le diff suivant propose de la SUPPRIMER ; et une table que l'outil ne sait pas lire le tue même
+  quand on l'a exclue. Le contrôle qui tranche : exclure TOUT sauf sa cible et voir si l'échec
+  persiste.
 
 ## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
 
