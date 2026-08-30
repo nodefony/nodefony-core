@@ -119,8 +119,18 @@ class OrmReset extends OrmMigrateCommand {
         resolution.connector,
         "NF_MIGRATE_NOT_DEVELOPMENT",
         `Cette commande efface des données : elle n'est acceptée qu'en développement. L'environnement constaté est « ${constate} ».`,
-        "La règle est une liste blanche : seul `development` passe. Un environnement inconnu, un `staging`, un `test` sont refusés — c'est ce qui empêche un accident sur ce que personne n'avait pensé à nommer. Pour vider une base ailleurs, fais-le avec l'outil de ta base, en sachant ce que tu fais.",
-        [action("NODE_ENV=development nodefony orm:reset")],
+        "La règle est une liste blanche : seul `development` passe. Un environnement inconnu, un `staging`, un `test` sont refusés — c'est ce qui empêche un accident sur ce que personne n'avait pensé à nommer. Pour vider une base ailleurs, fais-le avec l'outil de ta base, en sachant ce que tu fais. Sur un poste de développement, c'est l'environnement de l'application qui doit dire `development` — pas une variable posée devant la commande.",
+        // 🔴 AUCUN geste ne doit ouvrir cette garde. La version précédente
+        // proposait `NODE_ENV=development nodefony orm:reset` : la liste
+        // blanche lit `NODE_ENV` en premier, donc la ligne À COPIER effaçait
+        // la base de production de qui la copiait — et le contrat dit qu'un
+        // agent exécute `nextActions[0]` sans lire la prose. Le seul geste
+        // offert ici est une LECTURE.
+        [
+          action(
+            `nodefony orm:migrate:status --connector ${resolution.connector} --json`,
+          ),
+        ],
         opts.json,
       );
       return this;

@@ -25,16 +25,17 @@ import {
   type IAuditRule,
 } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
-import {
-  comparisonAgainstDeclared,
-  gapAgainstDeclared,
-} from "../src/migrator/divergence";
-import { readJournal, tablesAlreadyPresent } from "../src/migrator/adopt";
+import { gapAgainstDeclared } from "../src/migrator/divergence";
+import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
 import { appMigrationsDir } from "../src/migrator/resolve";
 import { frameworkMigrationsDir } from "../src/migrator/paths";
 import { frameworkTables } from "../src/migrator/sources";
-import { HISTORY_TABLE } from "../src/migrator/types";
+import { HISTORY_TABLE, type IMigrationDriver } from "../src/migrator/types";
+import {
+  openMigrationDriver,
+  type IMigrationTarget,
+} from "../src/migrator/drivers/index";
 import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
@@ -260,7 +261,7 @@ class OrmGenerate extends OrmMigrateCommand {
       return await this.#generateFromEntities(
         opts,
         connector,
-        resolution.dialect,
+        resolution.target,
         root,
         outDir,
         name,
@@ -280,12 +281,15 @@ class OrmGenerate extends OrmMigrateCommand {
   async #generateFromEntities(
     opts: IGenerateOptions,
     connector: string,
-    dialect: SqlDialect,
+    // La BASE, pas seulement le dialecte : la garde d'adoption l'interroge, et
+    // une base ne se déduit pas d'un nom de moteur.
+    database: IMigrationTarget,
     root: string,
     outDir: string,
     name: string,
     relative: (p: string) => string,
   ): Promise<this> {
+    const dialect = database.dialect;
     // 1. Les FICHIERS fournissent — ceux de l'APPLICATION, pas ceux du paquet
     //    qui livre déjà ses propres migrations. La distinction se CONSTATE (le
     //    fichier est-il sous la racine de ce paquet ?) au lieu de se deviner à
@@ -411,6 +415,7 @@ class OrmGenerate extends OrmMigrateCommand {
         connector,
         name,
         tables,
+        database,
       );
       if (refus !== null) {
         return refus;
@@ -547,6 +552,43 @@ class OrmGenerate extends OrmMigrateCommand {
   }
 
   /**
+   * Demande à la BASE lesquelles de ces tables elle porte déjà.
+   *
+   * Ouvre un pilote le temps du contrôle, et le referme quoi qu'il arrive : la
+   * commande vit dans un processus court, mais une connexion laissée ouverte
+   * retient un descripteur et, sur un serveur, une place dans le réservoir.
+   *
+   * Une base injoignable rend une liste VIDE, jamais une erreur : ce contrôle
+   * existe pour éviter un refus infondé, il ne doit pas en créer un. Qui
+   * travaille hors connexion garde le droit d'écrire sa migration.
+   *
+   * @param target - coordonnées de la base visée.
+   * @param tables - tables que la migration créerait.
+   * @returns celles que la base porte déjà, éventuellement aucune.
+   */
+  async #presentInDatabase(
+    target: IMigrationTarget,
+    tables: readonly string[],
+  ): Promise<string[]> {
+    let driver: IMigrationDriver | null = null;
+    try {
+      driver = await openMigrationDriver(target);
+      return await tablesPresentIn(driver, tables);
+    } catch {
+      return [];
+    } finally {
+      if (driver !== null) {
+        try {
+          await driver.close();
+        } catch {
+          // Fermer est un geste de politesse : échouer ici ne change rien au
+          // verdict, et le faire remonter masquerait la vraie réponse.
+        }
+      }
+    }
+  }
+
+  /**
    * Refuse d'écrire le schéma initial sur une base qui porte déjà ces tables.
    *
    * @param opts - options reçues (porte le choix du format de sortie).
@@ -560,9 +602,14 @@ class OrmGenerate extends OrmMigrateCommand {
     connector: string,
     name: string,
     tables: readonly { tableName: string }[],
+    target: IMigrationTarget,
   ): Promise<this | null> {
-    const presentes = tablesAlreadyPresent(
-      await comparisonAgainstDeclared(connector),
+    // La base est INTERROGÉE, jamais déduite : c'est la seule source qui
+    // connaisse les tables d'un module désactivé ou d'une entité absente du
+    // registre — celles-là mêmes que la migration créerait. Une base muette ne
+    // déclenche rien : on ne refuse pas sans preuve.
+    const presentes = await this.#presentInDatabase(
+      target,
       tables.map((t) => t.tableName),
     );
     if (presentes.length === 0) {

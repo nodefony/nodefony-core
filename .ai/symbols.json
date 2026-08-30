@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-30T07:49:53.185Z",
+  "generated": "2026-08-30T08:50:20.381Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 784,
-    "symbols": 3537,
+    "files": 785,
+    "symbols": 3546,
     "classes": 381,
-    "interfaces": 981,
+    "interfaces": 984,
     "types": 423,
     "enums": 4,
-    "functions": 1399,
-    "constants": 349
+    "functions": 1402,
+    "constants": 352
   },
   "symbols": {
     "Cli": {
@@ -10531,6 +10531,38 @@
         "controller"
       ]
     },
+    "registerAdoptFixtureEntity": {
+      "name": "registerAdoptFixtureEntity",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Inscrit la table du décor au registre des entités, si un banc l'a demandée. À appeler depuis `onKernelRegister`, avant que l'adaptateur ne se connecte : c'est le registre, et lui seul, qui dit à l'…"
+    },
+    "ADOPT_FIXTURE_TABLE": {
+      "name": "ADOPT_FIXTURE_TABLE",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Décor d'une application qui DÉCLARE une table à elle, pour le banc d'adoption en ligne de commande. ## Pourquoi ce fichier existe `orm:migrate:baseline --from-database` n'adopte que les tables de l…"
+    },
+    "ADOPT_FIXTURE_CONNECTOR": {
+      "name": "ADOPT_FIXTURE_CONNECTOR",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Connecteur du décor — celui de l'application, comme une entité normale."
+    },
+    "adoptFixtureTable": {
+      "name": "adoptFixtureTable",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "La table telle que l'application la déclare — ou `undefined` hors banc. Le type est délibérément `unknown` : les trois variantes n'ont pas de type commun en Drizzle, et personne ici ne lit de colon…"
+    },
     "registerBenchOrmEntities": {
       "name": "registerBenchOrmEntities",
       "kind": "function",
@@ -19167,13 +19199,21 @@
       "module": "@nodefony/drizzle",
       "description": "Les tables que l'instantané fraîchement écrit décrit. Lues sur l'instantané et non sur le SQL : c'est lui qui sert de référence au prochain diff, donc c'est lui qui dit ce qui a réellement été adop…"
     },
-    "tablesAlreadyPresent": {
-      "name": "tablesAlreadyPresent",
+    "normalizeIntrospection": {
+      "name": "normalizeIntrospection",
       "kind": "function",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Parmi les tables qu'on s'apprête à CRÉER, celles que la base porte déjà. Fonction PURE, séparée de la commande pour une raison précise : c'est LA décision qui empêche d'écrire un schéma initial ina…"
+      "description": "Rend utilisable une référence que l'introspection vient d'écrire. L'outil rend ce qu'il a LU, fidèlement. Deux fidélités rendent pourtant le fichier inutilisable, et il faut les défaire — c'est la …"
+    },
+    "tablesPresentIn": {
+      "name": "tablesPresentIn",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Parmi les tables qu'on s'apprête à CRÉER, celles que la base porte déjà. 🔴 **La base est la seule source, et elle est INTERROGÉE.** Il serait tentant de déduire la présence d'une table de son abse…"
     },
     "adoptFromDatabase": {
       "name": "adoptFromDatabase",
@@ -19258,6 +19298,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Écrit le module temporaire que `drizzle-kit` lira comme « le schéma ». Chaque table reçoit un alias unique et neutre : deux fichiers peuvent très bien exporter deux tables sous le même identifiant …"
+    },
+    "postgresSchemaOf": {
+      "name": "postgresSchemaOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Schéma PostgreSQL réellement visé par une URL de connexion. 🔴 L'outil d'introspection ne suit PAS le `search_path` porté par l'URL : il lit `public`, quoi qu'on lui donne. Sans cette dérivation, a…"
     },
     "writeKitConfig": {
       "name": "writeKitConfig",
@@ -26004,6 +26052,9 @@
       "seedBenchOrm": [
         "src/modules/test/index.ts"
       ],
+      "registerAdoptFixtureEntity": [
+        "src/modules/test/index.ts"
+      ],
       "SecureWsController": [
         "src/modules/test/index.ts"
       ],
@@ -28473,6 +28524,7 @@
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/modules/test/nodefony/entity/adoptFixture.ts",
         "src/modules/test/nodefony/entity/benchOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
@@ -30219,9 +30271,6 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
       ],
-      "comparisonAgainstDeclared": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
-      ],
       "gapAgainstDeclared": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
@@ -30230,7 +30279,7 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
       ],
-      "tablesAlreadyPresent": [
+      "tablesPresentIn": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "summarizeGap": [
@@ -30257,6 +30306,28 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
+      "IMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
+      "openMigrationDriver": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "IMigrationTarget": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "OrmMigrateCommand": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
@@ -30314,20 +30385,6 @@
       "summarizeDestructive": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
-      ],
-      "openMigrationDriver": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "IMigrationDriver": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
       ],
       "resetAllowed": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
@@ -32603,13 +32660,19 @@
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
+      "postgresSchemaOf": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts"
+      ],
       "runIntrospect": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts"
       ],
-      "IMigrationTarget": [
+      "ISchemaReader": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
       ],
       "FORMAT_MARKER": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
@@ -32699,13 +32762,6 @@
       ],
       "resolveConnectorTarget": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
-      ],
-      "ISchemaReader": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/schemaDiff.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/postgresDriver.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
       ],
       "migrationHash": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"

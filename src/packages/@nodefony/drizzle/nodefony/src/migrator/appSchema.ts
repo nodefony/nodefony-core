@@ -281,6 +281,44 @@ export async function writeSchemaModule(
 }
 
 /**
+ * Schéma PostgreSQL réellement visé par une URL de connexion.
+ *
+ * 🔴 L'outil d'introspection ne suit PAS le `search_path` porté par l'URL : il
+ * lit `public`, quoi qu'on lui donne. Sans cette dérivation, adopter une
+ * application logée dans un schéma dédié — le montage habituel d'une base
+ * mutualisée — écrivait la référence des tables de `public`, c'est-à-dire
+ * celles de quelqu'un d'autre, et déclarait absentes les siennes. Constaté sur
+ * un serveur réel : la référence décrivait trois tables étrangères au projet.
+ *
+ * Deux formes sont reconnues, parce que les deux circulent : le `search_path`
+ * passé dans `options`, et le paramètre `schema` que posent certains outils.
+ * Une URL sans rien rend `null` — l'appelant laisse alors le défaut de l'outil,
+ * qui est le bon.
+ *
+ * @param url - URL de connexion, telle que le connecteur la porte.
+ * @returns le premier schéma du chemin de recherche, ou `null`.
+ */
+export function postgresSchemaOf(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const direct = parsed.searchParams.get("schema");
+  if (direct !== null && direct.trim() !== "") {
+    return direct.trim();
+  }
+  const options = parsed.searchParams.get("options");
+  if (options === null) {
+    return null;
+  }
+  const trouve = /(?:^|\s)-c\s*search_path=([^\s]+)/u.exec(options);
+  const premier = trouve?.[1]?.split(",")[0]?.trim();
+  return premier !== undefined && premier !== "" ? premier : null;
+}
+
+/**
  * Écrit la configuration `drizzle-kit` d'une génération d'application.
  *
  * 🔴 **Les chemins y sont RELATIFS, et ce n'est pas un style.** L'outil préfixe
@@ -330,6 +368,12 @@ export async function writeKitConfig({
   // alors qu'elle passe sur SQLite et PostgreSQL. Mesuré sur les trois moteurs
   // (`["*"]` et `["*", "!x"]` passent ; `["une_table"]` échoue).
   const filters = ["*", ...excludedTables.map((t) => `!${t}`)];
+  // Le schéma n'est POSÉ que lorsqu'il est visé explicitement : sans quoi on
+  // écraserait le défaut de l'outil, qui est déjà le bon.
+  const schema =
+    dbUrl !== undefined && dialect === "postgres"
+      ? postgresSchemaOf(dbUrl)
+      : null;
   const body =
     `// Fichier ENGENDRÉ par \`nodefony orm:generate\` — réécrit puis effacé.\n` +
     `import { defineConfig } from "drizzle-kit";\n\n` +
@@ -339,6 +383,7 @@ export async function writeKitConfig({
     `  out: ${JSON.stringify(rel(outDir))},\n` +
     `  migrations: { prefix: "index" },\n` +
     `  tablesFilter: ${JSON.stringify(filters)},\n` +
+    (schema === null ? "" : `  schemaFilter: ${JSON.stringify([schema])},\n`) +
     (dbUrl === undefined
       ? ""
       : `  dbCredentials: { url: ${JSON.stringify(dbUrl)} },\n`) +

@@ -210,24 +210,33 @@ export class DrizzleMigrator {
       const history = await readHistory(driver);
       const known = new Set(history.map((row) => identity(row)));
       for (const file of loaded.files) {
-        if (known.has(identity(file))) {
-          continue;
+        // 🔴 La BORNE se lit sur le fichier, jamais après avoir décidé de
+        // l'inscrire. Écrite dans l'autre ordre, elle sautait avec le
+        // `continue` : si la migration qui borne était DÉJÀ inscrite — une
+        // adoption relancée après une coupure, ce que la doctrine annonce
+        // comme sûr, ou une borne posée sur une migration appliquée jadis —
+        // la boucle poursuivait et gravait `success: true` sur tout ce qui
+        // suit, sans que rien ne l'ait exécuté. C'est exactement l'état que la
+        // garde d'ambiguïté existe pour empêcher : un historique complet, une
+        // base qui ne porte pas les tables, et plus aucun geste offert.
+        const borne = upTo !== undefined && file.tag === upTo;
+        if (!known.has(identity(file))) {
+          const at = this.#now();
+          await insertHistory(driver, {
+            source: file.source,
+            tag: file.tag,
+            hash: file.hash,
+            runId,
+            startedAt: at,
+            finishedAt: at,
+            executionMs: 0,
+            success: true,
+            error: null,
+            appliedBy: this.#appliedBy(),
+          });
+          adopted.push({ source: file.source, tag: file.tag, executionMs: 0 });
         }
-        const at = this.#now();
-        await insertHistory(driver, {
-          source: file.source,
-          tag: file.tag,
-          hash: file.hash,
-          runId,
-          startedAt: at,
-          finishedAt: at,
-          executionMs: 0,
-          success: true,
-          error: null,
-          appliedBy: this.#appliedBy(),
-        });
-        adopted.push({ source: file.source, tag: file.tag, executionMs: 0 });
-        if (upTo !== undefined && file.tag === upTo) {
+        if (borne) {
           break;
         }
       }

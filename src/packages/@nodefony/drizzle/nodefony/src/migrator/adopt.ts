@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { SqlDialect } from "../../config/config";
-import { writeKitConfig } from "./appSchema";
+import { postgresSchemaOf, writeKitConfig } from "./appSchema";
 import { runIntrospect } from "./kit";
 import { openMigrationDriver, type IMigrationTarget } from "./drivers/index";
+import type { ISchemaReader } from "./catalog";
 
 /**
  * L'adoption d'une base qui EXISTAIT avant les migrations.
@@ -237,30 +238,213 @@ export async function snapshotTables(outDir: string): Promise<string[]> {
   }
 }
 
+/** Une table, telle que l'instantané de l'outil la décrit. */
+interface ISnapshotTable {
+  schema?: string;
+}
+
+/** Une séquence, telle que l'instantané de l'outil la décrit. */
+interface ISnapshotSequence {
+  name?: string;
+  schema?: string;
+}
+
+/**
+ * L'instantané écrit par l'outil, réduit à ce qu'on relit.
+ *
+ * Volontairement PARTIEL : on ne redécrit pas un format tiers qu'on ne
+ * maîtrise pas — le reste traverse par la sérialisation, intact.
+ */
+interface ISnapshotDocument {
+  tables?: Record<string, ISnapshotTable>;
+  sequences?: Record<string, ISnapshotSequence>;
+  schemas?: Record<string, string>;
+}
+
+/**
+ * Rend utilisable une référence que l'introspection vient d'écrire.
+ *
+ * L'outil rend ce qu'il a LU, fidèlement. Deux fidélités rendent pourtant le
+ * fichier inutilisable, et il faut les défaire — c'est la même famille de
+ * geste que le décommentage du corps : l'artefact est exact, personne ne peut
+ * s'en servir.
+ *
+ * ## 1. Les objets d'une table EXCLUE
+ *
+ * L'exclusion porte sur les tables, jamais sur ce qui gravite autour. La table
+ * d'historique est écartée — c'est le framework qui la crée —, mais sa
+ * SÉQUENCE, elle, entre dans la référence. Deux conséquences, toutes deux
+ * constatées sur un serveur : la référence rejouée sur un environnement neuf
+ * échoue (la séquence existe déjà, posée par les migrations du framework), et
+ * la génération suivante propose de la SUPPRIMER — ce que la base refuse,
+ * puisque la table d'historique en dépend. L'adoption se retrouve alors dans
+ * l'état qu'elle existe pour éviter : un historique en place, et plus aucune
+ * commande qui passe.
+ *
+ * ## 2. La qualification de schéma
+ *
+ * Une application peut vivre dans un schéma autre que `public` — le montage
+ * habituel d'une base mutualisée, obtenu par le chemin de recherche de la
+ * connexion. Les entités, elles, ne portent aucun schéma : `pgTable("article")`
+ * désigne `public.article` pour l'outil de comparaison, quand l'introspection
+ * rend `nf_app.article`. Au premier champ ajouté, l'outil voit une table qui
+ * disparaît et une autre qui apparaît, et demande s'il s'agit d'un RENOMMAGE :
+ * sans terminal la commande s'arrête, avec un terminal répondre « oui » écrit
+ * un `ALTER TABLE … RENAME` qui déplacerait les données.
+ *
+ * On retire donc la qualification, ce qui rétablit la symétrie avec les
+ * entités. À l'exécution, le chemin de recherche de la connexion place les
+ * tables là où elles doivent être : c'est déjà lui qui décide, l'adoption
+ * cesse simplement de le contredire.
+ *
+ * @param outDir - dossier `<migrations>/<dialecte>`.
+ * @param file - fichier SQL de la référence.
+ * @param options.schema - schéma effectivement lu, ou `null` (hors PostgreSQL,
+ *   ou lecture dans `public` : il n'y a alors rien à déqualifier).
+ * @param options.excludedTables - tables écartées de la lecture, dont les
+ *   objets satellites doivent l'être aussi.
+ */
+export async function normalizeIntrospection(
+  outDir: string,
+  file: string,
+  options: {
+    schema: string | null;
+    excludedTables: readonly string[];
+  },
+): Promise<void> {
+  const { schema, excludedTables } = options;
+  const qualifie = schema !== null && schema !== "public";
+
+  /** Une séquence appartient-elle à une table qu'on a écartée ? */
+  const satellite = (nom: string): boolean =>
+    excludedTables.some((t) => nom.startsWith(`${t}_`));
+
+  const snapshotFile = path.join(outDir, "meta", "0000_snapshot.json");
+  const sequencesRetirees: string[] = [];
+  let brut: string | null = null;
+  try {
+    brut = await fs.readFile(snapshotFile, "utf8");
+  } catch {
+    // Pas d'instantané lisible : on normalise ce qu'on peut (le SQL), plutôt
+    // que d'échouer sur un fichier dont l'absence ne change rien au reste.
+    brut = null;
+  }
+  if (brut !== null) {
+    const doc = JSON.parse(brut) as ISnapshotDocument;
+    let modifie = false;
+
+    // 🔴 On ne CRÉE aucun champ : un instantané sqlite n'a pas de séquences, et
+    // lui en poser une — fût-elle vide — le rend « malformé » pour l'outil qui
+    // le relira. On ne touche qu'à ce qui existe.
+    if (doc.sequences !== undefined) {
+      const sequences: Record<string, ISnapshotSequence> = {};
+      for (const [cle, seq] of Object.entries(doc.sequences)) {
+        const nom = seq.name ?? cle.split(".").pop() ?? cle;
+        if (satellite(nom)) {
+          sequencesRetirees.push(nom);
+          modifie = true;
+          continue;
+        }
+        const clef =
+          qualifie && cle.startsWith(`${schema}.`)
+            ? `public.${cle.slice(schema.length + 1)}`
+            : cle;
+        sequences[clef] = qualifie ? { ...seq, schema: "public" } : seq;
+        if (clef !== cle) {
+          modifie = true;
+        }
+      }
+      doc.sequences = sequences;
+    }
+
+    if (qualifie && doc.tables !== undefined) {
+      const tables: Record<string, ISnapshotTable> = {};
+      for (const [cle, table] of Object.entries(doc.tables)) {
+        const clef = cle.startsWith(`${schema}.`)
+          ? `public.${cle.slice(schema.length + 1)}`
+          : cle;
+        tables[clef] = { ...table, schema: "" };
+        if (clef !== cle) {
+          modifie = true;
+        }
+      }
+      doc.tables = tables;
+      if (doc.schemas !== undefined) {
+        doc.schemas = {};
+      }
+    }
+
+    if (modifie) {
+      await fs.writeFile(snapshotFile, JSON.stringify(doc, null, 2), "utf8");
+    }
+  }
+
+  if (!qualifie && sequencesRetirees.length === 0) {
+    // Rien à défaire : ne pas réécrire un fichier qu'on n'a pas changé.
+    return;
+  }
+  let sql = await fs.readFile(file, "utf8");
+  if (qualifie) {
+    // La création du schéma n'a rien à faire dans une référence : il existe,
+    // puisqu'on vient d'y lire des tables.
+    sql = sql
+      .replace(
+        new RegExp(`^CREATE SCHEMA "${schema}";\\s*(?:-->[^\\n]*\\n)?`, "gmu"),
+        "",
+      )
+      .replaceAll(`"${schema}".`, "");
+  }
+  for (const nom of sequencesRetirees) {
+    sql = sql.replace(
+      new RegExp(
+        `^CREATE SEQUENCE "${nom}"[^;]*;(?:\\s*-->[^\\n]*)?\\n?`,
+        "gmu",
+      ),
+      "",
+    );
+  }
+  await fs.writeFile(file, sql, "utf8");
+}
+
 /**
  * Parmi les tables qu'on s'apprête à CRÉER, celles que la base porte déjà.
  *
- * Fonction PURE, séparée de la commande pour une raison précise : c'est LA
- * décision qui empêche d'écrire un schéma initial inapplicable, et une règle
- * qui exige un kernel et une base pour être vue rouge n'est jamais vue rouge.
+ * 🔴 **La base est la seule source, et elle est INTERROGÉE.** Il serait tentant
+ * de déduire la présence d'une table de son absence dans une comparaison au
+ * code : c'est ce que faisait la première version, et le raccourci a produit un
+ * refus mensonger. La comparaison ne connaît que le REGISTRE — les entités
+ * qu'une application enregistre à son démarrage — alors que la génération part
+ * des FICHIERS, qui en contiennent d'autres : celles d'un module désactivé,
+ * d'un connecteur différent, ou d'un module pas encore câblé. Une table hors
+ * registre n'est ni manquante ni présente : elle est INCONNUE, et déduire sa
+ * présence faisait refuser la première migration d'une application en nommant
+ * sept tables qui n'existaient nulle part — puis renvoyait vers une adoption
+ * qui échouait pour la raison inverse. Deux commandes qui se prescrivent l'une
+ * l'autre en se refusant : une impasse, exactement celle que ce chantier
+ * existe pour fermer.
  *
- * La comparaison ne rend que ce qui MANQUE. Ce qui n'y figure pas est donc
- * présent — c'est ce raisonnement, et lui seul, qu'on éprouve ici.
+ * Le lecteur est INJECTÉ plutôt que construit ici : c'est ce qui rend la règle
+ * éprouvable sans kernel ni serveur, et une règle qu'on ne peut pas voir rouge
+ * n'est pas une règle.
  *
- * @param comparison - ce que la base porte face au code, ou `null` si la base
- *   n'a pas répondu (on ne refuse jamais sans preuve).
+ * Le coût est d'une requête de catalogue par table, et l'appelant ne s'en sert
+ * que lorsque le journal est vide — une fois dans la vie d'une application.
+ *
+ * @param reader - lecteur de catalogue ouvert sur la base visée.
  * @param tables - tables que la migration créerait.
  * @returns les tables déjà en base, dans l'ordre reçu.
  */
-export function tablesAlreadyPresent(
-  comparison: { missingTables: readonly string[] } | null,
+export async function tablesPresentIn(
+  reader: ISchemaReader,
   tables: readonly string[],
-): string[] {
-  if (comparison === null) {
-    return [];
+): Promise<string[]> {
+  const presentes: string[] = [];
+  for (const nom of tables) {
+    if (await reader.tableExists(nom)) {
+      presentes.push(nom);
+    }
   }
-  const absentes = new Set(comparison.missingTables);
-  return tables.filter((nom) => !absentes.has(nom));
+  return presentes;
 }
 
 /**
@@ -423,6 +607,11 @@ export async function adoptFromDatabase({
   const tag = `0000_${name}`;
   const file = await renameTag(outDir, premiere.tag, tag);
   await dropIntrospectionModules(outDir);
+  // Avant toute lecture de l'instantané : c'est lui qu'on vient de normaliser.
+  await normalizeIntrospection(outDir, file, {
+    schema: dialect === "postgres" ? postgresSchemaOf(url) : null,
+    excludedTables,
+  });
   const lues = await snapshotTables(outDir);
   const declarees = new Set(declaredTables);
   const brut = await fs.readFile(file, "utf8");

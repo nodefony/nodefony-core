@@ -46,7 +46,7 @@ export {
   introspectionUrl,
   readJournal,
   snapshotTables,
-  tablesAlreadyPresent,
+  tablesPresentIn,
   uncommentIntrospection,
   type IAdoptedBaseline,
 } from "./adopt";

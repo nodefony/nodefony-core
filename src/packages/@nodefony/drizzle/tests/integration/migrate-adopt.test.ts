@@ -5,9 +5,10 @@ import { fileURLToPath } from "node:url";
 import type { SqlDialect } from "../../nodefony/config/config";
 import {
   adoptFromDatabase,
-  tablesAlreadyPresent,
+  tablesPresentIn,
   uncommentIntrospection,
 } from "../../nodefony/src/migrator/adopt";
+import type { ISchemaReader } from "../../nodefony/src/migrator/catalog";
 import {
   collectTables,
   writeKitConfig,
@@ -142,22 +143,46 @@ async function put(file: string, body: string): Promise<void> {
   await fs.writeFile(file, body, "utf8");
 }
 
-describe("tablesAlreadyPresent — la décision qui empêche un CREATE inapplicable", () => {
-  it("rend les tables que la base porte, et ne refuse jamais sans preuve", () => {
+describe("tablesPresentIn — la décision qui empêche un CREATE inapplicable", () => {
+  /**
+   * Un lecteur de catalogue qui ne connaît que les tables qu'on lui donne.
+   *
+   * Le lecteur est INJECTÉ, et c'est tout l'intérêt : la règle qui empêche
+   * d'écrire un schéma initial inapplicable s'éprouve sans kernel, sans
+   * serveur et sans variable d'environnement — et une règle qu'on ne peut pas
+   * voir rouge n'est pas une règle.
+   */
+  const baseAvec = (tables: readonly string[]): ISchemaReader => ({
+    tableExists: (t) => Promise.resolve(tables.includes(t)),
+    columnsOf: () => Promise.resolve([]),
+  });
+
+  it("rend les tables que la base porte, et ne conclut que sur ce qu'elle a vu", async () => {
     assert.deepEqual(
-      tablesAlreadyPresent({ missingTables: ["b"] }, ["a", "b", "c"]),
+      await tablesPresentIn(baseAvec(["a", "c"]), ["a", "b", "c"]),
       ["a", "c"],
-      "ce qui ne manque pas est présent : c'est TOUT le raisonnement",
+      "la BASE est interrogée : ce qu'elle porte est présent, le reste ne l'est pas",
     );
     assert.deepEqual(
-      tablesAlreadyPresent({ missingTables: ["a", "b"] }, ["a", "b"]),
+      await tablesPresentIn(baseAvec([]), ["a", "b"]),
       [],
-      "une base à qui tout manque est vierge : le schéma initial y est LÉGITIME",
+      "une base vierge : le schéma initial y est LÉGITIME",
     );
+  });
+
+  it("🔴 rien n'est déclaré présent sur la foi d'une comparaison au CODE", async () => {
+    // Le défaut vécu, réduit à sa forme pure. La version précédente déduisait
+    // la présence de l'absence dans une comparaison au registre — or la
+    // génération part des FICHIERS, qui portent d'autres tables : celles d'un
+    // module désactivé, d'un connecteur différent, ou d'un module pas encore
+    // câblé. Résultat mesuré sur une base fraîchement migrée : `orm:generate`
+    // refusait la première migration en nommant SEPT tables qui n'existaient
+    // nulle part, et renvoyait vers une adoption qui échouait pour la raison
+    // inverse. Deux commandes se prescrivant l'une l'autre en se refusant.
     assert.deepEqual(
-      tablesAlreadyPresent(null, ["a"]),
+      await tablesPresentIn(baseAvec([]), ["Calendar", "Event", "Room"]),
       [],
-      "base muette = pas de verdict ; refuser ici bloquerait qui travaille hors connexion",
+      "des tables absentes de la base ne peuvent JAMAIS être annoncées présentes",
     );
   });
 });

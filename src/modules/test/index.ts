@@ -46,6 +46,7 @@ import {
   registerBenchOrmEntities,
   seedBenchOrm,
 } from "./nodefony/entity/benchOrm";
+import { registerAdoptFixtureEntity } from "./nodefony/entity/adoptFixture";
 // P6 J8 — banc preuve garde @IsGranted côté WS via api.request (/nodefony/test/api/*).
 import SecureWsController from "./nodefony/secure/SecureWsController";
 // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api) pour prouver la
@@ -152,6 +153,12 @@ class Test extends Module {
     if (BENCH_ORM) {
       await registerBenchOrmEntities();
     }
+    // Décor du banc d'adoption en ligne de commande (opt-in `NF_ADOPT_FIXTURE`)
+    // — la seule table que l'application DÉCLARE en propre, sans quoi
+    // `orm:migrate:baseline --from-database` n'a rien à adopter sur ce dépôt.
+    // La fonction ne fait rien quand la variable est absente : c'est elle, et
+    // non ce fichier, qui porte la condition.
+    registerAdoptFixtureEntity();
     return this;
   }
 
