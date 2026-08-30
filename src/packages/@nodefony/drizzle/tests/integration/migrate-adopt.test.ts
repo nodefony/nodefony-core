@@ -62,6 +62,23 @@ const REPO_ROOT = path.resolve(MODULE_ROOT, "..", "..", "..", "..");
 const TABLE = "adopt_articles";
 
 /** La ligne qu'aucune adoption n'a le droit de perdre. */
+/**
+ * Table à colonne JSON, posée UNIQUEMENT sur MariaDB.
+ *
+ * MariaDB n'a pas de type JSON natif : il l'écrit en « longtext »
+ * assorti d'une contrainte « CHECK (json_valid(…)) », que l'outil de lecture
+ * de schéma ne sait pas lire — c'est CE défaut que le refus doit nommer.
+ *
+ * 🔴 Elle existe parce que le décor était HÉRITÉ. Le refus ne se produit que
+ * si la base porte une telle contrainte quelque part (l'outil lit la base
+ * ENTIÈRE avant de filtrer). Sur une base qui traîne, les tables du framework
+ * en portent et le cas passait ; sur un conteneur frais — l'intégration
+ * continue — la base est vierge, la lecture RÉUSSIT, et l'attente de rejet
+ * tombait. Un test qui dépend de ce qu'une autre suite a laissé derrière elle
+ * est vert ou rouge selon l'ordre d'exécution : la condition se POSE.
+ */
+const TABLE_JSON = "adopt_json_temoin";
+
 const TEMOIN = "article-temoin-a-ne-pas-perdre";
 
 /** Un moteur à exercer, et de quoi lui poser le décor. */
@@ -291,11 +308,22 @@ for (const cible of CIBLES) {
           `DROP TABLE IF EXISTS ${cible.dialect === "postgres" ? `"${TABLE}"` : `\`${TABLE}\``}`,
         ]);
       }
+      // Le témoin JSON ne survit pas au cas qui l'a posé : le laisser ferait
+      // buter la lecture de schéma des cas SUIVANTS, qui l'attendent réussie.
+      if (cible.dialect === "mysql") {
+        await sql([`DROP TABLE IF EXISTS \`${TABLE_JSON}\``]);
+      }
     });
 
     it("écrit la référence depuis la base, sans exécuter une instruction", async () => {
       await put(path.join(entities, "Article.ts"), cible.entite(""));
       if (mariadb) {
+        // La condition du refus, POSÉE et non héritée (cf `TABLE_JSON`).
+        await sql([
+          `DROP TABLE IF EXISTS \`${TABLE_JSON}\``,
+          `CREATE TABLE \`${TABLE_JSON}\` ` +
+            "(`id` VARCHAR(36) PRIMARY KEY, `data` JSON NOT NULL)",
+        ]);
         await assert.rejects(
           adoptFromDatabase({
             projectRoot: app,
