@@ -146,6 +146,50 @@ export function runGenerate({
 }
 
 /**
+ * Lance `drizzle-kit introspect` et EXIGE la preuve qu'il a travaillé.
+ *
+ * C'est la seule commande de la chaîne qui LIT la base pour en tirer des
+ * fichiers. Elle sert l'adoption d'une base qui existait avant les migrations :
+ * l'instantané qu'elle dépose décrit l'état RÉEL, celui à partir duquel la
+ * génération suivante produira un `ALTER` au lieu d'un `CREATE TABLE`.
+ *
+ * La preuve n'est pas cherchée dans le texte de l'outil mais dans ce qu'il
+ * LAISSE : l'appelant relit le journal des fichiers. Ici on ne garde que le
+ * refus le plus grossier — un code de sortie non nul —, parce que l'outil rend
+ * `0` même en échec et qu'un marqueur de texte a déjà menti une fois (il change
+ * avec la couleur du terminal).
+ *
+ * @param options - `cwd` (dossier depuis lequel l'outil est lancé), `configRel`
+ *   (configuration, chemin relatif à `cwd`), `label` (ce qui est cité en cas
+ *   d'échec).
+ * @returns la sortie complète de l'outil.
+ * @throws Error si le code est non nul.
+ */
+export function runIntrospect({
+  cwd,
+  configRel,
+  label,
+}: {
+  cwd: string;
+  configRel: string;
+  label: string;
+}): string {
+  const result = spawnSync(
+    process.execPath,
+    [resolveDrizzleKitBin(cwd), "introspect", `--config=${configRel}`],
+    { cwd, encoding: "utf8" },
+  );
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (result.status !== 0) {
+    throw new Error(
+      `La lecture du schéma de ${label} a échoué (code ${result.status}).\n` +
+        output.trim(),
+    );
+  }
+  return output;
+}
+
+/**
  * La génération a-t-elle EU LIEU ? — lue sur une sortie DÉCOLORÉE.
  *
  * L'outil ne rend pas de code d'échec (il sort 0 même quand il rate) : la seule

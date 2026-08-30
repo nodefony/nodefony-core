@@ -56,7 +56,11 @@ export type CommandFailureCode =
   /** Rien à écrire, et pourtant la base ne porte pas le schéma déclaré. */
   | "NF_GENERATE_DATABASE_BEHIND"
   /** L'outil qui ÉCRIT les migrations n'est pas installé. */
-  | "NF_GENERATE_TOOL_MISSING";
+  | "NF_GENERATE_TOOL_MISSING"
+  /** Le schéma initial serait écrit sur une base qui porte DÉJÀ ces tables. */
+  | "NF_GENERATE_DATABASE_NOT_ADOPTED"
+  /** L'adoption par lecture de la base, demandée alors qu'il existe déjà des migrations. */
+  | "NF_MIGRATE_BASELINE_NOT_EMPTY";
 
 /** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
 export interface ICommandFailure {

@@ -19,7 +19,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-08-28
+updated: 2026-08-30
 source: "src/packages/@nodefony/drizzle/nodefony/src/migrator/"
 ---
 
@@ -96,6 +96,9 @@ nodefony orm:migrate --dry-run
 
 # Adopter une base existante : marquer des migrations comme appliquées, sans les exécuter.
 nodefony orm:migrate:baseline
+
+# Reprendre une base qui existait AVANT toute migration : la référence est LUE sur la base.
+nodefony orm:migrate:baseline --from-database
 
 # Effacer les marqueurs d'échec, APRÈS avoir regardé ce qui s'est passé.
 nodefony orm:migrate:repair
@@ -198,6 +201,45 @@ nodefony orm:generate --custom --name vue_des_ventes
 
 Vous obtenez un fichier **vide**, déjà inscrit au journal, que vous écrivez à la main. Il est
 appliqué comme les autres : une seule fois, dans l'ordre, et son empreinte est gravée.
+
+### Reprendre une base qui existait AVANT toute migration
+
+C'est l'état d'une application qui passe du développement à la production : la base porte ses
+tables **et** ses données, et le dossier `migrations/` est vide — le mode de développement les a
+créées au démarrage, sans jamais écrire de fichier.
+
+Dans cet état, `orm:generate` **refuse** (`NF_GENERATE_DATABASE_NOT_ADOPTED`). Ce n'est pas une
+précaution : la première migration décrirait la _création_ de tables qui existent, elle ne
+s'appliquerait jamais, et l'adopter graverait dans l'historique un schéma que la base n'a pas —
+l'état dont plus aucune commande ne sort.
+
+```bash
+nodefony orm:migrate:baseline --from-database
+nodefony orm:generate --name ajout_du_slug   # produit un ALTER, plus un CREATE
+nodefony orm:migrate
+```
+
+La commande **lit** le schéma de la base, en écrit la migration de référence sous
+`migrations/<dialecte>/0000_<nom>.sql`, et l'inscrit comme appliquée. **Aucune instruction n'est
+exécutée sur la base** : elle décrit un état déjà atteint. Son corps est laissé _exécutable_, pour
+qu'un environnement neuf puisse être monté depuis ces mêmes fichiers.
+
+Deux faits qu'elle publie, et qu'il faut lire :
+
+| Ce qu'elle dit                          | Ce que ça veut dire                                                                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| des tables **lues sans être déclarées** | la base est partagée. L'outil de lecture ne sait pas restreindre son champ ; la génération suivante proposera de les **supprimer**. Relisez le fichier. |
+| un corps **resté en commentaire**       | la référence ne recréerait rien sur une base neuve — l'outil a changé sa mise en forme.                                                                 |
+
+> ⚠️ **Sur MariaDB, cette commande refuse — et elle dit pourquoi.** MariaDB n'a pas de type JSON
+> natif : il l'écrit en `longtext` assorti d'un `CHECK (json_valid(…))`. L'outil qui relit les
+> schémas ne sait pas lire ces contraintes, et il lit la base **entière** avant de filtrer : les
+> tables du framework suffisent donc à le bloquer. Le repli tient en quatre gestes, que le message
+> d'erreur rappelle — relever le schéma (`SHOW CREATE TABLE`), un `orm:generate --custom`, y coller
+> le schéma, puis `orm:migrate:baseline`.
+>
+> **Cela ne concerne que cette commande de reprise.** Créer les tables, appliquer les migrations et
+> faire tourner l'application sont inchangés sur MariaDB.
 
 ## En développement — le schéma se répare tout seul
 

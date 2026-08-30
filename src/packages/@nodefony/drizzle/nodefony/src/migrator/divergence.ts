@@ -68,13 +68,35 @@ function comparable(connector: string): IComparableOrm | null {
 export async function gapAgainstDeclared(
   connector: string,
 ): Promise<ISchemaComparison | null> {
+  const comparison = await comparisonAgainstDeclared(connector);
+  return comparison !== null && hasGap(comparison) ? comparison : null;
+}
+
+/**
+ * La comparaison BRUTE — ce que la base porte face au code, écart ou non.
+ *
+ * Séparée de {@link gapAgainstDeclared}, qui ne rend que les écarts : il existe
+ * une question à laquelle « aucun écart » est une réponse pleine, et non un
+ * silence. Celle-ci : *la base porte-t-elle DÉJÀ les tables que je m'apprête à
+ * créer ?* Une base parfaitement conforme y répond « oui », et c'est justement
+ * le cas où il ne faut pas écrire un `CREATE TABLE`.
+ *
+ * Ne modifie jamais rien, et ne jette jamais : une base muette n'est pas une
+ * conformité, c'est une absence de réponse — rendue `null` pour que personne
+ * ne conclue à sa place.
+ *
+ * @param connector - nom du connecteur à interroger.
+ * @returns la comparaison, ou `null` si rien n'était interrogeable.
+ */
+export async function comparisonAgainstDeclared(
+  connector: string,
+): Promise<ISchemaComparison | null> {
   const orm = comparable(connector);
   if (!orm?.isConnected()) {
     return null;
   }
   try {
-    const comparison = await orm.compareToDeclared();
-    return hasGap(comparison) ? comparison : null;
+    return await orm.compareToDeclared();
   } catch {
     return null;
   }

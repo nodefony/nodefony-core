@@ -36,7 +36,20 @@ export {
   type MigrationNameCheck,
 } from "./name";
 export { schemaReader, type ISchemaReader, type SqlQuery } from "./catalog";
-export { describeDivergence, gapAgainstDeclared } from "./divergence";
+export {
+  comparisonAgainstDeclared,
+  describeDivergence,
+  gapAgainstDeclared,
+} from "./divergence";
+export {
+  adoptFromDatabase,
+  introspectionUrl,
+  readJournal,
+  snapshotTables,
+  tablesAlreadyPresent,
+  uncommentIntrospection,
+  type IAdoptedBaseline,
+} from "./adopt";
 export {
   compareSchema,
   additiveSql,
@@ -60,6 +73,7 @@ export {
   createdTables,
   SUPPORTED_JOURNAL_VERSIONS,
   type ILoadedSources,
+  frameworkTables,
 } from "./sources";
 export {
   HISTORY_TABLE,

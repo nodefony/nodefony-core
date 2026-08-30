@@ -97,16 +97,19 @@ n'a jamais les deux — c'est le discriminant à tester.
 
 ### Refus de l'applicateur — l'état de la base ou des fichiers
 
-| Code                           | Ce qui s'est passé                                            | Le geste                                                               |
-| ------------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `NF_MIGRATE_BASELINE_REQUIRED` | tables présentes, historique vide                             | `orm:migrate:baseline` — adopte explicitement, n'exécute aucun SQL     |
-| `NF_MIGRATE_FAILED_MARKER`     | une migration a échoué ou n'a jamais fini                     | lire l'erreur enregistrée, corriger la base, puis `orm:migrate:repair` |
-| `NF_MIGRATE_HASH_MISMATCH`     | le fichier d'une migration appliquée a changé                 | rétablir le fichier ; sinon écrire une migration correctrice           |
-| `NF_MIGRATE_OUT_OF_ORDER`      | une migration en attente se range avant la dernière appliquée | renommer la nouvelle pour qu'elle suive la dernière appliquée          |
-| `NF_MIGRATE_MISSING_FILE`      | une migration appliquée n'a plus de fichier                   | rétablir le fichier — il fait partie de l'historique                   |
-| `NF_MIGRATE_UNKNOWN_FORMAT`    | un fichier n'est pas au format que cet applicateur lit        | vérifier le journal de la source ; ne pas éditer à la main             |
-| `NF_MIGRATE_LOCK_TIMEOUT`      | le verrou est tenu par un autre travail                       | attendre, puis rejouer — le verbe est idempotent                       |
-| `NF_MIGRATE_JOURNAL_MISMATCH`  | le journal annonce un fichier que le dossier ne contient pas  | rétablir le fichier, ou régénérer la source                            |
+| Code                               | Ce qui s'est passé                                             | Le geste                                                                       |
+| ---------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `NF_MIGRATE_BASELINE_REQUIRED`     | tables présentes, historique vide                              | `orm:migrate:baseline` — adopte explicitement, n'exécute aucun SQL             |
+| `NF_MIGRATE_BASELINE_AMBIGUOUS`    | la base s'écarte du schéma déclaré : adopter graverait un faux | `--up-to <tag>` pour borner, ou `--from-database` si aucune migration n'existe |
+| `NF_MIGRATE_BASELINE_NOT_EMPTY`    | `--from-database` demandé, mais des migrations existent déjà   | `orm:migrate:baseline` sans option — l'historique des fichiers fait foi        |
+| `NF_GENERATE_DATABASE_NOT_ADOPTED` | aucune migration écrite, et la base porte déjà ces tables      | `orm:migrate:baseline --from-database`, puis regénérer                         |
+| `NF_MIGRATE_FAILED_MARKER`         | une migration a échoué ou n'a jamais fini                      | lire l'erreur enregistrée, corriger la base, puis `orm:migrate:repair`         |
+| `NF_MIGRATE_HASH_MISMATCH`         | le fichier d'une migration appliquée a changé                  | rétablir le fichier ; sinon écrire une migration correctrice                   |
+| `NF_MIGRATE_OUT_OF_ORDER`          | une migration en attente se range avant la dernière appliquée  | renommer la nouvelle pour qu'elle suive la dernière appliquée                  |
+| `NF_MIGRATE_MISSING_FILE`          | une migration appliquée n'a plus de fichier                    | rétablir le fichier — il fait partie de l'historique                           |
+| `NF_MIGRATE_UNKNOWN_FORMAT`        | un fichier n'est pas au format que cet applicateur lit         | vérifier le journal de la source ; ne pas éditer à la main                     |
+| `NF_MIGRATE_LOCK_TIMEOUT`          | le verrou est tenu par un autre travail                        | attendre, puis rejouer — le verbe est idempotent                               |
+| `NF_MIGRATE_JOURNAL_MISMATCH`      | le journal annonce un fichier que le dossier ne contient pas   | rétablir le fichier, ou régénérer la source                                    |
 
 ### Refus d'usage — la demande elle-même
 

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { SqlDialect } from "../../config/config";
 import { migrationHash, normalizeSql } from "./hash";
+import { frameworkMigrationsDir } from "./paths";
 import {
   FORMAT_MARKER,
   MigrationVerdictError,
@@ -382,4 +383,27 @@ export function createdTables(files: readonly IMigrationFile[]): string[] {
     }
   }
   return [...found];
+}
+
+/**
+ * Tables que le FRAMEWORK construit — dérivées de ses fichiers de migration.
+ *
+ * Dérivées, jamais listées à la main : une liste codée en dur mentirait dès la
+ * première migration livrée par une version suivante.
+ *
+ * Une seule implémentation, parce que deux appelants en dépendent pour la même
+ * décision — le générateur les exclut de ce qu'il écrit, l'adoption les exclut
+ * de ce qu'elle lit. Deux copies divergeraient en silence, chacune verte dans
+ * son propre test.
+ *
+ * @param dialect - dialecte du connecteur visé.
+ * @returns les noms de tables du framework.
+ */
+export async function frameworkTables(dialect: SqlDialect): Promise<string[]> {
+  const dir = await frameworkMigrationsDir();
+  const { files } = await loadSources(
+    [{ name: "framework", dir, rank: 0 }],
+    dialect,
+  );
+  return createdTables(files);
 }

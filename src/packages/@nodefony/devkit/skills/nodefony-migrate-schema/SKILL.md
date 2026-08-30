@@ -88,6 +88,37 @@ reprendre après une coupure sans lire d'état préalable.
 > dépose un fichier vide et son entrée de journal. Le gabarit déposé explique comment séparer les
 > instructions ; suis-le à la lettre.
 
+### La base existait AVANT toute migration — un geste de plus, une seule fois
+
+Une application passée du mode développement à la production a ses tables **et** un dossier
+`migrations/` vide. Dans cet état, `orm:generate` refuse — `NF_GENERATE_DATABASE_NOT_ADOPTED` :
+la première migration décrirait la création de tables qui existent déjà, avec leurs données, et
+l'adopter graverait dans l'historique un schéma que la base n'a pas.
+
+```bash
+npx nodefony orm:migrate:baseline --from-database   # la référence est LUE sur la base
+npx nodefony orm:generate --name ajout_du_slug      # produit un ALTER, plus un CREATE
+npx nodefony orm:migrate
+```
+
+`--from-database` lit le schéma de la base, en écrit la migration de référence et l'inscrit comme
+appliquée. **Aucune instruction n'est exécutée sur la base.** À faire une fois, avant tout le reste.
+
+Deux choses qu'il rapporte et qu'il faut lire :
+
+- **des tables lues sans être déclarées** — la base est partagée avec autre chose. L'outil de
+  lecture ne sait pas restreindre son champ ; ces tables entrent dans la référence, et la
+  génération suivante proposera de les SUPPRIMER. Relis le fichier avant de continuer.
+- **un corps resté en commentaire** — la référence ne recréerait rien sur une base neuve.
+
+> ⚠️ **Sur MariaDB, `--from-database` ne fonctionne pas**, et il le dit au lieu de mourir. MariaDB
+> écrit le type JSON en `longtext` + `CHECK (json_valid(…))`, que l'outil de lecture ne sait pas
+> relire — et il lit la base ENTIÈRE avant de filtrer, donc les tables du framework suffisent à le
+> bloquer. Le repli, sur ce serveur : relever le schéma (`SHOW CREATE TABLE`), le coller dans un
+> `orm:generate --custom --name base_existante`, puis `orm:migrate:baseline`.
+> Cela ne concerne QUE cette commande de reprise : la création des tables, leur migration et le
+> fonctionnement de l'application sont inchangés sur MariaDB.
+
 ## 4. Éprouver une migration — sur une base d'ESSAI, jamais sur la tienne
 
 Quand il faut **prouver** qu'une migration fait ce qu'elle annonce, la réponse n'est jamais de
@@ -177,13 +208,15 @@ nodefony orm:migrate:status
 Un refus n'est pas une panne : c'est le produit qui s'arrête devant une décision qui t'appartient.
 Le `code` est stable — **lis-le, il désigne le geste**.
 
-| Code                           | Ce qui s'est passé                                        | Le geste                                                 |
-| ------------------------------ | --------------------------------------------------------- | -------------------------------------------------------- |
-| `NF_MIGRATE_BASELINE_REQUIRED` | la base porte déjà les tables, sans aucun historique      | `orm:migrate:baseline` (l'adopter)                       |
-| `NF_MIGRATE_FAILED_MARKER`     | une migration a échoué, ou n'a jamais fini                | LIRE l'erreur, puis `orm:migrate:repair`                 |
-| `NF_MIGRATE_HASH_MISMATCH`     | un fichier déjà appliqué a été modifié                    | rétablir le fichier, ou écrire une migration correctrice |
-| `NF_MIGRATE_OUT_OF_ORDER`      | une migration en attente se range avant la dernière posée | renommer la nouvelle après la dernière appliquée         |
-| `NF_MIGRATE_MISSING_FILE`      | une migration appliquée n'a plus de fichier               | rétablir le fichier — il fait partie de l'historique     |
+| Code                               | Ce qui s'est passé                                          | Le geste                                                 |
+| ---------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| `NF_MIGRATE_BASELINE_REQUIRED`     | la base porte déjà les tables, sans aucun historique        | `orm:migrate:baseline` (l'adopter)                       |
+| `NF_GENERATE_DATABASE_NOT_ADOPTED` | aucune migration n'existe, et la base porte déjà ces tables | `orm:migrate:baseline --from-database`, PUIS regénérer   |
+| `NF_MIGRATE_BASELINE_NOT_EMPTY`    | `--from-database` demandé alors que des migrations existent | `orm:migrate:baseline` sans option                       |
+| `NF_MIGRATE_FAILED_MARKER`         | une migration a échoué, ou n'a jamais fini                  | LIRE l'erreur, puis `orm:migrate:repair`                 |
+| `NF_MIGRATE_HASH_MISMATCH`         | un fichier déjà appliqué a été modifié                      | rétablir le fichier, ou écrire une migration correctrice |
+| `NF_MIGRATE_OUT_OF_ORDER`          | une migration en attente se range avant la dernière posée   | renommer la nouvelle après la dernière appliquée         |
+| `NF_MIGRATE_MISSING_FILE`          | une migration appliquée n'a plus de fichier                 | rétablir le fichier — il fait partie de l'historique     |
 
 Les codes exhaustifs, avec un exemple de charge utile pour chacun :
 [`references/verdicts.md`](references/verdicts.md).

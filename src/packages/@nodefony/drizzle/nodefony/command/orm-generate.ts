@@ -1,7 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Table, getTableName, is } from "drizzle-orm";
-import { entityRegistry } from "@nodefony/orm-core";
 import {
   listTargets,
   type CliKernel,
@@ -17,7 +15,7 @@ import {
   missingProviders,
   usurpedTables,
   writeSchemaModule,
-  type IExpectedEntity,
+  registeredTables,
   type IUnreadableEntityFile,
 } from "../src/migrator/appSchema";
 import {
@@ -27,11 +25,15 @@ import {
   type IAuditRule,
 } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
-import { gapAgainstDeclared } from "../src/migrator/divergence";
+import {
+  comparisonAgainstDeclared,
+  gapAgainstDeclared,
+} from "../src/migrator/divergence";
+import { readJournal, tablesAlreadyPresent } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
-import { frameworkMigrationsDir } from "../src/migrator/paths";
 import { appMigrationsDir } from "../src/migrator/resolve";
-import { createdTables, loadSources } from "../src/migrator/sources";
+import { frameworkMigrationsDir } from "../src/migrator/paths";
+import { frameworkTables } from "../src/migrator/sources";
 import { HISTORY_TABLE } from "../src/migrator/types";
 import {
   EXIT,
@@ -191,44 +193,6 @@ class OrmGenerate extends OrmMigrateCommand {
     return null;
   }
 
-  /**
-   * Tables que le FRAMEWORK construit — dérivées de ses fichiers de migration.
-   *
-   * Dérivées, jamais listées à la main : une liste codée en dur mentirait dès la
-   * première migration livrée par une version suivante.
-   *
-   * @param dialect - dialecte du connecteur visé.
-   * @returns les noms de tables du framework.
-   */
-  async #frameworkTables(dialect: SqlDialect): Promise<string[]> {
-    const dir = await frameworkMigrationsDir();
-    const { files } = await loadSources(
-      [{ name: "framework", dir, rank: 0 }],
-      dialect,
-    );
-    return createdTables(files);
-  }
-
-  /**
-   * Tables attendues sur ce connecteur, telles que le registre les connaît.
-   *
-   * @param connector - connecteur visé.
-   * @returns les noms de tables, indexés par nom d'entité.
-   */
-  #registeredTables(connector: string): IExpectedEntity[] {
-    const out: IExpectedEntity[] = [];
-    for (const entity of entityRegistry.list()) {
-      if (entity.connector !== connector) {
-        continue;
-      }
-      const schema = entity.schema as unknown;
-      if (is(schema, Table)) {
-        out.push({ entity: entity.name, table: getTableName(schema) });
-      }
-    }
-    return out;
-  }
-
   override async generate(opts: IGenerateOptions = {}): Promise<this> {
     // `allowMigrateUrl: false` — la génération ne touche AUCUNE base : le diff
     // se calcule entre les instantanés du dossier et les entités. Honorer une
@@ -357,8 +321,8 @@ class OrmGenerate extends OrmMigrateCommand {
       }));
 
     // 2. Ce qui appartient au FRAMEWORK n'appartient pas à l'application.
-    const frameworkTables = new Set(await this.#frameworkTables(dialect));
-    const usurped = usurpedTables(tables, frameworkTables);
+    const framework = new Set(await frameworkTables(dialect));
+    const usurped = usurpedTables(tables, framework);
     if (usurped.length > 0) {
       const liste = usurped
         .map(
@@ -387,9 +351,9 @@ class OrmGenerate extends OrmMigrateCommand {
     //    raison de retenir une migration par ailleurs complète.
     const provided = new Set(tables.map((t) => t.tableName));
     const orphans = missingProviders(
-      this.#registeredTables(connector),
+      registeredTables(connector),
       provided,
-      frameworkTables,
+      framework,
     );
     const missing = orphans.map(
       ({ entity, table }) => `  • entité « ${entity} » → table « ${table} »`,
@@ -424,6 +388,35 @@ class OrmGenerate extends OrmMigrateCommand {
     const schemaFile = path.join(work, `schema.${dialect}.ts`);
     const configFile = path.join(work, `drizzle.${dialect}.config.ts`);
     const before = await this.#tags(outDir);
+
+    // 🔴 Le schéma INITIAL ne s'écrit pas sur une base qui porte déjà ces tables.
+    //
+    // Le générateur compare le code au journal des FICHIERS, jamais à la base.
+    // Journal vide, il croit partir de rien et émet un `CREATE TABLE` complet —
+    // d'une table qui existe, avec ses données. C'est l'état d'une application
+    // passée du mode dérivé, où le démarrage fabrique le schéma, au mode de
+    // production, où il ne le fabrique plus.
+    //
+    // Le fichier serait inapplicable, et il empoisonnerait la suite : l'adoption
+    // l'inscrirait comme appliqué, l'historique affirmerait un schéma que la
+    // base n'a pas, et plus aucune commande n'offrirait de geste. Mesuré au banc
+    // de découvrabilité : le seul chemin restant était de détruire la base.
+    //
+    // Le contrôle ne coûte qu'une requête par table, et SEULEMENT quand le
+    // journal est vide — c'est-à-dire une fois dans la vie d'une application.
+    // Une base muette ne déclenche rien : on ne refuse pas sans preuve.
+    if (before.length === 0) {
+      const refus = await this.#alreadyInDatabase(
+        opts,
+        connector,
+        name,
+        tables,
+      );
+      if (refus !== null) {
+        return refus;
+      }
+    }
+
     try {
       await writeSchemaModule(schemaFile, tables);
       await writeKitConfig({
@@ -436,7 +429,7 @@ class OrmGenerate extends OrmMigrateCommand {
         // l'applicateur qui la crée. Sans cette exclusion, le premier diff
         // proposerait de la supprimer — et emporterait la trace de tout ce qui
         // a déjà été appliqué.
-        excludedTables: [...frameworkTables, HISTORY_TABLE],
+        excludedTables: [...framework, HISTORY_TABLE],
       });
       runGenerate({
         cwd: root,
@@ -554,22 +547,60 @@ class OrmGenerate extends OrmMigrateCommand {
   }
 
   /**
+   * Refuse d'écrire le schéma initial sur une base qui porte déjà ces tables.
+   *
+   * @param opts - options reçues (porte le choix du format de sortie).
+   * @param connector - connecteur visé.
+   * @param name - nom demandé, cité dans le geste à rejouer après adoption.
+   * @param tables - tables que l'application fournit pour ce dialecte.
+   * @returns `this` si la commande a refusé, `null` s'il n'y a rien à redire.
+   */
+  async #alreadyInDatabase(
+    opts: IGenerateOptions,
+    connector: string,
+    name: string,
+    tables: readonly { tableName: string }[],
+  ): Promise<this | null> {
+    const presentes = tablesAlreadyPresent(
+      await comparisonAgainstDeclared(connector),
+      tables.map((t) => t.tableName),
+    );
+    if (presentes.length === 0) {
+      return null;
+    }
+    this.fail(
+      connector,
+      "NF_GENERATE_DATABASE_NOT_ADOPTED",
+      `Rien n'a été écrit : aucune migration n'existe encore, et la base porte ` +
+        `déjà ${presentes.length} des tables à créer (${presentes.join(", ")}).`,
+      "Une première migration décrit la création du schéma. Écrite ici, elle " +
+        "porterait un « CREATE TABLE » de tables qui existent, avec leurs " +
+        "données : elle ne s'appliquerait jamais, et l'adopter graverait dans " +
+        "l'historique un schéma que la base n'a pas. Cette base doit d'abord " +
+        "être ADOPTÉE — sa migration de référence se lit sur elle, pas sur le " +
+        "code, et rien n'est exécuté dessus. La suite redevient ordinaire : le " +
+        "champ ajouté produit alors un « ALTER TABLE ».",
+      [
+        action(
+          `nodefony orm:migrate:baseline --from-database --connector ${connector}`,
+        ),
+        action(`nodefony orm:generate --name ${name} --connector ${connector}`),
+      ],
+      opts.json,
+      EXIT.actionRequired,
+    );
+    return this;
+  }
+
+  /**
    * Tags actuellement inscrits au journal d'un dossier de sortie.
    *
    * @param outDir - dossier `<migrations>/<dialecte>`.
    * @returns les tags, ou `[]` si rien n'a encore été généré.
    */
   async #tags(outDir: string): Promise<string[]> {
-    try {
-      const raw = await fs.readFile(
-        path.join(outDir, "meta", "_journal.json"),
-        "utf8",
-      );
-      const journal = JSON.parse(raw) as { entries?: Array<{ tag: string }> };
-      return (journal.entries ?? []).map((e) => e.tag);
-    } catch {
-      return [];
-    }
+    const journal = await readJournal(outDir);
+    return (journal?.entries ?? []).map((e) => e.tag);
   }
 
   /**

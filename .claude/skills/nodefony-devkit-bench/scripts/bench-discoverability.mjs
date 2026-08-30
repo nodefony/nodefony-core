@@ -3482,18 +3482,32 @@ export const TASKS = [
     // L'énoncé ne nomme AUCUNE commande, et c'est le sujet : la tâche mesure si
     // l'agent trouve le chemin, pas s'il sait exécuter un chemin qu'on lui a
     // donné.
+    // 🔴 Chaîné en `&&`, et la ligne semée est RELUE — pas seulement postée.
+    //
+    // Ce décor a déjà menti : écrit en `;`, il rendait le code de sortie de sa
+    // DERNIÈRE commande. La migration initiale a échoué (l'outil qui l'écrit
+    // n'était pas installé), la table n'a jamais existé, le `curl` a été rejeté
+    // — et la tâche a été jouée quand même, sur une prémisse absente. Trois
+    // agents ont porté le rouge d'un trou qu'ils n'avaient pas laissé, et le
+    // ticket ouvert derrière accusait le mauvais composant.
+    //
+    // Un `curl` qui rend 0 ne prouve pas qu'une ligne est en base : c'est la
+    // RELIRE qui le prouve. Seul l'arrêt final tolère un échec — il n'y a rien
+    // à garantir sur l'extinction d'un serveur qu'on vient de démarrer.
     prepare:
       `npx --no-install nodefony create entity ${ENTITE_MIGREE} title:string! ` +
-      `--route ${ROUTE_ARTICLES} --yes >/dev/null 2>&1; ` +
-      `node ${PREPARE_BASE_MIGREE}; ` +
-      `npx --no-install nodefony orm:generate --name schema_initial >/dev/null 2>&1; ` +
-      `npx --no-install nodefony orm:migrate >/dev/null 2>&1; ` +
-      `npm run build >/dev/null 2>&1; ` +
-      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
-      `curl -s -X POST http://127.0.0.1:${PORTS.NF_PORT}${ROUTE_ARTICLES} ` +
+      `--route ${ROUTE_ARTICLES} --yes >/dev/null 2>&1 && ` +
+      `node ${PREPARE_BASE_MIGREE} && ` +
+      `npx --no-install nodefony orm:generate --name schema_initial >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony orm:migrate >/dev/null 2>&1 && ` +
+      `npm run build >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1 && ` +
+      `curl -sf -X POST http://127.0.0.1:${PORTS.NF_PORT}${ROUTE_ARTICLES} ` +
       `-H 'content-type: application/json' ` +
-      `-d '{"title":"${TITRE_SEME}"}' >/dev/null 2>&1; ` +
-      `npx --no-install nodefony stop >/dev/null 2>&1`,
+      `-d '{"title":"${TITRE_SEME}"}' >/dev/null 2>&1 && ` +
+      `curl -sf http://127.0.0.1:${PORTS.NF_PORT}${ROUTE_ARTICLES} ` +
+      `| grep -q '${TITRE_SEME}' && ` +
+      `{ npx --no-install nodefony stop >/dev/null 2>&1 || true; }`,
     prompt:
       `Ajoute un champ \`slug\` unique à l'entité ${ENTITE_MIGREE} de cette application. ` +
       "Sa base contient déjà des données en service : elle doit pouvoir suivre " +
@@ -4440,7 +4454,16 @@ function runTask(app, runDir, task) {
   // commit séparé, les sondes qui lisent les lignes AJOUTÉES prendraient le
   // décor pour son travail, et le déclareraient coupable de l'avoir écrit.
   if (task.prepare) {
-    const prep = spawnSync("sh", ["-c", task.prepare], {
+    // 🔴 `set -e` — la garde ci-dessous ne vaut que si l'interprète PROPAGE
+    // l'échec. `sh -c "a; b; c"` rend le statut de la DERNIÈRE commande : un
+    // décor dont l'étape centrale a échoué se présente comme posé, et la tâche
+    // est jugée sur une prémisse absente. Vécu sur la tâche 33 — l'outil de
+    // migration n'était pas installé, la migration initiale n'a jamais été
+    // écrite, la ligne témoin n'a jamais existé, et trois agents ont porté le
+    // rouge d'un trou qu'ils n'avaient pas laissé. La règle vit ICI, dans le
+    // lanceur, plutôt que dans la discipline de chaque énoncé : sept `prepare`
+    // sur huit chaînaient en `&&`, le huitième non, et rien ne le disait.
+    const prep = spawnSync("sh", ["-c", `set -e\n${task.prepare}`], {
       cwd: app,
       encoding: "utf8",
       env: APP_ENV,

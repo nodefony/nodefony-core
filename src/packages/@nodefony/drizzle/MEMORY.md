@@ -249,9 +249,30 @@ Exporté par `index.ts` (surface publiée : CLI, data plane, sonde, porte d'agen
   **jamais de reprise aveugle** : `repair()` après inspection humaine.
 - **Adoption explicite** (`baseline`) : historique vide + tables déjà présentes ⇒ refus
   `BASELINE_REQUIRED`. Jamais automatique — l'auto retirerait le filet « mauvaise base ».
+- **Base sans AUCUNE migration** (dev → prod) : le journal des FICHIERS est vide ⇒ `orm:generate`
+  émettrait le schéma initial de tables déjà là. Refus `NF_GENERATE_DATABASE_NOT_ADOPTED`
+  (`orm-generate.ts`, décision pure `tablesAlreadyPresent` — base muette ⇒ jamais de refus).
+  Le geste derrière : `orm:migrate:baseline --from-database` (`adopt.ts`) — `drizzle-kit
+introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) → **décommente** le
+  corps (une baseline commentée ne recrée RIEN sur une base neuve) → retire `schema.ts`/
+  `relations.ts` → `stampFormatMarker`. La garde `BASELINE_AMBIGUOUS` ne s'applique pas à ce
+  chemin : la référence DÉCRIT la base.
+- 🔴 **`tablesFilter` ne restreint PAS la lecture** : `introspect` lit la base ENTIÈRE puis filtre.
+  Deux conséquences. (1) Les tables non déclarées entrent dans la référence ⇒ constatées par
+  `snapshotTables` et publiées (`reference.extraTables`), sinon le diff suivant proposerait un
+  `DROP`. (2) **Sur MariaDB l'adoption est IMPOSSIBLE** : JSON y est `longtext` + `CHECK
+(json_valid(…))`, que l'outil ne sait pas lire — il meurt code 1, **stderr VIDE**, et les tables
+  du framework suffisent à le déclencher. `expliquerEchec` constate la version (`SELECT VERSION()`)
+  et rend un refus qui nomme la cause + le repli `--custom`. MySQL Community (json natif),
+  PostgreSQL et SQLite passent. **N'affecte QUE cette commande** — création, migration et runtime
+  MariaDB sont intacts.
+- ⚠️ **Une liste POSITIVE dans `tablesFilter` tue `introspect` sur MySQL** (`["une_table"]` ⇒
+  code 1) alors qu'elle passe sur SQLite/PostgreSQL. Toujours la forme « tout, sauf … ».
 - Preuves : `tests/integration/migrator-sqlite.test.ts` (14, dont l'application des migrations
   RÉELLEMENT livrées) · `migrator-postgres.e2e.test.ts` (5, gate `NF_PG_URL`) ·
   `migrator-mysql.e2e.test.ts` (5, gate `NF_MYSQL_URL`, passés sur MariaDB 11.4 ET MySQL 8.4) ·
+  `tests/integration/migrate-adopt.test.ts` (8 : décision pure, décommentage, adoption + ALTER
+  derrière, sur les 3 moteurs ; le verdict MySQL dépend du serveur CONSTATÉ, pas du port) ·
   `tests/unit/migratorContracts.test.ts` (9). **12 des 14 cas sqlite ont été vus ROUGES** par
   débranchement ciblé de leur garde ; les deux verrous idem.
 - ⚠️ Ce qui n'est PAS prouvé : deux bases RÉELLES sur le même serveur mysql (l'utilisateur

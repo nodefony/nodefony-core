@@ -34,6 +34,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Table, getTableName, is } from "drizzle-orm";
+import { entityRegistry } from "@nodefony/orm-core";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 import { PgTable } from "drizzle-orm/pg-core";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -304,6 +305,7 @@ export async function writeKitConfig({
   outDir,
   dialect,
   excludedTables,
+  dbUrl,
 }: {
   file: string;
   projectRoot: string;
@@ -311,9 +313,22 @@ export async function writeKitConfig({
   outDir: string;
   dialect: SqlDialect;
   excludedTables: readonly string[];
+  /**
+   * Coordonnées de connexion — posées UNIQUEMENT pour l'introspection.
+   *
+   * La génération, elle, ne touche aucune base : son diff se calcule entre les
+   * instantanés du dossier et les entités. Écrire des coordonnées dans sa
+   * configuration laisserait croire le contraire à qui relit le fichier, et
+   * ferait porter à une commande de lecture pure le risque d'une connexion.
+   */
+  dbUrl?: string;
 }): Promise<string> {
   const rel = (target: string): string =>
     `./${path.relative(projectRoot, target).split(path.sep).join("/")}`;
+  // 🔴 TOUJOURS de la forme « tout, sauf … ». Une liste POSITIVE tue
+  // l'introspection sur MySQL — code 1, sortie d'erreur VIDE, rien écrit —
+  // alors qu'elle passe sur SQLite et PostgreSQL. Mesuré sur les trois moteurs
+  // (`["*"]` et `["*", "!x"]` passent ; `["une_table"]` échoue).
   const filters = ["*", ...excludedTables.map((t) => `!${t}`)];
   const body =
     `// Fichier ENGENDRÉ par \`nodefony orm:generate\` — réécrit puis effacé.\n` +
@@ -324,6 +339,9 @@ export async function writeKitConfig({
     `  out: ${JSON.stringify(rel(outDir))},\n` +
     `  migrations: { prefix: "index" },\n` +
     `  tablesFilter: ${JSON.stringify(filters)},\n` +
+    (dbUrl === undefined
+      ? ""
+      : `  dbCredentials: { url: ${JSON.stringify(dbUrl)} },\n`) +
     `});\n`;
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, body, "utf8");
@@ -500,4 +518,31 @@ export function usurpedTables(
   frameworkTables: ReadonlySet<string>,
 ): IDiscoveredTable[] {
   return tables.filter((t) => frameworkTables.has(t.tableName));
+}
+
+/**
+ * Tables attendues sur un connecteur, telles que le REGISTRE les connaît.
+ *
+ * Le registre est la seule source qui sache ce que l'application DÉCLARE :
+ * les fichiers disent ce qu'elle fournit, la base ce qu'elle porte, et c'est
+ * le croisement des trois qui fait les verdicts. Deux commandes en dépendent —
+ * la génération pour repérer une entité sans fichier, l'adoption pour ne lire
+ * QUE les tables de l'application — et une seconde copie divergerait en
+ * silence.
+ *
+ * @param connector - connecteur visé.
+ * @returns les entités et leur table, dans l'ordre du registre.
+ */
+export function registeredTables(connector: string): IExpectedEntity[] {
+  const out: IExpectedEntity[] = [];
+  for (const entity of entityRegistry.list()) {
+    if (entity.connector !== connector) {
+      continue;
+    }
+    const schema = entity.schema as unknown;
+    if (is(schema, Table)) {
+      out.push({ entity: entity.name, table: getTableName(schema) });
+    }
+  }
+  return out;
 }
