@@ -412,6 +412,177 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         });
       }, 600_000);
 
+      /**
+       * Amène la base à l'état « héritée » : la table existe et porte le
+       * témoin, un fichier de migration la décrit, et l'historique de
+       * l'application est vide.
+       *
+       * Extrait parce que DEUX cas en ont besoin — la garde et son exemption —
+       * et qu'un décor recopié diverge de son jumeau sans que rien ne le dise.
+       *
+       * @param base - la base neuve du dialecte courant.
+       * @param avecTable - environnement déclarant la table SANS le champ ajouté.
+       * @returns le tag de l'unique migration applicative écrite.
+       */
+      const baseHeritee = async (
+        base: { sql: (q: string[]) => Promise<unknown> },
+        avecTable: Record<string, string>,
+      ): Promise<string> => {
+        const migre = await cli(["orm:migrate", "--json"], avecTable);
+        assert.equal(migre.code, 0, diagnostic(migre));
+        await base.sql([`DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE)}`]);
+        const initiale = await cli(
+          ["orm:generate", "--json", "--name", "heritage"],
+          avecTable,
+        );
+        assert.equal(initiale.code, 0, diagnostic(initiale));
+        const pose = await cli(["orm:migrate", "--json"], avecTable);
+        assert.equal(pose.code, 0, diagnostic(pose));
+        await base.sql([
+          `INSERT INTO ${citer(cible.dialect, TABLE)} ` +
+            `(${citer(cible.dialect, "id")}, ${citer(cible.dialect, "title")}) ` +
+            `VALUES ('1', '${TEMOIN}')`,
+        ]);
+        // L'HISTOIRE disparaît, les tables restent : l'état d'une base héritée.
+        await base.sql([
+          `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)} ` +
+            `WHERE ${citer(cible.dialect, "source")} = '${APP_SOURCE}'`,
+        ]);
+        const fichiers = (await fs.readdir(outDir)).filter((n) =>
+          n.endsWith(".sql"),
+        );
+        assert.equal(fichiers.length, 1, `décor : ${fichiers.join(", ")}`);
+        return (fichiers[0] as string).replace(/\.sql$/, "");
+      };
+
+      /**
+       * Table du FRAMEWORK, retirée de la base pour fabriquer un écart réel.
+       *
+       * 🔴 Pourquoi pas la table du décor applicatif : elle est déclarée par le
+       * module « test », qui porte `policy: "dev"`. Le décor de ce banc impose
+       * `NODE_ENV=production` — le module n'est donc pas chargé, sa table
+       * n'entre jamais au registre, et la comparaison au schéma déclaré ne peut
+       * pas la voir. Mesuré : le statut rend `up-to-date` sur une base à qui
+       * il manque une colonne. La garde était inexerçable par cette voie, et
+       * l'écart devait venir d'une entité qu'un module OBLIGATOIRE déclare.
+       *
+       * Celle-ci ne sert qu'aux routes idempotentes : la retirer ne gêne aucun
+       * démarrage.
+       */
+      const TABLE_FRAMEWORK = "idempotency_key";
+
+      it("🔴 adopter une base qui NE SUIT PAS le schéma déclaré est REFUSÉ", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          try {
+            // 1. La base reçoit tout ce que le framework déclare.
+            const migre = await cli(["orm:migrate", "--json"], env);
+            assert.equal(migre.code, 0, diagnostic(migre));
+
+            // 2. L'écart : une table déclarée que la base n'a plus. C'est
+            //    exactement l'état d'une base qu'on croit à niveau et qui ne
+            //    l'est pas — celui que l'adoption ne doit JAMAIS graver.
+            await base.sql([
+              `DROP TABLE IF EXISTS ${citer(cible.dialect, TABLE_FRAMEWORK)}`,
+            ]);
+
+            // 3. L'historique disparaît : il y a de nouveau quelque chose à
+            //    adopter, et c'est là que la garde doit parler.
+            await base.sql([
+              `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)}`,
+            ]);
+
+            const refus = await cli(["orm:migrate:baseline", "--json"], env);
+            const erreur = (parse(refus.stdout).error ?? {}) as {
+              code?: string;
+              nextActions?: { command: string }[];
+            };
+            assert.equal(
+              erreur.code,
+              "NF_MIGRATE_BASELINE_AMBIGUOUS",
+              `le MONTAGE de la garde n'a pas mordu : ${diagnostic(refus)}`,
+            );
+            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+            // Un refus laisse un GESTE, et celui-là est l'exemption même.
+            assert.ok(
+              (erreur.nextActions ?? []).some((a) =>
+                a.command.includes("--up-to"),
+              ),
+              `aucun geste vers l'exemption : ${JSON.stringify(erreur.nextActions)}`,
+            );
+            // Et il n'a RIEN inscrit : c'est l'autre moitié du contrat.
+            assert.equal(
+              await lireHistoire(base, cible.dialect),
+              0,
+              "un refus d'adoption a tout de même écrit dans l'historique",
+            );
+          } finally {
+            if (cible.dialect === "mysql") {
+              await base
+                .sql([
+                  `DROP TABLE IF EXISTS ${citer("mysql", TABLE_FRAMEWORK)}`,
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
+      it("🔴 « --up-to » EXEMPTE de la garde — c'est un contrat, pas un trou", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
+          const avecSlug = {
+            ...env,
+            NF_ADOPT_FIXTURE: `${cible.dialect}+slug`,
+          };
+          try {
+            const tag = await baseHeritee(base, avecTable);
+
+            // MÊME décor divergent que le cas précédent — seule l'option
+            // change. Borner l'adoption, c'est dire soi-même jusqu'où la base
+            // suit : la garde se tait, et l'adoption a lieu.
+            const adopte = await cli(
+              ["orm:migrate:baseline", "--up-to", tag, "--json"],
+              avecSlug,
+            );
+            assert.equal(adopte.code, 0, diagnostic(adopte));
+            const doc = parse(adopte.stdout);
+            assert.notEqual(
+              (doc.error as { code?: string } | undefined)?.code,
+              "NF_MIGRATE_BASELINE_AMBIGUOUS",
+              "l'exemption ne tient plus : la garde mord malgré --up-to",
+            );
+            assert.deepEqual(
+              (doc.adopted as { tag: string }[]).map((a) => a.tag),
+              [tag],
+              "l'adoption bornée n'a pas inscrit la migration nommée",
+            );
+            // Le témoin n'a pas bougé : adopter n'exécute aucun SQL.
+            assert.deepEqual(await lireTemoin(base, cible.dialect), [TEMOIN]);
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
       it("🔴 sur MariaDB, l'adoption est IMPOSSIBLE — et le refus le dit", async (ctx) => {
         if (cible.dialect !== "mysql" || !mariadb) {
           // L'inverse du cas précédent : ici, c'est AILLEURS qu'il n'y a rien
@@ -529,6 +700,37 @@ function diagnostic(run: {
  * @param dialect - moteur exercé.
  * @returns les titres présents.
  */
+/**
+ * Combien d'entrées l'historique porte-t-il ?
+ *
+ * Un refus doit n'avoir RIEN inscrit, et c'est la moitié de son contrat :
+ * l'autre moitié — le code rendu — se lit dans la charge utile. Une garde qui
+ * refuserait APRÈS avoir écrit laisserait exactement l'état qu'elle existe pour
+ * empêcher, et le code de sortie ne le dirait pas.
+ *
+ * @param base - la base à interroger.
+ * @param dialect - son dialecte, pour citer les identifiants.
+ * @returns le nombre de lignes inscrites, toutes sources confondues.
+ */
+async function lireHistoire(
+  base: { url: string },
+  dialect: SqlDialect,
+): Promise<number> {
+  const cible =
+    dialect === "sqlite"
+      ? { dialect, filename: base.url.replace(/^sqlite:/u, "") }
+      : { dialect, url: base.url };
+  const pilote = await openMigrationDriver(cible);
+  try {
+    const lignes = await pilote.query<{ tag: string }>(
+      `SELECT ${citer(dialect, "tag")} FROM ${citer(dialect, HISTORY_TABLE)}`,
+    );
+    return lignes.length;
+  } finally {
+    await pilote.close();
+  }
+}
+
 async function lireTemoin(
   base: { url: string },
   dialect: SqlDialect,
