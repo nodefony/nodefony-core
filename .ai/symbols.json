@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-30T09:34:04.320Z",
+  "generated": "2026-08-30T09:40:54.162Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3548,
+    "symbols": 3547,
     "classes": 382,
     "interfaces": 984,
     "types": 423,
     "enums": 4,
     "functions": 1403,
-    "constants": 352
+    "constants": 351
   },
   "symbols": {
     "Cli": {
@@ -19810,14 +19810,6 @@
       "module": "@nodefony/drizzle",
       "description": "Pose le marqueur de format en tête des `.sql` d'un dossier qui ne l'ont pas. Écrit en fins de ligne `\\n` quel que soit le système : le dépôt et le gabarit d'application déclarent `* text=auto eol=l…"
     },
-    "FORMAT_MARKER": {
-      "name": "FORMAT_MARKER",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Marqueur de format posé en tête de chaque `.sql` — la porte de sortie."
-    },
     "MigrationNameCheck": {
       "name": "MigrationNameCheck",
       "kind": "type",
@@ -20390,7 +20382,7 @@
       "module": "@nodefony/drizzle",
       "description": "Contrats de l'applicateur de migrations — verdicts, entrées de journal, historique, plan, et le pilote à connexion unique dont il a besoin. **Pourquoi un fichier de types séparé** : ces formes trav…"
     },
-    "@nodefony/drizzle:FORMAT_MARKER": {
+    "FORMAT_MARKER": {
       "name": "FORMAT_MARKER",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
@@ -32709,6 +32701,7 @@
       ],
       "FORMAT_MARKER": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
       "verdictOf": [

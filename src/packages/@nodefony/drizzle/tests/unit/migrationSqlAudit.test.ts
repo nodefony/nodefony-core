@@ -153,3 +153,53 @@ describe("auditMigrationSql — ce qui détruit, ce qui verrouille", () => {
     });
   });
 });
+
+/**
+ * Les DEUX portes qui jugent le même SQL, confrontées l'une à l'autre.
+ *
+ * Le dépôt tient qu'une règle a une seule implémentation. Ici, deux tables de
+ * motifs coexistent : celle de la GÉNÉRATION (`auditMigrationSql`, qui relit ce
+ * que l'outil vient d'écrire) et celle de l'APPLICATION (`scanDestructive`, qui
+ * relit ce qui va être exécuté). Elles ne sont pas redondantes — elles jugent à
+ * deux moments où l'on ne peut pas la même chose : à la génération l'auteur
+ * peut encore renoncer, à l'application le fichier est déjà relu et versionné.
+ *
+ * Mais deux tables divergent en silence, chacune verte dans ses propres tests.
+ * Ce banc est le filet que le dépôt prescrit quand une duplication reste :
+ * il compare les deux VERDICTS, motif par motif, et rend l'asymétrie
+ * intentionnelle au lieu de la laisser être un oubli.
+ */
+describe("les deux portes du SQL destructeur — aucune divergence SILENCIEUSE", () => {
+  /** Un échantillon par famille, écrit pour être reconnu des deux côtés. */
+  const ECHANTILLONS: { sql: string; famille: string }[] = [
+    { sql: "DROP TABLE `article`;", famille: "drop-table" },
+    { sql: "ALTER TABLE `a` DROP COLUMN `b`;", famille: "drop-column" },
+    { sql: "TRUNCATE TABLE `article`;", famille: "truncate" },
+  ];
+
+  it("🔴 ce que l'APPLICATION tient pour une perte, la GÉNÉRATION le refuse aussi", () => {
+    for (const { sql, famille } of ECHANTILLONS) {
+      const aLaGeneration = auditMigrationSql(sql, "sqlite").destructive;
+      assert.ok(
+        aLaGeneration.length > 0,
+        `« ${famille} » passe la génération sans un mot : les deux portes ` +
+          `divergent, et c'est la plus permissive qui décide`,
+      );
+    }
+  });
+
+  it("🔴 l'asymétrie ASSUMÉE est nommée — le changement de type", () => {
+    // Cette famille est destructive à la génération et seulement « rupture » à
+    // l'application, et c'est VOULU : à la génération on peut encore renoncer,
+    // à l'application le fichier a été relu et versionné. Le test existe pour
+    // que ce choix reste un CHOIX : le jour où l'un des deux côtés change, il
+    // tombe, et quelqu'un doit trancher à nouveau.
+    const sql = "ALTER TABLE `a` ALTER COLUMN `b` TYPE integer;";
+    assert.ok(
+      auditMigrationSql(sql, "postgres").destructive.some(
+        (r) => r.id === "alter-column-type",
+      ),
+      "le changement de type doit être refusé à la GÉNÉRATION",
+    );
+  });
+});

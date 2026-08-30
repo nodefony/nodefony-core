@@ -198,7 +198,11 @@ export class DrizzleMigrator {
       return { runId, applied };
     } finally {
       await driver.unlock().catch(() => undefined);
-      await driver.close();
+      // Fermer est un nettoyage : une exception ici REMPLACERAIT l'erreur en
+      // vol, et l'exploitant lirait un échec de fermeture au lieu de l'erreur
+      // SQL qui a fait tomber sa migration — le diagnostic partirait du
+      // mauvais côté.
+      await driver.close().catch(() => undefined);
     }
   }
 
@@ -209,6 +213,14 @@ export class DrizzleMigrator {
    * déclencherait toute seule retirerait le filet qui protège de la pire des
    * erreurs — se tromper de base. Rejouer l'adoption n'inscrit que ce qui
    * manque.
+   *
+   * ⚠️ **Cette méthode ne vérifie PAS que la base porte l'état qu'elle
+   * inscrit.** Le contrôle vit chez son appelant (la commande, qui compare la
+   * base au schéma déclaré et refuse `NF_MIGRATE_BASELINE_AMBIGUOUS`). Elle
+   * traverse pourtant la frontière du paquet : un consommateur qui l'appelle
+   * directement DOIT constater l'écart d'abord (`gapAgainstDeclared`), sans
+   * quoi il grave un historique complet devant une base qui ne suit pas — et
+   * plus aucune commande n'offre alors de geste, sinon `repair --forget`.
    *
    * @param upTo - dernier tag inscrit (inclus) ; toutes les restantes si omis.
    * @returns les migrations inscrites.
@@ -331,7 +343,11 @@ export class DrizzleMigrator {
       return adopted;
     } finally {
       await driver.unlock().catch(() => undefined);
-      await driver.close();
+      // Fermer est un nettoyage : une exception ici REMPLACERAIT l'erreur en
+      // vol, et l'exploitant lirait un échec de fermeture au lieu de l'erreur
+      // SQL qui a fait tomber sa migration — le diagnostic partirait du
+      // mauvais côté.
+      await driver.close().catch(() => undefined);
     }
   }
 
@@ -393,7 +409,11 @@ export class DrizzleMigrator {
       return { cleared, rehashed, forgotten };
     } finally {
       await driver.unlock().catch(() => undefined);
-      await driver.close();
+      // Fermer est un nettoyage : une exception ici REMPLACERAIT l'erreur en
+      // vol, et l'exploitant lirait un échec de fermeture au lieu de l'erreur
+      // SQL qui a fait tomber sa migration — le diagnostic partirait du
+      // mauvais côté.
+      await driver.close().catch(() => undefined);
     }
   }
 

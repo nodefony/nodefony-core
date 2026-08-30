@@ -96,9 +96,18 @@ export async function entityFilesOf(targetDir: string): Promise<string[]> {
   let names: string[];
   try {
     names = await fs.readdir(dir);
-  } catch {
+  } catch (e) {
     // Une cible sans entités est le cas NORMAL (un module de routes, un module
     // de front) : ce n'est pas une anomalie, il n'y a rien à dire.
+    //
+    // 🔴 Mais SEULEMENT l'absence. Tout avaler faisait lire « cette cible n'a
+    // pas d'entités » sur un défaut de droits ou un chemin qui n'est pas un
+    // dossier — c'est-à-dire un schéma silencieusement AMPUTÉ, et une migration
+    // écrite sans une table. Une migration ne se corrige pas : elle se
+    // remplace, sur toutes les bases qui ont reçu la première.
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw e;
+    }
     return [];
   }
   return names

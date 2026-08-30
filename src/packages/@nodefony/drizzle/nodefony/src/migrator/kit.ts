@@ -47,8 +47,16 @@ interface IAuditPattern extends IAuditRule {
   dialects?: readonly SqlDialect[];
 }
 
-/** Marqueur de format posé en tête de chaque `.sql` — la porte de sortie. */
-export const FORMAT_MARKER = "-- nodefony:migration format=1";
+/**
+ * Marqueur de format, RÉ-EXPORTÉ depuis sa seule définition.
+ *
+ * Il était défini deux fois dans ce même dossier : ici pour l'ÉCRIRE, dans
+ * `types.ts` pour le LIRE. Le jour d'un `format=2`, celui qui édite l'une des
+ * deux copies fabrique un générateur qui estampille un format que le lecteur
+ * refuse — chaque copie restant verte dans ses propres tests.
+ */
+export { FORMAT_MARKER } from "./types";
+import { FORMAT_MARKER } from "./types";
 
 /**
  * Résout le binaire de `drizzle-kit` sans passer par un lanceur de shell.
