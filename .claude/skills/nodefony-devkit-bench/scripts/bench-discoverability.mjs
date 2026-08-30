@@ -3513,7 +3513,16 @@ export const TASKS = [
       `-d '{"title":"${TITRE_SEME}"}' >/dev/null 2>&1 && ` +
       `curl -sf http://127.0.0.1:${PORTS.NF_PORT}${ROUTE_ARTICLES} ` +
       `| grep -q '${TITRE_SEME}' && ` +
-      `{ npx --no-install nodefony stop >/dev/null 2>&1 || true; }`,
+      // 🔴 ATTENDRE que le port soit rendu, pas seulement que l'arrêt réponde.
+      // `stop` rend la main avant que le système ait libéré l'écoute : le juge
+      // démarrait alors son propre serveur, trouvait le port déjà tenu, et
+      // écartait le run pour « cause de décor ». Un run écarté est un run payé
+      // pour rien — et c'est arrivé sur la première répétition de trois.
+      `{ npx --no-install nodefony stop >/dev/null 2>&1 || true; } && ` +
+      `for i in $(seq 1 40); do ` +
+      `  nc -z 127.0.0.1 ${PORTS.NF_PORT} 2>/dev/null || break; ` +
+      `  sleep 0.25; ` +
+      `done`,
     prompt:
       `Ajoute un champ \`slug\` unique à l'entité ${ENTITE_MIGREE} de cette application. ` +
       "Sa base contient déjà des données en service : elle doit pouvoir suivre " +

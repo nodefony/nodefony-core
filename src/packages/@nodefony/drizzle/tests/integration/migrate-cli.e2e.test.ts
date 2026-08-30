@@ -428,6 +428,32 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
       );
       const error = (parse(r.stdout).error ?? {}) as Record<string, unknown>;
       assert.equal(error.code, "NF_MIGRATE_NOT_DEVELOPMENT", env);
+
+      // 🔴 AUCUN geste proposé ne doit rouvrir la garde. Ce refus offrait
+      // `NODE_ENV=development nodefony orm:reset` : la liste blanche lit
+      // `NODE_ENV` en premier, donc la ligne À COPIER effaçait la base de
+      // production de qui la copiait — et le contrat dit qu'un agent exécute
+      // le premier geste sans lire la prose. Un refus qui arme le geste qu'il
+      // refuse est pire qu'une absence de garde.
+      const gestes = ((error.nextActions ?? []) as { command: string }[]).map(
+        (a) => a.command,
+      );
+      assert.ok(
+        gestes.length > 0,
+        `environnement « ${env} » : un refus sans geste est une impasse`,
+      );
+      for (const geste of gestes) {
+        assert.doesNotMatch(
+          geste,
+          /NODE_ENV\s*=/u,
+          `le refus propose de contourner sa propre garde : « ${geste} »`,
+        );
+        assert.doesNotMatch(
+          geste,
+          /orm:reset/u,
+          `le refus propose la commande qu'il vient de refuser : « ${geste} »`,
+        );
+      }
     }
   }, 180_000);
 
