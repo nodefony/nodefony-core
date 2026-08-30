@@ -18,6 +18,7 @@ import {
   openMigrationDriver,
   type IMigrationTarget,
 } from "../../nodefony/src/migrator/drivers/index";
+import { splitStatements } from "../../nodefony/src/migrator/sources";
 import {
   runGenerate,
   stampFormatMarker,
@@ -349,6 +350,44 @@ for (const cible of CIBLES) {
         false,
         "les modules TypeScript déposés par l'outil décrivent un schéma que personne ne maintiendrait",
       );
+
+      // 🔴 « Rejouable » s'EXÉCUTE, il ne se déclare pas. L'assertion
+      // précédente lisait `runnable`, que le code sous test met lui-même à
+      // vrai : un décommentage qui avalerait la parenthèse fermante passait
+      // les deux expressions régulières, et le premier environnement neuf
+      // monté depuis ces fichiers serait mort sur une erreur de syntaxe.
+      // On repart donc d'une base SANS la table, et on joue la référence.
+      await sql([
+        `DROP TABLE ${cible.dialect === "postgres" ? `"${TABLE}"` : `\`${TABLE}\``}`,
+      ]);
+      const pilote = await openMigrationDriver(cible.target);
+      try {
+        // Bornée à NOTRE table : ce décor appelle la brique directement, sans
+        // la liste d'exclusion que la commande, elle, compose — la référence
+        // décrit donc aussi les tables du framework, qui existent déjà sur les
+        // serveurs partagés. Ce qu'on éprouve ici est que le fragment décrivant
+        // la table adoptée s'EXÉCUTE, ce qu'aucune expression régulière ne dit.
+        const instructions = splitStatements(ecrit).filter((i) =>
+          i.includes(TABLE),
+        );
+        assert.ok(
+          instructions.length > 0,
+          "la référence ne porte aucune instruction sur la table adoptée",
+        );
+        for (const statement of instructions) {
+          await pilote.exec(statement);
+        }
+        // La table existe de nouveau — constatée EN BASE, pas déduite.
+        assert.deepEqual(
+          await pilote.query(
+            `SELECT title FROM ${cible.dialect === "postgres" ? `"${TABLE}"` : `\`${TABLE}\``}`,
+          ),
+          [],
+          "la référence rejouée doit rendre une table VIDE, et non échouer",
+        );
+      } finally {
+        await pilote.close();
+      }
     });
 
     it("après adoption, le champ ajouté produit un ALTER — plus un CREATE", async () => {
