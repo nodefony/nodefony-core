@@ -224,6 +224,15 @@ jobs:
         working-directory: src/packages/@nodefony/drizzle
         env:
           NF_RUN_CLI_BOOT: "1"
+          # Passe FILTRÉE (deux fichiers) d'un paquet dont la configuration
+          # porte un `gateReporter` : ce qu'elle n'exerce pas doit être ÉNONCÉ,
+          # jamais laissé au silence — c'est ce que `ciGateVars.test.ts` contrôle.
+          # Ici la liste est VIDE, et c'est un constat, pas une facilité : ces
+          # deux bancs jouent leurs cas sur les trois moteurs, et le job pose
+          # `NF_PG_URL` et `NF_MYSQL_URL`. Mesuré en rejouant la passe avec ce
+          # décor : « ✔ Cibles d'infra toutes exercées : PostgreSQL, MySQL /
+          # MariaDB ». Rien n'est écarté, et la variable le dit.
+          NF_GATES_ALLOW: ""
         run: >-
           npx vitest run
           tests/integration/migrate-cli.e2e.test.ts
