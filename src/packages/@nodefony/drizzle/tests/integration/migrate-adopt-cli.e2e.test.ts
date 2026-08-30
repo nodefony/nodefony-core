@@ -58,6 +58,9 @@ import {
  */
 
 /** Un nom propre à ce banc — les bases de serveur sont partagées. */
+/** Nom de la table du framework que la variante « usurpe » prend. */
+const USURPED_FRAMEWORK_TABLE = "idempotency_key";
+
 const TABLE = "adopt_cli_article";
 
 /** La ligne qu'aucune adoption n'a le droit de perdre. */
@@ -83,9 +86,19 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
        */
       const outDir = path.join(ROOT, "migrations", cible.dialect);
 
-      /** Le dossier de sortie n'a JAMAIS le droit de survivre à un cas. */
+      /**
+       * Le dossier de sortie n'a JAMAIS le droit de survivre à un cas.
+       *
+       * Son PARENT non plus quand il devient vide : « migrations/ » est créé
+       * par la commande à la racine du dépôt, et n'en retirer que le
+       * sous-dossier du dialecte y laissait une coquille vide après chaque
+       * passage. Un décor de banc ne se dépose pas dans le dépôt, même vide —
+       * il finit par se faire commiter, ou par faire douter de ce qu'on voit.
+       * « rmdir » refuse un dossier non vide : c'est la garde, pas un « rm -r ».
+       */
       const netToyer = async (): Promise<void> => {
         await fs.rm(outDir, { recursive: true, force: true });
+        await fs.rmdir(path.dirname(outDir)).catch(() => undefined);
       };
 
       beforeEach(netToyer);
@@ -566,6 +579,67 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             );
             // Le témoin n'a pas bougé : adopter n'exécute aucun SQL.
             assert.deepEqual(await lireTemoin(base, cible.dialect), [TEMOIN]);
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
+      it("🔴 décrire une table du FRAMEWORK est refusé à la génération", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          // La découverte lit les FICHIERS, pas le registre : le décor est donc
+          // visible même si son module n'est pas chargé — c'est ce qui rend ce
+          // refus exerçable là où celui de l'adoption ne l'était pas.
+          const usurpe = {
+            ...env,
+            NF_ADOPT_FIXTURE: `${cible.dialect}+usurpe`,
+          };
+          try {
+            const migre = await cli(["orm:migrate", "--json"], env);
+            assert.equal(migre.code, 0, diagnostic(migre));
+
+            const refus = await cli(
+              ["orm:generate", "--json", "--name", "usurpation"],
+              usurpe,
+            );
+            const erreur = (parse(refus.stdout).error ?? {}) as {
+              code?: string;
+              summary?: string;
+            };
+            assert.equal(
+              erreur.code,
+              "NF_GENERATE_FRAMEWORK_TABLE",
+              `le MONTAGE du refus n'a pas mordu : ${diagnostic(refus)}`,
+            );
+            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+            // Le refus NOMME la table et le fichier : sans eux, l'utilisateur
+            // sait qu'il a tort et pas où.
+            assert.match(
+              String(erreur.summary),
+              new RegExp(USURPED_FRAMEWORK_TABLE, "u"),
+            );
+            // Et il n'a RIEN écrit — un refus qui laisse un fichier derrière
+            // lui fait appliquer le lendemain ce qu'il refusait la veille.
+            const ecrits = await fs
+              .readdir(outDir)
+              .then((n) => n.filter((x) => x.endsWith(".sql")))
+              .catch(() => [] as string[]);
+            assert.deepEqual(ecrits, [], "un refus a tout de même écrit");
           } finally {
             if (cible.dialect === "mysql") {
               const noms = await tablesEcrites();

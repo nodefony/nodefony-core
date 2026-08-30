@@ -32,12 +32,27 @@ import { entityRegistry } from "@nodefony/orm-core";
  * `NF_ADOPT_FIXTURE=<dialecte>+slug` — la même table, avec le champ que
  * l'agent ajoute après l'adoption : c'est lui qui doit produire un `ALTER`, et
  * non un second `CREATE TABLE`.
+ * `NF_ADOPT_FIXTURE=<dialecte>+usurpe` — une table de l'application qui porte
+ * le nom d'une table du FRAMEWORK. Décrire ici une table que les migrations du
+ * framework créent déjà produirait un second `CREATE TABLE` pour elle : la
+ * migration passerait sur une base vierge et échouerait sur toute base déjà
+ * migrée, c'est-à-dire en production et nulle part ailleurs. La génération doit
+ * REFUSER, et ce refus n'était prouvé que par sa brique.
  *
  * Une valeur absente n'exporte AUCUNE table : le fichier s'importe, et il n'y
  * a rien à trouver dedans. C'est voulu — la découverte des entités lit le
  * disque, pas le registre.
  */
 export const ADOPT_FIXTURE_TABLE = "adopt_cli_article";
+
+/**
+ * Table du FRAMEWORK dont la variante « usurpe » prend le nom.
+ *
+ * Choisie parce qu'elle ne sert qu'aux routes idempotentes : rien de ce que le
+ * banc fait par ailleurs n'en dépend, et le refus attendu porte sur le NOM, pas
+ * sur ce que la table contient.
+ */
+export const USURPED_FRAMEWORK_TABLE = "idempotency_key";
 
 /** Connecteur du décor — celui de l'application, comme une entité normale. */
 export const ADOPT_FIXTURE_CONNECTOR = "default";
@@ -46,6 +61,7 @@ export const ADOPT_FIXTURE_CONNECTOR = "default";
 const consigne = (process.env.NF_ADOPT_FIXTURE ?? "").trim();
 const [dialecte, variante] = consigne.split("+");
 const avecSlug = variante === "slug";
+const usurpe = variante === "usurpe";
 
 /**
  * La table telle que l'application la déclare — ou `undefined` hors banc.
@@ -77,6 +93,31 @@ export const adoptFixtureTable: unknown =
             ...(avecSlug ? { slug: mysqlText("slug") } : {}),
           })
         : undefined;
+
+/**
+ * Une table de l'application qui porte le nom d'une table du framework.
+ *
+ * Exportée UNIQUEMENT sous la consigne « +usurpe » : un export permanent
+ * entrerait dans toute génération lancée depuis le dépôt et ferait refuser
+ * celle-ci pour de bon. Sa forme n'a aucune importance — c'est son NOM que la
+ * génération doit reconnaître, avant même de regarder ses colonnes.
+ */
+export const usurpedFixtureTable: unknown =
+  !usurpe || dialecte === undefined
+    ? undefined
+    : dialecte === "sqlite"
+      ? sqliteTable(USURPED_FRAMEWORK_TABLE, {
+          key: sqliteText("key").primaryKey(),
+        })
+      : dialecte === "postgres"
+        ? pgTable(USURPED_FRAMEWORK_TABLE, {
+            key: pgText("key").primaryKey(),
+          })
+        : dialecte === "mysql"
+          ? mysqlTable(USURPED_FRAMEWORK_TABLE, {
+              key: varchar("key", { length: 190 }).primaryKey(),
+            })
+          : undefined;
 
 /**
  * Inscrit la table du décor au registre des entités, si un banc l'a demandée.
