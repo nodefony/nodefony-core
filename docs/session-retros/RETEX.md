@@ -658,6 +658,14 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 08-31] **Le BANC était victime de la règle qu'il devait garder.** Pour prouver la garde
+  d'adoption, j'ai fabriqué un écart sur la table du décor applicatif — sans effet : cette table
+  vient d'un module `policy: "dev"`, et le décor impose `NODE_ENV=production`. Le module n'est
+  pas chargé, sa table n'entre jamais au registre, et `orm:migrate:status` rend `up-to-date` sur
+  une base à qui il manque une colonne déclarée. J'ai d'abord cru tenir un défaut du produit.
+  La distinction à retenir : **la génération lit les FICHIERS, la comparaison lit le REGISTRE** —
+  un module dev est absent du second en production, jamais du premier. Corollaire : un décor de
+  banc se choisit sur ce que le mode de run CHARGE, pas sur ce que le dépôt contient.
 - [1× — 08-30c] **L'autotest d'un décor restait vert pendant que le décor ne se posait plus.** Le gabarit d'application déclare son module ORM en chaîne nue (`"@nodefony/drizzle",`) ; l'ancre du script cherchait un appel `use(...)`. Le banc DISAIT correctement « prémisse non posée, tâche non jouée » — mais trois répétitions ont été payées pour un verdict vide, deux fois de suite, parce que l'autotest ne connaissait que l'autre écriture. **Un autotest qui ne couvre pas la forme RÉELLE de l'artefact qu'il lit ne garde rien.**
 - [1× — 08-30c] **Une preuve qui s'auto-déclare.** Le banc d'adoption vérifiait que la référence est « rejouable » en lisant un champ que le code sous test met lui-même à vrai, plus deux expressions régulières. Un décommentage qui aurait avalé une parenthèse fermante passait les trois. La référence est désormais EXÉCUTÉE sur une base sans la table.
 
@@ -893,6 +901,14 @@
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
+- [1× — 08-31] **Le fourre-tout a fait DÉTRUIRE une base.** Un agent avait suivi le conseil
+  « éprouve la migration sur une copie » ; sa copie, fabriquée à la main faute de savoir quel
+  fichier copier, portait une table d'historique inventée. La migration a échoué sur `no such
+column: source` — et le fourre-tout des pannes a habillé ça de DEUX causes fausses, « la base
+  n'a pas répondu » et « le compte n'a pas les droits ». La base répondait parfaitement. Sans
+  issue, il a détruit la vraie. Le message était vrai sur la mécanique et faux sur la cause :
+  troisième fois en trois sessions que ce motif coûte une base. Un fourre-tout ne doit RIEN
+  affirmer — et ce qu'il peut reconnaître doit sortir AVANT lui.
 - [1× — 08-29] « pod 1 n'a jamais écouté sur 5251 » : le pod écoutait, journalisait et servait la requête — c'est `/` qui mourait dans le magasin de session, faute de table. La sonde du banc interrogeait `/`, donc la réponse dépendait de toute l'application. Trois questions distinctes exigent trois sondes : le port (`/livez`), le service (`/readyz` 200), l'application (`/`). Le même banc a ensuite accusé le port alors qu'un runtime de développement tenait le verrou d'instance unique — cause désormais NOMMÉE (`causeProbable`).
 - [1× — 08-28h] **DEUX messages EXACTS qui envoyaient chercher au mauvais endroit, dans la même
   commande.** (1) Un connecteur SQL enregistré hors configuration recevait « ne gère pas de
@@ -1072,6 +1088,12 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [2× — 08-31] **Débrancher sans REBÂTIR ne débranche rien.** Trois fois dans la même session :
+  garde neutralisée, banc relancé, VERT — et j'ai failli conclure que mon test ne mordait pas. La
+  commande s'exécute depuis `dist` ; le débranchement vivait dans les sources. Le vert n'était pas
+  un test complaisant, c'était l'ANCIEN code. Tout débranchement destiné à un banc qui lance un
+  processus se termine par un `build --force`, et la preuve du débranchement se prend sur
+  l'artefact bâti, pas sur le fichier édité.
 - [1× — 08-30] **Deux défauts n'existaient QUE dans l'artefact rendu, invisibles au gabarit.** La
   CI générée pour MySQL était un YAML **cassé** (délimiteur de heredoc en colonne 0, qui termine le
   bloc scalaire) ; le script d'initialisation des bases, écrit en `.sh`, **tuait le serveur au
@@ -1710,6 +1732,14 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
 
+- [1× — 08-31] **Ma sauvegarde a été emportée par la garde qu'elle devait précéder — parce
+  qu'elle était dans la MÊME chaîne `&&`.** J'avais écrit `cp <fichier> <copie> && <geste git
+risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution, donc la copie n'a
+  jamais eu lieu, et j'ai perdu le correctif que je m'apprêtais à débrancher. La garde a
+  parfaitement fait son travail ; c'est ma chaîne qui était mal formée. **Une sauvegarde se prend
+  dans sa PROPRE commande**, jamais accolée au geste risqué qu'elle protège — sinon elle partage
+  son sort. Même famille : cette garde inspecte le TEXTE de la commande, donc écrire le nom d'un
+  geste interdit dans un commentaire ou une chaîne suffit à la déclencher.
 - [1× — 08-29] La surcharge par l'environnement refusait une clé DÉCLARÉE parce qu'elle naviguait dans la VALEUR de la config, jamais dans son schéma : une clé `optional()` sans défaut n'y figure pas. Le message annonçait « segment inconnu » pour un réglage documenté et lu — l'utilisateur relit l'orthographe de sa variable, la trouve juste, et ne peut pas deviner. Ce sont exactement les réglages dont l'ABSENCE est signifiante qui tombaient.
 - [1× — 08-29] Affaiblir une sonde faisait perdre AUTRE CHOSE : le noyau tolérait un échec de démarrage tant qu'une rétention existait, et `check: "warn"` n'inscrivait plus rien. Le réglage qu'on pose pour se donner de l'air transformait une table absente en boucle de redémarrage. **Publier un état et retenir le trafic sont deux actes.**
 - [1× — 08-28k] **Obéir au mode de schéma a rendu la commande de migration INATTEIGNABLE.** En

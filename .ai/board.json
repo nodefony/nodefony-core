@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T10:30:14.635Z",
+  "generatedAt": "2026-08-30T22:19:33.935Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 37,
+      "closed": 38,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 41,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -142,7 +142,7 @@
       "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
-      "jours": 7.5,
+      "jours": 2.5,
       "ordre": 2,
       "labels": [
         "10.0.0"
@@ -275,6 +275,20 @@
       ]
     },
     {
+      "number": 118,
+      "title": "fix(orm): ne pas régénérer une table que la base porte déjà",
+      "url": "https://github.com/nodefony/nodefony-core/issues/118",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 117,
       "title": "fix(cli): installer l'outil de migration qu'une entité ajoute",
       "url": "https://github.com/nodefony/nodefony-core/issues/117",
@@ -296,18 +310,6 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.52,
-      "labels": []
-    },
-    {
-      "number": 118,
-      "title": "fix(orm): ne pas régénérer une table que la base porte déjà",
-      "url": "https://github.com/nodefony/nodefony-core/issues/118",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": null,
-      "priorite": "P0 — bloque le reste",
-      "jours": 1,
-      "ordre": 2.53,
       "labels": []
     },
     {
@@ -367,9 +369,37 @@
       ]
     },
     {
+      "number": 119,
+      "title": "fix(orm): lire les chaînes SQL avec la grammaire du moteur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/119",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 101,
       "title": "feat(cli): livrer de quoi migrer dans l'application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/101",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.8,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 120,
+      "title": "test(orm): prouver les refus des commandes, pas leurs briques",
+      "url": "https://github.com/nodefony/nodefony-core/issues/120",
       "state": "CLOSED",
       "status": "Done",
       "milestone": "10.0.0",
@@ -400,6 +430,20 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/113",
       "state": "CLOSED",
       "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.9,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 122,
+      "title": "test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit",
+      "url": "https://github.com/nodefony/nodefony-core/issues/122",
+      "state": "OPEN",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -522,34 +566,6 @@
       "labels": [
         "10.0.0",
         "rattrapable"
-      ]
-    },
-    {
-      "number": 119,
-      "title": "fix(orm): lire les chaînes SQL avec la grammaire du moteur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/119",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.7,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 120,
-      "title": "test(orm): prouver les refus des commandes, pas leurs briques",
-      "url": "https://github.com/nodefony/nodefony-core/issues/120",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.8,
-      "labels": [
-        "10.0.0"
       ]
     },
     {
@@ -831,6 +847,20 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 11.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 90,
+      "title": "test(devkit): auditer le module généré comme l'application générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/90",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 11.7,
       "labels": [
         "10.0.0"
       ]
@@ -1461,25 +1491,11 @@
       ]
     },
     {
-      "number": 90,
-      "title": "test(devkit): auditer le module généré comme l'application générée",
-      "url": "https://github.com/nodefony/nodefony-core/issues/90",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": null,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
       "number": 121,
       "title": "fix(orm): rendre le même verdict sur la casse d'une table",
       "url": "https://github.com/nodefony/nodefony-core/issues/121",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
