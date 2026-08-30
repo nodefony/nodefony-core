@@ -108,8 +108,15 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   d'abord promeut un séparateur écrit DANS un commentaire (le gabarit de `orm:generate --custom`
   cite la phrase : toute migration libre échouait), nettoyer d'abord emporte les vrais séparateurs.
   Balayage ligne par ligne, une seule passe, avec l'état « dans une chaîne ». Le séparateur n'est
-  PAS reconnu « ligne entière » : drizzle-kit le colle en fin d'instruction. `indexHorsChaine`
-  ignore celui qui vit dans une valeur littérale.
+  PAS reconnu « ligne entière » : drizzle-kit le colle en fin d'instruction, et celui qui vit dans
+  une valeur littérale est ignoré. 🔴 **La grammaire de chaîne est celle du MOTEUR** — `splitStatements`
+  prend le dialecte en paramètre REQUIS (`GRAMMAIRES_CHAINE`) : MySQL échappe par contre-oblique,
+  PostgreSQL délimite par `$tag$` et par `E'…'`, SQLite ne connaît ni l'un ni l'autre. Une grammaire
+  fausse ne lève RIEN : elle retire une ligne de donnée prise pour un commentaire, ou coupe une
+  instruction sur un séparateur porté par un texte — et la migration s'inscrit en succès avec
+  l'empreinte du fichier entier. Un SEUL balayage (`balayerLigne`) répond aux deux questions (où
+  couper, chaîne ouverte en fin de ligne) : les deux fonctions jumelles d'avant portaient chacune sa
+  copie de la grammaire. Ne concerne que les migrations LIBRES (`--custom`).
 - **Lecture du catalogue = UNE implémentation** (`migrator/catalog.ts`, `schemaReader(dialect,
 query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit sur SA connexion :
   ouvrir un pilote sur `:memory:` désignerait une base VIDE et rendrait un verdict faux.
