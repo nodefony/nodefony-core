@@ -27,6 +27,39 @@ import {
  * les bancs PostgreSQL et MySQL : l'éprouver ici ne prouverait rien, puisque
  * SQLite n'a ni verrou consultatif ni concurrence de process.
  */
+/**
+ * Vérifie qu'un refus de migration en échec OUVRE une reprise sans destruction.
+ *
+ * Le test qui manquait : les deux refus disaient l'état (« le marqueur bloque »)
+ * et le geste d'inspection, jamais la sortie. Un message vrai qui ne laisse
+ * aucun geste conduit à en inventer un, et celui qu'on trouve seul est de
+ * recréer la base.
+ *
+ * @param e - erreur portant le verdict à contrôler.
+ */
+function assertReprisePossible(e: MigrationVerdictError): void {
+  const commandes = e.verdict.nextActions.map((a) => a.command);
+  // Reprendre après correction du fichier — le geste du cas ordinaire.
+  assert.ok(
+    commandes.some((c) => /orm:migrate(\s|$)/.test(c)),
+    `aucun geste de REPRISE dans : ${commandes.join(" | ")}`,
+  );
+  // Mettre au point ailleurs, quand la correction demande plusieurs essais.
+  // En PROSE et pas en action : « VAR=x commande » ne s'exécute pas sous
+  // Windows, et une action dont les « args » ne posent pas la variable
+  // migrerait la base réelle en promettant une base d'essai.
+  assert.match(e.message, /NF_MIGRATE_DATABASE_URL/);
+  assert.match(e.message, /PowerShell/);
+  // Et le dire en toutes lettres : c'est la phrase que l'agent lit.
+  assert.match(e.message, /ne demande PAS de recréer la base/);
+  // Aucune action ne doit porter une variable d'environnement : elle serait
+  // copiée telle quelle, et refusée sur l'une des trois plateformes.
+  assert.ok(
+    !commandes.some((c) => c.includes("=")),
+    `une action porte une variable d'environnement : ${commandes.join(" | ")}`,
+  );
+}
+
 describe("Applicateur de migrations (sqlite)", () => {
   let root: string;
   let dbFile: string;
@@ -275,7 +308,17 @@ describe("Applicateur de migrations (sqlite)", () => {
       ],
     });
 
-    await assert.rejects(async () => migrator().migrate());
+    // 🔴 Le refus doit NOMMER la reprise. Il disait vrai — le marqueur bloque
+    // — sans jamais dire qu'on en sort : un agent du banc de découvrabilité a
+    // conclu « je vais réinitialiser la base », et la donnée témoin a disparu.
+    await assert.rejects(
+      async () => migrator().migrate(),
+      (e: unknown) => {
+        assert.ok(e instanceof MigrationVerdictError);
+        assertReprisePossible(e);
+        return true;
+      },
+    );
 
     const driver = open();
     try {
@@ -298,6 +341,7 @@ describe("Applicateur de migrations (sqlite)", () => {
       (e: unknown) => {
         assert.ok(e instanceof MigrationVerdictError);
         assert.equal(e.verdict.code, "NF_MIGRATE_FAILED_MARKER");
+        assertReprisePossible(e);
         return true;
       },
     );

@@ -12,12 +12,14 @@ import {
   readHistory,
 } from "./history";
 import { APP_SOURCE } from "./paths";
+import { MIGRATE_URL_ENV } from "./resolve";
 import { createdTables, loadSources } from "./sources";
 import {
   HISTORY_TABLE,
   MigrationLockTimeoutError,
   MigrationVerdictError,
   type IAppliedMigration,
+  type IMigrationAction,
   type IMigrationApplied,
   type IMigrationDriver,
   type IMigrationDrift,
@@ -90,6 +92,27 @@ export interface IMigrateOptions {
  * if (plan.pending.length) await migrator.migrate();
  * ```
  */
+/**
+ * Ce qu'il faut savoir pour REPRENDRE après une migration en échec.
+ *
+ * Écrit en toutes lettres parce que son absence a un coût constaté : le
+ * message disait vrai — le marqueur bloque la reprise — sans jamais dire que
+ * la reprise EXISTE. Un agent qui ne voit pas de sortie s'en invente une, et
+ * celle qu'il trouve seul est de recréer la base, ce qui emporte les données.
+ */
+const REPRISE_SANS_DESTRUCTION =
+  "REPRENDRE ne demande PAS de recréer la base. Deux voies, selon ce qui a " +
+  "échoué : corriger le fichier de migration puis lever le marqueur " +
+  "(« orm:migrate:repair ») et reprendre — un fichier corrigé après un échec " +
+  "est rejoué tel quel, son empreinte n'est pas comparée ; ou, si la mise au " +
+  "point demande plusieurs essais, la faire sur une base d'essai en posant « " +
+  MIGRATE_URL_ENV +
+  " », qui détourne la commande vers une AUTRE base et laisse celle-ci " +
+  "intacte — sous PowerShell, poser la variable s'écrit « $env:" +
+  MIGRATE_URL_ENV +
+  ' = "…" », « env » n\'y existant pas. Écrire la migration suivante est ' +
+  "toujours préférable à défaire ce qui est déjà appliqué.";
+
 export class DrizzleMigrator {
   readonly #options: IDrizzleMigratorOptions;
   readonly #now: () => number;
@@ -518,16 +541,11 @@ export class DrizzleMigrator {
             failed: plan.failed.map((row) => `${row.source}/${row.tag}`),
             error: first.error ?? "interrompue avant la fin",
           },
-          actions: [
-            {
-              command: `nodefony orm:migrate:repair --connector ${this.connector}`,
-              args: ["orm:migrate:repair", "--connector", this.connector],
-            },
-          ],
+          actions: this.#gestesDeReprise(),
         },
         `La migration « ${first.tag} » (source « ${first.source} ») a échoué ou ` +
           `n'a jamais fini. Inspecter la base, puis réparer avant de reprendre — ` +
-          `une reprise aveugle n'est jamais sûre.`,
+          `une reprise aveugle n'est jamais sûre.\n\n${REPRISE_SANS_DESTRUCTION}`,
       );
     }
 
@@ -827,27 +845,60 @@ export class DrizzleMigrator {
         source: file.source,
         tag: file.tag,
         facts: { error: truncate(cause.message) },
-        actions: [
-          {
-            command: `nodefony orm:migrate:status --connector ${this.connector} --json`,
-            args: [
-              "orm:migrate:status",
-              "--connector",
-              this.connector,
-              "--json",
-            ],
-          },
-          {
-            command: `nodefony orm:migrate:repair --connector ${this.connector}`,
-            args: ["orm:migrate:repair", "--connector", this.connector],
-          },
-        ],
+        actions: this.#gestesDeReprise(),
       },
       `La migration « ${file.tag} » (source « ${file.source} ») a échoué : ` +
         `${truncate(cause.message)}\n\n${etat}\n\n` +
         `Son échec est INSCRIT : le prochain passage refusera de reprendre tant ` +
-        `que le marqueur n'aura pas été levé, après inspection.`,
+        `que le marqueur n'aura pas été levé, après inspection.\n\n${REPRISE_SANS_DESTRUCTION}`,
     );
+  }
+
+  /**
+   * Les gestes qui sortent d'une migration en échec — **sans toucher à la base**.
+   *
+   * Ce refus ne proposait que d'inspecter et de lever le marqueur. Les deux
+   * sont vrais, et aucun ne dit ce qu'il advient du fichier fautif : il est
+   * toujours là, il rééchouera au passage suivant. Mesuré sur le banc de
+   * découvrabilité, un agent placé devant ce message a écrit « je vais
+   * réinitialiser la base et réécrire la migration » — non par désinvolture,
+   * mais parce que **recréer la base était le seul geste de reprise qu'il
+   * voyait**. Une migration qui échoue est pourtant l'incident le plus
+   * ordinaire du métier, et le produit sait en sortir de deux façons.
+   *
+   * Les deux sont donc NOMMÉES, dans l'ordre où on s'en sert : corriger le
+   * fichier puis reprendre — ce qui fonctionne parce qu'une entrée en échec
+   * n'entre jamais dans les fichiers dont l'empreinte est comparée
+   * (`#plan` : `success === false` sort avant le contrôle d'empreinte), donc
+   * un fichier corrigé après un échec est rejoué sans réclamer d'alignement —
+   * et mettre au point sur une base d'essai, ce qui est exactement ce que
+   * {@link MIGRATE_URL_ENV} sert à faire.
+   *
+   * @returns les gestes, du plus direct au plus assumé.
+   */
+  #gestesDeReprise(): IMigrationAction[] {
+    return [
+      {
+        command: `nodefony orm:migrate:status --connector ${this.connector} --json`,
+        args: ["orm:migrate:status", "--connector", this.connector, "--json"],
+      },
+      {
+        command: `nodefony orm:migrate:repair --connector ${this.connector}`,
+        args: ["orm:migrate:repair", "--connector", this.connector],
+      },
+      {
+        command: `nodefony orm:migrate --connector ${this.connector}`,
+        args: ["orm:migrate", "--connector", this.connector],
+      },
+      // 🔴 La base d'ESSAI n'est PAS une action, et c'est délibéré — même
+      // raison que `refusalInMode`, qui a retiré une ligne de cette forme :
+      // « VAR=x commande » est de la syntaxe POSIX, refusée par l'interpréteur
+      // de Windows, et « env » n'y existe pas davantage. Une action est faite
+      // pour être COPIÉE ou exécutée par ses `args` ; celle-ci porterait les
+      // mêmes arguments que la précédente, si bien que l'exécuter par `args`
+      // migrerait la base RÉELLE en promettant une base d'essai. Le moyen
+      // reste donc en PROSE, où les deux interpréteurs sont nommés.
+    ];
   }
 
   /**

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-30T09:40:54.162Z",
+  "generated": "2026-08-30T20:47:51.073Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -19469,8 +19469,7 @@
       "module": "@nodefony/drizzle",
       "extends": null,
       "implements": [],
-      "decorators": [],
-      "description": "Applicateur de migrations de schéma — **le composant qui fait passer une base d'une version à la suivante, et qui garde trace de son passage**. Cinq verbes : {@link DrizzleMigrator.status} (lecture…"
+      "decorators": []
     },
     "IDrizzleMigratorOptions": {
       "name": "IDrizzleMigratorOptions",
@@ -30148,6 +30147,7 @@
       ],
       "IMigrationAction": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
       ],
@@ -32734,6 +32734,10 @@
       "readHistory": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
+      "MIGRATE_URL_ENV": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
+      ],
       "MigrationLockTimeoutError": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/mysqlDriver.ts",
@@ -32777,9 +32781,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "knownConnectors": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
-      ],
-      "MIGRATE_URL_ENV": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
       ],
       "parseDatabaseUrl": [
