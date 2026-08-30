@@ -12,7 +12,7 @@ import {
   readHistory,
 } from "./history";
 import { APP_SOURCE } from "./paths";
-import { MIGRATE_URL_ENV } from "./resolve";
+import { MIGRATE_URL_ENV } from "./types";
 import { createdTables, loadSources } from "./sources";
 import {
   HISTORY_TABLE,

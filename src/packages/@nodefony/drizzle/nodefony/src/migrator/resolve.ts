@@ -29,25 +29,15 @@ import type { IMigrationTarget } from "./drivers/index";
  * kernel, sans base et sans variable d'environnement à poser.
  */
 
-/**
- * URL de connexion réservée au **travail de migration**.
- *
- * Elle porte le compte qui a le droit de modifier le schéma — un compte que les
- * exemplaires qui servent le trafic n'ont pas, et ne doivent pas avoir. C'est
- * tout son intérêt : le secret est monté dans le travail de migration
- * seulement.
- *
- * **Qui la lit, exactement** : les commandes `orm:migrate`,
- * `orm:migrate:status`, `orm:migrate:baseline` et `orm:migrate:repair`.
- * Personne d'autre — ni le démarrage de l'application, ni `orm:reset`, ni un
- * store. Une variable de privilège élevé qui fuiterait dans le chemin ordinaire
- * annulerait le moindre privilège qu'elle sert à installer.
- *
- * ⚠️ Elle doit désigner une connexion **directe** au serveur. Un répartiteur de
- * connexions en mode transaction (PgBouncer `transaction`) casse les verrous
- * consultatifs de session — et le verrou de l'applicateur en est un.
- */
-export const MIGRATE_URL_ENV = "NF_MIGRATE_DATABASE_URL";
+// 🔴 Définie dans `types.ts`, un module FEUILLE, et seulement ré-exportée ici.
+// `DrizzleMigrator` la lit au TOP-LEVEL (une phrase de refus la cite) et ce
+// fichier importe `DrizzleMigrator` : la définir ici formait un cycle dont
+// l'ordre d'évaluation décidait du sort — `ReferenceError: Cannot access
+// 'MIGRATE_URL_ENV' before initialization` dès que `resolve` était chargé en
+// premier, ce que fait `check:migrations`. Un cycle ne casse que sous un
+// ordre, donc il passe les tests qui entrent par l'autre bout.
+import { MIGRATE_URL_ENV } from "./types";
+export { MIGRATE_URL_ENV };
 
 /** L'environnement tel qu'on le CONSTATE — jamais déduit à l'intérieur. */
 export interface IMigrationEnv {

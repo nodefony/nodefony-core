@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-30T22:39:58.752Z",
+  "generated": "2026-08-30T23:21:31.844Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -20087,14 +20087,6 @@
       "module": "@nodefony/drizzle",
       "description": "Conduite face à la divergence, telle que la configuration la déclare."
     },
-    "MIGRATE_URL_ENV": {
-      "name": "MIGRATE_URL_ENV",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Résolution du décor d'une commande de migration : QUI possède le connecteur, OÙ se trouve sa base, QUEL mode de schéma s'applique. **Pourquoi un fichier à part, et pourquoi il ne fait aucune entrée…"
-    },
     "ISchemaGap": {
       "name": "ISchemaGap",
       "kind": "interface",
@@ -20412,6 +20404,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Codes de refus stables de l'applicateur. Ils sont le contrat lu par une machine — un agent lit `code`, jamais une phrase française. Ajouter un code est additif ; en changer un est une rupture, au m…"
+    },
+    "MIGRATE_URL_ENV": {
+      "name": "MIGRATE_URL_ENV",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/types.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "URL de connexion réservée au **travail de migration**. Elle porte le compte qui a le droit de modifier le schéma — un compte que les exemplaires qui servent le trafic n'ont pas, et ne doivent pas a…"
     },
     "HISTORY_TABLE": {
       "name": "HISTORY_TABLE",
@@ -32786,7 +32786,8 @@
       ],
       "MIGRATE_URL_ENV": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "MigrationLockTimeoutError": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",

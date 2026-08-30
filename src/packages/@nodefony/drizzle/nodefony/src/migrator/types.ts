@@ -2,6 +2,26 @@ import type { SqlDialect } from "../../config/config";
 import type { ISchemaReader } from "./catalog";
 
 /**
+ * URL de connexion réservée au **travail de migration**.
+ *
+ * Elle porte le compte qui a le droit de modifier le schéma — un compte que les
+ * exemplaires qui servent le trafic n'ont pas, et ne doivent pas avoir. C'est
+ * tout son intérêt : le secret est monté dans le travail de migration
+ * seulement.
+ *
+ * **Qui la lit, exactement** : les commandes `orm:migrate`,
+ * `orm:migrate:status`, `orm:migrate:baseline` et `orm:migrate:repair`.
+ * Personne d'autre — ni le démarrage de l'application, ni `orm:reset`, ni un
+ * store. Une variable de privilège élevé qui fuiterait dans le chemin ordinaire
+ * annulerait le moindre privilège qu'elle sert à installer.
+ *
+ * ⚠️ Elle doit désigner une connexion **directe** au serveur. Un répartiteur de
+ * connexions en mode transaction (PgBouncer `transaction`) casse les verrous
+ * consultatifs de session — et le verrou de l'applicateur en est un.
+ */
+export const MIGRATE_URL_ENV = "NF_MIGRATE_DATABASE_URL";
+
+/**
  * Contrats de l'applicateur de migrations — verdicts, entrées de journal,
  * historique, plan, et le pilote à connexion unique dont il a besoin.
  *
