@@ -231,8 +231,16 @@ export function describeResolutionRefusal(
       code: "NF_MIGRATE_URL_MISMATCH",
       summary: `${MIGRATE_URL_ENV} désigne ${vise}, alors que le connecteur « ${wanted} » est déclaré en ${resolution.dialect}. Rien n'a été appliqué.`,
       meaning:
-        "Les deux ne peuvent pas être vraies en même temps : le SQL d'un dialecte ne s'applique pas avec le pilote d'un autre, et deviner laquelle des deux bases tu vises reviendrait à migrer la mauvaise en annonçant un succès. Soit la variable pointe la base du connecteur, soit c'est le connecteur qu'il faut choisir — la variable ne sert qu'à changer le COMPTE et l'hôte, jamais la nature de la base.",
+        "Les deux ne peuvent pas être vraies en même temps : le SQL d'un dialecte ne s'applique pas avec le pilote d'un autre, et deviner laquelle des deux bases tu vises reviendrait à migrer la mauvaise en annonçant un succès. Soit la variable pointe la base du connecteur, soit c'est le connecteur qu'il faut choisir — la variable ne sert qu'à changer le COMPTE et l'hôte, jamais la nature de la base. Sous PowerShell, retirer la variable s'écrit `Remove-Item Env:" +
+        MIGRATE_URL_ENV +
+        "`.",
+      // 🔴 Le premier geste doit CHANGER l'état. Le statut honore la même
+      // variable : tant qu'elle est posée, il rend ce refus à l'identique — un
+      // cycle pour qui exécute le premier geste sans lire la prose. Le geste
+      // qui débloque est de retirer la variable, et il n'était écrit nulle
+      // part ailleurs que dans une phrase.
       nextActions: [
+        action(`unset ${MIGRATE_URL_ENV}`),
         action(`nodefony orm:migrate:status --connector ${wanted}`),
         action("nodefony inspect config --json"),
       ],

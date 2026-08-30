@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { HISTORY_TABLE } from "./types";
 import type { ISchemaComparison, ISchemaGap } from "./schemaDiff";
+import type { IDestructiveFinding } from "./destructive";
 
 /**
  * Le RENDU des migrations : un seul producteur, quatre destinataires.
@@ -164,6 +165,17 @@ export interface IMigrationReport {
    * rien à nommer.
    */
   divergence?: ISchemaComparison;
+  /**
+   * Ce que le passage a DÉTRUIT, nommé — présent au seul run réel qui a
+   * appliqué une migration destructive, absent partout ailleurs.
+   *
+   * L'essai à blanc publiait déjà cette liste ; le run réel ne la publiait pas,
+   * et l'avertissement n'existait qu'en mode humain. Un agent — le mode que le
+   * produit lui prescrit — appliquait donc une perte de données sans qu'un seul
+   * octet de ce qu'il relit ne la mentionne. Son absence est un fait : rien
+   * n'a été détruit.
+   */
+  destructive?: IDestructiveFinding[];
   /** Tout ce qui est propre au pilote SQL vit ici, et nulle part ailleurs. */
   driver: {
     kind: "sql";
@@ -964,10 +976,24 @@ export function refusalInMode(
       "vieille base : les deux façons de fabriquer un schéma se croisent, " +
       "c'est tout. Trois issues, selon ce que tu veux vraiment. Éprouver les " +
       "migrations comme en production : repars d'une base vide avec le mode " +
-      "`none`. Repartir de zéro en développement : vide la base. Garder cette " +
-      "base et la déclarer à niveau : adopte-la (aucun SQL ne sera exécuté).",
+      "`none` — c'est un réglage du connecteur, pas une variable posée devant la " +
+      "commande. Repartir de zéro en développement : vide la base. Garder " +
+      "cette base et la déclarer à niveau : adopte-la (aucun SQL ne sera " +
+      "exécuté).",
+    // 🔴 Deux raisons de n'offrir que ces deux gestes.
+    //
+    // La première action était `NODE_ENV=production nodefony orm:migrate` :
+    // elle ne vide rien, donc sur la même base — dont le démarrage vient de
+    // créer les tables — elle retombe sur CE refus, qui réaffiche ce bloc.
+    // Un cycle pour qui exécute le premier geste sans lire la prose, ce que le
+    // contrat dit justement d'un agent.
+    //
+    // La seconde : `VAR=1 commande` est de la syntaxe POSIX. Sous Windows —
+    // un impératif produit, pas une compatibilité de bonne volonté — la ligne
+    // proposée est refusée par l'interpréteur, et le refus censé débloquer
+    // bloque. Le mode d'éprouve reste décrit en prose ci-dessus ; il ne se
+    // copie pas en une ligne, et prétendre le contraire était le vrai défaut.
     actions: [
-      action(`NODE_ENV=production nodefony orm:migrate${suffixe}`),
       action(`nodefony orm:reset${suffixe}`),
       action(`nodefony orm:migrate:baseline${suffixe}`),
     ],

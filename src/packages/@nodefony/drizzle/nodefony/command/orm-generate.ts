@@ -29,8 +29,12 @@ import { gapAgainstDeclared } from "../src/migrator/divergence";
 import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
 import { appMigrationsDir } from "../src/migrator/resolve";
-import { frameworkMigrationsDir } from "../src/migrator/paths";
-import { frameworkTables } from "../src/migrator/sources";
+import { APP_SOURCE, frameworkMigrationsDir } from "../src/migrator/paths";
+import {
+  createdTables,
+  frameworkTables,
+  loadSources,
+} from "../src/migrator/sources";
 import { HISTORY_TABLE, type IMigrationDriver } from "../src/migrator/types";
 import {
   openMigrationDriver,
@@ -406,10 +410,31 @@ class OrmGenerate extends OrmMigrateCommand {
     // base n'a pas, et plus aucune commande n'offrirait de geste. Mesuré au banc
     // de découvrabilité : le seul chemin restant était de détruire la base.
     //
-    // Le contrôle ne coûte qu'une requête par table, et SEULEMENT quand le
-    // journal est vide — c'est-à-dire une fois dans la vie d'une application.
-    // Une base muette ne déclenche rien : on ne refuse pas sans preuve.
-    if (before.length === 0) {
+    // Le contrôle ne coûte qu'une requête par table, et il ne se déclenche que
+    // tant qu'AUCUNE migration existante ne décrit ces tables. Une base muette
+    // ne déclenche rien : on ne refuse pas sans preuve.
+    //
+    // 🔴 Le critère porte sur ce que les migrations DÉCRIVENT, pas sur un
+    // journal vide. Écrit « journal vide », il suffisait d'une migration LIBRE
+    // — une vue, un déclencheur, l'usage même de `--custom` — pour désarmer la
+    // garde définitivement : la génération suivante repartait de rien et
+    // émettait le `CREATE TABLE` de tables existantes, l'application échouait
+    // sur « table already exists », et l'adoption était désormais refusée
+    // puisque le dossier n'était plus vide. La garde qui ferme ce trou ne
+    // devait pas tenir à un fil qu'un usage documenté coupe.
+    const decrites = new Set(
+      createdTables(
+        (
+          await loadSources(
+            // `loadSources` ajoute lui-même le sous-dossier du dialecte : on
+            // lui donne le dossier PARENT, celui de l'application.
+            [{ name: APP_SOURCE, dir: path.dirname(outDir), rank: 1 }],
+            dialect,
+          )
+        ).files,
+      ),
+    );
+    if (!tables.some((t) => decrites.has(t.tableName))) {
       const refus = await this.#alreadyInDatabase(
         opts,
         connector,
@@ -476,13 +501,26 @@ class OrmGenerate extends OrmMigrateCommand {
           "Les fichiers de migration décrivent déjà ce que le code déclare — il n'y a donc rien de " +
             "neuf à générer. Mais la base, elle, ne l'a pas reçu : son historique affirme des " +
             "migrations qu'elle n'a pas exécutées. C'est l'HISTORIQUE qu'il faut reprendre, pas le " +
-            "schéma — et surtout pas la base, qu'il ne sert à rien de refaire. Regarde ce que " +
-            "l'historique prétend appliqué, et rejoue ce qui ne l'a jamais été.",
+            "schéma — et surtout pas la base, qu'il ne sert à rien de refaire. Le premier geste " +
+            "MONTRE : le statut dit, source par source, ce que l'historique prétend appliqué. " +
+            "Repère la ou les migrations qui décrivent ce qui manque ci-dessus, puis désinscris-les " +
+            "NOMMÉMENT : elles seront rejouées au passage suivant. La base n'est pas touchée par " +
+            "cette désinscription ; si une migration avait bien été appliquée, son rejeu échouera, " +
+            "et c'est ce qu'on veut.",
           [
             action(
               `nodefony orm:migrate:status --connector ${connector} --json`,
             ),
-            action(`nodefony orm:migrate:repair --connector ${connector}`),
+            // 🔴 Le geste NOMME l'option qui sort de cet état. Il proposait
+            // auparavant une réparation nue, qui ne sait lever que des
+            // marqueurs d'ÉCHEC : sur un historique qui ment avec un succès,
+            // elle répondait « rien à réparer », et l'on revenait au statut.
+            // Trois messages vrais, aucun geste — la forme même de l'impasse
+            // qui fait détruire une base.
+            action(
+              `nodefony orm:migrate:repair --connector ${connector} --forget app/<tag>`,
+            ),
+            action(`nodefony orm:migrate --connector ${connector}`),
           ],
           opts.json,
           EXIT.actionRequired,
@@ -527,8 +565,18 @@ class OrmGenerate extends OrmMigrateCommand {
         connector,
         "NF_GENERATE_DESTRUCTIVE",
         `Cette migration DÉTRUIT des données :\n${liste}\n\nLes fichiers ont été écrits — les RELIRE avant toute décision :\n${written.map((f) => `  ${f}`).join("\n")}`,
-        "Ils ne sont pas effacés : ce sont eux qu'il faut lire pour décider, et les supprimer priverait de la seule chose à regarder. C'est leur mise en service qui est refusée. S'il s'agit d'un renommage mal interprété, annuler ces fichiers avec l'outil de gestion de versions puis regénérer dans un terminal interactif, et répondre « renamed » : l'outil produit alors un RENAME, et les données suivent.",
-        [action(`nodefony orm:generate --name ${name} --allow-destructive`)],
+        "Ils ne sont pas effacés : ce sont eux qu'il faut lire pour décider, et les supprimer priverait de la seule chose à regarder. C'est leur mise en service qui est refusée. S'il s'agit d'un renommage mal interprété, annuler ces fichiers avec l'outil de gestion de versions puis regénérer dans un terminal interactif, et répondre « renamed » : l'outil produit alors un RENAME, et les données suivent. Si la perte est ASSUMÉE, il n'y a rien à regénérer — les fichiers sont là : c'est l'application qui décide, et elle a sa propre garde.",
+        // 🔴 Les gestes décrivent les DEUX issues réelles, et aucune ne
+        // consiste à rejouer cette commande : les fichiers sont déjà écrits ET
+        // inscrits au journal, donc une relance — même avec l'aveu — ne diffe
+        // plus rien et répond « le schéma n'a pas bougé ». Le drapeau de cette
+        // commande n'autorise que le run qui ÉCRIT ; c'est celui de
+        // l'application qui met en service.
+        [
+          action(`git checkout -- ${relative(outDir)}`),
+          action(`nodefony orm:migrate --connector ${connector} --dry-run`),
+          action(`nodefony orm:migrate --connector ${connector}`),
+        ],
         opts.json,
         EXIT.actionRequired,
       );

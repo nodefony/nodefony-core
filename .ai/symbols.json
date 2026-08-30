@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-30T09:08:23.127Z",
+  "generated": "2026-08-30T09:22:47.198Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3547,
+    "symbols": 3548,
     "classes": 382,
     "interfaces": 984,
     "types": 423,
     "enums": 4,
-    "functions": 1402,
+    "functions": 1403,
     "constants": 352
   },
   "symbols": {
@@ -19720,6 +19720,14 @@
       "module": "@nodefony/drizzle",
       "description": "Supprime les marqueurs d'échec d'une source, ou de toutes."
     },
+    "forgetEntries": {
+      "name": "forgetEntries",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Désinscrit UNE entrée nommée de l'historique, quel que soit son état. ## Pourquoi ce geste existe, alors qu'un interdit dit de ne pas y toucher L'interdit porte sur la modification À LA MAIN, dans …"
+    },
     "HISTORY_STEPS": {
       "name": "HISTORY_STEPS",
       "kind": "const",
@@ -30303,13 +30311,25 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
+      "APP_SOURCE": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
       "frameworkMigrationsDir": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
+      "createdTables": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
       "frameworkTables": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
+      ],
+      "loadSources": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "HISTORY_TABLE": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
@@ -30377,7 +30397,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
       "IDestructiveFinding": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "dataLoss": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
@@ -32711,19 +32732,13 @@
       "finishHistory": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
+      "forgetEntries": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
       "insertHistory": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "readHistory": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "APP_SOURCE": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "createdTables": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "loadSources": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "MigrationLockTimeoutError": [

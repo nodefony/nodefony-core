@@ -168,9 +168,13 @@ class OrmMigrate extends OrmMigrateCommand {
         );
         return this;
       }
-      if (trouvailles.length > 0 && opts.json !== true) {
-        // En développement, ou avec le drapeau, on applique — mais on ne le
-        // fait jamais en silence : ce qui disparaît est écrit à l'écran.
+      if (trouvailles.length > 0) {
+        // 🔴 « Jamais en silence » vaut AUSSI pour un lecteur machine. Ce bloc
+        // était conditionné à l'absence de `--json` : en sortie machine — le
+        // mode que le produit prescrit à un agent — une migration détruisait
+        // des données sans qu'un seul octet de la sortie ne le dise. La sortie
+        // d'ERREUR est libre par contrat, même quand la sortie standard porte
+        // du JSON pur : c'est exactement à cela qu'elle sert.
         process.stderr.write(
           style.yellow(renderDestructive(trouvailles, false)) + "\n",
         );
@@ -243,7 +247,18 @@ class OrmMigrate extends OrmMigrateCommand {
       human += `\n${renderStatus(report, style)}`;
       // Le code de sortie est celui de l'état APRÈS application : on peut avoir
       // appliqué ce qu'on pouvait ET laisser un écart à traiter.
-      this.emitReport(report, human, opts.json);
+      //
+      // 🔴 Ce qui a été DÉTRUIT entre dans la charge utile. L'essai à blanc le
+      // publiait, le run réel non : un agent qui applique en sortie machine
+      // n'avait aucune trace de la perte dans ce qu'il relit. Ajout additif,
+      // conforme au contrat de version de format.
+      this.emitReport(
+        trouvailles.length > 0
+          ? { ...report, destructive: trouvailles }
+          : report,
+        human,
+        opts.json,
+      );
     } catch (e) {
       this.failFrom(e, resolution.connector, opts.json, resolution.ddl);
     }

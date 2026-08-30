@@ -62,7 +62,13 @@ export function orderSources(
   sources: readonly IMigrationSource[],
 ): IMigrationSource[] {
   return [...sources].sort(
-    (a, b) => a.rank - b.rank || a.name.localeCompare(b.name),
+    // 🔴 Comparaison par unités de code, jamais `localeCompare` : celle-ci
+    // dépend de la locale du runtime, donc deux exemplaires du même code —
+    // l'un en `C`, l'autre en `fr_FR` — pouvaient ordonner différemment deux
+    // sources de même rang, et appliquer deux plans différents. C'est
+    // précisément le déterminisme que le commentaire ci-dessus revendique.
+    (a, b) =>
+      a.rank - b.rank || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
   );
 }
 
@@ -116,7 +122,47 @@ async function readJournal(
     }
     throw e;
   }
-  const journal = JSON.parse(raw) as IJournal;
+  // 🔴 Un journal illisible se NOMME. `JSON.parse` levait une `SyntaxError`
+  // nue, que le fourre-tout des pannes habillait en « base injoignable » — avec
+  // un geste qui interroge une base qui n'y est pour rien. La cause la plus
+  // fréquente est banale : un conflit de fusion non résolu, deux branches ayant
+  // chacune généré une migration.
+  let journal: IJournal;
+  try {
+    journal = JSON.parse(raw) as IJournal;
+  } catch (e) {
+    throw new MigrationVerdictError(
+      {
+        code: "NF_MIGRATE_UNKNOWN_FORMAT",
+        connector: "",
+        source,
+        facts: {
+          file,
+          cause: e instanceof Error ? e.message : String(e),
+        },
+        nextActions: [],
+      },
+      `Le journal des migrations « ${file} » n'est pas lisible : ` +
+        `${e instanceof Error ? e.message : String(e)}. ` +
+        `La cause la plus fréquente est un conflit de fusion non résolu — deux ` +
+        `branches ayant généré chacune une migration. Ouvrir le fichier, ` +
+        `résoudre le conflit, et vérifier que chaque migration du dossier y ` +
+        `figure une fois. La base n'est pour rien dans cette erreur.`,
+    );
+  }
+  if (!Array.isArray(journal.entries)) {
+    throw new MigrationVerdictError(
+      {
+        code: "NF_MIGRATE_UNKNOWN_FORMAT",
+        connector: "",
+        source,
+        facts: { file },
+        nextActions: [],
+      },
+      `Le journal des migrations « ${file} » ne porte pas de liste ` +
+        `« entries » : ce n'est pas un journal que ce format sait lire.`,
+    );
+  }
   if (!SUPPORTED_JOURNAL_VERSIONS.includes(String(journal.version))) {
     throw new MigrationVerdictError(
       {
@@ -290,6 +336,17 @@ export function splitStatements(normalized: string): string[] {
       if (coupe >= 0) {
         courant.push(ligne.slice(0, coupe));
         clore();
+        // 🔴 Ce qui SUIT le marqueur sur la même ligne ouvre l'instruction
+        // suivante — il était jeté, en silence. Le gabarit dit « séparer les
+        // instructions par ce marqueur » sans imposer de passer à la ligne :
+        // un remplissage écrit à la main y perdait son second `UPDATE`, la
+        // migration s'inscrivait en succès avec l'empreinte du fichier ENTIER,
+        // et aucun verdict ne pouvait plus le voir.
+        const reste = ligne.slice(coupe + STATEMENT_BREAKPOINT.length);
+        if (reste.trim() !== "") {
+          courant.push(reste);
+          dansChaine = ferméSurChaîneOuverte(reste, dansChaine);
+        }
         continue;
       }
     }

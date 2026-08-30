@@ -7,6 +7,7 @@ import {
   deleteFailed,
   ensureHistorySchema,
   finishHistory,
+  forgetEntries,
   insertHistory,
   readHistory,
 } from "./history";
@@ -346,18 +347,30 @@ export class DrizzleMigrator {
    * @returns ce qui a été levé et ré-aligné.
    */
   async repair(
-    options: { source?: string; updateHashes?: boolean } = {},
+    options: {
+      source?: string;
+      updateHashes?: boolean;
+      forget?: readonly { source: string; tag: string }[];
+    } = {},
   ): Promise<{
     cleared: { source: string; tag: string }[];
     rehashed: { source: string; tag: string }[];
+    forgotten: { source: string; tag: string }[];
   }> {
     if (options.source !== undefined) {
       this.#assertKnownSource(options.source);
+    }
+    for (const cible of options.forget ?? []) {
+      this.#assertKnownSource(cible.source);
     }
     const driver = await openMigrationDriver(this.#options);
     try {
       await this.#prendreVerrou(driver);
       await ensureHistorySchema(driver);
+      const forgotten =
+        options.forget === undefined || options.forget.length === 0
+          ? []
+          : await forgetEntries(driver, options.forget);
       const cleared = await deleteFailed(driver, options.source);
       const rehashed: { source: string; tag: string }[] = [];
       if (options.updateHashes === true) {
@@ -377,7 +390,7 @@ export class DrizzleMigrator {
           rehashed.push({ source: row.source, tag: row.tag });
         }
       }
-      return { cleared, rehashed };
+      return { cleared, rehashed, forgotten };
     } finally {
       await driver.unlock().catch(() => undefined);
       await driver.close();

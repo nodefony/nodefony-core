@@ -11,6 +11,7 @@ const options: OptionsCommandInterface = {
 interface IRepairOptions extends IMigrateSharedOptions {
   source?: string;
   updateHashes?: boolean;
+  forget?: string[];
 }
 
 /**
@@ -48,6 +49,23 @@ interface IRepairOptions extends IMigrateSharedOptions {
  *
  * L'option existe pour le cas où l'on sait que la modification était sans effet
  * — une reformulation, un commentaire. Elle ne touche jamais la base.
+ *
+ * ## `--forget <source>/<tag>` : l'issue d'un historique qui MENT
+ *
+ * Il existait un état dont aucune commande ne sortait : une migration inscrite
+ * comme réussie que personne n'a jamais exécutée — une adoption mal bornée, ou
+ * une base héritée d'une version antérieure aux gardes. La base ne porte pas
+ * les tables, l'historique affirme le contraire, et rien n'est « en attente ».
+ * Le générateur disait alors « c'est l'historique qu'il faut reprendre » et
+ * renvoyait ici ; mais cette commande ne savait lever que des marqueurs
+ * d'ÉCHEC, et répondait « rien à réparer ». Trois messages vrais, aucun geste
+ * — et le seul chemin restant était de détruire la base.
+ *
+ * `--forget` désinscrit UNE entrée nommée, pour qu'elle soit rejouée au
+ * passage suivant. Bornée par construction : il faut la nommer
+ * (`--forget app/0003_ajout_facture`), il n'y a ni motif ni lot. La base n'est
+ * pas touchée — si la migration avait réellement été appliquée, son rejeu
+ * échouera, bruyamment, ce qui est le comportement voulu.
  */
 class OrmMigrateRepair extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
@@ -61,6 +79,10 @@ class OrmMigrateRepair extends OrmMigrateCommand {
     this.addOption(
       "-s, --source <nom>",
       "ne réparer que cette source (framework, app, un module) — toutes si omis",
+    );
+    this.addOption(
+      "--forget <source/tag...>",
+      "désinscrit une migration nommée pour qu'elle soit REJOUÉE — l'issue quand l'historique affirme une migration jamais exécutée",
     );
     this.addOption(
       "--update-hashes",
@@ -77,15 +99,34 @@ class OrmMigrateRepair extends OrmMigrateCommand {
     const style = this.style;
     try {
       const migrator = await this.migrator(resolution, config);
+      const forget = (opts.forget ?? []).map((brut) => {
+        const coupe = brut.indexOf("/");
+        if (coupe <= 0 || coupe === brut.length - 1) {
+          throw new Error(
+            `« ${brut} » n'est pas une entrée d'historique. La forme attendue ` +
+              `est « source/tag », par exemple « app/0003_ajout_facture » : ` +
+              `sans la source, deux migrations de même tag ne se distinguent pas.`,
+          );
+        }
+        return {
+          source: brut.slice(0, coupe),
+          tag: brut.slice(coupe + 1),
+        };
+      });
       const done = await migrator.repair({
         source: opts.source,
         updateHashes: opts.updateHashes === true,
+        forget,
       });
       const plan = await migrator.status();
       const report = await this.report(plan, resolution, config);
       const payload = { ...report, repaired: done };
       let human = "";
-      if (done.cleared.length === 0 && done.rehashed.length === 0) {
+      if (
+        done.cleared.length === 0 &&
+        done.rehashed.length === 0 &&
+        done.forgotten.length === 0
+      ) {
         human = `${style.green("Rien à réparer : aucun marqueur d'échec, aucune empreinte à ré-aligner.")}\n\n`;
       } else {
         human = `${style.green(style.bold("✓ historique réparé"))} ${style.dim("— la base n'a pas été modifiée")}\n`;
@@ -94,6 +135,9 @@ class OrmMigrateRepair extends OrmMigrateCommand {
         }
         for (const r of done.rehashed) {
           human += `  ${style.yellow("≈")} empreinte ré-alignée : ${r.source}/${r.tag}\n`;
+        }
+        for (const f of done.forgotten) {
+          human += `  ${style.yellow("↺")} désinscrite, sera REJOUÉE : ${f.source}/${f.tag}\n`;
         }
         human += "\n";
       }

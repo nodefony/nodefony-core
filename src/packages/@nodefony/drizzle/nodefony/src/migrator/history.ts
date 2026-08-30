@@ -247,6 +247,54 @@ export async function deleteFailed(
 }
 
 /**
+ * Désinscrit UNE entrée nommée de l'historique, quel que soit son état.
+ *
+ * ## Pourquoi ce geste existe, alors qu'un interdit dit de ne pas y toucher
+ *
+ * L'interdit porte sur la modification À LA MAIN, dans un client SQL, sans
+ * trace. Il existait pourtant un état dont AUCUNE commande ne sortait : une
+ * migration inscrite `success` que personne n'a jamais exécutée — une adoption
+ * mal bornée, une base héritée d'une version antérieure aux gardes. Le
+ * générateur disait « c'est l'historique qu'il faut reprendre » et renvoyait
+ * vers la réparation, qui ne sait lever que des marqueurs d'ÉCHEC : elle
+ * répondait « rien à réparer », et l'on revenait au point de départ. Trois
+ * messages vrais, aucun geste — et le seul chemin restant était de détruire la
+ * base.
+ *
+ * Le geste est donc rendu au produit, où il laisse une trace et où il est
+ * BORNÉ : une entrée précisément nommée, jamais un lot, jamais un motif.
+ *
+ * ⚠️ Ne touche pas la base : après cet oubli, la migration sera REJOUÉE au
+ * prochain passage. Si elle avait réellement été appliquée, ce rejeu échouera
+ * — bruyamment, ce qui est le comportement voulu.
+ *
+ * @param driver - pilote sous verrou.
+ * @param entries - entrées à désinscrire, chacune nommée `source` et `tag`.
+ * @returns celles qui existaient et ont été retirées.
+ */
+export async function forgetEntries(
+  driver: IMigrationDriver,
+  entries: readonly { source: string; tag: string }[],
+): Promise<{ source: string; tag: string }[]> {
+  const presentes = await readHistory(driver);
+  const retirees: { source: string; tag: string }[] = [];
+  for (const cible of entries) {
+    const existe = presentes.some(
+      (row) => row.source === cible.source && row.tag === cible.tag,
+    );
+    if (!existe) {
+      continue;
+    }
+    await driver.query(
+      `DELETE FROM ${HISTORY_TABLE} WHERE source = ? AND tag = ?`,
+      [cible.source, cible.tag],
+    );
+    retirees.push({ source: cible.source, tag: cible.tag });
+  }
+  return retirees;
+}
+
+/**
  * Normalise un booléen tel que le rend la base.
  *
  * PostgreSQL rend `true`, SQLite et MySQL rendent `1` — et un `1` textuel

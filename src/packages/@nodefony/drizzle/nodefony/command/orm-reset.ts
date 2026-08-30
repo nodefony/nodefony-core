@@ -170,13 +170,20 @@ class OrmReset extends OrmMigrateCommand {
       // 🔴 IDENTITÉ PROUVÉE, PÉRIMÈTRE BORNÉ — l'utilisateur voit la base visée
       // ET la liste exacte de ce qui va disparaître AVANT de décider. Un geste
       // destructeur qui ne montre pas sa cible est un geste qu'on regrette.
+      // 🔴 `--json` est un flux PUR : un dialogue n'a pas sa place dedans, et
+      // le terminal reste un terminal quand seule la SORTIE est redirigée
+      // (`… --json | jq` garde stdin sur le TTY). Le préambule partait alors
+      // sur la sortie standard et cassait le premier `jq` ; pire, un refus au
+      // prompt sortait avec 0 et AUCUN objet — la garantie que cette famille
+      // de commandes proclame, violée par l'une d'elles. Un lecteur machine
+      // n'a pas de dialogue : il assume, ou il est refusé.
       if (opts.yes !== true) {
-        if (!process.stdin.isTTY) {
+        if (opts.json === true || !process.stdin.isTTY) {
           this.fail(
             resolution.connector,
             "NF_MIGRATE_CONFIRM_REQUIRED",
             `Cette commande va supprimer ${tables.length} table(s) de « ${cible} » (${resolution.dialect}) : ${tables.join(", ")}.`,
-            "Hors terminal, il n'y a personne pour répondre à une question — et un effacement ne se déduit pas d'un silence. Relance avec `--yes` si c'est bien ce que tu veux.",
+            "Hors terminal — ou en sortie machine, où un dialogue n'a pas sa place —, il n'y a personne pour répondre à une question, et un effacement ne se déduit pas d'un silence. Relance avec `--yes` si c'est bien ce que tu veux.",
             [
               action(
                 `nodefony orm:reset --yes${resolution.connector === "default" ? "" : ` --connector ${resolution.connector}`}`,
