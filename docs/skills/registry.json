@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-29",
+  "generatedAt": "2026-08-30",
   "count": 25,
   "conformant": 25,
   "skills": [
@@ -1371,6 +1371,10 @@
                 "help": ""
               },
               {
+                "flag": "--connector",
+                "help": ""
+              },
+              {
                 "flag": "--controller",
                 "help": ""
               },
@@ -1392,6 +1396,10 @@
               },
               {
                 "flag": "--force",
+                "help": ""
+              },
+              {
+                "flag": "--from-database",
                 "help": ""
               },
               {

@@ -965,15 +965,60 @@ step(
   "Le geste du développeur après une entité : `orm:generate`. Sans lui, la " +
     "production démarre sur une base sans tables applicatives.",
   () => {
-    const out = run(process.execPath, [
-      BIN,
-      "orm:generate",
-      "--name",
-      "schema_initial",
-    ]);
-    if (!/Migration \S+ écrite/u.test(out)) {
+    // 🔴 Le refus attendu, et son geste de sortie — les deux comptent.
+    //
+    // À ce point, la base de développement EXISTE et porte déjà les tables :
+    // toute commande de l'application démarre un kernel, et en développement le
+    // DDL `auto` matérialise le schéma. Demander alors la PREMIÈRE migration,
+    // c'est demander un « CREATE TABLE » de tables qui existent — la garde
+    // d'adoption le refuse, à raison : le fichier serait inapplicable, et
+    // l'adopter graverait un schéma que la base n'a pas.
+    //
+    // Ce banc ne contourne donc pas le refus : il le CONSTATE, puis fait le
+    // geste que le produit prescrit dans sa propre sortie. C'est le parcours
+    // réel d'un développeur qui a laissé le mode développement fabriquer sa
+    // base — et il vaut mieux que l'ancien, qui ne prouvait qu'une génération
+    // sur une base vide : ici, un refus qui n'offrirait pas d'issue ferait
+    // tomber l'étape.
+    // `run` JETTE sur un code non nul — or ici l'échec est une réponse
+    // possible du produit, pas une panne. On exécute donc à la main pour LIRE
+    // le refus au lieu de le subir.
+    const essai = spawnSync(
+      process.execPath,
+      [BIN, "orm:generate", "--name", "schema_initial"],
+      {
+        cwd: APP,
+        encoding: "utf8",
+        timeout: 600_000,
+        env: envDecor(PORTS, {}),
+        shell: besoinDeShell(process.execPath),
+      },
+    );
+    const premier = `${essai.stdout ?? ""}${essai.stderr ?? ""}`;
+    const refusee = /NF_GENERATE_DATABASE_NOT_ADOPTED/u.test(premier);
+    if (essai.status !== 0 && !refusee) {
       throw new Error(
-        `orm:generate n'a écrit aucune migration — sortie :\n${out}`,
+        `orm:generate a échoué pour une autre raison — sortie :\n${premier}`,
+      );
+    }
+    if (refusee) {
+      const adoption = run(process.execPath, [
+        BIN,
+        "orm:migrate:baseline",
+        "--from-database",
+        "--connector",
+        "default",
+      ]);
+      if (!/déclarée?\(s\) comme appliquée|base_existante/u.test(adoption)) {
+        throw new Error(
+          `le geste que le refus PRESCRIT n'a rien produit — sortie :\n${adoption}`,
+        );
+      }
+      return;
+    }
+    if (!/Migration \S+ écrite/u.test(premier)) {
+      throw new Error(
+        `orm:generate n'a écrit aucune migration — sortie :\n${premier}`,
       );
     }
   },
