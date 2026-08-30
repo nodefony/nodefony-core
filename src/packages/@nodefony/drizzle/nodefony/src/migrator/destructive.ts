@@ -279,3 +279,74 @@ export function summarizeDestructive(
     `SUPPRIMENT des données, dans ${noms.length} migration(s) : ${noms.join(", ")}.`
   );
 }
+
+/**
+ * Les instructions qui touchent des lignes DÉJÀ EN BASE — sans détruire.
+ *
+ * Rien à voir avec {@link scanDestructive}, qui cherche ce qui fait perdre de
+ * la donnée. Celles-ci sont parfaitement légitimes : ajouter une colonne à une
+ * table peuplée, remplir cette colonne, changer une contrainte. Elles ont un
+ * point commun qui les rend intéressantes — **après elles, quelqu'un se demande
+ * si les données ont suivi**, et c'est à cet instant précis, mesuré sur le banc
+ * de découvrabilité, qu'un agent a répondu « réinitialisons la base pour
+ * vérifier », emportant la ligne témoin qu'il devait justement préserver.
+ *
+ * Un lot purement `CREATE TABLE` ne pose pas la question : il n'y avait rien
+ * avant. C'est ce qui distingue un schéma initial d'une évolution.
+ */
+const TOUCHE_LES_LIGNES: readonly RegExp[] = [
+  /\bALTER\s+TABLE\b/i,
+  /\bUPDATE\s+/i,
+  /\bINSERT\s+INTO\b/i,
+  /\bDELETE\s+FROM\b/i,
+];
+
+/**
+ * Ce lot de migrations touche-t-il des lignes qui existaient déjà ?
+ *
+ * @param files - migrations sur le point d'être appliquées.
+ * @returns vrai dès qu'une instruction modifie une table existante.
+ */
+export function touchesExistingRows(
+  files: readonly { statements: readonly string[] }[],
+): boolean {
+  for (const file of files) {
+    for (const statement of file.statements) {
+      if (TOUCHE_LES_LIGNES.some((re) => re.test(statement))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Comment vérifier qu'une migration a préservé les données — **en UN geste**.
+ *
+ * Cette phrase existe parce que la sortie de SUCCÈS ne disait rien. Le produit
+ * annonçait « ✓ 1 migration appliquée » et s'arrêtait là ; l'agent à qui l'on
+ * demandait de prouver que les données avaient suivi n'avait aucun moyen sous
+ * les yeux, et celui qu'il inventait — repartir d'une base vide — détruit
+ * précisément ce qu'il fallait observer.
+ *
+ * Elle nomme les deux interpréteurs : « VAR=x commande » est de la syntaxe
+ * POSIX, que celui de Windows refuse.
+ *
+ * @param connector - connecteur visé, pour composer la commande.
+ * @returns la phrase à rendre après une application réussie.
+ */
+export function verifierLesDonnees(connector: string): string {
+  const suffixe = connector === "default" ? "" : ` --connector ${connector}`;
+  return (
+    "Ces migrations ont modifié des tables qui portaient déjà des lignes. " +
+    "Pour VÉRIFIER que les données ont suivi, ne repars pas d'une base " +
+    "vide : ce sont ces lignes-là qui sont la réponse, les effacer efface la " +
+    "question. Deux moyens. Compter et regarder sur place — « SELECT " +
+    "COUNT(*) » sur les tables touchées, et les valeurs des colonnes " +
+    "nouvellement remplies. Ou rejouer le même lot sur une COPIE de la base, " +
+    "sans toucher à celle-ci, en désignant la copie par NF_MIGRATE_DATABASE_URL :" +
+    `\n  NF_MIGRATE_DATABASE_URL=<url de la copie> nodefony orm:migrate${suffixe}\n` +
+    '  (PowerShell : $env:NF_MIGRATE_DATABASE_URL = "<url de la copie>" ; ' +
+    `nodefony orm:migrate${suffixe})`
+  );
+}

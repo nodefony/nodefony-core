@@ -370,6 +370,27 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
               [TEMOIN],
               "la migration a perdu la donnée qu'elle devait préserver",
             );
+
+            // ── 11. Et la sortie DIT comment vérifier que les données ont
+            //        suivi. C'est l'instant exact où un agent du banc de
+            //        découvrabilité a écrit « montrons-le en réinitialisant la
+            //        base » : il venait de réussir, on lui demandait de
+            //        prouver, et le produit ne lui offrait aucun moyen. En
+            //        « --json » le conseil part sur la sortie d'ERREUR, libre
+            //        par contrat — la sortie standard reste un flux pur.
+            assert.match(
+              applique.stderr,
+              /ne repars pas d'une base\s+vide/,
+              `la sortie de succès n'offre aucun moyen de vérifier : ${applique.stderr.slice(-600)}`,
+            );
+            assert.match(applique.stderr, /NF_MIGRATE_DATABASE_URL/);
+            assert.doesNotMatch(
+              applique.stderr,
+              /orm:reset/,
+              "un conseil de vérification ne nomme jamais le geste qui détruit",
+            );
+            // Le flux machine reste PUR : le conseil n'y entre pas.
+            parse(applique.stdout);
           } finally {
             // MySQL n'a pas de schéma jetable : les tables applicatives que ce
             // cas vient de créer resteraient derrière lui, et le voisin

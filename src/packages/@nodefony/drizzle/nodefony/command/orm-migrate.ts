@@ -13,6 +13,8 @@ import {
   renderDestructive,
   scanDestructive,
   summarizeDestructive,
+  touchesExistingRows,
+  verifierLesDonnees,
 } from "../src/migrator/destructive";
 import { readMigrationEnv } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
@@ -245,6 +247,21 @@ class OrmMigrate extends OrmMigrateCommand {
         human += `  ${style.green("+")} ${a.source}/${a.tag} ${style.dim(`— ${a.executionMs} ms`)}\n`;
       }
       human += `\n${renderStatus(report, style)}`;
+      // 🔴 C'est ICI que la question naît, et c'est ici qu'elle restait sans
+      // réponse : « ✓ appliquée » puis plus rien. Un agent sommé de PROUVER que
+      // les données ont suivi n'avait aucun moyen sous les yeux, et celui qu'il
+      // s'est inventé — repartir d'une base vide — efface la preuve même.
+      // Comme pour l'avertissement destructeur ci-dessus, la sortie d'ERREUR
+      // porte le conseil quand la sortie standard est réservée au JSON : elle
+      // est libre par contrat, et c'est exactement à cela qu'elle sert.
+      if (touchesExistingRows(avant.pending)) {
+        const conseil = verifierLesDonnees(resolution.connector);
+        if (opts.json === true) {
+          process.stderr.write(`${conseil}\n`);
+        } else {
+          human += `\n${style.dim(conseil)}\n`;
+        }
+      }
       // Le code de sortie est celui de l'état APRÈS application : on peut avoir
       // appliqué ce qu'on pouvait ET laisser un écart à traiter.
       //

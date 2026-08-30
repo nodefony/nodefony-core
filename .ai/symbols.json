@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-30T20:47:51.073Z",
+  "generated": "2026-08-30T21:06:10.430Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3547,
+    "symbols": 3549,
     "classes": 382,
     "interfaces": 984,
     "types": 423,
     "enums": 4,
-    "functions": 1403,
+    "functions": 1405,
     "constants": 351
   },
   "symbols": {
@@ -19437,6 +19437,22 @@
       "module": "@nodefony/drizzle",
       "description": "Résumé d'une ligne, pour un message ou un journal."
     },
+    "touchesExistingRows": {
+      "name": "touchesExistingRows",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce lot de migrations touche-t-il des lignes qui existaient déjà ?"
+    },
+    "verifierLesDonnees": {
+      "name": "verifierLesDonnees",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Comment vérifier qu'une migration a préservé les données — **en UN geste**. Cette phrase existe parce que la sortie de SUCCÈS ne disait rien. Le produit annonçait « ✓ 1 migration appliquée » et s'a…"
+    },
     "gapAgainstDeclared": {
       "name": "gapAgainstDeclared",
       "kind": "function",
@@ -30410,6 +30426,12 @@
       "summarizeDestructive": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "touchesExistingRows": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
+      ],
+      "verifierLesDonnees": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
       ],
       "resetAllowed": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
