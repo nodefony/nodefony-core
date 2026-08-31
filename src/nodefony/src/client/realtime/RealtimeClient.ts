@@ -66,6 +66,12 @@ import type {
 } from "../../realtime/RealtimeEventMap";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
+  announceRealtime,
+  aUnNoyau,
+  detailsConsole,
+  noteServerEnv,
+} from "../announce";
+import {
   bindAdaptiveChannel,
   type BindAdaptiveOptions,
   type AdaptiveChannelBinding,
@@ -101,6 +107,16 @@ export interface RealtimeOptions {
   reconnectDelayMax?: number;
   /** Heartbeat ping interval (ms). Défaut: 30000. */
   heartbeatInterval?: number;
+  /**
+   * Annoncer le framework dans la console du navigateur ? Défaut : oui.
+   *
+   * Une socket qui vit NUE — sans noyau — est souvent tout ce qu'une page monte :
+   * sans cette annonce, elle ne dit rien d'elle-même et `nodefony` reste
+   * `undefined` dans la console, ce qui se lit « le framework n'est pas chargé ».
+   * `false` fait taire l'annonce ET le handle, pour une application publiée qui
+   * ne veut rien dans la console de ses utilisateurs.
+   */
+  banner?: boolean;
 }
 
 type EventHandler = (...args: unknown[]) => void;
@@ -260,6 +276,11 @@ export class RealtimeClient<
     this.transportFactory =
       transportFactory ?? ((url: string) => new BrowserWsTransport(url));
     this.startStatsSampler();
+    // Le diagnostic ne se compose pas (ADR-0007 D7 révisé) : une socket nue
+    // annonce le framework et se rend inspectable, exactement comme le ferait un
+    // noyau. Quand il y en a un, il s'est annoncé AVANT de nous fabriquer — le
+    // badge porte alors son nom, et cet appel n'en émet pas un second.
+    announceRealtime(this.opts.banner);
   }
 
   /**
@@ -1004,7 +1025,43 @@ export class RealtimeClient<
     this._identity = w.identity ?? null;
     this._serverChannels = Array.isArray(w.channels) ? w.channels : null;
     this._serverMethods = Array.isArray(w.methods) ? w.methods : null;
+    // Le serveur dit son mode quand il n'est pas en production : c'est ce qui
+    // permet de parler dans la console d'un bundle bâti pour la production mais
+    // servi par un serveur de développement, cas qu'`import.meta.env.DEV` ne
+    // peut pas voir.
+    noteServerEnv(w.env);
+    // Détail dans la console — SEULEMENT s'il n'y a pas de noyau : quand il y en
+    // a un, c'est lui qui parle, il a plus à dire (état, identité, services).
+    // C'est le moment juste : avant l'accueil, il n'y aurait rien à montrer.
+    if (this.opts.banner !== false && !aUnNoyau()) this.detailsSocket();
     this.fireLocal(LOCAL_EVENTS.identity, this._identity);
+  }
+
+  /**
+   * Détail de la socket dans la console — le pendant, pour une page SANS noyau,
+   * du groupe que le noyau émet quand il y en a un (#136).
+   *
+   * Une vitrine ne compose rien : sans ceci, elle n'a aucun endroit où lire son
+   * adresse, ses canaux ou son identité, alors que c'est exactement ce qu'on
+   * cherche quand une socket ne pousse rien. Émis au premier accueil, une seule
+   * fois par page, et jamais en production.
+   */
+  private detailsSocket(): void {
+    detailsConsole(
+      {
+        adresse: { valeur: this.url ?? "—" },
+        état: { valeur: this.state },
+        identité: {
+          valeur: this._identity?.authenticated
+            ? (this._identity.userIdentifier ?? "authentifié")
+            : "anonyme",
+        },
+        canaux: { valeur: this._serverChannels?.join(", ") || "aucun" },
+        actions: { valeur: this._serverMethods?.join(", ") || "aucune" },
+      },
+      this,
+      "socket nodefony — détail et raccourcis",
+    );
   }
 
   /**

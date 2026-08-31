@@ -197,6 +197,21 @@ describe("ClientKernel — cycle de vie (D5)", () => {
 });
 
 describe("ClientKernel — l'annonce dans la console", () => {
+  /**
+   * Badge et détail ne sortent qu'UNE fois par page : sans page vierge, un banc
+   * précédent les aurait déjà consommés et celui-ci mesurerait le silence.
+   */
+  beforeEach(() => {
+    const g = globalThis as {
+      nodefony?: unknown;
+      __nfAnnounced__?: boolean;
+      __nfDetailed__?: boolean;
+    };
+    delete g.nodefony;
+    delete g.__nfAnnounced__;
+    delete g.__nfDetailed__;
+  });
+
   /** Console double : on compte ce que le kernel écrit, sans polluer la sortie. */
   const spyConsole = () => {
     const calls: string[] = [];
@@ -241,21 +256,65 @@ describe("ClientKernel — l'annonce dans la console", () => {
     }
   });
 
-  it("expose un handle inspectable, et le REPREND à la mort du kernel", async () => {
+  it("expose un handle inspectable, et LÂCHE le kernel à sa mort", async () => {
     const spy = spyConsole();
-    const g = globalThis as { nodefony?: { kernel?: unknown } };
+    const g = globalThis as {
+      nodefony?: { kernel?: unknown };
+      __nfRealtime__?: Map<string, unknown>;
+      __nfAnnounced__?: boolean;
+    };
+    // Page vierge : ni socket partagée d'un banc précédent, ni badge déjà sorti.
+    const sockets = g.__nfRealtime__;
+    delete g.__nfRealtime__;
+    delete g.__nfAnnounced__;
     try {
       const k = createClientKernel({ browserEvents: false });
       await k.boot();
       // Le vrai apport : taper `nodefony` dans la console rend l'objet vivant.
       expect(g.nodefony?.kernel).toBe(k);
       await k.terminate();
-      // Un handle qui survit retient un kernel MORT — la fuite classique d'un
-      // rechargement à chaud, qui en accumulerait un par rechargement.
+      // Un handle qui RETIENDRAIT un kernel mort, c'est la fuite classique du
+      // rechargement à chaud : un noyau accumulé par rechargement. Sans socket
+      // pour faire vivre la page, le handle disparaît entièrement.
       expect(g.nodefony).toBeUndefined();
     } finally {
       spy.restore();
       delete g.nodefony;
+      delete g.__nfAnnounced__;
+      if (sockets) g.__nfRealtime__ = sockets;
+    }
+  });
+
+  it("le handle SURVIT à la mort du kernel quand une socket vit encore — sans le retenir", async () => {
+    // C'est la décision de #136 : le diagnostic appartient à la PAGE, pas au
+    // noyau. Une vitrine qui n'a jamais pris de noyau doit pouvoir taper
+    // `nodefony` ; le corollaire est qu'un noyau qui meurt ne doit pas emporter
+    // le handle d'une page encore vivante — mais il doit se faire LÂCHER.
+    const spy = spyConsole();
+    const g = globalThis as {
+      nodefony?: { kernel?: unknown; sockets?: () => unknown[] };
+      __nfRealtime__?: Map<string, unknown>;
+      __nfAnnounced__?: boolean;
+    };
+    const sockets = g.__nfRealtime__;
+    delete g.__nfAnnounced__;
+    g.__nfRealtime__ = new Map([["/api/live/realtime", { state: "closed" }]]);
+    try {
+      const k = createClientKernel({ browserEvents: false });
+      await k.boot();
+      expect(g.nodefony?.kernel).toBe(k);
+      await k.terminate();
+      expect(g.nodefony, "la page emploie toujours Nodefony").toBeDefined();
+      expect(
+        g.nodefony?.kernel,
+        "mais le noyau mort est lâché",
+      ).toBeUndefined();
+    } finally {
+      spy.restore();
+      delete g.nodefony;
+      delete g.__nfAnnounced__;
+      if (sockets) g.__nfRealtime__ = sockets;
+      else delete g.__nfRealtime__;
     }
   });
 

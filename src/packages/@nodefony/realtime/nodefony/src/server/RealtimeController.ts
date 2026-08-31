@@ -47,6 +47,7 @@ import {
   DEFAULT_ACTION_POLICY,
   type RealtimeChannelFactory,
 } from "../../decorators/realtimeDecorators";
+import { welcomeEnv } from "./welcomeEnv";
 
 /**
  * Statut HTTP-équivalent d'une erreur survenue pendant une invocation du pont.
@@ -645,11 +646,16 @@ export abstract class RealtimeController<
     // handshake (authenticator P6 ou `ANONYMOUS_REALTIME_TOKEN`) — 0 dépendance
     // security, 0 re-lecture base. Le client la consomme pour savoir QUI il est
     // sans taper de route (anonyme → login). Vue « sur soi » : aucun secret.
+    // Mode d'exécution — la règle « jamais en production » vit dans
+    // `welcomeEnv`, seule et éprouvée : noyée ici, son inversion ne casserait
+    // aucun test et annoncerait le mode d'un serveur publié à ses visiteurs.
+    const env = this.kernel?.environment;
     const welcome: IRealtimeWelcome = {
       ts: Date.now(),
       protocol: "jsonrpc-2.0",
       channels: announcedChannels,
       methods: peer.methods,
+      ...welcomeEnv(env),
       identity: {
         type: token.type,
         authenticated: token.isAuthenticated(),

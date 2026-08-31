@@ -24,6 +24,7 @@
 import Service from "../Service";
 import type Syslog from "../syslog/Syslog";
 import { RealtimeClient } from "./realtime/RealtimeClient";
+import { announceKernel, detailsConsole, isVerbose } from "./announce";
 import type {
   ClientIdentity,
   ClientKernelEvent,
@@ -83,6 +84,12 @@ export class ClientKernel implements IClientKernel {
     // la console d'administration l'a montré, elle a besoin de la socket pour
     // construire son centre de notifications et son client d'API. Composer
     // n'ouvre rien : `RealtimeClient.shared()` fabrique, `boot()` connecte.
+    // L'annonce est posée AVANT la composition, et c'est ce qui lui donne son
+    // nom : `#composeRealtime` fabrique la socket, qui s'annonce elle aussi
+    // (ADR-0007 D7 révisé — le diagnostic ne se compose pas). Le badge ne sort
+    // qu'une fois par page ; le noyau doit donc parler le premier, sinon c'est
+    // le badge générique de la socket que le développeur verrait.
+    this.#disposeHandle = announceKernel(this, this.name, this.#options.banner);
     this.#composeRealtime();
   }
 
@@ -160,108 +167,44 @@ export class ClientKernel implements IClientKernel {
     // `terminated`.
     if (this.#state !== "booting") return;
     this.#state = "ready";
-    this.#banner();
+    this.#details();
     this.#service.fire("onReady", this);
   }
 
   /**
-   * Annonce le kernel dans la console du navigateur.
+   * Détail du noyau, dans un groupe REPLIÉ de la console.
    *
-   * La forme est celle qu'ont adoptée Vue, Vite et les outils de développement
-   * qui vivent dans une console partagée : **un badge en couleur sur UNE ligne**,
-   * puis un **groupe REPLIÉ** pour le détail. Pas de dessin en caractères — celui
-   * du serveur a du sens dans un terminal qu'on ouvre une fois au démarrage ;
-   * dans une console de navigateur il se répète à chaque rechargement, déborde
-   * des fenêtres étroites, et pousse hors de vue les messages de l'application.
-   * Ce que la console d'un développeur doit rester, c'est LISIBLE.
+   * Le badge d'une ligne et le handle `nodefony` ne sont plus ici : ils sont
+   * posés au constructeur par `announce.ts`, que la socket appelle aussi quand
+   * elle vit nue (ADR-0007 D7 révisé). Ce qui reste est ce qu'un noyau seul peut
+   * dire — son état, son identité, les services qu'il a composés.
    *
    * Le groupe est replié (`groupCollapsed`) et non ouvert : présent pour qui le
    * cherche, invisible pour qui débogue autre chose.
    */
-  #banner(): void {
+  #details(): void {
     if (this.#options.banner === false) return;
-    // DÉVELOPPEMENT : on peut se permettre le détail. PRODUCTION : le strict
-    // minimum — la console d'une application publiée appartient à ses
-    // développeurs, pas au framework qu'elle utilise.
-    //
-    // Le mode se LIT, il ne se devine pas : `import.meta.env.DEV` est posé par le
-    // bundler de l'application (Vite le remplace par une constante au build).
-    // Hors bundler il n'existe pas — et l'absence de preuve de développement se
-    // traite comme la production, jamais l'inverse : se taire à tort ne coûte
-    // qu'une ligne manquante, parler à tort pollue la console de tout le monde.
-    const dev =
-      this.#options.banner === true ||
-      (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
-    // Une console peut manquer (rendu côté serveur, test) ou ne pas savoir
-    // grouper : on n'annonce rien plutôt que de jeter au démarrage.
-    const c = globalThis.console;
-    if (!c?.log) return;
+    // DÉVELOPPEMENT : on peut se permettre le détail. PRODUCTION : le badge
+    // d'une ligne est TOUT — savoir que le noyau tourne suffit à diagnostiquer,
+    // le reste est du bruit chez l'utilisateur. `isVerbose` couvre en plus le
+    // cas d'un bundle de production servi par un serveur de développement, que
+    // `import.meta.env.DEV` ne pouvait pas voir.
+    if (this.#options.banner !== true && !isVerbose()) return;
     const socket = this.get("realtime");
-    const badge =
-      "background:#0b1120;color:#5eead4;font-weight:700;padding:2px 6px;border-radius:3px 0 0 3px";
-    const suite =
-      "background:#1e293b;color:#e2e8f0;padding:2px 6px;border-radius:0 3px 3px 0";
-    c.log(`%c◆ nodefony%c${this.name}%c`, badge, suite, "");
-    // En production, la ligne ci-dessus est TOUT : savoir que le noyau tourne
-    // suffit à diagnostiquer, le reste est du bruit chez l'utilisateur.
-    if (!dev) return;
-    // Le noyau devient MANIPULABLE depuis la console — c'est le vrai apport,
-    // au-delà de l'annonce. Redux et Vue ont montré la voie : un développeur qui
-    // tape un nom dans sa console et obtient l'objet vivant diagnostique en
-    // secondes ce qui demandait sinon d'ajouter un `console.log` et de recharger.
-    // Ici : `nodefony.kernel`, `nodefony.socket`, `nodefony.identity()`.
-    const handle = {
-      kernel: this,
-      get socket() {
-        return socket;
+    const lignes: Record<string, { valeur: string }> = {
+      état: { valeur: this.state },
+      identité: { valeur: this.identity ? this.identity.key : "anonyme" },
+      "temps réel": {
+        valeur: socket ? (socket.url ?? "socket fournie") : "aucun",
       },
-      identity: () => this.identity,
-      services: () => (this.#services ? Object.keys(this.#services) : []),
+      socket: { valeur: socket ? socket.state : "—" },
     };
-    (globalThis as { nodefony?: unknown }).nodefony = handle;
-    // Ce handle retient le kernel : il est LIBÉRÉ à `terminate()`, sans quoi une
-    // page qui recompose son noyau (rechargement à chaud) en retiendrait un mort.
-    this.#disposeHandle = () => {
-      if ((globalThis as { nodefony?: unknown }).nodefony === handle)
-        delete (globalThis as { nodefony?: unknown }).nodefony;
-    };
-
-    if (!c.groupCollapsed || !c.groupEnd) return;
-    c.groupCollapsed("%cnoyau client — détail et raccourcis", "color:#94a3b8");
-    try {
-      // `table` plutôt que des lignes : aligné, trié, dépliable — et natif.
-      const lignes: Record<string, { valeur: string }> = {
-        état: { valeur: this.state },
-        identité: { valeur: this.identity ? this.identity.key : "anonyme" },
-        "temps réel": {
-          valeur: socket ? (socket.url ?? "socket fournie") : "aucun",
-        },
-        socket: { valeur: socket ? socket.state : "—" },
-      };
-      for (const nom of handle.services())
-        lignes[`service · ${nom}`] = { valeur: "composé" };
-      if (c.table) c.table(lignes);
-      else for (const [k, v] of Object.entries(lignes)) c.log(k, v.valeur);
-
-      c.log(
-        "%cconsole :%c nodefony.kernel · nodefony.socket · nodefony.identity()",
-        "color:#94a3b8",
-        "color:#5eead4;font-family:monospace",
-      );
-      // L'atout que personne d'autre n'a : la même valeur relie ce navigateur au
-      // journal du serveur. Le dire ICI, c'est éviter la question « comment je
-      // retrouve ma requête ? » — qui se pose toujours trop tard.
-      c.log(
-        "%ccorrélation :%c chaque journal porte un requestId — la même valeur côté serveur relie clic, route, base et réponse",
-        "color:#94a3b8",
-        "color:#e2e8f0",
-      );
-      c.log("%cobjet :%c", "color:#94a3b8", "", this);
-    } finally {
-      // `groupEnd` DOIT être atteint même si une lecture jette : un groupe laissé
-      // ouvert avale tous les messages suivants de l'application.
-      c.groupEnd();
-    }
+    for (const nom of this.#services ? Object.keys(this.#services) : [])
+      lignes[`service · ${nom}`] = { valeur: "composé" };
+    // Le groupe, le tableau et les rappels vivent dans `announce.ts` : une
+    // vitrine sans noyau obtient EXACTEMENT la même présentation, et une seule
+    // implémentation la porte.
+    detailsConsole(lignes, this, "noyau client — détail et raccourcis");
   }
 
   /**

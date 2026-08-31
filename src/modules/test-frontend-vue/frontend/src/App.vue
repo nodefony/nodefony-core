@@ -224,9 +224,9 @@ onUnmounted(() => {
                 {{ vue?.channels.join(", ") || "aucun" }}
               </dd>
               <dt>Trames reçues</dt>
-              <dd>{{ frames }}</dd>
+              <dd>{{ vue?.frames ?? 0 }}</dd>
               <dt>Dernière</dt>
-              <dd>{{ derniere ?? "—" }}</dd>
+              <dd>{{ derniereDe(vue) }}</dd>
             </dl>
             <p class="rien">
               Tout cela vient du client lui-même : afficher ce panneau ne

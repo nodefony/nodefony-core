@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-31T21:47:28.474Z",
+  "generated": "2026-08-31T22:24:25.009Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 791,
-    "symbols": 3608,
+    "files": 793,
+    "symbols": 3623,
     "classes": 383,
-    "interfaces": 999,
+    "interfaces": 1000,
     "types": 426,
     "enums": 4,
-    "functions": 1431,
+    "functions": 1445,
     "constants": 365
   },
   "symbols": {
@@ -1976,6 +1976,62 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Codes de sortie standardisés — convention BSD `sysexits.h` (FreeBSD `sysexits(3)`). Ce n'est PAS un RFC, mais le standard de facto Unix pour des exit codes porteurs de sens, au-delà du binaire POSI…"
+    },
+    "noteServerEnv": {
+      "name": "noteServerEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le mode annoncé par le serveur, quand il en annonce un. ⚠️ Le serveur **ne pose ce champ qu'en dehors de la production** : une absence vaut donc production, jamais l'inverse. C'est la même règle qu…"
+    },
+    "isVerbose": {
+      "name": "isVerbose",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Peut-on se permettre le détail ? Bundle de développement, OU serveur qui annonce un mode hors production."
+    },
+    "isDevBuild": {
+      "name": "isDevBuild",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le bundle a-t-il été bâti en développement ? Le mode se LIT, il ne se devine pas : `import.meta.env.DEV` est posé par le bundler de l'application (Vite le remplace par une constante au build). Hors…"
+    },
+    "announceKernel": {
+      "name": "announceKernel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Annonce un noyau client : son nom porte le badge, et il devient le sujet du handle. À appeler AVANT que le noyau compose sa socket, sinon c'est le badge générique de la socket qui sortirait le prem…"
+    },
+    "announceRealtime": {
+      "name": "announceRealtime",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Annonce une socket qui vit NUE — aucune composition, aucun noyau. C'est le cas des vitrines du dépôt et de tout widget qui monte une socket et rien d'autre."
+    },
+    "detailsConsole": {
+      "name": "detailsConsole",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Détail du framework, dans un groupe REPLIÉ de la console : un tableau `clé → valeur` et les deux rappels qui font gagner du temps. **Un seul détail par page**, et le noyau gagne : quand il y en a u…"
+    },
+    "aUnNoyau": {
+      "name": "aUnNoyau",
+      "kind": "function",
+      "file": "src/nodefony/src/client/announce.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un noyau est-il vivant sur cette page ? La socket s'efface devant lui."
     },
     "ClientKernel": {
       "name": "ClientKernel",
@@ -22434,6 +22490,14 @@
       "module": "@nodefony/realtime",
       "description": "Sévérité la plus grave qu'un client puisse obtenir (3 = ERROR). Au-dessus vivent CRITIC, ALERT et EMERGENCY — des niveaux d'exploitation qu'un onglet ne décide pas."
     },
+    "welcomeEnv": {
+      "name": "welcomeEnv",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/welcomeEnv.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Le mode d'exécution annoncé — ou non — dans `realtime:welcome`. Le client ne dispose sinon que d'`import.meta.env.DEV`, qui dit le mode du BUNDLE : une application bâtie pour la production mais ser…"
+    },
     "RealtimeService": {
       "name": "RealtimeService",
       "kind": "class",
@@ -27980,6 +28044,7 @@
         "src/nodefony/src/cli/manPage.ts"
       ],
       "RealtimeClient": [
+        "src/nodefony/src/client/announce.ts",
         "src/nodefony/src/client/ClientKernel.ts",
         "src/nodefony/src/client/IClientKernel.ts",
         "src/nodefony/src/client/index.ts",
@@ -27989,6 +28054,16 @@
         "src/nodefony/src/client/realtime/observe.ts",
         "src/nodefony/src/client/svelte/index.ts",
         "src/nodefony/src/client/vue/index.ts"
+      ],
+      "announceKernel": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "detailsConsole": [
+        "src/nodefony/src/client/ClientKernel.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "isVerbose": [
+        "src/nodefony/src/client/ClientKernel.ts"
       ],
       "ClientIdentity": [
         "src/nodefony/src/client/ClientKernel.ts"
@@ -29527,6 +29602,15 @@
       "IRealtimeWelcome": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "announceRealtime": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "aUnNoyau": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "noteServerEnv": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "PLATFORM_METHODS": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
@@ -33571,6 +33655,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RealtimeChannelFactory": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "welcomeEnv": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "NODEFONY_CHANNEL_NAMESPACE": [

@@ -212,6 +212,20 @@ export interface IRealtimeWelcome {
   methods: string[];
   /** Identité résolue de CETTE connexion (cf {@link RealtimeIdentity}). */
   identity: RealtimeIdentity;
+  /**
+   * Mode d'exécution du serveur — **posé UNIQUEMENT hors production**.
+   *
+   * Il existe parce que le client ne dispose sinon que de `import.meta.env.DEV`,
+   * qui dit le mode du BUNDLE : une application bâtie pour la production mais
+   * servie par un serveur de développement (banc, cluster local, image testée
+   * sur le poste) restait muette dans la console alors qu'on avait tout intérêt
+   * à la faire parler. Le serveur, lui, sait.
+   *
+   * ⚠️ **Une absence vaut production, jamais l'inverse.** Un serveur publié
+   * n'émet pas ce champ : ce n'est pas un réglage qu'on lit, c'est une
+   * permission de parler — et on ne l'accorde pas par défaut.
+   */
+  env?: string;
 }
 
 /**

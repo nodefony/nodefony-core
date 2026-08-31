@@ -27,6 +27,18 @@ budgets, invariants) qui sera publié avec `nodefony@10.0.0`. **L'implémentatio
 Phase 3.2 post-MVP**. Comme l'ADR-0006, ce document EST la spécification à respecter le jour de
 l'implémentation.
 
+**Révision du 2026-09-01 — l'opt-in strict porte sur la COMPOSITION, pas sur le DIAGNOSTIC.**
+D7 est précisé (voir sa section) : les quatre vitrines restent nues, décision confirmée, et ce qui
+valait la peine d'exister sans noyau en est SORTI. L'annonce dans la console et le handle `nodefony`
+vivent désormais dans `src/nodefony/src/client/announce.ts`, que le noyau ET une socket nue
+appellent. Motif : une page qui emploie Nodefony sans noyau ne disait rien d'elle-même, et un
+développeur qui tape `nodefony` dans sa console et obtient `undefined` en conclut que le framework
+n'est pas chargé — alors que sa socket tourne. Le mode d'exécution du SERVEUR voyage en prime dans
+`realtime:welcome` (`env`, **posé uniquement hors production**) : `import.meta.env.DEV` ne dit que le
+mode du bundle, et une application bâtie pour la production mais servie par un serveur de
+développement restait muette. Aucun mode explicite n'a été ajouté au noyau client : deux déductions
+suffisent, et `banner` reste la seule molette.
+
 **Révision du 2026-08-31 (seconde) — la console d'administration est portée, le contrat est PUBLIÉ.**
 D11.4 est fait : `RootStore` compose par `createClientKernel`, son fournisseur React est nourri par
 `kernel.get("realtime")` **sans conversion de type forcée**, et le cycle d'identité est délégué —
@@ -310,6 +322,36 @@ de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le Client
 (un widget, une page, un POC) est un actif — un kernel obligatoire pour afficher 3 stats serait
 un échec produit, et c'est la même philosophie que le hub realtime (« le hub c'est le patron »
 n'a jamais signifié « le hub est obligatoire pour ouvrir une socket »).
+
+**Précision du 2026-09-01 — l'opt-in porte sur la COMPOSITION, jamais sur le diagnostic.** La
+question posée par #136 était : nos quatre vitrines n'utilisent pas le noyau, faut-il qu'une
+l'adopte ? **Non.** La console d'administration l'exerce déjà de bout en bout (identité, bascule de
+compte, services composés) ; une vitrine qui l'adopterait exercerait un noyau _vide_ et contredirait
+la démonstration qu'elle porte — « deux concepts pour afficher un message temps réel ». Le trou
+n'était pas « le noyau sert trop peu », c'était **qu'une page sans noyau ne dit rien d'elle-même**.
+
+Ce qui vaut sans noyau en est donc sorti, dans `src/nodefony/src/client/announce.ts` :
+
+- le **badge** d'une ligne — au plus un par page ; quand un noyau existe, il s'annonce dans son
+  constructeur, avant de composer sa socket, et c'est donc SON nom qui s'affiche ;
+- le **handle** `nodefony` — `kernel` quand il y en a un, sinon `socket`, `sockets()`, `identity()` ;
+- le **groupe replié et son tableau**, une seule implémentation pour les deux chemins : le noyau
+  passe ses lignes (état, identité, services), une socket nue passe les siennes (adresse, état,
+  identité, canaux, actions) au premier `realtime:welcome` — avant l'accueil il n'y aurait rien à
+  montrer, et une socket s'efface toujours devant un noyau.
+
+Le handle **ne retient rien** : il lit le registre que `RealtimeClient.shared()` tient déjà. Une
+socket construite hors du partage fait sortir le badge sans figurer dans `sockets()` — la retenir en
+ferait une fuite pour un confort.
+
+Deux gardes, mêmes dans les deux sens : `banner: false` fait taire l'annonce ET le handle, côté
+noyau comme côté socket ; et le handle n'est jamais posé en production. Le mode d'exécution se
+déduit de deux sources — `import.meta.env.DEV` (le bundle) et `env` du `realtime:welcome` (le
+serveur, **absent en production** : une permission de parler ne s'accorde pas par défaut).
+
+Ce que le dépôt en garde : `announceWithoutKernel.test.ts` verrouille les deux moitiés, y compris le
+fait qu'**aucune vitrine ne compose de noyau** — la dérive à craindre est l'inverse de celle qu'on
+soupçonnait, qu'on « améliore » une vitrine et qu'on perde le chemin court sans que rien ne le dise.
 
 ### D8 — L'observabilité full-stack est LE différenciateur embarqué
 
