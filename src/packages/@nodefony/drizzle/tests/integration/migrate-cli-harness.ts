@@ -323,7 +323,112 @@ export function ciblesPour(schemaPg: string): ICible[] {
 }
 
 /**
+ * Les tables que la base porte VRAIMENT, au moment où on demande.
+ *
+ * Interrogé sur le CATALOGUE du serveur, jamais déduit de ce que le banc croit
+ * avoir créé : c'est toute la différence entre constater un décor et le
+ * supposer. Un `SELECT` par dialecte — les trois catalogues ne se lisent pas de
+ * la même façon, et il n'existe pas de forme portable.
+ *
+ * @param base - la base du cas.
+ * @param dialect - dialecte exercé.
+ * @returns les noms de tables, triés ; une liste vide si la lecture échoue.
+ */
+export async function tablesEnBase(
+  base: IBase,
+  dialect: SqlDialect,
+): Promise<string[]> {
+  const requete =
+    dialect === "sqlite"
+      ? "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+      : dialect === "postgres"
+        ? "SELECT table_name AS name FROM information_schema.tables " +
+          "WHERE table_schema = current_schema() ORDER BY 1"
+        : "SELECT table_name AS name FROM information_schema.tables " +
+          "WHERE table_schema = DATABASE() ORDER BY 1";
+  try {
+    const pilote = await openMigrationDriver(
+      dialect === "sqlite"
+        ? { dialect, filename: base.url.replace(/^sqlite:/, "") }
+        : { dialect, url: base.url },
+    );
+    try {
+      const lignes = await pilote.query<Record<string, unknown>>(requete);
+      // MySQL rend « TABLE_NAME » sur certaines collations de catalogue : lire
+      // la première valeur de la ligne évite de parier sur la casse d'une clé.
+      return lignes
+        .map((l) => String(Object.values(l)[0] ?? ""))
+        .filter((n) => n.length > 0);
+    } finally {
+      await pilote.close();
+    }
+  } catch {
+    // Un diagnostic ne doit JAMAIS masquer l'échec qu'il documente : s'il ne
+    // peut pas lire, il le dit et se tait.
+    return [];
+  }
+}
+
+/**
+ * Dossier où la commande écrit les migrations de l'APPLICATION, pour un dialecte.
+ *
+ * Composé ICI, une fois : les bancs le nettoient, le lisent et l'affichent, et
+ * une seconde composition ailleurs se serait mise à désigner un autre dossier
+ * le jour où la convention change. Assemblé par `path.join`, jamais écrit en
+ * littéral — une assertion de chemin qui accepte « l'un ou l'autre séparateur »
+ * ne prouve rien sous Windows.
+ *
+ * @param dialect - dialecte exercé.
+ * @returns le chemin absolu du dossier de sortie.
+ */
+export function dossierMigrations(dialect: SqlDialect): string {
+  return path.join(ROOT, "migrations", dialect);
+}
+
+/**
+ * Ce que le dossier de sortie contient — fichiers écrits et journal.
+ *
+ * @param outDir - dossier des migrations du cas.
+ * @returns une ligne par fichier, et les entrées du journal.
+ */
+export async function etatDuDossier(outDir: string): Promise<string> {
+  let fichiers: string[];
+  try {
+    fichiers = (await fs.readdir(outDir)).sort();
+  } catch {
+    return "  (dossier de sortie absent)";
+  }
+  let journal = "  (pas de journal)";
+  try {
+    const brut = await fs.readFile(
+      path.join(outDir, "meta", "_journal.json"),
+      "utf8",
+    );
+    const doc = JSON.parse(brut) as { entries?: { tag?: string }[] };
+    journal = `  journal : ${(doc.entries ?? [])
+      .map((e) => e.tag ?? "?")
+      .join(", ")}`;
+  } catch {
+    /* le journal manque ou n'est pas lisible : la ligne par défaut le dit */
+  }
+  return `  fichiers : ${fichiers.join(", ") || "(aucun)"}\n${journal}`;
+}
+
+/**
  * Déroule un cas sur une base vierge, et la libère quoi qu'il arrive.
+ *
+ * ## Pourquoi l'échec est enrichi ICI
+ *
+ * Un cas de ce banc tombe parfois sans se reproduire : mesuré, **six passes
+ * consécutives vertes** après deux rouges la veille, à décor identique.
+ * Re-tirer coûte cinq minutes et ne rend rien ; ce qui manque au rouge n'est pas
+ * une répétition de plus, c'est l'ÉTAT dans lequel il est survenu — les tables
+ * que la base portait, les migrations déjà écrites. Sans eux, il faut deviner si
+ * c'est le produit ou le décor, et c'est exactement ce qui a fait passer deux
+ * défauts réels pour du bruit pendant huit jours.
+ *
+ * L'enrichissement se fait au point UNIQUE par lequel tous les cas passent :
+ * posé dans chaque assertion, il serait oublié à la première qu'on ajoute.
  *
  * @param cible - dialecte exercé.
  * @param corps - le cas, qui reçoit la base et l'environnement à passer au CLI.
@@ -335,6 +440,18 @@ export async function surBaseNeuve(
   const base = await cible.neuve();
   try {
     await corps(base, { ...DECOR_MIGRATIONS, NF_DATABASE_URL: base.url });
+  } catch (cause) {
+    const tables = await tablesEnBase(base, cible.dialect);
+    const dossier = await etatDuDossier(dossierMigrations(cible.dialect));
+    const etat =
+      `\n\n── état AU MOMENT DE L'ÉCHEC (${cible.dialect}) ──\n` +
+      `  tables en base : ${tables.join(", ") || "(aucune)"}\n` +
+      `${dossier}`;
+    if (cause instanceof Error) {
+      cause.message += etat;
+      throw cause;
+    }
+    throw new Error(`${String(cause)}${etat}`, { cause });
   } finally {
     await base.liberer();
   }
