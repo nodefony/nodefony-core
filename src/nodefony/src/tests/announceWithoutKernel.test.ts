@@ -14,6 +14,7 @@
  *    badge, et le fait d'être lâché à sa mort.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { fileURLToPath } from "node:url";
 import { RealtimeClient } from "../client/realtime/RealtimeClient";
 import { createClientKernel } from "../client/ClientKernel";
 
@@ -151,7 +152,12 @@ describe("La décision de #136 est gravée : les vitrines restent NUES", () => {
    * une vitrine en lui composant un noyau, et qu'on perde la démonstration du
    * chemin court sans que rien ne le signale.
    */
-  const racine = new URL("../../../../src/modules/", import.meta.url).pathname;
+  // `.pathname` d'une URL `file:` rend `/D:/a/…` sous Windows : concaténé à un
+  // chemin, il produit `D:\D:\…` (axiome #3 — un chemin qu'on OUVRE ne se dérive
+  // jamais d'une URL à la main).
+  const racine = fileURLToPath(
+    new URL("../../../../src/modules/", import.meta.url),
+  );
   const vitrines = [
     "test-frontend-react",
     "test-frontend-vue",
