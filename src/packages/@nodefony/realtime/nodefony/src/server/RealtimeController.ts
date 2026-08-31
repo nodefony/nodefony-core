@@ -1,6 +1,5 @@
 import {
   JsonRpcPeer,
-  Nodefony,
   PLATFORM_INBOUND,
   RpcError,
   RpcEnvelope,
@@ -596,7 +595,11 @@ export abstract class RealtimeController<
       clientLogs !== null &&
       inboundMap[PLATFORM_INBOUND.syslogUplink] === undefined
     ) {
-      const syslog = Nodefony.getKernel()?.syslog;
+      // Le journal du CONTRÔLEUR (résolu du conteneur par `Service`), pas le
+      // singleton du kernel : c'est le même objet dans une application réelle, mais
+      // il reste substituable — un banc qui monte un contrôleur sans kernel doit
+      // pouvoir observer ce que le canal réinjecte.
+      const syslog = this.syslog;
       if (syslog) {
         inboundMap[PLATFORM_INBOUND.syslogUplink] = createSyslogUplinkHandler({
           syslog,
