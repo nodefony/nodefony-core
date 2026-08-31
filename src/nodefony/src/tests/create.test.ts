@@ -5842,7 +5842,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 // implémentation que la commande `nodefony git:hooks`, jamais recopiée. Ce
 // bloc prouve le CÂBLAGE : l'option traverse le parse, le moteur, et les
 // hooks entrent dans le COMMIT INITIAL (posés entre `git init` et le commit).
-describe("create app --git-hooks", { timeout: 60_000 }, () => {
+// ⏱️ Même budget que `e2e bin/nodefony create` ci-dessus, et pour la MÊME
+// raison : ces cas scaffoldent une application entière puis font tourner git
+// (init, add, commit initial). Rien ne s'y évalue en temps — le délai n'est pas
+// une mesure, c'est une attente d'E/S. Mesuré : 4,5 s en isolation, contre un
+// timeout atteint à 60 s sous `test:all`, où les workspaces tournent en
+// parallèle. Ce n'est donc pas le coût du cas qui a bougé, c'est la contention
+// de la suite complète — et un budget doit couvrir le pire cas, pas le cas seul.
+describe("create app --git-hooks", { timeout: 120_000 }, () => {
   let dest = "";
   const envAvant: Record<string, string | undefined> = {};
 

@@ -2,6 +2,7 @@ import { expect } from "chai";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";
+import net from "node:net";
 import { pidListeningOn } from "../helpers/pidListening.js";
 import { ViteProcessSupervisor } from "../../service/ViteProcessSupervisor.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
@@ -31,8 +32,26 @@ function makeEntry(): IResolvedFrontendEntry {
 
 // Trouve un port libre — Vite en cherche un autre si occupé, mais on veut
 // éviter les flakes en tests parallèles.
-function freePort(): number {
-  return 6000 + Math.floor(Math.random() * 1000);
+/**
+ * Un port RÉELLEMENT libre, constaté et non tiré au sort.
+ *
+ * L'ancienne version rendait `6000 + random(1000)` : un port ESPÉRÉ libre. Sur
+ * un poste chargé — une forge, surtout — le tirage tombe tôt ou tard sur un
+ * port qu'un tiers occupe déjà, et le cas ne mesure plus ce qu'il croit : le
+ * superviseur se décale dès la PREMIÈRE instance, et tout ce qui suit raisonne
+ * sur une prémisse fausse. On laisse donc le noyau attribuer le port, ce qui
+ * est le seul moyen de savoir qu'il est libre.
+ */
+async function freePort(): Promise<number> {
+  const srv = net.createServer();
+  return new Promise<number>((resolve, reject) => {
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const adresse = srv.address();
+      const port = typeof adresse === "object" && adresse ? adresse.port : 0;
+      srv.close(() => (port ? resolve(port) : reject(new Error("no port"))));
+    });
+  });
 }
 
 async function httpPing(host: string, port: number): Promise<number> {
@@ -55,7 +74,7 @@ async function httpPing(host: string, port: number): Promise<number> {
 
 describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   it("start + stop golden path", async () => {
-    const port = freePort();
+    const port = await freePort();
     const sup = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
@@ -83,7 +102,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   });
 
   it("idempotence start : 2e appel ne re-spawn pas", async () => {
-    const port = freePort();
+    const port = await freePort();
     const sup = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
@@ -113,7 +132,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     // reste mort et l'on cherche la panne ailleurs. Le config généré porte
     // TOUJOURS `strictPort: true` (il est lié à l'origine publique) : Vite ne
     // se décalera donc jamais de lui-même, c'est le superviseur qui doit relancer.
-    const port = freePort();
+    const port = await freePort();
     const first = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
@@ -138,6 +157,18 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       await first.start([makeEntry()], {});
       expect(first.status().port).to.equal(port);
 
+      // PRÉMISSE, vérifiée AVANT de juger : la 1ʳᵉ instance tient TOUJOURS le
+      // port. Si elle est morte entre-temps, le port est redevenu libre et la
+      // 2ᵉ le prend légitimement — le cas rendrait alors « pas de décalage »
+      // pour une raison qui n'a rien à voir avec ce qu'il mesure. C'est
+      // exactement ce qu'a rendu la forge : `expected 6511 to be above 6511`,
+      // un verdict sur une prémisse tombée. Une condition composite qui échoue
+      // se DÉCOMPOSE.
+      expect(
+        await httpPing("127.0.0.1", port),
+        "prémisse : la 1ʳᵉ instance tient encore le port de base",
+      ).to.be.greaterThan(0);
+
       await second.start([makeEntry()], {});
       const status = second.status();
       expect(status.state).to.equal("ready");
@@ -154,7 +185,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   });
 
   it("auto-restart sur crash inattendu (SIGKILL)", async () => {
-    const port = freePort();
+    const port = await freePort();
     const sup = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
@@ -204,7 +235,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   // Face B : AVEC le câblage (template {port} → allowedHosts + origin résolu),
   // le même Host passe, et status().origin suit le port RÉEL du spawn.
   it("Host étranger refusé SANS allowedHosts (témoin — la barrière existe)", async () => {
-    const port = freePort();
+    const port = await freePort();
     const sup = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
@@ -229,7 +260,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   });
 
   it("publicOrigin {port} : origin suit le port réel, allowedHosts ouvre le Host étranger", async () => {
-    const port = freePort();
+    const port = await freePort();
     const sup = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,

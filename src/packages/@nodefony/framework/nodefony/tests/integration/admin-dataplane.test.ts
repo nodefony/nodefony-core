@@ -549,34 +549,51 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
     // fermer son handshake en 1008 « Authentication required » quelques
     // millisecondes après avoir obtenu un cookie valide.
     await assurerCompteJetable();
-    // ORDRE VOULU : le témoin ouvre APRÈS, donc il est la session la plus
-    // RÉCENTE du compte — et c'est lui qui arrive en tête de `sessions/mine`.
-    // Prendre `items[0]` (ce que faisait ce cas) révoquerait donc le témoin.
-    const mien = await loginCookie(JETABLE, JETABLE_MDP);
-    const temoin = await loginCookie(JETABLE, JETABLE_MDP);
-    expect(mien, "login du compte jetable").to.not.equal("");
-    expect(temoin, "login du témoin").to.not.equal("");
+    // L'ordre de `sessions/mine` n'est PAS un contrat — `allMySessions` le dit
+    // en toutes lettres : le backend à curseur balaie sans trier. Ce cas
+    // supposait pourtant « le témoin ouvre après, donc il est en tête », et
+    // tombait sur son propre garde-fou dès que les deux connexions sortaient
+    // dans l'autre ordre (rouge intermittent en suite complète, vert isolé).
+    //
+    // Ce qu'il faut n'est pas un ordre : c'est une session courante qui ne soit
+    // PAS `items[0]`, sans quoi le cas ne discriminerait plus rien — révoquer
+    // « le premier de la liste » passerait aussi. Et cela se CONSTATE : les deux
+    // connexions voient la MÊME liste, seul le drapeau `current` diffère, donc
+    // l'une des deux a forcément sa courante hors tête.
+    const a = await loginCookie(JETABLE, JETABLE_MDP);
+    const b = await loginCookie(JETABLE, JETABLE_MDP);
+    expect(a, "login du compte jetable").to.not.equal("");
+    expect(b, "login du témoin").to.not.equal("");
 
-    const items = await allMySessions(mien);
-    const current = items.filter((s) => s.current === true);
+    const vueDe = async (cookie: string) => {
+      const items = await allMySessions(cookie);
+      const current = items.filter((s) => s.current === true);
+      expect(
+        current.length,
+        "le serveur désigne EXACTEMENT une session courante",
+      ).to.equal(1);
+      return { cookie, items, current: current[0]! };
+    };
+    const vueA = await vueDe(a);
+    const vueB = await vueDe(b);
+    const mienne = vueA.current.ref !== vueA.items[0]!.ref ? vueA : vueB;
+    const temoin = mienne === vueA ? b : a;
     expect(
-      current.length,
-      "le serveur désigne EXACTEMENT une session courante",
-    ).to.equal(1);
-    expect(
-      current[0]!.ref,
+      mienne.current.ref,
       "la session courante n'est pas la première de la liste",
-    ).to.not.equal(items[0]!.ref);
+    ).to.not.equal(mienne.items[0]!.ref);
 
     const revoke = await req(
       "POST",
-      `/nodefony/http/api/sessions/mine/${current[0]!.ref}/revoke`,
-      { cookie: mien },
+      `/nodefony/http/api/sessions/mine/${mienne.current.ref}/revoke`,
+      { cookie: mienne.cookie },
     );
     expect(revoke.status, "je révoque ma propre session").to.equal(200);
 
     // J'ai révoqué LA MIENNE : je suis déconnecté…
-    const apres = await req("GET", "/nodefony/user/api/me", { cookie: mien });
+    const apres = await req("GET", "/nodefony/user/api/me", {
+      cookie: mienne.cookie,
+    });
     expect(apres.status, "ma session est bien tombée").to.equal(401);
     // …et le témoin a survécu. C'est la sentinelle du défaut : révoquer « une
     // session au hasard du compte » l'emporterait, et un banc voisin avec elle.
