@@ -5,12 +5,31 @@
  * les familles distinctes tournent dans des **process Vite séparés** (multi-
  * supervisor).
  *
- * Pourquoi isoler Angular : son plugin (`@analogjs/vite-plugin-angular`)
- * transforme **tout** fichier `.ts` du dev server — y compris ceux des bundles
- * React/Vue (ex. stores MobX à décorateurs). Mélangé aux autres, il throw sur
- * des fichiers hors de son tsconfig → erreurs de compilation + boucle de reload.
- * React / Vue / vanilla ciblent des extensions disjointes (`.tsx`/`.jsx` vs
- * `.vue`) et cohabitent sans conflit dans la famille `default`.
+ * **Le motif est toujours le même : un plugin qui transforme ce qui ne lui
+ * appartient pas.** Deux familles le paient aujourd'hui.
+ *
+ * Angular : son plugin (`@analogjs/vite-plugin-angular`) transforme **tout**
+ * fichier `.ts` du serveur de développement — y compris ceux des autres bundles
+ * (ex. stores MobX à décorateurs). Mélangé aux autres, il throw sur des fichiers
+ * hors de son tsconfig → erreurs de compilation + boucle de rechargement.
+ *
+ * Vue : le compilateur de composants monofichiers sert le bloc script sous un
+ * identifiant qui se TERMINE par `.ts`
+ * (`App.vue?vue&type=script&setup=true&lang.ts`). Le filtre de
+ * `@vitejs/plugin-react` y mord — il est élargi aux identifiants portant une
+ * query — et injecte son `$RefreshSig$()`, que rien ne définit sur une page sans
+ * préambule React : la vitrine Vue ne se montait plus du tout
+ * (`ReferenceError: $RefreshSig$ is not defined`).
+ *
+ * ⚠️ Il a longtemps été écrit ici que « React / Vue / vanilla ciblent des
+ * extensions disjointes ». C'était faux, et c'est ce qui a fait chercher
+ * ailleurs. Passer `exclude: [/\.vue/]` à `@vitejs/plugin-react` **ne suffit
+ * pas** : mesuré sur Vite 8.2.2, l'injection persiste jusqu'à `exclude: [/./]`
+ * inclus — l'option ne borne pas ce chemin. Seule l'isolation en process
+ * distinct l'arrête.
+ *
+ * Svelte, lui, cohabite sans dommage (constaté) : son bloc script n'est pas
+ * servi sous un identifiant qui finit par `.ts`.
  *
  * @param type - type de preset déclaré par le module (`react19`, `vue3`,
  *   `angular`, `vanilla`, …).
@@ -21,8 +40,10 @@ export function isolationGroup(type: string): string {
   switch (type) {
     case "angular":
       return "angular";
+    case "vue3":
+      return "vue";
     default:
-      // react19, vue3, vanilla, svelte5 → instance partagée.
+      // react19, vanilla, svelte5 → instance partagée.
       return "default";
   }
 }

@@ -11,10 +11,22 @@ describe("isolationGroups — isolationGroup()", () => {
     expect(isolationGroup("angular")).to.equal("angular");
   });
 
-  it("regroupe react/vue/vanilla/svelte dans la famille default", () => {
+  it("isole vue dans sa propre famille", () => {
+    // Constaté à l'écran, pas déduit : partagée avec React, la vitrine Vue ne se
+    // montait pas du tout — le compilateur de composants monofichiers sert son
+    // bloc script sous un identifiant qui FINIT par `.ts`, et le filtre de
+    // `@vitejs/plugin-react` y injecte `$RefreshSig$()`. Un `exclude` passé à ce
+    // plugin n'y change rien (mesuré jusqu'à `[/./]`) : seule l'isolation
+    // arrête l'injection. Ramener vue3 dans `default` recasse la vitrine.
+    expect(isolationGroup("vue3")).to.equal("vue");
+    expect(isolationGroup("vue3")).to.not.equal(isolationGroup("angular"));
+  });
+
+  it("regroupe react/vanilla/svelte dans la famille default", () => {
     expect(isolationGroup("react19")).to.equal(PRIMARY_FAMILY);
-    expect(isolationGroup("vue3")).to.equal(PRIMARY_FAMILY);
     expect(isolationGroup("vanilla")).to.equal(PRIMARY_FAMILY);
+    // Svelte cohabite : son bloc script n'est pas servi sous un identifiant
+    // terminé par `.ts`, le filtre de React ne mord donc pas dessus.
     expect(isolationGroup("svelte5")).to.equal(PRIMARY_FAMILY);
   });
 
