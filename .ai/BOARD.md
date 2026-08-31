@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 00:42** (UTC).
+> Empreinte prise le **2026-08-31 08:06** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,25 +16,22 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 46 | 40 | 2026-11-15 |
+| 10.0.0 | 43 | 43 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#17 — feat(orm): livrer les migrations de schéma en production**
+**#118 — fix(orm): ne pas régénérer une table que la base porte déjà**
 
-Ordre 2 · P0 — bloque le reste · 2.5 j · jalon 10.0.0
+Ordre 2.5 · P0 — bloque le reste · 1 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 46 ouverts
+## Jalon 10.0.0 — 43 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 2 | P0 — bloque le reste | 2.5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.5 | P0 — bloque le reste | 1 | #118 | fix(orm): ne pas régénérer une table que la base porte déjà |
-| 2.55 | P0 — bloque le reste | 0.5 | #125 | fix(orm): écrire un index composite adoptable sur une base vierge |
-| 2.56 | P0 — bloque le reste | 0.5 | #126 | fix(orm): adopter une base MySQL Community, ou dire pourquoi c'est impossible |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 2.9 | P1 — figé à la création | 1 | #122 | test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit |
