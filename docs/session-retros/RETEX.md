@@ -295,6 +295,16 @@
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
 
+- [1× — 08-31d] **Un banc qui RECOPIE la règle du produit ne prouve rien — celui qui DEMANDE au
+  serveur a fait tomber mon correctif à sa première exécution.** Pour #121, j'ai écrit dans le
+  produit « MySQL ignore la casse des tables », déduit du dialecte. Le banc, lui, ne l'assertait
+  pas : il crée une table en minuscules, tente un `SELECT` en casse mélangée, et compare ce que le
+  SERVEUR en a fait à ce que le lecteur affirme. Verdict immédiat : `lower_case_table_names = 0` sur
+  MySQL 8.4, les tables y sont SENSIBLES — et cela dépend de la MACHINE (0 sur Linux, 1 ou 2
+  ailleurs), pas du moteur. Un banc écrit dans l'autre sens aurait répété la même erreur que le
+  produit, et les deux auraient été verts ensemble. La forme qui mord : **le verdict attendu n'est
+  écrit nulle part, il est constaté**.
+
 - [1× — 08-29c] **Un superviseur de développement ORPHELIN a fait rendre 404 à toute une suite, qui a accusé les routes qu'elle mesurait.** Il tenait `127.0.0.1:5151` (relancé par launchd, parent perdu) pendant que l'application générée écoutait sur `*:5151` : deux serveurs, un seul port, et `curl` atteint le plus spécifique. J'ai d'abord suspecté mon diff — à raison, mais la comparaison des plans de génération l'a innocenté, et c'est un `lsof` qui a tranché. **Avant de diagnostiquer un 404 sur un banc de bout en bout : `lsof -nP -iTCP:<port> -sTCP:LISTEN`, et compter les lignes.**
 - [1× — 08-29c] **Le repli `?? 5151` de quatre gabarits de test fabriquait ce faux verdict.** Un port de repli n'est pas une commodité : quand l'état d'exécution est illisible, il envoie la suite interroger le premier serveur venu sur la machine. Un test qui parle au mauvais serveur ne se contente pas d'échouer — il rend un verdict FAUX, et l'on cherche le défaut dans le code mesuré. Remplacé par une fonction unique qui LÈVE en disant quoi vérifier.
 
@@ -582,6 +592,17 @@
 - [1× — 08-29f] **Un filtre appliqué au chemin ABSOLU rend le watch aveugle, sans un mot.** Exclure les dossiers de travail (`tmp`, `var`) du watch de développement est juste — mais `ignored` reçoit un chemin absolu, et `TMPDIR` vaut `/var/folders/…` sur macOS, là où nos propres bancs de scaffold créent l'application. Chaque entrée aurait été rejetée. La règle ne vaut que DANS le projet : relativiser AVANT de filtrer (axiome de portabilité n°2), et le prouver en débranchant la seule relativisation.
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
+
+- [1× — 08-31d] **Le ticket prescrivait de CONSTRUIRE ce que le produit portait déjà.** #122 demandait
+  un module de décor `policy:"mandatory"` — un espace de travail de plus, chargé à CHAQUE démarrage du
+  dépôt, production comprise — pour qu'une entité entre au registre sous `NODE_ENV=production`. Or
+  `NF_WITH_DEV_MODULES=1` existe depuis longtemps (`Kernel.ts:225`), documentée en TSDoc, et fait
+  exactement cela : déroger au gating `policy:"dev"`, en le CRIANT, sans effet hors production. Le
+  ticket avait pourtant été instruit DEUX fois, et contrôlé la veille. Ce que ni l'instruction ni le
+  contrôle ne font : chercher **qui fournit déjà** la capacité qu'on s'apprête à bâtir — ils
+  vérifient que ce qui est écrit est vrai, pas que ce qui est prescrit est nécessaire. Le geste qui
+  aurait suffi : avant d'ouvrir un fichier neuf, `rg` sur le CONCEPT (« charger un module dev en
+  production »), pas sur le nom de la chose à construire.
 
 - [1× — 08-29] Un ticket écrit la veille demandait un verdict NEUF ; le code l'interdisait — l'énumération est GELÉE avec le format `--json`, un mot de plus casserait tout consommateur exhaustif. Le correctif a dû porter ailleurs : le fait restait juste, c'est ce que la SONDE en déduisait qui était faux. **Écrire un critère de fin sans lire la contrainte du code produit un critère inapplicable.**
 - [1× — 08-28l] **Un banc rouge qui ne POUVAIT pas devenir vert.** Le harnais e2e généré appliquait
@@ -1639,6 +1660,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 08-31d] **J'ai ouvert un ticket sur DEUX observations, et sa preuve était fausse.** #130
+  affirmait « MySQL seul → vert, PostgreSQL + MySQL → rouge », avec les deux commandes prêtes à
+  coller — la forme d'une preuve solide. Mesuré ensuite : **0 rouge sur 11** sans PostgreSQL, mais
+  aussi une passe VERTE avec. Le défaut est donc intermittent, et l'énoncé transformait une
+  corrélation sur deux runs en loi. Un ticket est cru sans être relu : celui-ci aurait envoyé son
+  preneur chercher une interférence déterministe qui n'existe pas. Deux observations concordantes ne
+  font pas une reproduction — pour un symptôme intermittent, le ticket porte un TAUX (« N rouges sur
+  M passes ») ou il ne porte pas de preuve.
 
 - [1× — 08-29] **Un octet NUL rendait deux sources INVISIBLES à `grep` et `rg`** — séparateur écrit en littéral dans une clé. Les outils classent le fichier binaire et cessent d'en rendre les lignes : trois recherches successives ont rendu ZÉRO pendant un diagnostic, dont une preuve d'ABSENCE qui aurait été fausse. Le fichier compilait, ses tests passaient. `\0` échappé produit le même caractère et rend le fichier au texte ; gate `check-no-nul-bytes.mjs`.
 - [1× — 08-28i] **Deux affirmations fausses dans un ticket que j'allais publier, toutes deux « évidentes ».** Une ancre à `:207` (le `http.get` est à `:208`) et un compte annoncé « 3 sites » quand la commande en rend **8** — j'avais écrit le chiffre de mémoire après avoir lu une sortie filtrée. Les deux ont été rattrapées en LANÇANT ce que le ticket annonce, avant de le publier. La règle du skill (« un chiffre vient d'une mesure d'aujourd'hui ») ne mord que si l'on se rappelle qu'un chiffre lu il y a trois minutes dans une sortie tronquée n'est pas une mesure.
