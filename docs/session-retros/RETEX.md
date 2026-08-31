@@ -1361,6 +1361,7 @@ production"` ne tuait rien (Nodefony renomme ses process) et mon `;` au lieu d'u
 - [1× — 08-29f] **Le décor se RÉPARAIT tout seul avant que je le mesure.** Armé une base à laquelle il manque une table, lancé la commande : la garde n'a pas mordu, et j'ai failli conclure au défaut. En développement, `ddl: auto` recrée la table au démarrage — l'écart n'existait plus quand la commande regardait. Le cas ne se produit qu'en production, ce qui est exactement le décor du banc. Un décor s'arme dans le MODE où le défaut vit.
 - [1× — 08-29f] **Deux sondes à moi ont mesuré autre chose que ce que je croyais, le même jour.** `assert.notProperty` n'existe pas dans `node:assert` (c'est chai) et rend un `TypeError` qu'on peut lire comme un défaut du produit ; et exiger l'écran ET le JSON d'une SEULE invocation `--json` est impossible — `--json` n'émet pas l'écran. Les deux fois, le rouge accusait le code. Avant de croire un banc neuf qui accuse, relire ce qu'il DEMANDE.
 - [1× — 08-29f] **Un vert de vitest ne prouve pas que ça compile.** Un import manquant est passé sous vitest (oxc n'inspecte aucun type) et n'a été vu que par `tsgo` — après avoir fait échouer un banc de boot réel sur un message qui accusait le rechargement du superviseur. Le journal détaché a nommé la vraie cause : un build en échec.
+- [1× — 08-31] **J'ai annoncé « zéro rouge » en lisant un fichier que la passe était encore en train d'écrire.** `grep -c FAIL` sur un journal en cours rend 0 parce que les échecs n'y sont pas ENCORE — le verdict final disait **4 échoués**. Un fichier de sortie n'est une mesure qu'une fois le producteur TERMINÉ : lire la ligne « Total » du rapport, jamais un compte intermédiaire. Même famille que la sortie tronquée, sauf qu'ici rien ne tronque : c'est le temps qui manque.
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
@@ -1714,6 +1715,7 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   coder dessus a coûté un test de 20 lignes et évité de corriger un composant sain. Une preuve
   d'issue porte une DATE implicite : la confronter au `git log` du correctif le plus récent qui
   touche le même chemin.
+- [1× — 08-31] **Sept ancres fausses dans UNE grappe de quatre tickets** — dont une qui situait une garde à `orm-migrate-baseline.ts:118`, où vit une déclaration d'option, **171 lignes** avant sa cible ; et deux tickets frères qui désignaient la MÊME ligne (`orm-generate.ts:376`) pour deux refus différents — un seul pouvait avoir raison. Elles étaient toutes périmées pour la même raison : le travail décrit avait été FAIT entre-temps. Le contrôle qui tranche en une seconde : deux tickets ne pointent jamais la même ligne pour deux choses. Retirées plutôt que corrigées quand le fait avait disparu — une ancre juste sous une affirmation fausse est le pire des deux mondes.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
 
@@ -1737,6 +1739,7 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   alors qu'il est défini `RealtimeHub.ts:63`). Un vérificateur AUTOMATIQUE — la ligne proposée
   contient-elle la preuve annoncée ? — a rejeté 7 propositions sur 77 sans rien lire. Déléguer la
   RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
+- [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
 
