@@ -85,6 +85,18 @@ Deux usages :
   erreur. L'auditeur se pose **AVANT** le `connect`. Constaté au banc : cinq tests VERTS qui
   portaient deux crashs — le symptôme n'apparaît que dans « Unhandled Errors », jamais dans le
   compte de tests. Même défaut, même remède que sur le pool de `DrizzleOrm`.
+- 🔴 **La sensibilité à la casse d'un nom de TABLE dépend de la MACHINE, pas du dialecte.**
+  `lower_case_table_names` vaut **0 sur Linux** (constaté sur MySQL 8.4 : tables SENSIBLES) et `1`
+  ou `2` sur macOS et Windows. Une règle déduite du seul dialecte est donc fausse une fois sur
+  deux, en silence. Elle se **CONSTATE** par `tableExists`, qui interroge le catalogue et hérite de
+  sa collation — jamais elle ne se déduit. Les **COLONNES**, elles, ont une règle sûre
+  (`sameColumnName`, `migrator/catalog.ts`) : insensibles en SQLite et MySQL sur toutes les
+  plateformes, exactes en PostgreSQL. Corollaire : `sqlite_master` compare en BINAIRE alors que le
+  moteur résout sans distinction de casse → `COLLATE NOCASE` obligatoire, sinon une base adoptée
+  portant `users` face à un code qui déclare `Users` retient le pod. Et une normalisation
+  `toLowerCase()` écrite dans la comparaison pardonne en PostgreSQL ce que le moteur ne pardonne
+  pas — le pod part alors vers une requête condamnée. Banc : `tests/integration/catalog-casse.test.ts`,
+  qui **demande au serveur** au lieu de coder la réponse.
 - 🔴 **En PostgreSQL, un nom de table passé à une fonction est un IDENTIFIANT — donc PLIÉ en
   minuscules.** `to_regclass('User')` cherche `user`, rend `NULL`, et un lecteur de catalogue en
   conclut que la table du framework n'existe pas : verdict `divergent` permanent sur **toute**
