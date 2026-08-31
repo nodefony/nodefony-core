@@ -221,7 +221,6 @@ function SourceBadge({ source }: { source: ConfigSource }) {
         variant="light"
         color={m.color}
         tt="none"
-        tabIndex={0}
         style={{ cursor: "help" }}
       >
         {m.label}
@@ -250,7 +249,6 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="gray"
             leftSection={<IconLock size={11} />}
             tt="none"
-            tabIndex={0}
             style={{ cursor: "help" }}
           >
             réservé
@@ -268,7 +266,6 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="teal"
             leftSection={<IconBolt size={11} />}
             tt="none"
-            tabIndex={0}
             style={{ cursor: "help" }}
           >
             à chaud (dev)
@@ -286,7 +283,6 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="gray"
             leftSection={<IconLock size={11} />}
             tt="none"
-            tabIndex={0}
             style={{ cursor: "help" }}
           >
             lecture seule
@@ -304,7 +300,6 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="gray"
             leftSection={<IconLock size={11} />}
             tt="none"
-            tabIndex={0}
             style={{ cursor: "help" }}
           >
             au redémarrage
@@ -323,7 +318,6 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="cyan"
             leftSection={<IconWand size={11} />}
             tt="none"
-            tabIndex={0}
             style={{ cursor: "help" }}
           >
             auto (kernel)
@@ -342,7 +336,6 @@ function StateBadges({ f }: { f: ConfigField }) {
             color="orange"
             leftSection={<IconEyeOff size={11} />}
             tt="none"
-            tabIndex={0}
             style={{ cursor: "help" }}
           >
             secret
@@ -706,7 +699,6 @@ export function ConfigLayout({
                 variant="light"
                 color={sm.color}
                 tt="none"
-                tabIndex={0}
                 style={{ cursor: "help" }}
               >
                 {sm.label}
@@ -812,10 +804,7 @@ export function ConfigLayout({
                               summary="Surcharge 12-factor : définir cette variable d'environnement surcharge le réglage au déploiement (priorité max dans la cascade)."
                               width={260}
                             >
-                              <Code
-                                style={{ fontSize: 10, cursor: "help" }}
-                                tabIndex={0}
-                              >
+                              <Code style={{ fontSize: 10, cursor: "help" }}>
                                 {f.env}
                               </Code>
                             </DocHint>

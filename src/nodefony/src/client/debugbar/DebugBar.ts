@@ -638,6 +638,14 @@ export class DebugBar {
   private buildDom(): void {
     const host = document.createElement("div");
     host.id = HOST_ID;
+    // Un REPÈRE de page, pas un `div` anonyme. Tout ce que la barre affiche vit
+    // dans son Shadow DOM, et un audit d'accessibilité le voit : sans repère,
+    // chacun de ses libellés est compté « hors de tout point de repère »
+    // (règle `region` d'axe — seize occurrences mesurées sur une page de la
+    // console d'administration, toutes venant d'ici). `complementary` est le
+    // rôle juste : un contenu d'appoint, séparable du contenu principal.
+    host.setAttribute("role", "complementary");
+    host.setAttribute("aria-label", "Barre de débogage Nodefony");
     const shadow = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent = STYLES;

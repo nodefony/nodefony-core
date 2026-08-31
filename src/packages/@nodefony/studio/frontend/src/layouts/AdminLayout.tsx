@@ -123,7 +123,10 @@ function NavEntry({
             root: {
               justifyContent: "center",
               borderRadius: 8,
-              opacity: dimmed ? 0.5 : 1,
+              // 0,7 et non 0,5 : le libellé d'une page « à venir » doit rester
+              // LISIBLE (4,5:1). Le retrait est conservé — il est de toute façon
+              // doublé par un badge, qui porte l'information sans jouer sur le contraste.
+              opacity: dimmed ? 0.7 : 1,
             },
             section: { marginInlineEnd: 0 },
           }}
@@ -170,7 +173,9 @@ function NavEntry({
         </Group>
       }
       styles={{
-        root: { borderRadius: 8, opacity: dimmed ? 0.55 : 1 },
+        // Cf la note du rail : 0,7 est le plancher qui garde le libellé au-dessus
+        // de 4,5:1 sur le fond sombre.
+        root: { borderRadius: 8, opacity: dimmed ? 0.7 : 1 },
         label: dimmed ? { fontWeight: 400 } : undefined,
       }}
       mb={2}

@@ -345,7 +345,6 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
                         ff="monospace"
                         style={{
                           flexShrink: 0,
-                          opacity: 0.55,
                           minWidth: 52,
                         }}
                       >
@@ -361,7 +360,9 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
                       }}
                     >
                       {fmtClock(rec.timeStamp)}
-                      <Text span size="xs" c="dimmed" opacity={0.6}>
+                      {/* Retrait porté par `c="dimmed"` seul — une `opacity`
+                          par-dessus repassait sous le seuil de contraste. */}
+                      <Text span size="xs" c="dimmed">
                         .{fmtMillis(rec.timeStamp)}
                       </Text>
                     </Text>

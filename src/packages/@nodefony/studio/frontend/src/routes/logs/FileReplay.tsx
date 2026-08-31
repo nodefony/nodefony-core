@@ -599,7 +599,8 @@ export const FileReplay = observer(() => {
                       }}
                     >
                       {fmtClock(rec.timeStamp)}
-                      <Text span size="xs" opacity={0.6}>
+                      {/* Retrait porté par le `c="dimmed"` du parent. */}
+                      <Text span size="xs">
                         .{fmtMillis(rec.timeStamp)}
                       </Text>
                     </Text>

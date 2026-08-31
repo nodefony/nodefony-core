@@ -1,10 +1,10 @@
 import {
+  ActionIcon,
   Card,
   Grid,
   Group,
   Stack,
   Text,
-  ThemeIcon,
   Tooltip,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
@@ -26,16 +26,25 @@ export function InfoHint({ text }: { text: string }) {
       position="top"
       events={{ hover: true, focus: true, touch: true }}
     >
-      <ThemeIcon
+      {/*
+        Un BOUTON, pas un `ThemeIcon` : celui-ci rend un `<div>` de rôle
+        générique, sur lequel `aria-label` est INTERDIT (`aria-prohibited-attr`,
+        mesuré par axe) — le nom était donc écrit et ignoré, et le `tabIndex`
+        donnait un arrêt de tabulation qui n'annonçait rien. Le patron est celui
+        de `DocHint`, y compris son `w`/`h` : `size="sm"` rend 22 px, sous les
+        24 px exigés par WCAG 2.5.8 pour une cible de pointage.
+      */}
+      <ActionIcon
         variant="subtle"
         color="gray"
         size="sm"
+        w={24}
+        h={24}
         style={{ cursor: "help" }}
         aria-label={text}
-        tabIndex={0}
       >
         <IconInfoCircle size={15} />
-      </ThemeIcon>
+      </ActionIcon>
     </Tooltip>
   );
 }

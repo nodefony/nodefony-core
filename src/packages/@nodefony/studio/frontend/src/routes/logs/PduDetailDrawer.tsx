@@ -79,7 +79,7 @@ function TimelineRow({ row, current }: { row: LogRecord; current: boolean }) {
         size="xs"
         c="dimmed"
         ff="monospace"
-        style={{ flexShrink: 0, opacity: 0.6, minWidth: 46 }}
+        style={{ flexShrink: 0, minWidth: 46 }}
       >
         #{row.uid}
       </Text>

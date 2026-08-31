@@ -65,6 +65,23 @@ import {
 import { DataState } from "./DataState";
 import { InfoHint } from "./StatCard";
 
+/**
+ * Noms accessibles des quatre contrôles de BORD de la pagination.
+ *
+ * Ils n'affichent qu'une flèche : sans nom, un lecteur d'écran annonce quatre
+ * fois « bouton » et l'utilisateur ne peut pas choisir. Les pages numérotées
+ * portent déjà leur numéro comme texte, elles n'ont besoin de rien.
+ */
+const PAGINATION_LABELS: Record<
+  "first" | "last" | "next" | "previous",
+  string
+> = {
+  first: "Première page",
+  previous: "Page précédente",
+  next: "Page suivante",
+  last: "Dernière page",
+};
+
 /** Type de filtre d'une colonne → opérateurs + saisie disponibles. */
 export type DataGridFilterType = "text" | "number" | "select" | "multiselect";
 
@@ -1328,6 +1345,13 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
             onChange={(p) => table.setPageIndex(p - 1)}
             size="sm"
             withEdges
+            // Les quatre contrôles de bord n'ont qu'une flèche pour tout
+            // contenu : un lecteur d'écran annonce « bouton » sans dire lequel,
+            // et `axe` le compte en `button-name` (critique). Les pages
+            // numérotées, elles, portent déjà leur numéro.
+            getControlProps={(control) => ({
+              "aria-label": PAGINATION_LABELS[control],
+            })}
           />
         </Group>
       </Group>

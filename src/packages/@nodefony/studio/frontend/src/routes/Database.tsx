@@ -929,7 +929,7 @@ export const Database = observer(() => {
       )}
 
       {view === "graph" && modules.length > 1 && (
-        <Group gap="xs" aria-label="légende des groupes">
+        <Group gap="xs" role="group" aria-label="légende des groupes">
           <Group gap={4} wrap="nowrap">
             <Text size="xs" c="dimmed">
               Domaine / module :

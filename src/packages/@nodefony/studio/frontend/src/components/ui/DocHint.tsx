@@ -8,6 +8,7 @@ import {
   Stack,
   Text,
   ThemeIcon,
+  UnstyledButton,
 } from "@mantine/core";
 import type { MantineColor } from "@mantine/core";
 import {
@@ -134,7 +135,32 @@ export function Hint({
       withinPortal
     >
       <HoverCard.Target>
-        {children ?? (
+        {/*
+          🔴 La cible d'un `HoverCard` doit être un ÉLÉMENT INTERACTIF, et c'est
+          ici que ça se garantit — pas chez les cinquante appelants.
+
+          Mantine injecte `aria-haspopup` et `aria-expanded` sur l'enfant du
+          Target, inconditionnellement. Posés sur un `<div>` de rôle générique —
+          un `Badge`, typiquement — ils sont INVALIDES : `axe` le compte en
+          `aria-allowed-attr` (critique), et un lecteur d'écran annonce un
+          contrôle dépliable qui n'existe pas. Mesuré sur l'écran des journaux
+          (trois `Badge` de capacité) et sur celui de la configuration.
+
+          Envelopper ICI plutôt que chez chacun a un second effet, plus
+          important que la conformité : l'aide devient atteignable au CLAVIER.
+          Un `Badge` avec `tabIndex` prend le focus sans rien annoncer ; un
+          bouton l'annonce, et l'ouverture au focus est celle de `HoverCard`.
+          Corollaire pour l'appelant : ne plus poser de `tabIndex` sur l'enfant,
+          il ferait un second arrêt de tabulation sur la même chose.
+        */}
+        {children ? (
+          <UnstyledButton
+            aria-label={`${cfg.badge} : ${title}`}
+            style={{ display: "inline-flex", lineHeight: 0, cursor: "help" }}
+          >
+            {children}
+          </UnstyledButton>
+        ) : (
           <ActionIcon
             variant="subtle"
             color={kind === "doc" ? "gray" : cfg.accent}

@@ -294,7 +294,6 @@ export function CapabilityBadges({
                 variant="light"
                 color={on ? "teal" : "gray"}
                 leftSection={<Icon size={11} />}
-                tabIndex={0}
                 style={{ cursor: "help" }}
               >
                 {on ? meta.label : meta.labelOff}

@@ -303,7 +303,11 @@ export const LogExplorer = observer(
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
               {fmtClock(r.timeStamp)}
-              <Text span size="xs" opacity={0.6}>
+              {/* Pas d'`opacity` ici : le retrait est DÉJÀ porté par le
+                  `c="dimmed"` du parent, dont le thème a relevé la luminosité
+                  pour atteindre 4,5:1. Une seconde couche l'annulait et faisait
+                  retomber les millisecondes à 3,5:1. */}
+              <Text span size="xs">
                 .{fmtMillis(r.timeStamp)}
               </Text>
             </Text>
