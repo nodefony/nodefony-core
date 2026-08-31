@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-31T09:18:09.762Z",
+  "generated": "2026-08-31T09:35:19.772Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3564,
+    "symbols": 3565,
     "classes": 382,
     "interfaces": 988,
     "types": 423,
     "enums": 4,
-    "functions": 1410,
+    "functions": 1411,
     "constants": 357
   },
   "symbols": {
@@ -19411,6 +19411,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Lecture du catalogue du serveur — quelles tables existent, quelles colonnes elles portent —, écrite UNE fois par dialecte et partagée par ses deux porteurs. ## Pourquoi ce fichier existe Deux compo…"
+    },
+    "sameColumnName": {
+      "name": "sameColumnName",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compare deux noms de COLONNE selon la résolution du moteur. Exportée parce qu'elle porte une RÈGLE : la recopier ailleurs la ferait diverger, et une divergence de casse ne se voit que sur une base …"
     },
     "schemaReader": {
       "name": "schemaReader",

@@ -192,6 +192,7 @@ describe("tablesPresentIn — la décision qui empêche un CREATE inapplicable",
    * voir rouge n'est pas une règle.
    */
   const baseAvec = (tables: readonly string[]): ISchemaReader => ({
+    sameColumnName: (a, b) => a === b,
     tableExists: (t) => Promise.resolve(tables.includes(t)),
     columnsOf: () => Promise.resolve([]),
   });

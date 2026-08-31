@@ -138,6 +138,11 @@ export class MysqlMigrationDriver implements IMigrationDriver {
   );
 
   /** @inheritdoc */
+  sameColumnName(declared: string, actual: string): boolean {
+    return this.#catalog.sameColumnName(declared, actual);
+  }
+
+  /** @inheritdoc */
   tableExists(table: string): Promise<boolean> {
     return this.#catalog.tableExists(table);
   }

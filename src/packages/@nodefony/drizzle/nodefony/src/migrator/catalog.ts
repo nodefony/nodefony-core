@@ -36,10 +36,73 @@ export type SqlQuery = <T extends Record<string, unknown>>(
 
 /** Ce dont la comparaison de schéma a besoin, et rien de plus. */
 export interface ISchemaReader {
+  /**
+   * Deux noms de COLONNE désignent-ils la même, pour ce moteur ?
+   *
+   * 🔴 **La sémantique est celle du MOTEUR** : si le serveur sait résoudre ce
+   * nom dans un `SELECT`, la colonne existe pour l'application ; sinon la
+   * requête du code échouerait vraiment, et l'annoncer manquante est JUSTE.
+   *
+   * - **SQLite** — sans distinction de casse, comme sa résolution de noms.
+   * - **MySQL** — sans distinction de casse, sur **toutes** les plateformes :
+   *   contrairement aux tables, les noms de colonnes ne dépendent pas de
+   *   `lower_case_table_names`.
+   * - **PostgreSQL** — EXACT : les identifiants sont cités (Drizzle cite tout),
+   *   donc `SELECT "createdAt"` sur une colonne `createdat` échoue pour de bon.
+   *
+   * ⚠️ **Il n'y a délibérément PAS d'équivalent synchrone pour les TABLES.**
+   * Leur sensibilité à la casse dépend de la MACHINE — `lower_case_table_names`
+   * vaut `0` sur Linux (sensible, constaté sur MySQL 8.4) et `1` ou `2`
+   * ailleurs. Une règle déduite du seul dialecte serait donc fausse une fois
+   * sur deux, sans que rien ne le dise. Elle se **CONSTATE** par
+   * {@link ISchemaReader.tableExists}, qui interroge le catalogue du serveur et
+   * hérite de sa collation — jamais elle ne se déduit.
+   *
+   * @param declared - nom tel que le code le déclare.
+   * @param actual - nom tel que la base le rend.
+   * @returns `true` si le moteur les résoudrait vers la même colonne.
+   */
+  sameColumnName(declared: string, actual: string): boolean;
   /** La table existe-t-elle dans le schéma courant de la connexion ? */
   tableExists(table: string): Promise<boolean>;
   /** Colonnes de la table, telles que la base les déclare. */
   columnsOf(table: string): Promise<string[]>;
+}
+
+/**
+ * Les moteurs dont la résolution des noms de COLONNES ignore la casse.
+ *
+ * PostgreSQL n'y est pas, et ce n'est pas un oubli : il stocke la casse d'un
+ * identifiant cité et la compare exactement.
+ */
+const COLONNES_INSENSIBLES: ReadonlySet<SqlDialect> = new Set<SqlDialect>([
+  "sqlite",
+  "mysql",
+]);
+
+/**
+ * Compare deux noms de COLONNE selon la résolution du moteur.
+ *
+ * Exportée parce qu'elle porte une RÈGLE : la recopier ailleurs la ferait
+ * diverger, et une divergence de casse ne se voit que sur une base adoptée,
+ * c'est-à-dire chez l'utilisateur.
+ *
+ * Elle ne vaut PAS pour les tables — voir {@link ISchemaReader.sameColumnName},
+ * qui dit pourquoi leur sensibilité se constate au lieu de se déduire.
+ *
+ * @param dialect - moteur qui résoudrait le nom.
+ * @param declared - nom tel que le code le déclare.
+ * @param actual - nom tel que la base le rend.
+ * @returns `true` si le moteur les résoudrait vers la même colonne.
+ */
+export function sameColumnName(
+  dialect: SqlDialect,
+  declared: string,
+  actual: string,
+): boolean {
+  return COLONNES_INSENSIBLES.has(dialect)
+    ? declared.toLowerCase() === actual.toLowerCase()
+    : declared === actual;
 }
 
 /**
@@ -54,11 +117,23 @@ export function schemaReader(
   query: SqlQuery,
 ): ISchemaReader {
   return {
+    sameColumnName(declared: string, actual: string): boolean {
+      return sameColumnName(dialect, declared, actual);
+    },
+
     async tableExists(table: string): Promise<boolean> {
       switch (dialect) {
         case "sqlite": {
+          // 🔴 `COLLATE NOCASE`, et ce n'est pas une tolérance : `sqlite_master`
+          // compare en BINAIRE alors que le moteur, lui, résout les noms de
+          // tables SANS distinction de casse. Sans cette clause, une base
+          // adoptée portant `users` face à un code qui déclare `Users` était
+          // déclarée ABSENTE — alors qu'un `SELECT … FROM "Users"` y répond. Le
+          // verdict retenait la mise en service du pod pour un écart que le
+          // moteur ne voit même pas.
           const rows = await query<{ name: string }>(
-            `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`,
+            `SELECT name FROM sqlite_master ` +
+              `WHERE type = 'table' AND name = ? COLLATE NOCASE`,
             [table],
           );
           return rows.length > 0;

@@ -35,7 +35,12 @@ export {
   MIGRATION_NAME_MAX,
   type MigrationNameCheck,
 } from "./name";
-export { schemaReader, type ISchemaReader, type SqlQuery } from "./catalog";
+export {
+  schemaReader,
+  sameColumnName,
+  type ISchemaReader,
+  type SqlQuery,
+} from "./catalog";
 export {
   comparisonAgainstDeclared,
   describeDivergence,

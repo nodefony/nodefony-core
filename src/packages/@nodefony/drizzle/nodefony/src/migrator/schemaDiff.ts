@@ -131,14 +131,14 @@ export async function compareSchema(
       missingTables.push(attendue.table);
       continue;
     }
-    // La base peut rendre les noms dans une autre casse que le code (MySQL sur
-    // un système de fichiers insensible, notamment) : comparer sur une forme
-    // normalisée évite d'annoncer manquante une colonne qui est là.
-    const reelles = new Set(
-      (await reader.columnsOf(attendue.table)).map((c) => c.toLowerCase()),
-    );
+    // 🔴 La casse se tranche par la règle du LECTEUR, donc du moteur — jamais
+    // par un `toLowerCase()` écrit ici. Celui-ci pardonnait en PostgreSQL ce
+    // que le moteur ne pardonne pas : un `SELECT "createdAt"` sur une colonne
+    // `createdat` échoue, et le pod démarrait quand même. La question posée aux
+    // TABLES, elle, part au catalogue (`tableExists`) — cf `sameColumnName`.
+    const reelles = await reader.columnsOf(attendue.table);
     for (const col of attendue.columns) {
-      if (reelles.has(col.name.toLowerCase())) {
+      if (reelles.some((reelle) => reader.sameColumnName(col.name, reelle))) {
         continue;
       }
       const gap: ISchemaGap = {
