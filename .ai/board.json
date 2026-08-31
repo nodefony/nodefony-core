@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-31T12:50:31.430Z",
+  "generatedAt": "2026-08-31T13:56:23.271Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 14,
+      "open": 15,
       "title": "10.1"
     },
     {
-      "closed": 48,
+      "closed": 49,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -684,8 +684,8 @@
       "number": 127,
       "title": "fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe",
       "url": "https://github.com/nodefony/nodefony-core/issues/127",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1599,6 +1599,20 @@
       "labels": [
         "10.1",
         "arbitrage"
+      ]
+    },
+    {
+      "number": 131,
+      "title": "refactor(frontend): composer les plugins Vite en un seul endroit",
+      "url": "https://github.com/nodefony/nodefony-core/issues/131",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 63,
+      "labels": [
+        "10.1"
       ]
     },
     {

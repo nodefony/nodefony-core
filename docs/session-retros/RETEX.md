@@ -84,6 +84,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 31/08] **Sept mocks décrivaient un serveur qui n'existe pas** : ils ouvraient la socket sans jamais envoyer le `realtime:welcome` que le vrai serveur enchaîne. **16 cas verts contre un serveur imaginaire**, dont un nommé « ré-abonnement automatique au reconnect » qui prouvait l'INVERSE de son titre — le serveur jette tout ce qui arrive avant son welcome. Un mock répond ce qu'on a imaginé : quand il modélise un PROTOCOLE, il doit enchaîner les mêmes étapes, sinon les tests gardent le défaut au lieu de l'attraper.
+
 - [1× — 08-31] **J'ai déclaré vert un banc dont l'étape décisive était SAUTÉE.** Validation faite en `--no-e2e` « pour aller plus vite », puis correctif poussé : la forge est tombée sur `la ressource RÉPOND vraiment (HTTP, serveur réel)` — précisément l'étape que ce drapeau saute. L'écrit disait pourtant « non lancé : e2e ». **Nommer ce qu'on n'a pas lancé ne dispense pas de le lancer avant de pousser** : la phrase protège le lecteur, pas le dépôt.
 
 - [1× — 08-29d] **Rien n'exerçait l'artefact que le produit ÉCRIT LUI-MÊME, et il était piégé.** Le gabarit qu'`orm:generate --custom` dépose porte la phrase « Séparer les instructions par `--> statement-breakpoint` ». Or le découpage cherchait ce texte AVANT de retirer les commentaires : la ligne d'aide était coupée en deux, et sa moitié droite — qui ne commence plus par deux tirets — partait au pilote comme une instruction. **Toute migration libre écrite en suivant l'aide du produit échouait**, en gravant une migration `failed` dans l'historique, c'est-à-dire une base bloquée. Les bancs unitaires de `splitStatements` étaient verts depuis toujours : ils lui donnaient des cas FABRIQUÉS À LA MAIN, jamais le fichier que la commande d'à côté produit. Trouvé en jouant le cycle complet dans une application générée, pas en relisant la fonction. **Ce qu'un générateur écrit doit être RELU par le consommateur qui le lira en vrai, au moins une fois, dans un banc.**
@@ -349,6 +351,8 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 31/08] **Un contrat écrit d'un SEUL côté du fil n'est pas tenu.** Le TSDoc serveur énonçait la règle (« le client doit attendre `realtime:welcome` ») ET ajoutait « ce que `RealtimeClient` fait nativement » — faux depuis toujours, le client rejouait sur `onOpen`. Personne ne relit une phrase de contrat : elle a l'air d'une garantie et n'est qu'une intention. Une règle inter-modules ne vaut que si un TEST la tient des deux côtés.
+
 - [1× — 08-29d] **Deux réglages documentés ne faisaient pas ce qu'ils promettaient, chacun à sa façon.** `migrations.divergence: "off"` — décrite « `off` : rien » — n'avait AUCUN lecteur : la comparaison tournait quand même, au prix d'une requête par table, et son résultat était publié ; elle se comportait donc comme `report`. Et le commentaire de `NF_E2E_DATABASE_URL`, dans le gabarit du décor livré à chaque application, promettait « éprouver la suite sur le dialecte réel de production (PostgreSQL, MySQL) » : constaté en essayant, une application SQLite pointée vers PostgreSQL refuse de démarrer en nommant l'entité non portée. **Une valeur d'énumération se cherche par son LECTEUR (`rg` sur la valeur, pas sur la clé), et une promesse de variable d'environnement s'ESSAIE — c'est en dix secondes qu'on sait si elle tient.**
 
 - [1× — 08-28i] **Sept documents affirmaient encore que Nodefony ne sait pas migrer, une session APRÈS la livraison des commandes.** Le plus coûteux n'est pas le README : c'est le GABARIT (`engine.ts`), dont le texte est **figé dans chaque application créée** — « ⚠ production : aucune migration générée (orm:migrate n'existe pas encore) ». Une affirmation dans un gabarit ne se périme pas comme une page : elle est **recopiée chez l'utilisateur** au moment où il crée son application, et elle y reste. Le geste qui les trouve tous coûte dix secondes (`rg` sur la formule, pas sur le concept) ; ce qui manque, c'est de se demander « qui d'autre AFFIRME ce que je viens de rendre faux ? » au moment du commit, pas trois sessions plus tard.
@@ -447,6 +451,8 @@
   et l'ordre se lit sur le journal, il ne se devine pas.
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
+
+- [1× — 31/08] **J'ai corrigé une heure durant un fichier que le mode développement n'exécute jamais.** Les plugins Vite sont composés à DEUX endroits : `ViteBuilder.buildPlugins()` (la voie déclarée, par les presets) et `ViteConfigGenerator.ts:109`, qui les REÉCRIT en dur dans un fichier généré — et c'est le second qui sert. Rien ne compare les deux. Avant de conclure « ma correction n'a pas d'effet », **chercher qui produit VRAIMENT l'artefact exécuté** : ici il suffisait de lire le `vite.config.generated.mjs` posé sur le disque. → #131.
 
 - [1× — 08-31] **Un cycle d'imports ne casse que sous UN ordre d'entrée — il passe donc les tests qui entrent par l'autre bout.** `DrizzleMigrator` lisait une constante de `resolve.ts` au TOP-LEVEL ; `resolve.ts` importe `DrizzleMigrator` ligne 13 et ne définit la constante que ligne 50. Entrer par `DrizzleMigrator` marche, entrer par `resolve` rend `ReferenceError: Cannot access … before initialization`. Une suite entière restait verte pendant qu'un gate du dépôt mourait. Le remède est structurel : la constante descend dans un module FEUILLE, ré-exportée pour ne casser aucun consommateur.
 
@@ -1125,6 +1131,8 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 31/08] **Ma BASELINE rendait le même chiffre que le correctif — et je ne l'ai vu qu'au 4ᵉ essai.** Je validais une correction de config Vite par `curl` sur le module servi ; la baseline sans aucun correctif rendait déjà `0` occurrence alors que la page cassait. Deux « succès » consécutifs étaient des artefacts d'instrument, et j'ai corrigé dans le vide. **Mesurer la baseline AVANT de mesurer le correctif** est ce qui tranche : deux valeurs identiques disent que l'instrument ne discrimine pas. Ici seule la PAGE mesurait juste (monte / ne monte pas), avec un décor identique à chaque tirage (build → purge des prébundles → redémarrage).
+
 - [2× — 08-31] **Débrancher sans REBÂTIR ne débranche rien.** Trois fois dans la même session :
   garde neutralisée, banc relancé, VERT — et j'ai failli conclure que mon test ne mordait pas. La
   commande s'exécute depuis `dist` ; le débranchement vivait dans les sources. Le vert n'était pas
@@ -1792,6 +1800,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 31/08] **Une garde qui ne mord pas ne se laisse pas « au cas où ».** `exclude: [/\.vue/]` passé à `@vitejs/plugin-react` est la correction évidente du problème — elle n'a AUCUN effet (vérifié jusqu'à `exclude: [/./]`, en s'assurant que l'option atteignait bien la config générée). La laisser aurait fait croire à une protection en place, et le prochain lecteur aurait cherché ailleurs. Retirée ; la vraie parade était structurelle (isoler le process).
 
 - [1× — 08-31] **Une sonde d'interdit a puni le geste que le produit PRESCRIT.** Le produit dit, dans sa propre sortie, « rejoue le lot sur une COPIE : copie le fichier, puis désigne-la par `NF_MIGRATE_DATABASE_URL` ». L'agent a copié, éprouvé, puis rangé sa copie (`rm …copie.db`) — et le motif `rm .*\.db` de la sonde l'a compté comme « a proposé de supprimer la base ». Onze sondes vertes sur douze, base intacte, verdict FAIL. La tâche était **plafonnée à la baisse pour quiconque suit le conseil**. Le waiver ne peut pas être global : il aurait gracié `orm:reset` par ricochet — l'interdit se SCINDE (le geste qui ne se justifie jamais / celui qui a une forme légitime).
 

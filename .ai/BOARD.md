@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 12:50** (UTC).
+> Empreinte prise le **2026-08-31 13:56** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 14 | 1 | — |
-| 10.0.0 | 43 | 48 | 2026-11-15 |
+| 10.1 | 15 | 1 | — |
+| 10.0.0 | 42 | 49 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 43 ouverts
+## Jalon 10.0.0 — 42 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -38,7 +38,6 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
 | 4.6 | P1 — figé à la création | 1 | #61 | feat(realtime): garder les canaux dynamiques par un motif de nom |
 | 5 | P1 — figé à la création | 11.5 | #54 | feat(client): simplifier la socket cliente pour un débutant |
-| 5.1 | P1 — figé à la création | 0.5 | #127 | fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe |
 | 5.2 | P1 — figé à la création | 3 | #35 | feat(client): faire remonter les journaux du navigateur au serveur |
 | 5.3 | P1 — figé à la création | 5 | #34 | feat(client): implémenter le noyau applicatif côté navigateur |
 | 5.4 | P1 — figé à la création | 3 | #91 | feat(studio): porter la console d'administration sur le noyau client |
@@ -75,7 +74,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 
-## Jalon 10.1 — 14 ouverts
+## Jalon 10.1 — 15 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -93,6 +92,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 60 | P3 — fin de cycle | 0.5 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
 | 61 | P3 — fin de cycle | 0.5 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 62 | P2 — décision | 0.5 | #75 | chore(core): trancher l'héritage des dépendances déclarées |
+| 63 | P2 — décision | 0.5 | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
 
 ## Backlog — aucune date promise · 5 ouverts
 
