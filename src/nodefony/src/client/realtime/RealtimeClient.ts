@@ -209,8 +209,14 @@ export class RealtimeClient<
   // Abonnements pub/sub ref-comptés (canal → nb de consommateurs). Le subscribe/
   // unsubscribe RÉSEAU n'est émis qu'aux transitions 0↔1 → N consommateurs (hooks
   // React `nodefony/react` + store MobX Studio) partagent UN seul abonnement
-  // serveur, sans se couper l'un l'autre. Ré-abonné automatiquement au reconnect.
+  // serveur, sans se couper l'un l'autre. Ré-abonné à chaque `realtime:welcome`.
   private readonly _subscriptions = new Map<string, number>();
+  // Le serveur n'enregistre un abonnement qu'APRÈS avoir émis son `realtime:welcome` :
+  // tant que l'authentification court, son transport JSON-RPC n'est pas branché et
+  // toute frame entrante est jetée — sans réponse possible, faute de canal pour la
+  // porter (`RealtimeController.handleRealtime`). Ce drapeau est donc la seule fenêtre
+  // où un `subscribe` compte. Un booléen, remis à `false` à chaque tentative.
+  private _welcomed = false;
   private reconnectAttempt = 0;
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -380,6 +386,7 @@ export class RealtimeClient<
     // Déconnexion VOLONTAIRE (ex. logout) → l'identité n'est plus valable. Une
     // perte RÉSEAU (onClose non intentionnel) garde la dernière identité jusqu'au
     // prochain welcome → évite un flash login pendant une micro-reconnexion.
+    this._welcomed = false;
     this._identity = null;
     this._serverChannels = null;
     this._serverMethods = null;
@@ -492,7 +499,8 @@ export class RealtimeClient<
    * S'abonne à un canal pub/sub serveur (**ref-compté**). Émet la notification
    * `subscribe` au serveur UNIQUEMENT au 1er consommateur du canal ; les suivants
    * ne font qu'incrémenter le compteur. Ré-émis automatiquement à chaque
-   * (re)connexion. NE remplace PAS {@link on} : `on(channel, h)` REÇOIT les
+   * `realtime:welcome` — jamais à la simple ouverture de la socket, où le serveur
+   * le jetterait sans un mot. NE remplace PAS {@link on} : `on(channel, h)` REÇOIT les
    * messages, `subscribe(channel)` DEMANDE au serveur de les pousser.
    *
    * Autorité unique partagée par le binding `nodefony/react` ET le store Studio →
@@ -502,7 +510,9 @@ export class RealtimeClient<
     const c = channel as string;
     const n = (this._subscriptions.get(c) ?? 0) + 1;
     this._subscriptions.set(c, n);
-    if (n === 1) this._emitRaw("subscribe", { channel: c });
+    // Hors de la fenêtre d'écoute du serveur, l'émission serait perdue : la map
+    // suffit, c'est elle que `replaySubscriptions` rejoue au welcome.
+    if (n === 1 && this._welcomed) this._emitRaw("subscribe", { channel: c });
   }
 
   /**
@@ -515,7 +525,8 @@ export class RealtimeClient<
     if (!cur) return;
     if (cur <= 1) {
       this._subscriptions.delete(c);
-      this._emitRaw("unsubscribe", { channel: c });
+      // Avant le welcome, le serveur n'a rien enregistré : retirer l'entrée suffit.
+      if (this._welcomed) this._emitRaw("unsubscribe", { channel: c });
     } else {
       this._subscriptions.set(c, cur - 1);
     }
@@ -962,6 +973,27 @@ export class RealtimeClient<
   }
 
   /**
+   * (Ré)émet un `subscribe` pour chaque canal ref-compté, à la réception du
+   * `realtime:welcome` — le seul instant où le serveur est prêt à l'enregistrer.
+   *
+   * Ouvrir la socket ne suffit pas : pendant que le serveur authentifie, son
+   * transport JSON-RPC n'est pas encore branché et il **jette** les frames
+   * entrantes, sans pouvoir répondre — c'est le contrat écrit par
+   * `RealtimeController.handleRealtime`. Rejouer sur `onOpen` revenait à parler
+   * dans le vide, et perdait en silence deux cas entiers : un `subscribe` posé
+   * avant `start()`, et TOUS les abonnements après une reconnexion.
+   *
+   * Cold path (1×/connexion) : ne parcourt que les canaux réellement suivis, et
+   * n'alloue rien.
+   */
+  private replaySubscriptions(): void {
+    this._welcomed = true;
+    for (const channel of this._subscriptions.keys()) {
+      this._emitRaw("subscribe", { channel });
+    }
+  }
+
+  /**
    * Ingère le `realtime:welcome` : mémorise l'identité résolue + les capabilities
    * annoncées (canaux/actions découvrables) et émet `__identity__`. Tolérant à un
    * welcome partiel/legacy (champs absents → `null`). Cold path (1×/connexion).
@@ -1002,8 +1034,12 @@ export class RealtimeClient<
    * (un handler `on("realtime:welcome")` voit donc l'identité déjà ingérée).
    */
   private dispatchNotification(method: string, params: unknown): void {
-    if (method === "realtime:welcome") this.ingestWelcome(params);
-    else if (method === "realtime:denied") this.ingestDenied(params);
+    if (method === "realtime:welcome") {
+      this.ingestWelcome(params);
+      // HORS de `ingestWelcome`, qui sort tôt sur un welcome partiel/legacy : le
+      // rejeu est dû quel que soit le contenu de la trame.
+      this.replaySubscriptions();
+    } else if (method === "realtime:denied") this.ingestDenied(params);
     this.trackFrame(method); // stats génériques avant dispatch
     this.handlers.get(method)?.forEach((h) => {
       try {
@@ -1075,6 +1111,9 @@ export class RealtimeClient<
 
   private openSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Nouvelle tentative = nouvelle session serveur : rien n'y est abonné tant
+      // que le welcome de CETTE connexion n'est pas arrivé.
+      this._welcomed = false;
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
       let transport: IRealtimeTransport;
       try {
@@ -1103,12 +1142,9 @@ export class RealtimeClient<
         this._nextRetryAt = null;
         this.setState("connected");
         this.startHeartbeat();
-        // Ré-abonne tous les canaux ref-comptés : le serveur repart d'un état
-        // vide après une (re)connexion ; couvre aussi un `subscribe` appelé avant
-        // l'ouverture du socket (l'`emit` avait alors été droppé par `send`).
-        for (const channel of this._subscriptions.keys()) {
-          this._emitRaw("subscribe", { channel });
-        }
+        // Le rejeu des abonnements N'A PAS LIEU ICI : la socket est ouverte, mais le
+        // serveur authentifie encore et jette toute frame reçue avant son welcome.
+        // Il se fait à l'ingestion du `realtime:welcome` — cf `replaySubscriptions`.
         // Notice de rétablissement : seulement après une vraie perte (pas au 1er
         // connect) → l'UI confirme le retour du temps réel.
         if (wasReconnecting) {

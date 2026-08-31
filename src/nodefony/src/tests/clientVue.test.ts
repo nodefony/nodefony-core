@@ -57,6 +57,12 @@ class MockTransport implements IRealtimeTransport {
   fireOpen(): void {
     this.readyState = TransportState.OPEN;
     this._open?.();
+    // Le serveur réel enchaîne l'ouverture et son `realtime:welcome` — et il JETTE
+    // toute frame reçue entre les deux (`RealtimeController.handleRealtime`). Un mock
+    // qui s'arrête à l'ouverture décrit un serveur qui n'existe pas : c'est ce qui a
+    // laissé passer la perte des abonnements posés avant le welcome et rejoués après
+    // une reconnexion. Sans `params` : la seule conséquence voulue ici est le rejeu.
+    this._msg?.(JSON.stringify({ jsonrpc: "2.0", method: "realtime:welcome" }));
   }
   push(channel: string, payload: unknown): void {
     this._msg?.(

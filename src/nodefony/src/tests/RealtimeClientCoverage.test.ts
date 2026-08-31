@@ -42,9 +42,25 @@ class MockTransport implements IRealtimeTransport {
     this._err = cb;
   }
   // Pilotage test :
+  /**
+   * Le serveur réel enchaîne l'ouverture et son `realtime:welcome` — et il JETTE
+   * toute frame reçue entre les deux (`RealtimeController.handleRealtime`). Un mock
+   * qui s'arrête à l'ouverture décrit un serveur qui n'existe pas : c'est ce qui a
+   * laissé passer la perte des abonnements posés avant le welcome et rejoués après
+   * une reconnexion. Le défaut du mock est donc l'enchaînement des DEUX.
+   */
   fireOpen(): void {
+    this.fireOpenSansWelcome();
+    this.fireWelcome();
+  }
+  /** L'ouverture SEULE — la fenêtre où le serveur authentifie encore. */
+  fireOpenSansWelcome(): void {
     this.readyState = TransportState.OPEN;
     this._open?.();
+  }
+  /** Sans `params` : la seule conséquence voulue ici est le rejeu des abonnements. */
+  fireWelcome(): void {
+    this._msg?.(JSON.stringify({ jsonrpc: "2.0", method: "realtime:welcome" }));
   }
   fireClose(code = 1006, reason = ""): void {
     this.readyState = TransportState.CLOSED;
@@ -240,11 +256,64 @@ describe("RealtimeClient — heartbeat + stats sampler (timers)", () => {
     vi.advanceTimersByTime(1000); // 2e tick : 1 nouveau msg depuis prev → rate 1
     expect(st!.rate).to.equal(1);
     expect(st!.series.length).to.be.greaterThan(0);
-    expect(client.framesReceived).to.equal(3);
+    // 3 frames de canal + le `realtime:welcome` de l'ouverture : le compteur est
+    // documenté « welcome inclus », et le serveur réel l'envoie toujours.
+    expect(client.framesReceived).to.equal(4);
     expect(client.lastFrameMethod).to.equal("chan:a");
     expect(client.lastFrameAt).to.be.a("number");
     expect(client.getStats().length).to.be.greaterThan(0);
     client.disconnect();
+  });
+});
+
+describe("RealtimeClient — la fenêtre où le serveur écoute (welcome)", () => {
+  /** Les canaux effectivement demandés au serveur, dans l'ordre d'émission. */
+  const abonnements = (t: MockTransport): string[] =>
+    t.sent
+      .map((raw) => JSON.parse(raw) as { method: string; params: unknown })
+      .filter((f) => f.method === "subscribe")
+      .map((f) => (f.params as { channel: string }).channel);
+
+  it("un `subscribe` posé AVANT la connexion part au welcome, pas à l'ouverture", async () => {
+    const client = newClient();
+    client.subscribe("chan:z");
+    const p = client.connect();
+    const t = last();
+    t.fireOpenSansWelcome();
+    await p;
+    // La socket est ouverte et l'état dit `connected` — mais le serveur authentifie
+    // encore : une frame émise ici serait jetée SANS RÉPONSE POSSIBLE (son transport
+    // JSON-RPC n'est pas branché). Émettre maintenant, c'est parler dans le vide.
+    expect(client.state).to.equal("connected");
+    expect(abonnements(t)).to.have.length(0);
+
+    t.fireWelcome();
+    expect(abonnements(t)).to.deep.equal(["chan:z"]);
+  });
+
+  it("après une coupure, le rejeu attend le welcome de la NOUVELLE connexion", async () => {
+    // Le backoff de reconnexion est un `setTimeout` : l'attendre en temps réel
+    // mesurerait la machine. On avance l'horloge, on ne relâche aucun seuil.
+    vi.useFakeTimers();
+    const client = await connected();
+    client.subscribe("chan:z");
+    const premier = last();
+    expect(abonnements(premier)).to.have.length(1);
+
+    premier.fireClose(1006, "perte réseau");
+    await vi.advanceTimersByTimeAsync(1200); // backoff de la 1ʳᵉ tentative
+    const second = last();
+    expect(second, "un transport NEUF est ouvert").to.not.equal(premier);
+
+    second.fireOpenSansWelcome();
+    expect(
+      abonnements(second),
+      "rejouer à l'ouverture perd l'abonnement : le serveur n'écoute pas encore",
+    ).to.have.length(0);
+
+    second.fireWelcome();
+    expect(abonnements(second)).to.deep.equal(["chan:z"]);
+    vi.useRealTimers();
   });
 });
 
