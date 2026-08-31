@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 21:15** (UTC).
+> Empreinte prise le **2026-08-31 23:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,25 +16,23 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 15 | 1 | — |
-| 10.0.0 | 40 | 56 | 2026-11-15 |
+| 10.0.0 | 38 | 59 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#135 — fix(frontend): garantir la CSP du rechargement à chaud dès la première page**
+**#128 — ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local**
 
-Ordre 2.5 · P1 — figé à la création · 0.5 j · jalon 10.0.0
+Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 40 ouverts
+## Jalon 10.0.0 — 38 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 2.5 | P1 — figé à la création | 0.5 | #135 | fix(frontend): garantir la CSP du rechargement à chaud dès la première page |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 2.6 | P2 — décision | 0.5 | #136 | feat(client): trancher ce qui vaut sans noyau, et l'éprouver sur les vitrines |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T21:15:21.666Z",
+  "generatedAt": "2026-08-31T23:00:24.683Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 56,
+      "closed": 59,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 40,
+      "open": 38,
       "title": "10.0.0"
     }
   ],
@@ -292,8 +292,8 @@
       "number": 135,
       "title": "fix(frontend): garantir la CSP du rechargement à chaud dès la première page",
       "url": "https://github.com/nodefony/nodefony-core/issues/135",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -400,10 +400,10 @@
       "number": 136,
       "title": "feat(client): trancher ce qui vaut sans noyau, et l'éprouver sur les vitrines",
       "url": "https://github.com/nodefony/nodefony-core/issues/136",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
-      "priorite": "P2 — décision",
+      "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.6,
       "labels": [
@@ -450,6 +450,21 @@
       "ordre": 2.7,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 137,
+      "title": "fix(frontend): produire un vrai bundle de production au build front",
+      "url": "https://github.com/nodefony/nodefony-core/issues/137",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 2.7,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
       ]
     },
     {

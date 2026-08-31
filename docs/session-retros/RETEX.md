@@ -20,6 +20,11 @@
 
 ---
 
+## 🏭 Ce que le PRODUIT construit n'est pas ce que la CONFIG demande
+
+- [1× — 09-01] `nodefony frontend:build` publiait un bundle de **développement** : `mode: "production"` était passé à Vite depuis toujours, mais Vite dérive `isProduction` de `process.env.NODE_ENV`, **qui prime**. Le défaut n'apparaissait ni dans la config, ni dans un test, ni dans un échec — seulement dans le fichier RENDU (`import.meta.env.DEV` vrai chez l'utilisateur final, messages d'aide du framework de vue publiés). Trouvé par hasard, en éprouvant un point que je venais de déclarer « non prouvé ».
+- [1× — 09-01] Corollaire du même jour : le seul bundle qui disait la vérité sur l'état du produit était celui que je n'avais PAS reconstruit à la main. Mes propres expériences avaient « réparé » les quatre autres, et le tableau récapitulatif donnait une image rassurante et fausse — c'est l'HEURE de modification qui a rétabli la lecture.
+
 ## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
 
 - [1× — 08-29e] **Une sonde écrite au réflexe HTTP standard contre une API aux identifiants
@@ -126,6 +131,7 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 09-01] Premier correctif CSP : plage de ports déclarée en PERMANENCE → en-tête de **7,9 Ko sur chaque réponse** (au bord des 8 Ko que refusent beaucoup de relais). Le correctif marchait et coûtait plus cher que le défaut. Refait par famille : bloc entier tant que rien ne sert, port réel dès que ça sert. **Mesurer le COÛT de son correctif fait partie du correctif.**
 - [1× — 08-30] **Déclarer sans installer est un demi-geste — et c'est le user qui l'a vu.**
   `create entity` ajoutait l'outil de migration au `package.json` et laissait l'utilisateur lancer
   `npm install` ; la commande suivante échouait sur un paquet que le manifeste annonce (3 agents sur
@@ -304,6 +310,7 @@
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
 
+- [1× — 09-01] Sonde CSP lancée avant d'avoir CONSTATÉ qu'aucun serveur ne répondait : deux serveurs se sont mélangés dans la même chronologie (3 ports → 12 → 3, incompréhensible). Refaite sur terrain vierge (`curl` → `000` + `nodefony status`), elle est devenue lisible d'un coup. **Un banc de démarrage commence par prouver que rien ne tourne.**
 - [1× — 08-31d] **Un banc qui RECOPIE la règle du produit ne prouve rien — celui qui DEMANDE au
   serveur a fait tomber mon correctif à sa première exécution.** Pour #121, j'ai écrit dans le
   produit « MySQL ignore la casse des tables », déduit du dialecte. Le banc, lui, ne l'assertait
@@ -703,6 +710,8 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-01] `grep -o 'function \w+\(\)\{return(!\d)\}'` attrapait la **première** fonction de cette forme du bundle, pas `isDevBuild` : classement de 8 bundles rendu au hasard, dont deux faux « DEV ». Reciblé par l'APPELANT (`isVerbose`, dont le corps cite `production`), le verdict s'est inversé. Un motif syntaxique sans ancrage sémantique mesure ce qu'il trouve, pas ce qu'on cherche.
+- [1× — 09-01] Condition de sonde composite `A && B && C` rendue FAUSSE : rien ne dit QUEL terme. Décomposée en cinq sondes d'une ligne, le fautif était une supposition à moi (« une seule socket ») — la barre de débogage en ouvre une seconde en dev. **Une condition composite qui échoue ne se re-lit pas, elle se décompose.**
 - [1× — 31/08] **`tsgo -p tsconfig.json` d'un module de vitrine rendait 0 erreur sur un fichier
   qu'il n'a jamais lu** : le `tsconfig` du module **exclut `frontend`**. Une sonde de type
   volontairement fausse (`const x: number = "y"`) n'a rien levé — c'est ce qui l'a révélé. Le
@@ -1151,6 +1160,7 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 09-01] Build « de contrôle » lancé **sans `NF_WITH_DEV_MODULES=1`** : en production les modules `policy:"dev"` ne sont pas chargés ⇒ « aucun frontend déclaré », **empreinte du bundle inchangée**, et j'ai failli conclure que `NODE_ENV` n'avait aucun effet. C'est l'empreinte identique qui a sauvé la conclusion — pas le code de sortie, qui valait 0.
 - [1× — 31/08] **`git diff --stat` était MUET sur mon débranchement** — parce que le fichier était
   NEUF, donc non suivi. Ma boucle de mutation affichait « diff: » vide à chaque tour, et j'ai
   failli en conclure que rien n'était appliqué. Ce qui a sauvé le verdict, c'est un `assert` Python
