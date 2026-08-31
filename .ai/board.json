@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T20:58:44.050Z",
+  "generatedAt": "2026-08-31T21:11:43.881Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 56,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 38,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -283,6 +283,20 @@
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
+      "ordre": 2.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 135,
+      "title": "fix(frontend): garantir la CSP du rechargement à chaud dès la première page",
+      "url": "https://github.com/nodefony/nodefony-core/issues/135",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
       "ordre": 2.5,
       "labels": [
         "10.0.0"
