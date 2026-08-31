@@ -2,6 +2,26 @@
 
 > IA, ultra-concis. Détails session : [`CLAUDE.md`](./CLAUDE.md). Kit reprise : mémoire `project_studio_prep_kit`.
 
+## Noyau client (ADR-0007) — RootStore n'est plus une composition artisanale
+
+`RootStore` compose par **`createClientKernel`** (`nodefony`), pas par `RealtimeClient.shared` :
+`kernel.get("realtime")` nourrit `<NodefonyProvider>` **sans conversion de type forcée**.
+`connectOnBoot: false` — la socket de Studio est AUTHENTIFIÉE, elle s'ouvre au login
+(`setIdentity`), jamais au démarrage (sinon connexion anonyme refusée par le pod).
+
+🔒 **Le cycle d'identité D9 a QUITTÉ le magasin.** La reaction MobX ne fait plus que DÉCLARER
+(`kernel.setIdentity(id === null ? null : { key: String(id) })`) ; le noyau porte les deux gardes —
+`disconnect()` seulement sur un vrai changement de compte, `connect()` hors de cette garde. Ce qui
+reste ici est ce qui appartient à Studio : purge de `admin` + `workspace` + clés `studio.` /
+`nf.datagrid:` du `localStorage`, sur `onIdentityChange`, et seulement si `previous !== null`
+(1ᵉʳ chargement = même identité qui revient, ne pas effacer ses bureaux).
+
+Gate anti-retour : `nodefony/tests/unit/clientKernelAdoption.test.ts` — réintroduire un
+`realtime.disconnect()` dans le magasin, recomposer la socket hors du noyau ou cesser de déclarer
+l'identité font chacun tomber leur cas. ⚠️ Son filtre de commentaires découpe **ligne à ligne** :
+une regex `/*…*/` s'ouvre sur le `/*` d'un chemin cité en commentaire (`/auth/*`) et avale des
+dizaines de lignes de code sans le dire.
+
 ## Purpose
 
 Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA React 19 via `@nodefony/frontend`. État : **P6 BRANCHÉ** — auth réelle (firewall `@nodefony/security`, session BFF cookie), mocks `/auth/*` **SUPPRIMÉS**. RBAC `ROLE_NODEFONY_ADMIN` posé sur `/studio/api/create/*` SEUL (`@IsGranted`, `StudioCreateController`) — le reste de la surface `/nodefony` est gardé par la zone firewall et, pour `stats`, par `ROLE_SUPERVISOR` ; la généralisation reste à faire (P10.6). `IAdminApi`/`AdminBroker` (P10.2) **livré** (data plane par module via broker). Pages Sécu livrées : Sessions/Users/API Keys/Firewall/Audit/Profil self.

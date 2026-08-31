@@ -128,6 +128,18 @@ export interface ClientKernelOptions {
    * @defaultValue `true` quand un document est présent
    */
   browserEvents?: boolean;
+  /**
+   * Ouvrir la socket au `boot()`.
+   *
+   * À passer `false` quand la socket est **authentifiée** : c'est alors le login
+   * qui l'ouvre, par `setIdentity()`, et ouvrir au démarrage produirait une
+   * connexion anonyme qui n'a rien à faire là. Le cas s'est présenté au premier
+   * portage réel — la console d'administration n'ouvre sa socket qu'une fois
+   * l'utilisateur connu.
+   *
+   * @defaultValue `true`
+   */
+  connectOnBoot?: boolean;
 }
 
 /**

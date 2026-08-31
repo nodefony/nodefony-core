@@ -67,35 +67,26 @@ export type {
 } from "../realtime/IRealtimeSocket";
 
 // ── Kernel client isomorphe (ADR-0007) ───────────────────────────────────────
-// La classe, sa fabrique et les types qu'un consommateur doit pouvoir NOMMER
-// pour s'en servir. `IClientKernel` — le contrat nominal — reste HORS de cette
-// surface : il y revient quand la console d'administration l'aura exercé
-// (D11.4), et son retour est la preuve mécanique que quelqu'un le tient.
-// Ce qui suit, en revanche, est tenu par `ClientKernel.ts` : le compilateur l'a
-// vérifié, et trois défauts du contrat sont tombés à cette occasion — le
-// registre typé sur une interface qui ne pouvait pas nourrir `NodefonyProvider`,
-// l'absence de toute porte d'entrée pour l'identité (D9 restait une intention),
-// et un membre `log` qui masquait la méthode d'écriture de `Service`.
+// Le contrat REVIENT dans la surface publiée, et son retour est une preuve, pas
+// une formalité : `clientSurfaceExercised.test.ts` refuse toute interface
+// publiée que rien n'exerce dans le dépôt, et la console d'administration — la
+// seule application réelle du dépôt — compose désormais ses services par ce
+// noyau, y délègue son cycle d'identité et en nourrit son fournisseur React.
+// C'est cet exercice qui a fait tomber quatre défauts qu'aucune relecture
+// n'avait vus : le registre typé sur une interface qui ne pouvait pas nourrir
+// `NodefonyProvider`, l'absence de toute porte d'entrée pour l'identité (D9
+// restait une intention), un membre `log` qui masquait la méthode d'écriture de
+// `Service`, et une composition différée au `boot()` alors qu'une application
+// câble ses magasins avant de démarrer.
 export { ClientKernel, createClientKernel } from "./ClientKernel";
 export type {
   ClientIdentity,
   ClientKernelEvent,
   ClientKernelOptions,
   ClientKernelState,
+  IClientKernel,
   NodefonyClientServices,
 } from "./IClientKernel";
-
-// Le contrat du kernel client isomorphe (ADR-0007, `./IClientKernel.ts`) n'est
-// pas encore publié : jusqu'à cette implémentation, rien ne l'exerçait, donc
-// rien ne l'avait jamais confronté au compilateur. Un contrat que personne n'exerce est une promesse invérifiable —
-// et celui-ci portait déjà deux défauts que la première implémentation aurait
-// révélés (son registre ne pouvait pas nourrir `NodefonyProvider`, et il ne
-// savait pas exprimer le re-handshake d'identité de sa propre décision D9).
-// Le publier le gelait SemVer : le corriger aurait coûté une majeure, alors que
-// l'ajouter une fois exercé ne coûte qu'une mineure.
-// La spécification, elle, reste dans le dépôt et vaut toujours.
-// Ces quatre types reviennent ici le jour où `createClientKernel()` les exerce —
-// `src/tests/clientSurfaceExercised.test.ts` refuse leur retour avant.
 
 /**
  * Génère un identifiant unique (UUID v4) côté client.

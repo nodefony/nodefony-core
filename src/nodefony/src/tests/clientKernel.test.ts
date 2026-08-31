@@ -82,6 +82,19 @@ describe("ClientKernel — composition et registre", () => {
     expect(k.state).toBe("ready");
     expect(k.has("realtime")).toBe(false);
   });
+
+  it("compose dès le CONSTRUCTEUR, avant tout boot()", () => {
+    // Une application câble ses magasins sur les services du kernel avant de le
+    // démarrer : si la composition attendait `boot()`, elle n'aurait rien à
+    // câbler. Composer n'ouvre rien — la connexion reste l'affaire de `boot()`.
+    const k = createClientKernel({
+      browserEvents: false,
+      realtime: { url: "ws://127.0.0.1:1/none" },
+    });
+    expect(k.state).toBe("created");
+    expect(k.has("realtime")).toBe(true);
+    expect(k.get("realtime")?.state).not.toBe("connected");
+  });
 });
 
 describe("ClientKernel — cycle de vie (D5)", () => {
@@ -118,6 +131,22 @@ describe("ClientKernel — cycle de vie (D5)", () => {
     expect(boots).toBe(1);
     expect(s.connects).toBe(1);
     expect(k.state).toBe("ready");
+  });
+
+  it("`connectOnBoot: false` : c'est le login qui ouvre, pas le démarrage", async () => {
+    // Une socket authentifiée ne s'ouvre pas avant de savoir QUI se connecte —
+    // sinon le démarrage produit une connexion anonyme que le pod refuse.
+    const s = fakeSocket();
+    const k = createClientKernel({
+      browserEvents: false,
+      connectOnBoot: false,
+    });
+    k.set("realtime", asClient(s));
+    await k.boot();
+    expect(k.state).toBe("ready");
+    expect(s.connects).toBe(0);
+    k.setIdentity({ key: "alice" });
+    expect(s.connects).toBe(1);
   });
 
   it("une socket qui refuse de s'ouvrir ne bloque pas l'application", async () => {

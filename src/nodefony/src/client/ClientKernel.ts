@@ -76,6 +76,12 @@ export class ClientKernel implements IClientKernel {
     // fournit : le journal du kernel est donc celui du cœur, pas un doublon.
     this.#service = new Service(options.name ?? "CLIENT KERNEL");
     this.syslog = this.#service.syslog as Syslog;
+    // La composition a lieu ICI, pas au `boot()` : une application câble ses
+    // magasins sur les services du kernel AVANT de le démarrer — le portage de
+    // la console d'administration l'a montré, elle a besoin de la socket pour
+    // construire son centre de notifications et son client d'API. Composer
+    // n'ouvre rien : `RealtimeClient.shared()` fabrique, `boot()` connecte.
+    this.#composeRealtime();
   }
 
   // ── Composition ────────────────────────────────────────────────────────────
@@ -133,10 +139,10 @@ export class ClientKernel implements IClientKernel {
 
   async #doBoot(): Promise<void> {
     this.#state = "booting";
-    this.#composeRealtime();
     this.#service.fire("onBoot", this);
     this.#bindBrowser();
-    const socket = this.get("realtime");
+    const socket =
+      this.#options.connectOnBoot === false ? undefined : this.get("realtime");
     if (socket) {
       try {
         await socket.connect();

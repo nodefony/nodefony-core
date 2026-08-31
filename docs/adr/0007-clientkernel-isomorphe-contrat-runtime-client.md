@@ -27,6 +27,18 @@ budgets, invariants) qui sera publié avec `nodefony@10.0.0`. **L'implémentatio
 Phase 3.2 post-MVP**. Comme l'ADR-0006, ce document EST la spécification à respecter le jour de
 l'implémentation.
 
+**Révision du 2026-08-31 (seconde) — la console d'administration est portée, le contrat est PUBLIÉ.**
+D11.4 est fait : `RootStore` compose par `createClientKernel`, son fournisseur React est nourri par
+`kernel.get("realtime")` **sans conversion de type forcée**, et le cycle d'identité est délégué —
+les deux gardes de D9 ont quitté le magasin pour le framework. `IClientKernel` est revenu au barrel
+client, et `clientSurfaceExercised` reste vert : quelqu'un le tient enfin. Le portage a révélé un
+**quatrième** défaut que l'implémentation seule n'avait pas vu — la composition avait lieu au
+`boot()` alors qu'une application câble ses magasins AVANT de démarrer ; elle a lieu au constructeur,
+et `boot()` ne fait plus que connecter. Il a aussi ajouté `connectOnBoot`, parce qu'une socket
+authentifiée s'ouvre au login et non au démarrage. Constaté à l'écran (navigateur piloté) : socket
+ouverte 1,1 s après le login, `realtime:welcome` reçu, 12 requêtes du pont pour 12 réponses, zéro
+erreur de console et zéro réponse HTTP ≥ 400.
+
 **Révision du 2026-08-31 — l'implémentation a démenti trois points du contrat.**
 `ClientKernel` existe (`src/nodefony/src/client/ClientKernel.ts`), et l'exercice par le compilateur
 a fait tomber ce qu'aucune relecture n'avait vu — c'est très exactement ce que la révision
@@ -382,6 +394,14 @@ Ordre gelé (chaque étape livre un produit vert, méthode realtime) :
 4. **Phase 3.2c** : `RootStore` Studio devient un consommateur du kernel (la reaction identité
    et la composition migrent dans le kernel ; les stores restent, amincis en adaptateurs).
    Critère : suite e2e Studio verte sans régression.
+
+> **Fait.** La reaction MobX ne fait plus que DÉCLARER l'identité au kernel
+> (`setIdentity({ key })`) ; ce qui reste dans le magasin est ce qui lui appartient vraiment — la
+> purge de SES caches, sur `onIdentityChange`. Un gate d'architecture
+> (`studio/nodefony/tests/unit/clientKernelAdoption.test.ts`) refuse le retour de la règle dans
+> l'application : réintroduire un `realtime.disconnect()` dans le magasin, recomposer la socket hors
+> du noyau ou cesser de déclarer l'identité font chacun tomber leur propre cas. Le débranchement a
+> été joué, les trois rougissent.
 
 **Pourquoi le debug-client en premier** : un consommateur neuf valide le contrat sans le biais
 du legacy ; Studio migre ensuite sur un kernel déjà rodé — le contraire (migrer Studio d'abord)

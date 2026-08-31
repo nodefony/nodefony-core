@@ -298,7 +298,11 @@ export const App = observer(() => {
       <Notifications position="top-right" limit={5} autoClose={4000} />
       <ModalsProvider>
         <StoreProvider value={rootStore}>
-          <NodefonyProvider client={rootStore.realtime}>
+          {/* Nourri par ce que le REGISTRE du noyau rend, sans conversion de
+              type forcée : c'est le défaut que le contrat portait avant d'être
+              exercé — il typait la socket sur une interface que ce fournisseur
+              n'accepte pas. */}
+          <NodefonyProvider client={rootStore.kernel.get("realtime")}>
             <ErrorBoundary variant="full">
               <SessionBootstrap>
                 <RouterProvider router={router} />

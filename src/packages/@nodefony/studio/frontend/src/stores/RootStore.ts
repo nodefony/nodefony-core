@@ -2,13 +2,14 @@ import { reaction } from "mobx";
 import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
 import {
+  createClientKernel,
   RealtimeClient,
   Syslog,
   installErrorCapture,
   installRequestIdProvider,
   installSyslogUplink,
 } from "nodefony";
-import type { NoticeLevel } from "nodefony";
+import type { ClientIdentity, ClientKernel, NoticeLevel } from "nodefony";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";
@@ -48,6 +49,13 @@ export class RootStore {
   readonly workspace: WorkspaceStore;
 
   readonly api: ApiClient;
+  /**
+   * Le noyau client du framework — il porte la composition technique, le cycle
+   * de vie de la page et, surtout, le cycle d'identité (ADR-0007 D9). Ce qui
+   * vivait ici en glue MobX vit désormais dans le framework, où toute
+   * application en hérite au lieu de le recopier.
+   */
+  readonly kernel: ClientKernel;
   readonly realtime: RealtimeClient;
   /** Journal des incidents de CETTE page, remonté au pod (#35). */
   readonly browserLog: Syslog;
@@ -58,15 +66,35 @@ export class RootStore {
 
     // Connexion realtime PARTAGÉE par URL : la même socket sert Studio ET la
     // barre de debug (qui appelle aussi RealtimeClient.shared sur la même URL)
-    // → une seule connexion WebSocket, pas deux.
-    this.realtime = RealtimeClient.shared({
-      url: realtimeUrl(),
-      autoReconnect: true,
-      // Backoff court : dès que le serveur revient, on se reconnecte en ≤4s
-      // (sinon l'overlay « reste » pendant le long backoff par défaut de 30s).
-      reconnectDelay: 800,
-      reconnectDelayMax: 4000,
+    // → une seule connexion WebSocket, pas deux. C'est le noyau qui la compose
+    // désormais : `RealtimeClient.shared` reste dessous, mais l'application ne
+    // le nomme plus — elle déclare ce qu'elle veut, le noyau le fournit.
+    //
+    // `connectOnBoot: false` : la socket de Studio est AUTHENTIFIÉE. Elle
+    // s'ouvre au login (`setIdentity`), jamais au démarrage — ouvrir avant de
+    // savoir qui se connecte produirait une connexion anonyme que le pod refuse.
+    this.kernel = createClientKernel({
+      name: "STUDIO",
+      connectOnBoot: false,
+      realtime: {
+        url: realtimeUrl(),
+        autoReconnect: true,
+        // Backoff court : dès que le serveur revient, on se reconnecte en ≤4s
+        // (sinon l'overlay « reste » pendant le long backoff par défaut de 30s).
+        reconnectDelay: 800,
+        reconnectDelayMax: 4000,
+      },
     });
+    const realtime = this.kernel.get("realtime");
+    if (!realtime) {
+      // Le registre est typé : ceci ne peut arriver que si la composition
+      // ci-dessus a changé. Une garde plutôt qu'une conversion de type forcée —
+      // c'est précisément le défaut que le contrat portait avant d'être exercé.
+      throw new Error(
+        "RootStore : le noyau client n'a pas composé de socket temps réel.",
+      );
+    }
+    this.realtime = realtime;
 
     // #35 — Studio est une application front comme une autre : ses propres
     // erreurs remontent au pod par le canal montant, au lieu de mourir dans une
@@ -125,59 +153,62 @@ export class RootStore {
     this.admin = new AdminStore(this.api);
     this.profiler = new ProfilerStore(this.api);
 
-    // Au CHANGEMENT D'IDENTITÉ (login / logout / bascule sous un onglet ouvert),
-    // purge les caches de données scopés à l'utilisateur (réponses d'endpoints
-    // admin mémorisées) : aucune donnée d'une identité précédente ne survit dans
-    // un store singleton. Le remontage React (clé `AuthGuard`) vide les états
-    // locaux des pages ; ceci couvre les stores hors arbre. RootStore = singleton
-    // de durée de vie applicative → pas de disposal nécessaire.
+    // ── Cycle d'identité — DÉLÉGUÉ au noyau client (ADR-0007 D9) ───────────
+    //
+    // L'application DÉCLARE qui est connecté ; le noyau en tire les conséquences
+    // de sécurité. Les deux gardes qui vivaient ici — ne couper la socket que
+    // sur un VRAI changement de compte, et la rouvrir HORS de cette garde —
+    // sont désormais dans le framework (`ClientKernel.setIdentity`), donc
+    // valables pour TOUTE application Nodefony et non plus pour celle-ci seule.
+    // C'est tout l'objet du portage : une règle de sécurité ne doit pas dépendre
+    // de la qualité du câblage artisanal de chaque application.
     reaction(
       () => this.auth.user?.id ?? null,
-      (id, prevId) => {
-        this.admin.reset();
-        // Purge l'état user-scoped en `localStorage` (bureaux personnels +
-        // filtres/onglets des consoles) UNIQUEMENT lors d'un VRAI changement de
-        // compte (un compte → un autre, ou déconnexion) — PAS au 1er chargement
-        // (null→id au boot/F5 = la MÊME identité se recharge → ne pas effacer ses
-        // bureaux). Cet état est device-local, non lié à l'identité → sur un poste
-        // partagé il fuiterait d'une identité à la suivante (même classe de fuite
-        // que la socket figée, re-négociée juste après). Les préférences device
-        // pures (apparence, rebonjour de login, debug bar) sont préservées.
-        if (prevId !== null && prevId !== id) {
-          this.workspace.resetForIdentity();
-          try {
-            if (typeof localStorage !== "undefined") {
-              const kill: string[] = [];
-              for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (
-                  k &&
-                  (k.startsWith("studio.") || k.startsWith("nf.datagrid:"))
-                )
-                  kill.push(k);
-              }
-              for (const k of kill) localStorage.removeItem(k);
-            }
-          } catch {
-            /* storage indisponible — non bloquant */
-          }
-          // 🔒 SÉCURITÉ (élévation de privilège) — re-négocier la SOCKET sur un
-          // VRAI changement de compte (logout→login d'un AUTRE compte sur le même
-          // navigateur). La WebSocket a gravé l'ancienne identité au handshake ;
-          // le pont « API souveraine » (`api.request`) rejouerait des GET avec ce
-          // token → fuite de données (vu en prod). `disconnect()` force un nouveau
-          // handshake = relecture du cookie courant. Les pages live se ré-abonnent
-          // au reconnect (ref-compté).
-          this.realtime.disconnect();
-        }
-        // ⚠️ `connect()` HORS du garde : au BOOT (`prevId === null`), la socket se
-        // connecte fraîche avec le cookie courant — il ne faut SURTOUT PAS de
-        // `disconnect()` ici, il couperait les requêtes data-plane EN VOL qui
-        // passent par le pont → la page resterait en spinner jusqu'au timeout du
-        // pont avant de retomber en fetch (régression « tourne en boucle »).
-        if (id !== null) void this.realtime.connect();
+      (id) => {
+        this.kernel.setIdentity(id === null ? null : { key: String(id) });
       },
     );
+
+    // Ce qui reste ici est ce qui appartient VRAIMENT à Studio : SES caches.
+    // Le noyau n'en connaît aucun — il notifie, l'application purge.
+    this.kernel.on("onIdentityChange", (...args) => {
+      const [, previous] = args as [
+        ClientIdentity | null,
+        ClientIdentity | null,
+      ];
+      // Purge les réponses d'endpoints admin mémorisées : aucune donnée d'une
+      // identité précédente ne survit dans un store singleton. Le remontage
+      // React (clé `AuthGuard`) vide les états locaux des pages ; ceci couvre
+      // les stores hors arbre.
+      this.admin.reset();
+      // `previous === null` = 1ᵉʳ chargement (ou F5) : la MÊME identité se
+      // recharge, ne pas effacer ses bureaux. Le noyau n'émet que sur un
+      // changement de clé, donc ce seul test suffit à reconnaître un VRAI
+      // changement de compte.
+      if (previous === null) return;
+      // État user-scoped en `localStorage` (bureaux personnels + filtres/onglets
+      // des consoles) : device-local et non lié à l'identité → sur un poste
+      // partagé il fuiterait d'une identité à la suivante. Les préférences
+      // device pures (apparence, rebonjour de login, debug bar) sont préservées.
+      this.workspace.resetForIdentity();
+      try {
+        if (typeof localStorage !== "undefined") {
+          const kill: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith("studio.") || k.startsWith("nf.datagrid:")))
+              kill.push(k);
+          }
+          for (const k of kill) localStorage.removeItem(k);
+        }
+      } catch {
+        /* storage indisponible — non bloquant */
+      }
+    });
+
+    // Démarre le noyau : pont des événements de page, `onBoot`/`onReady`. La
+    // socket, elle, reste fermée jusqu'au login (`connectOnBoot: false`).
+    void this.kernel.boot();
 
     // Aide au DEV uniquement : déclencher un toast depuis la console
     // (`nodefonyNotify("success","coucou")`) pour vérifier le centre de
