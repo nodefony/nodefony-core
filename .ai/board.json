@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-08-31T18:28:42.895Z",
+  "generatedAt": "2026-08-31T20:58:44.050Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 17,
+      "open": 15,
       "title": "10.1"
     },
     {
-      "closed": 53,
+      "closed": 56,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 38,
       "title": "10.0.0"
@@ -740,28 +740,42 @@
       "number": 132,
       "title": "feat(test): démontrer la remontée des journaux depuis une vitrine connectée",
       "url": "https://github.com/nodefony/nodefony-core/issues/132",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 5.5,
       "labels": [
-        "10.1"
+        "10.0.0"
       ]
     },
     {
       "number": 133,
       "title": "fix(studio): corriger les manquements d'accessibilité de l'écran des journaux",
       "url": "https://github.com/nodefony/nodefony-core/issues/133",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 5.6,
       "labels": [
-        "10.1"
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 134,
+      "title": "feat(debugbar): rendre la barre de débogage manipulable et à jour du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/134",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 5.7,
+      "labels": [
+        "10.0.0"
       ]
     },
     {

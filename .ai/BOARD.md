@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 18:28** (UTC).
+> Empreinte prise le **2026-08-31 20:58** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 17 | 1 | — |
-| 10.0.0 | 38 | 53 | 2026-11-15 |
+| 10.1 | 15 | 1 | — |
+| 10.0.0 | 38 | 56 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -70,12 +70,10 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 
-## Jalon 10.1 — 17 ouverts
+## Jalon 10.1 — 15 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 5.5 | P3 — fin de cycle | 0.5 | #132 | feat(test): démontrer la remontée des journaux depuis une vitrine connectée |
-| 5.6 | P3 — fin de cycle | 0.5 | #133 | fix(studio): corriger les manquements d'accessibilité de l'écran des journaux |
 | 20 | P3 — fin de cycle | 1 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 23 | P3 — fin de cycle | 0.5 | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
 | 50 | P2 — décision | 1.5 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |

@@ -158,7 +158,61 @@ export class ClientKernel implements IClientKernel {
     // `terminated`.
     if (this.#state !== "booting") return;
     this.#state = "ready";
+    this.#banner();
     this.#service.fire("onReady", this);
+  }
+
+  /**
+   * Annonce le kernel dans la console du navigateur.
+   *
+   * La forme est celle qu'ont adoptée Vue, Vite et les outils de développement
+   * qui vivent dans une console partagée : **un badge en couleur sur UNE ligne**,
+   * puis un **groupe REPLIÉ** pour le détail. Pas de dessin en caractères — celui
+   * du serveur a du sens dans un terminal qu'on ouvre une fois au démarrage ;
+   * dans une console de navigateur il se répète à chaque rechargement, déborde
+   * des fenêtres étroites, et pousse hors de vue les messages de l'application.
+   * Ce que la console d'un développeur doit rester, c'est LISIBLE.
+   *
+   * Le groupe est replié (`groupCollapsed`) et non ouvert : présent pour qui le
+   * cherche, invisible pour qui débogue autre chose.
+   */
+  #banner(): void {
+    if (this.#options.banner === false) return;
+    // Une console peut manquer (rendu côté serveur, test) ou ne pas savoir
+    // grouper : on n'annonce rien plutôt que de jeter au démarrage.
+    const c = globalThis.console;
+    if (!c?.log) return;
+    const socket = this.get("realtime");
+    const badge =
+      "background:#0b1120;color:#5eead4;font-weight:700;padding:2px 6px;border-radius:3px 0 0 3px";
+    const suite =
+      "background:#1e293b;color:#e2e8f0;padding:2px 6px;border-radius:0 3px 3px 0";
+    c.log(`%c◆ nodefony%c${this.name}%c`, badge, suite, "");
+    if (!c.groupCollapsed || !c.groupEnd) return;
+    c.groupCollapsed("%cdétail du noyau client", "color:#94a3b8");
+    try {
+      c.log(
+        "services composés :",
+        this.#services ? Object.keys(this.#services) : [],
+      );
+      c.log(
+        "temps réel        :",
+        socket ? (socket.url ?? "socket fournie") : "aucun",
+      );
+      c.log("état de la socket :", socket ? socket.state : "—");
+      c.log(
+        "identité          :",
+        this.identity ? this.identity.key : "anonyme",
+      );
+      c.log(
+        "journal           :",
+        "les entrées de cette page peuvent remonter au serveur (installSyslogUplink)",
+      );
+    } finally {
+      // `groupEnd` DOIT être atteint même si une lecture jette : un groupe laissé
+      // ouvert avale tous les messages suivants de l'application.
+      c.groupEnd();
+    }
   }
 
   /**
@@ -199,6 +253,11 @@ export class ClientKernel implements IClientKernel {
   }
 
   // ── Identité (D9) ──────────────────────────────────────────────────────────
+
+  /** Nom du kernel — celui donné à la fabrique, `CLIENT KERNEL` par défaut. */
+  get name(): string {
+    return this.#service.name;
+  }
 
   /** Identité runtime courante, telle que l'application l'a déclarée. */
   get identity(): ClientIdentity | null {

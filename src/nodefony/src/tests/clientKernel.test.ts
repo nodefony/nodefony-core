@@ -196,6 +196,64 @@ describe("ClientKernel — cycle de vie (D5)", () => {
   });
 });
 
+describe("ClientKernel — l'annonce dans la console", () => {
+  /** Console double : on compte ce que le kernel écrit, sans polluer la sortie. */
+  const spyConsole = () => {
+    const calls: string[] = [];
+    let groupes = 0;
+    let fins = 0;
+    const vraie = globalThis.console;
+    globalThis.console = {
+      ...vraie,
+      log: (...a: unknown[]) => calls.push(String(a[0])),
+      groupCollapsed: () => {
+        groupes += 1;
+      },
+      groupEnd: () => {
+        fins += 1;
+      },
+    } as Console;
+    return {
+      calls,
+      get groupes() {
+        return groupes;
+      },
+      get fins() {
+        return fins;
+      },
+      restore: () => {
+        globalThis.console = vraie;
+      },
+    };
+  };
+
+  it("annonce le kernel une fois, et referme son groupe", async () => {
+    const spy = spyConsole();
+    try {
+      const k = createClientKernel({ browserEvents: false, name: "MON APP" });
+      await k.boot();
+      expect(spy.calls[0]).toContain("nodefony");
+      expect(spy.groupes).toBe(1);
+      // Un groupe laissé ouvert avale tous les messages suivants de l'application.
+      expect(spy.fins).toBe(spy.groupes);
+    } finally {
+      spy.restore();
+    }
+  });
+
+  it("`banner: false` n'écrit RIEN — la console d'une app publiée n'est pas à nous", async () => {
+    const spy = spyConsole();
+    try {
+      const k = createClientKernel({ browserEvents: false, banner: false });
+      await k.boot();
+      expect(spy.calls).toEqual([]);
+      expect(spy.groupes).toBe(0);
+    } finally {
+      spy.restore();
+    }
+  });
+});
+
 describe("ClientKernel — cycle d'identité (D9, règle de sécurité)", () => {
   it("premier login : connect() SANS disconnect() — jamais couper au boot", async () => {
     const s = fakeSocket();

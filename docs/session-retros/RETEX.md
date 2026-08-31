@@ -268,6 +268,13 @@
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
+- [1× — 31/08] **« on fait le 10.1 en 10 » : j'ai basculé les 17 tickets du jalon, il en fallait 2.**
+  La demande visait les tickets 10.1 **de la grappe en cours**, pas le jalon entier — le contexte de
+  la phrase le disait, sa lettre non. Rattrapé en une minute (7 restaurations), mais c'est un geste
+  de pilotage VISIBLE, exécuté sur un lot large depuis une phrase courte. Règle : quand une consigne
+  brève commande un geste de MASSE, en énoncer la portée déduite AVANT d'agir — une ligne suffit, et
+  elle coûte moins que la restauration.
+
 - [1× — 08-28l] **Un test qui affirme un ABSOLU sur un registre PARTAGÉ n'est vrai que dans le mode
   où il a été écrit.** « il n'y a qu'un contributeur » passait en développement et tombait en
   production, où le module de base inscrit sa propre voix dès que le contrôle de schéma vaut `fail`
@@ -695,6 +702,12 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 31/08] **`tsgo -p tsconfig.json` d'un module de vitrine rendait 0 erreur sur un fichier
+  qu'il n'a jamais lu** : le `tsconfig` du module **exclut `frontend`**. Une sonde de type
+  volontairement fausse (`const x: number = "y"`) n'a rien levé — c'est ce qui l'a révélé. Le
+  contrôle réel est passé par la transformation Vite (200 + présence du symbole attendu). Poser une
+  sonde fausse coûte dix secondes et distingue « vert » de « vert parce que vide ».
 
 - [1× — 08-31] **Un décor qui ne porte pas le cas ne peut pas voir le défaut.** L'adoption d'une base perdait les contraintes `UNIQUE` de colonne depuis toujours ; aucun des trois DDL du banc n'en déclarait une, donc rien n'exerçait ce chemin. Le défaut n'est sorti que par un symptôme lointain — un POST en doublon rendant 201 au lieu de 409 dans un e2e généré. **Avant de croire un banc vert, regarder si son décor porte le cas** ; et un vert LOCAL peut venir d'une base qui traîne là où la forge part d'un conteneur neuf (vécu le même jour, en sens inverse : un cas vert chez moi, rouge en CI, parce que ma base portait des tables que la sienne n'avait pas).
 
@@ -1137,6 +1150,22 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 31/08] **`git diff --stat` était MUET sur mon débranchement** — parce que le fichier était
+  NEUF, donc non suivi. Ma boucle de mutation affichait « diff: » vide à chaque tour, et j'ai
+  failli en conclure que rien n'était appliqué. Ce qui a sauvé le verdict, c'est un `assert` Python
+  sur l'ancre AVANT réécriture, plus le fait que chaque mutation faisait tomber un test NOMMÉ
+  différent. Règle : sur un fichier non commité, `git diff` n'est pas un témoin de changement ;
+  seul l'assert d'ancre ou une relecture du contenu l'est.
+- [1× — 31/08] **Mon filtre de commentaires a mangé 4,6 Ko de code sans le dire.** Une regex
+  `/\*[\s\S]*?\*/` sur un fichier entier s'ouvre sur le `/*` d'un chemin cité DANS un commentaire
+  de ligne (`// … `/auth/*` …`) et ne se referme que 77 lignes plus bas. Le test rendait un rouge
+  qui ne parlait pas du code. Un filtre approximatif sur du TypeScript est un lexeur qu'on n'a pas
+  écrit : découper LIGNE À LIGNE est moins élégant et ne ment pas.
+- [1× — 31/08] **Le gate de budget a mesuré un `dist` d'AVANT le diff** et rendu exactement le même
+  chiffre qu'après — ce qui ressemblait à « ma brique ne coûte rien ». Il a fallu rebâtir, comparer
+  les `mtime`, puis mesurer un CONTREFACTUEL (retirer l'export du barrel publié) pour obtenir le
+  coût réel. Un gate qui part d'un artefact ne dit rien tant qu'on n'a pas prouvé sa fraîcheur.
 
 - [1× — 31/08] **Mon script de mutation a annoncé « 0 rouge » là où il y en avait 4** — c'est-à-dire
   « ce banc ne prouve rien » alors qu'il prouvait tout. Deux causes cumulées, chacune muette : la
@@ -1719,6 +1748,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 31/08] **Deux tickets affirmaient un état du code qui n'était plus vrai**, et leurs ancres
+  étaient justes : #91 disait « la console d'administration ne monte pas `NodefonyProvider` » —
+  `App.tsx` le montait déjà ; #132 décrivait comme restant à faire ce qu'un banc e2e prouvait déjà
+  (corrélation, exception non rattrapée, preuve négative). Les deux m'auraient fait écrire du code
+  inutile si je les avais crus. **Un ticket est une affirmation sur le code, et il vieillit entre son
+  écriture et sa prise** : le premier geste en l'ouvrant est de vérifier son bloc « le problème »,
+  pas seulement ses ancres.
 
 - [1× — 31/08] **Le kit prescrivait de brancher un transport sur `ILogSink` — l'interface existe, le
   nom est juste, et la prescription était fausse.** Sa forme réelle (`writeOut(s: string)`) montre

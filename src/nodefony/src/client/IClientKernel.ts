@@ -140,6 +140,16 @@ export interface ClientKernelOptions {
    * @defaultValue `true`
    */
   connectOnBoot?: boolean;
+  /**
+   * Annoncer le kernel dans la console du navigateur au `boot()` — un badge sur
+   * une ligne, puis un groupe replié pour le détail.
+   *
+   * À passer `false` en production : la console d'une application publiée
+   * n'appartient pas au framework.
+   *
+   * @defaultValue `true`
+   */
+  banner?: boolean;
 }
 
 /**
