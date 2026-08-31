@@ -115,6 +115,19 @@ class RealtimeService extends Service {
     // F9 (revue 0.6) — câble le seuil de comptage des consommateurs lents de la
     // sonde depuis la config (avant : clé morte, la sonde lisait une constante).
     hub.setSlowConsumerBytes(this.#config.slowConsumer.bytes);
+    // #35 — réception des journaux du navigateur. Surface d'ÉCRITURE : fermée tant
+    // que la config ne l'ouvre pas, et `null` signifie qu'aucun handler entrant ne
+    // sera déclaré (pas un handler qui refuse — un canal qui n'existe pas).
+    hub.setClientLogsLimits(
+      this.#config.clientLogs.enabled
+        ? {
+            maxEntriesPerBatch: this.#config.clientLogs.maxEntriesPerBatch,
+            maxEntriesPerWindow: this.#config.clientLogs.maxEntriesPerWindow,
+            windowMs: this.#config.clientLogs.windowMs,
+            maxStringLength: this.#config.clientLogs.maxStringLength,
+          }
+        : null,
+    );
     // Politique de forward DÉCLARÉE (`@RealtimeBroadcast`) posée dès le boot :
     // sans elle, un pod qui publie sans abonné local (job, webhook, worker) ne
     // propagerait rien tant qu'aucun client ne s'est connecté à lui — et deux

@@ -468,6 +468,19 @@ export type {
   RealtimeInboundHandler,
 } from "./nodefony/interfaces/IRealtimeController";
 export type { IChannelPolicy } from "./nodefony/interfaces/IChannelPolicy";
+export type { IClientLogsLimits } from "./nodefony/interfaces/IClientLogsLimits";
+// Réception des journaux du navigateur (#35). La plateforme déclare le canal
+// elle-même quand la config l'ouvre ; la fabrique reste exportée pour qu'une
+// application puisse le porter sur un endpoint à elle, avec d'autres bornes.
+export {
+  createSyslogUplinkHandler,
+  BROWSER_ORIGIN,
+  MAX_CLIENT_SEVERITY,
+} from "./nodefony/src/server/syslogUplink";
+export type {
+  SyslogUplinkHandlerOptions,
+  ClientSeverity,
+} from "./nodefony/src/server/syslogUplink";
 export type {
   ChannelSink,
   ChannelFactory,

@@ -1,6 +1,7 @@
 import {
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_CHANNELS,
+  PLATFORM_INBOUND,
   startsWithCI,
 } from "nodefony";
 import type {
@@ -108,6 +109,30 @@ export const SECURITY_CHANNEL_POLICY: IChannelPolicy = {
 };
 
 /**
+ * Politique du canal **MONTANT** des journaux du navigateur
+ * ({@link PLATFORM_INBOUND.syslogUplink}) : authentifié, sans rôle particulier.
+ *
+ * Pourquoi il échappe à {@link SYSTEM_CHANNEL_POLICY} alors qu'il porte la même marque :
+ * ce plancher-là protège la **lecture** de l'état interne du pod — s'abonner à
+ * `nodefony:syslog` fait sortir les journaux du serveur. Le canal montant ne rend rien ;
+ * il ACCEPTE. Lui demander `ROLE_ADMIN` ne le rendrait pas plus sûr, cela le rendrait
+ * inutile : on ne recueillerait que les erreurs survenues chez les administrateurs, quand
+ * tout l'intérêt est de voir celles que subissent les utilisateurs.
+ *
+ * Les dangers propres à une surface d'écriture — noyer le journal, y fabriquer des
+ * pistes — se traitent là où ils se posent : origine forcée par le serveur, débit et
+ * taille bornés par connexion, sévérité plafonnée (`createSyslogUplinkHandler`).
+ *
+ * Le plancher irréductible reste respecté, et non contourné : `authenticated` est exigé,
+ * donc une connexion ANONYME ne pousse rien. Limite assumée, à connaître avant de
+ * chercher un journal qui n'existe pas : **les erreurs d'un visiteur non connecté ne
+ * remontent pas** — celles de la page de connexion, notamment.
+ */
+export const UPLINK_CHANNEL_POLICY: IChannelPolicy = {
+  authenticated: true,
+};
+
+/**
  * F2 (revue 0.6) — PLANCHER IRRÉDUCTIBLE du namespace réservé plateforme. Il
  * couvre tout ce qui expose l'état interne du pod (logs, audit, métriques,
  * requêtes, supervision) : une règle de config `realtimeChannels` (placée AVANT
@@ -155,6 +180,13 @@ export function buildSystemRules(
   const audit = PLATFORM_CHANNELS.audit;
   if (prefixes.some((prefix) => startsWithCI(audit, prefix))) {
     rules.push({ prefix: audit, policy: SECURITY_CHANNEL_POLICY });
+  }
+  // Canal MONTANT des journaux du navigateur — même exigence que l'audit d'être
+  // nommé AVANT le namespace générique (premier match gagne), pour une raison
+  // inverse : sa politique est plus BASSE, pas plus haute. Cf {@link UPLINK_CHANNEL_POLICY}.
+  const uplink = PLATFORM_INBOUND.syslogUplink;
+  if (prefixes.some((prefix) => startsWithCI(uplink, prefix))) {
+    rules.push({ prefix: uplink, policy: UPLINK_CHANNEL_POLICY });
   }
   for (const prefix of prefixes) {
     rules.push({ prefix, policy: SYSTEM_CHANNEL_POLICY });

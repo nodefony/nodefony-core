@@ -1,5 +1,7 @@
 import {
   JsonRpcPeer,
+  Nodefony,
+  PLATFORM_INBOUND,
   RpcError,
   RpcEnvelope,
   RequestContext,
@@ -20,6 +22,7 @@ import {
 import type { WebsocketContext, ProfiledResolver } from "@nodefony/http";
 import { readBackpressureOptions } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
+import { createSyslogUplinkHandler } from "./syslogUplink";
 import {
   WsConnectionTransport,
   type RawWsConnection,
@@ -581,6 +584,26 @@ export abstract class RealtimeController<
       ...decoratedInbound,
       ...overrideInbound,
     };
+    // #35 — canal montant des journaux du navigateur, déclaré ICI plutôt que dans un
+    // contrôleur précis : le bénéfice est de servir une application quelconque, et le
+    // faire porter par Studio (ou par n'importe quel endpoint nommé) l'aurait réservé
+    // à qui hérite du bon contrôleur. Un handler NEUF par connexion — c'est ce qui
+    // rend le compteur de débit per-connexion sans registre partagé.
+    // Un `realtimeInbound()` qui déclarerait le même nom gagne : la plateforme fournit
+    // un défaut, elle ne confisque pas le canal.
+    const clientLogs = hub.clientLogsLimits;
+    if (
+      clientLogs !== null &&
+      inboundMap[PLATFORM_INBOUND.syslogUplink] === undefined
+    ) {
+      const syslog = Nodefony.getKernel()?.syslog;
+      if (syslog) {
+        inboundMap[PLATFORM_INBOUND.syslogUplink] = createSyslogUplinkHandler({
+          syslog,
+          ...clientLogs,
+        });
+      }
+    }
     const inbound = Object.keys(inboundMap).length > 0 ? inboundMap : null;
 
     const state: RealtimeConnState = {

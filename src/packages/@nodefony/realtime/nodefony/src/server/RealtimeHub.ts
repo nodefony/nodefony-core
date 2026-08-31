@@ -4,6 +4,7 @@ import {
   isPlatformChannel,
 } from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
+import type { IClientLogsLimits } from "../../interfaces/IClientLogsLimits";
 import type { IChannelPolicy } from "../../interfaces/IChannelPolicy";
 import type {
   IRealtimeConnProbe,
@@ -301,6 +302,13 @@ export class RealtimeHub {
   // lui) → tout endpoint sert le canal système, ZÉRO couplage à Studio. Lazy :
   // `null` tant qu'aucun module n'en enregistre. Cf {@link registerSystemChannel}.
   #systemChannelFactories: Map<string, ChannelFactory> | null = null;
+
+  // Bornes de la réception des journaux du NAVIGATEUR (#35). `null` (défaut) = le
+  // canal montant n'est pas ouvert : `RealtimeController` ne déclare alors AUCUN
+  // handler entrant pour lui, donc une frame `nodefony:syslog:uplink` est droppée
+  // comme n'importe quelle méthode non déclarée. Posé au boot par
+  // `RealtimeService.init()` depuis `defineRealtimeConfig().clientLogs`.
+  #clientLogs: IClientLogsLimits | null = null;
 
   // Garde Origin RFC 6455 §10.2 (CSRF defense). `null` = pas de politique
   // (rétrocompat). Posée par `RealtimeService.init()` depuis
@@ -1131,6 +1139,20 @@ export class RealtimeHub {
    * @param peer  - peer émetteur (clé du mapping `peer → token`).
    * @returns `true` si la frame peut être dispatchée, `false` si refusée.
    */
+  /**
+   * Ouvre (ou referme) la réception des journaux du navigateur, avec ses bornes.
+   *
+   * @param limits - bornes de débit et de taille, ou `null` pour refermer le canal.
+   */
+  setClientLogsLimits(limits: IClientLogsLimits | null): void {
+    this.#clientLogs = limits;
+  }
+
+  /** Bornes en vigueur, ou `null` si le canal montant est fermé. */
+  get clientLogsLimits(): IClientLogsLimits | null {
+    return this.#clientLogs;
+  }
+
   runAuthorizer(frame: unknown, peer: JsonRpcPeer): boolean {
     if (this.#frameAuthorizer === null) return true;
     return this.#frameAuthorizer(frame, this.getTokenForPeer(peer));

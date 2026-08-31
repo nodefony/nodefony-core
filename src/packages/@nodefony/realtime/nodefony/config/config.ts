@@ -196,6 +196,60 @@ const checkOriginSchema = z
     "Contrôle Origin RFC 6455 §10.2 (défense CSRF native à l'upgrade WS).",
   );
 
+// Réception des journaux du NAVIGATEUR (#35) — surface d'ÉCRITURE, donc fermée par
+// défaut : un canal entrant qui écrit dans le journal du pod ne s'ouvre que sur décision.
+const clientLogsSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Accepte les journaux remontés par les navigateurs sur le canal " +
+          "`nodefony:syslog:uplink`, et les réinjecte dans le journal du pod " +
+          "(origine forcée `browser`). Permet de recouper une erreur survenue " +
+          "dans la page avec la requête HTTP qui l'a précédée, par le même " +
+          "`requestId`. Défaut : false — c'est une surface d'écriture, elle " +
+          "s'ouvre sur décision, jamais par héritage. Le canal reste soumis au " +
+          "plancher du namespace plateforme : une connexion ANONYME ne peut " +
+          "rien pousser, quelle que soit cette valeur.",
+      ),
+    maxEntriesPerBatch: z
+      .number()
+      .int()
+      .positive()
+      .default(50)
+      .describe(
+        "Entrées retenues par lot reçu. Le surplus est ignoré en silence — " +
+          "borner le lot évite qu'un seul message n'occupe l'event-loop.",
+      ),
+    maxEntriesPerWindow: z
+      .number()
+      .int()
+      .positive()
+      .default(300)
+      .describe(
+        "Entrées retenues par fenêtre et PAR CONNEXION. Au-delà, le reste du " +
+          "lot est jeté. Par connexion et non globalement : sinon un onglet " +
+          "bavard muselle tous les autres.",
+      ),
+    windowMs: z
+      .number()
+      .int()
+      .positive()
+      .default(10000)
+      .describe("Durée de la fenêtre de débit, en ms."),
+    maxStringLength: z
+      .number()
+      .int()
+      .positive()
+      .default(4096)
+      .describe(
+        "Longueur maximale d'une chaîne acceptée (message, pile). Le client " +
+          "tronque déjà ; le serveur ne le croit pas sur parole.",
+      ),
+  })
+  .describe("Réception des journaux du navigateur (canal montant).");
+
 const csrfSchema = z
   .object({
     checkOrigin: checkOriginSchema.default(() => checkOriginSchema.parse({})),
@@ -218,6 +272,7 @@ export const realtimeConfigSchema = z
     ),
     limits: limitsSchema.default(() => limitsSchema.parse({})),
     csrf: csrfSchema.default(() => csrfSchema.parse({})),
+    clientLogs: clientLogsSchema.default(() => clientLogsSchema.parse({})),
   })
   .describe("Configuration de @nodefony/realtime.");
 

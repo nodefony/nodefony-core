@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-31T14:17:51.669Z",
+  "generated": "2026-08-31T14:35:51.242Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 788,
-    "symbols": 3586,
+    "files": 790,
+    "symbols": 3597,
     "classes": 382,
-    "interfaces": 994,
-    "types": 424,
+    "interfaces": 997,
+    "types": 425,
     "enums": 4,
-    "functions": 1421,
-    "constants": 361
+    "functions": 1425,
+    "constants": 364
   },
   "symbols": {
     "Cli": {
@@ -17198,6 +17198,15 @@
       "extends": null,
       "description": "Politique d'autorisation d'un **canal** WebSocket — exigences à satisfaire pour s'y abonner (`subscribe`) ou y pousser (canal inbound full-duplex). Déclarée côté métier via {@link RealtimeChannel}/…"
     },
+    "IClientLogsLimits": {
+      "name": "IClientLogsLimits",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IClientLogsLimits.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Bornes de la réception des journaux remontés par un navigateur. Elles vivent dans une interface à part parce qu'elles voyagent : la configuration du module les produit, le hub les porte, et le cont…"
+    },
     "IRealtimeAuthenticator": {
       "name": "IRealtimeAuthenticator",
       "kind": "interface",
@@ -22322,6 +22331,46 @@
       "module": "@nodefony/realtime",
       "description": "Crée un handle serveur ({@link ServerRealtimeSocket}) sur le hub courant."
     },
+    "SyslogUplinkHandlerOptions": {
+      "name": "SyslogUplinkHandlerOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null
+    },
+    "ClientSeverity": {
+      "name": "ClientSeverity",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Les seules sévérités qu'une entrée cliente peut porter, une fois plafonnée."
+    },
+    "createSyslogUplinkHandler": {
+      "name": "createSyslogUplinkHandler",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Fabrique le handler du canal montant des journaux. **Un handler par connexion** : `RealtimeController.realtimeInbound()` est invoqué au handshake, donc le compteur de débit qu'il capture est per-co…"
+    },
+    "BROWSER_ORIGIN": {
+      "name": "BROWSER_ORIGIN",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Origine imposée à toute entrée venue d'un navigateur. C'est la valeur de confiance du journal : elle vient du serveur, jamais du fil."
+    },
+    "MAX_CLIENT_SEVERITY": {
+      "name": "MAX_CLIENT_SEVERITY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Sévérité la plus grave qu'un client puisse obtenir (3 = ERROR). Au-dessus vivent CRITIC, ALERT et EMERGENCY — des niveaux d'exploitation qu'un onglet ne décide pas."
+    },
     "RealtimeService": {
       "name": "RealtimeService",
       "kind": "class",
@@ -23031,6 +23080,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Plancher des canaux de **sécurité** (`nodefony:audit`, P6.14 lot 4) : réservé au super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher d'observabilité générique (`ROLE_ADMIN`…"
+    },
+    "UPLINK_CHANNEL_POLICY": {
+      "name": "UPLINK_CHANNEL_POLICY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Politique du canal **MONTANT** des journaux du navigateur ({@link PLATFORM_INBOUND.syslogUplink}) : authentifié, sans rôle particulier. Pourquoi il échappe à {@link SYSTEM_CHANNEL_POLICY} alors qu'…"
     },
     "RESERVED_FLOOR_PREFIXES": {
       "name": "RESERVED_FLOOR_PREFIXES",
@@ -25791,6 +25848,7 @@
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
       "Kernel": [
@@ -25952,6 +26010,7 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
       ],
       "typeOf": [
@@ -26030,6 +26089,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
       ],
@@ -29377,7 +29437,9 @@
         "src/nodefony/src/client/roles/registry.ts"
       ],
       "PLATFORM_INBOUND": [
-        "src/nodefony/src/client/syslog/uplink.ts"
+        "src/nodefony/src/client/syslog/uplink.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "getPageId": [
         "src/nodefony/src/client/syslog/uplink.ts"
@@ -32193,7 +32255,8 @@
       ],
       "RealtimeInboundHandler": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts"
       ],
       "IChannelPolicy": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
@@ -33369,6 +33432,9 @@
       "ProfiledResolver": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
+      "createSyslogUplinkHandler": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "RawWsConnection": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -33410,6 +33476,9 @@
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "isPlatformChannel": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
+      "IClientLogsLimits": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
       ],
       "IRealtimeConnProbe": [
