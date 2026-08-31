@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 12:33** (UTC).
+> Empreinte prise le **2026-08-31 12:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 16 | 1 | — |
-| 10.0.0 | 40 | 49 | 2026-11-15 |
+| 10.1 | 14 | 1 | — |
+| 10.0.0 | 43 | 48 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 40 ouverts
+## Jalon 10.0.0 — 43 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -36,8 +36,12 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
-| 4.55 | P1 — figé à la création | 0.5 | #127 | fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe |
 | 4.6 | P1 — figé à la création | 1 | #61 | feat(realtime): garder les canaux dynamiques par un motif de nom |
+| 5 | P1 — figé à la création | 11.5 | #54 | feat(client): simplifier la socket cliente pour un débutant |
+| 5.1 | P1 — figé à la création | 0.5 | #127 | fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe |
+| 5.2 | P1 — figé à la création | 3 | #35 | feat(client): faire remonter les journaux du navigateur au serveur |
+| 5.3 | P1 — figé à la création | 5 | #34 | feat(client): implémenter le noyau applicatif côté navigateur |
+| 5.4 | P1 — figé à la création | 3 | #91 | feat(studio): porter la console d'administration sur le noyau client |
 | 6 | P1 — figé à la création | 0.5 | #22 | ci(security): détecter les secrets commités dans le dépôt |
 | 6 | P1 — figé à la création | — | #53 | docs: remettre la documentation à niveau avant la version 10 |
 | 6.5 | P1 — figé à la création | 0.5 | #45 | docs(guides): retirer « mocha + bun » et les pages fantômes |
@@ -67,19 +71,16 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
 | 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 35 | P3 — fin de cycle | 3 | #35 | feat(client): faire remonter les journaux du navigateur au serveur |
 | 37 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
 | 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 
-## Jalon 10.1 — 16 ouverts
+## Jalon 10.1 — 14 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 20 | P3 — fin de cycle | 1 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 23 | P3 — fin de cycle | 0.5 | #31 | chore: refermer les bogues résolus et les tests jamais lancés |
-| 36 | P3 — fin de cycle | 5 | #34 | feat(client): implémenter le noyau applicatif côté navigateur |
-| 37 | P1 — figé à la création | 3 | #91 | feat(studio): porter la console d'administration sur le noyau client |
 | 50 | P2 — décision | 1.5 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 50.1 | P3 — fin de cycle | 0.5 | #76 | test(bancs): constater le décor avant de lancer les suites |
 | 50.2 | P3 — fin de cycle | 0.5 | #77 | test(bancs): donner à chaque banc son propre compte |

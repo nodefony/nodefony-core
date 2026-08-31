@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-31T12:33:55.317Z",
+  "generatedAt": "2026-08-31T12:50:31.430Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 16,
+      "open": 14,
       "title": "10.1"
     },
     {
-      "closed": 49,
+      "closed": 48,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 40,
+      "open": 43,
       "title": "10.0.0"
     }
   ],
@@ -44,20 +44,6 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 54,
-      "title": "feat(client): simplifier la socket cliente pour un débutant",
-      "url": "https://github.com/nodefony/nodefony-core/issues/54",
-      "state": "CLOSED",
-      "status": "Done",
-      "milestone": "10.0.0",
-      "priorite": "P0 — bloque le reste",
-      "jours": null,
-      "ordre": 1.6,
-      "labels": [
-        "10.0.0"
       ]
     },
     {
@@ -651,20 +637,6 @@
       ]
     },
     {
-      "number": 127,
-      "title": "fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe",
-      "url": "https://github.com/nodefony/nodefony-core/issues/127",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.55,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
       "number": 61,
       "title": "feat(realtime): garder les canaux dynamiques par un motif de nom",
       "url": "https://github.com/nodefony/nodefony-core/issues/61",
@@ -692,6 +664,76 @@
       "labels": [
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 54,
+      "title": "feat(client): simplifier la socket cliente pour un débutant",
+      "url": "https://github.com/nodefony/nodefony-core/issues/54",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 11.5,
+      "ordre": 5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 127,
+      "title": "fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/127",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 35,
+      "title": "feat(client): faire remonter les journaux du navigateur au serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/35",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 5.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 34,
+      "title": "feat(client): implémenter le noyau applicatif côté navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/34",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 5,
+      "ordre": 5.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 91,
+      "title": "feat(studio): porter la console d'administration sur le noyau client",
+      "url": "https://github.com/nodefony/nodefony-core/issues/91",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 5.4,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
@@ -1279,34 +1321,6 @@
       ]
     },
     {
-      "number": 35,
-      "title": "feat(client): faire remonter les journaux du navigateur au serveur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/35",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 3,
-      "ordre": 35,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 34,
-      "title": "feat(client): implémenter le noyau applicatif côté navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/34",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1",
-      "priorite": "P3 — fin de cycle",
-      "jours": 5,
-      "ordre": 36,
-      "labels": [
-        "10.1"
-      ]
-    },
-    {
       "number": 50,
       "title": "docs(tutoriels): écrire la partie 2, jusqu'au déploiement",
       "url": "https://github.com/nodefony/nodefony-core/issues/50",
@@ -1318,20 +1332,6 @@
       "ordre": 37,
       "labels": [
         "10.0.0"
-      ]
-    },
-    {
-      "number": 91,
-      "title": "feat(studio): porter la console d'administration sur le noyau client",
-      "url": "https://github.com/nodefony/nodefony-core/issues/91",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1",
-      "priorite": "P1 — figé à la création",
-      "jours": 3,
-      "ordre": 37,
-      "labels": [
-        "10.1"
       ]
     },
     {
