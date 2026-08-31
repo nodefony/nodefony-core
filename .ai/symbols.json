@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-31T20:30:06.895Z",
+  "generated": "2026-08-31T20:50:35.154Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 791,
-    "symbols": 3602,
+    "symbols": 3607,
     "classes": 383,
     "interfaces": 999,
     "types": 426,
     "enums": 4,
-    "functions": 1426,
-    "constants": 364
+    "functions": 1430,
+    "constants": 365
   },
   "symbols": {
     "Cli": {
@@ -6302,6 +6302,14 @@
       "module": "@nodefony/core",
       "description": "Calcule l'attribut `points` d'un `<polyline>` SVG (sparkline) à partir d'une série de valeurs. Pur → testable. Mise à l'échelle sur `[0, max]`."
     },
+    "fmtClock": {
+      "name": "fmtClock",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Heure locale d'un horodatage, à la milliseconde — `14:03:27.482`. La date n'y figure pas : une barre de débogage montre ce qui vient de se passer, et une date répétée sur chaque ligne coûte de la p…"
+    },
     "HmrEvent": {
       "name": "HmrEvent",
       "kind": "interface",
@@ -6404,6 +6412,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Vue dénormalisée consommée par le rendu."
+    },
+    "FEED_MAX": {
+      "name": "FEED_MAX",
+      "kind": "const",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Logs conservés dans le feed."
     },
     "NetEntry": {
       "name": "NetEntry",
@@ -29365,6 +29381,9 @@
       "DebugBarModel": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
+      "FEED_MAX": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
       "DebugBarView": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
@@ -29375,6 +29394,9 @@
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "SyslogPayload": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "fmtClock": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "formatBytes": [

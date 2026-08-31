@@ -53,6 +53,23 @@ export interface LogEntry {
   moduleName?: string;
   msgid?: string;
   msg?: string;
+  /**
+   * Les champs ci-dessous voyagent DÉJÀ sur le canal : le pont publie le `Pdu`
+   * entier, et `JSON.stringify` sérialise toutes ses propriétés publiques (il
+   * n'a pas de `toJSON` qui les filtrerait). La console d'administration les lit
+   * sur cette même source. La barre les ignorait — c'est tout ce qui lui
+   * manquait pour corréler ce qu'elle montre avec le reste du framework.
+   */
+  timeStamp?: number;
+  uid?: number;
+  pid?: number;
+  /**
+   * Identifiant de la requête qui a produit ce journal. C'est LE champ qui relie
+   * un clic dans le navigateur à sa route, à sa requête de base de données et à
+   * sa réponse — la trace de bout en bout. Absent hors de toute portée de
+   * requête (démarrage, tâche de fond), et c'est normal.
+   */
+  requestId?: string;
 }
 
 /** Payload coalescé du canal `nodefony:syslog` (cf studio `createSyslogBridge`). */
@@ -67,6 +84,16 @@ export interface FeedLog {
   name: string;
   text: string;
   module: string;
+  /** Horodatage du PRODUCTEUR, pas de la réception : deux horloges mentiraient. */
+  ts: number;
+  /** Numéro de séquence du `Pdu` — identifie une entrée sans ambiguïté. */
+  uid: number;
+  /** Catégorie du message (`KERNEL`, `ROUTER`, `AUTH`…), vide si absente. */
+  msgid: string;
+  /** Worker émetteur — en cluster, dit LEQUEL a parlé. */
+  pid: number;
+  /** Requête corrélée, quand elle est connue. */
+  requestId?: string;
 }
 
 /** Vue dénormalisée consommée par le rendu. */
@@ -117,7 +144,7 @@ const SEVERITY_WARNING = 4;
 /** Points conservés dans les séries de sparkline (~1 min à 1 tick/s). */
 const SERIES_POINTS = 60;
 /** Logs conservés dans le feed. */
-const FEED_MAX = 40;
+export const FEED_MAX = 40;
 
 function pushCapped(arr: number[], v: number, cap: number): void {
   arr.push(v);
@@ -204,6 +231,18 @@ export class DebugBarModel {
           name: pdu.severityName,
           text: logText(pdu.payload),
           module: pdu.moduleName,
+          // Ces cinq champs viennent de l'ENTRÉE REÇUE, jamais du `Pdu`
+          // réhydraté : celui-ci est construit ICI, dans le navigateur, donc son
+          // `timeStamp` est l'instant de réception et son `requestId` celui de
+          // la page — deux valeurs qui ressembleraient à la vérité et n'en
+          // seraient pas. Un ordre ne se prouve jamais avec deux horloges.
+          ts:
+            typeof entry.timeStamp === "number" ? entry.timeStamp : Date.now(),
+          uid: typeof entry.uid === "number" ? entry.uid : 0,
+          msgid: typeof entry.msgid === "string" ? entry.msgid : "",
+          pid: typeof entry.pid === "number" ? entry.pid : 0,
+          requestId:
+            typeof entry.requestId === "string" ? entry.requestId : undefined,
         });
       }
       if (this._feed.length > FEED_MAX)

@@ -95,3 +95,18 @@ export function sparklinePoints(
   }
   return out;
 }
+
+/**
+ * Heure locale d'un horodatage, à la milliseconde — `14:03:27.482`.
+ *
+ * La date n'y figure pas : une barre de débogage montre ce qui vient de se
+ * passer, et une date répétée sur chaque ligne coûte de la place sans rien
+ * apprendre. Le détail d'une entrée, lui, rend l'horodatage complet.
+ */
+export function fmtClock(ts: number): string {
+  const d = new Date(ts);
+  const p2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
+  const ms = d.getMilliseconds();
+  const p3 = ms < 10 ? `00${ms}` : ms < 100 ? `0${ms}` : String(ms);
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}.${p3}`;
+}

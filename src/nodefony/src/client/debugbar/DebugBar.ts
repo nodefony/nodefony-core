@@ -27,12 +27,19 @@
 import { RealtimeClient } from "../realtime/RealtimeClient";
 import {
   DebugBarModel,
+  FEED_MAX,
   type DebugBarView,
   type FeedLog,
   type StatsPayload,
   type SyslogPayload,
 } from "./model";
-import { formatBytes, formatUptime, gauge, sparklinePoints } from "./format";
+import {
+  fmtClock,
+  formatBytes,
+  formatUptime,
+  gauge,
+  sparklinePoints,
+} from "./format";
 import { observeViteHmr, type HmrEvent } from "./hmr";
 import { installNetworkInterceptor, type NetEntry } from "./network";
 import {
@@ -244,6 +251,29 @@ const STYLES = `
 
 .counts { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 .feed { font-size:11px; }
+/* ── Explorateur de journal ─────────────────────────────────────────────── */
+.counts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+.counts .spacer { flex:1 1 auto; }
+.counts button { font: inherit; color: inherit; background:none; border:1px solid transparent; cursor:pointer; }
+.chip.sevf { border-color: var(--line); }
+.chip.sevf.on { border-color: var(--ok); color:#fff; }
+.search { font: inherit; font-size:11px; color:inherit; background:rgba(255,255,255,.04);
+  border:1px solid var(--line); border-radius:6px; padding:3px 8px; min-width:120px; max-width:220px; }
+.search::placeholder { color: var(--muted); }
+.toolbtn { font: inherit; font-size:12px; line-height:1; color:var(--muted); background:none;
+  border:1px solid var(--line); border-radius:6px; padding:3px 7px; cursor:pointer; }
+.toolbtn:hover { color:#fff; }
+.toolbtn.on { color:var(--ok); border-color:var(--ok); }
+.log { display:flex; align-items:baseline; gap:8px; padding:2px 0; cursor:pointer; }
+.log:hover { background:rgba(255,255,255,.04); }
+.log .ts { color:var(--muted); font-variant-numeric: tabular-nums; flex:none; }
+.log .rid { color:var(--muted); font-family:monospace; flex:none; margin-left:auto;
+  border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+.logdetail { margin:2px 0 6px 0; padding:6px 8px; border-left:2px solid var(--line);
+  background:rgba(255,255,255,.03); border-radius:0 6px 6px 0; }
+.drow { display:flex; gap:8px; padding:1px 0; }
+.drow .dk { color:var(--muted); min-width:92px; flex:none; }
+.drow .dv { word-break:break-word; }
 .feed .empty { color:var(--muted); padding:6px 0; }
 .log { display:flex; gap:7px; padding:2px 0; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04); }
 .log .sev { flex:none; width:54px; font-size:9px; font-weight:800; text-transform:uppercase; }
@@ -270,6 +300,39 @@ const STYLES = `
 .branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
   background:#22262e; font-weight:700; max-width:200px; cursor:help; }
 .branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Les contrôles et les indicateurs du bandeau sont de VRAIS <button> : ils
+   s'atteignent au clavier et s'annoncent. Ce bloc leur retire l'apparence
+   native que le navigateur leur donne, sans leur retirer leur nature. */
+.strip button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+.strip button:focus-visible, .tab:focus-visible, .toolbtn:focus-visible {
+  outline: 2px solid var(--ok); outline-offset: 2px; border-radius: 4px; }
+.goto:hover .v, .goto:hover .k { color: #fff; }
+
+/* ── Infobulles ────────────────────────────────────────────────────────────
+   Maison, et non l'attribut « title » du navigateur : celui-là met environ une
+   seconde à venir, ne se style pas, et surtout n'apparaît JAMAIS au focus
+   clavier — l'aide restait donc inaccessible à qui n'utilise pas la souris.
+   Celle-ci s'ouvre au survol ET au focus, ce qui la rend utilisable par tout le
+   monde. En CSS pur : aucun script, aucun écouteur, rien à libérer. */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 280px; white-space: normal; text-align: left;
+  background: #0b0b0d; color: #f2f2f2; border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 9px; font-size: 11px; line-height: 1.45;
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  opacity: 0; visibility: hidden; transition: opacity .12s ease; pointer-events: none; z-index: 20;
+}
+[data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; visibility: visible; }
+/* Barre ancrée en haut : l'infobulle bascule dessous, sinon elle sort de l'écran. */
+.bar.top [data-tip]::after { bottom: auto; top: calc(100% + 9px); }
+/* Les bords : l'infobulle se recale pour ne pas déborder de la fenêtre. */
+.strip > :first-child[data-tip]::after { left: 0; transform: none; }
+.strip > :last-child[data-tip]::after { left: auto; right: 0; transform: none; }
+@media (prefers-reduced-motion: reduce) { [data-tip]::after { transition: none; } }
+
 .ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:1.05em; line-height:1; flex:none; }
 .ctrl:hover { color:#fff; }
 .ctrl.live { font-size:.78em; font-weight:700; border:1px solid var(--line); border-radius:6px; padding:2px 7px; letter-spacing:.3px; }
@@ -362,8 +425,23 @@ function clampH(h: number): number {
   return Math.round(h);
 }
 
+/**
+ * Version du format de l'état persisté.
+ *
+ * Elle existe pour une raison précise : ces clés survivent aux mises à jour du
+ * framework, dans un navigateur que personne ne nettoie. Le jour où l'une change
+ * de sens, une valeur écrite par une version d'avant est lue comme si elle
+ * disait la même chose — et la barre s'ouvre dans un état incohérent que
+ * l'utilisateur ne sait pas défaire. Au changement de version, tout est purgé :
+ * on perd une préférence d'affichage, ce qui ne coûte rien, plutôt que de
+ * charger un état dont on ne sait rien.
+ */
+const LS_VERSION = "1";
+
 /** Clés de persistance localStorage (état chrome de la barre). */
 const LS = {
+  /** Version du format — jamais purgée, c'est elle qui décide de la purge. */
+  version: "nf.debugbar.v",
   visible: "nf.debugbar.visible",
   min: "nf.debugbar.min",
   side: "nf.debugbar.side",
@@ -373,6 +451,42 @@ const LS = {
   // la barre maintiendrait les tickers (stats + syslog) en permanence en dev.
   live: "nf.debugbar.live",
 } as const;
+
+/**
+ * Toutes les clés que la barre écrit sur CE navigateur.
+ *
+ * Cette liste n'est pas décorative : elle est ce que la barre AFFICHE dans son
+ * onglet Runtime et ce que sa purge efface. Trois choses qui doivent rester
+ * d'accord, donc une seule source.
+ */
+function lsKeys(): string[] {
+  return Object.values(LS);
+}
+
+/** Efface l'état persisté de la barre — et rien d'autre du stockage de l'app. */
+function lsPurge(): void {
+  try {
+    for (const k of lsKeys()) localStorage.removeItem(k);
+  } catch {
+    /* private mode / SSR */
+  }
+}
+
+/**
+ * Purge l'état si le format a changé depuis la dernière visite.
+ *
+ * Appelée avant toute lecture — sinon on lirait justement les valeurs qu'on
+ * s'apprête à jeter.
+ */
+function lsMigrate(): void {
+  try {
+    if (localStorage.getItem(LS.version) === LS_VERSION) return;
+    lsPurge();
+    localStorage.setItem(LS.version, LS_VERSION);
+  } catch {
+    /* private mode / SSR */
+  }
+}
 
 function lsGet(key: string, def: string): string {
   try {
@@ -431,6 +545,18 @@ export class DebugBar {
   private liveOff: (() => void) | null = null;
   private rafPending = false;
   private feedLen = -1;
+  /** Filtre de sévérité de l'onglet Logs — `all` par défaut. */
+  private feedSev: "all" | "err" | "warn" = "all";
+  /** Recherche courante, déjà en minuscules (comparée telle quelle). */
+  private feedQuery = "";
+  /**
+   * Affichage suspendu. Les entrées continuent d'arriver dans le modèle : à la
+   * reprise, la liste se reconstruit complète — mettre en pause ne fait pas
+   * perdre ce qui s'est passé pendant, ce qui serait le pire des deux mondes.
+   */
+  private feedPaused = false;
+  /** La liste affichée doit être refaite (changement de filtre ou de recherche). */
+  private feedDirty = false;
   // Pouls realtime — débit msg/s dérivé du compteur de frames du client.
   private prevFrames = 0;
   private rtRate = 0;
@@ -476,6 +602,9 @@ export class DebugBar {
       "",
     );
     this.client = opts.client ?? RealtimeClient.shared({ url: this.url });
+    // AVANT la première lecture : un état écrit par un format précédent est
+    // jeté ici, pas interprété plus bas.
+    lsMigrate();
     this.visible = lsGet(LS.visible, "1") !== "0";
     this.minimized = lsGet(LS.min, "0") === "1";
     this.side = lsGet(LS.side, "right") === "left" ? "left" : "right";
@@ -547,6 +676,28 @@ export class DebugBar {
     this.side = this.side === "left" ? "right" : "left";
     lsSet(LS.side, this.side);
     this.applyChrome();
+  }
+
+  /**
+   * Déplie ou replie le panneau — le SEUL endroit qui bascule cet état.
+   *
+   * Il porte aussi ce qu'un lecteur d'écran doit entendre : `aria-expanded` sur
+   * le bouton qui commande, et un nom qui dit l'action à venir (« Déplier » /
+   * « Replier »), pas l'état courant — un nom qui décrit l'état laisse
+   * l'utilisateur deviner ce que le bouton va faire.
+   */
+  private setOpen(open: boolean): void {
+    const bar = this.bar;
+    if (!bar) return;
+    bar.classList.toggle("open", open);
+    const btn = this.el.btnToggle;
+    if (btn) {
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      const label = open ? "Replier le panneau" : "Déplier le panneau";
+      btn.setAttribute("aria-label", label);
+      btn.setAttribute("data-tip", label);
+    }
+    this.render();
   }
 
   private setTab(tab: TabId): void {
@@ -671,27 +822,33 @@ export class DebugBar {
       const key = node.getAttribute("data-el");
       if (key) this.el[key] = node;
     });
-    // Déplier/replier le panneau (clic sur le bandeau, hors boutons de contrôle).
+    // ── Replier / déplier ──────────────────────────────────────────────────
+    //
+    // 🔴 Un BOUTON DÉDIÉ, et lui seul. Le bandeau entier écoutait le clic :
+    // lire une métrique, sélectionner le nom de l'application ou viser une puce
+    // refermait le panneau, et les trois contrôles devaient arrêter la
+    // propagation pour y survivre — un `stopPropagation` par contrôle ajouté est
+    // le signe qu'on lutte contre son propre écouteur. Le bandeau ne bascule
+    // plus rien ; ce qu'il porte est cliquable pour ce que ça fait.
     const strip = bar.querySelector(".strip")!;
-    const onStrip = (): void => {
-      bar.classList.toggle("open");
-      this.render();
+    this.wireBtn("btnToggle", () =>
+      this.setOpen(!bar.classList.contains("open")),
+    );
+    // Chaque indicateur MÈNE à l'onglet qui le détaille (et déplie au passage).
+    const onGoto = (ev: Event): void => {
+      const t = (ev.target as HTMLElement | null)?.closest?.(".goto");
+      const id = t?.getAttribute("data-goto") as TabId | null;
+      if (!id) return;
+      this.setOpen(true);
+      this.setTab(id);
     };
-    strip.addEventListener("click", onStrip);
-    this.disposers.push(() => strip.removeEventListener("click", onStrip));
-    // Boutons de contrôle (stopPropagation : ne pas déplier le panneau).
-    this.wireBtn("btnMin", (e) => {
-      e.stopPropagation();
-      this.setMinimized(true);
-    });
-    this.wireBtn("btnSide", (e) => {
-      e.stopPropagation();
-      this.toggleSide();
-    });
-    this.wireBtn("btnLive", (e) => {
-      e.stopPropagation();
-      this.setLive(!this.live);
-    });
+    strip.addEventListener("click", onGoto);
+    this.disposers.push(() => strip.removeEventListener("click", onGoto));
+    // Contrôles de fenêtre. Plus de `stopPropagation` : plus rien au-dessus
+    // d'eux n'écoute le clic.
+    this.wireBtn("btnMin", () => this.setMinimized(true));
+    this.wireBtn("btnSide", () => this.toggleSide());
+    this.wireBtn("btnLive", () => this.setLive(!this.live));
     this.updateLiveBtn();
     // Onglets.
     const tabsBar = bar.querySelector(".tabs");
@@ -713,6 +870,123 @@ export class DebugBar {
         resize.removeEventListener("pointerdown", onDown),
       );
     }
+    // ── Barre d'outils du journal ──────────────────────────────────────────
+    const counts = bar.querySelector(".counts");
+    if (counts) {
+      const onSev = (ev: Event): void => {
+        const t = (ev.target as HTMLElement | null)?.closest?.(".sevf");
+        const sev = t?.getAttribute("data-sev");
+        if (sev !== "all" && sev !== "err" && sev !== "warn") return;
+        // Recliquer le filtre actif le retire : un filtre qu'on ne sait pas
+        // enlever se transforme en écran vide qu'on croit cassé.
+        this.feedSev = this.feedSev === sev ? "all" : sev;
+        counts
+          .querySelectorAll(".sevf")
+          .forEach((n) =>
+            n.classList.toggle(
+              "on",
+              n.getAttribute("data-sev") === this.feedSev &&
+                this.feedSev !== "all",
+            ),
+          );
+        this.feedDirty = true;
+        this.render();
+      };
+      counts.addEventListener("click", onSev);
+      this.disposers.push(() => counts.removeEventListener("click", onSev));
+    }
+    const search = this.el.logSearch as HTMLInputElement | undefined;
+    if (search) {
+      const onSearch = (): void => {
+        this.feedQuery = search.value.trim().toLowerCase();
+        this.feedDirty = true;
+        this.render();
+      };
+      search.addEventListener("input", onSearch);
+      this.disposers.push(() => search.removeEventListener("input", onSearch));
+    }
+    this.wireBtn("btnPause", () => {
+      this.feedPaused = !this.feedPaused;
+      const b = this.el.btnPause;
+      if (b) {
+        b.setAttribute("aria-pressed", this.feedPaused ? "true" : "false");
+        b.classList.toggle("on", this.feedPaused);
+        b.textContent = this.feedPaused ? "▶" : "⏸";
+        const tip = this.feedPaused
+          ? "Reprendre l'affichage — la liste se recompose avec ce qui est arrivé pendant la pause"
+          : "Suspendre l'affichage — les entrées continuent d'arriver et se rattrapent à la reprise";
+        b.setAttribute("data-tip", tip);
+      }
+      // À la reprise, on refait la liste : le tampon a bougé pendant la pause.
+      if (!this.feedPaused) {
+        this.feedDirty = true;
+        this.render();
+      }
+    });
+    this.wireBtn("btnCopy", () => {
+      const node = this.el.feed;
+      const text = node ? (node.textContent ?? "") : "";
+      void navigator.clipboard?.writeText(text).then(
+        () => this.flashBtn("btnCopy", "✓"),
+        // Le presse-papiers peut être refusé (contexte non sécurisé, permission) :
+        // le dire vaut mieux qu'un bouton qui ne réagit pas.
+        () => this.flashBtn("btnCopy", "✗"),
+      );
+    });
+    this.wireBtn("btnClearFeed", () => {
+      const node = this.el.feed;
+      if (node)
+        node.innerHTML = `<div class="empty">liste vidée — les nouvelles entrées s'afficheront ici.</div>`;
+      // On ne touche pas au modèle : la barre n'efface rien côté serveur, et un
+      // changement de filtre doit pouvoir tout ramener.
+      this.feedLen = this.model.view.feed.length;
+    });
+    // Détail d'une entrée : ouvre sous la ligne, se referme au second clic.
+    const feed = this.el.feed;
+    if (feed) {
+      const onFeed = (ev: Event): void => {
+        const row = (ev.target as HTMLElement | null)?.closest?.(".log");
+        if (!row) return;
+        const open = row.nextElementSibling?.classList.contains("logdetail");
+        if (open) {
+          row.nextElementSibling?.remove();
+          row.setAttribute("aria-expanded", "false");
+          return;
+        }
+        const uid = Number(row.getAttribute("data-uid"));
+        const entry = this.model.view.feed.find((l) => l.uid === uid);
+        if (!entry) return;
+        feed.querySelectorAll(".logdetail").forEach((n) => n.remove());
+        feed
+          .querySelectorAll(".log[aria-expanded='true']")
+          .forEach((n) => n.setAttribute("aria-expanded", "false"));
+        row.insertAdjacentHTML("afterend", this.feedDetail(entry));
+        row.setAttribute("aria-expanded", "true");
+      };
+      const onFeedKey = (ev: Event): void => {
+        const k = (ev as KeyboardEvent).key;
+        if (k !== "Enter" && k !== " ") return;
+        const row = (ev.target as HTMLElement | null)?.closest?.(".log");
+        if (!row) return;
+        ev.preventDefault();
+        (row as HTMLElement).click();
+      };
+      feed.addEventListener("click", onFeed);
+      feed.addEventListener("keydown", onFeedKey);
+      this.disposers.push(() => {
+        feed.removeEventListener("click", onFeed);
+        feed.removeEventListener("keydown", onFeedKey);
+      });
+    }
+
+    this.wireBtn("btnPurge", () => {
+      lsPurge();
+      this.flashBtn("btnPurge", "état effacé ✓");
+      // La purge ne remet pas la barre à zéro sous les doigts de l'utilisateur :
+      // ce qui est effacé, c'est ce qu'on RELIRA au prochain chargement. Refermer
+      // la barre ou la déplacer maintenant serait un effet de bord surprenant.
+    });
+
     // Chip réduit → restaure la barre complète.
     const onMin = (): void => this.setMinimized(false);
     minbar.addEventListener("click", onMin);
@@ -752,6 +1026,25 @@ export class DebugBar {
     document.addEventListener("pointerup", onUp);
   }
 
+  /**
+   * Retour visuel bref sur un bouton d'action.
+   *
+   * Une copie réussie ne change rien à l'écran : sans ce clin d'œil, on ne sait
+   * pas si le clic a porté, et on reclique.
+   */
+  private flashBtn(key: string, glyph: string): void {
+    const b = this.el[key];
+    if (!b) return;
+    const before = b.textContent ?? "";
+    b.textContent = glyph;
+    const t = setTimeout(() => {
+      b.textContent = before;
+    }, 900);
+    // Un widget démonté avant la fin du délai ne doit pas écrire dans un DOM
+    // détaché : le minuteur est libéré comme tout le reste.
+    this.disposers.push(() => clearTimeout(t));
+  }
+
   private wireBtn(key: string, handler: (e: Event) => void): void {
     const node = this.el[key];
     if (!node) return;
@@ -762,24 +1055,24 @@ export class DebugBar {
   private template(): string {
     return `
       <div class="strip">
-        <span class="dot" data-el="dot"></span>
-        <span class="brand"><span class="logo">◆</span><span class="name">nodefony</span></span>
-        <span class="env-badge" data-el="envBadge">env</span>
-        <span class="branch" data-el="branch" title="branche git"><span class="git">⎇</span><span data-el="branchName">—</span></span>
-        <span class="rt-pill" data-el="rtPill" title="Connexion temps réel"><span class="bolt">⚡</span> realtime</span>
-        ${this.miniMetric("rt", "rt", "rtMini", "0/s")}
-        ${this.miniMetric("cpu", "cpu", "cpuMini", "0%")}
-        ${this.miniMetric("mem", "mem", "memMini", "0%")}
+        <span class="dot" data-el="dot" data-tip="État de la connexion temps réel"></span>
+        <span class="brand" data-tip="Barre de débogage Nodefony — visible en développement uniquement"><span class="logo">◆</span><span class="name">nodefony</span></span>
+        <span class="env-badge" data-el="envBadge" data-tip="Environnement dans lequel tourne l'application">env</span>
+        <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail"><span class="git">⎇</span><span data-el="branchName">—</span></span>
+        <span class="rt-pill" data-el="rtPill" data-tip="Transport temps réel et état de la socket"><span class="bolt">⚡</span> realtime</span>
+        ${this.miniMetric("rt", "rt", "rtMini", "0/s", "realtime", "Messages temps réel reçus par seconde — cliquer pour ouvrir l'onglet Realtime")}
+        ${this.miniMetric("cpu", "cpu", "cpuMini", "0%", "perf", "Charge processeur du serveur — cliquer pour ouvrir l'onglet Perf")}
+        ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
         <span class="spacer"></span>
-        ${this.networkEnabled ? `<span class="chip"><span class="k">net</span><span class="blue" data-el="netChip">0</span></span>` : ""}
-        <span class="chip"><span class="k">logs</span><span data-el="logs">0</span></span>
-        <span class="chip"><span class="k">err</span><span class="crit" data-el="err">0</span></span>
-        <span class="ctrl live" data-el="btnLive" role="button" tabindex="0" aria-pressed="false" title="Abonnement aux flux push">flux OFF</span>
-        <span class="ctrl" data-el="btnSide" title="Changer de côté">⇄</span>
-        <span class="ctrl" data-el="btnMin" title="Réduire">—</span>
-        <span class="toggle">▴</span>
+        ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="network" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Network"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
+        <button type="button" class="chip goto" data-goto="logs" data-tip="Entrées de journal reçues — cliquer pour ouvrir l'onglet Logs"><span class="k">logs</span><span data-el="logs">0</span></button>
+        <button type="button" class="chip goto" data-goto="logs" data-tip="Erreurs et alertes — cliquer pour ouvrir l'onglet Logs"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
+        <button type="button" class="ctrl live" data-el="btnLive" aria-pressed="false" data-tip="Recevoir les mesures et les journaux en direct. Coupé par défaut : le flux maintient des compteurs côté serveur.">flux OFF</button>
+        <button type="button" class="ctrl" data-el="btnSide" aria-label="Changer la barre de côté" data-tip="Changer la barre de côté">⇄</button>
+        <button type="button" class="ctrl" data-el="btnMin" aria-label="Réduire la barre en pastille" data-tip="Réduire en pastille">—</button>
+        <button type="button" class="toggle" data-el="btnToggle" aria-expanded="${this.startOpen}" aria-controls="nf-db-panel" aria-label="${this.startOpen ? "Replier" : "Déplier"} le panneau" data-tip="${this.startOpen ? "Replier" : "Déplier"} le panneau">▴</button>
       </div>
-      <div class="panelwrap">
+      <div class="panelwrap" id="nf-db-panel">
         <div class="resize" data-el="resize" title="Redimensionner"></div>
         <div class="tabs">
           <button class="tab" data-tab="realtime">Realtime</button>
@@ -842,20 +1135,60 @@ export class DebugBar {
     </div></div>`;
   }
 
+  /**
+   * L'onglet Logs — une petite console de lecture, pas une liste qui défile.
+   *
+   * Ce qu'elle porte, et pourquoi : un FILTRE par sévérité et une RECHERCHE
+   * (sans quoi on lit le bruit au lieu de son incident) ; une PAUSE (sans quoi
+   * la ligne qu'on essaie de lire s'en va) ; une COPIE (une trace se colle dans
+   * un ticket) ; et le DÉTAIL d'une entrée, où vit le `requestId` — le champ qui
+   * relie ce journal à sa requête, et que la barre recevait sans jamais le
+   * montrer.
+   */
   private logsPane(): string {
     return `<div class="pane" data-pane="logs">
       <div class="counts">
-        <span class="chip"><span class="k">total</span><span data-el="cTotal">0</span></span>
-        <span class="chip"><span class="k">err</span><span class="crit" data-el="cErr">0</span></span>
-        <span class="chip"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></span>
-        <span class="chip"><span class="k">dropped</span><span class="muted" data-el="cDrop">0</span></span>
+        <button type="button" class="chip sevf" data-sev="all" data-tip="Tout afficher"><span class="k">total</span><span data-el="cTotal">0</span></button>
+        <button type="button" class="chip sevf" data-sev="err" data-tip="N'afficher que les erreurs (sévérité 0 à 3)"><span class="k">err</span><span class="crit" data-el="cErr">0</span></button>
+        <button type="button" class="chip sevf" data-sev="warn" data-tip="N'afficher que les alertes (sévérité 4)"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></button>
+        <span class="chip" data-tip="Entrées écartées par le serveur faute de place dans le tampon — le flux était plus rapide que l'envoi"><span class="k">dropped</span><span class="muted" data-el="cDrop">0</span></span>
+        <span class="spacer"></span>
+        <input class="search" data-el="logSearch" type="search" placeholder="rechercher…"
+               aria-label="Filtrer les journaux sur leur texte, leur module ou leur requête" />
+        <button type="button" class="toolbtn" data-el="btnPause" aria-pressed="false" data-tip="Suspendre l'affichage — les entrées continuent d'arriver et se rattrapent à la reprise">⏸</button>
+        <button type="button" class="toolbtn" data-el="btnCopy" data-tip="Copier les entrées affichées dans le presse-papiers">⧉</button>
+        <button type="button" class="toolbtn" data-el="btnClearFeed" data-tip="Vider la liste affichée (n'efface rien côté serveur)">⌫</button>
       </div>
-      <div class="feed" data-el="feed"><div class="empty">en attente de logs…</div></div>
+      <div class="feed" data-el="feed" role="log" aria-label="Journaux du serveur"><div class="empty">en attente de logs…</div></div>
+    </div>`;
+  }
+
+  /**
+   * Ce que la barre garde sur CE navigateur — écrit noir sur blanc.
+   *
+   * Une console de développement qui écrit dans le stockage local sans le dire
+   * est exactement ce qu'on reproche aux autres. La liste est dérivée des clés
+   * réelles, donc elle ne peut pas mentir par oubli, et le bouton efface
+   * précisément celles-là — jamais le stockage de l'application hôte.
+   */
+  private storageCard(): string {
+    const rows = lsKeys()
+      .map(
+        (k) =>
+          `<div class="drow"><span class="dk">${escapeHtml(k.replace("nf.debugbar.", ""))}</span><span class="dv">${escapeHtml(lsGet(k, "—"))}</span></div>`,
+      )
+      .join("");
+    return `<div class="card">
+      <h4>Stockage local</h4>
+      <div class="tag">Ces valeurs vivent dans ce navigateur, sur cet appareil. Elles ne quittent jamais la page et ne concernent que l'apparence de la barre.</div>
+      ${rows}
+      <div style="margin-top:8px"><button type="button" class="toolbtn" data-el="btnPurge" data-tip="Effacer les préférences de la barre sur ce navigateur — l'application n'est pas touchée">Purger l'état de la barre</button></div>
     </div>`;
   }
 
   private runtimePane(): string {
     return `<div class="pane" data-pane="runtime"><div class="cards">
+      ${this.storageCard()}
       <div class="card">
         <h4>Runtime</h4>
         ${this.kv("app", "appName")}
@@ -876,19 +1209,30 @@ export class DebugBar {
     </div></div>`;
   }
 
+  /**
+   * Un indicateur du bandeau — et un RACCOURCI vers l'onglet qui le détaille.
+   *
+   * C'est un `<button>` et non un `<span>` : le bandeau ne se replie plus au
+   * clic (c'était le défaut principal — lire une valeur refermait le panneau),
+   * donc chaque indicateur peut faire quelque chose d'utile de son propre clic.
+   * Mener à l'onglet qui explique le chiffre est ce que l'utilisateur attend,
+   * et un bouton l'annonce et s'atteint au clavier.
+   */
   private miniMetric(
     label: string,
     valKey: string,
     sparkKey: string,
     init: string,
+    goto: TabId,
+    tip: string,
   ): string {
-    return `<span class="metric">
+    return `<button type="button" class="metric goto" data-goto="${goto}" data-tip="${escapeHtml(tip)}">
       <span class="k">${label}</span>
       <span class="v" data-el="${valKey}">${init}</span>
       <svg class="mini" viewBox="0 0 ${MINI_W} ${MINI_H}" preserveAspectRatio="none">
         <polyline class="spark ok" data-el="${sparkKey}" points=""/>
       </svg>
-    </span>`;
+    </button>`;
   }
 
   private chart(
@@ -1468,28 +1812,110 @@ export class DebugBar {
     this.renderFeed(v.feed);
   }
 
+  /** Classe de couleur d'une entrée, dérivée de sa sévérité RFC 5424. */
+  private static tierOf(severity: number): string {
+    if (severity <= 3) return "crit";
+    if (severity === 4) return "warn";
+    if (severity === 7) return "muted";
+    return "info";
+  }
+
+  /** L'entrée passe-t-elle le filtre de sévérité et la recherche en cours ? */
+  private feedMatch(l: FeedLog): boolean {
+    if (this.feedSev === "err" && l.severity > 3) return false;
+    if (this.feedSev === "warn" && l.severity !== 4) return false;
+    const q = this.feedQuery;
+    if (q === "") return true;
+    return (
+      l.text.toLowerCase().includes(q) ||
+      l.module.toLowerCase().includes(q) ||
+      l.msgid.toLowerCase().includes(q) ||
+      (l.requestId ?? "").toLowerCase().includes(q)
+    );
+  }
+
+  /** Une ligne de journal — horodatage, sévérité, module, texte, requête. */
+  private feedRow(l: FeedLog): string {
+    const tier = DebugBar.tierOf(l.severity);
+    const rid = l.requestId
+      ? `<span class="rid" data-tip="requête ${escapeHtml(l.requestId)} — la même valeur relie ce journal à sa route, à ses requêtes de base et à sa réponse">${escapeHtml(l.requestId.slice(0, 8))}</span>`
+      : "";
+    return `<div class="log" data-uid="${l.uid}" tabindex="0" role="button" aria-expanded="false" aria-label="Entrée ${escapeHtml(l.name)} de ${escapeHtml(l.module)} — ouvrir le détail"><span class="ts">${fmtClock(l.ts)}</span><span class="sev ${tier}">${escapeHtml(l.name)}</span><span class="mod">${escapeHtml(l.module)}</span><span class="txt">${escapeHtml(l.text)}</span>${rid}</div>`;
+  }
+
+  /** Le détail d'une entrée — ce qu'on colle dans un ticket. */
+  private feedDetail(l: FeedLog): string {
+    const row = (k: string, v: string): string =>
+      `<div class="drow"><span class="dk">${k}</span><span class="dv">${escapeHtml(v)}</span></div>`;
+    return `<div class="logdetail">
+      ${row("horodatage", new Date(l.ts).toISOString())}
+      ${row("sévérité", `${l.name} (${l.severity})`)}
+      ${row("module", l.module)}
+      ${l.msgid ? row("catégorie", l.msgid) : ""}
+      ${l.pid ? row("worker (pid)", String(l.pid)) : ""}
+      ${row("séquence", String(l.uid))}
+      ${l.requestId ? row("requête", l.requestId) : ""}
+      ${row("message", l.text)}
+    </div>`;
+  }
+
+  /**
+   * Rendu du journal — **incrémental**, et c'est le point.
+   *
+   * L'ancienne version réassignait `innerHTML` en entier à chaque arrivée. Deux
+   * conséquences qu'on ne voit pas dans le code et qu'on subit à l'écran : la
+   * SÉLECTION de texte s'efface — impossible de copier une ligne pendant que le
+   * flux tourne — et la position de DÉFILEMENT saute. Ici, seules les entrées
+   * nouvelles sont insérées en tête ; ce qui est affiché n'est jamais reconstruit.
+   *
+   * Un changement de filtre ou de recherche, lui, refait bien la liste : le jeu
+   * affiché change entièrement, il n'y a rien à préserver.
+   */
   private renderFeed(feed: FeedLog[]): void {
     const node = this.el.feed;
-    if (!node || feed.length === this.feedLen) return;
+    if (!node) return;
+    if (this.feedPaused) return;
+    const refilter = this.feedDirty;
+    if (!refilter && feed.length === this.feedLen) return;
+    const previous = this.feedLen;
     this.feedLen = feed.length;
-    if (feed.length === 0) {
-      node.innerHTML = `<div class="empty">en attente de logs…</div>`;
+    this.feedDirty = false;
+
+    if (refilter) {
+      const rows: string[] = [];
+      for (let i = feed.length - 1; i >= 0; i--) {
+        const l = feed[i]!;
+        if (this.feedMatch(l)) rows.push(this.feedRow(l));
+      }
+      node.innerHTML =
+        rows.length === 0
+          ? `<div class="empty">${feed.length === 0 ? "en attente de logs…" : "aucune entrée ne correspond au filtre."}</div>`
+          : rows.join("");
       return;
     }
-    let html = "";
-    for (let i = feed.length - 1; i >= 0; i--) {
-      const l = feed[i]!;
-      const tier =
-        l.severity <= 3
-          ? "crit"
-          : l.severity === 4
-            ? "warn"
-            : l.severity === 7
-              ? "muted"
-              : "info";
-      html += `<div class="log"><span class="sev ${tier}">${escapeHtml(l.name)}</span><span class="mod">${escapeHtml(l.module)}</span><span class="txt">${escapeHtml(l.text)}</span></div>`;
+
+    // Le tampon du modèle est une fenêtre glissante : quand il déborde, les plus
+    // anciennes disparaissent et l'écart d'index ne suffit plus à savoir ce qui
+    // est neuf. On repart alors d'une liste complète — cas rare, borné.
+    const added = feed.length - previous;
+    if (previous < 0 || added < 0 || added > feed.length) {
+      this.feedDirty = true;
+      this.renderFeed(feed);
+      return;
     }
-    node.innerHTML = html;
+    if (added === 0) return;
+    let html = "";
+    for (let i = feed.length - 1; i >= feed.length - added; i--) {
+      const l = feed[i]!;
+      if (this.feedMatch(l)) html += this.feedRow(l);
+    }
+    if (html === "") return;
+    const empty = node.querySelector(".empty");
+    if (empty) node.innerHTML = "";
+    node.insertAdjacentHTML("afterbegin", html);
+    // Fenêtre bornée à l'écran comme elle l'est en mémoire : sans cela le DOM
+    // croîtrait indéfiniment pendant une session longue.
+    while (node.childElementCount > FEED_MAX) node.lastElementChild?.remove();
   }
 
   // ── Rendu Network ───────────────────────────────────────────────────────
