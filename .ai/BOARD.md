@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 08:18** (UTC).
+> Empreinte prise le **2026-08-31 09:48** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,26 +16,25 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 43 | 43 | 2026-11-15 |
+| 10.0.0 | 42 | 47 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#118 — fix(orm): ne pas régénérer une table que la base porte déjà**
+**#128 — ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local**
 
-Ordre 2.5 · P0 — bloque le reste · 1 j · jalon 10.0.0
+Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 43 ouverts
+## Jalon 10.0.0 — 42 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 2.5 | P0 — bloque le reste | 1 | #118 | fix(orm): ne pas régénérer une table que la base porte déjà |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 2.9 | P1 — figé à la création | 1 | #122 | test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit |
-| 2.95 | P1 — figé à la création | 0.5 | #123 | fix(orm): écrire la première migration d'une base de développement |
+| 2.98 | P2 — décision | 0.5 | #129 | feat(outillage): générer le catalogue des variables d'environnement |
+| 2.99 | P1 — figé à la création | 0.5 | #130 | fix(orm): une génération concurrente ne doit pas écrire une migration amputée |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
@@ -96,7 +95,7 @@ Ordre 2.5 · P0 — bloque le reste · 1 j · jalon 10.0.0
 | 61 | P3 — fin de cycle | 0.5 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 62 | P2 — décision | 0.5 | #75 | chore(core): trancher l'héritage des dépendances déclarées |
 
-## Backlog — aucune date promise · 6 ouverts
+## Backlog — aucune date promise · 5 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -105,5 +104,4 @@ Ordre 2.5 · P0 — bloque le reste · 1 j · jalon 10.0.0
 | 56 | P3 — fin de cycle | 1 | #68 | feat(studio): garder les préférences d'affichage côté serveur |
 | 58 | P3 — fin de cycle | 3 | #74 | feat(studio): éditer la configuration d'un module à chaud |
 | 59 | P3 — fin de cycle | 3 | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
-| — | P2 — décision | 0.5 | #121 | fix(orm): rendre le même verdict sur la casse d'une table |
 

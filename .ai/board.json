@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T08:18:01.035Z",
+  "generatedAt": "2026-08-31T09:48:42.617Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 43,
+      "closed": 47,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -292,8 +292,8 @@
       "number": 118,
       "title": "fix(orm): ne pas régénérer une table que la base porte déjà",
       "url": "https://github.com/nodefony/nodefony-core/issues/118",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -498,8 +498,8 @@
       "number": 122,
       "title": "test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit",
       "url": "https://github.com/nodefony/nodefony-core/issues/122",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -554,12 +554,54 @@
       "number": 123,
       "title": "fix(orm): écrire la première migration d'une base de développement",
       "url": "https://github.com/nodefony/nodefony-core/issues/123",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.95,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 121,
+      "title": "fix(orm): rendre le même verdict sur la casse d'une table",
+      "url": "https://github.com/nodefony/nodefony-core/issues/121",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.97,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 129,
+      "title": "feat(outillage): générer le catalogue des variables d'environnement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/129",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 2.98,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 130,
+      "title": "fix(orm): une génération concurrente ne doit pas écrire une migration amputée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/130",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
-      "ordre": 2.95,
+      "ordre": 2.99,
       "labels": [
         "10.0.0"
       ]
@@ -1572,20 +1614,6 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 121,
-      "title": "fix(orm): rendre le même verdict sur la casse d'une table",
-      "url": "https://github.com/nodefony/nodefony-core/issues/121",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": null,
-      "labels": [
-        "backlog"
       ]
     }
   ]
