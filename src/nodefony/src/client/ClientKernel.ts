@@ -69,6 +69,8 @@ export class ClientKernel implements IClientKernel {
    * un kernel monté en test, ou hors document, n'en pose aucun.
    */
   #unbind: Unbind[] | null = null;
+  /** Retire le handle de console — posé par la bannière, libéré à la mort. */
+  #disposeHandle: Unbind | null = null;
 
   constructor(options: ClientKernelOptions = {}) {
     this.#options = options;
@@ -178,6 +180,18 @@ export class ClientKernel implements IClientKernel {
    */
   #banner(): void {
     if (this.#options.banner === false) return;
+    // DÉVELOPPEMENT : on peut se permettre le détail. PRODUCTION : le strict
+    // minimum — la console d'une application publiée appartient à ses
+    // développeurs, pas au framework qu'elle utilise.
+    //
+    // Le mode se LIT, il ne se devine pas : `import.meta.env.DEV` est posé par le
+    // bundler de l'application (Vite le remplace par une constante au build).
+    // Hors bundler il n'existe pas — et l'absence de preuve de développement se
+    // traite comme la production, jamais l'inverse : se taire à tort ne coûte
+    // qu'une ligne manquante, parler à tort pollue la console de tout le monde.
+    const dev =
+      this.#options.banner === true ||
+      (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
     // Une console peut manquer (rendu côté serveur, test) ou ne pas savoir
     // grouper : on n'annonce rien plutôt que de jeter au démarrage.
     const c = globalThis.console;
@@ -188,26 +202,61 @@ export class ClientKernel implements IClientKernel {
     const suite =
       "background:#1e293b;color:#e2e8f0;padding:2px 6px;border-radius:0 3px 3px 0";
     c.log(`%c◆ nodefony%c${this.name}%c`, badge, suite, "");
+    // En production, la ligne ci-dessus est TOUT : savoir que le noyau tourne
+    // suffit à diagnostiquer, le reste est du bruit chez l'utilisateur.
+    if (!dev) return;
+    // Le noyau devient MANIPULABLE depuis la console — c'est le vrai apport,
+    // au-delà de l'annonce. Redux et Vue ont montré la voie : un développeur qui
+    // tape un nom dans sa console et obtient l'objet vivant diagnostique en
+    // secondes ce qui demandait sinon d'ajouter un `console.log` et de recharger.
+    // Ici : `nodefony.kernel`, `nodefony.socket`, `nodefony.identity()`.
+    const handle = {
+      kernel: this,
+      get socket() {
+        return socket;
+      },
+      identity: () => this.identity,
+      services: () => (this.#services ? Object.keys(this.#services) : []),
+    };
+    (globalThis as { nodefony?: unknown }).nodefony = handle;
+    // Ce handle retient le kernel : il est LIBÉRÉ à `terminate()`, sans quoi une
+    // page qui recompose son noyau (rechargement à chaud) en retiendrait un mort.
+    this.#disposeHandle = () => {
+      if ((globalThis as { nodefony?: unknown }).nodefony === handle)
+        delete (globalThis as { nodefony?: unknown }).nodefony;
+    };
+
     if (!c.groupCollapsed || !c.groupEnd) return;
-    c.groupCollapsed("%cdétail du noyau client", "color:#94a3b8");
+    c.groupCollapsed("%cnoyau client — détail et raccourcis", "color:#94a3b8");
     try {
+      // `table` plutôt que des lignes : aligné, trié, dépliable — et natif.
+      const lignes: Record<string, { valeur: string }> = {
+        état: { valeur: this.state },
+        identité: { valeur: this.identity ? this.identity.key : "anonyme" },
+        "temps réel": {
+          valeur: socket ? (socket.url ?? "socket fournie") : "aucun",
+        },
+        socket: { valeur: socket ? socket.state : "—" },
+      };
+      for (const nom of handle.services())
+        lignes[`service · ${nom}`] = { valeur: "composé" };
+      if (c.table) c.table(lignes);
+      else for (const [k, v] of Object.entries(lignes)) c.log(k, v.valeur);
+
       c.log(
-        "services composés :",
-        this.#services ? Object.keys(this.#services) : [],
+        "%cconsole :%c nodefony.kernel · nodefony.socket · nodefony.identity()",
+        "color:#94a3b8",
+        "color:#5eead4;font-family:monospace",
       );
+      // L'atout que personne d'autre n'a : la même valeur relie ce navigateur au
+      // journal du serveur. Le dire ICI, c'est éviter la question « comment je
+      // retrouve ma requête ? » — qui se pose toujours trop tard.
       c.log(
-        "temps réel        :",
-        socket ? (socket.url ?? "socket fournie") : "aucun",
+        "%ccorrélation :%c chaque journal porte un requestId — la même valeur côté serveur relie clic, route, base et réponse",
+        "color:#94a3b8",
+        "color:#e2e8f0",
       );
-      c.log("état de la socket :", socket ? socket.state : "—");
-      c.log(
-        "identité          :",
-        this.identity ? this.identity.key : "anonyme",
-      );
-      c.log(
-        "journal           :",
-        "les entrées de cette page peuvent remonter au serveur (installSyslogUplink)",
-      );
+      c.log("%cobjet :%c", "color:#94a3b8", "", this);
     } finally {
       // `groupEnd` DOIT être atteint même si une lecture jette : un groupe laissé
       // ouvert avale tous les messages suivants de l'application.
@@ -245,6 +294,8 @@ export class ClientKernel implements IClientKernel {
     const socket = this.get("realtime");
     if (socket) socket.disconnect();
     this.#unbindBrowser();
+    this.#disposeHandle?.();
+    this.#disposeHandle = null;
     this.#booting = null;
     this.#services = null;
     // Retire les listeners trackés par `Service` et détache son container : sans

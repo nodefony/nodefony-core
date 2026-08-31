@@ -241,6 +241,24 @@ describe("ClientKernel — l'annonce dans la console", () => {
     }
   });
 
+  it("expose un handle inspectable, et le REPREND à la mort du kernel", async () => {
+    const spy = spyConsole();
+    const g = globalThis as { nodefony?: { kernel?: unknown } };
+    try {
+      const k = createClientKernel({ browserEvents: false });
+      await k.boot();
+      // Le vrai apport : taper `nodefony` dans la console rend l'objet vivant.
+      expect(g.nodefony?.kernel).toBe(k);
+      await k.terminate();
+      // Un handle qui survit retient un kernel MORT — la fuite classique d'un
+      // rechargement à chaud, qui en accumulerait un par rechargement.
+      expect(g.nodefony).toBeUndefined();
+    } finally {
+      spy.restore();
+      delete g.nodefony;
+    }
+  });
+
   it("`banner: false` n'écrit RIEN — la console d'une app publiée n'est pas à nous", async () => {
     const spy = spyConsole();
     try {

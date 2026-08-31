@@ -141,13 +141,22 @@ export interface ClientKernelOptions {
    */
   connectOnBoot?: boolean;
   /**
-   * Annoncer le kernel dans la console du navigateur au `boot()` — un badge sur
-   * une ligne, puis un groupe replié pour le détail.
+   * Annoncer le kernel dans la console du navigateur au `boot()`.
    *
-   * À passer `false` en production : la console d'une application publiée
-   * n'appartient pas au framework.
+   * Trois états, et le défaut s'adapte tout seul :
    *
-   * @defaultValue `true`
+   * - **en développement** (`import.meta.env.DEV` posé par le bundler) — un badge
+   *   sur une ligne, puis un groupe REPLIÉ avec les services composés, l'adresse
+   *   et l'état de la socket, l'identité courante ;
+   * - **partout ailleurs** — le badge seul. Savoir que le noyau tourne suffit à
+   *   diagnostiquer ; le reste est du bruit dans la console de l'utilisateur ;
+   * - `false` — rien du tout.
+   *
+   * `true` force le détail quel que soit le mode. L'absence de preuve de
+   * développement est traitée comme la production : se taire à tort ne coûte
+   * qu'une ligne, parler à tort pollue la console de tout le monde.
+   *
+   * @defaultValue le mode détecté
    */
   banner?: boolean;
 }
