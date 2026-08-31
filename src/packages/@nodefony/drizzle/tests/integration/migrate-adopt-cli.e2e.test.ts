@@ -8,6 +8,10 @@ import {
   openMigrationDriver,
 } from "../../nodefony/src/migrator/index";
 import {
+  ORPHAN_FIXTURE_ENTITY,
+  ORPHAN_FIXTURE_TABLE,
+} from "../../../../../modules/test/nodefony/entity/adoptFixture";
+import {
   ACTIF,
   ciblesPour,
   cli,
@@ -640,6 +644,124 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
               .then((n) => n.filter((x) => x.endsWith(".sql")))
               .catch(() => [] as string[]);
             assert.deepEqual(ecrits, [], "un refus a tout de même écrit");
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
+      it("🔴 une entité DÉCLARÉE que nul fichier ne fournit est refusée", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          // L'écart INVERSE de celui du cas précédent : là le fichier fournit
+          // une table que le registre ignore, ici le registre déclare une
+          // entité que nul fichier ne fournit. Il ne peut donc PAS venir de la
+          // découverte — qui lit le disque, module chargé ou non : il faut que
+          // l'application ait DÉMARRÉ avec le module qui l'inscrit. En
+          // production ce module est écarté par sa politique, d'où la
+          // dérogation du produit (`NF_WITH_DEV_MODULES`) — et non un module de
+          // décor de plus, chargé pour toujours au démarrage du dépôt.
+          const orphelin = {
+            ...env,
+            NF_ADOPT_FIXTURE: `${cible.dialect}+orphelin`,
+            NF_WITH_DEV_MODULES: "1",
+          };
+          try {
+            const migre = await cli(["orm:migrate", "--json"], env);
+            assert.equal(migre.code, 0, diagnostic(migre));
+
+            const refus = await cli(
+              ["orm:generate", "--json", "--name", "orpheline"],
+              orphelin,
+            );
+            const erreur = (parse(refus.stdout).error ?? {}) as {
+              code?: string;
+              summary?: string;
+            };
+            assert.equal(
+              erreur.code,
+              "NF_GENERATE_MISSING_ENTITY",
+              `le MONTAGE du refus n'a pas mordu : ${diagnostic(refus)}`,
+            );
+            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+            // Le refus NOMME l'entité ET sa table : sans elles, on sait qu'il
+            // manque un fichier, et pas lequel écrire.
+            assert.match(
+              String(erreur.summary),
+              new RegExp(ORPHAN_FIXTURE_ENTITY, "u"),
+              "le refus doit NOMMER l'entité sans fournisseur",
+            );
+            assert.match(
+              String(erreur.summary),
+              new RegExp(ORPHAN_FIXTURE_TABLE, "u"),
+              "le refus doit NOMMER la table attendue",
+            );
+            // Et il n'a RIEN écrit : une migration amputée d'une table ne se
+            // corrige pas, elle se remplace sur toutes les bases déjà servies.
+            const ecrits = await fs
+              .readdir(outDir)
+              .then((n) => n.filter((x) => x.endsWith(".sql")))
+              .catch(() => [] as string[]);
+            assert.deepEqual(ecrits, [], "un refus a tout de même écrit");
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
+      it("le décor du registre reste INERTE sans sa variable", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          // Le module du décor est CHARGÉ — la dérogation seule, sans la
+          // consigne qui dit quoi inscrire. C'est l'état dans lequel se trouve
+          // quiconque lance une génération depuis ce dépôt, et il ne doit RIEN
+          // en coûter : un décor qui s'inscrirait par défaut ferait refuser
+          // toutes les générations, ou pire, entrerait dans l'une d'elles.
+          const sansConsigne = { ...env, NF_WITH_DEV_MODULES: "1" };
+          try {
+            const migre = await cli(["orm:migrate", "--json"], env);
+            assert.equal(migre.code, 0, diagnostic(migre));
+
+            const gen = await cli(
+              ["orm:generate", "--json", "--name", "inerte"],
+              sansConsigne,
+            );
+            const erreur = (parse(gen.stdout).error ?? {}) as {
+              code?: string;
+            };
+            assert.notEqual(
+              erreur.code,
+              "NF_GENERATE_MISSING_ENTITY",
+              `le décor s'est inscrit sans qu'on le lui demande : ${diagnostic(gen)}`,
+            );
           } finally {
             if (cible.dialect === "mysql") {
               const noms = await tablesEcrites();

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-31T07:53:45.617Z",
+  "generated": "2026-08-31T09:06:48.970Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3560,
+    "symbols": 3562,
     "classes": 382,
     "interfaces": 988,
     "types": 423,
     "enums": 4,
     "functions": 1410,
-    "constants": 353
+    "constants": 355
   },
   "symbols": {
     "Cli": {
@@ -10578,6 +10578,22 @@
       "exported": true,
       "module": "modules/test",
       "description": "Une table de l'application qui porte le nom d'une table du framework. Exportée UNIQUEMENT sous la consigne « +usurpe » : un export permanent entrerait dans toute génération lancée depuis le dépôt e…"
+    },
+    "ORPHAN_FIXTURE_ENTITY": {
+      "name": "ORPHAN_FIXTURE_ENTITY",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Nom logique de l'entité orpheline — distinct de sa table, pour que le refus nomme les deux."
+    },
+    "ORPHAN_FIXTURE_TABLE": {
+      "name": "ORPHAN_FIXTURE_TABLE",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Table que l'entité orpheline déclare, et que rien ne fournit."
     },
     "registerBenchOrmEntities": {
       "name": "registerBenchOrmEntities",
