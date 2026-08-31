@@ -143,6 +143,7 @@ export type { RateBounds } from "./realtime/channelRate";
 export {
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_CHANNELS,
+  PLATFORM_INBOUND,
   PLATFORM_METHODS,
   PLATFORM_EVENTS,
   isPlatformChannel,
@@ -150,6 +151,7 @@ export {
 } from "./realtime/platformChannels";
 export type {
   PlatformChannel,
+  PlatformInboundChannel,
   PlatformMethod,
 } from "./realtime/platformChannels";
 export { expectType } from "./realtime/RealtimeEventMap";

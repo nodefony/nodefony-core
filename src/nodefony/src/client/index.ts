@@ -128,15 +128,41 @@ export type { IPage, IPageQuery } from "../types/IPage";
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
 export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
 export type { RateBounds } from "../realtime/channelRate";
+// Voie MONTANTE des journaux du navigateur (#35) : le transport, la capture des
+// erreurs non rattrapées, et les identités de corrélation. Rien n'est installé par
+// défaut — une page qui n'appelle pas `installSyslogUplink` ne paie rien (`Syslog`
+// ne notifie ses écouteurs que s'il en a).
+export { installSyslogUplink, UPLINK_MSGID } from "./syslog/uplink";
+export type {
+  SyslogUplinkOptions,
+  UplinkPublisher,
+  UplinkBatch,
+  WireLogEntry,
+} from "./syslog/uplink";
+export {
+  installErrorCapture,
+  BROWSER_ERROR_MSGID,
+  BROWSER_REJECTION_MSGID,
+} from "./syslog/errors";
+export type { ErrorCaptureOptions } from "./syslog/errors";
+export {
+  getPageId,
+  withRequestId,
+  getCurrentRequestId,
+  installRequestIdProvider,
+  resetClientLogContext,
+} from "./syslog/context";
 export {
   NODEFONY_CHANNEL_NAMESPACE,
   PLATFORM_CHANNELS,
+  PLATFORM_INBOUND,
   PLATFORM_METHODS,
   PLATFORM_EVENTS,
   isPlatformChannel,
 } from "../realtime/platformChannels";
 export type {
   PlatformChannel,
+  PlatformInboundChannel,
   PlatformMethod,
 } from "../realtime/platformChannels";
 export type {

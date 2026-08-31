@@ -67,6 +67,29 @@ export const PLATFORM_CHANNELS = {
 } as const;
 
 /**
+ * Canaux **MONTANTS** de la plateforme (le navigateur pousse, le pod reçoit).
+ *
+ * Ils vivent dans une table à part parce qu'ils sont l'inverse de
+ * {@link PLATFORM_CHANNELS} : là un écran regarde, ici un écran ÉCRIT. Les mélanger
+ * ferait passer une surface d'écriture pour une surface de lecture au premier coup
+ * d'œil — et c'est précisément la distinction qui décide des bornes à poser.
+ *
+ * Ils portent la même marque `nodefony:`, donc le même **plancher irréductible**
+ * (authentification exigée ; sans module de sécurité, fermés aux connexions
+ * clientes). C'est le défaut voulu : un journal d'exploitation ouvert en écriture
+ * anonyme se noie et se falsifie. Une application qui veut capter les erreurs de
+ * visiteurs non authentifiés le déclare explicitement, et hérite des bornes.
+ */
+export const PLATFORM_INBOUND = {
+  /** Journaux du navigateur remontés vers le `Syslog` du pod (lots de `Pdu`). */
+  syslogUplink: "nodefony:syslog:uplink",
+} as const;
+
+/** Nom d'un canal montant de plateforme (valeur de {@link PLATFORM_INBOUND}). */
+export type PlatformInboundChannel =
+  (typeof PLATFORM_INBOUND)[keyof typeof PLATFORM_INBOUND];
+
+/**
  * Méthodes **RPC** de la plateforme (le client demande, le serveur répond).
  *
  * Elles portent la même marque que les canaux pour la même raison : ce sont des

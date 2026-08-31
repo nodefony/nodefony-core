@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-31T13:38:19.639Z",
+  "generated": "2026-08-31T14:17:51.669Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 785,
-    "symbols": 3567,
+    "files": 788,
+    "symbols": 3586,
     "classes": 382,
-    "interfaces": 989,
-    "types": 423,
+    "interfaces": 994,
+    "types": 424,
     "enums": 4,
-    "functions": 1412,
-    "constants": 357
+    "functions": 1421,
+    "constants": 361
   },
   "symbols": {
     "Cli": {
@@ -3921,6 +3921,14 @@
       "module": "@nodefony/core",
       "description": "Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) : - `invalid` : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠\"2.0\", `method` non string sans `id` valide).…"
     },
+    "PlatformInboundChannel": {
+      "name": "PlatformInboundChannel",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom d'un canal montant de plateforme (valeur de {@link PLATFORM_INBOUND})."
+    },
     "PlatformChannel": {
       "name": "PlatformChannel",
       "kind": "type",
@@ -3968,6 +3976,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Canaux de **diffusion** de la plateforme (le serveur pousse, les écrans regardent). Les valeurs sont des **bases** : trois d'entre elles se déclinent par cible (`…@<pid>` pour un forage sur un proc…"
+    },
+    "PLATFORM_INBOUND": {
+      "name": "PLATFORM_INBOUND",
+      "kind": "const",
+      "file": "src/nodefony/src/realtime/platformChannels.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Canaux **MONTANTS** de la plateforme (le navigateur pousse, le pod reçoit). Ils vivent dans une table à part parce qu'ils sont l'inverse de {@link PLATFORM_CHANNELS} : là un écran regarde, ici un é…"
     },
     "PLATFORM_METHODS": {
       "name": "PLATFORM_METHODS",
@@ -7251,6 +7267,129 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`nodefonyNoticeLog()` — l'anneau borné des dernières notices, filtrable par source : un historique léger des criticités, distinct des notifications éphémères. La taille de l'anneau et le filtrage v…"
+    },
+    "getPageId": {
+      "name": "getPageId",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/context.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Identifiant stable de ce chargement de page (UUID v4), généré à la demande. Il change à chaque rechargement — c'est voulu : il désigne une **session d'onglet**, pas un utilisateur. Rien d'identifia…"
+    },
+    "withRequestId": {
+      "name": "withRequestId",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/context.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute `fn` en déclarant que ce qu'elle journalise appartient à la requête `requestId`. La portée est le **tick synchrone** de `fn`, et rien de plus : après un `await`, la bulle est refermée. C'es…"
+    },
+    "getCurrentRequestId": {
+      "name": "getCurrentRequestId",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/context.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`requestId` de la portée courante, `undefined` en dehors de {@link withRequestId}."
+    },
+    "installRequestIdProvider": {
+      "name": "installRequestIdProvider",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/context.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Branche {@link getCurrentRequestId} sur `Pdu.requestIdProvider`, de sorte que tout `Pdu` créé dans une portée {@link withRequestId} porte son `requestId` — le même champ que côté serveur, donc la m…"
+    },
+    "resetClientLogContext": {
+      "name": "resetClientLogContext",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/context.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Remet le module à son état initial — réservé aux tests, qui doivent pouvoir repartir d'une page « neuve » sans recharger un document."
+    },
+    "ErrorCaptureOptions": {
+      "name": "ErrorCaptureOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/syslog/errors.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "installErrorCapture": {
+      "name": "installErrorCapture",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/errors.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Installe la capture des erreurs globales du navigateur. No-op hors navigateur (rendu serveur, test Node sans DOM) : le contrat isomorphe veut qu'un code client puisse être chargé des deux côtés san…"
+    },
+    "BROWSER_ERROR_MSGID": {
+      "name": "BROWSER_ERROR_MSGID",
+      "kind": "const",
+      "file": "src/nodefony/src/client/syslog/errors.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catégorie par défaut d'une exception non rattrapée."
+    },
+    "BROWSER_REJECTION_MSGID": {
+      "name": "BROWSER_REJECTION_MSGID",
+      "kind": "const",
+      "file": "src/nodefony/src/client/syslog/errors.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catégorie d'une promesse rejetée sans `catch`."
+    },
+    "UplinkPublisher": {
+      "name": "UplinkPublisher",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/syslog/uplink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le strict nécessaire pour pousser — n'impose pas `RealtimeClient` à l'appelant."
+    },
+    "WireLogEntry": {
+      "name": "WireLogEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/syslog/uplink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entrée de journal telle qu'elle voyage sur le fil (plate, sérialisable)."
+    },
+    "UplinkBatch": {
+      "name": "UplinkBatch",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/syslog/uplink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Enveloppe d'un lot poussé sur le canal montant."
+    },
+    "SyslogUplinkOptions": {
+      "name": "SyslogUplinkOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/syslog/uplink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "installSyslogUplink": {
+      "name": "installSyslogUplink",
+      "kind": "function",
+      "file": "src/nodefony/src/client/syslog/uplink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Installe la remontée des journaux du navigateur vers le pod."
+    },
+    "UPLINK_MSGID": {
+      "name": "UPLINK_MSGID",
+      "kind": "const",
+      "file": "src/nodefony/src/client/syslog/uplink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catégorie (`msgid`) réservée à ce que le transport dit de LUI-MÊME. Les entrées qui la portent sont **exclues** de la remontée : sans cette exclusion, un envoi qui échoue journalise son échec, ce q…"
     },
     "Websocket": {
       "name": "Websocket",
@@ -25645,6 +25784,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts",
+        "src/nodefony/src/client/syslog/errors.ts",
+        "src/nodefony/src/client/syslog/uplink.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
@@ -25876,6 +26017,8 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/types/ITransport.ts",
         "src/nodefony/src/client/debugbar/model.ts",
+        "src/nodefony/src/client/syslog/context.ts",
+        "src/nodefony/src/client/syslog/uplink.ts",
         "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/FileTransport.ts",
@@ -29232,6 +29375,12 @@
       ],
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
+      ],
+      "PLATFORM_INBOUND": [
+        "src/nodefony/src/client/syslog/uplink.ts"
+      ],
+      "getPageId": [
+        "src/nodefony/src/client/syslog/uplink.ts"
       ],
       "IAdminEndpoint": [
         "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
