@@ -3,6 +3,7 @@ import {
   isolationGroup,
   orderFamilies,
   familyPortPlan,
+  familyPortBlocks,
   PRIMARY_FAMILY,
 } from "../../src/isolationGroups.js";
 
@@ -88,5 +89,47 @@ describe("isolationGroups — familyPortPlan()", () => {
     const plan = familyPortPlan(5173, ["default"], 3);
     expect(plan.get("default")).to.equal(5173);
     expect(plan.size).to.equal(1);
+  });
+});
+
+describe("isolationGroups — familyPortBlocks()", () => {
+  it("couvre TOUT le bloc d'une famille, port-retry compris", () => {
+    // Le plan ne dit que le port ESPÉRÉ ; sur EADDRINUSE le superviseur glisse
+    // dans son bloc. Un CSP construit sur le seul port espéré laisse la page
+    // sans rechargement à chaud dès que 5173 est pris — et il l'est dès qu'un
+    // second projet tourne sur la machine.
+    const plan = familyPortPlan(5173, ["default"], 3);
+    expect([...familyPortBlocks(plan, 3)]).to.deep.equal([
+      ["default", [5173, 5174, 5175, 5176]],
+    ]);
+  });
+
+  it("un bloc par famille, sans trou ni chevauchement", () => {
+    const plan = familyPortPlan(5173, ["default", "angular", "vue"], 3);
+    const blocks = familyPortBlocks(plan, 3);
+    expect([...blocks.keys()]).to.deep.equal(["default", "angular", "vue"]);
+    const flat = [...blocks.values()].flat();
+    expect(flat).to.have.lengthOf(12);
+    expect(Math.min(...flat)).to.equal(5173);
+    expect(Math.max(...flat)).to.equal(5184);
+    // Blocs DISJOINTS : le port-retry d'une famille n'entre jamais chez une autre.
+    expect(new Set(flat).size).to.equal(flat.length);
+    // Chaque port de base du plan ouvre le bloc de sa famille.
+    for (const [family, base] of plan)
+      expect(blocks.get(family)![0]).to.equal(base);
+  });
+
+  it("`portRetryAttempts: 0` → un port par famille (pas de plage élargie)", () => {
+    // Sans port-retry, il n'y a rien à couvrir au-delà du port de base : le CSP
+    // ne doit pas s'élargir « au cas où ».
+    const plan = familyPortPlan(5173, ["default", "angular"], 0);
+    expect([...familyPortBlocks(plan, 0)]).to.deep.equal([
+      ["default", [5173]],
+      ["angular", [5174]],
+    ]);
+  });
+
+  it("plan vide → aucun bloc (aucun port inventé)", () => {
+    expect(familyPortBlocks(new Map(), 3).size).to.equal(0);
   });
 });

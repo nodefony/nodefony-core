@@ -93,3 +93,38 @@ export function familyPortPlan(
   });
   return plan;
 }
+
+/**
+ * Bloc de ports de chaque famille : tous les ports que SON instance Vite peut
+ * prendre, port-retry compris.
+ *
+ * Le plan seul ne dit que le port ESPÉRÉ ; sur `EADDRINUSE` le superviseur
+ * glisse dans son bloc. Un CSP construit sur le seul port espéré laisse la page
+ * sans rechargement à chaud dès que le port de base est pris — et il l'est dès
+ * qu'un second projet tourne sur la machine.
+ *
+ * Rendu par famille, et non à plat : le consommateur remplace le bloc d'une
+ * famille par son port RÉEL dès qu'il est connu. Déclarer les douze ports d'un
+ * poste à trois familles coûte un en-tête CSP de ~8 Ko sur chaque réponse
+ * (mesuré) — la plage est le prix d'une incertitude, elle ne doit pas survivre
+ * à sa levée.
+ *
+ * Dérivé du plan plutôt que recalculé depuis `devPort` : la règle des blocs
+ * disjoints n'est écrite qu'à un endroit, `familyPortPlan`.
+ *
+ * @param plan - `famille → port de base`, tel que rendu par `familyPortPlan`.
+ * @param portRetryAttempts - tentatives de port-retry par instance (bloc = +1).
+ * @returns `famille → ports du bloc`, croissants.
+ */
+export function familyPortBlocks(
+  plan: ReadonlyMap<string, number>,
+  portRetryAttempts: number,
+): Map<string, number[]> {
+  const blocks = new Map<string, number[]>();
+  for (const [family, base] of plan) {
+    const ports: number[] = [];
+    for (let i = 0; i <= portRetryAttempts; i++) ports.push(base + i);
+    blocks.set(family, ports);
+  }
+  return blocks;
+}

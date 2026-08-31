@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-31T21:10:06.807Z",
+  "generated": "2026-08-31T21:47:28.474Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 791,
-    "symbols": 3607,
+    "symbols": 3608,
     "classes": 383,
     "interfaces": 999,
     "types": 426,
     "enums": 4,
-    "functions": 1430,
+    "functions": 1431,
     "constants": 365
   },
   "symbols": {
@@ -14688,6 +14688,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Plan d'allocation des ports : un **bloc disjoint** par famille. Chaque famille réserve `portRetryAttempts + 1` ports consécutifs → le port-retry d'une instance (sur EADDRINUSE) ne peut jamais empié…"
+    },
+    "familyPortBlocks": {
+      "name": "familyPortBlocks",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Bloc de ports de chaque famille : tous les ports que SON instance Vite peut prendre, port-retry compris. Le plan seul ne dit que le port ESPÉRÉ ; sur `EADDRINUSE` le superviseur glisse dans son blo…"
     },
     "PRIMARY_FAMILY": {
       "name": "PRIMARY_FAMILY",
@@ -31830,6 +31838,9 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "familyPortPlan": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "familyPortBlocks": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "PRIMARY_FAMILY": [

@@ -29,6 +29,7 @@ import fs from "node:fs";
 import {
   isolationGroup,
   familyPortPlan,
+  familyPortBlocks,
   PRIMARY_FAMILY,
 } from "../src/isolationGroups";
 import defaultConfig, { type FrontendConfig } from "../config/config";
@@ -96,6 +97,15 @@ class FrontendService extends Service implements IFrontendService {
    * toujours sur une déduction (cf ordre de priorité, README du module).
    */
   private originPinned = false;
+  /**
+   * Ports que l'instance Vite de chaque famille PEUT prendre pour ce démarrage
+   * (bloc de la famille, port-retry compris) — `null` tant que `startDev` n'a
+   * pas établi le plan, et remis à `null` par `stopDev`.
+   *
+   * Alloué une fois par démarrage de développement, jamais en production
+   * (`startDev` n'y tourne pas) : aucun coût par requête.
+   */
+  private plannedPortBlocks: Map<string, number[]> | null = null;
 
   constructor(module: Module) {
     const merged = extend(
@@ -356,6 +366,22 @@ class FrontendService extends Service implements IFrontendService {
         "WARNING",
       );
     }
+
+    // CSP AVANT le premier spawn (#135). `startDev` est déclenché sur
+    // `onServersReady` : les serveurs Nodefony écoutent DÉJÀ, et une page servie
+    // pendant que Vite résout son port recevrait le CSP de base
+    // (`connect-src 'self'`). Un CSP est FIGÉ pour la durée de la page — le
+    // navigateur ne le renégocie jamais —, donc cet onglet perdrait son
+    // rechargement à chaud jusqu'au prochain rechargement dur, sans erreur
+    // serveur pour le dire. On déclare donc la PLAGE que Vite peut prendre dès
+    // qu'elle est connue ; `#registerCsp` est rejoué après `ready` pour y
+    // ajouter les origines publiques réelles (le firewall remplace le fragment
+    // du module, il ne l'empile pas).
+    this.plannedPortBlocks = familyPortBlocks(
+      portPlan,
+      this.cfg.resilience?.portRetryAttempts ?? 3,
+    );
+    this.#registerCsp();
 
     this.fire("frontend:starting", { backendOrigin, entries: this.entries });
 
@@ -700,6 +726,9 @@ class FrontendService extends Service implements IFrontendService {
     this.supervisors.clear();
     this.templateHelpers.clear();
     this.entryFamily.clear();
+    // Le plan de ports appartient au démarrage qui vient de finir : le garder
+    // ferait déclarer au prochain CSP des ports d'une topologie révolue.
+    this.plannedPortBlocks = null;
     // CSP : retirer les origines Vite du firewall (le CSP repasse au strict de base).
     (
       this.container?.get?.("firewall") as
@@ -909,10 +938,7 @@ class FrontendService extends Service implements IFrontendService {
   #viteCspFragment(): Record<string, string[]> {
     const scheme = this.cfg.https ? "https" : "http";
     const wsScheme = this.cfg.https ? "wss" : "ws";
-    // Ports Vite réels (un par famille) — réutilise `viteOrigins` (host:port).
-    const ports = new Set(
-      this.viteOrigins().map((o) => o.slice(o.lastIndexOf(":") + 1)),
-    );
+    const ports = this.cspPorts();
     // Hosts par lesquels le dev accède LÉGITIMEMENT : loopback + domaine canonique
     // + `trustedHosts` du http (résolu PAR NOM, anti-cycle — comme firewall/static).
     const hosts = new Set<string>(["127.0.0.1", "localhost"]);
@@ -962,19 +988,47 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   /**
-   * Origines (`host:port`) de toutes les instances Vite actives, dédupliquées.
-   * Retombe sur l'origine de base si aucune instance n'a encore résolu son port.
+   * Ports Vite à déclarer au CSP, famille par famille : le BLOC entier tant que
+   * l'instance ne sert pas, son port RÉEL dès qu'elle sert.
+   *
+   * Pourquoi le bloc avant : le CSP part AVEC la page et ne se renégocie jamais.
+   * Une page servie avant que Vite ait résolu son port doit déjà porter le port
+   * qu'il prendra, sinon son socket de rechargement à chaud est refusé pour
+   * toute la durée de la page.
+   *
+   * Pourquoi le port seul après : la plage est le prix d'une incertitude, elle
+   * ne doit pas lui survivre. Mesuré sur ce dépôt (3 familles × 4 hôtes de
+   * confiance), garder les blocs porte l'en-tête CSP à ~7,9 Ko sur CHAQUE
+   * réponse, contre ~2,3 Ko une fois les ports connus — au bord des 8 Ko que
+   * refusent beaucoup de relais.
+   *
+   * Développement seulement : `startDev` ne tourne pas en production. La
+   * garantie reste une liste d'origines nommées — jamais un `ws:` sans hôte,
+   * qui la supprimerait au lieu de corriger le symptôme.
+   *
+   * @returns ports en chaîne, dédupliqués ; repli `devPort` si rien n'est connu.
    */
-  private viteOrigins(): string[] {
-    const set = new Set<string>();
-    for (const s of this.supervisors.values()) {
-      const st = s.status();
-      if (st.port) set.add(`${st.host}:${st.port}`);
+  private cspPorts(): Set<string> {
+    const ports = new Set<string>();
+    for (const [family, block] of this.plannedPortBlocks ?? []) {
+      const st = this.supervisors.get(family)?.status();
+      // ⚠️ `status().port` n'est PAS `null` avant résolution : l'implémentation
+      // retombe sur le port ESPÉRÉ (`resolvedPort ?? devPort`). Le seul témoin
+      // fiable d'un port qui SERT est l'état — sans quoi on rétrécirait le bloc
+      // sur une espérance, et le glissement sur `EADDRINUSE` rouvrirait le trou.
+      const serving = st?.state === "ready" || st?.state === "compiling";
+      if (serving && st?.port) ports.add(String(st.port));
+      else for (const p of block) ports.add(String(p));
     }
-    if (set.size === 0) {
-      set.add(`${this.cfg.devHost}:${this.cfg.devPort}`);
+    // Une instance hors plan (famille apparue après le démarrage) : son port
+    // réel reste déclaré — on ne perd jamais un port qui SERT.
+    for (const [family, sup] of this.supervisors) {
+      if (this.plannedPortBlocks?.has(family)) continue;
+      const st = sup.status();
+      if (st.port) ports.add(String(st.port));
     }
-    return [...set];
+    if (ports.size === 0) ports.add(String(this.cfg.devPort));
+    return ports;
   }
 }
 
