@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T10:38:23.697Z",
+  "generatedAt": "2026-08-31T12:33:55.317Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 47,
+      "closed": 49,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 40,
       "title": "10.0.0"
     }
   ],
@@ -582,8 +582,8 @@
       "number": 129,
       "title": "feat(outillage): générer le catalogue des variables d'environnement",
       "url": "https://github.com/nodefony/nodefony-core/issues/129",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -594,10 +594,10 @@
     },
     {
       "number": 130,
-      "title": "fix(orm): une génération concurrente ne doit pas écrire une migration amputée",
+      "title": "fix(orm): rendre lisible sans le rejouer un rouge du banc des migrations",
       "url": "https://github.com/nodefony/nodefony-core/issues/130",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
