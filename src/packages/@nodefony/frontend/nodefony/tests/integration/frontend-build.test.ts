@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import ViteBuilder from "../../src/builders/ViteBuilder.js";
 import TemplateHelper from "../../src/template/TemplateHelper.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
+import { Container } from "nodefony";
+import FrontendService from "../../service/FrontendService.js";
 
 /**
  * P14.5 — build production + `renderProdTags`.
@@ -35,6 +37,28 @@ function makeEntry(
   };
 }
 
+/**
+ * Service réel, module factice : `build()` est la seule porte qui porte la garde
+ * d'environnement — appeler `vite.build` en direct, comme le font les cas
+ * voisins, contournerait précisément ce qu'on veut éprouver.
+ */
+function fakeService(entries: IResolvedFrontendEntry[]): FrontendService {
+  const noop = () => undefined;
+  const container = new Container();
+  container.set("kernel", { environment: "development", fire: noop });
+  const svc = new FrontendService({
+    kernel: container.get("kernel"),
+    container,
+    notificationsCenter: { on: noop, fire: noop, removeListener: noop },
+    options: {},
+    log: noop,
+  } as unknown as ConstructorParameters<typeof FrontendService>[0]);
+  (svc as unknown as { entries: IResolvedFrontendEntry[] }).entries.push(
+    ...entries,
+  );
+  return svc;
+}
+
 describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
   afterAll(() => {
     try {
@@ -62,6 +86,45 @@ describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
     const chunk = Object.values(manifest).find((c) => c.isEntry);
     expect(chunk, "chunk d'entrée présent").to.exist;
     expect(chunk!.file).to.match(/\.js$/);
+  });
+
+  it("le bundle RENDU est en mode production, même si NODE_ENV dit développement (#137)", async () => {
+    // Le défaut ne se voyait NULLE PART dans la configuration : `mode:
+    // "production"` était passé depuis le début. Vite dérive pourtant son
+    // `isProduction` de `process.env.NODE_ENV`, qui PRIME — une commande CLI,
+    // dont le kernel démarre en développement, publiait donc un bundle de
+    // développement : `import.meta.env.DEV` vrai chez l'utilisateur final, et
+    // les messages d'aide du framework de vue embarqués.
+    const avant = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      const svc = fakeService([makeEntry()]);
+      const res = await svc.build({ force: true });
+      expect(res.failures, "aucun échec de build").to.deep.equal([]);
+
+      // La preuve porte sur le FICHIER, pas sur la config : le remplacement de
+      // `import.meta.env.DEV` par une constante ne laisse qu'UNE des deux
+      // branches du témoin de la fixture.
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(OUT_DIR, ".vite", "manifest.json"), "utf8"),
+      ) as Record<string, { file: string; isEntry?: boolean }>;
+      const chunk = Object.values(manifest).find((c) => c.isEntry)!;
+      const rendu = fs.readFileSync(path.join(OUT_DIR, chunk.file), "utf8");
+      expect(rendu, "branche production conservée").to.contain(
+        "NODEFONY_BUILD_PROD",
+      );
+      expect(rendu, "branche développement éliminée").to.not.contain(
+        "NODEFONY_BUILD_DEV",
+      );
+
+      // Et la variable est RENDUE : `build()` est aussi appelé par `setupProd()`
+      // au boot, et la laisser posée marquerait un process de développement
+      // comme production pour le reste de sa vie.
+      expect(process.env.NODE_ENV, "NODE_ENV restauré").to.equal("development");
+    } finally {
+      if (avant === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = avant;
+    }
   });
 
   it("renderProdTags injecte le script fingerprinté préfixé par publicPath (≠ page blanche)", () => {

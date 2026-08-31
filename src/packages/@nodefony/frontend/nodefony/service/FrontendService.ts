@@ -746,6 +746,16 @@ class FrontendService extends Service implements IFrontendService {
    * rebuild tout. Les échecs sont **collectés** (un bundle KO n'arrête pas les
    * autres) et remontés dans `failures` → la commande CLI casse l'exit code.
    *
+   * ⚠️ **`NODE_ENV` est posé le temps du build, et restauré.** Vite dérive son
+   * `isProduction` de `process.env.NODE_ENV`, qui **prime sur le `mode`** de la
+   * configuration : une commande CLI, dont le kernel démarre en développement,
+   * produisait donc un bundle de DÉVELOPPEMENT malgré `mode: "production"` —
+   * `import.meta.env.DEV` vrai chez l'utilisateur final (tout code gardé par ce
+   * drapeau s'exécutait en production), et les messages d'aide de Vue publiés.
+   * La restauration n'est pas une précaution de style : `build()` est aussi
+   * appelé par `setupProd()`, et laisser la variable retournée marquerait un
+   * process de développement comme production pour le reste de sa vie.
+   *
    * @param opts.force ignore le cache de fraîcheur (rebuild systématique).
    */
   async build(opts?: { force?: boolean }): Promise<IFrontendBuildResult> {
@@ -758,6 +768,28 @@ class FrontendService extends Service implements IFrontendService {
       skipped: [],
       failures: [],
     };
+    const nodeEnvAvant = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      return await this.#buildEntries(vite, result, opts);
+    } finally {
+      // `delete` et non `= undefined` : une variable d'environnement posée à la
+      // chaîne « undefined » est LUE comme une valeur par tout ce qui la teste.
+      if (nodeEnvAvant === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = nodeEnvAvant;
+    }
+  }
+
+  /**
+   * La boucle de build proprement dite — extraite pour que `build()` ne porte
+   * que la garde d'environnement, et que le `finally` de restauration couvre
+   * tous les chemins de sortie sans indenter cent lignes.
+   */
+  async #buildEntries(
+    vite: { build: (cfg: Record<string, unknown>) => Promise<unknown> },
+    result: IFrontendBuildResult,
+    opts?: { force?: boolean },
+  ): Promise<IFrontendBuildResult> {
     for (const entry of this.entries) {
       if (!opts?.force && this.isBuildFresh(entry)) {
         result.skipped.push(entry.entryName);
