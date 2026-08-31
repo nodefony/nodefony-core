@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T15:51:21.589Z",
+  "generatedAt": "2026-08-31T18:28:42.895Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 50,
+      "closed": 53,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 41,
+      "open": 38,
       "title": "10.0.0"
     }
   ],
@@ -670,8 +670,8 @@
       "number": 54,
       "title": "feat(client): simplifier la socket cliente pour un débutant",
       "url": "https://github.com/nodefony/nodefony-core/issues/54",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 11.5,
@@ -712,8 +712,8 @@
       "number": 34,
       "title": "feat(client): implémenter le noyau applicatif côté navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/34",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 5,
@@ -726,8 +726,8 @@
       "number": 91,
       "title": "feat(studio): porter la console d'administration sur le noyau client",
       "url": "https://github.com/nodefony/nodefony-core/issues/91",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 3,
