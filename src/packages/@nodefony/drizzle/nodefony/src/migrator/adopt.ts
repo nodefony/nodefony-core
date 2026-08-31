@@ -238,9 +238,23 @@ export async function snapshotTables(outDir: string): Promise<string[]> {
   }
 }
 
+/** Une colonne d'index, telle que l'instantané de l'outil la décrit. */
+interface ISnapshotIndexColumn {
+  expression?: string;
+  isExpression?: boolean;
+  opclass?: string;
+}
+
+/** Un index, tel que l'instantané de l'outil le décrit. */
+interface ISnapshotIndex {
+  name?: string;
+  columns?: ISnapshotIndexColumn[];
+}
+
 /** Une table, telle que l'instantané de l'outil la décrit. */
 interface ISnapshotTable {
   schema?: string;
+  indexes?: Record<string, ISnapshotIndex>;
 }
 
 /** Une séquence, telle que l'instantané de l'outil la décrit. */
@@ -303,6 +317,8 @@ interface ISnapshotDocument {
  *   ou lecture dans `public` : il n'y a alors rien à déqualifier).
  * @param options.excludedTables - tables écartées de la lecture, dont les
  *   objets satellites doivent l'être aussi.
+ * @param options.stripTables - tables que l'outil a LUES faute de pouvoir les
+ *   exclure, et qu'il faut retirer du résultat (cf `lectureSansExclusion`).
  */
 export async function normalizeIntrospection(
   outDir: string,
@@ -310,9 +326,11 @@ export async function normalizeIntrospection(
   options: {
     schema: string | null;
     excludedTables: readonly string[];
+    stripTables?: readonly string[];
   },
 ): Promise<void> {
   const { schema, excludedTables } = options;
+  const stripTables = options.stripTables ?? [];
   const qualifie = schema !== null && schema !== "public";
 
   /** Une séquence appartient-elle à une table qu'on a écartée ? */
@@ -374,12 +392,25 @@ export async function normalizeIntrospection(
       }
     }
 
+    if (stripTables.length > 0 && doc.tables !== undefined) {
+      const aRetirer = new Set(stripTables);
+      const gardees: Record<string, ISnapshotTable> = {};
+      for (const [cle, table] of Object.entries(doc.tables)) {
+        if (aRetirer.has(cle.split(".").pop() ?? cle)) {
+          modifie = true;
+          continue;
+        }
+        gardees[cle] = table;
+      }
+      doc.tables = gardees;
+    }
+
     if (modifie) {
       await fs.writeFile(snapshotFile, JSON.stringify(doc, null, 2), "utf8");
     }
   }
 
-  if (!qualifie && sequencesRetirees.length === 0) {
+  if (!qualifie && sequencesRetirees.length === 0 && stripTables.length === 0) {
     // Rien à défaire : ne pas réécrire un fichier qu'on n'a pas changé.
     return;
   }
@@ -402,6 +433,31 @@ export async function normalizeIntrospection(
       ),
       "",
     );
+  }
+  for (const nom of stripTables) {
+    const ident = `[\`"]?${nom.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}[\`"]?`;
+    sql = sql
+      // Le corps d'un `CREATE TABLE` ne porte pas de `;` : sa fin est la
+      // parenthèse fermante en début de ligne, suivie du point-virgule.
+      .replace(
+        new RegExp(
+          `^CREATE TABLE ${ident} \\([\\s\\S]*?^\\);(?:\\s*-->[^\\n]*)?\\n?`,
+          "gmu",
+        ),
+        "",
+      )
+      // Puis ses satellites, qui vivent en instructions séparées.
+      .replace(
+        new RegExp(
+          `^CREATE (?:UNIQUE )?INDEX [^;]*? ON ${ident}[^;]*;(?:\\s*-->[^\\n]*)?\\n?`,
+          "gmu",
+        ),
+        "",
+      )
+      .replace(
+        new RegExp(`^ALTER TABLE ${ident}[^;]*;(?:\\s*-->[^\\n]*)?\\n?`, "gmu"),
+        "",
+      );
   }
   await fs.writeFile(file, sql, "utf8");
 }
@@ -536,6 +592,156 @@ async function expliquerEchec(
  * @param sql - la référence telle que l'outil l'a écrite.
  * @returns les instructions à ajouter, vides s'il n'en manque aucune.
  */
+/**
+ * Les colonnes d'index, telles que PostgreSQL les RÉÉCRIT lui-même.
+ *
+ * 🔴 L'introspection rend UNE classe d'opérateur pour tout l'index et
+ * l'applique à CHAQUE colonne. Sur un index composite dont les colonnes n'ont
+ * pas le même type, le résultat est du SQL qui ne s'exécute pas :
+ * `("author" timestamptz_ops, "created_at" timestamptz_ops)` quand `author`
+ * est un `uuid` — « operator class "timestamptz_ops" does not accept data
+ * type uuid ».
+ *
+ * La perte ne se constate pas sur la base adoptée : elle a déjà son index.
+ * Elle frappe l'exemplaire SUIVANT — et elle frappe mal, car la migration
+ * s'arrête sur ce `CREATE INDEX` : aucune table suivante n'est créée, et les
+ * erreurs que l'on voit ensuite ne parlent plus que de tables absentes, à
+ * l'autre bout de la chaîne. Même famille que les contraintes d'unicité
+ * perdues : l'outil est fidèle à ce qu'il croit avoir lu, pas à la base.
+ *
+ * On ne DEVINE pas la bonne classe, on la demande au moteur. `pg_indexes`
+ * rend la définition que PostgreSQL écrirait lui-même pour recréer l'index,
+ * et il n'y nomme que les classes qui ne sont PAS celles du type — ce qui
+ * préserve une classe volontaire (`varchar_pattern_ops`) sans jamais en
+ * inventer une.
+ *
+ * @param target - coordonnées de la base visée.
+ * @param schema - schéma PostgreSQL où les tables ont été lues.
+ * @param tables - tables adoptées, dont on relit les index.
+ * @returns pour chaque nom d'index, la liste de colonnes que le moteur écrit.
+ */
+async function colonnesDIndexReelles(
+  target: IMigrationTarget,
+  schema: string,
+  tables: readonly string[],
+): Promise<Map<string, string>> {
+  const parNom = new Map<string, string>();
+  if (target.dialect !== "postgres" || tables.length === 0) {
+    return parNom;
+  }
+  const pilote = await openMigrationDriver(target);
+  try {
+    const trous = tables.map(() => "?").join(",");
+    const lignes = await pilote.query<{
+      indexname: string;
+      indexdef: string;
+    }>(
+      `SELECT indexname, indexdef FROM pg_indexes
+        WHERE schemaname = ? AND tablename IN (${trous})`,
+      [schema, ...tables],
+    );
+    for (const ligne of lignes) {
+      // La définition du moteur se termine par la liste de colonnes entre
+      // parenthèses : `… USING btree (author, created_at)`. On n'en retient
+      // QUE cette liste — le reste du statement produit par l'outil (nom,
+      // table, méthode) est déjà juste, et le réécrire ferait diverger deux
+      // façons d'écrire la même chose.
+      const colonnes = /\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/u.exec(
+        ligne.indexdef,
+      );
+      if (colonnes?.[1] !== undefined) {
+        parNom.set(ligne.indexname, colonnes[1].trim());
+      }
+    }
+  } finally {
+    await pilote.close();
+  }
+  return parNom;
+}
+
+/**
+ * Réécrit les listes de colonnes d'index que l'outil a rendues fausses.
+ *
+ * Agit sur les DEUX artefacts, et c'est nécessaire : le fichier SQL est ce
+ * qu'on applique, l'instantané est ce à quoi la génération SUIVANTE compare.
+ * Ne corriger que le premier laisserait un instantané qui décrit un index que
+ * la base n'a pas — la génération d'après proposerait de le refaire, sans que
+ * personne comprenne pourquoi.
+ *
+ * @param sql - corps exécutable de la référence.
+ * @param outDir - dossier de sortie, qui porte `meta/0000_snapshot.json`.
+ * @param reelles - listes de colonnes rendues par le moteur, par nom d'index.
+ * @returns le SQL corrigé.
+ */
+async function reecrireIndexComposites(
+  sql: string,
+  outDir: string,
+  reelles: ReadonlyMap<string, string>,
+): Promise<string> {
+  if (reelles.size === 0) {
+    return sql;
+  }
+  let corrige = sql;
+  for (const [nom, colonnes] of reelles) {
+    const echappe = nom.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    corrige = corrige.replace(
+      new RegExp(
+        `(CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+"${echappe}"[^;]*?USING\\s+\\w+\\s*)\\([^;]*?\\)`,
+        "giu",
+      ),
+      `$1(${colonnes})`,
+    );
+  }
+
+  const snapshotFile = path.join(outDir, "meta", "0000_snapshot.json");
+  try {
+    const doc = JSON.parse(
+      await fs.readFile(snapshotFile, "utf8"),
+    ) as ISnapshotDocument;
+    let modifie = false;
+    for (const table of Object.values(doc.tables ?? {})) {
+      for (const [cle, index] of Object.entries(table.indexes ?? {})) {
+        const colonnes = reelles.get(index.name ?? cle);
+        if (colonnes === undefined) {
+          continue;
+        }
+        // Une classe d'opérateur ne se garde que si le moteur la NOMME : il
+        // tait celles qui sont le défaut du type, et c'est exactement le
+        // partage qu'on veut refaire ici.
+        for (const colonne of index.columns ?? []) {
+          const nom = colonne.expression;
+          const nommee =
+            nom === undefined || colonne.isExpression === true
+              ? undefined
+              : new RegExp(
+                  `(?:^|,)\\s*"?${nom.replace(
+                    /[.*+?^${}()|[\]\\]/gu,
+                    "\\$&",
+                  )}"?\\s+(\\w+_ops)\\b`,
+                  "u",
+                ).exec(colonnes)?.[1];
+          if (nommee === undefined) {
+            if (colonne.opclass !== undefined) {
+              delete colonne.opclass;
+              modifie = true;
+            }
+          } else if (colonne.opclass !== nommee) {
+            colonne.opclass = nommee;
+            modifie = true;
+          }
+        }
+      }
+    }
+    if (modifie) {
+      await fs.writeFile(snapshotFile, JSON.stringify(doc, null, 2), "utf8");
+    }
+  } catch {
+    // Pas d'instantané lisible : le SQL corrigé reste le gain principal, et
+    // échouer ici priverait l'utilisateur d'une référence applicable.
+  }
+  return corrige;
+}
+
 async function uniquesDeColonnePerdues(
   target: IMigrationTarget,
   tables: readonly string[],
@@ -645,6 +851,19 @@ export async function adoptFromDatabase({
   const configFile = path.join(workDir, `introspect.${dialect}.config.ts`);
   const relatif = (cible: string): string =>
     path.relative(projectRoot, cible).split(path.sep).join("/");
+  // 🔴 En MySQL, EXCLURE une table qui porte une contrainte `CHECK` tue
+  // l'introspection : code non nul, sortie d'erreur VIDE, rien écrit. L'outil
+  // lit les contraintes de la base ENTIÈRE — comme il en lit les tables — puis
+  // échoue à rattacher celles dont la table ne figure pas dans son résultat.
+  // Mesuré sur MySQL 8.4, les trois cas isolés : exclure la table PORTEUSE du
+  // `CHECK` échoue, exclure une table sans `CHECK` passe, ne rien exclure
+  // passe. Les tables du framework en portent une (`idempotency_key`), donc
+  // le cas est systématique — et il ne se voyait pas en local, où la même
+  // variable désigne MariaDB, sur lequel l'adoption est refusée en amont.
+  //
+  // On lit donc TOUT, et l'on retire après coup : le filtrage change de place,
+  // jamais de résultat. Ce que l'outil ne sait pas faire, le produit le fait.
+  const lectureSansExclusion = dialect === "mysql" && excludedTables.length > 0;
   try {
     await writeKitConfig({
       file: configFile,
@@ -654,7 +873,7 @@ export async function adoptFromDatabase({
       schemaFile: path.join(workDir, `schema.${dialect}.ts`),
       outDir,
       dialect,
-      excludedTables,
+      excludedTables: lectureSansExclusion ? [] : excludedTables,
       dbUrl: url,
     });
     try {
@@ -684,10 +903,12 @@ export async function adoptFromDatabase({
   const tag = `0000_${name}`;
   const file = await renameTag(outDir, premiere.tag, tag);
   await dropIntrospectionModules(outDir);
+  const schema = dialect === "postgres" ? postgresSchemaOf(url) : null;
   // Avant toute lecture de l'instantané : c'est lui qu'on vient de normaliser.
   await normalizeIntrospection(outDir, file, {
-    schema: dialect === "postgres" ? postgresSchemaOf(url) : null,
+    schema,
     excludedTables,
+    stripTables: lectureSansExclusion ? excludedTables : [],
   });
   const lues = await snapshotTables(outDir);
   const declarees = new Set(declaredTables);
@@ -703,7 +924,14 @@ export async function adoptFromDatabase({
         : `${executable.trimEnd()}\n--> statement-breakpoint\n${manquants.join(
             "\n--> statement-breakpoint\n",
           )}\n`;
-    await fs.writeFile(file, complet, "utf8");
+    // Puis ce qu'elle a rendu FAUX : les classes d'opérateur d'un index
+    // composite, recopiées d'une colonne sur toutes les autres.
+    const corrige = await reecrireIndexComposites(
+      complet,
+      outDir,
+      await colonnesDIndexReelles(target, schema ?? "public", lues),
+    );
+    await fs.writeFile(file, corrige, "utf8");
   }
   return {
     tag,

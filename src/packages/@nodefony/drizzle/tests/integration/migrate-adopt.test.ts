@@ -79,6 +79,21 @@ const TABLE = "adopt_articles";
  */
 const TABLE_JSON = "adopt_json_temoin";
 
+/**
+ * Table à index COMPOSITE de types mixtes, posée uniquement sur PostgreSQL.
+ *
+ * 🔴 L'introspection rend UNE classe d'opérateur pour tout l'index et
+ * l'applique à chaque colonne. Sur `(uuid, timestamptz)` la référence sort
+ * donc avec `("author" timestamptz_ops, "created_at" timestamptz_ops)`, que
+ * PostgreSQL refuse — mais seulement au REJEU : la base adoptée a déjà son
+ * index, et rien ne se voit tant qu'on ne monte pas un exemplaire neuf.
+ *
+ * Les deux colonnes doivent avoir des types DIFFÉRENTS : c'est la condition
+ * du défaut. Un index composite homogène survit à la recopie, ce qui est
+ * précisément ce qui l'a rendu invisible si longtemps.
+ */
+const TABLE_INDEX = "adopt_index_composite";
+
 const TEMOIN = "article-temoin-a-ne-pas-perdre";
 
 /** Un moteur à exercer, et de quoi lui poser le décor. */
@@ -432,6 +447,73 @@ for (const cible of CIBLES) {
         );
       } finally {
         await pilote.close();
+      }
+    });
+
+    it("🔴 un index COMPOSITE de types mixtes reste rejouable", async (ctx) => {
+      // La classe d'opérateur est un objet PostgreSQL : les autres moteurs
+      // n'ont rien à prouver ici. `ctx.skip()`, jamais un `return` — un cas
+      // qui se retourne compte PASSÉ, et le rapporteur y verrait la preuve
+      // que le dialecte a été exercé.
+      if (cible.dialect !== "postgres") {
+        ctx.skip();
+        return;
+      }
+      await put(path.join(entities, "Article.ts"), cible.entite(""));
+      await sql([
+        `DROP TABLE IF EXISTS "${TABLE_INDEX}"`,
+        `CREATE TABLE "${TABLE_INDEX}" ("id" uuid PRIMARY KEY NOT NULL, ` +
+          `"author" uuid, "created_at" timestamp with time zone)`,
+        `CREATE INDEX "${TABLE_INDEX}_author_created_at_idx" ` +
+          `ON "${TABLE_INDEX}" USING btree ("author","created_at")`,
+      ]);
+      try {
+        const adopted = await adoptFromDatabase({
+          projectRoot: app,
+          outDir: out,
+          dialect: cible.dialect,
+          target: cible.target,
+          excludedTables: ["nodefony_migrations"],
+          declaredTables: [TABLE, TABLE_INDEX],
+          name: "base_existante",
+          workDir: path.join(app, "work"),
+        });
+        const ecrit = await fs.readFile(adopted.file, "utf8");
+
+        // 🔴 Le REJEU est l'assertion, pas la forme du texte. Une expression
+        // régulière sur `_ops` dirait seulement que la chaîne a changé ; seul
+        // PostgreSQL sait si l'index qu'on lui donne est acceptable.
+        await sql([`DROP TABLE "${TABLE_INDEX}"`]);
+        const pilote = await openMigrationDriver(cible.target);
+        try {
+          const instructions = splitStatements(ecrit, cible.dialect).filter(
+            (i) => i.includes(TABLE_INDEX),
+          );
+          assert.ok(
+            instructions.length >= 2,
+            "la référence doit porter la table ET son index",
+          );
+          for (const statement of instructions) {
+            await pilote.exec(statement);
+          }
+          // L'index existe, et c'est le CATALOGUE qui le dit : un `CREATE`
+          // silencieusement ignoré passerait l'exécution sans rien poser.
+          assert.equal(
+            (
+              await pilote.query(
+                `SELECT indexname FROM pg_indexes WHERE tablename = ? ` +
+                  `AND indexname = ?`,
+                [TABLE_INDEX, `${TABLE_INDEX}_author_created_at_idx`],
+              )
+            ).length,
+            1,
+            "l'index composite doit être recréé par la référence",
+          );
+        } finally {
+          await pilote.close();
+        }
+      } finally {
+        await sql([`DROP TABLE IF EXISTS "${TABLE_INDEX}"`]);
       }
     });
 
