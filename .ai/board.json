@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T22:19:33.935Z",
+  "generatedAt": "2026-08-31T00:08:10.272Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 38,
+      "closed": 40,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 42,
       "title": "10.0.0"
@@ -247,6 +247,20 @@
       ]
     },
     {
+      "number": 124,
+      "title": "fix(orm): garder les contraintes d'unicité en adoptant une base",
+      "url": "https://github.com/nodefony/nodefony-core/issues/124",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 2.45,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 111,
       "title": "fix(core): rendre surchargeable une clé de config absente par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/111",
@@ -372,8 +386,8 @@
       "number": 119,
       "title": "fix(orm): lire les chaînes SQL avec la grammaire du moteur",
       "url": "https://github.com/nodefony/nodefony-core/issues/119",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -443,7 +457,7 @@
       "title": "test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit",
       "url": "https://github.com/nodefony/nodefony-core/issues/122",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -492,6 +506,20 @@
       "ordre": 2.95,
       "labels": [
         "10.1"
+      ]
+    },
+    {
+      "number": 123,
+      "title": "fix(orm): écrire la première migration d'une base de développement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/123",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.95,
+      "labels": [
+        "10.0.0"
       ]
     },
     {

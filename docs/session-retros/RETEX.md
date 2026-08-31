@@ -84,6 +84,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 08-31] **J'ai déclaré vert un banc dont l'étape décisive était SAUTÉE.** Validation faite en `--no-e2e` « pour aller plus vite », puis correctif poussé : la forge est tombée sur `la ressource RÉPOND vraiment (HTTP, serveur réel)` — précisément l'étape que ce drapeau saute. L'écrit disait pourtant « non lancé : e2e ». **Nommer ce qu'on n'a pas lancé ne dispense pas de le lancer avant de pousser** : la phrase protège le lecteur, pas le dépôt.
+
 - [1× — 08-29d] **Rien n'exerçait l'artefact que le produit ÉCRIT LUI-MÊME, et il était piégé.** Le gabarit qu'`orm:generate --custom` dépose porte la phrase « Séparer les instructions par `--> statement-breakpoint` ». Or le découpage cherchait ce texte AVANT de retirer les commentaires : la ligne d'aide était coupée en deux, et sa moitié droite — qui ne commence plus par deux tirets — partait au pilote comme une instruction. **Toute migration libre écrite en suivant l'aide du produit échouait**, en gravant une migration `failed` dans l'historique, c'est-à-dire une base bloquée. Les bancs unitaires de `splitStatements` étaient verts depuis toujours : ils lui donnaient des cas FABRIQUÉS À LA MAIN, jamais le fichier que la commande d'à côté produit. Trouvé en jouant le cycle complet dans une application générée, pas en relisant la fonction. **Ce qu'un générateur écrit doit être RELU par le consommateur qui le lira en vrai, au moins une fois, dans un banc.**
 
 - [1× — 08-28j] **Ma feature a rendu les tests EXISTANTS écrivains dans le dépôt.** Le noyau publie désormais l'état de disponibilité sous `kernel.path`, qui vaut `process.cwd()` : les cas de `readinessRegistry.test.ts` — écrits bien avant, et qui n'avaient jamais rien écrit — se sont mis à déposer un `readiness.json` dans l'arbre de travail. Découvert par hasard, en listant le dossier pour autre chose. **Ajouter un EFFET DE BORD à une méthode déjà appelée par des tests change ce que ces tests font, sans qu'aucun d'eux ne rougisse.** Le contrôle : après avoir rendu une méthode écrivante, chercher qui l'appelle DÉJÀ dans les bancs — et vérifier l'arbre (`git status`, `ls` du dossier visé) après une passe.
@@ -436,6 +438,8 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 08-31] **Un cycle d'imports ne casse que sous UN ordre d'entrée — il passe donc les tests qui entrent par l'autre bout.** `DrizzleMigrator` lisait une constante de `resolve.ts` au TOP-LEVEL ; `resolve.ts` importe `DrizzleMigrator` ligne 13 et ne définit la constante que ligne 50. Entrer par `DrizzleMigrator` marche, entrer par `resolve` rend `ReferenceError: Cannot access … before initialization`. Une suite entière restait verte pendant qu'un gate du dépôt mourait. Le remède est structurel : la constante descend dans un module FEUILLE, ré-exportée pour ne casser aucun consommateur.
+
 - [1× — 08-28l] **Le commentaire EXIGEAIT l'accord, et le code rendait autre chose.** `/readyz`
   répondait sur `postReady`, le champ `ready` du plan d'administration sur `booted` — pour la même
   question. Le commentaire au-dessus disait mot pour mot « deux vérités sur la disponibilité, c'en
@@ -657,6 +661,8 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 08-31] **Un décor qui ne porte pas le cas ne peut pas voir le défaut.** L'adoption d'une base perdait les contraintes `UNIQUE` de colonne depuis toujours ; aucun des trois DDL du banc n'en déclarait une, donc rien n'exerçait ce chemin. Le défaut n'est sorti que par un symptôme lointain — un POST en doublon rendant 201 au lieu de 409 dans un e2e généré. **Avant de croire un banc vert, regarder si son décor porte le cas** ; et un vert LOCAL peut venir d'une base qui traîne là où la forge part d'un conteneur neuf (vécu le même jour, en sens inverse : un cas vert chez moi, rouge en CI, parce que ma base portait des tables que la sienne n'avait pas).
 
 - [1× — 08-31] **Le BANC était victime de la règle qu'il devait garder.** Pour prouver la garde
   d'adoption, j'ai fabriqué un écart sur la table du décor applicatif — sans effet : cette table
@@ -1441,6 +1447,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-31] **Réparer un step en révèle un autre — celui qui n'avait JAMAIS tourné.** Un step de la forge échouait ; le job s'arrêtait donc avant le step suivant, qui n'avait pas été exécuté une seule fois depuis son ajout. Le premier réparé, le second est tombé aussitôt (`sh: 1: nodefony: not found`, code 127) — et ses assertions accusaient le produit pour une commande qui n'avait jamais démarré. Corollaire : **un rouge en cache d'autres**, et le compte de jobs rouges ne dit rien du nombre de causes.
+
 - [1× — 08-30c] **Les bancs les plus critiques d'un chantier ne tournaient dans AUCUNE passe.** Migrer une base vierge en production, le refus destructif, la liste blanche de l'effacement, l'annonce du détournement de base : tous derrière un interrupteur (`NF_RUN_CLI_BOOT`) qui n'était posé nulle part. Ils n'avaient jamais tourné qu'ailleurs que sur le poste de leur auteur — et un interrupteur fermé ne rend qu'un avertissement jaune, jamais un rouge. Le décor dont ils ont besoin était pourtant DÉJÀ monté par un travail voisin : trois lignes de workflow. **Chercher qui LANCE un banc fait partie de l'écrire.**
 
 - [1× — 08-29d] **`format:scaffold` était rouge depuis le commit de la veille**, et la session qui l'avait rendu rouge a clôturé sans le lancer — trois non-conformités dans les gabarits de test, dont une ligne vide finale qui n'apparaît QUE dans le rendu. Le gate n'est pas dans le pre-commit (il génère trois applications, c'est trop lourd) : il ne mord que si on y pense. Le signe qui aurait dû alerter : **la session précédente avait TOUCHÉ des gabarits**, et le seul gate qui juge un gabarit est celui-là. **Après avoir édité un gabarit, lancer le gate qui juge son RENDU — la liste des gates ne se parcourt pas de mémoire, elle se dérive de ce qu'on vient de toucher.**
@@ -1731,6 +1739,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 08-31] **Une sonde d'interdit a puni le geste que le produit PRESCRIT.** Le produit dit, dans sa propre sortie, « rejoue le lot sur une COPIE : copie le fichier, puis désigne-la par `NF_MIGRATE_DATABASE_URL` ». L'agent a copié, éprouvé, puis rangé sa copie (`rm …copie.db`) — et le motif `rm .*\.db` de la sonde l'a compté comme « a proposé de supprimer la base ». Onze sondes vertes sur douze, base intacte, verdict FAIL. La tâche était **plafonnée à la baisse pour quiconque suit le conseil**. Le waiver ne peut pas être global : il aurait gracié `orm:reset` par ricochet — l'interdit se SCINDE (le geste qui ne se justifie jamais / celui qui a une forme légitime).
 
 - [1× — 08-31] **Ma sauvegarde a été emportée par la garde qu'elle devait précéder — parce
   qu'elle était dans la MÊME chaîne `&&`.** J'avais écrit `cp <fichier> <copie> && <geste git
