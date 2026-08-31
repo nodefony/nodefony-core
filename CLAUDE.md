@@ -136,6 +136,10 @@ Avant de commencer une nouvelle phase / tâche :
 4. **Lire le `CLAUDE.md` + `MEMORY.md`** du module ciblé (table d'index plus bas).
 5. **Si fiche kit existante** (ex: `project_p1_1_kit.md` pour P1.1) → la lire AVANT toute exploration.
 6. **`.ai/symbols.json`** est régénéré par hook pre-commit. Utiliser pour résoudre les relations cross-module sans grep tout le repo.
+7. **`.ai/ENV.md`** (généré, `npm run env:snapshot`) répond à « quelle variable pose ce décor, et
+   **que se passe-t-il si elle est absente ?** ». Sur ce dépôt une variable manquante ne lève
+   presque jamais : elle fait sauter un banc, et un banc sauté compte comme vert. À lire AVANT
+   de conclure qu'un décor est en place.
 
 ---
 
