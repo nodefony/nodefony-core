@@ -3,7 +3,15 @@ import { useEffect, useState, version as reactVersion } from "react";
 // de `nodefony/client` — le même que consomment les vitrines Vue, Angular et
 // Svelte. Deux concepts, ici comme là-bas : un fournisseur qui reçoit
 // l'adresse, et un abonnement.
-import { observeSnapshot, type SocketSnapshot } from "nodefony/client";
+import {
+  installErrorCapture,
+  installRequestIdProvider,
+  installSyslogUplink,
+  observeSnapshot,
+  Syslog,
+  withRequestId,
+  type SocketSnapshot,
+} from "nodefony/client";
 import {
   NodefonyProvider,
   useNodefony,
@@ -96,6 +104,114 @@ const ETATS: Record<string, string> = {
  *  2. **une action de contrôleur, deux transports** — la même route rendue par
  *     HTTP et par la socket, côte à côte, avec le même résultat.
  */
+/**
+ * **Les incidents de CETTE page remontent au serveur** — la démonstration.
+ *
+ * Trois appels suffisent, et c'est tout l'objet de cette section : une
+ * application ordinaire branche l'observabilité de son navigateur sans écrire de
+ * plomberie. Ce que le serveur reçoit rejoint son propre journal, à côté de la
+ * ligne de la requête qui a provoqué l'incident.
+ *
+ * Deux choses valent d'être dites parce qu'elles surprennent :
+ *
+ * 1. **Il faut une session.** Le canal montant n'accepte que les connexions
+ *    authentifiées — un journal d'exploitation ouvert en écriture anonyme se
+ *    noie et se falsifie. Cette vitrine partage son origine avec la console
+ *    d'administration : s'y connecter dans le même navigateur suffit, il n'y a
+ *    pas de second formulaire à remplir.
+ * 2. **Le `requestId` n'est connu que dans la portée d'une réponse.** Un
+ *    navigateur n'a pas de stockage de contexte comme le serveur ; « le
+ *    requestId de la requête précédente » serait faux dès deux appels
+ *    concurrents. `withRequestId` le rend explicite : ce qui est journalisé
+ *    DEDANS porte la corrélation, ce qui est journalisé dehors porte l'identifiant
+ *    de page.
+ */
+function IncidentsSection() {
+  const live = useNodefony();
+  const state = useNodefonyState();
+  const [journal] = useState(() => new Syslog({ moduleName: "vitrine-react" }));
+  const [dit, setDit] = useState<string | null>(null);
+
+  useEffect(() => {
+    // 1 · d'où vient le `requestId` quand il est su.
+    installRequestIdProvider();
+    // 2 · les erreurs que personne ne rattrape rejoignent ce journal.
+    const stopCapture = installErrorCapture({ syslog: journal });
+    // 3 · ce journal remonte au serveur par la socket déjà ouverte.
+    const stopUplink = installSyslogUplink({
+      syslog: journal,
+      publisher: live,
+    });
+    return () => {
+      stopUplink?.();
+      stopCapture?.();
+    };
+  }, [journal, live]);
+
+  /**
+   * Provoque une erreur DANS le traitement d'une réponse — le chemin où le
+   * `requestId` est réellement connu, et le seul qui prouve la corrélation de
+   * bout en bout.
+   */
+  const provoquer = async () => {
+    const reponse = await fetch(`/${FRONT.toLowerCase()}/api/data`);
+    const requestId = reponse.headers.get("x-request-id") ?? undefined;
+    const json = (await reponse.json()) as { result?: Record<string, unknown> };
+    withRequestId(requestId, () => {
+      try {
+        // Une faute ordinaire : on lit un champ d'un objet qui n'existe pas.
+        const absent = (json.result as { absent?: { valeur: string } }).absent;
+        setDit(absent!.valeur);
+      } catch (e) {
+        journal.log(
+          e instanceof Error ? e.message : String(e),
+          3,
+          "VITRINE",
+          "clic sur « provoquer un incident »",
+        );
+        setDit(
+          requestId
+            ? `Incident journalisé et poussé au serveur, corrélé à la requête ${requestId.slice(0, 8)}…`
+            : "Incident journalisé et poussé au serveur (aucun requestId sur cette réponse).",
+        );
+      }
+    });
+  };
+
+  return (
+    <section>
+      <div className="sec-head">
+        <p className="kicker">Observabilité</p>
+        <h2>Ce qui casse ici se lit là-bas</h2>
+        <p>
+          Une erreur survenue dans ce navigateur rejoint le journal du serveur,
+          à côté de la ligne de la requête qui l'a provoquée. Trois appels dans
+          l'application, rien de plus.
+        </p>
+      </div>
+      <p>
+        <button type="button" onClick={() => void provoquer()}>
+          Provoquer un incident
+        </button>
+      </p>
+      {dit ? <p role="status">{dit}</p> : null}
+      <p>
+        <small>
+          La remontée exige une session : le canal n'accepte pas les connexions
+          anonymes. Connectez-vous à la console d'administration dans ce même
+          navigateur, puis rechargez — l'entrée apparaîtra dans{" "}
+          <code>/nodefony/logs</code>. Socket : {state}.
+        </small>
+      </p>
+      <pre>
+        <code>{`installRequestIdProvider()
+installErrorCapture({ syslog })
+installSyslogUplink({ syslog, publisher: socket })`}</code>
+      </pre>
+    </section>
+  );
+}
+
 function LiveSection() {
   const live = useNodefony();
   const state = useNodefonyState();
@@ -447,6 +563,7 @@ export function App() {
           </div>
 
           <LiveSection />
+          <IncidentsSection />
 
           <section>
             <div className="sec-head">
