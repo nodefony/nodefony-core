@@ -29,11 +29,22 @@
 - `pid: number` — procid RFC 5424, capté 1× au load (const `PID`). Browser → 0.
 - `requestId?: string` — ALS via `Pdu.requestIdProvider` (provider injectable)
 
+**`BROWSER_ORIGIN = "browser"`** — `moduleName` d'une entrée venue d'un NAVIGATEUR, imposé par le pod
+en recevant un lot sur `nodefony:syslog:uplink` (jamais repris du fil). Vit ICI, avec `SEVERITY_NAMES`,
+pour la même raison : le serveur l'écrit, le navigateur le lit pour distinguer ces lignes à l'écran
+(pastille de la console d'administration). `@nodefony/realtime` le RÉEXPORTE — une seconde
+déclaration dériverait, et un écran qui ne reconnaît plus l'origine ne se plaint pas.
+
 **Provider injectable `Pdu.requestIdProvider`** (corrélation log↔requête)
 
 - Type : `(() => string | undefined) | null`
 - Node : branché dans `src/index.ts` sur `RequestContext.getRequestId`
-- Browser/debugbar : **non branché** (reste `null`) → 0 lecture ALS, 0 alloc (provider null → 1 test de référence ~5 ns)
+- Browser : `null` par défaut. `installRequestIdProvider()` (`client/syslog/context.ts`) le branche sur
+  une portée EXPLICITE — `withRequestId(rid, fn)`, valable le tick synchrone de `fn`. Le navigateur n'a
+  pas d'ALS : « le requestId de la requête qui a précédé » devient FAUX dès deux `fetch` concurrents,
+  et le seul lecteur de `x-request-id` (`debugbar/network.ts`) est dev-only. Hors portée → aucun
+  requestId, jamais deviné ; le `pageId` du lot (`getPageId()`) corrèle alors les lignes d'un onglet.
+- Browser/debugbar sans branchement : reste `null` → 0 lecture ALS, 0 alloc (provider null → 1 test de référence ~5 ns)
 - Coût ajouté par Pdu côté Node : ~50-100 ns (ALS lookup + access)
 - Slot toujours créé (`this.requestId = undefined` hors bulle) pour `parseJson` réhydratation ; JSON.stringify ignore `undefined` (0 verbosité)
 
@@ -237,3 +248,47 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
 - `loadStack(stack, doEvent, beforeConditions)` : `beforeConditions` appelé AVANT `fire("onLog")`
 - `logicCondition["&&"]` retourne `false` si l'objet de conditions est vide
 - DROPPED pdu → transports **non** appelés (seuls les ACCEPTED passent)
+
+---
+
+## Voie MONTANTE navigateur (`src/client/syslog/`)
+
+**Purpose** : faire remonter les journaux d'une page au `Syslog` du pod, pour lire les deux moitiés
+d'un incident sur la même ligne de temps. Pendant serveur = `@nodefony/realtime`
+(`createSyslogUplinkHandler`, canal `nodefony:syslog:uplink`).
+
+**Trois modules, trois rôles**
+
+- `context.ts` — `getPageId()` (UUID du chargement, TOUJOURS présent) · `withRequestId(rid, fn)` ·
+  `installRequestIdProvider()` · `resetClientLogContext()` (tests).
+- `uplink.ts` — `installSyslogUplink({syslog, publisher, …})` → `dispose()`. Écoute `"onLog"`,
+  tampon borné, envoi par LOTS via `publisher.publish(channel, batch)`.
+- `errors.ts` — `installErrorCapture({syslog, msgid?, dedupeMs?})` → `dispose()`. Deux écouteurs
+  `window` (`error`, `unhandledrejection`), retirés au dispose.
+
+**Behaviors**
+
+- **N'écoute PAS `ILogSink`** : ce puits reçoit des CHAÎNES déjà formatées — sévérité, module et
+  requestId y sont fondus dans du texte. L'événement `"onLog"` porte le `Pdu` lui-même : même
+  structure des deux côtés du fil, aucun reparse.
+- **Coût nul non installé** : `Syslog.log()` ne fire `"onLog"` que si `listenerCount > 0`. Tampon et
+  minuteur alloués au premier journal RETENU, jamais dans un constructeur. UN minuteur en vol quel
+  que soit le débit.
+- **`Error` APLATIE** en `{name, message, stack}` avant le fil : `JSON.stringify(new Error("x"))`
+  rend `{}` — une remontée qui l'ignore transporte des entrées vides.
+- **Bornes client** : sévérité ≤ `maxSeverity` (défaut 4/WARNING) · tampon `maxQueue` qui perd la
+  PLUS ANCIENNE et le DIT (`dropped`) · chaînes tronquées avec la marque de coupe · anti-boucle par
+  `UPLINK_MSGID` (un échec d'envoi journalisé déclencherait un envoi, qui échoue…).
+- **Un envoi qui échoue est PERDU, volontairement** : le réempiler ferait grossir la file à chaque
+  échec — un journal n'est pas une file de messages garantie.
+- `UplinkPublisher` = `{ publish(channel, payload?) }`, pas `RealtimeClient` : le journal ne dépend
+  pas du module realtime, et le transport se teste sans ouvrir de socket.
+
+**Gotchas**
+
+- `Syslog.log(payload, severity, msgid, msg)` — le 3ᵉ argument est le **`msgid`**, PAS le
+  `moduleName` (qui vient de `settings.moduleName` et ne se fixe pas par appel). D'où l'anti-boucle
+  porté par le `msgid`, et le `Pdu` construit à la main côté serveur pour forcer l'origine.
+- Le serveur ÉCRASE `moduleName` par `BROWSER_ORIGIN` : inutile de le négocier depuis la page.
+- Canal soumis au plancher du namespace plateforme ⇒ **une connexion anonyme ne pousse rien** ; les
+  erreurs d'une page de connexion ne remontent pas.

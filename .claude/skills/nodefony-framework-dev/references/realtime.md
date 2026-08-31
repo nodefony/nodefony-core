@@ -424,6 +424,33 @@ Types : `ChannelSink = (payload: unknown) => void` `:62` · `ChannelFactory = (c
 
 Types : `RealtimePublish = (channel: string, payload: unknown) => void` · `RealtimeInboundHandler = (params: unknown, reply: (payload: unknown) => void) => void` (`rt/nodefony/interfaces/IRealtimeController.ts:2/:16` ; `params` **NON FIABLE** → valider).
 
+**Canal MONTANT des journaux navigateur** (`nodefony:syslog:uplink`, `PLATFORM_INBOUND`) — le seul
+canal entrant que la BASE déclare elle-même, et le patron à copier pour tout canal entrant de
+plateforme :
+
+- **Ouverture par la config, pas par un contrôleur** : `defineRealtimeConfig().clientLogs.enabled`
+  (défaut `false`) → `RealtimeService.init()` → `hub.setClientLogsLimits(limits|null)` →
+  `RealtimeController` compose le handler au handshake. Même chemin qu'`originGuard`,
+  `maxChannelsPerConnection` et `slowConsumerBytes` : le hub TRANSPORTE, il ne décide pas.
+- **`null` ≠ un handler qui refuse** : aucun handler n'est déclaré, la frame est droppée comme une
+  méthode inconnue. Un canal fermé n'EXISTE pas — c'est ce qui rend le défaut sûr sans code de refus.
+- **Un handler NEUF par connexion** (`realtimeInbound()` est invoqué au handshake) ⇒ le compteur de
+  débit qu'il capture est per-connexion, sans registre partagé. Borner globalement laisserait un
+  client bavard museler tous les autres.
+- **Un `realtimeInbound()` applicatif qui déclare le même nom GAGNE** : la plateforme fournit un
+  défaut, elle ne confisque pas le canal.
+- **Trois bornes d'une surface d'écriture**, chacune avec son test : origine FORCÉE
+  (`BROWSER_ORIGIN`, jamais le `moduleName` du fil — le `Pdu` est construit à la main, car
+  `syslog.log(payload,…)` prendrait le module de SES réglages) · taille et débit bornés · sévérité
+  plafonnée. Ce qu'elles ne couvrent pas s'ÉNONCE : le `requestId` est déclaré par le client.
+- **Politique** : règle système DÉDIÉE, nommée AVANT le générique (premier match gagne) —
+  `UPLINK_CHANNEL_POLICY` = `authenticated` seul. `SYSTEM_CHANNEL_POLICY` (ROLE_ADMIN) protège la
+  LECTURE de l'état du pod ; un canal montant ne rend rien, il accepte. ⚠️ Un `@RealtimeInbound`
+  SANS policy est **libre** (contrairement à une action, que la base ferme par `DEFAULT_ACTION_POLICY`).
+- **Le journal cible vient de `this.syslog`** (résolu du conteneur par `Service`), pas de
+  `Nodefony.getKernel()?.syslog` : même objet dans une application, mais un contrôleur monté sans
+  kernel doit rester observable — sans quoi aucun banc bout-en-bout n'est possible.
+
 <a id="24-serverrealtimesocket"></a>
 
 ### 2.4 `ServerRealtimeSocket` — handle serveur

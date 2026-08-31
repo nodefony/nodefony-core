@@ -509,6 +509,54 @@ Banc : `src/tests/clientSvelte.test.ts` (11 cas, `@vitest-environment jsdom` + f
 
 ---
 
+## 11 bis. Faire REMONTER les journaux de la page (`nodefony/client`)
+
+Le sens inverse du canal `nodefony:syslog` : la page ÉCRIT dans le journal du pod, pour qu'une erreur
+survenue à l'écran et la requête qui l'a précédée se lisent sur la même ligne de temps
+(`/nodefony/logs`, `TraceView`, qui recoupent déjà par `requestId`).
+
+```ts
+import {
+  Syslog,
+  installSyslogUplink,
+  installErrorCapture,
+  installRequestIdProvider,
+  withRequestId,
+} from "nodefony";
+
+const log = new Syslog({ moduleName: "mon-app" });
+installRequestIdProvider(); // branche Pdu.requestIdProvider sur la portée
+installErrorCapture({ syslog: log }); // window.error + unhandledrejection
+installSyslogUplink({ syslog: log, publisher: client }); // `client` = le RealtimeClient partagé
+
+// Attacher une entrée à une requête CONNUE :
+const res = await fetch("/api/commandes");
+const rid = res.headers.get("x-request-id") ?? undefined;
+withRequestId(rid, () => log.log("commande refusée", "ERROR", "checkout"));
+```
+
+Ce qu'il faut savoir avant de l'utiliser :
+
+- **Le serveur doit avoir ouvert le canal** (`realtime.clientLogs.enabled`, défaut `false`) — sinon
+  la frame est droppée en silence, sans erreur : le canal n'existe pas.
+- **Le canal exige une SESSION** (plancher du namespace plateforme). Une page anonyme ne remonte
+  rien — les erreurs d'un écran de connexion, notamment.
+- **`withRequestId` vaut le tick SYNCHRONE**, et rien de plus : après un `await`, la portée est
+  refermée. Le navigateur n'a pas d'ALS ; « le requestId de la requête précédente » serait FAUX dès
+  deux `fetch` concurrents. Hors portée, le `pageId` du lot corrèle les lignes d'un même onglet.
+- **L'origine affichée ne se négocie pas** : le pod écrase `moduleName` par `BROWSER_ORIGIN`. Le
+  `moduleName` local ne sert qu'au débogage dans la console du navigateur.
+- **Sévérité retenue ≤ WARNING** par défaut (`maxSeverity`), lots regroupés (`batchMs`), tampon qui
+  perd la plus ancienne entrée et le DIT (`dropped`). Rien n'est alloué tant qu'aucune entrée n'est
+  retenue, et un envoi qui échoue est perdu volontairement (un journal n'est pas une file garantie).
+- `installSyslogUplink` et `installErrorCapture` rendent chacun leur `dispose()` — à appeler au
+  démontage, sauf si le journal vit aussi longtemps que le document.
+
+Pendant serveur, bornes et politique du canal → `nodefony-framework-dev` (`references/realtime.md`,
+« Canal MONTANT des journaux navigateur »).
+
+---
+
 ## 12. Gotchas
 
 - **`on` ≠ `subscribe`** : `on(channel, h)` reçoit, `subscribe(channel)` demande au serveur. Il faut les DEUX (les hooks `useNodefonyChannel*` font les deux pour toi).
