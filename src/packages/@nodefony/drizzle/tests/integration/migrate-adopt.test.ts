@@ -111,12 +111,13 @@ const CIBLES: ICible[] = [
     },
     ddl:
       `CREATE TABLE \`${TABLE}\` (\`id\` text PRIMARY KEY NOT NULL, ` +
-      `\`title\` text NOT NULL)`,
+      `\`title\` text NOT NULL, \`code\` text NOT NULL UNIQUE)`,
     entite: (extra) =>
       `import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 export const articleTable = sqliteTable("${TABLE}", {
   id: text("id").primaryKey(),
-  title: text("title").notNull(),${extra}
+  title: text("title").notNull(),
+  code: text("code").notNull().unique(),${extra}
 });
 `,
   },
@@ -127,12 +128,13 @@ export const articleTable = sqliteTable("${TABLE}", {
     target: { dialect: "postgres", url: PG_URL },
     ddl:
       `CREATE TABLE "${TABLE}" ("id" text PRIMARY KEY NOT NULL, ` +
-      `"title" text NOT NULL)`,
+      `"title" text NOT NULL, "code" text NOT NULL UNIQUE)`,
     entite: (extra) =>
       `import { pgTable, text } from "drizzle-orm/pg-core";
 export const articleTable = pgTable("${TABLE}", {
   id: text("id").primaryKey(),
-  title: text("title").notNull(),${extra}
+  title: text("title").notNull(),
+  code: text("code").notNull().unique(),${extra}
 });
 `,
   },
@@ -143,14 +145,18 @@ export const articleTable = pgTable("${TABLE}", {
     target: { dialect: "mysql", url: MYSQL_URL },
     // MySQL refuse une clé primaire sur un `text` sans longueur : le décor est
     // celui que le moteur PERMET, pas la transposition littérale de l'autre.
+    // Le `code` est un `varchar` : MySQL refuse l'unicité sur un `text` sans
+    // longueur de préfixe — le décor est celui que le moteur PERMET.
     ddl:
       `CREATE TABLE \`${TABLE}\` (\`id\` varchar(36) NOT NULL, ` +
-      `\`title\` text NOT NULL, PRIMARY KEY (\`id\`))`,
+      `\`title\` text NOT NULL, \`code\` varchar(64) NOT NULL UNIQUE, ` +
+      `PRIMARY KEY (\`id\`))`,
     entite: (extra) =>
       `import { mysqlTable, text, varchar } from "drizzle-orm/mysql-core";
 export const articleTable = mysqlTable("${TABLE}", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  title: text("title").notNull(),${extra}
+  title: text("title").notNull(),
+  code: varchar("code", { length: 64 }).notNull().unique(),${extra}
 });
 `,
   },
@@ -297,7 +303,7 @@ for (const cible of CIBLES) {
       await sql([
         `DROP TABLE IF EXISTS ${cible.dialect === "postgres" ? `"${TABLE}"` : `\`${TABLE}\``}`,
         cible.ddl,
-        `INSERT INTO ${cible.dialect === "postgres" ? `"${TABLE}"` : `\`${TABLE}\``} VALUES ('1', '${TEMOIN}')`,
+        `INSERT INTO ${cible.dialect === "postgres" ? `"${TABLE}"` : `\`${TABLE}\``} VALUES ('1', '${TEMOIN}', 'code-1')`,
       ]);
     });
 
@@ -364,6 +370,17 @@ for (const cible of CIBLES) {
         ecrit,
         /slug/,
         "la référence décrit la BASE, pas le code",
+      );
+      // 🔴 La référence doit RECRÉER les contraintes d'unicité, y compris
+      // celles portées par une COLONNE. Elles ne se voient pas sur la base
+      // adoptée — elle les a déjà — mais sur la SUIVANTE, celle qu'on recrée
+      // depuis ce fichier : un environnement de test, un exemplaire neuf. Une
+      // contrainte perdue ne lève rien, elle laisse entrer des doublons que le
+      // schéma interdisait.
+      assert.match(
+        ecrit,
+        /\bunique\b/iu,
+        "la contrainte d'unicité de la colonne « code » a disparu de la référence",
       );
       assert.deepEqual(
         await titres(),

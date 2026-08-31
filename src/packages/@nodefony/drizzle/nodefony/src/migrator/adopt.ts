@@ -510,6 +510,83 @@ async function expliquerEchec(
 }
 
 /**
+ * Les contraintes d'unicité de COLONNE que l'introspection n'a pas rendues.
+ *
+ * 🔴 En SQLite, `col text UNIQUE` ne crée pas d'index nommé : le moteur pose un
+ * index INTERNE (`sqlite_autoindex_…`) que l'outil d'introspection ne liste
+ * pas. La référence adoptée sortait donc SANS la contrainte, alors que la base
+ * la porte — et un index unique COMPOSITE, lui, survivait, ce qui rendait
+ * l'écart d'autant plus difficile à voir.
+ *
+ * La perte ne se constate pas sur la base adoptée : elle a déjà sa contrainte.
+ * Elle frappe la base SUIVANTE — un environnement de test, un exemplaire neuf —
+ * recréée depuis ce fichier, qui accepte alors des doublons que le schéma
+ * interdisait. Aucune erreur n'est levée : c'est la donnée qui devient fausse.
+ *
+ * On les rend sous forme de `CREATE UNIQUE INDEX`, et non en réécrivant le
+ * `CREATE TABLE` : un index séparé est portable, s'ajoute sans toucher au corps
+ * produit par l'outil, et porte exactement la même garantie.
+ *
+ * Les autres moteurs n'ont pas ce défaut — leur catalogue expose la contrainte,
+ * et l'introspection la rend (vérifié : PostgreSQL et MySQL passent le cas qui
+ * fait tomber SQLite).
+ *
+ * @param target - cible du connecteur adopté.
+ * @param tables - tables retenues par l'adoption.
+ * @param sql - la référence telle que l'outil l'a écrite.
+ * @returns les instructions à ajouter, vides s'il n'en manque aucune.
+ */
+async function uniquesDeColonnePerdues(
+  target: IMigrationTarget,
+  tables: readonly string[],
+  sql: string,
+): Promise<string[]> {
+  if (target.dialect !== "sqlite") {
+    return [];
+  }
+  const ajouts: string[] = [];
+  const pilote = await openMigrationDriver(target);
+  try {
+    for (const table of tables) {
+      const ident = `"${table.replace(/"/gu, '""')}"`;
+      // `PRAGMA` n'accepte pas de paramètre lié : le nom vient du CATALOGUE,
+      // jamais d'une saisie, et il est cité comme un identifiant.
+      const index = await pilote.query<{
+        name: string;
+        unique: number;
+        origin: string;
+      }>(`PRAGMA index_list(${ident})`);
+      for (const idx of index) {
+        // `origin: "u"` = né d'une clause UNIQUE ; `"c"` = un CREATE INDEX, que
+        // l'outil rend déjà ; `"pk"` = la clé primaire, qui est dans la table.
+        if (Number(idx.unique) !== 1 || idx.origin !== "u") {
+          continue;
+        }
+        const colonnes = await pilote.query<{ name: string }>(
+          `PRAGMA index_info("${String(idx.name).replace(/"/gu, '""')}")`,
+        );
+        const noms = colonnes.map((c) => c.name).filter((n) => n !== null);
+        if (noms.length === 0) {
+          continue;
+        }
+        const nom = `${table}_${noms.join("_")}_key`;
+        // Ne rien ajouter deux fois : l'outil a pu rendre cet index lui-même.
+        if (sql.includes(nom)) {
+          continue;
+        }
+        const cibles = noms.map((n) => `\`${n}\``).join(",");
+        ajouts.push(
+          `CREATE UNIQUE INDEX \`${nom}\` ON \`${table}\` (${cibles});`,
+        );
+      }
+    }
+  } finally {
+    await pilote.close();
+  }
+  return ajouts;
+}
+
+/**
  * Fabrique la migration de RÉFÉRENCE d'une base déjà en place.
  *
  * Orchestration complète du côté fichiers — la connexion est lue, rien n'est
@@ -617,7 +694,16 @@ export async function adoptFromDatabase({
   const brut = await fs.readFile(file, "utf8");
   const executable = uncommentIntrospection(brut);
   if (executable !== null) {
-    await fs.writeFile(file, executable, "utf8");
+    // Ce que l'introspection a laissé derrière elle, remis AVANT l'écriture :
+    // le fichier livré est le seul artefact qui compte.
+    const manquants = await uniquesDeColonnePerdues(target, lues, executable);
+    const complet =
+      manquants.length === 0
+        ? executable
+        : `${executable.trimEnd()}\n--> statement-breakpoint\n${manquants.join(
+            "\n--> statement-breakpoint\n",
+          )}\n`;
+    await fs.writeFile(file, complet, "utf8");
   }
   return {
     tag,
