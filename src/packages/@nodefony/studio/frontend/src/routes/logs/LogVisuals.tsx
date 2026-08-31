@@ -13,6 +13,7 @@ import {
   IconBroadcast,
   IconAffiliate,
   IconAlertTriangle,
+  IconDeviceDesktop,
 } from "@tabler/icons-react";
 import type { FC } from "react";
 import type {
@@ -27,6 +28,7 @@ import {
   severityVariant,
   type DriverIconKind,
 } from "./logFormat";
+import { BROWSER_ORIGIN } from "nodefony";
 import { DocHint } from "../../components/ui";
 
 /** Icône d'un type de driver. */
@@ -37,6 +39,40 @@ const DRIVER_ICONS: Record<DriverIconKind, FC<{ size?: number }>> = {
   search: IconSearch,
   generic: IconDatabase,
 };
+
+/**
+ * **OriginBadge** — d'où vient cette ligne de journal : du pod, ou d'un NAVIGATEUR.
+ *
+ * Sans cette distinction, une erreur remontée d'une page se pose au milieu des
+ * journaux du serveur avec la même apparence, et personne ne la repère — le canal
+ * montant (#35) n'aurait alors servi à rien : la donnée arriverait, invisible.
+ *
+ * La valeur est de CONFIANCE : le pod impose lui-même `BROWSER_ORIGIN` en recevant
+ * un lot, sans jamais reprendre le module que la page prétend être. Une ligne qui
+ * la porte a donc bien traversé ce canal — c'est pourquoi il est honnête de
+ * l'afficher comme une origine, et non comme une simple étiquette de plus.
+ */
+export function OriginBadge({ moduleName }: { moduleName: string }) {
+  if (moduleName !== BROWSER_ORIGIN) {
+    return (
+      <Text size="xs" c="dimmed" truncate>
+        {moduleName}
+      </Text>
+    );
+  }
+  return (
+    <Badge
+      size="xs"
+      variant="light"
+      color="grape"
+      leftSection={<IconDeviceDesktop size={11} />}
+      style={{ flexShrink: 0 }}
+      title="Journal remonté par un navigateur, réinjecté par le pod"
+    >
+      navigateur
+    </Badge>
+  );
+}
 
 /**
  * **DriverIcon** — icône d'un driver de relecture, dérivée de son nom via

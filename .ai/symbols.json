@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-31T14:51:21.328Z",
+  "generated": "2026-08-31T15:13:10.089Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4681,6 +4681,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la valeur : `SEVERITY_NAMES[3] === \"ERROR\"`). `SPINNER` (-1) en est absent : c'est une extension d'affichage CLI, jamais un ni…"
+    },
+    "BROWSER_ORIGIN": {
+      "name": "BROWSER_ORIGIN",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`moduleName` porté par une entrée de journal venue d'un NAVIGATEUR. Valeur de confiance : le pod l'impose lui-même en recevant un lot sur le canal montant, sans jamais reprendre ce que la page prét…"
     },
     "Syslog": {
       "name": "Syslog",
@@ -22355,14 +22363,6 @@
       "module": "@nodefony/realtime",
       "description": "Fabrique le handler du canal montant des journaux. **Un handler par connexion** : `RealtimeController.realtimeInbound()` est invoqué au handshake, donc le compteur de débit qu'il capture est per-co…"
     },
-    "BROWSER_ORIGIN": {
-      "name": "BROWSER_ORIGIN",
-      "kind": "const",
-      "file": "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts",
-      "exported": true,
-      "module": "@nodefony/realtime",
-      "description": "Origine imposée à toute entrée venue d'un navigateur. C'est la valeur de confiance du journal : elle vient du serveur, jamais du fil."
-    },
     "MAX_CLIENT_SEVERITY": {
       "name": "MAX_CLIENT_SEVERITY",
       "kind": "const",
@@ -27920,6 +27920,10 @@
       "SEVERITY_NAMES": [
         "src/nodefony/src/client/index.ts",
         "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
+      ],
+      "BROWSER_ORIGIN": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts"
       ],
       "isEmptyObject": [
         "src/nodefony/src/client/index.ts"

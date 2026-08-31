@@ -511,7 +511,7 @@ export type {
 } from "./Container";
 export { Scope } from "./Container";
 
-export { SEVERITY_NAMES } from "./syslog/Pdu";
+export { SEVERITY_NAMES, BROWSER_ORIGIN } from "./syslog/Pdu";
 export type { Message, Msgid, Pci, Severity, SeverityName } from "./syslog/Pdu";
 
 export type {

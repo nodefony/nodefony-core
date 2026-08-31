@@ -67,7 +67,7 @@ import {
   fmtMillis,
   recordMessage,
 } from "./logs/logFormat";
-import { SeverityBadge } from "./logs/LogVisuals";
+import { OriginBadge, SeverityBadge } from "./logs/LogVisuals";
 import { WsTracePanel } from "./logs/wsTrace";
 import {
   PhaseWaterfall,
@@ -174,6 +174,7 @@ function LogLine({ row, baseTs }: { row: LogRecord; baseTs: number }) {
         +{row.timeStamp - baseTs}ms
       </Text>
       <SeverityBadge severity={row.severityName} size="xs" />
+      <OriginBadge moduleName={row.moduleName} />
       {flow && (
         <Badge
           size="xs"
@@ -517,6 +518,11 @@ export const TraceView = observer(() => {
                         {flow.label}
                       </Badge>
                       <SeverityBadge severity={m.severityName} size="xs" />
+                      {/* Les deux moitiés de l'incident sur la MÊME timeline :
+                          sans cette marque, une erreur remontée du navigateur se
+                          lit comme un jalon serveur de plus, et le recoupement
+                          que cette page existe pour montrer passe inaperçu. */}
+                      <OriginBadge moduleName={m.moduleName} />
                     </Group>
                   }
                 >

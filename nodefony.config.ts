@@ -229,7 +229,16 @@ export default defineConfig<Env>((ctx) => ({
     // Realtime APRÈS framework. Backplane `cluster` (IPC intra-pod, master relay) par
     // DÉFAUT : 0 dépendance externe. Mono-process → hub local ; cluster (`--workers N`)
     // → fan-out IPC entre workers du même pod. Redis = OPT-IN cross-pod (voir plus bas).
-    use("@nodefony/realtime", { backplane: { driver: "cluster" } }),
+    use("@nodefony/realtime", {
+      backplane: { driver: "cluster" },
+      // #35 — accepte les journaux que les navigateurs remontent, et les
+      // réinjecte dans le journal du pod (origine forcée `browser`, débit et
+      // taille bornés par connexion). Ouvert ICI parce que ce dépôt est aussi
+      // l'application de développement du framework : c'est ce qui permet de
+      // voir, dans la console d'administration, une erreur de page et la requête
+      // qui l'a précédée sur la même ligne de temps. Fermé par défaut ailleurs.
+      clientLogs: { enabled: true },
+    }),
 
     // Sécurité applicative (P6) — requise dès qu'on sert du trafic.
     // Zones (firewall) : chaque zone = pattern d'URL + chaîne d'authenticators

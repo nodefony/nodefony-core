@@ -1,7 +1,13 @@
 import { reaction } from "mobx";
 import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
-import { RealtimeClient } from "nodefony";
+import {
+  RealtimeClient,
+  Syslog,
+  installErrorCapture,
+  installRequestIdProvider,
+  installSyslogUplink,
+} from "nodefony";
 import type { NoticeLevel } from "nodefony";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
@@ -43,6 +49,8 @@ export class RootStore {
 
   readonly api: ApiClient;
   readonly realtime: RealtimeClient;
+  /** Journal des incidents de CETTE page, remonté au pod (#35). */
+  readonly browserLog: Syslog;
 
   constructor() {
     this.ui = new UiStore();
@@ -58,6 +66,22 @@ export class RootStore {
       // (sinon l'overlay « reste » pendant le long backoff par défaut de 30s).
       reconnectDelay: 800,
       reconnectDelayMax: 4000,
+    });
+
+    // #35 — Studio est une application front comme une autre : ses propres
+    // erreurs remontent au pod par le canal montant, au lieu de mourir dans une
+    // console que personne n'a ouverte. Journal DÉDIÉ plutôt que celui de la
+    // page : ce qui part sur le fil est ainsi exactement ce qu'on a décidé d'y
+    // mettre. Le pod écrasera de toute façon l'origine (`browser`) — le
+    // `moduleName` posé ici ne sert qu'au débogage local.
+    // Aucun retrait n'est prévu : RootStore vit aussi longtemps que le document
+    // (cf la note sur l'absence de disposal plus bas).
+    this.browserLog = new Syslog({ moduleName: "studio" });
+    installRequestIdProvider();
+    installErrorCapture({ syslog: this.browserLog });
+    installSyslogUplink({
+      syslog: this.browserLog,
+      publisher: this.realtime,
     });
 
     // Centre de notifications : avant l'ApiClient (qui s'en sert dans onError).

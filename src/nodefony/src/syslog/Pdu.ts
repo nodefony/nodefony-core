@@ -76,6 +76,21 @@ export const SEVERITY_NAMES = [
 /** Un nom de sévérité RFC 5424 (hors extension `SPINNER`). */
 export type SeverityName = (typeof SEVERITY_NAMES)[number];
 
+/**
+ * `moduleName` porté par une entrée de journal venue d'un NAVIGATEUR.
+ *
+ * Valeur de confiance : le pod l'impose lui-même en recevant un lot sur le canal
+ * montant, sans jamais reprendre ce que la page prétend être. Une ligne qui la porte
+ * a donc traversé ce canal, et rien d'autre ne peut la produire.
+ *
+ * Elle vit ICI, dans le cœur isomorphe, pour la même raison que
+ * {@link SEVERITY_NAMES} : le serveur l'écrit, le navigateur la lit pour distinguer
+ * ces lignes à l'écran. Une copie côté console d'administration dériverait le jour
+ * où le mot change — et un écran qui ne reconnaît plus l'origine ne se plaint pas,
+ * il affiche simplement une ligne de plus au milieu des autres.
+ */
+export const BROWSER_ORIGIN = "browser";
+
 const translateSeverity = function (severity: Severity = "INFO"): number {
   if (typeof severity === "number") {
     if (severity === SysLogSeverity.SPINNER) return SysLogSeverity.SPINNER;

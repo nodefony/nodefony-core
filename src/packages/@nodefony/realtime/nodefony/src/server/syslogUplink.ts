@@ -21,14 +21,13 @@
  * déclarative. C'est le prix d'une corrélation front↔back, et il s'énonce.
  */
 
-import { Pdu, Syslog } from "nodefony";
+import { BROWSER_ORIGIN, Pdu, Syslog } from "nodefony";
 import type { RealtimeInboundHandler } from "../../interfaces/IRealtimeController";
 
-/**
- * Origine imposée à toute entrée venue d'un navigateur. C'est la valeur de confiance
- * du journal : elle vient du serveur, jamais du fil.
- */
-export const BROWSER_ORIGIN = "browser";
+// L'origine imposée vient du cœur ISOMORPHE : le pod l'écrit, la console
+// d'administration la lit pour distinguer ces lignes. Réexportée telle quelle —
+// une seconde déclaration dériverait du jour où le mot change.
+export { BROWSER_ORIGIN };
 
 /**
  * Sévérité la plus grave qu'un client puisse obtenir (3 = ERROR). Au-dessus vivent

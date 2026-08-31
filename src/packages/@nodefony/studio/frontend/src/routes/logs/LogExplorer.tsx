@@ -63,6 +63,7 @@ import type {
   Severity,
 } from "./logsTypes";
 import { SEVERITIES } from "./logsTypes";
+import { BROWSER_ORIGIN } from "nodefony";
 import {
   LOGS_DOC,
   driverMeta,
@@ -76,6 +77,7 @@ import {
   ClusterScopeNotice,
   DriverIcon,
   SeverityBadge,
+  OriginBadge,
 } from "./LogVisuals";
 import {
   describeFlow,
@@ -319,11 +321,7 @@ export const LogExplorer = observer(
           header: "Module",
           size: 130,
           value: (r) => r.moduleName,
-          render: (r) => (
-            <Text size="xs" c="dimmed" truncate>
-              {r.moduleName}
-            </Text>
-          ),
+          render: (r) => <OriginBadge moduleName={r.moduleName} />,
         },
         {
           key: "msgid",
@@ -660,6 +658,20 @@ export const LogExplorer = observer(
                 ))}
               </Group>
             </Chip.Group>
+            {/* Raccourci vers l'origine NAVIGATEUR. Il ne crée pas un second
+                état de filtre : il pilote le champ « Module » ci-contre, que le
+                data plane applique déjà en égalité. Sa raison d'être est la
+                DÉCOUVRABILITÉ — personne ne tape « browser » dans un champ libre
+                s'il ignore que ces lignes existent. */}
+            <Chip
+              size="xs"
+              color="grape"
+              checked={moduleF === BROWSER_ORIGIN}
+              onChange={(on) => setModuleF(on ? BROWSER_ORIGIN : "")}
+              aria-label="ne montrer que les journaux remontés par les navigateurs"
+            >
+              Navigateur
+            </Chip>
             <TextInput
               size="xs"
               w={150}

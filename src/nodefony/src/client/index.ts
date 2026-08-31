@@ -1,7 +1,7 @@
 import Container from "../Container";
 import Service from "../Service";
 import Syslog from "../syslog/Syslog";
-import Pdu, { SEVERITY_NAMES } from "../syslog/Pdu";
+import Pdu, { SEVERITY_NAMES, BROWSER_ORIGIN } from "../syslog/Pdu";
 import {
   extend,
   isEmptyObject,
@@ -94,6 +94,7 @@ export {
   Container,
   Pdu,
   SEVERITY_NAMES,
+  BROWSER_ORIGIN,
   Syslog,
   extend,
   isEmptyObject,
