@@ -281,6 +281,7 @@ describe("catalogue — la casse d'un nom", () => {
                   type: "varchar(64)",
                   nullable: true,
                   primaryKey: false,
+                  unique: false,
                 },
               ],
             },
