@@ -737,12 +737,13 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 > l'avaient prouvé : elles envoyaient encore travailler sur les commandes `framework:*`, sorties du
 > périmètre par [#32](https://github.com/nodefony/nodefony-core/issues/32).
 
-| Ce qu'on cherche           | Où                                                                                        |
-| -------------------------- | ----------------------------------------------------------------------------------------- |
-| Ce qui reste, dans l'ordre | le tableau de bord, ou **hors ligne** l'empreinte commitée [`.ai/BOARD.md`](.ai/BOARD.md) |
-| Le périmètre et l'échéance | [`docs/release/nodefony-10.md`](docs/release/nodefony-10.md) §8 et §10.9                  |
-| Le POURQUOI d'une décision | ce fichier (§ Décisions), les `docs/adr/`, les `CLAUDE.md`/`MEMORY.md` de module          |
-| Ce qui est FAIT            | `git log` — jamais une case cochée à la main                                              |
+| Ce qu'on cherche                                               | Où                                                                                        |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Ce qui reste, dans l'ordre                                     | le tableau de bord, ou **hors ligne** l'empreinte commitée [`.ai/BOARD.md`](.ai/BOARD.md) |
+| Le périmètre et l'échéance                                     | [`docs/release/nodefony-10.md`](docs/release/nodefony-10.md) §8 et §10.9                  |
+| Le POURQUOI d'une décision                                     | ce fichier (§ Décisions), les `docs/adr/`, les `CLAUDE.md`/`MEMORY.md` de module          |
+| Ce qui est FAIT                                                | `git log` — jamais une case cochée à la main                                              |
+| Ce qu'une variable `NF_*` fait, et ce que son ABSENCE provoque | l'empreinte générée [`.ai/ENV.md`](.ai/ENV.md) (`npm run env:snapshot`)                   |
 
 **L'empreinte `.ai/BOARD.md` est GÉNÉRÉE** (skill `nodefony-session`, `scripts/board-snapshot.mjs`)
 et ne s'édite pas : c'est ce qui l'empêche de mentir comme mentaient les sections retirées.

@@ -928,6 +928,16 @@
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
+- [1× — 08-31e] **Le refus qui annonce une destruction accusait la BASE, jamais le dossier
+  d'entités.** `NF_GENERATE_DESTRUCTIVE` nommait un `drop table` sans dire un mot de ce que la
+  découverte avait relevé. Quand le schéma déclaré est AMPUTÉ — fichier illisible, table écrite
+  pour un autre moteur, entité qui n'exporte rien sous la configuration courante —, l'outil de
+  diff ne distingue pas « absente de la découverte » de « supprimée du schéma ». Le message était
+  donc exact sur la mécanique et muet sur la cause, et la correction naturelle qu'il appelle est
+  d'accepter la destruction ou de repartir d'une base vide. **Un refus qui propose un geste
+  destructeur doit énoncer ce qu'il a VU**, pas seulement ce qu'il a décidé. Et il n'était couvert
+  par aucun test : le trou s'est vu en cherchant tout autre chose.
+
 - [1× — 08-31] **Le fourre-tout a fait DÉTRUIRE une base.** Un agent avait suivi le conseil
   « éprouve la migration sur une copie » ; sa copie, fabriquée à la main faute de savoir quel
   fichier copier, portait une table d'historique inventée. La migration a échoué sur `no such
@@ -1469,6 +1479,16 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 08-31e] **Un gate qui rend un verdict FAUX est pire qu'un gate absent : il apprend à
+  passer outre.** Le catalogue des variables d'environnement classait en « décor de banc » toute
+  variable qu'aucun `process.env.X` ne lisait hors des tests — et exigeait donc une description
+  pour `NF_DATABASE_URL` et `NF_REDIS_HOST`, que le produit lit par une table de noms
+  (`infra.ts:135`) ou par un objet d'environnement injecté (`defineModuleConfig.ts:30`). Deux
+  refus faux au premier essai, sur un gate posé en pre-commit. **Un classement automatique doit
+  être CONSERVATEUR** : ratisser toutes les formes de référence, et retomber sur la catégorie
+  indulgente au moindre doute. Le coût des deux erreurs n'est pas symétrique — un trou laisse
+  passer un cas, un faux positif fait désarmer l'instrument.
+
 - [1× — 08-31] **Réparer un step en révèle un autre — celui qui n'avait JAMAIS tourné.** Un step de la forge échouait ; le job s'arrêtait donc avant le step suivant, qui n'avait pas été exécuté une seule fois depuis son ajout. Le premier réparé, le second est tombé aussitôt (`sh: 1: nodefony: not found`, code 127) — et ses assertions accusaient le produit pour une commande qui n'avait jamais démarré. Corollaire : **un rouge en cache d'autres**, et le compte de jobs rouges ne dit rien du nombre de causes.
 
 - [1× — 08-30c] **Les bancs les plus critiques d'un chantier ne tournaient dans AUCUNE passe.** Migrer une base vierge en production, le refus destructif, la liste blanche de l'effacement, l'annonce du détournement de base : tous derrière un interrupteur (`NF_RUN_CLI_BOOT`) qui n'était posé nulle part. Ils n'avaient jamais tourné qu'ailleurs que sur le poste de leur auteur — et un interrupteur fermé ne rend qu'un avertissement jaune, jamais un rouge. Le décor dont ils ont besoin était pourtant DÉJÀ monté par un travail voisin : trois lignes de workflow. **Chercher qui LANCE un banc fait partie de l'écrire.**
@@ -1837,6 +1857,17 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
   persiste.
 
 ## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
+
+- [1× — 08-31e] **Un symptôme qui ne se reproduit pas ne se chasse pas — il se rend LISIBLE.**
+  Un banc rendait un verdict dépendant des dialectes joués dans la même passe : 2 rouges sur 5 la
+  veille, **0 sur 7 aujourd'hui**, décor et commandes identiques. Trente-cinq minutes de tirages
+  pour une conclusion nulle. Ce qui manquait au rouge n'était pas une répétition de plus, c'était
+  l'ÉTAT dans lequel il était survenu — tables réellement en base, fichiers écrits, journal — que
+  le banc ne capturait nulle part. **Quand re-tirer coûte plus que la réponse, arrêter de tirer et
+  instrumenter le point d'échec** ; l'enrichissement se pose au point UNIQUE par lequel tous les
+  cas passent, sinon il est oublié au premier cas ajouté. Corollaire vécu deux jours de suite :
+  **instruire le ticket a rendu plus que l'exécuter** — le vrai défaut trouvé était ailleurs que
+  là où l'énoncé pointait.
 
 - [1× — 08-28] **Deux tests rouges accusaient mon diff ; c'était mon propre `npm run build` qui
   tournait EN MÊME TEMPS.** Le script du cœur commence par `rimraf dist` : lancé pendant qu'une
