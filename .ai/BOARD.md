@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 00:08** (UTC).
+> Empreinte prise le **2026-08-31 00:42** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 42 | 40 | 2026-11-15 |
+| 10.0.0 | 46 | 40 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,18 +27,22 @@ Ordre 2 · P0 — bloque le reste · 2.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 42 ouverts
+## Jalon 10.0.0 — 46 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2 | P0 — bloque le reste | 2.5 | #17 | feat(orm): livrer les migrations de schéma en production |
 | 2.5 | P0 — bloque le reste | 1 | #118 | fix(orm): ne pas régénérer une table que la base porte déjà |
+| 2.55 | P0 — bloque le reste | 0.5 | #125 | fix(orm): écrire un index composite adoptable sur une base vierge |
+| 2.56 | P0 — bloque le reste | 0.5 | #126 | fix(orm): adopter une base MySQL Community, ou dire pourquoi c'est impossible |
+| 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 2.9 | P1 — figé à la création | 0.5 | #122 | test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit |
-| 2.95 | P1 — figé à la création | 1 | #123 | fix(orm): écrire la première migration d'une base de développement |
+| 2.9 | P1 — figé à la création | 1 | #122 | test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit |
+| 2.95 | P1 — figé à la création | 0.5 | #123 | fix(orm): écrire la première migration d'une base de développement |
 | 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
+| 4.55 | P1 — figé à la création | 0.5 | #127 | fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe |
 | 4.6 | P1 — figé à la création | 1 | #61 | feat(realtime): garder les canaux dynamiques par un motif de nom |
 | 6 | P1 — figé à la création | 0.5 | #22 | ci(security): détecter les secrets commités dans le dépôt |
 | 6 | P1 — figé à la création | — | #53 | docs: remettre la documentation à niveau avant la version 10 |

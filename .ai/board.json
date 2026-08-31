@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T00:08:10.272Z",
+  "generatedAt": "2026-08-31T00:42:21.659Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 40,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 46,
       "title": "10.0.0"
     }
   ],
@@ -327,6 +327,48 @@
       "labels": []
     },
     {
+      "number": 125,
+      "title": "fix(orm): écrire un index composite adoptable sur une base vierge",
+      "url": "https://github.com/nodefony/nodefony-core/issues/125",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 2.55,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 126,
+      "title": "fix(orm): adopter une base MySQL Community, ou dire pourquoi c'est impossible",
+      "url": "https://github.com/nodefony/nodefony-core/issues/126",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 2.56,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 128,
+      "title": "ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local",
+      "url": "https://github.com/nodefony/nodefony-core/issues/128",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.57,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 99,
       "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
@@ -457,10 +499,10 @@
       "title": "test(orm): prouver le refus d'une entité qu'aucun fichier ne fournit",
       "url": "https://github.com/nodefony/nodefony-core/issues/122",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 0.5,
+      "jours": 1,
       "ordre": 2.9,
       "labels": [
         "10.0.0"
@@ -516,7 +558,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 1,
+      "jours": 0.5,
       "ordre": 2.95,
       "labels": [
         "10.0.0"
@@ -564,6 +606,20 @@
       "labels": [
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 127,
+      "title": "fix(realtime): rétablir le journal et le rejeu d'abonnements du client isomorphe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/127",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.55,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
