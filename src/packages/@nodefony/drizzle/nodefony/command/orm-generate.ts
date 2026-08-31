@@ -663,24 +663,57 @@ class OrmGenerate extends OrmMigrateCommand {
     if (presentes.length === 0) {
       return null;
     }
+    // 🔴 Le second geste ne se propose que s'il PRODUIT quelque chose.
+    //
+    // La base porte-t-elle TOUTES les tables déclarées ? C'est un fait qu'on
+    // constate — deux nombres déjà en main —, pas une origine qu'on devine.
+    // La déduction « historique vide + tables conformes ⇒ le mode de
+    // développement les a faites » serait fausse pour une production À JOUR,
+    // c'est-à-dire pour l'utilisateur même que l'adoption existe pour servir.
+    //
+    // Quand la couverture est TOTALE, le code n'a pas bougé depuis que la base
+    // a été faite : la génération d'après ne trouverait aucun écart et rendrait
+    // « il n'y avait rien à écrire ». En réponse à « donne-moi ma première
+    // migration », cette phrase ressemble à un échec — alors que la migration
+    // existe, écrite par l'adoption. On ne nomme donc qu'elle.
+    const adopter = action(
+      `nodefony orm:migrate:baseline --from-database --connector ${connector}`,
+    );
+    const complet = presentes.length === tables.length;
     this.fail(
       connector,
       "NF_GENERATE_DATABASE_NOT_ADOPTED",
-      `Rien n'a été écrit : aucune migration n'existe encore, et la base porte ` +
-        `déjà ${presentes.length} des tables à créer (${presentes.join(", ")}).`,
-      "Une première migration décrit la création du schéma. Écrite ici, elle " +
-        "porterait un « CREATE TABLE » de tables qui existent, avec leurs " +
-        "données : elle ne s'appliquerait jamais, et l'adopter graverait dans " +
-        "l'historique un schéma que la base n'a pas. Cette base doit d'abord " +
-        "être ADOPTÉE — sa migration de référence se lit sur elle, pas sur le " +
-        "code, et rien n'est exécuté dessus. La suite redevient ordinaire : le " +
-        "champ ajouté produit alors un « ALTER TABLE ».",
-      [
-        action(
-          `nodefony orm:migrate:baseline --from-database --connector ${connector}`,
-        ),
-        action(`nodefony orm:generate --name ${name} --connector ${connector}`),
-      ],
+      complet
+        ? `Rien n'a été écrit : aucune migration n'existe encore, et la base ` +
+            `porte déjà TOUTES les tables déclarées (${presentes.join(", ")}).`
+        : `Rien n'a été écrit : aucune migration n'existe encore, et la base porte ` +
+            `déjà ${presentes.length} des ${tables.length} tables à créer (${presentes.join(", ")}).`,
+      complet
+        ? "Une première migration décrit la création du schéma. Écrite ici, " +
+            "elle porterait un « CREATE TABLE » de tables qui existent, avec " +
+            "leurs données : elle ne s'appliquerait jamais. Et comme la base " +
+            "porte déjà tout ce que le code déclare, il n'y a AUCUN écart à " +
+            "écrire. La commande ci-dessous lit le schéma SUR la base et en " +
+            "fait votre première migration — rien n'est exécuté dessus, et " +
+            "elle s'applique telle quelle sur une base vierge. Inutile de " +
+            "regénérer ensuite : il n'y aurait rien de plus à écrire. La suite " +
+            "redevient ordinaire — le champ que vous ajouterez produira un " +
+            "« ALTER TABLE »."
+        : "Une première migration décrit la création du schéma. Écrite ici, elle " +
+            "porterait un « CREATE TABLE » de tables qui existent, avec leurs " +
+            "données : elle ne s'appliquerait jamais, et l'adopter graverait dans " +
+            "l'historique un schéma que la base n'a pas. Cette base doit d'abord " +
+            "être ADOPTÉE — sa migration de référence se lit sur elle, pas sur le " +
+            "code, et rien n'est exécuté dessus. La suite redevient ordinaire : le " +
+            "champ ajouté produit alors un « ALTER TABLE ».",
+      complet
+        ? [adopter]
+        : [
+            adopter,
+            action(
+              `nodefony orm:generate --name ${name} --connector ${connector}`,
+            ),
+          ],
       opts.json,
       EXIT.actionRequired,
     );

@@ -779,6 +779,158 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
         });
       }, 600_000);
 
+      it("🔴 couverture TOTALE : le refus ne nomme QU'UN geste", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
+          try {
+            // Le décor d'une application qui a laissé le démarrage fabriquer
+            // son schéma : la base porte ses tables, et aucune migration
+            // d'application n'existe. C'est l'état de quiconque a lancé une
+            // seule commande en développement.
+            await baseHeritee(base, avecTable);
+            await fs.rm(outDir, { recursive: true, force: true });
+
+            const refus = await cli(
+              ["orm:generate", "--json", "--name", "premiere"],
+              avecTable,
+            );
+            const erreur = (parse(refus.stdout).error ?? {}) as {
+              code?: string;
+              summary?: string;
+              nextActions?: { command: string }[];
+            };
+            assert.equal(
+              erreur.code,
+              "NF_GENERATE_DATABASE_NOT_ADOPTED",
+              `le refus attendu n'est pas venu : ${diagnostic(refus)}`,
+            );
+            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+            // 🔴 LE point du ticket : un seul geste. Le second — regénérer —
+            // ne produirait rien, et « il n'y avait rien à écrire » ressemble
+            // à un échec quand on demandait sa première migration.
+            assert.equal(
+              erreur.nextActions?.length,
+              1,
+              `un seul geste attendu, reçu : ${JSON.stringify(erreur.nextActions)}`,
+            );
+            assert.match(
+              String(erreur.nextActions?.[0]?.command),
+              /orm:migrate:baseline/u,
+              "le geste nommé doit être l'adoption",
+            );
+
+            // Et ce geste, à lui seul, DONNE la première migration.
+            const adopte = await cli(
+              ["orm:migrate:baseline", "--from-database", "--json"],
+              avecTable,
+            );
+            assert.equal(adopte.code, 0, diagnostic(adopte));
+            const ecrits = (await fs.readdir(outDir)).filter((n) =>
+              n.endsWith(".sql"),
+            );
+            assert.equal(
+              ecrits.length,
+              1,
+              `l'adoption devait écrire UNE migration : ${ecrits.join(", ")}`,
+            );
+            const sql = await fs.readFile(
+              path.join(outDir, ecrits[0] as string),
+              "utf8",
+            );
+            assert.match(
+              sql,
+              new RegExp(TABLE, "u"),
+              "la migration de référence doit décrire la table de l'application",
+            );
+
+            // La preuve que le second geste n'avait rien à donner : joué
+            // maintenant, il ne produit aucun fichier de plus.
+            const apres = await cli(
+              ["orm:generate", "--json", "--name", "premiere"],
+              avecTable,
+            );
+            assert.equal(apres.code, 0, diagnostic(apres));
+            assert.deepEqual(
+              (await fs.readdir(outDir)).filter((n) => n.endsWith(".sql")),
+              ecrits,
+              "regénérer après l'adoption a écrit quelque chose — le second geste aurait donc eu un sens",
+            );
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  `DROP TABLE IF EXISTS ${citer("mysql", TABLE)}`,
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
+      it("couverture PARTIELLE : le refus en propose toujours DEUX", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
+          // Le cas SYMÉTRIQUE, et c'est lui qui rend le précédent probant :
+          // une seconde table déclarée que la base ne porte pas. Il reste donc
+          // un écart à écrire, et regénérer a un sens.
+          const avecPaire = {
+            ...env,
+            NF_ADOPT_FIXTURE: `${cible.dialect}+paire`,
+          };
+          try {
+            await baseHeritee(base, avecTable);
+            await fs.rm(outDir, { recursive: true, force: true });
+
+            const refus = await cli(
+              ["orm:generate", "--json", "--name", "premiere"],
+              avecPaire,
+            );
+            const erreur = (parse(refus.stdout).error ?? {}) as {
+              code?: string;
+              nextActions?: { command: string }[];
+            };
+            assert.equal(
+              erreur.code,
+              "NF_GENERATE_DATABASE_NOT_ADOPTED",
+              `le refus attendu n'est pas venu : ${diagnostic(refus)}`,
+            );
+            assert.equal(
+              erreur.nextActions?.length,
+              2,
+              `deux gestes attendus, reçu : ${JSON.stringify(erreur.nextActions)}`,
+            );
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  `DROP TABLE IF EXISTS ${citer("mysql", TABLE)}`,
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
       it("🔴 sur MariaDB, l'adoption est IMPOSSIBLE — et le refus le dit", async (ctx) => {
         if (cible.dialect !== "mysql" || !mariadb) {
           // L'inverse du cas précédent : ici, c'est AILLEURS qu'il n'y a rien

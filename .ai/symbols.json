@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-31T09:06:48.970Z",
+  "generated": "2026-08-31T09:18:09.762Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3562,
+    "symbols": 3564,
     "classes": 382,
     "interfaces": 988,
     "types": 423,
     "enums": 4,
     "functions": 1410,
-    "constants": 355
+    "constants": 357
   },
   "symbols": {
     "Cli": {
@@ -10578,6 +10578,22 @@
       "exported": true,
       "module": "modules/test",
       "description": "Une table de l'application qui porte le nom d'une table du framework. Exportée UNIQUEMENT sous la consigne « +usurpe » : un export permanent entrerait dans toute génération lancée depuis le dépôt e…"
+    },
+    "PAIRED_FIXTURE_TABLE": {
+      "name": "PAIRED_FIXTURE_TABLE",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Seconde table du décor « paire » — déclarée, jamais créée en base."
+    },
+    "pairedFixtureTable": {
+      "name": "pairedFixtureTable",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/adoptFixture.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "La seconde table de la variante « paire » — EXPORTÉE, contrairement à l'orpheline. Elle doit être fournie par un fichier : ce qu'on veut ici n'est pas une entité sans fournisseur (c'est l'autre déc…"
     },
     "ORPHAN_FIXTURE_ENTITY": {
       "name": "ORPHAN_FIXTURE_ENTITY",

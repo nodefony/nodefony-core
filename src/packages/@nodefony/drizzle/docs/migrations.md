@@ -222,11 +222,24 @@ précaution : la première migration décrirait la _création_ de tables qui exi
 s'appliquerait jamais, et l'adopter graverait dans l'historique un schéma que la base n'a pas —
 l'état dont plus aucune commande ne sort.
 
+Le refus nomme le geste, et **seulement celui qui produira quelque chose**. Si la base porte
+_toutes_ les tables que le code déclare — le cas quand rien n'a changé depuis qu'elle a été
+faite — il n'y a **qu'une** commande, et elle EST votre première migration :
+
 ```bash
 nodefony orm:migrate:baseline --from-database
+```
+
+Regénérer derrière ne donnerait rien : le code n'a pas bougé, il n'y a aucun écart à écrire.
+La suite redevient ordinaire — le jour où vous ajoutez un champ :
+
+```bash
 nodefony orm:generate --name ajout_du_slug   # produit un ALTER, plus un CREATE
 nodefony orm:migrate
 ```
+
+Si la base n'en porte qu'une _partie_ — des entités ont été ajoutées depuis —, le refus propose
+les deux gestes : l'adoption d'abord, la génération ensuite, qui écrira l'écart restant.
 
 La commande **lit** le schéma de la base, en écrit la migration de référence sous
 `migrations/<dialecte>/0000_<nom>.sql`, et l'inscrit comme appliquée. **Aucune instruction n'est

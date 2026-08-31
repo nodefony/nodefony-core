@@ -32,6 +32,10 @@ import { entityRegistry } from "@nodefony/orm-core";
  * `NF_ADOPT_FIXTURE=<dialecte>+slug` — la même table, avec le champ que
  * l'agent ajoute après l'adoption : c'est lui qui doit produire un `ALTER`, et
  * non un second `CREATE TABLE`.
+ * `NF_ADOPT_FIXTURE=<dialecte>+paire` — la MÊME table, plus une seconde que
+ * la base ne porte pas. Sert à obtenir une couverture PARTIELLE : le refus de
+ * générer sur une base déjà en place ne propose de regénérer que s'il reste
+ * un écart à écrire, et cela ne se distingue qu'en comparant deux nombres.
  * `NF_ADOPT_FIXTURE=<dialecte>+orphelin` — l'écart INVERSE : l'entité est
  * inscrite au REGISTRE et AUCUN fichier ne la fournit. Elle ne peut donc pas
  * être exportée d'ici — c'est tout l'objet du décor —, et l'application doit
@@ -71,6 +75,7 @@ const [dialecte, variante] = consigne.split("+");
 const avecSlug = variante === "slug";
 const usurpe = variante === "usurpe";
 const orphelin = variante === "orphelin";
+const paire = variante === "paire";
 
 /**
  * La table telle que l'application la déclare — ou `undefined` hors banc.
@@ -128,6 +133,37 @@ export const usurpedFixtureTable: unknown =
               key: varchar("key", { length: 190 }).primaryKey(),
             })
           : undefined;
+
+/** Seconde table du décor « paire » — déclarée, jamais créée en base. */
+export const PAIRED_FIXTURE_TABLE = "adopt_cli_tag";
+
+/**
+ * La seconde table de la variante « paire » — EXPORTÉE, contrairement à
+ * l'orpheline.
+ *
+ * Elle doit être fournie par un fichier : ce qu'on veut ici n'est pas une
+ * entité sans fournisseur (c'est l'autre décor), mais une table que la base ne
+ * porte pas encore. La couverture devient partielle, et le refus doit alors
+ * proposer de regénérer — puisque cette fois il y aura quelque chose à écrire.
+ */
+export const pairedFixtureTable: unknown = !paire
+  ? undefined
+  : dialecte === "sqlite"
+    ? sqliteTable(PAIRED_FIXTURE_TABLE, {
+        id: sqliteText("id").primaryKey(),
+        label: sqliteText("label"),
+      })
+    : dialecte === "postgres"
+      ? pgTable(PAIRED_FIXTURE_TABLE, {
+          id: pgText("id").primaryKey(),
+          label: pgText("label"),
+        })
+      : dialecte === "mysql"
+        ? mysqlTable(PAIRED_FIXTURE_TABLE, {
+            id: varchar("id", { length: 36 }).primaryKey(),
+            label: mysqlText("label"),
+          })
+        : undefined;
 
 /** Nom logique de l'entité orpheline — distinct de sa table, pour que le refus nomme les deux. */
 export const ORPHAN_FIXTURE_ENTITY = "AdoptCliOrphan";
