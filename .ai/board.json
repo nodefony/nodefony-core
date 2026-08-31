@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-31T13:56:23.271Z",
+  "generatedAt": "2026-08-31T15:51:21.589Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 15,
+      "open": 17,
       "title": "10.1"
     },
     {
-      "closed": 49,
+      "closed": 50,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 41,
       "title": "10.0.0"
     }
   ],
@@ -671,7 +671,7 @@
       "title": "feat(client): simplifier la socket cliente pour un débutant",
       "url": "https://github.com/nodefony/nodefony-core/issues/54",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 11.5,
@@ -698,8 +698,8 @@
       "number": 35,
       "title": "feat(client): faire remonter les journaux du navigateur au serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/35",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 3,
@@ -734,6 +734,34 @@
       "ordre": 5.4,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 132,
+      "title": "feat(test): démontrer la remontée des journaux depuis une vitrine connectée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/132",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 5.5,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 133,
+      "title": "fix(studio): corriger les manquements d'accessibilité de l'écran des journaux",
+      "url": "https://github.com/nodefony/nodefony-core/issues/133",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 5.6,
+      "labels": [
+        "10.1"
       ]
     },
     {

@@ -514,6 +514,13 @@
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
 
+- [1× — 31/08] **Deux surfaces voisines, deux défauts OPPOSÉS, et l'asymétrie n'est écrite nulle
+  part.** Une action RPC non déclarée reçoit d'office une politique fermée ; un canal ENTRANT
+  déclaré sans politique reste **libre**. Même fichier, même famille de décorateurs, défauts
+  inverses — je ne l'ai vu qu'en lisant le code du dispatch, pas en lisant les décorateurs. Quand
+  deux mécanismes se ressemblent, **le défaut de l'un ne se déduit jamais du défaut de l'autre** :
+  il se lit à l'endroit qui l'applique.
+
 - [1× — 08-29] **Un détecteur PRUDENT par conception bloquait le ticket qui en dépendait — la sortie
   est de le GRADUER, pas de l'élargir.** Le détecteur de « schéma en retard » excluait SQLite
   volontairement (code générique, « mieux vaut ne rien dire que dire faux ») ; or le cas de preuve
@@ -1131,6 +1138,30 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 31/08] **Mon script de mutation a annoncé « 0 rouge » là où il y en avait 4** — c'est-à-dire
+  « ce banc ne prouve rien » alors qu'il prouvait tout. Deux causes cumulées, chacune muette : la
+  mutation n'était plus en place au moment du run (restauration prématurée entre deux itérations
+  d'une boucle qui réécrivait le même fichier), et l'analyseur de sortie rendait `0` quand sa
+  regex ne matchait pas — un plantage à l'import et « aucun échec » rendent le même chiffre.
+  **Une boucle de mutation doit CONSTATER le fichier des deux côtés du run** (`grep` de la ligne
+  mutée avant, et après), et son compteur d'échecs doit distinguer « zéro rouge » de « je n'ai pas
+  su lire ». Refaire l'expérience à la main est ce qui a tranché.
+- [1× — 31/08] **Un `replace` sans `assert` a affiché « barrel mis à jour » sans avoir rien touché.**
+  Le motif ne correspondait pas ; le `print` de fin était inconditionnel. Le fichier est resté en
+  l'état, et seul un `git status` inattendu l'a révélé. Tout script d'édition en place **assert le
+  motif AVANT d'écrire** — un `assert` qui jette est le seul message honnête, et il protège aussi
+  le fichier (rien n'est écrit).
+- [1× — 31/08] **Un gate lancé contre un serveur qui n'a pas mon diff mesure l'état d'avant.** Le
+  gate mémoire exige un serveur ; je l'ai lancé sans rebâtir ni redémarrer, et son vert ne portait
+  sur rien. Le contrôle qui coûte dix secondes : l'heure de démarrage du process, comparée à celle
+  de la modification. Relancé après redémarrage, le verdict restait bon — mais il ne le SAVAIT pas
+  avant.
+- [1× — 31/08] **J'ai cherché la preuve dans une sortie TRONQUÉE et conclu que la chaîne ne
+  marchait pas.** `grep` sur les frames rendues par la sonde : zéro occurrence du canal — alors que
+  le serveur avait déjà journalisé l'entrée deux fois. Les charges y sont coupées à ~150 caractères.
+  **Chercher au point d'ARRIVÉE (le journal du pod) avant de chercher sur le fil** : l'instrument
+  d'observation du transport est plus fragile que l'effet qu'on veut constater.
+
 - [1× — 31/08] **Ma BASELINE rendait le même chiffre que le correctif — et je ne l'ai vu qu'au 4ᵉ essai.** Je validais une correction de config Vite par `curl` sur le module servi ; la baseline sans aucun correctif rendait déjà `0` occurrence alors que la page cassait. Deux « succès » consécutifs étaient des artefacts d'instrument, et j'ai corrigé dans le vide. **Mesurer la baseline AVANT de mesurer le correctif** est ce qui tranche : deux valeurs identiques disent que l'instrument ne discrimine pas. Ici seule la PAGE mesurait juste (monte / ne monte pas), avec un décor identique à chaque tirage (build → purge des prébundles → redémarrage).
 
 - [2× — 08-31] **Débrancher sans REBÂTIR ne débranche rien.** Trois fois dans la même session :
@@ -1688,6 +1719,18 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 31/08] **Le kit prescrivait de brancher un transport sur `ILogSink` — l'interface existe, le
+  nom est juste, et la prescription était fausse.** Sa forme réelle (`writeOut(s: string)`) montre
+  un puits de CHAÎNES déjà formatées : la structure à corréler y est déjà fondue, il aurait fallu
+  reparser ce qu'on venait de sérialiser. L'ancre était bonne, l'affirmation portée par l'ancre ne
+  l'était pas. **Une prescription d'artefact se vérifie sur la SIGNATURE, pas sur l'existence du
+  symbole** — c'est ce que la délégation de contrôle d'ancrages ne dit pas, puisqu'elle répond
+  « VRAI : le symbole est là ».
+- [1× — 31/08] **J'ai affirmé « personne n'utilise ce point d'extension » sur un `grep` d'UNE de ses
+  deux formes.** J'avais cherché la méthode surchargeable, pas le décorateur équivalent — un
+  contrôleur du dépôt l'utilisait déjà. Un point d'extension à plusieurs formes de déclaration se
+  compte sur TOUTES ses formes. Cf [[feedback_inventory_needs_crosscheck]].
 
 - [1× — 08-31d] **J'ai ouvert un ticket sur DEUX observations, et sa preuve était fausse.** #130
   affirmait « MySQL seul → vert, PostgreSQL + MySQL → rouge », avec les deux commandes prêtes à
