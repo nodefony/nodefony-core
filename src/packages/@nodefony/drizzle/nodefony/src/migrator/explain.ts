@@ -10,6 +10,7 @@ import type {
 import { HISTORY_TABLE } from "./types";
 import type { ISchemaComparison, ISchemaGap } from "./schemaDiff";
 import type { IDestructiveFinding } from "./destructive";
+import type { IDiscoveryFacts } from "./refusals";
 
 /**
  * Le RENDU des migrations : un seul producteur, quatre destinataires.
@@ -908,6 +909,59 @@ function renderDivergence(d: ISchemaComparison, style: IStyle): string {
   }
   if (lignes.length > DIVERGENCE_LINES) {
     out += `    ${style.dim(`… et ${lignes.length - DIVERGENCE_LINES} autre(s) — la liste entière est dans « --json », sous « divergence »`)}\n`;
+  }
+  return out;
+}
+
+/**
+ * Rendu humain de ce que la DÉCOUVERTE des entités a vu.
+ *
+ * Bloc court, posé sous les refus dont la cause peut être un schéma déclaré
+ * amputé : un fichier illisible, une table écrite pour un autre moteur, un
+ * dossier d'entités qui ne rend rien. L'outil de diff ne distingue pas une
+ * table absente d'une table SUPPRIMÉE — sans ces trois nombres, la correction
+ * naturelle porte sur la base, qui n'y est pour rien.
+ *
+ * @param facts - ce que la découverte a relevé.
+ * @param style - mise en forme.
+ * @returns le bloc, prêt à concaténer ; vide si rien n'appelle l'attention.
+ */
+export function describeDiscovery(
+  facts: IDiscoveryFacts,
+  style: IStyle,
+): string {
+  let out =
+    `\n${style.bold("Ce que la découverte a vu")} ` +
+    `${style.dim(`(${facts.filesScanned} fichier(s) d'entités examiné(s))`)} :\n` +
+    `  • ${facts.tables.length} table(s) de l'application retenue(s)` +
+    `${facts.tables.length > 0 ? ` : ${facts.tables.join(", ")}` : ""}\n`;
+  if (facts.otherDialect.length > 0) {
+    out +=
+      `  • ${facts.otherDialect.length} écartée(s), écrite(s) pour un autre moteur :\n` +
+      facts.otherDialect
+        .map((o) => `      ${o.table} (${o.dialect}) — ${o.file}\n`)
+        .join("");
+  }
+  if (facts.unreadable.length > 0) {
+    out +=
+      `  • ${facts.unreadable.length} fichier(s) que la découverte n'a PAS su lire :\n` +
+      facts.unreadable.map((u) => `      ${u.file} — ${u.cause}\n`).join("");
+  }
+  // La phrase qui évite la mauvaise correction. Elle n'est due QUE si quelque
+  // chose manque à l'appel : la poser toujours ferait douter d'une découverte
+  // complète, et un avertissement permanent ne se lit plus.
+  if (
+    facts.unreadable.length > 0 ||
+    facts.otherDialect.length > 0 ||
+    facts.tables.length === 0
+  ) {
+    out += `\n${style.dim(
+      "Une table qui n'entre pas dans cette découverte se présente à l'outil " +
+        "de diff comme une table SUPPRIMÉE. Avant de toucher à la base, " +
+        "vérifier que ces fichiers fournissent bien les tables attendues pour " +
+        "CE moteur : le défaut est alors dans le dossier d'entités, et la base " +
+        "n'y est pour rien.",
+    )}\n`;
   }
   return out;
 }

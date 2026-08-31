@@ -15,6 +15,7 @@ import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
   action,
+  describeDiscovery,
   refusalInMode,
   renderRefusal,
   styleFor,
@@ -34,6 +35,7 @@ import {
   moduleAbsent,
   type CommandFailureCode,
   type ICommandFailure,
+  type IDiscoveryFacts,
 } from "../src/migrator/refusals";
 
 export type { ICommandFailure } from "../src/migrator/refusals";
@@ -160,6 +162,8 @@ export abstract class OrmMigrateCommand extends Command {
    * @param actions - les commandes exactes à copier.
    * @param json - la commande a-t-elle reçu `--json` ?
    * @param exitCode - `2` par défaut : la commande n'a pas pu travailler.
+   * @param discovery - ce que la découverte des entités a vu, quand le refus
+   *   peut avoir pour cause un schéma déclaré amputé.
    */
   protected fail(
     connector: string,
@@ -169,17 +173,27 @@ export abstract class OrmMigrateCommand extends Command {
     actions: IMigrationAction[],
     json: boolean | undefined,
     exitCode: 1 | 2 = EXIT.error,
+    discovery?: IDiscoveryFacts,
   ): void {
     const style = this.style;
     const payload: ICommandFailure = {
       formatVersion: MIGRATION_FORMAT_VERSION,
       connector,
       exitCode,
-      error: { code, summary, meaning, nextActions: actions },
+      error: {
+        code,
+        summary,
+        meaning,
+        nextActions: actions,
+        ...(discovery ? { discovery } : {}),
+      },
     };
     let human = `${style.red(style.bold("Impossible"))} ${style.dim(`[${code}]`)}\n\n${summary}\n`;
     if (meaning) {
       human += `\n${style.dim(meaning)}\n`;
+    }
+    if (discovery) {
+      human += describeDiscovery(discovery, style);
     }
     if (actions.length > 0) {
       human += `\n${style.bold("À faire :")}\n`;

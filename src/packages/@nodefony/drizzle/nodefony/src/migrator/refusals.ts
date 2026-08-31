@@ -62,6 +62,31 @@ export type CommandFailureCode =
   /** La table d'historique existe, mais ce n'est pas celle du framework. */
   | "NF_MIGRATE_HISTORY_FOREIGN";
 
+/**
+ * Ce que la découverte des entités a VU, au moment où la commande a refusé.
+ *
+ * **Pourquoi ce bloc existe.** Une migration se produit à partir des FICHIERS.
+ * Quand l'un d'eux manque à l'appel — illisible, écrit pour un autre moteur, ou
+ * n'exportant rien sous la configuration courante —, la table qu'il fournissait
+ * disparaît du schéma déclaré, et l'outil de diff ne voit pas une découverte
+ * amputée : il voit une table SUPPRIMÉE, et propose de la détruire. Le refus
+ * qui s'ensuit nomme alors la base, qui n'y est pour rien.
+ *
+ * Sans ces faits, la correction naturelle — accepter la destruction, ou repartir
+ * d'une base vide — détruit des données pour un défaut qui est dans le dossier
+ * d'entités. C'est le seul endroit d'où l'on peut le voir.
+ */
+export interface IDiscoveryFacts {
+  /** Fichiers d'entités examinés, toutes cibles confondues. */
+  filesScanned: number;
+  /** Tables de l'APPLICATION retenues pour le dialecte de ce connecteur. */
+  tables: string[];
+  /** Tables écartées : elles sont écrites pour un AUTRE moteur. */
+  otherDialect: { table: string; dialect: string; file: string }[];
+  /** Fichiers qui n'ont pas pu être importés, avec leur cause. */
+  unreadable: { file: string; cause: string }[];
+}
+
 /** Ce qu'une commande écrit quand elle n'a PAS pu rendre un état. */
 export interface ICommandFailure {
   formatVersion: typeof MIGRATION_FORMAT_VERSION;
@@ -77,6 +102,12 @@ export interface ICommandFailure {
     summary: string;
     meaning: string;
     nextActions: IMigrationAction[];
+    /**
+     * Ce que la découverte des entités a vu — présent sur les refus dont la
+     * cause PEUT être un schéma déclaré amputé. Optionnel : un refus de
+     * résolution n'a jamais découvert quoi que ce soit.
+     */
+    discovery?: IDiscoveryFacts;
   };
 }
 

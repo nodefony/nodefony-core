@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-31T09:35:19.772Z",
+  "generated": "2026-08-31T12:27:19.552Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 3565,
+    "symbols": 3567,
     "classes": 382,
-    "interfaces": 988,
+    "interfaces": 989,
     "types": 423,
     "enums": 4,
-    "functions": 1411,
+    "functions": 1412,
     "constants": 357
   },
   "symbols": {
@@ -19694,6 +19694,14 @@
       "module": "@nodefony/drizzle",
       "description": "Rendu humain d'un état de migration — l'écran que voit celui qui tape `orm:migrate:status`."
     },
+    "describeDiscovery": {
+      "name": "describeDiscovery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Rendu humain de ce que la DÉCOUVERTE des entités a vu. Bloc court, posé sous les refus dont la cause peut être un schéma déclaré amputé : un fichier illisible, une table écrite pour un autre moteur…"
+    },
     "renderRefusal": {
       "name": "renderRefusal",
       "kind": "function",
@@ -19979,6 +19987,15 @@
       "implements": [],
       "decorators": [],
       "description": "Erreur portant un {@link IResolutionRefusal} déjà composé. Elle existe pour que la CAUSE porte son propre remède jusqu'à la sortie de la commande : reconnaître une cause au texte de son message ser…"
+    },
+    "IDiscoveryFacts": {
+      "name": "IDiscoveryFacts",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce que la découverte des entités a VU, au moment où la commande a refusé. **Pourquoi ce bloc existe.** Une migration se produit à partir des FICHIERS. Quand l'un d'eux manque à l'appel — illisible,…"
     },
     "ICommandFailure": {
       "name": "ICommandFailure",
@@ -30267,6 +30284,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
+      "describeDiscovery": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
       "refusalInMode": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
@@ -30328,6 +30348,11 @@
       "ICommandFailure": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
+      ],
+      "IDiscoveryFacts": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
       "collectTables": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"

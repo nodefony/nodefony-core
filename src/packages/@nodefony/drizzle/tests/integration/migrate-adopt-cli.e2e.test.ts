@@ -16,7 +16,7 @@ import {
   ciblesPour,
   cli,
   citer,
-  ROOT,
+  dossierMigrations,
   assertDialecte,
   parse,
   surBaseNeuve,
@@ -88,7 +88,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
        * assertion de chemin qui accepte « l'un ou l'autre séparateur » ne
        * prouve rien sous Windows.
        */
-      const outDir = path.join(ROOT, "migrations", cible.dialect);
+      const outDir = dossierMigrations(cible.dialect);
 
       /**
        * Le dossier de sortie n'a JAMAIS le droit de survivre à un cas.
@@ -644,6 +644,89 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
               .then((n) => n.filter((x) => x.endsWith(".sql")))
               .catch(() => [] as string[]);
             assert.deepEqual(ecrits, [], "un refus a tout de même écrit");
+          } finally {
+            if (cible.dialect === "mysql") {
+              const noms = await tablesEcrites();
+              await base
+                .sql([
+                  "SET FOREIGN_KEY_CHECKS = 0",
+                  ...noms.map(
+                    (n) => `DROP TABLE IF EXISTS ${citer("mysql", n)}`,
+                  ),
+                  "SET FOREIGN_KEY_CHECKS = 1",
+                ])
+                .catch(() => undefined);
+            }
+          }
+        });
+      }, 600_000);
+
+      it("🔴 un refus destructif DIT ce que la découverte a vu", async (ctx) => {
+        if (mariadb) {
+          ctx.skip();
+          return;
+        }
+        await surBaseNeuve(cible, async (base, env) => {
+          // Le décor reproduit DÉLIBÉRÉMENT l'accident : une migration décrit
+          // la table de l'application, puis la découverte suivante ne la trouve
+          // plus. L'outil de diff ne distingue pas « absente de la découverte »
+          // de « supprimée du schéma » : il écrit un « drop table », et le refus
+          // qui suit nomme la base — qui n'y est pour rien. Sans le relevé de la
+          // découverte, la correction naturelle détruit des données pour un
+          // défaut qui est dans le dossier d'entités.
+          const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
+          try {
+            const migre = await cli(["orm:migrate", "--json"], env);
+            assert.equal(migre.code, 0, diagnostic(migre));
+
+            const initiale = await cli(
+              ["orm:generate", "--json", "--name", "heritage"],
+              avecTable,
+            );
+            assert.equal(initiale.code, 0, diagnostic(initiale));
+
+            // La MÊME commande, sans la consigne : le fichier d'entité
+            // s'importe toujours, il n'exporte plus rien.
+            const refus = await cli(
+              ["orm:generate", "--json", "--name", "disparition"],
+              env,
+            );
+            const erreur = (parse(refus.stdout).error ?? {}) as {
+              code?: string;
+              discovery?: {
+                filesScanned?: number;
+                tables?: string[];
+                otherDialect?: unknown[];
+                unreadable?: unknown[];
+              };
+            };
+            assert.equal(
+              erreur.code,
+              "NF_GENERATE_DESTRUCTIVE",
+              `le MONTAGE du décor n'a pas produit de destruction : ${diagnostic(refus)}`,
+            );
+            assert.notEqual(refus.code, 0, "un refus ne rend jamais 0");
+
+            // 🔴 Le refus porte le relevé — c'est LUI qui désigne la vraie
+            // cause. Un « drop table » sans ce bloc envoie chercher du côté de
+            // la base.
+            const vu = erreur.discovery;
+            assert.ok(
+              vu,
+              `le refus destructif ne dit pas ce que la découverte a vu : ${diagnostic(refus)}`,
+            );
+            assert.ok(
+              (vu.filesScanned ?? 0) > 0,
+              "la découverte n'annonce aucun fichier examiné",
+            );
+            // Le relevé montre l'ABSENCE de la table que la migration décrit :
+            // c'est exactement l'écart que l'outil de diff a pris pour une
+            // suppression. Les autres entités de l'application y sont, et
+            // c'est ce qui rend l'absence lisible.
+            assert.ok(
+              Array.isArray(vu.tables) && !vu.tables.includes(TABLE),
+              `le relevé doit montrer que « ${TABLE} » a quitté la découverte : ${JSON.stringify(vu.tables)}`,
+            );
           } finally {
             if (cible.dialect === "mysql") {
               const noms = await tablesEcrites();

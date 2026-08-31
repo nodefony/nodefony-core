@@ -17,6 +17,10 @@ import {
   runGenerate,
   stampFormatMarker,
 } from "../../nodefony/src/migrator/kit";
+import {
+  describeDiscovery,
+  styleFor,
+} from "../../nodefony/src/migrator/explain";
 
 /**
  * Ce que `nodefony orm:generate` fait AVANT et APRÈS l'outil tiers — la partie
@@ -457,5 +461,76 @@ export const userTable = sqliteTable("User", { id: text("id").primaryKey() });
         "la table du framework est exclue : un second CREATE échoue sur toute base DÉJÀ migrée — donc en production, et nulle part ailleurs",
       );
     });
+  });
+});
+
+describe("ce que la découverte a vu — le bloc posé sous un refus", () => {
+  const nu = styleFor(false);
+
+  it("nomme les fichiers non lus, et dit où chercher la cause", () => {
+    const texte = describeDiscovery(
+      {
+        filesScanned: 4,
+        tables: ["post"],
+        otherDialect: [
+          {
+            table: "article",
+            dialect: "postgres",
+            file: "nodefony/entity/a.ts",
+          },
+        ],
+        unreadable: [
+          {
+            file: "nodefony/entity/b.ts",
+            cause: "Cannot read properties of null",
+          },
+        ],
+      },
+      nu,
+    );
+    assert.match(texte, /4 fichier\(s\) d'entités examiné\(s\)/);
+    assert.match(texte, /1 table\(s\) de l'application retenue\(s\) : post/);
+    assert.match(
+      texte,
+      /article \(postgres\)/,
+      "l'écartée doit être NOMMÉE avec son moteur",
+    );
+    assert.match(texte, /nodefony\/entity\/b\.ts — Cannot read/);
+    // 🔴 La phrase qui évite la mauvaise correction : sans elle, le lecteur
+    // conclut que la base est fautive et la détruit.
+    assert.match(
+      texte,
+      /se présente à l'outil de diff comme une table SUPPRIMÉE/,
+    );
+    assert.match(texte, /la base n'y est pour rien/);
+  });
+
+  it("se tait sur l'avertissement quand la découverte est COMPLÈTE", () => {
+    const texte = describeDiscovery(
+      {
+        filesScanned: 3,
+        tables: ["post", "tag"],
+        otherDialect: [],
+        unreadable: [],
+      },
+      nu,
+    );
+    assert.match(texte, /2 table\(s\) de l'application retenue\(s\)/);
+    // Un avertissement permanent ne se lit plus : il n'est dû que si quelque
+    // chose manque à l'appel.
+    assert.doesNotMatch(texte, /SUPPRIMÉE/);
+  });
+
+  it("avertit quand AUCUNE table n'a été retenue, même sans fichier illisible", () => {
+    const texte = describeDiscovery(
+      { filesScanned: 2, tables: [], otherDialect: [], unreadable: [] },
+      nu,
+    );
+    assert.match(texte, /0 table\(s\)/);
+    assert.match(
+      texte,
+      /SUPPRIMÉE/,
+      "zéro table déclarée rend TOUTE migration destructive",
+    );
   });
 });

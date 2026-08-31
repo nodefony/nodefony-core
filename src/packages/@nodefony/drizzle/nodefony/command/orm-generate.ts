@@ -25,6 +25,7 @@ import {
   type IAuditRule,
 } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
+import type { IDiscoveryFacts } from "../src/migrator/refusals";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
 import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
@@ -327,6 +328,16 @@ class OrmGenerate extends OrmMigrateCommand {
         dialect: t.dialect ?? "inconnu",
         file: relative(t.file),
       }));
+    // Ce que la découverte a vu, tenu ICI pour les refus qui viennent après :
+    // une table absente de ce relevé est, pour l'outil de diff, une table
+    // SUPPRIMÉE. Sans ces nombres, un refus destructif accuse la base d'un
+    // « drop table » dont la cause est dans le dossier d'entités.
+    const discovery: IDiscoveryFacts = {
+      filesScanned: files.length,
+      tables: tables.map((t) => t.tableName),
+      otherDialect,
+      unreadable,
+    };
 
     // 2. Ce qui appartient au FRAMEWORK n'appartient pas à l'application.
     const framework = new Set(await frameworkTables(dialect));
@@ -579,6 +590,7 @@ class OrmGenerate extends OrmMigrateCommand {
         ],
         opts.json,
         EXIT.actionRequired,
+        discovery,
       );
       return this;
     }
