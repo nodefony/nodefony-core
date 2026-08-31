@@ -513,6 +513,40 @@ writeFileSync(cheminChangelog, fusion.contenu);
 dire("✓ changelog écrit — CHANGELOG.md (brouillon à relire)");
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Un budget de bundle est une promesse faite à l'utilisateur, pas une métrique
+// de confort : ce qui grossit ici, il le télécharge. Le contrôle vit AVANT le
+// pack — après, le tarball existe et la tentation de « voir plus tard » gagne.
+// Un dépassement est un blocker (ADR-0007 D10) ; il ne se relève pas d'un
+// chiffre dans un fichier, il se relève par un ADR.
+etape = "budgets bundle client (ADR-0007 D10)";
+{
+  const barrelClient = path.join(
+    ROOT,
+    "src/nodefony/dist/client/client/index.js",
+  );
+  if (!existsSync(barrelClient)) {
+    if (PACK) {
+      echouer(
+        "dist client absent — les budgets portent sur ce que npm publie.\n" +
+          "  → npm run build",
+      );
+    }
+    alerter("budgets bundle NON vérifiés — dist client absent (npm run build)");
+  } else {
+    try {
+      execFileSync("node", ["scripts/size-check.mjs"], {
+        cwd: ROOT,
+        stdio: "inherit",
+      });
+    } catch {
+      echouer(
+        "un budget de bundle client est dépassé — voir le tableau ci-dessus.",
+      );
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 if (PACK) {
   etape = "pack — tarballs";
   try {

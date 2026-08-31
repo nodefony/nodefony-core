@@ -40,6 +40,7 @@
     "release": "node scripts/release/release.mjs",
     "release:pack": "node scripts/release/pack-all.mjs",
     "release:smoke": "bash scripts/release/smoke-docker.sh",
+    "size:check": "node scripts/size-check.mjs",
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
     "lint": "oxlint --deny-warnings",

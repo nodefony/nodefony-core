@@ -27,6 +27,15 @@ budgets, invariants) qui sera publié avec `nodefony@10.0.0`. **L'implémentatio
 Phase 3.2 post-MVP**. Comme l'ADR-0006, ce document EST la spécification à respecter le jour de
 l'implémentation.
 
+**Révision du 2026-08-31 — l'implémentation a démenti trois points du contrat.**
+`ClientKernel` existe (`src/nodefony/src/client/ClientKernel.ts`), et l'exercice par le compilateur
+a fait tomber ce qu'aucune relecture n'avait vu — c'est très exactement ce que la révision
+précédente annonçait. Trois corrections, détaillées sous D2 : le registre typé sur la **classe**
+`RealtimeClient` ; une porte d'entrée pour l'identité (`setIdentity`), sans quoi **D9 restait
+inapplicable** ; et le membre `log` renommé `syslog`, parce qu'il masquait la méthode d'écriture de
+`Service`. Le kernel **compose** un `Service` au lieu d'en hériter (raison sous D3). D10 est câblé,
+avec un outil différent de celui écrit ici (voir D10).
+
 **Révision du 2026-08-27 — D2 et le 1ᵉʳ consommateur.** Le contrat n'est finalement **pas publié**
 avec la 10.0.0 : rien ne l'exerçait, et il portait deux défauts qu'une implémentation aurait
 révélés (détail sous D2). Il rejoindra la surface publiée quand une **application réelle** l'aura
@@ -144,6 +153,30 @@ HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur
 > debug-client : seule une application complète (identité, socket, stores) éprouve la structure.
 > Gardé par `src/nodefony/src/tests/clientSurfaceExercised.test.ts`, qui refuse toute interface
 > publiée par le barrel client que rien n'exerce dans le dépôt.
+>
+> **Révision du 2026-08-31 — ce que l'implémentation a corrigé.** Écrire `ClientKernel` a fait
+> tomber trois points, dont deux étaient déjà soupçonnés et un ne l'était pas :
+>
+> 1. **Le registre est typé sur la classe `RealtimeClient`**, non sur `IRealtimeSocket`. Le seul
+>    consommateur publié du registre est `NodefonyProvider`, dont la prop `client` exige la classe ;
+>    et l'interface n'ayant ni `connect`, ni `disconnect`, ni `state`, ni `identity`, le contrat ne
+>    savait pas exprimer le re-handshake de D9. Un registre nomme des services **composés**, pas des
+>    abstractions : l'affaiblir n'achetait rien et imposait une conversion de type forcée.
+> 2. **`setIdentity(identity)` entre dans la surface v1.** Le contrat décrivait `onIdentityChange`
+>    sans jamais dire **comment le kernel apprend** qu'un login a eu lieu : c'est l'application qui
+>    le sait. Sans cette porte, D9 — une règle de sécurité — restait une intention non exécutable.
+>    L'identité porte une `key` de compte : la garde compare des clés, jamais des objets, sinon un
+>    profil rafraîchi couperait la socket.
+> 3. **`readonly log: Syslog` devient `readonly syslog: Syslog`.** Celui-là n'était pas soupçonné :
+>    tout `Service` Nodefony porte déjà `log(...)` comme **méthode d'écriture**, et une propriété du
+>    même nom l'aurait masquée. `syslog` est le nom que le framework donne partout ailleurs au même
+>    objet — l'isomorphisme, c'est le même modèle mental des deux côtés du fil.
+>
+> Le contrat reste **hors du barrel** : la classe, sa fabrique et les types d'usage sont publiés,
+> `IClientKernel` non. Le gate `clientSurfaceExercised` serait déjà vert — une classe l'implémente
+> vraiment — mais l'ordre de D11 tient : ce qui éprouve une architecture est une **application**,
+> et un kernel testé contre lui-même se donne toujours raison. Le retour du contrat est le livrable
+> de #91, pas une formalité à avancer.
 
 La 10.0.0 publie **l'interface** (`src/client/IClientKernel.ts`, exportée `export type` depuis le
 barrel client) : **0 octet de runtime, 0 risque, et le nom + la surface sont gelés SemVer**.
@@ -190,6 +223,15 @@ export interface NodefonyClientServices {
 `NodefonyModuleConfig` (ADR-0006) : extensible sans jamais casser le contrat.
 
 ### D3 — Composition explicite, PAS de DI à décorateurs côté client
+
+> **Révision du 2026-08-31 — le kernel COMPOSE un `Service`, il n'en hérite pas.** L'héritage
+> paraissait évident (symétrie avec le back, où le Kernel est un Service) et le compilateur l'a
+> refusé : `Service.get`/`set` sont la façade du container d'injection, `get<T>(name: string): T | null`
+> — « n'importe quel objet sous n'importe quel nom » —, quand le registre du kernel est **typé et
+> fermé** par le contrat. Hériter revenait à resserrer une méthode publique de la classe de base
+> (TS2416). Le refus disait une vérité de conception, pas une contrariété de typage : **deux
+> mécanismes différents portaient le même nom.** La composition garde les briques isomorphes du
+> cœur — bus d'événements, `Syslog` — sans exposer une surface qui n'est pas celle du contrat.
 
 Le kernel client est une **composition root explicite** (comme `RootStore` aujourd'hui, mais
 contractuelle), **pas** un container à décorateurs :
@@ -307,11 +349,24 @@ Budgets gelés :
 | `nodefony/react`              | ~6 KB (avec roles) | ≤ 10 KB            |
 | `nodefony/debugbar`           | ~26,4 KB           | ≤ 35 KB (dev-only) |
 
-Gate : **`size-limit` par entry câblé dans le pipeline release** (`scripts/release.mjs`, à côté
-de la bascule `exports.types` déjà actée §6bis) — il n'existe **aucune** gate de taille
-aujourd'hui (vérifié). Un dépassement de budget = blocker de release, pas un warning.
-L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
-définitif (garde-fou déjà acté dans la vision).
+Gate : **un contrôle par entry câblé dans le pipeline release**, avant le pack — après, le
+tarball existe et la tentation de « voir plus tard » gagne.
+
+> **Révisé le 2026-08-31 — l'outil n'est pas `size-limit`.** Le gate est
+> `scripts/size-check.mjs` + `.size-budgets.json` (`npm run size:check`), qui bundle chaque entry
+> avec **rolldown — le bundler du dépôt** — puis gzippe par `node:zlib`. Le motif est une question
+> de fidélité : `size-limit` re-bundle avec **son** moteur, et aurait certifié un artefact que
+> personne n'installe. Ici la mesure part de `dist/client/**`, ce que npm publie vraiment, et la
+> chaîne mesurée est celle qui produit le paquet. Bénéfice second : zéro dépendance ajoutée.
+>
+> Le fichier de budgets porte aussi une `referenceKB` par entry — la mesure du jour du gel. Un
+> seuil dit « ça passe » ; l'écart à la référence dit **ce qu'une brique nouvelle a coûté**, et
+> c'est cette seconde information qui a servi : le ClientKernel pèse **+0,57 KB gzip** (17,68 →
+> 18,25 KB, mesuré en retirant l'export du barrel publié), très en deçà des +6 KB budgétés —
+> conséquence directe du choix de composer `Service` et `Syslog`, déjà présents dans le bundle,
+> plutôt que de réécrire un bus et un journal pour le navigateur. Un dépassement de budget = blocker de release, pas un warning.
+> L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
+> définitif (garde-fou déjà acté dans la vision).
 
 ### D11 — Convergence Studio par incréments — jamais de big-bang
 

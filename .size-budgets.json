@@ -1,0 +1,30 @@
+{
+  "$comment": "Budgets bundle des subpaths client — ADR-0007 D10. Un dépassement est un BLOCKER de release, pas un avertissement. `referenceKB` = la mesure du jour où le budget a été gelé : l'écart à cette valeur rend visible ce qu'une brique nouvelle a coûté, ce qu'un simple seuil ne dit pas.",
+  "gzipLevel": 9,
+  "entries": [
+    {
+      "subpath": "nodefony/client",
+      "file": "src/nodefony/dist/client/client/index.js",
+      "budgetKB": 30,
+      "referenceKB": 17.6
+    },
+    {
+      "subpath": "nodefony/react",
+      "file": "src/nodefony/dist/client/client/react/index.js",
+      "budgetKB": 10,
+      "referenceKB": 6
+    },
+    {
+      "subpath": "nodefony/debugbar",
+      "file": "src/nodefony/dist/client/client/debugbar/index.js",
+      "budgetKB": 35,
+      "referenceKB": 26.4
+    },
+    {
+      "subpath": "nodefony/roles",
+      "file": "src/nodefony/dist/client/client/roles/index.js",
+      "budgetKB": 10,
+      "referenceKB": 1
+    }
+  ]
+}

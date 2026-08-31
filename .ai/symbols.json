@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-31T15:13:10.089Z",
+  "generated": "2026-08-31T18:13:39.359Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 790,
-    "symbols": 3597,
-    "classes": 382,
-    "interfaces": 997,
-    "types": 425,
+    "files": 791,
+    "symbols": 3602,
+    "classes": 383,
+    "interfaces": 999,
+    "types": 426,
     "enums": 4,
-    "functions": 1425,
+    "functions": 1426,
     "constants": 364
   },
   "symbols": {
@@ -1977,6 +1977,36 @@
       "module": "@nodefony/core",
       "description": "Codes de sortie standardisés — convention BSD `sysexits.h` (FreeBSD `sysexits(3)`). Ce n'est PAS un RFC, mais le standard de facto Unix pour des exit codes porteurs de sens, au-delà du binaire POSI…"
     },
+    "ClientKernel": {
+      "name": "ClientKernel",
+      "kind": "class",
+      "file": "src/nodefony/src/client/ClientKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "IClientKernel"
+      ],
+      "decorators": [],
+      "description": "Kernel client — obtenu par {@link createClientKernel}, jamais construit en singleton de module (testabilité, HMR-safe : un module réévalué par Vite dédoublerait un singleton, gotcha vécu sur le con…"
+    },
+    "createClientKernel": {
+      "name": "createClientKernel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/ClientKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique un kernel client. Factory et non singleton : plusieurs kernels doivent pouvoir coexister en test, et un état de module global se dédouble sous le rechargement à chaud de Vite."
+    },
+    "ClientIdentity": {
+      "name": "ClientIdentity",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/IClientKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Identité runtime déclarée par l'application au kernel. `key` est une **clé stable de compte** — et elle seule décide d'un « vrai changement » au sens ADR-0007 D9. Ce n'est pas un détail de forme : …"
+    },
     "NodefonyClientServices": {
       "name": "NodefonyClientServices",
       "kind": "interface",
@@ -1986,6 +2016,15 @@
       "extends": null,
       "description": "Registre TYPÉ des services techniques portés par le kernel client. Extensible par **augmentation de module** (même mécanique que le registre de config `NodefonyModuleConfig` back, ADR-0006) : un mo…"
     },
+    "ClientKernelOptions": {
+      "name": "ClientKernelOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/IClientKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de `createClientKernel()`. Tout est facultatif : un kernel sans option est légal et ne compose rien — l'opt-in est strict (ADR-0007 D7), le kernel compose, il n'impose pas."
+    },
     "IClientKernel": {
       "name": "IClientKernel",
       "kind": "interface",
@@ -1993,7 +2032,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Contrat du kernel client isomorphe (ADR-0007 D2 — surface v1, volontairement minimale : chaque méthode publiée est une promesse SemVer). Obtenu via la factory `createClientKernel()` (Phase 3.2) — j…"
+      "description": "Contrat du kernel client isomorphe (ADR-0007 D2 — surface v1, volontairement minimale : chaque méthode publiée est une promesse SemVer). Obtenu via la factory `createClientKernel()` — jamais un sin…"
     },
     "ClientKernelState": {
       "name": "ClientKernelState",
@@ -25204,6 +25243,9 @@
       "IService": [
         "Service"
       ],
+      "IClientKernel": [
+        "ClientKernel"
+      ],
       "IKernel": [
         "Kernel"
       ],
@@ -25591,6 +25633,7 @@
       ],
       "Service": [
         "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/client/ClientKernel.ts",
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
@@ -25835,6 +25878,7 @@
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Container.ts",
         "src/nodefony/src/Service.ts",
+        "src/nodefony/src/client/ClientKernel.ts",
         "src/nodefony/src/client/IClientKernel.ts",
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
@@ -27911,11 +27955,37 @@
       "ICliManifestCommand": [
         "src/nodefony/src/cli/manPage.ts"
       ],
-      "IRealtimeSocket": [
+      "RealtimeClient": [
+        "src/nodefony/src/client/ClientKernel.ts",
         "src/nodefony/src/client/IClientKernel.ts",
-        "src/nodefony/src/client/realtime/AdaptiveRate.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/angular/index.ts",
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/observe.ts",
+        "src/nodefony/src/client/svelte/index.ts",
+        "src/nodefony/src/client/vue/index.ts"
+      ],
+      "ClientIdentity": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "ClientKernelEvent": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "ClientKernelOptions": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "ClientKernelState": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "IClientKernel": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "NodefonyClientServices": [
+        "src/nodefony/src/client/ClientKernel.ts"
+      ],
+      "RealtimeOptions": [
+        "src/nodefony/src/client/IClientKernel.ts"
       ],
       "SEVERITY_NAMES": [
         "src/nodefony/src/client/index.ts",
@@ -27951,15 +28021,6 @@
       "isSubclassOf": [
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "RealtimeClient": [
-        "src/nodefony/src/client/index.ts",
-        "src/nodefony/src/client/angular/index.ts",
-        "src/nodefony/src/client/debugbar/DebugBar.ts",
-        "src/nodefony/src/client/react/index.ts",
-        "src/nodefony/src/client/realtime/observe.ts",
-        "src/nodefony/src/client/svelte/index.ts",
-        "src/nodefony/src/client/vue/index.ts"
       ],
       "closeCodeToNotice": [
         "src/nodefony/src/client/index.ts",
@@ -29375,6 +29436,11 @@
       ],
       "stripAnsi": [
         "src/nodefony/src/client/debugbar/model.ts"
+      ],
+      "IRealtimeSocket": [
+        "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
       "RealtimeHandler": [
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
