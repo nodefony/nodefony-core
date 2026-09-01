@@ -1,83 +1,81 @@
 ---
-title: Éprouver un framework avec un agent — la méthode, et ce qu'elle a trouvé
+title: "Éprouver un framework avec un agent — la méthode, et ce qu'elle a trouvé"
+navTitle: Éprouver avec un agent
 lang: fr
+module: global
+topic: scaffold
 audience: humain
-date: 2026-07-27
-related: docs/guides/generer-du-code.md, .claude/skills/nodefony-devkit-bench/, src/nodefony/src/cli/scaffold/engine.ts
+tags: [agent, banc, mesure, generateur, methode, decor]
+version: "doc"
 status: stable
+updated: 2026-09-01
+source: "docs/guides/eprouver-loutillage-agent.md"
+related: docs/guides/generer-du-code.md, .claude/skills/nodefony-devkit-bench/, src/nodefony/src/cli/scaffold/engine.ts
 ---
 
 # Éprouver un framework avec un agent
 
-> Comment savoir si l'outillage d'un framework est réellement utilisable — non
-> pas par nous qui l'avons écrit, mais par quelqu'un qui le découvre. Et
-> pourquoi la réponse ne s'obtient pas en relisant sa propre documentation.
+> Comment savoir si l'outillage d'un framework est réellement utilisable — non par nous qui
+> l'avons écrit, mais par quelqu'un qui le découvre. La méthode est transposable à n'importe quel
+> projet qui expose un générateur, une ligne de commande ou une convention à suivre.
 
-Ce guide décrit une méthode et les résultats qu'elle a produits sur Nodefony.
-Elle est transposable à n'importe quel framework qui expose un générateur, une
-CLI ou une convention à suivre.
+📍 [Documentation](../index.md) › [Guides](README.md) › **Éprouver avec un agent**
 
-## Le problème : on ne peut pas s'auto-évaluer
+## Le modèle — l'agent est l'instrument, le framework est le sujet
 
-L'auteur d'un framework connaît ses raccourcis. Il sait qu'une option existe,
-où elle est documentée, et quel nom elle porte. Cette connaissance rend toute
-auto-évaluation caduque : on ne peut pas oublier ce qu'on sait.
+On ne peut pas s'auto-évaluer : l'auteur d'un outil sait qu'une option existe, où elle est
+documentée, quel nom elle porte. Les tests du dépôt ne comblent pas ce trou, parce qu'ils posent
+une autre question — ils vérifient que le générateur, **appelé correctement**, produit les bonnes
+chaînes. Ils ne peuvent pas dire si quelqu'un l'aurait **appelé**, si ce qu'il produit **suffit**
+face à un besoin qu'on n'a pas choisi, ni ce qu'il faut **corriger à la main** après coup.
 
-Les tests du dépôt ne comblent pas ce trou, parce qu'ils posent une autre
-question. Ils vérifient que le générateur, **appelé correctement**, produit les
-bonnes chaînes de caractères. Ils ne peuvent pas dire :
+D'où la méthode : confier une tâche réelle à un agent — délibérément le modèle **le plus faible**
+disponible — dans une application neuve, sans aide, puis regarder ce qu'il a **fait**, pas ce
+qu'il a dit. L'agent joue l'utilisateur sans connaissance implicite, qui ne devine rien et prend
+toujours le chemin le moins coûteux. C'est un révélateur, au sens photographique.
 
-- si quelqu'un l'aurait **appelé** plutôt que d'écrire le code à la main ;
-- si ce qu'il produit **suffit** face à un besoin qu'on n'a pas choisi ;
-- ce qu'il faut **corriger à la main** après coup, et pourquoi.
+Le modèle faible n'est pas une économie : un modèle fort **compense** les trous en devinant juste,
+et rend donc un verdict flatteur qui ne mesure plus rien.
 
-## L'idée : l'agent comme instrument de mesure
+**Ce qu'on mesure n'est pas la justesse du résultat, mais le coût du contournement.** Un agent
+finit toujours par obtenir le bon schéma s'il écrit assez de code à la main — et il aura alors
+prouvé que le générateur ne servait à rien. La grandeur utile est donc : _combien a-t-il fallu
+écrire hors de l'outil ?_ Chaque correction manuelle désigne, une par une, ce que l'outil n'a pas
+su porter.
 
-On confie une tâche réelle à un agent (ici le modèle **le plus faible**
-disponible, délibérément), dans une application neuve, sans aide. Puis on
-regarde ce qu'il a fait — pas ce qu'il a dit.
+## Refaire la mesure chez vous
 
-L'agent n'est pas le sujet de la mesure. **Le framework l'est.** L'agent joue le
-rôle d'un utilisateur qui n'a aucune connaissance implicite, ne devine rien, et
-prend systématiquement le chemin le moins coûteux. C'est un révélateur, au sens
-photographique.
+Cinq gestes, dans cet ordre. Les quatre premiers construisent le décor ; sauter l'un d'eux rend la
+mesure ininterprétable — c'est ce que montre la section suivante.
 
-Le choix du modèle faible n'est pas une économie : un modèle fort **compense**
-les trous de l'outillage en devinant juste, et rend donc un verdict flatteur qui
-ne mesure plus rien.
+1. **Sortir du dépôt.** L'application de mesure vit **hors** de l'arborescence du framework, et
+   installe ses paquets depuis de vraies archives — jamais un lien symbolique vers les sources.
+2. **Vérifier que les sources sont hors d'atteinte**, avant de lancer quoi que ce soit. C'est un
+   contrôle, pas une intention : `find node_modules -name '*.ts' -not -name '*.d.ts'` doit être
+   vide.
+3. **Choisir une tâche que vous n'avez pas écrite.** Le schéma d'un logiciel libre existant fait
+   l'affaire : ses auteurs ne vous connaissent pas, donc il demandera des choses que vos exemples
+   n'exercent pas.
+4. **Prendre le modèle le plus faible** dont vous disposez, et lui donner la consigne **sans** la
+   retoucher entre deux tours.
+5. **Compter ce qui a été écrit hors de l'outil** : appels au générateur, corrections manuelles,
+   objets au bon nom. Ce sont ces trois nombres qui font la mesure, pas la réussite finale.
 
-## Trois questions, trois bancs
-
-| Question                                          | Ce qu'elle ne voit pas seule       |
-| ------------------------------------------------- | ---------------------------------- |
-| Le code produit **tient-il debout** ?             | Si quelqu'un l'a trouvé            |
-| Un agent **trouve-t-il** l'outillage ?            | Si ce qu'il trouve fonctionne      |
-| Un **vrai** modèle de données est-il exprimable ? | Ce qu'aucun schéma réel ne demande |
-
-La troisième est la plus dure à truquer. Les exemples d'un framework sont écrits
-**pour** exercer ses propres capacités : ils ne peuvent, par construction, rien
-demander qu'il ne sache faire. On donne donc à l'agent le schéma d'un logiciel
-libre existant — écrit par des gens qui ne nous connaissent pas.
+Sur Nodefony, ces bancs sont outillés et versionnés — leur protocole, leurs juges et
+l'interprétation de leurs échecs vivent dans le skill `nodefony-devkit-bench`, livré avec
+`@nodefony/devkit`.
 
 ## La leçon la plus coûteuse : le décor décide du résultat
 
 C'est le point à retenir si vous n'en retenez qu'un.
 
-Le premier verdict a été rendu dans une application de test posée **à
-l'intérieur du dépôt du framework**, avec les paquets liés en symlink. L'agent
-pouvait donc ouvrir le code source du framework et le recopier.
+Le premier verdict a été rendu dans une application posée **à l'intérieur du dépôt**, paquets liés
+en lien symbolique. L'agent pouvait donc ouvrir le code source du framework et le recopier.
+Résultat : **zéro appel au générateur**, tout écrit à la main — et un schéma parfait. On en aurait
+conclu que le générateur est ignoré, ou que sa documentation est mauvaise.
 
-Résultat : **zéro appel au générateur**, tout écrit à la main — et un schéma
-parfait, 83 colonnes sur 83. On en aurait conclu que le générateur est ignoré,
-ou que sa documentation est mauvaise.
-
-Or **un utilisateur réel n'a jamais ce code**. `npm install` dépose du code
-compilé, pas les sources. Le banc mesurait donc une situation qui n'existe chez
-personne.
-
-Après correction — application **hors du dépôt**, paquets installés depuis de
-vraies archives npm, et **vérification** qu'aucune source n'est atteignable
-avant de lancer l'agent :
+Or **un utilisateur réel n'a jamais ce code** : une installation dépose du code compilé, pas les
+sources. Le banc mesurait une situation qui n'existe chez personne. Après correction du décor :
 
 |                       | Décor ouvert | Décor réel |
 | --------------------- | ------------ | ---------- |
@@ -85,101 +83,103 @@ avant de lancer l'agent :
 | corrections à la main | 10           | 29         |
 | tables au bon nom     | 6/6          | 0/6        |
 
-Le même agent, la même consigne, le même schéma. **Seul le décor a changé.**
+Le même agent, la même consigne, le même schéma. **Seul le décor a changé.** Deux enseignements :
 
-Deux enseignements :
+1. **On ne convainc pas un agent d'utiliser un outil — on retire le chemin plus court.** Aucune
+   phrase n'a été ajoutée nulle part. Tant que recopier les sources était possible et facile,
+   c'était le choix rationnel.
+2. **Un banc dont le décor n'est pas celui de l'utilisateur mesure autre chose que ce qu'il
+   annonce**, et le fait avec l'aplomb d'une vraie mesure.
 
-1. **On ne convainc pas un agent d'utiliser un outil — on retire le chemin plus
-   court.** Aucune phrase n'a été ajoutée nulle part. Tant que recopier les
-   sources était possible et facile, c'était le choix rationnel.
-2. **Un banc dont le décor n'est pas celui de l'utilisateur mesure autre chose
-   que ce qu'il annonce**, et le fait avec l'aplomb d'une vraie mesure.
-
-## Ce qu'on mesure vraiment
-
-Pas la justesse du résultat. **Le coût du contournement.**
-
-Un agent finit toujours par obtenir le bon schéma s'il écrit assez de code à la
-main — et il aura alors prouvé que le générateur ne servait à rien. La grandeur
-utile est donc : _combien a-t-il fallu écrire hors de l'outil ?_ Chaque
-correction manuelle désigne, une par une, ce que l'outil n'a pas su porter.
-
-## La boucle
+## La boucle, et les trois règles qui la rendent honnête
 
 ```
 mesurer → diagnostiquer la cause → corriger L'OUTIL → remesurer
 ```
 
-Trois règles qui la rendent honnête :
+- **On ne change qu'une chose à la fois.** Modifier le décor _et_ la documentation dans le même
+  tour rend le résultat ininterprétable.
+- **On ne corrige jamais la consigne pour faire passer le banc.** Ce serait ajuster la cible à la
+  réponse.
+- **On corrige l'outil, pas le discours.** Mesuré ici comme ailleurs : durcir la prose d'un
+  fichier lu par l'agent n'a eu aucun effet ; déplacer la même règle dans le fichier chargé
+  automatiquement l'a fait appliquer. Et aucune phrase ne fera produire à un générateur une
+  colonne qu'il ne sait pas écrire.
 
-- **On ne change qu'une chose à la fois.** Modifier le décor _et_ la
-  documentation dans le même tour rend le résultat ininterprétable.
-- **On ne corrige jamais la consigne pour faire passer le banc.** Ce serait
-  ajuster la cible à la réponse.
-- **On corrige l'outil, pas le discours.** Mesuré ici comme ailleurs : durcir la
-  prose d'un fichier lu par l'agent n'a eu aucun effet ; déplacer la même règle
-  dans le fichier chargé automatiquement l'a fait appliquer. Et aucune phrase ne
-  fera produire à un générateur une colonne qu'il ne sait pas écrire.
+## Ce que la mesure a effectivement trouvé
 
-Ce que la mesure a effectivement produit, sur un seul schéma réel :
+Sur un seul schéma réel :
 
-| Constat mesuré                                                         | Ce qu'il faut corriger                                                |
+| Constat mesuré                                                         | Ce qu'il fallait corriger                                             |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | `username:string(255)` → `text("username")` — **32 longueurs perdues** | le générateur voyait le mauvais moteur                                |
 | `id:uuid` → `text(...)` — **18 identifiants dégradés**                 | idem — et PostgreSQL refuse `text = uuid`, donc toute jointure échoue |
-| `create entity Account` → table `accounts` — **6 tables sur 6**        | aucune option n'impose le nom de table                                |
+| `create entity Account` → table `accounts` — **6 tables sur 6**        | aucune option n'imposait le nom de table                              |
 | 29 corrections à la main                                               | l'essentiel : nommer les colonnes SQL                                 |
 
-Le premier point s'est révélé être un **bug produit**, pas un manque : le
-générateur déduisait le dialecte SQL en lisant le fichier de configuration,
-alors qu'une application déclare sa base par URL (`NF_DATABASE_URL` — le cas
-normal en conteneur, en CI, en production). Il générait donc du code SQLite pour
-une application tournant sur PostgreSQL, **en l'annonçant dans une ligne que
-personne ne relit**. Corrigé en branchant le générateur sur la même résolution
-d'infra que le noyau (`resolveInfra`), l'environnement d'abord, le fichier
-ensuite.
+Le premier point s'est révélé être un **défaut du produit**, pas un manque : `resolveDatabase()`
+(`engine.ts:308`) déduisait le dialecte en lisant le fichier de configuration, alors qu'une
+application déclare sa base par URL — le cas normal en conteneur, en intégration continue, en
+production. Le générateur produisait donc du code SQLite pour une application tournant sur
+PostgreSQL, **en l'annonçant dans une ligne que personne ne relit**. Corrigé en le branchant sur
+la même résolution que le noyau, `resolveInfra()` (`infra.ts:134`), appelée depuis
+`engine.ts:2738` : l'environnement d'abord, le fichier ensuite.
 
-Aucune relecture de code ne l'avait vu. Il a fallu qu'un tiers ignorant demande
-au framework quelque chose de banal.
+Aucune relecture de code ne l'avait vu. Il a fallu qu'un tiers ignorant demande au framework
+quelque chose de banal.
 
-## Les pièges du banc lui-même
+## ⚠️ Pièges — le banc lui-même
 
-Un juge non éprouvé rend des verdicts faux avec l'aplomb des verdicts justes.
-Ceux-ci ont tous été rencontrés :
+Un juge non éprouvé rend des verdicts faux avec l'aplomb des verdicts justes. Ceux-ci ont tous été
+rencontrés :
 
-- **Le juge n'est pas contrôlé.** Un lecteur de schéma perdait les définitions
-  écrites sur plusieurs lignes : il annonçait 130 colonnes, ce qui avait
-  exactement l'allure d'un compte juste. Remède : recompter par un chemin
-  **indépendant**, et **amputer volontairement** le juge pour vérifier que le
-  contrôle tombe. Un contrôle qu'on n'a jamais vu échouer ne garde rien.
-- **Le contrôle lui-même est faux.** Le tout premier défaut n'était pas dans le
-  lecteur mais dans son contrôle — une recherche de texte trop lâche tombait sur
-  la mauvaise table.
-- **Un vert par omission.** Une base absente faisait sauter tout un pan de
-  vérification, en silence. Un contrôle sauté doit être **annoncé** et changer le
-  code de sortie, sinon on lit un succès complet.
-- **Juger ce qu'on n'a pas demandé.** Le juge d'API reprochait à un ancien run
-  une route non protégée, alors que rien ne l'exigeait dans sa consigne. La
-  consigne s'écrit donc **avec** le run.
-- **Le rapport qui ment par omission.** Il affichait « 0 colonne sur 83 » quand
-  les 83 existaient sous des noms de table différents. On accusait l'agent au
-  lieu de l'outil. Un rapport doit chercher le travail **là où il est** avant de
-  conclure à son absence.
-- **Comparer deux runs de décors différents.** Ils ne sont pas comparables. Le
-  rapport doit énoncer son décor.
+- **Le juge n'est pas contrôlé.** Un lecteur de schéma perdait les définitions écrites sur
+  plusieurs lignes : il annonçait 130 colonnes, ce qui avait exactement l'allure d'un compte
+  juste. Remède : recompter par un chemin **indépendant**, et **amputer volontairement** le juge
+  pour vérifier que le contrôle tombe.
+- **Le contrôle lui-même est faux.** Le tout premier défaut n'était pas dans le lecteur mais dans
+  son contrôle — une recherche de texte trop lâche tombait sur la mauvaise table.
+- **Un vert par omission.** Une base absente faisait sauter tout un pan de vérification, en
+  silence. Un contrôle sauté doit être **annoncé** et changer le code de sortie.
+- **Juger ce qu'on n'a pas demandé.** Le juge d'API reprochait à un ancien essai une route non
+  protégée, alors que rien ne l'exigeait dans sa consigne. La consigne s'écrit **avec** l'essai.
+- **Le rapport qui ment par omission.** Il affichait « 0 colonne sur 83 » quand les 83 existaient
+  sous d'autres noms de table. On accusait l'agent au lieu de l'outil.
+- **Comparer deux essais de décors différents.** Ils ne sont pas comparables. Le rapport doit
+  énoncer son décor.
 
-## Ce que ça change pour qui utilise le framework
+## 📖 Lexique
 
-- Le générateur produit du code pour **la base réellement déclarée**, y compris
-  quand elle vient d'une variable d'environnement.
-- Ce que le générateur **ne sait pas encore faire** est connu, chiffré, et
-  publié plutôt que découvert en cours de route.
-- Les bancs tournent sur une application installée **comme la vôtre** — pas sur
-  une copie privilégiée du dépôt.
+| Terme                     | Ce que c'est                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Décor**                 | Tout ce qui entoure la mesure : où vit l'application, d'où viennent ses paquets, ce qui est atteignable. Il décide du résultat. |
+| **Juge**                  | Le programme qui lit la production de l'agent et rend un verdict. À éprouver comme n'importe quel autre code.                   |
+| **Coût du contournement** | Ce qui a dû être écrit **hors** de l'outil. La seule grandeur qui mesure l'outil plutôt que l'agent.                            |
+| **Modèle faible**         | Le moins capable disponible. Choisi exprès : un modèle fort compense les manques et rend un verdict flatteur.                   |
+| **Vert par omission**     | Un succès affiché parce qu'un contrôle ne s'est pas exécuté. Le piège central de tout banc.                                     |
 
-## Pour aller plus loin
+## 🧪 Tests & couverture
 
-- [`generer-du-code.md`](./generer-du-code.md) — ce que `nodefony create` sait
-  faire, et comment le piloter depuis un agent.
-- `.claude/skills/nodefony-devkit-bench/` — les trois bancs, leur protocole et
-  l'interprétation de leurs échecs.
+Ce que les bancs mesurent ne remplace pas les tests du générateur — ils répondent à deux questions
+différentes, et c'est tout le propos de cette page. Les deux existent :
+
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires (génération) | `nodefony` `create.test.ts`, `entityFields.test.ts`, `scaffoldDestination.test.ts` · `@nodefony/studio` `scaffoldService.test.ts` | que le générateur, appelé correctement, produit ce qu'il annonce |
+| Bancs (agent) | skill `nodefony-devkit-bench`, livré avec `@nodefony/devkit` | qu'un tiers sans connaissance implicite y arrive — et à quel coût |
+
+> Les tests ne peuvent pas dire si quelqu'un aurait **appelé** le générateur. C'est exactement le
+> trou que cette méthode comble, et la raison pour laquelle un dépôt vert peut livrer un outillage
+> que personne n'utilise.
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
+- 🏗️ **Ce que `nodefony create` sait faire**, et comment le piloter depuis un agent :
+  [`generer-du-code.md`](./generer-du-code.md)
+- 🧰 **L'outillage livré aux applications** :
+  [`@nodefony/devkit`](../../src/packages/@nodefony/devkit/docs/index.md)
+- 🏭 **Le même principe appliqué aux tests du dépôt** (un saut compte comme un succès) :
+  [`integration-continue.md`](./integration-continue.md)
+- 📖 [Lexique général](../lexique.md) du framework.

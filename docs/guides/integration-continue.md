@@ -1,10 +1,16 @@
 ---
-title: Intégration continue — ce qui tourne, où, et comment le rejouer
+title: "Intégration continue — ce qui tourne, où, et comment le rejouer"
+navTitle: Intégration continue
 lang: fr
+module: global
+topic: ci-guide
 audience: humain
-date: 2026-07-27
-related: vitest.gates.ts, docs/guides/persistence.md, .github/workflows/
+tags: [ci, forge, tests, gates, decor, docker, couverture]
+version: "doc"
 status: stable
+updated: 2026-09-01
+source: "docs/guides/integration-continue.md"
+related: vitest.gates.ts, docs/guides/persistence.md, .github/workflows/
 ---
 
 # Intégration continue
@@ -29,6 +35,21 @@ pour qui ignore que ces fichiers existent.
 > aussi ; elle le tiendra avec ses propres moyens.
 
 ---
+
+📍 [Documentation](../index.md) › [Guides](README.md) › **Intégration continue**
+
+## Le modèle — le décor fait partie du test
+
+Une suite de tests ne dit pas la vérité toute seule : elle la dit **dans un décor**. Sans base
+PostgreSQL joignable, les tests qui en dépendent ne tombent pas — ils se sautent, et un saut
+compte comme un succès. Une passe verte peut donc ne rien avoir prouvé.
+
+Toute cette page découle de là. Le dépôt ne se contente pas de lancer des tests : il **déclare le
+décor attendu** en un seul endroit (`vitest.gates.ts`) — une cible par base, `PG_GATE`
+(`vitest.gates.ts:268`) et `MYSQL_GATE` (`vitest.gates.ts:285`), plus la liste des interrupteurs
+optionnels `OPT_IN_SWITCHES` (`vitest.gates.ts:127`) —, vérifie que chaque décor déclaré a
+réellement servi, et **fait échouer la passe** en intégration continue quand une cible annoncée
+n'a pas été exercée. Une absence voulue s'énonce ; elle ne s'oublie pas.
 
 ## 1. La règle qui gouverne tout : un test non exécuté n'est pas un test réussi
 
@@ -360,3 +381,55 @@ seuil serait une décision de projet, pas un effet de bord d'un outil de mesure.
 
 > Toute étape qui sélectionne des cas par motif (`-t`) doit porter un
 > `NF_GATES_EXPECT`. Sans lui, un renommage la rend décorative en silence.
+
+## 📖 Lexique
+
+| Terme                | Ce que c'est                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Forge**            | L'intégration continue — ici GitHub Actions. Ce qui rejoue les contrôles à chaque poussée, sur une machine qui n'est pas la vôtre.     |
+| **Décor**            | Ce qu'une suite exige pour s'exécuter vraiment : une base joignable, un cache, une variable posée. Déclaré dans `vitest.gates.ts:101`. |
+| **Gate**             | Un contrôle bloquant : tant qu'il est rouge, la chaîne s'arrête.                                                                       |
+| **Saut** (_skip_)    | Un test non exécuté faute de décor. Il ressort **vert** dans le rapport — c'est tout le problème que cette page traite.                |
+| **Preuve** (`proof`) | La trace qu'un décor a réellement servi, et pas seulement été déclaré.                                                                 |
+| **Absence énoncée**  | `NF_GATES_ALLOW` : dire explicitement qu'une cible ne sera pas exercée. Ce qui distingue un choix d'un oubli.                          |
+
+## ⚠️ Pièges
+
+- **Un vert n'est pas une preuve tant qu'on n'a pas lu les sauts.** C'est la raison d'être de tout
+  le mécanisme décrit ici, et le piège dans lequel ce dépôt est déjà tombé.
+- **Sélectionner des cas par motif (`-t`) sans `NF_GATES_EXPECT` rend l'étape décorative** dès le
+  premier renommage : elle ne sélectionne plus rien, et ne s'en plaint pas.
+- **Le décor de votre machine n'est pas celui de la forge.** Un banc lancé en local avec le
+  rechargement à chaud ne mesure pas la même chose que le même banc lancé sans lui — et c'est le
+  poste qui ment, pas la forge.
+- **Le taux de couverture ne se lit pas comme une note** : la page l'explique dans les deux sens,
+  surestimation et sous-estimation. Le lire comme un objectif conduit à écrire des tests qui
+  n'éprouvent rien.
+- **Un gate qu'on n'a jamais vu échouer n'est pas un gate.** Avant de le croire, le casser une
+  fois exprès et vérifier qu'il rend bien un code de sortie non nul.
+
+## 🧪 Tests & couverture
+
+Ce guide décrit l'outillage qui exécute les tests ; ce sont donc les contrôles de cet outillage
+lui-même qui le couvrent. Les chiffres exacts vivent dans la carte de l'aperçu.
+
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires (portabilité des bancs) | `nodefony` `bancsPortables.test.ts` | les bancs et scripts tournent sur les trois plateformes, sans littéral de chemin |
+| Unitaires (CLI) | `nodefony` `Cli.test.ts` | codes de sortie et signaux — ce que la forge lit pour décider rouge ou vert |
+| Intégration | `nodefony` `CliIntegration.test.ts` | l'exécution réelle des commandes que les workflows appellent |
+
+> La déclaration du décor elle-même (`gateReporter()`, `vitest.gates.ts:544`) n'est pas couverte
+> par un test unitaire : elle est éprouvée par l'usage, en étant lue à la fin de chaque passe. La
+> seule façon de vérifier qu'un gate mord reste de le casser exprès.
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
+- 📦 **Ce qui se passe quand la forge publie** :
+  [publier une release](./publier-une-release.md)
+- 🗄️ **Le décor de base de données dont parlent les gates** :
+  [`persistence.md`](./persistence.md)
+- 🐳 **Le même code, mais en production** : [`docker-cloud-native.md`](./docker-cloud-native.md)
+- 📖 [Lexique général](../lexique.md) du framework.

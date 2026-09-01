@@ -720,5 +720,30 @@
       "scripts/release/release-core.test.mjs",
       "scripts/check-externals.test.mjs"
     ]
+  },
+  "cloud-native-guide": {
+    "unit": [
+      "src/nodefony/src/tests/Cli.test.ts",
+      "src/nodefony/src/tests/ClusterManager.test.ts",
+      "src/nodefony/src/tests/ClusterProbeAggregator.test.ts",
+      "src/nodefony/src/tests/ClusterRelay.test.ts"
+    ],
+    "integration": [
+      "src/nodefony/src/tests/CliIntegration.test.ts",
+      "src/nodefony/src/tests/detachedStart.test.ts"
+    ]
+  },
+  "ci-guide": {
+    "unit": [
+      "src/nodefony/src/tests/bancsPortables.test.ts",
+      "src/nodefony/src/tests/Cli.test.ts"
+    ],
+    "integration": ["src/nodefony/src/tests/CliIntegration.test.ts"]
+  },
+  "debugbar": {
+    "unit": [
+      "src/nodefony/src/tests/DebugBar.test.ts",
+      "src/nodefony/src/tests/debugbarInteraction.test.ts"
+    ]
   }
 }
