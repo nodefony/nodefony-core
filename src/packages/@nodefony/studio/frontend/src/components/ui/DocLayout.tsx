@@ -5,6 +5,7 @@ import {
   Group,
   Modal,
   Paper,
+  rem,
   ScrollArea,
   Text,
   Tooltip,
@@ -225,7 +226,15 @@ export function DocLayout({
           {children}
         </Box>
       ) : (
-        <Box
+        // En plein écran, les trois colonnes sont côte à côte dans un même cadre :
+        // laisser la navigation et le sommaire encadrés (`Paper withBorder`) et la
+        // colonne centrale nue donnait deux panneaux dessinés et un trou au milieu.
+        // Hors plein écran, le contenu EST la page et ne doit pas porter de cadre.
+        <Paper
+          withBorder={isModal}
+          radius={isModal ? "md" : 0}
+          p={isModal ? "sm" : 0}
+          bg={isModal ? undefined : "transparent"}
           className="nf-doc-main nf-doc-region-col"
           style={{ display: "flex", flexDirection: "column" }}
         >
@@ -238,7 +247,7 @@ export function DocLayout({
           >
             {children}
           </ScrollArea>
-        </Box>
+        </Paper>
       );
 
     // — Colonne SOMMAIRE (largeur fixe via `.nf-doc-toc`) — sticky en `page` ;
@@ -303,7 +312,12 @@ export function DocLayout({
         fullScreen
         radius={0}
         title={navTitle}
-        styles={{ body: { height: MODAL_FULLSCREEN_BODY } }}
+        styles={{
+          // `paddingTop` explicite : Mantine met le corps du modal à `0` en haut,
+          // si bien que les panneaux venaient TOUCHER la barre de fermeture — le
+          // cadre du premier panneau collait au trait de l'en-tête.
+          body: { height: MODAL_FULLSCREEN_BODY, paddingTop: rem(12) },
+        }}
       >
         {renderGrid("container", MODAL_FULLSCREEN_CONTENT, true)}
       </Modal>

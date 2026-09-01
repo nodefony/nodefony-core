@@ -72,8 +72,16 @@ export const PAGE_CONTENT_HEIGHT_WITH_BAND = `calc(100dvh - ${HEADER} - ${PAGE_H
  */
 export const TABS_PANEL_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${BAND} - ${DEBUGBAR} - ${GAP} * 4)`;
 
-/** Body d'un Modal Mantine fullScreen (sous la topbar du Modal). */
-export const MODAL_FULLSCREEN_BODY = `calc(100vh - ${MODAL_HEADER})`;
+/**
+ * Body d'un Modal Mantine fullScreen (sous la topbar du Modal).
+ *
+ * Soustrait la barre de débogage comme TOUS les autres tokens de cette table :
+ * elle est posée en bas de l'écran quel que soit le contexte, plein écran
+ * compris, et une hauteur qui l'ignore fait passer le dernier panneau dessous.
+ * `dvh` et non `vh` — même raison que les autres : sur mobile, la barre d'adresse
+ * escamotable rend `vh` faux.
+ */
+export const MODAL_FULLSCREEN_BODY = `calc(100dvh - ${MODAL_HEADER} - ${DEBUGBAR})`;
 
 /** Contenu DANS un Modal fullScreen, avec un peu de respiration. */
-export const MODAL_FULLSCREEN_CONTENT = `calc(100vh - ${MODAL_HEADER} - ${GAP} * 2)`;
+export const MODAL_FULLSCREEN_CONTENT = `calc(100dvh - ${MODAL_HEADER} - ${DEBUGBAR} - ${GAP} * 2)`;
