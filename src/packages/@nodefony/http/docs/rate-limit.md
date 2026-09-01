@@ -1,5 +1,6 @@
 ---
 title: "Rate-limit — plafond de trafic par IP (429, close 1013)"
+navTitle: Rate-limit
 lang: fr
 module: "@nodefony/http"
 topic: rate-limit

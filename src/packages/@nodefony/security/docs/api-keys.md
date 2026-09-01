@@ -1,5 +1,6 @@
 ---
 title: "Clés d'API — jetons opaques révocables pour les machines"
+navTitle: Clés d'API
 lang: fr
 module: "@nodefony/security"
 topic: api-keys

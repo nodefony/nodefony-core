@@ -1,5 +1,6 @@
 ---
 title: "Injection de dépendances et portées"
+navTitle: "Injection & portées"
 lang: fr
 module: "global"
 topic: injection-portees

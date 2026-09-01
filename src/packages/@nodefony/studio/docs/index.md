@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/studio — l'administration web du framework"
+navTitle: "@nodefony/studio"
 lang: fr
 module: "@nodefony/studio"
 topic: studio

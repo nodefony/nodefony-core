@@ -1,5 +1,6 @@
 ---
 title: "Templates — le moteur de rendu de vues (Eta)"
+navTitle: Templates
 lang: fr
 module: "@nodefony/framework"
 topic: templates

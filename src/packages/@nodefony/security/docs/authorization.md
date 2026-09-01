@@ -1,5 +1,6 @@
 ---
 title: "Autorisation — le jury de voters (rôles, scopes, ownership)"
+navTitle: Autorisation
 lang: fr
 module: "@nodefony/security"
 topic: authorization

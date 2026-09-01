@@ -1,5 +1,6 @@
 ---
 title: "Journal d'audit — la mémoire des décisions de sécurité"
+navTitle: Journal d'audit
 lang: fr
 module: "@nodefony/security"
 topic: audit

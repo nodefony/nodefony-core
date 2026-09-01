@@ -1,5 +1,6 @@
 ---
 title: "Protocole — la grammaire des frames JSON-RPC 2.0"
+navTitle: Protocole
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

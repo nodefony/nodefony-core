@@ -1,5 +1,6 @@
 ---
 title: "Le client isomorphe — Nodefony dans le navigateur"
+navTitle: Le client isomorphe
 lang: fr
 module: "@nodefony/core"
 topic: client

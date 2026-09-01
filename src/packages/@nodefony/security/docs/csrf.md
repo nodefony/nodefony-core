@@ -1,5 +1,6 @@
 ---
 title: "CSRF — anti-forgery (Fetch Metadata + double-submit signé)"
+navTitle: CSRF
 lang: fr
 module: "@nodefony/security"
 topic: csrf

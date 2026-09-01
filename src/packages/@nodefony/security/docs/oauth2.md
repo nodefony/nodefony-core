@@ -1,5 +1,6 @@
 ---
 title: "OAuth 2.0 — social login (Authorization Code + PKCE, posture 2.1)"
+navTitle: OAuth 2.0
 lang: fr
 module: "@nodefony/security"
 topic: oauth2

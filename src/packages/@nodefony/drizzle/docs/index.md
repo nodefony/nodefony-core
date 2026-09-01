@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/drizzle — l'ORM SQL par défaut"
+navTitle: "@nodefony/drizzle"
 lang: fr
 module: "@nodefony/drizzle"
 topic: drizzle

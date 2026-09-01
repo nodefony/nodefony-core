@@ -1,5 +1,6 @@
 ---
 title: "Configuration — le fond de panier, les bornes, la porte d'entrée"
+navTitle: Configuration
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

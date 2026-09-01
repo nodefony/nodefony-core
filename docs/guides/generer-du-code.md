@@ -1,5 +1,6 @@
 ---
 title: Générer du code — `nodefony create`
+navTitle: Générer du code
 lang: fr
 module: global
 topic: scaffold

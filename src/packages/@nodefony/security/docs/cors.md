@@ -1,5 +1,6 @@
 ---
 title: "CORS — partage cross-origin contrôlé"
+navTitle: CORS
 lang: fr
 module: "@nodefony/security"
 topic: cors

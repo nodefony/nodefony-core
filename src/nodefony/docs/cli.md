@@ -1,5 +1,6 @@
 ---
 title: "CLI — piloter le framework en ligne de commande"
+navTitle: CLI
 lang: fr
 module: "@nodefony/core"
 topic: cli

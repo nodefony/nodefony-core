@@ -1,5 +1,6 @@
 ---
 title: "Service — la brique de base de tout composant"
+navTitle: Service
 lang: fr
 module: "@nodefony/core"
 topic: service

@@ -1,5 +1,6 @@
 ---
 title: "Webhooks — notifier un système tiers, signé et borné"
+navTitle: Webhooks
 lang: fr
 module: "@nodefony/security"
 topic: webhooks

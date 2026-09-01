@@ -1,5 +1,6 @@
 ---
 title: "En-têtes de sécurité — le contrat passé au navigateur"
+navTitle: En-têtes de sécurité
 lang: fr
 module: "@nodefony/security"
 topic: headers

@@ -1,5 +1,6 @@
 ---
 title: "Upload & corps de requête — multipart, JSON, bornes de payload"
+navTitle: "Upload & corps de requête"
 lang: fr
 module: "@nodefony/http"
 topic: upload

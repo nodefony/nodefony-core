@@ -1,5 +1,6 @@
 ---
 title: "Authenticators — prouver l'identité (session, mot de passe, JWT, clé API)"
+navTitle: Authenticators
 lang: fr
 module: "@nodefony/security"
 topic: authenticators

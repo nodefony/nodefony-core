@@ -1,5 +1,6 @@
 ---
 title: "Serveurs — HTTP, HTTPS, HTTP/2, WebSocket"
+navTitle: Serveurs
 lang: fr
 module: "@nodefony/http"
 topic: servers

@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/realtime — la socket Nodefony"
+navTitle: "@nodefony/realtime"
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

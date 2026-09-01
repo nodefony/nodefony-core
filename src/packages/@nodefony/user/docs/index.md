@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/user — l'identité, socle de toute la sécurité"
+navTitle: "@nodefony/user"
 lang: fr
 module: "@nodefony/user"
 topic: user

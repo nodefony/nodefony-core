@@ -1,5 +1,6 @@
 ---
 title: "Observabilité HTTP — journalisation de requête, corrélation, trace"
+navTitle: Observabilité HTTP
 lang: fr
 module: "@nodefony/http"
 topic: observabilite

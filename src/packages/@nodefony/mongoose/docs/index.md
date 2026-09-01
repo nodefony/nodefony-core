@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/mongoose — le driver MongoDB"
+navTitle: "@nodefony/mongoose"
 lang: fr
 module: "@nodefony/mongoose"
 topic: mongoose

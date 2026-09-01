@@ -1,5 +1,6 @@
 ---
 title: "Firewall — le pare-feu applicatif"
+navTitle: Firewall
 lang: fr
 module: "@nodefony/security"
 topic: firewall

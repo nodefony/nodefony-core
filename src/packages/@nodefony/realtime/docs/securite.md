@@ -1,5 +1,6 @@
 ---
 title: "Sécurité du temps réel — qui entre, qui écoute, jusqu'à quand"
+navTitle: Sécurité du temps réel
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

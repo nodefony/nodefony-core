@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/documentation — la doc de tes modules, servie par ton serveur"
+navTitle: "@nodefony/documentation"
 lang: fr
 module: "@nodefony/documentation"
 topic: documentation

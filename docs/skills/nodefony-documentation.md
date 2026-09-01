@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-27
+updated: 2026-09-01
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -86,7 +86,7 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. | `--apply` | `APPLY` |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
-| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--show-toplevel` | `COVERAGE` |
+| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--show-toplevel` | `COVERAGE` `NAV_MAX` |
 | `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT | `--show-toplevel` | — |
 | `lib/slug-heading.mjs` | Slug d'un titre de page — la SEULE implémentation côté Node. | — | — |
 
@@ -100,7 +100,7 @@ Usage : node doc-lint.mjs /tmp/corpus/*.md
 Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 ```
 
-**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE`
+**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE` · `NAV_MAX`
 
 ## Conformité au standard Agent Skills
 

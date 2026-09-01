@@ -1,5 +1,6 @@
 ---
 title: "Architecture — du fichier .md au portail navigable"
+navTitle: Architecture
 lang: fr
 module: "@nodefony/documentation"
 topic: documentation

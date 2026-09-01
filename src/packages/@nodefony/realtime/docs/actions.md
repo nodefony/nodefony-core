@@ -1,5 +1,6 @@
 ---
 title: "Actions RPC — appeler le serveur et attendre sa réponse"
+navTitle: Actions RPC
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

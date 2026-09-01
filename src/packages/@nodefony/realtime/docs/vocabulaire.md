@@ -1,5 +1,6 @@
 ---
 title: "Vocabulaire — le lexique de la socket Nodefony"
+navTitle: Vocabulaire
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

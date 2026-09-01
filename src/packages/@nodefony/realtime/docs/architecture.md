@@ -1,5 +1,6 @@
 ---
 title: "Architecture — la socket, le hub, le backplane"
+navTitle: Architecture
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

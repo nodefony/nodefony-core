@@ -169,6 +169,22 @@ for (const f of files) {
       `statut ADR inconnu: « ${fm.status} » (attendu: proposed|accepted|rejected|deprecated|superseded)`,
     );
 
+  // LIBELLÉ DE MENU — un `title` est écrit pour être lu en tête d'article ; le menu,
+  // lui, est une colonne étroite. Sans second champ, il affiche des PHRASES, et le
+  // lecteur ne repère plus la page qu'il cherche : la navigation devient un mur de
+  // texte. `navTitle` est facultatif tant que le titre tient de lui-même.
+  const NAV_MAX = 32;
+  if (fm.title && fm.title.length > NAV_MAX && !fm.navTitle)
+    errs.push(
+      `navTitle manquant: le titre fait ${fm.title.length} caractères (> ${NAV_MAX}) — ` +
+        `le menu afficherait la phrase entière`,
+    );
+  if (fm.navTitle && fm.navTitle.length > NAV_MAX)
+    errs.push(
+      `navTitle trop long: ${fm.navTitle.length} caractères (> ${NAV_MAX}) — ` +
+        `un libellé de menu est un NOM, pas un résumé`,
+    );
+
   // Deux régimes : HUB (oriente) vs page de BRIQUE (explique). Un hub est
   // généralement un `index.md`, mais une page d'orientation peut porter un autre
   // nom (`demarrer.md`) — elle le déclare alors par `hub: true`.

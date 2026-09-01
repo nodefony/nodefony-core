@@ -1,5 +1,6 @@
 ---
 title: "Le pipeline d'une requête (HTTP et WebSocket)"
+navTitle: Le pipeline d'une requête
 lang: fr
 module: "global"
 topic: pipeline-requete

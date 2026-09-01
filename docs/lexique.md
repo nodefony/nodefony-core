@@ -1,5 +1,6 @@
 ---
 title: "Lexique général — anglicismes & sigles de Nodefony"
+navTitle: Lexique général
 lang: fr
 module: "global"
 topic: lexique

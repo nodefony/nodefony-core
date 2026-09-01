@@ -1,5 +1,6 @@
 ---
 title: "WebAuthn / passkeys — MFA résistant au phishing (FIDO2)"
+navTitle: WebAuthn / passkeys
 lang: fr
 module: "@nodefony/security"
 topic: webauthn

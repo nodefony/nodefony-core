@@ -1,5 +1,6 @@
 ---
 title: "Tokens — émission, clés (keystore), rotation et révocation"
+navTitle: Tokens
 lang: fr
 module: "@nodefony/security"
 topic: tokens

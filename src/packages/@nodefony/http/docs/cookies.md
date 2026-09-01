@@ -1,5 +1,6 @@
 ---
 title: "Cookies — attributs, signature, parsing, HTTP et WebSocket"
+navTitle: Cookies
 lang: fr
 module: "@nodefony/http"
 topic: cookies

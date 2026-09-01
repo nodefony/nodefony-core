@@ -1,5 +1,6 @@
 ---
 title: "Observabilité de la socket — la sonde, les canaux de santé, les écrans"
+navTitle: Observabilité de la socket
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

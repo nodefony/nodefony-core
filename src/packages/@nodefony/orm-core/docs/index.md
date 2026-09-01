@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/orm-core — le contrat de persistance"
+navTitle: "@nodefony/orm-core"
 lang: fr
 module: "@nodefony/orm-core"
 topic: orm-core

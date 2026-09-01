@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/frontend — le builder d'interfaces"
+navTitle: "@nodefony/frontend"
 lang: fr
 module: "@nodefony/frontend"
 topic: frontend

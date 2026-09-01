@@ -1,5 +1,6 @@
 ---
 title: "Kernel, Module et CliKernel — l'API du cœur"
+navTitle: Kernel, Module et CliKernel
 lang: fr
 module: "@nodefony/core"
 topic: kernel

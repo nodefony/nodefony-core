@@ -1,5 +1,6 @@
 ---
 title: "Migrations de schéma — de la base de dev au déploiement sans interruption"
+navTitle: Migrations de schéma
 lang: fr
 module: "@nodefony/drizzle"
 topic: drizzle

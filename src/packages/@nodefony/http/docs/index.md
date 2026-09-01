@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/http — la couche transport"
+navTitle: "@nodefony/http"
 lang: fr
 module: "@nodefony/http"
 topic: http

@@ -1,5 +1,6 @@
 ---
 title: "Fonctions d'injection Angular — nodefony/angular"
+navTitle: Fonctions d'injection Angular
 lang: fr
 module: "@nodefony/core"
 topic: angular-services

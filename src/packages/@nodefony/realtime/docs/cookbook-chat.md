@@ -1,5 +1,6 @@
 ---
 title: "Cookbook — un chat temps réel de bout en bout"
+navTitle: Cookbook
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime

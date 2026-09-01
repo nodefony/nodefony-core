@@ -1,5 +1,6 @@
 ---
 title: "Décorateurs — la surface déclarative des contrôleurs"
+navTitle: Décorateurs
 lang: fr
 module: "@nodefony/framework"
 topic: decorateurs

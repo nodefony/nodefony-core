@@ -1,5 +1,6 @@
 ---
 title: "Contexte de requête (RequestContext)"
+navTitle: Contexte de requête
 lang: fr
 module: "@nodefony/core"
 topic: request-context

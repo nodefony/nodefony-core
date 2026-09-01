@@ -1,5 +1,6 @@
 ---
 title: "Architecture interne — connexions, stores et fond de panier"
+navTitle: Architecture interne
 lang: fr
 module: "@nodefony/redis"
 topic: redis

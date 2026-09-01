@@ -1,5 +1,6 @@
 ---
 title: "Configuration — le modèle de résolution"
+navTitle: Configuration
 lang: fr
 module: "global"
 topic: configuration

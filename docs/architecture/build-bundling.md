@@ -1,5 +1,6 @@
 ---
 title: "Build & bundling — de la source au paquet publiable"
+navTitle: "Build & bundling"
 lang: fr
 module: "global"
 topic: build-bundling

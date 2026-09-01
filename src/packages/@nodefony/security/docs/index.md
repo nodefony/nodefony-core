@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/security — la sécurité de bout en bout"
+navTitle: "@nodefony/security"
 lang: fr
 module: "@nodefony/security"
 topic: security

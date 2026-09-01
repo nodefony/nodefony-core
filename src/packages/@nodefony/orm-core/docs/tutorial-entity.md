@@ -1,5 +1,6 @@
 ---
 title: "Créer une entité — du premier fichier à la première requête"
+navTitle: Créer une entité
 lang: fr
 module: "@nodefony/orm-core"
 topic: orm-core

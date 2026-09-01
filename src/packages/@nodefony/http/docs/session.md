@@ -1,5 +1,6 @@
 ---
 title: "Sessions — l'état serveur qui recolle les requêtes"
+navTitle: Sessions
 lang: fr
 module: "@nodefony/http"
 topic: session
