@@ -62,7 +62,7 @@
     "@nodefony/security": "*",
     "@nodefony/user": "*",
     "@types/better-sqlite3": "9.6.0",
-    "@types/node": "26.4.0",
+    "@types/node": "26.4.1",
     "@types/pg": "8.23.1",
     "drizzle-kit": "0.31.10",
     "nodefony": "*",

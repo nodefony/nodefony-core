@@ -49,7 +49,7 @@
     "@nodefony/orm-core": "*",
     "@nodefony/security": "*",
     "@nodefony/user": "*",
-    "@types/node": "26.4.0",
+    "@types/node": "26.4.1",
     "mongodb-memory-server": "11.2.0",
     "nodefony": "*",
     "rimraf": "6.1.3",

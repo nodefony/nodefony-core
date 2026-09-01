@@ -39,7 +39,7 @@
     "@nodefony/realtime": "*",
     "@nodefony/security": "*",
     "@nodefony/user": "*",
-    "@types/node": "26.4.0",
+    "@types/node": "26.4.1",
     "cross-env": "10.1.0",
     "nodefony": "*",
     "rimraf": "6.1.3",

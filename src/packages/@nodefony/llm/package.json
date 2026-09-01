@@ -27,7 +27,7 @@
   },
   "license": "CECILL-B",
   "devDependencies": {
-    "@types/node": "26.4.0",
+    "@types/node": "26.4.1",
     "@vitest/coverage-v8": "4.1.11",
     "nodefony": "*",
     "vitest": "4.1.11"
