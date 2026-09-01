@@ -31,6 +31,12 @@ on:
       - "src/nodefony/docs/**"
       - "src/packages/@nodefony/*/docs/**"
       - "scripts/build-docs-site.mjs"
+      # Le générateur n'est plus seul à décider du site : il importe du module de
+      # documentation le moteur de RECHERCHE (sérialisé dans chaque page) et le
+      # PÉRIMÈTRE publié. Changer ces règles change le site — sans ce chemin, la
+      # republication n'aurait pas lieu et le site garderait l'ancienne recherche.
+      - "src/packages/@nodefony/documentation/nodefony/**"
+      - "src/packages/@nodefony/documentation/index.ts"
       - "scripts/readme-html.mjs"
       - "README.md"
       - "scripts/build-perf-site.mjs"
@@ -102,6 +108,33 @@ jobs:
           test -s dist-site/docs/modules/security/firewall/index.html
           test -s dist-site/performance/latest/index.html
           echo "pages rendues : $(find dist-site -name index.html | wc -l)"
+
+      # La recherche plein texte tient à DEUX artefacts, et perdre l'un des deux
+      # ne casse rien de visible : la page se charge, le champ répond, et il ne
+      # trouve simplement plus rien. On exige donc l'index ET le moteur inséré
+      # dans la page, plus une vraie interrogation — un index vide pèse quelques
+      # octets et passerait un simple test d'existence.
+      - name: Vérifier que la recherche est servie, et qu'elle trouve
+        shell: bash
+        run: |
+          test -s dist-site/docs/search-index.json
+          grep -q "window.__nfSearch" dist-site/docs/index.html
+          node -e '
+            const fs = require("fs");
+            const page = fs.readFileSync("dist-site/docs/index.html", "utf8");
+            const m = /window\.__nfSearch=(function searchDocs[\s\S]*?);<\/script>/.exec(page);
+            if (!m) throw new Error("moteur de recherche absent de la page");
+            const chercher = new Function("return (" + m[1] + ")")();
+            const index = JSON.parse(
+              fs.readFileSync("dist-site/docs/search-index.json", "utf8"),
+            );
+            const r = chercher(index.docs, "firewall", 5);
+            if (!r.hits.length) throw new Error("la recherche ne rend AUCUN résultat");
+            console.log(
+              `recherche : ${index.docs.length} pages indexées, ` +
+                `« firewall » → ${r.matched} pages`,
+            );
+          '
 
       # Un lien mort ne se voit qu'une fois en ligne, et le site est servi sous
       # un sous-chemin (`/nodefony-core/`) : ses liens sont donc RELATIFS, et

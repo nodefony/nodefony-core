@@ -1199,7 +1199,13 @@ function writeSearchIndex(published) {
     };
   });
   const json = JSON.stringify({ generatedAt: new Date().toISOString(), docs });
-  writeFileSync(path.join(OUT, "search-index.json"), json);
+  // Sous le MONTAGE, comme les pages : les URL du site portent ce préfixe, et
+  // l'index posé à la racine se cherchait un dossier trop haut — 404, donc
+  // « recherche indisponible », sans autre symptôme. Invisible en local, où le
+  // site se construit sans montage : la garde de publication l'a trouvé.
+  const dossier = path.join(OUT, MOUNT.replace(/^\//, ""));
+  mkdirSync(dossier, { recursive: true });
+  writeFileSync(path.join(dossier, "search-index.json"), json);
   return Buffer.byteLength(json);
 }
 
@@ -1423,7 +1429,7 @@ const written = new Set(
   published.map((p) => path.join(OUT, p.url.replace(/^\//, ""), "index.html")),
 );
 written.add(path.join(OUT, "404.html"));
-written.add(path.join(OUT, "search-index.json"));
+written.add(path.join(OUT, MOUNT.replace(/^\//, ""), "search-index.json"));
 const stale = [];
 const sweep = (dir) => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
