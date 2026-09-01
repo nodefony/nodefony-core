@@ -1,5 +1,6 @@
 import { Kernel, Module, appConfigJsonSchema } from "nodefony";
 import { controllers } from "@nodefony/framework";
+import { entities } from "@nodefony/orm-core";
 import config from "./nodefony.config";
 import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
@@ -9,6 +10,9 @@ import indexController from "./nodefony/controllers/indexController";
 // aucun câblage `registerXStore`/entité à écrire (lot 0.8 + S2 multi-dialecte).
 // Source d'identité de l'app : pose le service "users" au boot (cf. fichier).
 import { provisionUsers } from "./nodefony/security/provisionUsers";
+// L'identité appartient à l'APPLICATION : le framework ne livre plus la table
+// `User` dans ses migrations. Ce dépôt en est une — il porte donc la sienne.
+import { AppUserEntity } from "./nodefony/entity/User";
 
 /**
  * Point d'entrée de l'application Nodefony.
@@ -28,6 +32,7 @@ import { provisionUsers } from "./nodefony/security/provisionUsers";
 export { env } from "./env";
 
 @controllers([AppController, indexController])
+@entities([AppUserEntity])
 class App extends Module {
   /**
    * @param kernel - instance du Kernel.

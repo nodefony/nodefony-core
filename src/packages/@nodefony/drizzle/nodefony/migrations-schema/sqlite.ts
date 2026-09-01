@@ -5,7 +5,6 @@ import {
 } from "../entity/tokenEntity";
 import { createSessionTable } from "../entity/sessionEntity";
 import { createIdempotencyTable } from "../entity/idempotencyEntity";
-import { createUserTable } from "../entity/userTable";
 import { createAuditEventTable } from "../entity/auditEventEntity";
 import { createTotpSecretTable } from "../entity/totpSecretEntity";
 import { createWebAuthnCredentialTable } from "../entity/webAuthnCredentialEntity";
@@ -29,6 +28,11 @@ import { createWebhookEndpointTable } from "../entity/webhookEndpointEntity";
  * 3. **Rien d'autre que ces exports.** Toute constante supplémentaire de type
  *    table entrerait dans la migration.
  *
+ * ⚠️ **`User` n'y figure pas, et c'est une décision.** L'identité est du DOMAINE :
+ * la table appartient à l'APPLICATION, qui y ajoute ses champs et en porte les
+ * migrations. La livrer ici la rendrait « table du framework » — donc exclue du
+ * diff que l'application génère, en silence.
+ *
  * Les trois fichiers sont volontairement identiques au dialecte près : ils ne
  * portent aucune décision, seulement l'application des fabriques du `colKit`.
  * La source de vérité reste la spécification de chaque entité — c'est elle qu'on
@@ -41,7 +45,6 @@ export const deniedJti = createDeniedJtiTable(DIALECT);
 export const subjectRevocation = createSubjectRevocationTable(DIALECT);
 export const session = createSessionTable(DIALECT);
 export const idempotencyKey = createIdempotencyTable(DIALECT);
-export const user = createUserTable(DIALECT);
 export const auditEvent = createAuditEventTable(DIALECT);
 export const totpSecret = createTotpSecretTable(DIALECT);
 export const webAuthnCredential = createWebAuthnCredentialTable(DIALECT);

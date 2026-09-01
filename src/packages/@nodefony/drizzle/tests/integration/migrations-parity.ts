@@ -8,7 +8,6 @@ import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
 import { registerSessionEntity } from "../../nodefony/entity/sessionEntity";
 import { registerTokenEntities } from "../../nodefony/entity/tokenEntity";
 import { registerIdempotencyEntities } from "../../nodefony/entity/idempotencyEntity";
-import { registerUserEntity } from "../../nodefony/entity/userTable";
 import { registerAuditEntities } from "../../nodefony/entity/auditEventEntity";
 import { registerTotpSecretEntity } from "../../nodefony/entity/totpSecretEntity";
 import { registerWebAuthnCredentialEntity } from "../../nodefony/entity/webAuthnCredentialEntity";
@@ -62,6 +61,9 @@ const FORMAT_MARKER = "-- nodefony:migration format=1";
  * suites (l'utilisateur applicatif ne peut pas en créer une), donc le banc doit
  * savoir exactement ce qu'il a le droit d'effacer et d'observer. Une liste
  * déduite du registre suivrait n'importe quelle erreur d'enregistrement.
+ * ⚠️ **`User` n'y figure plus** : la table appartient à l'APPLICATION, qui la
+ * décrit et en porte les migrations. Le framework n'en construit donc plus aucun
+ * des deux chemins, et la comparer ici n'aurait plus de sens.
  */
 export const FRAMEWORK_TABLES = [
   "access_token",
@@ -71,7 +73,6 @@ export const FRAMEWORK_TABLES = [
   "session",
   "subject_revocation",
   "totp_secret",
-  "User",
   "webauthn_credential",
   "webhook_endpoint",
 ] as const;
@@ -248,7 +249,6 @@ const REGISTRARS = [
   registerSessionEntity,
   registerTokenEntities,
   registerIdempotencyEntities,
-  registerUserEntity,
   registerAuditEntities,
   registerTotpSecretEntity,
   registerWebAuthnCredentialEntity,

@@ -19,6 +19,7 @@ import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
+import { isFrameworkFallbackEntity } from "../registerStores";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import {
   countUsers,
@@ -45,6 +46,39 @@ type UserCriteria = Criteria<UserRow>;
  * Le credential (`password`) transite par cette frontière — c'est attendu : le
  * repository **est** la frontière de persistance du hash (cf `IUserRepository`).
  */
+/**
+ * Refuse de servir un annuaire dont la table n'existera nulle part.
+ *
+ * L'entité `User` du framework est un REPLI : elle dépanne quand l'application
+ * n'a pas encore la sienne. Depuis que la table appartient à l'application, elle
+ * n'est plus dans aucune chaîne de migration — donc hors développement, où le
+ * schéma est dérivé du code, **personne ne la crée**. Sans ce refus,
+ * l'application démarrerait, servirait ses pages, et échouerait à la première
+ * authentification sur une table absente : le pire des trois moments pour
+ * l'apprendre.
+ *
+ * Le refus ne vise que le cas où les deux conditions se rencontrent — entité de
+ * repli ET schéma non dérivé. Une application qui possède son entité, ou qui
+ * tourne en développement, ne le voit jamais.
+ *
+ * @param orm - l'ORM sur lequel l'annuaire s'apprête à lire.
+ * @throws Error si la table `User` ne sera créée par personne.
+ */
+function assertUserTableIsOwned(orm: DrizzleOrm): void {
+  if (orm.derivesSchema || !isFrameworkFallbackEntity("User", orm.name)) {
+    return;
+  }
+  throw new Error(
+    `Cette application doit posséder son entité « User » : le framework a posé la sienne ` +
+      `par défaut, et elle n'est dans AUCUNE migration — la table n'existera donc pas ` +
+      `sur le connecteur « ${orm.name} », où le schéma appartient aux migrations.\n` +
+      `  → la créer : nodefony create entity User\n` +
+      `  → puis générer sa migration : nodefony orm:generate --name user\n` +
+      `  → puis l'appliquer : nodefony orm:migrate\n` +
+      `(en développement le schéma est dérivé du code, ce qui masquait le manque.)`,
+  );
+}
+
 export class DrizzleUserRepository implements IUserRepository {
   /**
    * Même vocabulaire public que les autres repositories — ici le tri part
@@ -80,6 +114,7 @@ export class DrizzleUserRepository implements IUserRepository {
    * @returns le repository utilisateur prêt à l'emploi.
    */
   static from(orm: DrizzleOrm): DrizzleUserRepository {
+    assertUserTableIsOwned(orm);
     return new DrizzleUserRepository(
       orm.getRepository<UserRow>("User"),
       orm.getNativeConnection<DrizzleDb>(),

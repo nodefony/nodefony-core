@@ -195,10 +195,15 @@ réclame aucun outil tiers.
 
 ### Une entité qui pointe vers une table du framework
 
-Déclarer une référence vers `User` dans votre entité est légitime, et ne pose aucun problème : ce
+Déclarer une référence vers une table du framework (`session`, `audit_event`…) est légitime : ce
 qui est refusé, c'est de **ré-exporter** cette table depuis vos fichiers. Les tables du framework
 sont exclues du plan de votre application — elles ont leurs propres migrations, appliquées avant les
 vôtres. Pour une vraie clé étrangère SQL, écrivez une migration libre.
+
+> [!IMPORTANT]
+> **`User` n'en fait PAS partie.** L'identité est du domaine : la table `User` appartient à votre
+> application, qui la décrit et en porte les migrations. Le framework ne la livre plus. C'est ce
+> qui vous permet d'y ajouter vos propres champs — ce qu'aucune table du framework n'autorise.
 
 ### Ce qu'aucun schéma ne peut déduire — la migration libre
 

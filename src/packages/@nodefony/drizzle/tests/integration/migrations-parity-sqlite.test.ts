@@ -105,8 +105,8 @@ describe("Migrations ↔ DDL dérivé — parité (sqlite)", () => {
   it("les deux chemins construisent les MÊMES tables", () => {
     assert.equal(
       derived.tables.length,
-      10,
-      "le schéma du framework compte dix tables — si ce nombre change, la " +
+      9,
+      "le schéma du framework compte neuf tables — si ce nombre change, la " +
         "migration initiale doit être regénérée, pas ce test ajusté",
     );
     assert.deepEqual(migrated.tables, derived.tables);
@@ -121,7 +121,7 @@ describe("Migrations ↔ DDL dérivé — parité (sqlite)", () => {
     // vérifie le DÉCOUPAGE, sans quoi une instruction collée à la suivante
     // s'appliquerait en une seule — ou pas du tout.
     assert.ok(
-      statements.length >= 10,
+      statements.length >= 9,
       `au moins une instruction par table, obtenu ${statements.length}`,
     );
     assert.ok(
@@ -130,8 +130,8 @@ describe("Migrations ↔ DDL dérivé — parité (sqlite)", () => {
     );
     assert.equal(
       statements.filter((s) => s.startsWith("CREATE TABLE")).length,
-      10,
-      "dix instructions CREATE TABLE",
+      9,
+      "neuf instructions CREATE TABLE",
     );
   });
 });

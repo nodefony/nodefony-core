@@ -318,6 +318,22 @@ export class DrizzleOrm extends Orm {
     this.#applyMigrations = options.applyMigrations;
   }
 
+  /**
+   * Le schéma est-il dérivé du code à la connexion, ou appartient-il aux
+   * migrations ?
+   *
+   * Se lire de l'extérieur a un usage précis : une brique qui s'apprête à
+   * interroger une table doit pouvoir dire si quelqu'un la crée. Quand la
+   * réponse est « non » et que la table ne figure dans aucune migration, un refus
+   * au démarrage vaut infiniment mieux qu'une erreur de colonne inconnue à la
+   * première requête d'un utilisateur.
+   *
+   * @returns `true` en mode `auto` (développement, test), `false` sinon.
+   */
+  get derivesSchema(): boolean {
+    return this.#deriveSchema;
+  }
+
   /** Dialecte SQL de ce connecteur. */
   get dialect(): SqlDialect {
     return this.#dialect;

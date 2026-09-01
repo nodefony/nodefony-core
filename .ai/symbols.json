@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-01T15:16:15.620Z",
+  "generated": "2026-09-01T16:08:42.796Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -9,8 +9,8 @@
     "interfaces": 1004,
     "types": 428,
     "enums": 4,
-    "functions": 1452,
-    "constants": 368
+    "functions": 1455,
+    "constants": 365
   },
   "symbols": {
     "Cli": {
@@ -5283,6 +5283,14 @@
       "module": "@nodefony/drizzle",
       "extends": null,
       "description": "Bilan de l'auto-enregistrement (loggé par le module — jamais silencieux)."
+    },
+    "isFrameworkFallbackEntity": {
+      "name": "isFrameworkFallbackEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Cette entité a-t-elle été posée par le repli du framework ?"
     },
     "registerDrizzleFrameworkStores": {
       "name": "registerDrizzleFrameworkStores",
@@ -12471,13 +12479,6 @@
       "exported": true,
       "module": "@nodefony/drizzle"
     },
-    "user": {
-      "name": "user",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle"
-    },
     "auditEvent": {
       "name": "auditEvent",
       "kind": "const",
@@ -12536,13 +12537,6 @@
     },
     "@nodefony/drizzle:idempotencyKey": {
       "name": "idempotencyKey",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle"
-    },
-    "@nodefony/drizzle:user": {
-      "name": "user",
       "kind": "const",
       "file": "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts",
       "exported": true,
@@ -12674,8 +12668,7 @@
       "implements": [
         "IUserRepository"
       ],
-      "decorators": [],
-      "description": "Adapter Drizzle du contrat {@link IUserRepository} — implémentation SQL **par défaut** de la persistance utilisateur (P5.9). Décore le repository portable générique (`IRepository<UserRow>` de {@lin…"
+      "decorators": []
     },
     "DrizzleWebAuthnCredentialStore": {
       "name": "DrizzleWebAuthnCredentialStore",
@@ -31150,11 +31143,6 @@
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
       ],
-      "createUserTable": [
-        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
-        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
-        "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
-      ],
       "createAuditEventTable": [
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
@@ -31515,6 +31503,9 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "isFrameworkFallbackEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
       ],
       "countUsers": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"

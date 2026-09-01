@@ -105,6 +105,36 @@ export interface IFrameworkStoresReport {
 }
 
 /**
+ * Les entités que le REPLI a posées, par connecteur — `<connecteur>:<entité>`.
+ *
+ * Elle existe pour une question qu'aucun autre objet ne sait trancher : cette
+ * entité vient-elle de l'APPLICATION, ou le framework l'a-t-il posée faute de
+ * mieux ? Le registre d'entités, lui, ne retient pas qui a écrit. Or la réponse
+ * décide d'un refus de démarrage : une entité de repli n'est dans AUCUNE chaîne
+ * de migration, donc sa table n'existe nulle part hors développement.
+ */
+const fallbackEntities = new Set<string>();
+
+/** Clé de {@link fallbackEntities} — une entité vit par connecteur. */
+function fallbackKey(entityName: string, connector: string): string {
+  return `${connector}:${entityName}`;
+}
+
+/**
+ * Cette entité a-t-elle été posée par le repli du framework ?
+ *
+ * @param entityName - nom de l'entité (`"User"`…).
+ * @param connector - connecteur porteur.
+ * @returns `true` si le framework l'a enregistrée lui-même, faute d'entité d'app.
+ */
+export function isFrameworkFallbackEntity(
+  entityName: string,
+  connector: string = FRAMEWORK_CONNECTOR,
+): boolean {
+  return fallbackEntities.has(fallbackKey(entityName, connector));
+}
+
+/**
  * Résout l'ORM `default` CONNECTÉ pour une fabrique de store — échec FRANC avec
  * la cause exacte (module absent / ordre de boot / dialecte) : principe « pas de
  * dégradation silencieuse ».
@@ -154,6 +184,10 @@ export function registerDrizzleFrameworkStores(
     appOwned: [],
     unported: [],
   };
+  // Un nouvel appel REFAIT le constat : une entité que l'app a fini par déclarer
+  // ne doit pas rester marquée « de repli » d'un passage précédent (tests,
+  // rechargement à chaud) — sans quoi le refus de démarrage viserait à faux.
+  fallbackEntities.clear();
 
   const wire = (
     entityName: string,
@@ -170,6 +204,7 @@ export function registerDrizzleFrameworkStores(
     } else {
       registerEntity();
       report.registered.push(entityName);
+      fallbackEntities.add(fallbackKey(entityName, FRAMEWORK_CONNECTOR));
     }
     registerFactory();
   };

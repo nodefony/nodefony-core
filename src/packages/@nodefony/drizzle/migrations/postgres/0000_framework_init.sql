@@ -85,21 +85,6 @@ CREATE TABLE "totp_secret" (
 	"lastUsedAt" bigint
 );
 --> statement-breakpoint
-CREATE TABLE "User" (
-	"id" text PRIMARY KEY NOT NULL,
-	"identifier" text NOT NULL,
-	"password" text,
-	"roles" jsonb NOT NULL,
-	"enabled" boolean NOT NULL,
-	"locked" boolean NOT NULL,
-	"currentRole" text,
-	"socialProviders" jsonb NOT NULL,
-	"metadata" jsonb NOT NULL,
-	"createdAt" timestamp (3) with time zone NOT NULL,
-	"updatedAt" timestamp (3) with time zone NOT NULL,
-	CONSTRAINT "User_identifier_unique" UNIQUE("identifier")
-);
---> statement-breakpoint
 CREATE TABLE "webauthn_credential" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
