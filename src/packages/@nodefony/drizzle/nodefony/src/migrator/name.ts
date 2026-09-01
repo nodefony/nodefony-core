@@ -54,7 +54,13 @@ export function suggestMigrationName(saisie: string): string | undefined {
   const derive = saisie
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
+    // `_` et non `_+` : la ligne au-dessus réduit TOUT run de caractères non
+    // alphanumériques à UN SEUL trait bas, donc « __ » ne peut pas exister ici.
+    // Le quantifieur était donc inutile — et coûteux : `_+$` doit être réessayé
+    // à chaque position de départ, ce qui rend le temps QUADRATIQUE en la
+    // longueur de la saisie (js/polynomial-redos). La saisie vient de la ligne
+    // de commande, elle n'est pas bornée avant ce point.
+    .replace(/^_|_$/g, "")
     .slice(0, MIGRATION_NAME_MAX);
   // Une saisie entièrement non latine (« 日本語 », « ΑΒΓ ») ne laisse que des
   // traits bas : le « nom » proposé serait `0001__`, illisible dans six mois —
