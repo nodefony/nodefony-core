@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-01T14:54:07.631Z",
+  "generated": "2026-09-01T15:16:15.620Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 795,
-    "symbols": 3638,
+    "symbols": 3639,
     "classes": 383,
     "interfaces": 1004,
     "types": 428,
     "enums": 4,
-    "functions": 1451,
+    "functions": 1452,
     "constants": 368
   },
   "symbols": {
@@ -19265,6 +19265,14 @@
       "module": "@nodefony/user",
       "description": "D'où vient la valeur d'une colonne — ce qui décide si un adaptateur doit la DÉCLARER ou peut la laisser au moteur. - `identity` : la clé primaire. Déclarée en SQL (`text` + UUID applicatif), fourni…"
     },
+    "attachExtraColumns": {
+      "name": "attachExtraColumns",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Reporte sur un utilisateur reconstruit toutes les colonnes que `BaseUser` ne porte pas — horodatages de la ligne, et **champs métier ajoutés par l'application**. Sans ce report, l'écriture passe et…"
+    },
     "USER_COLUMNS": {
       "name": "USER_COLUMNS",
       "kind": "const",
@@ -31479,6 +31487,11 @@
       "USER_DEFAULT_ORDER": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "attachExtraColumns": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],

@@ -8,6 +8,7 @@ import {
   BaseUser,
   USER_SORTABLE_FIELDS,
   USER_DEFAULT_ORDER,
+  attachExtraColumns,
 } from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
@@ -86,7 +87,7 @@ export class DrizzleUserRepository implements IUserRepository {
     );
   }
 
-  /** Mappe une ligne plate en {@link BaseUser} (comportement + champs anti-migration). */
+  /** Mappe une ligne plate en {@link BaseUser} — colonnes hors contrat comprises. */
   #toUser(row: UserRow): IPasswordAuthenticatedUser {
     const user = new BaseUser({
       id: row.id,
@@ -99,14 +100,11 @@ export class DrizzleUserRepository implements IUserRepository {
       socialProviders: row.socialProviders,
       metadata: row.metadata,
     });
-    // Timestamps d'ENTITÉ (colonnes `userTable`, hors contrat strict `IUser`) :
-    // attachés sur l'objet retourné pour que les DTO admin les exposent — c'est
-    // exactement la lecture défensive prévue par `toUserSummary` (« présents sur
-    // l'entité ORM, absents du contrat »). Sans ça, createdAt/updatedAt = null.
-    return Object.assign(user, {
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    });
+    // Tout ce que `BaseUser` ne reconstruit pas est reporté sur l'objet rendu :
+    // les horodatages de la ligne (sans quoi les DTO admin les verraient `null`)
+    // ET les champs métier que l'application a ajoutés à SA table. Un champ écrit
+    // mais non relu serait un mensonge silencieux — cf `attachExtraColumns`.
+    return attachExtraColumns(user, row as unknown as Record<string, unknown>);
   }
 
   async find(

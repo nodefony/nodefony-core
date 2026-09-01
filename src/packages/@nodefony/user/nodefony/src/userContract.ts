@@ -227,3 +227,61 @@ export interface IUserRow {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/**
+ * Les colonnes que `BaseUser` reconstruit lui-même — tout le reste d'une ligne
+ * est « en plus », et doit donc être reporté sur l'objet rendu.
+ *
+ * La correspondance avec l'origine n'est pas une coïncidence : un horodatage
+ * n'appartient pas au contrat `IUser` (il décrit la LIGNE, pas l'identité), donc
+ * `BaseUser` ne le porte pas. Un test la garde, parce qu'elle se romprait sans
+ * bruit le jour où une colonne changerait de statut.
+ */
+const REBUILT_BY_BASE_USER: ReadonlySet<string> = new Set(
+  USER_COLUMNS.filter((column) => column.origin !== "audit").map(
+    (column) => column.name,
+  ),
+);
+
+/**
+ * Reporte sur un utilisateur reconstruit toutes les colonnes que `BaseUser` ne
+ * porte pas — horodatages de la ligne, et **champs métier ajoutés par
+ * l'application**.
+ *
+ * Sans ce report, l'écriture passe et la lecture perd, **sans une erreur** : le
+ * développeur voit sa donnée en base et un objet vide dans son code. C'est
+ * l'asymétrie qui est le défaut, et elle ne se corrige qu'ici — les trois dépôts
+ * appellent cette fonction plutôt que d'en recopier chacun sa version, sinon
+ * l'un d'eux divergerait en silence (c'était déjà le cas : le dépôt SQL
+ * reportait les horodatages, le dépôt document non).
+ *
+ * ⚠️ Cette fonction est sur le chemin de CHAQUE requête portant une session
+ * authentifiée : elle n'alloue rien, ne construit aucun tableau intermédiaire,
+ * et ne parcourt que les clés propres de la ligne.
+ *
+ * @param user - l'utilisateur reconstruit, muté sur place.
+ * @param row - la ligne rendue par le moteur.
+ * @param skip - clés de plomberie propres au moteur (`_id`, `__v`…), à ne pas
+ *   reporter. Le contrat ne peut pas les connaître : c'est au dépôt de les dire.
+ * @returns le même objet `user`, pour permettre `return attachExtraColumns(...)`.
+ */
+export function attachExtraColumns<T extends object>(
+  user: T,
+  row: Readonly<Record<string, unknown>>,
+  skip?: ReadonlySet<string>,
+): T {
+  const target = user as Record<string, unknown>;
+  for (const key in row) {
+    if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+    if (REBUILT_BY_BASE_USER.has(key)) continue;
+    if (skip?.has(key)) continue;
+    // Une clé venue d'une BASE peut porter n'importe quel nom — un document
+    // Mongo accepte `__proto__`. L'assigner empoisonnerait le prototype de tout
+    // objet du process ; le refus est donc une garde, jamais un effet de bord.
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      continue;
+    }
+    target[key] = row[key];
+  }
+  return user;
+}
