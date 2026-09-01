@@ -275,14 +275,43 @@ jobs:
         # `if` la réserve à ubuntu aujourd'hui — un shell tu est une mine posée
         # pour le jour où cette garde changera.
         shell: bash
+        # Le périmètre vient du GÉNÉRATEUR (`--list`), pas d'une liste de globs.
+        # L'ancienne liste, écrite à la main, oubliait `docs/architecture/` — le
+        # dossier qui portait le plus d'ancres périmées du dépôt. Un gate qui
+        # regarde à côté est plus dangereux qu'un gate absent : il rassure.
         run: |
-          node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs \
-            src/packages/@nodefony/*/docs/*.md \
-            src/nodefony/docs/*.md \
-            docs/guides/*.md \
-            docs/adr/*.md \
-            docs/performance/*.md \
-            docs/release/*.md
+          node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          echo "corpus publié : $(wc -l < /tmp/pages-publiees.txt) pages"
+          tr '\n' '\0' < /tmp/pages-publiees.txt \
+            | xargs -0 node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs
+
+      # La Definition of Done d'une page : frontmatter, sections obligatoires,
+      # ancres de code, compteur de tests, liens vivants, zéro HTML brut.
+      #
+      # Ce contrôle existait depuis des mois et ne tournait NULLE PART — il vivait
+      # dans un skill, donc il ne gardait rien. Sur le corpus entier il échoue à
+      # juste titre (ADR, fiches générées, documents de pilotage ne suivent pas ce
+      # standard) : c'est le corpus PUBLIÉ qu'il garde, celui que lit un
+      # utilisateur du framework.
+      - name: Gate — Definition of Done des pages publiées
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          tr '\n' '\0' < /tmp/pages-publiees.txt \
+            | xargs -0 node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs
+
+      # Les ancres INTERNES (`](#une-section)`) : un sommaire mort ne se voit pas
+      # à la lecture du Markdown, seulement au clic. Le slug est calculé par la
+      # MÊME règle que `DocToc.slugifyHeading()` du portail ; les faire diverger a
+      # déjà cassé 77 ancres d'un coup, en silence.
+      - name: Gate — sommaires et ancres internes des pages publiées
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          tr '\n' '\0' < /tmp/pages-publiees.txt \
+            | xargs -0 node .claude/skills/nodefony-documentation/scripts/anchor-inpage.mjs
 
       # Les JUGES du banc devkit, éprouvés — pas le banc lui-même.
       #

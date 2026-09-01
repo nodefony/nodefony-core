@@ -1319,6 +1319,18 @@ if (ONLY) {
     if (d !== one) d.verdict = { ok: false, why: "hors aperçu" };
 }
 const published = docs.filter((d) => d.verdict.ok);
+
+// `--list` : rendre les chemins PUBLIÉS, un par ligne, et s'arrêter là.
+//
+// Les gates de rédaction (`doc-lint`, `anchor-inpage`) doivent porter sur ce qui
+// part chez le lecteur, ni plus ni moins : sur tout le dépôt ils échouent sur des
+// documents de pilotage et des fiches générées, qui ne suivent pas le standard ;
+// sur une liste écrite à la main, ils dérivent. Cette option évite la troisième
+// copie du périmètre en le faisant DIRE par celui qui l'applique.
+if (process.argv.includes("--list")) {
+  for (const d of published) console.log(d.repoRel);
+  process.exit(0);
+}
 const rejected = docs.filter((d) => !d.verdict.ok);
 
 if (published.length === 0) {
