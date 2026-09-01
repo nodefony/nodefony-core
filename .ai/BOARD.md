@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 23:00** (UTC).
+> Empreinte prise le **2026-09-01 00:56** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.

@@ -89,6 +89,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 09-01] **Le décor du dépôt diverge de celui de la forge, et c'est le dépôt qui rend le faux rouge.** `test:all --load` démarre le serveur par `start.sh`, donc en développement AVEC le rechargement à chaud ; la CI lance le MÊME `test:load` en `development --no-watch`, précisément parce que le gate `heap WS sustained` est documenté depuis juin comme flaky avec le watcher (HMR/DevSupervisor retiennent du heap que `global.gc()` ne rend pas). Résultat : 70,6 MB en local contre un seuil de 30, et vert en CI sur le MÊME commit. Deux implémentations d'une même règle, dont la locale est la moins fidèle. **Avant de croire un seuil qui saute en local, regarder avec quel décor la forge le joue.**
+
 - [1× — 31/08] **Sept mocks décrivaient un serveur qui n'existe pas** : ils ouvraient la socket sans jamais envoyer le `realtime:welcome` que le vrai serveur enchaîne. **16 cas verts contre un serveur imaginaire**, dont un nommé « ré-abonnement automatique au reconnect » qui prouvait l'INVERSE de son titre — le serveur jette tout ce qui arrive avant son welcome. Un mock répond ce qu'on a imaginé : quand il modélise un PROTOCOLE, il doit enchaîner les mêmes étapes, sinon les tests gardent le défaut au lieu de l'attraper.
 
 - [1× — 08-31] **J'ai déclaré vert un banc dont l'étape décisive était SAUTÉE.** Validation faite en `--no-e2e` « pour aller plus vite », puis correctif poussé : la forge est tombée sur `la ressource RÉPOND vraiment (HTTP, serveur réel)` — précisément l'étape que ce drapeau saute. L'écrit disait pourtant « non lancé : e2e ». **Nommer ce qu'on n'a pas lancé ne dispense pas de le lancer avant de pousser** : la phrase protège le lecteur, pas le dépôt.
@@ -710,6 +712,8 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-01] **Quatre tests visaient `__proto__` dans `envOverride`, aucun ne testait la garde.** Tous passaient `schema` non défini, donc tous étaient arrêtés par une branche ANTÉRIEURE (« le schéma ne déclare pas la feuille ») et laissaient hors preuve la ligne que CodeQL signalait. Le refus tenait d'ailleurs à un accident — `__proto__` n'est ni propriété propre ni énumérable — et cet accident cesse dès qu'un schéma vient de `JSON.parse`, qui crée une propriété PROPRE. L'attaque réelle a montré `appliqué=true`, prototype de la config détourné, `constructor` écrasé. **Le signe à reconnaître : plusieurs tests d'un même risque qui partagent tous le même argument par défaut** — ils explorent une seule branche en croyant en couvrir plusieurs.
+
 - [1× — 09-01] `grep -o 'function \w+\(\)\{return(!\d)\}'` attrapait la **première** fonction de cette forme du bundle, pas `isDevBuild` : classement de 8 bundles rendu au hasard, dont deux faux « DEV ». Reciblé par l'APPELANT (`isVerbose`, dont le corps cite `production`), le verdict s'est inversé. Un motif syntaxique sans ancrage sémantique mesure ce qu'il trouve, pas ce qu'on cherche.
 - [1× — 09-01] Condition de sonde composite `A && B && C` rendue FAUSSE : rien ne dit QUEL terme. Décomposée en cinq sondes d'une ligne, le fautif était une supposition à moi (« une seule socket ») — la barre de débogage en ouvre une seconde en dev. **Une condition composite qui échoue ne se re-lit pas, elle se décompose.**
 - [1× — 31/08] **`tsgo -p tsconfig.json` d'un module de vitrine rendait 0 erreur sur un fichier
@@ -1159,6 +1163,9 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 09-01] **Le harnais a REFUSÉ ma commande (un `cd` relatif), et j'ai failli lire le résultat comme un verdict.** Le refus portait sur toute la commande — patch `python3` compris — mais la commande SUIVANTE a rendu « 6 tests passés ». Ces 6 verts ne disaient rien du correctif, qui n'était pas dans le fichier. Un `grep` de l'ancre l'a montré. **Règle : après un refus d'outil, la première chose à vérifier n'est pas le test, c'est que l'ÉDITION a eu lieu.**
+- [1× — 09-01] **Mon motif `awk` de contrôle rendait des cellules VIDES** (P2, P7, P8, P10, P11, P14, P16) et accusait le bandeau d'un écart de 20 tâches. Réécrit en Python, l'écart réel était de 1 — mais il était RÉEL : `141✅ (211)` annoncé pour `142✅ (212)`. L'instrument se suspecte avant le fichier, et un écart trop gros est d'abord un symptôme de l'instrument.
 
 - [1× — 09-01] Build « de contrôle » lancé **sans `NF_WITH_DEV_MODULES=1`** : en production les modules `policy:"dev"` ne sont pas chargés ⇒ « aucun frontend déclaré », **empreinte du bundle inchangée**, et j'ai failli conclure que `NODE_ENV` n'avait aucun effet. C'est l'empreinte identique qui a sauvé la conclusion — pas le code de sortie, qui valait 0.
 - [1× — 31/08] **`git diff --stat` était MUET sur mon débranchement** — parce que le fichier était
@@ -1866,6 +1873,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Sept ancres fausses dans UNE grappe de quatre tickets** — dont une qui situait une garde à `orm-migrate-baseline.ts:118`, où vit une déclaration d'option, **171 lignes** avant sa cible ; et deux tickets frères qui désignaient la MÊME ligne (`orm-generate.ts:376`) pour deux refus différents — un seul pouvait avoir raison. Elles étaient toutes périmées pour la même raison : le travail décrit avait été FAIT entre-temps. Le contrôle qui tranche en une seconde : deux tickets ne pointent jamais la même ligne pour deux choses. Retirées plutôt que corrigées quand le fait avait disparu — une ancre juste sous une affirmation fausse est le pire des deux mondes.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 09-01] **Deux sous-agents chargés de confronter 49 cases de la feuille de route au CODE ont confronté les libellés au FICHIER** — 21 preuves sur 26 pour le second étaient des lignes de `MIGRATION_STATUS.md` lui-même. Le tableau rendu était impeccable de forme et **circulaire de fond** : un fichier confirme toujours ce qu'il affirme. Le prompt disait « ancrage `fichier:ligne` ACTUEL » et donnait le périmètre `src/` — insuffisant, parce que le fichier de référence EST un ancrage valide au sens littéral. **Ce qu'il fallait écrire** : « l'ancrage doit citer un fichier de `src/`, jamais le document audité » — et le recontrôler à la réception. Même mécanisme que l'« INCHANGÉE » : quand la source facile répond, le modèle ne va pas chercher la source coûteuse.
 
 - [1× — 08-28c] **Il annonce lui-même qu'il renonce, et on ne le lit pas** : « étant donné la complexité et la longueur croissante de la tâche, je vais synthétiser » → 5 items sur 15 rendus « NON VÉRIFIABLE PAR LECTURE », dont **4 que `rg` tranche en une commande** (une commande CLI existe-t-elle ? un champ est-il en int ?). Un « non vérifiable » sur une question mécanique est un **abandon**, pas un verdict : le recompter soi-même, toujours.
 

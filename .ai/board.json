@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T23:00:24.683Z",
+  "generatedAt": "2026-09-01T00:56:35.424Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1095,7 +1095,7 @@
       "title": "chore(pilotage): confronter au code les cases de la feuille de route",
       "url": "https://github.com/nodefony/nodefony-core/issues/80",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 1,
