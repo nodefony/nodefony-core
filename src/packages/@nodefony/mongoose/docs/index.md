@@ -651,11 +651,11 @@ vaut mieux qu'une erreur 500 et un rejet non capturé.
 `MongooseUserRepository` rend des objets `BaseUser` (avec leur comportement : rôles, actif, verrouillé),
 pas des documents nus. Deux recherches lui sont propres :
 
-- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:224`)) :
+- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:256`)) :
   un `$elemMatch` sur un tableau libre de fournisseurs — le pendant Mongo du parcours JSON en SQL.
   C'est ce qui porte le motif « Shadow User » d'OAuth (un compte créé à la volée au premier login social),
   **sans colonne par fournisseur** : ajouter GitHub demain n'est pas une migration.
-- **listing paginé** (`MongooseUserRepository.listPage()` (`MongooseUserRepository.ts:260`)) : requête
+- **listing paginé** (`MongooseUserRepository.listPage()` (`MongooseUserRepository.ts:299`)) : requête
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
