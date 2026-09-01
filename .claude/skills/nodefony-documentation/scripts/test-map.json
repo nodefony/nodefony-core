@@ -678,5 +678,37 @@
       "src/packages/@nodefony/drizzle/tests/integration/session-store-postgres.e2e.test.ts",
       "src/packages/@nodefony/drizzle/tests/integration/session-store-mysql.e2e.test.ts"
     ]
+  },
+  "persistence-guide": {
+    "unit": [
+      "src/nodefony/src/tests/infra.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditStoreRegistry.test.ts",
+      "src/packages/@nodefony/security/tests/unit/tokenStore.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotencyStoreRegistry.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/resolverIdempotency.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/auto-register.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/auto-register-postgres.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/auto-register-mysql.test.ts"
+    ]
+  },
+  "frontend-react-guide": {
+    "unit": [
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteConfigGenerator.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteBuilder.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/templateHelperOrigin.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/originDerivationPolicy.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/viteSupervisorStop.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/pidFromNetstat.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/remoteDev.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts"
+    ]
   }
 }
