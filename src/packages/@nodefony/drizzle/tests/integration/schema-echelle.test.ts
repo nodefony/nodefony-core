@@ -59,6 +59,49 @@ function tirage(graine: number): () => number {
   };
 }
 
+/**
+ * Accumule des lignes et les écrit par LOTS.
+ *
+ * 🔴 Un `INSERT` par ligne fait payer à chaque itération la construction de la
+ * requête et un aller-retour vers le moteur. Mesuré ici : 29 752 lignes en
+ * 1 221 ms sur un poste de développement — et le hook expirait sur l'exécuteur
+ * macOS de l'intégration continue, qui n'a pas de virtualisation matérielle et
+ * partage sa machine. Ce n'était pas une régression : c'était un semis calibré
+ * sur une machine rapide, et un rouge qui vient de la charge de l'exécuteur
+ * apprend à ignorer les rouges.
+ *
+ * Le tampon est vidé dès qu'il est plein, jamais gardé entier : les réglages
+ * montent jusqu'à 200 000 tiers, et tout accumuler en mémoire remplacerait un
+ * seuil de temps par un seuil de tas.
+ *
+ * @param pousser - écrit un lot dans sa table.
+ * @param taille - lignes par lot. 500 × 4 colonnes reste très en deçà de la
+ *   limite de paramètres liés de SQLite (32 766 depuis la 3.32).
+ * @returns de quoi ajouter une ligne, et de quoi vider ce qui reste.
+ */
+function lotiseur<T>(
+  pousser: (lignes: T[]) => void,
+  taille = 500,
+): { ajouter: (ligne: T) => void; finir: () => void } {
+  const tampon: T[] = [];
+  const vider = (): void => {
+    if (tampon.length === 0) {
+      return;
+    }
+    pousser(tampon);
+    tampon.length = 0;
+  };
+  return {
+    ajouter: (ligne: T): void => {
+      tampon.push(ligne);
+      if (tampon.length >= taille) {
+        vider();
+      }
+    },
+    finir: vider,
+  };
+}
+
 /** Entier de configuration, borné : un réglage absurde ne doit pas figer la passe. */
 function reglage(cle: string, defaut: number, max: number): number {
   const v = Number(process.env[cle]);
@@ -199,11 +242,22 @@ describe("Échelle — volume sur un modèle de facturation", () => {
     // Une seule transaction : sans elle, better-sqlite3 valide à chaque insert et
     // le semis prend des minutes là où il prend des millisecondes.
     db.run(sql`BEGIN`);
-    for (let i = 0; i < pays.length; i++) {
-      db.insert(paysTable)
-        .values({ id: i + 1, label: pays[i] })
-        .run();
-    }
+    const lotTiers = lotiseur<typeof tiersTable.$inferInsert>((l) => {
+      db.insert(tiersTable).values(l).run();
+    });
+    const lotFactures = lotiseur<typeof factureTable.$inferInsert>((l) => {
+      db.insert(factureTable).values(l).run();
+    });
+    const lotLignes = lotiseur<typeof ligneTable.$inferInsert>((l) => {
+      db.insert(ligneTable).values(l).run();
+    });
+    const lotReglements = lotiseur<typeof reglementTable.$inferInsert>((l) => {
+      db.insert(reglementTable).values(l).run();
+    });
+
+    db.insert(paysTable)
+      .values(pays.map((label, i) => ({ id: i + 1, label })))
+      .run();
 
     let idFacture = 0;
     let idLigne = 0;
@@ -213,16 +267,14 @@ describe("Échelle — volume sur un modèle de facturation", () => {
     let facturesMax = 0;
 
     for (let t = 1; t <= nbTiers; t++) {
-      db.insert(tiersTable)
-        .values({
-          id: t,
-          nom: `Tiers ${t}`,
-          // Un dixième de non-clients : le `WHERE t.client >= 1` du rapport doit
-          // les exclure, et sans eux ce filtre ne serait jamais mis à l'épreuve.
-          client: rnd() < 0.9 ? 1 : 0,
-          paysId: 1 + Math.floor(rnd() * pays.length),
-        })
-        .run();
+      lotTiers.ajouter({
+        id: t,
+        nom: `Tiers ${t}`,
+        // Un dixième de non-clients : le `WHERE t.client >= 1` du rapport doit
+        // les exclure, et sans eux ce filtre ne serait jamais mis à l'épreuve.
+        client: rnd() < 0.9 ? 1 : 0,
+        paysId: 1 + Math.floor(rnd() * pays.length),
+      });
 
       const nbFactures = 1 + Math.floor(rnd() * maxFactures);
       if (nbFactures > facturesMax) facturesMax = nbFactures;
@@ -237,37 +289,39 @@ describe("Échelle — volume sur un modèle de facturation", () => {
           idLigne++;
           const montant = Math.round((10 + rnd() * 990) * 100) / 100;
           ht += montant;
-          db.insert(ligneTable)
-            .values({
-              id: idLigne,
-              factureId: idFacture,
-              montantHt: montant,
-              quantite: 1 + Math.floor(rnd() * 5),
-            })
-            .run();
+          lotLignes.ajouter({
+            id: idLigne,
+            factureId: idFacture,
+            montantHt: montant,
+            quantite: 1 + Math.floor(rnd() * 5),
+          });
         }
         ht = Math.round(ht * 100) / 100;
         caTotal += ht;
-        db.insert(factureTable)
-          .values({
-            id: idFacture,
-            ref: `FA-${idFacture}`,
-            tiersId: t,
-            emiseLe: `2026-${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`,
-            totalHt: ht,
-          })
-          .run();
+        lotFactures.ajouter({
+          id: idFacture,
+          ref: `FA-${idFacture}`,
+          tiersId: t,
+          emiseLe: `2026-${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`,
+          totalHt: ht,
+        });
 
         const regle = rnd() < 0.7 ? ht : Math.round(ht * rnd() * 100) / 100;
         if (regle > 0) {
           idReglement++;
           regleTotal += regle;
-          db.insert(reglementTable)
-            .values({ id: idReglement, factureId: idFacture, montant: regle })
-            .run();
+          lotReglements.ajouter({
+            id: idReglement,
+            factureId: idFacture,
+            montant: regle,
+          });
         }
       }
     }
+    lotTiers.finir();
+    lotFactures.finir();
+    lotLignes.finir();
+    lotReglements.finir();
     db.run(sql`COMMIT`);
 
     semis = {
@@ -285,7 +339,15 @@ describe("Échelle — volume sur un modèle de facturation", () => {
         `(${semis.tiers} tiers / ${semis.factures} factures / ${semis.lignes} lignes / ${semis.reglements} règlements) ` +
         `en ${semis.ms.toFixed(0)} ms`,
     );
-  });
+    // 🔴 Un délai DÉCLARÉ, et dimensionné sur ce que le hook fait vraiment :
+    // 311 ms mesurés ici pour 29 752 lignes. Le défaut de vitest (20 s) laissait
+    // moins d'un facteur 20 à un exécuteur macOS sans virtualisation matérielle,
+    // qui partage sa machine — et le hook y expirait. Cent-vingt secondes
+    // laissent un facteur 380 : assez pour n'importe quelle contention, trop peu
+    // pour qu'un semis devenu lent passe inaperçu. Le réglage `NF_BILL_PARTIES`
+    // monte jusqu'à 200 000 tiers ; à cette taille, c'est la mesure affichée par
+    // la ligne ci-dessus qu'il faut lire, pas ce délai qu'il faut relever.
+  }, 120_000);
 
   afterAll(async () => {
     await orm.disconnect();

@@ -237,6 +237,13 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - ⚠️ Un front généré importe du CSS → `types: ["node", "vite/client"]` dans le tsconfig de l'app,
   sinon `npm run typecheck` échoue en TS2882 sur un projet qui, lui, se construit très bien.
 
+- Manifeste d'app `complete` : `"allowScripts": { "better-sqlite3": false }`. npm SYNTHÉTISE un
+  `install: node-gyp rebuild` dès que l'arbre vient d'un `package-lock.json` — le `gypfile: false`
+  du paquet n'est lu que sur un arbre bâti depuis le registre (npm/cli#9837). npm 11 (Node 24 LTS)
+  avertit SANS bloquer ⇒ 2ᵉ `npm install` mort sur « find Python » ; npm 12 bloque. Le refus
+  explicite est honoré par les deux. `minimal` n'a pas la clé (pas de drizzle, donc pas le paquet).
+  Le `--ignore-scripts` du `Dockerfile.tpl` couvre l'IMAGE, pas le poste du développeur.
+
 ## Deps
 
 - `Cli` → Service, Container, Event, Command, Tools(extend), FileClass, Syslog, Kernel, clui, cli-color, commander, moment, semver, asciify, shelljs, node-emoji

@@ -153,7 +153,7 @@ describe.skipIf(!MYSQL_URL)("Migrations ↔ DDL dérivé — parité (mysql)", (
     assert.equal(
       derived.tables.length,
       FRAMEWORK_TABLES.length,
-      "le schéma du framework compte dix tables",
+      "le schéma du framework compte neuf tables",
     );
     assert.deepEqual(migrated.tables, derived.tables);
   });

@@ -8,7 +8,10 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "scripts": {
+<% if (it.complete) { %>  "allowScripts": {
+    "better-sqlite3": false
+  },
+<% } %>  "scripts": {
     "prepare": "node --eval \"const f=require('node:fs');if(f.existsSync('.githooks'))try{require('node:child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "dev": "nodefony development",
     "build": "rolldown -c rolldown.config.ts<% if (it.front) { %> && nodefony frontend:build<% } %>",

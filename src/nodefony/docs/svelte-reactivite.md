@@ -1,5 +1,6 @@
 ---
 title: "Réactivité Svelte — nodefony/svelte"
+navTitle: Réactivité Svelte
 lang: fr
 module: "@nodefony/core"
 topic: svelte-reactivite

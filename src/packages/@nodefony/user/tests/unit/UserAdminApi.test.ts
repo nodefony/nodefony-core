@@ -7,6 +7,7 @@ import {
 } from "../../nodefony/src/admin/UserAdminApi";
 import { BaseUser } from "../../nodefony/src/BaseUser";
 import { USER_SORTABLE_FIELDS_IN_MEMORY } from "../../nodefony/src/userSort";
+import { attachExtraColumns } from "../../nodefony/src/userContract";
 import { USER_FACETS } from "../../nodefony/src/userFilters";
 import { WeakPasswordError } from "../../nodefony/errors/WeakPasswordError";
 import { countFacets } from "nodefony";
@@ -264,6 +265,23 @@ describe("UserAdminApi — toUserSummary (redaction)", () => {
   it("n'expose JAMAIS password ni metadata", () => {
     assert.ok(!("password" in s));
     assert.ok(!("metadata" in s));
+  });
+
+  it("un champ MÉTIER de l'application ne sort pas dans le résumé admin", () => {
+    // Depuis que les dépôts reportent les colonnes hors contrat, un utilisateur
+    // PORTE les champs métier de l'application (salaire, numéro de sécurité
+    // sociale, notes RH). `toUserSummary` construit son objet champ par champ,
+    // sans diffusion — c'est ce qui empêche ces champs de partir dans le data
+    // plane et dans la console d'administration. Rien ne gardait cette
+    // étanchéité : un `...user` ajouté un jour la romprait sans un mot.
+    const withBusiness = attachExtraColumns(
+      new BaseUser({ id: "u9", identifier: "carol@example.com" }),
+      { firstName: "Carol", salary: "SALAIRE_CONFIDENTIEL" },
+    );
+    const summary = toUserSummary(withBusiness);
+    assert.ok(!("firstName" in summary), "firstName ne doit pas être diffusé");
+    assert.ok(!("salary" in summary), "salary ne doit pas être diffusé");
+    assert.ok(!JSON.stringify(summary).includes("SALAIRE_CONFIDENTIEL"));
   });
 
   it("le JSON sérialisé ne fuit ni le hash ni la metadata", () => {

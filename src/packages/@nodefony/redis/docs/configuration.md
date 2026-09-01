@@ -1,5 +1,6 @@
 ---
 title: "Configuration — déclarer l'accès Redis"
+navTitle: Configuration
 lang: fr
 module: "@nodefony/redis"
 topic: redis

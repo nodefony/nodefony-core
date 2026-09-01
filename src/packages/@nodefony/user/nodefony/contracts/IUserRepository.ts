@@ -52,6 +52,25 @@ export interface IUserListQuery extends IPageQuery {
  * une fois par adapter (Mongoose/Drizzle, P5.8–5.9) ; l'ORM concret
  * reste invisible des consommateurs (DI : `@Inject('repository.user')`).
  *
+ * ## Écrire un champ MÉTIER de l'application
+ *
+ * Ce contrat est typé sur {@link IPasswordAuthenticatedUser} : `create()` et
+ * `updateOne()` **refusent** en TypeScript un champ que l'application a ajouté à
+ * sa table (`firstName`, `department`…). Ce n'est pas un oubli — le framework ne
+ * connaît que les colonnes de son contrat.
+ *
+ * La porte d'écriture est le **repository générique** de l'entité, obtenu depuis
+ * l'ORM et déjà exercé sur cette table :
+ *
+ * ```typescript
+ * const users = orm.getRepository<MonUtilisateur>("User");
+ * await users.create({ identifier: "carol@example.com", firstName: "Carol" });
+ * ```
+ *
+ * En LECTURE, rien à faire : les dépôts reportent sur l'utilisateur rendu toute
+ * colonne hors contrat, champs métier compris. Un champ écrit se relit donc, quel
+ * que soit le moteur.
+ *
  * @remarks Type d'entité = {@link IPasswordAuthenticatedUser} (credential inclus),
  * pas `IUser`. Le repository **est** la frontière de persistance du mot de passe :
  * seul composant qui lit/écrit le hash (consommé par `UserService` et

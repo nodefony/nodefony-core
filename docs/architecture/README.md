@@ -1,4 +1,6 @@
 ---
+title: "Architecture — comment l'ensemble tient"
+navTitle: Toute l'architecture
 lang: fr
 module: global
 topic: architecture-index
@@ -8,55 +10,63 @@ status: stable
 last-updated: 2026-07-22
 ---
 
-# Architecture — concepts transverses
+# Architecture
 
-> Ce dossier porte les concepts qui **ne relèvent d'aucun module en particulier** : comment
-> l'ensemble tient debout. Le point d'entrée d'un lecteur est le portail
-> [`docs/index.md`](../index.md) (section « Fondations ») ; cet index-ci sert au repérage dans
-> l'arborescence.
+> Sept pages sur ce qui ne relève **d'aucun module en particulier** : ce qui tient l'ensemble
+> debout. Un guide vous dit quoi taper ; ces pages-ci vous disent ce qui se passe pendant que
+> vous tapez — et c'est ce qui sert quand quelque chose ne se comporte pas comme prévu.
 
-## Fondations — les pages publiées
+## 🗺️ Commencer par la carte
 
-| Page                                                         | Sujet                                                                          | Statut |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------ |
-| [`vue-ensemble.md`](vue-ensemble.md)                         | La carte du territoire : ce qu'est Nodefony, ses partis pris et leur coût      | stable |
-| [`cycle-boot-kernel.md`](cycle-boot-kernel.md)               | L'ordre d'allumage, les hooks où brancher son code, l'arrêt propre             | stable |
-| [`injection-portees.md`](injection-portees.md)               | Le conteneur de services : déclarer, injecter, choisir une portée              | stable |
-| [`configuration.md`](configuration.md)                       | `defineConfig`, `use()`, l'environnement, la validation au boot                | stable |
-| [`pipeline-requete.md`](pipeline-requete.md)                 | Le trajet d'une requête, de l'octet reçu à l'octet renvoyé — HTTP et WebSocket | stable |
-| [`build-bundling.md`](build-bundling.md)                     | De la source au paquet publiable : rolldown, types (tsgo), turbo, `external`   | stable |
-| [`realtime-socket-nodefony.md`](realtime-socket-nodefony.md) | La socket Nodefony — hub isomorphe, canaux duplex, backplane cross-pod, SIP    | vision |
+```nodefony-cards
+[
+  { "icon": "🗺️", "title": "Vue d'ensemble", "href": "vue-ensemble.md", "featured": true,
+    "desc": "Ce qu'est Nodefony, ce qu'il n'est pas, ses partis pris — et ce que chacun coûte. La page à lire en premier si vous évaluez le framework.",
+    "meta": "le territoire avant le détail" }
+]
+```
 
-## Le cœur est ailleurs (ADR-0001 — emplacement hybride)
+## ⚡ Le cycle de vie — de l'allumage à l'octet
 
-Les concepts du **workspace core** sont colocalisés au module dans
-[`src/nodefony/docs/`](../../src/nodefony/docs/) et surfacés dans Studio par la carte **Core**
-(`/nodefony/modules/core`) :
+Ces trois pages se lisent dans l'ordre : ce qui démarre, ce qui se branche, ce qui traverse.
 
-| Page                                                                                 | Sujet                                           |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| [`src/nodefony/docs/index.md`](../../src/nodefony/docs/index.md)                     | Vue d'ensemble du core                          |
-| [`src/nodefony/docs/kernel.md`](../../src/nodefony/docs/kernel.md)                   | API du cœur — Kernel, Module, CliKernel, events |
-| [`src/nodefony/docs/service.md`](../../src/nodefony/docs/service.md)                 | Classe de base (DI + Events + Logging)          |
-| [`src/nodefony/docs/cli.md`](../../src/nodefony/docs/cli.md)                         | Ligne de commande — `Cli`, `Command`, scaffolds |
-| [`src/nodefony/docs/request-context.md`](../../src/nodefony/docs/request-context.md) | `AsyncLocalStorage`, requestId/user             |
-| [`src/nodefony/docs/client.md`](../../src/nodefony/docs/client.md)                   | Bibliothèque cliente isomorphe (navigateur)     |
-| [`src/nodefony/docs/react-hooks.md`](../../src/nodefony/docs/react-hooks.md)         | Hooks React `nodefony/react`                    |
-| [`src/nodefony/docs/syslog.md`](../../src/nodefony/docs/syslog.md)                   | Logger RFC 5424, Pdu, ring buffer               |
+```nodefony-cards
+[
+  { "icon": "🔄", "title": "Cycle de boot du Kernel", "href": "cycle-boot-kernel.md",
+    "desc": "L'ordre d'allumage, les points où brancher son code, ce qui retient la mise en service, et l'arrêt propre.",
+    "meta": "1 · ce qui démarre" },
+  { "icon": "💉", "title": "Injection & portées", "href": "injection-portees.md",
+    "desc": "Comment les services se trouvent sans se connaître, et ce que « portée requête » change vraiment pour votre code.",
+    "meta": "2 · ce qui se branche" },
+  { "icon": "🔀", "title": "Pipeline d'une requête", "href": "pipeline-requete.md", "featured": true,
+    "desc": "Le trajet exact d'une requête, étape par étape — HTTP comme WebSocket. Où s'insèrent la session, le pare-feu, votre contrôleur, et dans quel ordre.",
+    "meta": "3 · ce qui traverse" }
+]
+```
 
-## Où mettre une nouvelle doc (cf ADR-0001)
+## 🧩 Les partis pris
 
-- **Concept d'un module précis** → `<module>/docs/*.md` (colocalisé). Ex. core → `src/nodefony/docs/`,
-  frontend → `src/packages/@nodefony/frontend/docs/`.
-- **Transverse multi-module** (concept, guide, ADR) → ici, sous `docs/`.
-- **Ni l'un ni l'autre** : une spec d'implémentation, un plan de migration, un audit daté ou un
-  brouillon ne va dans **aucun** des deux (cf [`../README.md`](../README.md)). Ces textes décrivent
-  un état transitoire : une fois exécutés, ils décrivent un code qui n'existe plus, et le lecteur ne
-  peut plus distinguer la spec de la description. Ils vivent hors du dépôt, dans la mémoire IA
-  (`core-dev/`) ; l'historique, lui, reste dans `git log`.
+```nodefony-cards
+[
+  { "icon": "⚙️", "title": "Configuration", "href": "configuration.md",
+    "desc": "Le modèle de résolution : d'où vient chaque valeur, qui gagne sur qui, et ce qui est figé au démarrage.",
+    "meta": "le concept ; la recette est dans les guides" },
+  { "icon": "📦", "title": "Build & bundling", "href": "build-bundling.md",
+    "desc": "Comment le TypeScript devient un paquet qu'on installe : rolldown, types générés, ce qui reste hors du bundle.",
+    "meta": "ce que reçoit celui qui installe" },
+  { "icon": "🔌", "title": "La socket Nodefony", "href": "realtime-socket-nodefony.md",
+    "desc": "La trajectoire du temps réel : ce qui existe, ce qui est visé, et pourquoi HTTP et WebSocket partagent le même contexte de contrôleur.",
+    "meta": "le différenciateur, expliqué" }
+]
+```
 
-## Écrire une page ici
+## 🧭 Et si ce n'est pas ici
 
-Le standard de rédaction (structure, ancres vers le code, Démarrage rapide compilable) et ses gates
-sont portés par le skill `nodefony-documentation`. Page modèle :
-[`src/packages/@nodefony/security/docs/firewall.md`](../../src/packages/@nodefony/security/docs/firewall.md).
+| Vous cherchez…                                   | Allez plutôt vers                                   |
+| ------------------------------------------------ | --------------------------------------------------- |
+| Une recette applicable tout de suite             | [les guides](../guides/README.md)                   |
+| Un parcours complet de zéro à une application    | [le tutoriel](../tutoriels/premiere-application.md) |
+| L'API d'une brique (routes, sessions, pare-feu…) | la documentation de son module                      |
+| Une décision d'architecture et ses raisons       | les ADR du dépôt (`docs/adr/`)                      |
+
+📖 [Lexique général](../lexique.md) du framework.

@@ -1,5 +1,6 @@
 ---
 title: "Rate-limit — plafond de trafic par IP (429, close 1013)"
+navTitle: Rate-limit
 lang: fr
 module: "@nodefony/http"
 topic: rate-limit
@@ -110,7 +111,7 @@ coût** sur le chemin chaud. On l'active quand on n'a **pas** d'edge devant soi 
 défense en profondeur.
 
 **Fenêtre fixe, en mémoire, O(1).** L'algorithme est le plus frugal possible :
-`MemoryRateLimitStore` (`MemoryRateLimitStore.ts:32`) tient une entrée `{ count, resetAt }` par IP,
+`MemoryRateLimitStore` (`MemoryRateLimitStore.ts:33`) tient une entrée `{ count, resetAt }` par IP,
 remise à zéro **en place** à l'expiration (0 allocation pour une IP récurrente). Le prix de cette
 simplicité est connu : un pic à cheval sur deux fenêtres peut laisser passer jusqu'à `2 × max` sur un
 court intervalle (`MemoryRateLimitStore.ts:29`). Acceptable pour une défense de **capacité** ; un
@@ -241,7 +242,7 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 Un WebSocket ne peut **pas** recevoir un `429` : au moment où le rate-limit décide, le `101 Switching
 Protocols` est déjà parti sur le fil (émis par la bibliothèque `ws`). Le refoulement se fait donc par
 une **fermeture RFC 6455 `1013 Try Again Later`**, décidée dans `onWebsocketRequest()`
-(`http-kernel.ts:1353`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
+(`http-kernel.ts:1505`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
 
 Deux plafonds distincts, tous deux par IP forwarded-aware :
 

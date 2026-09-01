@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-08-31T23:00:24.683Z",
+  "generatedAt": "2026-09-01T22:00:04.553Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 15,
+      "open": 16,
       "title": "10.1"
     },
     {
-      "closed": 59,
+      "closed": 78,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 38,
+      "open": 33,
       "title": "10.0.0"
     }
   ],
@@ -637,14 +637,210 @@
     },
     {
       "number": 18,
-      "title": "feat(cli): rendre l'entité User à l'application",
+      "title": "feat(user): rendre l'entité utilisateur à l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/18",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
-      "jours": 3,
+      "jours": 7.5,
       "ordre": 3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 140,
+      "title": "feat(user): publier le contrat de colonnes de l'utilisateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/140",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 3.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 141,
+      "title": "fix(orm): rendre lisibles les champs ajoutés à l'utilisateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/141",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 3.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 142,
+      "title": "refactor(orm): retirer la table utilisateur des migrations livrées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/142",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 3.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 149,
+      "title": "fix(cli): émettre un défaut SQL sur les colonnes générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/149",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.34,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 150,
+      "title": "fix(cli): corriger le défaut d'une colonne JSON",
+      "url": "https://github.com/nodefony/nodefony-core/issues/150",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.35,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 151,
+      "title": "test(orm): stabiliser le banc d'échelle qui expire sur macOS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/151",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3.36,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 152,
+      "title": "test(orm): isoler le banc d'adoption de l'application du dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/152",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 3.37,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 143,
+      "title": "feat(cli): générer l'entité utilisateur dans l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/143",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1.5,
+      "ordre": 3.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 144,
+      "title": "feat(orm): refuser au démarrage un utilisateur incomplet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/144",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.75,
+      "ordre": 3.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 153,
+      "title": "fix(cli): refuser le script d'installation que npm invente",
+      "url": "https://github.com/nodefony/nodefony-core/issues/153",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 145,
+      "title": "test(orm): éprouver les migrations de l'utilisateur sur 3 moteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/145",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.75,
+      "ordre": 3.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 146,
+      "title": "feat(cli): faire naître une application avec son utilisateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/146",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 147,
+      "title": "docs(user): expliquer comment ajouter ses champs à l'utilisateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/147",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.8,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 148,
+      "title": "test(devkit): mesurer si un agent sait gérer les utilisateurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/148",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3.9,
       "labels": [
         "10.0.0"
       ]
@@ -840,7 +1036,7 @@
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": null,
@@ -853,8 +1049,8 @@
       "number": 45,
       "title": "docs(guides): retirer « mocha + bun » et les pages fantômes",
       "url": "https://github.com/nodefony/nodefony-core/issues/45",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -867,8 +1063,8 @@
       "number": 46,
       "title": "docs(core): documenter l'outillage de test livré aux applications",
       "url": "https://github.com/nodefony/nodefony-core/issues/46",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -881,8 +1077,8 @@
       "number": 48,
       "title": "docs(site): mettre les tutoriels avant l'architecture",
       "url": "https://github.com/nodefony/nodefony-core/issues/48",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1095,7 +1291,7 @@
       "title": "chore(pilotage): confronter au code les cases de la feuille de route",
       "url": "https://github.com/nodefony/nodefony-core/issues/80",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1253,8 +1449,8 @@
       "number": 44,
       "title": "feat(docs): raccourcir les libellés de menu des titres longs",
       "url": "https://github.com/nodefony/nodefony-core/issues/44",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -1268,8 +1464,8 @@
       "number": 49,
       "title": "docs: rendre conformes les 11 pages qui échouent au contrôle",
       "url": "https://github.com/nodefony/nodefony-core/issues/49",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -1437,8 +1633,8 @@
       "number": 52,
       "title": "docs(guides): dégraisser l'essai sur l'outillage agent",
       "url": "https://github.com/nodefony/nodefony-core/issues/52",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -1551,11 +1747,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/71",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": null,
+      "milestone": "10.1",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 54,
       "labels": [
+        "10.1",
         "backlog"
       ]
     },
@@ -1713,6 +1910,34 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 138,
+      "title": "feat(orm): poser les contraintes d'intégrité des relations",
+      "url": "https://github.com/nodefony/nodefony-core/issues/138",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 139,
+      "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/139",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": null,
+      "labels": [
+        "backlog"
       ]
     }
   ]

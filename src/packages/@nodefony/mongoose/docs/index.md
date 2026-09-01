@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/mongoose — le driver MongoDB"
+navTitle: "@nodefony/mongoose"
 lang: fr
 module: "@nodefony/mongoose"
 topic: mongoose
@@ -650,11 +651,11 @@ vaut mieux qu'une erreur 500 et un rejet non capturé.
 `MongooseUserRepository` rend des objets `BaseUser` (avec leur comportement : rôles, actif, verrouillé),
 pas des documents nus. Deux recherches lui sont propres :
 
-- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:224`)) :
+- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:256`)) :
   un `$elemMatch` sur un tableau libre de fournisseurs — le pendant Mongo du parcours JSON en SQL.
   C'est ce qui porte le motif « Shadow User » d'OAuth (un compte créé à la volée au premier login social),
   **sans colonne par fournisseur** : ajouter GitHub demain n'est pas une migration.
-- **listing paginé** (`MongooseUserRepository.listPage()` (`MongooseUserRepository.ts:260`)) : requête
+- **listing paginé** (`MongooseUserRepository.listPage()` (`MongooseUserRepository.ts:299`)) : requête
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
@@ -706,6 +707,18 @@ serait pire qu'une erreur.
 Les cinq schémas portés par le module. Les collections sont créées à la volée par MongoDB — il n'y a
 ni migration ni DDL à jouer, ce qui est l'un des vrais conforts du modèle documentaire.
 
+> ⚠️ **Le revers de ce confort : ce qui n'est pas déclaré est JETÉ, sans un mot.** Mongoose valide en
+> mode strict par défaut, et un champ absent du schéma n'est pas refusé à l'écriture — il est
+> silencieusement écarté, puis relu comme `undefined`. Là où une base SQL t'arrête sur « colonne
+> inconnue », Mongo te rend un document amputé qui a l'air normal. Donc : **un champ que tu ajoutes à
+> une entité doit être ajouté à son SCHÉMA**, et pas seulement au type TypeScript qui te dit qu'il
+> existe. C'est le pendant documentaire de la migration : tu n'as rien à jouer sur la base, mais tu
+> as toujours une déclaration à tenir à jour.
+>
+> Cela vaut pour l'entité `User`, que ton application possède : ses colonnes viennent du contrat
+> partagé (`USER_COLUMNS`), et le module en dérive un schéma Mongoose. Un champ métier que tu ajoutes
+> à ton utilisateur suit le même chemin — déclaré, donc écrit ; oublié, donc perdu en silence.
+
 | Collection            | Clé primaire (`_id`)         | Contenu                                                            | Horodatages        |
 | --------------------- | ---------------------------- | ------------------------------------------------------------------ | ------------------ |
 | `session`             | `ObjectId` (auto)            | identifiant de session, contenu, messages flash, méta, utilisateur | nombres (ms)       |
@@ -727,7 +740,7 @@ natif.
 **Les horodatages sont des nombres, pas des dates.** Les contrats du framework portent des `number`
 (millisecondes depuis l'époque) : les stocker tels quels garde la logique de purge **strictement
 identique** à celle de l'adapter SQL. Seule l'entité `User` utilise la gestion automatique de Mongoose
-(`createUserEntity()` (`userEntity.ts:61`)), parce que son contrat porte des dates.
+(`createUserEntity()` (`userEntity.ts:90`)), parce que son contrat porte des dates.
 
 Le contrat expose partout `id: string`, jamais un `ObjectId` : le champ virtuel `id` est activé à la
 sérialisation, sur toutes les entités compilées par l'adapter.
@@ -793,7 +806,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
   (`MongooseRepository.#prof()` (`MongooseRepository.ts:79`)). En production, le chemin est celui d'un
   appel direct.
 - **Repositories alloués à la demande.** Le cache est créé au premier accès, pas à la connexion
-  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:181`)).
+  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:465`)).
 - **Un aller-retour par écriture.** Les opérations « lire puis écrire » sont exprimées en une seule
   requête atomique — moins de latence _et_ pas de course.
 - **Le comptage reste côté serveur.** Les listings paginés lisent `limit + 1` documents pour savoir
@@ -815,6 +828,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 | Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
 | `audit store "mongoose" inconnu` — boot avorté en production | Brique **non portée** par Mongo, sélectionnée explicitement                   | Laisser `auto` (repli annoncé) ou choisir un backend qui la porte                 |
 | Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:74`)        |
+| Un champ écrit se relit `undefined`, sans aucune erreur      | Il n'est pas dans le **schéma** : Mongoose est strict et l'écarte en silence  | L'ajouter au schéma de l'entité — le type TypeScript seul ne suffit pas           |
 | Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
 
 ## 🧪 Tests et couverture

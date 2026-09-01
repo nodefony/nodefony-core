@@ -28,7 +28,31 @@ COPY . ./
 # Le cache npm est monté plutôt que gravé : la couche est invalidée dès qu'une
 # source change, mais les paquets déjà téléchargés ne le sont pas. On garde
 # donc une installation VIERGE, sans la repayer en réseau à chaque build.
-RUN --mount=type=cache,target=/root/.npm npm install --no-audit --no-fund
+#
+# 🔴 `--ignore-scripts` n'est PAS une précaution de confort — sans lui, cette
+# image ne se construit pas dès que le dépôt porte un `package-lock.json`,
+# c'est-à-dire dès le premier `npm install` du développeur. La cause est un
+# défaut de npm, ouvert en amont : `npm/cli#9837`, dont le correctif proposé
+# est `npm/cli#9859`. `better-sqlite3` (tiré par `@nodefony/drizzle`)
+# embarque ses binaires prébâtis et pose `gypfile: false` pour interdire à npm
+# de SYNTHÉTISER un `install: node-gyp rebuild` à la vue de son `binding.gyp`.
+# Or ce refus n'est lu que sur un arbre bâti depuis le registre : un nœud venu
+# d'un LOCKFILE ne porte pas le champ, donc npm invente le script — et le
+# paquet se fait recompiler contre sa volonté.
+#
+# Mesuré dans `node:24-slim` : SANS verrou, aucun script et aucun message ;
+# AVEC verrou, npm 11.16 exécute `node-gyp rebuild`, qui meurt faute de Python
+# et de chaîne de compilation. npm 12 le refuserait — sa politique
+# `allowScripts` BLOQUE un script non approuvé, là où celle de npm 11 se
+# contente d'avertir — mais c'est npm 11.16 que `node:24-slim` embarque.
+#
+# Le sauter est de toute façon ce qu'il faut faire : les paquets natifs d'une
+# application Nodefony embarquent leurs binaires prébâtis (vérifié —
+# `better-sqlite3` ouvre et interroge une base après une installation sans
+# scripts). Et c'est un durcissement : un script d'installation est le vecteur
+# des compromissions de chaîne d'approvisionnement, et une image de production
+# n'a aucune raison d'en exécuter.
+RUN --mount=type=cache,target=/root/.npm npm install --ignore-scripts --no-audit --no-fund
 
 # Le build passe par le script de l'application (`rolldown`, plus le build du
 # frontend quand il y en a un) : ce Dockerfile n'a donc jamais à connaître la

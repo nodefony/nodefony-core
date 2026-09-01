@@ -50,6 +50,11 @@ import {
   type IEntityField,
 } from "./entityFields";
 import { findReservedEntity } from "./reservedEntities";
+import {
+  readUserContract,
+  userContractFields,
+  assertUserFieldsAreFillable,
+} from "./userContractSource";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
@@ -1107,6 +1112,15 @@ function dispatchScaffold(
   );
   const data = {
     appName: answers.name,
+    // Dialecte SQL de l'entité que l'application POSSÈDE (`User`) — le choix de
+    // base fait à la création. `mariadb` et `mysql` parlent le même dialecte
+    // Drizzle ; l'entité le redéduit au démarrage si une URL d'infra est posée.
+    dialect:
+      answers.database === "postgres"
+        ? "postgres"
+        : answers.database === "sqlite" || !answers.database
+          ? "sqlite"
+          : "mysql",
     // Nom de la fonction de déclaration d'entry, et nom de l'entry Vite —
     // mêmes clés que `create front`, puisque c'est le MÊME template qui les rend.
     pascal: toPascalCase(String(answers.name)),
@@ -2984,13 +2998,76 @@ function runEntityScaffold(
   // module victime, sous la forme d'une colonne inconnue — rien ne pointe le
   // doublon. Refuser ici, en nommant le propriétaire et l'issue.
   const reserved = findReservedEntity(pascal);
-  if (reserved) {
+  if (reserved && !reserved.appOwned) {
     throw new Error(
       `create entity ${pascal} : ce nom appartient au module « ${reserved.module} » ` +
         `(entité « ${reserved.name} ») — deux entités du même nom ne cohabitent pas dans ` +
         `le registre ORM, et l'application ne démarrerait plus.\n  → ${reserved.advice}`,
     );
   }
+  // L'entité de l'utilisateur suit un chemin à part : ses colonnes viennent du
+  // CONTRAT que le module d'identité publie, et plusieurs options deviennent des
+  // refus. Ce n'est pas une variante cosmétique — le framework LIT cette table,
+  // et il l'écrit en dur dans certaines requêtes.
+  const isUserEntity = reserved?.appOwned === true;
+  if (isUserEntity && target.kind !== "app") {
+    throw new Error(
+      `create entity ${pascal} : l'entité de l'utilisateur ne peut vivre que dans ` +
+        `l'application RACINE, pas dans le module « ${target.name} ». L'ordre de ` +
+        `chargement des modules n'est pas garanti : posée ailleurs, elle arriverait ` +
+        `parfois APRÈS celle du framework, et le registre d'entités refuserait le ` +
+        `doublon par une exception au démarrage.\n` +
+        `  → relancer sans « --module »`,
+    );
+  }
+  if (isUserEntity) {
+    // Trois refus, une seule raison : le framework écrit ces noms EN DUR dans des
+    // requêtes qu'aucun typage ne protège (`queryKit.ts`). Une table renommée ne
+    // lève pas — la recherche par compte externe ne trouve rien, et un compte en
+    // double est créé à chaque connexion. La divergence est donc refusée ici,
+    // pendant qu'on peut encore la nommer.
+    //
+    // Ces noms sont figés pour la version 1, et l'asymétrie décide : les
+    // desserrer plus tard est additif, les resserrer serait une rupture.
+    const refuse = (option: string, valeur: string, impose: string): never => {
+      throw new Error(
+        `create entity ${pascal} : « ${option} ${valeur} » est refusé — ${impose}. ` +
+          `Le framework écrit ces noms en dur dans ses requêtes (recherche par compte ` +
+          `externe, listing) : une divergence ne lèverait pas, elle rendrait ` +
+          `simplement des résultats vides.\n  → relancer sans « ${option} »`,
+      );
+    };
+    if (String(answers.table ?? "").trim()) {
+      refuse("--table", String(answers.table), "la table s'appelle « User »");
+    }
+    if (answers.columnCase !== undefined && answers.columnCase !== "camel") {
+      refuse(
+        "--column-case",
+        String(answers.columnCase),
+        "les colonnes du contrat sont en camelCase",
+      );
+    }
+    // Le contrat dit « uuid », pas une VERSION d'uuid : `uuid4` et `uuid7` sont
+    // tous deux des UUID, la colonne reste du texte et aucune requête n'en
+    // dépend. Ce qui est refusé, c'est un entier auto-incrémenté — l'identifiant
+    // d'un utilisateur y deviendrait devinable, et énumérable.
+    if (String(answers.id) === "serial") {
+      refuse(
+        "--id",
+        String(answers.id),
+        "l'identifiant de l'utilisateur est un UUID (un entier auto-incrémenté " +
+          "est devinable, donc énumérable)",
+      );
+    }
+    if (answers.idName !== undefined && String(answers.idName) !== "id") {
+      refuse(
+        "--id-name",
+        String(answers.idName),
+        "la clé primaire s'appelle « id »",
+      );
+    }
+  }
+
   const camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
   const kebab = toKebabCase(base);
   // Nom SQL de la table : le pluriel du nom de l'entité, sauf si une table
@@ -3033,18 +3110,35 @@ function runEntityScaffold(
     );
   }
 
-  const fields = parseEntityFields(String(answers.fields ?? ""));
+  const requested = parseEntityFields(String(answers.fields ?? ""));
+  // Les colonnes du contrat d'abord, les champs métier ensuite : c'est l'ordre
+  // dans lequel un lecteur les cherche, et celui du `CREATE TABLE` produit.
+  //
+  // Elles sont LUES dans l'application, jamais recopiées ici : une seconde liste
+  // dans le générateur divergerait du contrat au premier ajout — exactement ce
+  // que la source unique a supprimé.
+  const contract = isUserEntity ? readUserContract(target.dir) : null;
+  if (isUserEntity) {
+    assertUserFieldsAreFillable(requested);
+  }
+  const fields = contract
+    ? [...userContractFields(contract), ...requested]
+    : requested;
   // Une entité sans champ produit un CRUD qui « marche » et ne sert à rien : une
   // table réduite à sa clé primaire, un schéma Zod vide qui accepte tout, des
   // routes qui ne transportent rien. C'est un oubli dans presque tous les cas, et
   // le refus coûte moins cher que le détour par cinq fichiers à jeter.
+  // L'utilisateur, lui, a toujours les colonnes de son contrat : en exiger de
+  // plus reviendrait à refuser l'entité minimale, qui est légitime.
   if (fields.length === 0) {
     throw new Error(
       `create entity ${pascal} : aucun champ déclaré — passe-les en arguments ` +
         `(ex : nodefony create entity ${pascal} title:string! body:text? views:int=0)`,
     );
   }
-  const timestamps = answers.timestamps !== false;
+  // Le contrat porte ses propres horodatages, en camelCase — ceux du générateur
+  // s'appellent `created_at`/`updated_at` et feraient DEUX paires de colonnes.
+  const timestamps = isUserEntity ? false : answers.timestamps !== false;
   const softDelete = answers.softDelete === true;
   // Index de TABLE : les seuls capables de porter plusieurs colonnes, donc les
   // seuls qui expriment la façon dont une table réelle est interrogée. Analysés
@@ -3258,7 +3352,12 @@ function runEntityScaffold(
 
   const templates = path.join(packageRoot, "templates", "entity");
   const tokens = { __PASCAL__: pascal, __KEBAB__: kebab };
-  const service = answers.service !== false;
+  // Aucun service ni controller générique pour l'utilisateur, et ce n'est pas une
+  // économie : une ressource REST publique sur l'annuaire serait une faille, et
+  // le service d'identité existe déjà (`UserService`, avec son encodeur de mot de
+  // passe, ses politiques et son provisionnement externe). En générer un second
+  // inviterait à écrire des utilisateurs à côté de lui.
+  const service = isUserEntity ? false : answers.service !== false;
   const controller = service && answers.controller !== false;
 
   renderLayer(
@@ -3292,7 +3391,7 @@ function runEntityScaffold(
       tokens,
     );
   }
-  if (answers.tests !== false) {
+  if (!isUserEntity && answers.tests !== false) {
     renderLayer(
       eta,
       path.join(templates, "tests"),

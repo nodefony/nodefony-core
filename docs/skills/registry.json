@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-30",
+  "generatedAt": "2026-09-01",
   "count": 25,
   "conformant": 25,
   "skills": [
@@ -1688,6 +1688,10 @@
             ],
             "options": [
               {
+                "flag": "--prouve",
+                "help": ""
+              },
+              {
                 "flag": "--show-toplevel",
                 "help": ""
               }
@@ -1704,11 +1708,23 @@
               {
                 "flag": "--apply",
                 "help": ""
+              },
+              {
+                "flag": "--occurrences",
+                "help": ""
+              },
+              {
+                "flag": "--suggest",
+                "help": ""
               }
             ],
             "env": [
               {
                 "name": "APPLY",
+                "help": ""
+              },
+              {
+                "name": "NF_BOOT_TIMEOUT_MS",
                 "help": ""
               }
             ],
@@ -1757,6 +1773,10 @@
             "env": [
               {
                 "name": "COVERAGE",
+                "help": ""
+              },
+              {
+                "name": "NAV_MAX",
                 "help": ""
               }
             ],

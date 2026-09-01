@@ -1,5 +1,6 @@
 ---
 title: "Build & bundling — de la source au paquet publiable"
+navTitle: "Build & bundling"
 lang: fr
 module: "global"
 topic: build-bundling
@@ -410,7 +411,7 @@ flowchart LR
   les seuls workspaces touchés et leurs dépendants (`turbo --filter=pkg...`), puis l'app racine
   (`rolldown -c`) si un fichier de la racine a bougé. Un `npm run build` complet coûtait plus de
   quatre-vingts secondes pour un fichier.
-- **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts:397`) : une modification
+- **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts:90`) : une modification
   front ne doit surtout pas redémarrer le serveur, sinon on perd le HMR de Vite.
 - **Hors monorepo**, le superviseur ne connaît qu'un seul build, celui de l'app — jamais turbo, qui
   n'a pas de workspaces à ordonner.
@@ -425,13 +426,13 @@ Le JavaScript du navigateur ne passe **pas** par rolldown : il est bâti par **V
 `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:41`) assemble la configuration Vite depuis les
 entrées déclarées par les modules. Trois réglages font tout le travail :
 
-- **`manifest: true`** (`ViteBuilder.ts:90`) : Vite écrit un `manifest.json` qui associe chaque entrée
+- **`manifest: true`** (`ViteBuilder.ts:111`) : Vite écrit un `manifest.json` qui associe chaque entrée
   source à son fichier hashé. C'est lui que le rendu HTML relit — sans lui, aucune balise `<script>`
   ne peut être écrite correctement.
 - **`base`** (`ViteBuilder.ts:79`) : en production seulement, préfixé par le `publicPath` (et par
   l'URL du CDN si elle est configurée). C'est ce qui aligne les URLs émises dans le HTML sur ce que
   sert réellement le serveur de fichiers statiques.
-- **`rollupOptions.input`** (`ViteBuilder.ts:91`) : une carte d'entrées, donc plusieurs bundles dans
+- **`rollupOptions.input`** (`ViteBuilder.ts:66`) : une carte d'entrées, donc plusieurs bundles dans
   une seule passe.
 
 La commande (`frontend-build.ts:22`) est faite pour un pipeline d'intégration :
@@ -440,7 +441,7 @@ La commande (`frontend-build.ts:22`) est faite pour un pipeline d'intégration :
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | **Idempotent**                       | Une entrée dont le manifeste est plus récent que ses sources est ignorée (`FrontendService.ts:560`) |
 | **`--force`**                        | Reconstruit tout, sans test de fraîcheur                                                            |
-| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:579`)                              |
+| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:769`)                              |
 | **Code de sortie**                   | Passe à `1` s'il reste un échec (`frontend-build.ts:103`) — la CI casse                             |
 
 ### Publier les assets — `assets:publish`
@@ -544,7 +545,7 @@ mesurables **au runtime** :
 | Les `.d.ts` atterrissent au milieu du JavaScript          | `declarationDir` absent du `tsconfig.declarations.json`            | Le déclarer explicitement (`./dist/types`)                                           |
 | `frontend:build` ne reconstruit rien                      | Comportement normal : le manifeste est plus récent que les sources | `--force` (`frontend-build.ts:103` casse l'exit code en cas d'échec réel)            |
 | La documentation d'un module installé n'apparaît pas      | `docs` absent du champ `files` du paquet                           | L'ajouter — `listModuleDocs()` lit `docs/` dans `node_modules` (`docsReader.ts:178`) |
-| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:397`)                           |
+| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:90`)                            |
 
 ## 🧪 Tests & couverture
 

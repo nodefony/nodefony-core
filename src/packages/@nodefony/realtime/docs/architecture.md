@@ -1,5 +1,6 @@
 ---
 title: "Architecture — la socket, le hub, le backplane"
+navTitle: Architecture
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime
@@ -464,7 +465,7 @@ périodiquement ces identités et coupe les sockets orphelines. Seules les ident
 
 ## Le hub — canaux partagés et fan-out
 
-Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1233`). Il ne
+Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1255`). Il ne
 dépend de rien : ce sont les fabriques fournies par les contrôleurs qui portent les
 dépendances.
 

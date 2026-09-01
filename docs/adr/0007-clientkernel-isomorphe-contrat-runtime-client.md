@@ -316,7 +316,7 @@ depuis `client/index.ts` ; ② le barrel node (`src/index.ts`) ne tire jamais `s
 ### D7 — Opt-in strict : le kernel compose, il n'impose pas
 
 Chaque primitive reste utilisable **nue**, sans kernel : `RealtimeClient.shared()` (utilisé par
-Studio et la debug bar aujourd'hui — `RealtimeClient.ts:236`) continue de fonctionner tel quel,
+Studio et la debug bar aujourd'hui — `RealtimeClient.ts:295`) continue de fonctionner tel quel,
 de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le ClientKernel est la
 **voie recommandée** pour une app complète, jamais un péage. **Pourquoi** : la DX des cas simples
 (un widget, une page, un POC) est un actif — un kernel obligatoire pour afficher 3 stats serait

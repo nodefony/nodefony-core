@@ -148,6 +148,44 @@ describe("envOverride — pollution de prototype (alerte CodeQL js/prototype-pol
     assert.strictEqual(({} as Record<string, unknown>).pollue, undefined);
   });
 
+  it("🔴 PIÈGE : un SCHÉMA issu de `JSON.parse` qui déclare `__proto__`", () => {
+    // Les cas au-dessus passent `schema` non défini : ils sont donc arrêtés par
+    // « le schéma ne déclare pas la feuille », PAS par une garde. Ils ne
+    // couvraient pas la ligne qui écrit `node[path[i]]` avec le segment BRUT.
+    // Or `JSON.parse` crée une propriété PROPRE `__proto__` — là où un littéral
+    // `{ __proto__: … }` ne fait que poser le prototype. Mesuré avant la garde :
+    // « appliqué=true », prototype de la cible DÉTOURNÉ, `constructor` remplacé
+    // par un objet.
+    const schema = JSON.parse(
+      '{"properties":{"__proto__":{"properties":{"p":{"type":"string"}}}}}',
+    ) as unknown;
+    const target: Record<string, unknown> = { port: 80 };
+    assert.strictEqual(
+      applyResolvedPath(target, ["__proto__", "p"], "oui", "oui", schema),
+      false,
+    );
+    assert.strictEqual(
+      Object.getPrototypeOf(target),
+      Object.prototype,
+      "le prototype de la cible a été détourné",
+    );
+    assert.strictEqual(target.port, 80);
+
+    const schemaCtor = JSON.parse(
+      '{"properties":{"constructor":{"properties":{"p":{"type":"string"}}}}}',
+    ) as unknown;
+    const cible: Record<string, unknown> = { port: 80 };
+    assert.strictEqual(
+      applyResolvedPath(cible, ["constructor", "p"], "oui", "oui", schemaCtor),
+      false,
+    );
+    assert.strictEqual(
+      typeof cible.constructor,
+      "function",
+      "`constructor` a été remplacé par un objet",
+    );
+  });
+
   it("PIÈGE : la résolution insensible à la casse n'ouvre pas `__PROTO__`", () => {
     // `resolveKey` compare `k.toLowerCase() === seg` sur les clés ÉNUMÉRABLES.
     // `Object.keys` n'énumère jamais un membre du prototype, donc aucune graphie

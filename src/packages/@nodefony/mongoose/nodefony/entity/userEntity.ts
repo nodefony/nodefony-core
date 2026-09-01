@@ -1,51 +1,94 @@
-import type { SchemaDefinition } from "mongoose";
+import type { SchemaDefinition, SchemaDefinitionProperty } from "mongoose";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
-import type { ISocialProvider } from "@nodefony/user";
+import { USER_COLUMNS } from "@nodefony/user";
+import type { IUserColumn, UserColumnType } from "@nodefony/user";
 
 /**
- * Schéma Mongoose de l'utilisateur Nodefony — implémentation NoSQL du contrat
- * `@nodefony/user` (P5.8), pendant documentaire de `userTable` (Drizzle, P5.9).
+ * Traduction d'un type LOGIQUE du contrat utilisateur vers un type Mongoose.
  *
- * Champs calqués sur `BaseUser` : identité (`identifier`), credential (`password`
- * nullable = compte 100 % OAuth), rôles **plats**, statut (`enabled`/`locked`),
- * profil de session (`currentRole`) et les **champs anti-migration**
- * `socialProviders` (tableau libre — pas de colonnes par fournisseur) et
- * `metadata`. La clé primaire est `_id` (ObjectId) ; le contrat `id: string` est
- * servi par le **virtuel `id`** (hex), activé à la sérialisation par `MongooseOrm`
- * (`toObject/toJSON: { virtuals: true }`). `createdAt`/`updatedAt` sont gérés
- * **automatiquement** (`timestamps: true` du descripteur → option Schema).
+ * C'est le seul endroit du module document qui connaisse ce vocabulaire : le
+ * contrat dit ce que la donnée EST, ce fichier dit comment un document la range.
+ * `object[]` reste un `Array` LIBRE — pas un sous-schéma : c'est ce qui permet
+ * d'accueillir un nouveau fournisseur d'identité sans migration.
  */
-export const userSchema: SchemaDefinition = {
-  identifier: { type: String, required: true, unique: true, index: true },
-  password: { type: String, default: null },
-  roles: { type: [String], default: [] },
-  enabled: { type: Boolean, default: true },
-  locked: { type: Boolean, default: false },
-  currentRole: { type: String, default: null },
-  // Tableau libre (anti-migration) : `{ provider, providerId, createdAt }`, scanné
-  // par `findBySocialProvider` via `$elemMatch` (pattern Shadow User OAuth).
-  socialProviders: { type: Array, default: [] },
-  metadata: { type: Object, default: {} },
+const TYPE_BY_COLUMN: Record<UserColumnType, unknown> = {
+  uuid: String,
+  string: String,
+  "string[]": [String],
+  boolean: Boolean,
+  object: Object,
+  "object[]": Array,
+  date: Date,
 };
 
 /**
- * Forme plate d'une ligne `User` (virtuel `id` + horodatages inclus) renvoyée par
- * le repository. Mappée en `BaseUser` par `MongooseUserRepository`.
+ * Construit la définition Mongoose d'une colonne du contrat utilisateur.
+ *
+ * Un défaut structuré est passé en FABRIQUE, jamais en valeur : Mongoose
+ * partagerait sinon le même tableau entre tous les documents. Une colonne
+ * facultative reçoit `null` explicite plutôt que rien, pour qu'un document
+ * ancien et un document neuf se lisent pareil. Une colonne obligatoire QUI A un
+ * défaut n'est pas `required` : la valeur ne peut pas manquer, l'exiger de
+ * l'appelant n'ajouterait qu'un refus.
  */
-export interface UserRow {
-  id: string;
-  identifier: string;
-  password: string | null;
-  roles: string[];
-  enabled: boolean;
-  locked: boolean;
-  currentRole: string | null;
-  socialProviders: ISocialProvider[];
-  metadata: Record<string, unknown>;
-  createdAt: Date;
-  updatedAt: Date;
+function toFieldDefinition(column: IUserColumn): SchemaDefinitionProperty {
+  const base = {
+    type: TYPE_BY_COLUMN[column.type],
+    ...(column.nullable || column.makeDefault ? {} : { required: true }),
+    ...(column.unique ? { unique: true, index: true } : {}),
+  };
+  if (column.makeDefault) {
+    return { ...base, default: column.makeDefault } as SchemaDefinitionProperty;
+  }
+  if (column.nullable) {
+    return { ...base, default: null } as SchemaDefinitionProperty;
+  }
+  return base as SchemaDefinitionProperty;
 }
+
+/**
+ * Schéma Mongoose de l'utilisateur Nodefony — implémentation NoSQL du contrat
+ * `@nodefony/user`, **dérivée** de `USER_COLUMNS` (pendant documentaire de
+ * `userTable`).
+ *
+ * Rien n'est recopié : noms, types logiques, défauts et unicité viennent du
+ * contrat, et `tests/unit/userContractParity.test.ts` refuse le contraire.
+ *
+ * Deux origines du contrat ne sont pas déclarées ici, et c'est voulu : la clé
+ * primaire est `_id` (ObjectId), servie au contrat `id: string` par le
+ * **virtuel `id`** activé à la sérialisation par `MongooseOrm`
+ * (`toObject/toJSON: { virtuals: true }`) ; les horodatages sont gérés par
+ * l'option `timestamps: true` du descripteur. Le moteur les fournit — les
+ * redéclarer les mettrait en concurrence avec lui.
+ */
+export const userSchema: SchemaDefinition = Object.fromEntries(
+  USER_COLUMNS.filter((column) => column.origin === "column").map((column) => [
+    column.name,
+    toFieldDefinition(column),
+  ]),
+);
+
+/**
+ * Les colonnes du contrat qu'un schéma DOCUMENT porte EN PROPRE.
+ *
+ * Dérivée de {@link userSchema}, jamais recopiée : ce que le framework exige de
+ * l'entité d'une application est exactement ce qu'il produit pour la sienne. La
+ * clé (`_id` + virtuel `id`) et les horodatages (option `timestamps`) restent
+ * donc hors de cette liste — les exiger comme chemins refuserait une entité
+ * parfaitement correcte, et un refus faux apprend à passer outre les refus.
+ */
+export const DOCUMENT_USER_COLUMNS: readonly IUserColumn[] =
+  USER_COLUMNS.filter((column) =>
+    Object.prototype.hasOwnProperty.call(userSchema, column.name),
+  );
+
+/**
+ * Forme plate d'une ligne `User` (virtuel `id` + horodatages inclus) renvoyée par
+ * le repository — le contrat `IUserRow` de `@nodefony/user`, ré-exporté sous son
+ * nom historique.
+ */
+export type { IUserRow as UserRow } from "@nodefony/user";
 
 /**
  * Construit le descripteur d'entité `User` Mongoose pour un ORM nommé.

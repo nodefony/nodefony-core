@@ -628,7 +628,11 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
           const reserved = entityName
             ? findReservedEntity(entityName)
             : undefined;
-          if (reserved) {
+          // Une entité que l'APPLICATION possède n'est pas une collision : c'est
+          // le chemin normal depuis que le framework ne livre plus sa table.
+          // Le drapeau vit dans la table du scaffold, et non ici, pour que les
+          // deux lieux qui la consultent ne se mettent pas à diverger.
+          if (reserved && !reserved.appOwned) {
             findings.push({
               kind: "reserved-entity",
               file: rel(file),

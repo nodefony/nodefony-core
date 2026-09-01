@@ -1,5 +1,6 @@
 ---
 title: "Webhooks — notifier un système tiers, signé et borné"
+navTitle: Webhooks
 lang: fr
 module: "@nodefony/security"
 topic: webhooks
@@ -509,7 +510,7 @@ curl -sk -b /tmp/jar -X POST \
 # {"endpoint":{…}, "secret":"whsec_NOUVEAU…"}
 ```
 
-`WebhookService.rotateSecret()` (`webhooks.ts:527`) régénère et rechiffre. Comportement à connaître
+`WebhookService.rotateSecret()` (`webhooks.ts:553`) régénère et rechiffre. Comportement à connaître
 **avant** de cliquer :
 
 - l'ancien secret cesse d'être valide **immédiatement** — il n'y a pas de fenêtre de recouvrement
@@ -596,7 +597,7 @@ sequenceDiagram
 `onAuditEvent()` est appelé **dans** la boucle de notification de `AuditService.record()` — trois
 gardes empêchent le journal d'audit de payer le prix des webhooks :
 
-1. **Court-circuit à coût nul** — `endpointCount()` (`webhooks.ts:622`) lit la taille d'une `Map` :
+1. **Court-circuit à coût nul** — `endpointCount()` (`webhooks.ts:648`) lit la taille d'une `Map` :
    zéro endpoint = retour immédiat, aucune allocation (le cas dominant).
 2. **Travail lourd différé** — JSON, HMAC et réseau partent dans un `queueMicrotask` coalescé
    (`#schedulePump()`, `WebhookDispatcher.ts:163`), jamais dans la pile de l'appelant.
@@ -667,7 +668,7 @@ abandon. Chaque retry **repasse par la file bornée** (`#scheduleRetry()`,
 
 ### Auto-désactivation d'un endpoint mort
 
-Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:654`) : succès →
+Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:680`) : succès →
 `failureCount = 0` ; échec → incrément. Au-delà de `autoDisableThreshold` (défaut **20**), l'endpoint
 est **désactivé** et un unique événement d'audit `webhook.disabled` est émis — **un par endpoint qui
 meurt**, jamais un par échec (le volume resterait ingérable). Mettre le seuil à `0` désactive
@@ -680,7 +681,7 @@ Le scénario vécu, du début à la fin :
 1. **Tentative 1** → `ECONNREFUSED`. Classé `retry` ; rien n'est encore écrit en base.
 2. **Tentatives 2 à 6** sur ~4 min. Toujours rien de persisté (seule l'issue finale l'est).
 3. **Abandon.** `markDelivery` écrit `lastDeliveryStatus: null`, `lastDeliveryError`, et incrémente
-   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:579`).
+   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:605`).
 4. **L'événement est PERDU.** Il n'y a pas de file persistée : un webhook est **best-effort**. Rien
    ne sera rejoué quand le destinataire reviendra.
 5. **Après 20 échecs consécutifs**, l'endpoint passe `enabled: false` et cesse de consommer des
@@ -720,7 +721,7 @@ Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/c
 
 > [!NOTE]
 > `timestampToleranceS` est **transporté** dans la politique de livraison
-> (`getDeliveryPolicy()`, `webhooks.ts:634`) mais l'émetteur ne l'applique jamais : la fenêtre
+> (`getDeliveryPolicy()`, `webhooks.ts:660`) mais l'émetteur ne l'applique jamais : la fenêtre
 > anti-rejeu est par nature un contrôle du **récepteur**. Traite cette valeur comme la tolérance que
 > tu documentes à tes destinataires — c'est celle du récepteur qui protège.
 
@@ -819,17 +820,17 @@ mention.
 
 | Méthode                       | Rôle                                                               | Ancrage           |
 | ----------------------------- | ------------------------------------------------------------------ | ----------------- |
-| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:408` |
-| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:442` |
+| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:434` |
+| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:468` |
 | `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:456` |
-| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:484` |
+| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:510` |
 | `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:414` |
-| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:516` |
-| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:527` |
-| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:546` |
-| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:554` |
-| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:569` |
-| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:376` |
+| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:542` |
+| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:553` |
+| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:572` |
+| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:580` |
+| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:595` |
+| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:407` |
 
 Types et briques réutilisables exportés par `@nodefony/security` : `IWebhookEndpoint`,
 `WebhookEndpointSummary`, `IWebhookStore`, `IWebhookListQuery`, `MemoryWebhookStore`,

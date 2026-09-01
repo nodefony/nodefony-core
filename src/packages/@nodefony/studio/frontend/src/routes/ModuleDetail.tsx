@@ -102,6 +102,8 @@ interface RouteRow {
 interface DocSummary {
   slug: string;
   title: string;
+  /** Libellé court du menu (`navTitle`), avec repli sur `title` côté serveur. */
+  navTitle?: string;
   status: string | null;
   since: string | null;
   updated: string | null;
@@ -979,7 +981,11 @@ function DocsPanel({
     pageQuery.trim().length === 0
       ? docs
       : docs.filter((d) =>
-          d.title.toLowerCase().includes(pageQuery.trim().toLowerCase()),
+          // Le libellé affiché ET le titre complet — chercher un mot qu'on voit
+          // à l'écran doit le trouver.
+          `${d.navTitle ?? ""} ${d.title}`
+            .toLowerCase()
+            .includes(pageQuery.trim().toLowerCase()),
         );
 
   const navList = (
@@ -988,7 +994,8 @@ function DocsPanel({
         <NavLink
           key={d.slug}
           active={d.slug === active}
-          label={d.title}
+          label={d.navTitle ?? d.title}
+          title={d.title}
           leftSection={<IconFileText size={16} />}
           onClick={() => setActive(d.slug)}
           styles={{ label: { fontSize: rem(13) } }}

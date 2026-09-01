@@ -217,8 +217,7 @@ export interface IStoreResolution {
   configPath?: string;
   /**
    * Emplacement PHYSIQUE lisible du store, lu depuis l'instance au boot
-   * ({@link readStoreLocation}) — chemin de fichier pour un store `file`
-   * (ex. `<var>/webauthn/credentials.json`), base SQLite pour `drizzle`. `undefined`
+   * ({@link readStoreLocation}) — base SQLite pour `drizzle`. `undefined`
    * pour un store `memory` (volatil) ou un backend réseau (l'emplacement = l'infra
    * déclarée, déjà surfacée à part). Répond à « où sont écrites mes données ? » dans Studio.
    */
@@ -236,7 +235,8 @@ export interface IStoreResolution {
  * @param kind - nature de la donnée ({@link StoreKind}).
  * @param infra - infra résolue ({@link resolveInfra}).
  * @param available - backends enregistrés dans le registre de la brique.
- * @param fallback - backend de repli (défaut `"memory"` ; `"files"` pour session).
+ * @param fallback - backend de repli (défaut `"memory"` — c'est aussi ce que passe
+ *   le service de session : aucun appelant ne demande un autre repli).
  */
 export function resolveAutoStore(
   kind: StoreKind,

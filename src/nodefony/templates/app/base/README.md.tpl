@@ -173,7 +173,26 @@ Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
    `npx nodefony stop <nom>` l'arrête sans changer de dossier.
 4. **Rebuild** — comportement fantôme après un gros changement : `npm run build`
    puis relance (le serveur charge `dist/`, pas tes sources).
+<% if (it.complete) { %>
+### `npm install` s'arrête sur « gyp ERR! find Python »
 
+Ton manifeste porte ceci, et il faut l'y laisser :
+
+```json
+"allowScripts": { "better-sqlite3": false }
+```
+
+`better-sqlite3` (le pilote SQLite, tiré par `@nodefony/drizzle`) livre ses
+binaires **déjà compilés** et demande à npm de ne pas le recompiler. npm oublie
+cette demande dès qu'un `package-lock.json` existe — donc dès ton premier
+`npm install` — et lance alors `node-gyp rebuild`, qui exige Python et un
+compilateur C++ ([npm/cli#9837](https://github.com/npm/cli/issues/9837)). La
+ligne ci-dessus le lui interdit explicitement, ce qu'il respecte dans toutes
+les versions.
+
+Si tu l'as retirée et que l'installation casse : remets-la, supprime
+`node_modules`, relance `npm install`. Rien à compiler, SQLite fonctionne.
+<% } %>
 ## 8. Production (cloud-native)
 
 ```bash
@@ -212,6 +231,19 @@ En développement, la base **suit le code** : les tables naissent au démarrage 
 un champ facultatif ajouté est posé au boot suivant. Rien de tout cela n'a lieu
 en production — le schéma s'y applique par des **migrations**, avant que le
 premier exemplaire ne démarre.
+
+Cette application **naît avec sa première migration**, sous `migrations/` : celle
+qui crée sa table `User`. Elle est écrite à la création et entre dans le premier
+commit, comme le lockfile — le schéma appartient au dépôt, jamais au
+déploiement. Deux conséquences pratiques :
+
+- **Si l'application a été créée sans installation** (`--no-install`, ou un build
+  en échec), la migration n'a pas pu être écrite : lance
+  `npx nodefony orm:generate --name init` avant ton premier déploiement, sinon
+  rien ne créera la table et les exemplaires resteront en 503.
+- **On n'écrit pas de migration en production** : `drizzle-kit` est une
+  dépendance de développement, absente de l'image. Générer se fait ici,
+  appliquer se fait là-bas.
 
 ```bash
 npx nodefony orm:generate            # écrit les migrations des entités modifiées

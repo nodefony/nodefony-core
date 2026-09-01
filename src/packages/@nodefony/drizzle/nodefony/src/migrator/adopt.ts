@@ -255,6 +255,12 @@ interface ISnapshotIndex {
 interface ISnapshotTable {
   schema?: string;
   indexes?: Record<string, ISnapshotIndex>;
+  columns?: Record<string, ISnapshotColumn>;
+}
+
+/** Une colonne, telle que l'instantané de l'outil la décrit. */
+interface ISnapshotColumn {
+  type?: string;
 }
 
 /** Une séquence, telle que l'instantané de l'outil la décrit. */
@@ -311,7 +317,24 @@ interface ISnapshotDocument {
  * tables là où elles doivent être : c'est déjà lui qui décide, l'adoption
  * cesse simplement de le contredire.
  *
+ * ## 3. Le booléen de MySQL
+ *
+ * `BOOLEAN` est un SYNONYME de `TINYINT(1)` en MySQL : le serveur ne garde que
+ * la forme physique, et l'introspection ne peut donc rendre que `tinyint(1)`.
+ * L'outil de comparaison, lui, compare des noms de type : il voit une
+ * différence là où la base n'en a aucune, et propose un `MODIFY COLUMN` sur
+ * chaque booléen — refusé ensuite comme destructif. Une application MySQL qui
+ * adopte sa base se retrouve donc bloquée au premier champ ajouté, pour une
+ * table qu'elle n'a jamais touchée.
+ *
+ * La forme déclarée est rétablie. Elle ne peut écraser aucune intention : dans
+ * une entité, `tinyint()` rend `tinyint` sans largeur — vérifié au source
+ * (`drizzle-orm/mysql-core/columns/tinyint.js`) —, et seul `boolean()` produit
+ * `tinyint(1)`. Sur un DDL écrit à la main hors de l'ORM, la réécriture reste
+ * exacte : les deux formes désignent la même colonne.
+ *
  * @param outDir - dossier `<migrations>/<dialecte>`.
+ * @param options.dialect - dialecte lu ; seul MySQL a le synonyme booléen.
  * @param file - fichier SQL de la référence.
  * @param options.schema - schéma effectivement lu, ou `null` (hors PostgreSQL,
  *   ou lecture dans `public` : il n'y a alors rien à déqualifier).
@@ -327,6 +350,7 @@ export async function normalizeIntrospection(
     schema: string | null;
     excludedTables: readonly string[];
     stripTables?: readonly string[];
+    dialect?: SqlDialect;
   },
 ): Promise<void> {
   const { schema, excludedTables } = options;
@@ -339,6 +363,8 @@ export async function normalizeIntrospection(
 
   const snapshotFile = path.join(outDir, "meta", "0000_snapshot.json");
   const sequencesRetirees: string[] = [];
+  /** Colonnes booléennes rendues à leur forme déclarée (MySQL). */
+  let booleens = 0;
   let brut: string | null = null;
   try {
     brut = await fs.readFile(snapshotFile, "utf8");
@@ -392,6 +418,18 @@ export async function normalizeIntrospection(
       }
     }
 
+    if (options.dialect === "mysql" && doc.tables !== undefined) {
+      for (const table of Object.values(doc.tables)) {
+        for (const colonne of Object.values(table.columns ?? {})) {
+          if (colonne.type === "tinyint(1)") {
+            colonne.type = "boolean";
+            booleens += 1;
+            modifie = true;
+          }
+        }
+      }
+    }
+
     if (stripTables.length > 0 && doc.tables !== undefined) {
       const aRetirer = new Set(stripTables);
       const gardees: Record<string, ISnapshotTable> = {};
@@ -410,11 +448,22 @@ export async function normalizeIntrospection(
     }
   }
 
-  if (!qualifie && sequencesRetirees.length === 0 && stripTables.length === 0) {
+  if (
+    !qualifie &&
+    sequencesRetirees.length === 0 &&
+    stripTables.length === 0 &&
+    booleens === 0
+  ) {
     // Rien à défaire : ne pas réécrire un fichier qu'on n'a pas changé.
     return;
   }
   let sql = await fs.readFile(file, "utf8");
+  if (booleens > 0) {
+    // La même correction sur le SQL : l'instantané sert à comparer, le fichier
+    // sert à rejouer — les deux doivent dire la même chose, sans quoi la
+    // référence rejouée sur un environnement neuf recréerait l'écart.
+    sql = sql.replace(/\btinyint\(1\)/giu, "boolean");
+  }
   if (qualifie) {
     // La création du schéma n'a rien à faire dans une référence : il existe,
     // puisqu'on vient d'y lire des tables.
@@ -909,6 +958,7 @@ export async function adoptFromDatabase({
     schema,
     excludedTables,
     stripTables: lectureSansExclusion ? excludedTables : [],
+    dialect,
   });
   const lues = await snapshotTables(outDir);
   const declarees = new Set(declaredTables);

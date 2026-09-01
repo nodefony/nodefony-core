@@ -1,5 +1,6 @@
 ---
 title: "Actions RPC — appeler le serveur et attendre sa réponse"
+navTitle: Actions RPC
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime
@@ -136,7 +137,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:8`) — et se lit côté client par
-`RealtimeClient.serverMethods` (`RealtimeClient.ts:501`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`RealtimeClient.serverMethods` (`RealtimeClient.ts:591`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -307,8 +308,8 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:50
 
 Cette défense est le **verrou de frame**, posé par `@nodefony/security`. Il examine chaque frame
 entrante et, pour une action, résout une politique **par son nom** — exactement le mécanisme des
-canaux (`buildFrameAuthorizer()`, `frameAuthorizer.ts:352` ; branche des méthodes,
-`frameAuthorizer.ts:356`). Trois situations, à connaître dans cet ordre :
+canaux (`buildFrameAuthorizer()`, `frameAuthorizer.ts:388` ; branche des méthodes,
+`frameAuthorizer.ts:388`). Trois situations, à connaître dans cet ordre :
 
 ### Situation 1 — une action est FERMÉE par défaut
 
@@ -387,7 +388,7 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 ### Le délai d'expiration est la seule libération automatique
 
 `request()` prend le délai en **troisième argument positionnel**, en millisecondes — il n'y a pas
-d'objet d'options (`RealtimeClient.request()`, `RealtimeClient.ts:602`) :
+d'objet d'options (`RealtimeClient.request()`, `RealtimeClient.ts:727`) :
 
 ```ts ignore
 await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
@@ -437,7 +438,7 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`RealtimeClient.ts:664`), et c'est la garde `@Idempotent`
+par la signature** de `mutate()` (`RealtimeClient.ts:797`), et c'est la garde `@Idempotent`
 (`routerDecorators.ts:1103`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
@@ -503,7 +504,7 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:766`). Il est **désactivé par défaut** et s'active en surchargeant
+(`RealtimeController.ts:818`). Il est **désactivé par défaut** et s'active en surchargeant
 `realtimeApiRequest()` (`RealtimeController.ts:219`).
 
 ```ts ignore
@@ -511,7 +512,7 @@ const modules = await socket.request("/nodefony/kernel/api/modules");
 ```
 
 La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`RealtimeClient.request()` (`RealtimeClient.ts:610`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
+`RealtimeClient.request()` (`RealtimeClient.ts:727`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
 passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
 [vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
 

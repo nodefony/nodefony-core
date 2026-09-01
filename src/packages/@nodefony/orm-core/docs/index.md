@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/orm-core — le contrat de persistance"
+navTitle: "@nodefony/orm-core"
 lang: fr
 module: "@nodefony/orm-core"
 topic: orm-core
@@ -410,7 +411,7 @@ transaction (`IOrm.transaction()`, `IOrm.ts:41`) et expose la trappe native
 (`IOrm.getNativeConnection()`, `IOrm.ts:51`).
 
 Quatre méthodes sont **optionnelles** — un adapter qui ne les implémente pas dégrade proprement au
-lieu d'échouer : `describeEntity()` (`IOrm.ts:61`, colonnes pour l'ERD), `describeConnection()`
+lieu d'échouer : `describeEntity()` (`IOrm.ts:78`, colonnes pour l'ERD), `describeConnection()`
 (`IOrm.ts:71`, driver et cible **sans credential**), `ping()` (`IOrm.ts:82`, aller-retour réel) et
 `probe()` (`IOrm.ts:92`, métriques driver, qui ne doit **jamais** lever).
 
@@ -614,9 +615,9 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Contrat `IRepository` (15 verbes)      | complet                             | complet                            |
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                   |
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1234`)          | oui (`MongooseOrm.ts:558`)         |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1593`)          | oui (`MongooseOrm.ts:558`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1136`)          | oui (`MongooseOrm.ts:529`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1495`)          | oui (`MongooseOrm.ts:529`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :
@@ -694,11 +695,11 @@ d'entrée, tous filtrables par `?connector=` :
 | `orms`              | les connecteurs, leur état, leur nombre d'entités                 |
 | `entities`          | le modèle complet : colonnes + relations                          |
 | `entity/{name}`     | une entité (404 si inconnue)                                      |
-| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:114`)     |
+| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:184`)     |
 | `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table          |
 | `connection/health` | état, latence, erreurs, reconnexions, sondes                      |
-| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:240`) |
-| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:275`) ou `jsonschema`         |
+| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:310`) |
+| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:345`) ou `jsonschema`         |
 
 Ce graphe canonique est **la pièce maîtresse**, pas le diagramme : c'est une donnée sérialisable qui
 sert à la fois l'ERD de Studio, un export vers un outil tiers, et le contexte d'un agent IA
@@ -730,7 +731,7 @@ deux, et pas de course).
 | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | « no entity registered under "X" » au premier appel           | l'entité n'a jamais été inscrite (fichier importé mais `defineEntity` est sans effet de bord)      | l'ajouter à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                    |
 | La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec `connect()`                                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:66`)        |
-| « entity "User" exists on multiple connectors … specify one » | la même entité vit sur plusieurs connecteurs                                                       | préciser le connecteur : `entityRegistry.get("User", "analytics")` (`EntityRegistry.ts:69`) |
+| « entity "User" exists on multiple connectors … specify one » | la même entité vit sur plusieurs connecteurs                                                       | préciser le connecteur : `entityRegistry.get("User", "analytics")` (`EntityRegistry.ts:54`) |
 | Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                          | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)       |
 | `UnknownCriteriaField` sur un champ qui existe « pourtant »   | faute de frappe, ou champ calculé absent du schéma                                                 | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`  |
 | `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts:252`)                      |

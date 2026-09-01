@@ -1,5 +1,6 @@
 ---
 title: Générer du code — `nodefony create`
+navTitle: Générer du code
 lang: fr
 module: global
 topic: scaffold
@@ -73,7 +74,7 @@ C'est une différence de nature. Un agent — ou un développeur pressé — qui
 un fichier existant reproduit ce que cet exemple avait de particulier, y compris
 ce qui a vieilli. Un appel, lui, part de la spec courante : `getScaffoldSpec()`
 (`spec.ts:875`) décrit les types, leurs questions et leurs valeurs permises, et
-`resolveAnswers()` (`engine.ts:425`) refuse tout ce qui sort de cette
+`resolveAnswers()` (`engine.ts:464`) refuse tout ce qui sort de cette
 description. Le générateur peut donc dire ce qu'il attend, et l'appelant n'a rien
 à deviner.
 
@@ -214,7 +215,7 @@ npx nodefony create entity Article title:string
 ```
 
 La garantie tient à la transaction, pas à la position des vérifications dans le
-code : `runScaffold()` (`engine.ts:981`) ouvre la transaction, chaque étape y
+code : `runScaffold()` (`engine.ts:1034`) ouvre la transaction, chaque étape y
 écrit, et le versement n'a lieu qu'après la dernière. Une garde ajoutée demain
 est automatiquement sûre, où qu'elle soit placée.
 
@@ -260,7 +261,7 @@ Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décri
 
 ## Depuis Studio
 
-L'écran « Créer » de l'administration web passe par le **même moteur** : il
+L'écran « Créer » de l'administration web (`/nodefony/create`) passe par le **même moteur** : il
 n'existe pas de seconde implémentation qui pourrait dériver. Il sert le
 formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 **préview** du plan avant d'exécuter (`preview()`,

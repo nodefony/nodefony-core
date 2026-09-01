@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/user — l'identité, socle de toute la sécurité"
+navTitle: "@nodefony/user"
 lang: fr
 module: "@nodefony/user"
 topic: user
@@ -132,20 +133,21 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 
-| Brique                                       | Ce qu'elle résout                                            | Tu la touches quand…                               |
-| -------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| `IUser`                                      | le contrat minimal d'un utilisateur (identité + rôles)       | tu typés un utilisateur, partout                   |
-| `IPasswordAuthenticatedUser`                 | le même, **plus** le hash — contrat séparé                   | tu écris un authenticator ou un dépôt              |
-| `BaseUser`                                   | l'implémentation POJO de référence                           | tu construis un utilisateur en mémoire ou en test  |
-| `AnonymousUser` / `anonymousUser`            | le visiteur non authentifié, sans `null`                     | tu gères une route publique                        |
-| `Argon2idEncoder` / `BcryptEncoder`          | ranger un mot de passe de façon coûteuse à casser            | tu choisis ta politique de hachage                 |
-| `MigratingEncoder` / `encoderFromConfig()`   | changer d'algorithme sans réinitialiser les mots de passe    | tu reprends une base existante                     |
-| `IUserRepository` / `InMemoryUserRepository` | lire/écrire des utilisateurs, quel que soit le stockage      | tu branches Drizzle, Mongo, ou rien du tout        |
-| `UserService`                                | le CRUD + `authenticate()` + les événements de cycle de vie  | c'est le service que ton app expose sous `"users"` |
-| `IUserProvider`                              | la source d'identité vue par la sécurité                     | tu branches un annuaire externe (LDAP, SSO)        |
-| `IOAuthUserProvisioner`                      | créer la ligne locale au premier login social (Shadow User)  | tu ouvres un « se connecter avec … »               |
-| `IUserProfile` + helpers                     | nom/prénom/avatar sous allowlist, hors du contrat d'identité | tu affiches un profil, tu acceptes un avatar       |
-| `UserAdminApi`                               | le data plane `/nodefony/user/api/*` (Studio)                | tu administres des comptes                         |
+| Brique                                       | Ce qu'elle résout                                                 | Tu la touches quand…                                                  |
+| -------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `IUser`                                      | le contrat minimal d'un utilisateur (identité + rôles)            | tu typés un utilisateur, partout                                      |
+| `IPasswordAuthenticatedUser`                 | le même, **plus** le hash — contrat séparé                        | tu écris un authenticator ou un dépôt                                 |
+| `BaseUser`                                   | l'implémentation POJO de référence                                | tu construis un utilisateur en mémoire ou en test                     |
+| `AnonymousUser` / `anonymousUser`            | le visiteur non authentifié, sans `null`                          | tu gères une route publique                                           |
+| `Argon2idEncoder` / `BcryptEncoder`          | ranger un mot de passe de façon coûteuse à casser                 | tu choisis ta politique de hachage                                    |
+| `MigratingEncoder` / `encoderFromConfig()`   | changer d'algorithme sans réinitialiser les mots de passe         | tu reprends une base existante                                        |
+| `IUserRepository` / `InMemoryUserRepository` | lire/écrire des utilisateurs, quel que soit le stockage           | tu branches Drizzle, Mongo, ou rien du tout                           |
+| `UserService`                                | le CRUD + `authenticate()` + les événements de cycle de vie       | c'est le service que ton app expose sous `"users"`                    |
+| `IUserProvider`                              | la source d'identité vue par la sécurité                          | tu branches un annuaire externe (LDAP, SSO)                           |
+| `IOAuthUserProvisioner`                      | créer la ligne locale au premier login social (Shadow User)       | tu ouvres un « se connecter avec … »                                  |
+| `IUserProfile` + helpers                     | nom/prénom/avatar sous allowlist, hors du contrat d'identité      | tu affiches un profil, tu acceptes un avatar                          |
+| `UserAdminApi`                               | le data plane `/nodefony/user/api/*` (Studio)                     | tu administres des comptes                                            |
+| **Tes propres champs**                       | où ranger une donnée métier : colonne, `metadata`, ou entité liée | tu veux enrichir l'utilisateur — [page dédiée](ajouter-des-champs.md) |
 
 ```nodefony-cards
 [
@@ -178,7 +180,10 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
     "meta": "implémente aussi IUserProvider, IPasswordVerifier et IOAuthUserProvisioner : la même instance est la source d'identité de la sécurité" },
   { "icon": "🛠️", "title": "UserAdminApi", "href": "#-observabilité--studio-et-data-plane",
     "desc": "L'administration des comptes : producteur du data plane /nodefony/user/api/* — liste paginée nativement, détail, création, modification, mot de passe, suppression, plus trois routes self-service.",
-    "meta": "DTO redacté par construction, mutations auditées, garde-fous anti-verrouillage" }
+    "meta": "DTO redacté par construction, mutations auditées, garde-fous anti-verrouillage" },
+  { "icon": "🧩", "title": "Tes propres champs", "href": "ajouter-des-champs.md",
+    "desc": "La table des utilisateurs t'appartient — mais elle est relue à CHAQUE requête portant une session authentifiée, donc toute colonne qu'on y pose est ramenée en mémoire à chaque requête. Trois voies, et le critère qui les départage : une colonne (court, filtrable), la colonne JSON metadata (occasionnel, aucune migration), ou une entité liée (sensible, volumineux, rarement lu).",
+    "meta": "une donnée réglementée n'a rien à faire sur cette table : entité liée, et chiffrée" }
 ]
 ```
 
@@ -490,7 +495,7 @@ et ne sont jamais recopiées ici (elles divergeraient). Ce tableau donne l'**usa
 | `IUser`                      | identité + rôles plats, sans credential                       | `IUser.ts:31`                 |
 | `IPasswordAuthenticatedUser` | idem + `password: string \| null`                             | `IUser.ts:72`                 |
 | `ISocialProvider`            | un lien vers un compte externe (`provider`/`providerId`)      | `IUser.ts:9`                  |
-| `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts:62`       |
+| `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts:81`       |
 | `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts:19`       |
 | `IUserProvider`              | source d'identité : **lève** si introuvable, jamais `null`    | `IUserProvider.ts:14`         |
 | `IPasswordVerifier`          | valide un couple identifiant/mot de passe, rend un verdict    | `IPasswordVerifier.ts:15`     |
@@ -508,10 +513,10 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
 | Méthode                  | Rôle                                                            | Ancre                    |
 | ------------------------ | --------------------------------------------------------------- | ------------------------ |
-| `findByIdentifier()`     | retrouver par email/login — le chemin du login                  | `IUserRepository.ts:73`  |
-| `findBySocialProvider()` | retrouver par lien externe — le chemin OAuth                    | `IUserRepository.ts:84`  |
-| `listPage()`             | listing **paginé au store** (jamais un `find()` complet en RAM) | `IUserRepository.ts:78`  |
-| `countActiveAdmins()`    | `COUNT` natif — le garde-fou anti-verrouillage                  | `IUserRepository.ts:112` |
+| `findByIdentifier()`     | retrouver par email/login — le chemin du login                  | `IUserRepository.ts:92`  |
+| `findBySocialProvider()` | retrouver par lien externe — le chemin OAuth                    | `IUserRepository.ts:103` |
+| `listPage()`             | listing **paginé au store** (jamais un `find()` complet en RAM) | `IUserRepository.ts:121` |
+| `countActiveAdmins()`    | `COUNT` natif — le garde-fou anti-verrouillage                  | `IUserRepository.ts:131` |
 
 > [!IMPORTANT]
 > `listPage()` n'est pas un confort : c'est la règle mémoire du framework appliquée aux utilisateurs.
@@ -789,14 +794,53 @@ Le module ne persiste **rien** par lui-même : il définit la forme, les adapter
 | `createdAt`       | date             | `dateMs` non nul      | `timestamps: true`       | création                            |
 | `updatedAt`       | date             | `dateMs` + `onUpdate` | `timestamps: true`       | dernière modification               |
 
-Sources : `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts:32`) et `userSchema`
-(`mongoose/nodefony/entity/userEntity.ts:19`).
+**Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts:89`). Les deux adapters en
+**dérivent** leur définition — `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts:82`) et
+`userSchema` (`mongoose/nodefony/entity/userEntity.ts:65`) ne recopient rien, ils traduisent. Chaque
+colonne y déclare aussi **qui la lit**, ce qui permet à un refus de nommer le lecteur en même temps
+que la colonne absente. Le tableau ci-dessus est donc une lecture du contrat, jamais une quatrième
+copie : un test par adapter refuse toute colonne du contrat sans correspondance.
 
 > [!TIP]
 > **Pourquoi `socialProviders` est du JSON et non des colonnes `googleId`, `githubId`…** Parce
 > qu'ajouter un fournisseur ne doit demander **aucune migration de schéma**. Le prix à payer est une
 > recherche par appartenance (`$elemMatch` en Mongo, containment JSON en SQL) : c'est exactement ce
 > que `findBySocialProvider()` encapsule.
+
+### Ajouter tes propres champs
+
+Ton application ajoute à sa table `User` les colonnes de son métier (`firstName`,
+`department`, `tenantId`…). Deux choses à savoir, et une seule est une contrainte.
+
+**En écriture, la porte n'est pas celle qu'on croit.** `IUserRepository` est typé sur le contrat :
+`create({ firstName })` est **refusé par TypeScript**, et c'est voulu — le framework ne connaît que
+ses colonnes. La porte est le **repository générique** de l'entité :
+
+```typescript
+// Le repository générique accepte les champs de TA table.
+const users = orm.getRepository<MonUtilisateur>("User");
+await users.create({ identifier: "carol@example.com", firstName: "Carol" });
+
+// `IUserRepository` reste la porte de tout ce qui touche à l'authentification.
+const carol = await userRepository.findByIdentifier("carol@example.com");
+```
+
+**En lecture, il n'y a rien à faire.** Les trois dépôts reportent sur l'utilisateur rendu toute
+colonne hors contrat (`attachExtraColumns`, `userContract.ts:268`) : `carol.firstName` vaut
+`"Carol"`. Sans ce report, l'écriture passerait et la lecture perdrait — **sans une erreur** —, et tu
+verrais ta donnée en base et vide dans ton code.
+
+> [!WARNING]
+> **Un champ métier ne sort JAMAIS dans la console d'administration.** `toUserSummary` construit son
+> résumé champ par champ (`UserAdminApi.ts:90`) : ni ton `salaire` ni ta `note RH` ne partent dans
+> le data plane. Un test le garde (`UserAdminApi.test.ts:270`) — l'étanchéité ne tient pas à la
+> prudence de qui édite ce fichier.
+
+> [!TIP]
+> **Où mettre la donnée ?** L'utilisateur est relu à **chaque requête portant une session**
+> (`SessionAuthenticator.ts:69`) : chaque colonne de cette table est ramenée en mémoire à chaque
+> fois. D'où la règle : contrainte ou index sur une donnée du quotidien → **colonne dans `User`** ;
+> donnée sensible ou consultée rarement → **entité liée** ; sans schéma → **`metadata`**.
 
 ### Les backends pris en charge
 
@@ -874,7 +918,7 @@ Prouvée par `oauth.attack.test.ts:71`.
 
 Trois barrières, indépendantes :
 
-1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:31`).
+1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:70`).
 2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:85`). Il
    n'expose ni `password`, ni `metadata` (qui peut contenir du sensible), ni le moindre jeton dans
    les liens sociaux — seulement `provider`, `providerId` et une date. Le champ `hasPassword` dit
@@ -946,8 +990,8 @@ l'authentification, pas à chaque requête. Les points qui comptent :
 | Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés   | `BcryptEncoder.ts:10`     |
 | Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache     | `UserService.ts:374`      |
 | Blocklist           | `null` par défaut → aucun coût tant qu'elle n'est pas branchée | `UserService.ts:83`       |
-| Listing             | pagination **native au store**, jamais de `find()` complet     | `IUserRepository.ts:78`   |
-| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes           | `IUserRepository.ts:112`  |
+| Listing             | pagination **native au store**, jamais de `find()` complet     | `IUserRepository.ts:121`  |
+| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes           | `IUserRepository.ts:131`  |
 | Registre de stores  | `Set` allouée au premier enregistrement                        | `userStoreRegistry.ts:16` |
 
 **Le vrai budget, c'est la mémoire du hachage.** Avec les défauts Argon2id, chaque vérification

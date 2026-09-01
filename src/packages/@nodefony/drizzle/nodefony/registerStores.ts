@@ -48,7 +48,8 @@ import {
   SESSION_ENTITY_NAME,
   SESSION_CONNECTOR,
 } from "./entity/sessionEntity";
-import { registerUserEntity } from "./entity/userTable";
+import { registerUserEntity, userTableColumns } from "./entity/userTable";
+import { assertUserContract } from "@nodefony/user";
 import { DrizzleTokenStore } from "./src/DrizzleTokenStore";
 import { DrizzleAuditStore } from "./src/DrizzleAuditStore";
 import { DrizzleWebAuthnCredentialStore } from "./src/DrizzleWebAuthnCredentialStore";
@@ -105,6 +106,36 @@ export interface IFrameworkStoresReport {
 }
 
 /**
+ * Les entités que le REPLI a posées, par connecteur — `<connecteur>:<entité>`.
+ *
+ * Elle existe pour une question qu'aucun autre objet ne sait trancher : cette
+ * entité vient-elle de l'APPLICATION, ou le framework l'a-t-il posée faute de
+ * mieux ? Le registre d'entités, lui, ne retient pas qui a écrit. Or la réponse
+ * décide d'un refus de démarrage : une entité de repli n'est dans AUCUNE chaîne
+ * de migration, donc sa table n'existe nulle part hors développement.
+ */
+const fallbackEntities = new Set<string>();
+
+/** Clé de {@link fallbackEntities} — une entité vit par connecteur. */
+function fallbackKey(entityName: string, connector: string): string {
+  return `${connector}:${entityName}`;
+}
+
+/**
+ * Cette entité a-t-elle été posée par le repli du framework ?
+ *
+ * @param entityName - nom de l'entité (`"User"`…).
+ * @param connector - connecteur porteur.
+ * @returns `true` si le framework l'a enregistrée lui-même, faute d'entité d'app.
+ */
+export function isFrameworkFallbackEntity(
+  entityName: string,
+  connector: string = FRAMEWORK_CONNECTOR,
+): boolean {
+  return fallbackEntities.has(fallbackKey(entityName, connector));
+}
+
+/**
  * Résout l'ORM `default` CONNECTÉ pour une fabrique de store — échec FRANC avec
  * la cause exacte (module absent / ordre de boot / dialecte) : principe « pas de
  * dégradation silencieuse ».
@@ -154,6 +185,10 @@ export function registerDrizzleFrameworkStores(
     appOwned: [],
     unported: [],
   };
+  // Un nouvel appel REFAIT le constat : une entité que l'app a fini par déclarer
+  // ne doit pas rester marquée « de repli » d'un passage précédent (tests,
+  // rechargement à chaud) — sans quoi le refus de démarrage viserait à faux.
+  fallbackEntities.clear();
 
   const wire = (
     entityName: string,
@@ -170,6 +205,7 @@ export function registerDrizzleFrameworkStores(
     } else {
       registerEntity();
       report.registered.push(entityName);
+      fallbackEntities.add(fallbackKey(entityName, FRAMEWORK_CONNECTOR));
     }
     registerFactory();
   };
@@ -350,5 +386,49 @@ export function registerDrizzleFrameworkStores(
     },
   );
 
+  // ── L'entité `User` de l'APPLICATION doit porter ce que le framework LIT ────
+  // Le contrôle ne vaut QUE pour l'entité possédée par l'application : celle du
+  // framework est dérivée du contrat, un banc de parité la couvre déjà, et la
+  // contrôler ici ne dirait que ce que ce banc dit mieux.
+  if (report.appOwned.includes("User")) {
+    assertAppUserEntityHonoursContract(dialect);
+  }
+
   return report;
+}
+
+/**
+ * Confronte l'entité `User` déclarée par l'application au contrat de colonnes.
+ *
+ * Appelé au moment où l'auto-register CONSTATE que l'application possède son
+ * entité — donc au démarrage, avant qu'un seul lecteur n'ait tenté quoi que ce
+ * soit. Le message vient de {@link assertUserContract} : une règle, un texte,
+ * partagés avec l'adaptateur document.
+ *
+ * Le silence en cas de schéma illisible est délibéré : une entité dont la table
+ * ne se laisse pas inspecter (driver tiers, forme inattendue) ne prouve PAS
+ * qu'une colonne manque. Refuser sur cette base transformerait un contrôle en
+ * panne de démarrage pour une application parfaitement correcte — et un refus
+ * faux apprend surtout à passer outre les refus.
+ *
+ * @param dialect - dialecte du connecteur framework, qui décide de la grammaire
+ *   de lecture de la table.
+ * @throws Error si une colonne du contrat manque à l'entité de l'application.
+ */
+function assertAppUserEntityHonoursContract(dialect: SqlDialect): void {
+  let present: Iterable<string>;
+  try {
+    const entity = entityRegistry.get("User", FRAMEWORK_CONNECTOR);
+    const columns = userTableColumns(entity.schema, dialect);
+    if (columns.size === 0) {
+      return;
+    }
+    present = columns.keys();
+  } catch {
+    return;
+  }
+  assertUserContract(
+    present,
+    `L'entité « User » de cette application (connecteur « ${FRAMEWORK_CONNECTOR} », ${dialect})`,
+  );
 }

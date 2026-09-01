@@ -203,7 +203,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1131`) |
 | 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
-| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:349`)      |
+| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:313`)      |
 | 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
 
 > [!IMPORTANT]
@@ -300,7 +300,7 @@ class ChatController extends Controller {
 | `initialize()` | À chaque requête | **Une seule fois**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte
-(`Resolver.newController()`, `Resolver.ts:262`) : le contexte WS étant partagé par la connexion, le
+(`Resolver.newController()`, `Resolver.ts:232`) : le contexte WS étant partagé par la connexion, le
 contrôleur l'est aussi. Un garde-fou vérifie que l'instance cachée est bien de la classe de la route
 courante et la reconstruit sinon (`Resolver.ts:344-347`) — sans quoi un message invoquant une autre
 action se tromperait d'objet.
@@ -501,7 +501,7 @@ forme au rendeur d'erreurs. Ce qui en sort :
   ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts:770-775`).
 
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
-(`renderWebsocket()`, `error-renderer.ts:264`) — 401/403 → 1008 (violation de politique),
+(`renderWebsocket()`, `error-renderer.ts:393`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
 c'est un **rejet** de handshake.
 
@@ -529,7 +529,7 @@ le container a déjà été détaché. C'est le style à privilégier dans `init
 ```typescript
 import { inject, Fetch } from "nodefony";
 
-@controller("/nodefony/demo")
+@controller("/demo")
 class DemoController extends Controller {
   constructor(
     context: ContextType,
@@ -584,7 +584,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:760`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
-| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:264`)                  |
+| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:393`)                  |
 
 ## 📡 Observabilité — Studio
 

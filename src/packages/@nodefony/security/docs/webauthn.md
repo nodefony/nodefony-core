@@ -1,5 +1,6 @@
 ---
 title: "WebAuthn / passkeys — MFA résistant au phishing (FIDO2)"
+navTitle: WebAuthn / passkeys
 lang: fr
 module: "@nodefony/security"
 topic: webauthn
@@ -89,7 +90,7 @@ Quatre failles fermées **par construction** :
 2. **Fuite de base** — le serveur ne stocke que des clés **publiques** (`IWebAuthnCredential.publicKey`,
    `IWebAuthnCredential.ts:16`). Une base volée ne donne aucun accès.
 3. **Rejeu** — le défi est à usage unique, invalidé en session dès sa lecture
-   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:251`).
+   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:277`).
 4. **Clonage d'authenticator** — le `signCount` doit croître ; une régression signale une copie
    (`IWebAuthnCredential.signCount`, `IWebAuthnCredential.ts:22`).
 
@@ -642,7 +643,7 @@ défensive** — passkeys désactivées → `{ enabled: false, items: [] }` et n
 doit afficher « passkeys désactivées », pas un 503 (`SecurityAdminApi.ts:501`). `total: -1` signale un
 backend sans comptage (Redis).
 
-Côté UI, l'écran **Profil** de Studio porte l'enrôlement self-service et l'écran de login le bouton
+Côté UI, l'écran **Profil** (`/nodefony/profile`) de Studio porte l'enrôlement self-service et l'écran de login le bouton
 passkey (`AuthStore.ts:209`).
 
 ## 📜 Normes appliquées

@@ -9,6 +9,7 @@ import {
   citer,
   DECOR_MIGRATIONS,
   MIGRATIONS,
+  dossierMigrations,
   assertDialecte,
   parse,
   surBaseNeuve,
@@ -464,27 +465,29 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-destr-"));
     const migrations = path.join(dir, "migrations");
     const base = path.join(dir, "d.db");
-    await fs.mkdir(path.join(migrations, "sqlite", "meta"), {
-      recursive: true,
-    });
+    // 🔴 Le décor part des migrations que l'APPLICATION possède, et n'invente
+    // pas la table qu'il ampute. La colonne retirée doit appartenir à une
+    // table que le CODE déclare toujours — c'est la seule façon d'obtenir la
+    // divergence attendue à la fin. Elle appartenait au framework ; elle
+    // appartient désormais à l'application, et un décor qui l'aurait supposée
+    // toujours livrée échoue sur « no such table » en accusant le produit.
+    const sqliteDir = path.join(migrations, "sqlite");
+    await fs.cp(dossierMigrations("sqlite"), sqliteDir, { recursive: true });
+    const journalFile = path.join(sqliteDir, "meta", "_journal.json");
+    const journal = JSON.parse(await fs.readFile(journalFile, "utf8")) as {
+      entries: { idx: number; tag: string }[];
+    };
+    const tag = `${String(journal.entries.length).padStart(4, "0")}_nettoyage`;
+    journal.entries.push({
+      idx: journal.entries.length,
+      version: "6",
+      when: 1_700_000_000_000,
+      tag,
+      breakpoints: true,
+    } as never);
+    await fs.writeFile(journalFile, JSON.stringify(journal));
     await fs.writeFile(
-      path.join(migrations, "sqlite", "meta", "_journal.json"),
-      JSON.stringify({
-        version: "7",
-        dialect: "sqlite",
-        entries: [
-          {
-            idx: 0,
-            version: "6",
-            when: 1_700_000_000_000,
-            tag: "0000_nettoyage",
-            breakpoints: true,
-          },
-        ],
-      }),
-    );
-    await fs.writeFile(
-      path.join(migrations, "sqlite", "0000_nettoyage.sql"),
+      path.join(sqliteDir, `${tag}.sql`),
       "-- nodefony:migration format=1\nALTER TABLE `User` DROP COLUMN `metadata`;\n",
     );
     const env = {

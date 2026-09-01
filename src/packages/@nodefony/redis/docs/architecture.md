@@ -1,5 +1,6 @@
 ---
 title: "Architecture interne — connexions, stores et fond de panier"
+navTitle: Architecture interne
 lang: fr
 module: "@nodefony/redis"
 topic: redis
@@ -426,7 +427,7 @@ dérivent le même nom : il faut alors un namespace explicite.
 **L'anti-echo est structurel.** Redis renvoie à l'émetteur ce qu'il publie, puisque les connexions
 `publish` et `subscribe` appartiennent au même pod. Sans filtre, chaque message serait diffusé deux
 fois localement. Le tri d'entrée `RedisBackplane.#ingress()` compare donc l'identifiant d'origine à
-la réception (`RedisBackplane.ts:212`) et écarte les siens.
+la réception (`RedisBackplane.ts:269`) et écarte les siens.
 
 **La livraison est au mieux, jamais garantie.** Le pub/sub Redis ne persiste ni ne rejoue : un pod
 déconnecté rate ce qui a été émis pendant sa coupure. Le contrat l'assume au lieu de simuler une
@@ -449,7 +450,7 @@ muet ne l'est pas. Voici ce que le code fait réellement, moment par moment.
 ### Moment 1 — Redis est absent au démarrage
 
 Le module est déclaré non critique (`index.ts:36`), et l'initialisation du service est **bornée dans
-le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3095`) enveloppe l'appel dans un délai maximal de
+le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3369`) enveloppe l'appel dans un délai maximal de
 démarrage. Un `init()` qui pend ne gèle donc pas le boot ; l'échec est agrégé au rapport de démarrage,
 qui fait dire « démarrage DÉGRADÉ » au superviseur au lieu de mentir sur un état sain.
 

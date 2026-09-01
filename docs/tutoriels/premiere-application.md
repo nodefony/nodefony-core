@@ -66,6 +66,8 @@ mon-app/
 ├── index.ts                  # le point d'entrée (passe la config au kernel)
 └── nodefony/
     └── controllers/
+        ├── HomeController.ts  # répond à `GET /` — sans frontend, la racine
+        │                      #   renverrait 404 sans lui
         └── HelloController.ts # une route HTTP + un echo WebSocket, déjà écrits
 ```
 

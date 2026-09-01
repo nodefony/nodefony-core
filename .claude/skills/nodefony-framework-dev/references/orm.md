@@ -47,13 +47,17 @@ Deux gardes à connaître :
   il compare deux colonnes. Les **FOREIGN KEY ne sont pas émises** par le DDL de développement
   (elles se déclarent dans le `CREATE TABLE`, donc n'atteindraient jamais une base déjà créée) —
   c'est le domaine des migrations.
-- **Les noms d'entités du framework sont refusés** (`User`, `session`, `access_token`,
+- **Les noms d'entités du framework sont refusés** (`session`, `access_token`,
   `audit_event`…, casse et séparateurs ignorés) : le registre ORM est plat, une entité homonyme
   déposséderait celle d'un module et l'application ne démarrerait plus — sur un message parlant
-  d'une colonne inconnue, jamais du doublon. Pour enrichir l'utilisateur : la colonne JSON
-  `metadata`, ou une entité liée (`create entity Profile bio:text ref:User`), ou reprendre la
-  main sur l'entité `User` en l'enregistrant **avant** le module ORM (il respecte une entité déjà
-  présente — `registerStores.ts`), à condition d'en porter toutes les colonnes.
+  d'une colonne inconnue, jamais du doublon.
+- **`User` fait EXCEPTION : l'entité appartient à l'application**, qui la déclare et porte ses
+  migrations (`scaffold/reservedEntities.ts` la marque `appOwned`). L'enrichir est donc le geste
+  normal — `nodefony create entity User department:string?` réécrit l'entité avec les colonnes du
+  contrat plus les tiennes. Alternatives quand la donnée n'a pas sa place sur une table relue à
+  chaque requête authentifiée : la colonne JSON `metadata`, ou une entité liée
+  (`create entity Profile bio:text ref:User`). Une entité d'application à qui manque une colonne du
+  contrat fait échouer le démarrage en nommant la colonne et son lecteur (`registerStores.ts`).
 
 `drizzle-orm` est une dépendance **de l'application** (le code généré l'importe en direct) : le
 gabarit `complete` la déclare, et `create entity` l'ajoute au `package.json` si elle manque.

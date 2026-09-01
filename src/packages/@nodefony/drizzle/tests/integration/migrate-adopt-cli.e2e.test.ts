@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import type { SqlDialect } from "../../nodefony/config/config";
 import {
   APP_SOURCE,
@@ -20,6 +21,7 @@ import {
   assertDialecte,
   parse,
   surBaseNeuve,
+  type IBase,
 } from "./migrate-cli-harness";
 
 /**
@@ -81,29 +83,93 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
 
     casDialecte(`adopter une base en place ${cible.label}`, () => {
       /**
-       * Dossier des migrations de l'APPLICATION pour ce dialecte.
+       * Dossier des migrations de l'APPLICATION pour ce cas — JETABLE, et hors
+       * de l'arbre du dépôt.
        *
-       * Le dépôt n'en a pas : c'est la commande qui le crée, et ce banc qui le
-       * retire. Composé avec `path.join`, jamais écrit en littéral — une
-       * assertion de chemin qui accepte « l'un ou l'autre séparateur » ne
-       * prouve rien sous Windows.
+       * 🔴 Ce banc a besoin d'un dossier qu'il remplit, vide et reremplit à
+       * chaque cas. Il l'a longtemps pris à la racine du dépôt, qui est
+       * l'application témoin — jusqu'au jour où cette application a eu ses
+       * propres migrations à elle : l'entité `User` lui appartient, donc sa
+       * migration aussi, et elle est COMMITÉE. Le décor du banc écrasait alors
+       * un artefact versionné, sans que rien ne le dise, et le manque se
+       * manifestait des heures plus tard sur un message qui accusait le
+       * produit.
+       *
+       * Le dossier est donc détourné vers un abri temporaire, par le réglage
+       * `orm.migrations.dir` — que le produit accepte en ABSOLU — posé par
+       * l'override générique `NF__DRIZZLE__MIGRATIONS__DIR` (ADR-0006 D3), le
+       * mécanisme que les utilisateurs ont déjà. Le dépôt n'est plus jamais
+       * écrit : ni par un cas, ni par un cas interrompu, ni par deux dialectes
+       * joués en parallèle.
+       *
+       * Composé avec `path.join`, jamais écrit en littéral — une assertion de
+       * chemin qui accepte « l'un ou l'autre séparateur » ne prouve rien sous
+       * Windows.
        */
-      const outDir = dossierMigrations(cible.dialect);
+      let racine = "";
+      let outDir = "";
+
+      /** L'état de départ : les migrations que le dépôt-application possède. */
+      const DEPOT = dossierMigrations(cible.dialect);
+
+      beforeAll(async () => {
+        racine = await fs.mkdtemp(
+          path.join(os.tmpdir(), "nf-adopt-migrations-"),
+        );
+        outDir = dossierMigrations(cible.dialect, racine);
+      });
+
+      afterAll(async () => {
+        if (racine) {
+          await fs.rm(racine, { recursive: true, force: true });
+        }
+      });
+
+      /** Les migrations d'application présentes à cet instant, triées. */
+      const migrationsPresentes = async (): Promise<string[]> =>
+        fs
+          .readdir(outDir)
+          .then((noms) => noms.filter((n) => n.endsWith(".sql")).sort())
+          .catch(() => [] as string[]);
 
       /**
-       * Le dossier de sortie n'a JAMAIS le droit de survivre à un cas.
+       * Ce que le dossier porte au DÉBUT du cas courant.
        *
-       * Son PARENT non plus quand il devient vide : « migrations/ » est créé
-       * par la commande à la racine du dépôt, et n'en retirer que le
-       * sous-dossier du dialecte y laissait une coquille vide après chaque
-       * passage. Un décor de banc ne se dépose pas dans le dépôt, même vide —
-       * il finit par se faire commiter, ou par faire douter de ce qu'on voit.
-       * « rmdir » refuse un dossier non vide : c'est la garde, pas un « rm -r ».
+       * 🔴 « Un refus n'écrit rien » ne se mesure plus contre un dossier vide :
+       * l'application témoin a ses propres migrations. Se comparer à zéro
+       * rendrait un rouge sur un décor sain — et, le jour où le dépôt en perd
+       * une, un vert sur un décor amputé.
+       */
+      let auDepart: string[] = [];
+
+      /**
+       * Chaque cas repart de l'état COMMITÉ du dépôt, jamais d'un dossier vide.
+       *
+       * C'est ce qu'une vraie application vit : elle naît avec la migration
+       * initiale de son entité `User`, puis ajoute des entités. Partir d'un
+       * dossier vide décrirait une application qui déclare `User` sans jamais
+       * l'avoir migrée — un état que le produit REFUSE, à juste titre, et le
+       * banc mesurerait alors ce refus au lieu de l'adoption.
+       *
+       * Le cas qui veut l'état hérité (base pleine, aucune migration) le
+       * fabrique lui-même, explicitement, en vidant ce dossier.
        */
       const netToyer = async (): Promise<void> => {
         await fs.rm(outDir, { recursive: true, force: true });
-        await fs.rmdir(path.dirname(outDir)).catch(() => undefined);
+        try {
+          await fs.cp(DEPOT, outDir, { recursive: true });
+        } catch {
+          // Ce dialecte n'a pas de migration d'application dans le dépôt : le
+          // cas part alors d'un dossier vide, et c'est un état légitime.
+          await fs.mkdir(outDir, { recursive: true });
+        }
+        auDepart = await migrationsPresentes();
       };
+
+      /** `surBaseNeuve`, ancré sur le dossier de migrations de ce banc. */
+      const surBase = (
+        corps: (base: IBase, env: NodeJS.ProcessEnv) => Promise<void>,
+      ): Promise<void> => surBaseNeuve(cible, corps, racine);
 
       beforeEach(netToyer);
       afterEach(netToyer);
@@ -182,7 +248,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           // Le décor du banc porte la table de l'application : les DEUX
           // processus doivent la voir — celui qui démarre l'application, et
           // celui que l'outil de génération lance.
@@ -439,7 +505,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
        *
        * @param base - la base neuve du dialecte courant.
        * @param avecTable - environnement déclarant la table SANS le champ ajouté.
-       * @returns le tag de l'unique migration applicative écrite.
+       * @returns le tag de la migration que ce décor vient d'écrire.
        */
       const baseHeritee = async (
         base: { sql: (q: string[]) => Promise<unknown> },
@@ -465,11 +531,23 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           `DELETE FROM ${citer(cible.dialect, HISTORY_TABLE)} ` +
             `WHERE ${citer(cible.dialect, "source")} = '${APP_SOURCE}'`,
         ]);
-        const fichiers = (await fs.readdir(outDir)).filter((n) =>
-          n.endsWith(".sql"),
+        // 🔴 Le tag cherché est celui du DERNIER fichier, jamais « l'unique » :
+        // l'application témoin possède déjà ses propres migrations (son entité
+        // `User`), et exiger un dossier d'un seul fichier ferait échouer ce
+        // décor sur une application parfaitement normale.
+        const fichiers = (await fs.readdir(outDir))
+          .filter((n) => n.endsWith(".sql"))
+          .sort();
+        const dernier = fichiers.at(-1);
+        assert.ok(
+          dernier,
+          `le décor n'a écrit aucune migration : ${fichiers.join(", ") || "(aucune)"}`,
         );
-        assert.equal(fichiers.length, 1, `décor : ${fichiers.join(", ")}`);
-        return (fichiers[0] as string).replace(/\.sql$/, "");
+        assert.ok(
+          dernier.endsWith("_heritage.sql"),
+          `le décor devait finir sur sa migration : ${fichiers.join(", ")}`,
+        );
+        return dernier.replace(/\.sql$/, "");
       };
 
       /**
@@ -493,7 +571,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           try {
             // 1. La base reçoit tout ce que le framework déclare.
             const migre = await cli(["orm:migrate", "--json"], env);
@@ -553,7 +631,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
           const avecSlug = {
             ...env,
@@ -576,10 +654,25 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
               "NF_MIGRATE_BASELINE_AMBIGUOUS",
               "l'exemption ne tient plus : la garde mord malgré --up-to",
             );
+            // Borner, c'est inscrire TOUT jusqu'au tag nommé, celui-ci
+            // compris — pas seulement lui. L'application témoin porte ses
+            // propres migrations avant celle du décor ; n'en inscrire qu'une
+            // laisserait les précédentes en attente sur une base qui les
+            // applique déjà. La liste attendue est DÉRIVÉE du dossier : écrite
+            // à la main, elle serait fausse à la migration suivante.
+            const tous = (await migrationsPresentes()).map((n) =>
+              n.replace(/\.sql$/, ""),
+            );
+            const borne = tous.indexOf(tag);
+            assert.notEqual(
+              borne,
+              -1,
+              `le tag borné n'est pas dans le dossier : ${tous.join(", ")}`,
+            );
             assert.deepEqual(
               (doc.adopted as { tag: string }[]).map((a) => a.tag),
-              [tag],
-              "l'adoption bornée n'a pas inscrit la migration nommée",
+              tous.slice(0, borne + 1),
+              "l'adoption bornée n'a pas inscrit les migrations jusqu'au tag nommé",
             );
             // Le témoin n'a pas bougé : adopter n'exécute aucun SQL.
             assert.deepEqual(await lireTemoin(base, cible.dialect), [TEMOIN]);
@@ -605,7 +698,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           // La découverte lit les FICHIERS, pas le registre : le décor est donc
           // visible même si son module n'est pas chargé — c'est ce qui rend ce
           // refus exerçable là où celui de l'adoption ne l'était pas.
@@ -639,11 +732,11 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             );
             // Et il n'a RIEN écrit — un refus qui laisse un fichier derrière
             // lui fait appliquer le lendemain ce qu'il refusait la veille.
-            const ecrits = await fs
-              .readdir(outDir)
-              .then((n) => n.filter((x) => x.endsWith(".sql")))
-              .catch(() => [] as string[]);
-            assert.deepEqual(ecrits, [], "un refus a tout de même écrit");
+            assert.deepEqual(
+              await migrationsPresentes(),
+              auDepart,
+              "un refus a tout de même écrit",
+            );
           } finally {
             if (cible.dialect === "mysql") {
               const noms = await tablesEcrites();
@@ -666,7 +759,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           // Le décor reproduit DÉLIBÉRÉMENT l'accident : une migration décrit
           // la table de l'application, puis la découverte suivante ne la trouve
           // plus. L'outil de diff ne distingue pas « absente de la découverte »
@@ -749,7 +842,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           // L'écart INVERSE de celui du cas précédent : là le fichier fournit
           // une table que le registre ignore, ici le registre déclare une
           // entité que nul fichier ne fournit. Il ne peut donc PAS venir de la
@@ -795,11 +888,11 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             );
             // Et il n'a RIEN écrit : une migration amputée d'une table ne se
             // corrige pas, elle se remplace sur toutes les bases déjà servies.
-            const ecrits = await fs
-              .readdir(outDir)
-              .then((n) => n.filter((x) => x.endsWith(".sql")))
-              .catch(() => [] as string[]);
-            assert.deepEqual(ecrits, [], "un refus a tout de même écrit");
+            assert.deepEqual(
+              await migrationsPresentes(),
+              auDepart,
+              "un refus a tout de même écrit",
+            );
           } finally {
             if (cible.dialect === "mysql") {
               const noms = await tablesEcrites();
@@ -822,7 +915,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           // Le module du décor est CHARGÉ — la dérogation seule, sans la
           // consigne qui dit quoi inscrire. C'est l'état dans lequel se trouve
           // quiconque lance une génération depuis ce dépôt, et il ne doit RIEN
@@ -867,7 +960,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
           try {
             // Le décor d'une application qui a laissé le démarrage fabriquer
@@ -965,7 +1058,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
           // Le cas SYMÉTRIQUE, et c'est lui qui rend le précédent probant :
           // une seconde table déclarée que la base ne porte pas. Il reste donc
@@ -1021,7 +1114,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           ctx.skip();
           return;
         }
-        await surBaseNeuve(cible, async (base, env) => {
+        await surBase(async (base, env) => {
           const avecTable = { ...env, NF_ADOPT_FIXTURE: cible.dialect };
           try {
             await base.sql([

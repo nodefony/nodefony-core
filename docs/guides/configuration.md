@@ -1,8 +1,13 @@
 ---
-title: Configurer une application Nodefony (defineConfig)
+title: "Configurer une application Nodefony (defineConfig)"
+navTitle: Configuration
 lang: fr
+topic: configuration
 audience: humain
-date: 2026-06-05
+version: "doc"
+status: stable
+updated: 2026-09-01
+source: "docs/guides/configuration.md"
 related: project_config_chantier_defineconfig_kit, project_module_loading_architecture, project_app_config_refonte_chantier, feedback_config_docs
 ---
 
@@ -11,7 +16,9 @@ related: project_config_chantier_defineconfig_kit, project_module_loading_archit
 > Modèle `defineConfig` (depuis 2026-06-05). La config d'une app tient dans **un fichier
 > racine** auto-documenté, et grandit par **composition** — sans jamais subir le découpage.
 
-## L'idée en une phrase
+📍 [Documentation](../index.md) › [Guides](README.md) › **Configuration**
+
+## Le modèle — un fichier racine, qui grandit par composition
 
 **Commencer minuscule comme Vite. Pouvoir grandir structuré. Sans jamais subir le découpage.**
 
@@ -239,7 +246,7 @@ Voir le skill `nodefony-start-server`.
 
 ## Voir la config résolue
 
-L'onglet **Configuration** de Studio (introspection via `z.toJSONSchema`), alimenté par
+L'onglet **Configuration** de Studio (`/nodefony/config`) (introspection via `z.toJSONSchema`), alimenté par
 `GET /nodefony/kernel/api/config` : valeurs effectives (secrets masqués), schéma JSON et
 **provenance par champ** (qui a posé la valeur — défaut du module, `nodefony.config.ts`, `NF__*`).
 
@@ -299,8 +306,54 @@ automatiquement des défauts du core et de chaque module (deep-merge au boot), n
 **écarts**, et son devops surcharge par `NF__*`/`*_FILE` en Docker — **sans toucher au code** du
 projet ni du framework. C'est le modèle Spring Boot starter / Symfony bundle, transposé en TS.
 
-## Voir aussi
+## 📖 Lexique
 
-- `CLAUDE.md` racine § « Configuration de l'APPLICATION — `defineConfig` » (règles figées).
-- Skill `nodefony-framework-dev` § « Config de l'APPLICATION ».
-- Architecture du chargement de modules : mémoire IA `project_module_loading_architecture`.
+| Terme               | Ce que c'est                                                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`defineConfig`**  | La fonction qui compose la configuration de l'application (`defineConfig.ts:178`). Elle ne lit jamais l'environnement — elle assemble.             |
+| **`env.ts`**        | Le **seul** endroit qui lit l'environnement. Tout le reste reçoit des valeurs déjà résolues, ce qui rend la configuration testable sans variables. |
+| **`use()`**         | Déclarer un module et le configurer **avec ses types** (`use.ts:88`) : une clé mal orthographiée ne compile pas.                                   |
+| **Fusion profonde** | Les défauts du cœur et de chaque module servent de socle ; votre fichier n'écrit que les **écarts**.                                               |
+| **Provenance**      | D'où vient chaque valeur retenue : défaut, fichier, variable d'environnement. Elle reste consultable après le boot.                                |
+| **`hot` / `boot`**  | Une clé est soit relue à chaud, soit figée au démarrage. Confondre les deux fait croire qu'un réglage « ne prend pas ».                            |
+
+## ⚠️ Pièges
+
+- **Une clé qu'un module n'a pas déclarée est retirée en silence.** La validation ne se contente
+  pas de refuser l'invalide : elle **écarte l'inconnu**. Une faute de frappe ne lève donc pas
+  d'erreur, la valeur disparaît — d'où l'intérêt de passer par `use()`, qui la fait échouer à la
+  compilation plutôt qu'au silence.
+- **Ne jamais déréférencer le kernel à l'évaluation d'un fichier de configuration.** Il n'existe pas
+  encore au moment de l'import : le module devient non importable et non testable. Utilisez un
+  accesseur (`get filename() { … }`), résolu à la lecture.
+- **Modifier une clé `boot` sans redémarrer ne change rien**, et rien ne le signale. Vérifiez le
+  régime de la clé avant de conclure que la configuration est ignorée.
+- **En développement, une modification de configuration demande une reconstruction** — la section
+  dédiée ci-dessus dit laquelle. Un réglage qui « ne prend pas » vient souvent de là.
+- **Les variables d'environnement du framework se préfixent `NF_`.** Les noms génériques
+  appartiennent à d'autres outils, et une collision ne se manifeste jamais par une erreur : juste
+  par un comportement inexplicable.
+
+## 🧪 Tests & couverture
+
+Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vitest — jamais figés ici.
+
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires (composition) | `nodefony` `defineConfig.test.ts`, `configUse.test.ts`, `configBoot.test.ts` | l'assemblage, le typage par module, ce qui est figé au démarrage |
+| Unitaires (environnement) | `nodefony` `defineEnv.test.ts`, `loadEnv.test.ts`, `envOverride.test.ts`, `envExample.test.ts` | la lecture unique de l'environnement, les surcharges `NF__*`, le fichier d'exemple engendré |
+| Unitaires (provenance) | `nodefony` `configProvenance.test.ts`, `infra.test.ts`, `podEnvironment.test.ts` | d'où vient chaque valeur retenue, et ce que le pod ajoute |
+| Unitaires (par module) | `@nodefony/framework` `config.test.ts`, `configMutation.test.ts` · `@nodefony/http` `httpConfig.test.ts` · `@nodefony/security` `defineSecurityConfig.test.ts` · `@nodefony/realtime` `defineRealtimeConfig.test.ts` | que chaque module valide bien la sienne |
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
+- 🏛️ **Le concept, et non la recette** :
+  [architecture — configuration](../architecture/configuration.md)
+- 🗄️ **Déclarer son infrastructure plutôt que huit backends** :
+  [`persistence.md`](./persistence.md)
+- 🐳 **Surcharger en conteneur** : [`docker-cloud-native.md`](./docker-cloud-native.md)
+- 🔄 **Le moment où la configuration est lue** :
+  [cycle de boot du Kernel](../architecture/cycle-boot-kernel.md)
+- 📖 [Lexique général](../lexique.md) du framework.

@@ -1,5 +1,6 @@
 ---
 title: "Cookies — attributs, signature, parsing, HTTP et WebSocket"
+navTitle: Cookies
 lang: fr
 module: "@nodefony/http"
 topic: cookies
@@ -233,7 +234,7 @@ Le constructeur accepte `(nom, valeur, options?)` ou **un cookie à copier** (su
 | `priority` | `High \| Medium \| Low`    | `undefined`  | Attribut `Priority` (`setPriority()`, `cookie.ts:297`).                |
 
 Les défauts sont matérialisés dans `cookieDefaultSettings` (`cookie.ts:43`) ; la fusion se fait dans le
-constructeur de `Cookie` (`cookie.ts:134`).
+constructeur de `Cookie` (`cookie.ts:130`).
 
 ### Sérialiser : `serialize()` et `serializeWebSocket()`
 
@@ -255,9 +256,9 @@ constructeur de `Cookie` (`cookie.ts:134`).
 | Besoin                         | Appel                                                 | Où                                       |
 | ------------------------------ | ----------------------------------------------------- | ---------------------------------------- |
 | Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:660`) |
-| Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:149`)             |
+| Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:193`)             |
 | Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:667`)         |
-| Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:99`                    |
+| Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:119`                   |
 
 Côté réponse HTTP, `addCookie()` (`http/Response.ts:101`) enregistre le cookie, et `setCookies()`
 (`http/Response.ts:107`) émet **une ligne `Set-Cookie` par cookie** — un tableau passé à Node, jamais une

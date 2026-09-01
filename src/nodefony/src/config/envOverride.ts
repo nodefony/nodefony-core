@@ -172,6 +172,19 @@ export function coerceEnvValueLike(raw: string, existing: unknown): unknown {
  * d'abord, sinon match insensible à la casse. `null` si aucune clé ne correspond.
  */
 function resolveKey(node: Record<string, unknown>, seg: string): string | null {
+  // Refus EXPLICITE des clés qui touchent la chaîne de prototypes. Jusqu'ici le
+  // refus était un ACCIDENT HEUREUX : `__proto__` n'est ni propriété propre ni
+  // énumérable, donc les deux lignes suivantes rendaient `null` d'elles-mêmes.
+  // L'accident cessait dès qu'un schéma issu de `JSON.parse` déclarait la clé —
+  // `JSON.parse('{"__proto__":{}}')` crée, lui, une propriété PROPRE. Mesuré :
+  // le prototype de l'objet de configuration était alors DÉTOURNÉ, et
+  // `constructor` remplacé par un objet. (`Object.prototype` restait intact :
+  // l'alerte js/prototype-polluting-assignment surestime la portée, elle ne
+  // l'invente pas.) Cette garde est le point de passage UNIQUE de
+  // `applyResolvedPath` et de `declaredTypeAtPath` — elle ferme les deux voies.
+  if (seg === "__proto__" || seg === "constructor" || seg === "prototype") {
+    return null;
+  }
   if (Object.prototype.hasOwnProperty.call(node, seg)) return seg;
   for (const k of Object.keys(node)) {
     if (k.toLowerCase() === seg) return k;

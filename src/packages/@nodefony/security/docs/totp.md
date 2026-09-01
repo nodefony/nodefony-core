@@ -1,5 +1,6 @@
 ---
 title: "TOTP — second facteur 2FA (RFC 6238) chiffré au repos"
+navTitle: TOTP
 lang: fr
 module: "@nodefony/security"
 topic: totp

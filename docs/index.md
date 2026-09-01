@@ -23,8 +23,11 @@ tests: none
 ```nodefony-cards
 [
   { "icon": "🧭", "title": "Par où commencer", "href": "demarrer.md", "featured": true,
-    "desc": "Quatre parcours ordonnés selon ce que tu viens faire : découvrir, construire, sécuriser, exploiter. Chaque étape dit pourquoi elle vient là.",
-    "meta": "commence ici si tu débutes" }
+    "desc": "Cinq parcours ordonnés selon ce que tu viens faire : construire, découvrir, sécuriser, auditer, exploiter. Chaque étape dit pourquoi elle vient là.",
+    "meta": "commence ici si tu débutes" },
+  { "icon": "🎓", "title": "Tutoriel : ta première application", "href": "tutoriels/premiere-application.md", "featured": true,
+    "desc": "De zéro à une app qui répond en HTTP, en WebSocket, et persiste des données — pas à pas.",
+    "meta": "le premier geste, guidé" }
 ]
 ```
 
@@ -115,8 +118,6 @@ Orientés tâche : on suit le guide, on obtient un résultat.
 
 ```nodefony-cards
 [
-  { "icon": "🎓", "title": "Tutoriel : ta première application", "href": "tutoriels/premiere-application.md",
-    "desc": "De zéro à une app qui répond en HTTP, en WebSocket, et persiste des données — pas à pas." },
   { "icon": "⚙️", "title": "Configuration pas à pas", "href": "guides/configuration.md",
     "desc": "La recette, quand l'architecture est déjà comprise." },
   { "icon": "🏗️", "title": "Générer du code", "href": "guides/generer-du-code.md",

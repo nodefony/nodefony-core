@@ -1,5 +1,6 @@
 ---
 title: "OAuth 2.0 — social login (Authorization Code + PKCE, posture 2.1)"
+navTitle: OAuth 2.0
 lang: fr
 module: "@nodefony/security"
 topic: oauth2
@@ -33,7 +34,7 @@ source: "src/packages/@nodefony/security/docs/oauth2.md"
 > (RFC 9700) : Authorization Code, PKCE, `state` anti-CSRF, `iss` anti-mix-up. Point clé :
 > **aucun jeton n'atteint le navigateur** — le retour produit une **session BFF**, exactement la même
 > qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:55`) et le controller BFF
-> `OAuth2Controller` (`OAuth2Controller.ts:75`).
+> `OAuth2Controller` (`OAuth2Controller.ts:81`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **OAuth2**
 

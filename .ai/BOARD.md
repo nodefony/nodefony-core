@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-08-31 23:00** (UTC).
+> Empreinte prise le **2026-09-01 22:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 15 | 1 | — |
-| 10.0.0 | 38 | 59 | 2026-11-15 |
+| 10.1 | 16 | 1 | — |
+| 10.0.0 | 33 | 78 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,21 +27,19 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 38 ouverts
+## Jalon 10.0.0 — 33 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 3 | P0 — bloque le reste | 3 | #18 | feat(cli): rendre l'entité User à l'application |
+| 3 | P0 — bloque le reste | 7.5 | #18 | feat(user): rendre l'entité utilisateur à l'application |
+| 3.9 | P2 — décision | 0.5 | #148 | test(devkit): mesurer si un agent sait gérer les utilisateurs |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
 | 4.6 | P1 — figé à la création | 1 | #61 | feat(realtime): garder les canaux dynamiques par un motif de nom |
 | 6 | P1 — figé à la création | 0.5 | #22 | ci(security): détecter les secrets commités dans le dépôt |
 | 6 | P1 — figé à la création | — | #53 | docs: remettre la documentation à niveau avant la version 10 |
-| 6.5 | P1 — figé à la création | 0.5 | #45 | docs(guides): retirer « mocha + bun » et les pages fantômes |
-| 6.6 | P1 — figé à la création | 1 | #46 | docs(core): documenter l'outillage de test livré aux applications |
-| 6.7 | P1 — figé à la création | 0.5 | #48 | docs(site): mettre les tutoriels avant l'architecture |
 | 7 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 7.1 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
 | 8 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
@@ -63,14 +61,11 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 13 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 | 14 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
 | 15 | P3 — fin de cycle | 0.5 | #24 | docs(security): expliquer comment obtenir un jeton |
-| 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
-| 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 37 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
-| 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 
-## Jalon 10.1 — 15 ouverts
+## Jalon 10.1 — 16 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -83,6 +78,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 51 | P3 — fin de cycle | 0.5 | #64 | perf(dev): supprimer les 45 secondes de build au démarrage |
 | 52 | P3 — fin de cycle | 0.5 | #66 | feat(orm): exposer la taille du pool de connexions |
 | 53 | P3 — fin de cycle | 1 | #67 | feat(orm): capturer le contexte des requêtes qui échouent |
+| 54 | P3 — fin de cycle | 1 | #71 | feat(security): rendre la hiérarchie de rôles extensible |
 | 54.5 | P3 — fin de cycle | 2 | #79 | refactor(studio): dériver l'affichage des rôles servis par le serveur |
 | 57 | P3 — fin de cycle | 0.5 | #69 | feat(studio): signaler visiblement un serveur en dérogation |
 | 60 | P3 — fin de cycle | 0.5 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
@@ -90,13 +86,14 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 62 | P2 — décision | 0.5 | #75 | chore(core): trancher l'héritage des dépendances déclarées |
 | 63 | P2 — décision | 0.5 | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
 
-## Backlog — aucune date promise · 5 ouverts
+## Backlog — aucune date promise · 6 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 54 | P3 — fin de cycle | 1 | #71 | feat(security): rendre la hiérarchie de rôles extensible |
 | 55 | P3 — fin de cycle | 2 | #70 | feat(webhooks): séparer les événements métier du journal d'audit |
 | 56 | P3 — fin de cycle | 1 | #68 | feat(studio): garder les préférences d'affichage côté serveur |
 | 58 | P3 — fin de cycle | 3 | #74 | feat(studio): éditer la configuration d'un module à chaud |
 | 59 | P3 — fin de cycle | 3 | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
+| — | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
+| — | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 

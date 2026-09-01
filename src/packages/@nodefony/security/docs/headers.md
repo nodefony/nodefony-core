@@ -1,5 +1,6 @@
 ---
 title: "En-têtes de sécurité — le contrat passé au navigateur"
+navTitle: En-têtes de sécurité
 lang: fr
 module: "@nodefony/security"
 topic: headers
@@ -124,7 +125,7 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   (`http-kernel.ts:330`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
   boot ; `onHttpRequest` (`http-kernel.ts:819`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
-  (`Context.ts:192`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
+  (`Context.ts:253`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
 
 Le second parti pris est la **séparation d'autorité** décrite plus haut : un seul émetteur par
@@ -439,7 +440,7 @@ Le chemin complet, sans surprise :
 1. **Au boot**, la chaîne CSP est **pré-découpée** autour de `{{nonce}}` (`securityHeaders.ts:58`).
    Aucun parsing ni regex n'aura lieu pendant une requête.
 2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:835`) lit `context.cspNonce` —
-   ce qui **génère** le jeton à cet instant (`Context.ts:192`) — puis appelle
+   ce qui **génère** le jeton à cet instant (`Context.ts:253`) — puis appelle
    `SecurityHeaders.cspFor()` (`securityHeaders.ts:100`) : un seul `join`.
 3. **Dans la vue**, le contrôleur relit `context.cspNonce`, qui est **mémoïsé** : l'en-tête et le
    `<script nonce="…">` portent forcément la même valeur. C'est le motif employé par le contrôleur
@@ -517,7 +518,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Domaine                              | Norme                            | Ancrage dans le code                                         |
 | ------------------------------------ | -------------------------------- | ------------------------------------------------------------ |
 | Politique de sécurité du contenu     | W3C CSP Level 3                  | `mergeCspFragments()` (`csp.ts:56`), directive non dupliquée |
-| Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts:193`)      |
+| Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts:253`)      |
 | HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts:839`)               |
 | Champ structuré booléen              | RFC 8941                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:239`)                 |
@@ -534,7 +535,7 @@ Le coût est concentré au boot, par construction :
 - **CSP statique** : rien de plus — la chaîne est dans la table.
 - **CSP à nonce** : `randomBytes(16)` plus un `join` par requête. C'est le seul coût variable, et il
   n'existe **que** si le CSP porte un placeholder : `hasNonce` (`securityHeaders.ts:88`)
-  court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts:192`)
+  court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts:253`)
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
   l'enregistrement (`firewall.ts:1067`) ; celui d'une route ne coûte que sur les routes `@Csp`.

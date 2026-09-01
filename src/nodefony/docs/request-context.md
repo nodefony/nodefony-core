@@ -1,5 +1,6 @@
 ---
 title: "Contexte de requête (RequestContext)"
+navTitle: Contexte de requête
 lang: fr
 module: "@nodefony/core"
 topic: request-context
@@ -249,7 +250,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 ```
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
-journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:169`), branché sur
+journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:212`), branché sur
 `RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:864`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
@@ -298,7 +299,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 
 | Tu veux…                     | Écris plutôt                                              | Ancre                      |
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
-| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1205` |
+| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1236` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:147`        |
 | les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:579`          |
 
@@ -314,7 +315,7 @@ qui ouvre quoi.
 | --- | --- | --- |
 | HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1258`) | CORS, routage, firewall, ton action, rendu |
 | WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1549`) | poignée de main, firewall, **et toutes les trames** |
-| WebSocket — trame RPC | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:766`) | **une** invocation : corps, clé d'idempotence, profil |
+| WebSocket — trame RPC | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:818`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:459`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Deux points méritent d'être connus.
@@ -401,7 +402,7 @@ tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'auc
 
 Sur les chiffres, la page reste factuelle : la TSDoc du code annonce **~50-100 ns** par `run()` sur
 Node 22+ pour l'entrée dans le scope (`RequestContext.ts:115`), et le même ordre de grandeur pour la
-lecture du `requestId` par le journal (`Pdu.ts:169`), contre ~5 ns quand le fournisseur n'est pas
+lecture du `requestId` par le journal (`Pdu.ts:200`), contre ~5 ns quand le fournisseur n'est pas
 branché. **Il n'existe pas de banc dédié à `RequestContext`** dans le dépôt : ces valeurs sont des
 ordres de grandeur documentés au code, pas une mesure rejouable. Le coût réel se constate en bout de
 chaîne, par le gate mémoire du pipeline (skill `nodefony-check-memory-health`).
@@ -446,7 +447,7 @@ Le premier est de loin le plus fréquent, et il ne produit **aucune erreur** —
 
 C'est ainsi que le framework le fait pour toi aux deux endroits qui comptent : les événements de
 socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:243`) et les rappels d'après-réponse
-dans `Context.onAfterResponse()` (`Context.ts:373`). Si tu branches **ton** écouteur sur une socket
+dans `Context.onAfterResponse()` (`Context.ts:445`). Si tu branches **ton** écouteur sur une socket
 ou une minuterie, la règle est à toi de l'appliquer.
 
 | Symptôme                                                           | Cause                                                                                | Correction                                                                           |
@@ -455,7 +456,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux             | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
 | `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:164`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall        | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
-| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1205`)         |
+| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1236`)         |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:459`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                          | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |

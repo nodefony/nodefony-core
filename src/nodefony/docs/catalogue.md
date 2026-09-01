@@ -1,5 +1,6 @@
 ---
 title: "Catalogue des modules — quel module pour quel besoin"
+navTitle: Catalogue des modules
 lang: fr
 module: "@nodefony/core"
 topic: catalogue

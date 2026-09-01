@@ -1,5 +1,6 @@
 ---
 title: "Le client isomorphe — Nodefony dans le navigateur"
+navTitle: Le client isomorphe
 lang: fr
 module: "@nodefony/core"
 topic: client
@@ -314,7 +315,7 @@ politique (1008, c'est-à-dire un 401/403 traduit) ne la relance **pas**. Sans c
 anonyme martèlerait indéfiniment un point d'entrée protégé.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/RealtimeClient.ts:1057`) — plafonné à 30 secondes par défaut. La date de la
+(`client/realtime/RealtimeClient.ts:1251`) — plafonné à 30 secondes par défaut. La date de la
 prochaine tentative est exposée en lecture, ce qui permet d'afficher un compte à rebours exact plutôt
 qu'un sablier qui ment.
 
@@ -323,9 +324,9 @@ qu'un sablier qui ment.
 C'est le mécanisme qui évite la classe de bugs la plus pénible d'une application temps réel : deux
 composants écoutent le même canal, l'un se démonte, et **coupe le flux de l'autre**.
 
-`RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:162`) compte les consommateurs et
+`RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:530`) compte les consommateurs et
 n'envoie la demande au serveur qu'au **premier**. `RealtimeClient.unsubscribe()`
-(`client/realtime/RealtimeClient.ts:466`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
+(`client/realtime/RealtimeClient.ts:543`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
 est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
@@ -342,29 +343,29 @@ Le serveur repart d'un état vide après une coupure ; c'est le client qui se so
 
 | Appel                                 | Ancre                                   | Ce que ça fait                                                   |
 | ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:438` | Notification sans réponse — la forme du pub/sub                  |
-| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:162` | Requête/réponse ; un argument commençant par `/` cible une route |
-| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:162` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
+| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:512` | Notification sans réponse — la forme du pub/sub                  |
+| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:727` | Requête/réponse ; un argument commençant par `/` cible une route |
+| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:797` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
 Deux compléments moins courants. `RealtimeClient.call()`
-(`client/realtime/RealtimeClient.ts:162`) rend l'**enveloppe complète** — la valeur **et**
+(`client/realtime/RealtimeClient.ts:839`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `RealtimeClient.register()`
-(`client/realtime/RealtimeClient.ts:162`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/RealtimeClient.ts:907`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Identité et refus — l'interface sait sans demander
 
 L'identité de la connexion n'est pas devinée par le front : le serveur l'annonce dans sa première
 trame, et le client la retient. `RealtimeClient.identity`
-(`client/realtime/RealtimeClient.ts:162`) vaut `null` tant que rien n'est reçu, puis porte un objet
+(`client/realtime/RealtimeClient.ts:581`) vaut `null` tant que rien n'est reçu, puis porte un objet
 dont `authenticated` vaut `false` pour un visiteur anonyme. Un écran de connexion se décide donc
 **sans appeler aucune route**.
 
 Le pendant côté refus : quand le serveur rejette un abonnement, il pousse un message dédié que le
 client transforme en deux signaux — une notice générique pour le centre de notifications, et un
 événement ciblé consommable par `RealtimeClient.onDenied()`
-(`client/realtime/RealtimeClient.ts:162`) pour une réaction précise (griser le contrôle concerné). Le
+(`client/realtime/RealtimeClient.ts:469`) pour une réaction précise (griser le contrôle concerné). Le
 motif reste volontairement générique : le serveur ne dit jamais **quel** rôle manquait, ce qui en
 ferait un oracle.
 
@@ -386,10 +387,10 @@ Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choi
 
 - **Le journal de protocole est différé.** Chaque trame est poussée dans un anneau borné à 300
   entrées sous forme de **référence brute** ; la mise en forme et le masquage des secrets ne sont
-  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/RealtimeClient.ts:1138`). Un
+  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/RealtimeClient.ts:1308`). Un
   inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
-  (`client/realtime/RealtimeClient.ts:137`) remplace toute clé ressemblant à un jeton, un mot de
+  (`client/realtime/RealtimeClient.ts:157`) remplace toute clé ressemblant à un jeton, un mot de
   passe ou une autorisation, avec une profondeur bornée.
 - **Ce qui n'a pas servi n'existe pas.** L'anneau de trames, l'identité et les capacités annoncées
   démarrent à `null` et ne sont alloués qu'au premier usage.
@@ -516,9 +517,9 @@ l'événement `error` spécial de Node.
 
 ### Le kernel client — un contrat qui n'est pas encore publié
 
-`IClientKernel` (`client/IClientKernel.ts:82`) décrit le futur chef d'orchestre de la couche
+`IClientKernel` (`client/IClientKernel.ts:172`) décrit le futur chef d'orchestre de la couche
 technique d'une application front : composition de services, cycle de vie navigateur, changement
-d'identité. Le registre de services `NodefonyClientServices` (`client/IClientKernel.ts:69`) s'étend
+d'identité. Le registre de services `NodefonyClientServices` (`client/IClientKernel.ts:100`) s'étend
 par augmentation de module, comme le registre de configuration côté serveur.
 
 **Tu ne peux pas encore l'importer**, et c'est délibéré : il a d'abord été publié en types seulement,
@@ -556,8 +557,8 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                | Appeler les deux (`client/realtime/RealtimeClient.ts:485`)                                   |
 | Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                | Ne pas contourner l'API en émettant `unsubscribe` à la main                                  |
 | Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
-| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:327`) |
-| Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                  | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:243`)                          |
+| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:370`) |
+| Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                  | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:295`)                          |
 | Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:188`) | Émettre après la résolution de `connect()`                                                   |
 | La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                         | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |

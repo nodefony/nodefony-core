@@ -1,5 +1,6 @@
 ---
 title: "Authenticators — prouver l'identité (session, mot de passe, JWT, clé API)"
+navTitle: Authenticators
 lang: fr
 module: "@nodefony/security"
 topic: authenticators
@@ -411,7 +412,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 
 À faire au chargement du module (avant le boot). Trois règles, calquées sur les builtins :
 
-- implémenter le contrat `IAuthenticator` (`IAuthenticator.ts:18`) — `challenge()` seulement si
+- implémenter le contrat `IAuthenticator` (`IAuthenticator.ts:23`) — `challenge()` seulement si
   un en-tête `WWW-Authenticate` a du sens pour la stratégie ;
 - renvoyer le **message uniforme** en cas d'échec (la cause fine part en audit) ;
 - laisser les résolutions de services **lazy** dans l'instance — la fabrique ne fait que

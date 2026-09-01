@@ -1,5 +1,6 @@
 ---
 title: "Firewall — le pare-feu applicatif"
+navTitle: Firewall
 lang: fr
 module: "@nodefony/security"
 topic: firewall
@@ -51,8 +52,8 @@ flowchart TD
   AU -->|succès| OK["user + token dans l'ALS → contrôleur"]
 ```
 
-`Firewall.isSecure()` (`firewall.ts:538`) rattache la requête à une **zone** via
-`Firewall.matchPath()` (`firewall.ts:529`) ; `Firewall.handleSecurity()` (`firewall.ts:561`) décide.
+`Firewall.isSecure()` (`firewall.ts:705`) rattache la requête à une **zone** via
+`Firewall.matchPath()` (`firewall.ts:696`) ; `Firewall.handleSecurity()` (`firewall.ts:738`) décide.
 Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
 le plus long gagne, pas le premier déclaré (`firewall.ts:191`).
 
@@ -450,7 +451,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 - **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:932`) : Fetch Metadata
   (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:764`), puis double-submit `x-csrf-token` ≡
   cookie + HMAC (`firewall.ts:778`).
-- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:154`).
+- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:991`).
 
 ## 📜 Normes appliquées
 
@@ -489,9 +490,9 @@ ne paie quasiment rien.
 
 ## 📡 Observabilité — Studio
 
-Écran **Firewall** (`studio/frontend/src/routes/Firewall.tsx`) : zones, authenticators, décisions
-(`securityTrace`). Écran **Roles** : hiérarchie de rôles consommée par les voters. Écran **ApiKeys** :
-gestion/révocation des PAT.
+Écran **Firewall** (`/nodefony/firewall`) : zones, authenticators, décisions (`securityTrace`).
+Écran **Roles** (`/nodefony/roles`) : hiérarchie de rôles consommée par les voters. Écran
+**ApiKeys** (`/nodefony/api-keys`) : gestion et révocation des PAT.
 
 ## 🧪 Tests & couverture
 

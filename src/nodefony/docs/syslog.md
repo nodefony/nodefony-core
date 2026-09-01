@@ -270,9 +270,9 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
 3. **Garde de débit** — si `rateLimit` est activé, seuls les `burstLimit` premiers logs de la
    fenêtre passent ; les autres incrémentent `missed` et repartent en `DROPPED`.
 4. **Création du `Pdu`** (`Pdu.ts:132`) — horodatage `Date.now()` sans objet `Date`, `uid`
-   incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:98`), type du payload
+   incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:175`), type du payload
    déduit par un `fastTypeOf()` inline (`Pdu.ts:129`), et `requestId` lu via un fournisseur
-   injectable (`Pdu.ts:169`).
+   injectable (`Pdu.ts:144`).
 5. **Ring buffer** — `pushStack()` (`Syslog.ts:1133`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
 6. **Diffusion** — `fire("onLog")` alimente les listeners (dont l'impression console) ; le fan-out
@@ -289,7 +289,7 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:364`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2242`).
+  (`maxStack` résolu au boot, `Kernel.ts:2281`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:799`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:764`) : les compteurs de
@@ -342,12 +342,12 @@ n'intervient **que** sur le défaut — une valeur explicite est toujours respec
 
 ### Le debug ciblé — relever la verbosité sans redéployer
 
-En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:2330`). Trois leviers
+En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:2368`). Trois leviers
 permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au plus fin :
 
 1. **Au lancement** — `NF__DEBUG` : `*` lève la gate globale, `FIREWALL` passe ce module en `DEBUG`,
    `SESSION:NOTICE` le passe à un niveau précis. Analysé par `Syslog.parseDebugSpec()`
-   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:2339`).
+   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:2378`).
 2. **À chaud, par module** — `setDebugOverride()` (`Syslog.ts:974`) relève le seuil **d'un seul**
    module (clé = son `msgid`). Le joker `*` vaut « tout ». Un `ttlMs` arme une **auto-extinction**
    (minuterie `unref`, ré-armable) : un debug oublié allumé n'existe pas.
@@ -558,7 +558,7 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2189`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2228`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En
@@ -625,7 +625,7 @@ const trace = await driver?.query?.({ requestId, order: "asc" });
 ### Rejouer les lignes d'une requête
 
 Chaque `Pdu` créé dans une bulle `RequestContext` porte le `requestId` courant, capté via le
-fournisseur injectable `Pdu.requestIdProvider` (`Pdu.ts:169`), branché côté Node par le barrel du
+fournisseur injectable `Pdu.requestIdProvider` (`Pdu.ts:192`), branché côté Node par le barrel du
 cœur. Filtrer là-dessus donne la trace **complète et ordonnée** d'un appel — pipeline HTTP,
 firewall, requêtes ORM, code applicatif — d'où l'écran de suivi de requête dans Studio.
 
@@ -755,7 +755,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:126`)                    |
 | Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:209`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
-| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2337`)           |
+| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2376`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
 | JSON Lines                 | JSONL            | `FileTransport` format `json` (`FileTransport.ts:10`)  |
 | API de requête Loki        | LogQL            | `createLokiLogDriver()` (`LokiLogDriver.ts:86`)        |

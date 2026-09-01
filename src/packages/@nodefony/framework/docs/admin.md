@@ -1,5 +1,6 @@
 ---
 title: "Data plane d'administration — le pont /nodefony/<ns>/api/*"
+navTitle: Data plane d'administration
 lang: fr
 module: "@nodefony/framework"
 topic: admin

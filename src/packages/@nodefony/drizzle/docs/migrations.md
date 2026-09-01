@@ -1,5 +1,6 @@
 ---
 title: "Migrations de schéma — de la base de dev au déploiement sans interruption"
+navTitle: Migrations de schéma
 lang: fr
 module: "@nodefony/drizzle"
 topic: drizzle
@@ -194,10 +195,15 @@ réclame aucun outil tiers.
 
 ### Une entité qui pointe vers une table du framework
 
-Déclarer une référence vers `User` dans votre entité est légitime, et ne pose aucun problème : ce
+Déclarer une référence vers une table du framework (`session`, `audit_event`…) est légitime : ce
 qui est refusé, c'est de **ré-exporter** cette table depuis vos fichiers. Les tables du framework
 sont exclues du plan de votre application — elles ont leurs propres migrations, appliquées avant les
 vôtres. Pour une vraie clé étrangère SQL, écrivez une migration libre.
+
+> [!IMPORTANT]
+> **`User` n'en fait PAS partie.** L'identité est du domaine : la table `User` appartient à votre
+> application, qui la décrit et en porte les migrations. Le framework ne la livre plus. C'est ce
+> qui vous permet d'y ajouter vos propres champs — ce qu'aucune table du framework n'autorise.
 
 ### Ce qu'aucun schéma ne peut déduire — la migration libre
 
@@ -602,6 +608,15 @@ Trois choses valent d'être dites, parce qu'elles décident de ce que vous pouve
 - **MySQL ne sait pas annuler un `CREATE TABLE`.** Son DDL valide implicitement : après un échec à
   mi-course, la reprise aveugle est interdite, et c'est `orm:migrate:repair` — après inspection
   humaine — qui tranche.
+- **Une colonne obligatoire SANS valeur par défaut ne se comporte pas pareil selon le moteur.** Sur
+  une table qui porte déjà des lignes, sqlite refuse (« Cannot add a NOT NULL column with default
+  value NULL ») et PostgreSQL refuse (« contains null values ») — ils ne peuvent pas inventer la
+  valeur des lignes existantes. **MySQL/MariaDB accepte** et les remplit de chaînes vides, mode
+  strict compris : le champ est déclaré obligatoire et ne contient que du vide, sans un
+  avertissement. Donnez toujours un défaut, ou déclarez le champ facultatif ; si les deux sont
+  nécessaires, c'est trois migrations — ajouter avec défaut, remplir (`--custom`), retirer le
+  défaut. Mesuré sur les trois moteurs :
+  `src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts:1`.
 - **`orm:migrate:repair --update-hashes` réécrit les empreintes.** Il fait taire une dérive au lieu
   de la corriger : les autres bases ont reçu l'ancienne version du fichier et ne recevront jamais la
   nouvelle. C'est pour cela que le refus propose d'abord de RÉTABLIR le fichier, et ce

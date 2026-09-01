@@ -11,6 +11,7 @@ import type {
   IUserRepository,
 } from "../contracts/index";
 import { USER_SORTABLE_FIELDS_IN_MEMORY, USER_DEFAULT_ORDER } from "./userSort";
+import { attachExtraColumns } from "./userContract";
 
 /**
  * Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat
@@ -97,7 +98,13 @@ export class InMemoryUserRepository implements IUserRepository {
       locked: d.locked,
     });
     this.#store.set(user.id, user);
-    return Promise.resolve(user);
+    // Parité avec les backends réels : un champ métier écrit doit se relire.
+    // Ici l'entité EST l'instance stockée, donc l'attacher suffit — mais s'en
+    // dispenser ferait de ce dépôt le seul à perdre la donnée, et un banc joué
+    // en `NF_USER_STORE=memory` mesurerait autre chose que la production.
+    return Promise.resolve(
+      attachExtraColumns(user, data as Record<string, unknown>),
+    );
   }
 
   updateOne(
@@ -151,6 +158,8 @@ export class InMemoryUserRepository implements IUserRepository {
       if (d.locked) user.lock();
       else user.unlock();
     }
+    // Les champs métier suivent le même chemin qu'à la création (cf `create`).
+    attachExtraColumns(user, data as Record<string, unknown>);
   }
 
   async upsert(

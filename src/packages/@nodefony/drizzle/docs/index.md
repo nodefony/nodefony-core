@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/drizzle — l'ORM SQL par défaut"
+navTitle: "@nodefony/drizzle"
 lang: fr
 module: "@nodefony/drizzle"
 topic: drizzle
@@ -402,13 +403,13 @@ use("@nodefony/drizzle", {
 
 > [!WARNING]
 > Une URL de connexion **porte un mot de passe**. Le module ne la journalise jamais telle quelle :
-> `redactUrl()` (`DrizzleService.ts:15`) remplace le mot de passe par `***` avant tout log de
+> `redactUrl()` (`DrizzleService.ts:68`) remplace le mot de passe par `***` avant tout log de
 > démarrage, et la sonde d'administration applique la même règle.
 
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:129`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts:244`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et
@@ -416,7 +417,7 @@ la piste à vérifier.
 
 Pour les dialectes réseau, la connexion fait un **ping réel** au démarrage : les pools `pg` et `mysql2`
 sont paresseux, sans ce `SELECT 1` une base morte « se connecterait » et n'échouerait qu'à la première
-requête métier (`#connectPostgres()`, `DrizzleOrm.ts:597` · `#connectMysql()`, `DrizzleOrm.ts:877`).
+requête métier (`#connectPostgres()`, `DrizzleOrm.ts:597` · `#connectMysql()`, `DrizzleOrm.ts:1200`).
 
 ## Dialectes — une base par déploiement, un seul code
 
@@ -503,8 +504,8 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | Pièce                  | Rôle                                                                   | Ancre                                                        |
 | ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
-| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:79`                       |
-| `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:167`                                          |
+| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:148`                      |
+| `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:214`                                          |
 | `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
 | `buildFrameworkTable`  | une spécification logique → la table du dialecte demandé               | `colKit.ts:543`                                              |
@@ -514,7 +515,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 ### Le DDL dérivé — comment les tables apparaissent
 
 Drizzle ne « synchronise » pas un schéma. L'adapter dérive lui-même un `CREATE TABLE IF NOT EXISTS`
-depuis chaque table déclarée (`#buildCreateTable()`, `DrizzleOrm.ts:218`) et l'exécute à la connexion.
+depuis chaque table déclarée (`#buildCreateTable()`, `DrizzleOrm.ts:400`) et l'exécute à la connexion.
 Trois conséquences à connaître **avant** de dépendre de ce mécanisme :
 
 1. il **crée**, il ne **modifie** pas — aucun `ALTER` n'est émis ;
@@ -599,7 +600,7 @@ Le mécanisme diffère par dialecte, sans que ton code le voie : en PostgreSQL/M
 emprunte une connexion **dédiée** au pool, rendue au commit — et **détruite** si celui-ci échoue,
 jamais recyclée dans un état inconnu. En SQLite la connexion est unique, donc c'est un pool de taille 1 :
 les transactions concurrentes sont **sérialisées par une file d'attente** (`#sqliteTxGate`,
-`DrizzleOrm.ts:149`), sinon deux requêtes HTTP simultanées émettraient deux `BEGIN` sur la même
+`DrizzleOrm.ts:267`), sinon deux requêtes HTTP simultanées émettraient deux `BEGIN` sur la même
 connexion et la seconde échouerait.
 
 Les points de sauvegarde sont disponibles (`savepoint()`, `DrizzleTransaction.ts:123`) ; le nom est
@@ -623,7 +624,7 @@ const rows = await db.all(sql`
 `);
 ```
 
-C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1091`) : CTE,
+C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1405`) : CTE,
 fonctions de fenêtre, sous-requêtes corrélées, jointures arbitraires. Deux contreparties assumées :
 ce SQL n'est plus portable entre dialectes, et il **ne passe pas** par la sonde de profilage des
 requêtes.
@@ -830,7 +831,7 @@ faire lui-même).
 Côté écrans : **Database**, **ORM (vue d'ensemble et par entité)** et **Stores** — ce dernier répond à
 la question « où sont écrites mes données ? » pour chaque brique.
 
-La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1136`) :
+La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1495`) :
 
 - **SQLite** → `storage` : taille du fichier, mode de journal, pages libres (lus par `PRAGMA`) ;
 - **PostgreSQL / MySQL** → `pool` : taille, connexions libres, empruntées, en attente — **compteurs en
@@ -842,7 +843,7 @@ que promettre en silence — c'est le principe « superviser sans peser sur la p
 
 Chaque store expose aussi son **emplacement physique** pour l'écran Stores : le chemin du fichier
 SQLite, relativisé (anti-fuite d'information), et `undefined` pour un backend réseau — dont
-l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:261`).
+l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:372`).
 
 ## ⚡ Performance & mémoire
 

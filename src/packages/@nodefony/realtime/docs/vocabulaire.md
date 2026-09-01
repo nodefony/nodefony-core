@@ -1,5 +1,6 @@
 ---
 title: "Vocabulaire — le lexique de la socket Nodefony"
+navTitle: Vocabulaire
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime
@@ -112,8 +113,8 @@ Trois mots du lexique ne sont pas des synonymes de ce que proposent les autres b
 temps réel. Ce sont les différenciateurs du framework.
 
 **`socket` est isomorphe.** Le même contrat `IRealtimeSocket` (`IRealtimeSocket.ts:122`) décrit la
-prise **côté navigateur** (`RealtimeClient`, `RealtimeClient.ts:161`) **et côté serveur**
-(`ServerRealtimeSocket`, `ServerRealtimeSocket.ts:43`). Un service back publie exactement comme une
+prise **côté navigateur** (`RealtimeClient`, `RealtimeClient.ts:194`) **et côté serveur**
+(`ServerRealtimeSocket`, `ServerRealtimeSocket.ts:44`). Un service back publie exactement comme une
 page front : `publish("chat:room-42", payload)`. Il n'y a pas une API cliente et une API serveur à
 apprendre, il y en a **une**.
 
@@ -217,8 +218,8 @@ Le **handle unique** manipulé par le code applicatif : quatre verbes (`subscrib
 `request`) et une vue par canal. Le mot vient de la prise murale : on branche, on ignore le câblage.
 
 Contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), implémenté côté navigateur par
-`RealtimeClient` (`RealtimeClient.ts:161`) et côté serveur par `ServerRealtimeSocket`
-(`ServerRealtimeSocket.ts:43`). ⚠️ La socket **n'est pas** le [transport](#transport--la-couche-octets).
+`RealtimeClient` (`RealtimeClient.ts:194`) et côté serveur par `ServerRealtimeSocket`
+(`ServerRealtimeSocket.ts:44`). ⚠️ La socket **n'est pas** le [transport](#transport--la-couche-octets).
 
 → [Architecture](./architecture.md) pour la pile complète.
 
@@ -292,7 +293,7 @@ importable **sans** aucune dépendance serveur, ce qui est la condition de l'iso
 
 ### `façade serveur` — la même socket, côté back
 
-`ServerRealtimeSocket` (`ServerRealtimeSocket.ts:43`), obtenue par `serverSocket()`
+`ServerRealtimeSocket` (`ServerRealtimeSocket.ts:44`), obtenue par `serverSocket()`
 (`ServerRealtimeSocket.ts:223`) : un service métier tient un handle et publie **comme une page
 front**. Une différence assumée : `request()` n'y est pas supporté — au-dessus du hub il n'y a pas
 **un** pair mais N clients. Pour un appel serveur → un client précis, c'est `requestClient()`
@@ -334,7 +335,7 @@ handshake, jamais renégociée par frame.
 ### `hub` — le broker du process
 
 Le **standard téléphonique** du pod : il tient la table « canal → abonnés locaux » et diffuse. Un
-process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1233`). Il ne connaît **ni** les
+process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1255`). Il ne connaît **ni** les
 contrôleurs, **ni** le métier : ce sont les providers qui portent les dépendances.
 
 `RealtimeHub` (`RealtimeHub.ts:213`). ⚠️ « hub » désigne **toujours** le serveur ; ce que tient le
@@ -437,7 +438,7 @@ contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'attei
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
 `realtimeApiRequest()` (`RealtimeController.ts:219`), mise en œuvre `invokeApiRequest()`
-(`RealtimeController.ts:766`). Désactivé par défaut.
+(`RealtimeController.ts:818`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
 
@@ -460,7 +461,7 @@ Une enveloppe JSON-RPC 2.0. Sa **nature se lit sur `method`**, pas sur `id` : `m
 requête, `method` seul = notification, `id` seul = réponse. Tout le reste est invalide.
 
 `JsonRpcFrameKind` (`JsonRpcPeer.ts:133`). Le classement est fait par `JsonRpcPeer.receive()`
-(`JsonRpcPeer.ts:370`), qui **ne lève jamais**.
+(`JsonRpcPeer.ts:390`), qui **ne lève jamais**.
 
 ### `pair` (peer) — le moteur de protocole
 
@@ -533,7 +534,7 @@ Le **fond de panier** d'un rack : la carte qui relie toutes les autres. Ici, le 
 publications d'un process aux autres. Un contrat volontairement minuscule — `publish`, `onMessage`,
 `start`, `stop`, `describe` — parce que tout ce qui est riche appartient au hub.
 
-`IBackplane` (`IBackplane.ts:75`), message `IBackplaneMessage` (`IBackplane.ts:34`), branchement
+`IBackplane` (`IBackplane.ts:75`), message `IBackplaneMessage` (`IBackplane.ts:51`), branchement
 `RealtimeHub.setBackplane()` (`RealtimeHub.ts:640`).
 
 > [!TIP]
@@ -638,7 +639,7 @@ La stratégie qui transforme une poignée de main en identité : `supports` (est
 HTTP — un seul modèle mental pour les deux transports.
 
 `IRealtimeAuthenticator` (`IRealtimeAuthenticator.ts:24`), enregistrement
-`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:59`).
+`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:861`).
 
 ### `matcher` — qui capture quoi
 
@@ -663,7 +664,7 @@ Les exigences déclarées d'un canal : authentifié, rôles, scopes. Elles s'att
 canal, pas à la méthode qui l'implémente — parce que c'est le nom que le pare-feu résout.
 
 `IChannelPolicy` (`IChannelPolicy.ts:20`), déclaration par `@RealtimeChannel`
-(`realtimeDecorators.ts:142`), résolution `resolveChannelPolicy()` (`RealtimeHub.ts:1063`).
+(`realtimeDecorators.ts:192`), résolution `resolveChannelPolicy()` (`RealtimeHub.ts:1063`).
 
 ### `verrou de frame` — la décision par frame
 

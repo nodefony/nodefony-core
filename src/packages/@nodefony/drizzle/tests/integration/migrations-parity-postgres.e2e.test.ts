@@ -147,7 +147,7 @@ describe.skipIf(!PG_URL)("Migrations ↔ DDL dérivé — parité (postgres)", (
   });
 
   it("les deux chemins construisent les MÊMES tables", () => {
-    assert.equal(derived.tables.length, 10, "dix tables au schéma framework");
+    assert.equal(derived.tables.length, 9, "neuf tables au schéma framework");
     assert.deepEqual(migrated.tables, derived.tables);
   });
 

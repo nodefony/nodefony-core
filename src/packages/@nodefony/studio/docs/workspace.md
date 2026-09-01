@@ -1,5 +1,6 @@
 ---
 title: "Mon bureau — le tableau de bord composable"
+navTitle: Mon bureau
 lang: fr
 module: "@nodefony/studio"
 topic: studio

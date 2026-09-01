@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1530`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1561`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -421,7 +421,7 @@ dédupliqué.
 
 ### `redis` — le choix cluster
 
-`RedisIdempotencyStore` (`RedisIdempotencyStore.ts:115`) vit dans `@nodefony/framework` (le
+`RedisIdempotencyStore` (`RedisIdempotencyStore.ts:121`) vit dans `@nodefony/framework` (le
 consommateur du contrat), pas dans `@nodefony/redis` : il résout le service `redis` **par nom** dans
 le container (couplage structurel, zéro dépendance directe, zéro cycle). La fabrique est enregistrée
 au chargement du module framework (`index.ts:119`).
@@ -663,7 +663,7 @@ froid par construction ; si ton profil de trafic la place sur un chemin chaud, m
 
 Trois surfaces existent aujourd'hui :
 
-- **Playground** — chaque mutation protégée porte un badge `@Idempotent` (strict ou souple)
+- **Playground** (`/nodefony/playground`) — chaque mutation protégée porte un badge `@Idempotent` (strict ou souple)
   (`playground/PlaygroundFormat.tsx:69`). L'écran génère une clé par exécution et propose « Rejouer
   même clé » dès que `action.guards.idempotent` est posé (`playground/ActionPanel.tsx:516`) : c'est la
   façon la plus rapide de voir un rejeu, un `409` ou un `422` en vrai.

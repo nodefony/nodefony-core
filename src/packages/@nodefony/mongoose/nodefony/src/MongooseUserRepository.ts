@@ -3,7 +3,10 @@ import {
   BaseUser,
   USER_SORTABLE_FIELDS,
   USER_DEFAULT_ORDER,
+  assertUserContract,
+  attachExtraColumns,
 } from "@nodefony/user";
+import { DOCUMENT_USER_COLUMNS } from "../entity/userEntity";
 import type {
   IPasswordAuthenticatedUser,
   IUserListQuery,
@@ -18,6 +21,14 @@ import type {
   RepositoryReadOptions,
 } from "@nodefony/orm-core";
 import type { MongooseOrm } from "./orm-core/MongooseOrm";
+
+/**
+ * Ce que le MOTEUR ajoute à chaque document, et qui n'appartient à personne
+ * d'autre : la clé primaire brute et la clé de version. Le contrat utilisateur
+ * ne peut pas les connaître — il ignore qu'il existe un Mongo — donc c'est ce
+ * dépôt qui les tait, au lieu de les laisser passer pour des champs métier.
+ */
+const MONGOOSE_INTERNAL_KEYS: ReadonlySet<string> = new Set(["_id", "__v"]);
 import { mongoOrder, toMongoSort } from "./mongoOrder";
 import type { UserRow } from "../entity/userEntity";
 
@@ -77,15 +88,21 @@ export class MongooseUserRepository implements IUserRepository {
    */
   static from(orm: MongooseOrm): MongooseUserRepository {
     const connection = orm.getNativeConnection<Connection>();
+    const model = connection.model<Record<string, unknown>>("User");
+    assertUserContract(
+      Object.keys(model.schema.paths),
+      `L'entité « User » de cette application (connecteur « ${orm.name} », mongoose)`,
+      DOCUMENT_USER_COLUMNS,
+    );
     return new MongooseUserRepository(
       orm.getRepository<UserRow>("User"),
-      connection.model<Record<string, unknown>>("User"),
+      model,
     );
   }
 
   /** Mappe une ligne plate en `BaseUser` (comportement + champs anti-migration). */
   #toUser(row: UserRow): IPasswordAuthenticatedUser {
-    return new BaseUser({
+    const user = new BaseUser({
       id: row.id,
       identifier: row.identifier,
       roles: row.roles,
@@ -96,6 +113,15 @@ export class MongooseUserRepository implements IUserRepository {
       socialProviders: row.socialProviders,
       metadata: row.metadata,
     });
+    // Même report que le dépôt SQL, par la MÊME fonction : horodatages de la
+    // ligne et champs métier ajoutés par l'application. `_id` et `__v` sont de
+    // la plomberie du moteur — le contrat ne peut pas les connaître, c'est à ce
+    // dépôt de les taire.
+    return attachExtraColumns(
+      user,
+      row as unknown as Record<string, unknown>,
+      MONGOOSE_INTERNAL_KEYS,
+    );
   }
 
   async find(

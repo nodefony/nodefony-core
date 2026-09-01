@@ -1,5 +1,6 @@
 ---
 title: "Environnement — variables, cascade des .env, et qui gagne"
+navTitle: Environnement
 lang: fr
 module: "@nodefony/core"
 topic: environnement

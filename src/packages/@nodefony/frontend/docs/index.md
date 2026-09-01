@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/frontend — le builder d'interfaces"
+navTitle: "@nodefony/frontend"
 lang: fr
 module: "@nodefony/frontend"
 topic: frontend
@@ -95,7 +96,7 @@ elle traverse le pare-feu, connaît la session, reçoit son nonce CSP. Le module
 **Un seul Vite pour N modules.** Trois modules à interface ne lancent pas trois serveurs Vite : leurs
 entrées sont agrégées dans une seule instance multi-entrées. La seule exception est documentée et
 justifiée — Angular est isolé, parce que son greffon transforme **tous** les `.ts` du serveur de
-développement (`isolationGroup()`, `isolationGroups.ts:20`).
+développement (`isolationGroup()`, `isolationGroups.ts:39`).
 
 **Le module ne dépend ni de `@nodefony/http` ni de `@nodefony/framework`.** Tout ce dont il a besoin
 d'eux (le serveur statique, le pare-feu, les certificats, le port réellement écouté) est résolu **par
@@ -369,7 +370,7 @@ JSON Schema pour l'écran de configuration de Studio.
 > **`backendPort` n'est pas forcément le port écouté.** Avec une politique de port automatique, un
 > 5151 occupé fait glisser l'écoute sur 5153. Un proxy figé enverrait alors les appels de ton
 > interface vers le serveur d'une **autre** application. Le module lit donc le port réel sur le
-> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:429`) et journalise
+> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:455`) et journalise
 > l'écart.
 
 ### Le build de production
@@ -479,7 +480,7 @@ sequenceDiagram
 ```
 
 **Pourquoi `onServersReady` et pas `onReady`.** Vite ne doit démarrer qu'une fois les serveurs
-Nodefony en écoute (`FrontendService.init()`, `FrontendService.ts:127`). Dans l'autre ordre, le proxy
+Nodefony en écoute (`FrontendService.init()`, `FrontendService.ts:146`). Dans l'autre ordre, le proxy
 de Vite viserait un serveur inexistant et les premiers appels d'API échoueraient — un défaut
 intermittent, apparaissant seulement quand le navigateur est plus rapide que le démarrage.
 
@@ -492,7 +493,7 @@ intermittent, apparaissant seulement quand le navigateur est plus rapide que le 
 | `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts:80`) |
 | `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:41`)       |
 | `TemplateHelper`        | produit les balises (dev) ou lit le manifeste (prod)               | `TemplateHelper.ts:36`                                      |
-| `isolationGroups`       | à quelle famille appartient un preset, et sur quel bloc de ports   | `isolationGroup()` (`isolationGroups.ts:20`)                |
+| `isolationGroups`       | à quelle famille appartient un preset, et sur quel bloc de ports   | `isolationGroup()` (`isolationGroups.ts:39`)                |
 | `FrontendAdminApi`      | la vue sûre de l'état, pour Studio                                 | `buildFrontendStatus()` (`FrontendAdminApi.ts:139`)         |
 
 ### Une configuration Vite écrite, pas passée
@@ -553,11 +554,11 @@ D'où le regroupement par **famille** (`isolationGroup()`, `isolationGroups.ts:2
 sienne, tout le reste partage `default`. Chaque famille obtient un **bloc de ports disjoint**
 (`familyPortPlan()`, `isolationGroups.ts:63`) de taille `portRetryAttempts + 1` : ainsi, une instance
 qui glisse de port sur conflit ne peut jamais empiéter sur le bloc d'une autre. La famille principale
-garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:35`).
+garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:56`).
 
 **Les familles démarrent indépendamment.** Si Angular échoue, React continue de fonctionner : le
 démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendService.startDev()`,
-`FrontendService.ts:289`).
+`FrontendService.ts:316`).
 
 ### Résilience — ce qui se passe quand Vite tombe
 
@@ -636,7 +637,7 @@ const tags = frontend.renderTags("shop", context.cspNonce);
 const html = frontend.renderDocument("shop", context.cspNonce);
 ```
 
-`renderDocument` (`FrontendService.ts:815`) lit l'`index.html` **de ton module**, retire le `<script>`
+`renderDocument` (`FrontendService.ts:876`) lit l'`index.html` **de ton module**, retire le `<script>`
 d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvoie le document.
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
@@ -684,21 +685,21 @@ Dans une application générée par `nodefony create app`, tu n'as pas à y pens
 **`npm run build` construit l'application entière** — le backend (rolldown) puis le front (il
 chaîne `nodefony frontend:build`). Un seul geste avant `npm start` ou dans un pipeline.
 
-`FrontendService.build()` (`FrontendService.ts:590`) appelle Vite **entrée par entrée**, et non une
+`FrontendService.build()` (`FrontendService.ts:761`) appelle Vite **entrée par entrée**, et non une
 fois pour toutes. Ce n'est pas un détail : chaque bundle a sa racine, son dossier de sortie, sa base
 et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole Angular.
 
 Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:768`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:829`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
 - **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
-  (`FrontendService.ts:629`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  (`FrontendService.ts:655`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
   Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
   tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
   `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
@@ -734,7 +735,7 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:629`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:655`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
@@ -781,7 +782,7 @@ origine. Or en développement, tes modules viennent du port 5173 alors que ta pa
 
 La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**. Une fois Vite prêt
 (donc ses ports réellement connus), le service déclare ses origines au pare-feu
-(`#registerCsp()`, `FrontendService.ts:887`), qui émet **un seul** en-tête, origines fusionnées et
+(`#registerCsp()`, `FrontendService.ts:948`), qui émet **un seul** en-tête, origines fusionnées et
 nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
 
 Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:909`) mérite deux explications, parce

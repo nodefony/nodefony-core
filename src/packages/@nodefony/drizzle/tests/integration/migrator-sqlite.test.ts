@@ -532,7 +532,7 @@ describe("Applicateur de migrations (sqlite)", () => {
           `AND name NOT LIKE 'sqlite_%' ORDER BY name`,
         [HISTORY_TABLE],
       );
-      assert.equal(rows.length, 10, "les dix tables du schéma framework");
+      assert.equal(rows.length, 9, "les neuf tables du schéma framework");
     } finally {
       await driver.close();
     }

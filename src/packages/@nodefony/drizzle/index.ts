@@ -371,6 +371,7 @@ export { DrizzleWebhookStore } from "./nodefony/src/DrizzleWebhookStore";
 // Exporté pour les tests et les apps avancées (rejouable : guards idempotents).
 export {
   registerDrizzleFrameworkStores,
+  isFrameworkFallbackEntity,
   FRAMEWORK_CONNECTOR,
 } from "./nodefony/registerStores";
 export type { IFrameworkStoresReport } from "./nodefony/registerStores";

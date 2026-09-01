@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/documentation — la doc de tes modules, servie par ton serveur"
+navTitle: "@nodefony/documentation"
 lang: fr
 module: "@nodefony/documentation"
 topic: documentation
@@ -108,12 +109,12 @@ Pour ton module, la seule condition est d'avoir déclaré `docs` dans le champ `
 `package.json` — sans quoi npm ne publie pas le dossier, et la doc disparaît à l'installation.
 Le regroupement en sections ne se déclare nulle part : il est **calculé depuis le dossier parent**
 du fichier (`group`, `docScanner.ts:76`), et l'`index.md` d'un dossier est présenté en premier
-(`DocumentationService.#orderPages()`, `DocumentationService.ts:357`) — un point d'entrée trié
+(`DocumentationService.#orderPages()`, `DocumentationService.ts:486`) — un point d'entrée trié
 alphabétiquement se retrouverait au milieu de ses propres pages.
 
 **La doc d'un module non activé est lisible quand même.** Les paquets présents dans
 `node_modules/@nodefony/*` sont scannés même s'ils ne figurent pas dans le manifeste de
-l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:293`). C'est
+l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:386`). C'est
 précisément le moment où on lit la doc d'un module : pour décider de l'activer. Les chemins sont
 résolus en lien réel, donc un dépôt en espace de travail indexe la source, jamais le lien
 symbolique — sinon le même fichier existerait sous deux chemins, et ses liens ne résoudraient plus.
@@ -259,14 +260,14 @@ consommateur parmi d'autres.
 ## 🧰 Surface publique
 
 Côté serveur, le module expose `DocumentationService` — sa méthode `getTree()`
-(`DocumentationService.ts:147`) construit le catalogue, `getPage()`
-(`DocumentationService.ts:151`) sert une page, `invalidate()` (`DocumentationService.ts:143`) force
+(`DocumentationService.ts:185`) construit le catalogue, `getPage()`
+(`DocumentationService.ts:244`) sert une page, `invalidate()` (`DocumentationService.ts:177`) force
 un rescan immédiat, et `registerVar()` (`DocumentationService.ts:138`) branche une variable
 dynamique.
 
 Les variables sont la seule extension du module. Une page écrit `{{ nom }}` ; le serveur substitue
 la valeur au moment de servir (`DocumentationService.#resolveVars()`,
-`DocumentationService.ts:404`). Trois variables sont fournies d'office — version du noyau, branche
+`DocumentationService.ts:541`). Trois variables sont fournies d'office — version du noyau, branche
 et empreinte git — enregistrées quand tous les modules sont montés
 (`Documentation.onKernelReady()`, `index.ts:70`). Ton module peut ajouter les siennes :
 
@@ -305,7 +306,7 @@ runtime dans le dépôt réel, et retombe sur `main` s'il n'y en a pas.
 
 > [!TIP]
 > **Le cache ne porte que le catalogue, jamais le contenu.** Une page est relue à chaque demande
-> (`DocumentationService.#ensureCache()`, `DocumentationService.ts:205`) : corriger une phrase se
+> (`DocumentationService.#ensureCache()`, `DocumentationService.ts:298`) : corriger une phrase se
 > voit au rafraîchissement. C'est **ajouter ou supprimer un fichier** qui attend l'expiration — d'où
 > `ttlMs: 0` en développement, et le défaut en production.
 
@@ -326,7 +327,7 @@ publique :
 | `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:65`)       |
 
 Le lien « Modifier » est assemblé côté serveur à partir d'un chemin **relatif** au dépôt
-(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:423`) : aucun chemin absolu de
+(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:560`) : aucun chemin absolu de
 système de fichiers ne sort jamais du serveur.
 
 ## 🧪 Tests & couverture

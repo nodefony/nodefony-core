@@ -1,5 +1,6 @@
 ---
 title: "Observabilité HTTP — journalisation de requête, corrélation, trace"
+navTitle: Observabilité HTTP
 lang: fr
 module: "@nodefony/http"
 topic: observabilite
@@ -110,8 +111,8 @@ Le différenciateur — **HTTP et WebSocket dans le même pipeline** — se retr
 un `requestId`, un `traceparent` et un contrat de logger **uniques** couvrent les deux transports.
 
 **Le `requestId` est un citoyen du contexte, pas un décor.** Il naît dans le constructeur de base
-`Context.requestId = randomUUID()` (`Context.ts:184`), voyage dans l'ALS via `RequestContext.run(...)`
-(`http-kernel.ts:1151` pour HTTP, `http-kernel.ts:1495` pour WS), et se lit de n'importe où avec
+`Context.requestId = randomUUID()` (`Context.ts:244`), voyage dans l'ALS via `RequestContext.run(...)`
+(`http-kernel.ts:1300` pour HTTP, `http-kernel.ts:1590` pour WS), et se lit de n'importe où avec
 `RequestContext.getRequestId()` — un controller, un service, un adapter ORM, sans jamais le threader.
 
 **La ligne de bilan est branchable.** Le kernel ne code pas un format en dur : il consulte un
@@ -223,10 +224,10 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 
 | Étape               | Où                                                                  | Comportement                                                                 |
 | ------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Génération          | `Context.requestId = randomUUID()` (`Context.ts:184`)               | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                  |
+| Génération          | `Context.requestId = randomUUID()` (`Context.ts:244`)               | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                  |
 | Adoption HTTP       | `sanitizeRequestId(headers["x-request-id"])` (`HttpContext.ts:158`) | Remplace l'UUID **si** la valeur cliente est sûre, sinon on garde l'UUID.    |
 | Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:139`)   | Même validation, stable sur toute la durée de la socket (handshake → close). |
-| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:381`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                            |
+| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:153`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                            |
 | Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                |
 | ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:431`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                           |
 | ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:431`)       | Handshake **et** messages (via `AsyncResource.bind`, BUG-001).               |
@@ -255,7 +256,7 @@ Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse H
 ### Le contrat de logger — `IRequestLogger`
 
 Le kernel tient un `IRequestLogger` singleton (`http-kernel.ts:270`) et lui délègue le rendu de la ligne
-de bilan, au teardown, via `Context.logRequest()` (`Context.ts:517`) côté HTTP et
+de bilan, au teardown, via `Context.logRequest()` (`Context.ts:595`) côté HTTP et
 `WebsocketContext.logRequest()` (`WebsocketContext.ts:209`) côté WS. Le contrat a trois méthodes
 (`IRequestLogger.ts:25`) :
 

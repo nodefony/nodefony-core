@@ -11,7 +11,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - **`ref:` ⇒ colonne INDEXÉE d'office** (sauf `!`, déjà indexé) : c'est la colonne de jointure
   (`?include=` = `IN (…)`). L'index ≠ la FK — un `JOIN` n'exige aucune contrainte. **FK jamais émises**
   par le DDL dev (elles vivent dans le `CREATE TABLE`, donc hors d'atteinte d'une base existante).
-- **Noms d'entités du framework REFUSÉS** par `create entity` (`User`, `session`, `access_token`,
+- **Noms d'entités du framework REFUSÉS** par `create entity` (`session`, `access_token`,
   `audit_event`… — casse/séparateurs ignorés ; table `scaffold/reservedEntities.ts`, tenue honnête par
   un gate `NF_RUN_CLI_BOOT=1` contre `nodefony inspect entities`). Registre plat : un homonyme dépossède
   l'entité du module, l'app ne démarre plus sur un message de « colonne inconnue ».
@@ -45,7 +45,10 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Adapter User (ORM par défaut)
 
-- `entity/userTable.ts` : spec colKit (JSON/bool/dateMs) + `createUserTable(dialect)` mémoïsée + export `userTable` (variante sqlite), `createUserEntity(orm, dialect)`/`registerUserEntity(orm, dialect)` (binding ORM dynamique, **avant** connect — auto-register par le wire), `DrizzleUserRepository implements IUserRepository` (`from(orm)` lit `orm.dialect`).
+- 🔴 **`User` n'est PAS une table du framework** : elle ne figure dans AUCUNE migration livrée (`migrations-schema/{sqlite,postgres,mysql}.ts` ne l'exportent pas) — l'app la possède, la décrit et en porte les migrations. `frameworkTables()` en dérive, donc le générateur ne l'exclut plus du diff d'une app. Gardé par `tests/integration/framework-tables.test.ts` (3 dialectes). Le schéma du framework compte **9** tables.
+- 🔴 **Repli BRUYANT** : sans entité d'app, `wire()` enregistre encore celle du framework et la marque (`isFrameworkFallbackEntity`). `DrizzleUserRepository.from()` REFUSE alors de servir si l'ORM ne dérive pas son schéma (`orm.derivesSchema`, faux hors développement) — sinon l'app démarrerait et tomberait à la 1ʳᵉ authentification sur une table qu'aucune migration ne crée. Message = les 3 gestes (`create entity User`, `orm:generate`, `orm:migrate`). Banc `tests/integration/user-entite-de-repli.test.ts`.
+
+- `entity/userTable.ts` : spec colKit **DÉRIVÉE de `USER_COLUMNS`** (`@nodefony/user`) — `KIND_BY_TYPE` traduit le type logique en kind colKit, `toColSpec` traduit l'`origin` (identity→`primaryKey`+UUID applicatif, audit→`notNull`+`now` (+`onUpdateFn` si `refreshedOnWrite`), column→`notNull`/`unique`/`defaultFn`) ; 0 nom ni défaut recopié, parité gardée par `tests/unit/userContractParity.test.ts` (3 dialectes). `UserRow` = ré-export de `IUserRow`. Puis + `createUserTable(dialect)` mémoïsée + export `userTable` (variante sqlite), `createUserEntity(orm, dialect)`/`registerUserEntity(orm, dialect)` (binding ORM dynamique, **avant** connect — auto-register par le wire), `DrizzleUserRepository implements IUserRepository` (`from(orm)` lit `orm.dialect`). **`#toUser` reporte les colonnes hors contrat** via `attachExtraColumns` (`@nodefony/user`) — horodatages + champs métier de l'app ; banc `tests/integration/user-champs-metier.test.ts` (table `User` étendue, écrite comme une app l'écrit).
 - Mappe ligne ↔ `BaseUser` (comportement). `findByIdentifier` + `findBySocialProvider` **routé queryKit** (json_each sqlite / `@>` jsonb pg, bindé, Shadow User). `listPage(IUserListQuery)`/`countActiveAdmins` = **routés queryKit** (SELECT ids paginé + COUNT natif) puis recharge typée `find({id:$in})` ré-ordonnée (parsing JSON/booléens cohérent). peerDep `@nodefony/user` ajoutée + externalisée rolldown (sinon bundle → casse sur @node-rs/bcrypt natif).
 - ⚠️ **Défauts via `$defaultFn` (JS), PAS `.default()` SQL** : le DDL dérivé n'émet pas les DEFAULT → NOT NULL casserait.
 - ⚠️ Test cleanup : `entityRegistry.unregister("User", ORM)` **scopé** (sans orm = efface le bucket entier = contamine les autres bancs).
@@ -305,6 +308,19 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
 - Native: `getNativeConnection<DrizzleDb>()` → `db.all(sql\`...\`)`.
 
 ## Gotchas
+
+- `ADD COLUMN … NOT NULL` sans défaut sur table PEUPLÉE : sqlite et PostgreSQL REFUSENT
+  (« Cannot add a NOT NULL column with default value NULL » / « contains null values ») ;
+  MySQL/MariaDB ACCEPTE et remplit de `''`, mode strict compris. Banc :
+  `tests/integration/user-migrations.e2e.test.ts` (attente PAR dialecte, jamais « l'un ou l'autre »).
+
+- Entité `User` possédée par l'app : `registerDrizzleFrameworkStores` la confronte au contrat
+  (`assertUserContract`) quand `report.appOwned` la contient → REFUS de démarrage nommant la colonne
+  et son lecteur. Colonnes lues par `userTableColumns(table, dialect)` — `getTableConfig` diffère
+  par dialecte et rend un objet VIDE si on l'appelle avec la mauvaise grammaire ; schéma illisible
+  ⇒ on laisse passer (une inspection qui échoue ne prouve pas qu'une colonne manque).
+- L'entité de REPLI (framework) n'est pas contrôlée là : elle est dérivée du contrat, et
+  `tests/unit/userContractParity.test.ts` la couvre sur les 3 dialectes.
 
 - better-sqlite3 SYNCHRONE → pas `db.transaction(asyncCb)` (committe avant await). → BEGIN/COMMIT manuel.
 - **Une transaction sur un POOL exige une connexion dédiée** : sans emprunt, `BEGIN` et les écritures partent sur des connexions différentes → aucune atomicité (et `BEGIN` orphelin recyclé). Vaut pour tout futur driver poolé.

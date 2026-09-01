@@ -1,59 +1,99 @@
 import { randomUUID } from "node:crypto";
+import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
+import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
-import type { ISocialProvider } from "@nodefony/user";
+import { USER_COLUMNS } from "@nodefony/user";
+import type { IUserColumn, UserColumnType } from "@nodefony/user";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import {
   createFrameworkTableFactory,
+  type FrameworkColKind,
+  type IFrameworkColSpec,
   type IFrameworkTableSpec,
 } from "./colKit";
 
 /**
+ * Traduction d'un type LOGIQUE du contrat utilisateur vers le type du colKit.
+ *
+ * C'est le seul endroit du module SQL qui connaisse ce vocabulaire : le contrat
+ * dit ce que la donnée EST, le colKit dit comment chaque dialecte la range.
+ */
+const KIND_BY_TYPE: Record<
+  UserColumnType,
+  Exclude<FrameworkColKind, "enum">
+> = {
+  uuid: "text",
+  string: "text",
+  "string[]": "json",
+  boolean: "bool",
+  object: "json",
+  "object[]": "json",
+  date: "dateMs",
+};
+
+/**
+ * Construit la spec colKit d'une colonne du contrat utilisateur.
+ *
+ * Les trois origines ne se déclarent pas pareil en SQL : la clé primaire reçoit
+ * l'UUID applicatif, un horodatage reçoit l'heure courante (et se régénère si le
+ * contrat le dit), une colonne ordinaire reçoit son défaut déclaré.
+ *
+ * ⚠️ Les défauts restent **JS-level** (`$defaultFn`) : le DDL dérivé n'émet pas
+ * de `DEFAULT` SQL (règle du colKit). Une valeur absente à l'insertion est donc
+ * comblée par le pilote, pas par le serveur.
+ */
+function toColSpec(column: IUserColumn): IFrameworkColSpec {
+  const kind = KIND_BY_TYPE[column.type];
+  switch (column.origin) {
+    case "identity":
+      return { kind, primaryKey: true, defaultFn: () => randomUUID() };
+    case "audit":
+      return {
+        kind,
+        notNull: true,
+        defaultFn: () => new Date(),
+        ...(column.refreshedOnWrite ? { onUpdateFn: () => new Date() } : {}),
+      };
+    case "column":
+      return {
+        kind,
+        ...(column.nullable ? {} : { notNull: true }),
+        ...(column.unique ? { unique: true } : {}),
+        ...(column.makeDefault ? { defaultFn: column.makeDefault } : {}),
+      };
+  }
+}
+
+/**
  * Entité de l'utilisateur Nodefony (schema-as-code) — implémentation SQL
- * **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1),
- * déclinée via le `colKit` (S2 multi-dialecte) : une spec logique, la table
- * du dialecte du connecteur.
+ * **par défaut** du contrat `@nodefony/user`, **dérivée** de `USER_COLUMNS` et
+ * déclinée par le `colKit` : une spec logique, la table du dialecte du
+ * connecteur.
  *
- * Colonnes calquées sur `BaseUser` : identité (`id`/`identifier`), credential
- * (`password` nullable = compte 100 % OAuth), rôles **plats** JSON, statut
- * (`enabled`/`locked`), profil de session (`currentRole`), les **champs
- * anti-migration** JSON (`socialProviders`, `metadata`) et les **horodatages**
- * (`createdAt`/`updatedAt`, kind `dateMs` — exposés `Date`, ≠ `epochMs` des
- * stores security qui exposent des `number`). Aucun ajout de provider ne
- * demande de migration.
+ * Rien n'est recopié : les noms, les types logiques, les défauts et les
+ * contraintes viennent du contrat. Ce fichier ne décide que de la traduction
+ * vers SQL — ce qui est exactement ce qu'un adaptateur doit savoir, et rien de
+ * plus. Une colonne ajoutée au contrat apparaît donc ici sans qu'on y touche,
+ * et `tests/unit/userContractParity.test.ts` refuse le contraire.
  *
- * ⚠️ **Valeurs par défaut en `defaultFn` (JS-level), pas `.default()` (SQL)**
- * (règle colKit) : `id` (UUID), `roles`/`socialProviders` (`[]`), `metadata`
- * (`{}`), `enabled` (`true`), `locked` (`false`), `createdAt`/`updatedAt`
- * (`now`). `updatedAt` est régénéré à chaque update via `onUpdateFn` (pendant
- * SQL du `timestamps: true` Mongoose).
+ * Les horodatages sont des colonnes EXPLICITES (kind `dateMs`, exposé `Date`) —
+ * à la différence de Mongoose, qui les gère au niveau du schéma.
  */
 const USER_TABLE_SPEC = {
   name: "User",
-  columns: {
-    id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
-    identifier: { kind: "text", notNull: true, unique: true },
-    password: { kind: "text" },
-    roles: { kind: "json", notNull: true, defaultFn: () => [] },
-    enabled: { kind: "bool", notNull: true, defaultFn: () => true },
-    locked: { kind: "bool", notNull: true, defaultFn: () => false },
-    currentRole: { kind: "text" },
-    socialProviders: { kind: "json", notNull: true, defaultFn: () => [] },
-    metadata: { kind: "json", notNull: true, defaultFn: () => ({}) },
-    createdAt: { kind: "dateMs", notNull: true, defaultFn: () => new Date() },
-    updatedAt: {
-      kind: "dateMs",
-      notNull: true,
-      defaultFn: () => new Date(),
-      onUpdateFn: () => new Date(),
-    },
-  },
+  columns: Object.fromEntries(
+    USER_COLUMNS.map((column) => [column.name, toColSpec(column)]),
+  ),
 } satisfies IFrameworkTableSpec;
 
 /**
  * Factory de la table `User` pour un dialecte donné (mémoïsée — une instance
- * par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4).
+ * par dialecte). Les trois dialectes sont portés (`sqlite` par défaut).
  */
 export const createUserTable = createFrameworkTableFactory(USER_TABLE_SPEC);
 
@@ -64,22 +104,10 @@ export const createUserTable = createFrameworkTableFactory(USER_TABLE_SPEC);
 export const userTable: SQLiteTable = createUserTable("sqlite");
 
 /**
- * Forme plate d'une ligne `User` renvoyée par le repository de base (colonnes JSON
- * déjà désérialisées + booléens + dates par le `mode` Drizzle). Mappée en `BaseUser`.
+ * Forme plate d'une ligne `User` renvoyée par le repository de base — le contrat
+ * `IUserRow` de `@nodefony/user`, ré-exporté sous son nom historique.
  */
-export interface UserRow {
-  id: string;
-  identifier: string;
-  password: string | null;
-  roles: string[];
-  enabled: boolean;
-  locked: boolean;
-  currentRole: string | null;
-  socialProviders: ISocialProvider[];
-  metadata: Record<string, unknown>;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type { IUserRow as UserRow } from "@nodefony/user";
 
 /**
  * Construit le descripteur d'entité `User` Drizzle pour un ORM nommé.
@@ -120,4 +148,50 @@ export function registerUserEntity(
   dialect: SqlDialect = "sqlite",
 ): void {
   entityRegistry.register(createUserEntity(connector, dialect));
+}
+
+/** Ce qu'une colonne SQL dit d'elle-même, quel que soit le dialecte. */
+export interface IUserColumnView {
+  /** La colonne refuse-t-elle `NULL` ? */
+  readonly notNull: boolean;
+  /** Porte-t-elle une contrainte d'unicité de colonne ? */
+  readonly isUnique: boolean;
+  /** Est-elle la clé primaire ? */
+  readonly primary: boolean;
+}
+
+/**
+ * Colonnes d'une table Drizzle, lues dans la GRAMMAIRE de son dialecte.
+ *
+ * L'extraction n'a rien d'anodin : `getTableConfig` n'est pas la même fonction
+ * selon le dialecte, et appeler celle de sqlite sur une table postgres ne lève
+ * pas — elle rend un objet vide. Une extraction recopiée ailleurs conclurait
+ * donc « aucune colonne » là où il y en a, et un contrôle bâti dessus
+ * refuserait tout, ou n'attraperait rien. D'où un seul point de lecture,
+ * partagé par le contrôle de démarrage et par le banc de parité.
+ *
+ * @param table - la table Drizzle, telle que l'entité la rend (`schema`).
+ * @param dialect - dialecte du connecteur qui la porte.
+ * @returns les colonnes indexées par nom SQL.
+ */
+export function userTableColumns(
+  table: unknown,
+  dialect: SqlDialect,
+): Map<string, IUserColumnView> {
+  const columns =
+    dialect === "postgres"
+      ? getPgTableConfig(table as PgTable).columns
+      : dialect === "mysql"
+        ? getMysqlTableConfig(table as MySqlTable).columns
+        : getTableConfig(table as SQLiteTable).columns;
+  return new Map(
+    columns.map((column) => [
+      column.name,
+      {
+        notNull: column.notNull,
+        isUnique: column.isUnique ?? false,
+        primary: column.primary,
+      },
+    ]),
+  );
 }

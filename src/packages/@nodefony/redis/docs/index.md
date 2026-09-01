@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/redis — le magasin partagé à garantie courte"
+navTitle: "@nodefony/redis"
 lang: fr
 module: "@nodefony/redis"
 topic: redis

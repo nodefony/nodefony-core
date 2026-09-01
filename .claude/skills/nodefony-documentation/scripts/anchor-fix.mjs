@@ -7,6 +7,17 @@ import path from "node:path";
 
 const REPO = process.argv[2] ?? process.cwd();
 const APPLY = process.argv.includes("--apply");
+// Mode PROPOSITION : pour les suspects qu'aucune définition ne résout — un
+// littéral (`NF_BOOT_TIMEOUT_MS`), une clé de config, un code d'erreur — dire OÙ
+// le terme apparaît réellement dans le fichier cible, au lieu de se taire.
+// Il ne modifie RIEN : c'est au relecteur de trancher, parce qu'une ancre
+// plausible et fausse coûte plus cher qu'une ancre visiblement périmée.
+const SUGGEST = process.argv.includes("--suggest");
+// Applique le repli par OCCURRENCE, mais aux seuls termes DISCRIMINANTS (voir
+// `occurrenceLine`). Sans ce garde-fou on recale sur un `Map` ou un `try`, et on
+// fabrique une ancre plausible — plus coûteuse qu'une ancre visiblement périmée,
+// parce que plus personne ne la rouvre.
+const OCCURRENCES = process.argv.includes("--occurrences");
 const report = fs.readFileSync(0, "utf8").split("\n");
 
 const RE =
@@ -103,6 +114,101 @@ function citedSymbol(md, mdLine, ref, oldLine) {
   return null;
 }
 
+/**
+ * Où le terme apparaît-il VRAIMENT dans le fichier cible ?
+ *
+ * Un littéral n'a pas de ligne de définition : `NF_BOOT_TIMEOUT_MS` se LIT
+ * (`process.env.NF_BOOT_TIMEOUT_MS`), `unauthorized` se RENVOIE. Le repli
+ * remonte donc les occurrences, les plus proches de l'ancre d'abord — et dit
+ * explicitement quand il n'y en a AUCUNE : ce cas-là n'est pas une ancre
+ * décalée, c'est une affirmation que le code ne porte plus (symbole renommé ou
+ * supprimé), et elle se corrige en RÉÉCRIVANT la phrase, jamais en bougeant un
+ * numéro de ligne.
+ */
+function occurrenceHint(lines, cited, symbols, oldLine) {
+  for (const term of new Set([cited, ...symbols].filter(Boolean))) {
+    const esc = term.replace(/^#/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\b${esc}\\b`);
+    const hits = [];
+    lines.forEach((l, i) => {
+      if (re.test(l)) hits.push(i + 1);
+    });
+    if (!hits.length) continue;
+    const proches = hits
+      .sort((a, b) => Math.abs(a - oldLine) - Math.abs(b - oldLine))
+      .slice(0, 3);
+    return `→ « ${term} » apparaît l. ${proches.join(", ")}`;
+  }
+  return `→ AUCUN des termes n'apparaît dans le fichier : réécrire la phrase, pas l'ancre`;
+}
+
+/**
+ * Ligne d'OCCURRENCE retenue pour un terme sans déclaration, ou `null`.
+ *
+ * Deux conditions, toutes deux nées d'un faux recalage : le terme fait au moins
+ * cinq caractères (`Map`, `try`, `dev` ne désignent rien), et il apparaît au
+ * plus cinq fois dans le fichier (au-delà il n'est pas discriminant — `production`
+ * se lit partout dans un kernel). La ligne retenue est la plus proche de l'ancre
+ * d'origine : le code a grandi autour d'elle, il n'a pas déménagé.
+ */
+/**
+ * Termes qui passent le filtre de longueur sans rien désigner : mots-clés du
+ * langage, mots de prose, et le nom du projet — qui se lit dans chaque chemin
+ * d'import de chaque fichier. Recaler dessus produit une ancre parfaitement
+ * plausible et parfaitement fausse.
+ */
+const VAGUE = new Set([
+  "class",
+  "const",
+  "interface",
+  "function",
+  "return",
+  "extends",
+  "implements",
+  "nodefony",
+  "node_modules",
+  "container",
+  "module",
+  "modules",
+  "config",
+  "options",
+  "value",
+  "result",
+  "error",
+  "string",
+  "number",
+  "boolean",
+  "production",
+  "development",
+  "static",
+  "public",
+  "private",
+  "default",
+]);
+function occurrenceLine(lines, cited, symbols, oldLine) {
+  for (const term of new Set([cited, ...symbols].filter(Boolean))) {
+    const bare = term.replace(/^#/, "");
+    if (bare.length < 5) continue;
+    if (VAGUE.has(bare.toLowerCase())) continue;
+    const esc = bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\b${esc}\\b`);
+    const hits = [];
+    lines.forEach((l, i) => {
+      if (re.test(l)) hits.push(i + 1);
+    });
+    if (!hits.length || hits.length > 5) continue;
+    return {
+      line: hits.sort(
+        (a, b) => Math.abs(a - oldLine) - Math.abs(b - oldLine),
+      )[0],
+      term,
+      count: hits.length,
+    };
+  }
+  return null;
+}
+
+const occurrenceLog = [];
 const edits = new Map(); // md -> [{mdLine, from, to}]
 const skipped = [];
 for (const j of jobs) {
@@ -125,10 +231,20 @@ for (const j of jobs) {
     )[0];
     break;
   }
+  if (best === null && OCCURRENCES) {
+    const occ = occurrenceLine(lines, cited, j.symbols, j.oldLine);
+    if (occ) {
+      best = occ.line;
+      occurrenceLog.push(
+        `${j.md}:${j.mdLine} ${j.ref}:${j.oldLine} → ${occ.line} (occurrence de « ${occ.term} », ${occ.count}×)`,
+      );
+    }
+  }
   if (best === null) {
-    skipped.push(
-      `${j.md}:${j.mdLine} ${j.ref}:${j.oldLine} — aucune définition trouvée (${j.symbols.join("/")})`,
-    );
+    let detail = `aucune définition trouvée (${j.symbols.join("/")})`;
+    if (SUGGEST)
+      detail += ` ${occurrenceHint(lines, cited, j.symbols, j.oldLine)}`;
+    skipped.push(`${j.md}:${j.mdLine} ${j.ref}:${j.oldLine} — ${detail}`);
     continue;
   }
   if (best === j.oldLine) continue;
@@ -157,4 +273,5 @@ for (const [md, list] of edits) {
 console.log(
   `${n} ancre(s) recalée(s)${APPLY ? "" : " (dry-run)"} sur ${jobs.length} suspectes`,
 );
+for (const s of occurrenceLog) console.log(`  ↪ ${s}`);
 for (const s of skipped) console.log(`  ⚠ ${s}`);

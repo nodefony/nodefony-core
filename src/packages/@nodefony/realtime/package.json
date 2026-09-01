@@ -46,7 +46,7 @@
   "devDependencies": {
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
-    "@types/node": "26.4.0",
+    "@types/node": "26.4.1",
     "@vitest/coverage-v8": "4.1.11",
     "nodefony": "*",
     "reflect-metadata": "0.2.2",

@@ -1,5 +1,6 @@
 ---
 title: "@nodefony/framework — routes, contrôleurs, décorateurs"
+navTitle: "@nodefony/framework"
 lang: fr
 module: "@nodefony/framework"
 topic: framework

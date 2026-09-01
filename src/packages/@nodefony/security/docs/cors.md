@@ -1,5 +1,6 @@
 ---
 title: "CORS — partage cross-origin contrôlé"
+navTitle: CORS
 lang: fr
 module: "@nodefony/security"
 topic: cors
@@ -353,7 +354,7 @@ Deux nuances utiles :
   `Access-Control-Request-Headers` du client (`cors.ts:78`). Ce que tu déclares est ce qui est annoncé,
   point. Un en-tête custom non déclaré fait échouer le preflight côté navigateur.
 - **Les fichiers statiques sont couverts.** `handleCors` s'exécute avant le fallback `serve-static`
-  (`http-kernel.ts:1200`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
+  (`http-kernel.ts:1312`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
   tes routes.
 
 Le contrat est publié dans l'interface du firewall (`IFirewall.ts:34`) : `number | undefined` — `204`
@@ -428,7 +429,7 @@ Le coût par requête est donc :
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
 `Firewall.describe()` (`firewall.ts:505`), qui délègue à `Firewall.#describeDefenses()`
-(`firewall.ts:547`). La projection CORS y expose `origins`, `credentials`, `methods`,
+(`firewall.ts:575`). La projection CORS y expose `origins`, `credentials`, `methods`,
 `allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:594`) — aucun secret ne transite par
 cette surface.
 

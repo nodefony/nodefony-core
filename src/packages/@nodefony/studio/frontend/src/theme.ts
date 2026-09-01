@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   createTheme,
   Modal,
   NavLink,
@@ -135,6 +136,11 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
       // locale. On la pose donc une fois, pour tous les menus.
       NavLink: NavLink.extend({
         defaultProps: { color: "brand.7" },
+        // Même exigence de taille de cible que pour `ActionIcon` (WCAG 2.5.8) :
+        // les en-têtes de section du portail de documentation, écrits en `xs`,
+        // tombaient à 23 px de haut — un pixel sous le seuil, invisible à l'œil
+        // et bien réel pour qui vise. Les entrées ordinaires font déjà 33 px :
+        // la règle ne change rien pour elles, elle ferme le cas compact.
         // Par `styles` et non `vars` : le résolveur de variables exige une
         // valeur pour CHAQUE état, or il n'existe pas de chaîne signifiant
         // « laisse la valeur par défaut » — et poser une variable vide
@@ -142,10 +148,32 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
         styles: (_theme, props) =>
           props.active
             ? {
-                root: { color: "var(--mantine-color-white)" },
+                root: {
+                  color: "var(--mantine-color-white)",
+                  minHeight: "24px",
+                },
                 label: { color: "var(--mantine-color-white)" },
               }
-            : {},
+            : { root: { minHeight: "24px" } },
+      }),
+      // Toute commande à icône seule doit pouvoir être ATTEINTE — WCAG 2.2,
+      // critère 2.5.8 « Target Size (Minimum) », 24 × 24 px.
+      //
+      // Mesuré par la sonde d'accessibilité : 40 cibles trop petites sur un seul
+      // écran, dont 36 fois le MÊME bouton — l'épinglage d'une entrée de menu, en
+      // taille `xs`, soit 18 × 18. Une main qui tremble, un écran tactile, un
+      // trackpad : la commande existe et reste hors de portée.
+      //
+      // La zone grandit, PAS l'icône : `min-width`/`min-height` élargissent la
+      // surface cliquable sans toucher à `--ai-size`, qui gouverne le dessin. Le
+      // menu garde donc exactement la même densité visuelle. Poser la règle ici
+      // plutôt que sur chaque site d'appel, c'est ce qui la rend vraie pour les
+      // écrans qu'on n'a pas encore écrits — et le motif est le même que celui du
+      // `NavLink` ci-dessus : la règle manquait, ce n'était pas une négligence locale.
+      ActionIcon: ActionIcon.extend({
+        styles: {
+          root: { minWidth: "24px", minHeight: "24px" },
+        },
       }),
       // Fenêtres (Modal) à deux tons, esprit bulles d'aide (DocHint) — sens
       // OPPOSÉ selon le schéma (validé visuellement) :

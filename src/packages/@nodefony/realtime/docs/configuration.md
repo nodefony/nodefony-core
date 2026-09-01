@@ -1,5 +1,6 @@
 ---
 title: "Configuration — le fond de panier, les bornes, la porte d'entrée"
+navTitle: Configuration
 lang: fr
 module: "@nodefony/realtime"
 topic: realtime
@@ -433,7 +434,7 @@ des canaux d'état, où seul le dernier instantané compte.
 Chaque canal ouvert coûte un producteur côté hub, un minuteur le plus souvent, et une entrée de table
 côté connexion. Sans borne, **un seul** client peut s'abonner jusqu'à épuiser la mémoire du
 processus. Le plafond est vérifié à chaque abonnement (`RealtimeController.startChannel()`,
-`RealtimeController.ts:665`).
+`RealtimeController.ts:706`).
 
 Quatre propriétés qui décident du bon réglage :
 

@@ -1,11 +1,15 @@
 ---
+title: "Ajouter un frontend React 19 à un module Nodefony"
+navTitle: Frontend React
 lang: fr
 module: "@nodefony/frontend"
 topic: frontend-react-guide
 audience: [human]
 tags: [frontend, react, vite, guide, tutorial, getting-started]
+version: "doc"
 status: stable
-last-updated: 2026-05-18
+updated: 2026-09-01
+source: "docs/guides/frontend-react.md"
 ---
 
 # Guide — Ajouter un frontend React 19 à un module Nodefony
@@ -16,22 +20,40 @@ last-updated: 2026-05-18
 
 **Résultat final** : une page React montée à `https://localhost:5152/shop-front/` qui appelle ton API backend (`/shop-front/api/data`) via le proxy Vite, avec HMR fonctionnel.
 
-## Approche express — via le skill
+📍 [Documentation](../index.md) › [Guides](README.md) › **Frontend React**
 
+## Le modèle — deux serveurs, un seul site
+
+Pendant le développement, **deux** serveurs tournent : Nodefony sert votre application, Vite sert
+les modules du frontend et pousse le rechargement à chaud. Le visiteur, lui, n'en voit qu'un seul :
+Nodefony rend la page, y insère les balises qui pointent vers Vite (`FrontendService.renderTags()`,
+`FrontendService.ts:896`), et laisse Vite mandater vers l'API les chemins que le module a déclarés
+(`apiProxyPaths`, `IFrontBuilder.ts:34`). En production il n'y a plus qu'un serveur : les fichiers
+sont bâtis, et les mêmes balises pointent vers eux.
+
+Un module déclare son frontend une seule fois, par `FrontendService.registerEntry()`
+(`FrontendService.ts:231`) — c'est ce point d'entrée qui fait exister le tout.
+
+## Approche express — la commande le fait
+
+```bash
+nodefony create module shop --frontend react   # ou : vue | angular | svelte
 ```
-/nodefony-create-frontend-module react
-```
 
-Le skill `nodefony-create-frontend-module` (cf `.claude/skills/`) délègue au skill `nodefony-create-module` pour le squelette, puis enrichit avec les éléments du framework choisi — **React 19, Vue 3 ou Angular 21** (controller HTML+CSP, frontend/, peerDeps). Te fait gagner les ~6 étapes manuelles ci-dessous.
+La commande produit le squelette du module **et** son frontend : controller HTML avec sa politique
+de sécurité, dossier `frontend/`, dépendances déclarées, point d'entrée enregistré. Les quatre
+choix sont **React 19, Vue 3, Angular 21 et Svelte 5** (`spec.ts:114`) — elle vous fait gagner les
+neuf étapes manuelles ci-dessous.
 
-Le reste de ce guide explique la **version manuelle**, utile pour comprendre ce que le skill fait sous le capot.
+Le reste de ce guide explique la **version manuelle**, utile pour comprendre ce que la commande
+fait, et indispensable pour greffer un frontend sur un module qui existe déjà.
 
 ---
 
 ## Pré-requis
 
-- Repo Nodefony à jour avec `@nodefony/frontend` mergé dans `claude-ts` (commit `f013b19` ou ultérieur)
-- Vite + plugins installés à la racine :
+- `@nodefony/frontend` installé et déclaré dans l'application (étape 1 ci-dessous)
+- Vite et ses plugins installés à la racine :
   ```bash
   npm i -D vite @vitejs/plugin-react react react-dom
   ```
@@ -308,10 +330,38 @@ Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprint
 | Cache navigateur après modif CSP                       | Browser cache                   | **Cmd+Shift+R** (hard reload)                                  |
 | Modules React introuvables                             | Cert HTTPS Vite refusé sur 5173 | Visiter `https://127.0.0.1:5173/` une fois et accepter le cert |
 
-## Aller plus loin
+## 📖 Lexique
 
-- API publique complète : [`@nodefony/frontend/docs/index.md`](../../src/packages/@nodefony/frontend/docs/index.md) (relocalisé, ADR-0001)
-- Résilience supervisor (auto-restart, port retry, health check) : [`@nodefony/frontend/docs/index.md#résilience-supervisor`](../../src/packages/@nodefony/frontend/docs/index.md#résilience-supervisor)
-- Audit perf child_process vs in-proc : comparatif du POC frontend (mémoire IA `core-dev/audits/poc-frontend-comparison.md`)
-- Pattern de référence : `src/modules/test-frontend-react/` (créé durant le POC, doc fidèle)
-- Module Vision (Phase 10) consommera `@nodefony/frontend` pour son UI admin
+| Terme                        | Ce que c'est                                                                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Point d'entrée** (_entry_) | Ce qu'un module déclare à `@nodefony/frontend` : un nom, un fichier source, les chemins d'API à mandater. Tout part de là.                                  |
+| **HMR**                      | _Hot Module Replacement_ — Vite remplace à chaud le module modifié dans la page ouverte, sans rechargement ni perte d'état.                                 |
+| **Superviseur Vite**         | Le processus qui lance Vite, le surveille et le relance s'il tombe. Il vit dans l'application, pas dans votre terminal.                                     |
+| **CSP**                      | _Content Security Policy_ — l'en-tête qui dit au navigateur quelles origines ont le droit de fournir des scripts. En développement, elle doit inclure Vite. |
+| **`renderTags`**             | Le rendu des balises `<script>`/`<link>` de votre point d'entrée : elles pointent vers Vite en développement, vers les fichiers bâtis en production.        |
+
+## 🧪 Tests & couverture
+
+Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vitest — jamais figés ici.
+
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires | `@nodefony/frontend` `unit/ViteConfigGenerator.test.ts`, `unit/ViteBuilder.test.ts`, `unit/templateHelperOrigin.test.ts` | la configuration Vite engendrée, le build, l'origine des balises rendues |
+| Unitaires (sécurité) | `unit/cspBeforeVite.test.ts`, `unit/originDerivationPolicy.test.ts` | la politique de sécurité inclut Vite, et l'origine se dérive de l'hôte demandé |
+| Unitaires (résilience) | `unit/viteSupervisorStop.test.ts`, `unit/pidFromNetstat.test.ts`, `unit/remoteDev.test.ts` | l'arrêt de l'arbre de processus, la reprise d'un port occupé, le développement à distance |
+| Intégration | `integration/ViteProcessSupervisor.test.ts`, `integration/frontend-build.test.ts` | le superviseur avec un vrai Vite, et un build complet |
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
+- 📚 **L'interface publique complète** :
+  [`@nodefony/frontend`](../../src/packages/@nodefony/frontend/docs/index.md)
+- 🛟 **Ce qui se passe quand Vite tombe** (relance, port occupé, sonde de vie) :
+  [résilience du superviseur](../../src/packages/@nodefony/frontend/docs/index.md#résilience--ce-qui-se-passe-quand-vite-tombe)
+- 🧩 **Exemples vivants dans le dépôt** : `src/modules/test-frontend-react/` — et ses trois frères
+  `test-frontend-vue/`, `test-frontend-angular/`, `test-frontend-svelte/`, qui montrent le même
+  montage avec chacun des quatre choix.
+- 🛠️ **La console d'administration** consomme elle-même `@nodefony/frontend` :
+  [`@nodefony/studio`](../../src/packages/@nodefony/studio/docs/index.md)
+- 📖 [Lexique général](../lexique.md) du framework.

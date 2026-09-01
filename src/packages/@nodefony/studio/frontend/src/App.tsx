@@ -88,6 +88,9 @@ const OrmWorker = lazy(() =>
 const Documentation = lazy(() =>
   import("./routes/Documentation").then((m) => ({ default: m.Documentation })),
 );
+const Roadmap = lazy(() =>
+  import("./routes/Roadmap").then((m) => ({ default: m.Roadmap })),
+);
 const Workspace = lazy(() =>
   import("./routes/Workspace").then((m) => ({ default: m.Workspace })),
 );
@@ -195,6 +198,7 @@ const router = createBrowserRouter([
               { path: "logs", element: <Logs /> },
               { path: "logs/trace/:requestId", element: <TraceView /> },
               { path: "documentation", element: <Documentation /> },
+              { path: "roadmap", element: <Roadmap /> },
             ],
           },
 

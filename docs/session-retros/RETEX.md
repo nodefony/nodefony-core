@@ -22,6 +22,10 @@
 
 ## 🏭 Ce que le PRODUIT construit n'est pas ce que la CONFIG demande
 
+- [1× — 09-01] **Un fichier que personne ne mentionne décidait de ce que `npm install` EXÉCUTE.** L'image d'une application générée ne se construisait plus dès qu'un `package-lock.json` existait — c'est-à-dire dès le premier `npm install` du développeur : sans verrou npm SAUTE les scripts d'installation et le dit (« not yet covered by allowScripts ») ; avec verrou il les exécute, et `node-gyp rebuild` meurt faute de Python dans `node:*-slim`. Ni la plateforme ni la version de npm n'entrent en jeu — vérifié dans les deux sens. Rien dans le Dockerfile, la config ou les tests ne parlait de ce fichier : **quand deux exécutions de la MÊME commande divergent, chercher ce qui a changé dans le RÉPERTOIRE, pas dans la commande.**
+
+- [1× — 09-01] **L'image de production ne contient PAS les outils de développement — donc certains gestes y sont structurellement impossibles.** J'avais fait générer la première migration par le banc DANS le conteneur, avant de l'appliquer. Refus du produit : `NF_GENERATE_TOOL_MISSING` — `drizzle-kit` est une devDep, et l'image installe en `--omit=dev`. C'est juste : APPLIQUER une migration ne réclame aucun outil tiers, seul l'ÉCRIRE en demande un. La leçon dépasse le cas : **avant de placer un geste dans une image, regarder ce que cette image CONTIENT** — le dépôt et l'artefact déployé n'ont pas le même inventaire, et seul le banc réel le dit.
+
 - [1× — 09-01] `nodefony frontend:build` publiait un bundle de **développement** : `mode: "production"` était passé à Vite depuis toujours, mais Vite dérive `isProduction` de `process.env.NODE_ENV`, **qui prime**. Le défaut n'apparaissait ni dans la config, ni dans un test, ni dans un échec — seulement dans le fichier RENDU (`import.meta.env.DEV` vrai chez l'utilisateur final, messages d'aide du framework de vue publiés). Trouvé par hasard, en éprouvant un point que je venais de déclarer « non prouvé ».
 - [1× — 09-01] Corollaire du même jour : le seul bundle qui disait la vérité sur l'état du produit était celui que je n'avais PAS reconstruit à la main. Mes propres expériences avaient « réparé » les quatre autres, et le tableau récapitulatif donnait une image rassurante et fausse — c'est l'HEURE de modification qui a rétabli la lecture.
 
@@ -89,6 +93,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 09-01] **Le décor du dépôt diverge de celui de la forge, et c'est le dépôt qui rend le faux rouge.** `test:all --load` démarre le serveur par `start.sh`, donc en développement AVEC le rechargement à chaud ; la CI lance le MÊME `test:load` en `development --no-watch`, précisément parce que le gate `heap WS sustained` est documenté depuis juin comme flaky avec le watcher (HMR/DevSupervisor retiennent du heap que `global.gc()` ne rend pas). Résultat : 70,6 MB en local contre un seuil de 30, et vert en CI sur le MÊME commit. Deux implémentations d'une même règle, dont la locale est la moins fidèle. **Avant de croire un seuil qui saute en local, regarder avec quel décor la forge le joue.**
+
 - [1× — 31/08] **Sept mocks décrivaient un serveur qui n'existe pas** : ils ouvraient la socket sans jamais envoyer le `realtime:welcome` que le vrai serveur enchaîne. **16 cas verts contre un serveur imaginaire**, dont un nommé « ré-abonnement automatique au reconnect » qui prouvait l'INVERSE de son titre — le serveur jette tout ce qui arrive avant son welcome. Un mock répond ce qu'on a imaginé : quand il modélise un PROTOCOLE, il doit enchaîner les mêmes étapes, sinon les tests gardent le défaut au lieu de l'attraper.
 
 - [1× — 08-31] **J'ai déclaré vert un banc dont l'étape décisive était SAUTÉE.** Validation faite en `--no-e2e` « pour aller plus vite », puis correctif poussé : la forge est tombée sur `la ressource RÉPOND vraiment (HTTP, serveur réel)` — précisément l'étape que ce drapeau saute. L'écrit disait pourtant « non lancé : e2e ». **Nommer ce qu'on n'a pas lancé ne dispense pas de le lancer avant de pousser** : la phrase protège le lecteur, pas le dépôt.
@@ -130,6 +136,8 @@
   garde ; le chiffre de pente, lui, se rejoue. [1× — 08-26]
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
+
+- **[1× — 09-01] Donner l'ENTITÉ ne suffit pas : il faut donner la MIGRATION.** Après avoir retiré `User` des migrations du framework, j'ai doté le dépôt de son entité et déclaré l'effet de bord traité. En développement le schéma est dérivé du code, donc tout marchait. La CI a rendu **dix jobs rouges** : en production personne ne crée la table. Le même oubli valait pour les applications générées. Règle : dès qu'un objet quitte le framework pour l'application, se demander QUI le crée dans chacun des deux modes de schéma.
 
 - [1× — 09-01] Premier correctif CSP : plage de ports déclarée en PERMANENCE → en-tête de **7,9 Ko sur chaque réponse** (au bord des 8 Ko que refusent beaucoup de relais). Le correctif marchait et coûtait plus cher que le défaut. Refait par famille : bloc entier tant que rien ne sert, port réel dès que ça sert. **Mesurer le COÛT de son correctif fait partie du correctif.**
 - [1× — 08-30] **Déclarer sans installer est un demi-geste — et c'est le user qui l'a vu.**
@@ -438,6 +446,7 @@
   strict, zéro `any` » (3 casts + 128 `...args: any[]` en réalité) et un `MEMORY.md` de module qui
   contredisait le tableau de migration sur le RBAC. **Une promesse invérifiable se remplace par une
   promesse vérifiable** — « zéro `@ts-ignore` » se contrôle d'un `rg`, « zéro any » non. [1× — 08-26]
+- [1× — 09-01] **Deux textes normatifs décrivaient l'architecture ÉCARTÉE**, et l'un renvoyait à l'autre : le ticket #18 disait « le périmètre fait foi : `docs/release/nodefony-10.md` §8 », et cette section portait la même conception périmée (générateur `--extends framework`, clés étrangères incluses). Un exécutant qui ouvre le ticket serait parti sur la mauvaise conception. **Corriger l'un sans l'autre recrée la contradiction le jour même** — quand un texte en désigne un autre comme faisant foi, ils se corrigent d'un seul geste.
 
 ## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
 
@@ -465,6 +474,10 @@
   et l'ordre se lit sur le journal, il ne se devine pas.
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
+
+- [1× — 09-01] **Le même geste écrit à trois endroits portait trois fois le même trou.** `create app --no-install` vivait dans le banc de publication ET dans deux jobs de la forge (la vitrine poussée aux utilisateurs, l'image officielle `nodefony/nodefony`). Corriger le banc ne corrigeait rien chez les deux autres : l'image officielle serait restée en 503 sur une base vierge, « table absente ». Aucun des trois ne se savait triple. **Après avoir corrigé un appel, chercher les AUTRES appelants du même geste** — `grep` sur la commande, pas sur le fichier qu'on vient d'éditer.
+
+- [1× — 09-01] **Deux pages du même corpus se contredisaient, et chacune se lisait bien.** `pipeline-requete.md` plaçait l'instanciation du contrôleur AVANT le firewall et en tirait « ton contrôleur est instancié avant d'être autorisé » ; `controller.md` montrait déjà l'ordre juste. Aucun gate ne voit ça — les deux ont des ancres valides. Le code dit l'inverse (`prepareFrontController` ne fait que matcher, `@IsGranted` court-circuite l'instanciation). **Une contradiction interne au corpus ne se trouve qu'en lisant DEUX pages ensemble** : c'est ce qu'un audit de corpus rend, et qu'un contrôle page par page ne rendra jamais.
 
 - [1× — 31/08] **J'ai corrigé une heure durant un fichier que le mode développement n'exécute jamais.** Les plugins Vite sont composés à DEUX endroits : `ViteBuilder.buildPlugins()` (la voie déclarée, par les presets) et `ViteConfigGenerator.ts:109`, qui les REÉCRIT en dur dans un fichier généré — et c'est le second qui sert. Rien ne compare les deux. Avant de conclure « ma correction n'a pas d'effet », **chercher qui produit VRAIMENT l'artefact exécuté** : ici il suffisait de lire le `vite.config.generated.mjs` posé sur le disque. → #131.
 
@@ -620,6 +633,8 @@
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
+- [1× — 09-01] **Un artefact qui CHANGE de producteur casse en silence tous les décors qui le supposaient livré.** La table `User` a quitté les migrations du framework pour celles de l'application. Trois décors reposaient sur l'hypothèse inverse, et aucun ne l'énonçait : le banc d'adoption vidait le dossier de migrations du dépôt (9 cas rouges par dialecte, tous sur « table absente : User ») ; le décor MySQL dérivait ses tables à nettoyer des seules migrations du PAQUET, donc ne nettoyait plus `User`, qui survivait d'un cas à l'autre ; un troisième amputait `User` en la croyant livrée (`no such table`). **Déplacer la propriété d'un artefact, c'est devoir relire tout ce qui le CONSOMME** — et un décor consomme sans le dire.
+
 - [1× — 08-31d] **Le ticket prescrivait de CONSTRUIRE ce que le produit portait déjà.** #122 demandait
   un module de décor `policy:"mandatory"` — un espace de travail de plus, chargé à CHAQUE démarrage du
   dépôt, production comprise — pour qu'une entité entre au registre sous `NODE_ENV=production`. Or
@@ -709,6 +724,12 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-01] **Une option posée pour une bonne raison créait un angle mort que rien ne signalait.** Le banc de publication scaffolde en `--no-install` — exprès, pour que les dépendances viennent des tarballs et jamais du dépôt. Conséquence jamais énoncée : aucune de ses applications n'a JAMAIS eu de verrou de dépendances, donc le banc n'a jamais construit d'image dans les conditions de l'utilisateur. Le défaut était là depuis toujours et attendait qu'on ait besoin d'installer pour autre chose. **Une option qui écarte une étape écarte aussi tout ce que cette étape produit** : lister ce qu'elle empêche d'exister, pas seulement ce qu'elle empêche de faire.
+
+- **[1× — 09-01] Un banc « vert en CI » l'était sur un arbre ANTÉRIEUR au code qu'il devait éprouver.** Le banc de publication ne tourne qu'au cron du lundi ; son dernier run vert portait sur un commit du 27 août, et les migrations livrées datent du 28. Il était donc rouge depuis quatre jours **sans témoin**, et j'ai failli conclure « pré-existant, donc pas moi » sans vérifier — le raisonnement juste, mais sur une prémisse fausse. Règle : avant d'invoquer un run vert, regarder SUR QUEL COMMIT il a tourné.
+
+- [1× — 09-01] **Quatre tests visaient `__proto__` dans `envOverride`, aucun ne testait la garde.** Tous passaient `schema` non défini, donc tous étaient arrêtés par une branche ANTÉRIEURE (« le schéma ne déclare pas la feuille ») et laissaient hors preuve la ligne que CodeQL signalait. Le refus tenait d'ailleurs à un accident — `__proto__` n'est ni propriété propre ni énumérable — et cet accident cesse dès qu'un schéma vient de `JSON.parse`, qui crée une propriété PROPRE. L'attaque réelle a montré `appliqué=true`, prototype de la config détourné, `constructor` écrasé. **Le signe à reconnaître : plusieurs tests d'un même risque qui partagent tous le même argument par défaut** — ils explorent une seule branche en croyant en couvrir plusieurs.
 
 - [1× — 09-01] `grep -o 'function \w+\(\)\{return(!\d)\}'` attrapait la **première** fonction de cette forme du bundle, pas `isDevBuild` : classement de 8 bundles rendu au hasard, dont deux faux « DEV ». Reciblé par l'APPELANT (`isVerbose`, dont le corps cite `production`), le verdict s'est inversé. Un motif syntaxique sans ancrage sémantique mesure ce qu'il trouve, pas ce qu'on cherche.
 - [1× — 09-01] Condition de sonde composite `A && B && C` rendue FAUSSE : rien ne dit QUEL terme. Décomposée en cinq sondes d'une ligne, le fautif était une supposition à moi (« une seule socket ») — la barre de débogage en ouvre une seconde en dev. **Une condition composite qui échoue ne se re-lit pas, elle se décompose.**
@@ -906,6 +927,7 @@
   toute la suite est passée en `↓`, donc en vert muet. Attrapé par le gate du dépôt (« 2 tests sur 7
   n'ont pas tourné »), jamais par la lecture. Corollaire : borner un hook à ce qui le CONCERNE (ici,
   ne poser la question qu'au dialecte visé) plutôt que de le faire tourner « pour tout le monde ».
+- [1× — 09-01] **Trois silences trouvés en EXÉCUTANT un prototype d'une demi-journée**, qu'aucune des deux conceptions écrites (la mienne et une relecture indépendante) n'avait vus : un champ obligatoire sans défaut fait échouer le semis avec un code de sortie 0 et 809 lignes sans un mot (application démarrée, aucun administrateur) ; une colonne du contrat retirée laisse démarrer ET laisse la commande de liste réussir ; un champ métier est écrit en base et ne ressort pas du dépôt. **Ce que la lecture ne voit pas, l'exécution le dit en vingt minutes.**
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -960,6 +982,7 @@
 - **`$?` lu après un pipe est celui du DERNIER maillon** — relu deux fois dans la même soirée (un
   banc jugé « exit 0 » alors qu'il sortait 1, un commit cru accepté alors que le hook l'avait
   refusé). Capturer dans un fichier, PUIS lire le code sans pipe. [2× — 08-26]
+- [1× — 09-01] **Un chemin SECONDAIRE produit un artefact différent du chemin normal, et j'ai failli en tirer un défaut.** `orm:migrate:baseline --from-database` relit la base et renomme l'index (`User_identifier_key` au lieu de `User_identifier_unique`) ; j'ai conclu à une divergence du gabarit. Le chemin normal (`orm:generate` sur base vierge) produisait le nom exact, sur les trois moteurs. **Avant d'imputer un écart au produit, vérifier qu'on l'a mesuré par le chemin que l'utilisateur emprunte.**
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
@@ -1081,6 +1104,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
 
 ## 🧨 Une commande de DÉCLARATION ne doit jamais désarmer ce qu'elle trouve
 
+- **[1× — 09-01] Un banc qui « nettoie son décor » détruit un artefact COMMITÉ dès que le dépôt se met à en produire un.** Le banc d'adoption vidait `migrations/<dialecte>` avant et après chaque cas — sans risque tant que le dépôt n'avait aucune migration d'application. Depuis que l'identité lui appartient, il en a. Le dossier disparaissait du disque **sans que `git status` soit consulté**, et le manque se manifestait des heures plus tard sur un « table absente : User » qui accusait le produit. Règle : un banc qui écrit dans l'arbre du dépôt met de côté ce qu'il y trouve et le remet — supprimer n'est légitime que sur ce qu'on a soi-même écrit.
+
 - [1× — 08-28h] **La question que personne n'avait posée : et si la migration DÉTRUIT ?**
   `orm:migrate` appliquait un `DROP COLUMN` en production sans un mot — ni la conception validée,
   ni le ticket, ni moi ne l'avions vu. La question est venue du user (« le backup c'est pas
@@ -1159,6 +1184,21 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 09-01] **Mon décor incomplet a rendu 187 faux positifs.** `check-site-links` sur un site que j'avais rendu avec la seule étape `build-docs-site` : **187 liens internes fautifs**, tous vers `../../../`. Ce n'était pas le contenu — la forge rend TROIS objets avant de vérifier (`readme-html` pour l'accueil, la doc, `build-perf-site` pour `/performance/`), et les liens de retour pointaient vers des cibles que je n'avais pas générées. Séquence complète rejouée : **0 cassé sur 10 397**. Le réflexe qui a sauvé : chercher mes propres fichiers dans la liste des fautifs (absents) AVANT de conclure — puis lire le flux CI pour savoir ce qu'il fait AVANT le gate.
+
+- [1× — 09-01d] **Un build échoué en SILENCE m'a fait mesurer trois fois la page précédente.** Des
+  backticks dans un commentaire CSS, à l'intérieur d'un gabarit JavaScript : `node build.mjs
+
+  > /dev/null 2>&1` avale l'erreur, le fichier de sortie reste celui d'avant, et l'écran mesuré est
+  > l'ancien. J'ai conclu « le correctif ne change rien », puis « le log n'apparaît pas donc la
+  > fonction n'est pas appelée » — deux verdicts faux tirés du même artefact périmé. **Ne jamais
+  > rediriger la sortie d'un build dont on va mesurer le produit.**
+
+- [1× — 09-01] **Le décor local ment sur un contrôle de liens.** `check-site-links` accusait `index.html → performance/`. Faux : la forge construit `/performance/` par une étape (`build-perf-site.mjs`) que le build local ne lance pas. La preuve n'a de valeur qu'en rejouant la chaîne ENTIÈRE de `pages.yml`. Même famille que le flake mémoire de la veille (watcher local vs `--no-watch` en CI) : **le poste diverge de la forge, et c'est le poste qui ment**.
+
+- [1× — 09-01] **Le harnais a REFUSÉ ma commande (un `cd` relatif), et j'ai failli lire le résultat comme un verdict.** Le refus portait sur toute la commande — patch `python3` compris — mais la commande SUIVANTE a rendu « 6 tests passés ». Ces 6 verts ne disaient rien du correctif, qui n'était pas dans le fichier. Un `grep` de l'ancre l'a montré. **Règle : après un refus d'outil, la première chose à vérifier n'est pas le test, c'est que l'ÉDITION a eu lieu.**
+- [1× — 09-01] **Mon motif `awk` de contrôle rendait des cellules VIDES** (P2, P7, P8, P10, P11, P14, P16) et accusait le bandeau d'un écart de 20 tâches. Réécrit en Python, l'écart réel était de 1 — mais il était RÉEL : `141✅ (211)` annoncé pour `142✅ (212)`. L'instrument se suspecte avant le fichier, et un écart trop gros est d'abord un symptôme de l'instrument.
 
 - [1× — 09-01] Build « de contrôle » lancé **sans `NF_WITH_DEV_MODULES=1`** : en production les modules `policy:"dev"` ne sont pas chargés ⇒ « aucun frontend déclaré », **empreinte du bundle inchangée**, et j'ai failli conclure que `NODE_ENV` n'avait aucun effet. C'est l'empreinte identique qui a sauvé la conclusion — pas le code de sortie, qui valait 0.
 - [1× — 31/08] **`git diff --stat` était MUET sur mon débranchement** — parce que le fichier était
@@ -1557,6 +1597,17 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-01] **Le gate lancé n'était pas celui qui couvre la cible.** `npx tsgo --noEmit -p tsconfig.json` sur un banc neuf : **aucune sortie, donc vert** — sauf que ce tsconfig porte `exclude: ["tests"]`. Le typecheck n'avait pas lu une ligne du fichier écrit. Le module a DEUX projets (`typecheck` = `tsconfig.json` **et** `tsconfig.tests.json`), et le second a levé quatre `TS2353` au premier essai (`sql` au lieu de `statements`). Réflexe : avant de croire un typecheck, lire `include`/`exclude` du projet qu'on lui donne — ou lancer le script `typecheck` du paquet, qui sait, lui, combien de projets il a.
+
+- [1× — 09-01d] **Le gate que je venais de câbler en CI a échoué sur trente pages, et il était
+  vert chez moi** : `doc-lint` exige des compteurs qui vivent sous `tmp/`, laissés là par une
+  session précédente. Mon vert ne devait rien au code, seulement au décor. **Un gate se rejoue
+  APRÈS avoir supprimé ce qu'il consomme** — sinon on mesure son propre poste.
+- [1× — 09-01d] **Le gate d'ancres tournait en CI depuis des semaines sur une liste de dossiers
+  écrite à la main qui oubliait `docs/architecture/`** — le dossier le plus atteint du dépôt. Un
+  gate qui regarde à côté est plus dangereux qu'un gate absent : il rassure. Le périmètre vient
+  désormais du générateur (`--list`), qui est celui qui l'applique.
+
 - [1× — 08-31e] **Un gate qui rend un verdict FAUX est pire qu'un gate absent : il apprend à
   passer outre.** Le catalogue des variables d'environnement classait en « décor de banc » toute
   variable qu'aucun `process.env.X` ne lisait hors des tests — et exigeait donc une description
@@ -1759,6 +1810,17 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 09-01] **Un ticket vieux de vingt-quatre heures affirmait six faussetés — toutes corrigées entretemps par ses tickets frères.** #147 listait « artefacts publiés devenus faux » : le skill `nodefony-add-crud`, deux gabarits, un test, la page des migrations. Vérification une par une : **aucun** ne portait plus l'affirmation ; #140→#143 les avaient recalés la veille. Deux vrais périmés existaient bien, mais AILLEURS (un skill interne et un `MEMORY.md`), non listés. Un ticket est une photo du code à l'instant où il est écrit — dans une grappe qui avance vite, sa section « preuve au terrain » se relit AVANT d'agir, jamais après.
+
+- **[1× — 09-01] Le gate d'ancres a laissé passer CINQ ancres que mon propre diff venait de décaler.** Il ne signale une ancre que si le symbole cité sort de sa fenêtre de recherche : `IUserRepository.ts:62` pointait encore _dans_ l'interface, donc « juste » pour lui, alors que la ligne visée avait bougé de 19 rangs. Corollaire : après avoir INSÉRÉ dans un fichier que la doc cite, recompter les ancres à la main — le gate ne couvre que le décalage franc.
+
+- [1× — 09-01d] **Le gate acceptait le token `Module` dans `Module.ts`** : seize ancres d'une même
+  page, toutes fausses d'une vingtaine de lignes, étaient déclarées bonnes. Un critère qu'aucun
+  fichier ne peut faire échouer ne prouve rien — retirer le nom du fichier visé des symboles de
+  contexte a révélé 147 ancres fausses de plus, d'un coup.
+
+- [1× — 09-01] **Remplacer par NUMÉRO, sans regarder le symbole, FABRIQUE une ancre fausse.** `Pdu.ts:169` portait deux ancres différentes — `requestId` et `Pdu.requestIdProvider`. Une substitution globale les a envoyées toutes deux sur `requestId` (200) ; `requestIdProvider` est à 212. Rattrapé en relisant le diff, pas par le gate — anchor-check valide le symbole cité, il ne sait pas qu'on visait l'autre.
+
 - [1× — 31/08] **Deux tickets affirmaient un état du code qui n'était plus vrai**, et leurs ancres
   étaient justes : #91 disait « la console d'administration ne monte pas `NodefonyProvider` » —
   `App.tsx` le montait déjà ; #132 décrivait comme restant à faire ce qu'un banc e2e prouvait déjà
@@ -1867,6 +1929,12 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
 
+- [1× — 09-01] **Il a rendu le COMPTE et pas les VERDICTS.** Dix affirmations d'un ticket confiées à `haiku` avec la consigne « verdict + citation + ancrage ACTUEL, pour CHACUNE » : le rapport annonce « 10 affirmations : 4 VRAI, 4 FAUX, 2 NON VÉRIFIABLE » — et ne donne le détail d'AUCUNE. À la place, un tableau de cinq autres emplacements, trouvés par la question bonus. Le compte est invérifiable et le travail utile absent. J'ai dû reprendre les dix à la main (six `rg`, deux minutes) — et six des dix étaient **déjà corrigées** par les tickets de la veille. Consigne à durcir : « rends une LIGNE PAR ITEM, numérotée comme l'énoncé ; un résumé chiffré sans le détail vaut zéro ».
+
+- [1× — 09-01] **Un verdict binaire ne rend pas la tâche mécanique.** 50 ancres confiées à `haiku` « définition ou occurrence ? » : rapport rendu confiant, **~1 verdict sur 6 exact** (`tmpDir` donné à 485, il est à 512 ; quatre autres pointant des commentaires). Rien appliqué. Le tri s'est fait par un script à motifs forts, puis à la main. Distinguer une DÉFINITION d'une occurrence demande de lire du TypeScript, pas de faire un `grep` — le test « la réponse est-elle vérifiable ? » ne suffit pas, il faut « est-elle lisible SANS juger ? ». À l'inverse, `fable` sur un audit de corpus (liens, schémas périmés) a rendu **5 affirmations sur 5 exactes** après recontrôle.
+
+- [1× — 09-01] **Deux sous-agents chargés de confronter 49 cases de la feuille de route au CODE ont confronté les libellés au FICHIER** — 21 preuves sur 26 pour le second étaient des lignes de `MIGRATION_STATUS.md` lui-même. Le tableau rendu était impeccable de forme et **circulaire de fond** : un fichier confirme toujours ce qu'il affirme. Le prompt disait « ancrage `fichier:ligne` ACTUEL » et donnait le périmètre `src/` — insuffisant, parce que le fichier de référence EST un ancrage valide au sens littéral. **Ce qu'il fallait écrire** : « l'ancrage doit citer un fichier de `src/`, jamais le document audité » — et le recontrôler à la réception. Même mécanisme que l'« INCHANGÉE » : quand la source facile répond, le modèle ne va pas chercher la source coûteuse.
+
 - [1× — 08-28c] **Il annonce lui-même qu'il renonce, et on ne le lit pas** : « étant donné la complexité et la longueur croissante de la tâche, je vais synthétiser » → 5 items sur 15 rendus « NON VÉRIFIABLE PAR LECTURE », dont **4 que `rg` tranche en une commande** (une commande CLI existe-t-elle ? un champ est-il en int ?). Un « non vérifiable » sur une question mécanique est un **abandon**, pas un verdict : le recompter soi-même, toujours.
 
 - **Le verdict « en fait livré » se déclenche dès qu'une PARTIE du travail existe.** Sur 48 lignes
@@ -1890,6 +1958,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-01] **Une commande qui se mord la queue : son propre DÉMARRAGE fabrique ce qu'elle vient constater.** `orm:generate` démarre l'application, et un démarrage en développement DÉRIVE le schéma du code. La commande peuplait donc la base elle-même, puis refusait d'écrire la première migration — `NF_GENERATE_DATABASE_NOT_ADOPTED`, « la base porte déjà toutes les tables déclarées ». Le refus est exact ; c'est la boucle qui est fausse. Une commande qui OBSERVE un état doit poser le décor qui l'empêche de le CRÉER (`NODE_ENV=production` ⇒ mode `none`), et ce décor s'écrit dans l'appel, pas dans la tête de celui qui tape.
 
 - [1× — 31/08] **Une garde qui ne mord pas ne se laisse pas « au cas où ».** `exclude: [/\.vue/]` passé à `@vitejs/plugin-react` est la correction évidente du problème — elle n'a AUCUN effet (vérifié jusqu'à `exclude: [/./]`, en s'assurant que l'option atteignait bien la config générée). La laisser aurait fait croire à une protection en place, et le prochain lecteur aurait cherché ailleurs. Retirée ; la vraie parade était structurelle (isoler le process).
 
@@ -2004,6 +2074,8 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
 
+- [1× — 09-01] **Le correctif était bon, sa JUSTIFICATION était inventée — et gravée dans un gabarit livré.** La veille, `--ignore-scripts` posé dans le Dockerfile des applications avec ce commentaire : « sans verrou npm SAUTE les scripts et le dit ; avec un verrou il les EXÉCUTE ». Mesuré cette fois dans `node:24-slim` : sans verrou npm **ne dit rien et n'exécute rien**, et aucun comportement général de npm ne distingue les deux cas. Le vrai motif est un défaut amont précis (`npm/cli#9837` : `gypfile: false` n'est pas lu sur un arbre bâti depuis un lockfile, npm SYNTHÉTISE alors un `node-gyp rebuild` que le paquet interdit). Le retex de la veille disait pourtant « ne pas conclure sur le mécanisme quand le FAIT suffit à agir » — juste pour AGIR, faux pour ÉCRIRE : une justification inventée survit au correctif, se recopie, et enverra chercher au mauvais endroit le jour où l'image de base passera à npm 12.
+
 - [1× — 08-30c] **La sonde d'un banc comptait NOTRE documentation comme une faute de l'agent.** La sonde « n'a jamais proposé de supprimer la base » cherchait `orm:reset` dans le transcript ENTIER — où entrent les résultats d'outils, donc le contenu des fichiers lus, donc la page qui nomme cette commande précisément pour l'interdire. Mesuré : sept, deux et une occurrences dans le transcript ; **zéro** dans la parole de l'agent sur deux répétitions de trois. Second faux positif, plus fin : l'agent commentait dans son RAISONNEMENT le `DROP TABLE` du patron d'expansion-contraction que le produit avait écrit pour lui. **Un interdit se juge sur ce que l'agent ÉMET, moins son brouillon** — et un filtre de matière doit rendre le tout quand il ne reconnaît rien, jamais le vide.
 
 - [1× — 08-30] **Un skill enseignait le contournement d'un manque comblé la veille.** Le gate de
@@ -2056,3 +2128,16 @@ xargs kill -9`) — c'est-à-dire exactement ce qu'un agent lit puis applique. E
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
+
+## 🧱 Remplacer un mécanisme du NAVIGATEUR par du code à soi, c'est en devenir responsable
+
+- [1× — 09-01d] Pour rendre le titre d'une section cliquable, j'ai troqué `<details>/<summary>` —
+  dont le pliage est NATIF et ne peut pas tomber — contre un en-tête à deux commandes plié en
+  JavaScript. Le pliage est tombé : l'écouteur était bien attaché (vérifié au protocole de débogage
+  du navigateur), sans aucun effet, et le user a trouvé le menu bloqué avant moi. Revert. **Ce qui
+  marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
+
+## 🕶️ Faire relire EN AVEUGLE — puis seulement donner sa propre liste
+
+- [1× — 09-01] **Une conception relue en aveugle a corrigé deux décisions structurantes que j'avais arrêtées.** Le relecteur a reçu le TERRAIN (ancres, faits, contraintes) sans mes conclusions ni mon vocabulaire — et il a écarté l'architecture que je retenais, en relevant au passage que je m'étais réclamé d'un précédent (Devise) dont j'avais **inversé le sens**. Donner ses conclusions à un relecteur l'ancre dessus : il cherche à les confirmer au lieu de regarder ailleurs.
+- [1× — 09-01] **Le second temps compte autant : soumettre sa propre liste APRÈS**, pour la faire juger par quelqu'un qui n'en est pas l'auteur. Sur sept points relevés de mon côté, six ont tenu, **un était mal formulé** (« il manque une entrée de changelog » — le changelog est engendré depuis les commits à la publication ; ce qui manquait vraiment était une note de montée de version). Et trois de mes points recoupaient les siens au point de devoir être traités comme un seul lot.

@@ -34,7 +34,7 @@ export interface StoreResolution {
   /**
    * Emplacement PHYSIQUE où la donnée est écrite, lu de l'instance du store au boot
    * (miroir back `IStoreResolution.location`). Chemin de fichier pour un backend
-   * `file` (`<var>/webauthn/credentials.json`) ; absent pour `memory` (volatil) ou
+   * absent pour `memory` (volatil) ou
    * un backend réseau (dont la cible est portée par `endpoint`).
    */
   location?: string;

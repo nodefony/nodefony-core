@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { besoinDeShell } from "./execPortable";
 import { SysExit } from "./sysexits";
@@ -533,6 +533,119 @@ function runBuild(dest: string): boolean {
 }
 
 /**
+ * Le paquet qui porte les migrations SQL.
+ *
+ * Nommé UNE seule fois : deux endroits demandent « cette application a-t-elle
+ * un ORM ? » — celui qui ÉCRIT la migration, et celui qui l'ANNONCE quand elle
+ * n'a pas pu l'être. Écrit deux fois, il divergerait au premier renommage.
+ */
+const PAQUET_ORM = "@nodefony/drizzle";
+
+/**
+ * L'application générée DÉCLARE-t-elle un ORM SQL ?
+ *
+ * Se lit dans le MANIFESTE, jamais dans `node_modules` : la question se pose
+ * précisément quand rien n'est installé — `--no-install`, ou un build en
+ * échec. C'est là que la migration manque, et c'est là que personne ne le
+ * disait.
+ *
+ * @param dest - racine de l'application générée.
+ * @returns `true` si le manifeste déclare le paquet d'ORM.
+ */
+function appDeclareUnOrm(dest: string): boolean {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(dest, "package.json"), "utf8"),
+    ) as { dependencies?: Record<string, string> };
+    return pkg.dependencies?.[PAQUET_ORM] !== undefined;
+  } catch {
+    // Un manifeste illisible n'est pas une application sans ORM : c'est une
+    // application cassée, que les gardes amont ont déjà signalée. Ne rien
+    // annoncer plutôt qu'annoncer faux.
+    return false;
+  }
+}
+
+/**
+ * Écrit la PREMIÈRE migration de l'application — celle de son entité `User`.
+ *
+ * ## Pourquoi une application doit naître avec sa migration
+ *
+ * L'identité appartient à l'application : c'est elle qui déclare la table
+ * `User`, donc elle qui en porte la migration. En développement, le schéma est
+ * dérivé du code et rien ne manque — c'est en PRODUCTION que le trou apparaît,
+ * là où personne ne crée la table : le premier déploiement s'arrête sur
+ * « table absente : User », pour un geste que rien n'imposait. Livrer l'entité
+ * sans sa migration, c'est livrer la moitié qui se voit.
+ *
+ * ## Pourquoi la migration est GÉNÉRÉE, jamais recopiée dans un gabarit
+ *
+ * Un gabarit SQL figé dirait ce que l'entité disait le jour où on l'a écrit. Le
+ * générateur, lui, lit l'entité qui vient d'être rendue — avec le dialecte figé
+ * à la création, et les champs que l'utilisateur a demandés. Une source unique,
+ * celle qui écrira aussi les migrations suivantes.
+ *
+ * ## Quand elle ne peut pas être écrite
+ *
+ * La commande démarre l'application, et le démarrage OUVRE la connexion : sans
+ * base joignable, elle s'arrête avant d'exécuter le verbe. C'est le cas d'un
+ * profil qui déclare un serveur qui n'existe pas encore. L'échec est alors DIT,
+ * avec le geste exact — jamais avalé : une application qui croit avoir sa
+ * migration et ne l'a pas est exactement le défaut qu'on répare ici.
+ *
+ * @param dest - racine de l'application générée.
+ * @returns le verdict et sa ligne d'affichage, ou `null` si l'application n'a
+ *          pas d'ORM. Le booléen n'est pas décoratif : c'est lui qui décide si
+ *          les prochaines étapes doivent réclamer le geste — le lire dans le
+ *          texte de la note le rendrait dépendant de sa formulation.
+ */
+function runInitialMigration(
+  dest: string,
+): { ecrite: boolean; note: string } | null {
+  // Ici on va EXÉCUTER : c'est donc l'installation qu'on constate, pas la
+  // déclaration. Le manifeste dit l'intention, `node_modules` dit le moyen.
+  if (!existsSync(path.join(dest, "node_modules", PAQUET_ORM))) {
+    // Pas d'ORM SQL dans cette application : il n'y a pas de migration à écrire.
+    return null;
+  }
+  process.stdout.write(`\n⏳ migration initiale (orm:generate)…\n`);
+  const r = spawnSync(
+    "npm",
+    ["exec", "--", "nodefony", "orm:generate", "--name", "init"],
+    {
+      cwd: dest,
+      encoding: "utf8",
+      shell: besoinDeShell("npm"),
+      // 🔴 Le décor MINIMAL sans lequel la commande se mord la queue. Elle
+      // démarre l'application, et un démarrage en développement DÉRIVE le
+      // schéma du code : la base se retrouve peuplée par la commande
+      // elle-même, qui refuse alors d'écrire une première migration puisque
+      // « la base porte déjà toutes les tables déclarées » (constaté).
+      // `production` donne le mode `none` : le démarrage ne fabrique rien.
+      // `NF_STORE=memory` empêche le démarrage de LIRE une base qui n'a pas
+      // encore sa table — le provisionnement d'un annuaire y mourrait avant
+      // que le verbe ne s'exécute.
+      env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+    },
+  );
+  if (r.status === 0) {
+    return { ecrite: true, note: "écrite (migrations/)" };
+  }
+  // Le motif court, pris sur ce que le processus a VRAIMENT dit : un message
+  // inventé ici enverrait chercher la panne ailleurs.
+  const sortie = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  const motif = sortie.includes("ECONNREFUSED")
+    ? "base injoignable"
+    : `code ${String(r.status)}`;
+  return {
+    ecrite: false,
+    note:
+      `NON écrite (${motif}) — lance « nodefony orm:generate --name init » ` +
+      `puis « nodefony orm:migrate » quand ta base répond`,
+  };
+}
+
+/**
  * Pose les pointeurs vers les skills d'agent livrés par les paquets installés.
  *
  * **Pourquoi ici, et pas par un `postinstall`** : `--ignore-scripts` est courant
@@ -1018,6 +1131,17 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `⚠ npm run build a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
+  // AVANT git : la migration entre dans le commit initial, comme le lockfile —
+  // c'est un artefact de l'application, pas un produit de build. Elle suit le
+  // build : la commande démarre l'application, qui charge `dist/`.
+  let migrationEcrite = false;
+  if (built) {
+    const migration = runInitialMigration(result.dest);
+    if (migration !== null) {
+      migrationEcrite = migration.ecrite;
+      process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
+    }
+  }
   // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
   process.stdout.write(
     `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
@@ -1073,6 +1197,18 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       (built ? "" : `  npm run build\n`) +
       (needsInfra
         ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
+        : "") +
+      // La migration de la table `User` : l'application la DÉCLARE, et sans
+      // elle rien ne la crée en production, où le schéma appartient aux
+      // migrations. `create app` l'écrit lui-même quand il a pu installer et
+      // bâtir ; quand il ne l'a pas pu (`--no-install`, build en échec), le
+      // geste doit être DIT — une application qui croit avoir sa migration et
+      // ne l'a pas se découvre au premier déploiement, sur « table absente ».
+      // Après `infra:up` : la commande démarre l'application, donc ouvre la
+      // connexion — sans base joignable elle meurt avant d'écrire quoi que ce
+      // soit.
+      (!migrationEcrite && appDeclareUnOrm(result.dest)
+        ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n`
         : "") +
       // La console d'administration n'existe QUE si le préset l'a installée, et
       // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre

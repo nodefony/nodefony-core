@@ -1,5 +1,6 @@
 ---
 title: "Lexique sécurité — sigles & termes expliqués"
+navTitle: Lexique sécurité
 lang: fr
 module: "@nodefony/security"
 topic: lexique-securite

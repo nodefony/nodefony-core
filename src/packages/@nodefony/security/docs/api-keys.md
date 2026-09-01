@@ -1,5 +1,6 @@
 ---
 title: "Clés d'API — jetons opaques révocables pour les machines"
+navTitle: Clés d'API
 lang: fr
 module: "@nodefony/security"
 topic: api-keys
@@ -526,7 +527,7 @@ Deux axes se combinent, et les confondre est l'erreur la plus fréquente :
 
 Une clé ne peut donc **jamais** dépasser son porteur : elle en est une restriction, pas une
 extension. Concrètement, `@RequireScope("orders:read")` sur une action est tranché par le
-`ScopeVoter`, dont la règle est asymétrique (`ScopeVoter.ts:50`) :
+`ScopeVoter`, dont la règle est asymétrique (`ScopeVoter.ts:44`) :
 
 - un jeton **humain** (session, mot de passe, anonyme) n'est jamais bridé par un scope — la liste
   `NON_SCOPABLE_TOKEN_TYPES` (`ScopeVoter.ts:17`) le fait passer ; ce sont ses **rôles** qui décident ;
