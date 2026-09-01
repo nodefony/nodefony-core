@@ -31,11 +31,20 @@ COPY . ./
 #
 # 🔴 `--ignore-scripts` n'est PAS une précaution de confort — sans lui, cette
 # image ne se construit pas dès que le dépôt porte un `package-lock.json`,
-# c'est-à-dire dès le premier `npm install` du développeur. Mesuré : au premier
-# install (sans lock) npm SAUTE les scripts d'installation et le dit
-# (« install scripts not yet covered by allowScripts ») ; avec un lock, il les
-# EXÉCUTE — et `node-gyp rebuild` de `better-sqlite3` échoue ici, faute de
-# Python et de chaîne de compilation dans `node:*-slim`.
+# c'est-à-dire dès le premier `npm install` du développeur. La cause est un
+# défaut de npm, ouvert en amont : `npm/cli#9837`, dont le correctif proposé
+# est `npm/cli#9859`. `better-sqlite3` (tiré par `@nodefony/drizzle`)
+# embarque ses binaires prébâtis et pose `gypfile: false` pour interdire à npm
+# de SYNTHÉTISER un `install: node-gyp rebuild` à la vue de son `binding.gyp`.
+# Or ce refus n'est lu que sur un arbre bâti depuis le registre : un nœud venu
+# d'un LOCKFILE ne porte pas le champ, donc npm invente le script — et le
+# paquet se fait recompiler contre sa volonté.
+#
+# Mesuré dans `node:24-slim` : SANS verrou, aucun script et aucun message ;
+# AVEC verrou, npm 11.16 exécute `node-gyp rebuild`, qui meurt faute de Python
+# et de chaîne de compilation. npm 12 le refuserait — sa politique
+# `allowScripts` BLOQUE un script non approuvé, là où celle de npm 11 se
+# contente d'avertir — mais c'est npm 11.16 que `node:24-slim` embarque.
 #
 # Le sauter est de toute façon ce qu'il faut faire : les paquets natifs d'une
 # application Nodefony embarquent leurs binaires prébâtis (vérifié —

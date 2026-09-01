@@ -168,9 +168,11 @@ process.exit(pkg.dependencies?.["@nodefony/drizzle"] ? 0 : 1);
 
   # Le lockfile RESTE, et c'est le propos : il est ce qu'un développeur commite
   # après son premier `npm install`, et c'est LUI qui a révélé que l'image ne se
-  # construisait plus dès qu'il existe — npm exécute alors les scripts
-  # d'installation qu'il saute au premier install, et `node-gyp` échoue dans
-  # `node:*-slim`. Le gabarit installe donc en `--ignore-scripts` ; ce banc est
+  # construisait plus dès qu'il existe. Un arbre bâti depuis un lockfile perd le
+  # `gypfile: false` par lequel `better-sqlite3` interdit la recompilation, donc
+  # npm SYNTHÉTISE un `node-gyp rebuild` qui meurt faute de Python dans
+  # `node:*-slim` (défaut npm amont `npm/cli#9837`, correctif proposé en
+  # `npm/cli#9859`). Le gabarit installe donc en `--ignore-scripts` ; ce banc est
   # le seul endroit qui l'éprouve, parce qu'il est le seul à construire l'image
   # d'une application qui a un lockfile.
   [ -f "$dir/package-lock.json" ] || fail "npm install n a pas écrit de package-lock.json"
