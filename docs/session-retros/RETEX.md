@@ -1166,6 +1166,14 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 09-01d] **Un build échoué en SILENCE m'a fait mesurer trois fois la page précédente.** Des
+  backticks dans un commentaire CSS, à l'intérieur d'un gabarit JavaScript : `node build.mjs
+
+  > /dev/null 2>&1` avale l'erreur, le fichier de sortie reste celui d'avant, et l'écran mesuré est
+  > l'ancien. J'ai conclu « le correctif ne change rien », puis « le log n'apparaît pas donc la
+  > fonction n'est pas appelée » — deux verdicts faux tirés du même artefact périmé. **Ne jamais
+  > rediriger la sortie d'un build dont on va mesurer le produit.**
+
 - [1× — 09-01] **Le décor local ment sur un contrôle de liens.** `check-site-links` accusait `index.html → performance/`. Faux : la forge construit `/performance/` par une étape (`build-perf-site.mjs`) que le build local ne lance pas. La preuve n'a de valeur qu'en rejouant la chaîne ENTIÈRE de `pages.yml`. Même famille que le flake mémoire de la veille (watcher local vs `--no-watch` en CI) : **le poste diverge de la forge, et c'est le poste qui ment**.
 
 - [1× — 09-01] **Le harnais a REFUSÉ ma commande (un `cd` relatif), et j'ai failli lire le résultat comme un verdict.** Le refus portait sur toute la commande — patch `python3` compris — mais la commande SUIVANTE a rendu « 6 tests passés ». Ces 6 verts ne disaient rien du correctif, qui n'était pas dans le fichier. Un `grep` de l'ancre l'a montré. **Règle : après un refus d'outil, la première chose à vérifier n'est pas le test, c'est que l'ÉDITION a eu lieu.**
@@ -1568,6 +1576,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-01d] **Le gate que je venais de câbler en CI a échoué sur trente pages, et il était
+  vert chez moi** : `doc-lint` exige des compteurs qui vivent sous `tmp/`, laissés là par une
+  session précédente. Mon vert ne devait rien au code, seulement au décor. **Un gate se rejoue
+  APRÈS avoir supprimé ce qu'il consomme** — sinon on mesure son propre poste.
+- [1× — 09-01d] **Le gate d'ancres tournait en CI depuis des semaines sur une liste de dossiers
+  écrite à la main qui oubliait `docs/architecture/`** — le dossier le plus atteint du dépôt. Un
+  gate qui regarde à côté est plus dangereux qu'un gate absent : il rassure. Le périmètre vient
+  désormais du générateur (`--list`), qui est celui qui l'applique.
+
 - [1× — 08-31e] **Un gate qui rend un verdict FAUX est pire qu'un gate absent : il apprend à
   passer outre.** Le catalogue des variables d'environnement classait en « décor de banc » toute
   variable qu'aucun `process.env.X` ne lisait hors des tests — et exigeait donc une description
@@ -1769,6 +1786,11 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 09-01d] **Le gate acceptait le token `Module` dans `Module.ts`** : seize ancres d'une même
+  page, toutes fausses d'une vingtaine de lignes, étaient déclarées bonnes. Un critère qu'aucun
+  fichier ne peut faire échouer ne prouve rien — retirer le nom du fichier visé des symboles de
+  contexte a révélé 147 ancres fausses de plus, d'un coup.
 
 - [1× — 09-01] **Remplacer par NUMÉRO, sans regarder le symbole, FABRIQUE une ancre fausse.** `Pdu.ts:169` portait deux ancres différentes — `requestId` et `Pdu.requestIdProvider`. Une substitution globale les a envoyées toutes deux sur `requestId` (200) ; `requestIdProvider` est à 212. Rattrapé en relisant le diff, pas par le gate — anchor-check valide le symbole cité, il ne sait pas qu'on visait l'autre.
 
@@ -2073,3 +2095,11 @@ xargs kill -9`) — c'est-à-dire exactement ce qu'un agent lit puis applique. E
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
+
+## 🧱 Remplacer un mécanisme du NAVIGATEUR par du code à soi, c'est en devenir responsable
+
+- [1× — 09-01d] Pour rendre le titre d'une section cliquable, j'ai troqué `<details>/<summary>` —
+  dont le pliage est NATIF et ne peut pas tomber — contre un en-tête à deux commandes plié en
+  JavaScript. Le pliage est tombé : l'écouteur était bien attaché (vérifié au protocole de débogage
+  du navigateur), sans aucun effet, et le user a trouvé le menu bloqué avant moi. Revert. **Ce qui
+  marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
