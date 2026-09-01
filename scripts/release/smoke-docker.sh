@@ -108,6 +108,75 @@ process.stdout.write("deps réécrites : " + n + "\n");
 ' "$dir" || fail "réécriture des dépendances"
 }
 
+# Joue, CÔTÉ HÔTE, ce que le produit prescrit à qui a généré son application
+# sans installation — les trois lignes que `create app --no-install` affiche
+# désormais sous « Prochaines étapes » : installer, bâtir, écrire la première
+# migration. Le banc n'invente donc aucune séquence : il EXÉCUTE la
+# documentation, et échoue si elle ment.
+#
+# Pourquoi ce détour au lieu de laisser `create app` s'en charger : le banc
+# scaffolde en `--no-install` exprès, parce que les dépendances doivent venir
+# des tarballs et jamais du dépôt. Sans installation, pas de build ; sans build,
+# pas de migration — et le scénario s'arrêtait sur « table absente : User ».
+#
+# 🔴 Et on ne peut PAS la générer plus tard, dans le conteneur : `drizzle-kit`
+# est une dépendance de DÉVELOPPEMENT, l'image installe en `--omit=dev`, et le
+# produit refuse proprement (`NF_GENERATE_TOOL_MISSING`). C'est juste :
+# APPLIQUER une migration ne réclame aucun outil tiers, seul l'ÉCRIRE en
+# demande un. La migration s'écrit au développement et voyage dans le dépôt.
+#
+# Le coût — une installation et un build par scénario concerné — n'est payé que
+# par les applications qui ont un ORM, et cela se CONSTATE dans le manifeste
+# généré : le déduire du nom du préset ferait mentir le banc le jour où un
+# préset change de contenu.
+write_initial_migration() { # dir
+  local dir="$1"
+  node -e '
+const pkg = require(process.argv[1] + "/package.json");
+process.exit(pkg.dependencies?.["@nodefony/drizzle"] ? 0 : 1);
+' "$dir" 2>/dev/null || { ok "pas d ORM déclaré — aucune migration à écrire"; return 0; }
+
+  # Les journaux vont dans $WORK, jamais dans l'application : tout ce qui vit
+  # sous `$dir` entre dans le contexte de construction de l'image, et
+  # `.dockerignore` ne connaît pas ces fichiers-là.
+  (cd "$dir" && npm install --no-audit --no-fund) > "$WORK/.host-install.out" 2>&1 \
+    || { tail -30 "$WORK/.host-install.out"; fail "npm install côté hôte (deps → tarballs)"; }
+  ok "dépendances installées côté hôte (avec les devDeps : drizzle-kit présent)"
+
+  # La commande démarre l'application, qui charge `dist/` : sans build, elle
+  # n'a rien à lire.
+  (cd "$dir" && npm run build) > "$WORK/.host-build.out" 2>&1 \
+    || { tail -30 "$WORK/.host-build.out"; fail "npm run build côté hôte"; }
+  ok "application bâtie côté hôte"
+
+  # 🔴 Le décor sans lequel la commande se mord la queue : elle démarre
+  # l'application, et un démarrage en DÉVELOPPEMENT dérive le schéma du code —
+  # la base se retrouve peuplée par la commande elle-même, qui refuse alors
+  # d'écrire une première migration (`NF_GENERATE_DATABASE_NOT_ADOPTED`).
+  # `production` donne le mode `none` ; `NF_STORE=memory` empêche le démarrage
+  # de lire une table qui n'existe pas encore.
+  (cd "$dir" && NODE_ENV=production NF_STORE=memory \
+    npx nodefony orm:generate --name init) > "$WORK/.host-generate.out" 2>&1 \
+    || { tail -30 "$WORK/.host-generate.out"; fail "nodefony orm:generate --name init"; }
+
+  # Un code de sortie 0 ne prouve pas qu'un fichier a été écrit. C'est
+  # l'ARTEFACT qui est la preuve — et c'est lui qui voyagera dans l'image.
+  local n
+  n=$(find "$dir/migrations" -name '*.sql' 2>/dev/null | wc -l | tr -d ' ')
+  [ "$n" -ge 1 ] || { tail -20 "$WORK/.host-generate.out"; fail "orm:generate sorti en 0 sans écrire de .sql dans migrations/"; }
+  ok "migration initiale écrite ($n fichier(s) .sql) — elle entrera dans l image"
+
+  # Le lockfile RESTE, et c'est le propos : il est ce qu'un développeur commite
+  # après son premier `npm install`, et c'est LUI qui a révélé que l'image ne se
+  # construisait plus dès qu'il existe — npm exécute alors les scripts
+  # d'installation qu'il saute au premier install, et `node-gyp` échoue dans
+  # `node:*-slim`. Le gabarit installe donc en `--ignore-scripts` ; ce banc est
+  # le seul endroit qui l'éprouve, parce qu'il est le seul à construire l'image
+  # d'une application qui a un lockfile.
+  [ -f "$dir/package-lock.json" ] || fail "npm install n a pas écrit de package-lock.json"
+  ok "package-lock.json présent — l image sera construite AVEC, comme chez l utilisateur"
+}
+
 build_image() { # dir tag
   docker build -t "$2" "$1" || fail "docker build ($2)"
   ok "image $2 construite (npm install vierge depuis les tarballs)"
@@ -492,8 +561,9 @@ process.stdout.write("studio → mandatory\n");
 ' "$SAPP" || fail "bascule de la policy Studio"
   ok "Studio passé en mandatory (ui: static déjà posé par le gabarit)"
 
-  step "[studio] deps + image"
+  step "[studio] deps + migration initiale + image"
   rewrite_deps "$SAPP"
+  write_initial_migration "$SAPP"
   build_image "$SAPP" "$SIMG"
 
   step "[studio] run — l'UI publiée est-elle servie ?"

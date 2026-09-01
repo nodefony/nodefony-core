@@ -284,8 +284,19 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           mkdir -p /tmp/vitrine && cd /tmp/vitrine
+          # L'installation N'EST PLUS sautée, et ce n'est pas du confort : sans
+          # elle, pas de build, donc pas de première migration — la vitrine
+          # partirait avec une entité `User` que rien ne crée en production.
+          # Ce job dépend de `publier` : les paquets sont sur le registre.
           node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app nodefony \
-            --preset complete --yes --no-install --no-git
+            --preset complete --yes --no-git
+          # Le produit ANNONCE quand il n'a pas pu écrire la migration ; la
+          # forge, elle, REFUSE — une vitrine que personne ne peut déployer est
+          # pire qu'une vitrine absente, et rien d'autre ne le verrait.
+          test -n "$(find nodefony/migrations -name '*.sql' 2>/dev/null)" || {
+            echo "::error::la vitrine n'a pas de migration : elle ne se déploierait pas sur une base vierge"
+            exit 1
+          }
 
       - name: Pousser la vitrine
         env:
@@ -330,9 +341,17 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           mkdir -p /tmp/image && cd /tmp/image
+          # Installation NON sautée : c'est elle qui permet le build, donc la
+          # première migration. Sans elle, l'image officielle démarrerait sur
+          # une base vierge et resterait en 503 — « table absente : User » —
+          # sans que rien dans cette chaîne ne s'en aperçoive.
           node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app demo \
-            --preset complete --yes --no-install --no-git
+            --preset complete --yes --no-git
           test -f demo/Dockerfile || { echo "::error::pas de Dockerfile généré"; exit 1; }
+          test -n "$(find demo/migrations -name '*.sql' 2>/dev/null)" || {
+            echo "::error::pas de migration générée : l'image ne démarrerait pas sur une base vierge"
+            exit 1
+          }
           # Forme EXEC obligatoire : `node` doit être PID 1 pour recevoir le
           # SIGTERM. En forme shell, `/bin/sh` est PID 1, ne transmet pas les
           # signaux, et l'arrêt gracieux disparaît SANS la moindre erreur.

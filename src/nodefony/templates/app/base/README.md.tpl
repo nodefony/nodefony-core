@@ -213,6 +213,19 @@ un champ facultatif ajouté est posé au boot suivant. Rien de tout cela n'a lie
 en production — le schéma s'y applique par des **migrations**, avant que le
 premier exemplaire ne démarre.
 
+Cette application **naît avec sa première migration**, sous `migrations/` : celle
+qui crée sa table `User`. Elle est écrite à la création et entre dans le premier
+commit, comme le lockfile — le schéma appartient au dépôt, jamais au
+déploiement. Deux conséquences pratiques :
+
+- **Si l'application a été créée sans installation** (`--no-install`, ou un build
+  en échec), la migration n'a pas pu être écrite : lance
+  `npx nodefony orm:generate --name init` avant ton premier déploiement, sinon
+  rien ne créera la table et les exemplaires resteront en 503.
+- **On n'écrit pas de migration en production** : `drizzle-kit` est une
+  dépendance de développement, absente de l'image. Générer se fait ici,
+  appliquer se fait là-bas.
+
 ```bash
 npx nodefony orm:generate            # écrit les migrations des entités modifiées
 npx nodefony orm:migrate --dry-run   # ce qui serait appliqué, sans rien écrire

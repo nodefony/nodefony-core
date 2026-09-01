@@ -533,6 +533,40 @@ function runBuild(dest: string): boolean {
 }
 
 /**
+ * Le paquet qui porte les migrations SQL.
+ *
+ * Nommé UNE seule fois : deux endroits demandent « cette application a-t-elle
+ * un ORM ? » — celui qui ÉCRIT la migration, et celui qui l'ANNONCE quand elle
+ * n'a pas pu l'être. Écrit deux fois, il divergerait au premier renommage.
+ */
+const PAQUET_ORM = "@nodefony/drizzle";
+
+/**
+ * L'application générée DÉCLARE-t-elle un ORM SQL ?
+ *
+ * Se lit dans le MANIFESTE, jamais dans `node_modules` : la question se pose
+ * précisément quand rien n'est installé — `--no-install`, ou un build en
+ * échec. C'est là que la migration manque, et c'est là que personne ne le
+ * disait.
+ *
+ * @param dest - racine de l'application générée.
+ * @returns `true` si le manifeste déclare le paquet d'ORM.
+ */
+function appDeclareUnOrm(dest: string): boolean {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(dest, "package.json"), "utf8"),
+    ) as { dependencies?: Record<string, string> };
+    return pkg.dependencies?.[PAQUET_ORM] !== undefined;
+  } catch {
+    // Un manifeste illisible n'est pas une application sans ORM : c'est une
+    // application cassée, que les gardes amont ont déjà signalée. Ne rien
+    // annoncer plutôt qu'annoncer faux.
+    return false;
+  }
+}
+
+/**
  * Écrit la PREMIÈRE migration de l'application — celle de son entité `User`.
  *
  * ## Pourquoi une application doit naître avec sa migration
@@ -560,10 +594,17 @@ function runBuild(dest: string): boolean {
  * migration et ne l'a pas est exactement le défaut qu'on répare ici.
  *
  * @param dest - racine de l'application générée.
- * @returns une ligne à afficher, ou `null` si l'application n'a pas d'ORM.
+ * @returns le verdict et sa ligne d'affichage, ou `null` si l'application n'a
+ *          pas d'ORM. Le booléen n'est pas décoratif : c'est lui qui décide si
+ *          les prochaines étapes doivent réclamer le geste — le lire dans le
+ *          texte de la note le rendrait dépendant de sa formulation.
  */
-function runInitialMigration(dest: string): string | null {
-  if (!existsSync(path.join(dest, "node_modules", "@nodefony", "drizzle"))) {
+function runInitialMigration(
+  dest: string,
+): { ecrite: boolean; note: string } | null {
+  // Ici on va EXÉCUTER : c'est donc l'installation qu'on constate, pas la
+  // déclaration. Le manifeste dit l'intention, `node_modules` dit le moyen.
+  if (!existsSync(path.join(dest, "node_modules", PAQUET_ORM))) {
     // Pas d'ORM SQL dans cette application : il n'y a pas de migration à écrire.
     return null;
   }
@@ -588,7 +629,7 @@ function runInitialMigration(dest: string): string | null {
     },
   );
   if (r.status === 0) {
-    return "écrite (migrations/)";
+    return { ecrite: true, note: "écrite (migrations/)" };
   }
   // Le motif court, pris sur ce que le processus a VRAIMENT dit : un message
   // inventé ici enverrait chercher la panne ailleurs.
@@ -596,10 +637,12 @@ function runInitialMigration(dest: string): string | null {
   const motif = sortie.includes("ECONNREFUSED")
     ? "base injoignable"
     : `code ${String(r.status)}`;
-  return (
-    `NON écrite (${motif}) — lance « nodefony orm:generate --name init » ` +
-    `puis « nodefony orm:migrate » quand ta base répond`
-  );
+  return {
+    ecrite: false,
+    note:
+      `NON écrite (${motif}) — lance « nodefony orm:generate --name init » ` +
+      `puis « nodefony orm:migrate » quand ta base répond`,
+  };
 }
 
 /**
@@ -1091,10 +1134,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // AVANT git : la migration entre dans le commit initial, comme le lockfile —
   // c'est un artefact de l'application, pas un produit de build. Elle suit le
   // build : la commande démarre l'application, qui charge `dist/`.
+  let migrationEcrite = false;
   if (built) {
-    const note = runInitialMigration(result.dest);
-    if (note !== null) {
-      process.stdout.write(`\n🗄️ migration initiale : ${note}\n`);
+    const migration = runInitialMigration(result.dest);
+    if (migration !== null) {
+      migrationEcrite = migration.ecrite;
+      process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
     }
   }
   // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
@@ -1152,6 +1197,18 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       (built ? "" : `  npm run build\n`) +
       (needsInfra
         ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
+        : "") +
+      // La migration de la table `User` : l'application la DÉCLARE, et sans
+      // elle rien ne la crée en production, où le schéma appartient aux
+      // migrations. `create app` l'écrit lui-même quand il a pu installer et
+      // bâtir ; quand il ne l'a pas pu (`--no-install`, build en échec), le
+      // geste doit être DIT — une application qui croit avoir sa migration et
+      // ne l'a pas se découvre au premier déploiement, sur « table absente ».
+      // Après `infra:up` : la commande démarre l'application, donc ouvre la
+      // connexion — sans base joignable elle meurt avant d'écrire quoi que ce
+      // soit.
+      (!migrationEcrite && appDeclareUnOrm(result.dest)
+        ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n`
         : "") +
       // La console d'administration n'existe QUE si le préset l'a installée, et
       // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre
