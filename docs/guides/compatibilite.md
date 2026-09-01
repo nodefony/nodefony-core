@@ -5,11 +5,17 @@ module: global
 topic: release
 audience: [human]
 tags: [semver, compatibilité, dépréciation, versions, support, lockstep]
+version: "doc"
 status: stable
+updated: 2026-09-01
+source: "docs/guides/compatibilite.md"
+navTitle: Compatibilité
 related: docs/guides/publier-une-release.md, docs/release/nodefony-10.md, scripts/release/release-core.mjs
 ---
 
 # Compatibilité et dépréciation
+
+📍 [Documentation](../index.md) › [Guides](README.md) › **Compatibilité**
 
 Avant d'adopter une dépendance, on se pose trois questions : **qu'est-ce qui peut casser**, **quand
 on me préviendra**, et **combien de temps l'ancienne version vivra**. Cette page y répond pour
@@ -123,7 +129,47 @@ fatalité de votre côté. [Ouvrez une issue](https://github.com/nodefony/nodefo
 version d'où vous venez, celle où vous allez, et le code qui fonctionnait avant. C'est le retour le
 plus utile que puisse recevoir ce projet.
 
----
+## 📖 Lexique
 
-**Voir aussi** — [Publier une release](publier-une-release.md), la chaîne côté mainteneur et ce
-qu'elle refuse · [Guides](README.md).
+| Terme                         | Ce que c'est                                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Surface publique**          | Ce que le champ `exports` d'un paquet déclare. La garantie porte là-dessus, et sur rien d'autre : un chemin atteint en biais n'est pas public. |
+| **Rupture**                   | Un changement qui casse du code qui marchait. Elle n'est pas que de signature : un code d'erreur qui change ou un défaut inversé en est une.   |
+| **Dépréciation**              | L'annonce qu'une chose disparaîtra. Elle continue de fonctionner à l'identique pendant toute la série majeure.                                 |
+| **Verrouillage** (_lockstep_) | Les quinze paquets sortent ensemble, sur la même version. Vous n'avez donc jamais à croiser deux versions entre elles.                         |
+| **Plancher Node**             | La version minimale de Node exigée (`engines`). La relever casse l'installation de qui n'a pas migré : c'est une majeure.                      |
+
+## ⚠️ Pièges
+
+- **La garantie porte sur `exports`, pas sur ce qui est atteignable.** Un chemin interne accessible
+  parce que rien ne l'interdit techniquement n'est pas public : il peut disparaître dans une
+  version corrective, et ce ne sera pas une rupture.
+- **Une signature inchangée ne veut pas dire un comportement inchangé.** Un code d'erreur, un
+  en-tête retiré, un défaut inversé cassent votre code sans que le typage bouge d'une ligne.
+- **Seule la dernière majeure reçoit des correctifs, sécurité comprise.** Il n'y a pas de
+  rétroportage : ce projet n'a pas les moyens d'une politique qu'il ne tiendrait pas.
+- **Une dépréciation se lit dans votre éditeur, pas dans le changelog.** Elle est portée par le
+  TSDoc, qui traverse le build jusqu'aux types publiés — d'où le nom barré dans l'autocomplétion.
+- **Rien ne vous oblige à monter les quinze paquets en même temps**, mais rien ne garantit qu'un
+  mélange fonctionne : les versions sont conçues, testées et publiées ensemble.
+
+## 🧪 Tests & couverture
+
+Ce qui protège la surface publique est vérifié à chaque exécution — les chiffres exacts vivent dans
+la carte de l'aperçu, jamais figés ici.
+
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires (surface) | `nodefony` `packageDeps.test.ts:38`, `clientSubpathSurface.types.test.ts:164` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe et publie — la règle elle-même vit dans `checkPackageDeps()` (`packageDeps.ts:285`) |
+| Unitaires (client) | `nodefony` `clientSurfaceExercised.test.ts` | les sous-chemins navigateur sont réellement exercés, pas seulement déclarés |
+| Unitaires (chaîne) | `scripts/release/release-core.test.mjs`, `scripts/check-externals.test.mjs` | l'ordre de publication, les métadonnées exigées, les dépendances externalisées |
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
+- 📦 **La chaîne côté mainteneur**, et ce que chaque garde refuse :
+  [publier une release](./publier-une-release.md)
+- ⚙️ **Ce qui se configure sans toucher au code** : [`configuration.md`](./configuration.md)
+- 🐳 **Monter de version en conteneur** : [`docker-cloud-native.md`](./docker-cloud-native.md)
+- 📖 [Lexique général](../lexique.md) du framework.

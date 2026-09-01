@@ -710,5 +710,15 @@
       "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts"
     ]
+  },
+  "release": {
+    "unit": [
+      "src/nodefony/src/tests/packageDeps.test.ts",
+      "src/nodefony/src/tests/clientSubpathSurface.types.test.ts",
+      "src/nodefony/src/tests/clientSurfaceExercised.test.ts",
+      "src/packages/@nodefony/studio/nodefony/tests/unit/packageSurface.test.ts",
+      "scripts/release/release-core.test.mjs",
+      "scripts/check-externals.test.mjs"
+    ]
   }
 }

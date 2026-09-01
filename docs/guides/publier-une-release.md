@@ -5,11 +5,17 @@ module: global
 topic: release
 audience: [human]
 tags: [release, npm, publication, changelog, oidc, smoke]
+version: "doc"
 status: stable
+updated: 2026-09-01
+source: "docs/guides/publier-une-release.md"
+navTitle: Publier une release
 related: scripts/release/, .github/workflows/release.yml, docs/release/nodefony-10.md
 ---
 
 # Publier une release
+
+📍 [Documentation](../index.md) › [Guides](README.md) › **Publier une release**
 
 > Ce que le dépôt exécute pour publier ses quinze paquets, dans quel ordre, ce que chaque garde
 > refuse — et le geste qui reste humain. Le **plan de version** (quoi publier, décisions, état
@@ -277,3 +283,55 @@ un mauvais changelog. La réécriture est le geste humain de la release, et le s
 | Le smoke échoue sur `docker build`          | lire l'étape **nommée** qui a lâché : un scaffold muet envoie chercher la panne dans les tarballs       |
 | `npm whoami` ne montre rien en CI           | attendu : il ne reflète **jamais** une authentification OIDC                                            |
 | Podman : `HEALTHCHECK` disparu de l'image   | Podman construit en OCI, qui ne porte pas cette directive → `podman build --format docker`              |
+
+## 📖 Lexique
+
+| Terme                         | Ce que c'est                                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tarball**                   | L'archive que npm publie et qu'un utilisateur reçoit à l'installation. Elle ne contient pas forcément ce que le dépôt montre.            |
+| **Smoke test**                | Une installation réelle depuis les archives, dans un environnement neuf. C'est la seule preuve qui porte sur l'artefact **reçu**.        |
+| **OIDC**                      | L'authentification de la forge auprès de npm sans jeton stocké : la forge prouve son identité, npm lui répond. Rien à faire fuiter.      |
+| **Verrouillage** (_lockstep_) | Les quinze paquets partent sur la même version, dans un ordre topologique — un paquet ne peut pas sortir avant ce dont il dépend.        |
+| **Cran d'armement**           | Le geste explicite qui autorise la publication. Il existe parce qu'une version publiée est **brûlée** : npm ne connaît pas l'annulation. |
+
+## ⚠️ Pièges
+
+- **Une version publiée est définitive.** npm ne défait pas une publication ; on ne corrige qu'en
+  publiant au-dessus. C'est ce qui justifie que chaque garde soit bloquante plutôt qu'avertissante.
+- **Ce que le dépôt montre n'est pas ce que l'utilisateur reçoit.** Le champ `files`, le `exports`
+  et le build décident du contenu réel de l'archive — d'où le smoke test sur les archives, jamais
+  sur l'arbre de travail.
+- **Il n'y a pas de transaction.** Si la publication s'arrête au huitième paquet sur quinze, les
+  sept premiers sont en ligne. L'ordre topologique limite les dégâts, il ne les annule pas.
+- **`npm whoami` ne montre rien en publication OIDC**, et c'est normal : aucun jeton n'existe. Le
+  lire comme un échec envoie chercher une panne inexistante.
+- **Ce qui est vérifié avant de publier vit dans le code, pas dans le script** :
+  `checkPackageDeps()` (`packageDeps.ts:285`) refuse un import non déclaré, et
+  `defineNodefonyRolldownConfig()` (`bundler/index.ts:135`) décide ce que chaque paquet embarque,
+  en s'appuyant sur `nodefonyExternalMatcher()` (`bundler/index.ts:68`) pour trancher ce qui reste
+  hors du bundle — une dépendance qui devait rester externe et se retrouve avalée casse à
+  l'installation, pas ici.
+
+## 🧪 Tests & couverture
+
+Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant — jamais figés ici.
+
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires (chaîne) | `scripts/release/release-core.test.mjs` | l'ordre topologique, les métadonnées exigées, le figeage des références de version |
+| Unitaires (bundle) | `scripts/check-externals.test.mjs` | la liste des dépendances laissées externes ne dérive pas des `peerDependencies` |
+| Unitaires (surface) | `nodefony` `packageDeps.test.ts`, `clientSubpathSurface.types.test.ts` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe |
+
+> Ces contrôles s'exécutent **avant** la publication. La preuve d'après, celle qui porte sur
+> l'artefact reçu, est le smoke test décrit plus haut — aucun test unitaire ne peut la remplacer.
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
+- 🤝 **Ce que la publication promet à vos utilisateurs** :
+  [compatibilité et dépréciation](./compatibilite.md)
+- 🏭 **Ce que la forge lance par ailleurs** : [`integration-continue.md`](./integration-continue.md)
+- 📦 **Comment le TypeScript devient un paquet** :
+  [architecture — build & bundling](../architecture/build-bundling.md)
+- 📖 [Lexique général](../lexique.md) du framework.
