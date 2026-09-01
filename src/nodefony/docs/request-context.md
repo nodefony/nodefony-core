@@ -447,7 +447,7 @@ Le premier est de loin le plus fréquent, et il ne produit **aucune erreur** —
 
 C'est ainsi que le framework le fait pour toi aux deux endroits qui comptent : les événements de
 socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:243`) et les rappels d'après-réponse
-dans `Context.onAfterResponse()` (`Context.ts:373`). Si tu branches **ton** écouteur sur une socket
+dans `Context.onAfterResponse()` (`Context.ts:445`). Si tu branches **ton** écouteur sur une socket
 ou une minuterie, la règle est à toi de l'appliquer.
 
 | Symptôme                                                           | Cause                                                                                | Correction                                                                           |

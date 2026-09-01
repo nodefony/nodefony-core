@@ -203,7 +203,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1131`) |
 | 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
-| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:349`)      |
+| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:313`)      |
 | 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
 
 > [!IMPORTANT]
@@ -300,7 +300,7 @@ class ChatController extends Controller {
 | `initialize()` | À chaque requête | **Une seule fois**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte
-(`Resolver.newController()`, `Resolver.ts:262`) : le contexte WS étant partagé par la connexion, le
+(`Resolver.newController()`, `Resolver.ts:232`) : le contexte WS étant partagé par la connexion, le
 contrôleur l'est aussi. Un garde-fou vérifie que l'instance cachée est bien de la classe de la route
 courante et la reconstruit sinon (`Resolver.ts:344-347`) — sans quoi un message invoquant une autre
 action se tromperait d'objet.

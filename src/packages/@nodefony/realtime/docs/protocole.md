@@ -336,10 +336,10 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
 | `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:459` |
-| `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:599` |
+| `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:687` |
 | `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:740`     |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:612` |
-| `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:653` |
+| `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:694` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:579` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:433` |
 | `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:498` |
@@ -436,7 +436,7 @@ radicalement :
 `IRealtimeDenied` (`RealtimeEventMap.ts:228`) porte deux champs, `channel` et `reason` — et le motif
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un
 attaquant y lirait la carte des droits. Deux motifs circulent : `forbidden` (le verrou a dit non) et
-`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:674`). Côté client,
+`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:718`). Côté client,
 `onDenied()` (`RealtimeClient.ts:469`) branche un handler dessus.
 
 > [!CAUTION]

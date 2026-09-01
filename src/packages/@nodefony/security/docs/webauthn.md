@@ -90,7 +90,7 @@ Quatre failles fermées **par construction** :
 2. **Fuite de base** — le serveur ne stocke que des clés **publiques** (`IWebAuthnCredential.publicKey`,
    `IWebAuthnCredential.ts:16`). Une base volée ne donne aucun accès.
 3. **Rejeu** — le défi est à usage unique, invalidé en session dès sa lecture
-   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:251`).
+   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:277`).
 4. **Clonage d'authenticator** — le `signCount` doit croître ; une régression signale une copie
    (`IWebAuthnCredential.signCount`, `IWebAuthnCredential.ts:22`).
 

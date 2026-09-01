@@ -52,8 +52,8 @@ flowchart TD
   AU -->|succès| OK["user + token dans l'ALS → contrôleur"]
 ```
 
-`Firewall.isSecure()` (`firewall.ts:538`) rattache la requête à une **zone** via
-`Firewall.matchPath()` (`firewall.ts:529`) ; `Firewall.handleSecurity()` (`firewall.ts:561`) décide.
+`Firewall.isSecure()` (`firewall.ts:705`) rattache la requête à une **zone** via
+`Firewall.matchPath()` (`firewall.ts:696`) ; `Firewall.handleSecurity()` (`firewall.ts:738`) décide.
 Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
 le plus long gagne, pas le premier déclaré (`firewall.ts:191`).
 
@@ -451,7 +451,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 - **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:932`) : Fetch Metadata
   (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:764`), puis double-submit `x-csrf-token` ≡
   cookie + HMAC (`firewall.ts:778`).
-- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:154`).
+- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:991`).
 
 ## 📜 Normes appliquées
 

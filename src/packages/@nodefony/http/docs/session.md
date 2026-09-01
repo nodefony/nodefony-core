@@ -122,7 +122,7 @@ défaut** dans Nodefony :
   l'identifiant (`AuthFlow` — voir plus bas).
 - **Exploitation prolongée d'un identifiant volé.** Une session maintenue artificiellement vivante
   resterait exploitable indéfiniment. → l'**absolute timeout** borne l'âge depuis la création et n'est
-  **jamais** prolongé (`Session.isValidSession()`, `session.ts:381`), en plus de l'idle timeout.
+  **jamais** prolongé (`Session.isValidSession()`, `session.ts:366`), en plus de l'idle timeout.
 
 > [!IMPORTANT]
 > Le cookie **ne chiffre rien** et n'a pas à le faire : il ne porte qu'un numéro. La sécurité repose
@@ -385,7 +385,7 @@ Ici l'expiration **idle** est portée par Redis lui-même : `SET … EX` pose le
 (`@nodefony/redis/nodefony/src/SessionStorage.ts:168`) — aucun balayage périodique.
 
 L'absolute timeout, lui, n'est pas exprimable par un TTL glissant : il reste honoré **à la lecture**
-par `Session.isValidSession()` (`session.ts:381`). Une entrée trop vieille peut donc survivre côté
+par `Session.isValidSession()` (`session.ts:366`). Une entrée trop vieille peut donc survivre côté
 Redis jusqu'à son TTL idle, mais elle est **refusée à la reprise**.
 
 Capacités réduites, annoncées et non simulées : la pagination est **par curseur** (pas de `total`, pas
@@ -480,7 +480,7 @@ colonnes partout, donc un store dialect-agnostique.
 
 En MySQL/MariaDB, une colonne texte indexée devient `varchar` (un `TEXT` InnoDB n'est pas indexable
 sans préfixe) et le type JSON passe par un type compatible qui tolère MariaDB, laquelle stocke le JSON
-en `LONGTEXT` (`colKit.ts:312-320`).
+en `LONGTEXT` (`colKit.ts:466-469`).
 
 **Mongoose (MongoDB).** Schéma équivalent (`@nodefony/mongoose/nodefony/entity/sessionEntity.ts:16`) :
 `session_id` (String, index **unique**), `Attributes`/`flashBag`/`metaBag` (Object, défaut `{}`), `user`
@@ -508,7 +508,7 @@ La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalS
 handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:431`). L'identité résolue une fois est donc
 disponible à chaque frame sans relire la base — c'est ce dont profite
 `FirewallRealtimeAuthenticator.supports()` (`FirewallRealtimeAuthenticator.ts:80`), câblé automatiquement
-par le firewall sur les zones temps réel protégées (`firewall.ts:289`).
+par le firewall sur les zones temps réel protégées (`firewall.ts:300`).
 
 > [!WARNING]
 > Rien à écrire dans `initialize()` : il n'existe **pas** de `Controller.startSession()`. La session WS
@@ -627,9 +627,9 @@ Pour ajouter un backend :
 Trois règles de conception se dégagent du contrat, et méritent d'être respectées :
 
 - **Une capacité absente s'annonce.** Ne pas implémenter `listPage` fait répondre **501** à l'endpoint
-  d'administration (refus honnête) plutôt qu'une liste vide trompeuse (`ISession.ts:196-199`).
+  d'administration (refus honnête) plutôt qu'une liste vide trompeuse (`ISession.ts:221`).
 - **On n'invente pas ce qu'on ignore.** `countSessions()` renvoie `-1` quand compter coûterait trop
-  cher — Redis le fait (`ISession.ts:214`).
+  cher — Redis le fait (`ISession.ts:236`).
 - **Une page ne matérialise jamais plus qu'une page.** C'est ce qui rend le coût d'une requête
   d'administration indépendant du nombre de sessions.
 

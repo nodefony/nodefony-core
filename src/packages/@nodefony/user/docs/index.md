@@ -875,7 +875,7 @@ Prouvée par `oauth.attack.test.ts:71`.
 
 Trois barrières, indépendantes :
 
-1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:31`).
+1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:70`).
 2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:85`). Il
    n'expose ni `password`, ni `metadata` (qui peut contenir du sensible), ni le moindre jeton dans
    les liens sociaux — seulement `provider`, `providerId` et une date. Le champ `hasPassword` dit

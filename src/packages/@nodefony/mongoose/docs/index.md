@@ -794,7 +794,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
   (`MongooseRepository.#prof()` (`MongooseRepository.ts:79`)). En production, le chemin est celui d'un
   appel direct.
 - **Repositories alloués à la demande.** Le cache est créé au premier accès, pas à la connexion
-  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:181`)).
+  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:465`)).
 - **Un aller-retour par écriture.** Les opérations « lire puis écrire » sont exprimées en une seule
   requête atomique — moins de latence _et_ pas de course.
 - **Le comptage reste côté serveur.** Les listings paginés lisent `limit + 1` documents pour savoir

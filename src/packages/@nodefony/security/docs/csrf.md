@@ -148,7 +148,7 @@ export default ProfileController;
 
 (Wiring : `@controllers([ProfileController])` dans le module de l'app — `nodefony create controller`
 le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les actions : les marqueurs
-`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1370-1375`.)
+`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1605-1611`.)
 
 ### Comment le front obtient — puis rejoue — le token
 
@@ -256,7 +256,7 @@ ouvrirait **aussi** la lecture des réponses au JS tiers (`config.ts:176-181`).
 sûres → coût nul sur le GET dominant (`csrf.ts:88`). Pour une mutation, dans l'ordre :
 
 1. **Origine de confiance** — `csrf.trustedOrigins` ∪ whitelist CORS → passe même en cross-site : ce
-   que CORS autorise déjà explicitement **n'est pas** du CSRF (`csrf.ts:93`, union construite par le
+   que CORS autorise déjà explicitement **n'est pas** du CSRF (`csrf.ts:45`, union construite par le
    firewall au boot, `firewall.ts:190-194`).
 2. **Fetch Metadata** (`Sec-Fetch-Site`, infalsifiable par un script) : `same-origin`/`none` → OK ;
    `same-site` → OK sauf `strictSameSite` (`csrf.ts:102-104`) ; `cross-site` → **403** ; valeur
@@ -324,7 +324,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | Domaine                        | Norme                             | Ancrage                                |
 | ------------------------------ | --------------------------------- | -------------------------------------- |
 | Méthodes sûres                 | RFC 9110 §9.2.1                   | `SAFE_METHODS` (`csrf.ts:8-13`)        |
-| Provenance                     | W3C Fetch Metadata                | `Csrf.enforce()` (`csrf.ts:96-109`)    |
+| Provenance                     | W3C Fetch Metadata                | `Csrf.enforce()` (`csrf.ts:85`)        |
 | Valeur `site` inconnue → repli | Fetch Metadata « SHOULD ignore »  | `csrf.ts:107`                          |
 | Token signé                    | OWASP Signed Double-Submit Cookie | `CsrfTokenManager` (`csrfToken.ts:23`) |
 | Refus 403                      | RFC 9110 §15.5.4                  | `CsrfError` (`CsrfError.ts:17-21`)     |
@@ -345,7 +345,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 
 L'écran **Firewall** de Studio expose la défense dans son onglet Défenses (`FirewallDefenses`,
 `Firewall.tsx:313-314`). La projection est **sans secret par construction** :
-`Firewall.#describeDefenses()` (`firewall.ts:547`) publie la config résolue, et `synchronizerToken`
+`Firewall.#describeDefenses()` (`firewall.ts:575`) publie la config résolue, et `synchronizerToken`
 n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:557`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)

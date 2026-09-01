@@ -427,7 +427,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 - **Le service ignore le transport** : l'audit lit `getUserIdentifier()`, commun à `IToken` (HTTP)
   et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
-  hiérarchie** : `satisfies()` (`frameAuthorizer.ts:240-250`) délègue à `Firewall.hasRole()`
+  hiérarchie** : `satisfies()` (`frameAuthorizer.ts:276`) délègue à `Firewall.hasRole()`
   (`firewall.ts:466`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées

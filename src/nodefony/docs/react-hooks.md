@@ -108,9 +108,9 @@ Le binding existe pour que ces trois cas soient traités **une fois**, au bon en
 
 Le parti pris est de mettre l'intelligence **sous** React, pas dedans. Le comptage de références et
 le ré-abonnement après coupure vivent dans `RealtimeClient.subscribe()`
-(`client/realtime/RealtimeClient.ts:162`) et `RealtimeClient.unsubscribe()`
+(`client/realtime/RealtimeClient.ts:530`) et `RealtimeClient.unsubscribe()`
 (`client/realtime/RealtimeClient.ts:543`), au-dessus d'une carte `_subscriptions`
-(`client/realtime/RealtimeClient.ts:196`).
+(`client/realtime/RealtimeClient.ts:229`).
 
 Conséquence directe : cette autorité est **partagée**. Les hooks et un store applicatif (MobX, Zustand,
 Redux) peuvent tenir le même canal sans se marcher dessus — chacun compte pour un.
@@ -313,7 +313,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:162`), qui
+Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1400`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -445,8 +445,8 @@ Le tableau `severities` n'a pas besoin d'être mémoïsé : la dépendance de l'
 jointe (`sevKey`, `client/react/index.ts:376`), pas le tableau.
 
 > [!CAUTION]
-> Le filtre compare la valeur du champ `severity` de chaque entrée aux chaînes fournies
-> (`client/react/index.ts:358`). Or une entrée de journal Nodefony porte sa sévérité **numérique**
+> Le filtre — porté par le socle, pas par le hook — compare la valeur du champ `severity` de chaque entrée aux chaînes fournies
+> (`client/realtime/observe.ts:422`). Or une entrée de journal Nodefony porte sa sévérité **numérique**
 > dans `severity` et son nom dans `severityName` (`Pdu.ts:180`) : filtrer sur `["ERROR"]` ne retient
 > donc rien du flux standard. Filtre côté rendu tant que ce n'est pas aligné, ou lis
 > [Journalisation](syslog.md) pour la forme exacte d'une entrée.
@@ -637,7 +637,7 @@ Studio.
 | L'abonnement se refait à chaque frappe                       | Le nom du canal est recalculé et passé dans `deps`                                                          | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                     |
 | Changer un réglage AIMD ne change rien                       | Les options sont capturées par référence (`client/react/index.ts:192`)                                      | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`             |
 | Toasts en double, voire en triple                            | `useNodefonyNotifications` monté dans plusieurs composants                                                  | Un seul montage, au shell (`client/react/index.ts:382`)                       |
-| Une exception dans un handler disparaît sans trace           | Le dispatch avale les erreurs de handler (`client/realtime/RealtimeClient.ts:289`)                          | Envelopper le corps du handler dans son propre `try`/`catch`                  |
+| Une exception dans un handler disparaît sans trace           | Le dispatch avale les erreurs de handler (`client/realtime/RealtimeClient.ts:1101`)                         | Envelopper le corps du handler dans son propre `try`/`catch`                  |
 | Un écran perd son flux quand un autre se démonte             | N'arrive plus : le compteur vit dans le client (`client/realtime/RealtimeClient.ts:543`)                    | Rien à faire — vérifier qu'on n'appelle pas `unsubscribe` à la main           |
 | Un canal cadencé ne renvoie jamais rien                      | Le serveur n'a pas déclaré de bornes pour ce canal                                                          | Vérifier la résolution serveur (`realtime/channelRate.ts:63`)                 |
 | L'écran de connexion clignote à chaque micro-coupure         | L'identité est conservée pendant une perte réseau, pas pendant un logout                                    | Croiser `useNodefonyIdentity()` avec `useNodefonyState()`                     |

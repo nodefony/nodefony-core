@@ -421,7 +421,7 @@ dédupliqué.
 
 ### `redis` — le choix cluster
 
-`RedisIdempotencyStore` (`RedisIdempotencyStore.ts:115`) vit dans `@nodefony/framework` (le
+`RedisIdempotencyStore` (`RedisIdempotencyStore.ts:121`) vit dans `@nodefony/framework` (le
 consommateur du contrat), pas dans `@nodefony/redis` : il résout le service `redis` **par nom** dans
 le container (couplage structurel, zéro dépendance directe, zéro cycle). La fabrique est enregistrée
 au chargement du module framework (`index.ts:119`).

@@ -1688,6 +1688,10 @@
             ],
             "options": [
               {
+                "flag": "--prouve",
+                "help": ""
+              },
+              {
                 "flag": "--show-toplevel",
                 "help": ""
               }
@@ -1704,11 +1708,23 @@
               {
                 "flag": "--apply",
                 "help": ""
+              },
+              {
+                "flag": "--occurrences",
+                "help": ""
+              },
+              {
+                "flag": "--suggest",
+                "help": ""
               }
             ],
             "env": [
               {
                 "name": "APPLY",
+                "help": ""
+              },
+              {
+                "name": "NF_BOOT_TIMEOUT_MS",
                 "help": ""
               }
             ],

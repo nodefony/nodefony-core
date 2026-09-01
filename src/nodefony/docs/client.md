@@ -324,7 +324,7 @@ qu'un sablier qui ment.
 C'est le mécanisme qui évite la classe de bugs la plus pénible d'une application temps réel : deux
 composants écoutent le même canal, l'un se démonte, et **coupe le flux de l'autre**.
 
-`RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:162`) compte les consommateurs et
+`RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:530`) compte les consommateurs et
 n'envoie la demande au serveur qu'au **premier**. `RealtimeClient.unsubscribe()`
 (`client/realtime/RealtimeClient.ts:543`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
 est nul.
@@ -344,28 +344,28 @@ Le serveur repart d'un état vide après une coupure ; c'est le client qui se so
 | Appel                                 | Ancre                                   | Ce que ça fait                                                   |
 | ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
 | `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:512` | Notification sans réponse — la forme du pub/sub                  |
-| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:162` | Requête/réponse ; un argument commençant par `/` cible une route |
-| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:162` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
+| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:727` | Requête/réponse ; un argument commençant par `/` cible une route |
+| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:797` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
 Deux compléments moins courants. `RealtimeClient.call()`
-(`client/realtime/RealtimeClient.ts:162`) rend l'**enveloppe complète** — la valeur **et**
+(`client/realtime/RealtimeClient.ts:839`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `RealtimeClient.register()`
-(`client/realtime/RealtimeClient.ts:162`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/RealtimeClient.ts:907`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Identité et refus — l'interface sait sans demander
 
 L'identité de la connexion n'est pas devinée par le front : le serveur l'annonce dans sa première
 trame, et le client la retient. `RealtimeClient.identity`
-(`client/realtime/RealtimeClient.ts:162`) vaut `null` tant que rien n'est reçu, puis porte un objet
+(`client/realtime/RealtimeClient.ts:581`) vaut `null` tant que rien n'est reçu, puis porte un objet
 dont `authenticated` vaut `false` pour un visiteur anonyme. Un écran de connexion se décide donc
 **sans appeler aucune route**.
 
 Le pendant côté refus : quand le serveur rejette un abonnement, il pousse un message dédié que le
 client transforme en deux signaux — une notice générique pour le centre de notifications, et un
 événement ciblé consommable par `RealtimeClient.onDenied()`
-(`client/realtime/RealtimeClient.ts:162`) pour une réaction précise (griser le contrôle concerné). Le
+(`client/realtime/RealtimeClient.ts:469`) pour une réaction précise (griser le contrôle concerné). Le
 motif reste volontairement générique : le serveur ne dit jamais **quel** rôle manquait, ce qui en
 ferait un oracle.
 

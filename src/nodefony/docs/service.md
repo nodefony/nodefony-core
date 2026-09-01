@@ -291,7 +291,7 @@ new Service("calc", container, false).fire("x"); // ❌ lève : notificationsCen
 
 C'est **la** raison d'être de la délégation. Chaque écouteur posé par l'API du service
 (`Service.on()` (`Service.ts:373`), `once`, `addListener`, `prependListener`…) est enregistré dans la
-carte privée `#trackedListeners` (`Service.ts:53`) via `Service.trackListener()` (`Service.ts:282`).
+carte privée `#trackedListeners` (`Service.ts:74`) via `Service.trackListener()` (`Service.ts:282`).
 
 ```mermaid
 sequenceDiagram
@@ -317,7 +317,7 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 | --- | --- | --- |
 | Naissance | `new Service(name, container, nc, options)` | câblage des trois broches, écouteurs de config attachés |
 | Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:377`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à chaque requête |
-| Journal | `Service.initSyslog()` (`Service.ts:159`) | démarre la sortie console (environnement + verbosité + filtres) |
+| Journal | `Service.initSyslog()` (`Service.ts:199`) | démarre la sortie console (environnement + verbosité + filtres) |
 | Vie | `log` / `fire` / `on` / `get` | délégation vers syslog, bus et container |
 | Destruction | `Service.clean()` (`Service.ts:179`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
 | Destruction+ | `clean(true)` | appelle en plus `Syslog.reset()` — les transports sont fermés |
@@ -392,7 +392,7 @@ interne `timeoutSentinel` (`Event.ts:33`).
 
 Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3254`) branche la politique : délai issu de
 `Kernel.bootTimeoutMs()` (`Kernel.ts:2625`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2598`), 5 s par
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2637`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
@@ -469,7 +469,7 @@ seulement à la **construction**.
 
 Le pont est appris au seul instant où le couple est connu — quand l'instance est posée au container :
 `Injector.rememberContainerKey()` (`injector.ts:88`), appelé depuis `Module.addService()`
-(`Module.ts:313`). Toute résolution ultérieure passe alors par la classe et retrouve **cette**
+(`Module.ts:365`). Toute résolution ultérieure passe alors par la classe et retrouve **cette**
 instance, au lieu d'en fabriquer une seconde au cache vide.
 
 Les cycles sont détectés à l'instanciation, avec le chemin complet dans le message
@@ -483,7 +483,7 @@ délègue à `addService`. Utile pour un service optionnel dont la présence dé
 ## 🔐 Intégrité du boot — jamais de dégradation silencieuse
 
 Un service qu'on ne peut pas **construire** suit exactement la même politique qu'un service qu'on ne
-peut pas **initialiser** : `Module.handleServiceBootError()` (`Module.ts:365`) délègue au verdict du
+peut pas **initialiser** : `Module.handleServiceBootError()` (`Module.ts:417`) délègue au verdict du
 kernel, qui tranche selon deux axes.
 
 | Contexte                                            | Verdict                                                         |

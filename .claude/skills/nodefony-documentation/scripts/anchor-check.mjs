@@ -76,8 +76,18 @@ function resolveCandidates(ref, moduleRoot) {
   return cands;
 }
 
-/** Symboles cités en `backticks` sur la ligne MD autour de l'ancre. */
-function contextTokens(mdLine, anchorRaw) {
+/**
+ * Symboles cités en `backticks` sur la ligne MD autour de l'ancre.
+ *
+ * `base` = nom du fichier visé, SANS extension (`Module` pour `Module.ts`). Il
+ * est retiré des tokens : c'est le mot le moins informatif du lot, et il
+ * apparaît partout dans son propre fichier — l'accepter revient à valider
+ * n'importe quelle ligne. Vécu : les 16 ancres `Module.ts` d'une page étaient
+ * toutes décalées d'une vingtaine de lignes, et le gate les rendait toutes OK
+ * parce que le mot « Module » se lit à chaque page de `Module.ts`. Un gate qui
+ * ne peut pas échouer ne prouve rien.
+ */
+function contextTokens(mdLine, anchorRaw, base, voisins = []) {
   const tokens = [...mdLine.matchAll(/`([^`]+)`/g)]
     .map((m) => m[1])
     .filter((t) => t !== anchorRaw && !/\.(ts|mjs|tsx):\d/.test(t))
@@ -104,15 +114,107 @@ function contextTokens(mdLine, anchorRaw) {
           "this",
           "new",
         ].includes(t),
-    );
+    )
+    .filter((t) => t.toLowerCase() !== String(base ?? "").toLowerCase())
+    // Une ligne porte souvent PLUSIEURS ancres — une rangée de tableau qui
+    // aligne trois transports, une phrase qui oppose deux contextes. Les
+    // symboles cités appartiennent alors à des fichiers DIFFÉRENTS : chercher
+    // `WebsocketContext` dans `HttpContext.ts` fabrique un faux SUSPECT, et
+    // c'est un faux qui apprend à ignorer le gate.
+    .filter((t) => !voisins.some((v) => v.toLowerCase() === t.toLowerCase()));
   return [...new Set(tokens)];
 }
 
 const ANCHOR_RE =
   /`?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx)):(\d+)(?:-(\d+))?`?/g;
 
+/**
+ * Noms des AUTRES fichiers cités par des ancres de la même ligne (sans
+ * extension). Ils ne sont pas du contexte pour l'ancre courante : ils sont le
+ * contexte de leur propre ancre.
+ */
+function voisinsDeLaLigne(mdLine, refCourante) {
+  const out = new Set();
+  for (const m of mdLine.matchAll(ANCHOR_RE)) {
+    if (m[1] === refCourante) continue;
+    out.add(path.basename(m[1]).replace(/\.(ts|mjs|tsx)$/, ""));
+  }
+  return [...out];
+}
+
+/**
+ * Le symbole que l'ancre PROUVE : le dernier identifiant entre backticks placé
+ * AVANT elle. Sert au DIAGNOSTIC (`--prouve`), pas au verdict : en faire le seul
+ * critère a rendu 694 suspects sur 4 514 ancres, la plupart parce qu'une méthode
+ * est citée par un nom que sa ligne de déclaration ne porte pas telle quelle.
+ *
+ * Une phrase cite volontiers plusieurs symboles, chacun avec sa propre ancre —
+ * « `RealtimeClient` (`RealtimeClient.ts:194`) et côté serveur par
+ * `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:44`) ». Chercher TOUS les
+ * symboles de la ligne dans CHAQUE fichier cible fabrique des suspects : on
+ * exigeait de `RealtimeClient.ts` qu'il contienne `ServerRealtimeSocket`. Le
+ * seul symbole qu'une ancre engage est celui qui la précède immédiatement ;
+ * les autres ont la leur.
+ *
+ * Quand aucun symbole ne précède l'ancre, on retombe sur l'ensemble des
+ * symboles de la ligne — mieux vaut un contexte large que pas de contrôle.
+ */
+function symboleProuve(mdLine, anchorRaw) {
+  const at = mdLine.indexOf(anchorRaw);
+  const avant = at > 0 ? mdLine.slice(0, at) : "";
+  const ticks = [...avant.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+  for (let i = ticks.length - 1; i >= 0; i--) {
+    const brut = ticks[i];
+    if (/\.(ts|mjs|tsx):\d/.test(brut)) continue; // c'est une autre ancre
+    const nom = brut
+      .replace(/\(.*$/, "")
+      .split(".")
+      .pop()
+      ?.replace(/[^A-Za-z0-9_$#]/g, "");
+    if (nom && nom.length > 2) return nom;
+  }
+  return null;
+}
+
+/**
+ * Le symbole cité est-il DÉCLARÉ à la ligne pointée (à trois lignes près) ?
+ *
+ * C'est un critère d'ACCEPTATION, jamais de rejet. Une phrase cite plusieurs
+ * symboles — « `RealtimeClient` (`RealtimeClient.ts:194`) et côté serveur
+ * `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:44`) » — et chercher TOUS les
+ * mots de la phrase dans CHAQUE fichier faisait déclarer suspectes une vingtaine
+ * d'ancres parfaitement justes. Quand le symbole que l'ancre PROUVE est là où
+ * elle pointe, il n'y a rien à corriger, et le rapport doit se taire.
+ *
+ * L'inverse — n'exiger QUE ce symbole — a été essayé : 694 suspects sur 4 514,
+ * parce qu'une méthode est souvent citée sous une forme que sa ligne de
+ * déclaration ne porte pas. D'où l'asymétrie.
+ */
+function declareIci(code, sym, start) {
+  const bare = sym.replace(/^#/, "");
+  const esc = bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const motifs = [
+    new RegExp(`^\\s*(export\\s+)?(abstract\\s+)?class\\s+${esc}\\b`),
+    new RegExp(`^\\s*(export\\s+)?interface\\s+${esc}\\b`),
+    new RegExp(`^\\s*(export\\s+)?(async\\s+)?function\\s+${esc}\\b`),
+    new RegExp(`^\\s*(export\\s+)?(declare\\s+)?const\\s+${esc}\\b`),
+    new RegExp(`^\\s*(export\\s+)?type\\s+${esc}\\b`),
+    new RegExp(
+      `^\\s{2,}(public |private |protected |static |readonly )*(async )?(get |set )?#?${esc}\\??\\s*[(<:=]`,
+    ),
+  ];
+  for (
+    let i = Math.max(0, start - 4);
+    i < Math.min(code.length, start + 3);
+    i++
+  ) {
+    if (motifs.some((m) => m.test(code[i] ?? ""))) return true;
+  }
+  return false;
+}
+
 let total = 0;
-const problems = { FILE_NOT_FOUND: [], LINE_OUT: [], SUSPECT: [] };
+const problems = { FILE_NOT_FOUND: [], LINE_OUT: [], SUSPECT: [], INDECIS: [] };
 const fileCache = new Map();
 function linesOf(rel) {
   if (!fileCache.has(rel)) {
@@ -174,7 +276,12 @@ for (const md of args) {
         });
         continue;
       }
-      const tokens = contextTokens(mdLine, raw.replaceAll("`", ""));
+      const tokens = contextTokens(
+        mdLine,
+        raw.replaceAll("`", ""),
+        path.basename(ref).replace(/\.(ts|mjs|tsx)$/, ""),
+        voisinsDeLaLigne(mdLine, ref),
+      );
       let best = null; // "LINE_OUT" < "SUSPECT" < "OK"
       for (const cand of cands) {
         const code = linesOf(cand);
@@ -183,6 +290,12 @@ for (const md of args) {
           continue;
         }
         if (!tokens.length) {
+          best = { kind: "OK", cand };
+          break;
+        }
+        // Le symbole que l'ancre engage est là où elle pointe : c'est réglé.
+        const prouve = symboleProuve(mdLine, raw.replaceAll("`", ""));
+        if (prouve && declareIci(code, prouve, start)) {
           best = { kind: "OK", cand };
           break;
         }
@@ -196,8 +309,26 @@ for (const md of args) {
           best = { kind: "OK", cand };
           break;
         }
-        if (!best || best.kind === "LINE_OUT")
-          best = { kind: "SUSPECT", cand, tokens };
+        if (!best || best.kind === "LINE_OUT") {
+          // Deux échecs très différents se cachaient sous un seul mot.
+          //
+          // Si un des symboles cherchés existe AILLEURS dans le fichier, l'ancre
+          // vise le bon fichier et la mauvaise ligne : c'est actionnable, et le
+          // rapport dit où aller. Si aucun ne s'y trouve, le gate ne sait tout
+          // simplement pas ce qu'il cherche — le symbole appartient à l'ancre
+          // voisine de la même phrase, ou c'est un littéral (`INFO`, un code
+          // d'erreur) qui n'a pas de ligne de déclaration. Le classer SUSPECT
+          // faisait crier le gate sur des ancres justes, et un gate qui crie
+          // faux finit par ne plus être lu.
+          const tout = code.join("\n").toLowerCase();
+          const ailleurs = tokens.filter((t) => tout.includes(t.toLowerCase()));
+          best = {
+            kind: ailleurs.length ? "SUSPECT" : "INDECIS",
+            cand,
+            tokens,
+            ailleurs,
+          };
+        }
       }
       if (best.kind !== "OK") {
         pageProblems.push({
@@ -207,7 +338,11 @@ for (const md of args) {
           detail:
             best.kind === "LINE_OUT"
               ? `${best.cand} ne fait que ${best.max} lignes`
-              : `${best.cand} — symboles introuvables autour: ${best.tokens.slice(0, 4).join(", ")}`,
+              : best.kind === "SUSPECT"
+                ? `${best.cand} — symboles introuvables autour: ${best.tokens.slice(0, 4).join(", ")}` +
+                  ` (mais « ${best.ailleurs[0]} » existe ailleurs dans le fichier)`
+                : `${best.cand} — contexte non résolvable (${best.tokens.slice(0, 3).join(", ")}) :` +
+                  ` littéral, ou symbole prouvé par une ancre voisine`,
         });
       }
     }
@@ -229,7 +364,15 @@ for (const md of args) {
 const nf = problems.FILE_NOT_FOUND.length;
 const lo = problems.LINE_OUT.length;
 const su = problems.SUSPECT.length;
+const ind = problems.INDECIS.length;
 console.log(
-  `\n${total} ancres — ${total - nf - lo - su} OK · ${su} SUSPECT · ${lo} LINE_OUT · ${nf} FILE_NOT_FOUND`,
+  `\n${total} ancres — ${total - nf - lo - su - ind} OK · ${su} SUSPECT · ${ind} INDÉCIS` +
+    ` · ${lo} LINE_OUT · ${nf} FILE_NOT_FOUND`,
 );
+if (ind) {
+  console.log(
+    `   (INDÉCIS = le gate ne sait pas quoi chercher — littéral, ou symbole que prouve l'ancre voisine.\n` +
+      `    Ce n'est pas un défaut de la doc : ne pas « corriger » ces ancres sans les avoir lues.)`,
+  );
+}
 process.exit(nf + lo ? 1 : 0);

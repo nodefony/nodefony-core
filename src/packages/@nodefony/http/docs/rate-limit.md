@@ -111,7 +111,7 @@ coût** sur le chemin chaud. On l'active quand on n'a **pas** d'edge devant soi 
 défense en profondeur.
 
 **Fenêtre fixe, en mémoire, O(1).** L'algorithme est le plus frugal possible :
-`MemoryRateLimitStore` (`MemoryRateLimitStore.ts:32`) tient une entrée `{ count, resetAt }` par IP,
+`MemoryRateLimitStore` (`MemoryRateLimitStore.ts:33`) tient une entrée `{ count, resetAt }` par IP,
 remise à zéro **en place** à l'expiration (0 allocation pour une IP récurrente). Le prix de cette
 simplicité est connu : un pic à cheval sur deux fenêtres peut laisser passer jusqu'à `2 × max` sur un
 court intervalle (`MemoryRateLimitStore.ts:29`). Acceptable pour une défense de **capacité** ; un

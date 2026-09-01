@@ -564,7 +564,7 @@ données d'un coup. La règle est donc sans nuance.
   `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:595`)),
   y compris pour les URI multi-hôtes que l'analyseur d'URL standard ne sait pas découper. C'est cette
   cible nettoyée que voit le plan d'administration
-  (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:80`)) et le message de connexion au démarrage.
+  (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:583`)) et le message de connexion au démarrage.
 - **Les identifiants passés par `options`** (`user`, `pass`) suivent la même règle : ils viennent de
   l'environnement, pas du fichier. Le framework rédige d'ailleurs la valeur de tout override
   d'environnement dont le chemin ressemble à un secret, avant de le journaliser

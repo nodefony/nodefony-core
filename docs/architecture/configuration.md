@@ -118,7 +118,7 @@ Quatre partis pris, tous vérifiables dans le code :
   du framework te parvient sans que tu ne réécrives rien.
 - **Le boot est fail-closed.** `validateAppConfig()` (`schema.ts:360`) agrège les erreurs Zod avec le
   chemin fautif ; l'échec devient un diagnostic présenté puis une sortie dédiée
-  (`Kernel.bootConfigError()`, `Kernel.ts:1505`).
+  (`Kernel.bootConfigError()`, `Kernel.ts:1940`).
 
 > [!IMPORTANT]
 > Un fichier de config ne doit **jamais** déréférencer le kernel au moment de son import
@@ -220,7 +220,7 @@ gagne**.
 | --- | -------------------- | ---------- | -------------------------------------------------------------------------------------- |
 | 1   | Défauts du framework | Nodefony   | `defaultAppConfig` (`defaults.ts:34`) · le `.default()` du schéma Zod de chaque module |
 | 2   | Config du projet     | toi        | `nodefony.config.ts` — deep-merge `extend(true, {}, …)` (`defineConfig.ts:148`)        |
-| 3   | Déploiement          | le devops  | `NF__APP__…` (`defineConfig.ts:157`) · `NF__<MODULE>__…` (`Kernel.ts:1257`) · `*_FILE` |
+| 3   | Déploiement          | le devops  | `NF__APP__…` (`defineConfig.ts:157`) · `NF__<MODULE>__…` (`Kernel.ts:1904`) · `*_FILE` |
 | 4   | Invocation           | la CLI     | drapeaux de commande (`--workers`, …)                                                  |
 
 L'override d'environnement est appliqué **entre le merge et la validation** : la valeur venue du
@@ -306,7 +306,7 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
 `envOverride.ts:375`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
-(`Kernel.ts:1481`).
+(`Kernel.ts:1911`).
 
 Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:59`), en
 cascade : les variantes `*.local` (gitignorées) priment sur les fichiers committés, et **rien**
@@ -353,9 +353,9 @@ simplement sans auto-complétion.
 `UseOptions` (`use.ts:67`) porte deux leviers qui **filtrent** sans jamais réordonner
 (`Kernel.resolveModuleEntries()`, `Kernel.ts:1380`) :
 
-- **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1114`) ;
+- **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1409`) ;
 - **`when(config)`** → une garde évaluée sur la config résolue ; `false` retire l'entrée
-  (`Kernel.ts:1118`).
+  (`Kernel.ts:1429`).
 
 Un module retiré n'est pas « chargé puis désactivé » : il n'est **jamais importé**. En ESM, un module
 non importé n'existe pas — le gain est réel, en mémoire comme en temps de boot. Les entrées écartées
@@ -504,7 +504,7 @@ export function defineDrizzleConfig(
 
 Vérifié au source : `drizzleConfigSchema` (`drizzle/nodefony/config/config.ts:136`) et
 `defineDrizzleConfig()` (`drizzle/nodefony/config/defineModuleConfig.ts:58`). Le module publie enfin
-son JSON Schema en redéfinissant `Module.configSchema()` (`Module.ts:136`), et lit sa config validée
+son JSON Schema en redéfinissant `Module.configSchema()` (`Module.ts:153`), et lit sa config validée
 via le getter typé `Module.config` (`Module.ts:152`).
 
 ### Les métadonnées de champ — dire ce qu'une valeur EST
@@ -572,10 +572,10 @@ Les points de passage, dans l'ordre du code :
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:147`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:96`)
-   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:1476`).
+   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:1911`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
-   `Kernel.ts:1159`), puis overrides inter-modules `module-<nom>`
+   `Kernel.ts:1508`), puis overrides inter-modules `module-<nom>`
    (`Module.readOverrideModuleConfig()`, `Module.ts:258`) et d'environnement
    (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1616`).
 6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1616`) — et l'ordre
@@ -591,15 +591,15 @@ s'y branchent via `resolveAutoStore()` (`infra.ts:241`).
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:1422`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:1857`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 
 Une config cassée n'est pas récupérable : le framework ne peut pas deviner tes ports ni tes modules.
-`Kernel.bootConfigError()` (`Kernel.ts:1505`) en fait un échec **soigné** plutôt qu'une trace brute :
+`Kernel.bootConfigError()` (`Kernel.ts:1940`) en fait un échec **soigné** plutôt qu'une trace brute :
 
 - un diagnostic lisible : titre, cause, champ Zod nommé, **et les valeurs par défaut du framework**
-  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:1533`) ;
+  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:1968`) ;
 - pas de pile d'appels — c'est une faute de configuration, pas un bogue du framework ;
 - un **code de sortie dédié** — `err.exitCode = SysExit.CONFIG`, soit `EX_CONFIG` (78)
   (`Kernel.ts:1527`) — pour qu'un orchestrateur

@@ -296,10 +296,10 @@ nettoyage.
 Ce n'est pas une portée DI : c'est un **niveau de container**. Tu n'as **rien à écrire** — le
 pipeline HTTP/WS l'ouvre et le ferme pour toi.
 
-- Déclaré une fois au boot (`Container.addScope()`, `http-kernel.ts:245`) ;
-- ouvert à l'entrée de chaque requête (`Container.enterScope()`, `http-kernel.ts:636`) ;
-- fermé au teardown (`Container.leaveScope()`, `http-kernel.ts:1062`), **y compris quand un hook
-  lève** — le chemin d'erreur libère aussi le scope (`http-kernel.ts:1072`).
+- Déclaré une fois au boot (`Container.addScope()`, `http-kernel.ts:309`) ;
+- ouvert à l'entrée de chaque requête (`Container.enterScope()`, `http-kernel.ts:729`) ;
+- fermé au teardown (`Container.leaveScope()`, `http-kernel.ts:733`), **y compris quand un hook
+  lève** — le chemin d'erreur libère aussi le scope (`http-kernel.ts:1212`).
 
 C'est là que vivent `resolver`, `context` et le `controller` per-request. Ils masquent le parent le
 temps de la requête et disparaissent avec elle.
@@ -308,7 +308,7 @@ temps de la requête et disparaissent avec elle.
 
 Un controller est **neuf par requête** par défaut. Le décorateur `Scope` (`routerDecorators.ts:754`)
 permet d'en partager un seul, mis en cache par le routeur
-(`Router.getSingletonController()`, `router.ts:161`).
+(`Router.getSingletonController()`, `router.ts:201`).
 
 Le gain est réel — plus d'instanciation ni de `initialize()` par requête — mais le **contrat est
 strict** : l'action ne doit lire ni écrire **aucun** état de requête sur `this`. Tout passe par les
@@ -391,7 +391,7 @@ class AuditService extends Service {
 Deux mécanismes du moteur rendent la faute moins probable, sans l'empêcher :
 
 - **une dépendance se résout SANS argument** — elle n'hérite jamais des arguments de son parent
-  (`Injector._instantiateWithStack()`, `injector.ts:299`). Le bug vécu qui a motivé cette règle :
+  (`Injector._instantiateWithStack()`, `injector.ts:254`). Le bug vécu qui a motivé cette règle :
   `Fetch(module: Module)` construit avec un `HttpContext`, sans que TypeScript ne voie rien ;
 - **le singleton se mémoïse** : capturer un contexte, c'est donc le geler pour toutes les requêtes
   suivantes — pas seulement pour la sienne.
@@ -424,7 +424,7 @@ seulement à la **construction**.
 
 La solution est un apprentissage : au moment où le service est **posé** au container, le couple
 (classe, clé) est enfin connu — il est mémorisé (`Injector.rememberContainerKey()`, `injector.ts:88`)
-depuis `Module.addService()` (`Module.ts:346`) et `Kernel.addKernelService()` (`Kernel.ts:1048`).
+depuis `Module.addService()` (`Module.ts:365`) et `Kernel.addKernelService()` (`Kernel.ts:1319`).
 
 Toute résolution ultérieure passe donc par la **classe**. Sans ce relais, `@inject("Router")`
 interrogeait le container avec `"Router"` là où l'instance est rangée sous `"router"` : réponse
@@ -433,7 +433,7 @@ cœur divergent ainsi ; seul `HttpKernel` s'alignait, par coïncidence de casse.
 
 ### Deux sources de dépendances, une priorité
 
-L'injecteur lit deux métadonnées (`Injector._instantiateWithStack()`, `injector.ts:270`) :
+L'injecteur lit deux métadonnées (`Injector._instantiateWithStack()`, `injector.ts:254`) :
 
 1. **`inject:services`** — posé par `@inject("nom")` (`inject()`, `kernelDecorator.ts:114`).
    **Prioritaire**, tableau creux indexé par position.

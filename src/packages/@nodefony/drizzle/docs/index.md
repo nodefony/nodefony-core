@@ -409,7 +409,7 @@ use("@nodefony/drizzle", {
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:129`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts:244`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et

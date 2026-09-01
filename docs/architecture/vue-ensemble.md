@@ -126,7 +126,7 @@ du firewall :
 
 | Transport | Classe                                   | Ancrage                  |
 | --------- | ---------------------------------------- | ------------------------ |
-| Commun    | `class Context extends Service`          | `Context.ts:123`         |
+| Commun    | `class Context extends Service`          | `Context.ts:158`         |
 | HTTP/2    | `class HttpContext extends Context`      | `HttpContext.ts:77`      |
 | WebSocket | `class WebsocketContext extends Context` | `WebsocketContext.ts:83` |
 
@@ -143,8 +143,8 @@ deux portes.
 
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de
 requête tracé, **un** journal — que l'appel arrive en HTTP/1.1, en HTTP/2 ou par une trame WebSocket.
-Ce que porte `Context` pour les deux transports : `router` (`Context.ts:159`), `resolver`
-(`Context.ts:160`), `session` (`Context.ts:152`), `user` (`Context.ts:154`), la décision du firewall
+Ce que porte `Context` pour les deux transports : `router` (`Context.ts:219`), `resolver`
+(`Context.ts:160`), `session` (`Context.ts:196`), `user` (`Context.ts:154`), la décision du firewall
 (`Context.ts:125`), le `requestId` (`Context.ts:184`) et le nonce CSP paresseux (`Context.ts:192`).
 
 ## 🚀 Démarrage rapide
@@ -335,7 +335,7 @@ existent — pas de listener orphelin.
 > [!TIP]
 > Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3254`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:2257`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:2771`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
@@ -401,8 +401,8 @@ Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 
 Le pare-feu applicatif de `@nodefony/security` raisonne par **zones** : un motif d'URL, une politique.
 `Firewall.matchPath()` (`firewall.ts:529`) rattache la requête à la zone dont le motif est le plus
-spécifique ; `Firewall.isSecure()` (`firewall.ts:538`) répond « protégée ou non » sur le chemin chaud ;
-`Firewall.handleSecurity()` (`firewall.ts:561`) ne travaille que sur zone protégée.
+spécifique ; `Firewall.isSecure()` (`firewall.ts:705`) répond « protégée ou non » sur le chemin chaud ;
+`Firewall.handleSecurity()` (`firewall.ts:738`) ne travaille que sur zone protégée.
 
 ```mermaid
 flowchart TD
@@ -503,9 +503,9 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
 | Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:298`)                          |
-| Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:561`)           |
+| Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:738`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:55`)              |
-| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1168`)           |
+| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1312`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1283`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:114`) · `Service.log()` (`Service.ts:209`) |
@@ -519,7 +519,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:101`) ; le tampon de requêtes ORM du
   profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1293`) ; le nonce CSP
-  n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:192`).
+  n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.
 - **Un seul écouteur de fin de requête.** `createHttpContext()` pose un unique

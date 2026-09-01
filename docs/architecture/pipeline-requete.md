@@ -103,8 +103,8 @@ développeur finit par se poser :
 
 ## La vision Nodefony — un contexte, deux transports
 
-`HttpContext` (`HttpContext.ts:77`) et `WebsocketContext` (`WebsocketContext.ts:83`) héritent de la
-**même** base `Context` (`Context.ts:123`). Cette base porte tout ce qui définit « une requête en
+`HttpContext` (`HttpContext.ts:82`) et `WebsocketContext` (`WebsocketContext.ts:83`) héritent de la
+**même** base `Context` (`Context.ts:158`). Cette base porte tout ce qui définit « une requête en
 cours » : `requestId`, `session`, `user`, `resolver`, `sessionIntent`, le nonce CSP, les jetons CSRF,
 le `traceparent` et la trace de décision du firewall (`Context.ts:184`).
 
@@ -119,7 +119,7 @@ sont traités **avant** toute allocation de contexte, de scope DI ou de bulle AL
 (`HttpKernel.onHttpRequest()`, `http-kernel.ts:944`). Un flood est refusé au prix d'une recherche dans
 une `Map`.
 
-**2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:190`) est appelé **avant** de lire
+**2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:230`) est appelé **avant** de lire
 le corps de la requête (`http-kernel.ts:1181`). C'est ce qui permet à une action de recevoir le flux
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
@@ -270,15 +270,15 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 6   | `traceparent`          | `http-kernel.ts:1304`                                        | la trace W3C est résolue (héritée ou générée)                    |
 | 7   | `RequestContext.run()` | `http-kernel.ts:431`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
 | 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:991`)                  | un **preflight** répond 204 et **sort** du pipeline              |
-| 9   | routage                | `Router.resolve()` (`router.ts:190`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
+| 9   | routage                | `Router.resolve()` (`router.ts:230`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1029`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
 | 11  | fallback statique      | `serverStatic` (`http-kernel.ts:241`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
 | 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1224`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
 | 13  | `onRequestEnd()`       | `http-kernel.ts:1399`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
 | 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:767`) | la route est **matchée** ; rien n'est instancié encore           |
-| 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:741`)                 | une mutation cross-site est refusée (403)                        |
+| 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:932`)                 | une mutation cross-site est refusée (403)                        |
 | 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1139`)          | `context.session` existe **si** la route ou un cookie l'exige    |
-| 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:561`)              | `context.user` est résolu — ou 401/403                           |
+| 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:738`)              | `context.user` est résolu — ou 401/403                           |
 | 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:206`)                | **ton code s'exécute**, la valeur retournée est rendue           |
 | 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1163`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
 
@@ -417,7 +417,7 @@ Choisir son point d'accroche en cinq secondes :
 
 > [!WARNING]
 > Sur le chemin HTTP, trois de ces événements ne sont émis **que s'ils ont un abonné**
-> (`listenerCount` : `http-kernel.ts:1131`, `:1272`, `:1297`). C'est délibéré — sans abonné, zéro
+> (`listenerCount` : `http-kernel.ts:1030`, `:1280`, `:1421`). C'est délibéré — sans abonné, zéro
 > microtâche par requête. Cela ne change rien pour toi : abonne-toi, et ils partent.
 
 ### Situation 2 — « pourquoi mon hook n'est pas appelé sur les fichiers statiques ? »
@@ -497,7 +497,7 @@ d'une seule**. La clé est le `requestId`, et tu n'as rien à câbler.
 
 1. **propagé** à tout l'asynchrone via la bulle ALS (`http-kernel.ts:1151`) ;
 2. **posé sur chaque ligne de log** émise pendant la requête (`Context.log()`, `Context.ts:442`) ;
-3. **réfléchi au client** dans l'en-tête `x-request-id` de la réponse (`Response.ts:381`) ;
+3. **réfléchi au client** dans l'en-tête `x-request-id` de la réponse (`Response.ts:433`) ;
 4. **stable pour toute une connexion** WebSocket, handshake et trames compris.
 
 Depuis n'importe quel service, sans porter le contexte :
@@ -527,9 +527,9 @@ où ; les pages dédiées disent comment.
 | --------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
 | En-têtes de transport | tout premier (`http-kernel.ts:833`)                    | couvre **tout**, y compris statiques et réponses d'erreur              |
 | Probes de santé       | avant le rate-limit (`http-kernel.ts:848`)             | un orchestrateur limité croirait le pod mort → redémarrages en cascade |
-| Rate-limit par IP     | avant contexte et scope (`http-kernel.ts:865`)         | un flood doit coûter une recherche `Map`, pas une allocation           |
+| Rate-limit par IP     | avant contexte et scope (`http-kernel.ts:998`)         | un flood doit coûter une recherche `Map`, pas une allocation           |
 | CORS                  | avant le routage (`firewall.ts:797`)                   | un preflight n'a **pas** de route ; il ne s'authentifie pas            |
-| En-têtes applicatifs  | après le routage (`http-kernel.ts:1193`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
+| En-têtes applicatifs  | après le routage (`http-kernel.ts:1342`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
 | CSRF                  | après le routage, avant la session (`firewall.ts:741`) | rejet précoce d'une mutation cross-site, avant tout coût d'auth        |
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
@@ -550,7 +550,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:55`)            |
 | Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:1705`) |
-| Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:392`)              |
+| Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:415`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
 | Contexte de trace distribuée | W3C Trace Context | `http-kernel.ts:1136` · `Response.ts:386`               |
@@ -565,9 +565,9 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Rejeter avant d'allouer** : probes, rate-limit et cap de connexions WS tranchent avant le
   contexte, le scope DI et l'ALS (`http-kernel.ts:848`, `:865`, `:1368`).
 - **Un seul listener de fin de réponse** : `once("close")` remplace l'ancien couple `finish`/`close`
-  avec ses deux `removeListener` (`http-kernel.ts:1093`).
+  avec ses deux `removeListener` (`http-kernel.ts:1238`).
 - **Hooks tirés seulement s'ils ont un abonné** : `listenerCount` avant `fireAsync`
-  (`http-kernel.ts:1131`, `:1272`, `:1297`) — zéro microtâche sur une app sans module de sécurité.
+  (`http-kernel.ts:1030`, `:1280`, `:1421`) — zéro microtâche sur une app sans module de sécurité.
 - **Allocation paresseuse systématique** : le nonce CSP n'est calculé qu'à la première lecture
   (`Context.ts:192`), le signal d'abandon qu'au premier accès (`Context.ts:402`), la liste des hooks
   d'après-réponse qu'au premier enregistrement (`Context.ts:367`).
@@ -594,7 +594,7 @@ indicatif.
 - **Journal d'accès** : format remplaçable via `HttpKernel.setRequestLogger()`
   (`http-kernel.ts:866`) — JSON d'audit, ligne lisible, ou le tien.
 - **Détail phase par phase** dans les logs : opt-in `timing.verbose`
-  (`Context.logPhasesVerbose()`, `Context.ts:545`).
+  (`Context.logPhasesVerbose()`, `Context.ts:623`).
 
 ## ⚠️ Pièges
 

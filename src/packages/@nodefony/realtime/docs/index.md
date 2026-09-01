@@ -291,7 +291,7 @@ reste local et le dit.
 ## 🧰 Surface publique
 
 Côté serveur : `RealtimeController` (la classe à étendre), les décorateurs `RealtimeChannel`,
-`RealtimeAction` et `RealtimeInbound`, le service `RealtimeService` (`RealtimeService.ts:48`) pour
+`RealtimeAction` et `RealtimeInbound`, le service `RealtimeService` (`RealtimeService.ts:50`) pour
 publier depuis n'importe quel service injecté, le `RealtimeHub` et sa sonde, les trois backplanes
 natifs, et le registre de drivers pour brancher le tien.
 

@@ -220,7 +220,7 @@ un pointeur que plus aucun paquet ne livre est **nommé**, jamais supprimé — 
 
 ### Les commandes de module
 
-Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:508`),
+Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:560`),
 sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme les intégrées :
 
 | Commande            | Ce qu'elle fait                                        | Classe                       |
@@ -239,7 +239,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
 entity | command`, `CREATE_TYPES`, `create.ts:43`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:503`) :
+(`runCreateCommand()`, `create.ts:750`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet

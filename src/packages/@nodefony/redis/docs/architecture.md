@@ -427,7 +427,7 @@ dérivent le même nom : il faut alors un namespace explicite.
 **L'anti-echo est structurel.** Redis renvoie à l'émetteur ce qu'il publie, puisque les connexions
 `publish` et `subscribe` appartiennent au même pod. Sans filtre, chaque message serait diffusé deux
 fois localement. Le tri d'entrée `RedisBackplane.#ingress()` compare donc l'identifiant d'origine à
-la réception (`RedisBackplane.ts:212`) et écarte les siens.
+la réception (`RedisBackplane.ts:269`) et écarte les siens.
 
 **La livraison est au mieux, jamais garantie.** Le pub/sub Redis ne persiste ni ne rejoue : un pod
 déconnecté rate ce qui a été émis pendant sa coupure. Le contrat l'assume au lieu de simuler une
