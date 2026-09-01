@@ -1024,6 +1024,153 @@ step(
   },
 );
 
+step(
+  "une entité `User` AMPUTÉE fait REFUSER — au build ET au démarrage",
+  "Le seul chemin qui prouve le contrat de bout en bout : app générée, entité " +
+    "de l'application, kernel qui démarre pour de vrai.",
+  // 🔴 Ce que rien d'autre ne voit, et pourquoi cette étape existe ici.
+  //
+  // Le contrôle du contrat de colonnes est éprouvé par des tests unitaires du
+  // dépôt (`user-contrat-colonnes.test.ts`, trois dialectes) — mais ceux-là
+  // appellent `registerDrizzleFrameworkStores` DIRECTEMENT. Ils ne disent rien
+  // du chemin réel : une entité écrite par un développeur dans SON application,
+  // compilée dans SON `dist/`, chargée par un kernel qui démarre. Entre les
+  // deux il y a le câblage de `index.ts`, l'ordre de chargement des modules,
+  // le `dist`, et surtout la POLITIQUE DE RÉSILIENCE DU BOOT — qui a déjà
+  // dégradé ce refus en simple avertissement, laissant démarrer une
+  // application amputée de six colonnes avec un code de sortie nul.
+  //
+  // Le geste simulé est celui que le produit REDOUTE : régénérer son `User`
+  // avec ses propres champs, et laisser tomber une colonne du contrat en
+  // chemin. Sans refus, l'application démarre, la commande qui liste les
+  // comptes les AFFICHE, et le défaut n'éclate qu'à la première lecture de la
+  // colonne absente — des semaines plus tard.
+  () => {
+    const entite = path.join(APP, "nodefony", "entity", "User.ts");
+    const rendu = path.join(APP, "dist", "nodefony", "entity", "User.js");
+    const sourceIntacte = readFileSync(entite, "utf8");
+    const renduIntact = readFileSync(rendu, "utf8");
+
+    // Grammaire du moteur de CETTE passe : une table Drizzle est écrite pour un
+    // dialecte, et la lire dans un autre LÈVE (mesuré sur les six croisements).
+    const grammaire =
+      DATABASE === "postgres"
+        ? {
+            core: "pg-core",
+            table: "pgTable",
+            col: (nom) => `text("${nom}")`,
+            imports: "pgTable, text",
+          }
+        : DATABASE === "mysql" || DATABASE === "mariadb"
+          ? {
+              core: "mysql-core",
+              table: "mysqlTable",
+              col: (nom) => `varchar("${nom}", { length: 255 })`,
+              imports: "mysqlTable, varchar",
+            }
+          : {
+              core: "sqlite-core",
+              table: "sqliteTable",
+              col: (nom) => `text("${nom}")`,
+              imports: "sqliteTable, text",
+            };
+
+    // Le corps est le MÊME en source et en rendu : le gabarit n'écrit que de
+    // l'ESM, et le bundler ne fait ici que retirer les types. Une seule
+    // définition, donc, pour que les deux constats portent sur la même entité.
+    const corps = `import { defineEntity } from "@nodefony/orm-core";
+import { FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
+import { ${grammaire.imports} } from "drizzle-orm/${grammaire.core}";
+
+// SONDE DU BANC — une entité \`User\` d'application à qui manquent des colonnes
+// que le framework LIT (\`roles\` en tête). Restaurée en fin d'étape.
+export const userTable = ${grammaire.table}("User", {
+  id: ${grammaire.col("id")}.primaryKey(),
+  identifier: ${grammaire.col("identifier")}.notNull().unique(),
+  password: ${grammaire.col("password")},
+  createdAt: ${grammaire.col("createdAt")}.notNull(),
+  updatedAt: ${grammaire.col("updatedAt")}.notNull(),
+});
+
+export const AppUserEntity = defineEntity({
+  name: "User",
+  module: "app",
+  connector: FRAMEWORK_CONNECTOR,
+  schema: userTable,
+});
+`;
+
+    /** Un refus qui ne dit ni la colonne, ni son lecteur, ni le geste de sortie
+     * envoie chercher au hasard : il vaut à peine mieux que le silence. */
+    const exigerLeMessage = (sortie, quand) => {
+      for (const [quoi, motif] of [
+        ["la colonne manquante", /\broles\b/u],
+        ["un lecteur de la colonne", /countActiveAdmins|role=/u],
+        ["le geste de sortie", /orm:generate/u],
+      ]) {
+        if (!motif.test(sortie)) {
+          throw new Error(
+            `${quand} : le refus ne nomme pas ${quoi} — sortie :\n${sortie}`,
+          );
+        }
+      }
+    };
+
+    const lancer = (cmd, args) =>
+      spawnSync(cmd, args, {
+        cwd: APP,
+        encoding: "utf8",
+        timeout: 600_000,
+        env: envDecor(PORTS, {}),
+        shell: besoinDeShell(cmd),
+      });
+
+    try {
+      // ── 1. Au BUILD — le développeur est arrêté au plus tôt ────────────────
+      // Le `build` d'une application Nodefony DÉMARRE un kernel (il bâtit le
+      // front par la configuration effective), donc le contrôle y tombe déjà.
+      // Ce n'est pas le sujet de l'étape, mais c'est gratuit et ça vaut d'être
+      // gardé : si un jour le build cessait de booter, ce constat le dirait.
+      writeFileSync(entite, corps, "utf8");
+      const build = lancer("npm", ["run", "build"]);
+      const sortieBuild = `${build.stdout ?? ""}${build.stderr ?? ""}`;
+      if (build.status === 0) {
+        throw new Error(
+          `le build a RÉUSSI avec une entité \`User\` amputée — sortie :\n${sortieBuild}`,
+        );
+      }
+      exigerLeMessage(sortieBuild, "au build");
+
+      // ── 2. Au DÉMARRAGE — le vrai sujet ───────────────────────────────────
+      // Le build vient d'échouer : le `dist/` porte donc encore l'entité
+      // INTACTE. On ampute le RENDU directement — c'est le seul fichier que le
+      // kernel charge, et le seul moyen d'atteindre le démarrage sans repasser
+      // par un build qui refuse. Sans cette précaution, l'étape mesurerait un
+      // kernel lisant l'entité complète, et serait verte sans rien prouver.
+      writeFileSync(entite, sourceIntacte, "utf8");
+      writeFileSync(rendu, corps, "utf8");
+      if (readFileSync(rendu, "utf8") === renduIntact) {
+        throw new Error(
+          "le rendu n'a pas changé — l'étape mesurerait l'entité intacte",
+        );
+      }
+      const boot = lancer(process.execPath, [BIN, "orm:migrate:status"]);
+      const sortieBoot = `${boot.stdout ?? ""}${boot.stderr ?? ""}`;
+      if (boot.status === 0) {
+        throw new Error(
+          "l'application a DÉMARRÉ avec une entité `User` amputée — le refus " +
+            "existe mais la politique de résilience du boot le dégrade en " +
+            `avertissement. Sortie :\n${sortieBoot}`,
+        );
+      }
+      exigerLeMessage(sortieBoot, "au démarrage");
+    } finally {
+      writeFileSync(entite, sourceIntacte, "utf8");
+      writeFileSync(rendu, renduIntact, "utf8");
+    }
+  },
+);
+
 if (withE2e) {
   step(
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",

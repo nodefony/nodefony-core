@@ -1,4 +1,5 @@
 import type { ISocialProvider } from "../contracts/IUser";
+import { BootConfigurationError } from "nodefony";
 
 /**
  * Type **logique** d'une colonne de l'utilisateur — ce que la donnée EST, jamais
@@ -327,7 +328,21 @@ export function missingUserColumns(
  *   option `timestamps`. Exiger le contrat entier là-bas refuserait une entité
  *   parfaitement correcte — et un refus faux apprend à passer outre les refus.
  *   L'appelant le DÉRIVE de ce qu'il produit lui-même, il ne le recopie pas.
- * @throws Error si une colonne attendue manque.
+ * @throws BootConfigurationError si une colonne attendue manque.
+ *
+ * **Pourquoi une `BootConfigurationError` et pas une `Error`.** Ce refus est
+ * appelé pendant le boot d'un module, et le kernel y applique une politique de
+ * résilience : un hook de boot qui lève est journalisé en WARNING, le module est
+ * écarté, et l'application DÉMARRE — « BOOT dégradé », code de sortie nul.
+ * Mesuré : une application générée dont l'entité `User` avait perdu six colonnes
+ * du contrat démarrait, servait ses routes, et `orm:migrate:status` la déclarait
+ * « à jour ». Le refus était écrit, parfaitement rédigé, et sans effet.
+ *
+ * Le fail-soft est le bon comportement pour une panne TRANSITOIRE (une base qui
+ * ne répond pas encore) ; il est le mauvais pour une erreur de PROGRAMMATION,
+ * qui ne se répare pas en continuant. `BootConfigurationError` est exactement la
+ * frontière que le cœur a posée entre les deux — son propre TSDoc nomme le cas
+ * « une entité non portée sur le dialecte demandé ».
  */
 export function assertUserContract(
   present: Iterable<string>,
@@ -345,7 +360,7 @@ export function assertUserContract(
         `    ${column.description}`,
     )
     .join("\n");
-  throw new Error(
+  throw new BootConfigurationError(
     `${origin} ne porte pas ${missing.length === 1 ? "une colonne" : `${missing.length} colonnes`} ` +
       `que le framework LIT :\n${details}\n` +
       `  → ajouter ${missing.length === 1 ? "cette colonne" : "ces colonnes"} à l'entité, ` +

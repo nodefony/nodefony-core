@@ -317,8 +317,12 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
 - Entité `User` possédée par l'app : `registerDrizzleFrameworkStores` la confronte au contrat
   (`assertUserContract`) quand `report.appOwned` la contient → REFUS de démarrage nommant la colonne
   et son lecteur. Colonnes lues par `userTableColumns(table, dialect)` — `getTableConfig` diffère
-  par dialecte et rend un objet VIDE si on l'appelle avec la mauvaise grammaire ; schéma illisible
-  ⇒ on laisse passer (une inspection qui échoue ne prouve pas qu'une colonne manque).
+  par dialecte et **LÈVE** (`TypeError: Cannot convert undefined or null to object`) sur la mauvaise
+  grammaire : mesuré sur les 6 croisements, aucun ne rend un objet vide. Schéma illisible ⇒ on laisse
+  passer (une inspection qui échoue ne prouve pas qu'une colonne manque) — d'où le `catch`, et d'où
+  un banc par DIALECTE : sans routage, le refus serait muet en PostgreSQL et MySQL. Banc :
+  `tests/integration/user-contrat-colonnes.test.ts` (3 dialectes) + étape « entité `User` AMPUTÉE »
+  de `verify-generated.mjs` (chemin complet : app générée, `dist`, kernel qui démarre).
 - L'entité de REPLI (framework) n'est pas contrôlée là : elle est dérivée du contrat, et
   `tests/unit/userContractParity.test.ts` la couvre sur les 3 dialectes.
 
