@@ -22,6 +22,8 @@
 
 ## 🏭 Ce que le PRODUIT construit n'est pas ce que la CONFIG demande
 
+- [1× — 09-01] **L'image de production ne contient PAS les outils de développement — donc certains gestes y sont structurellement impossibles.** J'avais fait générer la première migration par le banc DANS le conteneur, avant de l'appliquer. Refus du produit : `NF_GENERATE_TOOL_MISSING` — `drizzle-kit` est une devDep, et l'image installe en `--omit=dev`. C'est juste : APPLIQUER une migration ne réclame aucun outil tiers, seul l'ÉCRIRE en demande un. La leçon dépasse le cas : **avant de placer un geste dans une image, regarder ce que cette image CONTIENT** — le dépôt et l'artefact déployé n'ont pas le même inventaire, et seul le banc réel le dit.
+
 - [1× — 09-01] `nodefony frontend:build` publiait un bundle de **développement** : `mode: "production"` était passé à Vite depuis toujours, mais Vite dérive `isProduction` de `process.env.NODE_ENV`, **qui prime**. Le défaut n'apparaissait ni dans la config, ni dans un test, ni dans un échec — seulement dans le fichier RENDU (`import.meta.env.DEV` vrai chez l'utilisateur final, messages d'aide du framework de vue publiés). Trouvé par hasard, en éprouvant un point que je venais de déclarer « non prouvé ».
 - [1× — 09-01] Corollaire du même jour : le seul bundle qui disait la vérité sur l'état du produit était celui que je n'avais PAS reconstruit à la main. Mes propres expériences avaient « réparé » les quatre autres, et le tableau récapitulatif donnait une image rassurante et fausse — c'est l'HEURE de modification qui a rétabli la lecture.
 
@@ -626,6 +628,8 @@
 - [1× — 08-29f] **Un filtre appliqué au chemin ABSOLU rend le watch aveugle, sans un mot.** Exclure les dossiers de travail (`tmp`, `var`) du watch de développement est juste — mais `ignored` reçoit un chemin absolu, et `TMPDIR` vaut `/var/folders/…` sur macOS, là où nos propres bancs de scaffold créent l'application. Chaque entrée aurait été rejetée. La règle ne vaut que DANS le projet : relativiser AVANT de filtrer (axiome de portabilité n°2), et le prouver en débranchant la seule relativisation.
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
+
+- [1× — 09-01] **Un artefact qui CHANGE de producteur casse en silence tous les décors qui le supposaient livré.** La table `User` a quitté les migrations du framework pour celles de l'application. Trois décors reposaient sur l'hypothèse inverse, et aucun ne l'énonçait : le banc d'adoption vidait le dossier de migrations du dépôt (9 cas rouges par dialecte, tous sur « table absente : User ») ; le décor MySQL dérivait ses tables à nettoyer des seules migrations du PAQUET, donc ne nettoyait plus `User`, qui survivait d'un cas à l'autre ; un troisième amputait `User` en la croyant livrée (`no such table`). **Déplacer la propriété d'un artefact, c'est devoir relire tout ce qui le CONSOMME** — et un décor consomme sans le dire.
 
 - [1× — 08-31d] **Le ticket prescrivait de CONSTRUIRE ce que le produit portait déjà.** #122 demandait
   un module de décor `policy:"mandatory"` — un espace de travail de plus, chargé à CHAQUE démarrage du
@@ -1940,6 +1944,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-01] **Une commande qui se mord la queue : son propre DÉMARRAGE fabrique ce qu'elle vient constater.** `orm:generate` démarre l'application, et un démarrage en développement DÉRIVE le schéma du code. La commande peuplait donc la base elle-même, puis refusait d'écrire la première migration — `NF_GENERATE_DATABASE_NOT_ADOPTED`, « la base porte déjà toutes les tables déclarées ». Le refus est exact ; c'est la boucle qui est fausse. Une commande qui OBSERVE un état doit poser le décor qui l'empêche de le CRÉER (`NODE_ENV=production` ⇒ mode `none`), et ce décor s'écrit dans l'appel, pas dans la tête de celui qui tape.
 
 - [1× — 31/08] **Une garde qui ne mord pas ne se laisse pas « au cas où ».** `exclude: [/\.vue/]` passé à `@vitejs/plugin-react` est la correction évidente du problème — elle n'a AUCUN effet (vérifié jusqu'à `exclude: [/./]`, en s'assurant que l'option atteignait bien la config générée). La laisser aurait fait croire à une protection en place, et le prochain lecteur aurait cherché ailleurs. Retirée ; la vraie parade était structurelle (isoler le process).
 
