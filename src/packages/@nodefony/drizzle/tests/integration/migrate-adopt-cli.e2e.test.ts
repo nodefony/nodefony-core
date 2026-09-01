@@ -540,8 +540,12 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           .sort();
         const dernier = fichiers.at(-1);
         assert.ok(
-          dernier?.endsWith("_heritage.sql"),
-          `le décor devait finir sur sa migration : ${fichiers.join(", ") || "(aucune)"}`,
+          dernier,
+          `le décor n'a écrit aucune migration : ${fichiers.join(", ") || "(aucune)"}`,
+        );
+        assert.ok(
+          dernier.endsWith("_heritage.sql"),
+          `le décor devait finir sur sa migration : ${fichiers.join(", ")}`,
         );
         return dernier.replace(/\.sql$/, "");
       };
