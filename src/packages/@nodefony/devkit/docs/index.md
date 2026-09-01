@@ -1,9 +1,14 @@
 ---
+title: "@nodefony/devkit — l'outillage de développement d'une application"
+navTitle: devkit
+lang: fr
 module: "@nodefony/devkit"
 topic: overview
 audience: [human, ai]
 tags: [module, developpement, agent]
 status: stable
+updated: 2026-09-01
+source: "src/packages/@nodefony/devkit/docs/index.md"
 ---
 
 # devkit
@@ -13,6 +18,23 @@ status: stable
 > qui mènent au reste.
 
 Cette page est **surfacée dans Studio** (onglet Docs du module).
+
+📍 [Documentation](../../../../../docs/index.md) › **@nodefony/devkit**
+
+## Par où commencer
+
+```nodefony-cards
+[
+  { "icon": "🪪", "title": "La carte de visite", "href": "#le-problème-quil-résout",
+    "desc": "`npx nodefony card` : qui répond ici, quels modules, où lire, quoi lancer. Servie par le cœur — elle marche même sans application construite." },
+  { "icon": "🔌", "title": "Le serveur MCP", "href": "#le-serveur-mcp--les-mêmes-réponses-en-outils",
+    "desc": "Les mêmes réponses, mais en outils qu'un agent appelle — dont l'autorisation OAuth 2.1 et vos propres outils." },
+  { "icon": "🎓", "title": "Les skills d'agent", "href": "#les-skills-dagent--répondre-à--comment-fait-on-ça-ici--",
+    "desc": "Ce qui répond à « comment fait-on ça, ici ? » sans que l'agent invente une convention." },
+  { "icon": "🚫", "title": "Ce qu'il ne fait pas", "href": "#ce-quil-ne-fait-pas",
+    "desc": "La frontière du module — et pourquoi il n'existe pas en production." }
+]
+```
 
 ## Le problème qu'il résout
 
@@ -305,3 +327,18 @@ absente sans `NODE_ENV`) ; les skills, eux, doivent se mettre à jour par npm.
 Les clés, leurs types et leurs défauts viennent du schéma Zod
 (`nodefony/config/config.ts`) — **source unique** dont dérivent la
 documentation, la validation au boot et le formulaire d'édition de Studio.
+
+## Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [documentation Nodefony](../../../../../docs/index.md) — et
+  [par où commencer](../../../../../docs/demarrer.md) si vous arrivez sur le framework.
+- 🏗️ **Générer du code plutôt que l'écrire** :
+  [`nodefony create`](../../../../../docs/guides/generer-du-code.md) — voir ce qui va changer
+  avant que ça change, et l'appeler depuis un agent.
+- 🧪 **Ce que vaut cet outillage, mesuré** :
+  [éprouver un framework avec un agent](../../../../../docs/guides/eprouver-loutillage-agent.md).
+- 🖥️ **Les commandes du cœur** : [la CLI](../../../../nodefony/docs/cli.md) — `card` et `inspect`
+  y sont servies, pas ici.
+- 📚 **La documentation installée avec les paquets** :
+  [`@nodefony/documentation`](../../documentation/docs/index.md).
+- 📖 [Lexique général](../../../../../docs/lexique.md) du framework.

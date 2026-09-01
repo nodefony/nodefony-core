@@ -659,5 +659,24 @@
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
     ]
+  },
+  "session-storage-guide": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/session-facets.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/session-pagination.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/SessionsAdmin.test.ts",
+      "src/nodefony/src/tests/infra.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/session-storage.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-sqlite.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/session-storage.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-resilience.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-mysql.e2e.test.ts"
+    ]
   }
 }
