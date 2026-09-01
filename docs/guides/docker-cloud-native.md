@@ -115,27 +115,30 @@ Notes :
 
 ## Kubernetes — probes & timeouts
 
-⚠️ Le framework n'expose **pas** d'endpoint santé générique par défaut
-(`/nodefony/studio/api/health` existe mais dépend de Studio, non garanti monté en prod).
-**Exposez une route santé applicative** (un controller qui renvoie 200) et pointez les probes
-dessus :
+Le framework expose **deux sondes, actives par défaut** — rien à écrire :
+
+| Sonde         | Chemin    | Ce qu'elle répond                                                                                                                                            |
+| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Vivacité      | `/livez`  | 200 tant que le process sert — **y compris pendant l'arrêt** : un pod qui vide ses connexions n'est pas un pod mort, le tuer couperait les requêtes en cours |
+| Disponibilité | `/readyz` | 200 quand le pod peut recevoir du trafic, **503 dès le début de l'arrêt** — l'équilibreur le retire avant que la première connexion tombe                    |
+
+Elles sont montées **avant la limitation de débit** (`http-kernel.ts:967`) : un kubelet qui sonde
+toutes les secondes ne doit pas se faire limiter, puis déclarer le pod mort. Les chemins et
+l'activation se règlent dans la configuration du module http (`config.ts`, `enabled` à `true` par
+défaut).
 
 ```yaml
 livenessProbe:
-  { httpGet: { path: /health, port: 5151 }, initialDelaySeconds: 10 }
-readinessProbe: { httpGet: { path: /health, port: 5151 }, periodSeconds: 5 }
+  { httpGet: { path: /livez, port: 5151 }, initialDelaySeconds: 10 }
+readinessProbe: { httpGet: { path: /readyz, port: 5151 }, periodSeconds: 5 }
 terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1 s)
 ```
 
 - `NF_BOOT_TIMEOUT_MS` (`reservedEnv.ts:98`) borne le temps de boot : si un module reste
   suspendu, le pod échoue vite au lieu de rester à moitié vivant.
-- Le boot de l'app est dominé par l'import/instanciation des modules (audit de performance de
-  boot, mémoire IA `core-dev/audits/boot-performance-2026-06-01.md`) : un **pod réel** (app minimale) boote
-  nettement plus vite que l'app de dev de démo. Ajuster `initialDelaySeconds` en conséquence.
-
-> **Reco framework** (backlog cloud-native) : exposer un endpoint santé standard dans le core
-> HTTP — `/nodefony/health` (liveness) + `/nodefony/ready` (readiness, vrai après
-> `onServersReady`) — pour éviter à chaque app de le réécrire. Cf `project_cloud_native_plan`.
+- Le boot d'une application est dominé par l'import et l'instanciation de ses modules : un **pod
+  réel** démarre nettement plus vite que l'application de démonstration du dépôt. Ajustez
+  `initialDelaySeconds` en conséquence plutôt que de recopier une valeur.
 
 ## 📖 Lexique
 
@@ -155,10 +158,10 @@ terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1
   brutalement — au milieu des requêtes en cours.
 - **Un `terminationGracePeriodSeconds` trop court annule l'arrêt gracieux.** Il doit dépasser la
   durée réelle de fermeture, sinon le `SIGKILL` arrive avant la fin et le bénéfice est perdu.
-- **Il n'y a pas d'endpoint santé générique** — c'est écrit plus haut, et c'est le piège le plus
-  coûteux : pointer une sonde vers une route qui n'existe pas rend le pod perpétuellement non
-  disponible. La route de la console d'administration (`StudioController.ts:162`) existe, mais
-  elle dépend d'un module qui n'est pas garanti monté en production.
+- **Ne pointez pas vos sondes sur une route applicative que vous écrivez vous-même** alors que
+  `/livez` et `/readyz` existent : la vôtre ne saura pas répondre 503 pendant l'arrêt, et le pod
+  continuera de recevoir du trafic qu'il ne peut plus servir. C'est exactement ce que `/readyz`
+  fait, et qu'un `return 200` ne fait pas.
 - **Écrire des journaux dans des fichiers, dans un conteneur, revient à les jeter.** Le système de
   fichiers est éphémère : la sortie standard est le seul chemin qui atteigne un collecteur.
 - **Un démon qui n'a aucun handle actif sort tout seul.** `await new Promise(() => {})` ne retient

@@ -232,7 +232,7 @@ ordinaire, lui, aurait fini par se heurter à une route applicative.
 
 La règle qui en découle vaut pour **tout** module, pas seulement pour Studio :
 
-- ✅ `/nodefony/security/api/sessions` — trois segments, marqueur `/api/`, jamais ambigu.
+- ✅ `/nodefony/http/api/sessions` — trois segments, marqueur `/api/`, jamais ambigu.
 - ❌ `/nodefony/security` — un seul segment : entre en collision avec une page de l'interface.
 
 Cette asymétrie est ce qui rend l'interface jetable. Le repli des liens profonds suit la même

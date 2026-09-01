@@ -529,7 +529,7 @@ le container a déjà été détaché. C'est le style à privilégier dans `init
 ```typescript
 import { inject, Fetch } from "nodefony";
 
-@controller("/nodefony/demo")
+@controller("/demo")
 class DemoController extends Controller {
   constructor(
     context: ContextType,

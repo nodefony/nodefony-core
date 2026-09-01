@@ -78,7 +78,7 @@ flowchart TB
 | ALS              | _AsyncLocalStorage_ : la « bulle » qui suit la requête à travers tout l'asynchrone.          |
 | `requestId`      | Identifiant de corrélation d'une requête — présent dans les logs et dans la réponse.         |
 | Resolver         | L'objet produit par le routage : route matchée, contrôleur, action, variables d'URL.         |
-| Front controller | L'étage qui transforme une URL en (contrôleur, action) — ici `handleFrontController()`.      |
+| Front controller | L'étage qui transforme une URL en (contrôleur, action) — ici `prepareFrontController()`.     |
 | Handshake        | La poignée de main d'ouverture d'une WebSocket (une requête HTTP `GET` + `Upgrade`).         |
 | Trame (frame)    | Un message WebSocket, après le handshake.                                                    |
 | Teardown         | La fin de requête : log, profil, hooks d'après-réponse, libération du scope.                 |
@@ -251,36 +251,36 @@ sequenceDiagram
   K->>K: fallback statique si aucune route
   K->>K: parse du corps (sauté si l'action veut le flux)
   K->>K: onRequestEnd — hôte, hook beforeResolve
-  K->>A: handleFrontController — instancie + initialize()
+  K->>A: prepareFrontController — MATCH la route, n'instancie RIEN
   K->>F: enforceCsrf → startSession → handleSecurity
-  K->>A: ctx.handle — l'ACTION s'exécute
+  K->>A: ctx.handle — @IsGranted, PUIS instanciation + initialize(), PUIS l'action
   A-->>C: réponse
   S->>K: close → teardownHttp — log, profil, hooks, leaveScope
 ```
 
 Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque étape.
 
-| #   | Étape                  | Ancrage                                                     | Ce qui devient vrai                                              |
-| --- | ---------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
-| 1   | `onHttpRequest()`      | `http-kernel.ts:944`                                        | en-têtes de transport posés (nosniff, frame, HSTS)               |
-| 2   | probes de santé        | `HttpKernel.#respondHealth()` (`http-kernel.ts:473`)        | `/livez` et `/readyz` répondent **sans** entrer dans le pipeline |
-| 3   | rate-limit par IP      | `http-kernel.ts:865`                                        | un flood est rejeté en 429, **sans** contexte ni scope           |
-| 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:721`)                | le **scope DI « request »** est ouvert                           |
-| 5   | `createHttpContext()`  | `http-kernel.ts:1218`                                       | le contexte existe ; le teardown est armé (`once("close")`)      |
-| 6   | `traceparent`          | `http-kernel.ts:1304`                                       | la trace W3C est résolue (héritée ou générée)                    |
-| 7   | `RequestContext.run()` | `http-kernel.ts:431`                                        | **la bulle ALS est ouverte** — `requestId` propagé partout       |
-| 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:991`)                 | un **preflight** répond 204 et **sort** du pipeline              |
-| 9   | routage                | `Router.resolve()` (`router.ts:190`)                        | `context.resolver` porte la route, le contrôleur, les variables  |
-| 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1029`)      | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
-| 11  | fallback statique      | `serverStatic` (`http-kernel.ts:241`)                       | **aucune route** matchée → le fichier est servi, fin du trajet   |
-| 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1224`)              | corps et fichiers disponibles (sauté si flux brut demandé)       |
-| 13  | `onRequestEnd()`       | `http-kernel.ts:1399`                                       | hôte vérifié, hook `beforeResolve` tiré                          |
-| 14  | front controller       | `HttpKernel.handleFrontController()` (`http-kernel.ts:811`) | le contrôleur est **instancié**, `initialize()` a tourné         |
-| 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:741`)                | une mutation cross-site est refusée (403)                        |
-| 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1139`)         | `context.session` existe **si** la route ou un cookie l'exige    |
-| 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:561`)             | `context.user` est résolu — ou 401/403                           |
-| 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:206`)               | **ton code s'exécute**, la valeur retournée est rendue           |
-| 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1163`)         | log, profil, hooks d'après-réponse, **scope libéré**             |
+| #   | Étape                  | Ancrage                                                      | Ce qui devient vrai                                              |
+| --- | ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| 1   | `onHttpRequest()`      | `http-kernel.ts:944`                                         | en-têtes de transport posés (nosniff, frame, HSTS)               |
+| 2   | probes de santé        | `HttpKernel.#respondHealth()` (`http-kernel.ts:473`)         | `/livez` et `/readyz` répondent **sans** entrer dans le pipeline |
+| 3   | rate-limit par IP      | `http-kernel.ts:865`                                         | un flood est rejeté en 429, **sans** contexte ni scope           |
+| 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:721`)                 | le **scope DI « request »** est ouvert                           |
+| 5   | `createHttpContext()`  | `http-kernel.ts:1218`                                        | le contexte existe ; le teardown est armé (`once("close")`)      |
+| 6   | `traceparent`          | `http-kernel.ts:1304`                                        | la trace W3C est résolue (héritée ou générée)                    |
+| 7   | `RequestContext.run()` | `http-kernel.ts:431`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
+| 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:991`)                  | un **preflight** répond 204 et **sort** du pipeline              |
+| 9   | routage                | `Router.resolve()` (`router.ts:190`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
+| 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1029`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
+| 11  | fallback statique      | `serverStatic` (`http-kernel.ts:241`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
+| 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1224`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
+| 13  | `onRequestEnd()`       | `http-kernel.ts:1399`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
+| 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:767`) | la route est **matchée** ; rien n'est instancié encore           |
+| 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:741`)                 | une mutation cross-site est refusée (403)                        |
+| 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1139`)          | `context.session` existe **si** la route ou un cookie l'exige    |
+| 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:561`)              | `context.user` est résolu — ou 401/403                           |
+| 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:206`)                | **ton code s'exécute**, la valeur retournée est rendue           |
+| 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1163`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
 
 ### Trois ordres qui surprennent (et pourquoi ils sont ainsi)
 
@@ -294,10 +294,14 @@ faute de route qu'il essaie le disque (`http-kernel.ts:1200`). Une route d'API n
 `stat` de `serve-static`. Corollaire important : un fichier servi **court-circuite tout ce qui suit**
 — voir la mise en situation dédiée.
 
-**Ton contrôleur est instancié avant d'être autorisé.** `handleFrontController()` construit
-l'instance et appelle `initialize()` (`Resolver.newController()`, `Resolver.ts:236`) **avant** CSRF,
-session et firewall. Seule l'**action** est protégée : la garde `@IsGranted` s'évalue dans
-`Resolver.executeAction()` (`Resolver.ts:317`), avant l'appel de la méthode.
+**Ton contrôleur n'est instancié qu'une fois la requête autorisée.** L'étape 14 se contente de
+MATCHER la route — `prepareFrontController()` (`http-kernel.ts:767`) pose `sessionIntent` et
+`bypassFirewall`, que le point session et le firewall lisent juste après, et rien de plus. La
+construction de l'instance et l'appel d'`initialize()` exécutent du code utilisateur et résolvent
+des dépendances : ils vivent dans `Resolver.executeAction()`, **après** la garde `@IsGranted`
+(`Resolver.ts:327`), donc après CSRF, session et firewall. Un 403 court-circuite l'instanciation —
+c'est ce qui rend la garde réellement Zero Trust, et non un contrôle posé sur un objet déjà
+construit.
 
 ### Du retour d'action à l'octet
 
