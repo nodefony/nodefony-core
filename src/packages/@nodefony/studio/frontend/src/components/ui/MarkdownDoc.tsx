@@ -87,14 +87,20 @@ function ensureDocStyles() {
        ouvrant le schéma, pas en le parcourant au doigt. */
     .nf-mermaid > svg {
       max-width: 100% !important;
-      max-height: 62vh;
+      /* dvh et non vh : sur mobile, la barre d'adresse escamotable fausse vh,
+         et le schéma déborde de l'écran au premier défilement. */
+      max-height: 60dvh;
       width: auto;
       height: auto;
     }
-    /* Ouvert : le schéma reprend sa taille RÉELLE et c'est le fond qui défile. */
+    /* Ouvert : le schéma prend TOUTE la place offerte, sans jamais la dépasser.
+       Le rendre à sa taille réelle le laissait déborder — « trop gros », et on
+       revenait à devoir le parcourir au lieu de le voir. L'échelle reste donc
+       relative à la FENÊTRE, ici comme dans le corps de la page ; seul le
+       plafond change, parce que la place disponible change. */
     .nf-mermaid-zoom > svg {
-      max-width: none !important;
-      max-height: none;
+      max-width: 100% !important;
+      max-height: calc(100dvh - 9rem);
     }
     .nf-heading { position: relative; }
     .nf-heading-anchor {

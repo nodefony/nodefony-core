@@ -342,15 +342,20 @@ existent — pas de listener orphelin.
 ### Une requête — le trajet en gros plan
 
 ```mermaid
-flowchart TD
+flowchart LR
   IN["Requête entrante"] --> SC["enterScope('request')<br/>un sous-annuaire jetable"]
   SC --> CX["Création du Context<br/>(HttpContext ou WebsocketContext)"]
   CX --> ALS["Bulle ALS<br/>requestId · trace · contexte"]
   ALS --> DEF["Défenses<br/>CORS · en-têtes · CSRF"]
-  DEF --> SESS["Session (paresseuse)"]
-  SESS --> FWD{"Zone protégée ?"}
+```
+
+Puis l'identité, et seulement ensuite votre code :
+
+```mermaid
+flowchart LR
+  SESS["Session (paresseuse)"] --> FWD{"Zone protégée ?"}
   FWD -->|non| RES["Router → Resolver"]
-  FWD -->|oui| AUTH["Firewall : identité + droits"]
+  FWD -->|oui| AUTH["Firewall<br/>identité + droits"]
   AUTH --> RES
   RES --> CTRL["Ton contrôleur"]
   CTRL --> OUT["Réponse HTTP<br/>ou trame WebSocket"]
