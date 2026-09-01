@@ -78,6 +78,10 @@ function ensureDocStyles() {
   const s = document.createElement("style");
   s.id = "nf-doc-styles";
   s.textContent = `
+    /* Mermaid pose \`max-width\` EN LIGNE sur son SVG : le diagramme se comprime
+       alors à la largeur de la colonne et s'étire en hauteur. On lui rend sa
+       taille naturelle — c'est le conteneur \`.nf-mermaid\` qui défile. */
+    .nf-mermaid > svg { max-width: none !important; height: auto; }
     .nf-heading { position: relative; }
     .nf-heading-anchor {
       opacity: 0;
@@ -366,7 +370,21 @@ export function MermaidDiagram({ code }: { code: string }) {
       </Alert>
     );
   }
-  return <Box ref={containerRef} my="md" style={{ textAlign: "center" }} />;
+  // Un diagramme garde ses PROPORTIONS et défile dans son propre cadre — il ne
+  // s'écrase pas à la largeur de la colonne. Mermaid écrit un `max-width` EN LIGNE
+  // sur le SVG qu'il rend : contraint à 576 px dans une mise en page à trois
+  // colonnes, un `flowchart` s'étire en hauteur (mesuré : 351 × 1549 px sur la vue
+  // d'ensemble — un ruban illisible). La règle `.nf-mermaid > svg` d'
+  // `ensureDocStyles` annule cette contrainte ; ici on borne la hauteur et on
+  // laisse le conteneur défiler.
+  return (
+    <Box
+      ref={containerRef}
+      className="nf-mermaid"
+      my="md"
+      style={{ textAlign: "center", overflow: "auto", maxHeight: "72vh" }}
+    />
+  );
 }
 
 /* ─── Code block enrichi (topbar langue + Copier) ────────────────────────── */

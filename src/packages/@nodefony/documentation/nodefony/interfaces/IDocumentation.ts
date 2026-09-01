@@ -107,8 +107,52 @@ export interface IDocumentationService {
    * @throws DocUnsafeSlugError si le slug est rejeté par la garde de sécurité
    */
   getPage(slug: string): Promise<IDocPage>;
+
+  /**
+   * Cherche dans les titres ET le corps des pages, et rend des extraits situés.
+   *
+   * @param query - la saisie brute ; les termes d'un caractère sont ignorés.
+   * @param limit - nombre maximal de pages rendues (défaut 20).
+   */
+  search(query: string, limit?: number): Promise<IDocSearchResult>;
   /** Enregistre un fournisseur de variable `{{ name }}` (résolution serveur). */
   registerVar(name: string, provider: DocVarProvider): void;
   /** Invalide le cache de l'index (force un rescan au prochain `getTree`). */
   invalidate(): void;
+}
+
+/** Un extrait de texte où les termes cherchés apparaissent. */
+export interface IDocSearchExcerpt {
+  /** Le titre de section (`##`) sous lequel l'extrait a été trouvé, s'il y en a un. */
+  section?: string;
+  /** Le texte de l'extrait, borné — les termes y sont encadrés par `\u0000`. */
+  text: string;
+}
+
+/** Une page retenue par la recherche. */
+export interface IDocSearchHit {
+  slug: string;
+  title: string;
+  navTitle: string;
+  /** Libellé de la section d'arbre qui porte la page (« Guides », « Cœur »…). */
+  sectionLabel: string;
+  /** Extraits, dans l'ordre du document — bornés. */
+  excerpts: IDocSearchExcerpt[];
+  /** Occurrences TOTALES dans la page ; les extraits, eux, sont bornés. */
+  occurrences: number;
+  /** Pertinence décroissante : un terme dans le titre pèse plus que dans le corps. */
+  score: number;
+}
+
+/** Réponse de `/documentation/api/search`. */
+export interface IDocSearchResult {
+  /** La requête telle que reçue. */
+  query: string;
+  /** Les termes effectivement cherchés (pliés, vides retirés). */
+  terms: string[];
+  /** Pages lues pour répondre — dit ce que la recherche a réellement balayé. */
+  scanned: number;
+  /** Pages retenues AVANT bornage — un total de 40 avec 20 rendus se dit. */
+  matched: number;
+  hits: IDocSearchHit[];
 }

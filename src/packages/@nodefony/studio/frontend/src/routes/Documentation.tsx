@@ -8,6 +8,7 @@ import {
   Divider,
   Group,
   NavLink,
+  Paper,
   rem,
   Stack,
   Text,
@@ -55,6 +56,25 @@ import {
 type Persona = "developer" | "devops" | "supervisor" | "admin";
 
 /* ─── Types data plane (miroir local — pas d'import serveur) ─────────────── */
+interface DocSearchExcerpt {
+  section?: string;
+  text: string;
+}
+interface DocSearchHit {
+  slug: string;
+  title: string;
+  navTitle: string;
+  sectionLabel: string;
+  excerpts: DocSearchExcerpt[];
+  occurrences: number;
+}
+interface DocSearch {
+  query: string;
+  terms: string[];
+  scanned: number;
+  matched: number;
+  hits: DocSearchHit[];
+}
 interface DocPage {
   slug: string;
   title: string;
@@ -188,6 +208,21 @@ export const Documentation = observer(() => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [navQuery, setNavQuery] = useState("");
 
+  // La recherche est une RESSOURCE à part, pas un filtre de l'arbre : filtrer le
+  // menu ne répond qu'à « quelle page s'appelle ainsi ? », alors que la question
+  // posée est « où est-ce expliqué ? » — dont la réponse est dans le CORPS.
+  const q = navQuery.trim();
+  const searchFetcher = useCallback(
+    () =>
+      q.length > 1
+        ? store.api.getAbsolute<DocSearch>(
+            `/nodefony/documentation/api/search?q=${encodeURIComponent(q)}`,
+          )
+        : Promise.resolve(null),
+    [store, q],
+  );
+  const search = useResource(searchFetcher);
+
   const pageFetcher = useCallback(
     () =>
       store.api.getAbsolute<DocContent>(
@@ -200,8 +235,16 @@ export const Documentation = observer(() => {
   const visible = (audience?: Persona[]) =>
     persona === "admin" || !audience || audience.includes(persona);
 
+  // Le titre est déjà rendu par l'en-tête de page : laisser le `# H1` du markdown
+  // l'affichait UNE SECONDE FOIS, et posait un second `h1` dans un document qui en
+  // a déjà un (hiérarchie cassée, mesurée par l'arbre d'accessibilité). On retire
+  // le premier titre de niveau 1 et lui seul — les `##` du corps restent intacts,
+  // et le sommaire, qui les liste, n'est pas affecté.
   const markdown = page.data
-    ? resolveVars(page.data.markdown, page.data.vars)
+    ? resolveVars(page.data.markdown, page.data.vars).replace(
+        /^\s*#\s+.+?(\r?\n|$)/,
+        "",
+      )
     : "";
   // Recherche dans la nav : filtre les pages (titre) ; déplie les sections trouvées.
   const navQ = navQuery.trim().toLowerCase();
@@ -557,30 +600,103 @@ export const Documentation = observer(() => {
         // modèle du docs-site, et la règle 2 du standard de mise en page.
         mode="page"
       >
-        <DataState
-          loading={page.loading && !page.data}
-          error={page.error}
-          onRetry={page.reload}
-          minHeight={300}
-        >
-          {page.data?.temporary && (
-            <Alert
-              color="yellow"
-              variant="light"
-              icon={<IconFileText size={18} />}
-              mb="md"
-            >
-              Page <b>temporaire</b> branchée pour ta lecture — contenu lu en
-              direct depuis le fichier du repo. Le vrai module gérera ça
-              proprement.
-            </Alert>
-          )}
-          <MarkdownDoc
-            markdown={markdown}
-            maxWidth={1000}
-            onInternalLink={onInternalLink}
-          />
-        </DataState>
+        {q.length > 1 ? (
+          <DataState
+            loading={search.loading && !search.data}
+            error={search.error}
+            onRetry={search.reload}
+            minHeight={300}
+          >
+            <Stack gap="sm">
+              <Group justify="space-between" align="baseline">
+                <Text fw={700} size="lg">
+                  {search.data?.matched ?? 0} page
+                  {(search.data?.matched ?? 0) > 1 ? "s" : ""} pour «&nbsp;
+                  {q}&nbsp;»
+                </Text>
+                {/* Dire ce qui a été BALAYÉ, et ce qui est montré : « 20 résultats »
+                    se lit sinon comme « il n'y en a que 20 ». */}
+                <Text size="xs" c="dimmed">
+                  {search.data ? `${search.data.scanned} pages parcourues` : ""}
+                  {search.data && search.data.matched > search.data.hits.length
+                    ? ` — les ${search.data.hits.length} plus pertinentes`
+                    : ""}
+                </Text>
+              </Group>
+              {search.data?.hits.length === 0 && (
+                <Alert
+                  color="gray"
+                  variant="light"
+                  icon={<IconSearch size={18} />}
+                >
+                  Aucune page ne porte tous ces termes. Essaie un mot de moins —
+                  la recherche exige que <b>chacun</b> soit présent.
+                </Alert>
+              )}
+              {search.data?.hits.map((h) => (
+                <Paper
+                  key={h.slug}
+                  withBorder
+                  radius="md"
+                  p="md"
+                  onClick={() => {
+                    setNavQuery("");
+                    setActiveSlug(h.slug);
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
+                  <Group justify="space-between" wrap="nowrap" align="baseline">
+                    <Text fw={600}>{h.navTitle || h.title}</Text>
+                    <Badge size="xs" variant="light" style={{ flex: "none" }}>
+                      {h.sectionLabel}
+                    </Badge>
+                  </Group>
+                  {h.navTitle !== h.title && (
+                    <Text size="xs" c="dimmed" mt={2}>
+                      {h.title}
+                    </Text>
+                  )}
+                  <Stack gap={4} mt="xs">
+                    {h.excerpts.map((ex, i) => (
+                      <Text key={i} size="sm" c="dimmed" lineClamp={2}>
+                        {ex.section ? <b>{ex.section} — </b> : null}
+                        {ex.text}
+                      </Text>
+                    ))}
+                  </Stack>
+                  <Text size="xs" c="dimmed" mt={6}>
+                    {h.occurrences} occurrence{h.occurrences > 1 ? "s" : ""}
+                  </Text>
+                </Paper>
+              ))}
+            </Stack>
+          </DataState>
+        ) : (
+          <DataState
+            loading={page.loading && !page.data}
+            error={page.error}
+            onRetry={page.reload}
+            minHeight={300}
+          >
+            {page.data?.temporary && (
+              <Alert
+                color="yellow"
+                variant="light"
+                icon={<IconFileText size={18} />}
+                mb="md"
+              >
+                Page <b>temporaire</b> branchée pour ta lecture — contenu lu en
+                direct depuis le fichier du repo. Le vrai module gérera ça
+                proprement.
+              </Alert>
+            )}
+            <MarkdownDoc
+              markdown={markdown}
+              maxWidth={1000}
+              onInternalLink={onInternalLink}
+            />
+          </DataState>
+        )}
       </DocLayout>
     </PageLayout>
   );

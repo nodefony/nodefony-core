@@ -28,6 +28,9 @@ import type {
   IDocAudienceInfo,
   IDocPage,
   IDocPageRef,
+  IDocSearchExcerpt,
+  IDocSearchHit,
+  IDocSearchResult,
   IDocSection,
   IDocTree,
 } from "../interfaces/IDocumentation";
@@ -95,6 +98,20 @@ const ROOT_PAGES: ReadonlyArray<string> = ["index", "demarrer", "lexique"];
 
 /** Libellé du groupe qui porte les pages de `docs/` elles-mêmes. */
 const ROOT_PAGES_LABEL = "Pour commencer";
+
+/**
+ * Plie un texte pour la recherche : minuscules et accents retirés.
+ *
+ * Sans ce pliage, chercher « securite » ne trouverait pas « sécurité » — et
+ * l'utilisateur qui tape sans accents, le cas courant, conclurait que le sujet
+ * n'est pas documenté.
+ */
+function fold(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
 /** Snapshot caché : docs scannés + arbre construit + index slug→doc. */
 interface CacheEntry {
@@ -167,6 +184,132 @@ class DocumentationService extends Service {
 
   async getTree(): Promise<IDocTree> {
     return (await this.#ensureCache()).tree;
+  }
+
+  /**
+   * Cherche `query` dans le corpus — titres ET corps — et rend des EXTRAITS.
+   *
+   * Pourquoi une recherche à part, et pas un filtre de l'arbre : filtrer le menu
+   * ne répond qu'à « quelle page s'appelle ainsi ? ». La question réelle est
+   * « où est-ce expliqué ? », dont la réponse est dans le CORPS des pages. Une
+   * recherche qui ne lit que les titres laisse croire qu'un sujet n'est pas
+   * documenté alors qu'il l'est, dans une page dont le nom ne le dit pas.
+   *
+   * Tout est borné : le nombre de pages rendues, le nombre d'extraits par page,
+   * la longueur d'un extrait. Le total AVANT bornage est rendu à part
+   * (`matched`), pour que « 20 résultats » ne se lise pas comme « il n'y en a
+   * que 20 ».
+   *
+   * @param query - la saisie brute de l'utilisateur.
+   * @param limit - nombre maximal de pages rendues (défaut 20).
+   * @returns les pages retenues, leurs extraits, et ce qui a été balayé.
+   */
+  async search(query: string, limit = 20): Promise<IDocSearchResult> {
+    const terms = fold(query)
+      .split(/\s+/)
+      .filter((t) => t.length > 1);
+    if (!terms.length) {
+      return { query, terms, scanned: 0, matched: 0, hits: [] };
+    }
+
+    const { tree, index } = await this.#ensureCache();
+    // La section d'arbre qui porte chaque page — c'est ce qui situe un résultat.
+    const sectionOf = new Map<string, string>();
+    for (const s of tree.sections) {
+      for (const p of s.pages) sectionOf.set(p.slug, s.label);
+    }
+
+    const hits: IDocSearchHit[] = [];
+    let scanned = 0;
+
+    for (const doc of index.values()) {
+      // Une page hors de l'arbre n'est pas atteignable : la proposer mènerait
+      // à un cul-de-sac.
+      if (!sectionOf.has(doc.slug)) continue;
+      let raw: string;
+      try {
+        raw = await readFile(doc.absPath, "utf8");
+      } catch {
+        continue;
+      }
+      scanned += 1;
+      const { body } = parseFrontmatter(raw);
+      const foldedTitle = fold(`${doc.title} ${doc.navTitle} ${doc.slug}`);
+      const lines = body.split("\n");
+      const foldedLines = lines.map(fold);
+      const foldedBody = foldedLines.join("\n");
+
+      // Une page ne compte que si elle porte TOUS les termes — sur son titre OU
+      // son corps. Sinon « session redis » rendrait toutes les pages qui parlent
+      // de sessions, et la recherche cesserait de discriminer.
+      const porteTout = terms.every(
+        (t) => foldedBody.includes(t) || foldedTitle.includes(t),
+      );
+      if (!porteTout) continue;
+
+      let occurrences = 0;
+      for (const t of terms) {
+        let i = foldedBody.indexOf(t);
+        while (i !== -1) {
+          occurrences += 1;
+          i = foldedBody.indexOf(t, i + t.length);
+        }
+      }
+
+      // Les extraits : la ligne porteuse, resituée sous son titre de section.
+      const excerpts: IDocSearchExcerpt[] = [];
+      let section: string | undefined;
+      for (let i = 0; i < lines.length && excerpts.length < 3; i += 1) {
+        const brute = lines[i] ?? "";
+        const titre = /^#{2,4}\s+(.+)$/.exec(brute);
+        if (titre) {
+          section = titre[1]?.replace(/[*`_]/g, "").trim();
+          continue;
+        }
+        // Le fil d'Ariane, les images et les lignes de tableau ne sont pas de la
+        // PROSE : les rendre comme extrait donnait « 📍 [Documentation](../../
+        // index.md) › … » en guise de résumé.
+        if (/^\s*(📍|!\[|\||<!--|```)/.test(brute)) continue;
+        const pliee = foldedLines[i] ?? "";
+        if (!terms.some((t) => pliee.includes(t))) continue;
+        const texte = brute
+          // Un lien garde son TEXTE, jamais sa cible.
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+          // Les croisillons d'un titre de niveau 5+, que le balayage de
+          // section ne capte pas.
+          .replace(/^#{1,6}\s*/, "")
+          .replace(/[*`_>]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (texte.length < 12) continue;
+        excerpts.push({
+          ...(section ? { section } : {}),
+          text: texte.length > 220 ? `${texte.slice(0, 217)}…` : texte,
+        });
+      }
+
+      // Un terme dans le titre pèse : c'est le signal le plus fort qu'une page
+      // TRAITE le sujet plutôt qu'elle le mentionne.
+      const dansLeTitre = terms.filter((t) => foldedTitle.includes(t)).length;
+      hits.push({
+        slug: doc.slug,
+        title: doc.title,
+        navTitle: doc.navTitle,
+        sectionLabel: sectionOf.get(doc.slug) ?? "",
+        excerpts,
+        occurrences,
+        score: dansLeTitre * 100 + occurrences,
+      });
+    }
+
+    hits.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+    return {
+      query,
+      terms,
+      scanned,
+      matched: hits.length,
+      hits: hits.slice(0, limit),
+    };
   }
 
   async getPage(slug: string): Promise<IDocPage> {

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Query,
   IsGranted,
   controller,
 } from "@nodefony/framework";
@@ -56,6 +57,23 @@ class DocumentationController extends Controller {
         { error: "Index de documentation indisponible." },
         500,
       );
+    }
+  }
+
+  /**
+   * Cherche dans le corpus — titres ET corps — et rend des extraits situés.
+   *
+   * Filtrer l'arbre ne répondait qu'à « quelle page s'appelle ainsi ? » ; la
+   * question posée est « où est-ce expliqué ? ».
+   */
+  @IsGranted(["ROLE_DEV", "ROLE_SUPERVISOR"])
+  @Get("/documentation/api/search")
+  async search(@Query("q") q?: string) {
+    try {
+      return this.renderJson(await this.#service().search(q ?? ""));
+    } catch (e) {
+      this.log(e as Error, "ERROR");
+      return this.renderJson({ error: "Recherche indisponible." }, 500);
     }
   }
 

@@ -637,6 +637,10 @@ export const AdminLayout = observer(() => {
           <TextInput
             size="xs"
             placeholder="Filtrer la navigation…"
+            // Un `placeholder` n'est pas une étiquette : il disparaît à la saisie
+            // et n'est pas lu comme nom accessible. Sans lui, l'arbre
+            // d'accessibilité annonçait un champ anonyme.
+            aria-label="Filtrer la navigation"
             leftSection={<IconSearch size={14} />}
             value={ui.navQuery}
             onChange={(e) => ui.setNavQuery(e.currentTarget.value)}
