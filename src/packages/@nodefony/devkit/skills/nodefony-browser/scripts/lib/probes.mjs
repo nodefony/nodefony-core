@@ -84,6 +84,77 @@ export function parseProbes(brut) {
   return { sondes, rejetees };
 }
 
+/** Verbes qui prennent une VALEUR après la cible. Les autres n'en ont aucune. */
+const VERBES_A_VALEUR = new Set(["saisir"]);
+
+/** Verbes reconnus d'une action, le premier étant celui par défaut. */
+export const VERBES_ACTION = [
+  "clic",
+  "double",
+  "droit",
+  "survol",
+  "saisir",
+  "touche",
+  "voir",
+  "defiler",
+  "attendre",
+];
+
+/**
+ * Analyse une séquence d'actions (`NF_BROWSER_ACTIONS`).
+ *
+ * Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif
+ * (`clic` par défaut).
+ *
+ * ⚠️ Le signe `=` appartient AUSSI à la grammaire des sélecteurs CSS —
+ * `[data-active=true]`, `input[type=search]`, `[aria-expanded="false"]`. Couper
+ * la cible au premier `=` rencontré, ce que faisait la version précédente,
+ * amputait ces sélecteurs : la cible devenait `[data-active` et la sonde
+ * s'arrêtait en annonçant un élément introuvable, ce qui envoyait chercher un
+ * défaut dans la page. D'où deux règles :
+ *
+ * 1. seuls les verbes qui PRENNENT une valeur (`saisir`) découpent sur `=` ;
+ *    pour tous les autres, la cible est le reste entier ;
+ * 2. même pour ceux-là, la coupure ignore les `=` situés à l'intérieur de
+ *    crochets — `saisir:input[name=q]=bonjour` saisit bien « bonjour » dans
+ *    `input[name=q]`.
+ *
+ * @param brut - la valeur de la variable d'environnement, ou une chaîne vide.
+ * @returns la liste des actions `{ verbe, cible, valeur }`, dans l'ordre.
+ */
+export function parseActions(brut) {
+  const verbes = VERBES_ACTION.join("|");
+  const entete = new RegExp(`^(${verbes}):([\\s\\S]*)$`);
+  return String(brut ?? "")
+    .split("|")
+    .map((a) => a.trim())
+    .filter(Boolean)
+    .map((entree) => {
+      const m = entete.exec(entree);
+      const verbe = m ? m[1] : "clic";
+      const reste = m ? m[2] : entree;
+      if (!VERBES_A_VALEUR.has(verbe)) {
+        return { verbe, cible: reste.trim(), valeur: "" };
+      }
+      // Dernier `=` HORS crochets : la valeur est ce qui suit.
+      let profondeur = 0;
+      let coupe = -1;
+      for (let i = 0; i < reste.length; i += 1) {
+        const c = reste[i];
+        if (c === "[") profondeur += 1;
+        else if (c === "]") profondeur = Math.max(0, profondeur - 1);
+        else if (c === "=" && profondeur === 0) coupe = i;
+      }
+      return coupe === -1
+        ? { verbe, cible: reste.trim(), valeur: "" }
+        : {
+            verbe,
+            cible: reste.slice(0, coupe).trim(),
+            valeur: reste.slice(coupe + 1),
+          };
+    });
+}
+
 /**
  * Analyse le schéma de couleurs demandé (`NF_BROWSER_COLOR_SCHEME`).
  *

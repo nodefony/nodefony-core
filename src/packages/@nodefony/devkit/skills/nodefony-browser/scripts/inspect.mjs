@@ -42,6 +42,7 @@ import { open, goTo, LOGIN, SORTIE } from "./lib/browser.mjs";
 import { sourceWcag } from "./lib/wcag.mjs";
 import {
   FAMILLES,
+  parseActions,
   parseFamilies,
   parseProbes,
   parseWidths,
@@ -85,26 +86,7 @@ const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
  * fixe) ne GRANDIT pas — la capture « page entière » y rend exactement la
  * fenêtre, et l'on conclut que ce qui est plus bas n'existe pas. Vécu.
  */
-const ACTIONS = (process.env.NF_BROWSER_ACTIONS ?? "")
-  .split("|")
-  .map((a) => a.trim())
-  .filter(Boolean)
-  .map((entree) => {
-    const m =
-      /^(clic|double|droit|survol|saisir|touche|voir|defiler|attendre):(.*)$/su.exec(
-        entree,
-      );
-    const verbe = m ? m[1] : "clic";
-    const reste = m ? m[2] : entree;
-    const eq = reste.indexOf("=");
-    return eq === -1
-      ? { verbe, cible: reste.trim(), valeur: "" }
-      : {
-          verbe,
-          cible: reste.slice(0, eq).trim(),
-          valeur: reste.slice(eq + 1),
-        };
-  });
+const ACTIONS = parseActions(process.env.NF_BROWSER_ACTIONS);
 
 const { retenues, inconnues } = parseFamilies(process.env.NF_BROWSER_FAMILIES);
 if (inconnues.length > 0) {

@@ -199,7 +199,13 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
         [],
         `create ${type} rend ${fautifs.length} fichier(s) non conforme(s)`,
       );
-    });
+      // Même budget que les cas voisins : ce test lance le SCAFFOLD puis le
+      // FORMATEUR du projet, deux process qui n'ont aucune raison de tenir dans
+      // les 30 secondes par défaut sur une machine occupée. Constaté sur une
+      // passe complète — 5 s isolé, dépassement à 30 s quand un build et un
+      // navigateur tournaient à côté. Un budget trop juste ne trouve pas de
+      // défaut : il en invente un, et on apprend à ignorer le rouge.
+    }, 90_000);
   }
 
   it("un nom LONG ne fait pas déborder la largeur permise", () => {

@@ -559,3 +559,61 @@ describe("nomEtatAuth — un état d'authentification a un propriétaire", () =>
     expect(nomEtatAuth(undefined).length).toBeGreaterThan("‌.json".length);
   });
 });
+
+/**
+ * La séquence d'actions (`NF_BROWSER_ACTIONS`) et le signe `=`.
+ *
+ * Ce banc existe pour un défaut vécu : `=` sert à la fois de séparateur dans la
+ * grammaire des actions et d'opérateur dans les sélecteurs CSS d'attribut. Une
+ * coupure au premier `=` amputait `[data-active=true]` en `[data-active`, la
+ * sonde s'arrêtait sur « cible introuvable », et l'on partait chercher un défaut
+ * dans la page — alors qu'on n'avait jamais visé le bon élément.
+ */
+describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparateur", () => {
+  interface IAction {
+    verbe: string;
+    cible: string;
+    valeur: string;
+  }
+  const parseActions = fonctionDe<(b?: string) => IAction[]>(
+    probes,
+    "parseActions",
+  );
+
+  it("garde entier un sélecteur d'attribut sur un verbe SANS valeur", () => {
+    expect(parseActions("voir:[data-active=true]")).toEqual([
+      { verbe: "voir", cible: "[data-active=true]", valeur: "" },
+    ]);
+  });
+
+  it("coupe la valeur d'un `saisir`, sans casser le sélecteur qui la précède", () => {
+    expect(parseActions("saisir:input[name=q]=bonjour")).toEqual([
+      { verbe: "saisir", cible: "input[name=q]", valeur: "bonjour" },
+    ]);
+  });
+
+  it("accepte une valeur à espaces — c'est du texte, pas un jeton", () => {
+    expect(parseActions("saisir:#nav-q=session redis")).toEqual([
+      { verbe: "saisir", cible: "#nav-q", valeur: "session redis" },
+    ]);
+  });
+
+  it("prend `clic` par défaut quand aucun verbe n'est écrit", () => {
+    expect(parseActions("Se connecter")).toEqual([
+      { verbe: "clic", cible: "Se connecter", valeur: "" },
+    ]);
+  });
+
+  it("lit une SÉQUENCE, dans l'ordre donné", () => {
+    expect(parseActions("survol:[aria-expanded=false]|clic:#x")).toEqual([
+      { verbe: "survol", cible: "[aria-expanded=false]", valeur: "" },
+      { verbe: "clic", cible: "#x", valeur: "" },
+    ]);
+  });
+
+  it("sens négatif : une entrée vide ne fabrique pas une action fantôme", () => {
+    expect(parseActions("")).toEqual([]);
+    expect(parseActions(undefined)).toEqual([]);
+    expect(parseActions("clic:#a||clic:#b")).toHaveLength(2);
+  });
+});
