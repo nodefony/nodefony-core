@@ -161,29 +161,52 @@ export function citer(dialect: SqlDialect, nom: string): string {
 }
 
 /**
- * Tables créées par les migrations livrées pour ce dialecte.
+ * Tables créées par un ou plusieurs jeux de migrations.
  *
  * **Dérivée de la SOURCE, jamais écrite à la main** : une liste figée serait
  * juste le jour où on l'écrit, puis muette à la migration suivante — et le banc
  * laisserait derrière lui des tables qui fausseraient son voisin, sans que rien
  * ne le signale.
  *
+ * 🔴 Elle prend PLUSIEURS dossiers parce qu'une table peut venir du paquet ou
+ * de l'application : l'entité `User` a quitté les migrations du framework pour
+ * rejoindre celles de l'application, et un décor qui n'aurait interrogé que le
+ * paquet aurait cessé de la nettoyer — sans une ligne de moins dans le code, et
+ * sans que rien ne le dise avant le cas suivant.
+ *
+ * @param dirs - dossiers de migrations à lire ; un dossier absent est ignoré.
+ * @returns les noms de tables, sans doublon.
+ */
+export async function tablesDeMigrations(dirs: string[]): Promise<string[]> {
+  const noms = new Set<string>();
+  for (const dir of dirs) {
+    let fichiers: string[];
+    try {
+      fichiers = (await fs.readdir(dir)).filter((f) => f.endsWith(".sql"));
+    } catch {
+      // Ce jeu de migrations n'existe pas pour ce dialecte : il n'a rien créé.
+      continue;
+    }
+    for (const fichier of fichiers) {
+      const sql = await fs.readFile(path.join(dir, fichier), "utf8");
+      for (const m of sql.matchAll(
+        /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z0-9_]+)[`"]?/gi,
+      )) {
+        noms.add(m[1] as string);
+      }
+    }
+  }
+  return [...noms];
+}
+
+/**
+ * Tables créées par les migrations livrées par le PAQUET pour ce dialecte.
+ *
  * @param dialect - dialecte dont on lit le jeu de migrations.
  * @returns les noms de tables, sans doublon.
  */
 export async function tablesLivrees(dialect: SqlDialect): Promise<string[]> {
-  const dir = path.join(MIGRATIONS, dialect);
-  const fichiers = (await fs.readdir(dir)).filter((f) => f.endsWith(".sql"));
-  const noms = new Set<string>();
-  for (const fichier of fichiers) {
-    const sql = await fs.readFile(path.join(dir, fichier), "utf8");
-    for (const m of sql.matchAll(
-      /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z0-9_]+)[`"]?/gi,
-    )) {
-      noms.add(m[1] as string);
-    }
-  }
-  return [...noms];
+  return tablesDeMigrations([path.join(MIGRATIONS, dialect)]);
 }
 
 /** Une base vierge, prête à recevoir les migrations d'un cas. */
@@ -305,7 +328,15 @@ export function ciblesPour(schemaPg: string): ICible[] {
       // imposée par ce que le serveur permet.
       neuve: async () => {
         const url = MYSQL_URL as string;
-        const tables = [...(await tablesLivrees("mysql")), HISTORY_TABLE];
+        // Les DEUX jeux : celui du paquet, et celui de l'application témoin —
+        // dont l'entité `User`, qui n'appartient plus au framework.
+        const tables = [
+          ...(await tablesDeMigrations([
+            path.join(MIGRATIONS, "mysql"),
+            dossierMigrations("mysql"),
+          ])),
+          HISTORY_TABLE,
+        ];
         const vider = [
           "SET FOREIGN_KEY_CHECKS = 0",
           ...tables.map((t) => `DROP TABLE IF EXISTS \`${t}\``),
@@ -379,10 +410,16 @@ export async function tablesEnBase(
  * ne prouve rien sous Windows.
  *
  * @param dialect - dialecte exercé.
+ * @param racine - dossier de migrations de l'application ; par défaut celui du
+ *   dépôt. Un banc qui écrit ses propres migrations passe ici un abri
+ *   temporaire, pour ne jamais toucher aux migrations COMMITÉES du dépôt.
  * @returns le chemin absolu du dossier de sortie.
  */
-export function dossierMigrations(dialect: SqlDialect): string {
-  return path.join(ROOT, "migrations", dialect);
+export function dossierMigrations(
+  dialect: SqlDialect,
+  racine: string = path.join(ROOT, "migrations"),
+): string {
+  return path.join(racine, dialect);
 }
 
 /**
@@ -432,17 +469,33 @@ export async function etatDuDossier(outDir: string): Promise<string> {
  *
  * @param cible - dialecte exercé.
  * @param corps - le cas, qui reçoit la base et l'environnement à passer au CLI.
+ * @param racineMigrations - dossier de migrations d'application à imposer à la
+ *   commande, s'il ne faut pas écrire dans celui du dépôt.
  */
 export async function surBaseNeuve(
   cible: ICible,
   corps: (base: IBase, env: NodeJS.ProcessEnv) => Promise<void>,
+  racineMigrations?: string,
 ): Promise<void> {
   const base = await cible.neuve();
+  const env: NodeJS.ProcessEnv = {
+    ...DECOR_MIGRATIONS,
+    NF_DATABASE_URL: base.url,
+  };
+  if (racineMigrations !== undefined) {
+    // Override générique de configuration (ADR-0006 D3) : `NF__<MODULE>__…`
+    // est appliqué APRÈS le merge de l'application et AVANT la validation du
+    // schéma. C'est le mécanisme du PRODUIT — le banc ne s'en invente pas un
+    // second, qui divergerait de celui que les utilisateurs ont.
+    env.NF__DRIZZLE__MIGRATIONS__DIR = racineMigrations;
+  }
   try {
-    await corps(base, { ...DECOR_MIGRATIONS, NF_DATABASE_URL: base.url });
+    await corps(base, env);
   } catch (cause) {
     const tables = await tablesEnBase(base, cible.dialect);
-    const dossier = await etatDuDossier(dossierMigrations(cible.dialect));
+    const dossier = await etatDuDossier(
+      dossierMigrations(cible.dialect, racineMigrations),
+    );
     const etat =
       `\n\n── état AU MOMENT DE L'ÉCHEC (${cible.dialect}) ──\n` +
       `  tables en base : ${tables.join(", ") || "(aucune)"}\n` +
