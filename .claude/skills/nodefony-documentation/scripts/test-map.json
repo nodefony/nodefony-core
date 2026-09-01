@@ -2,7 +2,7 @@
   "admin": {
     "unit": [
       "src/packages/@nodefony/framework/nodefony/tests/unit/AdminBroker.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/adminRbac.test.ts",
+      "src/nodefony/src/tests/adminRbac.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/PlaygroundAdminApi.test.ts"
     ],
     "integration": [
@@ -55,7 +55,7 @@
       "src/packages/@nodefony/security/tests/unit/apiKeyAuthenticator.test.ts",
       "src/packages/@nodefony/security/tests/unit/apiKeyFormat.test.ts",
       "src/packages/@nodefony/security/tests/unit/apiKeyService.test.ts",
-      "src/packages/@nodefony/security/tests/unit/jwtAuthenticator.test.ts",
+      "src/packages/@nodefony/security/tests/unit/externalJwtAuthenticator.test.ts",
       "src/packages/@nodefony/security/tests/unit/jwtPipeline.test.ts",
       "src/packages/@nodefony/security/tests/unit/sessionAuthenticator.test.ts",
       "src/packages/@nodefony/security/tests/unit/loginThrottler.test.ts",
@@ -73,7 +73,7 @@
       "src/packages/@nodefony/security/tests/unit/realtimeFrameLock.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/securityDecorators.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/securityEnforcement.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/adminRbac.test.ts",
+      "src/nodefony/src/tests/adminRbac.test.ts",
       "src/packages/@nodefony/framework/nodefony/tests/unit/scopeCatalog.test.ts"
     ],
     "attack": [

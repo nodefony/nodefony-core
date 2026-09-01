@@ -296,7 +296,12 @@ jobs:
       - name: Gate — Definition of Done des pages publiées
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash
+        # Les compteurs de tests sont RECALCULÉS ici, jamais versionnés : ils
+        # vivent sous `tmp/`, que la forge n'a pas. Sans cette ligne, le gate
+        # passait sur un poste où une session précédente les avait laissés, et
+        # échouait ici sur trente pages — un vert qui ne devait rien au code.
         run: |
+          node .claude/skills/nodefony-documentation/scripts/gen-counters.mjs
           node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs
