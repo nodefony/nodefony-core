@@ -490,9 +490,9 @@ ne paie quasiment rien.
 
 ## 📡 Observabilité — Studio
 
-Écran **Firewall** (`studio/frontend/src/routes/Firewall.tsx`) : zones, authenticators, décisions
-(`securityTrace`). Écran **Roles** : hiérarchie de rôles consommée par les voters. Écran **ApiKeys** :
-gestion/révocation des PAT.
+Écran **Firewall** (`/nodefony/firewall`) : zones, authenticators, décisions (`securityTrace`).
+Écran **Roles** (`/nodefony/roles`) : hiérarchie de rôles consommée par les voters. Écran
+**ApiKeys** (`/nodefony/api-keys`) : gestion et révocation des PAT.
 
 ## 🧪 Tests & couverture
 

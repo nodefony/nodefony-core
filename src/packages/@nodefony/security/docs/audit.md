@@ -670,7 +670,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 
 ## 📡 Observabilité — Studio
 
-L'écran **Sécurité → Journal d'audit** (`Audit.tsx:62`) consomme le data plane
+L'écran **Sécurité → Journal d'audit** (`/nodefony/audit`) (`Audit.tsx:62`) consomme le data plane
 `GET /nodefony/security/api/audit/events` en pagination **serveur**. Il offre :
 
 - un tableau filtrable par heure, catégorie, action, issue, acteur, raison et IP (`Audit.tsx:227`) ;

@@ -703,7 +703,7 @@ Codes de réponse à connaître : **501** si le store courant ne sait pas s'énu
 (`supportsEnumeration()` faux — `HttpAdminApi.ts:352`), **503** si le service de session est absent, **404** pour une `ref` inconnue ou
 une révocation sans effet, **401** sur `mine` sans identité.
 
-**Écrans** — la page **Sessions** de Studio liste les sessions vivantes par `ref` et permet la
+**Écrans** — la page **Sessions** (`/nodefony/sessions`) de Studio liste les sessions vivantes par `ref` et permet la
 révocation unitaire ou en masse (`@nodefony/studio/frontend/src/routes/sessions/`). L'écran **Stores**
 affiche le backend réellement résolu, sa provenance et son emplacement physique : ces informations sont
 publiées au boot par `registerStoreResolution()` (`sessions-service.ts:290`), avec le chemin du fichier

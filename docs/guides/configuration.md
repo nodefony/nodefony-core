@@ -246,7 +246,7 @@ Voir le skill `nodefony-start-server`.
 
 ## Voir la config résolue
 
-L'onglet **Configuration** de Studio (introspection via `z.toJSONSchema`), alimenté par
+L'onglet **Configuration** de Studio (`/nodefony/config`) (introspection via `z.toJSONSchema`), alimenté par
 `GET /nodefony/kernel/api/config` : valeurs effectives (secrets masqués), schéma JSON et
 **provenance par champ** (qui a posé la valeur — défaut du module, `nodefony.config.ts`, `NF__*`).
 

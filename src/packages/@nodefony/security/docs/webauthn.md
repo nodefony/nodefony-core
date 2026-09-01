@@ -643,7 +643,7 @@ défensive** — passkeys désactivées → `{ enabled: false, items: [] }` et n
 doit afficher « passkeys désactivées », pas un 503 (`SecurityAdminApi.ts:501`). `total: -1` signale un
 backend sans comptage (Redis).
 
-Côté UI, l'écran **Profil** de Studio porte l'enrôlement self-service et l'écran de login le bouton
+Côté UI, l'écran **Profil** (`/nodefony/profile`) de Studio porte l'enrôlement self-service et l'écran de login le bouton
 passkey (`AuthStore.ts:209`).
 
 ## 📜 Normes appliquées

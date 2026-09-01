@@ -361,8 +361,9 @@ publie ses propres clés typées — est en
 
 Le cœur n'est **pas** un module chargé : il n'apparaît donc pas dans la liste des modules, mais dans
 une **carte dédiée** (`/nodefony/modules/core`) qui rend ces pages et le graphe de ses symboles. Ce
-qu'il produit se lit ailleurs dans l'administration : l'écran **Journaux** montre les entrées émises
-par `Syslog`, l'écran **Configuration** montre les valeurs effectives après fusion, et le suivi par
+qu'il produit se lit ailleurs dans l'administration : l'écran **Journaux** (`/nodefony/logs`) montre les entrées
+émises par `Syslog`, l'écran **Configuration** (`/nodefony/config`) montre les valeurs effectives
+après fusion, et le suivi par
 identifiant de requête s'appuie sur ce que `RequestContext` propage.
 
 ## 🔗 Pour aller plus loin

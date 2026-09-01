@@ -783,7 +783,7 @@ partir des décorateurs** : transports déclarés, paramètres décorés triés 
 gardes (`@IsGranted`, scopes, `@Idempotent`, CSRF, intent de session, bypass firewall). C'est le
 miroir exact de ce que cette page décrit — si un badge manque, c'est que le décorateur n'est pas là.
 
-L'écran **Routes** et le point d'API `/nodefony/framework/api/routes` listent les routes issues de
+L'écran **Routes** (`/nodefony/routes`) et le point d'API `/nodefony/framework/api/routes` listent les routes issues de
 `@controller`/`@route`, avec leur nom auto-généré et leurs `requirements`.
 
 ## ⚠️ Pièges (symptôme → cause → correction)

@@ -138,8 +138,8 @@ WHATWG Fetch (CORS), W3C Trace Context (`traceparent`).
 ## 📡 Observabilité — Studio
 
 Le profiler mesure les phases d'une requête et alimente le data plane admin (`HttpAdminApi`). Les
-sessions sont surfacées dans l'écran **Sessions** de Studio, les corrélations par `traceparent` dans
-l'écran **Traces**, et l'état des serveurs dans la carte du module.
+sessions sont surfacées dans l'écran **Sessions** (`/nodefony/sessions`), les corrélations par
+`traceparent` dans l'écran **Traces** (`/nodefony/logs/trace/{requestId}`), et l'état des serveurs dans la carte du module.
 
 ## 🧪 Tests & couverture
 

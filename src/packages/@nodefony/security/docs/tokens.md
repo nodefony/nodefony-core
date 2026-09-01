@@ -468,9 +468,9 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 
 ## 📡 Observabilité — Studio
 
-- **Écran Stores** (`StoresView.tsx`) : la résolution du store de jetons (configuré → résolu +
+- **Écran Stores** (`/nodefony/stores`) : la résolution du store de jetons (configuré → résolu +
   raison) publiée par `registerStoreResolution()` (`tokenService.ts:151-160`).
-- **Écran Audit** : événements `token.issued`, `token.reuse_detected` (signal d'attaque),
+- **Écran Audit** (`/nodefony/audit`) : événements `token.issued`, `token.reuse_detected` (signal d'attaque),
   `login.failure`/`login.throttled` du grant — corrélables par `tokenId`.
 - **Écran ApiKeys** : le même store côté PAT, listing paginé serveur.
 

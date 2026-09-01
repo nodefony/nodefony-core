@@ -261,7 +261,7 @@ Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décri
 
 ## Depuis Studio
 
-L'écran « Créer » de l'administration web passe par le **même moteur** : il
+L'écran « Créer » de l'administration web (`/nodefony/create`) passe par le **même moteur** : il
 n'existe pas de seconde implémentation qui pourrait dériver. Il sert le
 formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 **préview** du plan avant d'exécuter (`preview()`,

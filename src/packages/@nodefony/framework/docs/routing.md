@@ -582,8 +582,8 @@ La table de routes est introspectable en ligne, sans lire le code :
   `routes/page`.
 - **`GET /nodefony/framework/api/info`** — résumé : nombre de routes, méthodes servies, modules
   propriétaires (`FrameworkAdminApi.ts:183`).
-- **Écran Routes** de Studio (`studio/frontend/src/routes/RoutesView.tsx`) — la même table, filtrable.
-- **Playground** (développement uniquement) — un formulaire par action, généré depuis la table :
+- **Écran Routes** de Studio (`/nodefony/routes`) — la même table, filtrable.
+- **Playground** (`/nodefony/playground`, développement uniquement) — un formulaire par action, généré depuis la table :
   transports (dont le duplex), paramètres décorés, gardes de sécurité. Il **exécute** de vraies actions,
   donc il n'est monté qu'en développement (`PlaygroundAdminApi.ts`).
 

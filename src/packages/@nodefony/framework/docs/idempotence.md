@@ -663,7 +663,7 @@ froid par construction ; si ton profil de trafic la place sur un chemin chaud, m
 
 Trois surfaces existent aujourd'hui :
 
-- **Playground** — chaque mutation protégée porte un badge `@Idempotent` (strict ou souple)
+- **Playground** (`/nodefony/playground`) — chaque mutation protégée porte un badge `@Idempotent` (strict ou souple)
   (`playground/PlaygroundFormat.tsx:69`). L'écran génère une clé par exécution et propose « Rejouer
   même clé » dès que `action.guards.idempotent` est posé (`playground/ActionPanel.tsx:516`) : c'est la
   façon la plus rapide de voir un rejeu, un `409` ou un `422` en vrai.
