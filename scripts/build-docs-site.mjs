@@ -117,13 +117,16 @@ const BUILT_AT = new Date().toISOString().slice(0, 10);
 
 /**
  * Dossiers de `docs/` publiés, dans l'ordre où ils apparaissent dans la
- * navigation. Cet ordre est PÉDAGOGIQUE, pas alphabétique : on découvre, puis
- * on comprend, puis on fait, puis on cherche une décision passée.
+ * navigation. Cet ordre est PÉDAGOGIQUE, pas alphabétique, et il part du
+ * GESTE : on fait une première fois en étant guidé (tutoriels), puis on refait
+ * seul sur un besoin précis (guides), puis on comprend ce qui se passait
+ * dessous (architecture). L'inverse — la philosophie avant le premier geste —
+ * fait fuir qui arrive avec « je veux une API avec authentification ».
  */
 const PUBLIC_DIRS = [
-  { dir: "architecture", label: "Architecture", icon: "🏛️" },
-  { dir: "guides", label: "Guides", icon: "🧭" },
   { dir: "tutoriels", label: "Tutoriels", icon: "🎓" },
+  { dir: "guides", label: "Guides", icon: "🧭" },
+  { dir: "architecture", label: "Architecture", icon: "🏛️" },
 ];
 
 /** Pages de la racine de `docs/` publiées, dans l'ordre de la navigation. */

@@ -16,28 +16,11 @@ hub: true
 
 # Par où commencer
 
-> Quatre parcours selon ce que tu viens faire. Chacun est **ordonné** : les étapes se construisent
+> Cinq parcours selon ce que tu viens faire. Chacun est **ordonné** : les étapes se construisent
 > l'une sur l'autre, et chaque parcours dit **pourquoi** cet ordre. Si tu cherches une brique précise
 > plutôt qu'un chemin, retourne à l'accueil : tout y est rangé par type.
 
 📍 [Documentation](index.md) › **Par où commencer**
-
-## 🧭 Je découvre Nodefony
-
-Comprendre l'ossature avant d'écrire du code — dans cet ordre, chaque page suppose la précédente.
-
-```nodefony-cards
-[
-  { "icon": "1️⃣", "title": "Vue d'ensemble", "href": "architecture/vue-ensemble.md",
-    "desc": "Ce qu'est le framework, ce qu'il n'est pas, et ce que ses partis pris coûtent." },
-  { "icon": "2️⃣", "title": "Cycle de boot du Kernel", "href": "architecture/cycle-boot-kernel.md",
-    "desc": "Ce qui se passe entre `npm run dev` et le premier octet servi." },
-  { "icon": "3️⃣", "title": "Injection & portées", "href": "architecture/injection-portees.md",
-    "desc": "Comment les services se trouvent sans se connaître." },
-  { "icon": "4️⃣", "title": "Pipeline de requête", "href": "architecture/pipeline-requete.md",
-    "desc": "Le trajet exact d'une requête — HTTP comme WebSocket." }
-]
-```
 
 ## 🚀 Je construis une application
 
@@ -55,6 +38,23 @@ Du squelette à la première route servie.
     "desc": "Brancher une persistance et écrire du code portable entre bases." },
   { "icon": "4️⃣", "title": "Servir une interface", "href": "guides/frontend-react.md",
     "desc": "Une SPA avec le rechargement à chaud de Vite." }
+]
+```
+
+## 🧭 Je découvre Nodefony
+
+Comprendre l'ossature avant d'écrire du code — dans cet ordre, chaque page suppose la précédente.
+
+```nodefony-cards
+[
+  { "icon": "1️⃣", "title": "Vue d'ensemble", "href": "architecture/vue-ensemble.md",
+    "desc": "Ce qu'est le framework, ce qu'il n'est pas, et ce que ses partis pris coûtent." },
+  { "icon": "2️⃣", "title": "Cycle de boot du Kernel", "href": "architecture/cycle-boot-kernel.md",
+    "desc": "Ce qui se passe entre `npm run dev` et le premier octet servi." },
+  { "icon": "3️⃣", "title": "Injection & portées", "href": "architecture/injection-portees.md",
+    "desc": "Comment les services se trouvent sans se connaître." },
+  { "icon": "4️⃣", "title": "Pipeline de requête", "href": "architecture/pipeline-requete.md",
+    "desc": "Le trajet exact d'une requête — HTTP comme WebSocket." }
 ]
 ```
 
