@@ -1,4 +1,3 @@
-import { resolveInfra } from "nodefony";
 import { defineEntity } from "@nodefony/orm-core";
 import { createUserTable, FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
 import type { SqlDialect } from "@nodefony/drizzle";
@@ -39,12 +38,19 @@ import type { SqlDialect } from "@nodefony/drizzle";
  * nodefony orm:migrate                       # l'applique
  * ```
  */
-function appDialect(): SqlDialect {
-  const database = resolveInfra(process.env).database;
-  return database?.family === "sql" && database.dialect
-    ? (database.dialect as SqlDialect)
-    : "<%= it.dialect %>";
-}
+/**
+ * Le moteur choisi à la création de cette application.
+ *
+ * Il est FIGÉ ici, comme dans toute entité générée : une table Drizzle est
+ * écrite pour un dialecte: `sqliteTable` et `pgTable` n'ont ni les mêmes types
+ * ni les mêmes options. Changer de moteur demande donc de changer cette ligne —
+ * et d'écrire la migration correspondante, ce que `orm:generate` fait pour toi.
+ *
+ * (Il n'est PAS déduit de l'environnement : dans une application Nodefony,
+ * `env.ts` en est le SEUL lecteur. Une seconde lecture ailleurs fait diverger la
+ * configuration effective de ce que le catalogue déclare.)
+ */
+const DIALECTE: SqlDialect = "<%= it.dialect %>";
 
 /**
  * La table, EXPORTÉE — et pas seulement passée au descripteur.
@@ -53,7 +59,7 @@ function appDialect(): SqlDialect {
  * `nodefony/entity/` et y cherche les tables exportées. Une table seulement
  * passée en argument y serait invisible, et la migration s'écrirait SANS elle.
  */
-export const userTable = createUserTable(appDialect());
+export const userTable = createUserTable(DIALECTE);
 
 export const AppUserEntity = defineEntity({
   name: "User",
