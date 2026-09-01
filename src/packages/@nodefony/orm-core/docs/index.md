@@ -616,7 +616,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
 | Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1234`)          | oui (`MongooseOrm.ts:558`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1136`)          | oui (`MongooseOrm.ts:529`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1495`)          | oui (`MongooseOrm.ts:529`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :
@@ -694,11 +694,11 @@ d'entrée, tous filtrables par `?connector=` :
 | `orms`              | les connecteurs, leur état, leur nombre d'entités                 |
 | `entities`          | le modèle complet : colonnes + relations                          |
 | `entity/{name}`     | une entité (404 si inconnue)                                      |
-| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:114`)     |
+| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:184`)     |
 | `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table          |
 | `connection/health` | état, latence, erreurs, reconnexions, sondes                      |
-| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:240`) |
-| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:275`) ou `jsonschema`         |
+| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:310`) |
+| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:345`) ou `jsonschema`         |
 
 Ce graphe canonique est **la pièce maîtresse**, pas le diagramme : c'est une donnée sérialisable qui
 sert à la fois l'ERD de Studio, un export vers un outil tiers, et le contexte d'un agent IA

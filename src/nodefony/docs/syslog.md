@@ -270,9 +270,9 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
 3. **Garde de débit** — si `rateLimit` est activé, seuls les `burstLimit` premiers logs de la
    fenêtre passent ; les autres incrémentent `missed` et repartent en `DROPPED`.
 4. **Création du `Pdu`** (`Pdu.ts:132`) — horodatage `Date.now()` sans objet `Date`, `uid`
-   incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:98`), type du payload
+   incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:175`), type du payload
    déduit par un `fastTypeOf()` inline (`Pdu.ts:129`), et `requestId` lu via un fournisseur
-   injectable (`Pdu.ts:169`).
+   injectable (`Pdu.ts:144`).
 5. **Ring buffer** — `pushStack()` (`Syslog.ts:1133`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
 6. **Diffusion** — `fire("onLog")` alimente les listeners (dont l'impression console) ; le fan-out
@@ -289,7 +289,7 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:364`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2242`).
+  (`maxStack` résolu au boot, `Kernel.ts:2281`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:799`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:764`) : les compteurs de
@@ -558,7 +558,7 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2189`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2228`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En

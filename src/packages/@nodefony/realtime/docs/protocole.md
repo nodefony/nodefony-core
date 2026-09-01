@@ -334,7 +334,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 | Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:592` |
+| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:459` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:599` |
 | `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:740`     |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:612` |
@@ -361,7 +361,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > n'attend jamais de réponse.
 
 `subscribe` et `unsubscribe` ne sont **pas** des actions enregistrées : elles sont traitées dans
-`onRealtimeNotification()` (`RealtimeController.ts:587`). Envoyées avec un `id`, elles seraient
+`onRealtimeNotification()` (`RealtimeController.ts:675`). Envoyées avec un `id`, elles seraient
 classées « requête », ne trouveraient aucun handler et récolteraient un `-32601`.
 
 ## Une conversation type, de bout en bout
@@ -399,7 +399,7 @@ de `RpcError`.
 | `-32603` | même méthode (`JsonRpcPeer.ts:528`)                        | le handler a levé une exception **ordinaire**       | `internal error` — générique, rien d'autre     |
 | `-32001` | le refus du verrou de frame (`JsonRpcPeer.ts:400`)         | `beforeDispatch` a dit non **sur une requête**      | `unauthorized`, sans jamais dire pourquoi      |
 | `-32000` | défaut du constructeur de `RpcError` (`JsonRpcPeer.ts:74`) | le handler expose volontairement son refus          | le message ET le `data` choisis par le handler |
-| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:743`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
+| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:678`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
 
 Et un échec qui n'est **pas** une frame : l'expiration. `startCall()` ne reçoit rien dans le délai
 imparti, supprime l'entrée en attente et rejette localement avec `RPC timeout: <méthode>`
@@ -436,7 +436,7 @@ radicalement :
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un
 attaquant y lirait la carte des droits. Deux motifs circulent : `forbidden` (le verrou a dit non) et
 `limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:674`). Côté client,
-`onDenied()` (`RealtimeClient.ts:386`) branche un handler dessus.
+`onDenied()` (`RealtimeClient.ts:469`) branche un handler dessus.
 
 > [!CAUTION]
 > Un `-32403 Forbidden` circule dans d'anciennes notes. **Ce code n'existe pas** dans Nodefony, et il
@@ -467,7 +467,7 @@ décrits dans [la page sécurité](./securite.md).
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `subscribe` répond `-32601 method not found`                     | Envoyé **avec un `id`** : classé requête, or c'est une notification (`RealtimeController.ts:592`)               | L'émettre sans `id` — `socket.subscribe(canal)`                                   |
 | Le handler passé à `subscribe` n'est jamais appelé               | `RealtimeClient.subscribe()` prend **un seul** argument (`RealtimeClient.ts:430`)                               | `subscribe(canal)` **et** `on(canal, handler)`, deux gestes distincts             |
-| `request()` expire immédiatement, ou ignore le délai             | Signature **positionnelle** `(méthode, params, ms)` (`RealtimeClient.ts:602`) — un objet d'options n'est pas lu | `request(m, p, 5000)` ; le défaut est 30 000 ms                                   |
+| `request()` expire immédiatement, ou ignore le délai             | Signature **positionnelle** `(méthode, params, ms)` (`RealtimeClient.ts:727`) — un objet d'options n'est pas lu | `request(m, p, 5000)` ; le défaut est 30 000 ms                                   |
 | Un tableau de frames n'obtient aucune réponse                    | Le batch n'est pas implémenté : un tableau n'a pas de `jsonrpc` → `invalid` (`JsonRpcPeer.ts:371`)              | Une frame = un objet ; le multiplexage remplace le batch                          |
 | Une frame malformée ne renvoie **aucune** erreur                 | Ni `-32700` ni `-32600` ne sont émis — silence + audit (`JsonRpcPeer.ts:396`)                                   | Lire le motif `invalid` côté serveur, pas la réponse                              |
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:528`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |

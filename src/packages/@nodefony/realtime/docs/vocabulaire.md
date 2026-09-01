@@ -334,7 +334,7 @@ handshake, jamais renégociée par frame.
 ### `hub` — le broker du process
 
 Le **standard téléphonique** du pod : il tient la table « canal → abonnés locaux » et diffuse. Un
-process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1233`). Il ne connaît **ni** les
+process = un hub, obtenu par `getRealtimeHub()` (`RealtimeHub.ts:1255`). Il ne connaît **ni** les
 contrôleurs, **ni** le métier : ce sont les providers qui portent les dépendances.
 
 `RealtimeHub` (`RealtimeHub.ts:213`). ⚠️ « hub » désigne **toujours** le serveur ; ce que tient le
@@ -437,7 +437,7 @@ contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'attei
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
 `realtimeApiRequest()` (`RealtimeController.ts:219`), mise en œuvre `invokeApiRequest()`
-(`RealtimeController.ts:766`). Désactivé par défaut.
+(`RealtimeController.ts:818`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
 

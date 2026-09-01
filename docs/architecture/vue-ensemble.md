@@ -133,12 +133,12 @@ du firewall :
 **2. Les deux traversent le même résolveur.** `HttpContext.handle()` appelle `router.resolve(this)`
 puis `resolver.callController()` (`HttpContext.ts:206`) ; `WebsocketContext.handle()` fait exactement
 la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:265`). Un seul
-`Router` (`router.ts:124`), un seul `Resolver` (`Resolver.ts:86`).
+`Router` (`router.ts:164`), un seul `Resolver` (`Resolver.ts:86`).
 
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
 **exigence de route** parmi d'autres : `Route.match()` compare `context.method` — qui vaut
 littéralement `"WEBSOCKET"` sur une socket — au `methodsSet` précompilé de la route
-(`Route.ts:561`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
+(`Route.ts:451`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
 deux portes.
 
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de
@@ -240,8 +240,8 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1091`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1150`). L'ordre du tableau **est** l'ordre
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1380`) puis
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1508`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -304,10 +304,10 @@ en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
 
-`Router` (`router.ts:124`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:86`) et les
+`Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:86`) et les
 décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:75`), `route()`
 (`routerDecorators.ts:157`), `Get` (`routerDecorators.ts:361`), `IsGranted()`
-(`routerDecorators.ts:663`), `CurrentUser` (`routerDecorators.ts:1001`). C'est la surface que tu
+(`routerDecorators.ts:663`), `CurrentUser` (`routerDecorators.ts:1236`). C'est la surface que tu
 manipules le plus.
 
 ### [`@nodefony/security`](../../src/packages/@nodefony/security/docs/index.md) — protéger l'application
@@ -323,7 +323,7 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:222`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts:283`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
 `Kernel.start()` (`Kernel.ts:548`), `Kernel.boot()` (`Kernel.ts:799`), `Kernel.onReady()`
 (`Kernel.ts:829`) et `Kernel.initServers()` (`Kernel.ts:916`).
@@ -333,7 +333,7 @@ Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernel
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:2513`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3254`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
 > le process (`Kernel.recordBootFailure()`, `Kernel.ts:2257`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
@@ -497,14 +497,14 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:561`)                          |
+| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:298`)                          |
 | Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:561`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:55`)              |
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1168`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1283`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:114`) · `Service.log()` (`Service.ts:209`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1117`)         |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1266`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -513,12 +513,12 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:101`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1144`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1293`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:192`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.
 - **Un seul écouteur de fin de requête.** `createHttpContext()` pose un unique
-  `response.once("close")` (`http-kernel.ts:1093`) qui déclenche le teardown : pas de paire
+  `response.once("close")` (`http-kernel.ts:1218`) qui déclenche le teardown : pas de paire
   `finish`/`close` à démonter à la main.
 
 Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` impose des plafonds de croissance

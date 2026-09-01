@@ -294,7 +294,7 @@ n'est jamais traitée.
 `RealtimeController.onHandshake()` (`RealtimeController.ts:312`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:976`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:1053`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:871`) :
@@ -302,7 +302,7 @@ n'est jamais traitée.
 4. `authenticator.authenticate(handshake)` — **async autorisé** (on est en cold path, une fois par
    connexion : lire un store est acceptable ici, jamais par frame).
 5. Pose du token sur la WeakMap `peer → token` via `RealtimeHub.setTokenForPeer()`
-   (`RealtimeHub.ts:692`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
+   (`RealtimeHub.ts:936`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
    frame.
 
 Un `throw` de `authenticate()` ferme la socket en `4001` « unauthorized », après un log `WARNING`
@@ -320,7 +320,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:966`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1105`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
@@ -427,7 +427,7 @@ mémoire : le token déjà résolu, et la cible de la frame.
 
 ### Les trois surfaces gardées
 
-`buildFrameAuthorizer()` (`frameAuthorizer.ts:352`) ne garde que ce qui atteint des données :
+`buildFrameAuthorizer()` (`frameAuthorizer.ts:388`) ne garde que ce qui atteint des données :
 
 <!-- prettier-ignore -->
 | Frame | Contrôle appliqué |
@@ -438,7 +438,7 @@ mémoire : le token déjà résolu, et la cible de la frame.
 | action `@RealtimeAction` | Authentifié **par défaut** ; rôle/scope si déclarés ; ouverte seulement si `{ authenticated: false }` est écrit |
 | `ping`, `unsubscribe` | **passent** — pas de surface de données |
 
-Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts:280`) laisse
+Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts:316`) laisse
 passer une frame au `path` invalide (le handler renverra `-32602` — le verrou ne duplique pas la
 validation), et `authorizeChannel()` (`frameAuthorizer.ts:309`) laisse passer un `channel`
 non-chaîne (`startChannel` ignore de toute façon un canal absent).
@@ -462,7 +462,7 @@ Trois durcissements méritent d'être connus :
 
 - **Match insensible à la casse, sans allocation** — `startsWithCI()` (`frameAuthorizer.ts:149`).
   Un `NODEFONY:syslog` ne contourne pas le plancher `nodefony:` par un changement de casse.
-- **Plancher irréductible** — `floorReserved()` (`frameAuthorizer.ts:219`) : une règle de config qui
+- **Plancher irréductible** — `floorReserved()` (`frameAuthorizer.ts:255`) : une règle de config qui
   tenterait d'ouvrir un namespace réservé (`{ authenticated: false }`) se voit ré-imposer
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
@@ -599,7 +599,7 @@ Nodefony ferme l'écart par deux mécanismes de granularité différente.
 
 | Surface                     | Re-validation        | Fenêtre d'exposition | Où                                                                    |
 | --------------------------- | -------------------- | -------------------- | --------------------------------------------------------------------- |
-| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:741`) |
+| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:818`) |
 | `subscribe` / flux de canal | **périodique**, 30 s | ≤ 30 s               | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:736`)            |
 
 **Sur `api.request`**, `token.isValid()` est appelé avant l'exécution de l'action ; identité périmée
@@ -651,7 +651,7 @@ pas** borné.
 Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans borne, une connexion
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
-`RealtimeController.startChannel()` (`RealtimeController.ts:665`) refuse au-delà de
+`RealtimeController.startChannel()` (`RealtimeController.ts:706`) refuse au-delà de
 `limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:142`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 
@@ -698,7 +698,7 @@ au défaut de la librairie `ws`.
 
 Seules les clés à **effet de sécurité** figurent ici ; le catalogue complet est dans
 [`configuration.md`](./configuration.md).
-Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/config.ts:205`).
+Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/config.ts:259`).
 
 | Clé                                   | Défaut   | Effet de sécurité                                                                         |
 | ------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |

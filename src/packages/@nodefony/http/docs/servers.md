@@ -248,7 +248,7 @@ export default PingController;
 
 ### 4. Ce qu'on observe au boot
 
-Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1030`), puis affiche les URL réellement
+Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1090`), puis affiche les URL réellement
 en écoute — le récap de développement liste HTTP, HTTP/2, WS et WSS dans cet ordre
 (`BootReporter.ts:389`) :
 

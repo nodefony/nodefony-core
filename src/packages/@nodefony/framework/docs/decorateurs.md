@@ -51,7 +51,7 @@ flowchart TD
 2. **Au montage**, `controller()` (`routerDecorators.ts:75`) relit ces métadonnées et fabrique les
    objets `Route` ; `controllers()` (`routerDecorators.ts:18`) accroche le contrôleur au module sur
    le hook `onBoot` du kernel.
-3. **À la première requête** de chaque route, `resolveActionMeta()` (`routerDecorators.ts:1593`)
+3. **À la première requête** de chaque route, `resolveActionMeta()` (`routerDecorators.ts:1624`)
    consolide toutes les étiquettes de l'action en **un objet figé** posé sur la route. Les requêtes
    suivantes ne lisent plus aucune métadonnée.
 
@@ -131,8 +131,8 @@ payer est visible : une route gardée alors que le module `security` est absent 
 une erreur de démarrage (fail-closed, `Resolver.ts:582`).
 
 **2 — Tout est figé une fois, puis relu en O(1).** Les métadonnées de l'action sont consolidées au
-premier passage dans `computeActionMeta()` (`routerDecorators.ts:1549`) puis gelées sur la route.
-L'objet `RouteActionMeta` (`routerDecorators.ts:1361`) est **partagé par toutes les requêtes** — le
+premier passage dans `computeActionMeta()` (`routerDecorators.ts:1580`) puis gelées sur la route.
+L'objet `RouteActionMeta` (`routerDecorators.ts:1392`) est **partagé par toutes les requêtes** — le
 framework ne le mute jamais, et ton code non plus. Une action non décorée obtient des champs à `null`,
 ce qui vaut **zéro branche** dans le chemin chaud.
 
@@ -364,7 +364,7 @@ La liste des sources possibles est fermée et typée : `ParamSource` (`routerDec
 #### Trois comportements à connaître
 
 **`@CurrentUser` lit l'ALS, jamais un argument caché.** La valeur vient de `RequestContext.getUser()`
-(`routerDecorators.ts:1205`) : l'utilisateur posé par le firewall. C'est **l'utilisateur**, jamais le
+(`routerDecorators.ts:1236`) : l'utilisateur posé par le firewall. C'est **l'utilisateur**, jamais le
 justificatif (mot de passe, jeton). Hors zone authentifiée, la valeur est `undefined` — le décorateur
 n'authentifie rien, il expose ce qui a déjà été prouvé.
 
@@ -618,7 +618,7 @@ Trois faits à retenir :
   `routerDecorators.ts:476`).
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
-  `resolveParamArg()` (`routerDecorators.ts:1227`), et `@Query` lit la query du chemin **invoqué**,
+  `resolveParamArg()` (`routerDecorators.ts:1283`), et `@Query` lit la query du chemin **invoqué**,
   pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:637`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le
@@ -638,11 +638,11 @@ pas toutes identiques — c'est la source d'erreur n°1.
 | `@Domain` | option `host` de la route > méthode > classe | `controller()` (`routerDecorators.ts:88`) |
 | `@BypassFirewall` | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:686` |
 | `@UseSession` | méthode > classe (fusion des champs) | `resolveSessionIntent()` (`routerDecorators.ts:819`) |
-| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1530`) |
+| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1561`) |
 | `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1444`) |
 | `@Anonymous` | méthode → annule tout ce que la classe a posé | `routerDecorators.ts:912` |
 | `@Csp` | fusion **additive** classe + méthode (sources concaténées) | `mergeCspDirectives()` (`routerDecorators.ts:1000`) |
-| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1370`) |
+| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1580`) |
 | `@Header` | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne | `Header()` (`routerDecorators.ts:580`) |
 | `@HttpCode` | un seul par action (le dernier posé écrase) | `HttpCode()` (`routerDecorators.ts:548`) |
 
@@ -687,7 +687,7 @@ sequenceDiagram
   RS->>RS: requêtes suivantes : lecture O(1), 0 Reflect
 ```
 
-Le snapshot `RouteActionMeta` (`routerDecorators.ts:1361`) regroupe **tout** ce que les décorateurs
+Le snapshot `RouteActionMeta` (`routerDecorators.ts:1392`) regroupe **tout** ce que les décorateurs
 ont dit de l'action :
 
 <!-- prettier-ignore -->
@@ -710,7 +710,7 @@ contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
 (`_buildParamArgs()`, `Resolver.ts:619`), les métadonnées de réponse
 (`_applyResponseMeta()`, `Resolver.ts:650`), l'action, et enfin la redirection éventuelle.
 
-Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1445`) parcourt
+Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1476`) parcourt
 les routes au démarrage pour bâtir le **catalogue des scopes déclarés** — le formulaire de création
 de clés API dans Studio propose les scopes réellement utilisés par le code, jamais une liste
 maintenue à part.
@@ -719,10 +719,10 @@ maintenue à part.
 
 Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécanismes vérifiables :
 
-- **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1593`) mémorise le snapshot sur la
+- **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1624`) mémorise le snapshot sur la
   route au premier passage — ensuite, plus aucun appel `Reflect.getMetadata` ni `Object.entries` par
   requête. Le même schéma vaut pour la détection du flux brut
-  (`routeExpectsBodyStream()`, `routerDecorators.ts:1334`).
+  (`routeExpectsBodyStream()`, `routerDecorators.ts:1365`).
 - **`null` plutôt que structure vide.** Une action sans garde a `security: null` : le `Resolver` teste
   un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:334`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.

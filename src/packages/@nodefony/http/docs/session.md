@@ -464,7 +464,7 @@ timer (`gcIntervalS: 0`).
 ## Entités de persistance
 
 **Drizzle (SQL).** La table est décrite une seule fois en spec logique (`SESSION_TABLE_SPEC`,
-`sessionEntity.ts:25`) et déclinée par dialecte par `buildFrameworkTable()` (`colKit.ts:421`) — mêmes **noms** de
+`sessionEntity.ts:25`) et déclinée par dialecte par `buildFrameworkTable()` (`colKit.ts:543`) — mêmes **noms** de
 colonnes partout, donc un store dialect-agnostique.
 
 | Colonne      | Type logique | SQLite              | PostgreSQL | MySQL / MariaDB | Rôle                             |
@@ -535,19 +535,19 @@ affiche.
 | Surface                  | Méthode                                         | Portée                                      |
 | ------------------------ | ----------------------------------------------- | ------------------------------------------- |
 | Déconnexion locale       | `Session.destroy()` (`session.ts:300`)          | la session courante + pierre tombale        |
-| Révocation par un admin  | `destroyByRef()` (`sessions-service.ts:681`)    | une session désignée par sa `ref` publique  |
-| « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:711`)   | toutes les sessions d'un utilisateur        |
-| « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:808`) | une session, **restreinte au propriétaire** |
+| Révocation par un admin  | `destroyByRef()` (`sessions-service.ts:707`)    | une session désignée par sa `ref` publique  |
+| « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:737`)   | toutes les sessions d'un utilisateur        |
+| « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:834`) | une session, **restreinte au propriétaire** |
 
 Deux finesses valent d'être connues.
 
 `destroyByUser()` ne fait pas un seul passage : il **repasse jusqu'à ce qu'un passage complet ne
-détruise plus rien** (`sessions-service.ts:711`), car supprimer en parcourant décale les rangs sous un
+détruise plus rien** (`sessions-service.ts:737`), car supprimer en parcourant décale les rangs sous un
 curseur offset. Une révocation « partout » qui en laisserait une n'est pas une imprécision, c'est une
 faille — on rend donc la main avec la preuve, pas l'espoir.
 
 `destroyOwnByRef()` ferme l'IDOR **par construction** : parcours restreint aux sessions du demandeur,
-et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:808`). Une
+et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:836`). Une
 `ref` d'autrui est structurellement introuvable.
 
 ### Redaction — l'identifiant ne sort jamais du process
@@ -575,7 +575,7 @@ Trois barrières superposées :
 | Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:394`)     |
 | Résurrection après révocation     | pierre tombale 5 min sur `write` **et** `touch`   | `RevocationGuardStorage.ts:121`                    |
 | Fuite d'identifiant en admin      | `ref` HMAC + projection en liste blanche          | `toSessionSummary()` (`sessions-service.ts:112`)   |
-| IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:808`)    |
+| IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:834`)    |
 
 ## 🧰 API publique
 

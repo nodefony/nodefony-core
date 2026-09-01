@@ -501,7 +501,7 @@ forme au rendeur d'erreurs. Ce qui en sort :
   ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts:770-775`).
 
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
-(`renderWebsocket()`, `error-renderer.ts:264`) — 401/403 → 1008 (violation de politique),
+(`renderWebsocket()`, `error-renderer.ts:393`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
 c'est un **rejet** de handshake.
 
@@ -584,7 +584,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:760`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
-| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:264`)                  |
+| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:393`)                  |
 
 ## 📡 Observabilité — Studio
 

@@ -68,7 +68,7 @@ Le mot est surchargé dans Nodefony. Les confondre produit des bugs qui ne plant
 | --------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
 | `@injectable({ scope: "singleton" })`   | combien d'**instances** d'une classe           | `injector.ts:157`                                                                 |
 | `container.enterScope("request")`       | un **sous-container** jeté en fin de requête   | `Container.ts:293`                                                                |
-| `@Scope("singleton")` sur un controller | un controller partagé au lieu d'un par requête | `routerDecorators.ts:552`                                                         |
+| `@Scope("singleton")` sur un controller | un controller partagé au lieu d'un par requête | `routerDecorators.ts:754`                                                         |
 | `@RequireScope("users:write")`          | une **permission** — rien à voir avec le DI    | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
 
 Les trois premières sont **orthogonales** : un service `singleton` se lit depuis n'importe quel
@@ -305,7 +305,7 @@ temps de la requête et disparaissent avec elle.
 
 ### `@Scope("singleton")` — le controller partagé, sous contrat strict
 
-Un controller est **neuf par requête** par défaut. Le décorateur `Scope` (`routerDecorators.ts:552`)
+Un controller est **neuf par requête** par défaut. Le décorateur `Scope` (`routerDecorators.ts:754`)
 permet d'en partager un seul, mis en cache par le routeur
 (`Router.getSingletonController()`, `router.ts:161`).
 

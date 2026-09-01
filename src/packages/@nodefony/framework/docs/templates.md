@@ -103,7 +103,7 @@ Le branchement est **délibérément minimal** :
 
 > [!NOTE]
 > Le rendu **d'erreurs** ne passe **pas** par les templates : une exception devient un corps **JSON
-> structuré** (`ErrorRenderer.renderHttp()`, `error-renderer.ts:227`), jamais une page Eta. Le moteur
+> structuré** (`ErrorRenderer.renderHttp()`, `error-renderer.ts:348`), jamais une page Eta. Le moteur
 > de vues ne sert que le HTML **que tu rends explicitement**.
 
 ## 🚀 Démarrage rapide
