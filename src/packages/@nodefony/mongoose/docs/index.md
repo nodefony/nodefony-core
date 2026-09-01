@@ -707,6 +707,18 @@ serait pire qu'une erreur.
 Les cinq schémas portés par le module. Les collections sont créées à la volée par MongoDB — il n'y a
 ni migration ni DDL à jouer, ce qui est l'un des vrais conforts du modèle documentaire.
 
+> ⚠️ **Le revers de ce confort : ce qui n'est pas déclaré est JETÉ, sans un mot.** Mongoose valide en
+> mode strict par défaut, et un champ absent du schéma n'est pas refusé à l'écriture — il est
+> silencieusement écarté, puis relu comme `undefined`. Là où une base SQL t'arrête sur « colonne
+> inconnue », Mongo te rend un document amputé qui a l'air normal. Donc : **un champ que tu ajoutes à
+> une entité doit être ajouté à son SCHÉMA**, et pas seulement au type TypeScript qui te dit qu'il
+> existe. C'est le pendant documentaire de la migration : tu n'as rien à jouer sur la base, mais tu
+> as toujours une déclaration à tenir à jour.
+>
+> Cela vaut pour l'entité `User`, que ton application possède : ses colonnes viennent du contrat
+> partagé (`USER_COLUMNS`), et le module en dérive un schéma Mongoose. Un champ métier que tu ajoutes
+> à ton utilisateur suit le même chemin — déclaré, donc écrit ; oublié, donc perdu en silence.
+
 | Collection            | Clé primaire (`_id`)         | Contenu                                                            | Horodatages        |
 | --------------------- | ---------------------------- | ------------------------------------------------------------------ | ------------------ |
 | `session`             | `ObjectId` (auto)            | identifiant de session, contenu, messages flash, méta, utilisateur | nombres (ms)       |
@@ -816,6 +828,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 | Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
 | `audit store "mongoose" inconnu` — boot avorté en production | Brique **non portée** par Mongo, sélectionnée explicitement                   | Laisser `auto` (repli annoncé) ou choisir un backend qui la porte                 |
 | Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:74`)        |
+| Un champ écrit se relit `undefined`, sans aucune erreur      | Il n'est pas dans le **schéma** : Mongoose est strict et l'écarte en silence  | L'ajouter au schéma de l'entité — le type TypeScript seul ne suffit pas           |
 | Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
 
 ## 🧪 Tests et couverture
