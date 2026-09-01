@@ -420,11 +420,36 @@ function renderCards(json) {
  * étant faite en CSS pur. Un SVG porte ses couleurs en dur — il ne peut pas
  * suivre le thème du lecteur, d'où les deux rendus.
  */
+/** Largeur naturelle, en pixels, d'un SVG rendu — depuis son attribut `width`. */
+function largeurSvg(svg) {
+  const m = /<svg[^>]*\swidth="(\d+(?:\.\d+)?)"/.exec(svg);
+  return m ? Number(m[1]) : 0;
+}
+
+/**
+ * Au-delà de cette largeur naturelle, un schéma est traité comme LARGE : il
+ * déborde sur les marges et défile plutôt que de rétrécir.
+ *
+ * La colonne de contenu fait environ 580 px. Un ruban de pipeline en fait 1 758 :
+ * ramené à 100 % de la colonne, il se rend à 33 % de sa taille, et ses libellés
+ * deviennent illisibles. Le seuil est posé là où la réduction commence à coûter
+ * plus que le confort de rester dans la colonne.
+ */
+const SCHEMA_LARGE_PX = 900;
+
 function renderMermaid(source) {
   try {
     const clair = schema({ source, theme: "clair" });
     const sombre = schema({ source, theme: "sombre" });
-    return `<figure class="schema-zone" tabindex="0" role="img" aria-label="Diagramme">
+    // Un schéma LARGE déborde sur les gouttières (nav à gauche, sommaire à
+    // droite) puis, si cela ne suffit toujours pas, défile horizontalement —
+    // au lieu d'être réduit jusqu'à l'illisible. La zone porte déjà `tabindex`,
+    // donc son défilement est atteignable au clavier.
+    const w = largeurSvg(clair);
+    const large = w > SCHEMA_LARGE_PX;
+    return `<figure class="schema-zone${large ? " large" : ""}"${
+      large ? ` style="--schema-w:${Math.round(w)}px"` : ""
+    } tabindex="0" role="img" aria-label="Diagramme">
 <div class="d d-light">${clair}</div><div class="d d-dark">${sombre}</div></figure>`;
   } catch {
     return `<pre class="raw">${esc(source)}</pre>`;
@@ -1250,6 +1275,22 @@ a.nf-card:hover .card-t { color:var(--accent); }
    cette règle il gardait sa largeur naturelle, calculée par le moteur, et
    flottait dans un cadre bien plus large que lui. */
 .schema-zone svg { display:block; width:100%; height:auto; }
+/* Un schéma LARGE (ruban de pipeline, frise) ne se laisse pas réduire jusqu'à
+   l'illisible : la colonne de contenu fait ~580 px, et un ruban de 1 758 px y
+   tombe à 33 %, où les libellés ne se lisent plus — le lecteur doit alors cliquer
+   pour agrandir, ce qui n'est pas lire.
+
+   Plancher de LISIBILITÉ : jamais sous 60 % de la taille naturelle. En deçà, la
+   figure DÉFILE — sa zone est focusable, le défilement est donc atteignable au
+   clavier. Défiler pour lire vaut mieux que regarder sans lire.
+
+   ⚠️ Ne PAS déborder sur les gouttières : la colonne de droite porte le sommaire
+   sur toute la hauteur de la page. Une marge négative faisait passer le ruban
+   PAR-DESSUS ses entrees — mesure a l'ecran, deux textes superposes. La place
+   semblait libre ; elle ne l'etait pas. */
+.schema-zone.large svg { width:100%;
+  min-width:calc(var(--schema-w) * 0.6);
+  max-width:var(--schema-w); }
 pre.raw { white-space:pre-wrap; }
 .livegraph { border:1px dashed var(--line); border-left:3px solid var(--accent);
   border-radius:9px; padding:12px 16px; margin:18px 0; background:var(--card); }
