@@ -1,6 +1,8 @@
 # MIGRATION_STATUS.md — Tableau de bord
 
 > **Mis à jour : 2026-08-20** (audit vérité — cf mémoire IA `core-dev/migration/AUDIT-verite-2026-08.md` ; passes précédentes : `AUDIT-verite-2026-06.md`).
+> **Retouche du 2026-09-01** : `P14.14` et `P14.16` cochées, chacune prouvée au CODE. Les 41 autres
+> cases non cochées gardent leur statut, **non vérifié** — c'est l'objet du ticket [#80](https://github.com/nodefony/nodefony-core/issues/80).
 > Légende : ✅ Migré | 🔶 Partiel | ⬜ À faire | 🚫 Bloqué | ⏭️ Skip/Caduc
 >
 > **Règle de tenue (CONVENTION) :** statut en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`), **1 ligne courte**
@@ -329,11 +331,11 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
  P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ BLOQUEUR MVP — lifecycle + scaffold ✅ ; orm:migrate ✅ (S5c soldé, #98 : cinq verbes × 3 dialectes, chaque réglage sur son couple) ; reste user:* métier
  P12 Couche IA agentic     █▍░░░░░░░░  14%   0✅  2🔶  5⬜   🧪 différé (llm réel non intégré ; protocole MCP AU CŒUR, module vide ; agent-guard vide)
  P13 Realtime distribué    ████████░░  77%  10✅  3🔶  2⬜   (reste Kafka 13.6a/b · décorateurs 13.8)
- P14 Frontend Vite + iso   ████████░░  81%  14✅  1🔶  3⬜   (P14.18 ✅ origine par Host · svelte5 ✅ · solid retiré)
+ P14 Frontend Vite + iso   █████████░  92%  16✅  1🔶  1⬜   (P14.18 ✅ origine par Host · svelte5 ✅ · solid retiré ; P14.14 CSP dynamique ✅ #135 · P14.16 syslog front→back ✅ #35)
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
  P16 Cloud-Native (10 axes)████▌░░░░░  45%  15✅  0🔶 18⬜   (33 sous-items vérifiés code 08-20 · 16.J /metrics repoussé)
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    ███████▏░░  72% 141✅ 24🔶 46⬜  (211 tâches · audit vérité 2026-08-20)
+ GLOBAL                    ███████▎░░  74% 144✅ 24🔶 44⬜  (212 tâches · somme des lignes ci-dessus, recomptée le 2026-09-01 — la ligne annonçait 141/211 pour 142/212 réels)
 ────────────────────────────────────────────────────────────────────────
  DOC Corpus de référence   █████████▋  97%  61/63 pages aux 4 gates (rejoués 08-20) · 437 ancres en DÉRIVE (dette)
  DOC Site public           ██████████ 100%  84 pages PUBLIÉES sur GitHub Pages (f9aaf5de) · accueil + /docs/ + /performance/
