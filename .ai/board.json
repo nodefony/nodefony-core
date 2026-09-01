@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T19:26:10.734Z",
+  "generatedAt": "2026-09-01T20:26:36.846Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 73,
+      "closed": 74,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 37,
+      "open": 36,
       "title": "10.0.0"
     }
   ],
@@ -793,8 +793,8 @@
       "number": 146,
       "title": "feat(cli): faire naître une application avec son utilisateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/146",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
