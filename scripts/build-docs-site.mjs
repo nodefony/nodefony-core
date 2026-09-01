@@ -698,12 +698,31 @@ function buildNav(pages, current) {
         }${p.navTitle !== p.title ? ` title="${esc4(p.title)}"` : ""}>${esc4(p.navTitle)}</a></li>`
       : "";
 
+  /**
+   * Le HUB d'une section passe DEVANT ses pages.
+   *
+   * Un accueil de section s'appelle `index.md` ou `README.md`, et son URL est
+   * celle du dossier lui-même. Trié comme les autres — sur son titre — il
+   * atterrit au milieu de ses propres pages : « Tous les guides » tombait entre
+   * « Publier une release » et « Session storage ». La porte d'entrée d'une
+   * section devenait invisible, alors que c'est la page à lire en premier.
+   *
+   * Le portail d'administration applique déjà cette règle
+   * (`DocumentationService.#orderPages`) ; le site ne l'appliquait pas, et les
+   * deux ne montraient donc pas la même chose du même corpus.
+   */
+  const hubDevant = (items) => {
+    const estHub = (p) =>
+      /(^|\/)(index|README)$/.test(p.relPath.replace(/\.md$/i, ""));
+    return [...items].sort((a, b) => (estHub(b) ? 1 : 0) - (estHub(a) ? 1 : 0));
+  };
+
   const group = (label, icon, items, open, cls = "") =>
     items.length
       ? `<details${open ? " open" : ""}${cls ? ` class="${cls}"` : ""}>` +
         `<summary><span aria-hidden="true">${icon}</span> ${esc4(label)} ` +
         `<span class="n">${items.length}</span></summary>` +
-        `<ul>${items.map(li).join("")}</ul></details>`
+        `<ul>${hubDevant(items).map(li).join("")}</ul></details>`
       : "";
 
   const parts = [];
