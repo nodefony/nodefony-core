@@ -309,6 +309,11 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
 
 ## Gotchas
 
+- `ADD COLUMN … NOT NULL` sans défaut sur table PEUPLÉE : sqlite et PostgreSQL REFUSENT
+  (« Cannot add a NOT NULL column with default value NULL » / « contains null values ») ;
+  MySQL/MariaDB ACCEPTE et remplit de `''`, mode strict compris. Banc :
+  `tests/integration/user-migrations.e2e.test.ts` (attente PAR dialecte, jamais « l'un ou l'autre »).
+
 - Entité `User` possédée par l'app : `registerDrizzleFrameworkStores` la confronte au contrat
   (`assertUserContract`) quand `report.appOwned` la contient → REFUS de démarrage nommant la colonne
   et son lecteur. Colonnes lues par `userTableColumns(table, dialect)` — `getTableConfig` diffère

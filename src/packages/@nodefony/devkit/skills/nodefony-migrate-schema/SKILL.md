@@ -88,6 +88,27 @@ reprendre après une coupure sans lire d'état préalable.
 > dépose un fichier vide et son entrée de journal. Le gabarit déposé explique comment séparer les
 > instructions ; suis-le à la lettre.
 
+### 🔴 Un champ OBLIGATOIRE sur une table PEUPLÉE — ton moteur ne fait pas ce que tu crois
+
+Ajouter une colonne `NOT NULL` **sans valeur par défaut** à une table qui porte déjà des lignes n'a
+pas le même effet selon le serveur. Mesuré sur les trois, table peuplée :
+
+| Moteur          | Ce qui se passe                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| sqlite          | **refus** — `Cannot add a NOT NULL column with default value NULL`                          |
+| PostgreSQL      | **refus** — `column "x" of relation "y" contains null values`                               |
+| MySQL / MariaDB | **accepté** — les lignes existantes reçoivent une valeur VIDE (`''`), sans un avertissement |
+
+Les deux premiers t'arrêtent parce qu'ils ne peuvent pas inventer la valeur des lignes déjà là. Le
+troisième l'invente : le champ est déclaré obligatoire et ne contient que du vide, ce qui passe tous
+les contrôles et ne se voit qu'au moment où quelqu'un lit ces comptes. **Le mode strict n'y change
+rien** — c'est le comportement de `ALTER TABLE … ADD COLUMN`, pas celui des insertions.
+
+Donc, toujours, quel que soit ton moteur : **un champ obligatoire s'ajoute avec une valeur par
+défaut** (`role:string=membre`), ou **se déclare facultatif** (`department:string?`). Si tu as
+besoin des deux — obligatoire, et sans défaut à terme — c'est trois migrations : ajouter avec
+défaut, remplir (`--custom`), puis retirer le défaut.
+
 ### La base existait AVANT toute migration — un geste de plus, une seule fois
 
 Une application passée du mode développement à la production a ses tables **et** un dossier
