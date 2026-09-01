@@ -1185,6 +1185,8 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 09-01] **Mon décor incomplet a rendu 187 faux positifs.** `check-site-links` sur un site que j'avais rendu avec la seule étape `build-docs-site` : **187 liens internes fautifs**, tous vers `../../../`. Ce n'était pas le contenu — la forge rend TROIS objets avant de vérifier (`readme-html` pour l'accueil, la doc, `build-perf-site` pour `/performance/`), et les liens de retour pointaient vers des cibles que je n'avais pas générées. Séquence complète rejouée : **0 cassé sur 10 397**. Le réflexe qui a sauvé : chercher mes propres fichiers dans la liste des fautifs (absents) AVANT de conclure — puis lire le flux CI pour savoir ce qu'il fait AVANT le gate.
+
 - [1× — 09-01d] **Un build échoué en SILENCE m'a fait mesurer trois fois la page précédente.** Des
   backticks dans un commentaire CSS, à l'intérieur d'un gabarit JavaScript : `node build.mjs
 
@@ -1595,6 +1597,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-01] **Le gate lancé n'était pas celui qui couvre la cible.** `npx tsgo --noEmit -p tsconfig.json` sur un banc neuf : **aucune sortie, donc vert** — sauf que ce tsconfig porte `exclude: ["tests"]`. Le typecheck n'avait pas lu une ligne du fichier écrit. Le module a DEUX projets (`typecheck` = `tsconfig.json` **et** `tsconfig.tests.json`), et le second a levé quatre `TS2353` au premier essai (`sql` au lieu de `statements`). Réflexe : avant de croire un typecheck, lire `include`/`exclude` du projet qu'on lui donne — ou lancer le script `typecheck` du paquet, qui sait, lui, combien de projets il a.
+
 - [1× — 09-01d] **Le gate que je venais de câbler en CI a échoué sur trente pages, et il était
   vert chez moi** : `doc-lint` exige des compteurs qui vivent sous `tmp/`, laissés là par une
   session précédente. Mon vert ne devait rien au code, seulement au décor. **Un gate se rejoue
@@ -1806,6 +1810,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 09-01] **Un ticket vieux de vingt-quatre heures affirmait six faussetés — toutes corrigées entretemps par ses tickets frères.** #147 listait « artefacts publiés devenus faux » : le skill `nodefony-add-crud`, deux gabarits, un test, la page des migrations. Vérification une par une : **aucun** ne portait plus l'affirmation ; #140→#143 les avaient recalés la veille. Deux vrais périmés existaient bien, mais AILLEURS (un skill interne et un `MEMORY.md`), non listés. Un ticket est une photo du code à l'instant où il est écrit — dans une grappe qui avance vite, sa section « preuve au terrain » se relit AVANT d'agir, jamais après.
+
 - **[1× — 09-01] Le gate d'ancres a laissé passer CINQ ancres que mon propre diff venait de décaler.** Il ne signale une ancre que si le symbole cité sort de sa fenêtre de recherche : `IUserRepository.ts:62` pointait encore _dans_ l'interface, donc « juste » pour lui, alors que la ligne visée avait bougé de 19 rangs. Corollaire : après avoir INSÉRÉ dans un fichier que la doc cite, recompter les ancres à la main — le gate ne couvre que le décalage franc.
 
 - [1× — 09-01d] **Le gate acceptait le token `Module` dans `Module.ts`** : seize ancres d'une même
@@ -1922,6 +1928,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Sept ancres fausses dans UNE grappe de quatre tickets** — dont une qui situait une garde à `orm-migrate-baseline.ts:118`, où vit une déclaration d'option, **171 lignes** avant sa cible ; et deux tickets frères qui désignaient la MÊME ligne (`orm-generate.ts:376`) pour deux refus différents — un seul pouvait avoir raison. Elles étaient toutes périmées pour la même raison : le travail décrit avait été FAIT entre-temps. Le contrôle qui tranche en une seconde : deux tickets ne pointent jamais la même ligne pour deux choses. Retirées plutôt que corrigées quand le fait avait disparu — une ancre juste sous une affirmation fausse est le pire des deux mondes.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 09-01] **Il a rendu le COMPTE et pas les VERDICTS.** Dix affirmations d'un ticket confiées à `haiku` avec la consigne « verdict + citation + ancrage ACTUEL, pour CHACUNE » : le rapport annonce « 10 affirmations : 4 VRAI, 4 FAUX, 2 NON VÉRIFIABLE » — et ne donne le détail d'AUCUNE. À la place, un tableau de cinq autres emplacements, trouvés par la question bonus. Le compte est invérifiable et le travail utile absent. J'ai dû reprendre les dix à la main (six `rg`, deux minutes) — et six des dix étaient **déjà corrigées** par les tickets de la veille. Consigne à durcir : « rends une LIGNE PAR ITEM, numérotée comme l'énoncé ; un résumé chiffré sans le détail vaut zéro ».
 
 - [1× — 09-01] **Un verdict binaire ne rend pas la tâche mécanique.** 50 ancres confiées à `haiku` « définition ou occurrence ? » : rapport rendu confiant, **~1 verdict sur 6 exact** (`tmpDir` donné à 485, il est à 512 ; quatre autres pointant des commentaires). Rien appliqué. Le tri s'est fait par un script à motifs forts, puis à la main. Distinguer une DÉFINITION d'une occurrence demande de lire du TypeScript, pas de faire un `grep` — le test « la réponse est-elle vérifiable ? » ne suffit pas, il faut « est-elle lisible SANS juger ? ». À l'inverse, `fable` sur un audit de corpus (liens, schémas périmés) a rendu **5 affirmations sur 5 exactes** après recontrôle.
 
@@ -2065,6 +2073,8 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
+
+- [1× — 09-01] **Le correctif était bon, sa JUSTIFICATION était inventée — et gravée dans un gabarit livré.** La veille, `--ignore-scripts` posé dans le Dockerfile des applications avec ce commentaire : « sans verrou npm SAUTE les scripts et le dit ; avec un verrou il les EXÉCUTE ». Mesuré cette fois dans `node:24-slim` : sans verrou npm **ne dit rien et n'exécute rien**, et aucun comportement général de npm ne distingue les deux cas. Le vrai motif est un défaut amont précis (`npm/cli#9837` : `gypfile: false` n'est pas lu sur un arbre bâti depuis un lockfile, npm SYNTHÉTISE alors un `node-gyp rebuild` que le paquet interdit). Le retex de la veille disait pourtant « ne pas conclure sur le mécanisme quand le FAIT suffit à agir » — juste pour AGIR, faux pour ÉCRIRE : une justification inventée survit au correctif, se recopie, et enverra chercher au mauvais endroit le jour où l'image de base passera à npm 12.
 
 - [1× — 08-30c] **La sonde d'un banc comptait NOTRE documentation comme une faute de l'agent.** La sonde « n'a jamais proposé de supprimer la base » cherchait `orm:reset` dans le transcript ENTIER — où entrent les résultats d'outils, donc le contenu des fichiers lus, donc la page qui nomme cette commande précisément pour l'interdire. Mesuré : sept, deux et une occurrences dans le transcript ; **zéro** dans la parole de l'agent sur deux répétitions de trois. Second faux positif, plus fin : l'agent commentait dans son RAISONNEMENT le `DROP TABLE` du patron d'expansion-contraction que le produit avait écrit pour lui. **Un interdit se juge sur ce que l'agent ÉMET, moins son brouillon** — et un filtre de matière doit rendre le tout quand il ne reconnaît rien, jamais le vide.
 

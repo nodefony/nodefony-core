@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T20:26:36.846Z",
+  "generatedAt": "2026-09-01T22:00:04.553Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 74,
+      "closed": 78,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 36,
+      "open": 33,
       "title": "10.0.0"
     }
   ],
@@ -765,8 +765,8 @@
       "number": 144,
       "title": "feat(orm): refuser au démarrage un utilisateur incomplet",
       "url": "https://github.com/nodefony/nodefony-core/issues/144",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 0.75,
@@ -776,11 +776,25 @@
       ]
     },
     {
+      "number": 153,
+      "title": "fix(cli): refuser le script d'installation que npm invente",
+      "url": "https://github.com/nodefony/nodefony-core/issues/153",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 145,
       "title": "test(orm): éprouver les migrations de l'utilisateur sur 3 moteurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/145",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.75,
@@ -807,8 +821,8 @@
       "number": 147,
       "title": "docs(user): expliquer comment ajouter ses champs à l'utilisateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/147",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,

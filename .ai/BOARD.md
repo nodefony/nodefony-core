@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-01 20:26** (UTC).
+> Empreinte prise le **2026-09-01 22:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 36 | 74 | 2026-11-15 |
+| 10.0.0 | 33 | 78 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,16 +27,13 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 36 ouverts
+## Jalon 10.0.0 — 33 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 3 | P0 — bloque le reste | 7.5 | #18 | feat(user): rendre l'entité utilisateur à l'application |
-| 3.5 | P0 — bloque le reste | 0.75 | #144 | feat(orm): refuser au démarrage un utilisateur incomplet |
-| 3.6 | P1 — figé à la création | 0.75 | #145 | test(orm): éprouver les migrations de l'utilisateur sur 3 moteurs |
-| 3.8 | P1 — figé à la création | 1 | #147 | docs(user): expliquer comment ajouter ses champs à l'utilisateur |
 | 3.9 | P2 — décision | 0.5 | #148 | test(devkit): mesurer si un agent sait gérer les utilisateurs |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
 | 4.5 | P1 — figé à la création | 0.5 | #59 | fix(cluster): ne plus arracher les gestionnaires de signaux des modules |
