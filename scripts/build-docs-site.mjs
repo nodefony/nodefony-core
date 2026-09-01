@@ -557,10 +557,20 @@ function externalizeLinks(markdown, fromRepoDir, publishedPaths) {
     const kind = statSync(full).isDirectory() ? "tree" : "blob";
     return { url: `${REPO_URL}/${kind}/${BRANCH}/${clean}${hash}` };
   };
-  // Deux syntaxes portent une cible : le lien markdown, et le `"href"` d'un bloc
-  // déclaratif (`nodefony-cards`). N'en traiter qu'une laissait les catalogues
-  // des hubs pointer vers des `.md` retirés du site — un cul-de-sac par card.
-  const out = markdown
+  // Le CODE INLINE est neutralisé d'abord : une page qui ENSEIGNE la syntaxe des
+  // liens cite ses exemples entre accents graves (`"href": "cors.md"`), et sans
+  // cette précaution ils sont traités comme de vraies cibles — signalés morts
+  // s'ils n'existent pas, et RÉÉCRITS en URL absolue s'ils existent, ce qui
+  // détruirait l'exemple. Les fences, elles, ne sont PAS masquées : les
+  // catalogues `nodefony-cards` en sont, et leurs cibles doivent bien être
+  // traduites. Même règle que le `doc-lint` du dépôt, qui neutralise déjà le code
+  // avant de juger un lien.
+  const inline = [];
+  const masked = markdown.replace(/`[^`\n]*`/g, (m) => {
+    inline.push(m);
+    return `\u0000INLINE${inline.length - 1}\u0000`;
+  });
+  const out = masked
     .replace(
       /\]\((?!https?:|mailto:|#)([^)\s]+?)(#[^)\s]*)?\)/g,
       (whole, target, hash = "") => {
@@ -574,7 +584,8 @@ function externalizeLinks(markdown, fromRepoDir, publishedPaths) {
         const r = rewrite(whole, target, "");
         return typeof r === "string" ? r : `"href": "${r.url}"`;
       },
-    );
+    )
+    .replace(/\u0000INLINE(\d+)\u0000/g, (_, i) => inline[Number(i)]);
   return { markdown: out, dead };
 }
 
