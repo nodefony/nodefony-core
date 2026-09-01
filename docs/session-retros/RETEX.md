@@ -133,6 +133,8 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- **[1× — 09-01] Donner l'ENTITÉ ne suffit pas : il faut donner la MIGRATION.** Après avoir retiré `User` des migrations du framework, j'ai doté le dépôt de son entité et déclaré l'effet de bord traité. En développement le schéma est dérivé du code, donc tout marchait. La CI a rendu **dix jobs rouges** : en production personne ne crée la table. Le même oubli valait pour les applications générées. Règle : dès qu'un objet quitte le framework pour l'application, se demander QUI le crée dans chacun des deux modes de schéma.
+
 - [1× — 09-01] Premier correctif CSP : plage de ports déclarée en PERMANENCE → en-tête de **7,9 Ko sur chaque réponse** (au bord des 8 Ko que refusent beaucoup de relais). Le correctif marchait et coûtait plus cher que le défaut. Refait par famille : bloc entier tant que rien ne sert, port réel dès que ça sert. **Mesurer le COÛT de son correctif fait partie du correctif.**
 - [1× — 08-30] **Déclarer sans installer est un demi-geste — et c'est le user qui l'a vu.**
   `create entity` ajoutait l'outil de migration au `package.json` et laissait l'utilisateur lancer
@@ -715,6 +717,8 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- **[1× — 09-01] Un banc « vert en CI » l'était sur un arbre ANTÉRIEUR au code qu'il devait éprouver.** Le banc de publication ne tourne qu'au cron du lundi ; son dernier run vert portait sur un commit du 27 août, et les migrations livrées datent du 28. Il était donc rouge depuis quatre jours **sans témoin**, et j'ai failli conclure « pré-existant, donc pas moi » sans vérifier — le raisonnement juste, mais sur une prémisse fausse. Règle : avant d'invoquer un run vert, regarder SUR QUEL COMMIT il a tourné.
+
 - [1× — 09-01] **Quatre tests visaient `__proto__` dans `envOverride`, aucun ne testait la garde.** Tous passaient `schema` non défini, donc tous étaient arrêtés par une branche ANTÉRIEURE (« le schéma ne déclare pas la feuille ») et laissaient hors preuve la ligne que CodeQL signalait. Le refus tenait d'ailleurs à un accident — `__proto__` n'est ni propriété propre ni énumérable — et cet accident cesse dès qu'un schéma vient de `JSON.parse`, qui crée une propriété PROPRE. L'attaque réelle a montré `appliqué=true`, prototype de la config détourné, `constructor` écrasé. **Le signe à reconnaître : plusieurs tests d'un même risque qui partagent tous le même argument par défaut** — ils explorent une seule branche en croyant en couvrir plusieurs.
 
 - [1× — 09-01] `grep -o 'function \w+\(\)\{return(!\d)\}'` attrapait la **première** fonction de cette forme du bundle, pas `isDevBuild` : classement de 8 bundles rendu au hasard, dont deux faux « DEV ». Reciblé par l'APPELANT (`isVerbose`, dont le corps cite `production`), le verdict s'est inversé. Un motif syntaxique sans ancrage sémantique mesure ce qu'il trouve, pas ce qu'on cherche.
@@ -1089,6 +1093,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
   démarrage d'après argv » a un angle mort : le choix différé. `[1× — 08-21e]`
 
 ## 🧨 Une commande de DÉCLARATION ne doit jamais désarmer ce qu'elle trouve
+
+- **[1× — 09-01] Un banc qui « nettoie son décor » détruit un artefact COMMITÉ dès que le dépôt se met à en produire un.** Le banc d'adoption vidait `migrations/<dialecte>` avant et après chaque cas — sans risque tant que le dépôt n'avait aucune migration d'application. Depuis que l'identité lui appartient, il en a. Le dossier disparaissait du disque **sans que `git status` soit consulté**, et le manque se manifestait des heures plus tard sur un « table absente : User » qui accusait le produit. Règle : un banc qui écrit dans l'arbre du dépôt met de côté ce qu'il y trouve et le remet — supprimer n'est légitime que sur ce qu'on a soi-même écrit.
 
 - [1× — 08-28h] **La question que personne n'avait posée : et si la migration DÉTRUIT ?**
   `orm:migrate` appliquait un `DROP COLUMN` en production sans un mot — ni la conception validée,
@@ -1789,6 +1795,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- **[1× — 09-01] Le gate d'ancres a laissé passer CINQ ancres que mon propre diff venait de décaler.** Il ne signale une ancre que si le symbole cité sort de sa fenêtre de recherche : `IUserRepository.ts:62` pointait encore _dans_ l'interface, donc « juste » pour lui, alors que la ligne visée avait bougé de 19 rangs. Corollaire : après avoir INSÉRÉ dans un fichier que la doc cite, recompter les ancres à la main — le gate ne couvre que le décalage franc.
 
 - [1× — 09-01d] **Le gate acceptait le token `Module` dans `Module.ts`** : seize ancres d'une même
   page, toutes fausses d'une vingtaine de lignes, étaient déclarées bonnes. Un critère qu'aucun

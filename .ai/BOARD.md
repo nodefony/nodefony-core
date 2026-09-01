@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-01 14:22** (UTC).
+> Empreinte prise le **2026-09-01 17:35** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 16 | 1 | — |
-| 10.0.0 | 41 | 65 | 2026-11-15 |
+| 10.0.0 | 40 | 70 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,16 +27,15 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 41 ouverts
+## Jalon 10.0.0 — 40 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 3 | P0 — bloque le reste | 7.5 | #18 | feat(user): rendre l'entité utilisateur à l'application |
-| 3.1 | P0 — bloque le reste | 0.5 | #140 | feat(user): publier le contrat de colonnes de l'utilisateur |
-| 3.2 | P0 — bloque le reste | 0.5 | #141 | fix(orm): rendre lisibles les champs ajoutés à l'utilisateur |
-| 3.3 | P0 — bloque le reste | 1 | #142 | refactor(orm): retirer la table utilisateur des migrations livrées |
+| 3.36 | P2 — décision | 0.5 | #151 | test(orm): stabiliser le banc d'échelle qui expire sur macOS |
+| 3.37 | P0 — bloque le reste | 1 | #152 | test(orm): isoler le banc d'adoption de l'application du dépôt |
 | 3.4 | P0 — bloque le reste | 1.5 | #143 | feat(cli): générer l'entité utilisateur dans l'application |
 | 3.5 | P0 — bloque le reste | 0.75 | #144 | feat(orm): refuser au démarrage un utilisateur incomplet |
 | 3.6 | P1 — figé à la création | 0.75 | #145 | test(orm): éprouver les migrations de l'utilisateur sur 3 moteurs |
