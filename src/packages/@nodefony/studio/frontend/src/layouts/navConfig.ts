@@ -43,6 +43,7 @@ import {
   IconCoin,
   IconBulb,
   IconWand,
+  IconMap,
   type Icon,
 } from "@tabler/icons-react";
 import { VIEW_ROLES } from "../auth/roles";
@@ -57,10 +58,19 @@ export interface NavItem {
   /** Si défini, item visible seulement si l'utilisateur a AU MOINS UN de ces rôles. */
   roles?: string[];
   /**
-   * Page « en construction » (StubPage) — pas encore livrée. Elle RESTE dans la
-   * nav (c'est la vitrine : on montre où va le produit), mais elle est reléguée
-   * en fin de groupe, atténuée et badgée « à venir » → l'œil sépare en un instant
-   * ce qui MARCHE de ce qui ARRIVE. Retirer le flag quand la vraie page arrive.
+   * Page « en construction » (StubPage) — pas encore livrée, donc **absente du
+   * menu**.
+   *
+   * Elle y figurait, atténuée et badgée « à venir », au nom de la vitrine : montrer
+   * où va le produit. Le résultat se lisait autrement — quatorze badges sur
+   * quarante et une entrées, soit un tiers du menu occupé à dire « ce n'est pas
+   * fini ». Un utilisateur qui ouvre une console d'administration veut savoir ce
+   * qu'il peut FAIRE ; la feuille de route est une autre question, et elle a
+   * maintenant sa page (`/nodefony/roadmap`), alimentée par ce même flag.
+   *
+   * La route et l'ébauche restent en place : l'entrée reste atteignable par URL,
+   * et retirer ce flag suffit à la faire apparaître dans le menu le jour où la
+   * page existe.
    */
   wip?: boolean;
   /**
@@ -99,9 +109,9 @@ export interface NavGroup {
  * « moi ») → Observation (santé runtime transverse) → Données → Système → Sécurité
  * (gouvernance admin) → IA — Atelier (construire) → IA — Gouvernance (AI Act) →
  * Documentation. Libellés en français (cohérence). Les pages non encore livrées
- * portent `wip` (rendues en `StubPage`) → la barre montre la silhouette finale dès
- * aujourd'hui, repliée par défaut. Ce qui est badgé « à venir » = la roadmap ; le
- * reste = livré.
+ * portent `wip` : elles sont RETIRÉES du menu et rassemblées sur la page
+ * « Feuille de route », qui lit cette même liste. Le menu ne montre donc que ce
+ * qui marche — c'est ce qu'on attend d'une console d'administration.
  */
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -291,14 +301,24 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     // Phase 12 — construire & utiliser des agents IA métier (8 modules IA).
-    // Chat = playground/console (livré) ; le reste = roadmap agentic. Réservé
-    // aux développeurs (et admin) — surface de construction.
+    //
+    // Le groupe ENTIER est à venir, Chat compris : sa console répond, mais son
+    // magasin SIMULE la réponse jeton par jeton (`ChatStore.mockStream`) — le
+    // pipeline réel arrive en P12. Une page qui affiche une conversation
+    // fabriquée n'est pas une page livrée ; la laisser dans le menu sans marque
+    // la faisait passer pour une capacité du produit.
+    // Réservé aux développeurs (et admin) — surface de construction.
     id: "ai-studio",
     label: "IA — Atelier",
     icon: IconSparkles,
     roles: VIEW_ROLES.dev,
     items: [
-      { to: "/nodefony/chat", label: "Chat", icon: IconMessageChatbot },
+      {
+        to: "/nodefony/chat",
+        label: "Chat",
+        icon: IconMessageChatbot,
+        wip: true,
+      },
       { to: "/nodefony/agents", label: "Agents", icon: IconRobot, wip: true },
       {
         to: "/nodefony/knowledge",
@@ -374,6 +394,13 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/documentation",
         label: "Documentation",
         icon: IconBooks,
+      },
+      // La vitrine de ce qui arrive — une entrée, au lieu de quatorze réparties
+      // dans tout le menu. Elle n'est pas `wip` : la page, elle, EXISTE.
+      {
+        to: "/nodefony/roadmap",
+        label: "Feuille de route",
+        icon: IconMap,
       },
     ],
   },

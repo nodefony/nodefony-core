@@ -145,6 +145,11 @@ export function DocPageHeader({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: rem(4),
+                // Cible d'au moins 24 px de haut (WCAG 2.5.8) : ce lien tombait
+                // à 17 px. Le texte ne bouge pas — c'est la zone qui s'ouvre,
+                // par les seuls paddings verticaux.
+                minHeight: rem(24),
+                paddingBlock: rem(3),
               }}
             >
               <IconBrandGithub size={13} aria-hidden />

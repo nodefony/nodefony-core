@@ -202,6 +202,14 @@ export function DocToc({
               paddingLeft: rem((h.level - baseLevel.current) * 12 + 10),
               paddingTop: rem(3),
               paddingBottom: rem(3),
+              // Cible d'au moins 24 px de haut (WCAG 2.5.8) : une entrée de
+              // sommaire tenait dans 23 px — un pixel sous le seuil, donc un
+              // défaut qu'aucune relecture ne voit et qu'une mesure trouve tout
+              // de suite. Seuls les paddings s'ouvrent : le texte, sa taille et
+              // l'indentation par niveau ne bougent pas.
+              minHeight: rem(24),
+              display: "flex",
+              alignItems: "center",
               borderLeft: `2px solid ${active ? "var(--mantine-primary-color-filled)" : "transparent"}`,
             }}
           >

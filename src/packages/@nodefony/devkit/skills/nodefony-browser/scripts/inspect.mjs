@@ -489,6 +489,22 @@ function sondeA11y() {
     ciblesTropPetites: {
       total: petites.length,
       seuil: "24×24",
+      // Regroupées par FAMILLE, pas listées une à une. Trente-six cibles trop
+      // petites, c'est presque toujours un composant réutilisé trente-six fois :
+      // trois exemples bruts font croire à trente-six corrections, quand il n'y
+      // en a qu'une. Le compte par famille dit ce qu'il faut corriger, et
+      // combien d'écrans en profiteront.
+      familles: Object.entries(
+        petites.reduce((acc, p) => {
+          // Le texte distingue deux boutons du même composant : on l'enlève.
+          const cle = `${p.element.replace(/ «[\s\S]*$/, "")} ${p.taille}`;
+          acc[cle] = (acc[cle] ?? 0) + 1;
+          return acc;
+        }, Object.create(null)),
+      )
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([quoi, n]) => ({ quoi, occurrences: n })),
       exemples: petites.slice(0, 3),
     },
     tabindexPositifs: bloc(tabPositifs),

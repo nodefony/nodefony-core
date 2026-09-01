@@ -707,17 +707,17 @@ export const AdminLayout = observer(() => {
               : visible;
             if (matching.length === 0) return null;
 
-            // Deux temps de lecture : ce qui MARCHE, puis ce qui ARRIVE. Le tri
-            // est fait au RENDU (pas dans navConfig) → le fichier de config reste
-            // rangé par thème, la sidebar décide de la présentation.
+            // Le menu ne montre QUE ce qui marche.
+            //
+            // Les pages à venir y figuraient, atténuées et badgées : quatorze
+            // entrées sur quarante et une, soit un tiers du menu occupé à annoncer
+            // ce qui n'existe pas. L'effet produit était l'inverse de celui visé —
+            // une console qui a l'air inachevée. Elles vivent désormais sur
+            // `/nodefony/roadmap`, qui lit exactement la même liste.
             const live = matching.filter((i) => !i.wip);
-            const soon = matching.filter((i) => i.wip);
-            // Défaut de pliage : un groupe qui n'a QUE des pages à venir (la
-            // vitrine roadmap) s'ouvre replié — on l'annonce sans l'imposer. Les
-            // autres s'ouvrent. Un choix explicite de l'utilisateur gagne toujours.
-            const allSoon = live.length === 0;
+            if (live.length === 0) return null;
             const collapsed =
-              !filtering && !rail && ui.isGroupCollapsed(g.id, allSoon);
+              !filtering && !rail && ui.isGroupCollapsed(g.id, false);
 
             return (
               <Box key={g.id}>
@@ -725,7 +725,7 @@ export const AdminLayout = observer(() => {
                   <Divider my={6} />
                 ) : (
                   <UnstyledButton
-                    onClick={() => !filtering && ui.toggleGroup(g.id, allSoon)}
+                    onClick={() => !filtering && ui.toggleGroup(g.id, false)}
                     style={{ width: "100%" }}
                     aria-expanded={!collapsed}
                   >
@@ -740,14 +740,6 @@ export const AdminLayout = observer(() => {
                         <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
                           {g.label}
                         </Text>
-                        {/* Compteur des pages à venir : l'ampleur de ce qui arrive
-                            est LISIBLE groupe replié — c'est la vitrine, sans le
-                            bruit de 11 entrées dépliées en permanence. */}
-                        {!filtering && soon.length > 0 ? (
-                          <Badge size="xs" variant="light" color="gray">
-                            {soon.length} à venir
-                          </Badge>
-                        ) : null}
                       </Group>
                       {!filtering && (
                         <IconChevronRight
@@ -774,40 +766,6 @@ export const AdminLayout = observer(() => {
                       pinned={ui.isPinned(item.to)}
                       onTogglePin={
                         rail ? undefined : () => ui.togglePin(item.to)
-                      }
-                    />
-                  ))}
-                  {/* Séparateur « À venir » : la frontière entre le produit et la
-                      roadmap est explicite, dans le groupe, sans quitter la page. */}
-                  {soon.length > 0 && live.length > 0 && !rail ? (
-                    <Text
-                      size="10px"
-                      c="dimmed"
-                      tt="uppercase"
-                      px="sm"
-                      mt={6}
-                      mb={2}
-                    >
-                      À venir
-                    </Text>
-                  ) : null}
-                  {soon.map((item) => (
-                    <NavEntry
-                      key={item.to}
-                      to={item.to}
-                      label={item.label}
-                      icon={item.icon}
-                      rail={rail}
-                      active={matchItem(item.to, item.exact)}
-                      dimmed
-                      pinned={ui.isPinned(item.to)}
-                      onTogglePin={
-                        rail ? undefined : () => ui.togglePin(item.to)
-                      }
-                      rightSection={
-                        <Badge size="xs" variant="light" color="gray">
-                          à venir
-                        </Badge>
                       }
                     />
                   ))}
