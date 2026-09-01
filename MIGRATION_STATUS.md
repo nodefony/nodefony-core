@@ -677,8 +677,8 @@ DI scopes (singleton/transient), lifecycle session.
 | --- | --- | --- |
 | 🔶 P14.7 | CLI `frontend:create/build/dev` | commands existent (bug CLI) ; skill scaffold ✓ |
 | ⬜ P14.12 | Plugin Vite Nodefony (alias + env) | zéro config dev |
-| ⬜ P14.14 | API CSP origines dynamiques | remplace hack POC |
-| ⬜ P14.16 | Syslog isomorphe (logs front → back) | traçabilité front — [#35](https://github.com/nodefony/nodefony-core/issues/35) ; le socle EXISTE déjà (`Syslog`/`Pdu` isomorphes exportés, `x-request-id` sur le fil, `logs/search?requestId=` servi) |
+| ✅ P14.14 | API CSP origines dynamiques | la CSP du rechargement à chaud est déclarée au firewall AVANT le spawn de Vite, sur toute la plage de ports, puis rétrécie au port réel — [#135](https://github.com/nodefony/nodefony-core/issues/135) ; preuve `src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts` (9 cas) |
+| ✅ P14.16 | Syslog isomorphe (logs front → back) | canal montant livré bout en bout — [#35](https://github.com/nodefony/nodefony-core/issues/35) : émetteur `src/nodefony/src/client/syslog/uplink.ts`, réception `src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts`, preuve e2e `.../tests/integration/syslogUplink.e2e.test.ts` |
 
 ### P15 — Mediasoup + SIP/Asterisk (0 %)
 

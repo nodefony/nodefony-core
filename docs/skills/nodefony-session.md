@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-29
+updated: 2026-09-01
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -89,7 +89,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
-| `references/migration-audit.md` | Référence — auditer l'avancement de la migration, phase par phase | 441 |
+| `references/migration-audit.md` | Référence — auditer l'avancement de la migration, phase par phase | 451 |
 
 
 ## Scripts embarqués

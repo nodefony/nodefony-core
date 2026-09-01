@@ -128,13 +128,23 @@ awk -F'|' '
   ph && $2 ~ /P[0-9]+\.[0-9]/ {
     id=$2; gsub(/[^P0-9a-z.]/,"",id);
     if (id in vu) next; vu[id]=1;                       # dédup par identifiant de tâche
-    if($2 ~ /✅/) d[ph]++; else if($2 ~ /🔶/) p[ph]++; else t[ph]++ }
-  END { for(k in d) V[k]; for(k in p) V[k]; for(k in t) V[k];
-        for(k in V) { printf "%-5s ✅%-3d 🔶%-3d ⬜%-3d\n", k, d[k], p[k], t[k];
-                      D+=d[k]; P+=p[k]; T+=t[k] }
-        printf "%-5s ✅%-3d 🔶%-3d ⬜%-3d  (%d tâches)\n", "TOTAL", D, P, T, D+P+T }' \
+    if($2 ~ /✅/) d[ph]++; else if($2 ~ /🔶/) p[ph]++;
+    else if($2 ~ /⏭️/) c[ph]++; else t[ph]++ }
+  END { for(k in d) V[k]; for(k in p) V[k]; for(k in t) V[k]; for(k in c) V[k];
+        for(k in V) { printf "%-5s ✅%-3d 🔶%-3d ⬜%-3d ⏭️%-3d\n", k, d[k], p[k], t[k], c[k];
+                      D+=d[k]; P+=p[k]; T+=t[k]; C+=c[k] }
+        printf "%-5s ✅%-3d 🔶%-3d ⬜%-3d ⏭️%-3d  (%d vivantes, %d caduques)\n", \
+               "TOTAL", D, P, T, C, D+P+T, C }' \
   MIGRATION_STATUS.md docs/archives/migration-roadmap-2026-08-27.md | sort -V
 ```
+
+> 🔴 **Le quatrième statut : `⏭️` (caduc).** Six tâches portent une technologie ABANDONNÉE
+> (Sequelize, MikroORM) ou absorbée par une autre (`P3.10` → `P3.11`). Elles ne sont ni faites ni
+> à faire : elles n'existent plus. La version précédente de ce motif ne connaissait que trois
+> statuts et les versait dans le « sinon » — donc en ⬜ **à faire**, gonflant le reste-à-faire de
+> six tâches mortes et faisant paraître le projet plus loin de la fin qu'il ne l'est. Mesuré le
+> 2026-09-01 : `⬜ 25` annoncés pour **19** réels. Un statut qu'un motif ignore ne disparaît pas,
+> il se déguise en son voisin.
 
 **⚠️ Ce que ce motif NE compte PAS — à dire quand on publie le chiffre.** Il ne voit que les lignes
 dont la 1ʳᵉ cellule porte un identifiant `P<n>.<x>`. En sont donc absentes : **P0, P1 et P4** (leurs
