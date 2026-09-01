@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-01T08:35:18.802Z",
+  "generated": "2026-09-01T09:21:38.196Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 793,
-    "symbols": 3627,
+    "files": 794,
+    "symbols": 3633,
     "classes": 383,
-    "interfaces": 1003,
+    "interfaces": 1004,
     "types": 426,
     "enums": 4,
-    "functions": 1446,
-    "constants": 365
+    "functions": 1449,
+    "constants": 367
   },
   "symbols": {
     "Cli": {
@@ -11596,6 +11596,22 @@
       "decorators": [],
       "description": "Service de documentation Nodefony — **headless** : produit l'index transverse et le contenu résolu des pages, sans rendre aucun HTML (le front Studio, un générateur statique ou le RAG le consomment…"
     },
+    "ROOT_GROUPS": {
+      "name": "ROOT_GROUPS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Les groupes racine publiés, **dans l'ordre du menu**, avec leur libellé. L'ordre est PÉDAGOGIQUE, jamais alphabétique, et il part du geste : on fait une première fois en étant guidé (tutoriels), on…"
+    },
+    "ROOT_PAGES": {
+      "name": "ROOT_PAGES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Pages de `docs/` (à la racine, hors sous-dossier) publiées dans le menu, dans cet ordre. Le reste de ce dossier est du PILOTAGE — carte des phases, README du corpus, essai sur l'outillage : utile a…"
+    },
     "ScannedDoc": {
       "name": "ScannedDoc",
       "kind": "interface",
@@ -11670,6 +11686,47 @@
       "exported": true,
       "module": "@nodefony/documentation",
       "description": "Réécrit les liens markdown internes d'une page en slugs navigables. Un lien dont la cible n'est pas indexée est **laissé tel quel** : mieux vaut un lien inerte qu'un slug inventé qui produirait un …"
+    },
+    "SearchableDoc": {
+      "name": "SearchableDoc",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/search.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Une page telle que la recherche a besoin de la voir."
+    },
+    "foldText": {
+      "name": "foldText",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/search.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Réduit un texte à sa forme comparable : minuscules, accents retirés. « Sécurité » et « securite » doivent trouver la même chose — personne ne tape les accents dans un champ de recherche."
+    },
+    "splitSearchTerms": {
+      "name": "splitSearchTerms",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/search.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Termes effectivement cherchés : pliés, dédoublonnés, un caractère écarté."
+    },
+    "extractSearchText": {
+      "name": "extractSearchText",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/search.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Prose INDEXABLE d'une page de documentation. Ce qui est retiré ne l'est pas par souci de taille mais de PERTINENCE : un bloc de code fait remonter une page sur `const`, un tableau de compatibilité …"
+    },
+    "searchDocs": {
+      "name": "searchDocs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/search.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Classe les pages qui portent TOUS les termes, la plus pertinente d'abord. ⚠️ Cette fonction est SÉRIALISÉE et exécutée dans un navigateur (voir l'en-tête du fichier) : elle ne doit rien référencer …"
     },
     "DocSource": {
       "name": "DocSource",
@@ -30615,6 +30672,15 @@
       "rewriteInternalLinks": [
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
       ],
+      "searchDocs": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "splitSearchTerms": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "SearchableDoc": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
       "DocAudience": [
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
       ],
@@ -30633,14 +30699,9 @@
       "IDocPageRef": [
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
       ],
-      "IDocSearchExcerpt": [
-        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
-      ],
-      "IDocSearchHit": [
-        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
-      ],
       "IDocSearchResult": [
-        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/documentation/nodefony/src/search.ts"
       ],
       "IDocSection": [
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
@@ -30656,6 +30717,12 @@
       ],
       "DocSource": [
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
+      ],
+      "IDocSearchExcerpt": [
+        "src/packages/@nodefony/documentation/nodefony/src/search.ts"
+      ],
+      "IDocSearchHit": [
+        "src/packages/@nodefony/documentation/nodefony/src/search.ts"
       ],
       "DrizzleMigrator": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",

@@ -95,6 +95,12 @@ class Documentation extends Module<DocumentationConfig> {
 
 export default Documentation;
 export { DocumentationService, DocumentationController };
+// Le périmètre publié — une seule définition, partagée avec le générateur
+// du site public (`scripts/build-docs-site.mjs`).
+export {
+  ROOT_GROUPS,
+  ROOT_PAGES,
+} from "./nodefony/service/DocumentationService";
 
 // Config — schéma Zod (source de vérité) + builder
 export {
@@ -116,6 +122,13 @@ export {
 } from "./nodefony/src/frontmatter";
 export { scanDocsDir, type ScannedDoc } from "./nodefony/src/docScanner";
 export { isSafeSlug, pathToSlug, type DocSource } from "./nodefony/src/slug";
+export {
+  searchDocs,
+  extractSearchText,
+  foldText,
+  splitSearchTerms,
+  type SearchableDoc,
+} from "./nodefony/src/search";
 export {
   rewriteInternalLinks,
   type RewriteLinksOptions,

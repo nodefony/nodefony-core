@@ -114,7 +114,7 @@ alphabétiquement se retrouverait au milieu de ses propres pages.
 
 **La doc d'un module non activé est lisible quand même.** Les paquets présents dans
 `node_modules/@nodefony/*` sont scannés même s'ils ne figurent pas dans le manifeste de
-l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:293`). C'est
+l'application (`DocumentationService.#installedDocDirs()`, `DocumentationService.ts:457`). C'est
 précisément le moment où on lit la doc d'un module : pour décider de l'activer. Les chemins sont
 résolus en lien réel, donc un dépôt en espace de travail indexe la source, jamais le lien
 symbolique — sinon le même fichier existerait sous deux chemins, et ses liens ne résoudraient plus.
@@ -260,14 +260,14 @@ consommateur parmi d'autres.
 ## 🧰 Surface publique
 
 Côté serveur, le module expose `DocumentationService` — sa méthode `getTree()`
-(`DocumentationService.ts:147`) construit le catalogue, `getPage()`
-(`DocumentationService.ts:151`) sert une page, `invalidate()` (`DocumentationService.ts:143`) force
+(`DocumentationService.ts:185`) construit le catalogue, `getPage()`
+(`DocumentationService.ts:315`) sert une page, `invalidate()` (`DocumentationService.ts:181`) force
 un rescan immédiat, et `registerVar()` (`DocumentationService.ts:138`) branche une variable
 dynamique.
 
 Les variables sont la seule extension du module. Une page écrit `{{ nom }}` ; le serveur substitue
 la valeur au moment de servir (`DocumentationService.#resolveVars()`,
-`DocumentationService.ts:404`). Trois variables sont fournies d'office — version du noyau, branche
+`DocumentationService.ts:612`). Trois variables sont fournies d'office — version du noyau, branche
 et empreinte git — enregistrées quand tous les modules sont montés
 (`Documentation.onKernelReady()`, `index.ts:70`). Ton module peut ajouter les siennes :
 
@@ -327,7 +327,7 @@ publique :
 | `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:65`)       |
 
 Le lien « Modifier » est assemblé côté serveur à partir d'un chemin **relatif** au dépôt
-(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:423`) : aucun chemin absolu de
+(`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:631`) : aucun chemin absolu de
 système de fichiers ne sort jamais du serveur.
 
 ## 🧪 Tests & couverture

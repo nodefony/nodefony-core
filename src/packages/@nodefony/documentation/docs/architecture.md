@@ -269,12 +269,12 @@ Chaque couche ne connaît que sa voisine du dessous, et la plus volatile est la 
 
 Le contrôleur est **réinstancié à chaque requête** : il ne peut donc rien retenir, et c'est
 voulu. Le service est un singleton par process ; il porte l'index caché (`#cache`,
-`DocumentationService.ts:104`) et le registre des variables (`#vars`,
-`DocumentationService.ts:106`), tous deux à `null` tant que personne n'a rien demandé.
+`DocumentationService.ts:142`) et le registre des variables (`#vars`,
+`DocumentationService.ts:144`), tous deux à `null` tant que personne n'a rien demandé.
 
 ### Le scan — trois sources, et une qui surprend
 
-`#scanAll()` (`DocumentationService.ts:231`) interroge le disque dans cet ordre :
+`#scanAll()` (`DocumentationService.ts:395`) interroge le disque dans cet ordre :
 
 | Source                    | Où                                             | Pourquoi                                                                        |
 | ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -284,7 +284,7 @@ voulu. Le service est un singleton par process ; il porte l'index caché (`#cach
 
 La troisième mérite l'explication. Un module qu'on n'a pas encore activé est précisément
 celui dont on lit la doc : pour décider de l'activer. `#installedDocDirs()`
-(`DocumentationService.ts:293`) parcourt donc le scope npm et **dédoublonne** avec les
+(`DocumentationService.ts:457`) parcourt donc le scope npm et **dédoublonne** avec les
 modules déjà chargés. Ses chemins sont résolus en real-path : en dépôt workspace,
 `node_modules/@nodefony/x` est un lien vers la source, et c'est la source qui doit indexer —
 sinon un même fichier aurait deux chemins, et les liens entre pages ne se résoudraient plus.
@@ -325,8 +325,8 @@ Deux valeurs sont **contraintes**, et le hors-piste est silencieusement écarté
 
 | Clé        | Valeurs retenues                                                                                       | Sinon                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `audience` | `developer` · `devops` · `supervisor` · `admin` (`DocAudience`, `IDocumentation.ts:10`)                | la valeur est filtrée (`#toPageRef()`, `DocumentationService.ts:367`)      |
-| `status`   | `stable` · `draft` · `temporary` · `experimental` · `deprecated` (`DocStatus`, `IDocumentation.ts:13`) | le champ devient absent (`#coerceStatus()`, `DocumentationService.ts:395`) |
+| `audience` | `developer` · `devops` · `supervisor` · `admin` (`DocAudience`, `IDocumentation.ts:10`)                | la valeur est filtrée (`#toPageRef()`, `DocumentationService.ts:582`)      |
+| `status`   | `stable` · `draft` · `temporary` · `experimental` · `deprecated` (`DocStatus`, `IDocumentation.ts:13`) | le champ devient absent (`#coerceStatus()`, `DocumentationService.ts:603`) |
 
 > [!WARNING]
 > Une `audience: [human, ai]` ne provoque **aucune erreur** : les deux valeurs sont
@@ -374,7 +374,7 @@ chemin — il navigue par slug.
 
 Le pont, c'est une table `chemin repo → slug` construite au scan (`#ensureCache()`,
 `DocumentationService.ts:205`) et appliquée à la lecture par `#resolveLinks()`
-(`DocumentationService.ts:189`). **Seul le serveur peut le faire** : le client reçoit
+(`DocumentationService.ts:353`). **Seul le serveur peut le faire** : le client reçoit
 `../../../../../docs/index.md` sans le moindre moyen de savoir à quel fichier ça correspond —
 il ne connaît ni l'arborescence du dépôt, ni le point de départ de la page.
 
@@ -401,16 +401,20 @@ lien interne.
 Un tri purement alphabétique enterre `index.md` au milieu de ses propres pages : pour la
 sécurité, entre `headers` et `lexique`. Le point d'entrée devient invisible.
 
-`#orderPages()` (`DocumentationService.ts:357`) trie donc en deux temps : le hub d'abord, le
+`#orderPages()` (`DocumentationService.ts:557`) trie donc en deux temps : le hub d'abord, le
 reste par titre. Un hub est reconnu à son nom de fichier — `index.md`, à n'importe quelle
 profondeur — et le drapeau `isHub` (`IDocPageRef`, `IDocumentation.ts:24`) remonte jusqu'à
 l'interface, où le portail s'en sert pour choisir la page d'atterrissage d'une section.
 
-Les sections elles-mêmes (`#buildSections()`, `DocumentationService.ts:317`) viennent du
-**dossier parent** du fichier, jamais d'une clé `section` du frontmatter. Les racines connues
-reçoivent un libellé soigné (`ROOT_GROUP_LABELS`, `DocumentationService.ts:66`) ; les autres
-sont auto-capitalisées (`#rootLabel()`, `DocumentationService.ts:382`). Les sections de module
-sont préfixées `mod-`, celles de la racine `root-`.
+Les sections elles-mêmes (`#buildSections()`, `DocumentationService.ts:481`) viennent du
+**dossier parent** du fichier, jamais d'une clé `section` du frontmatter. Seuls les groupes
+DÉCLARÉS descendent dans le menu, dans l'ordre où ils sont écrits (`ROOT_GROUPS`,
+`DocumentationService.ts:85`) : un dossier de `docs/` absent de cette liste — décisions
+d'architecture, plan de publication, documents de pilotage — n'apparaît pas. C'est un choix, pas
+un oubli : cette référence de mainteneur noyait le chemin de lecture. Les pages posées à la
+racine de `docs/` ont leur propre liste (`ROOT_PAGES`, `DocumentationService.ts:97`) sous le
+libellé « Pour commencer ». Les sections de module sont préfixées `mod-`, celles de la racine
+`root-`.
 
 ### Le cache — l'index, pas le contenu
 
@@ -423,7 +427,7 @@ simple : le coût est celui d'une lecture froide sur un chemin d'administration,
 contrepartie serait de servir un Markdown périmé à quelqu'un qui vient justement de le
 corriger.
 
-`invalidate()` (`DocumentationService.ts:143`) remet le cache à `null` — c'est la porte de
+`invalidate()` (`DocumentationService.ts:181`) remet le cache à `null` — c'est la porte de
 sortie quand un outil sait, lui, que le disque a bougé.
 
 ## ⚙️ Configuration
@@ -497,7 +501,7 @@ double-encodage, normalisation Unicode…).
 
 La parade est un **changement de nature**, doublé d'un garde :
 
-1. **Allowlist par construction.** `getPage()` (`DocumentationService.ts:151`) cherche une
+1. **Allowlist par construction.** `getPage()` (`DocumentationService.ts:315`) cherche une
    entrée par **égalité de slug** dans l'index, puis lit l'`absPath` mémorisé au scan
    (`ScannedDoc`, `docScanner.ts:11`). Le slug n'est jamais concaténé à un chemin. Un slug
    inconnu ne mène nulle part, quelle que soit sa forme.
@@ -513,12 +517,12 @@ Une troisième règle protège une surface différente : les variables `{{ }}` s
 des fournisseurs enregistrés côté serveur (`DocVarProvider`, `IDocumentation.ts:89`), et ne
 doivent rendre que des valeurs **sûres** — version, identité git, information publique. Jamais
 un secret, jamais un chemin absolu. Une variable inconnue est **laissée telle quelle**
-(`#resolveVars()`, `DocumentationService.ts:404`), ce qui signale à l'auteur qu'il manque un
+(`#resolveVars()`, `DocumentationService.ts:612`), ce qui signale à l'auteur qu'il manque un
 fournisseur au lieu de masquer le trou. Un fournisseur qui lève une exception ne casse pas le
 rendu.
 
 Enfin, le lien « voir la source » est assemblé depuis un chemin **relatif au dépôt**
-(`#buildSourceUrl()`, `DocumentationService.ts:423`) : aucun chemin du système de fichiers ne
+(`#buildSourceUrl()`, `DocumentationService.ts:631`) : aucun chemin du système de fichiers ne
 sort jamais du serveur.
 
 ## ⚡ Performance & mémoire
@@ -526,8 +530,8 @@ sort jamais du serveur.
 Le module vit sur un chemin **froid** — un humain qui lit de la doc, pas dix mille requêtes
 par seconde. La discipline reste la même.
 
-- **Tout est alloué paresseusement.** L'index (`#cache`, `DocumentationService.ts:104`) et le
-  registre de variables (`#vars`, `DocumentationService.ts:106`) valent `null` jusqu'au
+- **Tout est alloué paresseusement.** L'index (`#cache`, `DocumentationService.ts:142`) et le
+  registre de variables (`#vars`, `DocumentationService.ts:144`) valent `null` jusqu'au
   premier usage. Une application qui charge le module sans jamais ouvrir la doc ne paie ni un
   objet, ni une lecture disque.
 - **Le scan est mutualisé.** Les modules sont parcourus en parallèle, et le résultat sert

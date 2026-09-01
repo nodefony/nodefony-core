@@ -62,7 +62,16 @@ const docModule = await import(DOC_MODULE).catch(() => {
   );
   process.exit(1);
 });
-const { scanDocsDir, rewriteInternalLinks, metaString } = docModule;
+const {
+  scanDocsDir,
+  rewriteInternalLinks,
+  metaString,
+  parseFrontmatter,
+  extractSearchText,
+  searchDocs,
+  ROOT_GROUPS,
+  ROOT_PAGES,
+} = docModule;
 import {
   doc,
   esc,
@@ -123,14 +132,33 @@ const BUILT_AT = new Date().toISOString().slice(0, 10);
  * dessous (architecture). L'inverse — la philosophie avant le premier geste —
  * fait fuir qui arrive avec « je veux une API avec authentification ».
  */
-const PUBLIC_DIRS = [
-  { dir: "tutoriels", label: "Tutoriels", icon: "🎓" },
-  { dir: "guides", label: "Guides", icon: "🧭" },
-  { dir: "architecture", label: "Architecture", icon: "🏛️" },
-];
+/**
+ * Icône de chaque section — la seule chose que le site ajoute au périmètre.
+ * Le portail d'administration n'en met pas ; c'est de la présentation, pas de la
+ * règle, et c'est pour ça qu'elle vit ici et non dans le module.
+ */
+const DIR_ICONS = {
+  tutoriels: "🎓",
+  guides: "🧭",
+  architecture: "🏛️",
+};
 
-/** Pages de la racine de `docs/` publiées, dans l'ordre de la navigation. */
-const PUBLIC_ROOT_PAGES = new Set(["index.md", "demarrer.md", "lexique.md"]);
+/**
+ * Ce qui est publié vient du MODULE (`ROOT_GROUPS`), pas d'une liste tenue ici.
+ *
+ * Cette liste a été dupliquée, et elle avait commencé à diverger : le portail
+ * d'administration et le site public montraient des sections différentes du même
+ * corpus. Le générateur importe déjà le `dist` du module pour scanner les
+ * pages — il n'y avait aucune raison d'en recopier le périmètre.
+ */
+const PUBLIC_DIRS = ROOT_GROUPS.map(({ group, label }) => ({
+  dir: group,
+  label,
+  icon: DIR_ICONS[group] ?? "📄",
+}));
+
+/** Pages de la racine de `docs/` publiées — même source que le portail. */
+const PUBLIC_ROOT_PAGES = new Set(ROOT_PAGES.map((p) => `${p}.md`));
 
 /**
  * Ce qui ne part JAMAIS sur le site, avec le motif — le motif est affiché dans
@@ -277,6 +305,18 @@ function moduleDirs() {
  * @param {string} toUrl - URL visée.
  * @returns {string} chemin relatif, avec sa barre finale.
  */
+/**
+ * Chemin relatif vers un FICHIER — pas vers une page.
+ *
+ * {@link rel} termine toujours par une barre : ses cibles sont des pages servies
+ * comme des dossiers (`guides/routage/`). Appliqué à un fichier, il produit
+ * `search-index.json/`, que le serveur rend en 404 — et la recherche annonce
+ * alors « indisponible » sans que rien d'autre ne le signale.
+ */
+function relFile(fromUrl, toUrl) {
+  return rel(fromUrl, toUrl).replace(/\/$/, "");
+}
+
 function rel(fromUrl, toUrl) {
   const [target, hash = ""] = toUrl.split(/(#.*)$/);
   const from = fromUrl.replace(/\/$/, "") || "/";
@@ -678,8 +718,13 @@ function buildNav(pages, current) {
     )}">${esc4(home?.title ?? "Documentation")}</a>`,
   );
   parts.push(
-    `<div class="nav-find"><input type="search" id="nav-q" placeholder="Filtrer les pages…" ` +
-      `aria-label="Filtrer les pages de la documentation" autocomplete="off"></div>` +
+    `<div class="nav-find"><input type="search" id="nav-q" placeholder="Rechercher dans la doc…" ` +
+      `aria-label="Rechercher dans la documentation" autocomplete="off" ` +
+      `aria-controls="nav-res">` +
+      `<div id="nav-res" class="nav-res" role="region" aria-label="Résultats de recherche" ` +
+      `data-index="${relFile(current.url, `${MOUNT}/search-index.json`)}" ` +
+      `data-base="${rel(current.url, `${MOUNT}/`)}" hidden>` +
+      `<p class="nav-res-h" role="status" aria-live="polite"></p><div class="nav-res-l"></div></div></div>` +
       `<p class="nav-empty" hidden>Aucune page ne correspond.</p>`,
   );
 
@@ -744,14 +789,27 @@ function buildNav(pages, current) {
     );
   }
   parts.push(`<div class="nav-mods">${familyBlocks.join("")}</div>`);
+  parts.push(SEARCH_ENGINE_JS);
   parts.push(NAV_FILTER_JS);
   return parts.join("");
 }
 
 /**
- * Filtre de la navigation. Il n'indexe rien : chaque `li` porte son titre en
- * minuscules, on compare, on masque. Vider le champ rend l'arbre à son état de
- * départ — et notamment referme ce que la recherche avait ouvert.
+ * Recherche du site, à DEUX étages, et c'est délibéré.
+ *
+ * 1. Le **filtre du menu** répond à la frappe, sans rien charger : chaque `li`
+ *    porte son titre en minuscules. C'est ce qui sert à retrouver une page dont
+ *    on connaît déjà le nom, et ça doit rester instantané.
+ * 2. La **recherche plein texte** cherche dans le CORPS des pages, et rend des
+ *    extraits — le portail d'administration en fait autant, un lecteur du site
+ *    public ne doit pas être moins bien servi. Elle a besoin d'un index, donc
+ *    elle le charge : UNE fois, au premier caractère tapé, jamais au chargement
+ *    de la page. Personne ne paie pour une recherche qu'il ne fait pas.
+ *
+ * Le classement n'est pas réécrit ici : `searchDocs` est SÉRIALISÉE depuis le
+ * module `@nodefony/documentation` et injectée telle quelle (cf `SEARCH_ENGINE_JS`).
+ * Le portail et le site partagent donc la fonction, pas seulement l'intention —
+ * deux copies auraient fini par classer différemment sans que rien ne le dise.
  */
 const NAV_FILTER_JS = `<script>
 (function(){
@@ -778,10 +836,111 @@ const NAV_FILTER_JS = `<script>
     });
     empty.hidden=n>0;
   }
-  q.addEventListener("input",apply);
-  q.addEventListener("keydown",function(e){ if(e.key==="Escape"){q.value="";apply();} });
+  var res=document.getElementById("nav-res");
+  var head=res.querySelector(".nav-res-h"), list=res.querySelector(".nav-res-l");
+  var idx=null, parSlug=null, chargement=null, jeton=0;
+  var INDEX_URL=res.getAttribute("data-index"), BASE=res.getAttribute("data-base");
+
+  function esc(s){var d=document.createElement("span");d.textContent=s;return d.innerHTML;}
+
+  // Le terme est mis en évidence sur le texte ÉCHAPPÉ : surligner avant
+  // d'échapper rendrait le balisage inerte, et surligner après aurait coupé les
+  // entités (« &amp; ») en deux.
+  function marque(texte,termes){
+    var out=esc(texte);
+    termes.forEach(function(t){
+      var motif=t.replace(/[^0-9A-Za-z\\u00c0-\\u024f]/g,function(c){return "\\\\"+c;});
+      out=out.replace(new RegExp("("+motif+")","gi"),"<mark>$1</mark>");
+    });
+    return out;
+  }
+
+  function rendre(r){
+    if(!r.hits.length){
+      head.textContent="Aucune page ne contient « "+r.query+" ».";
+      list.innerHTML=""; return;
+    }
+    head.textContent=r.matched+" page"+(r.matched>1?"s":"")+
+      " sur "+r.scanned+(r.matched>r.hits.length?" — "+r.hits.length+" affichées":"");
+    list.innerHTML=r.hits.map(function(h){
+      var ex=h.excerpts.map(function(e){
+        return "<p class='res-x'>"+(e.section?"<span class='res-s'>"+esc(e.section)+"</span> ":"")+
+          marque(e.text,r.terms)+"</p>";
+      }).join("");
+      return "<a class='res-c' href='"+esc(BASE+(parSlug[h.slug]||""))+"'>"+
+        "<span class='res-t'>"+marque(h.title,r.terms)+"</span>"+
+        "<span class='res-g'>"+esc(h.sectionLabel)+"</span>"+ex+"</a>";
+    }).join("");
+  }
+
+  function chercher(v){
+    var mien=++jeton;
+    if(!idx){
+      head.textContent="Chargement de l'index…"; list.innerHTML="";
+      ouvrir();
+      chargement=chargement||fetch(INDEX_URL).then(function(r){return r.json();});
+      chargement.then(function(data){
+        idx=data.docs;
+        parSlug={}; idx.forEach(function(d){parSlug[d.slug]=d.path;});
+        if(mien===jeton){ rendre(window.__nfSearch(idx,v,20)); placer(); }
+      }).catch(function(){
+        // Un index injoignable ne doit pas laisser croire que la doc est vide :
+        // le filtre du menu, lui, fonctionne toujours.
+        if(mien===jeton){ head.textContent="Recherche indisponible — le filtre du menu reste actif."; list.innerHTML=""; }
+      });
+      return;
+    }
+    ouvrir();
+    rendre(window.__nfSearch(idx,v,20));
+  }
+
+  // Un panneau fixe ne suit pas son ancre : on la lui donne, à l'ouverture puis
+  // à chaque fois que la page bouge sous lui.
+  function placer(){
+    var r=q.getBoundingClientRect();
+    res.style.top=(r.bottom+6)+"px";
+    res.style.left=Math.max(8,Math.min(r.left,window.innerWidth-res.offsetWidth-8))+"px";
+  }
+  function ouvrir(){ res.hidden=false; placer(); }
+  function fermer(){ res.hidden=true; }
+  window.addEventListener("resize",function(){ if(!res.hidden) placer(); });
+  window.addEventListener("scroll",function(){ if(!res.hidden) placer(); },{passive:true});
+
+  q.addEventListener("input",function(){
+    apply();
+    var v=q.value.trim();
+    if(v.length<2){ fermer(); return; }
+    chercher(v);
+  });
+  q.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){q.value="";apply();fermer();q.blur();}
+  });
+  document.addEventListener("click",function(e){
+    if(!res.hidden && !res.contains(e.target) && e.target!==q) fermer();
+  });
+  // « / » ouvre la recherche — le raccourci que tout site de documentation
+  // partage ; sans lui, on prend la souris pour chaque question.
+  document.addEventListener("keydown",function(e){
+    if(e.key==="/" && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){
+      e.preventDefault(); q.focus();
+    }
+  });
 })();
 </script>`;
+
+/**
+ * Le moteur de recherche, SÉRIALISÉ depuis `@nodefony/documentation`.
+ *
+ * C'est le point qui fait tenir la promesse « le site et le portail cherchent
+ * pareil » : on n'écrit pas ici une seconde implémentation qui finirait par
+ * classer autrement, on injecte la FONCTION du module. Elle est écrite pour
+ * supporter ce voyage — auto-suffisante, sans import ni capture — et un test de
+ * parité l'exécute sous cette forme sérialisée, pas sous sa forme importée
+ * (`search-parity.test.ts`) : autrement, le jour où quelqu'un lui ajoute une
+ * dépendance, le site se construirait sans broncher et la recherche mourrait
+ * chez le lecteur.
+ */
+const SEARCH_ENGINE_JS = `<script>window.__nfSearch=${searchDocs.toString()};</script>`;
 
 const buildToc = (toc) =>
   toc.length
@@ -825,6 +984,42 @@ const SITE_CSS = `
 .site-nav .nav-find input:focus-visible { outline:2px solid var(--accent); outline-offset:1px;
   border-color:var(--accent); }
 .site-nav .nav-empty { color:var(--dim); font-size:12.5px; margin:4px 0 0; }
+/* Panneau de résultats — PLUS LARGE que la colonne de navigation : un extrait de
+   deux lignes dans 220 px n'apprend rien. Il se superpose au contenu au lieu de
+   le pousser, pour que la page ne saute pas sous la frappe.
+
+   Position FIXE, et pas absolue : la colonne de navigation défile toute seule
+   (overflow-y:auto), et un enfant positionné y est CLIPPÉ. Le panneau
+   existait alors dans le document — on pouvait le mesurer — mais on ne voyait
+   que sa première ligne. Un élément fixe échappe au découpage de ses ancêtres ;
+   ses coordonnées sont posées à l'ouverture, depuis celles du champ. */
+.site-nav .nav-res { position:fixed; z-index:30;
+  width:min(460px, 78vw); max-height:min(70vh, 560px); overflow-y:auto;
+  background:var(--bg); border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 12px 32px rgba(0,0,0,.22); padding:8px; }
+.site-nav .nav-res-h { margin:2px 6px 8px; font-size:12px; color:var(--dim); }
+.site-nav .res-c { display:block; padding:9px 10px; border-radius:8px; text-decoration:none;
+  color:inherit; border:1px solid transparent; }
+.site-nav .res-c + .res-c { margin-top:2px; }
+.site-nav .res-c:hover, .site-nav .res-c:focus-visible { background:var(--card);
+  border-color:var(--line); outline:none; }
+.site-nav .res-c:focus-visible { border-color:var(--accent); }
+.site-nav .res-t { display:block; font-weight:650; font-size:13.5px; color:var(--accent); }
+.site-nav .res-g { display:block; font-size:11.5px; color:var(--dim); margin-top:1px; }
+.site-nav .res-x { margin:5px 0 0; font-size:12.5px; line-height:1.5; color:var(--fg); }
+.site-nav .res-s { color:var(--dim); }
+.site-nav .res-s::after { content:" ›"; }
+/* Le surlignage doit rester lisible dans les DEUX thèmes : la balise mark, par
+   défaut, pose du jaune vif et garde la couleur de texte héritée — illisible en
+   thème sombre. */
+.site-nav mark { background:color-mix(in srgb, var(--accent) 26%, transparent);
+  color:inherit; border-radius:3px; padding:0 1px; }
+/* Dans le TITRE, le texte porte DÉJÀ la couleur d'accent : y peindre un fond
+   d'accent donne de l'accent sur de l'accent — mesuré à 4,29:1 en thème sombre,
+   sous le seuil AA. Le terme s'y distingue par le trait, pas par la couleur. */
+.site-nav .res-t mark { background:none; text-decoration:underline;
+  text-underline-offset:2px; font-weight:800; }
+@media (max-width:900px) { .site-nav .nav-res { width:min(460px, 92vw); } }
 .site-toc .toc-l { text-transform:uppercase; letter-spacing:.07em; font-size:10.5px;
   color:var(--dim); margin:0 0 6px; }
 .site-toc ul { list-style:none; margin:0; padding:0; }
@@ -959,6 +1154,54 @@ pre.raw { white-space:pre-wrap; }
 /* ════════════════════════════════════════════════════════════════════════════
    6. ASSEMBLAGE
    ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Libellé de la section qui porte une page — LE MÊME que celui du menu.
+ *
+ * Un résultat de recherche doit se situer là où le lecteur ira ensuite : dire
+ * « Guides » quand le menu écrit « Guides ». Deux vocabulaires pour un seul
+ * endroit, et le lecteur cherche dans le menu une section qui n'y figure pas.
+ */
+function sectionLabelOf(d) {
+  if (d.source.kind === "module") return d.moduleLabel ?? d.moduleKey ?? "";
+  const dir = PUBLIC_DIRS.find((s) => d.relPath.startsWith(`${s.dir}/`));
+  return dir ? dir.label : "Pour commencer";
+}
+
+/**
+ * Index de recherche du site — écrit UNE fois, chargé à la demande.
+ *
+ * Il ne porte que ce que la recherche exploite : l'URL où aller, de quoi
+ * afficher un résultat, et la PROSE de la page (`extractSearchText` retire le
+ * code, les images et le fil d'Ariane — cf sa documentation). Le corps complet
+ * ferait un fichier deux fois plus lourd pour des résultats moins pertinents.
+ *
+ * @returns la taille écrite, en octets — le compte rendu la dit, parce qu'un
+ *   index qui grossit sans qu'on le voie finit par se charger trop lentement.
+ */
+function writeSearchIndex(published) {
+  const docs = published.map((d) => {
+    const raw = readFileSync(d.absPath, "utf8");
+    const { body } = parseFrontmatter(raw);
+    return {
+      slug: d.slug,
+      // Chemin RELATIF au montage (`guides/x/`), jamais une URL absolue : le
+      // site est servi sous un préfixe de dépôt, où un `/guides/` désignerait la
+      // racine du domaine. La page qui affiche un résultat y recolle sa propre
+      // base (`data-base`) — c'est la même règle que pour tous les liens du site.
+      path: d.url.startsWith(`${MOUNT}/`)
+        ? d.url.slice(MOUNT.length + 1)
+        : d.url,
+      title: d.title,
+      navTitle: d.navTitle ?? d.title,
+      sectionLabel: sectionLabelOf(d),
+      body: extractSearchText(body),
+    };
+  });
+  const json = JSON.stringify({ generatedAt: new Date().toISOString(), docs });
+  writeFileSync(path.join(OUT, "search-index.json"), json);
+  return Buffer.byteLength(json);
+}
 
 function renderPage(d, published, index, publishedPaths) {
   const raw = readFileSync(d.absPath, "utf8");
@@ -1131,6 +1374,8 @@ if (m) {
   );
 }
 
+const searchBytes = writeSearchIndex(published);
+
 let bytes = 0;
 let diagrams = 0;
 const dead = [];
@@ -1166,6 +1411,7 @@ const written = new Set(
   published.map((p) => path.join(OUT, p.url.replace(/^\//, ""), "index.html")),
 );
 written.add(path.join(OUT, "404.html"));
+written.add(path.join(OUT, "search-index.json"));
 const stale = [];
 const sweep = (dir) => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -1183,6 +1429,11 @@ if (!QUIET) {
     byWhy.set(r.verdict.why, (byWhy.get(r.verdict.why) ?? 0) + 1);
   console.log(`\n📕 Site de documentation — Nodefony ${VERSION} (${COMMIT})`);
   console.log(`   sortie   : ${OUT}`);
+  // L'index de recherche est le seul fichier que le lecteur télécharge en plus
+  // des pages : son poids se dit, sinon il grossit sans que personne ne le voie.
+  console.log(
+    `   recherche: index de ${Math.round(searchBytes / 1024)} Ko (chargé à la première frappe)`,
+  );
   console.log(
     `   publiées : ${published.length} pages, ${diagrams} diagrammes, ${Math.round(bytes / 1024)} Ko`,
   );
