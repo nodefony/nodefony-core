@@ -406,10 +406,11 @@ export function registerDrizzleFrameworkStores(
  * partagés avec l'adaptateur document.
  *
  * Le silence en cas de schéma illisible est délibéré : une entité dont la table
- * ne se laisse pas inspecter (driver tiers, forme inattendue) ne prouve PAS
- * qu'une colonne manque. Refuser sur cette base transformerait un contrôle en
- * panne de démarrage pour une application parfaitement correcte — et un refus
- * faux apprend surtout à passer outre les refus.
+ * ne se laisse pas inspecter (driver tiers, forme inattendue, table déclarée
+ * dans la grammaire d'un AUTRE dialecte — {@link userTableColumns} lève alors)
+ * ne prouve PAS qu'une colonne manque. Refuser sur cette base transformerait un
+ * contrôle en panne de démarrage pour une application parfaitement correcte —
+ * et un refus faux apprend surtout à passer outre les refus.
  *
  * @param dialect - dialecte du connecteur framework, qui décide de la grammaire
  *   de lecture de la table.

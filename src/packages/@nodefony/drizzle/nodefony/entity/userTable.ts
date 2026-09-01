@@ -164,11 +164,13 @@ export interface IUserColumnView {
  * Colonnes d'une table Drizzle, lues dans la GRAMMAIRE de son dialecte.
  *
  * L'extraction n'a rien d'anodin : `getTableConfig` n'est pas la même fonction
- * selon le dialecte, et appeler celle de sqlite sur une table postgres ne lève
- * pas — elle rend un objet vide. Une extraction recopiée ailleurs conclurait
- * donc « aucune colonne » là où il y en a, et un contrôle bâti dessus
- * refuserait tout, ou n'attraperait rien. D'où un seul point de lecture,
- * partagé par le contrôle de démarrage et par le banc de parité.
+ * selon le dialecte, et la mauvaise appliquée à une table LÈVE un
+ * `TypeError: Cannot convert undefined or null to object` — mesuré sur les six
+ * croisements, aucun ne rend un objet vide ni un résultat partiel. La
+ * conséquence est la même dans les deux lectures qu'on pourrait en faire : un
+ * appelant qui ne route pas par dialecte n'obtient RIEN d'exploitable. D'où un
+ * seul point de lecture, partagé par le contrôle de démarrage et par le banc de
+ * parité — et un dialecte qui doit suivre l'entité jusqu'ici.
  *
  * @param table - la table Drizzle, telle que l'entité la rend (`schema`).
  * @param dialect - dialecte du connecteur qui la porte.

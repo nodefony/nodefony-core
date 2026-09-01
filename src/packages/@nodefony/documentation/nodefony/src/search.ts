@@ -148,7 +148,13 @@ export function searchDocs(
     let section: string | undefined;
     for (let i = 0; i < lines.length && excerpts.length < 3; i += 1) {
       const brute = lines[i] ?? "";
-      const titre = /^#{2,4}\s+(.+)$/.exec(brute);
+      // `[ \t]+(\S.*)` et non `\s+(.+)` : les deux morceaux du second pouvaient
+      // matcher un espace, donc la frontière entre eux se réessayait à chaque
+      // position — temps QUADRATIQUE en la longueur des blancs
+      // (js/polynomial-redos). Le corpus est fourni par l'appelant, il n'est
+      // pas borné avant ce point. Exiger un non-blanc en tête du groupe fixe
+      // la frontière, à capture identique.
+      const titre = /^#{2,4}[ \t]+(\S.*)$/.exec(brute);
       if (titre) {
         section = titre[1]?.replace(/[*`_]/g, "").trim();
         continue;
@@ -165,7 +171,12 @@ export function searchDocs(
       if (!terms.some((t) => pliee.includes(t))) continue;
       const texte = brute
         // Un lien garde son TEXTE, jamais sa cible.
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        // `[^\][]` et non `[^\]]` : en laissant le texte du lien avaler un
+        // crochet OUVRANT, chaque `[` d'une suite `[[[[…` redevenait un départ
+        // possible — temps QUADRATIQUE (js/polynomial-redos). L'exclure ne
+        // change rien au markdown réel (un lien n'imbrique pas de crochet) et
+        // supprime le chevauchement.
+        .replace(/\[([^\][]*)\]\([^)]*\)/g, "$1")
         // Les croisillons d'un titre de niveau 5+, que le balayage de
         // section ne capte pas.
         .replace(/^#{1,6}\s*/, "")

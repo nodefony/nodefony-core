@@ -627,6 +627,14 @@ avant de suspecter le code généré :
 - **Le typecheck échoue sur `drizzle-orm` introuvable.** Artefact du mode
   `--link` : npm symlinke les paquets du framework sans hisser leurs
   dépendances. Sans rapport avec le code généré.
+- **`drizzle-kit` réclame « install either 'better-sqlite3' or '@libsql/client' »**
+  et l'étape des migrations tombe en `NF_MIGRATE_UNAVAILABLE`. **Même cause que
+  ci-dessus**, et elle mérite sa ligne parce que le message accuse la BASE : le
+  pilote SQLite est une dépendance de `@nodefony/drizzle`, que `--link` symlinke
+  sans la hisser — `node_modules/better-sqlite3` n'existe tout simplement pas
+  dans l'application témoin. Tout ce qui suit cette étape n'est donc **jamais
+  atteint** en boucle courte. Le constater d'un `ls` avant de suspecter quoi que
+  ce soit, et rejouer en décor ISOLÉ (sans `--link`) pour obtenir le verdict.
 
 Et un piège qui, lui, n'est pas du décor : **une entité nommée `User` entre en
 collision avec celle du module de sécurité** — l'application ne démarre plus, sur

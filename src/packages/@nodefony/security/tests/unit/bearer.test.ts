@@ -132,16 +132,33 @@ describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {
     // la marge du côté fautif : c'est de porter le SIGNAL au-dessus du bruit.
     // À 800 k/1,6 M le travail dure ~2 et ~4 ms, et la même préemption ne
     // déplace plus le ratio que de 2,0 à 2,6 — sous le seuil.
-    let facteur = Infinity;
-    let meilleur = { simple: 0, double: 0 };
+    // Les deux minima se prennent SÉPARÉMENT, colonne par colonne — et non le
+    // ratio d'une paire.
+    //
+    // C'est la même idée que le minimum interne à `mesure`, poussée d'un cran :
+    // une préemption ne peut qu'AJOUTER du temps, donc le plus petit relevé de
+    // chaque taille est le moins pollué. Retenir la meilleure PAIRE exigeait
+    // que les deux mesures soient propres EN MÊME TEMPS — de probabilité p²
+    // quand p est celle d'une mesure propre ; retenir les deux colonnes
+    // séparément ne demande qu'une mesure propre dans chacune, ce que cinq
+    // tirages rendent très probable. Vécu : ×3,03 sur macOS/Node 26 (2,535 ms
+    // → 7,676 ms), la petite colonne propre et la grande préemptée de ~2,7 ms.
+    // C'est le TROISIÈME flake de ce cas, après un seuil absolu abandonné puis
+    // un relèvement des tailles.
+    //
+    // Cela n'innocente pas une implémentation fautive, et c'est ce qui autorise
+    // le geste : son coût est INTRINSÈQUE, pas du bruit — elle est lente à
+    // CHAQUE tirage, donc le minimum de sa grande colonne reste ~4× celui de sa
+    // petite. Ce que le minimum retire, c'est l'ordonnanceur ; ce qu'il garde,
+    // c'est la courbe.
+    let simple = Infinity;
+    let double = Infinity;
     for (let paire = 0; paire < 5; paire++) {
-      const simple = mesure(800_000);
-      const double = mesure(1_600_000);
-      if (double / simple < facteur) {
-        facteur = double / simple;
-        meilleur = { simple, double };
-      }
+      simple = Math.min(simple, mesure(800_000));
+      double = Math.min(double, mesure(1_600_000));
     }
+    const facteur = double / simple;
+    const meilleur = { simple, double };
     // Mesuré sur cette implémentation : ×1,95 (1,876 → 3,651 ms). Le témoin
     // fautif ne se mesure PAS ici — il quadruple à chaque doublement (×4,01 à
     // 8 k, ×4,07 à 16 k, ×4,06 à 32 k) et mettrait une trentaine de secondes sur

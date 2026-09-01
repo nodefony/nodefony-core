@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-01T21:21:24.965Z",
+  "generated": "2026-09-01T22:44:37.585Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -12354,7 +12354,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Colonnes d'une table Drizzle, lues dans la GRAMMAIRE de son dialecte. L'extraction n'a rien d'anodin : `getTableConfig` n'est pas la même fonction selon le dialecte, et appeler celle de sqlite sur …"
+      "description": "Colonnes d'une table Drizzle, lues dans la GRAMMAIRE de son dialecte. L'extraction n'a rien d'anodin : `getTableConfig` n'est pas la même fonction selon le dialecte, et la mauvaise appliquée à une …"
     },
     "createUserTable": {
       "name": "createUserTable",
@@ -28792,7 +28792,8 @@
       ],
       "BootConfigurationError": [
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/user/nodefony/src/userContract.ts"
       ],
       "IBootReport": [
         "src/nodefony/src/kernel/Kernel.ts",
