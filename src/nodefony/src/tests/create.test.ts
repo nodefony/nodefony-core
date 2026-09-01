@@ -473,6 +473,60 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   });
 
   /**
+   * Le manifeste REFUSE explicitement le script d'installation de
+   * `better-sqlite3`, que npm synthétise à tort quand l'arbre vient d'un
+   * verrou de dépendances.
+   *
+   * Le paquet embarque ses binaires prébâtis et pose `gypfile: false` pour
+   * interdire ce `node-gyp rebuild` ; npm ne lit ce refus que sur un arbre bâti
+   * depuis le registre, jamais depuis un `package-lock.json` — défaut amont
+   * `npm/cli#9837`, correctif proposé en `npm/cli#9859`. Conséquence sans ce
+   * champ : le DEUXIÈME `npm install` de l'utilisateur compile du C++ et meurt
+   * sur toute machine sans Python ni chaîne de compilation. Mesuré dans
+   * `node:24-slim` (npm 11.16, celui de Node 24 LTS) : sans le refus, « find
+   * Python » ; avec, l'installation passe et la base répond.
+   *
+   * Le contrôle négatif compte autant : `minimal` ne tire pas
+   * `@nodefony/drizzle`, donc pas `better-sqlite3` — une clé qui refuserait un
+   * paquet absent serait du bruit dans un manifeste qu'on lit.
+   */
+  describe("npm — le manifeste refuse le script d'installation fantôme", () => {
+    it("preset complete : better-sqlite3 est explicitement refusé", () => {
+      const dest = path.join(tmp, "npm-deny-complete");
+      scaffold(dest, {
+        name: "npmdeny",
+        preset: "complete",
+        frontend: "none",
+      });
+      const pkg = readJson(path.join(dest, "package.json"));
+      const policy = pkg["allowScripts"] as unknown as Record<
+        string,
+        boolean
+      > | null;
+      assert.isObject(
+        policy,
+        "le manifeste doit porter une politique allowScripts",
+      );
+      assert.strictEqual(
+        (policy as Record<string, boolean>)["better-sqlite3"],
+        false,
+        "le refus doit être `false` — une approbation ferait EXÉCUTER node-gyp",
+      );
+    });
+
+    it("preset minimal : aucune politique, le paquet n'est pas là", () => {
+      const dest = path.join(tmp, "npm-deny-minimal");
+      scaffold(dest, {
+        name: "npmdenymin",
+        preset: "minimal",
+        frontend: "none",
+      });
+      const pkg = readJson(path.join(dest, "package.json"));
+      assert.notProperty(pkg, "allowScripts");
+    });
+  });
+
+  /**
    * L'outillage de développement arrive AVEC l'application, dans les deux
    * presets — mais jamais en production.
    *
