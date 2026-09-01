@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T07:22:08.652Z",
+  "generatedAt": "2026-09-01T08:13:30.699Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -840,7 +840,7 @@
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": null,

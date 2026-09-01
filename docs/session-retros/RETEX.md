@@ -468,6 +468,8 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-01] **Deux pages du même corpus se contredisaient, et chacune se lisait bien.** `pipeline-requete.md` plaçait l'instanciation du contrôleur AVANT le firewall et en tirait « ton contrôleur est instancié avant d'être autorisé » ; `controller.md` montrait déjà l'ordre juste. Aucun gate ne voit ça — les deux ont des ancres valides. Le code dit l'inverse (`prepareFrontController` ne fait que matcher, `@IsGranted` court-circuite l'instanciation). **Une contradiction interne au corpus ne se trouve qu'en lisant DEUX pages ensemble** : c'est ce qu'un audit de corpus rend, et qu'un contrôle page par page ne rendra jamais.
+
 - [1× — 31/08] **J'ai corrigé une heure durant un fichier que le mode développement n'exécute jamais.** Les plugins Vite sont composés à DEUX endroits : `ViteBuilder.buildPlugins()` (la voie déclarée, par les presets) et `ViteConfigGenerator.ts:109`, qui les REÉCRIT en dur dans un fichier généré — et c'est le second qui sert. Rien ne compare les deux. Avant de conclure « ma correction n'a pas d'effet », **chercher qui produit VRAIMENT l'artefact exécuté** : ici il suffisait de lire le `vite.config.generated.mjs` posé sur le disque. → #131.
 
 - [1× — 08-31] **Un cycle d'imports ne casse que sous UN ordre d'entrée — il passe donc les tests qui entrent par l'autre bout.** `DrizzleMigrator` lisait une constante de `resolve.ts` au TOP-LEVEL ; `resolve.ts` importe `DrizzleMigrator` ligne 13 et ne définit la constante que ligne 50. Entrer par `DrizzleMigrator` marche, entrer par `resolve` rend `ReferenceError: Cannot access … before initialization`. Une suite entière restait verte pendant qu'un gate du dépôt mourait. Le remède est structurel : la constante descend dans un module FEUILLE, ré-exportée pour ne casser aucun consommateur.
@@ -1164,6 +1166,8 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 09-01] **Le décor local ment sur un contrôle de liens.** `check-site-links` accusait `index.html → performance/`. Faux : la forge construit `/performance/` par une étape (`build-perf-site.mjs`) que le build local ne lance pas. La preuve n'a de valeur qu'en rejouant la chaîne ENTIÈRE de `pages.yml`. Même famille que le flake mémoire de la veille (watcher local vs `--no-watch` en CI) : **le poste diverge de la forge, et c'est le poste qui ment**.
+
 - [1× — 09-01] **Le harnais a REFUSÉ ma commande (un `cd` relatif), et j'ai failli lire le résultat comme un verdict.** Le refus portait sur toute la commande — patch `python3` compris — mais la commande SUIVANTE a rendu « 6 tests passés ». Ces 6 verts ne disaient rien du correctif, qui n'était pas dans le fichier. Un `grep` de l'ancre l'a montré. **Règle : après un refus d'outil, la première chose à vérifier n'est pas le test, c'est que l'ÉDITION a eu lieu.**
 - [1× — 09-01] **Mon motif `awk` de contrôle rendait des cellules VIDES** (P2, P7, P8, P10, P11, P14, P16) et accusait le bandeau d'un écart de 20 tâches. Réécrit en Python, l'écart réel était de 1 — mais il était RÉEL : `141✅ (211)` annoncé pour `142✅ (212)`. L'instrument se suspecte avant le fichier, et un écart trop gros est d'abord un symptôme de l'instrument.
 
@@ -1766,6 +1770,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 09-01] **Remplacer par NUMÉRO, sans regarder le symbole, FABRIQUE une ancre fausse.** `Pdu.ts:169` portait deux ancres différentes — `requestId` et `Pdu.requestIdProvider`. Une substitution globale les a envoyées toutes deux sur `requestId` (200) ; `requestIdProvider` est à 212. Rattrapé en relisant le diff, pas par le gate — anchor-check valide le symbole cité, il ne sait pas qu'on visait l'autre.
+
 - [1× — 31/08] **Deux tickets affirmaient un état du code qui n'était plus vrai**, et leurs ancres
   étaient justes : #91 disait « la console d'administration ne monte pas `NodefonyProvider` » —
   `App.tsx` le montait déjà ; #132 décrivait comme restant à faire ce qu'un banc e2e prouvait déjà
@@ -1873,6 +1879,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Sept ancres fausses dans UNE grappe de quatre tickets** — dont une qui situait une garde à `orm-migrate-baseline.ts:118`, où vit une déclaration d'option, **171 lignes** avant sa cible ; et deux tickets frères qui désignaient la MÊME ligne (`orm-generate.ts:376`) pour deux refus différents — un seul pouvait avoir raison. Elles étaient toutes périmées pour la même raison : le travail décrit avait été FAIT entre-temps. Le contrôle qui tranche en une seconde : deux tickets ne pointent jamais la même ligne pour deux choses. Retirées plutôt que corrigées quand le fait avait disparu — une ancre juste sous une affirmation fausse est le pire des deux mondes.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 09-01] **Un verdict binaire ne rend pas la tâche mécanique.** 50 ancres confiées à `haiku` « définition ou occurrence ? » : rapport rendu confiant, **~1 verdict sur 6 exact** (`tmpDir` donné à 485, il est à 512 ; quatre autres pointant des commentaires). Rien appliqué. Le tri s'est fait par un script à motifs forts, puis à la main. Distinguer une DÉFINITION d'une occurrence demande de lire du TypeScript, pas de faire un `grep` — le test « la réponse est-elle vérifiable ? » ne suffit pas, il faut « est-elle lisible SANS juger ? ». À l'inverse, `fable` sur un audit de corpus (liens, schémas périmés) a rendu **5 affirmations sur 5 exactes** après recontrôle.
 
 - [1× — 09-01] **Deux sous-agents chargés de confronter 49 cases de la feuille de route au CODE ont confronté les libellés au FICHIER** — 21 preuves sur 26 pour le second étaient des lignes de `MIGRATION_STATUS.md` lui-même. Le tableau rendu était impeccable de forme et **circulaire de fond** : un fichier confirme toujours ce qu'il affirme. Le prompt disait « ancrage `fichier:ligne` ACTUEL » et donnait le périmètre `src/` — insuffisant, parce que le fichier de référence EST un ancrage valide au sens littéral. **Ce qu'il fallait écrire** : « l'ancrage doit citer un fichier de `src/`, jamais le document audité » — et le recontrôler à la réception. Même mécanisme que l'« INCHANGÉE » : quand la source facile répond, le modèle ne va pas chercher la source coûteuse.
 
