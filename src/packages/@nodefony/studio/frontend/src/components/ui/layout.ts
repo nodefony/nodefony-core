@@ -41,16 +41,26 @@ export const STICKY_TOP = "0px";
  * Top d'un panneau sticky placé SOUS un PageHeader lui-même sticky. Le
  * PageHeader occupe les premiers `PAGE_HEADER` px du Main scrollable.
  *
- * ⚠️ **Ne PAS y ajouter de marge de respiration.** Essayé, et rejeté : décaler
- * les panneaux de `GAP` ouvre entre l'en-tête et eux une bande où le corps de la
- * page défile À NU — l'en-tête ne peint que sa propre hauteur, et le texte passe
- * visiblement dessous. L'air sous l'en-tête est l'affaire du PageHeader (son
- * fond, sa hauteur), pas du décalage de ce qui le suit.
+ * ⚠️ **Ne PAS y ajouter de marge de respiration.** Ce top-ci est celui de la
+ * colonne CENTRALE : l'y décaler ouvre entre l'en-tête et le contenu une bande
+ * où le corps de la page défile À NU — l'en-tête ne peint que sa propre hauteur.
+ * La respiration se prend sur les panneaux LATÉRAUX, dont la colonne ne porte
+ * aucun texte défilant ({@link SIDEBAR_STICKY_TOP}).
  */
 export const CONTENT_STICKY_TOP = PAGE_HEADER;
 
+/**
+ * Top d'un panneau LATÉRAL collant (navigation, sommaire).
+ *
+ * Décalé d'un `GAP` sous l'en-tête, là où la colonne centrale ne peut pas l'être :
+ * un panneau encadré collé pile à la frontière se cogne visuellement à la barre au
+ * défilement, et son filet supérieur se confond avec elle. Rien ne défile derrière
+ * ces colonnes-là, donc la bande dégagée reste vide — c'est toute la différence.
+ */
+export const SIDEBAR_STICKY_TOP = `calc(${PAGE_HEADER} + ${GAP})`;
+
 /** Hauteur max d'un panneau latéral sticky (sidebar nav / sommaire). */
-export const SIDEBAR_MAX_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${DEBUGBAR} - ${GAP} * 2)`;
+export const SIDEBAR_MAX_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${DEBUGBAR} - ${GAP} * 3)`;
 
 /**
  * Marge d'ancre : un titre cible ne passe pas sous l'en-tête sticky au saut.

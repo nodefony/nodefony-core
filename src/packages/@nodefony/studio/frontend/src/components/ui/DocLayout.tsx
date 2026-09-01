@@ -18,6 +18,7 @@ import {
 import { DocToc, extractHeadings } from "./DocToc";
 import {
   CONTENT_STICKY_TOP,
+  SIDEBAR_STICKY_TOP,
   MODAL_FULLSCREEN_BODY,
   MODAL_FULLSCREEN_CONTENT,
   SIDEBAR_MAX_HEIGHT,
@@ -135,7 +136,7 @@ export function DocLayout({
       m === "page"
         ? {
             position: "sticky",
-            top: CONTENT_STICKY_TOP,
+            top: SIDEBAR_STICKY_TOP,
             // `height`, PAS `maxHeight` : un enfant en `flex: 1` ne se borne que
             // si son parent a une hauteur RÉSOLUE. Avec un simple plafond, la zone
             // de défilement prenait sa hauteur naturelle (mesuré 902 px dans un
@@ -270,7 +271,7 @@ export function DocLayout({
           m === "page"
             ? {
                 position: "sticky",
-                top: CONTENT_STICKY_TOP,
+                top: SIDEBAR_STICKY_TOP,
                 alignSelf: "flex-start",
                 // Toute la hauteur offerte, comme la navigation en face : deux
                 // panneaux latéraux de hauteurs différentes donnent une page
