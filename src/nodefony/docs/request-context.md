@@ -249,7 +249,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 ```
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
-journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:169`), branché sur
+journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:212`), branché sur
 `RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:864`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
@@ -401,7 +401,7 @@ tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'auc
 
 Sur les chiffres, la page reste factuelle : la TSDoc du code annonce **~50-100 ns** par `run()` sur
 Node 22+ pour l'entrée dans le scope (`RequestContext.ts:115`), et le même ordre de grandeur pour la
-lecture du `requestId` par le journal (`Pdu.ts:169`), contre ~5 ns quand le fournisseur n'est pas
+lecture du `requestId` par le journal (`Pdu.ts:200`), contre ~5 ns quand le fournisseur n'est pas
 branché. **Il n'existe pas de banc dédié à `RequestContext`** dans le dépôt : ces valeurs sont des
 ordres de grandeur documentés au code, pas une mesure rejouable. Le coût réel se constate en bout de
 chaîne, par le gate mémoire du pipeline (skill `nodefony-check-memory-health`).

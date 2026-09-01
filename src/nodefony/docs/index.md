@@ -116,6 +116,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
 | [Journalisation](syslog.md)              | ce qui s'écrit, où ça part, ce qu'on garde en mémoire | tu instrumentes, ou tu enquêtes                |
 | [Kernel & Module](kernel.md)             | l'API du cœur : démarrer, brancher, étendre           | tu écris un module ou une commande             |
 | [CLI](cli.md)                            | piloter le framework en ligne de commande             | tu lances, construis, échafaudes, ou étends    |
+| [Tests](testing.md)                      | éprouver ce que tu écris — unitaire, bout en bout     | tu lances `npm test` pour la première fois     |
 | [RequestContext](request-context.md)     | suivre une requête à travers l'asynchrone             | tu corrèles des journaux, ou tu lis l'identité |
 | [Client isomorphe](client.md)            | le même paquet, dans le navigateur                    | tu écris du front qui parle au serveur         |
 | [Hooks React](react-hooks.md)            | la socket en idiomes React                            | ton front est en React                         |
@@ -133,6 +134,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
   { "icon": "🔄", "title": "kernel", "href": "kernel.md",
     "desc": "Kernel (ce qui te porte), Module (ce que tu écris), CliKernel (la même chose pour une commande en ligne), et la façade Nodefony qui te rend le kernel courant depuis n'importe où.",
     "meta": "la référence des objets — le récit du démarrage vit dans le cycle de boot" },
+  { "icon": "🧪", "title": "testing", "href": "testing.md",
+    "desc": "Le sous-chemin `nodefony/testing` et le harnais livré avec chaque application créée : un module jetable pour éprouver un service seul, la lecture du port de l'application qui tourne, et un exemplaire à part pour observer ce qui ne se voit qu'au démarrage.",
+    "meta": "ton premier `npm test` repose dessus" },
   { "icon": "⌨️", "title": "cli", "href": "cli.md",
     "desc": "Le binaire `nodefony` : démarrer en développement, construire, lancer en production ou en cluster, échafauder un projet ou un module, et accueillir les commandes que tes propres modules ajoutent. Chaque commande choisit jusqu'où booter le kernel.",
     "meta": "tu pilotes, tu échafaudes, ou tu ajoutes ta commande" },

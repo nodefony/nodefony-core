@@ -438,8 +438,8 @@ un conteneur neuf ou un premier boot ne les ont pas.
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
 | `path`   | `Kernel.ts:461` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
-| `varDir` | `Kernel.ts:501` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
-| `tmpDir` | `Kernel.ts:495` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
+| `varDir` | `Kernel.ts:518` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
+| `tmpDir` | `Kernel.ts:512` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
 `varDir` et `tmpDir` sont des `FileClass`, pas des chaînes : leur chemin est sous `.path`.
 

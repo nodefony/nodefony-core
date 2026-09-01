@@ -37,7 +37,9 @@ Du squelette à la première route servie.
   { "icon": "3️⃣", "title": "Choisir sa base", "href": "guides/persistence.md",
     "desc": "Brancher une persistance et écrire du code portable entre bases." },
   { "icon": "4️⃣", "title": "Servir une interface", "href": "guides/frontend-react.md",
-    "desc": "Une SPA avec le rechargement à chaud de Vite." }
+    "desc": "Une SPA avec le rechargement à chaud de Vite." },
+  { "icon": "5️⃣", "title": "Éprouver ce que tu as écrit", "href": "../src/nodefony/docs/testing.md",
+    "desc": "Le harnais de test livré avec l'application : ce qu'il fait, et comment en écrire un second." }
 ]
 ```
 

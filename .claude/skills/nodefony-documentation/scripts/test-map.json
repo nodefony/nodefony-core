@@ -745,5 +745,11 @@
       "src/nodefony/src/tests/DebugBar.test.ts",
       "src/nodefony/src/tests/debugbarInteraction.test.ts"
     ]
+  },
+  "testing": {
+    "unit": [
+      "src/nodefony/src/tests/testing.test.ts",
+      "src/nodefony/src/tests/create.test.ts"
+    ]
   }
 }

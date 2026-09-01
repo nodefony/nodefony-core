@@ -447,7 +447,7 @@ jointe (`sevKey`, `client/react/index.ts:376`), pas le tableau.
 > [!CAUTION]
 > Le filtre compare la valeur du champ `severity` de chaque entrée aux chaînes fournies
 > (`client/react/index.ts:358`). Or une entrée de journal Nodefony porte sa sévérité **numérique**
-> dans `severity` et son nom dans `severityName` (`Pdu.ts:137`) : filtrer sur `["ERROR"]` ne retient
+> dans `severity` et son nom dans `severityName` (`Pdu.ts:180`) : filtrer sur `["ERROR"]` ne retient
 > donc rien du flux standard. Filtre côté rendu tant que ce n'est pas aligné, ou lis
 > [Journalisation](syslog.md) pour la forme exacte d'une entrée.
 
@@ -633,7 +633,7 @@ Studio.
 | Rien n'arrive et l'état reste `disconnected`                 | Les hooks s'abonnent mais ne connectent pas                                                                 | Appeler `socket.connect()` une fois (`client/realtime/RealtimeClient.ts:311`) |
 | Un `subscribe`/`unsubscribe`/`subscribe` par montage         | StrictMode double le montage ; le comptage est symétrique                                                   | Comportement attendu en développement ; absent en production                  |
 | Le débit de `useNodefonyChannelStats()` reste figé           | `trackFrame()` mute le même objet de stats (`client/realtime/RealtimeClient.ts:982`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                   |
-| `useNodefonySyslog({ severities })` ne rend rien             | Le filtre compare un champ numérique à des noms (`client/react/index.ts:346`)                               | Filtrer au rendu sur `severityName` (`Pdu.ts:137`)                            |
+| `useNodefonySyslog({ severities })` ne rend rien             | Le filtre compare un champ numérique à des noms (`client/react/index.ts:346`)                               | Filtrer au rendu sur `severityName` (`Pdu.ts:180`)                            |
 | L'abonnement se refait à chaque frappe                       | Le nom du canal est recalculé et passé dans `deps`                                                          | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                     |
 | Changer un réglage AIMD ne change rien                       | Les options sont capturées par référence (`client/react/index.ts:192`)                                      | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`             |
 | Toasts en double, voire en triple                            | `useNodefonyNotifications` monté dans plusieurs composants                                                  | Un seul montage, au shell (`client/react/index.ts:382`)                       |
