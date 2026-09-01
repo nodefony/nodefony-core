@@ -127,6 +127,38 @@ wait_ready() { # ctn port
   fail "readyz jamais 200 après 90 s (reçu: $code)"
 }
 
+# Applique les migrations DANS le conteneur, comme un exploitant le fait — les
+# migrations passent AVANT que le trafic n'arrive.
+#
+# Sans cette étape, le banc mesurait autre chose que ce qu'il croyait. En
+# production le schéma appartient aux migrations (`ddl: none`), et un exemplaire
+# dont le schéma est en retard REFUSE le trafic : `/readyz` répond 503, `/livez`
+# reste vert. C'est le comportement voulu du produit — mais le banc lançait le
+# conteneur puis sondait `/readyz` sans rien appliquer, et accusait donc le
+# paquet publié d'un échec dont la cause était son propre décor.
+#
+# C'est `docker exec` et non un conteneur jetable, parce que la base de l'app
+# générée est un fichier SQLite qui vit DANS le conteneur : migrer ailleurs
+# créerait une base que personne ne lit. Sur une vraie base réseau, le patron est
+# l'inverse — un job de migration séparé, avant le déploiement.
+#
+# L'app tourne déjà pendant qu'on migre : c'est voulu, et c'est justement ce que
+# la sonde promet — elle re-vérifie, et passe à 200 d'elle-même une fois le
+# schéma à jour. Le banc éprouve donc AUSSI cette promesse.
+migrate_in() { # ctn
+  local ctn="$1" out=""
+  # Une app sans ORM n'a pas de migrations : ne pas confondre « rien à faire »
+  # avec « la commande a échoué ».
+  if ! docker exec "$ctn" test -d node_modules/@nodefony/drizzle 2>/dev/null; then
+    return 0
+  fi
+  if ! out=$(docker exec "$ctn" node_modules/.bin/nodefony orm:migrate 2>&1); then
+    echo "$out" | tail -25
+    fail "migrations non appliquées dans $ctn"
+  fi
+  ok "migrations appliquées dans $ctn (avant l'ouverture du trafic)"
+}
+
 http_code() { curl -s -o /dev/null -w "%{http_code}" "$1" || true; }
 
 # `grep -q` FERME le pipe dès qu'il a trouvé : l'amont reçoit SIGPIPE, sort en
@@ -282,6 +314,7 @@ TS
   step "[base] run — sondes de l'orchestrateur"
   docker rm -f "$CTN" >/dev/null 2>&1 || true
   docker run -d --name "$CTN" -p "$PORT:5151" "$IMG" >/dev/null
+  migrate_in "$CTN"
   wait_ready "$CTN" "$PORT"
   ok "readyz → 200 (boot complet)"
 
@@ -416,6 +449,7 @@ if runs front; then
   # build front, sans avoir à en construire une seconde.
   docker run -d --name "$FCTN" -p "$FPORT:5151" --entrypoint sh "$FIMG" \
     -c 'rm -rf public/dist && exec node_modules/.bin/nodefony production' >/dev/null
+  migrate_in "$FCTN"
   wait_ready "$FCTN" "$FPORT"
   # Le message est émis pendant le BOOT, donc il est écrit quand `/readyz`
   # répond : rien à attendre ici. Ce qui faisait échouer cette ligne n'était pas
@@ -465,6 +499,7 @@ process.stdout.write("studio → mandatory\n");
   step "[studio] run — l'UI publiée est-elle servie ?"
   docker rm -f "$SCTN" >/dev/null 2>&1 || true
   docker run -d --name "$SCTN" -p "$SPORT:5151" "$SIMG" >/dev/null
+  migrate_in "$SCTN"
   wait_ready "$SCTN" "$SPORT"
   SCODE=$(http_code "http://127.0.0.1:$SPORT/nodefony")
   [ "$SCODE" = "200" ] || { docker logs "$SCTN" 2>&1 | tail -30; fail "/nodefony → $SCODE"; }
