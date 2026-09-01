@@ -1,4 +1,6 @@
 ---
+title: "Guides — les recettes, une tâche à la fois"
+navTitle: Tous les guides
 lang: fr
 module: global
 topic: guides-index
@@ -8,45 +10,89 @@ status: stable
 last-updated: 2026-05-21
 ---
 
-# Guides — how-to
+# Guides
 
-> Tutoriels pas-à-pas orientés utilisateur du framework — on suit le guide et on obtient un
-> résultat. À distinguer des pages `architecture/`, qui expliquent _comment ça marche dedans_,
-> et de la doc des modules, qui décrit l'API.
+> Onze recettes, une tâche chacune. On suit, on obtient un résultat. Ce n'est ni un tutoriel
+> (qui vous prend par la main du début à la fin) ni de l'architecture (qui explique ce qui se
+> passe dessous) : un guide répond à **une** question précise, celle que vous vous posez
+> maintenant.
 
-## Pages disponibles
+## 🚀 Construire
 
-| Page                                                 | Sujet                                                                              | Statut |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ------ |
-| [`configuration.md`](./configuration.md)             | Configurer une app (`defineConfig` / `env.ts` / `use` / manifeste `modules`)       | stable |
-| [`generer-du-code.md`](./generer-du-code.md)         | `nodefony create` : les cinq types, voir avant d'écrire, piloter depuis un agent   | stable |
-| [`frontend-react.md`](./frontend-react.md)           | Ajouter un frontend React 19 (Vite) à un module Nodefony                           | stable |
-| [`session-storage.md`](./session-storage.md)         | Stockage de session : mécanisme IoC, backends, storage sur mesure                  | stable |
-| [`persistence.md`](./persistence.md)                 | Persistance & stores : infra déclarée, profils, matrice brique×backend, audit≠logs | stable |
-| [`docker-cloud-native.md`](./docker-cloud-native.md) | Déployer en conteneur : premier plan, sondes de vivacité, arrêt gracieux, k8s      | stable |
-| [`compatibilite.md`](./compatibilite.md)             | Ce qui casse en montant de version : surface couverte, dépréciation, support       | stable |
+Ce qu'on fait les premiers jours : régler l'application, la faire grandir, lui donner une
+interface.
 
-> ⚠️ [`integration-continue.md`](./integration-continue.md) fait exception à la
-> règle ci-dessus : il documente la forge du **dépôt du framework** (ce que la CI
-> lance, avec quel décor, comment le rejouer), pas l'usage du framework dans une
-> application. Il est ici parce qu'il n'a pas de meilleur endroit — et parce que
-> le savoir qu'il porte n'était lisible que dans des commentaires YAML.
+```nodefony-cards
+[
+  { "icon": "⚙️", "title": "Configuration", "href": "configuration.md", "featured": true,
+    "desc": "Un fichier racine qui grandit par composition, et un seul lecteur de l'environnement. Le réglage qui ne prend pas vient presque toujours d'ici.",
+    "meta": "commence par là" },
+  { "icon": "🏗️", "title": "Générer du code", "href": "generer-du-code.md",
+    "desc": "`nodefony create` : cinq types d'objets, un aperçu avant d'écrire quoi que ce soit, et le pilotage depuis un agent.",
+    "meta": "ne pas écrire ce qu'une commande produit" },
+  { "icon": "⚛️", "title": "Frontend React", "href": "frontend-react.md",
+    "desc": "Greffer une interface React 19 sur un module existant : deux serveurs en développement, un seul en production, et le rechargement à chaud entre les deux.",
+    "meta": "React · Vue · Angular · Svelte" }
+]
+```
 
-| Page                                                             | Sujet                                                                             | Statut |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------ |
-| [`integration-continue.md`](./integration-continue.md)           | Forge du dépôt : ce qui tourne, le décor, les gates, rejouer en local             | stable |
-| [`publier-une-release.md`](./publier-une-release.md)             | Publier les 15 paquets : la chaîne, ce que chaque garde refuse, le smoke, l'OIDC  | stable |
-| [`eprouver-loutillage-agent.md`](./eprouver-loutillage-agent.md) | Mesurer un framework avec un agent : méthode, pièges du juge, ce qu'elle a trouvé | stable |
+## 🗄️ Ranger ses données
 
-## Ces sujets sont documentés dans leur module
+Où vivent les données, qui décide, et ce qui change quand il y a plusieurs pods.
 
-Trois questions arrivent souvent sur ce hub alors que leur page vit **avec le code de la brique**
-concernée : la doc d'un module est co-localisée avec lui, et part dans le paquet npm — elle décrit
-donc toujours la version que vous avez installée.
+```nodefony-cards
+[
+  { "icon": "🗃️", "title": "Persistance", "href": "persistence.md", "featured": true,
+    "desc": "Déclarez votre infrastructure — une ou deux URL — et le framework dérive où va chaque brique. La matrice dit exactement ce que chaque backend porte.",
+    "meta": "le tableau de bord de vos données" },
+  { "icon": "🗝️", "title": "Stockage de session", "href": "session-storage.md",
+    "desc": "Le mécanisme d'inversion de contrôle, les quatre backends livrés, ce que fait le défaut `auto` — et comment en écrire un sur mesure.",
+    "meta": "le choix qui décide de votre scaling" }
+]
+```
 
-| La question                                                   | La page                                                                                                                        |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Définir des routes (`@Get`, `@Post`, paramètres, priorités)   | [`framework` — routage](../../src/packages/@nodefony/framework/docs/routing.md)                                                |
-| Les décorateurs (`@injectable`, `@Inject`, `@Body`, `@Query`) | [`framework` — décorateurs](../../src/packages/@nodefony/framework/docs/decorateurs.md)                                        |
-| WebSocket : actions, canaux, protocole, sécurité              | [`realtime` — sommaire du module](../../src/packages/@nodefony/realtime/docs/index.md)                                         |
-| Le cycle de vie d'un module, ses services, sa configuration   | [`generer-du-code.md`](./generer-du-code.md) pour le créer, [`core` — Kernel](../../src/nodefony/docs/kernel.md) pour le cycle |
+## 🚢 Mettre en production
+
+Le passage du poste au conteneur, et ce qu'on promet à ceux qui installent.
+
+```nodefony-cards
+[
+  { "icon": "🐳", "title": "Docker & cloud-native", "href": "docker-cloud-native.md", "featured": true,
+    "desc": "Un process au premier plan, les sondes `/livez` et `/readyz` livrées, l'arrêt gracieux — et les pièges qui font perdre les signaux.",
+    "meta": "à lire avant le premier déploiement" },
+  { "icon": "🤝", "title": "Compatibilité", "href": "compatibilite.md",
+    "desc": "Ce qui casse en montant de version, ce que la garantie couvre vraiment, et comment une dépréciation se signale dans votre éditeur.",
+    "meta": "avant de monter de version" },
+  { "icon": "📦", "title": "Publier une release", "href": "publier-une-release.md",
+    "desc": "La chaîne des quinze paquets, ce que chaque garde refuse, et pourquoi une version publiée ne se rattrape pas.",
+    "meta": "côté mainteneur" }
+]
+```
+
+## 🔬 Éprouver
+
+Comment ce projet se contrôle lui-même — transposable à vos propres bancs.
+
+```nodefony-cards
+[
+  { "icon": "🏭", "title": "Intégration continue", "href": "integration-continue.md",
+    "desc": "Ce que la forge lance, avec quel décor, et comment le rejouer chez vous. La règle qui gouverne tout : un test non exécuté n'est pas un test réussi.",
+    "meta": "un saut compte comme un vert" },
+  { "icon": "🤖", "title": "Éprouver avec un agent", "href": "eprouver-loutillage-agent.md",
+    "desc": "Confier une tâche réelle au modèle le plus faible, dans une application neuve, et compter ce qu'il a dû écrire HORS de l'outil. Le décor décide du résultat.",
+    "meta": "la méthode, et ce qu'elle a trouvé" }
+]
+```
+
+## 🧭 Et si ce n'est pas ici
+
+| Vous cherchez…                                                   | Allez plutôt vers                                                     |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Un parcours complet, de zéro à une application qui répond        | [le tutoriel](../tutoriels/premiere-application.md)                   |
+| Comment ça marche **dedans** — le boot, le pipeline, l'injection | [l'architecture](../architecture/README.md)                           |
+| L'API d'une brique précise (routes, sessions, firewall…)         | la documentation de son module                                        |
+| Définir des routes, les décorateurs                              | [`framework`](../../src/packages/@nodefony/framework/docs/routing.md) |
+| WebSocket : actions, canaux, protocole                           | [`realtime`](../../src/packages/@nodefony/realtime/docs/index.md)     |
+| Éprouver ce que vous écrivez                                     | [`core` — tests](../../src/nodefony/docs/testing.md)                  |
+
+📖 [Lexique général](../lexique.md) du framework.

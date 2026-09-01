@@ -555,15 +555,27 @@ class DocumentationService extends Service {
    * alors invisible. Le hub ouvre sa section ; c'est le chemin de lecture normal.
    */
   #orderPages(pages: ScannedDoc[]): IDocPageRef[] {
-    return pages
-      .map((p) => this.#toPageRef(p))
-      .sort((a, b) => {
-        if (a.isHub !== b.isHub) return a.isHub ? -1 : 1;
-        // Trier sur le libellé AFFICHÉ, pas sur le titre complet : le menu montre
-        // `navTitle`, et trier sur autre chose que ce qu'on voit donne un ordre
-        // qui paraît tiré au sort.
-        return a.navTitle.localeCompare(b.navTitle);
-      });
+    const refs = pages.map((p) => this.#toPageRef(p));
+    // `index.md` d'abord, `README.md` EN REPLI — pas les deux à égalité. Deux
+    // dossiers du corpus (`guides`, `architecture`) portent leur accueil sous le
+    // nom `README.md`, que GitHub rend en ouvrant le répertoire ; sans ce repli
+    // leur page d'accueil tombait au MILIEU de sa propre section, triée à
+    // l'alphabet, sous le libellé « README ». Traiter les deux comme hub aurait
+    // été pire : `docs/` porte les DEUX fichiers, et la section aurait eu deux
+    // points d'entrée concurrents.
+    if (!refs.some((r) => r.isHub)) {
+      const readme = pages.findIndex((p) =>
+        /(^|\/)readme\.md$/i.test(p.relPath),
+      );
+      if (readme !== -1) refs[readme]!.isHub = true;
+    }
+    return refs.sort((a, b) => {
+      if (a.isHub !== b.isHub) return a.isHub ? -1 : 1;
+      // Trier sur le libellé AFFICHÉ, pas sur le titre complet : le menu montre
+      // `navTitle`, et trier sur autre chose que ce qu'on voit donne un ordre
+      // qui paraît tiré au sort.
+      return a.navTitle.localeCompare(b.navTitle);
+    });
   }
 
   /** Convertit un doc scanné en référence d'arbre (métadonnées seules). */

@@ -39,12 +39,15 @@ export const STICKY_TOP = "0px";
 
 /**
  * Top d'un panneau sticky placé SOUS un PageHeader lui-même sticky. Le
- * PageHeader occupe les premiers `PAGE_HEADER` px du Main scrollable.
+ * PageHeader occupe les premiers `PAGE_HEADER` px du Main scrollable — plus un
+ * `GAP` de respiration : collé pile à la frontière, un panneau encadré donne
+ * l'impression de se cogner à l'en-tête au défilement, et son filet supérieur se
+ * confond avec celui de la barre.
  */
-export const CONTENT_STICKY_TOP = PAGE_HEADER;
+export const CONTENT_STICKY_TOP = `calc(${PAGE_HEADER} + ${GAP})`;
 
 /** Hauteur max d'un panneau latéral sticky (sidebar nav / sommaire). */
-export const SIDEBAR_MAX_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${DEBUGBAR} - ${GAP} * 2)`;
+export const SIDEBAR_MAX_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${DEBUGBAR} - ${GAP} * 3)`;
 
 /**
  * Marge d'ancre : un titre cible ne passe pas sous l'en-tête sticky au saut.

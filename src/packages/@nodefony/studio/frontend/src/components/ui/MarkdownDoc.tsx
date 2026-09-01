@@ -17,6 +17,7 @@ import {
   Anchor,
   Box,
   Group,
+  Modal,
   Paper,
   Text,
   Tooltip,
@@ -36,7 +37,7 @@ import {
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { slugifyHeading } from "./DocToc";
-import { HEADING_SCROLL_MARGIN } from "./layout";
+import { HEADING_SCROLL_MARGIN, MODAL_FULLSCREEN_BODY } from "./layout";
 import { LiveGraphSection } from "../../realtime/socket/LiveGraphSection";
 import {
   LIVE_GRAPH_NAMES,
@@ -78,10 +79,23 @@ function ensureDocStyles() {
   const s = document.createElement("style");
   s.id = "nf-doc-styles";
   s.textContent = `
-    /* Mermaid pose \`max-width\` EN LIGNE sur son SVG : le diagramme se comprime
-       alors à la largeur de la colonne et s'étire en hauteur. On lui rend sa
-       taille naturelle — c'est le conteneur \`.nf-mermaid\` qui défile. */
-    .nf-mermaid > svg { max-width: none !important; height: auto; }
+    /* Un schéma se lit D'ABORD EN ENTIER. Mermaid pose \`max-width\` EN LIGNE sur
+       son SVG et le comprime à la largeur de la colonne : un \`flowchart\` s'étire
+       alors en hauteur (mesuré 351 × 1549 px), et il faut défiler pour en voir des
+       bouts — sans jamais avoir la vue d'ensemble. On le met à l'ÉCHELLE : il tient
+       dans la largeur ET la hauteur offertes, ratio préservé. Le zoom se fait en
+       ouvrant le schéma, pas en le parcourant au doigt. */
+    .nf-mermaid > svg {
+      max-width: 100% !important;
+      max-height: 62vh;
+      width: auto;
+      height: auto;
+    }
+    /* Ouvert : le schéma reprend sa taille RÉELLE et c'est le fond qui défile. */
+    .nf-mermaid-zoom > svg {
+      max-width: none !important;
+      max-height: none;
+    }
     .nf-heading { position: relative; }
     .nf-heading-anchor {
       opacity: 0;
@@ -323,6 +337,10 @@ export function MermaidDiagram({ code }: { code: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(false);
+  // Le SVG rendu est gardé pour la vue agrandie — la re-générer appellerait
+  // mermaid une seconde fois pour le même diagramme.
+  const [svgHtml, setSvgHtml] = useState("");
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -340,6 +358,7 @@ export function MermaidDiagram({ code }: { code: string }) {
         );
         if (!cancelled && containerRef.current) {
           containerRef.current.innerHTML = svg;
+          setSvgHtml(svg);
           setError(null);
         }
       } catch (e) {
@@ -378,12 +397,33 @@ export function MermaidDiagram({ code }: { code: string }) {
   // `ensureDocStyles` annule cette contrainte ; ici on borne la hauteur et on
   // laisse le conteneur défiler.
   return (
-    <Box
-      ref={containerRef}
-      className="nf-mermaid"
-      my="md"
-      style={{ textAlign: "center", overflow: "auto", maxHeight: "72vh" }}
-    />
+    <>
+      <Box
+        ref={containerRef}
+        className="nf-mermaid"
+        my="md"
+        onClick={() => setZoom(true)}
+        title="Agrandir le schéma"
+        style={{ textAlign: "center", cursor: "zoom-in" }}
+      />
+      {/* Le schéma à sa taille réelle, quand la vue d'ensemble ne suffit plus.
+          Le contenu est réinjecté ici : le SVG rendu par mermaid vit dans le
+          conteneur ci-dessus, on n'en fabrique pas un second. */}
+      <Modal
+        opened={zoom}
+        onClose={() => setZoom(false)}
+        fullScreen
+        radius={0}
+        title="Schéma"
+        styles={{ body: { height: MODAL_FULLSCREEN_BODY, overflow: "auto" } }}
+      >
+        <Box
+          className="nf-mermaid nf-mermaid-zoom"
+          style={{ textAlign: "center" }}
+          dangerouslySetInnerHTML={{ __html: svgHtml }}
+        />
+      </Modal>
+    </>
   );
 }
 

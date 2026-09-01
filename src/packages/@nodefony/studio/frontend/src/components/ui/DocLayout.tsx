@@ -136,7 +136,13 @@ export function DocLayout({
         ? {
             position: "sticky",
             top: CONTENT_STICKY_TOP,
-            maxHeight: SIDEBAR_MAX_HEIGHT,
+            // `height`, PAS `maxHeight` : un enfant en `flex: 1` ne se borne que
+            // si son parent a une hauteur RÉSOLUE. Avec un simple plafond, la zone
+            // de défilement prenait sa hauteur naturelle (mesuré 902 px dans un
+            // panneau de 687), `overflow: hidden` coupait le bas, et la molette
+            // passait à la page — on ne pouvait plus atteindre les derniers
+            // modules du menu.
+            height: SIDEBAR_MAX_HEIGHT,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -160,6 +166,11 @@ export function DocLayout({
           </Group>
           {navSearch}
         </Box>
+        {/* `flex:1` ne SUFFIT PAS à borner une zone de défilement dont le parent
+            n'a qu'un `max-height` : mesuré, la zone prenait sa hauteur naturelle
+            (902 px) dans un panneau de 687 — rien ne défilait, et le bas de la
+            navigation était simplement coupé. Une hauteur EXPLICITE la borne, et
+            c'est la forme que prescrit le standard de mise en page du dépôt. */}
         <ScrollArea type="hover" style={{ flex: 1, minHeight: 0 }}>
           {nav}
         </ScrollArea>
@@ -261,11 +272,28 @@ export function DocLayout({
                 position: "sticky",
                 top: CONTENT_STICKY_TOP,
                 alignSelf: "flex-start",
+                // Toute la hauteur offerte, comme la navigation en face : deux
+                // panneaux latéraux de hauteurs différentes donnent une page
+                // bancale, et un sommaire qui s'arrête au milieu laisse un vide
+                // que rien ne justifie.
+                height: SIDEBAR_MAX_HEIGHT,
+                display: "flex",
+                flexDirection: "column",
               }
             : undefined
         }
       >
-        <Paper withBorder radius="md" p="sm">
+        <Paper
+          withBorder
+          radius="md"
+          p="sm"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <DocToc
             markdown={tocMarkdown}
             scrollRootRef={m === "container" ? readerViewport : undefined}
