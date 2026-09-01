@@ -380,7 +380,7 @@ describe("scaffold — code des colonnes", () => {
   });
 
   // Un défaut SQL ne serait pas émis par le DDL dérivé : il doit vivre côté JS.
-  it("valeur par défaut : $defaultFn côté JS, et le Zod l'accepte", () => {
+  it("valeur par défaut : DEFAULT SQL *et* $defaultFn, et le Zod l'accepte", () => {
     const c = buildEntityCodegen(
       parseEntityFields("views:int=0 tag:string=neuf"),
       {
@@ -391,15 +391,22 @@ describe("scaffold — code des colonnes", () => {
         table: "posts",
       },
     );
+    // Les DEUX : `.default()` est le seul qui atteigne un `ADD COLUMN` sur une
+    // table peuplée (mesuré — sans lui, l'`ALTER` sort sans défaut et le serveur
+    // refuse la migration) ; `$defaultFn` est le seul qui s'applique en
+    // développement, où le DDL dérivé du code n'émet aucun `DEFAULT`.
     assert.match(
       c.columns,
-      /views: integer\("views"\)\.notNull\(\)\.\$defaultFn\(\(\) => 0\)/u,
+      /views: integer\("views"\)\.notNull\(\)\.default\(0\)\.\$defaultFn\(\(\) => 0\)/u,
     );
     assert.match(
       c.columns,
-      /tag: text\("tag"\)\.notNull\(\)\.\$defaultFn\(\(\) => "neuf"\)/u,
+      /tag: text\("tag"\)\.notNull\(\)\.default\("neuf"\)\.\$defaultFn\(\(\) => "neuf"\)/u,
     );
-    assert.doesNotMatch(c.columns, /\.default\(/u);
+    // L'ancienne règle interdisait ici tout `DEFAULT` SQL, au motif que le DDL
+    // dérivé du développement ne l'émet pas. C'était vrai, et incomplet : le
+    // défaut SQL est justement le SEUL qui compte quand la colonne est AJOUTÉE à
+    // une table peuplée.
     assert.match(c.zodProps, /views: z\.number\(\)\.int\(\)\.default\(0\),/u);
   });
 

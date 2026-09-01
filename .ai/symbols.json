@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-01T16:08:42.796Z",
+  "generated": "2026-09-01T16:51:08.606Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 795,
-    "symbols": 3639,
+    "files": 796,
+    "symbols": 3643,
     "classes": 383,
-    "interfaces": 1004,
+    "interfaces": 1005,
     "types": 428,
     "enums": 4,
-    "functions": 1455,
+    "functions": 1458,
     "constants": 365
   },
   "symbols": {
@@ -6055,6 +6055,39 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce que chaque étape apporte — affiché avant de la lancer."
+    },
+    "IUserContractColumn": {
+      "name": "IUserContractColumn",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/userContractSource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une colonne du contrat utilisateur, telle que `@nodefony/user` la publie. Le type est redéclaré ici — et c'est délibéré, ce n'est pas une copie du contrat. Le cœur ne dépend pas de `@nodefony/user`…"
+    },
+    "readUserContract": {
+      "name": "readUserContract",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/userContractSource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le contrat de colonnes de l'utilisateur DANS l'application cible. La liste ne peut pas vivre dans le générateur : elle appartient à `@nodefony/user`, et une seconde copie ici divergerait — exac…"
+    },
+    "userContractFields": {
+      "name": "userContractFields",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/userContractSource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Convertit les colonnes du contrat en champs du générateur. La clé primaire est écartée : le générateur la produit lui-même, et le contrat n'en dit que le type. Les horodatages passent par `defaultN…"
+    },
+    "assertUserFieldsAreFillable": {
+      "name": "assertUserFieldsAreFillable",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/userContractSource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Refuse un champ métier obligatoire qui n'aurait aucune valeur par défaut. Le framework CRÉE des utilisateurs sans connaître ces champs — au semis d'un administrateur, à la première connexion par un…"
     },
     "pick": {
       "name": "pick",
@@ -29388,11 +29421,21 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IEntityField": [
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/userContractSource.ts"
       ],
       "findReservedEntity": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "readUserContract": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "userContractFields": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "assertUserFieldsAreFillable": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "pick": [
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -29437,6 +29480,9 @@
       ],
       "IScaffoldContext": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "TEntityFieldType": [
+        "src/nodefony/src/cli/scaffold/userContractSource.ts"
       ],
       "inject": [
         "src/nodefony/src/client/angular/index.ts",

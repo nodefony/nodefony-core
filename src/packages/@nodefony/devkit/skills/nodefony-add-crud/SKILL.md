@@ -157,9 +157,16 @@ geste :
 - **hors projet** (aucun `nodefony.config.ts` au-dessus) ;
 - **`@nodefony/drizzle` absent** de la cible ;
 - **entité déjà déclarée** ;
-- **nom réservé par un module du framework** (`User`, `session`, `access_token`,
-  `audit_event`…) — un homonyme dépossède le module, et l'application ne démarre plus sur un
-  message parlant d'une colonne inconnue ;
+- **nom réservé par un module du framework** (`session`, `access_token`, `audit_event`…) — un
+  homonyme dépossède le module, et l'application ne démarre plus sur un message parlant d'une
+  colonne inconnue. **`User` fait exception** : l'identité appartient à l'application, et
+  `create entity User firstName:string(100)?` écrit l'entité avec les colonnes du contrat plus
+  les tiennes. Trois refus s'y appliquent alors — renommer la table ou changer la casse des
+  colonnes (des requêtes les écrivent en dur), la poser ailleurs que dans l'application racine
+  (l'ordre de chargement n'y est pas garanti), et déclarer un champ obligatoire **sans valeur par
+  défaut** (le framework crée des utilisateurs sans le connaître : le semis d'administrateur
+  échouerait, et sans code d'erreur). Ni service ni contrôleur générique ne sont produits — une
+  ressource REST publique sur l'annuaire serait une faille, et `UserService` existe déjà ;
 - **colonne inconnue, répétée, ou implicite absente** (`createdAt` sans horodatages).
 
 ## La suppression naît gardée — vérifie-le

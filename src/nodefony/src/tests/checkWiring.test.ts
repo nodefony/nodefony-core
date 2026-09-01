@@ -105,8 +105,11 @@ entityRegistry.register(PostEntity);`,
 
   it("un nom du framework dépossède son module — et le dit", () => {
     const dir = make({
-      "nodefony/entity/User.ts": ENTITY.replace('name: "Post"', 'name: "User"'),
-      "index.ts": `import { PostEntity } from "./nodefony/entity/User";
+      "nodefony/entity/Session.ts": ENTITY.replace(
+        'name: "Post"',
+        'name: "session"',
+      ),
+      "index.ts": `import { PostEntity } from "./nodefony/entity/Session";
 @entities([PostEntity])
 class App extends Module {}`,
     });
@@ -114,6 +117,20 @@ class App extends Module {}`,
     assert.strictEqual(r.findings.length, 1);
     assert.strictEqual(r.findings[0].kind, "reserved-entity");
     assert.match(r.findings[0].message, /ne démarrera plus/u);
+  });
+
+  it("l'entité `User` de l'application n'est PAS une dépossession", () => {
+    // L'identité est du domaine : le framework ne livre plus cette table, et
+    // une application qui la déclare fait exactement ce qu'on attend d'elle.
+    // Tant que ce contrôle criait, il apprenait à ignorer ses propres alertes.
+    const dir = make({
+      "nodefony/entity/User.ts": ENTITY.replace('name: "Post"', 'name: "User"'),
+      "index.ts": `import { PostEntity } from "./nodefony/entity/User";
+@entities([PostEntity])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
   });
 
   it("un controller non déclaré répondrait 404 — il est signalé", () => {

@@ -10,7 +10,9 @@ import HelloController from "./nodefony/controllers/HelloController";
 <% if (it.complete) { %>import LiveController from "./nodefony/controllers/LiveController";
 <% } %><% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
 <% } else { %>import HomeController from "./nodefony/controllers/HomeController";
-<% } %><% if (it.complete) { %>import { provisionUsers } from "./nodefony/security/provisionUsers";
+<% } %><% if (it.complete) { %>import { entities } from "@nodefony/orm-core";
+import { AppUserEntity } from "./nodefony/entity/User";
+import { provisionUsers } from "./nodefony/security/provisionUsers";
 <% } %>
 /**
  * Catalogue d'env typé, lu par le Kernel au boot pour alimenter `ctx.env`
@@ -30,7 +32,8 @@ export { env } from "./env";
  * service que tu ajoutes — le tien, ou celui que `nodefony create service`
  * génère — se déclare dans cette liste.
 <% } %> */
-<% if (it.complete) { %>@services([AppInfoService, AppBannerService])
+<% if (it.complete) { %>@entities([AppUserEntity])
+@services([AppInfoService, AppBannerService])
 <% } %>@controllers([HelloController<% if (it.complete) { %>, LiveController<% } %><% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
 class App extends Module {
   constructor(kernel: Kernel) {

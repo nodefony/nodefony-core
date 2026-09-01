@@ -7,6 +7,7 @@ import {
   rmSync,
   existsSync,
   readdirSync,
+  symlinkSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -3742,6 +3743,163 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       return dest;
     };
 
+    /**
+     * Rend `@nodefony/user` résolvable depuis une app de fixture.
+     *
+     * Le générateur lit le contrat de colonnes DANS l'application — c'est ce qui
+     * garantit qu'il écrit la version que cette application a installée, et non
+     * celle du dépôt qui a produit la commande. Une fixture n'ayant jamais vu
+     * `npm install`, on lui prête le module du dépôt.
+     */
+    const lierModuleUtilisateur = (dest: string): void => {
+      const cible = path.join(dest, "node_modules", "@nodefony");
+      mkdirSync(cible, { recursive: true });
+      const lien = path.join(cible, "user");
+      if (existsSync(lien)) return;
+      // `junction` et non `dir` : un lien symbolique de dossier exige sous
+      // Windows un privilège que rien ne garantit sur un exécuteur d'intégration.
+      symlinkSync(
+        path.join(__dirname, "..", "..", "..", "packages", "@nodefony", "user"),
+        lien,
+        "junction",
+      );
+    };
+
+    describe("l'entité de l'UTILISATEUR — elle appartient à l'application", () => {
+      it("écrit les colonnes du contrat, plus les champs demandés", () => {
+        const dest = app("euser");
+        lierModuleUtilisateur(dest);
+        entity(dest, {
+          name: "User",
+          fields: "firstName:string(100)? department:string?",
+        });
+
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", "User.ts"),
+          "utf8",
+        );
+        // Les colonnes que le framework LIT — leur absence casse une requête
+        // qu'aucun typage ne protège.
+        for (const colonne of [
+          "identifier",
+          "password",
+          "roles",
+          "enabled",
+          "locked",
+          "currentRole",
+          "socialProviders",
+          "metadata",
+          "createdAt",
+          "updatedAt",
+        ]) {
+          assert.include(src, `${colonne}:`, `colonne ${colonne} absente`);
+        }
+        // Et les champs du métier, à côté.
+        assert.include(src, "firstName:");
+        assert.include(src, "department:");
+        // La table porte le nom que les requêtes écrivent en dur.
+        assert.include(src, '"User"');
+        // `updatedAt` se régénère à chaque écriture — sinon la date de
+        // modification ment, et personne ne le voit.
+        assert.include(src, "$onUpdateFn");
+      });
+
+      it("ne génère NI service NI controller génériques", () => {
+        const dest = app("euser2");
+        lierModuleUtilisateur(dest);
+        entity(dest, { name: "User", fields: "firstName:string(100)?" });
+        // Une ressource REST publique sur l'annuaire serait une faille, et le
+        // service d'identité existe déjà.
+        assert.isFalse(
+          existsSync(path.join(dest, "nodefony", "service", "UserService.ts")),
+        );
+        assert.isFalse(
+          existsSync(
+            path.join(dest, "nodefony", "controllers", "UserController.ts"),
+          ),
+        );
+      });
+
+      it("REFUSE un champ métier obligatoire sans valeur par défaut", () => {
+        const dest = app("euser3");
+        lierModuleUtilisateur(dest);
+        assert.throws(
+          () => entity(dest, { name: "User", fields: "salary:int" }),
+          /obligatoires et sans/u,
+        );
+        // Le refus doit dire les DEUX sorties, sinon il bloque sans aider.
+        try {
+          entity(dest, { name: "User", fields: "salary:int" });
+        } catch (e) {
+          const message = (e as Error).message;
+          assert.include(message, "salary:int?");
+          assert.include(message, "salary:int=");
+        }
+      });
+
+      it("ACCEPTE le même champ rendu facultatif, ou pourvu d'un défaut", () => {
+        const d1 = app("euser4");
+        lierModuleUtilisateur(d1);
+        entity(d1, { name: "User", fields: "salary:int?" });
+        const d2 = app("euser5");
+        lierModuleUtilisateur(d2);
+        entity(d2, { name: "User", fields: "salary:int=0" });
+        // Un défaut doit atteindre la BASE : posé côté JavaScript seulement, il
+        // n'apparaîtrait pas dans l'`ALTER` d'un ajout de colonne, et le serveur
+        // refuserait la migration sur une table déjà peuplée.
+        const src = readFileSync(
+          path.join(d2, "nodefony", "entity", "User.ts"),
+          "utf8",
+        );
+        assert.include(src, ".default(0)");
+      });
+
+      it("REFUSE de renommer la table ou de changer la casse des colonnes", () => {
+        const dest = app("euser6");
+        lierModuleUtilisateur(dest);
+        for (const [option, valeur] of [
+          ["table", "utilisateurs"],
+          ["columnCase", "snake"],
+          ["id", "serial"],
+          ["idName", "uid"],
+        ] as const) {
+          assert.throws(
+            () =>
+              entity(dest, {
+                name: "User",
+                fields: "firstName:string?",
+                [option]: valeur,
+              }),
+            /est refusé/u,
+            `--${option} aurait dû être refusé`,
+          );
+        }
+      });
+
+      it("REFUSE de vivre ailleurs que dans l'application racine", () => {
+        const dest = app("euser7");
+        lierModuleUtilisateur(dest);
+        runScaffold(
+          {
+            type: "module",
+            answers: { name: "blog" },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+        assert.throws(
+          () =>
+            entity(dest, {
+              name: "User",
+              fields: "firstName:string?",
+              module: "blog",
+            }),
+          /application RACINE/u,
+        );
+      });
+    });
+
     it("pose la chaîne complète : entité, schémas, service, controller, tests", () => {
       const dest = app("eapp");
       const r = entity(dest, {
@@ -3934,8 +4092,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // — l'entité `User` du module `user` est dépossédée et l'erreur parle d'une
       // colonne inconnue, jamais du doublon. La casse ne sauve pas : `access_token`
       // et `AccessToken` désignent la même table.
+      // `User` ne figure PLUS dans cette liste, et c'est le sens du chantier :
+      // l'identité appartient à l'application. Les tables d'INFRASTRUCTURE, elles,
+      // restent au framework — personne n'a de raison de les étendre.
       const dest = app("eapp-reserved");
-      for (const name of ["User", "user", "AccessToken", "session"]) {
+      for (const name of ["AccessToken", "session", "AuditEvent"]) {
         assert.throws(
           () => entity(dest, { name, fields: "title:string" }),
           /appartient au module/u,
@@ -3944,7 +4105,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Refus AVANT écriture : rien ne traîne dans l'app.
       assert.isFalse(
-        existsSync(path.join(dest, "nodefony", "entity", "User.ts")),
+        existsSync(path.join(dest, "nodefony", "entity", "AccessToken.ts")),
       );
       // Contre-épreuve : un nom voisin mais libre passe (la garde ne sur-bloque pas).
       const ok = entity(dest, { name: "UserProfile", fields: "bio:text" });
@@ -4508,7 +4669,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         'import { PostEntity } from "./nodefony/entity/Post";',
       );
       assert.include(index, 'import { entities } from "@nodefony/orm-core";');
-      assert.match(index, /@entities\(\[PostEntity\]\)/u);
+      // L'application `complete` naît AVEC son entité `User` : le décorateur existe
+      // donc déjà, et la liste s'allonge au lieu d'être créée.
+      assert.match(index, /@entities\(\[AppUserEntity, PostEntity\]\)/u);
       assert.match(index, /@controllers\(\[[^\]]*PostController\]\)/u);
     });
 
@@ -4518,7 +4681,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       entity(dest, { name: "Comment", fields: "body:text" });
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
 
-      assert.match(index, /@entities\(\[PostEntity, CommentEntity\]\)/u);
+      assert.match(
+        index,
+        /@entities\(\[AppUserEntity, PostEntity, CommentEntity\]\)/u,
+      );
       assert.strictEqual(index.match(/@entities\(/gu)?.length, 1);
       // L'import du décorateur ne doit pas être ajouté deux fois.
       assert.strictEqual(
@@ -4545,7 +4711,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       assert.match(
         index,
-        /@entities\(\[PostEntity, CommentEntity, TagEntity\]\)/u,
+        /@entities\(\[AppUserEntity, PostEntity, CommentEntity, TagEntity\]\)/u,
       );
       assert.notMatch(index, /import \w+Entity from /u);
     });
@@ -4575,7 +4741,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
-      assert.match(index, /@entities\(\[PostEntity\]\)/u);
+      // L'application `complete` naît AVEC son entité `User` : le décorateur existe
+      // donc déjà, et la liste s'allonge au lieu d'être créée.
+      assert.match(index, /@entities\(\[AppUserEntity, PostEntity\]\)/u);
       assert.notInclude(index, "PostController");
     });
 

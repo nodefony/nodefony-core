@@ -48,9 +48,19 @@ function appDialect(): SqlDialect {
  * a corrigé. La fabrique publique du module rend la variante du dialecte
  * demandé, et aucune colonne n'est recopiée.
  */
+/**
+ * La table, EXPORTÉE — et pas seulement passée au descripteur.
+ *
+ * L'outil qui écrit les migrations est un process séparé : il ne voit pas les
+ * objets d'une application démarrée, il lit les fichiers de `nodefony/entity/`
+ * et y cherche les tables exportées. Une table seulement passée en argument y
+ * serait invisible, et la migration s'écrirait SANS elle — sans un mot.
+ */
+export const userTable = createUserTable(appDialect());
+
 export const AppUserEntity = defineEntity({
   name: "User",
   module: "app",
   connector: FRAMEWORK_CONNECTOR,
-  schema: createUserTable(appDialect()),
+  schema: userTable,
 });

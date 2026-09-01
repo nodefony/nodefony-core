@@ -22,21 +22,35 @@ export interface IReservedEntity {
   readonly module: string;
   /** Ce que l'utilisateur devrait faire à la place. */
   readonly advice: string;
+  /**
+   * `true` quand l'entité appartient à l'APPLICATION et non au framework.
+   *
+   * Le nom reste connu d'ici — un module le lit, et le registre reste plat —
+   * mais il n'est plus INTERDIT : le générateur écrit l'entité au lieu de la
+   * refuser, et le contrôle de câblage ne la dénonce plus. Sans cette
+   * distinction, les deux lieux qui consultent cette table auraient chacun leur
+   * exception, et elles auraient divergé.
+   */
+  readonly appOwned?: true;
 }
 
 export const RESERVED_ENTITY_NAMES: readonly IReservedEntity[] = [
   {
     name: "User",
     module: "user",
+    // L'identité est du DOMAINE : la table appartient à l'application, qui y
+    // ajoute ses champs et en porte les migrations. Le framework ne la livre
+    // plus dans ses migrations — la déclarer est donc le chemin NORMAL, et non
+    // plus une reprise « experte » qui marchait en développement et n'atteignait
+    // jamais la production.
+    appOwned: true,
     advice:
-      "pour AJOUTER des champs à l'utilisateur, trois voies : (1) sans schéma → " +
-      "la colonne JSON `metadata` de l'entité User, prévue pour ça (aucune migration) ; " +
-      "(2) champs à filtrer/indexer → une entité LIÉE : " +
-      "`nodefony create entity Profile bio:text ref:User` ; " +
-      "(3) remplacer l'entité du framework (cas expert) → enregistre la tienne AVANT " +
-      "le module ORM (il respecte une entité déjà présente), en portant TOUTES les " +
-      "colonnes que le repository lit (identifier, password, roles, enabled, locked, " +
-      "currentRole, socialProviders, metadata, createdAt, updatedAt)",
+      "l'entité `User` appartient à ton application : `nodefony create entity User " +
+      "firstName:string(100)` l'écrit avec les colonnes du contrat, plus les tiennes. " +
+      "Sans schéma, la colonne JSON `metadata` reste disponible (aucune migration) ; " +
+      "pour une donnée volumineuse ou rarement lue, préfère une entité LIÉE " +
+      "(`nodefony create entity Profile bio:text ref:User`) — l'utilisateur est relu " +
+      "à chaque requête portant une session",
   },
   {
     name: "session",

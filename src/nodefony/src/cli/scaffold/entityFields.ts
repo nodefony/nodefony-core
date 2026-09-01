@@ -70,6 +70,17 @@ export interface IEntityField {
   unique: boolean;
   /** `true` si `:index`. */
   indexed: boolean;
+  /**
+   * Horodatage posé à l'insertion (`new Date()`), sans `DEFAULT` SQL.
+   *
+   * La grammaire de champs ne peut pas l'exprimer — « maintenant » n'est pas une
+   * valeur littérale —, et pourtant le contrat utilisateur en porte deux. Sans
+   * cette propriété, ces colonnes seraient écrites à la main quelque part, donc
+   * en double.
+   */
+  defaultNow?: boolean;
+  /** Horodatage RÉÉCRIT à chaque mise à jour (`$onUpdateFn`). */
+  refreshedOnWrite?: boolean;
 }
 
 /**
@@ -641,6 +652,18 @@ function defaultLiteral(field: IEntityField): string {
     return String(Number(field.defaultValue));
   }
   if (field.type === "bool") return String(field.defaultValue === "true");
+  if (field.type === "json") {
+    // `tags:json=[]` veut un tableau vide, pas la chaîne « [] ». Sans ce cas, le
+    // défaut passait par `JSON.stringify` et la colonne naissait avec une chaîne
+    // là où le type annonce un objet — une divergence que rien ne signale, et qui
+    // ne se voit qu'à la première lecture du champ.
+    try {
+      return JSON.stringify(JSON.parse(String(field.defaultValue)));
+    } catch {
+      // Pas du JSON : la rendre comme une chaîne reste juste.
+      return JSON.stringify(field.defaultValue);
+    }
+  }
   return JSON.stringify(field.defaultValue);
 }
 
@@ -907,11 +930,27 @@ export function buildEntityCodegen(
       });
     if (!field.nullable) col += ".notNull()";
     if (field.unique) col += ".unique()";
+    if (field.defaultNow) {
+      // Pas de `DEFAULT` SQL ici, et c'est délibéré : ces colonnes naissent AVEC
+      // la table, jamais par un `ADD COLUMN` sur une table peuplée — le seul cas
+      // où un défaut SQL est indispensable. C'est aussi ce que faisait l'entité
+      // que le framework livrait, donc la parité du DDL reste vraie.
+      col += ".$defaultFn(() => new Date())";
+      if (field.refreshedOnWrite) col += ".$onUpdateFn(() => new Date())";
+    }
     if (field.defaultValue !== undefined) {
-      // `$defaultFn` (côté JS) et non `.default()` (côté SQL) : le DDL dérivé du
-      // mode dev n'émet pas les `DEFAULT`, une valeur posée en base ne
-      // s'appliquerait donc jamais. Même raison que pour les horodatages.
-      col += `.$defaultFn(() => ${defaultLiteral(field)})`;
+      // Les DEUX, et chacun couvre ce que l'autre ne peut pas.
+      //
+      // `.default()` émet un `DEFAULT` **SQL**, que seule une migration porte —
+      // et c'est le seul qui compte le jour où la colonne est AJOUTÉE à une
+      // table déjà peuplée : un `ADD COLUMN … NOT NULL` sans défaut est refusé
+      // par le serveur (« contains null values »), et une valeur posée côté
+      // JavaScript n'apparaît nulle part dans cet `ALTER`.
+      //
+      // `$defaultFn` (côté JS) reste nécessaire en développement : le DDL
+      // dérivé du code n'émet PAS les `DEFAULT`, donc sans lui une insertion
+      // qui omet la colonne échouerait sur la contrainte NOT NULL.
+      col += `.default(${defaultLiteral(field)}).$defaultFn(() => ${defaultLiteral(field)})`;
     }
     columns.push(`${field.name}: ${col},`);
 
