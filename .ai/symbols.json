@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-01T09:21:38.196Z",
+  "generated": "2026-09-01T14:54:07.631Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 794,
-    "symbols": 3633,
+    "files": 795,
+    "symbols": 3638,
     "classes": 383,
     "interfaces": 1004,
-    "types": 426,
+    "types": 428,
     "enums": 4,
-    "functions": 1449,
-    "constants": 367
+    "functions": 1451,
+    "constants": 368
   },
   "symbols": {
     "Cli": {
@@ -12282,15 +12282,6 @@
       "module": "@nodefony/drizzle",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
-    "UserRow": {
-      "name": "UserRow",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "extends": null,
-      "description": "Forme plate d'une ligne `User` renvoyée par le repository de base (colonnes JSON déjà désérialisées + booléens + dates par le `mode` Drizzle). Mappée en `BaseUser`."
-    },
     "createUserEntity": {
       "name": "createUserEntity",
       "kind": "function",
@@ -12313,7 +12304,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Factory de la table `User` pour un dialecte donné (mémoïsée — une instance par dialecte). `sqlite` (défaut) et `postgres` sont portés ; `mysql` jette (S4)."
+      "description": "Factory de la table `User` pour un dialecte donné (mémoïsée — une instance par dialecte). Les trois dialectes sont portés (`sqlite` par défaut)."
     },
     "userTable": {
       "name": "userTable",
@@ -16153,15 +16144,6 @@
       "module": "@nodefony/mongoose",
       "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
     },
-    "@nodefony/mongoose:UserRow": {
-      "name": "UserRow",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
-      "exported": true,
-      "module": "@nodefony/mongoose",
-      "extends": null,
-      "description": "Forme plate d'une ligne `User` (virtuel `id` + horodatages inclus) renvoyée par le repository. Mappée en `BaseUser` par `MongooseUserRepository`."
-    },
     "@nodefony/mongoose:createUserEntity": {
       "name": "createUserEntity",
       "kind": "function",
@@ -16184,7 +16166,7 @@
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "description": "Schéma Mongoose de l'utilisateur Nodefony — implémentation NoSQL du contrat `@nodefony/user` (P5.8), pendant documentaire de `userTable` (Drizzle, P5.9). Champs calqués sur `BaseUser` : identité (`…"
+      "description": "Schéma Mongoose de l'utilisateur Nodefony — implémentation NoSQL du contrat `@nodefony/user`, **dérivée** de `USER_COLUMNS` (pendant documentaire de `userTable`). Rien n'est recopié : noms, types l…"
     },
     "@nodefony/mongoose:WebAuthnCredentialRow": {
       "name": "WebAuthnCredentialRow",
@@ -19248,6 +19230,48 @@
       ],
       "decorators": [],
       "description": "Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat {@link IUserRepository} sur une `Map` (aucun ORM). Trois usages : - **tests de charge** : zéro I/O (pas de sync SQLit…"
+    },
+    "IUserColumn": {
+      "name": "IUserColumn",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Une colonne du contrat utilisateur : son nom, ce qu'elle contient, et **qui la lit**. `readers` n'est pas de la documentation d'agrément : c'est ce qui permet à un refus de démarrage de nommer le l…"
+    },
+    "IUserRow": {
+      "name": "IUserRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Forme plate d'un utilisateur tel qu'un dépôt le rend, avant reconstruction en `BaseUser` — pendant TypeScript de {@link USER_COLUMNS}. Déclarée ici, et non dans chaque adaptateur, pour la raison qu…"
+    },
+    "UserColumnType": {
+      "name": "UserColumnType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Type **logique** d'une colonne de l'utilisateur — ce que la donnée EST, jamais comment un moteur la range. Chaque adaptateur traduit ce vocabulaire dans le sien (`text`/`json`/`bool` du colKit SQL,…"
+    },
+    "UserColumnOrigin": {
+      "name": "UserColumnOrigin",
+      "kind": "type",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "D'où vient la valeur d'une colonne — ce qui décide si un adaptateur doit la DÉCLARER ou peut la laisser au moteur. - `identity` : la clé primaire. Déclarée en SQL (`text` + UUID applicatif), fourni…"
+    },
+    "USER_COLUMNS": {
+      "name": "USER_COLUMNS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Le contrat de colonnes de l'utilisateur** — la seule description de ce que le framework LIT sur un utilisateur persisté. Il existe parce que cette liste était écrite en cinq endroits : la table S…"
     },
     "IUserCounts": {
       "name": "IUserCounts",
@@ -31080,13 +31104,23 @@
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
       ],
-      "ISocialProvider": [
+      "USER_COLUMNS": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts"
+      ],
+      "IUserColumn": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts"
+      ],
+      "UserColumnType": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts"
+      ],
+      "FrameworkColKind": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts"
+      ],
+      "IFrameworkColSpec": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts"
       ],
       "createAccessTokenTable": [
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
@@ -31477,10 +31511,6 @@
       ],
       "listUserIdsPage": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
-      ],
-      "UserRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
       ],
       "IWebAuthnCredential": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
@@ -33222,6 +33252,13 @@
       ],
       "IUserCounts": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "ISocialProvider": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/userContract.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IPasswordBlocklist": [

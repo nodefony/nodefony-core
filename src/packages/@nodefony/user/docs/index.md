@@ -790,8 +790,12 @@ Le module ne persiste **rien** par lui-même : il définit la forme, les adapter
 | `createdAt`       | date             | `dateMs` non nul      | `timestamps: true`       | création                            |
 | `updatedAt`       | date             | `dateMs` + `onUpdate` | `timestamps: true`       | dernière modification               |
 
-Sources : `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts:32`) et `userSchema`
-(`mongoose/nodefony/entity/userEntity.ts:19`).
+**Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts:89`). Les deux adapters en
+**dérivent** leur définition — `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts:82`) et
+`userSchema` (`mongoose/nodefony/entity/userEntity.ts:65`) ne recopient rien, ils traduisent. Chaque
+colonne y déclare aussi **qui la lit**, ce qui permet à un refus de nommer le lecteur en même temps
+que la colonne absente. Le tableau ci-dessus est donc une lecture du contrat, jamais une quatrième
+copie : un test par adapter refuse toute colonne du contrat sans correspondance.
 
 > [!TIP]
 > **Pourquoi `socialProviders` est du JSON et non des colonnes `googleId`, `githubId`…** Parce

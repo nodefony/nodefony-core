@@ -59,6 +59,16 @@ export {
   USER_SORTABLE_FIELDS_COMMON,
   USER_DEFAULT_ORDER,
 } from "./nodefony/src/userSort";
+// **Le contrat de colonnes** de l'utilisateur persisté — source unique dont les
+// adaptateurs (SQL, document) DÉRIVENT leur définition, et sur laquelle le
+// contrôle de démarrage nomme la colonne absente ET son lecteur.
+export { USER_COLUMNS } from "./nodefony/src/userContract";
+export type {
+  IUserColumn,
+  IUserRow,
+  UserColumnType,
+  UserColumnOrigin,
+} from "./nodefony/src/userContract";
 // Registre des backends de persistance user DISPONIBLES (Studio « Stores ») —
 // `"memory"` builtin ici, drizzle/mongoose déclarés par leur adapter au boot.
 export {

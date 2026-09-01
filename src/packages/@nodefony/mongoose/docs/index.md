@@ -728,7 +728,7 @@ natif.
 **Les horodatages sont des nombres, pas des dates.** Les contrats du framework portent des `number`
 (millisecondes depuis l'époque) : les stocker tels quels garde la logique de purge **strictement
 identique** à celle de l'adapter SQL. Seule l'entité `User` utilise la gestion automatique de Mongoose
-(`createUserEntity()` (`userEntity.ts:61`)), parce que son contrat porte des dates.
+(`createUserEntity()` (`userEntity.ts:90`)), parce que son contrat porte des dates.
 
 Le contrat expose partout `id: string`, jamais un `ObjectId` : le champ virtuel `id` est activé à la
 sérialisation, sur toutes les entités compilées par l'adapter.
