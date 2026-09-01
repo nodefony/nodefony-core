@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-01 00:56** (UTC).
+> Empreinte prise le **2026-09-01 07:22** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 15 | 1 | — |
-| 10.0.0 | 38 | 59 | 2026-11-15 |
+| 10.0.0 | 32 | 65 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 38 ouverts
+## Jalon 10.0.0 — 32 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -39,9 +39,6 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 4.6 | P1 — figé à la création | 1 | #61 | feat(realtime): garder les canaux dynamiques par un motif de nom |
 | 6 | P1 — figé à la création | 0.5 | #22 | ci(security): détecter les secrets commités dans le dépôt |
 | 6 | P1 — figé à la création | — | #53 | docs: remettre la documentation à niveau avant la version 10 |
-| 6.5 | P1 — figé à la création | 0.5 | #45 | docs(guides): retirer « mocha + bun » et les pages fantômes |
-| 6.6 | P1 — figé à la création | 1 | #46 | docs(core): documenter l'outillage de test livré aux applications |
-| 6.7 | P1 — figé à la création | 0.5 | #48 | docs(site): mettre les tutoriels avant l'architecture |
 | 7 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 7.1 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
 | 8 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
@@ -63,12 +60,9 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 13 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 | 14 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
 | 15 | P3 — fin de cycle | 0.5 | #24 | docs(security): expliquer comment obtenir un jeton |
-| 17 | P3 — fin de cycle | 1 | #44 | feat(docs): raccourcir les libellés de menu des titres longs |
-| 18 | P3 — fin de cycle | 1 | #49 | docs: rendre conformes les 11 pages qui échouent au contrôle |
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 37 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
-| 39 | P3 — fin de cycle | 1 | #52 | docs(guides): dégraisser l'essai sur l'outillage agent |
 
 ## Jalon 10.1 — 15 ouverts
 
