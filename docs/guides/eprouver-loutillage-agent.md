@@ -4,6 +4,7 @@ lang: fr
 audience: humain
 date: 2026-07-27
 related: docs/guides/generer-du-code.md, .claude/skills/nodefony-devkit-bench/, src/nodefony/src/cli/scaffold/engine.ts
+status: stable
 ---
 
 # Éprouver un framework avec un agent

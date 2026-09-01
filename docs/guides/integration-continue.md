@@ -4,6 +4,7 @@ lang: fr
 audience: humain
 date: 2026-07-27
 related: vitest.gates.ts, docs/guides/persistence.md, .github/workflows/
+status: stable
 ---
 
 # Intégration continue

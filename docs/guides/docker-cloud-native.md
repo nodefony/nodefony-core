@@ -4,6 +4,7 @@ lang: fr
 audience: humain
 date: 2026-06-01
 related: project_pm2_deprecation, project_cloud_native_plan
+status: stable
 ---
 
 # Booter Nodefony en Docker / Kubernetes
