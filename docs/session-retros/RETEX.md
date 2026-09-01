@@ -440,6 +440,7 @@
   strict, zéro `any` » (3 casts + 128 `...args: any[]` en réalité) et un `MEMORY.md` de module qui
   contredisait le tableau de migration sur le RBAC. **Une promesse invérifiable se remplace par une
   promesse vérifiable** — « zéro `@ts-ignore` » se contrôle d'un `rg`, « zéro any » non. [1× — 08-26]
+- [1× — 09-01] **Deux textes normatifs décrivaient l'architecture ÉCARTÉE**, et l'un renvoyait à l'autre : le ticket #18 disait « le périmètre fait foi : `docs/release/nodefony-10.md` §8 », et cette section portait la même conception périmée (générateur `--extends framework`, clés étrangères incluses). Un exécutant qui ouvre le ticket serait parti sur la mauvaise conception. **Corriger l'un sans l'autre recrée la contradiction le jour même** — quand un texte en désigne un autre comme faisant foi, ils se corrigent d'un seul geste.
 
 ## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
 
@@ -912,6 +913,7 @@
   toute la suite est passée en `↓`, donc en vert muet. Attrapé par le gate du dépôt (« 2 tests sur 7
   n'ont pas tourné »), jamais par la lecture. Corollaire : borner un hook à ce qui le CONCERNE (ici,
   ne poser la question qu'au dialecte visé) plutôt que de le faire tourner « pour tout le monde ».
+- [1× — 09-01] **Trois silences trouvés en EXÉCUTANT un prototype d'une demi-journée**, qu'aucune des deux conceptions écrites (la mienne et une relecture indépendante) n'avait vus : un champ obligatoire sans défaut fait échouer le semis avec un code de sortie 0 et 809 lignes sans un mot (application démarrée, aucun administrateur) ; une colonne du contrat retirée laisse démarrer ET laisse la commande de liste réussir ; un champ métier est écrit en base et ne ressort pas du dépôt. **Ce que la lecture ne voit pas, l'exécution le dit en vingt minutes.**
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -966,6 +968,7 @@
 - **`$?` lu après un pipe est celui du DERNIER maillon** — relu deux fois dans la même soirée (un
   banc jugé « exit 0 » alors qu'il sortait 1, un commit cru accepté alors que le hook l'avait
   refusé). Capturer dans un fichier, PUIS lire le code sans pipe. [2× — 08-26]
+- [1× — 09-01] **Un chemin SECONDAIRE produit un artefact différent du chemin normal, et j'ai failli en tirer un défaut.** `orm:migrate:baseline --from-database` relit la base et renomme l'index (`User_identifier_key` au lieu de `User_identifier_unique`) ; j'ai conclu à une divergence du gabarit. Le chemin normal (`orm:generate` sur base vierge) produisait le nom exact, sur les trois moteurs. **Avant d'imputer un écart au produit, vérifier qu'on l'a mesuré par le chemin que l'utilisateur emprunte.**
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
 
@@ -2103,3 +2106,8 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   JavaScript. Le pliage est tombé : l'écouteur était bien attaché (vérifié au protocole de débogage
   du navigateur), sans aucun effet, et le user a trouvé le menu bloqué avant moi. Revert. **Ce qui
   marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
+
+## 🕶️ Faire relire EN AVEUGLE — puis seulement donner sa propre liste
+
+- [1× — 09-01] **Une conception relue en aveugle a corrigé deux décisions structurantes que j'avais arrêtées.** Le relecteur a reçu le TERRAIN (ancres, faits, contraintes) sans mes conclusions ni mon vocabulaire — et il a écarté l'architecture que je retenais, en relevant au passage que je m'étais réclamé d'un précédent (Devise) dont j'avais **inversé le sens**. Donner ses conclusions à un relecteur l'ancre dessus : il cherche à les confirmer au lieu de regarder ailleurs.
+- [1× — 09-01] **Le second temps compte autant : soumettre sa propre liste APRÈS**, pour la faire juger par quelqu'un qui n'en est pas l'auteur. Sur sept points relevés de mon côté, six ont tenu, **un était mal formulé** (« il manque une entrée de changelog » — le changelog est engendré depuis les commits à la publication ; ce qui manquait vraiment était une note de montée de version). Et trois de mes points recoupaient les siens au point de devoir être traités comme un seul lot.
