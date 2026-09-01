@@ -11,7 +11,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - **`ref:` ⇒ colonne INDEXÉE d'office** (sauf `!`, déjà indexé) : c'est la colonne de jointure
   (`?include=` = `IN (…)`). L'index ≠ la FK — un `JOIN` n'exige aucune contrainte. **FK jamais émises**
   par le DDL dev (elles vivent dans le `CREATE TABLE`, donc hors d'atteinte d'une base existante).
-- **Noms d'entités du framework REFUSÉS** par `create entity` (`User`, `session`, `access_token`,
+- **Noms d'entités du framework REFUSÉS** par `create entity` (`session`, `access_token`,
   `audit_event`… — casse/séparateurs ignorés ; table `scaffold/reservedEntities.ts`, tenue honnête par
   un gate `NF_RUN_CLI_BOOT=1` contre `nodefony inspect entities`). Registre plat : un homonyme dépossède
   l'entité du module, l'app ne démarre plus sur un message de « colonne inconnue ».

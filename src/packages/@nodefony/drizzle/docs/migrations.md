@@ -608,6 +608,15 @@ Trois choses valent d'être dites, parce qu'elles décident de ce que vous pouve
 - **MySQL ne sait pas annuler un `CREATE TABLE`.** Son DDL valide implicitement : après un échec à
   mi-course, la reprise aveugle est interdite, et c'est `orm:migrate:repair` — après inspection
   humaine — qui tranche.
+- **Une colonne obligatoire SANS valeur par défaut ne se comporte pas pareil selon le moteur.** Sur
+  une table qui porte déjà des lignes, sqlite refuse (« Cannot add a NOT NULL column with default
+  value NULL ») et PostgreSQL refuse (« contains null values ») — ils ne peuvent pas inventer la
+  valeur des lignes existantes. **MySQL/MariaDB accepte** et les remplit de chaînes vides, mode
+  strict compris : le champ est déclaré obligatoire et ne contient que du vide, sans un
+  avertissement. Donnez toujours un défaut, ou déclarez le champ facultatif ; si les deux sont
+  nécessaires, c'est trois migrations — ajouter avec défaut, remplir (`--custom`), retirer le
+  défaut. Mesuré sur les trois moteurs :
+  `src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts:1`.
 - **`orm:migrate:repair --update-hashes` réécrit les empreintes.** Il fait taire une dérive au lieu
   de la corriger : les autres bases ont reçu l'ancienne version du fichier et ne recevront jamais la
   nouvelle. C'est pour cela que le refus propose d'abord de RÉTABLIR le fichier, et ce

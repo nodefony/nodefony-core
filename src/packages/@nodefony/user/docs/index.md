@@ -133,20 +133,21 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 
-| Brique                                       | Ce qu'elle résout                                            | Tu la touches quand…                               |
-| -------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| `IUser`                                      | le contrat minimal d'un utilisateur (identité + rôles)       | tu typés un utilisateur, partout                   |
-| `IPasswordAuthenticatedUser`                 | le même, **plus** le hash — contrat séparé                   | tu écris un authenticator ou un dépôt              |
-| `BaseUser`                                   | l'implémentation POJO de référence                           | tu construis un utilisateur en mémoire ou en test  |
-| `AnonymousUser` / `anonymousUser`            | le visiteur non authentifié, sans `null`                     | tu gères une route publique                        |
-| `Argon2idEncoder` / `BcryptEncoder`          | ranger un mot de passe de façon coûteuse à casser            | tu choisis ta politique de hachage                 |
-| `MigratingEncoder` / `encoderFromConfig()`   | changer d'algorithme sans réinitialiser les mots de passe    | tu reprends une base existante                     |
-| `IUserRepository` / `InMemoryUserRepository` | lire/écrire des utilisateurs, quel que soit le stockage      | tu branches Drizzle, Mongo, ou rien du tout        |
-| `UserService`                                | le CRUD + `authenticate()` + les événements de cycle de vie  | c'est le service que ton app expose sous `"users"` |
-| `IUserProvider`                              | la source d'identité vue par la sécurité                     | tu branches un annuaire externe (LDAP, SSO)        |
-| `IOAuthUserProvisioner`                      | créer la ligne locale au premier login social (Shadow User)  | tu ouvres un « se connecter avec … »               |
-| `IUserProfile` + helpers                     | nom/prénom/avatar sous allowlist, hors du contrat d'identité | tu affiches un profil, tu acceptes un avatar       |
-| `UserAdminApi`                               | le data plane `/nodefony/user/api/*` (Studio)                | tu administres des comptes                         |
+| Brique                                       | Ce qu'elle résout                                                 | Tu la touches quand…                                                  |
+| -------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `IUser`                                      | le contrat minimal d'un utilisateur (identité + rôles)            | tu typés un utilisateur, partout                                      |
+| `IPasswordAuthenticatedUser`                 | le même, **plus** le hash — contrat séparé                        | tu écris un authenticator ou un dépôt                                 |
+| `BaseUser`                                   | l'implémentation POJO de référence                                | tu construis un utilisateur en mémoire ou en test                     |
+| `AnonymousUser` / `anonymousUser`            | le visiteur non authentifié, sans `null`                          | tu gères une route publique                                           |
+| `Argon2idEncoder` / `BcryptEncoder`          | ranger un mot de passe de façon coûteuse à casser                 | tu choisis ta politique de hachage                                    |
+| `MigratingEncoder` / `encoderFromConfig()`   | changer d'algorithme sans réinitialiser les mots de passe         | tu reprends une base existante                                        |
+| `IUserRepository` / `InMemoryUserRepository` | lire/écrire des utilisateurs, quel que soit le stockage           | tu branches Drizzle, Mongo, ou rien du tout                           |
+| `UserService`                                | le CRUD + `authenticate()` + les événements de cycle de vie       | c'est le service que ton app expose sous `"users"`                    |
+| `IUserProvider`                              | la source d'identité vue par la sécurité                          | tu branches un annuaire externe (LDAP, SSO)                           |
+| `IOAuthUserProvisioner`                      | créer la ligne locale au premier login social (Shadow User)       | tu ouvres un « se connecter avec … »                                  |
+| `IUserProfile` + helpers                     | nom/prénom/avatar sous allowlist, hors du contrat d'identité      | tu affiches un profil, tu acceptes un avatar                          |
+| `UserAdminApi`                               | le data plane `/nodefony/user/api/*` (Studio)                     | tu administres des comptes                                            |
+| **Tes propres champs**                       | où ranger une donnée métier : colonne, `metadata`, ou entité liée | tu veux enrichir l'utilisateur — [page dédiée](ajouter-des-champs.md) |
 
 ```nodefony-cards
 [
@@ -179,7 +180,10 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
     "meta": "implémente aussi IUserProvider, IPasswordVerifier et IOAuthUserProvisioner : la même instance est la source d'identité de la sécurité" },
   { "icon": "🛠️", "title": "UserAdminApi", "href": "#-observabilité--studio-et-data-plane",
     "desc": "L'administration des comptes : producteur du data plane /nodefony/user/api/* — liste paginée nativement, détail, création, modification, mot de passe, suppression, plus trois routes self-service.",
-    "meta": "DTO redacté par construction, mutations auditées, garde-fous anti-verrouillage" }
+    "meta": "DTO redacté par construction, mutations auditées, garde-fous anti-verrouillage" },
+  { "icon": "🧩", "title": "Tes propres champs", "href": "ajouter-des-champs.md",
+    "desc": "La table des utilisateurs t'appartient — mais elle est relue à CHAQUE requête portant une session authentifiée, donc toute colonne qu'on y pose est ramenée en mémoire à chaque requête. Trois voies, et le critère qui les départage : une colonne (court, filtrable), la colonne JSON metadata (occasionnel, aucune migration), ou une entité liée (sensible, volumineux, rarement lu).",
+    "meta": "une donnée réglementée n'a rien à faire sur cette table : entité liée, et chiffrée" }
 ]
 ```
 

@@ -751,5 +751,16 @@
       "src/nodefony/src/tests/testing.test.ts",
       "src/nodefony/src/tests/create.test.ts"
     ]
+  },
+  "user-champs-personnalises": {
+    "globs": [
+      "src/packages/@nodefony/drizzle/tests/unit/userContractParity.test.ts",
+      "src/packages/@nodefony/mongoose/tests/unit/userContractParity.test.ts",
+      "src/packages/@nodefony/mongoose/tests/unit/userContractGuard.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/user-contrat-colonnes.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/user-champs-metier.test.ts",
+      "src/packages/@nodefony/user/tests/unit/userContract.test.ts"
+    ]
   }
 }
