@@ -62,7 +62,12 @@ export {
 // **Le contrat de colonnes** de l'utilisateur persisté — source unique dont les
 // adaptateurs (SQL, document) DÉRIVENT leur définition, et sur laquelle le
 // contrôle de démarrage nomme la colonne absente ET son lecteur.
-export { USER_COLUMNS, attachExtraColumns } from "./nodefony/src/userContract";
+export {
+  USER_COLUMNS,
+  attachExtraColumns,
+  missingUserColumns,
+  assertUserContract,
+} from "./nodefony/src/userContract";
 export type {
   IUserColumn,
   IUserRow,

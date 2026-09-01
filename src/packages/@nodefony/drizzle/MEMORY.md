@@ -309,6 +309,14 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
 
 ## Gotchas
 
+- Entité `User` possédée par l'app : `registerDrizzleFrameworkStores` la confronte au contrat
+  (`assertUserContract`) quand `report.appOwned` la contient → REFUS de démarrage nommant la colonne
+  et son lecteur. Colonnes lues par `userTableColumns(table, dialect)` — `getTableConfig` diffère
+  par dialecte et rend un objet VIDE si on l'appelle avec la mauvaise grammaire ; schéma illisible
+  ⇒ on laisse passer (une inspection qui échoue ne prouve pas qu'une colonne manque).
+- L'entité de REPLI (framework) n'est pas contrôlée là : elle est dérivée du contrat, et
+  `tests/unit/userContractParity.test.ts` la couvre sur les 3 dialectes.
+
 - better-sqlite3 SYNCHRONE → pas `db.transaction(asyncCb)` (committe avant await). → BEGIN/COMMIT manuel.
 - **Une transaction sur un POOL exige une connexion dédiée** : sans emprunt, `BEGIN` et les écritures partent sur des connexions différentes → aucune atomicité (et `BEGIN` orphelin recyclé). Vaut pour tout futur driver poolé.
 - **Divergence assumée (non testée au banc de parité)** : visibilité avant commit depuis un repo NON lié — sqlite (connexion unique) la voit, pg/mysql non. Portable = `withTransaction(tx)` seul entre dans la tx.

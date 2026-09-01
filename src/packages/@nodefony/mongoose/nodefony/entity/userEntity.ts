@@ -70,6 +70,20 @@ export const userSchema: SchemaDefinition = Object.fromEntries(
 );
 
 /**
+ * Les colonnes du contrat qu'un schéma DOCUMENT porte EN PROPRE.
+ *
+ * Dérivée de {@link userSchema}, jamais recopiée : ce que le framework exige de
+ * l'entité d'une application est exactement ce qu'il produit pour la sienne. La
+ * clé (`_id` + virtuel `id`) et les horodatages (option `timestamps`) restent
+ * donc hors de cette liste — les exiger comme chemins refuserait une entité
+ * parfaitement correcte, et un refus faux apprend à passer outre les refus.
+ */
+export const DOCUMENT_USER_COLUMNS: readonly IUserColumn[] =
+  USER_COLUMNS.filter((column) =>
+    Object.prototype.hasOwnProperty.call(userSchema, column.name),
+  );
+
+/**
  * Forme plate d'une ligne `User` (virtuel `id` + horodatages inclus) renvoyée par
  * le repository — le contrat `IUserRow` de `@nodefony/user`, ré-exporté sous son
  * nom historique.

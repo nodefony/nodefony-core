@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
+import type { PgTable } from "drizzle-orm/pg-core";
+import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import { USER_COLUMNS } from "@nodefony/user";
@@ -143,4 +148,50 @@ export function registerUserEntity(
   dialect: SqlDialect = "sqlite",
 ): void {
   entityRegistry.register(createUserEntity(connector, dialect));
+}
+
+/** Ce qu'une colonne SQL dit d'elle-même, quel que soit le dialecte. */
+export interface IUserColumnView {
+  /** La colonne refuse-t-elle `NULL` ? */
+  readonly notNull: boolean;
+  /** Porte-t-elle une contrainte d'unicité de colonne ? */
+  readonly isUnique: boolean;
+  /** Est-elle la clé primaire ? */
+  readonly primary: boolean;
+}
+
+/**
+ * Colonnes d'une table Drizzle, lues dans la GRAMMAIRE de son dialecte.
+ *
+ * L'extraction n'a rien d'anodin : `getTableConfig` n'est pas la même fonction
+ * selon le dialecte, et appeler celle de sqlite sur une table postgres ne lève
+ * pas — elle rend un objet vide. Une extraction recopiée ailleurs conclurait
+ * donc « aucune colonne » là où il y en a, et un contrôle bâti dessus
+ * refuserait tout, ou n'attraperait rien. D'où un seul point de lecture,
+ * partagé par le contrôle de démarrage et par le banc de parité.
+ *
+ * @param table - la table Drizzle, telle que l'entité la rend (`schema`).
+ * @param dialect - dialecte du connecteur qui la porte.
+ * @returns les colonnes indexées par nom SQL.
+ */
+export function userTableColumns(
+  table: unknown,
+  dialect: SqlDialect,
+): Map<string, IUserColumnView> {
+  const columns =
+    dialect === "postgres"
+      ? getPgTableConfig(table as PgTable).columns
+      : dialect === "mysql"
+        ? getMysqlTableConfig(table as MySqlTable).columns
+        : getTableConfig(table as SQLiteTable).columns;
+  return new Map(
+    columns.map((column) => [
+      column.name,
+      {
+        notNull: column.notNull,
+        isUnique: column.isUnique ?? false,
+        primary: column.primary,
+      },
+    ]),
+  );
 }

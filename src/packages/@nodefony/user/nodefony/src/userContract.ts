@@ -285,3 +285,71 @@ export function attachExtraColumns<T extends object>(
   }
   return user;
 }
+
+/**
+ * Les colonnes du contrat qu'une définition d'entité ne rend PAS.
+ *
+ * @param present - noms des colonnes que l'entité expose réellement.
+ * @param expected - le sous-ensemble du contrat à exiger (défaut : tout).
+ * @returns les colonnes manquantes, dans l'ordre du contrat (vide si complet).
+ */
+export function missingUserColumns(
+  present: Iterable<string>,
+  expected: readonly IUserColumn[] = USER_COLUMNS,
+): readonly IUserColumn[] {
+  const known = new Set(present);
+  return expected.filter((column) => !known.has(column.name));
+}
+
+/**
+ * Refuse une entité utilisateur incomplète, en nommant chaque colonne absente
+ * ET ce qui la lit.
+ *
+ * Le refus existe parce que le manque est SILENCIEUX : une application qui
+ * possède sa table `User` peut en retirer une colonne, la migration s'applique,
+ * le démarrage réussit, et la commande qui liste les comptes affiche des
+ * utilisateurs. Le défaut n'éclate qu'au premier accès à la colonne absente —
+ * une authentification, un filtre par rôle — peut-être des semaines plus tard,
+ * dans un chemin peu fréquenté. Échouer au démarrage déplace la découverte au
+ * seul moment où elle ne coûte rien.
+ *
+ * Nommer le LECTEUR, et pas seulement la colonne, est ce qui rend le message
+ * actionnable : « `roles` manque » n'apprend rien à qui a retiré la colonne
+ * exprès ; « `roles`, lue par le filtre `?role=` et par le compte des
+ * administrateurs actifs » dit ce qui cassera.
+ *
+ * @param present - noms des colonnes que l'entité expose réellement.
+ * @param origin - d'où vient l'entité examinée, cité tel quel dans le refus
+ *   (ex. `l'entité « User » de l'application, sur le connecteur « default »`).
+ * @param expected - le sous-ensemble du contrat à exiger. Il existe parce que
+ *   tous les stockages ne portent pas les mêmes colonnes EN PROPRE : un schéma
+ *   document laisse la clé au moteur (`_id` + virtuel) et les horodatages à son
+ *   option `timestamps`. Exiger le contrat entier là-bas refuserait une entité
+ *   parfaitement correcte — et un refus faux apprend à passer outre les refus.
+ *   L'appelant le DÉRIVE de ce qu'il produit lui-même, il ne le recopie pas.
+ * @throws Error si une colonne attendue manque.
+ */
+export function assertUserContract(
+  present: Iterable<string>,
+  origin: string,
+  expected: readonly IUserColumn[] = USER_COLUMNS,
+): void {
+  const missing = missingUserColumns(present, expected);
+  if (missing.length === 0) {
+    return;
+  }
+  const details = missing
+    .map(
+      (column) =>
+        `  • ${column.name} (${column.type}) — lue par ${column.readers.join(", ")}\n` +
+        `    ${column.description}`,
+    )
+    .join("\n");
+  throw new Error(
+    `${origin} ne porte pas ${missing.length === 1 ? "une colonne" : `${missing.length} colonnes`} ` +
+      `que le framework LIT :\n${details}\n` +
+      `  → ajouter ${missing.length === 1 ? "cette colonne" : "ces colonnes"} à l'entité, ` +
+      `puis : nodefony orm:generate --name user && nodefony orm:migrate\n` +
+      `(le contrat complet est exporté par @nodefony/user sous USER_COLUMNS.)`,
+  );
+}

@@ -29,6 +29,11 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 
 ## Gotchas
 
+- `MongooseUserRepository.from` confronte `model.schema.paths` au contrat via `assertUserContract`,
+  avec `DOCUMENT_USER_COLUMNS` (dérivé de `userSchema`, jamais recopié) : `id` (virtuel sur `_id`) et
+  les horodatages (`timestamps: true`) ne sont PAS des chemins — les exiger refuserait toute entité
+  document, framework compris.
+
 - `verifyIndexes()` : `model.init()` (attend la construction, REJETTE si refusée) → `diffIndexes()`
   (`{toCreate,toDrop}`, dry-run) → `CRITIC` par index manquant. **Ordre imposé** : un `diffIndexes()`
   avant `init()` rend un faux positif (construction en cours — mesuré). Lancé au `connect()`, non

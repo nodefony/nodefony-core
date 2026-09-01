@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-01T20:17:52.613Z",
+  "generated": "2026-09-01T21:21:24.965Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 796,
-    "symbols": 3646,
+    "symbols": 3652,
     "classes": 383,
-    "interfaces": 1006,
+    "interfaces": 1007,
     "types": 428,
     "enums": 4,
-    "functions": 1460,
-    "constants": 365
+    "functions": 1464,
+    "constants": 366
   },
   "symbols": {
     "Cli": {
@@ -12323,6 +12323,15 @@
       "module": "@nodefony/drizzle",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
+    "IUserColumnView": {
+      "name": "IUserColumnView",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce qu'une colonne SQL dit d'elle-même, quel que soit le dialecte."
+    },
     "createUserEntity": {
       "name": "createUserEntity",
       "kind": "function",
@@ -12338,6 +12347,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Enregistre l'entité `User` Drizzle dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter compile/crée les tables au connect)."
+    },
+    "userTableColumns": {
+      "name": "userTableColumns",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Colonnes d'une table Drizzle, lues dans la GRAMMAIRE de son dialecte. L'extraction n'a rien d'anodin : `getTableConfig` n'est pas la même fonction selon le dialecte, et appeler celle de sqlite sur …"
     },
     "createUserTable": {
       "name": "createUserTable",
@@ -16194,6 +16211,14 @@
       "module": "@nodefony/mongoose",
       "description": "Schéma Mongoose de l'utilisateur Nodefony — implémentation NoSQL du contrat `@nodefony/user`, **dérivée** de `USER_COLUMNS` (pendant documentaire de `userTable`). Rien n'est recopié : noms, types l…"
     },
+    "DOCUMENT_USER_COLUMNS": {
+      "name": "DOCUMENT_USER_COLUMNS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Les colonnes du contrat qu'un schéma DOCUMENT porte EN PROPRE. Dérivée de {@link userSchema}, jamais recopiée : ce que le framework exige de l'entité d'une application est exactement ce qu'il produ…"
+    },
     "@nodefony/mongoose:WebAuthnCredentialRow": {
       "name": "WebAuthnCredentialRow",
       "kind": "interface",
@@ -19298,6 +19323,22 @@
       "exported": true,
       "module": "@nodefony/user",
       "description": "Reporte sur un utilisateur reconstruit toutes les colonnes que `BaseUser` ne porte pas — horodatages de la ligne, et **champs métier ajoutés par l'application**. Sans ce report, l'écriture passe et…"
+    },
+    "missingUserColumns": {
+      "name": "missingUserColumns",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Les colonnes du contrat qu'une définition d'entité ne rend PAS."
+    },
+    "assertUserContract": {
+      "name": "assertUserContract",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Refuse une entité utilisateur incomplète, en nommant chaque colonne absente ET ce qui la lit. Le refus existe parce que le manque est SILENCIEUX : une application qui possède sa table `User` peut e…"
     },
     "USER_COLUMNS": {
       "name": "USER_COLUMNS",
@@ -29337,6 +29378,13 @@
       "registerUserEntity": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
+      "userTableColumns": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+      ],
+      "assertUserContract": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
       "DrizzleTokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
@@ -32435,6 +32483,9 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "DOCUMENT_USER_COLUMNS": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
       ],
       "toMongoSort": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",

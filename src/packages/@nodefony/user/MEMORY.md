@@ -38,6 +38,12 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 ## Gotchas
 
+- `assertUserContract(present, origin, expected?)` : refuse une entité qui ne porte pas les colonnes
+  du contrat, en nommant colonne + `readers` + remède (`orm:generate`). `expected` par défaut =
+  `USER_COLUMNS` ; un stockage document passe le SOUS-ENSEMBLE qu'il porte en propre (clé et
+  horodatages viennent du moteur) — sinon refus FAUX sur une entité correcte. `missingUserColumns`
+  = la même sélection sans le message.
+
 - `metadata: Record<string,unknown>` **jamais** `any`. `id: string` **jamais** `string|number`.
 - Ne PAS importer security/http/framework (inversion dép). Ne PAS importer driver ORM concret.
 - `socialProviders` = JSON, **pas** de colonnes `googleId/githubId` (anti-migration).
