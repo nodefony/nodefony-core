@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import type { SqlDialect } from "../../nodefony/config/config";
 import {
   APP_SOURCE,
@@ -83,12 +84,43 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
       /**
        * Dossier des migrations de l'APPLICATION pour ce dialecte.
        *
-       * Le dépôt n'en a pas : c'est la commande qui le crée, et ce banc qui le
-       * retire. Composé avec `path.join`, jamais écrit en littéral — une
-       * assertion de chemin qui accepte « l'un ou l'autre séparateur » ne
-       * prouve rien sous Windows.
+       * ⚠️ **Ce dépôt en a désormais un, et il est COMMITÉ** : l'entité `User`
+       * lui appartient, donc sa migration aussi. Ce banc écrit au même endroit
+       * — il tourne depuis la racine du dépôt, qui est l'application. Il met
+       * donc l'existant de côté avant de travailler, et le remet après ; le
+       * supprimer détruirait un artefact du dépôt, et le laisserait détruit pour
+       * tout ce qui tourne ensuite (vécu : dix-neuf cas rouges plus loin, sur
+       * « table absente : User », des heures après le vrai geste fautif).
+       *
+       * Composé avec `path.join`, jamais écrit en littéral — une assertion de
+       * chemin qui accepte « l'un ou l'autre séparateur » ne prouve rien sous
+       * Windows.
        */
       const outDir = dossierMigrations(cible.dialect);
+
+      /** Où l'existant du dépôt attend, hors du dépôt, le temps du banc. */
+      let misDeCote: string | null = null;
+
+      beforeAll(async () => {
+        const abri = await fs.mkdtemp(
+          path.join(os.tmpdir(), "nf-migrations-depot-"),
+        );
+        try {
+          await fs.cp(outDir, abri, { recursive: true });
+          misDeCote = abri;
+        } catch {
+          // Pas de migrations d'application pour ce dialecte : rien à protéger.
+          await fs.rm(abri, { recursive: true, force: true });
+          misDeCote = null;
+        }
+      });
+
+      afterAll(async () => {
+        if (!misDeCote) return;
+        await fs.rm(outDir, { recursive: true, force: true });
+        await fs.cp(misDeCote, outDir, { recursive: true });
+        await fs.rm(misDeCote, { recursive: true, force: true });
+      });
 
       /**
        * Le dossier de sortie n'a JAMAIS le droit de survivre à un cas.
