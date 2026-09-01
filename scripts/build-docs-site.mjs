@@ -711,19 +711,70 @@ function buildNav(pages, current) {
    * (`DocumentationService.#orderPages`) ; le site ne l'appliquait pas, et les
    * deux ne montraient donc pas la même chose du même corpus.
    */
-  const hubDevant = (items) => {
-    const estHub = (p) =>
-      /(^|\/)(index|README)$/.test(p.relPath.replace(/\.md$/i, ""));
-    return [...items].sort((a, b) => (estHub(b) ? 1 : 0) - (estHub(a) ? 1 : 0));
+  /** Une page est l'ACCUEIL de son dossier — `index.md` ou `README.md`. */
+  const estAccueil = (p) =>
+    /(^|\/)(index|README)$/.test(p.relPath.replace(/\.md$/i, ""));
+  const hubDevant = (items) =>
+    [...items].sort(
+      (a, b) => (estAccueil(b) ? 1 : 0) - (estAccueil(a) ? 1 : 0),
+    );
+
+  /**
+   * Un groupe du menu : son TITRE mène à l'accueil de la section, un chevron
+   * SÉPARÉ plie la liste.
+   *
+   * Pourquoi pas `<details>/<summary>` avec un lien dans le résumé : un
+   * `<summary>` est déjà un bouton, et y imbriquer un lien fabrique un contrôle
+   * dans un contrôle — `axe-core` le refuse (`nested-interactive`), et un
+   * lecteur d'écran n'annonce plus qu'une des deux commandes. Deux gestes
+   * distincts méritent deux éléments distincts : ouvrir la section, ou la
+   * parcourir.
+   *
+   * Sans accueil de section (les familles de modules, qui ne sont qu'un
+   * regroupement), le titre reste un simple libellé — on ne fabrique pas un lien
+   * vers une page qui n'existe pas.
+   */
+  let idGroupe = 0;
+  const group = (label, icon, items, open, cls = "") => {
+    if (!items.length) return "";
+    const ordonnes = hubDevant(items);
+    const hub = ordonnes[0] && estAccueil(ordonnes[0]) ? ordonnes[0] : null;
+    const id = `nav-g${(idGroupe += 1)}`;
+    const titre = `<span aria-hidden="true">${icon}</span> ${esc4(label)}`;
+    const tete = hub
+      ? `<a class="nav-grp-t" href="${rel(current.url, hub.url)}"${
+          hub.url === current.url ? ' aria-current="page"' : ""
+        }>${titre}</a>`
+      : `<span class="nav-grp-t">${titre}</span>`;
+    return (
+      `<div class="nav-grp${cls ? ` ${cls}` : ""}"${open ? "" : " data-clos"}>` +
+      `<div class="nav-grp-h">${tete}` +
+      `<button type="button" class="nav-grp-x" aria-controls="${id}" ` +
+      `aria-expanded="${open ? "true" : "false"}" ` +
+      `aria-label="${open ? "Replier" : "Déplier"} ${esc4(label)}">` +
+      `<span class="n">${items.length}</span></button></div>` +
+      `<ul id="${id}"${open ? "" : " hidden"}>${ordonnes.map(li).join("")}</ul></div>`
+    );
   };
 
-  const group = (label, icon, items, open, cls = "") =>
-    items.length
-      ? `<details${open ? " open" : ""}${cls ? ` class="${cls}"` : ""}>` +
-        `<summary><span aria-hidden="true">${icon}</span> ${esc4(label)} ` +
-        `<span class="n">${items.length}</span></summary>` +
-        `<ul>${hubDevant(items).map(li).join("")}</ul></details>`
-      : "";
+  /**
+   * Une FAMILLE de modules (« Le cœur », « Temps réel »…) : un regroupement, pas
+   * une section de documentation. Elle n'a donc pas d'accueil, et son titre n'est
+   * pas un lien — on ne fabrique pas un lien vers une page qui n'existe pas.
+   */
+  const famille = (label, icon, contenu, nb, open) => {
+    const id = `nav-f${(idGroupe += 1)}`;
+    return (
+      `<div class="nav-grp nav-fam"${open ? "" : " data-clos"}>` +
+      `<div class="nav-grp-h"><span class="nav-grp-t">` +
+      `<span aria-hidden="true">${icon}</span> ${esc4(label)}</span>` +
+      `<button type="button" class="nav-grp-x" aria-controls="${id}" ` +
+      `aria-expanded="${open ? "true" : "false"}" ` +
+      `aria-label="${open ? "Replier" : "Déplier"} ${esc4(label)}">` +
+      `<span class="n">${nb}</span></button></div>` +
+      `<div id="${id}"${open ? "" : " hidden"}>${contenu}</div></div>`
+    );
+  };
 
   const parts = [];
   if (MOUNT)
@@ -785,9 +836,7 @@ function buildNav(pages, current) {
     }
     if (blocks.length)
       familyBlocks.push(
-        `<details${openFam ? " open" : ""} class="nav-fam"><summary>` +
-          `<span aria-hidden="true">${fam.icon}</span> ${esc4(fam.label)} ` +
-          `<span class="n">${count}</span></summary><div>${blocks.join("")}</div></details>`,
+        famille(fam.label, fam.icon, blocks.join(""), count, openFam),
       );
   }
   const others = [...byModule.keys()].filter((k) => !placed.has(k));
@@ -802,9 +851,13 @@ function buildNav(pages, current) {
       ),
     );
     familyBlocks.push(
-      `<details${others.includes(current.moduleKey) ? " open" : ""} class="nav-fam">` +
-        `<summary><span aria-hidden="true">📦</span> Autres <span class="n">${others.length}</span>` +
-        `</summary><div>${blocks.join("")}</div></details>`,
+      famille(
+        "Autres",
+        "📦",
+        blocks.join(""),
+        others.length,
+        others.includes(current.moduleKey),
+      ),
     );
   }
   parts.push(`<div class="nav-mods">${familyBlocks.join("")}</div>`);
@@ -835,13 +888,30 @@ const NAV_FILTER_JS = `<script>
   var q=document.getElementById("nav-q"); if(!q) return;
   var nav=q.closest(".site-nav"), empty=nav.querySelector(".nav-empty");
   var items=[].slice.call(nav.querySelectorAll("li[data-t]"));
-  var groups=[].slice.call(nav.querySelectorAll("details"));
-  var initial=groups.map(function(g){return g.open;});
+  var groups=[].slice.call(nav.querySelectorAll(".nav-grp"));
+  // Le pliage est porté par un BOUTON : le titre du groupe est un lien vers
+  // l'accueil de la section, et deux commandes distinctes ne peuvent pas vivre
+  // dans le même élément (contrôle imbriqué).
+  function ouvrir(g,ouvert){
+    var b=g.querySelector(".nav-grp-x"), l=g.querySelector("ul");
+    if(!b||!l) return;
+    l.hidden=!ouvert; b.setAttribute("aria-expanded",ouvert?"true":"false");
+    var nom=(g.querySelector(".nav-grp-t")||{}).textContent||"";
+    b.setAttribute("aria-label",(ouvert?"Replier":"Déplier")+" "+nom.trim());
+    if(ouvert) g.removeAttribute("data-clos"); else g.setAttribute("data-clos","");
+  }
+  groups.forEach(function(g){
+    var b=g.querySelector(".nav-grp-x");
+    if(b) b.addEventListener("click",function(){
+      ouvrir(g,g.hasAttribute("data-clos"));
+    });
+  });
+  var initial=groups.map(function(g){return !g.hasAttribute("data-clos");});
   function apply(){
     var v=q.value.trim().toLowerCase();
     if(!v){
       items.forEach(function(li){li.hidden=false;});
-      groups.forEach(function(g,i){g.hidden=false;g.open=initial[i];});
+      groups.forEach(function(g,i){g.hidden=false;ouvrir(g,initial[i]);});
       empty.hidden=true; return;
     }
     var n=0;
@@ -851,7 +921,7 @@ const NAV_FILTER_JS = `<script>
     });
     groups.forEach(function(g){
       var hit=g.querySelector("li[data-t]:not([hidden])");
-      g.hidden=!hit; if(hit) g.open=true;
+      g.hidden=!hit; if(hit) ouvrir(g,true);
     });
     empty.hidden=n>0;
   }
@@ -982,21 +1052,39 @@ const SITE_CSS = `
 .site-nav a[aria-current="page"] { background:var(--card); color:var(--accent); font-weight:650; }
 .site-nav ul { list-style:none; margin:2px 0 8px; padding-left:10px;
   border-left:1px solid var(--line); }
-.site-nav .nav-up { color:var(--dim); font-size:12.5px; padding-left:0; margin-bottom:10px; }
+/* Le retour vers l'accueil du site : cible d'au moins 24 px de haut (WCAG 2.5.8).
+   Il tombait à 23,x px — arrondi à 24 à l'affichage, donc invisible à l'œil, et
+   bien réel pour qui vise. */
+.site-nav .nav-up { display:flex; align-items:center; min-height:26px;
+  color:var(--dim); font-size:12.5px; padding-left:0; margin-bottom:10px; }
 .site-nav .nav-up:hover { color:var(--accent); background:none; }
 .site-nav .nav-home { font-weight:700; margin-bottom:8px; padding-left:0; }
 .site-nav .nav-home.on { color:var(--accent); }
 .site-nav .nav-flat { border:0; padding-left:0; margin-bottom:12px; }
-.site-nav summary { cursor:pointer; padding:4px 0; font-weight:600; color:var(--fg);
-  list-style:none; }
-.site-nav summary::-webkit-details-marker { display:none; }
-.site-nav summary::before { content:"▸"; display:inline-block; width:1em; color:var(--dim); }
-.site-nav details[open] > summary::before { content:"▾"; }
+/* En-tête d'un groupe : le TITRE mène à l'accueil de la section, le chevron plie.
+   Deux commandes, deux éléments — un lien dans un bouton serait un contrôle
+   imbriqué, que les lecteurs d'écran n'annoncent qu'à moitié. */
+.site-nav .nav-grp-h { display:flex; align-items:center; gap:4px; }
+.site-nav .nav-grp-t { flex:1; min-width:0; padding:4px 0; font-weight:600;
+  color:var(--fg); text-decoration:none; }
+a.nav-grp-t:hover { color:var(--accent); }
+a.nav-grp-t[aria-current="page"] { color:var(--accent); }
+/* Cible d'au moins 24 px (WCAG 2.5.8) — le chevron est une commande à part
+   entière, pas une décoration du titre. */
+.site-nav .nav-grp-x { display:flex; align-items:center; justify-content:center;
+  gap:3px; min-width:26px; min-height:24px; padding:0 3px; border:0;
+  background:none; cursor:pointer; color:var(--dim); font:inherit; }
+.site-nav .nav-grp-x::after { content:"▸"; display:inline-block; }
+.site-nav .nav-grp:not([data-clos]) > .nav-grp-h > .nav-grp-x::after { content:"▾"; }
+.site-nav .nav-grp-x:hover { color:var(--accent); }
+.site-nav .nav-grp-x:focus-visible, a.nav-grp-t:focus-visible {
+  outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
 .site-nav .n { color:var(--dim); font-weight:400; font-size:11px; }
 .site-nav .nav-mods > .nav-fam > div { padding-left:11px; border-left:1px solid var(--line); }
-.site-nav .nav-fam > summary { margin-top:2px; }
-.site-nav .nav-mod > summary { font-weight:500; font-size:13px; color:var(--dim); }
-.site-nav .nav-mod > summary:hover { color:var(--accent); }
+.site-nav .nav-fam > .nav-grp-h { margin-top:2px; }
+.site-nav .nav-mod > .nav-grp-h > .nav-grp-t { font-weight:500; font-size:13px;
+  color:var(--dim); }
+.site-nav .nav-mod > .nav-grp-h > a.nav-grp-t:hover { color:var(--accent); }
 .site-nav .nav-find { margin:10px 0 6px; }
 .site-nav .nav-find input { width:100%; font:inherit; font-size:13px; padding:6px 10px;
   border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--fg); }
