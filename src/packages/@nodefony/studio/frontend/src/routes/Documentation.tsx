@@ -5,6 +5,7 @@ import {
   ActionIcon,
   Alert,
   Badge,
+  Divider,
   Group,
   NavLink,
   rem,
@@ -31,7 +32,6 @@ import {
   DocLayout,
   DocPageHeader,
   MarkdownDoc,
-  PAGE_CONTENT_HEIGHT,
   PageLayout,
 } from "../components/ui";
 
@@ -58,6 +58,8 @@ type Persona = "developer" | "devops" | "supervisor" | "admin";
 interface DocPage {
   slug: string;
   title: string;
+  /** Libellé court du menu (`navTitle`), avec repli sur `title` côté serveur. */
+  navTitle?: string;
   audience?: Persona[];
   version?: string;
   status?: string;
@@ -212,7 +214,12 @@ export const Documentation = observer(() => {
       pages: s.pages.filter(
         (p) =>
           visible(p.audience) &&
-          (!navQ || p.title.toLowerCase().includes(navQ)),
+          // On cherche sur les DEUX : le libellé affiché (`navTitle`) et le titre
+          // complet. Filtrer sur le seul `title` rendait introuvable ce qui est
+          // écrit à l'écran — taper « Tests » ne trouvait pas la page dont le
+          // menu affiche « Tests », parce que son titre dit autre chose.
+          (!navQ ||
+            `${p.navTitle ?? ""} ${p.title}`.toLowerCase().includes(navQ)),
       ),
     }))
     .filter((s) => s.pages.length > 0);
@@ -224,19 +231,18 @@ export const Documentation = observer(() => {
    * On les range en trois familles, dans l'ordre où on en a besoin — sans
    * ajouter de niveau cliquable (les sections restent à un clic).
    */
+  // Deux familles, et le critère est STRUCTUREL (`s.module`), pas une expression
+  // sur le libellé : une regex sur le nom se périmait au premier renommage, en
+  // faisant tomber la section dans la famille fourre-tout sans rien signaler.
+  // L'ORDRE des sections vient du serveur, qui le pose une fois pour tous les
+  // rendus — le front ne le rejoue pas.
   const NAV_FAMILIES: {
     key: string;
     label: string;
     match: (s: DocSection) => boolean;
   }[] = [
-    {
-      key: "guides",
-      label: "Comprendre & construire",
-      match: (s) =>
-        !s.module && /architecture|guide|racine|tutoriel/i.test(s.label),
-    },
-    { key: "modules", label: "Modules", match: (s) => Boolean(s.module) },
-    { key: "refs", label: "Références internes", match: () => true },
+    { key: "corpus", label: "La documentation", match: (s) => !s.module },
+    { key: "modules", label: "Par module", match: (s) => Boolean(s.module) },
   ];
   // Une section n'apparaît que dans la PREMIÈRE famille qui la reconnaît : les
   // familles déjà passées (`slice(0, idx)`) ont priorité, la dernière ramasse le
@@ -346,17 +352,25 @@ export const Documentation = observer(() => {
                 />
               ) : null}
               {navFamilies.map((fam) => (
-                <Stack key={fam.key} gap={2} mt={6}>
-                  <Text
-                    size="10px"
-                    fw={700}
-                    tt="uppercase"
-                    c="dimmed"
-                    px={8}
-                    style={{ letterSpacing: "0.08em" }}
-                  >
-                    {fam.label}
-                  </Text>
+                <Stack key={fam.key} gap={2} mt={14}>
+                  {/* Un intertitre de menu doit se LIRE : à 10 px en `dimmed`, il
+                      disparaissait dans le fond et le lecteur ne voyait qu'une
+                      liste plate. Filet au-dessus + graisse + couleur de texte
+                      normale : la hiérarchie devient visible sans peser. */}
+                  <Divider
+                    labelPosition="left"
+                    mb={2}
+                    label={
+                      <Text
+                        size="11px"
+                        fw={700}
+                        tt="uppercase"
+                        style={{ letterSpacing: "0.08em" }}
+                      >
+                        {fam.label}
+                      </Text>
+                    }
+                  />
                   {fam.sections.map((s) => {
                     // En recherche → toujours déplié ; sinon tout plié par défaut.
                     const isCollapsed = navQ
@@ -396,13 +410,25 @@ export const Documentation = observer(() => {
                             >
                               {s.label}
                             </Text>
-                            <Badge size="xs" variant="default" radius="sm">
+                            {/* `flex: none` : sans lui, un libellé de section sur
+                                deux lignes comprime le badge et le compte sort
+                                tronqué — « 1.. » au lieu de « 15 ». */}
+                            <Badge
+                              size="xs"
+                              variant="default"
+                              radius="sm"
+                              style={{ flex: "none" }}
+                            >
                               {s.pages.length}
                             </Badge>
                           </Group>
                         }
                         opened={!isCollapsed}
-                        active={onHub}
+                        // Le groupe n'est PAS « actif » : trois éléments en
+                        // surbrillance pleine désignaient la même page (l'entrée
+                        // Accueil, le groupe et la page). Un seul `active` — la
+                        // page — et le groupe courant se signale par la couleur de
+                        // son libellé (`c={onHub ? "inherit" : "dimmed"}` plus haut).
                         // DEUX gestes distincts sur deux cibles distinctes. Le
                         // toggle automatique de Mantine (`onChange`) est retiré :
                         // laissé en place, il se déclenchait AUSSI au clic sur le
@@ -462,36 +488,42 @@ export const Documentation = observer(() => {
                         childrenOffset={14}
                         styles={{ root: { borderRadius: rem(6) } }}
                       >
-                        {s.pages.map((p) => (
-                          <NavLink
-                            key={p.slug}
-                            active={p.slug === activeSlug}
-                            label={p.title}
-                            // Le hub ouvre sa section : icône distincte + libellé en
-                            // gras, pour qu'il se repère sans lire toute la liste.
-                            fw={p.isHub ? 600 : undefined}
-                            leftSection={
-                              p.isHub ? (
-                                <IconHome size={14} />
-                              ) : (
-                                <IconFileText size={14} />
-                              )
-                            }
-                            rightSection={
-                              p.wip ? (
-                                <Badge size="xs" variant="light" color="gray">
-                                  à venir
-                                </Badge>
-                              ) : undefined
-                            }
-                            disabled={p.wip}
-                            onClick={() => !p.wip && setActiveSlug(p.slug)}
-                            styles={{
-                              root: { borderRadius: rem(6) },
-                              label: { fontSize: rem(12.5) },
-                            }}
-                          />
-                        ))}
+                        {s.pages
+                          // L'accueil du corpus a déjà son entrée en tête du menu :
+                          // le lister aussi dans sa section mettait DEUX éléments
+                          // en surbrillance pour une seule et même page.
+                          .filter((p) => p.slug !== homeSlug)
+                          .map((p) => (
+                            <NavLink
+                              key={p.slug}
+                              active={p.slug === activeSlug}
+                              label={p.navTitle ?? p.title}
+                              title={p.title}
+                              // Le hub ouvre sa section : icône distincte + libellé en
+                              // gras, pour qu'il se repère sans lire toute la liste.
+                              fw={p.isHub ? 600 : undefined}
+                              leftSection={
+                                p.isHub ? (
+                                  <IconHome size={14} />
+                                ) : (
+                                  <IconFileText size={14} />
+                                )
+                              }
+                              rightSection={
+                                p.wip ? (
+                                  <Badge size="xs" variant="light" color="gray">
+                                    à venir
+                                  </Badge>
+                                ) : undefined
+                              }
+                              disabled={p.wip}
+                              onClick={() => !p.wip && setActiveSlug(p.slug)}
+                              styles={{
+                                root: { borderRadius: rem(6) },
+                                label: { fontSize: rem(12.5) },
+                              }}
+                            />
+                          ))}
                       </NavLink>
                     );
                   })}
@@ -516,8 +548,14 @@ export const Documentation = observer(() => {
           />
         }
         tocMarkdown={markdown}
-        mode="container"
-        height={PAGE_CONTENT_HEIGHT}
+        // `page`, et non `container` : en mode conteneur, les trois colonnes ont
+        // chacune leur propre zone de défilement, juxtaposée à celle de la page —
+        // la molette n'agit pas là où l'œil regarde, et la doc flotte dans un
+        // cadre au lieu d'habiter l'écran. En mode page, le CONTENU est le seul à
+        // défiler (avec la page), pendant que la navigation, l'en-tête de la page
+        // de doc et le sommaire restent collés sous l'en-tête global. C'est le
+        // modèle du docs-site, et la règle 2 du standard de mise en page.
+        mode="page"
       >
         <DataState
           loading={page.loading && !page.data}

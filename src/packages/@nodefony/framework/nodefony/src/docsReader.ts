@@ -36,6 +36,7 @@ function appRoot(): string {
  */
 export interface DocFrontmatter {
   title?: string;
+  navTitle?: string;
   module?: string;
   since?: string;
   updated?: string;
@@ -50,6 +51,12 @@ export interface DocSummary {
   slug: string;
   /** Titre humain (frontmatter `title`/`topic`, sinon premier H1, sinon slug). */
   title: string;
+  /**
+   * Libellé COURT du menu (frontmatter `navTitle`), repli sur {@link title}. Un
+   * titre est écrit pour être lu en tête d'article ; une colonne de navigation
+   * n'a pas la même largeur, et une recherche doit trouver le mot AFFICHÉ.
+   */
+  navTitle: string;
   /** `draft` | `stable` | `deprecated` | `null`. */
   status: string | null;
   since: string | null;
@@ -170,9 +177,14 @@ async function summarize(
   const full = join(docsDir, fileName);
   const raw = await readFile(full, "utf8");
   const { data, body } = parseFrontmatter(raw);
+  const title = docTitle(data, body, slug);
   return {
     slug,
-    title: docTitle(data, body, slug),
+    title,
+    navTitle:
+      typeof data.navTitle === "string" && data.navTitle.trim()
+        ? data.navTitle.trim()
+        : title,
     status: typeof data.status === "string" ? data.status : null,
     since: typeof data.since === "string" ? data.since : null,
     updated: typeof data.updated === "string" ? data.updated : null,
@@ -440,7 +452,14 @@ export async function searchModuleDocs(
       const slug = basename(fileName, extname(fileName));
       const { data, body } = parseFrontmatter(raw);
       const title = docTitle(data, body, slug);
-      const foldedTitle = fold(`${title} ${slug}`);
+      // Le libellé de menu entre dans l'index : c'est le mot que le lecteur VOIT,
+      // donc celui qu'il tape. Sans lui, chercher « Tests » ne trouve pas la page
+      // dont le menu affiche « Tests » mais dont le titre dit autre chose.
+      const navTitle =
+        typeof data.navTitle === "string" && data.navTitle.trim()
+          ? data.navTitle.trim()
+          : "";
+      const foldedTitle = fold(`${title} ${navTitle} ${slug}`);
       const lines = body.split("\n");
       const foldedLines = lines.map(fold);
 

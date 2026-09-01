@@ -63,17 +63,38 @@ const VALID_STATUS = new Set<string>([
   "deprecated",
 ]);
 
-/** Libellés « jolis » par chemin de groupe racine (sinon fallback auto). */
-const ROOT_GROUP_LABELS: Record<string, string> = {
-  racine: "docs/ (racine)",
-  guides: "Guides",
-  adr: "ADR — décisions d'architecture",
-  architecture: "Architecture",
-  audits: "Audits",
-  release: "Releases",
-  packages: "Packages",
-  realtime: "Realtime",
-};
+/**
+ * Les groupes racine publiés, **dans l'ordre du menu**, avec leur libellé.
+ *
+ * L'ordre est PÉDAGOGIQUE, jamais alphabétique, et il part du geste : on fait une
+ * première fois en étant guidé (tutoriels), on refait seul sur un besoin précis
+ * (guides), puis on comprend ce qui se passait dessous (architecture). Un tri
+ * alphabétique mettait « ADR » en tête et « Tutoriels » en cinquième position —
+ * l'inverse exact du chemin de lecture.
+ *
+ * ⚠️ **Cette liste doit rester alignée sur `PUBLIC_DIRS` de
+ * `scripts/build-docs-site.mjs`**, qui décide du site public. Les deux vivent de
+ * part et d'autre d'une frontière de paquets (un script du dépôt ne peut pas
+ * importer le `dist` d'un module sans risquer de le lire périmé), donc la règle
+ * est dupliquée — et un test COMPARE les deux listes, faute de quoi elles
+ * divergeraient en silence.
+ */
+const ROOT_GROUPS: ReadonlyArray<{ group: string; label: string }> = [
+  { group: "tutoriels", label: "Tutoriels" },
+  { group: "guides", label: "Guides" },
+  { group: "architecture", label: "Architecture" },
+];
+
+/**
+ * Pages de `docs/` (à la racine, hors sous-dossier) publiées dans le menu, dans
+ * cet ordre. Le reste de ce dossier est du PILOTAGE — carte des phases, README du
+ * corpus, essai sur l'outillage : utile au mainteneur du framework, illisible
+ * pour qui construit une application. Aligné sur `PUBLIC_ROOT_PAGES` du site.
+ */
+const ROOT_PAGES: ReadonlyArray<string> = ["index", "demarrer", "lexique"];
+
+/** Libellé du groupe qui porte les pages de `docs/` elles-mêmes. */
+const ROOT_PAGES_LABEL = "Pour commencer";
 
 /** Snapshot caché : docs scannés + arbre construit + index slug→doc. */
 interface CacheEntry {
@@ -327,24 +348,60 @@ class DocumentationService extends Service {
       }
     }
 
-    const rootSections: IDocSection[] = [...rootGroups.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([group, pages]) => ({
-        id: `root-${group.replace(/\//g, "~")}`,
-        label: this.#rootLabel(group),
-        pages: this.#orderPages(pages),
-      }));
+    // « Pour commencer » — les pages de `docs/` elles-mêmes, dans l'ordre déclaré.
+    // `index` en fait partie : c'est l'accueil du corpus, et le retirer d'ici
+    // faisait retomber le front sur le premier hub venu comme page par défaut.
+    // C'est le RENDU qui évite de l'afficher deux fois, pas le contrat.
+    const racine = (rootGroups.get("racine") ?? []).filter((d) =>
+      ROOT_PAGES.includes(d.relPath.replace(/\.md$/i, "")),
+    );
+    const pourCommencer: IDocSection[] = racine.length
+      ? [
+          {
+            id: "root-pour-commencer",
+            label: ROOT_PAGES_LABEL,
+            pages: ROOT_PAGES.map((n) =>
+              racine.find((d) => d.relPath.replace(/\.md$/i, "") === n),
+            )
+              .filter((d): d is ScannedDoc => Boolean(d))
+              .map((d) => this.#toPageRef(d)),
+          },
+        ]
+      : [];
 
+    // Les groupes PUBLIÉS, dans l'ordre déclaré — pas dans celui de l'alphabet.
+    // Ce qui n'est pas déclaré (décisions d'architecture, plan de publication,
+    // documents de pilotage) ne descend pas dans le menu : c'est de la référence
+    // de mainteneur, et elle noyait le chemin de lecture.
+    const rootSections: IDocSection[] = ROOT_GROUPS.map(({ group, label }) => {
+      const pages = rootGroups.get(group);
+      return pages?.length
+        ? {
+            id: `root-${group.replace(/\//g, "~")}`,
+            label,
+            pages: this.#orderPages(pages),
+          }
+        : null;
+    }).filter((s): s is IDocSection => s !== null);
+
+    // Le cœur d'abord — c'est ce dont tout le reste dépend —, les autres modules
+    // par ordre alphabétique : entre `drizzle` et `redis`, aucun ordre de lecture
+    // ne s'impose, et l'alphabet est alors le plus prévisible.
     const moduleSections: IDocSection[] = [...moduleGroups.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => {
+        if (a === b) return 0;
+        if (a === "nodefony") return -1;
+        if (b === "nodefony") return 1;
+        return a.localeCompare(b);
+      })
       .map(([mod, pages]) => ({
         id: `mod-${mod}`,
-        label: `Module ${mod}`,
+        label: mod === "nodefony" ? "Cœur" : mod,
         module: mod,
         pages: this.#orderPages(pages),
       }));
 
-    return [...rootSections, ...moduleSections];
+    return [...pourCommencer, ...rootSections, ...moduleSections];
   }
 
   /**
@@ -359,7 +416,10 @@ class DocumentationService extends Service {
       .map((p) => this.#toPageRef(p))
       .sort((a, b) => {
         if (a.isHub !== b.isHub) return a.isHub ? -1 : 1;
-        return a.title.localeCompare(b.title);
+        // Trier sur le libellé AFFICHÉ, pas sur le titre complet : le menu montre
+        // `navTitle`, et trier sur autre chose que ce qu'on voit donne un ordre
+        // qui paraît tiré au sort.
+        return a.navTitle.localeCompare(b.navTitle);
       });
   }
 
@@ -370,25 +430,18 @@ class DocumentationService extends Service {
     ) as DocAudience[];
     // Un `index.md` est le HUB de sa section : point d'entrée, pas page comme une autre.
     const isHub = /(^|\/)index\.md$/i.test(d.relPath);
-    const ref: IDocPageRef = { slug: d.slug, title: d.title, audience, isHub };
+    const ref: IDocPageRef = {
+      slug: d.slug,
+      title: d.title,
+      navTitle: d.navTitle,
+      audience,
+      isHub,
+    };
     const version = metaString(d.meta, "version");
     if (version) ref.version = version;
     const status = this.#coerceStatus(metaString(d.meta, "status"));
     if (status) ref.status = status;
     return ref;
-  }
-
-  /** Libellé d'une section racine (mapping connu, sinon auto-capitalisé). */
-  #rootLabel(group: string): string {
-    return (
-      ROOT_GROUP_LABELS[group] ??
-      group
-        .split("/")
-        .map((s) =>
-          s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        )
-        .join(" / ")
-    );
   }
 
   /** Restreint une valeur libre au type `DocStatus` (sinon `undefined`). */

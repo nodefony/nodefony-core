@@ -26,6 +26,13 @@ export interface IDocPageRef {
   slug: string;
   /** Titre lisible (frontmatter `title`, sinon dérivé du nom de fichier). */
   title: string;
+  /**
+   * Libellé COURT pour la navigation (frontmatter `navTitle`, repli sur
+   * {@link title}). Le menu est une colonne étroite, le titre est écrit pour être
+   * lu en tête d'article : sans ce champ, l'arbre affiche des phrases et la
+   * recherche ne trouve pas le mot qu'on VOIT à l'écran.
+   */
+  navTitle: string;
   /** Personas autorisées (frontmatter `audience`). Vide = toutes. */
   audience: DocAudience[];
   /** Version de la page (frontmatter `version`, ou `"doc"`). */
