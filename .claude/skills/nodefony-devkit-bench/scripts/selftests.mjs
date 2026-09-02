@@ -1,11 +1,12 @@
 /**
  * Lance TOUS les contrôles internes du banc, et rend un verdict unique.
  *
- * 🔴 Pourquoi ce script existe. Les vingt-quatre `*.selftest.mjs` de `lib/`
- * étaient déjà écrits, déjà justes, et **aucun n'était lancé par quoi que ce
- * soit** — ni script npm, ni forge, ni étape d'un banc. Le SKILL.md les
- * énumérait un par un, ce qui revient à demander vingt-quatre commandes à la
- * main avant chaque conclusion : personne ne le fait.
+ * 🔴 Pourquoi ce script existe. Les `*.selftest.mjs` du banc étaient déjà
+ * écrits, déjà justes, et **aucun n'était lancé par quoi que ce soit** — ni
+ * script npm, ni forge, ni étape d'un banc. Le SKILL.md les énumérait un par
+ * un, ce qui revient à demander autant de commandes à la main avant chaque
+ * conclusion : personne ne le fait. Aucun compte n'est écrit ici : un chiffre
+ * en dur périme au premier contrôle ajouté, et se met alors à mentir.
  *
  * Ce que ça a coûté, en une fois : `imputation.selftest.mjs` avait un contrôle
  * d'exhaustivité complet — « toute cause émise par un juge est-elle classée ? »
@@ -26,10 +27,11 @@
  * rendu 2 (abstention bruyante — par exemple une cause non classée).
  */
 
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { garderDrapeaux } from "./lib/argv.mjs";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 
@@ -109,9 +111,55 @@ function lot() {
   return trouves;
 }
 
+/**
+ * Ce contrôle sait-il se MUTER ?
+ *
+ * `--prove` ampute une sonde et exige qu'un cas tombe. Un contrôle qui ne lit
+ * pas le drapeau ne mute rien — le lui passer ne fait rien, et surtout : son
+ * vert ne dit RIEN de sa couverture. Le récapitulatif l'annonçait pourtant
+ * « mutations vérifiées » pour le lot ENTIER, alors que dix contrôles sur trente
+ * seulement lisent le drapeau. Un instrument qui s'attribue une garantie qu'il
+ * n'a pas est pire que pas d'instrument.
+ *
+ * @param {string} chemin - le fichier du contrôle.
+ * @returns {boolean} vrai s'il traite `--prove`.
+ */
+function saitSeMuter(chemin) {
+  try {
+    return readFileSync(chemin, "utf8").includes("--prove");
+  } catch {
+    return false;
+  }
+}
+
 function main() {
-  const prove = process.argv.includes("--prove");
-  const args = prove ? ["--prove"] : [];
+  const args = process.argv.slice(2);
+  garderDrapeaux({
+    args,
+    connus: ["--prove", "--sans"],
+    aValeur: ["--sans"],
+    usage: [
+      "Auto-contrôle des juges du banc devkit — le lot entier, d'une commande.",
+      "",
+      "  node selftests.mjs              lance tout le lot",
+      "  node selftests.mjs --prove      + ampute les contrôles qui savent se muter",
+      "  node selftests.mjs --sans <a,b> écarte des contrôles, en le DISANT",
+      "",
+      "Sorties : 0 tout vert · 1 un contrôle rouge ou DISPARU · 2 une abstention",
+      "          64 usage",
+    ].join("\n"),
+    avertissement: "Rien n'a été lancé.",
+  });
+  const prove = args.includes("--prove");
+  // Une absence voulue s'ÉNONCE — elle ne s'oublie pas. `bench-schema` exige
+  // PostgreSQL et s'abstient sans lui : la forge qui n'a pas de base doit
+  // pouvoir l'écarter NOMMÉMENT, jamais en laissant une abstention passer pour
+  // un vert.
+  const iSans = args.indexOf("--sans");
+  const ecartes = new Set(
+    iSans === -1 ? [] : (args[iSans + 1] ?? "").split(",").filter(Boolean),
+  );
+  const muets = [];
   const rouges = [];
   const abstentions = [];
   const sautes = [];
@@ -133,9 +181,22 @@ function main() {
       console.log(`  ⏭️  ${nom} — ${HORS_LOT.get(nom)}`);
       continue;
     }
-    const r = spawnSync(process.execPath, [chemin, ...args], {
-      encoding: "utf8",
-    });
+    if (ecartes.has(nom)) {
+      sautes.push(nom);
+      console.log(
+        `  ⏭️  ${nom} — ÉCARTÉ par --sans, à la demande de l'appelant`,
+      );
+      continue;
+    }
+    const mutable = saitSeMuter(chemin);
+    if (prove && !mutable) muets.push(nom);
+    const r = spawnSync(
+      process.execPath,
+      [chemin, ...(prove && mutable ? ["--prove"] : [])],
+      {
+        encoding: "utf8",
+      },
+    );
     const code = r.status;
     if (code === 0) {
       verts += 1;
@@ -163,9 +224,15 @@ function main() {
     `\n━━ ${verts} vert(s) · ${abstentions.length} abstention(s) · ` +
       `${rouges.length + disparus.length} rouge(s) · ${sautes.length} hors lot` +
       (prove
-        ? " — mutations vérifiées"
+        ? ` — ${trouves.length - sautes.length - muets.length} muté(s), ${muets.length} non muté(s)`
         : " (sans --prove : les contrôles ne sont pas mutés)"),
   );
+  if (muets.length > 0) {
+    console.log(
+      `   ↳ ne lisent pas \`--prove\` — leur vert ne dit rien de leur couverture :\n` +
+        `     ${muets.join(", ")}`,
+    );
+  }
 
   if (rouges.length > 0 || disparus.length > 0) return 1;
   if (abstentions.length > 0) return 2;

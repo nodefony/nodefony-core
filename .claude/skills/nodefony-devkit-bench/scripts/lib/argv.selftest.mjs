@@ -84,6 +84,7 @@ const LECTURES = [
   /\bargs\.includes\("(--[a-z-]+)"\)/g,
   /\bargv\.includes\("(--[a-z-]+)"\)/g,
   /\bprocess\.argv\.includes\("(--[a-z-]+)"\)/g,
+  /\bargs\.indexOf\("(--[a-z-]+)"\)/g,
   /\bargv\.indexOf\("(--[a-z-]+)"\)/g,
   /\bprocess\.argv\.indexOf\("(--[a-z-]+)"\)/g,
   /\barg\("(--[a-z-]+)"\)/g,
@@ -95,6 +96,10 @@ for (const banc of [
   "bench-discoverability.mjs",
   "bench-schema.mjs",
   "verify-generated.mjs",
+  "verify-runtime.mjs",
+  // Le lanceur du lot est lui aussi un script qu'on tape : il porte la même
+  // garde, et le même accord se vérifie.
+  "selftests.mjs",
 ]) {
   const src = fs.readFileSync(path.join(SCRIPTS, banc), "utf8");
   const lus = new Set();
@@ -126,7 +131,7 @@ for (const banc of [
 
 console.log(
   echecs
-    ? `\n━━ ${echecs} écart(s) — un banc refuse un drapeau qu'il traite`
-    : `\n━━ garde éprouvée, et les trois bancs s'accordent avec elle`,
+    ? `\n━━ ${echecs} écart(s) — un script refuse un drapeau qu'il traite`
+    : `\n━━ garde éprouvée, et chaque script s'accorde avec elle`,
 );
 process.exit(echecs ? 1 : 0);

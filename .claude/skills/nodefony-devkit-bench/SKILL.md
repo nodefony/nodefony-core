@@ -333,7 +333,7 @@ main.
 ## Banc de découvrabilité — l'agent trouve-t-il ?
 
 ```bash
-# Les 26 contrôles internes du banc, en UNE commande — avant de conclure quoi que ce soit
+# TOUS les contrôles internes du banc, en UNE commande — avant de conclure quoi que ce soit
 node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs --prove
 # Les deux qui exigent un décor, donc hors du lot et à lancer à la main :
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
@@ -347,13 +347,20 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --ta
 > pas) ou une faute de frappe déroulait le catalogue ENTIER avant qu'on s'en
 > aperçoive : des dizaines de minutes d'agents payées pour une lettre en trop.
 > `--help` liste maintenant les drapeaux, les variables de décor et les codes de
-> sortie. **`bench-schema.mjs`, `verify-generated.mjs` et `verify-runtime.mjs`
-> n'ont pas encore cette garde** — les deux premiers lancent aussi de vrais
-> agents ou montent un décor complet.
+> sortie. **Une seule implémentation la porte** (`scripts/lib/argv.mjs`), et les quatre
+> scripts qu'on tape s'y branchent — les deux bancs de vérité montent un décor
+> complet, celui de découvrabilité déroule de vrais agents.
+>
+> Écrite à la main dans un seul banc, cette garde avait aussitôt recalé
+> `--setup-only` : un drapeau que le fichier documentait ET traitait, mais que sa
+> liste blanche ignorait. `scripts/lib/argv.selftest.mjs` confronte donc, pour chaque
+> script, les drapeaux qu'il LIT à ceux qu'il DÉCLARE — sans exécuter aucun banc,
+> en les appelant avec un drapeau bidon EN PREMIER, ce qui fait sortir la garde
+> avant que rien ne soit monté. Il a trouvé `--etage` le jour où il est né.
 
-> 🔴 **Un contrôle que personne ne lance ne garde rien.** Ces vingt-six sondes
-> étaient écrites, justes, et énumérées ici une par une — donc jamais exécutées :
-> personne ne tape vingt-six commandes avant de conclure. Ce que ça a coûté, en
+> 🔴 **Un contrôle que personne ne lance ne garde rien.** Ces sondes étaient
+> écrites, justes, et énumérées ici une par une — donc jamais exécutées :
+> personne ne tape autant de commandes avant de conclure. Ce que ça a coûté, en
 > une fois : `imputation.selftest.mjs` portait déjà le contrôle d'exhaustivité
 > « toute cause émise par un juge est-elle classée ? », capable de nommer les
 > quinze causes que trois juges neufs émettaient sans qu'aucune ne soit
