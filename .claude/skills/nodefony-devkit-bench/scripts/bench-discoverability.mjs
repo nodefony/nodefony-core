@@ -6223,6 +6223,64 @@ function purgerDecors(confirmer) {
 
 function main() {
   const args = process.argv.slice(2);
+
+  // 🔴 Un drapeau INCONNU ne doit jamais démarrer un run. Ce banc lance de vrais
+  // agents : il coûte des dizaines de minutes et de l'argent réel. Tant qu'il
+  // ignorait ce qu'il ne comprenait pas, une faute de frappe — ou un `--help`
+  // qui n'existait pas — déroulait le catalogue entier avant qu'on s'en
+  // aperçoive. Vécu, et c'est ce qui a fait écrire ces lignes.
+  const DRAPEAUX = new Set([
+    "--help",
+    "-h",
+    "--task",
+    "--runs",
+    "--analyze-only",
+    "--depistage",
+    "--enregistrer-reference",
+    "--purge",
+    "--confirmer",
+    "--link",
+    "--repack",
+  ]);
+  const usage = [
+    "Banc de découvrabilité — un agent trouve-t-il l'outillage du framework ?",
+    "",
+    "  node bench-discoverability.mjs                     tout le catalogue, 1 passe",
+    "  node bench-discoverability.mjs --task 18           une tâche (ou « 18,22,33 »)",
+    "  node bench-discoverability.mjs --task 26 --runs 3  trois passes, décor remis à zéro",
+    "  node bench-discoverability.mjs --depistage         compare à baseline.json, ne relance RIEN",
+    "  node bench-discoverability.mjs --analyze-only <run>[,<run2>…]",
+    "                                                     re-juge des runs déjà joués (aucun agent)",
+    "      … --enregistrer-reference                      fige le résultat dans baseline.json",
+    "  node bench-discoverability.mjs --purge [--confirmer]  libère les décors (garde les mesures)",
+    "",
+    "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
+    "  --repack   refabrique les tarballs même s'ils paraissent à jour",
+    "",
+    "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP",
+    "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
+    "          64 usage · 78 comparaison refusée (décor différent de la référence)",
+  ].join("\n");
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(usage);
+    process.exit(0);
+  }
+  const inconnus = args.filter(
+    (a, i) =>
+      a.startsWith("-") &&
+      !DRAPEAUX.has(a) &&
+      !DRAPEAUX.has(a.split("=")[0]) &&
+      // une VALEUR négative ou un chemin qui suit un drapeau à valeur n'est pas
+      // un drapeau : on ne juge que ce qui commence un argument.
+      !(i > 0 && ["--task", "--runs", "--analyze-only"].includes(args[i - 1])),
+  );
+  if (inconnus.length > 0) {
+    console.error(
+      `Drapeau inconnu : ${inconnus.join(", ")}\n\n${usage}\n\n` +
+        "Rien n'a été lancé — ce banc déroule de vrais agents, il ne devine pas.",
+    );
+    process.exit(64);
+  }
   // Avant tout le reste : cette invocation ne joue aucune tâche, ne monte aucun
   // décor, et n'a pas à payer les gardes de démarrage du banc.
   if (args.includes("--purge")) {

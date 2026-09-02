@@ -342,6 +342,15 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
 
+> ⚠️ **Un drapeau inconnu ne lance plus rien** — il rend l'usage et sort en `64`.
+> Tant que le banc ignorait ce qu'il ne comprenait pas, un `--help` (qui n'existait
+> pas) ou une faute de frappe déroulait le catalogue ENTIER avant qu'on s'en
+> aperçoive : des dizaines de minutes d'agents payées pour une lettre en trop.
+> `--help` liste maintenant les drapeaux, les variables de décor et les codes de
+> sortie. **`bench-schema.mjs`, `verify-generated.mjs` et `verify-runtime.mjs`
+> n'ont pas encore cette garde** — les deux premiers lancent aussi de vrais
+> agents ou montent un décor complet.
+
 > 🔴 **Un contrôle que personne ne lance ne garde rien.** Ces vingt-six sondes
 > étaient écrites, justes, et énumérées ici une par une — donc jamais exécutées :
 > personne ne tape vingt-six commandes avant de conclure. Ce que ça a coûté, en
