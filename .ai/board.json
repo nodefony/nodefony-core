@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T00:43:18.790Z",
+  "generatedAt": "2026-09-02T03:59:47.689Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 78,
+      "closed": 79,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 34,
+      "open": 33,
       "title": "10.0.0"
     }
   ],
@@ -835,8 +835,8 @@
       "number": 148,
       "title": "test(devkit): mesurer si un agent sait gérer les utilisateurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/148",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
