@@ -54,10 +54,23 @@ function causesEmises() {
     if (!nom.endsWith(".mjs")) continue;
     if (nom.endsWith(".selftest.mjs") || nom === "imputation.mjs") continue;
     const source = readFileSync(path.join(ICI, nom), "utf8");
-    for (const m of source.matchAll(/CAUSE=([a-z0-9-]+)/gu)) {
-      const liste = trouvees.get(m[1]) ?? [];
+    // 🔴 DEUX grammaires, et n'en lire qu'une a rendu ce contrôle aveugle sur
+    // trois juges entiers pendant qu'il affichait un compte rassurant. Un juge
+    // de la première génération IMPRIME lui-même `CAUSE=<nom>` ; un juge qui
+    // sépare la collecte du verdict REND `{ cause: "<nom>" }` et laisse
+    // l'impression à l'appelant — sa source ne porte alors jamais `CAUSE=`.
+    // Balayer le dossier ne suffit donc pas : c'est la FORME écrite qui décide
+    // de ce qu'on voit.
+    for (const m of source.matchAll(
+      /CAUSE=([a-z0-9-]+)|\bcause:\s*"([a-z0-9-]+)"/gu,
+    )) {
+      const cause = m[1] ?? m[2];
+      // `conforme` est le VERT. Le banc ne consulte l'imputation que sur un
+      // rouge (`!pass && cause`) : la classer n'aurait aucun sens.
+      if (cause === "conforme") continue;
+      const liste = trouvees.get(cause) ?? [];
       if (!liste.includes(nom)) liste.push(nom);
-      trouvees.set(m[1], liste);
+      trouvees.set(cause, liste);
     }
   }
   return trouvees;

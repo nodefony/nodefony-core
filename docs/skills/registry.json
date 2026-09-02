@@ -599,8 +599,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 666,
-        "approxTokens": 11686
+        "bodyLines": 659,
+        "approxTokens": 11199
       },
       "requires": [
         "serveur UP",
@@ -1392,6 +1392,22 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/selftests.mjs",
+            "purpose": "Lance TOUS les contrôles internes du banc, et rend un verdict unique.",
+            "usage": [
+              "node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/verify-generated.mjs",
             "purpose": "Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? »",
             "usage": [
@@ -1675,7 +1691,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "666",
+            "detail": "659",
             "advisory": true
           }
         ]

@@ -333,38 +333,31 @@ main.
 ## Banc de découvrabilité — l'agent trouve-t-il ?
 
 ```bash
-node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs   # les sondes, AVANT le verdict
-node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs   # un juge à causes, chacune vue rouge
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-routes-count.selftest.mjs  # la SOURCE du chiffre : porte, repli annoncé, ou rien
-node .claude/skills/nodefony-devkit-bench/scripts/lib/agents-formats.selftest.mjs   # les 4 grammaires de transcript (Claude · Codex · Gemini · agy)
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-secure-route.selftest.mjs
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-entity-delete.selftest.mjs
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-csp-nonce.selftest.mjs      # famille « ne pas affaiblir »
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-csrf-partenaire.selftest.mjs
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-zone-firewall.selftest.mjs
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-prefix-firewall.selftest.mjs  # protéger un PRÉFIXE, ses deux bords
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-role-hierarchy.selftest.mjs   # un rôle en implique un autre
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-realtime-channel.selftest.mjs # canal privé, ses 9 causes
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-m2m-stateless.selftest.mjs   # API pour un programme
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selftest.mjs  # bourrage de login
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-migration.selftest.mjs --prove  # la base DÉJÀ en place a suivi — 4 faits, la donnée perdue en tête
-node .claude/skills/nodefony-devkit-bench/scripts/lib/prepare-base-migree.mjs --selftest   # le décor : mode de production, sinon la tâche est vide de sens
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-user-field.selftest.mjs --prove # le champ ajouté à l'utilisateur — comptes perdus et doublon externe en tête
-node .claude/skills/nodefony-devkit-bench/scripts/lib/prepare-utilisateur-en-service.mjs --selftest  # le décor : comptes semés, dont un venu d'un fournisseur externe
-node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-upload.selftest.mjs --prove   # le fichier reçu — la traversée de chemin passe devant tout
+# Les 26 contrôles internes du banc, en UNE commande — avant de conclure quoi que ce soit
+node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs --prove
+# Les deux qui exigent un décor, donc hors du lot et à lancer à la main :
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/jeton-mcp.selftest.mjs   # la porte reste-t-elle ouverte tout le run ?
-node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove   # le décor et ses 3 règles vues rouges : aucune NF_ du poste n'entre
-node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove   # le dépistage, ses 5 règles vues rouges
-node .claude/skills/nodefony-devkit-bench/scripts/lib/passes.selftest.mjs --prove      # quelle passe est jugée (décor ≠ agent)
-node .claude/skills/nodefony-devkit-bench/scripts/lib/imputation.selftest.mjs --prove  # à QUI le rouge d'un juge est opposable
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
+
+> 🔴 **Un contrôle que personne ne lance ne garde rien.** Ces vingt-six sondes
+> étaient écrites, justes, et énumérées ici une par une — donc jamais exécutées :
+> personne ne tape vingt-six commandes avant de conclure. Ce que ça a coûté, en
+> une fois : `imputation.selftest.mjs` portait déjà le contrôle d'exhaustivité
+> « toute cause émise par un juge est-elle classée ? », capable de nommer les
+> quinze causes que trois juges neufs émettaient sans qu'aucune ne soit
+> classable. Pendant un mois, le banc a donc écarté des runs PAYÉS en disant
+> « trou d'instrument » de ce que son propre juge nommait précisément.
+> `selftests.mjs` existe pour rendre le lot atteignable d'une seule commande.
+>
+> Et le contrôle lui-même était **aveugle par sa forme** : il relevait les causes
+> à la source par le motif `CAUSE=<nom>`, que les juges de première génération
+> impriment eux-mêmes — mais un juge qui sépare la collecte du verdict REND
+> `{ cause: "<nom>" }` et laisse l'impression à l'appelant. Balayer le dossier ne
+> suffisait pas : c'est la FORME écrite qui décidait de ce qu'on voyait, et le
+> compte affiché (« 86 émises, 85 classées ») donnait le change.
 
 ### Le DÉCOR d'un run : quel agent, et quelle porte MCP
 

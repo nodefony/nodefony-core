@@ -113,6 +113,10 @@ export const IMPUTATIONS = Object.freeze({
   // échec de connexion.
   "identite-admin-indisponible": INDETERMINE,
   "identite-temoin-indisponible": INDETERMINE,
+  // Même famille, sans suffixe : les juges qui n'ont qu'UNE identité à établir
+  // nomment leur cause ainsi. Le décor sème le compte, mais un agent qui touche
+  // à l'authentification produit exactement le même échec de connexion.
+  "identite-indisponible": INDETERMINE,
   // Même raison pour le compte PORTEUR, semé par le gate avec son rôle : un
   // agent qui touche à l'authentification produit le même échec de connexion.
   "identite-porteur-indisponible": INDETERMINE,
@@ -227,6 +231,49 @@ export const IMPUTATIONS = Object.freeze({
   "reponse-inattendue-inconnu": AGENT,
   "reponse-inattendue-repere": AGENT,
   "reponse-inattendue-temoin": AGENT,
+
+  // ─── Le schéma a suivi, ou il n'a pas suivi (tâches 33 et 34) ────────────
+  // Ces juges n'atteignent leur verdict qu'APRÈS une réponse de l'application :
+  // l'absence de réponse porte sa propre cause (`aucune-reponse`), et le port
+  // tenu par un tiers la sienne. Ce qui reste décrit donc le logiciel produit.
+  //
+  // La ligne, puis le compte, semés AVANT le travail et commités : leur
+  // disparition n'est pas un aléa du décor, c'est une base refaite plutôt que
+  // migrée — le geste que ces deux tâches existent pour attraper.
+  "donnee-perdue": AGENT,
+  "compte-perdu": AGENT,
+  // Un compte de plus à CHAQUE connexion du fournisseur externe : la recherche
+  // du compte existant ne le retrouve plus.
+  "compte-externe-double": AGENT,
+  // La base a suivi et le contrat d'entrée non : la colonne existe, mais plus
+  // rien ne peut naître (obligatoire sans défaut SQL) ou l'écriture est refusée.
+  "creation-impossible": AGENT,
+  "ressource-cassee": AGENT,
+  // La ressource ne publie pas la colonne neuve : la base ne l'a pas reçue.
+  "colonne-absente": AGENT,
+  // Le champ vit en développement sans être écrit dans une migration : il
+  // n'atteindra jamais la production.
+  "colonne-non-deployable": AGENT,
+  // Migrer une base VIERGE échoue : le premier déploiement tomberait, quel que
+  // soit l'état de la base de développement.
+  "migration-injouable": AGENT,
+  // L'état déclaré par le produit lui-même ne dit pas « à jour ».
+  "etat-non-a-jour": AGENT,
+  // Rejouer applique encore : le contrat est qu'un second passage ne fasse rien.
+  "non-idempotent": AGENT,
+
+  // ─── Recevoir un fichier (tâche 35) ──────────────────────────────────────
+  // Une garde a cédé, et c'est la plus grave de cette famille : le nom envoyé
+  // par le client a décidé de la destination du fichier.
+  "traversee-de-chemin": AGENT,
+  // L'application répond, mais un envoi multipart légitime est refusé.
+  "depot-refuse": AGENT,
+  // Elle répond 2xx et n'a rien rangé : recevoir un fichier n'est pas le
+  // conserver.
+  "fichier-introuvable": AGENT,
+  // Rangé, mais la réponse ne dit ni sous quel nom ni quelle taille : l'appelant
+  // ne peut pas retrouver son fichier.
+  "reponse-muette": AGENT,
 });
 
 /**
