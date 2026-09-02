@@ -125,6 +125,18 @@ export const portTaken = (port = PORT) =>
  * @returns {never}
  */
 export const exit = (code, message) => {
+  // 🔴 Un juge qui sort en ROUGE doit NOMMER sa cause : c'est cette ligne que le
+  // banc relit pour savoir à qui le rouge est opposable. Sans elle, la cause
+  // reste `null` dans le rapport, le banc la traite comme non nommée, et le
+  // travail d'analyse du juge est perdu — vécu : `donnee-perdue`, parfaitement
+  // établie, n'apparaissait nulle part, et le rapport ne disait qu'« exit 2 ».
+  // On ne fabrique aucune cause à sa place : on dit qu'elle manque.
+  if (code !== 0 && !String(message ?? "").includes("CAUSE=")) {
+    console.error(
+      "⚠️  ce juge sort en erreur SANS nommer sa cause (`CAUSE=<nom>` absent) — " +
+        "le banc ne pourra pas l'imputer.",
+    );
+  }
   console.error(message);
   process.exit(code);
 };
@@ -266,3 +278,27 @@ export const request = (method, path, jar, opts = {}) =>
     if (payload !== null) r.write(payload);
     r.end();
   });
+
+/**
+ * Sème le jeton anti-rejeu dans le bocal, comme le ferait un vrai client.
+ *
+ * 🔴 Pourquoi ce geste EXISTE, et pourquoi il vit ici. Le framework n'émet le
+ * cookie lisible `csrf-token` que sur une requête SÛRE vers une route
+ * `@CsrfProtect` (`firewall.ts`, `enforceCsrf` : sur une mutation il ne fait
+ * que VÉRIFIER). Un juge qui attaque directement en POST n'a donc jamais de
+ * jeton, et toute route correctement protégée lui rend `403` — il conclut « la
+ * route ne fonctionne pas » et met en défaut un agent qui a fait exactement ce
+ * que l'`AGENTS.md` du produit prescrit. Pire : il valide la route NON
+ * protégée, la seule qui ne lui résiste pas.
+ *
+ * Écrit une première fois dans un seul juge, ce geste a manqué au suivant. Il
+ * n'a donc qu'une implémentation, et c'est celle-ci.
+ *
+ * @param {CookieJar} jar - bocal de l'identité concernée.
+ * @param {string} route - une route `@CsrfProtect` ; le cookie vaut pour tout
+ *   le site (`Path=/`), n'importe laquelle suffit à se munir.
+ * @returns {Promise<void>}
+ */
+export const semerJeton = async (jar, route) => {
+  await request("GET", route, jar);
+};

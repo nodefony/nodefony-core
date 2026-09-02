@@ -274,6 +274,12 @@ export const IMPUTATIONS = Object.freeze({
   // Rangé, mais la réponse ne dit ni sous quel nom ni quelle taille : l'appelant
   // ne peut pas retrouver son fichier.
   "reponse-muette": AGENT,
+  // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
+  // du logiciel produit, il dit que l'instrument est parti sans son jeton.
+  // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —
+  // c'est exactement ce qui est arrivé, pendant que le banc validait la seule
+  // route qui ne résistait pas : celle qui n'était pas protégée.
+  "jeton-csrf-absent": DECOR,
 });
 
 /**

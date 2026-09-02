@@ -41,7 +41,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 
 ## Prérequis
 
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **base de données** · **docker** · **redis**.
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **redis** · **base de données** · **docker**.
 
 ## Skills voisins
 

@@ -286,7 +286,7 @@ async function principal() {
       `témoin ${temoinPresent} · colonne publiée ${colonnePubliee} · ` +
       `status ${status.code} (verdict ${statusVerdict ?? "ILLISIBLE"}) · appliquées ${applique}`,
   );
-  exit(verdict.code, verdict.detail);
+  exit(verdict.code, `CAUSE=${verdict.cause} — ${verdict.detail}`);
 }
 
 // Ne s'exécute QUE lancé directement : l'auto-contrôle importe `judge` sans

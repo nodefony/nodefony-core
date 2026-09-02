@@ -12,7 +12,13 @@
  *  3. la COMPOSITION du corps multipart et la RECHERCHE d'évasion, qui sont les
  *     deux endroits où ce juge peut mentir en silence — un nom échappé ne
  *     mesurerait qu'un client poli, et une recherche qui ne descend pas assez
- *     loin rendrait « conforme » sur une évasion réussie.
+ *     loin rendrait « conforme » sur une évasion réussie ;
+ *  4. la COLLECTE face à une route protégée contre le rejeu — le seul niveau où
+ *     le défaut le plus grave de ce juge était visible. Éprouver `judge()` sur
+ *     des faits déjà collectés ne pouvait PAS le voir : le juge partait sans
+ *     jeton, toute route `@CsrfProtect` lui rendait 403, et il concluait « le
+ *     dépôt ne fonctionne pas » — mettant en défaut l'agent qui a suivi
+ *     l'`AGENTS.md` du produit, pendant qu'il validait la route non protégée.
  *
  *   node gate-upload.selftest.mjs
  *   node gate-upload.selftest.mjs --prove   # règle amputée : des cas DOIVENT tomber
@@ -187,6 +193,132 @@ for (const c of cas) {
     console.error(`✗ recherche d'évasion : ${e.message}`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ─── 4. La COLLECTE face à une route protégée contre le rejeu ───────────────
+// Deux applications jouets, et c'est le premier cas qui aurait attrapé le
+// défaut : avant le semis du jeton, le juge y rendait « depot-refuse » (2).
+{
+  const http = await import("node:http");
+  const { spawn } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const ICI = path.dirname(fileURLToPath(import.meta.url));
+  const JUGE = path.join(ICI, "gate-upload.mjs");
+  const PORT_JOUET = "5397";
+  const LOGIN = "/nodefony/security/api/auth/login";
+  const MOI = "/nodefony/security/api/auth/me";
+  const DEPOT = "/api/depot";
+
+  const corpsDe = (req) =>
+    new Promise((r) => {
+      let d = "";
+      req.on("data", (c) => (d += c));
+      req.on("end", () => {
+        try {
+          r(JSON.parse(d || "{}"));
+        } catch {
+          r({});
+        }
+      });
+    });
+  const repondre = (res, status, objet) => {
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(objet === null ? "" : JSON.stringify(objet));
+  };
+
+  /**
+   * Application jouet : le dépôt exige le jeton anti-rejeu ; `seme` dit si la
+   * requête SÛRE le dépose, comme le framework le fait sur `@CsrfProtect`.
+   *
+   * @param {{seme: boolean, racine: string}} opts
+   */
+  const app =
+    ({ seme, racine }) =>
+    async (req, res) => {
+      const url = (req.url ?? "").split("?")[0];
+      if (url === LOGIN && req.method === "POST") {
+        const { username } = await corpsDe(req);
+        res.setHeader(
+          "set-cookie",
+          `nodefony=sess-${username}; Path=/; HttpOnly`,
+        );
+        return repondre(res, 200, { user: { username, roles: [] } });
+      }
+      if (url === MOI) {
+        const cookie = req.headers.cookie ?? "";
+        return cookie.includes("nodefony=sess-")
+          ? repondre(res, 200, { user: { username: "admin" } })
+          : repondre(res, 401, { error: "no session" });
+      }
+      if (url === DEPOT && req.method === "GET") {
+        if (seme)
+          res.setHeader("set-cookie", `csrf-token=jeton-de-test; Path=/`);
+        return repondre(res, 200, { data: [] });
+      }
+      if (url === DEPOT && req.method === "POST") {
+        if (req.headers["x-csrf-token"] !== "jeton-de-test") {
+          return repondre(res, 403, { error: "csrf" });
+        }
+        await corpsDe(req);
+        // Ranger POUR DE VRAI : le juge lit le disque, pas la réponse seule.
+        const depot = path.join(racine, DOSSIER_DEPOT);
+        mkdirSync(depot, { recursive: true });
+        writeFileSync(path.join(depot, "range-par-le-jouet.txt"), "ok");
+        return repondre(res, 201, {
+          nom: "range-par-le-jouet.txt",
+          size: 2,
+        });
+      }
+      return repondre(res, 404, { error: "not found" });
+    };
+
+  const lancerJuge = (racine) =>
+    new Promise((resolve) => {
+      const p = spawn(process.execPath, [JUGE], {
+        cwd: racine,
+        env: { ...process.env, NF_PORT: PORT_JOUET },
+        encoding: "utf8",
+      });
+      let out = "";
+      p.stdout.on("data", (c) => (out += c));
+      p.stderr.on("data", (c) => (out += c));
+      p.on("close", (status) => resolve({ status, out }));
+    });
+
+  const CAS_COLLECTE = [
+    // 🔴 Le cas qui aurait attrapé le défaut. La route est protégée comme le
+    // produit le PRESCRIT : le juge doit s'en munir, pas la recaler.
+    { nom: "route protegee, jeton seme", seme: true, attendu: 0 },
+    // Le jeton n'arrive jamais : le juge ne peut RIEN dire du dépôt, et doit
+    // s'abstenir en nommant son propre manque — jamais accuser l'agent.
+    {
+      nom: "protegee sans semis",
+      seme: false,
+      attendu: CAUSES["jeton-csrf-absent"],
+    },
+  ];
+
+  for (const c of CAS_COLLECTE) {
+    const racine = mkdtempSync(path.join(os.tmpdir(), "gate-upload-collecte-"));
+    const srv = http.createServer(app({ seme: c.seme, racine }));
+    await new Promise((r) => srv.listen(Number(PORT_JOUET), "127.0.0.1", r));
+    const { status, out } = await lancerJuge(racine);
+    await new Promise((r) => srv.close(r));
+    rmSync(racine, { recursive: true, force: true });
+    const ligne =
+      out
+        .trim()
+        .split("\n")
+        .find((l) => l.includes("CAUSE=")) ?? "";
+    if (status === c.attendu) {
+      console.log(`✓ collecte : ${c.nom} → ${status}`);
+    } else {
+      rouges += 1;
+      console.error(
+        `✗ collecte : ${c.nom} : attendu ${c.attendu}, obtenu ${status} — ${ligne.slice(0, 110)}`,
+      );
+    }
   }
 }
 

@@ -41,7 +41,13 @@
  *
  * @module
  */
-import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
+import {
+  CookieJar,
+  request,
+  ensurePortFree,
+  exit,
+  semerJeton,
+} from "./http-probe.mjs";
 import {
   ADMIN,
   TEMOIN,
@@ -70,24 +76,11 @@ await ensurePortFree();
 // ─── 0. LE DÉCOR D'ABORD — causes 4, 7 et 9, partagées, jamais l'agent ──────
 const { admin, temoin } = await etablirIdentites();
 
-/**
- * Sème le jeton anti-rejeu si — et seulement si — l'application en exige un.
- *
- * Une requête sûre vers une route protégée par `@CsrfProtect` dépose le cookie ;
- * sans cette protection, rien n'est déposé et l'en-tête ne sera pas envoyé. Le
- * juge s'adapte donc à ce que l'agent a fait, au lieu de présumer. Sans ce pas,
- * un agent qui protège AUSSI ses mutations contre le rejeu verrait son
- * administrateur refusé, et le juge lui reprocherait une garde trop stricte.
- *
- * @param {CookieJar} jar - bocal de l'identité concernée.
- * @returns {Promise<void>}
- */
-const semerJeton = async (jar) => {
-  await request("GET", COLLECTION, jar);
-};
-
-await semerJeton(admin);
-await semerJeton(temoin);
+// Se munir du jeton anti-rejeu AVANT toute mutation : sans ce pas, un agent qui
+// protège aussi ses écritures verrait son administrateur refusé, et le juge lui
+// reprocherait une garde trop stricte. Le pourquoi complet : `semerJeton`.
+await semerJeton(admin, COLLECTION);
+await semerJeton(temoin, COLLECTION);
 
 // ─── 1. L'ADMINISTRATEUR CRÉE — sans ressource, rien à mesurer ──────────────
 const cree = await request("POST", COLLECTION, admin, {

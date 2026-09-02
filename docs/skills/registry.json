@@ -604,9 +604,9 @@
       },
       "requires": [
         "serveur UP",
+        "redis",
         "base de données",
-        "docker",
-        "redis"
+        "docker"
       ],
       "resources": {
         "references": [

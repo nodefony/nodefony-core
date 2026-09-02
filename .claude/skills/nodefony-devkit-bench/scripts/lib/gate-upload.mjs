@@ -49,7 +49,13 @@
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
+import {
+  CookieJar,
+  ensurePortFree,
+  exit,
+  request,
+  semerJeton,
+} from "./http-probe.mjs";
 import { ADMIN, ouvrirSession } from "./identites.mjs";
 
 /** La route que l'énoncé nomme — jamais devinée. */
@@ -81,6 +87,7 @@ export const CAUSES = {
   "aucune-reponse": 6,
   "identite-indisponible": 7,
   "reponse-muette": 8,
+  "jeton-csrf-absent": 9,
 };
 
 /**
@@ -281,6 +288,15 @@ async function principal() {
   }
   const admin = session.jar;
 
+  // 🔴 Se munir du jeton anti-rejeu AVANT d'écrire. Le framework ne l'émet que
+  // sur une requête SÛRE vers une route `@CsrfProtect` : sans ce GET, toute
+  // route correctement protégée rend 403 au juge, qui accuserait alors le
+  // dépôt de « ne pas fonctionner » — et validerait la seule route qui ne
+  // résiste pas, celle qui n'est pas protégée. Mesuré : un agent ayant suivi
+  // l'`AGENTS.md` (« toute action qui ÉCRIT porte @CsrfProtect ») a été mis en
+  // défaut ici, quand deux agents qui ne l'avaient pas protégée passaient.
+  await semerJeton(admin, ROUTE_DEPOT);
+
   // 1. Un envoi HONNÊTE.
   const contenu = `rapport de bench ${Date.now()}`;
   const legitime = composerMultipart("file", "rapport-bench.txt", contenu);
@@ -304,6 +320,18 @@ async function principal() {
       csrfToken: admin.csrfToken(),
       headers: { "content-type": hostile.contentType },
     });
+  }
+
+  // Un 403 SANS jeton en poche ne dit rien du dépôt : il dit que le juge n'a
+  // pas pu se munir. S'abstenir est le seul verdict honnête — accuser ici, ce
+  // serait reprocher à l'agent d'avoir protégé sa route.
+  if (depot.status === 403 && admin.csrfToken() === null) {
+    exit(
+      CAUSES["jeton-csrf-absent"],
+      `CAUSE=jeton-csrf-absent — ${ROUTE_DEPOT} rend 403 et le juge n'a AUCUN ` +
+        `jeton : un GET sur cette route n'a pas semé le cookie « csrf-token ». ` +
+        `Le dépôt n'est pas en cause — l'instrument ne s'est pas muni.`,
+    );
   }
 
   const corpsReponse = String(depot.body ?? "");
