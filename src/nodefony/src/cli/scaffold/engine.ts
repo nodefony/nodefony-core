@@ -2922,6 +2922,16 @@ export interface IScaffoldConnector {
   name: string;
   /** Moteur SQL visé — décide des types de colonnes générés. */
   dialect: TEntityDialect;
+  /**
+   * Qui fabrique le schéma de ce connecteur, quand l'application l'ÉCRIT.
+   *
+   * `undefined` = la configuration ne le dit pas, et le mode sera résolu au
+   * démarrage depuis l'environnement (développement → `auto`, le reste →
+   * `none`). Le scaffold ne le devine pas : il ne sait pas dans quel mode
+   * l'application tournera, et affirmer « créée au prochain boot » à qui a
+   * écrit `none` serait faux.
+   */
+  ddl?: string;
 }
 
 /**
@@ -2962,11 +2972,13 @@ function readConnectors(
     while ((match = entry.exec(block)) !== null) {
       const [, name, body] = match;
       if (!name) continue;
+      const ddl = /ddl\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1];
       connectors.push({
         name,
         dialect: asDialect(
           /dialect\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1],
         ),
+        ...(ddl !== undefined ? { ddl } : {}),
       });
     }
   }
@@ -3591,14 +3603,39 @@ function runEntityScaffold(
   // Dire la vérité sur la base : le DDL dérivé du mode dev crée la table au boot et
   // rattrape les colonnes qui acceptent le vide, mais jamais une colonne
   // obligatoire — et la production se migre.
+  // 🔴 Ce que le démarrage fera de cette table dépend du MODE de schéma, et
+  // l'application l'écrit parfois. `ddl: "none"` ou `"migrate"` désignent une
+  // base qu'on ne fabrique pas au boot — celle d'une recette, d'une copie de
+  // production, d'un déploiement orchestré. Y annoncer « créée au prochain
+  // boot » est faux, et y proposer `orm:reset` propose d'effacer des données.
+  //
+  // Quand la configuration ne dit rien, le mode sera résolu au démarrage depuis
+  // l'environnement : on décrit alors les DEUX régimes, comme avant.
+  const modeEcrit = readConnectors(projectRoot, writer).find(
+    (c) => c.name === connector,
+  )?.ddl;
+  const schemaFabriqueAuBoot = modeEcrit !== "none" && modeEcrit !== "migrate";
   const notes = [
     ...ormRuntimeNote,
     // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
     // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
     // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
-    `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`,
-    `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
-    `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
+    schemaFabriqueAuBoot
+      ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
+      : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${modeEcrit}) — le démarrage ne la crée PAS`,
+    ...(schemaFabriqueAuBoot
+      ? [
+          `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
+          `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
+        ]
+      : [
+          // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
+          // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
+          // il efface, et ce mode est celui d'une base qui porte des données.
+          `→ écrire la migration : nodefony orm:generate --name <nom>`,
+          `→ l'appliquer : nodefony orm:migrate${connector === "default" ? "" : ` --connector ${connector}`}`,
+          `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
+        ]),
   ];
   if (controller) {
     notes.push(

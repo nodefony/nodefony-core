@@ -4264,6 +4264,55 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include((r.notes ?? []).join("\n"), "(sqlite)");
     });
 
+    it("le mode de schéma ÉCRIT change ce que la commande annonce — et n'offre plus d'effacer", () => {
+      // 🔴 Les notes affirmaient « créée au prochain boot en développement » et
+      // proposaient `orm:reset` quel que soit le mode. Sur un connecteur
+      // `ddl: "none"` — celui d'une base de recette, d'une copie de production,
+      // d'un déploiement orchestré — la première phrase est FAUSSE et la
+      // seconde propose d'effacer des données. Un agent lit ces lignes et
+      // exécute la première commande qu'elles nomment.
+      const dest = app("ddlnone");
+      const cfg = path.join(dest, "nodefony.config.ts");
+      writeFileSync(
+        cfg,
+        readFileSync(cfg, "utf8").replace(
+          '"@nodefony/drizzle",',
+          'use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),',
+        ),
+      );
+      const notes = (
+        entity(dest, { name: "Invoice", fields: "code:string!" }).notes ?? []
+      ).join("\n");
+      assert.include(
+        notes,
+        "le démarrage ne la crée PAS",
+        "en mode « none », annoncer une création au boot est faux",
+      );
+      assert.include(notes, "orm:generate");
+      assert.include(notes, "orm:migrate");
+      assert.notInclude(
+        notes,
+        "orm:reset",
+        "ce mode désigne une base qui porte des données — ne jamais proposer d'effacer",
+      );
+      assert.notInclude(
+        notes,
+        "créée au prochain boot",
+        "la phrase du mode « auto » ne doit pas survivre ici",
+      );
+    });
+
+    it("sans mode ÉCRIT, la commande décrit les DEUX régimes — elle ne devine pas", () => {
+      // Le scaffold ne sait pas dans quel environnement l'application tournera :
+      // le mode sera résolu au démarrage. Il décrit donc les deux, comme avant.
+      const dest = app("ddlauto");
+      const notes = (
+        entity(dest, { name: "Ticket", fields: "code:string!" }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "créée au prochain boot en développement");
+      assert.include(notes, "production : appliquer les migrations");
+    });
+
     it("drizzle-orm est déclaré par l'app (import direct de l'entité générée)", () => {
       // L'entité produite importe `drizzle-orm/<dialecte>-core` : c'est une dep DE
       // L'APP. Sans elle, la résolution ne tient que par le hissage npm des
