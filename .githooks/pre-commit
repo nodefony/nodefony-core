@@ -58,6 +58,28 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^\.claude/skills
   fi
 fi
 
+# Les JUGES du banc devkit, éprouvés — mais SEULEMENT quand on touche au banc.
+#
+# Le cas qui a fait écrire ces lignes : `6f2c2c53` a renommé la définition d'une
+# requête sans renommer ses deux appels, et `gate-media-range.mjs` est resté MORT
+# cinq jours — un `ReferenceError` à sa première ligne. Un juge qui plante sort
+# sans `CAUSE=`, et le banc rend alors un rouge OPPOSABLE À L'AGENT : la tâche
+# serait tombée en échec « stable », donnant une chute à instruire et trois
+# agents payés pour une faute de frappe. Ce commit-là touchait ce dossier.
+#
+# Le filtre est ÉTROIT à dessein — corriger une faute dans un autre SKILL.md n'a
+# pas à payer une minute trente. `--sans` écarte le contrôle qui exige
+# PostgreSQL : la forge `orm.yml` le joue, là où la base existe.
+if git diff --cached --name-only --diff-filter=ACMR \
+   | grep -qE '^\.claude/skills/nodefony-devkit-bench/'; then
+  echo "🧪 banc devkit touché → auto-contrôle des juges (~1 min 30)..."
+  if ! npm run --silent devkit:selftest -- --prove --sans bench-schema.selftest.mjs; then
+    echo "❌ un juge du banc est cassé — commit annulé"
+    echo "   → npm run devkit:selftest -- --prove   (rejouer et lire les causes)"
+    exit 1
+  fi
+fi
+
 # Garde anti-dérive : les noms de canaux/méthodes de plateforme (`nodefony:*`) ne
 # s'écrivent pas en dur — ils viennent de la table du cœur. Un producteur renommé
 # sans son consommateur rend un écran muet SANS qu'aucun test ne rougisse (les

@@ -54,6 +54,7 @@
     "test:pilotage": "vitest run .claude/skills/nodefony-ticket/scripts/ticket-progress.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-open.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-close.test.mjs",
     "ticket:open": "node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
+    "devkit:selftest": "node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs",
     "skills:doc": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
