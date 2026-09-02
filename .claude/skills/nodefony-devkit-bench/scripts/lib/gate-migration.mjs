@@ -29,7 +29,8 @@
  * | Sortie | Cause             | Ce que ça dit                                          |
  * | -----: | ----------------- | ------------------------------------------------------ |
  * |    `0` | conforme          | la base a suivi, sans rien perdre                      |
- * |    `1` | colonne-absente   | la ressource ne publie pas la colonne neuve            |
+ * |    `1` | colonne-absente   | la ressource ne publie pas la colonne neuve — ou ne se |
+ * |        |                   | lit plus du tout (migration écrite, jamais appliquée)  |
  * |    `2` | donnee-perdue     | la ligne d'avant a disparu — la base a été refaite     |
  * |    `3` | etat-non-a-jour   | `orm:migrate:status` ne rend pas 0                     |
  * |    `4` | non-idempotent    | rejouer applique encore quelque chose                  |
@@ -201,6 +202,29 @@ async function principal() {
   }
   if (liste.status === 404) {
     exit(CAUSES["route-absente"], `${ROUTE_ARTICLES} n'est pas montée`);
+  }
+  // 🔴 Tout statut NON-2xx est une ressource qui ne répond pas — pas une base
+  // vidée. Mesuré au banc : une migration écrite et JAMAIS appliquée fait
+  // répondre 500 à la liste (la requête cherche une colonne absente) ; le corps
+  // d'erreur était alors lu comme une liste vide, le témoin déclaré disparu, et
+  // le juge annonçait « la base a été refaite » — une destruction qui n'avait
+  // pas eu lieu, dans un banc dont la raison d'être est de NOMMER la cause.
+  //
+  // La cause reste `colonne-absente` : c'est bien le travail qui n'est pas
+  // fini, et le détail dit ce qui a été constaté plutôt que ce qu'on en déduit.
+  if (
+    typeof liste.status !== "number" ||
+    liste.status < 200 ||
+    liste.status >= 300
+  ) {
+    exit(
+      CAUSES["colonne-absente"],
+      `${ROUTE_ARTICLES} répond ${liste.status} : la ressource ne se lit plus. ` +
+        `Le plus souvent la migration est écrite et NON appliquée — la requête ` +
+        `cherche alors une colonne que la base n'a pas. Rien ne dit ici que des ` +
+        `données ont disparu : ` +
+        `${String(liste.body ?? "").slice(0, 160)}`,
+    );
   }
 
   // 2. La ligne d'AVANT est-elle toujours là, et la ressource PUBLIE-t-elle la

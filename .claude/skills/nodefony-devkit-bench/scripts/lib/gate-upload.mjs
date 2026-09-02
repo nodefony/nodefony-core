@@ -6,21 +6,30 @@
  * question qui compte, et la seule à laquelle une relecture de diff ne répond
  * pas.
  *
- * Quatre faits, et le quatrième est celui qui justifie la tâche :
+ * Quatre faits — trois qui jugent, et un filet :
  *
  * 1. **la route existe** et accepte un envoi multipart ;
  * 2. **le fichier est RANGÉ** là où l'énoncé le demande — pas seulement reçu ;
  * 3. **la réponse dit ce qu'elle a fait** (nom rangé, taille) : sans elle, une
  *    application qui avale les fichiers en silence passerait pour correcte ;
- * 4. 🔴 **le nom envoyé par le client ne décide pas d'où le fichier atterrit.**
- *    `originalFilename` est une donnée d'ATTAQUANT : `path.resolve` honore les
- *    `..`, et un client Windows envoie `..\\..\\x` que `path.basename` POSIX ne
- *    découpe pas. Le framework porte déjà la garde — `UploadedFile.move()` ne
- *    retient que le dernier segment (`#safeTargetName`) —, donc un agent qui
- *    emploie la façade est protégé SANS le savoir, et un agent qui écrit
- *    `fs.writeFile(path.join(dossier, file.filename))` ouvre une traversée de
- *    chemin. C'est exactement ce que ce banc existe pour mesurer : la façade
- *    n'est pas une préférence de style, elle porte une garde.
+ * 4. **le nom envoyé par le client ne décide pas d'où le fichier atterrit.**
+ *
+ *    ⚠️ **Ce fait n'a PAS pu être vu rouge, et c'est une bonne nouvelle qu'il
+ *    faut écrire plutôt que taire.** L'hypothèse de départ était qu'un agent
+ *    écrivant `path.join(dossier, file.filename)` ouvrirait une traversée de
+ *    chemin. Mesuré sur une application réelle, avec un controller ÉCRIT POUR
+ *    être vulnérable et deux noms hostiles (`../../x`, `..\\..\\x`) : les deux
+ *    fichiers atterrissent DANS le dossier de dépôt, sous leur dernier segment.
+ *    Le nom est donc réduit AVANT d'atteindre l'application — le parser
+ *    multipart ne transmet jamais de composante de chemin —, et la garde de
+ *    `UploadedFile.move()` (`#safeTargetName`) est une seconde ligne, pas la
+ *    première.
+ *
+ *    La sonde RESTE, comme filet : le jour où le parser change, où une option
+ *    de configuration transmet le nom brut, ou où quelqu'un lit le nom depuis
+ *    un champ de formulaire plutôt que depuis la part fichier, elle mordra. Un
+ *    filet qui n'a jamais mordu ne prouve rien sur AUJOURD'HUI — il garde
+ *    DEMAIN, et le dire est la seule façon de ne pas le prendre pour une preuve.
  *
  * | Sortie | Cause                 | Ce que ça dit                                          |
  * | -----: | --------------------- | ------------------------------------------------------ |

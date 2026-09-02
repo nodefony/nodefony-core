@@ -325,6 +325,8 @@
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
 
+- [1× — 09-02] **Mon propre décor manuel a écarté un run du banc.** Pour éprouver un juge neuf, j'avais monté une application témoin à la main sur les ports DÉDIÉS du banc, puis lancé le banc sans vérifier que le port était rendu — un `nodefony stop` avait été exécuté depuis un `cwd` réinitialisé, donc ailleurs. La garde d'instrument a fait exactement son travail : `CAUSE=port-deja-tenu`, verdict NON rendu, run écarté comme cause de DÉCOR plutôt qu'imputé à l'agent. Le coût est un run d'agent (73 tours, 0,77 $) payé pour rien. **Éprouver un juge à la main se fait sur d'AUTRES ports que ceux du banc, ou le port se constate libre avant de lancer** — `lsof -ti :<port>`, pas un `stop` dont on suppose l'effet.
+
 - [1× — 09-01] Sonde CSP lancée avant d'avoir CONSTATÉ qu'aucun serveur ne répondait : deux serveurs se sont mélangés dans la même chronologie (3 ports → 12 → 3, incompréhensible). Refaite sur terrain vierge (`curl` → `000` + `nodefony status`), elle est devenue lisible d'un coup. **Un banc de démarrage commence par prouver que rien ne tourne.**
 - [1× — 08-31d] **Un banc qui RECOPIE la règle du produit ne prouve rien — celui qui DEMANDE au
   serveur a fait tomber mon correctif à sa première exécution.** Pour #121, j'ai écrit dans le
@@ -735,6 +737,8 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-02] **Une sonde de sécurité qui ne PEUT pas mordre — et le seul moyen de le savoir était d'écrire le code vulnérable.** Une tâche neuve visait la traversée de chemin par le nom de fichier d'un envoi multipart, en supposant qu'un agent composant `path.join(dossier, file.filename)` écrirait hors du dossier. Éprouvé sur une application réelle avec un controller ÉCRIT POUR être vulnérable et deux noms hostiles : les deux fichiers atterrissent DANS le dossier. Le parser ne transmet aucune composante de chemin, et la garde du framework est une SECONDE ligne. La sonde reste — comme filet — mais elle est désormais annoncée comme telle : **un filet qu'on n'a jamais vu mordre garde DEMAIN, il ne prouve rien sur AUJOURD'HUI, et le taire le ferait passer pour une preuve.**
 
 - [1× — 09-02] **Une assertion vraie sur une ancre fausse.** `assert.include(src, '"User"')`, commentée « la table porte le nom que les requêtes écrivent en dur », lisait en réalité `name: "User"` du descripteur d'entité, quelques lignes plus bas. Verte pendant toute la durée du défaut, sur un fichier où la table s'appelait `users`. **Quand une assertion vise un CONCEPT, viser la construction qui le porte** (`sqliteTable("User"`), jamais une chaîne que le fichier contient par ailleurs.
 
@@ -1824,6 +1828,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 09-02] **Deux juges qui rendent une cause FAUSSE, découverts par le run large.** (a) Un `GET 500` — migration écrite, jamais appliquée — était lu comme une liste vide, donc « la ligne témoin a disparu », donc « la base a été refaite » : une destruction annoncée qui n'avait pas eu lieu. (b) Une sonde d'interdit cherchant `DROP TABLE` dans TOUT le transcript condamnait l'agent pour avoir LU la migration que `orm:generate` venait d'écrire (patron d'expansion-contraction de SQLite) — l'agent avait lui-même écrit « c'est un faux positif ». **Le verdict était juste dans les deux cas ; la CAUSE envoyait chercher au mauvais endroit** — dans un banc dont la raison d'être est de nommer la cause. Une sonde d'interdit vise ce qu'on EXÉCUTE ; un juge d'état distingue « la ressource ne répond pas » de « la donnée a disparu ».
 
 - [1× — 09-02] **Une sonde de banc portée par le VIEUX nom accuse le produit d'un défaut qu'elle vient de créer.** Après avoir fait converger deux noms d'export, l'étape « une entité amputée fait REFUSER » est passée au rouge : sa sonde écrivait encore l'ancien nom, si bien que le build tombait sur un import mort au lieu de refuser la colonne absente — et le message accusait le produit. Après un renommage, les SONDES se recherchent au même titre que le code (`rg` sur l'ancien nom, dépôt entier, bancs compris).
 

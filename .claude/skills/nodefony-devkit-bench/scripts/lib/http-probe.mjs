@@ -206,19 +206,33 @@ export class CookieJar {
  * @param {string} method - verbe HTTP.
  * @param {string} path - chemin de la route.
  * @param {CookieJar} jar - cookies envoyés puis mis à jour depuis la réponse.
- * @param {{body?: object, csrfToken?: string|null, headers?: object, port?: string|number}} [opts]
- *   - `body` sérialisé en JSON ; `csrfToken` posé en `x-csrf-token` ; `headers`
- *   fusionnés en dernier (ils gagnent) ; `port` pour sortir du décor par défaut.
+ * @param {{body?: object, raw?: string|Buffer, csrfToken?: string|null, headers?: object, port?: string|number}} [opts]
+ *   - `body` sérialisé en JSON ; `raw` envoyé TEL QUEL, sans type de contenu
+ *   déduit (multipart, texte brut, corps volontairement malformé) ; `csrfToken`
+ *   posé en `x-csrf-token` ; `headers` fusionnés en dernier (ils gagnent) ;
+ *   `port` pour sortir du décor par défaut.
+ *
+ *   `raw` prime sur `body` : les deux ensemble décriraient deux corps, et
+ *   choisir silencieusement l'un des deux est exactement le genre de règle
+ *   implicite qui fait mesurer autre chose que ce qu'on croit.
  * @returns {Promise<{status?: number, body?: string, headers?: object, error?: string}>}
  */
 export const request = (method, path, jar, opts = {}) =>
   new Promise((resolve) => {
-    const payload = opts.body ? JSON.stringify(opts.body) : null;
+    const payload =
+      opts.raw !== undefined
+        ? opts.raw
+        : opts.body
+          ? JSON.stringify(opts.body)
+          : null;
     const headers = {};
     const cookies = jar.header();
     if (cookies) headers.cookie = cookies;
-    if (payload) {
-      headers["content-type"] = "application/json";
+    if (payload !== null) {
+      // Le type de contenu n'est DÉDUIT que pour un corps JSON. Un corps brut
+      // porte le sien (`multipart/form-data; boundary=…`) : le deviner ici
+      // écraserait la frontière et le serveur ne parserait rien.
+      if (opts.raw === undefined) headers["content-type"] = "application/json";
       headers["content-length"] = Buffer.byteLength(payload);
     }
     if (opts.csrfToken) headers["x-csrf-token"] = opts.csrfToken;
@@ -249,6 +263,6 @@ export const request = (method, path, jar, opts = {}) =>
       r.destroy();
       resolve({ error: `aucune réponse en ${TIMEOUT_MS / 1000} s` });
     });
-    if (payload) r.write(payload);
+    if (payload !== null) r.write(payload);
     r.end();
   });
