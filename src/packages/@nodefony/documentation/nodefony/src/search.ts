@@ -171,12 +171,19 @@ export function searchDocs(
       if (!terms.some((t) => pliee.includes(t))) continue;
       const texte = brute
         // Un lien garde son TEXTE, jamais sa cible.
-        // `[^\][]` et non `[^\]]` : en laissant le texte du lien avaler un
-        // crochet OUVRANT, chaque `[` d'une suite `[[[[…` redevenait un départ
-        // possible — temps QUADRATIQUE (js/polynomial-redos). L'exclure ne
-        // change rien au markdown réel (un lien n'imbrique pas de crochet) et
-        // supprime le chevauchement.
-        .replace(/\[([^\][]*)\]\([^)]*\)/g, "$1")
+        //
+        // Les DEUX classes excluent le crochet ouvrant, et il a fallu les deux :
+        // la première tuée par `[^\][]` (une suite `[[[[…` faisait de chaque `[`
+        // un départ possible), la seconde par `[^)[]` — sur `[](` répété, la
+        // cible avalait tout le reste de la ligne avant d'échouer, à chaque
+        // départ. Mesuré sur 20 000 répétitions : 1047 ms avec `[^)]`, 0,2 ms
+        // sans le crochet ; une borne `{0,2048}` ne descendait qu'à 154 ms.
+        //
+        // Exclure `[` d'une cible ne perd rien : la RFC 3986 §2.2 le classe
+        // parmi les caractères réservés, qui doivent être percent-encodés
+        // (`%5B`) partout ailleurs que dans une adresse IP littérale. Le rendu
+        // est identique sur du markdown réel — vérifié par le banc.
+        .replace(/\[([^\][]*)\]\([^)[]*\)/g, "$1")
         // Les croisillons d'un titre de niveau 5+, que le balayage de
         // section ne capte pas.
         .replace(/^#{1,6}\s*/, "")

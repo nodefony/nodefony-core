@@ -32,6 +32,19 @@
 import { describe, it, expect } from "vitest";
 import { searchDocs, type SearchableDoc } from "../../../index";
 
+/** Le corpus hostile : un motif répété, sur une ligne porteuse du terme. */
+const hostileAvec = (motif: string, repetitions: number): SearchableDoc[] => [
+  {
+    slug: "guides~hostile",
+    title: "Page ordinaire",
+    navTitle: "Page ordinaire",
+    sectionLabel: "Guides",
+    // La ligne doit porter le terme cherché, sinon elle n'atteint jamais le
+    // déréférencement des liens — et le banc mesurerait un chemin non pris.
+    body: `${motif.repeat(repetitions)} nodefony`,
+  },
+];
+
 /** Le corpus hostile : une ligne de crochets ouvrants, porteuse du terme. */
 const hostile = (repetitions: number): SearchableDoc[] => [
   {
@@ -53,6 +66,20 @@ describe("searchDocs — un corpus hostile ne fige pas le lecteur", () => {
 
     // La garde d'abord : sans elle, un chemin non pris rendrait le budget
     // trivialement tenu, et le banc serait vert sans avoir rien mesuré.
+    expect(resultat.matched).toBe(1);
+    expect(ecoule).toBeLessThan(1000);
+  });
+
+  it("traite 20 000 amorces de lien vides en bien moins d'une seconde", () => {
+    // Le SECOND chemin quadratique de la même expression, et il a survécu à la
+    // première correction : sur `[](` répété, la cible du lien avalait tout le
+    // reste de la ligne avant d'échouer sur la parenthèse fermante — à chaque
+    // départ. Mesuré : 1047 ms avant, 0,2 ms après. Un cas par chemin, parce
+    // qu'un seul corpus hostile n'exerce qu'une des deux ambiguïtés.
+    const debut = performance.now();
+    const resultat = searchDocs(hostileAvec("[](", 20_000), "nodefony");
+    const ecoule = performance.now() - debut;
+
     expect(resultat.matched).toBe(1);
     expect(ecoule).toBeLessThan(1000);
   });
