@@ -1092,7 +1092,7 @@ export const userTable = ${grammaire.table}("User", {
   updatedAt: ${grammaire.col("updatedAt")}.notNull(),
 });
 
-export const AppUserEntity = defineEntity({
+export const UserEntity = defineEntity({
   name: "User",
   module: "app",
   connector: FRAMEWORK_CONNECTOR,

@@ -40,7 +40,7 @@
 | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Module applicatif (workspace npm)                                                                       | `npx nodefony create module <nom>`                                                               |
 | Controller HTTP **et** WebSocket (même classe)                                                          | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example`             |
-| Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie          | `npx nodefony create controller <nom> --role ROLE_X`                                             |
+| Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie           | `npx nodefony create controller <nom> --role ROLE_X`                                             |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"`                            |
 | Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
 | Frontend Vite (React/Vue/Angular)                                                                       | `npx nodefony create front <nom> [--module <m>]`                                                 |
