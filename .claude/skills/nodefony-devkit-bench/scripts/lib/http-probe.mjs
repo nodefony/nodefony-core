@@ -114,6 +114,30 @@ export const portTaken = (port = PORT) =>
   });
 
 /**
+ * Un port libre, obtenu du SYSTÈME plutôt que deviné.
+ *
+ * Le défaut qu'il ferme : un selftest qui écoute sur un port écrit en dur est
+ * un état PARTAGÉ. Deux d'entre eux lancés ensemble — ou un banc laissé en
+ * arrière-plan — se marchent dessus, et le rouge qui en sort n'accuse rien ni
+ * personne. Mesuré sur ce dépôt : trois selftests sur `5394`, trois sur `5395`,
+ * deux sur `5393`, et deux exécutions consécutives du lot rendant deux verdicts
+ * différents. Un contrôle qui rougit faux apprend à passer outre.
+ *
+ * À utiliser dans TOUT selftest qui monte un serveur factice, en transmettant
+ * le port au juge par `NF_PORT` : c'est ce que lit {@link PORT}.
+ *
+ * @returns {Promise<number>} un port que le système vient de céder.
+ */
+export const portLibre = () =>
+  new Promise((resolve) => {
+    const s = net.createServer();
+    s.listen(0, HOST, () => {
+      const { port } = s.address();
+      s.close(() => resolve(port));
+    });
+  });
+
+/**
  * Termine le juge sur une cause nommée.
  *
  * Le format est un contrat : le banc relit la PREMIÈRE ligne commençant par
