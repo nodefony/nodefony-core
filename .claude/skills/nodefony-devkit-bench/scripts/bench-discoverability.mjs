@@ -127,6 +127,7 @@ import {
 } from "./lib/isolation.mjs";
 import {
   estOpposable,
+  imputationDe,
   lireCause,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
@@ -5798,7 +5799,18 @@ function judgeTask(app, runDir, task, occurrence = null) {
             ? lireCause(frozen.evidence)
             : frozen.cause === null
               ? null
-              : { nom: frozen.cause, imputation: frozen.imputation };
+              : {
+                  nom: frozen.cause,
+                  // 🔴 Le FAIT et le JUGEMENT ne se figent pas ensemble. La
+                  // cause appartient au run : elle a été mesurée là-bas, elle
+                  // reste. Son imputation appartient à la table du JOUR — c'est
+                  // un classement, il se corrige. Les figer d'un bloc rendait
+                  // toute correction rétroactive impossible : un run payé
+                  // restait « écarté, trou d'instrument » même après que sa
+                  // cause a été classée, et il fallait repayer des heures
+                  // d'agent pour obtenir un verdict qu'un recalcul rendait.
+                  imputation: imputationDe(frozen.cause) ?? frozen.imputation,
+                };
         if (!pass && relu) {
           opposable = estOpposable(relu.imputation);
           if (!opposable) {
