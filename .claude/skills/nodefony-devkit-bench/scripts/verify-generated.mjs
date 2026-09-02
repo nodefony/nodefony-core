@@ -33,6 +33,7 @@
  * Sortie : rapport console + code de sortie 1 à la première étape rouge.
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import {
   mkdirSync,
   rmSync,
@@ -69,6 +70,30 @@ function findRepoRoot(from) {
   }
   throw new Error("racine du dépôt Nodefony introuvable depuis " + from);
 }
+
+// 🔴 Avant toute chose : ce banc installe une application complète, la
+// compile et la démarre. Un drapeau mal tapé lui faisait dérouler tout ça « au
+// cas où » — la même garde protège les trois bancs, depuis une seule
+// implémentation.
+garderDrapeaux({
+  args: process.argv.slice(2),
+  connus: ["--database", "--keep", "--link", "--repack"],
+  aValeur: ["--database"],
+  usage: [
+    "Banc de vérité du code généré — compile-t-il, teste-t-il, répond-il ?",
+    "",
+    "  node verify-generated.mjs                  décor ISOLÉ, toutes les étapes",
+    "  node verify-generated.mjs --database <m>   le moteur du décor (défaut : sqlite)",
+    "",
+    "  --link    décor lié au dépôt : boucle courte, verdict AMPUTÉ",
+    "  --keep    conserve le décor à la fin (pour inspecter)",
+    "  --repack  refabrique les tarballs même s'ils paraissent à jour",
+    "",
+    "Sorties : 0 toutes les étapes passent · 1 une étape a échoué · 64 usage",
+  ].join("\n"),
+  avertissement:
+    "Rien n'a été lancé — ce banc installe, compile et démarre une application.",
+});
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src/nodefony/bin/nodefony");

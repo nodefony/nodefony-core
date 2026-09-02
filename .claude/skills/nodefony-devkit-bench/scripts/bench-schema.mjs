@@ -104,6 +104,7 @@
  * trous de la grammaire en devinant juste).
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import { besoinDeShell } from "./lib/exec-portable.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -2011,6 +2012,40 @@ function report(ctx) {
 
 async function main() {
   const argv = process.argv.slice(2);
+  // Ce banc monte une application complète et interroge un vrai moteur : un
+  // drapeau mal tapé ne doit pas le lancer « au cas où ».
+  garderDrapeaux({
+    args: argv,
+    connus: [
+      "--schema",
+      "--dialect",
+      "--analyze-only",
+      "--dump-only",
+      "--schema-only",
+      "--setup-only",
+      "--link",
+      "--repack",
+    ],
+    aValeur: ["--schema", "--dialect", "--analyze-only"],
+    usage: [
+      "Banc de schéma — le modèle d'un vrai logiciel est-il EXPRIMABLE ?",
+      "",
+      "  node bench-schema.mjs                       le schéma umami sur PostgreSQL",
+      `  node bench-schema.mjs --schema <nom>        parmi : ${Object.keys(SCHEMAS).join(", ")}`,
+      `  node bench-schema.mjs --dialect <moteur>    parmi : ${Object.keys(DB_URL).join(", ")}`,
+      "  node bench-schema.mjs --analyze-only <run>  re-juge un run déjà joué",
+      "",
+      "  --schema-only  s'arrête après la traduction du schéma",
+      "  --dump-only    imprime le DDL obtenu et s'arrête",
+      "  --setup-only   monte l'application témoin et s'arrête",
+      "  --link         décor lié au dépôt : boucle courte, verdict AMPUTÉ",
+      "  --repack       refabrique les tarballs même s'ils paraissent à jour",
+      "",
+      "Sorties : 0 rien à signaler · 1 des sondes ont échoué · 64 usage",
+    ].join("\n"),
+    avertissement:
+      "Rien n'a été lancé — ce banc monte une application et interroge un moteur.",
+  });
   const arg = (flag) => {
     const i = argv.indexOf(flag);
     return i === -1 ? null : argv[i + 1];

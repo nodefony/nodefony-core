@@ -79,6 +79,7 @@
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import {
   chmodSync,
   copyFileSync,
@@ -6229,9 +6230,7 @@ function main() {
   // ignorait ce qu'il ne comprenait pas, une faute de frappe — ou un `--help`
   // qui n'existait pas — déroulait le catalogue entier avant qu'on s'en
   // aperçoive. Vécu, et c'est ce qui a fait écrire ces lignes.
-  const DRAPEAUX = new Set([
-    "--help",
-    "-h",
+  const DRAPEAUX = [
     "--task",
     "--runs",
     "--analyze-only",
@@ -6241,7 +6240,8 @@ function main() {
     "--confirmer",
     "--link",
     "--repack",
-  ]);
+    "--setup-only",
+  ];
   const usage = [
     "Banc de découvrabilité — un agent trouve-t-il l'outillage du framework ?",
     "",
@@ -6254,6 +6254,7 @@ function main() {
     "      … --enregistrer-reference                      fige le résultat dans baseline.json",
     "  node bench-discoverability.mjs --purge [--confirmer]  libère les décors (garde les mesures)",
     "",
+    "  --setup-only  monte l'app témoin et s'arrête (aucune tâche jouée)",
     "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
     "  --repack   refabrique les tarballs même s'ils paraissent à jour",
     "",
@@ -6261,26 +6262,14 @@ function main() {
     "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
     "          64 usage · 78 comparaison refusée (décor différent de la référence)",
   ].join("\n");
-  if (args.includes("--help") || args.includes("-h")) {
-    console.log(usage);
-    process.exit(0);
-  }
-  const inconnus = args.filter(
-    (a, i) =>
-      a.startsWith("-") &&
-      !DRAPEAUX.has(a) &&
-      !DRAPEAUX.has(a.split("=")[0]) &&
-      // une VALEUR négative ou un chemin qui suit un drapeau à valeur n'est pas
-      // un drapeau : on ne juge que ce qui commence un argument.
-      !(i > 0 && ["--task", "--runs", "--analyze-only"].includes(args[i - 1])),
-  );
-  if (inconnus.length > 0) {
-    console.error(
-      `Drapeau inconnu : ${inconnus.join(", ")}\n\n${usage}\n\n` +
-        "Rien n'a été lancé — ce banc déroule de vrais agents, il ne devine pas.",
-    );
-    process.exit(64);
-  }
+  garderDrapeaux({
+    args,
+    connus: DRAPEAUX,
+    aValeur: ["--task", "--runs", "--analyze-only"],
+    usage,
+    avertissement:
+      "Rien n'a été lancé — ce banc déroule de vrais agents, il ne devine pas.",
+  });
   // Avant tout le reste : cette invocation ne joue aucune tâche, ne monte aucun
   // décor, et n'a pas à payer les gardes de démarrage du banc.
   if (args.includes("--purge")) {

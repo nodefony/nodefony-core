@@ -65,6 +65,7 @@ const LOT_ATTENDU = new Set([
   "jeton-mcp.selftest.mjs",
   "reinit-decor.selftest.mjs",
   "lib/agents-formats.selftest.mjs",
+  "lib/argv.selftest.mjs",
   "lib/env-decor.selftest.mjs",
   "lib/exec-portable.selftest.mjs",
   "lib/gate-csp-nonce.selftest.mjs",
