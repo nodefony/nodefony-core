@@ -326,3 +326,47 @@ export const request = (method, path, jar, opts = {}) =>
 export const semerJeton = async (jar, route) => {
   await request("GET", route, jar);
 };
+
+/**
+ * Code de sortie d'un juge qui n'a pas pu JUGER — `EX_SOFTWARE` de `sysexits`.
+ *
+ * Choisi haut, hors de la plage 0-9 où chaque juge numérote ses propres causes :
+ * un code de cause et un code de panne ne doivent jamais se confondre.
+ */
+export const EXIT_JUGE_EN_ERREUR = 70;
+
+/**
+ * Le filet : un juge qui PLANTE nomme sa cause au lieu d'accuser l'agent.
+ *
+ * Le défaut qu'il ferme, et il est grave. Le banc n'écarte un rouge que si une
+ * ligne `CAUSE=` porte une imputation qui n'accuse pas l'agent — sans cause, le
+ * rouge lui reste OPPOSABLE. Or une exception non rattrapée sort en `1`, sans un
+ * mot : un juge cassé se lit donc exactement comme un agent fautif, et coûte des
+ * runs payés à instruire une chute imaginaire. Vécu — `gate-media-range.mjs` a
+ * levé un `ReferenceError` pendant cinq jours, et sa tâche serait tombée en
+ * échec « stable » sans que personne ne sache pourquoi.
+ *
+ * Il ne s'arme QUE si le point d'entrée est un juge (`lib/gate-*.mjs`). Le banc
+ * lui-même importe ce socle par ricochet : y armer un filet ferait passer un
+ * plantage du BANC pour un défaut de décor, ce qui remplacerait un mensonge par
+ * un autre.
+ *
+ * Rien à appeler : l'import suffit, et tous les juges sauf un importent ce
+ * fichier. C'est délibéré — une garde qu'il faut penser à brancher est une
+ * garde qu'un juge neuf oubliera.
+ */
+{
+  const entree = (process.argv[1] ?? "").replace(/\\/gu, "/");
+  if (/\/lib\/gate-[a-z0-9-]+\.mjs$/u.test(entree)) {
+    const filet = (quoi) => (e) => {
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      exit(
+        EXIT_JUGE_EN_ERREUR,
+        `CAUSE=juge-en-erreur — ${quoi} dans le juge lui-même : ${detail}. ` +
+          `Le verdict n'a PAS été rendu ; ce rouge n'accuse pas l'agent.`,
+      );
+    };
+    process.on("uncaughtException", filet("exception non rattrapée"));
+    process.on("unhandledRejection", filet("promesse rejetée"));
+  }
+}

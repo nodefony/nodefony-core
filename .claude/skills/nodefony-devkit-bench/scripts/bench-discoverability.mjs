@@ -130,6 +130,9 @@ import {
   estOpposable,
   imputationDe,
   lireCause,
+  estUnPlantageDeJuge,
+  causeDuJugeCasse,
+  viseUnJuge,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
 import { appPortUnderTest } from "./lib/http-probe.mjs";
@@ -5257,7 +5260,24 @@ function runGates(app, runDir, task) {
     // chaque juge numérote ses causes dans son ordre, `8` désigne le décor chez
     // l'un et une faute chez l'autre. L'imputation est donc FIGÉE ici, avec la
     // cause, au moment où la mesure est fidèle.
-    const cause = lireCause(`${r.stderr ?? ""}\n${r.stdout ?? ""}`);
+    const sortie = `${r.stderr ?? ""}\n${r.stdout ?? ""}`;
+    // 🔴 Un juge qui se CASSE ne doit pas se lire comme un agent fautif.
+    //
+    // Le socle rattrape les exceptions d'un juge qui a démarré et les nomme.
+    // Il ne peut rien pour celui qui meurt AVANT — `SyntaxError`, module
+    // introuvable : Node sort en `1`, muet, et un rouge sans cause est par
+    // contrat opposable à l'agent. Vécu : `gate-media-range.mjs` mort cinq
+    // jours ; sa tâche serait tombée en échec « stable », donnant une chute à
+    // instruire et trois agents payés pour une faute de frappe.
+    //
+    // Le classement se fait sur une PREUVE de plantage, jamais sur l'absence de
+    // cause : écarter tout rouge muet innocenterait l'agent dès qu'un juge se
+    // tait, et un banc qui innocente à tort ne mesure plus rien.
+    const cause =
+      lireCause(sortie) ??
+      (!pass && viseUnJuge(p.cmd) && estUnPlantageDeJuge(sortie)
+        ? causeDuJugeCasse(sortie)
+        : null);
     const ecarte = !pass && cause && !estOpposable(cause.imputation);
     // Une cause NOMMÉE porte son imputation et prime ; à défaut, on rend au
     // moins ce que le gate a écrit. Un rouge doit s'expliquer du premier coup,

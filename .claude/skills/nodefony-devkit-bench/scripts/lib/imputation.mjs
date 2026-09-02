@@ -132,6 +132,10 @@ export const IMPUTATIONS = Object.freeze({
   // Application non construite (décor) OU code que l'agent vient de casser.
   // L'imputer d'office au décor blanchirait un agent qui a cassé le boot.
   "inspection-impossible": INDETERMINE,
+  // Le compte de routes a été obtenu sur un kernel booté à FROID, faute de
+  // porte ouverte : ce n'est pas l'application que l'agent a interrogée. Son
+  // rapport peut être juste sur la sienne — l'écart ne prouve rien contre lui.
+  "compte-sur-autre-application": INDETERMINE,
 
   // ─── AGENT — le rouge décrit le logiciel produit ──────────────────────────
   // Rien n'a été monté là où l'énoncé le demandait.
@@ -242,6 +246,10 @@ export const IMPUTATIONS = Object.freeze({
   // migrée — le geste que ces deux tâches existent pour attraper.
   "donnee-perdue": AGENT,
   "compte-perdu": AGENT,
+  // Le rapport demandé n'a pas été écrit, ou n'annonce pas le compte mesuré sur
+  // l'application même : c'est le travail demandé qui manque.
+  "rapport-absent": AGENT,
+  "compte-non-annonce": AGENT,
   // Un compte de plus à CHAQUE connexion du fournisseur externe : la recherche
   // du compte existant ne le retrouve plus.
   "compte-externe-double": AGENT,
@@ -358,3 +366,83 @@ export const motifNonOpposable = (imputation) => {
       return "cause NON CLASSÉE dans imputation.mjs — trou d'instrument, run écarté";
   }
 };
+
+/**
+ * Signatures d'un juge qui s'est CASSÉ, par opposition à un juge qui a JUGÉ.
+ *
+ * Le filet du socle (`http-probe.mjs`) rattrape les exceptions d'un juge qui a
+ * démarré. Il ne peut rien pour celui qui meurt AVANT : une `SyntaxError`, un
+ * `Cannot find module`, un import circulaire. Node sort alors en `1`, sans une
+ * ligne `CAUSE=` — et un `1` sans cause est, par contrat, opposable à l'agent.
+ *
+ * On ne classe donc PAS sur l'absence de cause, mais sur une PREUVE positive de
+ * plantage. La distinction n'est pas de la finesse : écarter un rouge sur simple
+ * absence de cause innocenterait l'agent à tort dès qu'un juge se tait, et un
+ * banc qui innocente à tort ne mesure plus rien. Les deux erreurs coûtent, en
+ * sens inverse.
+ */
+const SIGNATURES_DE_PLANTAGE = [
+  /^\s*(?:Uncaught\s+)?(?:Reference|Syntax|Type|Range)Error\b/mu,
+  /\bCannot find (?:module|package)\b/u,
+  /\bERR_MODULE_NOT_FOUND\b/u,
+  /\bERR_REQUIRE_ESM\b/u,
+  /^\s*at\s+\S+\s+\(?node:internal\//mu,
+  /\bnode:internal\/modules\//u,
+];
+
+/**
+ * Ce rouge vient-il d'un juge CASSÉ plutôt que d'un agent fautif ?
+ *
+ * @param {string} texte - la sortie complète du gate (stderr puis stdout).
+ * @returns {boolean} vrai si la sortie porte une signature de plantage Node.
+ */
+export const estUnPlantageDeJuge = (texte) =>
+  SIGNATURES_DE_PLANTAGE.some((re) => re.test(texte ?? ""));
+
+/**
+ * La cause synthétique d'un juge qui n'a pas pu rendre de verdict.
+ *
+ * Rendue au FORMAT que {@link lireCause} relit, pour qu'un rapport figé se
+ * relise plus tard sans connaître ce chemin — le banc ne doit pas avoir deux
+ * façons de porter une cause.
+ *
+ * @param {string} texte - la sortie du gate, dont la première ligne utile sert
+ *   de détail.
+ * @returns {{ligne: string, nom: string, imputation: string}}
+ */
+export const causeDuJugeCasse = (texte) => {
+  const detail =
+    (texte ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => SIGNATURES_DE_PLANTAGE.some((re) => re.test(l))) ??
+    "plantage sans message lisible";
+  return {
+    ligne:
+      `CAUSE=juge-en-erreur — le juge s'est cassé AVANT de rendre un verdict : ` +
+      `${detail.slice(0, 160)}`,
+    nom: "juge-en-erreur",
+    imputation: IMPUTATIONS["juge-en-erreur"],
+  };
+};
+
+/**
+ * Ce gate lance-t-il un juge DÉDIÉ du banc ?
+ *
+ * Les gates sont de deux natures : des commandes écrites en ligne (`npm test`,
+ * `tsgo`) et des juges en fichier (`lib/gate-*.mjs`). Seuls les seconds sont à
+ * nous, et d'eux seuls on peut dire qu'un plantage est un défaut d'INSTRUMENT.
+ * Un `npm test` qui lève une `TypeError` parle du code de l'agent, pas du nôtre
+ * — l'y confondre innocenterait exactement ce qu'on cherche à mesurer.
+ *
+ * Le chemin est normalisé AVANT d'être filtré : il est construit par
+ * `path.join`, donc en `\` sous Windows, où un motif écrit en `/` ne mordrait
+ * pas — et une garde qui ne mord pas ne dit jamais qu'elle n'a pas mordu.
+ *
+ * @param {string[]} cmd - la commande du gate, telle que le banc la lance.
+ * @returns {boolean}
+ */
+export const viseUnJuge = (cmd) =>
+  /\/lib\/gate-[a-z0-9-]+\.mjs\b/u.test(
+    (cmd ?? []).join(" ").replace(/\\/gu, "/"),
+  );

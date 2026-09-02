@@ -141,6 +141,7 @@ export async function judge(bin) {
   const parLaPorte = await compteParLaPorte();
   let compte;
   let source;
+  let surAutreApplication = false;
   if ("compte" in parLaPorte) {
     compte = parLaPorte.compte;
     source = "l'application EN MARCHE (porte MCP)";
@@ -151,12 +152,17 @@ export async function judge(bin) {
       // distinct — imputer cela à l'agent serait inventer un verdict.
       exit(
         5,
-        `aucun compte de routes obtenu — porte : ${parLaPorte.echec} ; ` +
-          `kernel froid : ${froid.echec}`,
+        `CAUSE=inspection-impossible — aucun compte de routes obtenu — ` +
+          `porte : ${parLaPorte.echec} ; kernel froid : ${froid.echec}`,
       );
       return;
     }
     compte = froid.compte;
+    // 🔴 D'où vient le compte décide À QUI son rouge est opposable. Mesuré sur
+    // un kernel booté à froid, il ne porte pas sur l'application que l'agent a
+    // interrogée : lui reprocher de ne pas l'avoir annoncé serait lui opposer
+    // une mesure faite ailleurs.
+    surAutreApplication = true;
     // ⚠️ Un verdict rendu sur une AUTRE application que celle interrogée par
     // l'agent doit se lire comme tel, y compris quand il est VERT.
     source =
@@ -165,12 +171,20 @@ export async function judge(bin) {
   }
 
   if (!existsSync("AUDIT.md")) {
-    exit(1, "AUDIT.md absent");
+    exit(1, "CAUSE=rapport-absent — AUDIT.md n'existe pas");
     return;
   }
   const rapport = readFileSync("AUDIT.md", "utf8");
   if (!new RegExp(`\\b${compte}\\b`).test(rapport)) {
-    exit(1, `routes réelles=${compte} selon ${source}, absent du rapport`);
+    exit(
+      1,
+      surAutreApplication
+        ? `CAUSE=compte-sur-autre-application — routes réelles=${compte} selon ` +
+            `${source} ; le rapport ne le porte pas, mais ce compte ne vient PAS ` +
+            `de l'application que l'agent a interrogée.`
+        : `CAUSE=compte-non-annonce — routes réelles=${compte} selon ${source}, ` +
+            `absent du rapport`,
+    );
     return;
   }
   process.stdout.write(`routes=${compte}, annoncé — source : ${source}\n`);
@@ -180,7 +194,11 @@ export async function judge(bin) {
 if (process.argv[1] && process.argv[1].endsWith("gate-routes-count.mjs")) {
   const bin = process.argv[2];
   if (!bin) {
-    exit(5, "chemin du binaire `nodefony` non fourni");
+    exit(
+      5,
+      "CAUSE=inspection-impossible — chemin du binaire `nodefony` non fourni : " +
+        "le juge n'a aucun moyen de compter, il ne rend pas de verdict.",
+    );
   } else {
     await judge(bin);
   }

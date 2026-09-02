@@ -197,11 +197,14 @@ async function principal() {
   if (liste.error !== undefined) {
     exit(
       CAUSES["aucune-reponse"],
-      `l'application ne répond pas : ${liste.error}`,
+      `CAUSE=aucune-reponse — l'application ne répond pas : ${liste.error}`,
     );
   }
   if (liste.status === 404) {
-    exit(CAUSES["route-absente"], `${ROUTE_ARTICLES} n'est pas montée`);
+    exit(
+      CAUSES["route-absente"],
+      `CAUSE=route-absente — ${ROUTE_ARTICLES} n'est pas montée`,
+    );
   }
   // 🔴 Tout statut NON-2xx est une ressource qui ne répond pas — pas une base
   // vidée. Mesuré au banc : une migration écrite et JAMAIS appliquée fait
@@ -219,7 +222,7 @@ async function principal() {
   ) {
     exit(
       CAUSES["colonne-absente"],
-      `${ROUTE_ARTICLES} répond ${liste.status} : la ressource ne se lit plus. ` +
+      `CAUSE=colonne-absente — ${ROUTE_ARTICLES} répond ${liste.status} : la ressource ne se lit plus. ` +
         `Le plus souvent la migration est écrite et NON appliquée — la requête ` +
         `cherche alors une colonne que la base n'a pas. Rien ne dit ici que des ` +
         `données ont disparu : ` +
