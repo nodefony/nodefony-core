@@ -25,13 +25,20 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { portLibre } from "./http-probe.mjs";
 
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "gate-route-param.mjs",
 );
-/** Port distinct de celui du banc (5371) : les deux peuvent tourner ensemble. */
-const PORT = "5399";
+/**
+ * Le port, obtenu du SYSTÈME et non écrit en dur.
+ *
+ * Un port fixe est un état PARTAGÉ : trois selftests écoutaient sur 5394,
+ * trois sur 5395, deux sur 5393, et deux exécutions consécutives du lot
+ * rendaient deux verdicts différents — des rouges qui n'accusaient personne.
+ */
+const PORT = String(await portLibre());
 
 const run = (args) =>
   new Promise((resolve) => {

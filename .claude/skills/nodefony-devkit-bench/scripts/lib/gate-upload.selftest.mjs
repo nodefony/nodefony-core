@@ -205,7 +205,10 @@ for (const c of cas) {
   const { fileURLToPath } = await import("node:url");
   const ICI = path.dirname(fileURLToPath(import.meta.url));
   const JUGE = path.join(ICI, "gate-upload.mjs");
-  const PORT_JOUET = "5397";
+  // Obtenu du SYSTÈME : un port en dur est un état partagé, et ce fichier
+  // tombait en `EADDRINUSE` dès qu'un autre lot tournait en même temps.
+  const { portLibre } = await import("./http-probe.mjs");
+  const PORT_JOUET = String(await portLibre());
   const LOGIN = "/nodefony/security/api/auth/login";
   const MOI = "/nodefony/security/api/auth/me";
   const DEPOT = "/api/depot";

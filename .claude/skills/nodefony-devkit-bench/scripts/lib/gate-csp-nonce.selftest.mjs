@@ -27,14 +27,21 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { PAGE_WIDGET } from "./enonces.mjs";
+import { portLibre } from "./http-probe.mjs";
 
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "gate-csp-nonce.mjs",
 );
 
-/** Port distinct de celui du banc (5371) et des autres selftests. */
-const PORT = "5394";
+/**
+ * Le port, obtenu du SYSTÈME et non écrit en dur.
+ *
+ * Un port fixe est un état PARTAGÉ : trois selftests écoutaient sur 5394,
+ * trois sur 5395, deux sur 5393, et deux exécutions consécutives du lot
+ * rendaient deux verdicts différents — des rouges qui n'accusaient personne.
+ */
+const PORT = String(await portLibre());
 
 /** La politique que `@nodefony/security` sert sans qu'on écrive quoi que ce soit. */
 const CSP_DEFAUT =
