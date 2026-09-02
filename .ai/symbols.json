@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-02T00:01:05.120Z",
+  "generated": "2026-09-02T01:56:32.444Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 796,
-    "symbols": 3652,
+    "symbols": 3656,
     "classes": 383,
     "interfaces": 1007,
     "types": 428,
     "enums": 4,
-    "functions": 1464,
-    "constants": 366
+    "functions": 1467,
+    "constants": 367
   },
   "symbols": {
     "Cli": {
@@ -5572,6 +5572,14 @@
       "module": "@nodefony/core",
       "description": "Ajoute le module au manifeste `modules` de `nodefony.config.ts` — c'est CE tableau qui décide de ce qui se charge, et dans quel ordre. Un module local vient à la fin : le socle (http, framework, se…"
     },
+    "wireRoleHierarchy": {
+      "name": "wireRoleHierarchy",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclare un rôle applicatif sous `ROLE_ADMIN` dans la hiérarchie de l'app. ## Pourquoi la hiérarchie, et pas une liste de rôles sur l'action Deux gestes rendent la même réponse sur la route qu'on vi…"
+    },
     "wireCommandCall": {
       "name": "wireCommandCall",
       "kind": "function",
@@ -5616,7 +5624,8 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Câble un descripteur d'entité au module de la cible."
     },
     "wireKernelBootCall": {
       "name": "wireKernelBootCall",
@@ -6072,6 +6081,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit le contrat de colonnes de l'utilisateur DANS l'application cible. La liste ne peut pas vivre dans le générateur : elle appartient à `@nodefony/user`, et une seconde copie ici divergerait — exac…"
+    },
+    "userTableName": {
+      "name": "userTableName",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/userContractSource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le nom de la table des utilisateurs, LU dans l'application cible. Il ne se déduit pas du nom de l'entité : l'utilisateur est la seule table que le framework interroge en SQL natif, sous un nom écri…"
     },
     "userContractFields": {
       "name": "userContractFields",
@@ -19340,13 +19357,20 @@
       "module": "@nodefony/user",
       "description": "Refuse une entité utilisateur incomplète, en nommant chaque colonne absente ET ce qui la lit. Le refus existe parce que le manque est SILENCIEUX : une application qui possède sa table `User` peut e…"
     },
-    "USER_COLUMNS": {
-      "name": "USER_COLUMNS",
+    "USER_TABLE_NAME": {
+      "name": "USER_TABLE_NAME",
       "kind": "const",
       "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
       "exported": true,
       "module": "@nodefony/user",
       "description": "**Le contrat de colonnes de l'utilisateur** — la seule description de ce que le framework LIT sur un utilisateur persisté. Il existe parce que cette liste était écrite en cinq endroits : la table S…"
+    },
+    "USER_COLUMNS": {
+      "name": "USER_COLUMNS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+      "exported": true,
+      "module": "@nodefony/user"
     },
     "IUserCounts": {
       "name": "IUserCounts",
@@ -29480,6 +29504,9 @@
       "readUserContract": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "userTableName": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "userContractFields": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -31203,6 +31230,10 @@
       "USER_COLUMNS": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts"
+      ],
+      "USER_TABLE_NAME": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts"
       ],
       "IUserColumn": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",

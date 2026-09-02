@@ -70,6 +70,47 @@ export function readUserContract(
 }
 
 /**
+ * Le nom de la table des utilisateurs, LU dans l'application cible.
+ *
+ * Il ne se déduit pas du nom de l'entité : l'utilisateur est la seule table que
+ * le framework interroge en SQL natif, sous un nom écrit en dur. Appliquer la
+ * règle du pluriel produirait `users` face à un SQL qui lit `User` — la
+ * recherche par compte externe ne trouverait plus rien, sans lever, et chaque
+ * connexion créerait un compte de plus.
+ *
+ * Lu depuis l'application, comme les colonnes : c'est la version installée LÀ
+ * qui décide, pas celle du dépôt qui a produit le générateur.
+ *
+ * @param appRoot - racine de l'application où l'entité sera écrite.
+ * @returns le nom de la table, tel que le contrat le publie.
+ * @throws Error si le module d'identité est absent ou trop ancien pour le
+ *   publier — deviner ce nom est le pire des choix possibles.
+ */
+export function userTableName(appRoot: string): string {
+  const requireFromApp = createRequire(path.join(appRoot, "package.json"));
+  let module: { USER_TABLE_NAME?: unknown };
+  try {
+    module = requireFromApp("@nodefony/user") as typeof module;
+  } catch {
+    throw new Error(
+      "create entity User : le module d'identité « @nodefony/user » n'est pas " +
+        "installé dans cette application — sans lui il n'y a pas d'utilisateur à " +
+        "générer.\n  → l'ajouter : npm install @nodefony/user",
+    );
+  }
+  const nom = module.USER_TABLE_NAME;
+  if (typeof nom !== "string" || nom.length === 0) {
+    throw new Error(
+      "create entity User : « @nodefony/user » n'expose pas le nom de la table " +
+        "des utilisateurs (`USER_TABLE_NAME`) — version trop ancienne. Le deviner " +
+        "produirait une table que le SQL du framework n'interroge pas.\n" +
+        "  → mettre le module à jour",
+    );
+  }
+  return nom;
+}
+
+/**
  * Traduction d'un type LOGIQUE du contrat vers le vocabulaire de champ du
  * générateur — le seul endroit qui connaisse les deux.
  */

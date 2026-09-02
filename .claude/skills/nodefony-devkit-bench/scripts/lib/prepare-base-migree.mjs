@@ -218,8 +218,15 @@ function selftest() {
   );
 }
 
-if (process.argv.includes("--selftest")) {
-  selftest();
-} else if (process.argv[1]?.endsWith("prepare-base-migree.mjs")) {
-  poserDecor(process.cwd());
+// Ne s'exécute QUE lancé directement. Le drapeau seul ne suffit pas : un autre
+// décor importe `poserModeNone` et `estApplicationTemoin` d'ici — lancé avec
+// `--selftest`, il déclenchait AUSSI l'auto-contrôle de ce module-ci. Un module
+// qui agit à l'import rend le contrôle de son importateur illisible : son rouge
+// s'afficherait sous le nom de l'autre.
+if (process.argv[1]?.endsWith("prepare-base-migree.mjs")) {
+  if (process.argv.includes("--selftest")) {
+    selftest();
+  } else {
+    poserDecor(process.cwd());
+  }
 }

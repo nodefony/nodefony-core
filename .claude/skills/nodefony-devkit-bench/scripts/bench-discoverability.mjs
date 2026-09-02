@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — le gate de la release 10.0.0.
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -115,6 +115,10 @@ import {
   ROUTE_ARTICLES,
   TITRE_SEME,
 } from "./lib/prepare-base-migree.mjs";
+import {
+  CHAMP_DEMANDE,
+  PROVIDER_PARTENAIRE,
+} from "./lib/prepare-utilisateur-en-service.mjs";
 import {
   assertIsolated,
   installFromTarballs,
@@ -598,6 +602,20 @@ const PREPARE_BASE_MIGREE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "prepare-base-migree.mjs",
+);
+
+/** Juge « le champ ajouté à l'utilisateur se déploie, sans perdre un compte ». */
+const JUGE_USER_FIELD = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-user-field.mjs",
+);
+
+/** Décor « comptes en service » — mode de production, compte semé, compte externe. */
+const PREPARE_UTILISATEUR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "prepare-utilisateur-en-service.mjs",
 );
 
 /**
@@ -1135,8 +1153,13 @@ export const SONDES_QUALITE = [
 export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
- * Les 25 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
+ *
+ * ⚠️ Leur NOMBRE ne s'écrit nulle part en prose. Il y était, et il a menti :
+ * l'en-tête annonçait 25 tâches pour 31 réelles, parce qu'un compte écrit à la
+ * main ne suit pas un tableau qui grandit. Le seul compte juste est
+ * `TASKS.length`, que le banc affiche à chaque exécution.
  */
 export const TASKS = [
   {
@@ -2592,11 +2615,13 @@ export const TASKS = [
     // cette relation est FAUSSE dans le décor.
     id: 18,
     name: "un rôle en implique un autre",
-    // Le repère se pose à la main : aucun générateur ne sait poser une garde
-    // sur un rôle CHOISI (les gabarits n'émettent que `ROLE_ADMIN` littéral, et
-    // le CLI `create` n'a aucune option de rôle). Le script échoue FORT si le
-    // gabarit du controller d'accueil a changé de forme — la tâche n'est alors
-    // pas jouée, plutôt que jugée sur un repère à moitié posé.
+    // Le repère se pose à la main : il vit sur une ACTION du controller
+    // d'accueil, et aucune commande ne modifie un controller existant. Pour un
+    // controller NEUF, en revanche, `create controller --role ROLE_X` pose
+    // désormais la garde ET la hiérarchie — c'est la voie que cette tâche
+    // mesure. Le script échoue FORT si le gabarit du controller d'accueil a
+    // changé de forme : la tâche n'est alors pas jouée, plutôt que jugée sur un
+    // repère à moitié posé.
     prepare: `node ${PREPARE_ROLE_HIERARCHY} && npm run build >/dev/null 2>&1`,
     prompt:
       `Ajoute une route GET ${ROUTE_FACTURATION} qui rend un résumé ` +
@@ -3690,6 +3715,195 @@ export const TASKS = [
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_MIGRATION}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    id: 34,
+    name: "ajouter un champ à l'utilisateur d'une application en service",
+    // Le premier besoin de toute application réelle, et le banc n'en mesurait
+    // rien : l'identité appartient désormais à l'APPLICATION, qui décrit sa
+    // table, y ajoute ses champs et en porte les migrations. Sans cette tâche,
+    // rien ne dit si un agent lâché dans une application ajoute un champ par le
+    // générateur, ou s'il invente une table parallèle et écrit un `ALTER` à la
+    // main.
+    //
+    // Le décor fait tout, et il a TROIS moitiés (`prepare-utilisateur-en-service.mjs`) :
+    //
+    //  - le mode de PRODUCTION du schéma (`ddl: "none"`) — en développement, une
+    //    colonne ajoutée qui accepte le vide est posée toute seule au prochain
+    //    démarrage : l'agent n'aurait rien à faire, et la tâche serait verte
+    //    sans qu'aucune migration n'existe ;
+    //  - un compte local semé AVANT, par la commande du framework, et JAMAIS
+    //    re-semé. C'est la sonde anti-destruction : l'administrateur, lui,
+    //    renaît à chaque démarrage et ne prouverait rien ;
+    //  - un compte venu d'un FOURNISSEUR EXTERNE, semé par le code de
+    //    l'application donc idempotent. Son semis cherche d'abord le compte par
+    //    son lien externe ; si ce chemin casse — table renommée, casse changée —
+    //    le démarrage suivant en crée un SECOND, sans lever la moindre erreur.
+    //    C'est le risque nommé au ticket #143, et il ne se voit qu'en comptant.
+    //
+    // L'énoncé ne nomme AUCUNE commande : la tâche mesure si l'agent trouve le
+    // chemin, pas s'il sait exécuter un chemin qu'on lui a donné. Il dit
+    // « chaque compte », et c'est délibéré : c'est la formulation qui pousse à
+    // écrire une colonne OBLIGATOIRE — que le générateur refuse sans valeur par
+    // défaut, et qu'une entité écrite à la main accepte. Un tel champ rend
+    // impossibles toutes les créations faites par le framework (semis d'un
+    // administrateur, première connexion externe) sans qu'aucune autre sonde ne
+    // le voie.
+    //
+    // 🔴 Chaîné en `&&`, et le décor est RELU (`--decor`) — pas seulement posé :
+    // deux comptes sont semés par deux chemins différents, et une commande qui
+    // rend `0` ne prouve pas qu'une ligne est en base.
+    prepare:
+      `node ${PREPARE_UTILISATEUR} && ` +
+      // CONSTRUIRE d'abord : une commande Nodefony refuse de travailler sur un
+      // projet non bâti, et la chaîne l'enverrait dans le néant.
+      `npm run build >/dev/null 2>&1 && ` +
+      // 🔴 La migration initiale est GÉNÉRÉE ici, et ce n'est pas redondant
+      // avec `create app` : celui-ci ne l'écrit que s'il a pu installer et
+      // bâtir, or le décor de ce banc installe APRÈS (depuis les tarballs).
+      // Constaté sur un décor réel : `migrations/` était VIDE. Sans cette
+      // ligne, `orm:migrate` n'a rien à appliquer, la table n'existe pas — le
+      // mode `none` ne la fabrique jamais — et l'agent porterait le rouge d'une
+      // prémisse absente.
+      `npx --no-install nodefony orm:generate --name schema_initial >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony orm:migrate >/dev/null 2>&1 && ` +
+      `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+      `$(node ${PREPARE_UTILISATEUR} --ancien-args) >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1 && ` +
+      `node ${JUGE_USER_FIELD} --decor && ` +
+      // ATTENDRE que le port soit rendu, pas seulement que l'arrêt réponde :
+      // `stop` rend la main avant que le système ait libéré l'écoute, et le
+      // juge écarterait alors le run pour cause de décor.
+      `{ npx --no-install nodefony stop >/dev/null 2>&1 || true; } && ` +
+      `for i in $(seq 1 40); do ` +
+      `  nc -z 127.0.0.1 ${PORTS.NF_PORT} 2>/dev/null || break; ` +
+      `  sleep 0.25; ` +
+      `done`,
+    prompt:
+      `Cette application doit ranger chaque compte utilisateur dans un service interne. ` +
+      `Ajoute pour cela un champ \`${CHAMP_DEMANDE}\` à son utilisateur. ` +
+      "Sa base est en service : elle porte déjà des comptes réels, dont un venu d'un " +
+      "fournisseur externe. Elle doit pouvoir suivre ce changement en production, sans " +
+      "être vidée ni recréée, et sans qu'aucun compte soit perdu — et les connexions par " +
+      "ce fournisseur doivent continuer de retrouver leur compte. Prouve-le.",
+    probes: [
+      sondeLecture(
+        "a lu ce que le framework dit de l'utilisateur ou des migrations",
+        /AGENTS\.md|migrations?\.md|migrate-schema|user\/docs|entity\/User\.ts/iu,
+      ),
+      {
+        // LA sonde du trou. Le fichier d'entité PORTE le geste dans son
+        // en-tête — « Ne modifie pas ce fichier à la main : relance la commande
+        // avec tes champs » — et le générateur porte les gardes que l'écriture
+        // à la main n'a pas (refus d'un champ obligatoire sans valeur par
+        // défaut, refus d'un nom de table ou d'une casse divergents).
+        // Contourner le générateur, c'est perdre ces trois refus d'un coup.
+        kind: "transcript",
+        name: "a lancé create entity User",
+        pattern: commandeQuiContient("create\\s+entity\\s+User\\b"),
+      },
+      {
+        kind: "transcript",
+        name: "a employé le générateur de migrations",
+        pattern: commandeQuiContient("orm:generate"),
+        observe: true,
+      },
+      {
+        kind: "transcript",
+        name: "a appliqué par la commande du framework",
+        pattern: commandeQuiContient("orm:migrate"),
+        observe: true,
+      },
+      {
+        // 🔴 L'INTERDIT, et il est jugé. La documentation d'un outil tiers
+        // enseigne « supprime la base et recommence » ; sur une base qui porte
+        // des comptes, c'est la pire réponse possible. Le juge le voit AUSSI
+        // par le compte disparu — les deux sondes se recouvrent exprès : le
+        // motif attrape l'intention, le juge attrape le fait.
+        //
+        // ⚠️ Ne lit que la PAROLE de l'agent : un `DROP TABLE` figurant dans une
+        // migration générée (le patron d'expansion-contraction de SQLite en
+        // produit un) ne lui est pas imputé.
+        kind: "transcript",
+        name: "n'a jamais proposé de refaire la base à neuf",
+        pattern: /orm:reset|DROP\s+DATABASE|DROP\s+TABLE/iu,
+        invert: true,
+      },
+      {
+        // Le même interdit par l'autre bout : effacer le FICHIER de base. Le
+        // waiver dit la seule chose qui distingue les deux gestes — avoir
+        // FABRIQUÉ une copie, ce que le produit prescrit lui-même pour éprouver
+        // un lot avant de le passer en production.
+        kind: "transcript",
+        name: "n'a effacé aucune base, hors la copie qu'il a faite",
+        pattern: /rm\s+[^\n]*\.db|unlink[^\n]*\.db/iu,
+        unless: /\bcp\s+[^\n]*\.db\s+[^\n]*\.db/iu,
+        invert: true,
+      },
+      {
+        // Une table parallèle est la fausse bonne idée la plus probable :
+        // l'agent ne touche pas à l'utilisateur, crée une entité à côté, et
+        // toutes les autres sondes restent vertes. Ce n'est pas un rouge — une
+        // entité LIÉE est une voie que la documentation RECOMMANDE pour une
+        // donnée volumineuse ou rarement lue — mais savoir combien d'agents la
+        // prennent pour un simple champ vaut mieux que de le deviner.
+        kind: "code",
+        name: "champ porté par une entité SÉPARÉE plutôt que par l'utilisateur — observation",
+        pattern: /nodefony\/entity\/(?!User\.ts)\w+\.ts$/mu,
+        where: "files",
+        observe: true,
+      },
+      {
+        // Le second contournement, celui qu'aucun juge d'état ne peut voir :
+        // ranger la donnée dans la colonne JSON libre. Elle EXISTE pour cela et
+        // ne demande aucune migration — c'est même le conseil du produit pour
+        // un attribut sans schéma. Mais l'énoncé demande un CHAMP, et ce chemin
+        // rendrait la tâche verte sans qu'une seule migration soit écrite.
+        // Observation : ce qu'on veut savoir, c'est combien d'agents le
+        // choisissent, pas les punir de connaître le produit.
+        kind: "code",
+        name: `${CHAMP_DEMANDE} rangé dans metadata plutôt qu'en colonne — observation`,
+        pattern: new RegExp(
+          `metadata[^\\n]{0,80}${CHAMP_DEMANDE}|${CHAMP_DEMANDE}[^\\n]{0,80}metadata`,
+          "u",
+        ),
+        where: "added",
+        observe: true,
+      },
+      {
+        // Le nom de la table et la casse des colonnes ne sont pas négociables :
+        // des requêtes du framework les écrivent en dur, et une table renommée
+        // fait échouer la recherche par compte externe SANS erreur — donc crée
+        // un compte en double à chaque connexion. Le générateur refuse ce
+        // changement ; une réécriture à la main, non.
+        kind: "code",
+        name: "nom de la table des comptes non renommé",
+        pattern:
+          /(?:sqliteTable|pgTable|mysqlTable)\s*\(\s*["'](?!User["'])[^"']*["']\s*,[\s\S]{0,200}(?:identifier|socialProviders)/u,
+        where: "added",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // LE juge : des faits pris sur l'application qui tourne et sur une base
+        // VIERGE qu'on migre, aucun lu dans un fichier de l'agent.
+        // `--check-port-free` d'abord — un serveur étranger répondrait à sa
+        // place et rendrait un verdict sur une autre application.
+        kind: "gate",
+        name: "le champ se déploie, les comptes sont intacts, le compte externe reste unique",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_USER_FIELD} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_USER_FIELD}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

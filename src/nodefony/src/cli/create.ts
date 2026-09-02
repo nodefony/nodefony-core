@@ -171,6 +171,13 @@ export function parseCreateArgv(
       answers.route = rest[++i];
     } else if (word === "--module") {
       answers.module = rest[++i];
+      // ─── `create controller` ────────────────────────────────────────────────
+      // Réserve TOUT le controller à une habilitation (`@IsGranted` de classe)
+      // et déclare le rôle dans la hiérarchie de l'application. Sans cette
+      // option, poser une garde sur un rôle CHOISI n'avait aucun chemin
+      // outillé : les gabarits n'émettent que `ROLE_ADMIN`, littéral.
+    } else if (word === "--role") {
+      answers.role = rest[++i];
       // ─── `create service` ───────────────────────────────────────────────────
       // Injection par le CONSTRUCTEUR — le service visé doit exister dans la
       // cible, sinon le scaffold refuse avant d'écrire.
@@ -278,6 +285,9 @@ const USAGE =
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
+  `               [--role ROLE_X] — réserve TOUT le controller à cette habilitation\n` +
+  `                 (@IsGranted de classe) et déclare le rôle dans roleHierarchy :\n` +
+  `                 l'administrateur en hérite, sans qu'on ait à le lui attribuer\n` +
   `  service    : [--inject <AutreService>] [--description "…"] [--module <nom>]\n` +
   `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
   `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +

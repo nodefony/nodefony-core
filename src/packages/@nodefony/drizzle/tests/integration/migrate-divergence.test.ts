@@ -309,7 +309,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
 
     const dehors = buildReport(etat, { ddl: "none", divergence });
     const dedans = buildReport(etat, {
-      ddl: "none",
+      ddl: "auto",
       divergence,
       canReset: true,
     });
@@ -326,8 +326,41 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     );
     assert.ok(
       cmds(dedans).some((c) => c.includes("orm:reset")),
-      "en développement, repartir de zéro reste le geste le plus court",
+      "en schéma DÉRIVÉ du code, repartir de zéro reste le geste le plus court",
     );
+  });
+
+  it("🔴 le MODE de schéma décide avant l'environnement : `none` ne propose jamais d'effacer", async () => {
+    // Le droit d'effacer ne se lit pas seulement dans l'environnement. `ddl:
+    // "none"` veut dire « personne ne touche au schéma au démarrage » : c'est
+    // le régime d'une base qui PORTE des données — une recette, une copie de
+    // production, le décor d'un banc — et il vaut aussi sur un poste de
+    // développement, où la liste blanche accorde pourtant `orm:reset`.
+    //
+    // Proposer d'effacer là est exactement le défaut déjà payé une fois : un
+    // refus qui rend, en geste à copier, la commande qui rouvre ce qu'il vient
+    // de refuser. Et un agent exécute `nextActions` dans l'ordre, sans lire la
+    // prose autour.
+    //
+    // `migrate` suit la même règle pour la même raison : le schéma y est porté
+    // par des fichiers versionnés, jamais dérivé du code.
+    await poser(TABLE_D_EPOQUE);
+    const etat = await plan();
+    const divergence = await describeDivergence(etat);
+    const cmds = (r: ReturnType<typeof buildReport>): string[] =>
+      r.nextActions.map((a) => a.command);
+
+    for (const ddl of ["none", "migrate"] as const) {
+      const enDev = buildReport(etat, { ddl, divergence, canReset: true });
+      assert.ok(
+        !cmds(enDev).some((c) => c.includes("orm:reset")),
+        `en ddl "${ddl}", même en développement, aucun geste ne doit effacer : ${cmds(enDev).join(" | ")}`,
+      );
+      assert.ok(
+        cmds(enDev).some((c) => c.includes("orm:generate")),
+        `en ddl "${ddl}", le geste doit être d'écrire la migration correctrice`,
+      );
+    }
   });
 
   it("la divergence ne se calcule PAS quand une migration est en attente", async () => {

@@ -61,7 +61,7 @@ const DIALECTE: SqlDialect = "<%= it.dialect %>";
  */
 export const userTable = createUserTable(DIALECTE);
 
-export const AppUserEntity = defineEntity({
+export const UserEntity = defineEntity({
   name: "User",
   module: "app",
   connector: FRAMEWORK_CONNECTOR,

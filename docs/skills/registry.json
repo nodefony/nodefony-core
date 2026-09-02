@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-01",
+  "generatedAt": "2026-09-02",
   "count": 25,
   "conformant": 25,
   "skills": [
@@ -599,8 +599,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 663,
-        "approxTokens": 11565
+        "bodyLines": 665,
+        "approxTokens": 11649
       },
       "requires": [
         "serveur UP",
@@ -619,7 +619,7 @@
         "scripts": [
           {
             "path": "scripts/bench-discoverability.mjs",
-            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0).",
+            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — le gate de la release 10.0.0.",
             "usage": [],
             "options": [
               {
@@ -636,6 +636,10 @@
               },
               {
                 "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--ancien-args",
                 "help": ""
               },
               {
@@ -656,6 +660,10 @@
               },
               {
                 "flag": "--dangerously-skip-permissi",
+                "help": ""
+              },
+              {
+                "flag": "--decor",
                 "help": ""
               },
               {
@@ -795,6 +803,10 @@
                 "help": ""
               },
               {
+                "flag": "--role",
+                "help": ""
+              },
+              {
                 "flag": "--roles",
                 "help": ""
               },
@@ -865,6 +877,10 @@
                 "help": ""
               },
               {
+                "name": "CHAMP_DEMANDE",
+                "help": ""
+              },
+              {
                 "name": "ENTITE_MIGREE",
                 "help": ""
               },
@@ -929,6 +945,10 @@
                 "help": ""
               },
               {
+                "name": "JUGE_USER_FIELD",
+                "help": ""
+              },
+              {
                 "name": "JUGE_ZONE",
                 "help": ""
               },
@@ -986,6 +1006,10 @@
               },
               {
                 "name": "PREPARE_ROLE_HIERARCHY",
+                "help": ""
+              },
+              {
+                "name": "PREPARE_UTILISATEUR",
                 "help": ""
               },
               {
@@ -1089,6 +1113,10 @@
               },
               {
                 "flag": "--no-check",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
                 "help": ""
               },
               {
@@ -1627,7 +1655,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "663",
+            "detail": "665",
             "advisory": true
           }
         ]

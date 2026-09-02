@@ -61,6 +61,31 @@ type ReadStreamOptions = {
 };
 
 /**
+ * Un `<script>` EN LIGNE qui ne porte pas d'attribut `nonce`.
+ *
+ * `(?![^>]*\bnonce=)` refuse la balise déjà signée ; `(?![^>]*\bsrc=)` refuse
+ * le script SERVI depuis un fichier, qui n'a pas besoin de nonce et satisfait
+ * `script-src 'self'`. Reste exactement le cas que le navigateur bloquera.
+ */
+const INLINE_SCRIPT_SANS_NONCE =
+  /<script(?![^>]*\bnonce=)(?![^>]*\bsrc=)[^>]*>\s*\S/iu;
+
+/**
+ * Le CSP posé sur cette réponse exige-t-il un nonce sur les scripts ?
+ *
+ * Lu sur l'en-tête RÉELLEMENT posé, jamais recopié d'une configuration : le
+ * firewall a pu le composer (directives `@Csp` d'une route, fragments de
+ * modules), et une seconde idée de « la politique en vigueur » divergerait au
+ * premier de ces cas.
+ *
+ * @param csp - valeur de l'en-tête `Content-Security-Policy`, si posée.
+ * @returns `true` quand un script en ligne devra porter un nonce.
+ */
+function cspExigeUnNonce(csp: string | number | string[] | undefined): boolean {
+  return typeof csp === "string" && csp.includes("'nonce-");
+}
+
+/**
  * Parse un header `Range` mono-plage en octets (RFC 9110 §14.1.2).
  *
  * @param range - valeur brute du header `Range` (ex. `bytes=0-499`, `bytes=-500`).
@@ -287,12 +312,67 @@ class Controller extends Service implements IController {
     return this.context?.setContextHtml(encoding);
   }
 
+  /**
+   * Dit, EN DÉVELOPPEMENT SEULEMENT, qu'un script en ligne ne s'exécutera pas.
+   *
+   * Le navigateur refuse un `<script>` en ligne sous une politique de contenu à
+   * nonce, et il le dit dans SA console — que personne ne lit quand la page est
+   * produite par un test, un `curl` ou un agent. Le serveur, lui, a les deux
+   * moitiés sous la main : l'en-tête qu'il vient de poser et le corps qu'il
+   * s'apprête à écrire. Il le dit donc au moment exact où le geste manque, avec
+   * le geste — c'est ce qui distingue un refus utilisable d'un refus juste.
+   *
+   * ⚠️ Coût nul hors développement : la garde d'environnement est le PREMIER
+   * test, avant toute lecture d'en-tête et toute expression régulière. Une page
+   * de production ne paie donc rien, pas même la lecture du CSP.
+   *
+   * @param data - le corps HTML sur le point d'être envoyé.
+   * @returns rien — cette sonde n'échoue jamais et ne change aucune réponse.
+   */
+  #avertirScriptSansNonce(data: unknown): void {
+    const kernel = this.context?.kernel;
+    if (
+      kernel?.environment !== "development" &&
+      kernel?.environment !== "dev"
+    ) {
+      return;
+    }
+    if (typeof data !== "string" || data.length === 0) {
+      return;
+    }
+    const response = this.response as { getHeader?: (n: string) => unknown };
+    if (typeof response?.getHeader !== "function") {
+      return;
+    }
+    const csp = response.getHeader("Content-Security-Policy") as
+      string | number | string[] | undefined;
+    if (!cspExigeUnNonce(csp) || !INLINE_SCRIPT_SANS_NONCE.test(data)) {
+      return;
+    }
+    this.log(
+      "Cette réponse porte un <script> EN LIGNE sans attribut `nonce`, et la " +
+        "politique de contenu de cette application exige un nonce sur les " +
+        "scripts : le navigateur REFUSERA de l'exécuter (« Refused to execute " +
+        "inline script »). Deux gestes, au choix :\n" +
+        '  • signer le script — `<script nonce="${this.context?.cspNonce}">` ' +
+        '(dans une vue Eta : `<script nonce="<%= it.nonce %>">`, le nonce ' +
+        "étant passé en donnée depuis `this.context?.cspNonce`) ;\n" +
+        "  • sortir le script dans un FICHIER servi par l'application — un " +
+        "`<script src=…>` de même origine satisfait `script-src 'self'` sans nonce.\n" +
+        "  Ne desserre PAS la politique (`'unsafe-inline'`) : le détail vit dans " +
+        "`@nodefony/security/docs/headers.md`.",
+      "WARNING",
+      "CSP",
+    );
+  }
+
   async render(
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
   ) {
+    this.#avertirScriptSansNonce(data);
     return (this.context as HttpContext)?.render(
       data,
       encoding,
@@ -343,6 +423,7 @@ class Controller extends Service implements IController {
         this.context?.phaseEnd("render");
       }
       this.setContextHtml();
+      this.#avertirScriptSansNonce(data);
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       this.log(e, "ERROR");

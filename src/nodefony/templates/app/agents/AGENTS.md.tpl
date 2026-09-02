@@ -40,6 +40,7 @@
 | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Module applicatif (workspace npm)                                                                       | `npx nodefony create module <nom>`                                                               |
 | Controller HTTP **et** WebSocket (même classe)                                                          | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example`             |
+| Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie          | `npx nodefony create controller <nom> --role ROLE_X`                                             |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"`                            |
 | Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
 | Frontend Vite (React/Vue/Angular)                                                                       | `npx nodefony create front <nom> [--module <m>]`                                                 |
@@ -117,6 +118,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 - **Routing, controllers, décorateurs, idempotence** — `node_modules/@nodefony/framework/docs/`
 <% if (it.hasSecurity) { %>- **Firewall, authenticators, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`
 - **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie — `node_modules/@nodefony/security/docs/authorization.md`
+- **Le navigateur REFUSE d'exécuter ton script ou de charger une image** (politique de contenu, nonce, `Context.cspNonce`, HSTS, clickjacking) — `node_modules/@nodefony/security/docs/headers.md`
 - **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
 - **Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
 <% } %><% if (it.hasOrm) { %>- **Entités, repositories, requêtes (ORM)** — `node_modules/@nodefony/orm-core/docs/`
@@ -352,12 +354,19 @@ et il fait foi le jour où les deux divergent.
     méthode — il vaut pour TOUS les transports (HTTP et socket), et se pose
     **en plus** de la zone de firewall (le firewall AUTHENTIFIE, `@IsGranted`
     AUTORISE) ;
+  - **réserver TOUT un controller à une habilitation** : ne l'écris pas,
+    demande-le — `npx nodefony create controller <nom> --role ROLE_X` pose la
+    garde sur la CLASSE (donc sur les actions à venir) **et** déclare le rôle
+    sous `ROLE_ADMIN` dans `roleHierarchy`. Les deux gestes vont ensemble, et
+    c'est le second qu'on oublie en les faisant à la main ;
   - **lire l'utilisateur courant** : le paramètre décoré `@CurrentUser()`
     (typé `IUser` de `@nodefony/user`) — l'identité est ré-résolue à chaque
     requête, donc les rôles sont frais et une révocation prend effet tout de
     suite. N'écris pas ton propre lecteur de session ;
   - **déclarer qu'un rôle en implique un autre** : la clé `roleHierarchy` de
-    la config du module de sécurité (`ROLE_ADMIN` hérite `ROLE_USER`). Elle
+    la config du module de sécurité (`ROLE_ADMIN` hérite `ROLE_USER`) — que
+    `create controller --role` remplit pour toi quand le rôle naît avec son
+    controller. Elle
     est aplatie au boot ; n'écris pas de test d'appartenance à la main — et
     n'énumère pas non plus les rôles du jour sur l'action.
     `@IsGranted(["ROLE_BILLING", "ROLE_ADMIN"])` accorde bien l'accès (un

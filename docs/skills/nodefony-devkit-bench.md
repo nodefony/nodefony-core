@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-01
+updated: 2026-09-02
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 663 lignes |
-| Coût d'activation | ~11 565 tokens (le corps est chargé à l'invocation) |
+| Corps | 665 lignes |
+| Coût d'activation | ~11 649 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 4 page(s) |
@@ -82,8 +82,8 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0). | `--agent` `--all` `--allow-empty` `--analyze-only` `--auth` `--check-port-free` `--command` `--confirmer` `--dangerously-skip-permissi` `--depistage` `--describe-json` `--detach` `--diff-filter` `--dir` `--dry-run` `--enregistrer-reference` `--format` `--frontend` `--hard` `--help` `--ignored` `--json` `--kind` `--left` `--link` `--max-time` `--mcp-config` `--model` `--name` `--name-only` `--no-audit` `--no-check` `--no-fund` `--no-install` `--numstat` `--output-format` `--porcelain` `--porteur-args` `--preset` `--purge` `--repack` `--reset` `--rest` `--roles` `--route` `--runs` `--scope` `--selftest` `--setup-only` `--short` `--strict-mcp-config` `--task` `--temoin-args` `--ttl` `--unified` `--verbose` `--wait` `--yes` | `AGENT` `CANAL_OPS_ALERTES` `ENTITE_MIGREE` `JUGE_CSP` `JUGE_CSRF_PARTENAIRE` `JUGE_ENTITY_DELETE` `JUGE_LISTE` `JUGE_M2M` `JUGE_MEDIA` `JUGE_MIGRATION` `JUGE_MODULE` `JUGE_PARAM` `JUGE_PREFIXE` `JUGE_REALTIME_CHANNEL` `JUGE_ROLE_HIERARCHY` `JUGE_SECURE` `JUGE_SESSION` `JUGE_THROTTLE` `JUGE_ZONE` `LINKED` `MCP_REGIME` `MCP_SERVER_NOM` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MCP` `NF_DEVKIT_BENCH_MODEL` `NF_MCP_TOKEN` `NOM_APP_TEMOIN` `ORIGINE_PARTENAIRE` `PAGE_WIDGET` `PREPARE_BASE_MIGREE` `PREPARE_MODULE_ABSENT` `PREPARE_ROLE_HIERARCHY` `REPERE_PREFIXE_COMPTE` `ROLE_FACTURATION` `ROUTE_ARTICLES` `ROUTE_CATALOGUE` `ROUTE_COMMANDES` `ROUTE_COMPTE_FACTURES` `ROUTE_COMPTE_PROFIL` `ROUTE_FACTURATION` `ROUTE_IMPORT` `ROUTE_MACHINE` `ROUTE_SYNTHESE` `RUN_ROOT` `TITRE_SEME` |
-| `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--analyze-only` `--describe-json` `--detach` `--dry-run` `--help` `--json` `--kind` `--name` `--no` `--no-check` `--prove` `--yes` | `NF_CLE` |
+| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — le gate de la release 10.0.0. | `--agent` `--all` `--allow-empty` `--analyze-only` `--ancien-args` `--auth` `--check-port-free` `--command` `--confirmer` `--dangerously-skip-permissi` `--decor` `--depistage` `--describe-json` `--detach` `--diff-filter` `--dir` `--dry-run` `--enregistrer-reference` `--format` `--frontend` `--hard` `--help` `--ignored` `--json` `--kind` `--left` `--link` `--max-time` `--mcp-config` `--model` `--name` `--name-only` `--no-audit` `--no-check` `--no-fund` `--no-install` `--numstat` `--output-format` `--porcelain` `--porteur-args` `--preset` `--purge` `--repack` `--reset` `--rest` `--role` `--roles` `--route` `--runs` `--scope` `--selftest` `--setup-only` `--short` `--strict-mcp-config` `--task` `--temoin-args` `--ttl` `--unified` `--verbose` `--wait` `--yes` | `AGENT` `CANAL_OPS_ALERTES` `CHAMP_DEMANDE` `ENTITE_MIGREE` `JUGE_CSP` `JUGE_CSRF_PARTENAIRE` `JUGE_ENTITY_DELETE` `JUGE_LISTE` `JUGE_M2M` `JUGE_MEDIA` `JUGE_MIGRATION` `JUGE_MODULE` `JUGE_PARAM` `JUGE_PREFIXE` `JUGE_REALTIME_CHANNEL` `JUGE_ROLE_HIERARCHY` `JUGE_SECURE` `JUGE_SESSION` `JUGE_THROTTLE` `JUGE_USER_FIELD` `JUGE_ZONE` `LINKED` `MCP_REGIME` `MCP_SERVER_NOM` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MCP` `NF_DEVKIT_BENCH_MODEL` `NF_MCP_TOKEN` `NOM_APP_TEMOIN` `ORIGINE_PARTENAIRE` `PAGE_WIDGET` `PREPARE_BASE_MIGREE` `PREPARE_MODULE_ABSENT` `PREPARE_ROLE_HIERARCHY` `PREPARE_UTILISATEUR` `REPERE_PREFIXE_COMPTE` `ROLE_FACTURATION` `ROUTE_ARTICLES` `ROUTE_CATALOGUE` `ROUTE_COMMANDES` `ROUTE_COMPTE_FACTURES` `ROUTE_COMPTE_PROFIL` `ROUTE_FACTURATION` `ROUTE_IMPORT` `ROUTE_MACHINE` `ROUTE_SYNTHESE` `RUN_ROOT` `TITRE_SEME` |
+| `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--analyze-only` `--describe-json` `--detach` `--dry-run` `--help` `--json` `--kind` `--name` `--no` `--no-check` `--no-install` `--prove` `--yes` | `NF_CLE` |
 | `scripts/bench-schema.mjs` | Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer. | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--detach` `--dialect` `--dir` `--dump-only` `--frontend` `--jq` `--json` `--link` `--model` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--schema` `--schema-only` `--setup-only` `--verbose` `--wait` `--yes` | `AGENT` `DIALECT` `LINKED` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` `NF_MYSQL_URL` `NF_PG_URL` |
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
 | `scripts/build-devkit-report.mjs` | Construit la page « Un agent sait-il développer avec Nodefony ? ». | `--analyze-only` `--data` `--out` `--runs` | `DATA` `OUT` |
@@ -102,7 +102,7 @@ node reinit-decor.selftest.mjs <runDir d'un run précédent>
 node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
 ```
 
-**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `COMMAND_ACTION` · `COMMAND_CLASS` · `DATA` · `DATABASE` · `DIALECT` · `ENTITE_MIGREE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_THROTTLE` · `JUGE_ZONE` · `LINKED` · `MCP_REGIME` · `MCP_SERVER_NOM` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `PAGE_WIDGET` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROUTE_ARTICLES` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `RUN_ROOT` · `SERVICE` · `SERVICE_METHOD` · `TITRE_SEME`
+**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `DATA` · `DATABASE` · `DIALECT` · `ENTITE_MIGREE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_THROTTLE` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `LINKED` · `MCP_REGIME` · `MCP_SERVER_NOM` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `PAGE_WIDGET` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROUTE_ARTICLES` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `RUN_ROOT` · `SERVICE` · `SERVICE_METHOD` · `TITRE_SEME`
 
 ## Conformité au standard Agent Skills
 
@@ -121,7 +121,7 @@ node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étape
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 663 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 665 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

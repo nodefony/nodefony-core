@@ -6,14 +6,16 @@
  *
  * ## Pourquoi un script, et pas une commande du framework
  *
- * Aucun générateur ne sait poser une garde sur un rôle CHOISI. Les gabarits
- * n'émettent que `@IsGranted("ROLE_ADMIN")`, littéral, et sur la seule action
- * destructrice (`entity/controller/…__PASCAL__Controller.ts.tpl:271`,
- * `controller/rest/…__NAME__.ts.tpl:129`) ; et le CLI `create` n'expose aucune
- * option de rôle (35 options déclarées dans `src/cli/create.ts`, aucune
- * `--role`/`--roles`/`--guard`/`--granted`). Le repère se pose donc à la main —
- * mais avec les MÊMES décorateurs que ceux qu'`AGENTS.md` enseigne, pour que
- * l'agent trouve du code idiomatique et non un artefact de banc.
+ * `nodefony create controller <nom> --role ROLE_X` sait désormais poser une
+ * garde sur un rôle CHOISI — mais sur un controller NEUF, et le repère de cette
+ * tâche vit sur une ACTION du controller d'accueil, celui que l'application
+ * porte déjà. Aucune commande ne modifie un controller existant, et ce n'est pas
+ * un manque : réécrire du code que l'utilisateur a édité n'est pas le métier
+ * d'un générateur.
+ *
+ * Le repère se pose donc à la main — mais avec les MÊMES décorateurs que ceux
+ * qu'`AGENTS.md` enseigne, pour que l'agent trouve du code idiomatique et non un
+ * artefact de banc.
  *
  * ## Deux pièges, tous deux vécus
  *

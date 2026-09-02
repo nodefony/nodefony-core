@@ -7,7 +7,7 @@ import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
 import type { MySqlTable } from "drizzle-orm/mysql-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
-import { USER_COLUMNS } from "@nodefony/user";
+import { USER_COLUMNS, USER_TABLE_NAME } from "@nodefony/user";
 import type { IUserColumn, UserColumnType } from "@nodefony/user";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import {
@@ -85,7 +85,10 @@ function toColSpec(column: IUserColumn): IFrameworkColSpec {
  * à la différence de Mongoose, qui les gère au niveau du schéma.
  */
 const USER_TABLE_SPEC = {
-  name: "User",
+  // DÉRIVÉ du contrat, jamais recopié : le SQL natif de `queryKit` et le
+  // générateur d'entité lisent le même nom, et une troisième copie ici aurait
+  // divergé en silence — c'est exactement ce qui est arrivé au générateur.
+  name: USER_TABLE_NAME,
   columns: Object.fromEntries(
     USER_COLUMNS.map((column) => [column.name, toColSpec(column)]),
   ),
