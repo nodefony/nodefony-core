@@ -35,6 +35,9 @@
 
 ## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
 
+- [1× — 09-02] **La matière portait des sauts de ligne ÉCHAPPÉS — un `[^\n]` les traverse sans les voir.** La parole de l'agent est du JSON re-sérialisé : un saut de ligne y est deux caractères. `rm -f copie.sqlite` suivi, LIGNE SUIVANTE, d'un `cp base.db …` a donc été lu comme une seule suppression de base, et l'agent qui supprimait sa copie jetable avant d'en refaire une — les deux gestes que le produit prescrit — s'est vu imputer la destruction. Le motif était juste ; c'est la MATIÈRE qui mentait. Avant d'appliquer un motif ligne à ligne, vérifier que les frontières de ligne sont réelles.
+- [1× — 09-02] **Le contexte d'ANCRAGE d'une édition n'est pas un geste.** `Edit` transporte `old_string` : par définition ce qui était déjà là, et les lignes de `new_string` qui s'y retrouvent à l'identique sont l'ancre que l'outil réclame. Les compter fait imputer à l'agent ce que le PRODUIT a écrit — un `DROP TABLE` généré par `orm:generate` apparaissait des deux côtés d'un `Edit` portant sur une autre ligne.
+
 - [1× — 08-29e] **Une sonde écrite au réflexe HTTP standard contre une API aux identifiants
   français.** Le socle du banc expose `demander(…, {corps, jeton, entetes})` → `{statut, corps}` ;
   mon juge neuf a passé `body`, `headers` et lu `.status`. Conséquence : le POST partait **VIDE**,
@@ -738,6 +741,8 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-02] **Le contrôle était aveugle par la FORME de ce qu'il cherchait, et son compte donnait le change.** Il relevait les causes à la source par le motif `CAUSE=<nom>` — ce qu'écrivent les juges de première génération, qui impriment eux-mêmes leur verdict. Un juge qui SÉPARE la collecte du verdict rend `{ cause: "<nom>" }` et laisse l'impression à l'appelant : sa source ne porte jamais `CAUSE=`. Trois juges entiers étaient donc invisibles, pendant que le sommaire affichait « 86 causes émises, 85 classées » — un chiffre rassurant qui comptait en réalité la TAILLE DE LA TABLE, pas les causes couvertes. Élargi aux deux grammaires : 100 émises, 15 non classées.
+
 - [1× — 09-02] **Une sonde de sécurité qui ne PEUT pas mordre — et le seul moyen de le savoir était d'écrire le code vulnérable.** Une tâche neuve visait la traversée de chemin par le nom de fichier d'un envoi multipart, en supposant qu'un agent composant `path.join(dossier, file.filename)` écrirait hors du dossier. Éprouvé sur une application réelle avec un controller ÉCRIT POUR être vulnérable et deux noms hostiles : les deux fichiers atterrissent DANS le dossier. Le parser ne transmet aucune composante de chemin, et la garde du framework est une SECONDE ligne. La sonde reste — comme filet — mais elle est désormais annoncée comme telle : **un filet qu'on n'a jamais vu mordre garde DEMAIN, il ne prouve rien sur AUJOURD'HUI, et le taire le ferait passer pour une preuve.**
 
 - [1× — 09-02] **Une assertion vraie sur une ancre fausse.** `assert.include(src, '"User"')`, commentée « la table porte le nom que les requêtes écrivent en dur », lisait en réalité `name: "User"` du descripteur d'entité, quelques lignes plus bas. Verte pendant toute la durée du défaut, sur un fichier où la table s'appelait `users`. **Quand une assertion vise un CONCEPT, viser la construction qui le porte** (`sqliteTable("User"`), jamais une chaîne que le fichier contient par ailleurs.
@@ -1061,6 +1066,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
   multiplateforme sans `.gitattributes` a ce piège en dormance. `[1× — 08-22]`
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
+
+- [1× — 09-02] **Le FAIT et le JUGEMENT étaient figés ENSEMBLE, ce qui interdisait toute correction rétroactive.** La cause d'un rouge est mesurée pendant la tâche : elle appartient au run, elle reste. Son imputation est un classement : elle appartient à la table du jour, et elle se corrige. Le rapport gelait les deux, si bien qu'après avoir classé les causes manquantes, les runs déjà payés restaient « écartés, trou d'instrument » — il aurait fallu repayer des heures d'agent pour obtenir un verdict qu'un recalcul rendait en dix secondes. Séparés, le re-jugement a immédiatement changé trois verdicts sans relancer un seul agent.
 
 - [1× — 08-28k] **Le même gaspillage dans le PRODUIT, pas dans un banc — et c'est l'exploitant
   qui paie.** Le verdict `divergent` des migrations dit qu'il y a un écart, jamais LEQUEL :
@@ -1616,6 +1623,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-02] **Le contrôle existait, complet et juste, et n'était lancé par PERSONNE.** `imputation.selftest.mjs` portait depuis cinq semaines un contrôle d'exhaustivité « toute cause émise par un juge est-elle classée ? ». Il aurait crié dès le premier juge de nouvelle génération. Aucun script npm, aucune forge, aucune étape de banc ne l'appelait — et le SKILL.md énumérait ses vingt-six frères UN PAR UN, ce qui revient à demander vingt-six commandes à la main avant de conclure : personne ne le fait. Résultat : le banc a écarté des runs PAYÉS en disant « trou d'instrument » de ce que son propre juge nommait précisément. **Un lot de contrôles a besoin d'UN point d'entrée** (`selftests.mjs`, 26 verts en 30 s) ; énumérer n'est pas rendre atteignable.
+
 - [1× — 09-01] **Le gate lancé n'était pas celui qui couvre la cible.** `npx tsgo --noEmit -p tsconfig.json` sur un banc neuf : **aucune sortie, donc vert** — sauf que ce tsconfig porte `exclude: ["tests"]`. Le typecheck n'avait pas lu une ligne du fichier écrit. Le module a DEUX projets (`typecheck` = `tsconfig.json` **et** `tsconfig.tests.json`), et le second a levé quatre `TS2353` au premier essai (`sql` au lieu de `statements`). Réflexe : avant de croire un typecheck, lire `include`/`exclude` du projet qu'on lui donne — ou lancer le script `typecheck` du paquet, qui sait, lui, combien de projets il a.
 
 - [1× — 09-01d] **Le gate que je venais de câbler en CI a échoué sur trente pages, et il était
@@ -1981,6 +1990,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-02] **Un juge de sécurité PUNISSAIT la sécurité, et récompensait la faille.** Le framework n'émet le cookie `csrf-token` que sur une requête SÛRE vers une route `@CsrfProtect` ; le juge attaquait directement en POST, n'avait donc jamais de jeton, et toute route correctement protégée lui rendait 403 — qu'il imputait au « dépôt qui ne fonctionne pas ». Il recalait ainsi l'agent qui avait suivi l'`AGENTS.md` du produit, et validait les deux qui n'avaient rien protégé. **Le geste manquant existait pourtant**, écrit et commenté dans un juge voisin : la règle avait deux implémentations possibles et une seule écrite. Corollaire : quand un juge de sécurité rend un rouge, se demander d'abord s'il ne mesure pas sa PROPRE absence de préparation.
 
 - [1× — 09-02] **Composer par-dessus une liste que le FORMATEUR a réécrite.** Une commande qui ajoute une entrée dans un tableau du manifeste écrivait `[…"ROLE_USER",, "ROLE_X"]` dès que la liste portait une virgule finale — ce que prettier pose systématiquement au-delà d'une ligne. Le gabarit, lui, n'en a pas : le cas n'existe que chez l'utilisateur, et la commande censée câbler produisait un manifeste qui ne compile plus. Trouvé en relisant mon propre diff, pas par un rouge. **Toute écriture qui compose par-dessus du code EXISTANT doit supposer qu'un formateur est passé.**
 

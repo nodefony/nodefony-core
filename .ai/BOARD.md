@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-02 04:07** (UTC).
+> Empreinte prise le **2026-09-02 20:35** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 16 | 1 | — |
-| 10.0.0 | 32 | 80 | 2026-11-15 |
+| 10.1 | 17 | 1 | — |
+| 10.0.0 | 38 | 80 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 32 ouverts
+## Jalon 10.0.0 — 38 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -63,8 +63,14 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 22 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 37 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 38 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
+| 64 | P1 — figé à la création | 3 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
+| 64.1 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
+| 64.2 | P1 — figé à la création | 0.5 | #157 | docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt |
+| 64.3 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
+| 64.4 | P2 — décision | 1 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 64.5 | P3 — fin de cycle | 0.5 | #160 | chore(github): poser les gabarits de ticket et de fusion |
 
-## Jalon 10.1 — 16 ouverts
+## Jalon 10.1 — 17 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -84,6 +90,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 61 | P3 — fin de cycle | 0.5 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 62 | P2 — décision | 0.5 | #75 | chore(core): trancher l'héritage des dépendances déclarées |
 | 63 | P2 — décision | 0.5 | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
+| 65 | P2 — décision | 2 | #161 | feat(devkit): mesurer si un agent clôt un ticket sans humain |
 
 ## Backlog — aucune date promise · 6 ouverts
 

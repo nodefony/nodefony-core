@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-02T04:07:27.036Z",
+  "generatedAt": "2026-09-02T20:35:10.094Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 16,
+      "open": 17,
       "title": "10.1"
     },
     {
       "closed": 80,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 32,
+      "open": 38,
       "title": "10.0.0"
     }
   ],
@@ -1908,6 +1908,104 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 63,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 155,
+      "title": "docs(agents): rendre le dépôt lisible par un agent web",
+      "url": "https://github.com/nodefony/nodefony-core/issues/155",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 64,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 156,
+      "title": "chore(release): recaler description et mots-clés des paquets",
+      "url": "https://github.com/nodefony/nodefony-core/issues/156",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 64.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 157,
+      "title": "docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/157",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 64.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 158,
+      "title": "docs(site): publier llms.txt, le plan du site et robots.txt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/158",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 64.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 64.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 160,
+      "title": "chore(github): poser les gabarits de ticket et de fusion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/160",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 64.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 161,
+      "title": "feat(devkit): mesurer si un agent clôt un ticket sans humain",
+      "url": "https://github.com/nodefony/nodefony-core/issues/161",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 65,
       "labels": [
         "10.1"
       ]
