@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T22:00:04.553Z",
+  "generatedAt": "2026-09-02T00:43:18.790Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 78,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 33,
+      "open": 34,
       "title": "10.0.0"
     }
   ],
@@ -896,6 +896,21 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/93",
       "state": "CLOSED",
       "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.7,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 154,
+      "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/154",
+      "state": "OPEN",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

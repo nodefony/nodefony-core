@@ -137,6 +137,7 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- **[1× — 09-02] Une même expression régulière portait DEUX chemins quadratiques ; j'en ai corrigé un et fermé le sujet.** L'analyse de code a rendu une alerte NEUVE à la place des deux fermées, sur la MÊME ligne — et c'est son message qui l'a dit : il avait perdu son premier cas (`[[[[`) et gardé le second (`[](` répété). Mesuré : 1047 ms encore, là où je croyais avoir tout ramené à 0,3 ms. Règle : quand un outil signale une expression, lire ce que son message ÉNUMÈRE — il nomme les cas un par un, et une correction qui n'en tue qu'un laisse l'alerte se rouvrir sous un autre numéro.
 - **[1× — 09-01] Donner l'ENTITÉ ne suffit pas : il faut donner la MIGRATION.** Après avoir retiré `User` des migrations du framework, j'ai doté le dépôt de son entité et déclaré l'effet de bord traité. En développement le schéma est dérivé du code, donc tout marchait. La CI a rendu **dix jobs rouges** : en production personne ne crée la table. Le même oubli valait pour les applications générées. Règle : dès qu'un objet quitte le framework pour l'application, se demander QUI le crée dans chacun des deux modes de schéma.
 
 - [1× — 09-01] Premier correctif CSP : plage de ports déclarée en PERMANENCE → en-tête de **7,9 Ko sur chaque réponse** (au bord des 8 Ko que refusent beaucoup de relais). Le correctif marchait et coûtait plus cher que le défaut. Refait par famille : bloc entier tant que rien ne sert, port réel dès que ça sert. **Mesurer le COÛT de son correctif fait partie du correctif.**
@@ -373,6 +374,7 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- **[1× — 09-02] Un TSDoc affirmait « elle rend un objet vide » ; mesuré sur les six croisements, elle LÈVE.** La conclusion pratique était juste (silence dans les deux cas, absorbé par un `catch`), la justification était inventée — et une justification inventée se recopie : elle était déjà passée dans le `MEMORY.md` du module. Même famille que le retex de la veille sur `--ignore-scripts`. Règle : ce qui est bon à AGIR ne suffit pas à ÉCRIRE ; un mécanisme énoncé dans un commentaire se mesure.
 - [1× — 31/08] **Un contrat écrit d'un SEUL côté du fil n'est pas tenu.** Le TSDoc serveur énonçait la règle (« le client doit attendre `realtime:welcome` ») ET ajoutait « ce que `RealtimeClient` fait nativement » — faux depuis toujours, le client rejouait sur `onOpen`. Personne ne relit une phrase de contrat : elle a l'air d'une garantie et n'est qu'une intention. Une règle inter-modules ne vaut que si un TEST la tient des deux côtés.
 
 - [1× — 08-29d] **Deux réglages documentés ne faisaient pas ce qu'ils promettaient, chacun à sa façon.** `migrations.divergence: "off"` — décrite « `off` : rien » — n'avait AUCUN lecteur : la comparaison tournait quand même, au prix d'une requête par table, et son résultat était publié ; elle se comportait donc comme `report`. Et le commentaire de `NF_E2E_DATABASE_URL`, dans le gabarit du décor livré à chaque application, promettait « éprouver la suite sur le dialecte réel de production (PostgreSQL, MySQL) » : constaté en essayant, une application SQLite pointée vers PostgreSQL refuse de démarrer en nommant l'entité non portée. **Une valeur d'énumération se cherche par son LECTEUR (`rg` sur la valeur, pas sur la clé), et une promesse de variable d'environnement s'ESSAIE — c'est en dix secondes qu'on sait si elle tient.**
@@ -450,6 +452,7 @@
 
 ## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
 
+- **[1× — 09-02] Trois rouges consécutifs lus comme « permanent » — le quatrième était vert.** J'ai écrit dans un TICKET que la case macOS était « rouge en permanence », sur trois observations dont un relancement. La passe suivante a tout viré au vert. Un ticket est cru sans être relu : corrigé (titre compris) en relevé chiffré « 3 rouges / 1 vert », et son critère de fin ne repose plus sur un comptage de passes — un banc rouge une fois sur quatre passe deux fois de suite sans rien prouver.
 - **« La commande meurt toute seule » n'était pas un timeout — il n'en existait aucun sur ce
   chemin.** Une question est une promesse en attente ; Node ne compte pas les promesses, il compte
   les HANDLES. Une commande qui boote a des dizaines de handles, donc sa question tient sans que
@@ -725,6 +728,7 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- **[1× — 09-02] Un seul corpus hostile pour DEUX ambiguïtés — le banc est resté vert sur la moitié non corrigée.** J'avais écrit un cas de complexité, vu rouge (1779 ms), et il ne prouvait que l'un des deux chemins du motif. C'est exactement ce qui a laissé passer le second. Règle : un cas par CHEMIN, jamais un corpus pour une famille — et chacun vu rouge séparément (1779 ms et 1083 ms ici).
 - [1× — 09-01] **Une option posée pour une bonne raison créait un angle mort que rien ne signalait.** Le banc de publication scaffolde en `--no-install` — exprès, pour que les dépendances viennent des tarballs et jamais du dépôt. Conséquence jamais énoncée : aucune de ses applications n'a JAMAIS eu de verrou de dépendances, donc le banc n'a jamais construit d'image dans les conditions de l'utilisateur. Le défaut était là depuis toujours et attendait qu'on ait besoin d'installer pour autre chose. **Une option qui écarte une étape écarte aussi tout ce que cette étape produit** : lister ce qu'elle empêche d'exister, pas seulement ce qu'elle empêche de faire.
 
 - **[1× — 09-01] Un banc « vert en CI » l'était sur un arbre ANTÉRIEUR au code qu'il devait éprouver.** Le banc de publication ne tourne qu'au cron du lundi ; son dernier run vert portait sur un commit du 27 août, et les migrations livrées datent du 28. Il était donc rouge depuis quatre jours **sans témoin**, et j'ai failli conclure « pré-existant, donc pas moi » sans vérifier — le raisonnement juste, mais sur une prémisse fausse. Règle : avant d'invoquer un run vert, regarder SUR QUEL COMMIT il a tourné.
@@ -1185,6 +1189,7 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- **[1× — 09-02] Deux fois de suite, mon banc n'a jamais atteint l'étape que je venais d'écrire.** (a) En mode `--link`, `better-sqlite3` n'est pas hissé dans l'application témoin : `drizzle-kit` réclame un pilote, l'étape des migrations tombe **en accusant la base**, et tout ce qui suit est ignoré. (b) Mon étape rebâtissait l'app avec l'entité amputée — or `npm run build` d'une application Nodefony DÉMARRE un kernel, donc il refusait avant le démarrage que je voulais mesurer. Règle : avant de lire un verdict, vérifier que l'étape a bien TOURNÉ — un `ls` sur la dépendance, un compte d'étapes exécutées.
 - [1× — 09-01] **Mon décor incomplet a rendu 187 faux positifs.** `check-site-links` sur un site que j'avais rendu avec la seule étape `build-docs-site` : **187 liens internes fautifs**, tous vers `../../../`. Ce n'était pas le contenu — la forge rend TROIS objets avant de vérifier (`readme-html` pour l'accueil, la doc, `build-perf-site` pour `/performance/`), et les liens de retour pointaient vers des cibles que je n'avais pas générées. Séquence complète rejouée : **0 cassé sur 10 397**. Le réflexe qui a sauvé : chercher mes propres fichiers dans la liste des fautifs (absents) AVANT de conclure — puis lire le flux CI pour savoir ce qu'il fait AVANT le gate.
 
 - [1× — 09-01d] **Un build échoué en SILENCE m'a fait mesurer trois fois la page précédente.** Des
@@ -1959,6 +1964,7 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
 
+- **[1× — 09-02] Le refus « au démarrage » ne refusait rien : la POLITIQUE DE RÉSILIENCE du kernel l'absorbait.** Un hook de boot qui lève est journalisé en WARNING, le module écarté, le boot continue — « BOOT dégradé », code de sortie 0. Une application générée avec un `User` amputé de six colonnes démarrait, servait ses routes, et `orm:migrate:status` la déclarait « à jour ». Le message était parfait et sans effet. Le cœur avait DÉJÀ la frontière (`BootConfigurationError`, dont le TSDoc nommait le cas) : la chercher avant d'écrire un refus qui traverse une phase de boot.
 - [1× — 09-01] **Une commande qui se mord la queue : son propre DÉMARRAGE fabrique ce qu'elle vient constater.** `orm:generate` démarre l'application, et un démarrage en développement DÉRIVE le schéma du code. La commande peuplait donc la base elle-même, puis refusait d'écrire la première migration — `NF_GENERATE_DATABASE_NOT_ADOPTED`, « la base porte déjà toutes les tables déclarées ». Le refus est exact ; c'est la boucle qui est fausse. Une commande qui OBSERVE un état doit poser le décor qui l'empêche de le CRÉER (`NODE_ENV=production` ⇒ mode `none`), et ce décor s'écrit dans l'appel, pas dans la tête de celui qui tape.
 
 - [1× — 31/08] **Une garde qui ne mord pas ne se laisse pas « au cas où ».** `exclude: [/\.vue/]` passé à `@vitejs/plugin-react` est la correction évidente du problème — elle n'a AUCUN effet (vérifié jusqu'à `exclude: [/./]`, en s'assurant que l'option atteignait bien la config générée). La laisser aurait fait croire à une protection en place, et le prochain lecteur aurait cherché ailleurs. Retirée ; la vraie parade était structurelle (isoler le process).
