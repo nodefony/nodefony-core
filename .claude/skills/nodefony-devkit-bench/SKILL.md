@@ -355,6 +355,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-migration.selftest.mj
 node .claude/skills/nodefony-devkit-bench/scripts/lib/prepare-base-migree.mjs --selftest   # le décor : mode de production, sinon la tâche est vide de sens
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-user-field.selftest.mjs --prove # le champ ajouté à l'utilisateur — comptes perdus et doublon externe en tête
 node .claude/skills/nodefony-devkit-bench/scripts/lib/prepare-utilisateur-en-service.mjs --selftest  # le décor : comptes semés, dont un venu d'un fournisseur externe
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-upload.selftest.mjs --prove   # le fichier reçu — la traversée de chemin passe devant tout
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/jeton-mcp.selftest.mjs   # la porte reste-t-elle ouverte tout le run ?
 node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove   # le décor et ses 3 règles vues rouges : aucune NF_ du poste n'entre

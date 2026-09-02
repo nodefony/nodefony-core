@@ -1200,6 +1200,103 @@ const SAMPLES = {
       },
     ],
   },
+  // ── T35 — recevoir un fichier ─────────────────────────────────────────────
+  "35 :: a cherché ce que le framework offre pour les envois de fichiers": {
+    pass: {
+      transcript: `{"command":"cat node_modules/@nodefony/http/docs/upload.md"}`,
+    },
+    extra: [
+      {
+        label: "accepte la vitrine des décorateurs, qui montre le patron",
+        matter: {
+          transcript: `{"command":"npx nodefony create controller vitrine --kind example"}\n{"file":"nodefony/controllers/VitrineController.ts"}`,
+        },
+        expect: false,
+      },
+      {
+        label: "accepte la recherche du décorateur lui-même",
+        matter: {
+          transcript: `{"command":"grep -r UploadedFile node_modules"}`,
+        },
+        expect: true,
+      },
+    ],
+    fail: { transcript: `{"command":"npm run build"}` },
+  },
+  "35 :: façade du framework employée (@UploadedFile) — observation": {
+    // Observation : le `pass` est la SITUATION observée, pas un travail sain.
+    pass: {
+      content: `  @Post("/depot")\n  depot(@UploadedFile() file: IUploadedFile) {}`,
+    },
+    fail: {
+      content: `  @Post("/depot")\n  depot(@Body({ stream: true }) body: NodeJS.ReadableStream) {}`,
+    },
+    extra: [
+      {
+        label: "reconnaît aussi la forme plurielle",
+        matter: {
+          content: `depot(@UploadedFiles() files: IUploadedFile[]) {}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "35 :: aucun parseur multipart tiers ajouté": {
+    // Sonde INVERSÉE : le `pass` est un travail qui emploie la façade.
+    pass: {
+      added: `import { UploadedFile } from "@nodefony/framework";`,
+    },
+    fail: { added: `import multer from "multer";` },
+    extra: [
+      {
+        label: "refuse busboy importé directement",
+        matter: { added: `import busboy from "busboy";` },
+        expect: false,
+      },
+      {
+        label: "refuse la forme require()",
+        matter: { added: `const formidable = require("formidable");` },
+        expect: false,
+      },
+      {
+        // Le type `IUploadedFile` vient de `@nodefony/http` et porte le mot
+        // « upload » : la sonde ne doit pas le confondre avec un parseur.
+        label: "n'attrape pas le type du framework",
+        matter: {
+          added: `import type { IUploadedFile } from "@nodefony/http";`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "35 :: aucune dépendance de parsing multipart déclarée": {
+    pass: { added: `    "@nodefony/http": "^10.0.0",` },
+    fail: { added: `    "multer": "^1.4.5",` },
+  },
+  "35 :: limites d'upload non desserrées": {
+    pass: {
+      added: `    use("@nodefony/http", { upload: { maxFileSize: 5 * 1024 * 1024 } }),`,
+    },
+    fail: {
+      added: `    use("@nodefony/http", { upload: { maxFileSize: 0 } }),`,
+    },
+    extra: [
+      {
+        label: "refuse la borne infinie",
+        matter: { added: `      maxFileSize: Infinity,` },
+        expect: false,
+      },
+    ],
+  },
+  "35 :: aucune brique de sécurité éteinte en configuration": {
+    pass: {
+      added: `    use("@nodefony/http", { upload: { maxFiles: 1 } }),`,
+    },
+    fail: {
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

@@ -48,23 +48,21 @@ let diffuser: RealtimePublish | null = null;
  * (React : `NodefonyProvider` + hooks `nodefony/react` — `useNodefony()`,
  * `useNodefonyChannelData()` — cf la vitrine `frontend/src/` d'une app complete.)
  */
-<% if (it.roleGuard) { %>/**
- * Habilitation exigée pour TOUT ce controller.
- *
- * Posée sur la CLASSE : chaque action en hérite, y compris celles qu'on
- * ajoutera demain — c'est ce qui distingue une règle d'un rappel. Le refus
- * est rendu par le framework AVANT que le controller ne soit instancié
- * (403), donc aucune ligne de contrôle d'accès n'a sa place dans une action.
- *
- * L'administrateur y a accès sans porter ce rôle : `nodefony.config.ts` le
- * déclare sous `ROLE_ADMIN` dans `roleHierarchy` — administrer, c'est déjà
- * pouvoir tout consulter. Une hiérarchie vaut pour TOUTES les routes gardées
- * par ce rôle, présentes et futures ; lister les rôles un par un sur chaque
- * action ne généralise pas.
- */
+@controller("<%= it.route %>")
+<% if (it.roleGuard) { %>// Habilitation exigée pour TOUT ce controller.
+//
+// Posée sur la CLASSE : chaque action en hérite, y compris celles qu'on
+// ajoutera demain — c'est ce qui distingue une règle d'un rappel. Le refus est
+// rendu par le framework AVANT que le controller ne soit instancié (403), donc
+// aucune ligne de contrôle d'accès n'a sa place dans une action.
+//
+// L'administrateur y a accès sans porter ce rôle : `nodefony.config.ts` le
+// déclare sous `ROLE_ADMIN` dans `roleHierarchy` — administrer, c'est déjà
+// pouvoir tout consulter. Une hiérarchie vaut pour TOUTES les routes gardées par
+// ce rôle, présentes et futures ; lister les rôles un par un sur chaque action ne
+// généralise pas.
 @IsGranted("<%= it.role %>")
-<% } %>@controller("<%= it.route %>")
-class <%= it.nameClass %> extends RealtimeController {
+<% } %>class <%= it.nameClass %> extends RealtimeController {
   constructor(context: ContextType) {
     super("<%= it.kebab %>", context);
   }

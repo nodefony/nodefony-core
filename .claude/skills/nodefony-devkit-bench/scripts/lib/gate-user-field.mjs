@@ -259,6 +259,12 @@ function commande(args, env = {}) {
  * projet. Un pilote installé dans l'application serait une seconde variable :
  * son absence ferait rendre « colonne absente » sur un travail juste.
  *
+ * ⚠️ **Borné à SQLite, et c'est assumé** : le banc de découvrabilité monte son
+ * application témoin sur SQLite, le dialecte étant une décision prise à la
+ * création. Porter ce fait sur un autre moteur demanderait un pilote et un
+ * serveur, c'est-à-dire une seconde variable dans la mesure — et le banc de
+ * VÉRITÉ, lui, éprouve déjà les trois dialectes.
+ *
  * @returns {{deployee: boolean|null, detail: string}} `null` = migration en échec.
  */
 function colonneDansUneBaseVierge() {

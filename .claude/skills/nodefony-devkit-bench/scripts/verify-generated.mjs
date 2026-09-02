@@ -165,6 +165,17 @@ const MODULE = "blog";
 const MODULE_PKG = `@app/${MODULE}`;
 
 /**
+ * Le controller RÉSERVÉ à une habilitation, et le rôle qu'il exige.
+ *
+ * Un rôle qu'aucune application générée ne déclare : sinon la hiérarchie
+ * attendue serait vraie AVANT le premier geste, et l'étape passerait sur un
+ * générateur qui n'a rien fait.
+ */
+const CONTROLLER_GARDE = "coffre";
+const CONTROLLER_GARDE_CLASS = "CoffreController";
+const ROLE_GARDE = "ROLE_COFFRE";
+
+/**
  * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
  * l'appelle.
  *
@@ -537,6 +548,48 @@ step(
     if (/\bgreet\b/u.test(generated)) {
       throw new Error(
         "la commande appelle « greet » : le générateur exige encore son propre exemple",
+      );
+    }
+
+    // Un controller RÉSERVÉ à une habilitation — la seule voie par laquelle la
+    // garde de rôle générée est COMPILÉE quelque part. Elle sort d'un bloc
+    // conditionnel du gabarit (import compris) : les assertions de chaînes du
+    // dépôt la lisent, personne ne la compile, et un décorateur importé de
+    // nulle part passerait tous les contrôles jusqu'à l'application de
+    // l'utilisateur.
+    run(process.execPath, [
+      BIN,
+      "create",
+      "controller",
+      CONTROLLER_GARDE,
+      "--role",
+      ROLE_GARDE,
+      "--yes",
+    ]);
+    const garde = readFileSync(
+      path.join(APP, "nodefony", "controllers", `${CONTROLLER_GARDE_CLASS}.ts`),
+      "utf8",
+    );
+    if (!garde.includes(`@IsGranted("${ROLE_GARDE}")`)) {
+      throw new Error(
+        `le controller généré ne porte pas la garde « ${ROLE_GARDE} » — ` +
+          "`--role` a-t-il été honoré ?",
+      );
+    }
+    // La hiérarchie vit dans le manifeste de l'APPLICATION : sans elle,
+    // l'administrateur devrait porter le rôle, et la garde ne généralise pas.
+    const manifeste = readFileSync(
+      path.join(APP, "nodefony.config.ts"),
+      "utf8",
+    );
+    if (
+      !new RegExp(`ROLE_ADMIN\\s*:\\s*\\[[^\\]]*"${ROLE_GARDE}"`, "u").test(
+        manifeste,
+      )
+    ) {
+      throw new Error(
+        `« ${ROLE_GARDE} » n'est pas déclaré sous ROLE_ADMIN dans roleHierarchy — ` +
+          "la garde ne vaudrait que pour les porteurs du rôle",
       );
     }
 

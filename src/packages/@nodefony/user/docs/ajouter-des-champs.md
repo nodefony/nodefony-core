@@ -149,7 +149,7 @@ Il y a **deux** dépôts, et c'est volontaire.
 
 - **En LECTURE, il n'y a rien à faire.** Le dépôt d'identité reporte sur l'utilisateur toute colonne
   qu'il ne connaît pas — `attachExtraColumns`
-  (`src/packages/@nodefony/user/nodefony/src/userContract.ts:268`). Un champ ajouté à la table arrive
+  (`src/packages/@nodefony/user/nodefony/src/userContract.ts:288`). Un champ ajouté à la table arrive
   donc sur l'objet utilisateur sans une ligne de code.
 - **En ÉCRITURE, `IUserRepository` les refuse**, et c'est une garde, pas un manque : il est typé sur
   le contrat d'identité, et laisser écrire n'importe quoi par cette porte reviendrait à laisser un

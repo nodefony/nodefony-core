@@ -1561,7 +1561,12 @@ export function wireRoleHierarchy(
   if (!admin || admin.index === undefined) {
     return manual;
   }
-  const dedans = admin[2] ?? "";
+  // 🔴 La virgule FINALE se retire avant d'en écrire une autre. Le gabarit
+  // n'en pose pas, mais prettier en ajoute une dès que la liste passe sur
+  // plusieurs lignes — et une application qui déclare cinq rôles y arrive vite.
+  // Sans ce trim, on écrirait `[…"ROLE_USER",, "ROLE_X"]` : un manifeste qui ne
+  // compile plus, produit par la commande censée le câbler.
+  const dedans = (admin[2] ?? "").replace(/,\s*$/u, "");
   const separateur = dedans.trim().length > 0 ? ", " : "";
   const remplace = `${admin[1]}${dedans}${separateur}"${role}"${admin[3]}`;
   const corpsPatche =

@@ -78,6 +78,14 @@ const INLINE_SCRIPT_SANS_NONCE =
  * modules), et une seconde idée de « la politique en vigueur » divergerait au
  * premier de ces cas.
  *
+ * ⚠️ Le test est volontairement GROSSIER — la présence d'un `'nonce-` où que ce
+ * soit dans la politique. Découper les directives pour ne regarder que
+ * `script-src` reviendrait à réimplémenter une grammaire CSP dans un chemin
+ * d'avertissement, pour un gain nul : le framework ne pose de nonce que sur les
+ * scripts, et le seul faux positif imaginable — une politique qui en poserait
+ * un ailleurs et pas sur les scripts — produirait un conseil inutile en
+ * développement, jamais un refus.
+ *
  * @param csp - valeur de l'en-tête `Content-Security-Policy`, si posée.
  * @returns `true` quand un script en ligne devra porter un nonce.
  */

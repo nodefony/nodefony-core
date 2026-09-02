@@ -1257,6 +1257,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // qu'on ajoutera demain. C'est ce qui la distingue d'un rappel.
       assert.include(src, '@IsGranted("ROLE_BILLING")');
       assert.include(src, "IsGranted,");
+      // 🔴 La garde se pose ENTRE les décorateurs, jamais avant le TSDoc de la
+      // classe : un second bloc `/** … */` intercalé détache le premier, et la
+      // documentation de la classe disparaît de l'éditeur. Le code compilait
+      // quand même — c'est pourquoi aucun gate ne l'aurait dit.
+      assert.match(
+        src,
+        /\*\/\s*@controller\(/u,
+        "le TSDoc de la classe doit rester collé à son premier décorateur",
+      );
+      assert.match(
+        src,
+        /@controller\([^)]*\)[\s\S]{0,900}@IsGranted\("ROLE_BILLING"\)[\s\S]{0,40}class /u,
+        "la garde vient après @controller et juste avant la classe",
+      );
       // Un décorateur importé de nulle part ne compile pas : l'import est
       // émis par la MÊME condition que la garde.
       assert.match(src, /IsGranted[\s\S]{0,200}from "@nodefony\/framework"/u);
@@ -1274,9 +1288,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le rôle doit être déclaré sous ROLE_ADMIN dans roleHierarchy",
       );
       // Ce qui a été fait AILLEURS que dans les fichiers écrits se DIT.
+      const notes = res.notes ?? [];
       assert.isTrue(
-        res.notes.some((n) => n.includes("ROLE_BILLING")),
-        `les notes doivent nommer la garde posée : ${res.notes.join(" | ")}`,
+        notes.some((n) => n.includes("ROLE_BILLING")),
+        `les notes doivent nommer la garde posée : ${notes.join(" | ")}`,
       );
     });
 
@@ -1307,6 +1322,48 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         avant,
         "sans --role, le manifeste de l'application ne doit pas bouger",
       );
+    });
+
+    it("create controller --role : une liste à virgule TRAÎNANTE reste valide", () => {
+      // 🔴 Le cas que le gabarit ne montre pas, et que prettier fabrique : dès
+      // que `roleHierarchy` passe sur plusieurs lignes, la liste porte une
+      // virgule finale. Composer par-dessus donnait `[…"ROLE_USER",, "ROLE_X"]`
+      // — un manifeste qui ne compile plus, écrit par la commande censée le
+      // câbler. Trouvé en relisant mon propre diff, pas par un rouge.
+      const dest = path.join(tmp, "rvirgule");
+      scaffold(dest, {
+        name: "rvirgule",
+        preset: "complete",
+        frontend: "none",
+      });
+      const cfg = path.join(dest, "nodefony.config.ts");
+      writeFileSync(
+        cfg,
+        readFileSync(cfg, "utf8").replace(
+          'ROLE_ADMIN: ["ROLE_USER"],',
+          'ROLE_ADMIN: [\n          "ROLE_USER",\n          "ROLE_SUPPORT",\n        ],',
+        ),
+      );
+      runScaffold(
+        {
+          type: "controller",
+          answers: {
+            name: "recouvrement",
+            kind: "hello",
+            role: "ROLE_BILLING",
+          },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const manifeste = readFileSync(cfg, "utf8");
+      assert.notMatch(
+        manifeste,
+        /,\s*,/u,
+        `deux virgules consécutives : le manifeste ne compile plus — ${manifeste.slice(manifeste.indexOf("roleHierarchy"), manifeste.indexOf("roleHierarchy") + 220)}`,
+      );
+      assert.match(manifeste, /"ROLE_SUPPORT"[\s\S]{0,40}"ROLE_BILLING"/u);
     });
 
     it("create controller --role : rejouer la commande n'ajoute pas le rôle deux fois", () => {

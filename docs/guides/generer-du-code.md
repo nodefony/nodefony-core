@@ -73,7 +73,7 @@ qu'on imite.
 C'est une différence de nature. Un agent — ou un développeur pressé — qui imite
 un fichier existant reproduit ce que cet exemple avait de particulier, y compris
 ce qui a vieilli. Un appel, lui, part de la spec courante : `getScaffoldSpec()`
-(`spec.ts:875`) décrit les types, leurs questions et leurs valeurs permises, et
+(`spec.ts:899`) décrit les types, leurs questions et leurs valeurs permises, et
 `resolveAnswers()` (`engine.ts:464`) refuse tout ce qui sort de cette
 description. Le générateur peut donc dire ce qu'il attend, et l'appelant n'a rien
 à deviner.
@@ -153,13 +153,13 @@ curl http://127.0.0.1:5151/api/blog
 
 ## Les cinq choses qu'on peut créer
 
-| Type         | Ce que ça pose                                                                                                                                   | Où                        |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
-| `app`        | Un projet complet : configuration, environnement typé, contrôleur d'accueil, tests, outillage. Deux presets, quatre frontends, quatre bases SQL. | Un dossier **neuf**       |
-| `module`     | Un workspace npm sous `modules/<nom>/`, déclaré dans les workspaces et le manifeste `modules` de l'application.                                  | Dans le projet courant    |
-| `controller` | Une classe de contrôleur, dans l'une des cinq saveurs (`hello`, `rest`, `duplex`, `realtime`, `example`), câblée à sa cible.                     | Application **ou** module |
-| `front`      | Un frontend Vite : coquille HTML, point de montage, contrôleur de page, déclaration d'entrée.                                                    | Application **ou** module |
-| `entity`     | La chaîne de persistance complète : table du dialecte, schémas d'entrée, service CRUD, contrôleur REST + socket, tests.                          | Application **ou** module |
+| Type         | Ce que ça pose                                                                                                                                                              | Où                        |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `app`        | Un projet complet : configuration, environnement typé, contrôleur d'accueil, tests, outillage. Deux presets, quatre frontends, quatre bases SQL.                            | Un dossier **neuf**       |
+| `module`     | Un workspace npm sous `modules/<nom>/`, déclaré dans les workspaces et le manifeste `modules` de l'application.                                                             | Dans le projet courant    |
+| `controller` | Une classe de contrôleur, dans l'une des cinq saveurs (`hello`, `rest`, `duplex`, `realtime`, `example`), câblée à sa cible. `--role ROLE_X` le réserve à une habilitation. | Application **ou** module |
+| `front`      | Un frontend Vite : coquille HTML, point de montage, contrôleur de page, déclaration d'entrée.                                                                               | Application **ou** module |
+| `entity`     | La chaîne de persistance complète : table du dialecte, schémas d'entrée, service CRUD, contrôleur REST + socket, tests.                                                     | Application **ou** module |
 
 Le détail des drapeaux de chaque type est dans `nodefony create --help`, et sous
 forme lisible par une machine dans `--describe-json` (voir plus bas).
@@ -279,7 +279,11 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 - **Il ne revient pas sur son travail.** Le code généré est copié dans votre
   projet, il vous appartient. Aucune commande ne le régénère par-dessus vos
   modifications — et c'est voulu : fusionner un gabarit avec du code édité est un
-  problème sans bonne réponse.
+  problème sans bonne réponse. **Une exception, et une seule** : l'entité `User`.
+  Elle porte un contrat de colonnes que le framework LIT, et la seule façon sûre
+  d'y ajouter un champ est de relancer la commande avec tous vos champs — elle
+  réécrit alors le fichier en entier. Son en-tête le dit ; ne l'éditez pas à la
+  main.
 - **Il ne produit pas de fichier de migration.** Une entité crée sa table au
   prochain démarrage en développement (`CREATE TABLE IF NOT EXISTS`) ; un champ
   ajouté qui **accepte le vide** y est posé au démarrage suivant, un champ
@@ -291,7 +295,12 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
   de workspace, le kernel ne peut pas l'importer par son nom.
 - **Il n'édite pas votre code existant au-delà du câblage.** Un hook
   `onKernelBoot()` déjà présent n'est jamais réécrit : la commande rend une note
-  avec le geste exact à faire à la main.
+  avec le geste exact à faire à la main. Le câblage, lui, va parfois jusqu'au
+  manifeste : `create controller --role ROLE_X` déclare aussi le rôle sous
+  `ROLE_ADMIN` dans `roleHierarchy` — poser la garde sans la hiérarchie
+  obligerait à donner le rôle à chaque administrateur, et c'est le geste qu'on
+  oublie. Quand l'ancre manque, la commande ne devine pas : elle rend la ligne à
+  écrire.
 
 ## Pièges
 

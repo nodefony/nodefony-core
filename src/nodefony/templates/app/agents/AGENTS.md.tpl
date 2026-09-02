@@ -114,6 +114,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 - **Service, DI, container, scopes** — `node_modules/nodefony/docs/service.md`
 - **Client isomorphe (navigateur), hooks React** — `node_modules/nodefony/docs/client.md` + `react-hooks.md`
 - **Serveurs, sessions, cookies, upload, rate-limit** — `node_modules/@nodefony/http/docs/`
+- **Recevoir un FICHIER** (formulaire multipart, `@UploadedFile`, où le ranger sans laisser le client choisir) — `node_modules/@nodefony/http/docs/upload.md`
 - **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) — `node_modules/@nodefony/http/docs/observabilite.md`
 - **Routing, controllers, décorateurs, idempotence** — `node_modules/@nodefony/framework/docs/`
 <% if (it.hasSecurity) { %>- **Firewall, authenticators, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`

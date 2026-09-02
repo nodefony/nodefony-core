@@ -284,6 +284,30 @@ describe("Controller — avertissement CSP (script en ligne sans nonce)", () => 
     await c.render("<script>let n = 0;</script>");
     expect(calls.render).to.deep.equal(["<script>let n = 0;</script>"]);
   });
+
+  it("🔴 la lecture de l'en-tête TIENT sur une vraie réponse Node, pas seulement sur le faux", async () => {
+    // Le contrôle d'INSTRUMENT, et il manquait. Les cas ci-dessus interrogent
+    // un faux `getHeader` : ils prouvent la règle, jamais qu'elle s'applique au
+    // chemin réel. Or le firewall pose l'en-tête en MINUSCULES
+    // (`HttpResponse.setHeader` normalise), et la sonde le lit sous sa forme
+    // canonique. Si Node distinguait les deux, la sonde serait muette en
+    // production pendant que ces sept cas resteraient verts.
+    const { createServer } = await import("node:http");
+    const serveur = createServer((_req, res) => {
+      res.setHeader("content-security-policy", CSP_NONCE);
+      // La question, et elle ne se pose qu'ici : la casse canonique retrouve
+      // ce que la casse basse a écrit ?
+      res.end(String(res.getHeader("Content-Security-Policy") ?? ""));
+    });
+    await new Promise<void>((r) => serveur.listen(0, "127.0.0.1", r));
+    const { port } = serveur.address() as { port: number };
+    try {
+      const reponse = await fetch(`http://127.0.0.1:${port}/`);
+      expect(await reponse.text()).to.equal(CSP_NONCE);
+    } finally {
+      await new Promise<void>((r) => serveur.close(() => r()));
+    }
+  });
 });
 
 describe("Controller — renderResponse()", () => {
