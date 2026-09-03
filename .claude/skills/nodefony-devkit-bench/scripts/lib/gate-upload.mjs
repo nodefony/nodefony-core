@@ -10,8 +10,12 @@
  *
  * 1. **la route existe** et accepte un envoi multipart ;
  * 2. **le fichier est RANGÉ** là où l'énoncé le demande — pas seulement reçu ;
- * 3. **la réponse dit ce qu'elle a fait** (nom rangé, taille) : sans elle, une
- *    application qui avale les fichiers en silence passerait pour correcte ;
+ * 3. **la réponse RESTITUE ce qu'elle a fait** — le nom sous lequel le fichier
+ *    a atterri, et son nombre d'octets, LUS dans le document analysé et
+ *    confrontés à ce que le juge a mesuré au disque. Sans elle, une application
+ *    qui avale les fichiers en silence passerait pour correcte. Chercher un
+ *    VOCABULAIRE (`/nom|size|taille/i`) ne mesurait pas ce comportement :
+ *    « anonymous » et « nombre » suffisaient à passer ;
  * 4. **le nom envoyé par le client ne décide pas d'où le fichier atterrit.**
  *
  *    ⚠️ **Ce fait n'a PAS pu être vu rouge, et c'est une bonne nouvelle qu'il
@@ -99,7 +103,7 @@ export const CAUSES = {
  * écrire ailleurs est plus dangereuse qu'une application qui ne marche pas.
  *
  * @param {{statutDepot: number|string, rangeSousDepot: boolean, reponseNomme: boolean,
- *   evasions: string[]}} faits
+ *   pourquoiMuette?: string, evasions: string[]}} faits
  * @returns {{cause: string, code: number, detail: string}}
  */
 export function judge(faits) {
@@ -150,8 +154,9 @@ export function judge(faits) {
       cause: "reponse-muette",
       code: CAUSES["reponse-muette"],
       detail:
-        "la réponse ne dit ni ce qui a été rangé ni sa taille — l'appelant ne " +
-        "peut pas savoir sous quel nom retrouver son fichier",
+        "la réponse ne restitue pas ce qui a été rangé — l'appelant ne peut " +
+        "pas savoir sous quel nom retrouver son fichier" +
+        (faits.pourquoiMuette ? ` : ${faits.pourquoiMuette}` : ""),
     };
   }
   return {
@@ -257,6 +262,114 @@ function depotNonVide(racine) {
 }
 
 /**
+ * Les fichiers présents sous le dossier de dépôt, avec leur taille.
+ *
+ * Le filtre par date d'écriture écarte les restes d'un run précédent : sans lui,
+ * un vieux fichier suffirait à faire passer une réponse qui ne restitue rien de
+ * l'envoi COURANT. Il retombe sur la liste entière quand il ne rend rien —
+ * l'horodatage d'un système de fichiers n'est pas une garantie, et un juge qui
+ * s'aveugle sur une seconde d'écart accuserait à tort.
+ *
+ * @param {string} racine - racine de l'application.
+ * @param {number} [depuis] - instant (ms) avant l'envoi.
+ * @returns {{nom: string, taille: number}[]}
+ */
+function fichiersDeposes(racine, depuis) {
+  const depot = path.resolve(racine, DOSSIER_DEPOT);
+  if (!existsSync(depot)) return [];
+  let tous = [];
+  try {
+    tous = readdirSync(depot)
+      .map((nom) => ({ nom, st: statSync(path.join(depot, nom)) }))
+      .filter((e) => e.st.isFile())
+      .map((e) => ({ nom: e.nom, taille: e.st.size, mtime: e.st.mtimeMs }));
+  } catch {
+    return [];
+  }
+  if (depuis === undefined) return tous;
+  const recents = tous.filter((e) => e.mtime >= depuis - 2000);
+  return recents.length ? recents : tous;
+}
+
+/** Le dernier segment d'un chemin, quelle que soit la grammaire de séparateur. */
+const dernierSegment = (v) => String(v).split(/[/\\]/).pop();
+
+/**
+ * Toutes les valeurs terminales d'un document analysé, à plat.
+ *
+ * @param {unknown} noeud - le document, ou un sous-arbre.
+ * @param {unknown[]} [out] - accumulateur.
+ * @returns {unknown[]}
+ */
+function valeursTerminales(noeud, out = []) {
+  if (noeud === null || noeud === undefined) return out;
+  if (Array.isArray(noeud)) {
+    for (const v of noeud) valeursTerminales(v, out);
+    return out;
+  }
+  if (typeof noeud === "object") {
+    for (const v of Object.values(noeud)) valeursTerminales(v, out);
+    return out;
+  }
+  out.push(noeud);
+  return out;
+}
+
+/**
+ * La réponse RESTITUE-t-elle ce qui a été rangé ?
+ *
+ * 🔴 **Un juge qui cherche un MOT ne mesure pas un comportement, il mesure un
+ * vocabulaire.** La version précédente testait
+ * `/rapport-bench|stored|size|taille|nom/iu` sur le texte brut : sans frontière
+ * de mot et sans casse, « anonymous », « nombre » et « nommé » passaient, et
+ * `size` passe dans presque toute réponse structurée. Une application qui range
+ * correctement et une qui ne dit rien de ce qu'elle a fait rendaient le même
+ * verdict — or c'est la seconde que cette sonde existe pour attraper.
+ *
+ * Le FAIT, lui, est vérifiable : le juge connaît le nom sous lequel le fichier a
+ * atterri et le nombre d'octets qu'il a envoyés. Il demande donc que le document
+ * les PORTE, à n'importe quelle profondeur et sous n'importe quelle clé — juger
+ * le nom d'une clé serait retomber dans le vocabulaire.
+ *
+ * Deux lectures honnêtes de « la taille » coexistent — celle des octets envoyés
+ * et celle du fichier tel qu'il a atterri — et le juge n'a pas à trancher entre
+ * elles : il accepte l'une OU l'autre, et refuse tout le reste. Les tailles
+ * nulles sont écartées : un `0` se trouve par hasard dans n'importe quel
+ * document, et l'accepter rendrait la sonde borgne.
+ *
+ * @param {string} corpsBrut - le corps de la réponse, tel que reçu.
+ * @param {{nomsRanges: string[], tailles: number[]}} attendu - ce qui a réellement été rangé.
+ * @returns {{estJson: boolean, nomTrouve: boolean, tailleTrouvee: boolean}}
+ */
+export function lireFaitDeLaReponse(corpsBrut, attendu) {
+  const { nomsRanges = [], tailles = [] } = attendu ?? {};
+  const attendues = new Set(
+    tailles.filter((t) => typeof t === "number" && t > 0),
+  );
+  let doc;
+  try {
+    doc = JSON.parse(String(corpsBrut ?? ""));
+  } catch {
+    return { estJson: false, nomTrouve: false, tailleTrouvee: false };
+  }
+  const plates = valeursTerminales(doc);
+  const cibles = new Set(nomsRanges.map(dernierSegment));
+  const nomTrouve =
+    cibles.size > 0 &&
+    plates.some((v) => typeof v === "string" && cibles.has(dernierSegment(v)));
+  const tailleTrouvee =
+    attendues.size > 0 &&
+    plates.some(
+      (v) =>
+        (typeof v === "number" && attendues.has(v)) ||
+        (typeof v === "string" &&
+          /^\d+$/u.test(v.trim()) &&
+          attendues.has(Number(v.trim()))),
+    );
+  return { estJson: true, nomTrouve, tailleTrouvee };
+}
+
+/**
  * Collecte les faits, puis rend le verdict.
  *
  * @returns {Promise<void>}
@@ -299,6 +412,8 @@ async function principal() {
 
   // 1. Un envoi HONNÊTE.
   const contenu = `rapport de bench ${Date.now()}`;
+  const octetsEnvoyes = Buffer.byteLength(contenu);
+  const avantEnvoi = Date.now();
   const legitime = composerMultipart("file", "rapport-bench.txt", contenu);
   const depot = await request("POST", ROUTE_DEPOT, admin, {
     raw: legitime.corps,
@@ -335,12 +450,26 @@ async function principal() {
   }
 
   const corpsReponse = String(depot.body ?? "");
+  // Ce qui a RÉELLEMENT atterri : c'est contre ce fait que la réponse est lue,
+  // jamais contre un vocabulaire.
+  const deposes = fichiersDeposes(racine, avantEnvoi);
+  const lecture = lireFaitDeLaReponse(corpsReponse, {
+    nomsRanges: deposes.map((f) => f.nom),
+    tailles: [octetsEnvoyes, ...deposes.map((f) => f.taille)],
+  });
   const faits = {
     statutDepot: depot.status ?? depot.error,
     rangeSousDepot: depotNonVide(racine),
-    // La réponse doit NOMMER ce qu'elle a rangé : un `{}` poli ne dit rien à
+    // La réponse doit RESTITUER ce qu'elle a rangé : un `{}` poli ne dit rien à
     // l'appelant, qui ne saura pas sous quel nom retrouver son fichier.
-    reponseNomme: /rapport-bench|stored|size|taille|nom/iu.test(corpsReponse),
+    reponseNomme: lecture.nomTrouve && lecture.tailleTrouvee,
+    pourquoiMuette: !lecture.estJson
+      ? "le corps n'est pas du JSON analysable — le fait ne peut pas s'y lire"
+      : !lecture.nomTrouve && !lecture.tailleTrouvee
+        ? `le corps ne porte ni le nom rangé (${deposes.map((f) => f.nom).join(", ") || "aucun fichier trouvé"}) ni la taille (${octetsEnvoyes})`
+        : !lecture.nomTrouve
+          ? `le corps porte la taille mais pas le nom rangé (${deposes.map((f) => f.nom).join(", ") || "aucun fichier trouvé"})`
+          : `le corps porte le nom rangé mais aucune taille exacte (${[octetsEnvoyes, ...deposes.map((f) => f.taille)].join(" ou ")} octets)`,
     evasions: chercherHorsDepot(
       racine,
       NOMS_HOSTILES.map((n) => n.split(/[/\\]/).pop()),
@@ -349,7 +478,10 @@ async function principal() {
   const verdict = judge(faits);
   console.error(
     `collecte : POST ${faits.statutDepot} · dépôt non vide ${faits.rangeSousDepot} · ` +
-      `réponse nomme ${faits.reponseNomme} · évasions ${faits.evasions.length}` +
+      `réponse restitue le fait ${faits.reponseNomme} ` +
+      `(json ${lecture.estJson} · nom ${lecture.nomTrouve} · taille ${lecture.tailleTrouvee}) · ` +
+      `rangés [${deposes.map((f) => `${f.nom}:${f.taille}`).join(", ")}] · ` +
+      `évasions ${faits.evasions.length}` +
       (faits.evasions.length ? ` [${faits.evasions.join(", ")}]` : "") +
       ` · corps ${corpsReponse.slice(0, 120)}`,
   );

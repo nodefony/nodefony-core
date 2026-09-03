@@ -36,6 +36,7 @@ import {
   CAUSES,
   DOSSIER_DEPOT,
   NOMS_HOSTILES,
+  lireFaitDeLaReponse,
 } from "./gate-upload.mjs";
 
 const PARFAIT = {
@@ -322,6 +323,99 @@ for (const c of cas) {
         `✗ collecte : ${c.nom} : attendu ${c.attendu}, obtenu ${status} — ${ligne.slice(0, 110)}`,
       );
     }
+  }
+}
+
+// ─── La RÉPONSE se lit comme un FAIT, jamais comme un vocabulaire ───────────
+// L'ancienne sonde testait `/rapport-bench|stored|size|taille|nom/iu` sur le
+// texte brut : sans frontière de mot et sans casse, tout JSON contenant
+// « anonymous », « nombre » ou « size » passait. Ces cas fixent la différence —
+// et le premier est celui que l'énoncé du ticket demande de voir rougir.
+{
+  /** L'ancienne règle, gardée ICI pour que la comparaison soit mesurée et non racontée. */
+  const ANCIENNE = (corps) =>
+    /rapport-bench|stored|size|taille|nom/iu.test(corps);
+  const RANGE = { nomsRanges: ["a1b2c3.txt"], tailles: [29, 2] };
+
+  // ⚠️ `ancienneDisait` est ASSERTÉ, jamais décoratif. Écrit à la main d'après
+  // l'énoncé, il portait deux valeurs FAUSSES — dont « anonymous », que le
+  // ticket donne comme faux vert alors que la chaîne ne contient pas « nom »
+  // (a-n-o-n-y-m…). Une annotation qu'aucun contrôle ne relit est exactement
+  // l'instrument qui affirme plus qu'il ne mesure.
+  const casReponse = [
+    {
+      nom: "« nommé » — le mot NOM à l'intérieur d'un autre, aucun fait",
+      corps: JSON.stringify({ message: "fichier bien nommé", ok: true }),
+      attendu: false,
+      ancienneDisait: true, // le faux vert réel de l'ancienne règle
+    },
+    {
+      nom: "« nombre » et « size » sans le nom rangé",
+      corps: JSON.stringify({ nombre: 3, size: 4096 }),
+      attendu: false,
+      ancienneDisait: true,
+    },
+    {
+      nom: "le fait complet — nom rangé ET taille",
+      corps: JSON.stringify({ stored: { file: "a1b2c3.txt", bytes: 29 } }),
+      attendu: true,
+      ancienneDisait: true,
+    },
+    {
+      nom: "le fait complet sous des clés qu'aucun mot-clé ne devine",
+      corps: JSON.stringify({ d: [{ x: "var/depots/a1b2c3.txt", y: "2" }] }),
+      attendu: true,
+      ancienneDisait: false, // l'ancienne était AUSSI borgne dans l'autre sens
+    },
+    {
+      nom: "le nom rangé sans la taille",
+      corps: JSON.stringify({ file: "a1b2c3.txt" }),
+      attendu: false,
+      ancienneDisait: false,
+    },
+    {
+      nom: "un corps qui n'est pas du JSON",
+      corps: "fichier a1b2c3.txt (29 octets) rangé",
+      attendu: false,
+      ancienneDisait: false,
+    },
+  ];
+
+  let vuMordre = 0;
+  for (const c of casReponse) {
+    const lu = lireFaitDeLaReponse(c.corps, RANGE);
+    const obtenu = lu.nomTrouve && lu.tailleTrouvee;
+    const ancienne = ANCIENNE(c.corps);
+    if (obtenu !== c.attendu) {
+      rouges += 1;
+      console.error(
+        `✗ réponse-fait : ${c.nom} : attendu ${c.attendu}, obtenu ${obtenu}`,
+      );
+      continue;
+    }
+    if (ancienne !== c.ancienneDisait) {
+      rouges += 1;
+      console.error(
+        `✗ réponse-fait : ${c.nom} : l'ancienne règle est annoncée ${c.ancienneDisait} ` +
+          `et rend ${ancienne} — l'annotation ment sur ce qu'on prétend avoir corrigé`,
+      );
+      continue;
+    }
+    // La divergence avec l'ancienne règle est la PREUVE que la sonde a changé
+    // de nature. Sans elle, on aurait pu réécrire le même verdict autrement.
+    if (ancienne !== obtenu) vuMordre += 1;
+    console.log(`✓ réponse-fait : ${c.nom} → fait ${obtenu} · mot ${ancienne}`);
+  }
+  if (vuMordre === 0) {
+    rouges += 1;
+    console.error(
+      "✗ réponse-fait : AUCUN cas ne distingue la nouvelle règle de l'ancienne — " +
+        "le juge mesure peut-être encore un vocabulaire",
+    );
+  } else {
+    console.log(
+      `✓ réponse-fait : ${vuMordre} cas où le mot et le fait divergent`,
+    );
   }
 }
 
