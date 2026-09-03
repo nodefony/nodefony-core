@@ -131,6 +131,16 @@ export const IMPUTATIONS = Object.freeze({
   "route-de-login-absente": INDETERMINE,
   // Application non construite (décor) OU code que l'agent vient de casser.
   // L'imputer d'office au décor blanchirait un agent qui a cassé le boot.
+  // Le juge a reçu 403 sans avoir pu se munir du jeton anti-rejeu. Deux
+  // situations le produisent et RIEN dans la réponse ne les distingue : une
+  // écriture correctement protégée dont aucune route sûre ne sème le cookie, et
+  // une garde d'autorisation qui refuse tout le monde. Le produit s'y refuse
+  // délibérément — `CsrfError` reste générique pour ne pas fuiter sa politique.
+  //
+  // Ce n'est donc PAS du décor : un geste de l'agent peut la produire, et la
+  // classer « décor » éteindrait l'instruction d'une vraie faille. À instruire
+  // ne coûte qu'une ligne ; innocenter à tort coûte la mesure entière.
+  "jeton-csrf-absent": INDETERMINE,
   "inspection-impossible": INDETERMINE,
   // Le compte de routes a été obtenu sur un kernel booté à FROID, faute de
   // porte ouverte : ce n'est pas l'application que l'agent a interrogée. Son
@@ -287,7 +297,6 @@ export const IMPUTATIONS = Object.freeze({
   // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —
   // c'est exactement ce qui est arrivé, pendant que le banc validait la seule
   // route qui ne résistait pas : celle qui n'était pas protégée.
-  "jeton-csrf-absent": DECOR,
 });
 
 /**

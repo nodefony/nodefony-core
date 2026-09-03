@@ -38,6 +38,7 @@
  * |    `5` | port-deja-tenu    | un serveur ÉTRANGER répondrait à sa place              |
  * |    `6` | aucune-reponse    | l'application ne répond pas — DÉCOR                    |
  * |    `7` | route-absente     | la ressource n'est pas montée — DÉCOR                  |
+ * |    `9` | jeton-csrf-absent | le juge n'a pas pu se munir — DÉCOR                    |
  *
  * Les causes `5`, `6` et `7` n'accusent PAS l'agent : sans elles, un décor
  * défaillant rendrait un « colonne absente » parfaitement crédible sur un
@@ -46,7 +47,13 @@
  * @module
  */
 import { spawnSync } from "node:child_process";
-import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
+import {
+  CookieJar,
+  request,
+  ensurePortFree,
+  exit,
+  semerJeton,
+} from "./http-probe.mjs";
 import { ROUTE_ARTICLES, TITRE_SEME } from "./prepare-base-migree.mjs";
 
 /** Les causes, telles que la table ci-dessus les fixe. */
@@ -60,6 +67,7 @@ export const CAUSES = {
   "aucune-reponse": 6,
   "route-absente": 7,
   "ressource-cassee": 8,
+  "jeton-csrf-absent": 9,
 };
 
 /**
@@ -246,9 +254,26 @@ async function principal() {
   //    contrat d'entrée ignore rend la création impossible — la base a suivi,
   //    l'application non.
   const unique = `sonde-${Date.now()}`;
+  // Se munir du jeton anti-rejeu AVANT d'écrire. Sans ce pas, une application
+  // dont l'écriture porte `@CsrfProtect` — ce que l'`AGENTS.md` du produit
+  // PRESCRIT — rend 403 au juge, qui conclurait « la ressource est cassée » sur
+  // une protection correctement posée.
+  await semerJeton(jar, ROUTE_ARTICLES, ROUTE_ARTICLES);
   const ecriture = await request("POST", ROUTE_ARTICLES, jar, {
     body: { title: `sonde ${unique}`, slug: unique },
+    csrfToken: jar.csrfToken(),
   });
+  // 🔴 Un 403 SANS jeton en poche ne dit rien de la ressource : il dit que le
+  // juge n'a pas pu se munir. C'est l'instrument qui manque, pas la migration.
+  if (ecriture.status === 403 && jar.csrfToken() === null) {
+    exit(
+      CAUSES["jeton-csrf-absent"],
+      `CAUSE=jeton-csrf-absent — POST ${ROUTE_ARTICLES} rend 403 et le juge n'a ` +
+        `AUCUN jeton : aucune route sûre de ${ROUTE_ARTICLES} n'a semé le cookie ` +
+        `« csrf-token ». La migration n'est pas en cause — l'instrument ne s'est ` +
+        `pas muni.`,
+    );
+  }
 
   // 4. L'état, et l'idempotence — par les commandes du framework, qui sont la
   //    référence : l'écran et le plan d'administration publient le même objet.

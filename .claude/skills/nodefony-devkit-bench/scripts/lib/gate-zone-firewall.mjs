@@ -35,6 +35,7 @@
  * |    `8` | repere-de-zone-absent        | l'AGENT — le repère a disparu          |
  * |    `9` | identite-temoin-indisponible | le DÉCOR                               |
  * |   `10` | reponse-inattendue           | l'AGENT                                |
+ * |   `11` | jeton-csrf-absent            | le DÉCOR — le juge n'a pas pu se munir |
  *
  * ⚠️ **« Plus fermé que demandé » n'est PAS une faille, et se dit autrement.**
  * L'énoncé ouvre l'import à tout utilisateur authentifié ; un agent qui exige en
@@ -46,7 +47,22 @@
  * @module
  */
 import { REPERE_ZONE_PROTEGEE as REPERE, ROUTE_IMPORT } from "./enonces.mjs";
-import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
+
+/**
+ * Le préfixe sous lequel chercher une route qui sème le jeton.
+ *
+ * La zone entière, pas le seul repère : le cookie n'est émis que par une route
+ * SÛRE portant elle-même `@CsrfProtect`, et rien n'oblige l'agent à l'avoir
+ * posé sur celle-là.
+ */
+const PERIMETRE_ZONE = REPERE.slice(0, REPERE.lastIndexOf("/") + 1);
+import {
+  CookieJar,
+  request,
+  ensurePortFree,
+  exit,
+  semerJeton,
+} from "./http-probe.mjs";
 import {
   ADMIN,
   TEMOIN,
@@ -68,25 +84,12 @@ await ensurePortFree();
 // ─── 0. LE DÉCOR D'ABORD — causes 4, 7 et 9, jamais l'agent ─────────────────
 const { admin, temoin } = await etablirIdentites();
 
-/**
- * Sème le jeton anti-rejeu si l'application en exige un.
- *
- * Une lecture sur la zone dépose le cookie quand la route est sous
- * `@CsrfProtect` ; sans cette protection, rien n'est déposé et l'en-tête ne
- * partira pas. Le juge s'adapte à ce que l'agent a fait plutôt que de présumer :
- * sans ce pas, une application qui protège AUSSI ses mutations contre le rejeu
- * verrait son utilisateur légitime refusé, et le juge lui reprocherait une
- * garde trop stricte.
- *
- * @param {CookieJar} jar - bocal de l'identité concernée.
- * @returns {Promise<void>}
- */
-const semerJeton = async (jar) => {
-  await request("GET", REPERE, jar);
-};
-
-await semerJeton(temoin);
-await semerJeton(admin);
+// Se munir du jeton anti-rejeu AVANT toute mutation. Le geste n'a qu'une
+// implémentation — celle du socle — parce qu'une copie locale a divergé ici même
+// : elle ne visitait qu'UNE route, et repartait les mains vides dès que l'agent
+// protégeait autre chose que le repère.
+await semerJeton(temoin, REPERE, PERIMETRE_ZONE);
+await semerJeton(admin, REPERE, PERIMETRE_ZONE);
 
 /**
  * Dépose un lot sous une identité donnée.
@@ -140,6 +143,18 @@ if (!estRefus(parAnonyme.status)) {
 const parTemoin = await deposer(temoin, "TEMOIN");
 if (parTemoin.error) {
   exit(4, `CAUSE=aucune-reponse-temoin — ${parTemoin.error}`);
+}
+// 🔴 Un 403 SANS jeton en poche ne dit rien de l'application : il dit que le
+// juge n'a pas pu se munir. Accuser ici reviendrait à reprocher à l'agent
+// d'avoir protégé ses écritures — ce que l'`AGENTS.md` du produit PRESCRIT.
+if (parTemoin.status === 403 && temoin.csrfToken() === null) {
+  exit(
+    11,
+    `CAUSE=jeton-csrf-absent — POST ${ROUTE_IMPORT} rend 403 et le juge n'a ` +
+      `AUCUN jeton : aucune route sûre de ${PERIMETRE_ZONE} n'a semé le cookie ` +
+      `« csrf-token ». L'application n'est pas en cause — l'instrument ne s'est ` +
+      `pas muni.`,
+  );
 }
 if (!estSucces(parTemoin.status)) {
   // Rejouer avec l'administrateur sépare deux situations que le même code

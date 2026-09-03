@@ -318,13 +318,67 @@ export const request = (method, path, jar, opts = {}) =>
  * Écrit une première fois dans un seul juge, ce geste a manqué au suivant. Il
  * n'a donc qu'une implémentation, et c'est celle-ci.
  *
+ * ## Pourquoi un REPLI, et pas un seul GET
+ *
+ * Le cookie n'est émis que par une route SÛRE qui porte elle-même
+ * `@CsrfProtect`. Un `GET` sur le chemin qu'on s'apprête à muter ne suffit donc
+ * pas : si l'agent a décoré la seule action d'écriture, l'action de lecture du
+ * même chemin ne porte rien, et le juge repart les mains vides — puis accuse
+ * l'agent d'un `403` qu'il a lui-même provoqué. Le produit sépare d'ailleurs les
+ * deux dans ses propres tests : une route sert le jeton, une autre le consomme.
+ *
+ * Le repli parcourt donc les routes SÛRES du périmètre, telles que
+ * l'application les DÉCLARE (`.nf-routes.json`, déposé par le gate via
+ * `nodefony inspect routes --json`). C'est le trajet d'un vrai client, pas une
+ * supposition du juge. Fichier absent, ou aucune route ne sème : on s'en tient
+ * au premier GET — le juge se dégrade, il ne ment pas, et c'est à l'appelant de
+ * s'ABSTENIR sur `jar.csrfToken() === null` plutôt que de conclure.
+ *
  * @param {CookieJar} jar - bocal de l'identité concernée.
- * @param {string} route - une route `@CsrfProtect` ; le cookie vaut pour tout
- *   le site (`Path=/`), n'importe laquelle suffit à se munir.
+ * @param {string} route - la route à visiter d'abord ; le cookie vaut pour tout
+ *   le site (`Path=/`), n'importe quelle route protégée suffit à se munir.
+ * @param {string} [perimetre] - préfixe des routes du repli (défaut : `route`).
  * @returns {Promise<void>}
  */
-export const semerJeton = async (jar, route) => {
+export const semerJeton = async (jar, route, perimetre = route) => {
   await request("GET", route, jar);
+  if (jar.csrfToken()) return;
+  for (const chemin of routesSuresDuPerimetre(perimetre, route)) {
+    const r = await request("GET", chemin, jar);
+    if (r.error) continue;
+    if (jar.csrfToken()) return;
+  }
+};
+
+/**
+ * Les routes SÛRES du périmètre, telles que l'application les déclare.
+ *
+ * Lues et non devinées : une route inventée par le juge rend 404 et n'apprend
+ * rien, quand la liste que l'application publie dit exactement ce qui existe.
+ *
+ * @param {string} perimetre - préfixe de chemin à retenir.
+ * @param {string} [dejaVue] - la route déjà visitée, écartée de la liste.
+ * @returns {string[]} chemins `GET`, la route déjà visitée en moins.
+ */
+const routesSuresDuPerimetre = (perimetre, dejaVue = "") => {
+  const fichier = ".nf-routes.json";
+  if (!fs.existsSync(fichier)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(fichier, "utf8"))
+      .filter(
+        (r) =>
+          typeof r?.path === "string" &&
+          r.path.startsWith(perimetre) &&
+          r.path !== dejaVue &&
+          // Un paramètre de chemin non résolu (`:id`, `{id}`) frapperait une
+          // route qui n'existe pas telle quelle : le 404 qui suit n'apprend rien.
+          !/[:{]/u.test(r.path) &&
+          (r.methods ?? []).includes("GET"),
+      )
+      .map((r) => r.path);
+  } catch {
+    return [];
+  }
 };
 
 /**

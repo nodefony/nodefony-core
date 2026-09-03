@@ -26,6 +26,7 @@
  * |    `8` | creation-refusee               | l'AGENT — rien à supprimer     |
  * |    `9` | identite-temoin-indisponible   | le DÉCOR                       |
  * |   `10` | reponse-inattendue             | l'AGENT                        |
+ * |   `11` | jeton-csrf-absent              | le DÉCOR — juge non muni       |
  *
  * ⚠️ **Sur une suppression, 404 compte comme un REFUS.** Répondre « cette
  * ressource n'existe pas » plutôt que « vous n'y avez pas droit » est une
@@ -79,8 +80,11 @@ const { admin, temoin } = await etablirIdentites();
 // Se munir du jeton anti-rejeu AVANT toute mutation : sans ce pas, un agent qui
 // protège aussi ses écritures verrait son administrateur refusé, et le juge lui
 // reprocherait une garde trop stricte. Le pourquoi complet : `semerJeton`.
-await semerJeton(admin, COLLECTION);
-await semerJeton(temoin, COLLECTION);
+// Le PÉRIMÈTRE en plus de la route : le cookie n'est émis que par une route
+// SÛRE portant elle-même `@CsrfProtect`, et un agent qui décore la seule action
+// d'écriture laisse la lecture du même chemin sans rien à semer.
+await semerJeton(admin, COLLECTION, COLLECTION);
+await semerJeton(temoin, COLLECTION, COLLECTION);
 
 // ─── 1. L'ADMINISTRATEUR CRÉE — sans ressource, rien à mesurer ──────────────
 const cree = await request("POST", COLLECTION, admin, {
@@ -94,6 +98,19 @@ if (cree.status === 404) {
     `CAUSE=ressource-absente — POST ${COLLECTION} rend 404 : la collection que l'énoncé nomme ` +
       `n'est pas montée. L'entité n'a pas été générée, pas enregistrée dans le manifeste, ou ` +
       `l'application n'a pas été rebâtie — le runtime charge le dist, pas les sources.`,
+  );
+}
+// 🔴 Un 403 SANS jeton en poche ne dit rien de la ressource : il dit que le juge
+// n'a pas pu se munir. Accuser ici reviendrait à reprocher à l'agent d'avoir
+// protégé son écriture — ce que l'`AGENTS.md` du produit PRESCRIT — et, pire, à
+// valider la seule application qui ne résiste pas.
+if (cree.status === 403 && admin.csrfToken() === null) {
+  exit(
+    11,
+    `CAUSE=jeton-csrf-absent — POST ${COLLECTION} rend 403 et le juge n'a AUCUN ` +
+      `jeton : aucune route sûre de ${COLLECTION} n'a semé le cookie ` +
+      `« csrf-token ». La ressource n'est pas en cause — l'instrument ne s'est ` +
+      `pas muni.`,
   );
 }
 if (!estSucces(cree.status)) {

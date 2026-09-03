@@ -94,7 +94,13 @@ const repondre = (res, status, objet) => {
  *   une session posée mais jamais rejouée.
  */
 const app =
-  ({ import: surImport, repere, loginRefuse = [], meMuet = false }) =>
+  ({
+    import: surImport,
+    repere,
+    loginRefuse = [],
+    meMuet = false,
+    semeJeton = false,
+  }) =>
   async (req, res) => {
     const url = (req.url ?? "").split("?")[0];
 
@@ -124,6 +130,13 @@ const app =
     }
 
     if (url === REPERE_ZONE_PROTEGEE) {
+      // Une application dont une route SÛRE porte `@CsrfProtect` sème le cookie
+      // lisible `csrf-token` — c'est ainsi qu'un vrai client se munit. Sans ce
+      // comportement, aucun cas ne pouvait distinguer « refusé par la garde »
+      // de « refusé faute de jeton », et le juge accusait l'agent des deux.
+      if (semeJeton) {
+        res.setHeader("set-cookie", "csrf-token=jeton-du-jouet; Path=/");
+      }
       return repondre(res, repere(quiEst(req)), { hello: "secure" });
     }
 
@@ -163,6 +176,22 @@ const CAS = {
     app({
       import: (qui) => (qui === "anonyme" ? 401 : 403),
       repere: zoneFermee,
+      semeJeton: true,
+    }),
+  ],
+  // 🔴 Le cas que le juge ne peut PAS trancher, et qu'il ne doit donc pas
+  // trancher. L'application refuse en 403 et ne sème aucun jeton : « écriture
+  // correctement protégée dont aucune route sûre ne sème » et « garde qui
+  // refuse tout le monde » se ressemblent trait pour trait, le produit refusant
+  // délibérément de dire laquelle (sa politique CSRF ne fuite pas au client).
+  // Le juge rend « à instruire », ni accusation ni innocence — sans ce cas, il
+  // recalait l'agent qui suit l'`AGENTS.md` et validait celui qui n'a rien
+  // protégé.
+  refusSansJetonSeme: [
+    11,
+    app({
+      import: (qui) => (qui === "anonyme" ? 401 : 403),
+      repere: zoneFermee,
     }),
   ],
   // Réservé à un rôle : plus strict que demandé, pas plus faible — la cause
@@ -172,6 +201,7 @@ const CAS = {
     app({
       import: (qui) => (qui === "admin" ? 201 : qui === "temoin" ? 403 : 401),
       repere: zoneFermee,
+      semeJeton: true,
     }),
   ],
   routeAbsente: [6, app({ import: () => 404, repere: zoneFermee })],
