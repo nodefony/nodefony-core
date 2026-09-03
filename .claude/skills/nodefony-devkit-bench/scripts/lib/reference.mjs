@@ -50,8 +50,73 @@ export const CHEMIN_REFERENCE = path.join(
 /** Champs du décor qui doivent CORRESPONDRE pour qu'une comparaison ait un sens. */
 const CHAMPS_DECOR = ["model", "decor", "agent"];
 
+/** Le dossier des juges et des préparateurs — `…/scripts/lib`. */
+const DOSSIER_LIB = path.dirname(fileURLToPath(import.meta.url));
+
+/** La racine du dépôt : `…/<repo>/.claude/skills/<skill>/scripts/lib` remonté de cinq crans. */
+const RACINE_DEPOT = path.dirname(
+  path.dirname(path.dirname(path.dirname(path.dirname(DOSSIER_LIB)))),
+);
+
 /**
- * Empreinte d'une TÂCHE — l'énoncé et ce qu'on juge.
+ * Un texte débarrassé de ce qui dépend de la MACHINE, puis de sa mise en forme.
+ *
+ * 🔴 Les tâches composent leurs chemins de juge en ABSOLU (`path.join(dirname,
+ * "lib", "gate-x.mjs")`), et un `prepare` les porte tels quels. L'empreinte en
+ * héritait : mesuré, la même tâche rendait `b64564eb4de3` ici et `7f2a8c283449`
+ * sous `/home/runner/work` — deux machines, deux empreintes, et un dépistage
+ * qui aurait annoncé « tâche réécrite » sur un dépôt simplement cloné ailleurs.
+ * Une référence est VERSIONNÉE : elle doit valoir pour qui la relit.
+ *
+ * Remplacer « la racine de CETTE machine » ne suffit pas : elle est la seule
+ * qu'on connaisse, et l'empreinte doit valoir pour un dépôt cloné ailleurs. La
+ * normalisation coupe donc à un REPÈRE présent dans le chemin — `.claude/` —,
+ * ce qui vaut pour n'importe quel préfixe, connu ou non. Les séparateurs
+ * passent en `/` d'abord : deux plateformes ne doivent pas produire deux
+ * empreintes (axiome « normaliser AVANT de comparer »).
+ *
+ * L'espace est ensuite écrasé pour qu'un passage du formateur n'invalide pas
+ * des mesures payées. Tout le reste — un token, un opérateur, un seuil —
+ * continue de compter.
+ *
+ * @param {unknown} texte
+ * @returns {string}
+ */
+const stable = (texte) =>
+  String(texte ?? "")
+    .split("\\")
+    .join("/")
+    // La lettre de lecteur fait partie du préfixe à couper : sans elle,
+    // `D:/a/x/.claude/…` garde son `D:` et Windows rend une TROISIÈME empreinte.
+    .replace(/(?:[A-Za-z]:)?\/[^\s"'`]*?(\.claude\/)/gu, "<repo>/$1")
+    .split(RACINE_DEPOT.split(path.sep).join("/"))
+    .join("<repo>")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+/**
+ * Les fichiers de code dont dépend le VERDICT d'une tâche.
+ *
+ * Ils ne se déclarent nulle part : ils se LISENT dans la tâche, puisqu'une
+ * sonde de type `gate` nomme son juge dans sa commande et qu'un `prepare` nomme
+ * son préparateur. Une table à tenir à la main serait un troisième endroit à
+ * synchroniser, donc un troisième endroit à oublier.
+ *
+ * @param {{prepare?: string, probes?: Array<{cmd?: string[]}>}} task
+ * @returns {string[]} les noms de fichiers, triés.
+ */
+export function fichiersDuVerdict(task) {
+  const textes = [String(task.prepare ?? "")];
+  for (const p of task.probes ?? [])
+    if (Array.isArray(p.cmd)) textes.push(p.cmd.join(" "));
+  const noms = new Set();
+  for (const t of textes)
+    for (const m of t.matchAll(/[\w.-]+\.mjs(?![\w.])/gu)) noms.add(m[0]);
+  return [...noms].sort();
+}
+
+/**
+ * Empreinte d'une TÂCHE — l'énoncé, et TOUT ce qui décide de son verdict.
  *
  * Le décor est une variable de la mesure ; la tâche en est une autre, et elle
  * se modifie bien plus souvent. Vécu à l'heure près : la route de l'énoncé a
@@ -60,18 +125,52 @@ const CHAMPS_DECOR = ["model", "decor", "agent"];
  * référence mesurée sur une AUTRE question, puis annoncé une « remontée » ou
  * une « chute » avec le même aplomb.
  *
- * Ne couvre que ce qui change la RÉPONSE ATTENDUE : l'énoncé, la préparation du
- * décor, et le nom des sondes. Un commentaire réécrit ne casse donc pas la
- * comparaison ; une sonde ajoutée, si.
+ * 🔴 **Le NOM d'une sonde ne dit pas ce qu'elle juge.** L'empreinte ne couvrait
+ * que l'énoncé, le `prepare` et les noms — jamais le code qui rend le verdict.
+ * Corriger un juge n'invalidait donc rien : trois juges qui punissaient une
+ * protection légitime ont été corrigés, un quatrième était mort depuis cinq
+ * jours, et pas une seule référence n'a bougé. On comparait des verdicts
+ * d'aujourd'hui à des verdicts rendus par un juge qui n'existe plus, et le
+ * dépistage annonçait « conforme à la référence » avec l'aplomb d'une mesure.
  *
- * @param {{prompt?: string, prepare?: string, probes?: Array<{name: string}>}} task
+ * Entrent donc dans l'empreinte : l'énoncé, le `prepare`, les noms des sondes,
+ * **le source de chaque `observe`**, et **le contenu de chaque fichier de juge
+ * ou de préparateur** que la tâche nomme. Un commentaire réécrit dans un juge
+ * invalide sa tâche : c'est voulu — refuser à tort coûte un run nommé, comparer
+ * à tort coûte la mesure entière et ne se voit pas.
+ *
+ * @param {{prompt?: string, prepare?: string, probes?: Array<{name: string, observe?: Function, cmd?: string[]}>}} task
  * @returns {string} douze caractères — assez pour distinguer, assez court pour se lire.
  */
 export function empreinteTache(task) {
+  const sondes = (task.probes ?? [])
+    .map((p) => [
+      p.name,
+      typeof p.observe === "function" ? stable(p.observe) : "",
+    ])
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  const juges = fichiersDuVerdict(task).map((nom) => {
+    for (const dossier of [DOSSIER_LIB, path.dirname(DOSSIER_LIB)]) {
+      const f = path.join(dossier, nom);
+      if (existsSync(f)) {
+        return [
+          nom,
+          createHash("sha256")
+            .update(stable(readFileSync(f, "utf8")))
+            .digest("hex")
+            .slice(0, 12),
+        ];
+      }
+    }
+    // Un juge introuvable est un fait, pas une erreur à taire : l'empreinte
+    // change le jour où il revient, et la tâche se remesure.
+    return [nom, "ABSENT"];
+  });
   const matiere = JSON.stringify([
-    task.prompt ?? "",
-    task.prepare ?? "",
-    (task.probes ?? []).map((p) => p.name).sort(),
+    stable(task.prompt),
+    stable(task.prepare),
+    sondes,
+    juges,
   ]);
   return createHash("sha256").update(matiere).digest("hex").slice(0, 12);
 }

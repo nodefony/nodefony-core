@@ -571,6 +571,22 @@ commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
    comparaison refusée, puis rejouée au `jq` par l'opérateur — qui a lu trois
    « chutes » qu'aucun changement n'expliquait. Refaire soi-même le calcul que
    la garde interdit, c'est reproduire exactement l'erreur qu'elle empêche.
+   3bis. **Le CODE qui rend le verdict est une variable de la mesure, au même
+   titre que le décor.** L'empreinte d'une tâche couvre l'énoncé, le `prepare`,
+   les noms des sondes — et désormais le **source de chaque `observe`** et le
+   **contenu de chaque juge** que la tâche nomme. Sans cela, corriger un juge
+   n'invalidait rien : trois juges qui punissaient une protection légitime ont
+   été corrigés, un quatrième était mort depuis cinq jours, et pas une référence
+   n'a bougé — on opposait des verdicts d'aujourd'hui à des verdicts rendus par
+   un juge qui n'existe plus, sous l'étiquette « conforme à la référence ».
+   Toucher une ligne d'un `gate-*.mjs` fait donc **refuser** la comparaison sur
+   ses tâches, en les NOMMANT : on sait quoi rejouer plutôt que tout redemander.
+   Un commentaire compte aussi — refuser à tort coûte un run nommé, comparer à
+   tort coûte la mesure entière et ne se voit pas ; seule la remise en forme
+   (espaces) est absorbée. L'empreinte est **indépendante de la machine** :
+   les tâches composent leurs chemins de juge en absolu, et sans normalisation
+   un dépôt cloné ailleurs voyait toutes ses tâches « réécrites ».
+
 4. **Un rouge NON OPPOSABLE écarte le run** — une gate rejouée sur l'app
    d'aujourd'hui (run antérieur aux gates figées) ne juge pas la tâche. Le banc
    le DISAIT déjà dans son texte, sans en tirer la conséquence : le rouge était
