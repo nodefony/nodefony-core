@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-03 17:51** (UTC).
+> Empreinte prise le **2026-09-03 19:02** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,23 +16,21 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 17 | 1 | — |
-| 10.0.0 | 40 | 80 | 2026-11-15 |
+| 10.0.0 | 39 | 82 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#163 — fix(devkit): empêcher le mode dépistage de rejouer tout le catalogue**
+**#128 — ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local**
 
-Ordre 2.55 · P1 — figé à la création · 0.5 j · jalon 10.0.0
+Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 40 ouverts
+## Jalon 10.0.0 — 39 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 2.55 | P1 — figé à la création | 0.5 | #163 | fix(devkit): empêcher le mode dépistage de rejouer tout le catalogue |
-| 2.56 | P1 — figé à la création | 0.5 | #164 | ci(externals): ne plus avaler le rouge de l'étape sous Windows |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
@@ -71,6 +69,7 @@ Ordre 2.55 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 64.3 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
 | 64.4 | P2 — décision | 1 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 64.5 | P3 — fin de cycle | 0.5 | #160 | chore(github): poser les gabarits de ticket et de fusion |
+| 70.1 | P1 — figé à la création | 0.5 | #166 | test(devkit): invalider la référence quand un juge change |
 
 ## Jalon 10.1 — 17 ouverts
 
@@ -94,7 +93,7 @@ Ordre 2.55 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 63 | P2 — décision | 0.5 | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
 | 65 | P2 — décision | 2 | #161 | feat(devkit): mesurer si un agent clôt un ticket sans humain |
 
-## Backlog — aucune date promise · 6 ouverts
+## Backlog — aucune date promise · 12 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -102,6 +101,12 @@ Ordre 2.55 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 56 | P3 — fin de cycle | 1 | #68 | feat(studio): garder les préférences d'affichage côté serveur |
 | 58 | P3 — fin de cycle | 3 | #74 | feat(studio): éditer la configuration d'un module à chaud |
 | 59 | P3 — fin de cycle | 3 | #65 | test(paquets): rapatrier les preuves de bout en bout dans leur paquet |
+| 70 | P2 — décision | 2.5 | #165 | test(devkit): resserrer cinq contrôles du banc qui affirment trop |
+| 70.2 | P2 — décision | 0.5 | #167 | chore(skills): ne plus compter une mention comme un lancement |
+| 70.3 | P2 — décision | 0.5 | #168 | test(devkit): lancer les deux contrôles que rien n'exécute |
+| 70.4 | P2 — décision | 0.5 | #169 | test(devkit): juger l'envoi de fichier sur un fait, non un mot |
+| 70.5 | P2 — décision | 0.5 | #170 | test(devkit): trouver le témoin même hors de la première page |
+| 71 | P2 — décision | 0.5 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
 | — | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | — | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 

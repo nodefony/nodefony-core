@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T17:51:15.123Z",
+  "generatedAt": "2026-09-03T19:02:41.882Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 80,
+      "closed": 82,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 40,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -344,8 +344,8 @@
       "number": 163,
       "title": "fix(devkit): empêcher le mode dépistage de rejouer tout le catalogue",
       "url": "https://github.com/nodefony/nodefony-core/issues/163",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -372,8 +372,8 @@
       "number": 164,
       "title": "ci(externals): ne plus avaler le rouge de l'étape sous Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/164",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -401,7 +401,7 @@
       "title": "feat(devkit): apprendre à l'agent à migrer un schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1079,7 +1079,7 @@
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": null,
@@ -1334,7 +1334,7 @@
       "title": "chore(pilotage): confronter au code les cases de la feuille de route",
       "url": "https://github.com/nodefony/nodefony-core/issues/80",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2039,6 +2039,104 @@
       ]
     },
     {
+      "number": 165,
+      "title": "test(devkit): resserrer cinq contrôles du banc qui affirment trop",
+      "url": "https://github.com/nodefony/nodefony-core/issues/165",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2.5,
+      "ordre": 70,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 166,
+      "title": "test(devkit): invalider la référence quand un juge change",
+      "url": "https://github.com/nodefony/nodefony-core/issues/166",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 70.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 167,
+      "title": "chore(skills): ne plus compter une mention comme un lancement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/167",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 70.2,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 168,
+      "title": "test(devkit): lancer les deux contrôles que rien n'exécute",
+      "url": "https://github.com/nodefony/nodefony-core/issues/168",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 70.3,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 169,
+      "title": "test(devkit): juger l'envoi de fichier sur un fait, non un mot",
+      "url": "https://github.com/nodefony/nodefony-core/issues/169",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 70.4,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 170,
+      "title": "test(devkit): trouver le témoin même hors de la première page",
+      "url": "https://github.com/nodefony/nodefony-core/issues/170",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 70.5,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 171,
+      "title": "ci(workflows): refuser une étape multi-commandes sans shell",
+      "url": "https://github.com/nodefony/nodefony-core/issues/171",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 71,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
       "number": 82,
       "title": "fix(build): rétablir le contrôle des dépendances avalées par le bundler",
       "url": "https://github.com/nodefony/nodefony-core/issues/82",
@@ -2058,7 +2156,7 @@
       "title": "feat(orm): poser les contraintes d'intégrité des relations",
       "url": "https://github.com/nodefony/nodefony-core/issues/138",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2072,7 +2170,7 @@
       "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
       "url": "https://github.com/nodefony/nodefony-core/issues/139",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
