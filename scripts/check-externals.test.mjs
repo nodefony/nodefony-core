@@ -108,16 +108,22 @@ describe("détection de l'import côté serveur", () => {
 
   // PIÈGE VÉCU : chercher `from "x"` rate l'import à effet de bord — précisément la
   // forme de `reflect-metadata`, celle qui est réellement avalée dans ce dépôt.
+  //
+  // Les deux attendus se COMPOSENT : `globSync` rend des chemins NATIFS, donc
+  // `nodefony\side.ts` sous Windows. Écrits en `/`, ces deux cas y étaient rouges
+  // depuis fin août sans que personne le voie — l'étape de forge les avalait.
+  // Accepter « l'un ou l'autre séparateur » ne serait pas la réponse : c'est
+  // l'assertion qui se compose, jamais le produit qui s'assouplit.
   it("voit un import à EFFET DE BORD, sans liaison", () => {
     expect(
       importedByServerCode(r().root, "src/modules/demo", "reflect-metadata"),
-    ).to.equal("nodefony/side.ts");
+    ).to.equal(path.join("nodefony", "side.ts"));
   });
 
   it("voit un import dynamique", () => {
     expect(
       importedByServerCode(r().root, "src/modules/demo", "lighthouse"),
-    ).to.equal("nodefony/sub/deep.ts");
+    ).to.equal(path.join("nodefony", "sub", "deep.ts"));
   });
 
   // PIÈGE : le bundler exclut `tests/` et `*.test.ts` — les compter ferait crier
