@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T19:02:41.882Z",
+  "generatedAt": "2026-09-03T19:10:18.193Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2043,7 +2043,7 @@
       "title": "test(devkit): resserrer cinq contrôles du banc qui affirment trop",
       "url": "https://github.com/nodefony/nodefony-core/issues/165",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 2.5,
@@ -2057,7 +2057,7 @@
       "title": "test(devkit): invalider la référence quand un juge change",
       "url": "https://github.com/nodefony/nodefony-core/issues/166",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2071,7 +2071,7 @@
       "title": "chore(skills): ne plus compter une mention comme un lancement",
       "url": "https://github.com/nodefony/nodefony-core/issues/167",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2085,7 +2085,7 @@
       "title": "test(devkit): lancer les deux contrôles que rien n'exécute",
       "url": "https://github.com/nodefony/nodefony-core/issues/168",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2099,7 +2099,7 @@
       "title": "test(devkit): juger l'envoi de fichier sur un fait, non un mot",
       "url": "https://github.com/nodefony/nodefony-core/issues/169",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2113,7 +2113,7 @@
       "title": "test(devkit): trouver le témoin même hors de la première page",
       "url": "https://github.com/nodefony/nodefony-core/issues/170",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2127,11 +2127,25 @@
       "title": "ci(workflows): refuser une étape multi-commandes sans shell",
       "url": "https://github.com/nodefony/nodefony-core/issues/171",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 71,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 172,
+      "title": "fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/172",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 72,
       "labels": [
         "backlog"
       ]

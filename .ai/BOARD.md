@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-03 19:02** (UTC).
+> Empreinte prise le **2026-09-03 19:10** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -93,7 +93,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 63 | P2 — décision | 0.5 | #131 | refactor(frontend): composer les plugins Vite en un seul endroit |
 | 65 | P2 — décision | 2 | #161 | feat(devkit): mesurer si un agent clôt un ticket sans humain |
 
-## Backlog — aucune date promise · 12 ouverts
+## Backlog — aucune date promise · 13 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -107,6 +107,7 @@ Ordre 2.57 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 | 70.4 | P2 — décision | 0.5 | #169 | test(devkit): juger l'envoi de fichier sur un fait, non un mot |
 | 70.5 | P2 — décision | 0.5 | #170 | test(devkit): trouver le témoin même hors de la première page |
 | 71 | P2 — décision | 0.5 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
+| 72 | P2 — décision | 0.5 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
 | — | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | — | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 

@@ -146,6 +146,8 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 09-03b] **Le remède prescrit contre une troncature muette tronquait muettement à son tour — et j'ai rendu DEUX faux verdicts d'affilée.** Un skill du dépôt documente que `gh project item-list` omet des items sans le dire, et prescrit GraphQL. Je l'ai suivi : `projectV2.items(first:100)` sur un tableau de **146** items rend 100 nœuds, sans un mot. J'ai donc annoncé deux tickets « absents du tableau », puis « pas en cours » — ils y étaient et l'étaient. **Le compte se DEMANDE (`totalCount`), il ne se déduit jamais de la longueur de ce qu'on a reçu**, et une page reçue pleine est le signe qu'il en manque, pas qu'on a tout. Écrire le remède sans écrire son bord, c'est déplacer le piège d'un cran et le rendre plus crédible.
+
 - **[1× — 09-02] Une même expression régulière portait DEUX chemins quadratiques ; j'en ai corrigé un et fermé le sujet.** L'analyse de code a rendu une alerte NEUVE à la place des deux fermées, sur la MÊME ligne — et c'est son message qui l'a dit : il avait perdu son premier cas (`[[[[`) et gardé le second (`[](` répété). Mesuré : 1047 ms encore, là où je croyais avoir tout ramené à 0,3 ms. Règle : quand un outil signale une expression, lire ce que son message ÉNUMÈRE — il nomme les cas un par un, et une correction qui n'en tue qu'un laisse l'alerte se rouvrir sous un autre numéro.
 - **[1× — 09-01] Donner l'ENTITÉ ne suffit pas : il faut donner la MIGRATION.** Après avoir retiré `User` des migrations du framework, j'ai doté le dépôt de son entité et déclaré l'effet de bord traité. En développement le schéma est dérivé du code, donc tout marchait. La CI a rendu **dix jobs rouges** : en production personne ne crée la table. Le même oubli valait pour les applications générées. Règle : dès qu'un objet quitte le framework pour l'application, se demander QUI le crée dans chacun des deux modes de schéma.
 
@@ -742,6 +744,8 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-03b] **Mon correctif était vert en local et ce vert ne valait RIEN — je l'ai dit dans le commit plutôt que de le laisser croire.** Deux assertions littéralisaient `/` là où `globSync` rend des chemins natifs ; corrigées en `path.join`, elles passent sur macOS… où `path.join` rend précisément `/`. Le test passait donc AVANT comme APRÈS : seule la plateforme visée tranche. **Un vert obtenu sur la plateforme où les deux écritures coïncident ne prouve rien du tout** — et c'est exactement la classe de faux vert qui a laissé ce rouge vivre deux semaines. La preuve a été le job Windows, poussé exprès en deux temps.
+
 - [1× — 09-03] **Trois cas de mon selftest neuf étaient VERTS parce que le juge PLANTAIT.** Ils
   attendaient le code 1 ; un `ReferenceError` sort en 1 ; un contrôle qui ne regarde que le code
   de sortie validait donc un juge qui ne jugeait plus rien. Le durcissement — exiger une ligne
@@ -973,6 +977,8 @@
 - [1× — 09-03] Le bouton « lancer ce fichier » de Studio passait le fichier derrière un `--` : vitest ignore ce qui suit, la suite ENTIÈRE tournait, et le compte rendu (18 fichiers, 204 tests) sortait vert sous le libellé du fichier demandé — en 4.1.11 comme en 5.0.0. Trouvé en sondant le câblage pour la montée de version, pas par un test : aucun n'exerçait la commande composée. Remède : la composition sort en fonction pure (`testRunCommand`), test vu rouge avec le `--`.
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
+
+- [1× — 09-03b] **Le mode « ne relance RIEN » relançait TOUT — et sa promesse était écrite deux fois.** `--depistage` du banc devkit lisait son drapeau très tôt, mais ne le TRAITAIT qu'après avoir monté un décor et déroulé le catalogue entier avec de vrais agents ; il comparait alors le rapport du run qu'il venait de payer. Lancé en croyant à une comparaison gratuite, il tournait encore une heure plus tard. Le texte de l'usage ET le skill affirmaient l'inverse — deux écrits ne valent pas une garde. **Le motif générique : entre LIRE un drapeau et le TRAITER, tout ce qui se trouve au milieu s'exécute.** Un mode dont le contrat est de ne rien faire refuse AVANT la première dépense, ou il ne le tient pas. Corollaire appliqué : le refus ne CHOISIT pas non plus la mesure à la place de l'opérateur — « le dernier run » serait un run partiel ou d'un autre décor, c'est-à-dire la comparaison fausse qu'une autre garde existait déjà pour interdire.
 
 - [1× — 08-29c] **Quatre réglages de commande ne faisaient pas ce qu'ils annonçaient, et AUCUN n'était testé.** `--up-to <tag inconnu>` ne rencontrait jamais sa condition d'arrêt et adoptait TOUT l'historique en rendant 0 ; `--source <inconnue>` filtrait en SQL sur un nom inexistant et rendait « rien à réparer » ; un `.sql` annoncé par le journal mais absent remontait un `ENOENT` nu ; et `NF_MIGRATE_DATABASE_URL` était **jetée en silence** dès que le connecteur était sqlite — un travail de déploiement migrait alors une base locale éphémère et rendait le code du SUCCÈS. Le point commun : chacun a un chemin « heureux » testé, et le chemin où l'argument est FAUX n'existait dans aucun banc. **Le contrôle : pour chaque drapeau, écrire le couple — le refus SANS lui, le travail AVEC.** C'est ce couple qui a rendu les quatre défauts visibles en une passe.
 
@@ -1644,6 +1650,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-03b] **Un gate LANCÉ dont le verdict est avalé ne garde rien non plus — et il rassure davantage qu'un gate absent.** Une étape de forge enchaînait trois commandes sans déclarer son interpréteur : sous Windows, GitHub prend PowerShell, où un échec n'arrête pas le script et où l'étape prend le code de la DERNIÈRE commande. Un test y était rouge depuis quinze jours, sur le gate même qui garde les dépendances embarquées par le bundler, pendant que l'étape s'affichait verte. **Ce que la correction a révélé en plus, et qu'on ne cherchait pas : sous `bash -e`, les deux commandes suivantes n'avaient JAMAIS tourné sur cette plateforme** — ni avant (avalées), ni pendant la preuve négative (jamais atteintes). Corriger un canal muet ne répare pas un contrôle : il en découvre d'autres qui n'avaient jamais été exercés.
+
 - [2× — 09-03] **Le point d'entrée écrit la veille n'était toujours lancé par personne.** `selftests.mjs`
   existait pour rendre le lot atteignable d'une commande — et aucun script npm, aucune forge ne
   l'appelait : le défaut qu'il corrige, reproduit sur lui-même en vingt-quatre heures. Branché en
@@ -2030,6 +2038,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-03b] **Le commit intitulé « six tickets en cours que rien ne faisait avancer » les a tous remis en cours, dans la seconde.** Le statut se dérive du premier commit qui cite un ticket — bon principe, sauf qu'un commit de PILOTAGE cite des tickets sans travailler dessus : un retex les récapitule, une empreinte les liste, un recalage les nomme pour dire ce qu'ils sont. L'automate a donc annulé le geste qui le corrigeait, et le même jour a passé « en cours » six tickets ouverts dont pas une ligne n'existait. **Un automate qui lit une MENTION croit lire une INTENTION.** Le garde-fou (`NF_NO_TICKET_PROGRESS`) existe mais suppose qu'on y pense au moment du commit — c'est-à-dire le jugement humain que dériver le statut devait justement supprimer.
 
 - [1× — 09-02] **Un juge de sécurité PUNISSAIT la sécurité, et récompensait la faille.** Le framework n'émet le cookie `csrf-token` que sur une requête SÛRE vers une route `@CsrfProtect` ; le juge attaquait directement en POST, n'avait donc jamais de jeton, et toute route correctement protégée lui rendait 403 — qu'il imputait au « dépôt qui ne fonctionne pas ». Il recalait ainsi l'agent qui avait suivi l'`AGENTS.md` du produit, et validait les deux qui n'avaient rien protégé. **Le geste manquant existait pourtant**, écrit et commenté dans un juge voisin : la règle avait deux implémentations possibles et une seule écrite. Corollaire : quand un juge de sécurité rend un rouge, se demander d'abord s'il ne mesure pas sa PROPRE absence de préparation.
 
