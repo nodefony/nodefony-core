@@ -194,6 +194,13 @@ jobs:
       # L'étape suit le build : la mesure §1 lit les `dist/`, et un dist périmé
       # ne prouverait rien.
       - name: Gate — dépendances avalées par le bundler (external)
+        # Sans `shell:`, GitHub prend celui de la PLATEFORME — PowerShell sous
+        # Windows, où un échec n'ARRÊTE PAS le script : l'étape prend le code de
+        # la DERNIÈRE commande, et les deux premières peuvent tomber en silence.
+        # C'est ce qui a caché un test rouge depuis fin août pendant que l'étape
+        # s'affichait verte. Une dépendance avalée par le bundler passerait
+        # exactement de la même façon — c'est-à-dire que ce gate ne gardait rien.
+        shell: bash
         run: |
           npm run test:externals
           npm run externals:check
