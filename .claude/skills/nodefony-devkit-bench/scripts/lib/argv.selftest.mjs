@@ -25,6 +25,7 @@
  * @module
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -68,6 +69,53 @@ const lancer = (fichier, args) =>
     valeur.status === 64 && !valeur.stderr.includes("-3,"),
     "une valeur négative n'est pas jugée comme un drapeau",
     (valeur.stderr.split("\n")[0] ?? "").slice(0, 46),
+  );
+
+  // Un drapeau peut être PARFAITEMENT déclaré et rester dangereux : `--depistage`
+  // était connu de la liste blanche, documenté, traité — et sans `--analyze-only`
+  // il déroulait le catalogue ENTIER avec de vrais agents avant de comparer le
+  // rapport du run qu'il venait de payer. L'étage 2 ne pouvait pas le voir : il
+  // confronte les drapeaux LUS aux drapeaux DÉCLARÉS, pas leurs COMBINAISONS.
+  //
+  // Le contrôle porte donc sur ce qui coûte : le refus tombe-t-il AVANT que quoi
+  // que ce soit soit monté ? On compte les décors de part et d'autre — c'est le
+  // critère observable, et le seul qui distingue « il a refusé » de « il a
+  // refusé après avoir dépensé ».
+  //
+  // Ce lancement-ci est BORNÉ dans le temps, et c'est structurel : si la garde
+  // saute, l'invocation ne refuse plus — elle monte un décor et déroule des
+  // agents. Un auto-contrôle qui annonce « zéro agent, zéro décor, une seconde »
+  // et qui dépenserait des heures le jour où il trouve le défaut qu'il cherche
+  // serait sa propre panne. La borne mesurée : le refus tombe en moins d'une
+  // seconde, le montage crée son répertoire dans la milliseconde qui suit.
+  const RUN_ROOT = path.join(os.tmpdir(), "nodefony-devkit-bench");
+  const lister = () =>
+    fs.existsSync(RUN_ROOT) ? new Set(fs.readdirSync(RUN_ROOT)) : new Set();
+  const avant = lister();
+  const depistage = spawnSync(
+    "node",
+    [path.join(SCRIPTS, banc), "--depistage"],
+    { encoding: "utf8", timeout: 8000, killSignal: "SIGKILL" },
+  );
+  dire(
+    depistage.status === 78 &&
+      (depistage.stderr ?? "").includes("--analyze-only"),
+    "--depistage sans run sort en 78, et nomme --analyze-only",
+    depistage.error
+      ? `TUÉ après 8 s — il n'a pas refusé`
+      : `exit=${depistage.status}`,
+  );
+  // Le critère qui distingue « il a refusé » de « il a refusé après avoir
+  // dépensé » : un décor NEUF sous la racine des runs. Il n'est pas supprimé ici
+  // — un processus orphelin peut encore y écrire, et l'effacer sous ses pieds
+  // vaut un défaut de plus. Il est NOMMÉ, et `--purge` le reprend.
+  const neufs = [...lister()].filter((d) => !avant.has(d));
+  dire(
+    neufs.length === 0,
+    "--depistage sans run ne monte AUCUN décor",
+    neufs.length
+      ? `décor(s) NEUF(S) : ${neufs.join(", ")}`
+      : `${avant.size} inchangé(s)`,
   );
 }
 

@@ -56,7 +56,9 @@
  *                                                # re-juger un run existant (plusieurs = agrégés)
  *
  * DÉPISTAGE — 1 run sur tout, 3 runs sur ce qui a bougé (`lib/reference.mjs`) :
- *   … --depistage               # compare à `baseline.json` et NOMME ce qui exige 3 runs
+ *   … --depistage --analyze-only <run>
+ *                               # compare CE run à `baseline.json` et NOMME ce qui exige 3
+ *                               # runs — il ne joue aucun agent, la mesure lui est DONNÉE
  *   … --task 26 --runs 3        # les trois runs, dans un décor remis à zéro entre chaque
  *   … --enregistrer-reference   # fige CE run comme référence (fusion par tâche)
  *
@@ -6027,6 +6029,32 @@ function commitDuRun(runDir) {
 }
 
 /**
+ * Les runs qu'on peut donner à `--analyze-only`, du plus récent au plus ancien.
+ *
+ * Un run ne compte que s'il porte un rapport : un décor monté puis interrompu
+ * laisse un dossier qui a toutes les apparences d'une mesure et n'en est pas
+ * une. Le nom d'un run EST son horodatage, d'où le tri lexicographique.
+ *
+ * Le rapport se cherche à la RACINE du run, jamais dans ses `rep-*` : c'est là
+ * qu'il est écrit, y compris quand le run porte trois répétitions. Chercher
+ * dedans écartait en silence les runs à répétitions — c'est-à-dire exactement
+ * ceux qu'on veut comparer.
+ */
+function runsComparables(limite) {
+  if (!existsSync(RUN_ROOT)) return [];
+  return readdirSync(RUN_ROOT)
+    .filter((d) =>
+      ["report.json", "report-agrege.json"].some((f) =>
+        existsSync(path.join(RUN_ROOT, d, f)),
+      ),
+    )
+    .sort()
+    .reverse()
+    .slice(0, limite)
+    .map((d) => path.join(RUN_ROOT, d));
+}
+
+/**
  * Restitue le dépistage : ce qui n'a pas bougé, et ce qui exige trois runs.
  *
  * NOMME les tâches et rend la commande à copier — il ne relance rien. Un banc
@@ -6268,7 +6296,8 @@ function main() {
     "  node bench-discoverability.mjs                     tout le catalogue, 1 passe",
     "  node bench-discoverability.mjs --task 18           une tâche (ou « 18,22,33 »)",
     "  node bench-discoverability.mjs --task 26 --runs 3  trois passes, décor remis à zéro",
-    "  node bench-discoverability.mjs --depistage         compare à baseline.json, ne relance RIEN",
+    "  node bench-discoverability.mjs --depistage --analyze-only <run>",
+    "                                                     compare CE run à baseline.json, sans agent",
     "  node bench-discoverability.mjs --analyze-only <run>[,<run2>…]",
     "                                                     re-juge des runs déjà joués (aucun agent)",
     "      … --enregistrer-reference                      fige le résultat dans baseline.json",
@@ -6280,7 +6309,7 @@ function main() {
     "",
     "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP",
     "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
-    "          64 usage · 78 comparaison refusée (décor différent de la référence)",
+    "          64 usage · 78 refus (décor différent de la référence, ou dépistage sans run)",
   ].join("\n");
   garderDrapeaux({
     args,
@@ -6321,6 +6350,44 @@ function main() {
   const runs = Math.max(1, Number(valeurDe("--runs") ?? 1) || 1);
   const depistage = args.includes("--depistage");
   const enregistrer = args.includes("--enregistrer-reference");
+
+  // Le dépistage compare un run DÉJÀ joué à la référence — il ne produit pas
+  // lui-même la mesure qu'il compare. Sans `--analyze-only`, l'exécution se
+  // poursuivait jusqu'au montage du décor et déroulait le catalogue ENTIER avec
+  // de vrais agents, pour ne comparer qu'ensuite le rapport du run qu'on venait
+  // de payer : des dizaines de minutes et de l'argent réel dépensés par un mode
+  // dont le texte promet, deux fois, qu'il ne relance rien.
+  //
+  // Le refus ne CHOISIT pas de run à sa place. « Le dernier » serait un choix
+  // implicite — un run partiel, un run d'un autre décor, un run de trois
+  // semaines — et le banc refuse déjà de comparer deux décors (sortie 78) parce
+  // qu'une comparaison fausse s'utilise tout de suite. Il fait donc ici ce que
+  // le mode fait partout ailleurs : il NOMME et rend la commande à copier.
+  if (depistage && !analyzeDirs) {
+    const dispos = runsComparables(5);
+    console.error(
+      "\n🛑 `--depistage` compare un run DÉJÀ joué : il lui faut `--analyze-only`.\n" +
+        "   Sans lui, ce mode déroulerait tout le catalogue avec de vrais agents\n" +
+        "   avant de comparer — la dépense doit être décidée, pas subie.\n",
+    );
+    const invocation = "node " + path.relative(REPO, INVOCATION);
+    if (dispos.length) {
+      console.error("   Runs comparables les plus récents :");
+      for (const d of dispos) console.error(`     ${d}`);
+      console.error(
+        `\n   ${invocation} --depistage --analyze-only ${dispos[0]}`,
+      );
+    } else {
+      console.error(
+        `   Aucun run comparable sous ${RUN_ROOT}.\n` +
+          `   En jouer un d'abord : ${invocation}`,
+      );
+    }
+    console.error(
+      `\n   Trois runs sur une tâche : ${invocation} --task <n> --runs 3`,
+    );
+    process.exit(78);
+  }
 
   // Re-juger un run PARTIEL sans lui redire quelles tâches il a jouées produit
   // un rapport faux avec l'aplomb d'un vrai : les tâches jamais déroulées n'ont
