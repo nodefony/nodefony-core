@@ -1682,8 +1682,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         let file: string | undefined;
         if (typeof body.file === "string" && body.file) {
           // Allowlist stricte : pas de traversée (`..`), pas de flag CLI injecté
-          // (préfixe `-` → traité comme option par vitest même avec `--`), suffixe
-          // `.test.ts` obligatoire. L'exécution ajoute aussi `--` (cf runModuleTests).
+          // (préfixe `-` → traité comme option par vitest), suffixe `.test.ts`
+          // obligatoire. C'est ICI la seule défense : l'exécution passe le chemin
+          // en filtre positionnel NU — derrière un `--`, vitest l'ignore et joue la
+          // suite entière (cf testRunCommand).
           if (
             body.file.includes("..") ||
             body.file.startsWith("-") ||

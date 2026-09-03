@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-03T16:52:39.160Z",
+  "generated": "2026-09-03T17:02:47.311Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 796,
-    "symbols": 3656,
+    "symbols": 3658,
     "classes": 383,
-    "interfaces": 1007,
+    "interfaces": 1008,
     "types": 428,
     "enums": 4,
-    "functions": 1467,
+    "functions": 1468,
     "constants": 367
   },
   "symbols": {
@@ -14027,6 +14027,15 @@
       "extends": null,
       "description": "Un groupe de suites de tests (pour l'onglet Tests de Studio)."
     },
+    "TestRunCommand": {
+      "name": "TestRunCommand",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Commande exacte que `runModuleTests` lance — pure, testable sans process."
+    },
     "CoverageFile": {
       "name": "CoverageFile",
       "kind": "interface",
@@ -14141,6 +14150,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Groupe TOUS les fichiers de test d'un module par catégorie (lecture seule pour l'onglet Tests — les non-unit ne sont pas lançables depuis Studio : ils exigent un serveur live / une base, donc `runn…"
+    },
+    "testRunCommand": {
+      "name": "testRunCommand",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Compose la commande d'un run de tests de module, sans l'exécuter. - 1 fichier (module vitest) → `npx vitest run <file>` : le chemin est un FILTRE positionnel de vitest. Il ne doit JAMAIS suivre un …"
     },
     "runModuleTests": {
       "name": "runModuleTests",
