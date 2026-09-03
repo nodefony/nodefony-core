@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-03 16:16** (UTC).
+> Empreinte prise le **2026-09-03 17:40** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 17 | 1 | — |
-| 10.0.0 | 39 | 80 | 2026-11-15 |
+| 10.0.0 | 40 | 80 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,11 +27,12 @@ Ordre 2.55 · P1 — figé à la création · 0.5 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 39 ouverts
+## Jalon 10.0.0 — 40 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 2.55 | P1 — figé à la création | 0.5 | #163 | fix(devkit): empêcher le mode dépistage de rejouer tout le catalogue |
+| 2.56 | P1 — figé à la création | 0.5 | #164 | ci(externals): ne plus avaler le rouge de l'étape sous Windows |
 | 2.57 | P1 — figé à la création | 0.5 | #128 | ci(devkit): remonter la sortie d'un banc qui échoue, pas son chemin local |
 | 2.6 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 4 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |

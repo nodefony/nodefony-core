@@ -486,6 +486,7 @@
   liste étant triée par récence, le voisin n'emporte la session que s'il s'est connecté APRÈS. Une
   reproduction qui échoue ne réfute donc pas un mécanisme : elle peut n'avoir que le mauvais ordre,
   et l'ordre se lit sur le journal, il ne se devine pas.
+- [1× — 09-03] La garde anti-ReDoS de `bearerToken` mesurait un ratio de temps entre deux TAILLES (800 k → 1,6 M) : ×3,5 sur macOS, ×3,0 sur ubuntu, ×4 sous couverture, pour un motif inchangé — 4ᵉ flake, et les trois remèdes précédents avaient GROSSI l'entrée « pour sortir du bruit », jusqu'à ce que 1,6 Mo et 3,2 Mo ne tiennent plus dans le même cache. Ce qui ressemblait à une courbe quadratique était la hiérarchie mémoire. Remède : un TÉMOIN (l'ancien motif) sur la même entrée, au même instant — un écart ×1 000 qu'aucun bruit ne comble.
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
@@ -969,6 +970,7 @@
   n'ont pas tourné »), jamais par la lecture. Corollaire : borner un hook à ce qui le CONCERNE (ici,
   ne poser la question qu'au dialecte visé) plutôt que de le faire tourner « pour tout le monde ».
 - [1× — 09-01] **Trois silences trouvés en EXÉCUTANT un prototype d'une demi-journée**, qu'aucune des deux conceptions écrites (la mienne et une relecture indépendante) n'avait vus : un champ obligatoire sans défaut fait échouer le semis avec un code de sortie 0 et 809 lignes sans un mot (application démarrée, aucun administrateur) ; une colonne du contrat retirée laisse démarrer ET laisse la commande de liste réussir ; un champ métier est écrit en base et ne ressort pas du dépôt. **Ce que la lecture ne voit pas, l'exécution le dit en vingt minutes.**
+- [1× — 09-03] Le bouton « lancer ce fichier » de Studio passait le fichier derrière un `--` : vitest ignore ce qui suit, la suite ENTIÈRE tournait, et le compte rendu (18 fichiers, 204 tests) sortait vert sous le libellé du fichier demandé — en 4.1.11 comme en 5.0.0. Trouvé en sondant le câblage pour la montée de version, pas par un test : aucun n'exerçait la commande composée. Remède : la composition sort en fonction pure (`testRunCommand`), test vu rouge avec le `--`.
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -1555,6 +1557,7 @@ production"` ne tuait rien (Nodefony renomme ses process) et mon `;` au lieu d'u
 - [1× — 08-29f] **Deux sondes à moi ont mesuré autre chose que ce que je croyais, le même jour.** `assert.notProperty` n'existe pas dans `node:assert` (c'est chai) et rend un `TypeError` qu'on peut lire comme un défaut du produit ; et exiger l'écran ET le JSON d'une SEULE invocation `--json` est impossible — `--json` n'émet pas l'écran. Les deux fois, le rouge accusait le code. Avant de croire un banc neuf qui accuse, relire ce qu'il DEMANDE.
 - [1× — 08-29f] **Un vert de vitest ne prouve pas que ça compile.** Un import manquant est passé sous vitest (oxc n'inspecte aucun type) et n'a été vu que par `tsgo` — après avoir fait échouer un banc de boot réel sur un message qui accusait le rechargement du superviseur. Le journal détaché a nommé la vraie cause : un build en échec.
 - [1× — 08-31] **J'ai annoncé « zéro rouge » en lisant un fichier que la passe était encore en train d'écrire.** `grep -c FAIL` sur un journal en cours rend 0 parce que les échecs n'y sont pas ENCORE — le verdict final disait **4 échoués**. Un fichier de sortie n'est une mesure qu'une fois le producteur TERMINÉ : lire la ligne « Total » du rapport, jamais un compte intermédiaire. Même famille que la sortie tronquée, sauf qu'ici rien ne tronque : c'est le temps qui manque.
+- [1× — 09-03] Mon `sed` sur `$FILES` (liste multi-lignes : zsh ne découpe pas) a réécrit 0 `package.json` sur 20 en rendant « File name too long » — vu SEULEMENT parce que `git diff --stat` disait 3 fichiers au lieu de 20. Compter le diff après toute transformation de masse ; `find -print0 | xargs -0` pour la liste.
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
@@ -1871,6 +1874,7 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   la dernière (`stop`) réussissait, et la tâche était jugée sur une prémisse absente. Sept `prepare`
   sur huit chaînaient en `&&` ; le huitième non, et rien ne le disait. **La règle a été posée dans le
   LANCEUR (`set -e`), pas dans la discipline de chaque énoncé** — sinon elle retombe au prochain.
+- [1× — 09-03] L'étape « externals » de la forge enchaîne 3 commandes dans un `run: |` sans `shell:` : sous Windows, PowerShell prend le code de la DERNIÈRE — `check-externals.test.mjs` y est rouge depuis fin août (séparateur littéralisé, axiome 10) et l'étape reste verte. Le gate tourne, son verdict est avalé. Ticket #164 ; le remède est l'axiome 11, déjà écrit, jamais appliqué à ce fichier.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
