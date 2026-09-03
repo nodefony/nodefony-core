@@ -335,9 +335,8 @@ main.
 ```bash
 # TOUS les contrôles internes du banc, en UNE commande — avant de conclure quoi que ce soit
 node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs --prove
-# Les deux qui exigent un décor, donc hors du lot et à lancer à la main :
-node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
-node .claude/skills/nodefony-devkit-bench/scripts/jeton-mcp.selftest.mjs   # la porte reste-t-elle ouverte tout le run ?
+# La remise à zéro du décor sur un run RÉEL — le lot la joue sinon sur un décor jetable :
+node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -358,6 +357,18 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --ta
 > en les appelant avec un drapeau bidon EN PREMIER, ce qui fait sortir la garde
 > avant que rien ne soit monté. Il a trouvé `--etage` le jour où il est né.
 
+> **Plus aucun contrôle n'est hors du lot.** Deux l'étaient, chacun avec son
+> motif écrit — l'un « exige le chemin d'un run déjà consommé », l'autre « exige
+> une application démarrée et une porte MCP ouverte ». Nommer un trou n'est pas
+> le fermer : ni script npm, ni forge, ni le lot ne les appelaient, et ils
+> gardaient précisément ce qui casse sans bruit (la remise à zéro entre deux
+> tâches, la validité du jeton pendant tout un run). Le premier monte désormais
+> un décor JETABLE quand on ne lui donne pas de run — son `.gitignore` est COPIÉ
+> du gabarit du produit, jamais réécrit de tête, puisque c'est lui que le
+> contrôle éprouve. Le second n'exigeait RIEN : relu, il ne fait aucun appel
+> réseau et rend 10/10 en une seconde. **Une exclusion écrite une fois n'est
+> jamais relue ; elle survit à ce qui la justifiait.**
+>
 > 🔴 **Un contrôle que personne ne lance ne garde rien.** Ces sondes étaient
 > écrites, justes, et énumérées ici une par une — donc jamais exécutées :
 > personne ne tape autant de commandes avant de conclure. Ce que ça a coûté, en

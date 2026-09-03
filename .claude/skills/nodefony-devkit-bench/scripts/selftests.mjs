@@ -40,16 +40,25 @@ const ICI = path.dirname(fileURLToPath(import.meta.url));
  * filtré en silence : un contrôle sauté sans un mot se lit comme un contrôle
  * vert, et c'est exactement le piège que ce script existe pour fermer.
  */
-const HORS_LOT = new Map([
-  [
-    "reinit-decor.selftest.mjs",
-    "exige le chemin d'un run déjà consommé (`<runDir>`)",
-  ],
-  [
-    "jeton-mcp.selftest.mjs",
-    "exige une application démarrée et une porte MCP ouverte",
-  ],
-]);
+/**
+ * Les contrôles qu'un lot ne peut pas lancer — et il n'y en a plus.
+ *
+ * 🔴 Cette table a longtemps porté deux entrées, et NOMMER un trou n'est pas le
+ * fermer : ni script npm, ni étage de forge, ni ce lot ne les appelaient. Ils
+ * gardaient pourtant ce qui casse sans bruit — la remise à zéro entre deux
+ * tâches, et la validité du jeton pendant tout un run.
+ *
+ * Ce qu'a coûté leur relecture : `jeton-mcp.selftest.mjs` était déclaré exiger
+ * « une application démarrée et une porte MCP ouverte ». C'était FAUX — il ne
+ * fait aucun appel réseau, il calcule sur des JWT jouets et rend 10/10 en une
+ * seconde. Une exclusion écrite une fois n'est jamais relue ; elle survit à ce
+ * qui la justifiait. Et `reinit-decor.selftest.mjs` monte désormais un décor
+ * JETABLE quand on ne lui donne pas de run.
+ *
+ * La table reste, vide : elle est le bon endroit pour un futur cas, et son
+ * emploi doit rappeler qu'une exclusion se RECONTRÔLE.
+ */
+const HORS_LOT = new Map([]);
 
 /**
  * Le lot ATTENDU, nommé fichier par fichier.
