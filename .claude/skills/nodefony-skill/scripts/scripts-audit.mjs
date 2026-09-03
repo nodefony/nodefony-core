@@ -18,9 +18,16 @@
  *     il rend toujours la même chose, il n'y a rien à interpréter.
  */
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 const STRICT = process.argv.includes("--strict");
+const ACQUITTES_PATH = join(
+  ".claude",
+  "skills",
+  "nodefony-skill",
+  "scripts",
+  "scripts-audit.attendus.json",
+);
 const SKILLS_DIR = ".claude/skills";
 const ROOT_SCRIPTS = "scripts";
 const EXT = [".mjs", ".js", ".sh", ".ts", ".py"];
@@ -111,6 +118,49 @@ function protocolSignals(path) {
   return { tous: executes.concat(vocabulaire), executes };
 }
 
+const RACINES_VERSIONNEES = /^(?:\.claude|scripts)\//;
+const EST_SCRIPT = /\.(?:mjs|js|sh|py|ts)$/;
+const LANCEUR = /(?:execPath|execFile|spawnSync|spawn|execSync|\bsh\(|bash )/;
+
+/** Le source sans ses commentaires : un exemple n'invoque rien. */
+const sansCommentaires = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, "$1")
+    .replace(/(^|\s)#[^\n]*/g, "$1");
+
+/** Chemins de scripts réellement LANCÉS par un source, sous leurs deux formes. */
+function cheminsInvoques(source) {
+  const src = sansCommentaires(source);
+  const refs = new Set();
+  // La fenêtre INCLUT le match : `"bash .claude/…/start.sh"` porte son lanceur
+  // À L'INTÉRIEUR du littéral. Une fenêtre qui s'arrête avant lui ne voit rien —
+  // constaté en mutant ce site exact, que le gate laissait alors passer.
+  const lance = (index, texte = "") =>
+    LANCEUR.test(src.slice(Math.max(0, index - 120), index) + texte);
+  // Forme 1 — le chemin écrit d'un seul tenant.
+  // Le chemin n'est pas toujours collé au guillemet : `"bash .claude/…/start.sh"`
+  // le fait précéder d'une commande. On borne par des frontières, pas par des
+  // délimiteurs de chaîne — l'exigence d'invocation tient lieu de filtre.
+  for (const m of src.matchAll(
+    /(?<![\w./@-])((?:\.claude|scripts)\/[\w./@-]+\.(?:mjs|js|sh|py|ts))(?![\w.])/g,
+  ))
+    if (lance(m.index, m[0])) refs.add(m[1]);
+  // Forme 2 — les segments d'un `join(...)`. On ne traite que les appels sans
+  // parenthèse imbriquée : au pire on en rate un, jamais on n'en invente un.
+  for (const m of src.matchAll(/(?:path\.)?join\(([^()]*)\)/g)) {
+    if (!lance(m.index)) continue;
+    const segments = [...m[1].matchAll(/["'`]([^"'`]+)["'`]/g)].map(
+      (x) => x[1],
+    );
+    if (segments.length < 2) continue;
+    const chemin = segments.join("/");
+    if (RACINES_VERSIONNEES.test(chemin) && EST_SCRIPT.test(chemin))
+      refs.add(chemin);
+  }
+  return [...refs];
+}
+
 const rows = [];
 const rootScripts = collect(ROOT_SCRIPTS);
 const sourcesByPath = new Map(
@@ -148,17 +198,91 @@ const importeAilleurs = (p) => {
   return false;
 };
 
+/**
+ * Les AUTOMATES du dépôt — ce qui LANCE un script sans qu'un humain ait à le taper.
+ *
+ * Être nommé dans une page n'est PAS être exécuté. Ce contrôle a annoncé « 0
+ * orphelin » cinq semaines durant pendant qu'une vingtaine d'auto-contrôles,
+ * énumérés un par un dans leur page de skill, n'étaient lancés par rien — dont
+ * celui qui savait nommer quinze causes qu'aucun juge ne classait. Un inventaire
+ * qui compte une phrase comme un appel ne mesure pas l'exécution : il mesure la
+ * documentation.
+ *
+ * Trois automates, et rien d'autre : un script npm, un étage de forge, un autre
+ * script qui l'invoque ou l'importe — un module importé s'exécute.
+ */
+const cle = (p) => p.split(sep).join("/");
+
+/** Les VALEURS des scripts npm, jamais le fichier entier : une dépendance qui
+ * porte le nom d'un script n'en fait pas un automate. */
+const scriptsNpm = (() => {
+  try {
+    return Object.values(JSON.parse(pkg).scripts ?? {}).join("\n");
+  } catch {
+    return pkg;
+  }
+})();
+
+const forgeText = (() => {
+  const dir = join(".github", "workflows");
+  if (!existsSync(dir)) return "";
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    .join("\n");
+})();
+
+/**
+ * Les sources, commentaires retirés. Ce qui sépare un APPEL d'une MENTION n'est
+ * pas la forme du chemin — un script est aussi bien lancé par `spawn`, importé,
+ * ou nommé dans une table que son lanceur parcourt (`readdirSync` + liste
+ * attendue) — mais la NATURE du fichier qui le nomme : un nom écrit dans un
+ * source exécutable y est pour servir ; un nom écrit dans une page est de la
+ * prose. Exiger une invocation adjacente accusait 39 juges parfaitement vivants,
+ * dont le chemin est assemblé dans une constante et lancé dix lignes plus loin.
+ */
+const sourcesNettoyees = new Map(
+  [...sourcesByPath].map(([chemin, src]) => [chemin, sansCommentaires(src)]),
+);
+
+/**
+ * Quel automate lance ce script ? `null` quand personne ne le fait — le script
+ * peut alors être parfaitement documenté, il n'en est pas exécuté pour autant.
+ *
+ * @param {string} p - chemin du script, tel que collecté.
+ * @returns {string|null} le nom de l'automate, ou `null` si aucun.
+ */
+function automateQuiLance(p) {
+  const k = cle(p);
+  const base = k.split("/").pop();
+  if (scriptsNpm.includes(k) || scriptsNpm.includes(base))
+    return "un script npm";
+  if (forgeText.includes(k) || forgeText.includes(base))
+    return "un étage de forge";
+  // Le nom précédé d'un séparateur ou d'un délimiteur de chaîne : sans cette
+  // frontière, `index.mjs` se croit appelé par tout le dépôt.
+  for (const [autre, src] of sourcesNettoyees) {
+    if (cle(autre) === k) continue;
+    if (
+      src.includes(`/${base}`) ||
+      src.includes(`"${base}`) ||
+      src.includes(`'${base}`) ||
+      src.includes(`\`${base}`)
+    )
+      return `un autre script (${cle(autre).split("/").pop()})`;
+  }
+  return null;
+}
+
 for (const p of rootScripts) {
   const base = p.split("/").pop();
   const inPkg = pkg.includes(p) || pkg.includes(base);
   // Le nom du fichier apparaît tel quel dans un `import "./x.ts"` — inutile de construire une
   // expression : la première tentative l'a fait, et son échappement produisait un `\\` littéral.
-  const inSkill =
-    allSkillText.includes(p) ||
-    allSkillText.includes(base) ||
-    importeAilleurs(p);
+  const inSkill = allSkillText.includes(p) || allSkillText.includes(base);
   const inDocs = docsText.includes(p);
   const signals = protocolSignals(p);
+  const lancePar = automateQuiLance(p);
   let verdict, why;
   if (inPkg) {
     verdict = "✅ bien placé";
@@ -169,12 +293,20 @@ for (const p of rootScripts) {
     // pas à faire d'un script un banc.
     verdict = "➡️  à déplacer vers un skill";
     why = signals.tous.join(", ");
-  } else if (!inPkg && !inSkill && !inDocs) {
+  } else if (lancePar) {
+    verdict = "✅ bien placé";
+    why = `lancé par ${lancePar}`;
+  } else if (inSkill || inDocs) {
+    // Une page le nomme, aucun automate ne l'exécute. Ce n'est pas forcément une
+    // faute — mais ce n'est pas le même état, et rendre le même verdict que pour
+    // un script lancé revient à mesurer la documentation.
+    verdict = "📄 documenté, jamais lancé";
+    why = inSkill
+      ? "cité par un skill, exécuté par personne"
+      : "cité dans la documentation, exécuté par personne";
+  } else {
     verdict = "⚠️  orphelin";
     why = "cité nulle part : ni package.json, ni skill, ni doc";
-  } else {
-    verdict = "✅ bien placé";
-    why = inSkill ? "cité par un skill" : "cité dans la documentation";
   }
   rows.push({ zone: "racine", path: p, verdict, why });
 }
@@ -211,16 +343,20 @@ for (const [name, text] of skillTexts) {
     const rel = p.slice(dir.length + 1);
     const base = p.split("/").pop();
     const nomme = text.includes(rel) || text.includes(base);
-    const appele = nomme || importeAilleurs(p);
+    const lancePar = automateQuiLance(p);
     rows.push({
       zone: name,
       path: p,
-      verdict: appele ? "✅ bien placé" : "⚠️  non cité par son skill",
-      why: nomme
-        ? "cité par le skill qui le porte"
-        : appele
-          ? "importé par un autre script du dépôt"
-          : "présent mais jamais mentionné — mort, ou à documenter",
+      verdict: lancePar
+        ? "✅ bien placé"
+        : nomme
+          ? "📄 documenté, jamais lancé"
+          : "⚠️  non cité par son skill",
+      why: lancePar
+        ? `lancé par ${lancePar}`
+        : nomme
+          ? "cité par le skill qui le porte, exécuté par personne"
+          : "présent, jamais mentionné, jamais lancé — mort, ou à documenter",
     });
   }
   // Renvois vers des scripts qui n'existent pas. Trois pièges déjà payés :
@@ -269,48 +405,6 @@ for (const [name, text] of skillTexts) {
  * gate qui crie au loup n'est plus lu ; les commentaires sont donc retirés
  * avant lecture, et seule une invocation compte.
  */
-const RACINES_VERSIONNEES = /^(?:\.claude|scripts)\//;
-const EST_SCRIPT = /\.(?:mjs|js|sh|py|ts)$/;
-const LANCEUR = /(?:execPath|execFile|spawnSync|spawn|execSync|\bsh\(|bash )/;
-
-/** Le source sans ses commentaires : un exemple n'invoque rien. */
-const sansCommentaires = (src) =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|\s)\/\/[^\n]*/g, "$1")
-    .replace(/(^|\s)#[^\n]*/g, "$1");
-
-/** Chemins de scripts réellement LANCÉS par un source, sous leurs deux formes. */
-function cheminsInvoques(source) {
-  const src = sansCommentaires(source);
-  const refs = new Set();
-  // La fenêtre INCLUT le match : `"bash .claude/…/start.sh"` porte son lanceur
-  // À L'INTÉRIEUR du littéral. Une fenêtre qui s'arrête avant lui ne voit rien —
-  // constaté en mutant ce site exact, que le gate laissait alors passer.
-  const lance = (index, texte = "") =>
-    LANCEUR.test(src.slice(Math.max(0, index - 120), index) + texte);
-  // Forme 1 — le chemin écrit d'un seul tenant.
-  // Le chemin n'est pas toujours collé au guillemet : `"bash .claude/…/start.sh"`
-  // le fait précéder d'une commande. On borne par des frontières, pas par des
-  // délimiteurs de chaîne — l'exigence d'invocation tient lieu de filtre.
-  for (const m of src.matchAll(
-    /(?<![\w./@-])((?:\.claude|scripts)\/[\w./@-]+\.(?:mjs|js|sh|py|ts))(?![\w.])/g,
-  ))
-    if (lance(m.index, m[0])) refs.add(m[1]);
-  // Forme 2 — les segments d'un `join(...)`. On ne traite que les appels sans
-  // parenthèse imbriquée : au pire on en rate un, jamais on n'en invente un.
-  for (const m of src.matchAll(/(?:path\.)?join\(([^()]*)\)/g)) {
-    if (!lance(m.index)) continue;
-    const segments = [...m[1].matchAll(/["'`]([^"'`]+)["'`]/g)].map(
-      (x) => x[1],
-    );
-    if (segments.length < 2) continue;
-    const chemin = segments.join("/");
-    if (RACINES_VERSIONNEES.test(chemin) && EST_SCRIPT.test(chemin))
-      refs.add(chemin);
-  }
-  return [...refs];
-}
 
 for (const [source, src] of sourcesByPath) {
   const porteur = source.slice(0, source.lastIndexOf("/"));
@@ -329,7 +423,9 @@ const orphan = rows.filter(
   (r) => r.verdict.includes("orphelin") || r.verdict.includes("non cité"),
 );
 
+const jamaisLances = byVerdict("jamais lancé");
 console.log(`✅ bien placés          : ${byVerdict("bien placé").length}`);
+console.log(`📄 jamais lancés        : ${jamaisLances.length}`);
 console.log(`➡️  à déplacer          : ${move.length}`);
 console.log(`⚠️  orphelins/non cités : ${orphan.length}`);
 console.log(`❌ renvois morts        : ${deadRefs.length}`);
@@ -344,14 +440,71 @@ if (orphan.length) {
   console.log("\n⚠️  Personne ne les appelle (à documenter, ou à retirer) :");
   for (const r of orphan) console.log(`   ${r.path}  [${r.zone}]`);
 }
+if (jamaisLances.length) {
+  console.log(
+    "\n📄 Nommés par une page, exécutés par aucun automate (ni npm, ni forge, ni script) :",
+  );
+  for (const r of jamaisLances) console.log(`   ${r.path}  [${r.zone}]`);
+}
 if (deadRefs.length) {
   console.log("\n❌ Renvois vers un script absent :");
   for (const d of deadRefs) console.log(`   ${d.skill} → ${d.ref}`);
 }
 console.log("");
 
+/**
+ * « Documenté, jamais lancé » n'est pas une faute — un banc de charge se tape à
+ * la main, et c'est très bien. Ce qui serait une faute, c'est qu'un script NEUF
+ * y entre sans que personne le remarque, ou qu'un acquittement survive au
+ * câblage qu'il attendait. La liste versionnée fige donc l'état connu, et la
+ * garde ne mord que sur l'ÉCART — un gate qui rouge en permanence ne garde rien.
+ */
+const acquittes = (() => {
+  try {
+    const brut = JSON.parse(readFileSync(ACQUITTES_PATH, "utf8"));
+    return new Set(brut["documentes-jamais-lances"] ?? []);
+  } catch {
+    return null;
+  }
+})();
+
+const nonAcquittes = acquittes
+  ? jamaisLances.filter((r) => !acquittes.has(cle(r.path)))
+  : [];
+const acquittementsPerimes = acquittes
+  ? [...acquittes].filter((a) => !jamaisLances.some((r) => cle(r.path) === a))
+  : [];
+
+if (acquittes === null) {
+  console.log(
+    `⚠️  liste d'acquittement illisible ou absente (${ACQUITTES_PATH}) — l'écart n'est pas gardé.`,
+  );
+} else {
+  if (nonAcquittes.length) {
+    console.log(
+      "\n🔴 Jamais lancés et NON acquittés — les câbler, ou les inscrire dans la liste :",
+    );
+    for (const r of nonAcquittes) console.log(`   ${r.path}`);
+  }
+  if (acquittementsPerimes.length) {
+    console.log(
+      "\n🔴 Acquittements PÉRIMÉS — ces scripts sont désormais lancés (ou absents) ; retirer la ligne :",
+    );
+    for (const a of acquittementsPerimes) console.log(`   ${a}`);
+  }
+}
+console.log("");
+
 // `--strict` échoue sur les TROIS anomalies. La première version ignorait « à déplacer », et un
 // contrôle négatif l'a montré : une sonde classée à déplacer laissait le gate vert.
 process.exit(
-  STRICT && (orphan.length || deadRefs.length || move.length) ? 1 : 0,
+  STRICT &&
+    (orphan.length ||
+      deadRefs.length ||
+      move.length ||
+      acquittes === null ||
+      nonAcquittes.length ||
+      acquittementsPerimes.length)
+    ? 1
+    : 0,
 );

@@ -5038,8 +5038,8 @@
       ],
       "description": "Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité absorbée sans ses déclencheurs devient introuvable. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"fusionner deux skills\", \"retirer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\".",
       "cost": {
-        "bodyLines": 276,
-        "approxTokens": 4293
+        "bodyLines": 298,
+        "approxTokens": 4650
       },
       "requires": [
         "docker",
@@ -5063,7 +5063,12 @@
                 "help": "sort en échec dès qu'un script est orphelin ou qu'un renvoi est mort"
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "ACQUITTES_PATH",
+                "help": ""
+              }
+            ],
             "output": "un classement de chaque script : bien placé, à déplacer, orphelin, ou renvoi mort",
             "selfDocumented": true
           },
@@ -5170,7 +5175,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "276",
+            "detail": "298",
             "advisory": true
           }
         ]

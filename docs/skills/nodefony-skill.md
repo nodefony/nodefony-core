@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-25
+updated: 2026-09-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-skill/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 | --- | --- |
 | Version | `1.2.0` |
 | Famille | Cycle de session |
-| Corps | 276 lignes |
-| Coût d'activation | ~4 293 tokens (le corps est chargé à l'invocation) |
+| Corps | 298 lignes |
+| Coût d'activation | ~4 650 tokens (le corps est chargé à l'invocation) |
 | Description | 991 / 1024 caractères |
 | Déclencheurs | 11 |
 | Ressources `references/` | 0 page(s) |
@@ -77,7 +77,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict` | — |
+| `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict` | `ACQUITTES_PATH` |
 | `scripts/skills-doc.mjs` | skills-doc — fiche de documentation par skill, ET gate de conformité. | `--check` | `SKILLS_DOC_DATE` |
 | `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill. | `--verbose` `--list` | `FRAGILE_MARGIN` |
 
@@ -89,7 +89,7 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `FRAGILE_MARGIN` · `SKILLS_DOC_DATE`
+**Toutes les variables lues par ce skill** : `ACQUITTES_PATH` · `FRAGILE_MARGIN` · `SKILLS_DOC_DATE`
 
 ### Détail des scripts auto-documentés
 
@@ -154,7 +154,7 @@ node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs --verbose
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 276 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 298 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
