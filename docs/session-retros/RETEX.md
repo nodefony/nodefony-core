@@ -741,6 +741,24 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-03] **Trois cas de mon selftest neuf étaient VERTS parce que le juge PLANTAIT.** Ils
+  attendaient le code 1 ; un `ReferenceError` sort en 1 ; un contrôle qui ne regarde que le code
+  de sortie validait donc un juge qui ne jugeait plus rien. Le durcissement — exiger une ligne
+  `CAUSE=` sur tout rouge — les a fait passer de 4 à 7 écarts avant réparation. **L'exit code seul
+  ne distingue pas un jugement d'un plantage.**
+
+- [1× — 09-03] **Un selftest dont le décor est plus PAUVRE que le réel valide ce qu'il devrait
+  condamner.** L'application jouet de `gate-zone-firewall` ne semait JAMAIS de cookie CSRF : ses
+  deux cas « import inaccessible » étaient en réalité des cas « le juge n'a pas pu se munir », et
+  passaient au vert par coïncidence de code. Elle sait maintenant semer comme une vraie
+  application protégée, et un cas nommé porte l'ambiguïté irréductible.
+
+- [1× — 09-03] **`--prove` annonçait « mutations vérifiées » pour un lot dont deux tiers ne lisent
+  pas le drapeau.** Dix contrôles sur trente. Les vingt autres le recevaient sans rien en faire, et
+  leur vert — qui ne dit rien de leur couverture — était présenté comme s'il la prouvait. Un
+  instrument qui s'attribue une garantie qu'il n'a pas est pire que pas d'instrument : c'est
+  celui-là qu'on croit.
+
 - [1× — 09-02] **Le contrôle était aveugle par la FORME de ce qu'il cherchait, et son compte donnait le change.** Il relevait les causes à la source par le motif `CAUSE=<nom>` — ce qu'écrivent les juges de première génération, qui impriment eux-mêmes leur verdict. Un juge qui SÉPARE la collecte du verdict rend `{ cause: "<nom>" }` et laisse l'impression à l'appelant : sa source ne porte jamais `CAUSE=`. Trois juges entiers étaient donc invisibles, pendant que le sommaire affichait « 86 causes émises, 85 classées » — un chiffre rassurant qui comptait en réalité la TAILLE DE LA TABLE, pas les causes couvertes. Élargi aux deux grammaires : 100 émises, 15 non classées.
 
 - [1× — 09-02] **Une sonde de sécurité qui ne PEUT pas mordre — et le seul moyen de le savoir était d'écrire le code vulnérable.** Une tâche neuve visait la traversée de chemin par le nom de fichier d'un envoi multipart, en supposant qu'un agent composant `path.join(dossier, file.filename)` écrirait hors du dossier. Éprouvé sur une application réelle avec un controller ÉCRIT POUR être vulnérable et deux noms hostiles : les deux fichiers atterrissent DANS le dossier. Le parser ne transmet aucune composante de chemin, et la garde du framework est une SECONDE ligne. La sonde reste — comme filet — mais elle est désormais annoncée comme telle : **un filet qu'on n'a jamais vu mordre garde DEMAIN, il ne prouve rien sur AUJOURD'HUI, et le taire le ferait passer pour une preuve.**
@@ -1622,6 +1640,24 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [2× — 09-03] **Le point d'entrée écrit la veille n'était toujours lancé par personne.** `selftests.mjs`
+  existait pour rendre le lot atteignable d'une commande — et aucun script npm, aucune forge ne
+  l'appelait : le défaut qu'il corrige, reproduit sur lui-même en vingt-quatre heures. Branché en
+  trois points, dont un pre-commit CIBLÉ sur le dossier du banc (le commit qui avait tué un juge
+  touchait ce dossier ; la garde l'aurait arrêté net). **Écrire l'outil n'est pas le brancher, et
+  ce sont deux gestes qu'une session sépare.**
+
+- [1× — 09-03] **L'automate censé attraper « un contrôle que personne ne lance » comptait une
+  mention en PROSE comme un lancement.** `scripts-audit.mjs` cherche l'usage d'un script dans
+  `package.json` **ou** dans n'importe quel `.md` — d'où « 0 orphelin » pendant les cinq semaines
+  où le contrôle n'était cité que par le SKILL.md. Un audit d'atteignabilité qui accepte une
+  citation mesure la documentation, pas l'exécution.
+
+- [1× — 09-03] **La CI nommait sept contrôles sur vingt-huit, sous un intitulé qui disait « les
+  juges du banc ».** Une énumération écrite à un instant T ne suit pas les contrôles ajoutés
+  ensuite : les vingt et un autres — dont presque tous les juges — ne tournaient nulle part.
+  Remplacée par le lot, qui balaye ET rougit quand un contrôle DÉCLARÉ a disparu.
 
 - [1× — 09-02] **Le contrôle existait, complet et juste, et n'était lancé par PERSONNE.** `imputation.selftest.mjs` portait depuis cinq semaines un contrôle d'exhaustivité « toute cause émise par un juge est-elle classée ? ». Il aurait crié dès le premier juge de nouvelle génération. Aucun script npm, aucune forge, aucune étape de banc ne l'appelait — et le SKILL.md énumérait ses vingt-six frères UN PAR UN, ce qui revient à demander vingt-six commandes à la main avant de conclure : personne ne le fait. Résultat : le banc a écarté des runs PAYÉS en disant « trou d'instrument » de ce que son propre juge nommait précisément. **Un lot de contrôles a besoin d'UN point d'entrée** (`selftests.mjs`, 26 verts en 30 s) ; énumérer n'est pas rendre atteignable.
 
