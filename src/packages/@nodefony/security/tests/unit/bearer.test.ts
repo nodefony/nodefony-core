@@ -115,65 +115,40 @@ describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {
         `arrière y met des centaines de millisecondes`,
     ).to.be.below(50);
 
-    // Le ratio MINIMAL sur plusieurs PAIRES, et non le ratio d'une seule.
+    // Le TÉMOIN : le motif d'origine, quadratique, sur la MÊME entrée et dans
+    // la MÊME fenêtre. Ce qui se juge n'est plus un ratio entre deux TAILLES —
+    // il mesurait la hiérarchie mémoire de la machine autant que le motif :
+    // 1,6 Mo et 3,2 Mo ne tiennent pas dans le même cache, et le temps fait un
+    // saut au passage (×3,5 relevé sur macOS, ×3,0 sur ubuntu, ×4 sous
+    // instrumentation de couverture, pour une courbe qui n'avait pas changé).
+    // Quatre flakes, trois remèdes qui déplaçaient le bruit sans le retirer.
     //
-    // Le minimum interne à `mesure` ne suffit pas : il écarte une préemption
-    // ponctuelle, pas une machine lente pendant toute la série. Une
-    // implémentation à retour arrière, elle, est lente à CHAQUE paire :
-    // prendre la meilleure ne peut donc pas l'innocenter.
-    //
-    // Les tailles ne sont pas cosmétiques, c'est ce qui décide si le cas tient.
-    // À 200 k/400 k le travail utile durait ~1 ms, soit l'ORDRE DE GRANDEUR du
-    // bruit d'un agent partagé : une préemption de 1,2 ms sur la grande moitié
-    // suffisait à afficher un ratio de 3, sans qu'aucune courbe ait changé.
-    // Vécu deux fois, sur deux cases différentes de la matrice — ×4,05
-    // (1,146 → 4,639 ms) sur ubuntu/Node 24, puis ×3,03 (1,181 → 3,582 ms) sur
-    // ubuntu/Node 26. Le remède n'est pas de relever le seuil, qui grignoterait
-    // la marge du côté fautif : c'est de porter le SIGNAL au-dessus du bruit.
-    // À 800 k/1,6 M le travail dure ~2 et ~4 ms, et la même préemption ne
-    // déplace plus le ratio que de 2,0 à 2,6 — sous le seuil.
-    // Les deux minima se prennent SÉPARÉMENT, colonne par colonne — et non le
-    // ratio d'une paire.
-    //
-    // C'est la même idée que le minimum interne à `mesure`, poussée d'un cran :
-    // une préemption ne peut qu'AJOUTER du temps, donc le plus petit relevé de
-    // chaque taille est le moins pollué. Retenir la meilleure PAIRE exigeait
-    // que les deux mesures soient propres EN MÊME TEMPS — de probabilité p²
-    // quand p est celle d'une mesure propre ; retenir les deux colonnes
-    // séparément ne demande qu'une mesure propre dans chacune, ce que cinq
-    // tirages rendent très probable. Vécu : ×3,03 sur macOS/Node 26 (2,535 ms
-    // → 7,676 ms), la petite colonne propre et la grande préemptée de ~2,7 ms.
-    // C'est le TROISIÈME flake de ce cas, après un seuil absolu abandonné puis
-    // un relèvement des tailles.
-    //
-    // Cela n'innocente pas une implémentation fautive, et c'est ce qui autorise
-    // le geste : son coût est INTRINSÈQUE, pas du bruit — elle est lente à
-    // CHAQUE tirage, donc le minimum de sa grande colonne reste ~4× celui de sa
-    // petite. Ce que le minimum retire, c'est l'ordonnanceur ; ce qu'il garde,
-    // c'est la courbe.
-    let simple = Infinity;
-    let double = Infinity;
-    for (let paire = 0; paire < 5; paire++) {
-      simple = Math.min(simple, mesure(800_000));
-      double = Math.min(double, mesure(1_600_000));
+    // Deux implémentations soumises au même bruit au même instant : c'est
+    // l'ÉCART qui porte le verdict. À 10 k espaces le témoin met ~140 ms,
+    // l'implémentation quelques centièmes — un facteur de l'ordre du millier,
+    // qu'aucune préemption ne comble. Le seuil de 20 laisse au bruit cinquante
+    // fois de marge et reste infranchissable par un motif à retour arrière, qui
+    // mettrait le temps du témoin à un facteur près.
+    // Le témoin est aussi ce qui fait mordre le cas : brancher l'implémentation
+    // sur lui rend `implementation ≈ temoin`, et l'assertion tombe.
+    const TEMOIN = /^bearer\s+(.+)$/i;
+    const hostile = entree(10_000);
+    let temoin = Infinity;
+    for (let essai = 0; essai < 3; essai++) {
+      const debut = process.hrtime.bigint();
+      TEMOIN.test(hostile);
+      temoin = Math.min(temoin, Number(process.hrtime.bigint() - debut) / 1e6);
     }
-    const facteur = double / simple;
-    const meilleur = { simple, double };
-    // Mesuré sur cette implémentation : ×1,95 (1,876 → 3,651 ms). Le témoin
-    // fautif ne se mesure PAS ici — il quadruple à chaque doublement (×4,01 à
-    // 8 k, ×4,07 à 16 k, ×4,06 à 32 k) et mettrait une trentaine de secondes sur
-    // 800 k. C'est la garde de terminaison ci-dessus qui l'arrête : 868 ms
-    // relevées à 32 k, quand elle refuse au-delà de 50 ms à 25 k. Ce second
-    // filet vise donc la régression DISCRÈTE, celle qui resterait sous la garde
-    // de terminaison tout en cessant d'être linéaire.
+    const implementation = mesure(10_000);
     expect(
-      facteur,
-      `×${facteur.toFixed(2)} en doublant l'entrée, meilleure de 5 paires ` +
-        `(${meilleur.simple.toFixed(3)} ms → ${meilleur.double.toFixed(3)} ms) — ` +
-        `linéaire ≈ 2, quadratique ≈ 4`,
-    ).to.be.below(3);
+      implementation * 20,
+      `implémentation ${implementation.toFixed(3)} ms contre témoin quadratique ` +
+        `${temoin.toFixed(1)} ms sur 10 k espaces — l'écart attendu est d'un ` +
+        `facteur ~1 000, un motif à retour arrière le ramènerait à ~1`,
+    ).to.be.below(temoin);
     // Le délai d'EXÉCUTION de ce cas — pas une assertion de vitesse. Les deux
-    // gardes réelles restent inchangées : terminaison sous 50 ms, ratio sous 3.
+    // gardes réelles restent inchangées : terminaison sous 50 ms, témoin 20×
+    // plus lent.
     // Motif : sous instrumentation de couverture, ce fichier tourne en parallèle
     // de 74 autres et le temps MURAL du cas entier dépasse les 5 s par défaut.
     // Constaté : vert seul avec couverture (6/6), vert en suite sans couverture
