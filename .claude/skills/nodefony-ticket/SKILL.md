@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.6.0
+  version: 1.7.0
 description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "quels tickets parlent de ce que j'ai changé ?", "ce ticket est trop vague", "il manque le contexte pour le prendre".
 ---
 
@@ -500,6 +500,16 @@ ignore les bords rend des verdicts qu'on croit exhaustifs :
   passer par GraphQL** (`projectV2.items`, ou `issue.projectItems` pour un ticket précis) ;
   `item-list` reste acceptable pour un coup d'œil, jamais pour décider. Même famille que le champ
   `title` figé : ce client rend une vue à lui, pas l'état du tableau.
+- **🔴 Le remède GraphQL a SON propre bord : `items(first:100)` s'arrête à 100 SANS le dire.** Le
+  tableau compte aujourd'hui plus de cent items ; une requête écrite « en grand » rend donc une
+  liste tronquée qui a toutes les apparences d'un inventaire complet. Vécu deux fois de suite dans
+  la même session : #163 et #164 déclarés « absents du tableau », puis « pas en cours » — ils
+  étaient inscrits, et en cours. **Toute lecture de `projectV2.items` qui NOURRIT UNE DÉCISION se
+  pagine** (`--paginate` + `pageInfo{hasNextPage endCursor}` et `$endCursor` en variable), ou se
+  contrôle contre `items(first:1){totalCount}`. Interroger un ticket PRÉCIS n'a pas ce défaut :
+  `issue(number:N){projectItems}` rend l'état vrai, et c'est la voie quand on sait qui l'on cherche.
+  La leçon générale : un remède à une troncature muette peut tronquer muettement à son tour — le
+  compte se DEMANDE, il ne se déduit jamais de la longueur de ce qu'on a reçu.
 - **Un automate qui pose des lexiques doit borner sa zone de lecture au bloc « Le problème », citations exclues.** Vécu : détecter les termes sur le corps entier a posé sur un ticket de libellés de menu un lexique « surcharge par l'environnement, isomorphe, ADR » — des mots pris dans des **exemples de titres cités**. Un lexique hors sujet est pire que pas de lexique : il fait douter le lecteur d'avoir compris.
 
 ## Les scripts de ce skill

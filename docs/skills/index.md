@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-09-02
+updated: 2026-09-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -149,7 +149,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.3.0 · ⚙️ 10 scripts · 📎 4 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de…",
-    "meta": "🟢 conforme v1.6.0 · ⚙️ 10 scripts · 📎 4 réf" }
+    "meta": "🟢 conforme v1.7.0 · ⚙️ 10 scripts · 📎 4 réf" }
 ]
 ```
 
@@ -181,7 +181,7 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.6.0 | 533 | 4 | 10 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 543 | 4 | 10 | ✅ |
 
 ## 🔗 Pour aller plus loin
 
