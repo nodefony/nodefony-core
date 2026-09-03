@@ -45,9 +45,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@typescript/native-preview": "^7.0.0-dev.0",
   oxlint: "^1.75.0",
   prettier: "^3.9.5",
-  rolldown: "^1.2.6",
+  rolldown: "^1.2.7",
   typescript: "^6.0.3",
-  vitest: "^4.1.10",
+  vitest: "^5.0.0",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.1.4",
   react: "^19.2.7",
@@ -59,12 +59,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitejs/plugin-vue": "^6.0.7",
   svelte: "^5.56.8",
   "@sveltejs/vite-plugin-svelte": "^7.3.0",
-  "@angular/core": "^22.1.4",
-  "@angular/common": "^22.1.4",
-  "@angular/platform-browser": "^22.1.4",
+  "@angular/core": "^22.1.5",
+  "@angular/common": "^22.1.5",
+  "@angular/platform-browser": "^22.1.5",
   "@analogjs/vite-plugin-angular": "^2.7.1",
-  "@angular/build": "^22.1.6",
-  "@angular/compiler-cli": "^22.1.4",
+  "@angular/build": "^22.1.7",
+  "@angular/compiler-cli": "^22.1.5",
 };
 
 /** Sous-ensemble du catalogue (helper des tables par framework). */

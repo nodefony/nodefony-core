@@ -12,7 +12,6 @@ import {
 import { Buffer } from "node:buffer";
 import type {
   AuthenticationResponseJSON,
-  AuthenticatorTransportFuture,
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
@@ -290,7 +289,7 @@ class WebAuthnService extends Service {
       timeout: pk.timeoutMs,
       excludeCredentials: existing.map((c) => ({
         id: c.id,
-        transports: c.transports as AuthenticatorTransportFuture[],
+        transports: [...c.transports],
       })),
       authenticatorSelection: {
         residentKey: pk.residentKey,
@@ -387,13 +386,12 @@ class WebAuthnService extends Service {
     this.#ensureReady();
     const lib = await this.#ensureLib();
     const pk = this.#config!.passkeys;
-    let allowCredentials:
-      { id: string; transports?: AuthenticatorTransportFuture[] }[] | undefined;
+    let allowCredentials: { id: string; transports?: string[] }[] | undefined;
     if (userId) {
       const creds = await this.#store!.findByUser(userId);
       allowCredentials = creds.map((c) => ({
         id: c.id,
-        transports: c.transports as AuthenticatorTransportFuture[],
+        transports: [...c.transports],
       }));
     }
     return lib.generateAuthenticationOptions({
@@ -437,7 +435,7 @@ class WebAuthnService extends Service {
           id: stored.id,
           publicKey: new Uint8Array(Buffer.from(stored.publicKey, "base64url")),
           counter: stored.signCount,
-          transports: stored.transports as AuthenticatorTransportFuture[],
+          transports: [...stored.transports],
         },
         requireUserVerification: pk.userVerification === "required",
       });

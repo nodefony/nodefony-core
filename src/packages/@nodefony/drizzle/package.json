@@ -52,7 +52,7 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "mysql2": "3.24.2",
+    "mysql2": "3.24.3",
     "pg": "^8.23.0"
   },
   "devDependencies": {
