@@ -994,6 +994,65 @@ export async function listTestGroups(modulePath: string): Promise<TestGroup[]> {
     }));
 }
 
+/** Commande exacte que `runModuleTests` lance — pure, testable sans process. */
+export interface TestRunCommand {
+  cmd: string;
+  args: string[];
+  mode: string;
+}
+
+/**
+ * Compose la commande d'un run de tests de module, sans l'exécuter.
+ *
+ * - 1 fichier (module vitest) → `npx vitest run <file>` : le chemin est un
+ *   FILTRE positionnel de vitest. Il ne doit JAMAIS suivre un `--` : vitest
+ *   ignore tout ce qui vient après, et la suite ENTIÈRE tourne en silence
+ *   (vécu : 18 fichiers joués pour un seul demandé, verdict « vert »). La
+ *   défense anti-injection d'argument est la garde de l'appelant (pas de
+ *   préfixe `-`, pas de `..`, suffixe `.test.ts` — cf KernelAdminApi).
+ * - sinon (module vitest) → run-all, reporters coverage FORCÉS vers
+ *   `.coverage` : l'onglet Coverage de Studio apparaît quelle que soit la
+ *   config du module (la liste `reporter` dupliquée par module divergeait).
+ * - sinon (cœur : monocart, pas de `vitest.config.ts`) → `npm run coverage`.
+ *
+ * @param modulePath - racine du module (où vit `vitest.config.ts`)
+ * @param file - chemin relatif d'UN fichier de test, déjà validé par l'appelant
+ * @returns commande, arguments en tableau (spawn sans shell) et libellé du mode
+ */
+export function testRunCommand(
+  modulePath: string,
+  file?: string,
+): TestRunCommand {
+  const hasVitest = existsSync(join(modulePath, "vitest.config.ts"));
+  if (file && hasVitest) {
+    return {
+      cmd: "npx",
+      args: ["vitest", "run", file],
+      mode: `vitest run ${file}`,
+    };
+  }
+  if (hasVitest) {
+    return {
+      cmd: "npx",
+      args: [
+        "vitest",
+        "run",
+        "--coverage",
+        "--coverage.reporter=text-summary",
+        "--coverage.reporter=json-summary",
+        "--coverage.reporter=lcov",
+        "--coverage.reportsDirectory=.coverage",
+      ],
+      mode: "vitest run --coverage (reporters forcés)",
+    };
+  }
+  return {
+    cmd: "npm",
+    args: ["run", "coverage"],
+    mode: "npm run coverage (suite complète)",
+  };
+}
+
 /**
  * Lance les tests d'un module et renvoie un résumé (pass/fail/durée + tail).
  *
@@ -1009,39 +1068,7 @@ export function runModuleTests(
   modulePath: string,
   file?: string,
 ): Promise<TestRunResult> {
-  const hasVitest = existsSync(join(modulePath, "vitest.config.ts"));
-  let cmd: string;
-  let args: string[];
-  let mode: string;
-  if (file && hasVitest) {
-    cmd = "npx";
-    // `--` : tout ce qui suit est un chemin positionnel, JAMAIS interprété comme
-    // un flag vitest (defense-in-depth anti injection d'argument — l'appelant
-    // valide déjà `file`, cf KernelAdminApi : pas de `..`, pas de `-`, `.test.ts`).
-    args = ["vitest", "run", "--", file];
-    mode = `vitest run ${file}`;
-  } else if (hasVitest) {
-    // Run-all d'un module vitest : on FORCE les reporters fichiers + le répertoire
-    // .coverage en CLI → l'onglet Coverage de Studio apparaît quelle que soit la
-    // config coverage du module (anti-dérive : la liste `reporter` était dupliquée
-    // par module et divergeait en silence, certains n'émettant que du `text`).
-    cmd = "npx";
-    args = [
-      "vitest",
-      "run",
-      "--coverage",
-      "--coverage.reporter=text-summary",
-      "--coverage.reporter=json-summary",
-      "--coverage.reporter=lcov",
-      "--coverage.reportsDirectory=.coverage",
-    ];
-    mode = "vitest run --coverage (reporters forcés)";
-  } else {
-    // Core (monocart, pas de vitest.config.ts) : son script `coverage` émet lcov.
-    cmd = "npm";
-    args = ["run", "coverage"];
-    mode = "npm run coverage (suite complète)";
-  }
+  const { cmd, args, mode } = testRunCommand(modulePath, file);
   const start = Date.now();
   return new Promise<TestRunResult>((resolve) => {
     let out = "";

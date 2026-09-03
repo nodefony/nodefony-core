@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-01T22:00:04.553Z",
+  "generatedAt": "2026-09-03T16:16:20.368Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 16,
+      "open": 17,
       "title": "10.1"
     },
     {
-      "closed": 78,
+      "closed": 80,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 33,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -341,6 +341,20 @@
       ]
     },
     {
+      "number": 163,
+      "title": "fix(devkit): empêcher le mode dépistage de rejouer tout le catalogue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/163",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 2.55,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 126,
       "title": "fix(orm): adopter une base MySQL Community, ou dire pourquoi c'est impossible",
       "url": "https://github.com/nodefony/nodefony-core/issues/126",
@@ -639,8 +653,8 @@
       "number": 18,
       "title": "feat(user): rendre l'entité utilisateur à l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/18",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 7.5,
@@ -835,8 +849,8 @@
       "number": 148,
       "title": "test(devkit): mesurer si un agent sait gérer les utilisateurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/148",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -896,6 +910,21 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/93",
       "state": "CLOSED",
       "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.7,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
+      "number": 154,
+      "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/154",
+      "state": "OPEN",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1893,6 +1922,104 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 63,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 155,
+      "title": "docs(agents): rendre le dépôt lisible par un agent web",
+      "url": "https://github.com/nodefony/nodefony-core/issues/155",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 64,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 156,
+      "title": "chore(release): recaler description et mots-clés des paquets",
+      "url": "https://github.com/nodefony/nodefony-core/issues/156",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 64.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 157,
+      "title": "docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/157",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 64.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 158,
+      "title": "docs(site): publier llms.txt, le plan du site et robots.txt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/158",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 64.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 64.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 160,
+      "title": "chore(github): poser les gabarits de ticket et de fusion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/160",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 64.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 161,
+      "title": "feat(devkit): mesurer si un agent clôt un ticket sans humain",
+      "url": "https://github.com/nodefony/nodefony-core/issues/161",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 65,
       "labels": [
         "10.1"
       ]

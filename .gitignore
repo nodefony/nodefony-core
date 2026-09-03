@@ -60,6 +60,8 @@ nodefony/databases/*
 # dépôt. Un rapport est une PHOTO, il se refabrique.
 .coverage/
 coverage/
+# vitest ≥ 5 : racine unique des artefacts (attachments, blob, rapports json/junit/html)
+.vitest/
 
 # Fichiers d'environnement — Convention B (Vite/Next).
 #   Committés (défauts NON-secrets) : .env, .env.<env>, .env.example

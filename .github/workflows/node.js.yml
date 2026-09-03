@@ -333,20 +333,21 @@ jobs:
       # ici, parce qu'un vert incomplet lu comme un vert complet est le piège
       # maison numéro un.
       #
-      # NON couvert par cette étape : `bench-schema.selftest.mjs`, qui exige une
-      # base PostgreSQL pour exercer son lecteur et sort `2` sans elle. Il est
-      # lancé dans `orm.yml`, là où le service existe déjà.
+      # Le LOT ENTIER, pas une liste nommée à la main. Cette étape en citait sept
+      # sur vingt-huit : les vingt et un autres — dont presque tous les juges de
+      # gate — ne tournaient nulle part, alors que l'étape s'intitulait « les
+      # juges du banc devkit ». Une énumération écrite à un instant T ne suit
+      # pas les contrôles qu'on ajoute ensuite ; `selftests.mjs` balaye, et
+      # rougit AUSSI quand un contrôle déclaré a DISPARU.
+      #
+      # `--sans` écarte NOMMÉMENT `bench-schema.selftest.mjs`, qui exige une base
+      # PostgreSQL et s'abstient sans elle (`2`). Il est lancé dans `orm.yml`, là
+      # où le service existe déjà — et l'écart est imprimé dans le journal, parce
+      # qu'une absence tue qui se lit comme un vert est le piège maison.
       - name: Gate — auto-contrôle des juges du banc devkit
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash
-        run: |
-          node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs
-          node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
-          node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs
-          node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
-          node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove
-          node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove
-          node .claude/skills/nodefony-devkit-bench/scripts/lib/exec-portable.selftest.mjs --prove
+        run: npm run devkit:selftest -- --prove --sans bench-schema.selftest.mjs
 
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   #

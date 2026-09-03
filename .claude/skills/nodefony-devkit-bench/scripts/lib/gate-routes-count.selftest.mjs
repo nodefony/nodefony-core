@@ -215,9 +215,13 @@ const port = await portLibre();
   );
 
   const sansRapport = await jouer({ rapport: null, port, bin: BIN_MORT });
+  // La cause doit être NOMMÉE au format que le banc relit (`CAUSE=<nom>`), pas
+  // seulement lisible par un humain : sans cette ligne, le rouge est imputé à
+  // l'agent — y compris quand le juge sait pertinemment que ce n'est pas lui.
   verifier(
-    "AUDIT.md absent → rouge, et la raison est nommée",
-    sansRapport.code === 1 && /AUDIT\.md absent/u.test(sansRapport.sortie),
+    "AUDIT.md absent → rouge, et la cause est nommée pour le banc",
+    sansRapport.code === 1 &&
+      /^CAUSE=rapport-absent\b/mu.test(sansRapport.sortie.trim()),
     `code ${sansRapport.code} : ${sansRapport.sortie.trim()}`,
   );
 

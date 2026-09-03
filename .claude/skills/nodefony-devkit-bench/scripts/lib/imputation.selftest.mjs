@@ -34,6 +34,9 @@ import {
   estOpposable,
   imputationDe,
   lireCause,
+  estUnPlantageDeJuge,
+  causeDuJugeCasse,
+  viseUnJuge,
 } from "./imputation.mjs";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -54,10 +57,23 @@ function causesEmises() {
     if (!nom.endsWith(".mjs")) continue;
     if (nom.endsWith(".selftest.mjs") || nom === "imputation.mjs") continue;
     const source = readFileSync(path.join(ICI, nom), "utf8");
-    for (const m of source.matchAll(/CAUSE=([a-z0-9-]+)/gu)) {
-      const liste = trouvees.get(m[1]) ?? [];
+    // 🔴 DEUX grammaires, et n'en lire qu'une a rendu ce contrôle aveugle sur
+    // trois juges entiers pendant qu'il affichait un compte rassurant. Un juge
+    // de la première génération IMPRIME lui-même `CAUSE=<nom>` ; un juge qui
+    // sépare la collecte du verdict REND `{ cause: "<nom>" }` et laisse
+    // l'impression à l'appelant — sa source ne porte alors jamais `CAUSE=`.
+    // Balayer le dossier ne suffit donc pas : c'est la FORME écrite qui décide
+    // de ce qu'on voit.
+    for (const m of source.matchAll(
+      /CAUSE=([a-z0-9-]+)|\bcause:\s*"([a-z0-9-]+)"/gu,
+    )) {
+      const cause = m[1] ?? m[2];
+      // `conforme` est le VERT. Le banc ne consulte l'imputation que sur un
+      // rouge (`!pass && cause`) : la classer n'aurait aucun sens.
+      if (cause === "conforme") continue;
+      const liste = trouvees.get(cause) ?? [];
       if (!liste.includes(nom)) liste.push(nom);
-      trouvees.set(m[1], liste);
+      trouvees.set(cause, liste);
     }
   }
   return trouvees;
@@ -174,6 +190,65 @@ function main() {
   // l'oubli produit une abstention bruyante, jamais une accusation muette.
   if (imputationDe("cause-qui-nexiste-pas") !== null) {
     defauts.push("une cause inconnue devrait rendre `null`");
+  }
+
+  // ─── 3 bis. Le filet du juge cassé ────────────────────────────────────────
+  //
+  // Un juge qui MEURT avant de juger sort en `1`, muet — et un rouge sans cause
+  // est, par contrat, opposable à l'agent. Le banc le rattrape sur une PREUVE de
+  // plantage, jamais sur la simple absence de cause : écarter tout rouge muet
+  // innocenterait l'agent dès qu'un juge se tait, ce qui remplacerait une erreur
+  // par sa symétrique. Ces cas fixent la frontière entre les deux.
+  const PLANTAGES = [
+    ["ReferenceError: request is not defined", true],
+    ["SyntaxError: Unexpected token '}'", true],
+    ['Error: Cannot find module "./absent.mjs"', true],
+    ["    at Object.<anonymous> (node:internal/modules/run_main:5:5)", true],
+    // Ce qui NE doit pas être pris pour un plantage de juge : un verdict rendu,
+    // et les échecs des gates génériques, qui parlent du code de l'agent.
+    ["CAUSE=donnee-perdue — le titre semé n'est plus lu", false],
+    ["FAIL tests/unit/article.test.ts", false],
+    ["npm ERR! code ELIFECYCLE", false],
+    ["", false],
+  ];
+  for (const [texte, attendu] of PLANTAGES) {
+    if (estUnPlantageDeJuge(texte) !== attendu) {
+      defauts.push(
+        `plantage mal reconnu (attendu ${attendu}) : « ${texte.slice(0, 48)} »`,
+      );
+    }
+  }
+  {
+    const c = causeDuJugeCasse("ReferenceError: demander is not defined");
+    if (c.nom !== "juge-en-erreur" || c.imputation !== DECOR) {
+      defauts.push(
+        "un juge cassé doit s'imputer au DÉCOR, sous `juge-en-erreur`",
+      );
+    }
+    // La cause synthétique doit se relire par le MÊME chemin que les vraies :
+    // le banc ne doit pas avoir deux façons de porter une cause.
+    if (lireCause(c.ligne)?.nom !== "juge-en-erreur") {
+      defauts.push("la cause du juge cassé n'est pas relue par `lireCause`");
+    }
+  }
+
+  // Quels gates sont à NOUS — seuls ceux-là peuvent être « un juge cassé ».
+  // Le chemin arrive en `\` sous Windows : un motif écrit en `/` n'y mordrait
+  // pas, et une garde qui ne mord pas ne dit jamais qu'elle n'a pas mordu.
+  const VISEES = [
+    [["sh", "-c", "node /a/b/lib/gate-media-range.mjs; exit $?"], true],
+    [["node", String.raw`C:\dev\lib\gate-upload.mjs`], true],
+    [["npm", "test"], false],
+    [["sh", "-c", "npx tsgo --noEmit"], false],
+    // Un auto-contrôle n'est pas un juge : il n'est jamais lancé comme gate.
+    [["node", "/a/lib/gate-upload.selftest.mjs"], false],
+  ];
+  for (const [cmd, attendu] of VISEES) {
+    if (viseUnJuge(cmd) !== attendu) {
+      defauts.push(
+        `viseUnJuge (attendu ${attendu}) : « ${cmd.join(" ").slice(0, 48)} »`,
+      );
+    }
   }
 
   // ─── 4. Les contrôles mordent-ils ? ───────────────────────────────────────

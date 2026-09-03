@@ -422,8 +422,15 @@ const PG_CASES = [
   ],
 ];
 
-/** DDL témoin — écrit à la MAIN, sans une ligne du banc. C'est la référence. */
-const JUDGE_TABLE = "zz_judge_selftest";
+/**
+ * DDL témoin — écrit à la MAIN, sans une ligne du banc. C'est la référence.
+ *
+ * Le nom porte le PID : la base PostgreSQL est partagée, et un nom fixe en
+ * faisait un état commun. Deux exécutions concurrentes du lot se supprimaient
+ * la table l'une à l'autre, et rendaient « table absente de la lecture » — un
+ * rouge qui n'accuse ni le juge ni le produit.
+ */
+const JUDGE_TABLE = `zz_judge_selftest_${process.pid}`;
 const JUDGE_DDL = `
 CREATE TABLE ${JUDGE_TABLE} (
   id uuid PRIMARY KEY,

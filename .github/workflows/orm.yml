@@ -296,7 +296,16 @@ jobs:
       - name: Gate — auto-contrôle du juge du banc de schéma (PostgreSQL)
         env:
           NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
-        run: node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
+        # `--prove` ampute chaque sonde et exige qu'un cas tombe : une sonde
+        # restée verte amputée n'est pas exercée par ses échantillons. Ce
+        # contrôle sait se muter — il faut donc le lui demander, sinon son vert
+        # ne dit rien de sa couverture.
+        #
+        # Ciblé, et non le lot entier : `node.js.yml` vient de jouer les
+        # vingt-sept autres. Les rejouer ici paierait un second runner pour un
+        # verdict déjà rendu. Ce contrôle est le SEUL que l'autre forge écarte,
+        # faute de base.
+        run: node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs --prove
 
   # ─── La socket distribuée, éprouvée sur de VRAIS process ────────────────────
   #

@@ -69,7 +69,7 @@ const demander = (headers) =>
 await ensurePortFree();
 
 // ─── 1. PRÉALABLE — l'échantillon est-il servi, tout court ? ─────────────────
-const plein = await request({});
+const plein = await demander({});
 if (plein.error) {
   console.error(`CAUSE=aucune-reponse — ${plein.error}`);
   process.exit(4);
@@ -83,7 +83,7 @@ if (plein.status !== 200) {
 }
 
 // ─── 2. LE JUGE — une demande de MORCEAU (RFC 9110 §14) ─────────────────────
-const morceau = await request({ Range: "bytes=0-99" });
+const morceau = await demander({ Range: "bytes=0-99" });
 if (morceau.error) {
   console.error(`CAUSE=aucune-reponse-sur-plage — ${morceau.error}`);
   process.exit(1);

@@ -339,7 +339,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 ────────────────────────────────────────────────────────────────────────
  DOC Corpus de référence   █████████▋  97%  61/63 pages aux 4 gates (rejoués 08-20) · 437 ancres en DÉRIVE (dette)
  DOC Site public           ██████████ 100%  84 pages PUBLIÉES sur GitHub Pages (f9aaf5de) · accueil + /docs/ + /performance/
- BANC devkit (référence)   █████████▎  93%  28/30 PASS unanimes, 2 runs, décor `MCP eteint` (a851c1a3) · T5+T17 étaient des FAUX ROUGES du banc · restent T18/T22 à 1/2
+ BANC devkit (référence)   █████████▍  94%  31/33 PASS unanimes (référence 247f6bce, 3 runs, décor `MCP eteint`) · référence RÉENREGISTRÉE le 09-02 après réparation de l'instrument : 3 rouges sur 6 accusaient l'agent à tort (matière aux sauts de ligne échappés, contexte d'ancrage d'une édition pris pour un geste, juge sans jeton anti-rejeu) · restent T33 et T34 à 2/3, instabilités d'AGENT (une passe sur trois détruit la base)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 

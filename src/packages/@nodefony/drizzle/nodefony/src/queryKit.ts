@@ -6,7 +6,11 @@ import { escapeLikeTerm } from "@nodefony/orm-core";
 import { likeCond } from "./likeSql";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
-import { USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER } from "@nodefony/user";
+import {
+  USER_SORTABLE_FIELDS,
+  USER_DEFAULT_ORDER,
+  USER_TABLE_NAME,
+} from "@nodefony/user";
 
 /**
  * queryKit — les requêtes SQL **natives** des entités framework, par dialecte
@@ -87,9 +91,9 @@ export async function findUserIdBySocialProvider(
   switch (dialect) {
     case "sqlite": {
       const rows = (await db.all(
-        sql`SELECT "id" AS id FROM "User"
+        sql`SELECT "id" AS id FROM ${ident("sqlite", USER_TABLE_NAME)}
             WHERE EXISTS (
-              SELECT 1 FROM json_each("User"."socialProviders")
+              SELECT 1 FROM json_each(${ident("sqlite", USER_TABLE_NAME)}."socialProviders")
               WHERE json_extract(value, '$.provider') = ${provider}
                 AND json_extract(value, '$.providerId') = ${providerId}
             ) LIMIT 1`,
@@ -101,7 +105,7 @@ export async function findUserIdBySocialProvider(
       // casté jsonb par PG) — `provider`/`providerId` ne touchent jamais le SQL.
       const pattern = JSON.stringify([{ provider, providerId }]);
       const result = await (db as unknown as PgExecutor).execute(
-        sql`SELECT "id" AS id FROM "User"
+        sql`SELECT "id" AS id FROM ${ident("postgres", USER_TABLE_NAME)}
             WHERE "socialProviders" @> ${pattern}::jsonb LIMIT 1`,
       );
       const id = result.rows[0]?.id;
@@ -113,7 +117,7 @@ export async function findUserIdBySocialProvider(
       // bindée en JSON. Backticks = quoting d'identifiants MySQL.
       const pattern = JSON.stringify([{ provider, providerId }]);
       const [rows] = await (db as unknown as MysqlExecutor).execute(
-        sql`SELECT ${sql.raw("`id`")} AS id FROM ${sql.raw("`User`")}
+        sql`SELECT ${sql.raw("`id`")} AS id FROM ${ident("mysql", USER_TABLE_NAME)}
             WHERE JSON_CONTAINS(${sql.raw("`socialProviders`")}, ${pattern}) LIMIT 1`,
       );
       const id = (rows as Array<Record<string, unknown>>)[0]?.id;
@@ -359,7 +363,7 @@ export async function listUserIdsPage(
   const offset = Math.max(0, Math.floor(window.offset));
   const where = userWhere(dialect, filters);
   const whereSql = where ? sql` WHERE ${where}` : sql``;
-  const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, "User")}${whereSql}
+  const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, USER_TABLE_NAME)}${whereSql}
       ORDER BY ${orderBySql(dialect, window.order, USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER, "id")} LIMIT ${limit + 1} OFFSET ${offset}`;
   const rows = await runSelect(db, dialect, query);
   const ids = rows
@@ -520,7 +524,7 @@ export async function countUsers(
 ): Promise<number> {
   const where = userWhere(dialect, filters);
   const whereSql = where ? sql` WHERE ${where}` : sql``;
-  const query = sql`SELECT COUNT(*) AS cnt FROM ${ident(dialect, "User")}${whereSql}`;
+  const query = sql`SELECT COUNT(*) AS cnt FROM ${ident(dialect, USER_TABLE_NAME)}${whereSql}`;
   const rows = await runSelect(db, dialect, query);
   return Number(rows[0]?.cnt ?? 0);
 }

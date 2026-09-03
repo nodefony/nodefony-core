@@ -794,7 +794,7 @@ Le module ne persiste **rien** par lui-même : il définit la forme, les adapter
 | `createdAt`       | date             | `dateMs` non nul      | `timestamps: true`       | création                            |
 | `updatedAt`       | date             | `dateMs` + `onUpdate` | `timestamps: true`       | dernière modification               |
 
-**Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts:89`). Les deux adapters en
+**Source unique** : `USER_COLUMNS` (`user/nodefony/src/userContract.ts:109`). Les deux adapters en
 **dérivent** leur définition — `USER_TABLE_SPEC` (`drizzle/nodefony/entity/userTable.ts:82`) et
 `userSchema` (`mongoose/nodefony/entity/userEntity.ts:65`) ne recopient rien, ils traduisent. Chaque
 colonne y déclare aussi **qui la lit**, ce qui permet à un refus de nommer le lecteur en même temps
@@ -826,7 +826,7 @@ const carol = await userRepository.findByIdentifier("carol@example.com");
 ```
 
 **En lecture, il n'y a rien à faire.** Les trois dépôts reportent sur l'utilisateur rendu toute
-colonne hors contrat (`attachExtraColumns`, `userContract.ts:268`) : `carol.firstName` vaut
+colonne hors contrat (`attachExtraColumns`, `userContract.ts:288`) : `carol.firstName` vaut
 `"Carol"`. Sans ce report, l'écriture passerait et la lecture perdrait — **sans une erreur** —, et tu
 verrais ta donnée en base et vide dans ton code.
 

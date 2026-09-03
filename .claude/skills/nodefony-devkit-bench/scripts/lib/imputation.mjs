@@ -113,6 +113,10 @@ export const IMPUTATIONS = Object.freeze({
   // échec de connexion.
   "identite-admin-indisponible": INDETERMINE,
   "identite-temoin-indisponible": INDETERMINE,
+  // Même famille, sans suffixe : les juges qui n'ont qu'UNE identité à établir
+  // nomment leur cause ainsi. Le décor sème le compte, mais un agent qui touche
+  // à l'authentification produit exactement le même échec de connexion.
+  "identite-indisponible": INDETERMINE,
   // Même raison pour le compte PORTEUR, semé par le gate avec son rôle : un
   // agent qui touche à l'authentification produit le même échec de connexion.
   "identite-porteur-indisponible": INDETERMINE,
@@ -127,7 +131,21 @@ export const IMPUTATIONS = Object.freeze({
   "route-de-login-absente": INDETERMINE,
   // Application non construite (décor) OU code que l'agent vient de casser.
   // L'imputer d'office au décor blanchirait un agent qui a cassé le boot.
+  // Le juge a reçu 403 sans avoir pu se munir du jeton anti-rejeu. Deux
+  // situations le produisent et RIEN dans la réponse ne les distingue : une
+  // écriture correctement protégée dont aucune route sûre ne sème le cookie, et
+  // une garde d'autorisation qui refuse tout le monde. Le produit s'y refuse
+  // délibérément — `CsrfError` reste générique pour ne pas fuiter sa politique.
+  //
+  // Ce n'est donc PAS du décor : un geste de l'agent peut la produire, et la
+  // classer « décor » éteindrait l'instruction d'une vraie faille. À instruire
+  // ne coûte qu'une ligne ; innocenter à tort coûte la mesure entière.
+  "jeton-csrf-absent": INDETERMINE,
   "inspection-impossible": INDETERMINE,
+  // Le compte de routes a été obtenu sur un kernel booté à FROID, faute de
+  // porte ouverte : ce n'est pas l'application que l'agent a interrogée. Son
+  // rapport peut être juste sur la sienne — l'écart ne prouve rien contre lui.
+  "compte-sur-autre-application": INDETERMINE,
 
   // ─── AGENT — le rouge décrit le logiciel produit ──────────────────────────
   // Rien n'a été monté là où l'énoncé le demandait.
@@ -227,6 +245,58 @@ export const IMPUTATIONS = Object.freeze({
   "reponse-inattendue-inconnu": AGENT,
   "reponse-inattendue-repere": AGENT,
   "reponse-inattendue-temoin": AGENT,
+
+  // ─── Le schéma a suivi, ou il n'a pas suivi (tâches 33 et 34) ────────────
+  // Ces juges n'atteignent leur verdict qu'APRÈS une réponse de l'application :
+  // l'absence de réponse porte sa propre cause (`aucune-reponse`), et le port
+  // tenu par un tiers la sienne. Ce qui reste décrit donc le logiciel produit.
+  //
+  // La ligne, puis le compte, semés AVANT le travail et commités : leur
+  // disparition n'est pas un aléa du décor, c'est une base refaite plutôt que
+  // migrée — le geste que ces deux tâches existent pour attraper.
+  "donnee-perdue": AGENT,
+  "compte-perdu": AGENT,
+  // Le rapport demandé n'a pas été écrit, ou n'annonce pas le compte mesuré sur
+  // l'application même : c'est le travail demandé qui manque.
+  "rapport-absent": AGENT,
+  "compte-non-annonce": AGENT,
+  // Un compte de plus à CHAQUE connexion du fournisseur externe : la recherche
+  // du compte existant ne le retrouve plus.
+  "compte-externe-double": AGENT,
+  // La base a suivi et le contrat d'entrée non : la colonne existe, mais plus
+  // rien ne peut naître (obligatoire sans défaut SQL) ou l'écriture est refusée.
+  "creation-impossible": AGENT,
+  "ressource-cassee": AGENT,
+  // La ressource ne publie pas la colonne neuve : la base ne l'a pas reçue.
+  "colonne-absente": AGENT,
+  // Le champ vit en développement sans être écrit dans une migration : il
+  // n'atteindra jamais la production.
+  "colonne-non-deployable": AGENT,
+  // Migrer une base VIERGE échoue : le premier déploiement tomberait, quel que
+  // soit l'état de la base de développement.
+  "migration-injouable": AGENT,
+  // L'état déclaré par le produit lui-même ne dit pas « à jour ».
+  "etat-non-a-jour": AGENT,
+  // Rejouer applique encore : le contrat est qu'un second passage ne fasse rien.
+  "non-idempotent": AGENT,
+
+  // ─── Recevoir un fichier (tâche 35) ──────────────────────────────────────
+  // Une garde a cédé, et c'est la plus grave de cette famille : le nom envoyé
+  // par le client a décidé de la destination du fichier.
+  "traversee-de-chemin": AGENT,
+  // L'application répond, mais un envoi multipart légitime est refusé.
+  "depot-refuse": AGENT,
+  // Elle répond 2xx et n'a rien rangé : recevoir un fichier n'est pas le
+  // conserver.
+  "fichier-introuvable": AGENT,
+  // Rangé, mais la réponse ne dit ni sous quel nom ni quelle taille : l'appelant
+  // ne peut pas retrouver son fichier.
+  "reponse-muette": AGENT,
+  // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
+  // du logiciel produit, il dit que l'instrument est parti sans son jeton.
+  // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —
+  // c'est exactement ce qui est arrivé, pendant que le banc validait la seule
+  // route qui ne résistait pas : celle qui n'était pas protégée.
 });
 
 /**
@@ -305,3 +375,83 @@ export const motifNonOpposable = (imputation) => {
       return "cause NON CLASSÉE dans imputation.mjs — trou d'instrument, run écarté";
   }
 };
+
+/**
+ * Signatures d'un juge qui s'est CASSÉ, par opposition à un juge qui a JUGÉ.
+ *
+ * Le filet du socle (`http-probe.mjs`) rattrape les exceptions d'un juge qui a
+ * démarré. Il ne peut rien pour celui qui meurt AVANT : une `SyntaxError`, un
+ * `Cannot find module`, un import circulaire. Node sort alors en `1`, sans une
+ * ligne `CAUSE=` — et un `1` sans cause est, par contrat, opposable à l'agent.
+ *
+ * On ne classe donc PAS sur l'absence de cause, mais sur une PREUVE positive de
+ * plantage. La distinction n'est pas de la finesse : écarter un rouge sur simple
+ * absence de cause innocenterait l'agent à tort dès qu'un juge se tait, et un
+ * banc qui innocente à tort ne mesure plus rien. Les deux erreurs coûtent, en
+ * sens inverse.
+ */
+const SIGNATURES_DE_PLANTAGE = [
+  /^\s*(?:Uncaught\s+)?(?:Reference|Syntax|Type|Range)Error\b/mu,
+  /\bCannot find (?:module|package)\b/u,
+  /\bERR_MODULE_NOT_FOUND\b/u,
+  /\bERR_REQUIRE_ESM\b/u,
+  /^\s*at\s+\S+\s+\(?node:internal\//mu,
+  /\bnode:internal\/modules\//u,
+];
+
+/**
+ * Ce rouge vient-il d'un juge CASSÉ plutôt que d'un agent fautif ?
+ *
+ * @param {string} texte - la sortie complète du gate (stderr puis stdout).
+ * @returns {boolean} vrai si la sortie porte une signature de plantage Node.
+ */
+export const estUnPlantageDeJuge = (texte) =>
+  SIGNATURES_DE_PLANTAGE.some((re) => re.test(texte ?? ""));
+
+/**
+ * La cause synthétique d'un juge qui n'a pas pu rendre de verdict.
+ *
+ * Rendue au FORMAT que {@link lireCause} relit, pour qu'un rapport figé se
+ * relise plus tard sans connaître ce chemin — le banc ne doit pas avoir deux
+ * façons de porter une cause.
+ *
+ * @param {string} texte - la sortie du gate, dont la première ligne utile sert
+ *   de détail.
+ * @returns {{ligne: string, nom: string, imputation: string}}
+ */
+export const causeDuJugeCasse = (texte) => {
+  const detail =
+    (texte ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => SIGNATURES_DE_PLANTAGE.some((re) => re.test(l))) ??
+    "plantage sans message lisible";
+  return {
+    ligne:
+      `CAUSE=juge-en-erreur — le juge s'est cassé AVANT de rendre un verdict : ` +
+      `${detail.slice(0, 160)}`,
+    nom: "juge-en-erreur",
+    imputation: IMPUTATIONS["juge-en-erreur"],
+  };
+};
+
+/**
+ * Ce gate lance-t-il un juge DÉDIÉ du banc ?
+ *
+ * Les gates sont de deux natures : des commandes écrites en ligne (`npm test`,
+ * `tsgo`) et des juges en fichier (`lib/gate-*.mjs`). Seuls les seconds sont à
+ * nous, et d'eux seuls on peut dire qu'un plantage est un défaut d'INSTRUMENT.
+ * Un `npm test` qui lève une `TypeError` parle du code de l'agent, pas du nôtre
+ * — l'y confondre innocenterait exactement ce qu'on cherche à mesurer.
+ *
+ * Le chemin est normalisé AVANT d'être filtré : il est construit par
+ * `path.join`, donc en `\` sous Windows, où un motif écrit en `/` ne mordrait
+ * pas — et une garde qui ne mord pas ne dit jamais qu'elle n'a pas mordu.
+ *
+ * @param {string[]} cmd - la commande du gate, telle que le banc la lance.
+ * @returns {boolean}
+ */
+export const viseUnJuge = (cmd) =>
+  /\/lib\/gate-[a-z0-9-]+\.mjs\b/u.test(
+    (cmd ?? []).join(" ").replace(/\\/gu, "/"),
+  );

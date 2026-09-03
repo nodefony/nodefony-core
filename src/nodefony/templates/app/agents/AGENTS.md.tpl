@@ -40,6 +40,7 @@
 | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Module applicatif (workspace npm)                                                                       | `npx nodefony create module <nom>`                                                               |
 | Controller HTTP **et** WebSocket (même classe)                                                          | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example`             |
+| Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie           | `npx nodefony create controller <nom> --role ROLE_X`                                             |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"`                            |
 | Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
 | Frontend Vite (React/Vue/Angular)                                                                       | `npx nodefony create front <nom> [--module <m>]`                                                 |
@@ -113,10 +114,12 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 - **Service, DI, container, scopes** — `node_modules/nodefony/docs/service.md`
 - **Client isomorphe (navigateur), hooks React** — `node_modules/nodefony/docs/client.md` + `react-hooks.md`
 - **Serveurs, sessions, cookies, upload, rate-limit** — `node_modules/@nodefony/http/docs/`
+- **Recevoir un FICHIER** (formulaire multipart, `@UploadedFile`, où le ranger sans laisser le client choisir) — `node_modules/@nodefony/http/docs/upload.md`
 - **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) — `node_modules/@nodefony/http/docs/observabilite.md`
 - **Routing, controllers, décorateurs, idempotence** — `node_modules/@nodefony/framework/docs/`
 <% if (it.hasSecurity) { %>- **Firewall, authenticators, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`
 - **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie — `node_modules/@nodefony/security/docs/authorization.md`
+- **Le navigateur REFUSE d'exécuter ton script ou de charger une image** (politique de contenu, nonce, `Context.cspNonce`, HSTS, clickjacking) — `node_modules/@nodefony/security/docs/headers.md`
 - **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
 - **Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
 <% } %><% if (it.hasOrm) { %>- **Entités, repositories, requêtes (ORM)** — `node_modules/@nodefony/orm-core/docs/`
@@ -352,12 +355,19 @@ et il fait foi le jour où les deux divergent.
     méthode — il vaut pour TOUS les transports (HTTP et socket), et se pose
     **en plus** de la zone de firewall (le firewall AUTHENTIFIE, `@IsGranted`
     AUTORISE) ;
+  - **réserver TOUT un controller à une habilitation** : ne l'écris pas,
+    demande-le — `npx nodefony create controller <nom> --role ROLE_X` pose la
+    garde sur la CLASSE (donc sur les actions à venir) **et** déclare le rôle
+    sous `ROLE_ADMIN` dans `roleHierarchy`. Les deux gestes vont ensemble, et
+    c'est le second qu'on oublie en les faisant à la main ;
   - **lire l'utilisateur courant** : le paramètre décoré `@CurrentUser()`
     (typé `IUser` de `@nodefony/user`) — l'identité est ré-résolue à chaque
     requête, donc les rôles sont frais et une révocation prend effet tout de
     suite. N'écris pas ton propre lecteur de session ;
   - **déclarer qu'un rôle en implique un autre** : la clé `roleHierarchy` de
-    la config du module de sécurité (`ROLE_ADMIN` hérite `ROLE_USER`). Elle
+    la config du module de sécurité (`ROLE_ADMIN` hérite `ROLE_USER`) — que
+    `create controller --role` remplit pour toi quand le rôle naît avec son
+    controller. Elle
     est aplatie au boot ; n'écris pas de test d'appartenance à la main — et
     n'énumère pas non plus les rôles du jour sur l'action.
     `@IsGranted(["ROLE_BILLING", "ROLE_ADMIN"])` accorde bien l'accès (un
@@ -500,7 +510,8 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **Un test qui n'a jamais échoué** — il ne garde rien — un test neuf est complaisant par défaut → casse-le exprès une fois, vérifie qu'il rougit
 - **« Tout est vert » alors qu'une suite ne s'est pas exécutée** — un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout → lis le NOMBRE de tests, pas la couleur
 - **`localhost` et `127.0.0.1` te jouent des tours** — ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas → une seule origine en développement, partout — URL ouverte comme callbacks
-<% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — en développement, un champ AJOUTÉ qui accepte le vide est posé au boot suivant, un champ OBLIGATOIRE ne l'est jamais, et aucune colonne n'est jamais retirée → écris la migration (`npx nodefony orm:generate` puis `npx nodefony orm:migrate`), qui vaut en dev comme en production ; `npx nodefony orm:reset` refait la base à neuf et **perd les données** — à ne taper que sur une base dont le contenu ne compte pour personne
+<% if (it.hasSecurity) { %>- **Ta page répond 200 et son script ne s'exécute pas** — la politique de contenu exige un `nonce` sur les scripts, et le navigateur refuse un `<script>` en ligne qui n'en porte pas (« Refused to execute inline script ») : un `curl` ne le voit JAMAIS, il ne lit que le corps → signe le script (`<script nonce="…">`, valeur `this.context?.cspNonce` de ton controller) ou sors-le dans un fichier servi ; ne desserre PAS la politique (`'unsafe-inline'`), et le journal du serveur te le dit en développement — détail : `node_modules/@nodefony/security/docs/headers.md`
+<% } %><% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — en développement, un champ AJOUTÉ qui accepte le vide est posé au boot suivant, un champ OBLIGATOIRE ne l'est jamais, et aucune colonne n'est jamais retirée → écris la migration (`npx nodefony orm:generate` puis `npx nodefony orm:migrate`), qui vaut en dev comme en production ; `npx nodefony orm:reset` refait la base à neuf et **perd les données** — à ne taper que sur une base dont le contenu ne compte pour personne
 - **Un déploiement où « rien ne répond »** alors que les pods tournent — un exemplaire dont la base est en retard répond 503 sur `/readyz` (jamais sur `/livez`) et reste hors du répartiteur : c'est voulu, ce n'est pas une panne → `npx nodefony orm:migrate:status` dit qui est en retard ; applique les migrations, les pods se mettent en service SEULS
 <% } %><% if (it.hasSecurity) { %>- **Les routes authentifiées plafonnent** quand le reste tient la charge — le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements → compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge
 <% } %><% if (it.front) { %>- **En production, la modif front n'apparaît jamais** — hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT → `npm run build` → **redémarre le serveur** → rechargement forcé

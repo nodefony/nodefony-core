@@ -491,7 +491,20 @@ export function buildReport(
       divergenceIsBlocking(divergence, ctx.divergenceMode),
     ),
     summary: summaryOf(plan, verdict, divergence),
-    nextActions: actionsOf(plan, verdict, ctx.canReset === true, divergence),
+    // 🔴 Le mode de schéma DÉCIDE si l'on a le droit de proposer d'effacer, et
+    // il décide AVANT l'environnement. `ddl: "none"` veut dire « personne ne
+    // touche au schéma au démarrage » : c'est le régime d'une base qui porte
+    // des données, y compris sur un poste de développement — une base de
+    // recette, une copie de production, le décor d'un banc. Y proposer
+    // `orm:reset` en deuxième geste, c'est proposer d'effacer ce qu'on venait
+    // de refuser de toucher ; et un agent exécute la liste dans l'ordre.
+    // `resetAllowed` reste consulté : les deux conditions doivent tenir.
+    nextActions: actionsOf(
+      plan,
+      verdict,
+      ctx.canReset === true && ctx.ddl === "auto",
+      divergence,
+    ),
     sources,
     // Posée SEULEMENT quand elle a quelque chose à dire : un objet vide
     // publierait la clé sur toutes les bases conformes, et un consommateur

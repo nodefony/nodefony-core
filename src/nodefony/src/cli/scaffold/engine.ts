@@ -52,6 +52,7 @@ import {
 import { findReservedEntity } from "./reservedEntities";
 import {
   readUserContract,
+  userTableName,
   userContractFields,
   assertUserFieldsAreFillable,
 } from "./userContractSource";
@@ -1487,6 +1488,99 @@ export function wireModuleManifest(
 }
 
 /**
+ * Déclare un rôle applicatif sous `ROLE_ADMIN` dans la hiérarchie de l'app.
+ *
+ * ## Pourquoi la hiérarchie, et pas une liste de rôles sur l'action
+ *
+ * Deux gestes rendent la même réponse sur la route qu'on vient d'écrire — une
+ * hiérarchie, ou `@IsGranted(["ROLE_X", "ROLE_ADMIN"])`. Un seul GÉNÉRALISE :
+ * la hiérarchie vaut pour toute route future gardée par ce rôle, la liste
+ * s'arrête à cette action-là et devra être recopiée à chaque fois. Le troisième
+ * geste — attribuer le rôle à l'administrateur au semis — est pire encore : il
+ * ne se voit dans aucun diff de route et se perd au premier compte recréé.
+ *
+ * ## Ce que cette fonction n'invente pas
+ *
+ * Elle n'ajoute JAMAIS une clé `roleHierarchy` absente, ni un `ROLE_ADMIN`
+ * absent : composer un bloc de configuration à l'aveugle dans un fichier que
+ * l'utilisateur a pu réorganiser produirait un manifeste qui ne boote plus.
+ * Quand l'ancre manque, elle rend la note à taper — même doctrine que
+ * {@link wireModuleManifest} et `wireDecoratorList`.
+ *
+ * @param configPath - `nodefony.config.ts` de l'application.
+ * @param role - le rôle à déclarer (déjà validé par le schéma de la question).
+ * @param writer - écrivain du scaffold (respecte `--dry-run`).
+ * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
+ */
+export function wireRoleHierarchy(
+  configPath: string,
+  role: string,
+  writer: ScaffoldWriter,
+): string | null {
+  const manual =
+    `ajoute à la main dans roleHierarchy de nodefony.config.ts :\n` +
+    `  ROLE_ADMIN: ["ROLE_USER", "${role}"],\n` +
+    `  (sans quoi un administrateur devra porter « ${role} » pour accéder à ce controller)`;
+  if (!writer.exists(configPath)) {
+    return manual;
+  }
+  const source = writer.read(configPath);
+  // Déjà déclaré, où que ce soit dans la hiérarchie : rejouer la commande ne
+  // doit rien ajouter — et un rôle couvert par une AUTRE branche que
+  // `ROLE_ADMIN` est un choix de l'utilisateur, qu'on ne corrige pas.
+  const bloc = /roleHierarchy\s*:\s*\{/u.exec(source);
+  if (!bloc || bloc.index === undefined) {
+    return manual;
+  }
+  // Accolade fermante APPARIÉE du bloc — un `indexOf("}")` couperait à la
+  // première sous-structure.
+  let depth = 0;
+  let close = -1;
+  for (let i = bloc.index + bloc[0].length - 1; i < source.length; i++) {
+    const char = source[i];
+    if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+  if (close === -1) {
+    return manual;
+  }
+  const corps = source.slice(bloc.index, close);
+  if (corps.includes(`"${role}"`)) {
+    return null;
+  }
+  // La ligne `ROLE_ADMIN: [...]`, DANS ce bloc seulement — le fichier peut
+  // porter ce nom ailleurs (le semis de comptes le cite en commentaire).
+  const admin = /(ROLE_ADMIN\s*:\s*\[)([^\]]*)(\])/u.exec(corps);
+  if (!admin || admin.index === undefined) {
+    return manual;
+  }
+  // 🔴 La virgule FINALE se retire avant d'en écrire une autre. Le gabarit
+  // n'en pose pas, mais prettier en ajoute une dès que la liste passe sur
+  // plusieurs lignes — et une application qui déclare cinq rôles y arrive vite.
+  // Sans ce trim, on écrirait `[…"ROLE_USER",, "ROLE_X"]` : un manifeste qui ne
+  // compile plus, produit par la commande censée le câbler.
+  const dedans = (admin[2] ?? "").replace(/,\s*$/u, "");
+  const separateur = dedans.trim().length > 0 ? ", " : "";
+  const remplace = `${admin[1]}${dedans}${separateur}"${role}"${admin[3]}`;
+  const corpsPatche =
+    corps.slice(0, admin.index) +
+    remplace +
+    corps.slice(admin.index + admin[0].length);
+  writer.write(
+    configPath,
+    source.slice(0, bloc.index) + corpsPatche + source.slice(close),
+  );
+  return null;
+}
+
+/**
  * Noms des paquets que l'APPLICATION déclare (`dependencies` + `devDependencies`).
  *
  * Source unique des deux scaffolds qui doivent savoir si une brique du framework
@@ -1858,6 +1952,18 @@ function runControllerScaffold(
         `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
     );
   }
+  // Une garde de rôle sans le module qui l'évalue serait un décorateur inerte :
+  // le controller compilerait, la route répondrait à tout le monde, et rien ne
+  // le dirait. Refus AVANT d'écrire, avec le geste — jamais un fichier posé
+  // dont la protection est décorative.
+  const role = String(answers.role ?? "").trim();
+  if (role.length > 0 && !targetDeps.has("@nodefony/security")) {
+    throw new Error(
+      `--role ${role} exige @nodefony/security dans ${target.name} — sans lui, ` +
+        `@IsGranted n'est évalué par personne et la route resterait OUVERTE.\n` +
+        `  → l'ajouter : npm install @nodefony/security, puis use("@nodefony/security", {}) au manifeste`,
+    );
+  }
   const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
@@ -1872,6 +1978,12 @@ function runControllerScaffold(
     indexPath: "",
     helloName: kebab,
     secureRoute: false,
+    // La garde de rôle : `roleGuard` décide de l'émission (import compris),
+    // `role` porte la valeur. Deux clés plutôt qu'une chaîne testée dans le
+    // gabarit — une condition écrite sur `it.role` seul rendrait une garde
+    // `@IsGranted("")` le jour où la valeur arrive vide.
+    roleGuard: role.length > 0,
+    role,
   };
   renderLayer(
     eta,
@@ -1893,6 +2005,17 @@ function runControllerScaffold(
     writer,
   );
   written.push("index.ts");
+  // La hiérarchie vit dans le manifeste de l'APPLICATION, jamais dans celui d'un
+  // module : c'est une décision de l'application sur ses propres rôles. Un
+  // controller créé DANS un module déclare donc son rôle à la racine.
+  const noteRole =
+    role.length > 0
+      ? wireRoleHierarchy(
+          path.join(projectRoot, "nodefony.config.ts"),
+          role,
+          writer,
+        )
+      : null;
   const NOTES: Record<TControllerKindChoice, string[]> = {
     hello: [`GET  ${route}`, `WS   ${route}/echo`],
     rest: [`REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE)`],
@@ -1913,7 +2036,19 @@ function runControllerScaffold(
     dest: target.dir,
     files: written.sort(),
     linked: [],
-    notes: NOTES[kind],
+    notes: [
+      ...NOTES[kind],
+      // Ce que la commande a fait AILLEURS que dans les fichiers écrits : une
+      // garde posée sans le dire laisserait chercher pourquoi la route rend 403.
+      ...(role.length > 0
+        ? [
+            `GARDE ${role} sur TOUT le controller (@IsGranted de classe) — ` +
+              (noteRole === null
+                ? `déclaré sous ROLE_ADMIN dans roleHierarchy : l'administrateur y a accès sans porter ce rôle`
+                : `⚠ hiérarchie NON modifiée — ${noteRole}`),
+          ]
+        : []),
+    ],
   };
 }
 
@@ -2792,6 +2927,16 @@ export interface IScaffoldConnector {
   name: string;
   /** Moteur SQL visé — décide des types de colonnes générés. */
   dialect: TEntityDialect;
+  /**
+   * Qui fabrique le schéma de ce connecteur, quand l'application l'ÉCRIT.
+   *
+   * `undefined` = la configuration ne le dit pas, et le mode sera résolu au
+   * démarrage depuis l'environnement (développement → `auto`, le reste →
+   * `none`). Le scaffold ne le devine pas : il ne sait pas dans quel mode
+   * l'application tournera, et affirmer « créée au prochain boot » à qui a
+   * écrit `none` serait faux.
+   */
+  ddl?: string;
 }
 
 /**
@@ -2832,11 +2977,13 @@ function readConnectors(
     while ((match = entry.exec(block)) !== null) {
       const [, name, body] = match;
       if (!name) continue;
+      const ddl = /ddl\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1];
       connectors.push({
         name,
         dialect: asDialect(
           /dialect\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1],
         ),
+        ...(ddl !== undefined ? { ddl } : {}),
       });
     }
   }
@@ -3074,9 +3221,23 @@ function runEntityScaffold(
   // EXISTANTE impose le sien. Les noms d'index en dérivent (`<table>_<cols>_idx`),
   // donc ils suivent sans qu'on ait à le dire.
   const tableAnswer = String(answers.table ?? "").trim();
-  const table = tableAnswer
-    ? assertSqlName(tableAnswer, "--table")
-    : tableName(pascal);
+  // 🔴 L'utilisateur ne suit PAS la règle du pluriel, et ce n'est pas un
+  // caprice de nommage : `queryKit` écrit ce nom en dur dans ses requêtes
+  // (recherche par compte externe, listing). Le refus quelques lignes plus
+  // haut interdit `--table` pour cette raison exacte — et le DÉFAUT du
+  // générateur produisait pourtant la même divergence, en silence : une table
+  // `users` face à un SQL qui lit `User`, donc une recherche qui ne trouve
+  // jamais, donc un compte créé à CHAQUE connexion externe. Une garde qui
+  // interdit d'écrire ce que le défaut écrit tout seul ne garde rien.
+  //
+  // Le nom vient du CONTRAT lu dans l'application (`USER_TABLE_NAME`), jamais
+  // d'une constante recopiée ici : c'est la version que CETTE application a
+  // installée qui décide.
+  const table = isUserEntity
+    ? userTableName(target.dir)
+    : tableAnswer
+      ? assertSqlName(tableAnswer, "--table")
+      : tableName(pascal);
   // Casse des colonnes et nom de la clé primaire — la PROPRIÉTÉ TypeScript ne bouge
   // dans aucun des deux cas : le service CRUD, le controller et les tests générés
   // nomment `id` et `siteId`, quel que soit le nom que porte la colonne en base.
@@ -3428,6 +3589,10 @@ function runEntityScaffold(
     `${pascal}Entity`,
     `./nodefony/entity/${pascal}`,
     writer,
+    // Régénérer l'utilisateur est le geste que son propre fichier prescrit :
+    // il est câblé depuis la naissance de l'application, et le retrouver là
+    // n'est pas un doublon.
+    isUserEntity,
   );
   if (controller) {
     wireDecoratorList(
@@ -3443,14 +3608,39 @@ function runEntityScaffold(
   // Dire la vérité sur la base : le DDL dérivé du mode dev crée la table au boot et
   // rattrape les colonnes qui acceptent le vide, mais jamais une colonne
   // obligatoire — et la production se migre.
+  // 🔴 Ce que le démarrage fera de cette table dépend du MODE de schéma, et
+  // l'application l'écrit parfois. `ddl: "none"` ou `"migrate"` désignent une
+  // base qu'on ne fabrique pas au boot — celle d'une recette, d'une copie de
+  // production, d'un déploiement orchestré. Y annoncer « créée au prochain
+  // boot » est faux, et y proposer `orm:reset` propose d'effacer des données.
+  //
+  // Quand la configuration ne dit rien, le mode sera résolu au démarrage depuis
+  // l'environnement : on décrit alors les DEUX régimes, comme avant.
+  const modeEcrit = readConnectors(projectRoot, writer).find(
+    (c) => c.name === connector,
+  )?.ddl;
+  const schemaFabriqueAuBoot = modeEcrit !== "none" && modeEcrit !== "migrate";
   const notes = [
     ...ormRuntimeNote,
     // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
     // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
     // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
-    `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`,
-    `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
-    `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
+    schemaFabriqueAuBoot
+      ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
+      : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${modeEcrit}) — le démarrage ne la crée PAS`,
+    ...(schemaFabriqueAuBoot
+      ? [
+          `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
+          `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
+        ]
+      : [
+          // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
+          // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
+          // il efface, et ce mode est celui d'une base qui porte des données.
+          `→ écrire la migration : nodefony orm:generate --name <nom>`,
+          `→ l'appliquer : nodefony orm:migrate${connector === "default" ? "" : ` --connector ${connector}`}`,
+          `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
+        ]),
   ];
   if (controller) {
     notes.push(
@@ -3553,14 +3743,38 @@ export function findModuleClassAnchor(source: string): number | undefined {
   }
 }
 
+/**
+ * Câble un descripteur d'entité au module de la cible.
+ *
+ * @param indexPath - `index.ts` de la cible (app racine ou module).
+ * @param className - nom exporté du descripteur.
+ * @param importPath - chemin d'import, en `/`.
+ * @param writer - écrivain du scaffold (respecte `--dry-run`).
+ * @param dejaCableEstNormal - `true` quand RÉGÉNÉRER l'entité est le geste
+ *   attendu, et non un doublon. C'est le cas de l'utilisateur : son fichier
+ *   PRESCRIT « relance la commande avec tes champs », et l'entité est déjà
+ *   câblée depuis la naissance de l'application. Le refus reste entier pour
+ *   toutes les autres : deux entités du même nom dans un registre PLAT font
+ *   échouer le démarrage.
+ * @throws Si le nom est déjà référencé hors de ce cas, ou si l'`index.ts` n'a
+ *   aucun import où s'accrocher.
+ */
 export function wireEntitiesDecorator(
   indexPath: string,
   className: string,
   importPath: string,
   writer: ScaffoldWriter,
+  dejaCableEstNormal = false,
 ): void {
   const source = writer.read(indexPath);
   if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
+    if (dejaCableEstNormal) {
+      // Rien à faire : l'import et l'entrée du décorateur sont déjà là, et ce
+      // sont les MÊMES — le fichier d'entité vient d'être réécrit sous le même
+      // nom. Ajouter une seconde entrée ferait échouer le boot sur un doublon
+      // de registre.
+      return;
+    }
     throw new Error(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom d'entité`,
     );

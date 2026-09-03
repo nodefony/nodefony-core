@@ -2,8 +2,8 @@
   "model": "claude-haiku-4-5-20251001",
   "decor": "isolé (tarballs, hors dépôt) · MCP eteint",
   "agent": "claude",
-  "date": "2026-08-30T23:06:24.315Z",
-  "commit": "8dcbcf60",
+  "date": "2026-09-02T20:26:40.777Z",
+  "commit": null,
   "verdicts": {
     "1": {
       "verdict": "PASS",
@@ -210,16 +210,16 @@
       "commit": "af71b9fa"
     },
     "18": {
-      "verdict": "FAIL",
-      "runs": 2,
-      "passes": 1,
-      "tours": 33,
+      "verdict": "PASS",
+      "runs": 3,
+      "passes": 3,
+      "tours": 46,
       "empreinte": "3c610f76ff5d",
-      "date": "2026-08-24T19:27:11.627Z",
+      "date": "2026-09-02T19:56:36.231Z",
       "sources": [
-        "2026-08-24T16-02-49"
+        "2026-09-02T17-46-45"
       ],
-      "commit": "af71b9fa"
+      "commit": "74ff9f0a"
     },
     "19": {
       "verdict": "PASS",
@@ -246,16 +246,16 @@
       "commit": "af71b9fa"
     },
     "22": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 2,
-      "passes": 1,
-      "tours": 41,
+      "passes": 2,
+      "tours": 62,
       "empreinte": "73697dcc0240",
-      "date": "2026-08-24T19:27:11.627Z",
+      "date": "2026-09-02T19:56:36.231Z",
       "sources": [
-        "2026-08-24T16-02-49"
+        "2026-09-02T17-46-45"
       ],
-      "commit": "af71b9fa"
+      "commit": "74ff9f0a"
     },
     "24": {
       "verdict": "PASS",
@@ -369,13 +369,38 @@
       "verdict": "FAIL",
       "runs": 3,
       "passes": 2,
-      "tours": 40,
-      "empreinte": "d0dd1e36fcc4",
-      "date": "2026-08-30T23:06:24.315Z",
+      "tours": 50,
+      "empreinte": "e128c22de784",
+      "date": "2026-09-02T19:56:36.231Z",
       "sources": [
-        "2026-08-30T22-24-47"
+        "2026-09-02T17-46-45"
       ],
-      "commit": "8dcbcf60"
+      "commit": "74ff9f0a"
+    },
+    "34": {
+      "verdict": "FAIL",
+      "runs": 3,
+      "passes": 2,
+      "tours": 53,
+      "empreinte": "269e38a94bdf",
+      "date": "2026-09-02T19:56:36.231Z",
+      "sources": [
+        "2026-09-02T17-46-45"
+      ],
+      "commit": "74ff9f0a"
+    },
+    "35": {
+      "verdict": "PASS",
+      "runs": 3,
+      "passes": 3,
+      "tours": 61,
+      "empreinte": "d9d007ce872b",
+      "date": "2026-09-02T20:26:40.777Z",
+      "sources": [
+        "2026-09-02T19-56-04",
+        "2026-09-02T20-09-51"
+      ],
+      "commit": null
     }
   }
 }

@@ -29,7 +29,8 @@
  * | Sortie | Cause             | Ce que ça dit                                          |
  * | -----: | ----------------- | ------------------------------------------------------ |
  * |    `0` | conforme          | la base a suivi, sans rien perdre                      |
- * |    `1` | colonne-absente   | la ressource ne publie pas la colonne neuve            |
+ * |    `1` | colonne-absente   | la ressource ne publie pas la colonne neuve — ou ne se |
+ * |        |                   | lit plus du tout (migration écrite, jamais appliquée)  |
  * |    `2` | donnee-perdue     | la ligne d'avant a disparu — la base a été refaite     |
  * |    `3` | etat-non-a-jour   | `orm:migrate:status` ne rend pas 0                     |
  * |    `4` | non-idempotent    | rejouer applique encore quelque chose                  |
@@ -37,6 +38,7 @@
  * |    `5` | port-deja-tenu    | un serveur ÉTRANGER répondrait à sa place              |
  * |    `6` | aucune-reponse    | l'application ne répond pas — DÉCOR                    |
  * |    `7` | route-absente     | la ressource n'est pas montée — DÉCOR                  |
+ * |    `9` | jeton-csrf-absent | le juge n'a pas pu se munir — DÉCOR                    |
  *
  * Les causes `5`, `6` et `7` n'accusent PAS l'agent : sans elles, un décor
  * défaillant rendrait un « colonne absente » parfaitement crédible sur un
@@ -45,7 +47,13 @@
  * @module
  */
 import { spawnSync } from "node:child_process";
-import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
+import {
+  CookieJar,
+  request,
+  ensurePortFree,
+  exit,
+  semerJeton,
+} from "./http-probe.mjs";
 import { ROUTE_ARTICLES, TITRE_SEME } from "./prepare-base-migree.mjs";
 
 /** Les causes, telles que la table ci-dessus les fixe. */
@@ -59,6 +67,7 @@ export const CAUSES = {
   "aucune-reponse": 6,
   "route-absente": 7,
   "ressource-cassee": 8,
+  "jeton-csrf-absent": 9,
 };
 
 /**
@@ -196,11 +205,37 @@ async function principal() {
   if (liste.error !== undefined) {
     exit(
       CAUSES["aucune-reponse"],
-      `l'application ne répond pas : ${liste.error}`,
+      `CAUSE=aucune-reponse — l'application ne répond pas : ${liste.error}`,
     );
   }
   if (liste.status === 404) {
-    exit(CAUSES["route-absente"], `${ROUTE_ARTICLES} n'est pas montée`);
+    exit(
+      CAUSES["route-absente"],
+      `CAUSE=route-absente — ${ROUTE_ARTICLES} n'est pas montée`,
+    );
+  }
+  // 🔴 Tout statut NON-2xx est une ressource qui ne répond pas — pas une base
+  // vidée. Mesuré au banc : une migration écrite et JAMAIS appliquée fait
+  // répondre 500 à la liste (la requête cherche une colonne absente) ; le corps
+  // d'erreur était alors lu comme une liste vide, le témoin déclaré disparu, et
+  // le juge annonçait « la base a été refaite » — une destruction qui n'avait
+  // pas eu lieu, dans un banc dont la raison d'être est de NOMMER la cause.
+  //
+  // La cause reste `colonne-absente` : c'est bien le travail qui n'est pas
+  // fini, et le détail dit ce qui a été constaté plutôt que ce qu'on en déduit.
+  if (
+    typeof liste.status !== "number" ||
+    liste.status < 200 ||
+    liste.status >= 300
+  ) {
+    exit(
+      CAUSES["colonne-absente"],
+      `CAUSE=colonne-absente — ${ROUTE_ARTICLES} répond ${liste.status} : la ressource ne se lit plus. ` +
+        `Le plus souvent la migration est écrite et NON appliquée — la requête ` +
+        `cherche alors une colonne que la base n'a pas. Rien ne dit ici que des ` +
+        `données ont disparu : ` +
+        `${String(liste.body ?? "").slice(0, 160)}`,
+    );
   }
 
   // 2. La ligne d'AVANT est-elle toujours là, et la ressource PUBLIE-t-elle la
@@ -219,9 +254,26 @@ async function principal() {
   //    contrat d'entrée ignore rend la création impossible — la base a suivi,
   //    l'application non.
   const unique = `sonde-${Date.now()}`;
+  // Se munir du jeton anti-rejeu AVANT d'écrire. Sans ce pas, une application
+  // dont l'écriture porte `@CsrfProtect` — ce que l'`AGENTS.md` du produit
+  // PRESCRIT — rend 403 au juge, qui conclurait « la ressource est cassée » sur
+  // une protection correctement posée.
+  await semerJeton(jar, ROUTE_ARTICLES, ROUTE_ARTICLES);
   const ecriture = await request("POST", ROUTE_ARTICLES, jar, {
     body: { title: `sonde ${unique}`, slug: unique },
+    csrfToken: jar.csrfToken(),
   });
+  // 🔴 Un 403 SANS jeton en poche ne dit rien de la ressource : il dit que le
+  // juge n'a pas pu se munir. C'est l'instrument qui manque, pas la migration.
+  if (ecriture.status === 403 && jar.csrfToken() === null) {
+    exit(
+      CAUSES["jeton-csrf-absent"],
+      `CAUSE=jeton-csrf-absent — POST ${ROUTE_ARTICLES} rend 403 et le juge n'a ` +
+        `AUCUN jeton : aucune route sûre de ${ROUTE_ARTICLES} n'a semé le cookie ` +
+        `« csrf-token ». La migration n'est pas en cause — l'instrument ne s'est ` +
+        `pas muni.`,
+    );
+  }
 
   // 4. L'état, et l'idempotence — par les commandes du framework, qui sont la
   //    référence : l'écran et le plan d'administration publient le même objet.
@@ -262,7 +314,7 @@ async function principal() {
       `témoin ${temoinPresent} · colonne publiée ${colonnePubliee} · ` +
       `status ${status.code} (verdict ${statusVerdict ?? "ILLISIBLE"}) · appliquées ${applique}`,
   );
-  exit(verdict.code, verdict.detail);
+  exit(verdict.code, `CAUSE=${verdict.cause} — ${verdict.detail}`);
 }
 
 // Ne s'exécute QUE lancé directement : l'auto-contrôle importe `judge` sans

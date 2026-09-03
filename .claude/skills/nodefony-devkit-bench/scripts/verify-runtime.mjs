@@ -47,6 +47,7 @@
  * Sortie : rapport console + code de sortie 1 dès qu'un étage est rouge.
  */
 import { spawnSync } from "node:child_process";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -68,6 +69,23 @@ function findRepoRoot(from) {
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const REPO = findRepoRoot(ICI);
 const SUITES = path.join(ICI, "..", "suites");
+
+garderDrapeaux({
+  args: process.argv.slice(2),
+  connus: ["--link", "--etage"],
+  aValeur: ["--etage"],
+  usage: [
+    "Banc de conformité — ce qui a été câblé tient-il les promesses du framework ?",
+    "",
+    "  node verify-runtime.mjs           décor ISOLÉ, application démarrée",
+    "  node verify-runtime.mjs --etage <n>  un seul étage",
+    "  node verify-runtime.mjs --link    décor lié au dépôt : boucle courte, verdict AMPUTÉ",
+    "",
+    "Sorties : 0 conforme · 1 une promesse n'est pas tenue · 64 usage",
+  ].join("\n"),
+  avertissement:
+    "Rien n'a été lancé — ce banc monte et démarre une application.",
+});
 
 const LINKED = process.argv.includes("--link");
 const iEtage = process.argv.indexOf("--etage");

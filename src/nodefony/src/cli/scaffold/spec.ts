@@ -371,6 +371,30 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
       pattern: "^$|^[@A-Za-z][@A-Za-z0-9/_-]*$",
       patternHint: "nom d'un module du projet (dossier modules/<nom>) ou vide",
     },
+    {
+      // 🔴 Le trou que le banc de découvrabilité nommait dans son propre décor :
+      // « aucun générateur ne sait poser une garde sur un rôle CHOISI ; les
+      // gabarits n'émettent que ROLE_ADMIN littéral, et le CLI n'a aucune
+      // option de rôle ». Le repère de sa tâche devait donc être posé à la
+      // main — c'est-à-dire que le geste le plus courant de toute application
+      // (« réserve ceci à telle habilitation ») n'avait aucun chemin outillé.
+      //
+      // Réservé à la LIGNE DE COMMANDE (`advanced`) : le dialogue ne le pose
+      // pas, parce que son défaut — aucune garde — est le bon pour une route
+      // que la zone firewall couvre déjà.
+      key: "role",
+      label: "Rôle exigé pour TOUT le controller (vide = aucune garde de rôle)",
+      type: "string",
+      default: "",
+      advanced: true,
+      // Un rôle Nodefony s'écrit `ROLE_…` en capitales : c'est la convention
+      // que la hiérarchie, le firewall et les gabarits lisent. Accepter
+      // « billing » écrirait une garde qui ne correspond à aucun rôle, et le
+      // refus n'apparaîtrait qu'à la première requête d'un utilisateur.
+      pattern: "^$|^ROLE_[A-Z][A-Z0-9_]*$",
+      patternHint:
+        "un rôle en capitales préfixé ROLE_ (ex : ROLE_BILLING) ou vide",
+    },
   ],
 };
 

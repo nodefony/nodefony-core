@@ -1229,6 +1229,209 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // le WS métier a sa couche (`--kind realtime`).
       assert.include(src, "--kind realtime");
     });
+
+    // ── `--role` : la garde sur un rôle CHOISI ────────────────────────────────
+    // Le trou que le banc de découvrabilité nommait dans son propre décor :
+    // « aucun générateur ne sait poser une garde sur un rôle CHOISI ». Sans
+    // cette option, le geste le plus courant d'une application — réserver
+    // quelque chose à une habilitation — n'avait aucun chemin outillé, et la
+    // doc était la seule réponse.
+
+    it("create controller --role : garde de CLASSE + import + hiérarchie sous ROLE_ADMIN", () => {
+      const dest = path.join(tmp, "rctrl");
+      scaffold(dest, { name: "rctrl", preset: "complete", frontend: "none" });
+      const res = runScaffold(
+        {
+          type: "controller",
+          answers: { name: "billing", kind: "hello", role: "ROLE_BILLING" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "BillingController.ts"),
+        "utf8",
+      );
+      // La garde vaut pour TOUT le controller — donc aussi pour les actions
+      // qu'on ajoutera demain. C'est ce qui la distingue d'un rappel.
+      assert.include(src, '@IsGranted("ROLE_BILLING")');
+      assert.include(src, "IsGranted,");
+      // 🔴 La garde se pose ENTRE les décorateurs, jamais avant le TSDoc de la
+      // classe : un second bloc `/** … */` intercalé détache le premier, et la
+      // documentation de la classe disparaît de l'éditeur. Le code compilait
+      // quand même — c'est pourquoi aucun gate ne l'aurait dit.
+      assert.match(
+        src,
+        /\*\/\s*@controller\(/u,
+        "le TSDoc de la classe doit rester collé à son premier décorateur",
+      );
+      assert.match(
+        src,
+        /@controller\([^)]*\)[\s\S]{0,900}@IsGranted\("ROLE_BILLING"\)[\s\S]{0,40}class /u,
+        "la garde vient après @controller et juste avant la classe",
+      );
+      // Un décorateur importé de nulle part ne compile pas : l'import est
+      // émis par la MÊME condition que la garde.
+      assert.match(src, /IsGranted[\s\S]{0,200}from "@nodefony\/framework"/u);
+
+      // La hiérarchie GÉNÉRALISE : un administrateur accède à ce controller
+      // sans porter le rôle, et il en ira de même de toute route future gardée
+      // par lui. Une liste de rôles sur l'action ne ferait ni l'un ni l'autre.
+      const manifeste = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.match(
+        manifeste,
+        /ROLE_ADMIN\s*:\s*\[[^\]]*"ROLE_BILLING"[^\]]*\]/u,
+        "le rôle doit être déclaré sous ROLE_ADMIN dans roleHierarchy",
+      );
+      // Ce qui a été fait AILLEURS que dans les fichiers écrits se DIT.
+      const notes = res.notes ?? [];
+      assert.isTrue(
+        notes.some((n) => n.includes("ROLE_BILLING")),
+        `les notes doivent nommer la garde posée : ${notes.join(" | ")}`,
+      );
+    });
+
+    it("create controller sans --role : aucune garde, aucun import inutile, manifeste intact", () => {
+      const dest = path.join(tmp, "nrctrl");
+      scaffold(dest, { name: "nrctrl", preset: "complete", frontend: "none" });
+      const avant = readFileSync(path.join(dest, "nodefony.config.ts"), "utf8");
+      runScaffold(
+        {
+          type: "controller",
+          answers: { name: "public", kind: "hello" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PublicController.ts"),
+        "utf8",
+      );
+      // ⚠️ Pas `notInclude("@IsGranted")` : le gabarit CITE le décorateur dans
+      // sa prose (« APRÈS le firewall et la garde `@IsGranted` »). Ce qu'on
+      // interdit est la LIGNE de décorateur, pas le mot.
+      assert.notMatch(src, /^@IsGranted\(/mu);
+      assert.notInclude(src, "IsGranted,");
+      assert.equal(
+        readFileSync(path.join(dest, "nodefony.config.ts"), "utf8"),
+        avant,
+        "sans --role, le manifeste de l'application ne doit pas bouger",
+      );
+    });
+
+    it("create controller --role : une liste à virgule TRAÎNANTE reste valide", () => {
+      // 🔴 Le cas que le gabarit ne montre pas, et que prettier fabrique : dès
+      // que `roleHierarchy` passe sur plusieurs lignes, la liste porte une
+      // virgule finale. Composer par-dessus donnait `[…"ROLE_USER",, "ROLE_X"]`
+      // — un manifeste qui ne compile plus, écrit par la commande censée le
+      // câbler. Trouvé en relisant mon propre diff, pas par un rouge.
+      const dest = path.join(tmp, "rvirgule");
+      scaffold(dest, {
+        name: "rvirgule",
+        preset: "complete",
+        frontend: "none",
+      });
+      const cfg = path.join(dest, "nodefony.config.ts");
+      writeFileSync(
+        cfg,
+        readFileSync(cfg, "utf8").replace(
+          'ROLE_ADMIN: ["ROLE_USER"],',
+          'ROLE_ADMIN: [\n          "ROLE_USER",\n          "ROLE_SUPPORT",\n        ],',
+        ),
+      );
+      runScaffold(
+        {
+          type: "controller",
+          answers: {
+            name: "recouvrement",
+            kind: "hello",
+            role: "ROLE_BILLING",
+          },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const manifeste = readFileSync(cfg, "utf8");
+      assert.notMatch(
+        manifeste,
+        /,\s*,/u,
+        `deux virgules consécutives : le manifeste ne compile plus — ${manifeste.slice(manifeste.indexOf("roleHierarchy"), manifeste.indexOf("roleHierarchy") + 220)}`,
+      );
+      assert.match(manifeste, /"ROLE_SUPPORT"[\s\S]{0,40}"ROLE_BILLING"/u);
+    });
+
+    it("create controller --role : rejouer la commande n'ajoute pas le rôle deux fois", () => {
+      const dest = path.join(tmp, "r2ctrl");
+      scaffold(dest, { name: "r2ctrl", preset: "complete", frontend: "none" });
+      for (const nom of ["facture", "avoir"]) {
+        runScaffold(
+          {
+            type: "controller",
+            answers: { name: nom, kind: "hello", role: "ROLE_BILLING" },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+      }
+      const manifeste = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.equal(
+        manifeste.split('"ROLE_BILLING"').length - 1,
+        1,
+        "le rôle ne doit être déclaré qu'une fois, quel que soit le nombre d'appels",
+      );
+    });
+
+    it("create controller --role sans @nodefony/security : REFUS avant écriture", () => {
+      // Une garde que personne n'évalue est un décorateur inerte : le
+      // controller compilerait, et la route répondrait à tout le monde.
+      const dest = path.join(tmp, "minirole");
+      scaffold(dest, { name: "minirole", preset: "minimal", frontend: "none" });
+      assert.throws(
+        () =>
+          runScaffold(
+            {
+              type: "controller",
+              answers: { name: "secret", kind: "hello", role: "ROLE_BILLING" },
+              dir: dest,
+              force: false,
+            },
+            version,
+          ),
+        /@nodefony\/security/u,
+      );
+      assert.isFalse(
+        existsSync(
+          path.join(dest, "nodefony", "controllers", "SecretController.ts"),
+        ),
+        "le refus doit tomber AVANT d'écrire le fichier",
+      );
+    });
+
+    it("create controller --role : un rôle mal écrit est refusé par le schéma", () => {
+      const dest = path.join(tmp, "badrole");
+      scaffold(dest, { name: "badrole", preset: "complete", frontend: "none" });
+      assert.throws(() =>
+        runScaffold(
+          {
+            type: "controller",
+            answers: { name: "compta", kind: "hello", role: "billing" },
+            dir: dest,
+            force: false,
+          },
+          version,
+        ),
+      );
+    });
   });
 
   describe("moteur — choix frontend", () => {
@@ -3852,7 +4055,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(src, "firstName:");
         assert.include(src, "department:");
         // La table porte le nom que les requêtes écrivent en dur.
-        assert.include(src, '"User"');
+        //
+        // ⚠️ Viser `'"User"'` seul ne prouvait RIEN : le descripteur porte
+        // `name: "User"` quelques lignes plus bas, si bien que l'assertion
+        // restait verte pendant que la table s'appelait `users`. Une ancre
+        // vraie peut porter une affirmation fausse — c'est la table qu'on
+        // nomme ici, donc c'est l'appel de table qu'il faut viser.
+        assert.include(src, 'sqliteTable("User"');
         // `updatedAt` se régénère à chaque écriture — sinon la date de
         // modification ment, et personne ne le voit.
         assert.include(src, "$onUpdateFn");
@@ -4112,6 +4321,55 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include((r.notes ?? []).join("\n"), "(sqlite)");
     });
 
+    it("le mode de schéma ÉCRIT change ce que la commande annonce — et n'offre plus d'effacer", () => {
+      // 🔴 Les notes affirmaient « créée au prochain boot en développement » et
+      // proposaient `orm:reset` quel que soit le mode. Sur un connecteur
+      // `ddl: "none"` — celui d'une base de recette, d'une copie de production,
+      // d'un déploiement orchestré — la première phrase est FAUSSE et la
+      // seconde propose d'effacer des données. Un agent lit ces lignes et
+      // exécute la première commande qu'elles nomment.
+      const dest = app("ddlnone");
+      const cfg = path.join(dest, "nodefony.config.ts");
+      writeFileSync(
+        cfg,
+        readFileSync(cfg, "utf8").replace(
+          '"@nodefony/drizzle",',
+          'use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),',
+        ),
+      );
+      const notes = (
+        entity(dest, { name: "Invoice", fields: "code:string!" }).notes ?? []
+      ).join("\n");
+      assert.include(
+        notes,
+        "le démarrage ne la crée PAS",
+        "en mode « none », annoncer une création au boot est faux",
+      );
+      assert.include(notes, "orm:generate");
+      assert.include(notes, "orm:migrate");
+      assert.notInclude(
+        notes,
+        "orm:reset",
+        "ce mode désigne une base qui porte des données — ne jamais proposer d'effacer",
+      );
+      assert.notInclude(
+        notes,
+        "créée au prochain boot",
+        "la phrase du mode « auto » ne doit pas survivre ici",
+      );
+    });
+
+    it("sans mode ÉCRIT, la commande décrit les DEUX régimes — elle ne devine pas", () => {
+      // Le scaffold ne sait pas dans quel environnement l'application tournera :
+      // le mode sera résolu au démarrage. Il décrit donc les deux, comme avant.
+      const dest = app("ddlauto");
+      const notes = (
+        entity(dest, { name: "Ticket", fields: "code:string!" }).notes ?? []
+      ).join("\n");
+      assert.include(notes, "créée au prochain boot en développement");
+      assert.include(notes, "production : appliquer les migrations");
+    });
+
     it("drizzle-orm est déclaré par l'app (import direct de l'entité générée)", () => {
       // L'entité produite importe `drizzle-orm/<dialecte>-core` : c'est une dep DE
       // L'APP. Sans elle, la résolution ne tient que par le hissage npm des
@@ -4166,6 +4424,105 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isTrue(
         existsSync(path.join(dest, "nodefony", "entity", "UserProfile.ts")),
         `UserProfile doit passer — notes: ${(ok.notes ?? []).join(" ")}`,
+      );
+    });
+
+    // ── `create entity User` : le geste que le fichier généré PRESCRIT ────────
+    // « Ne modifie pas ce fichier à la main : relance la commande avec tes
+    // champs. » Ce geste cassait l'application de trois façons à la fois, et
+    // chacune était invisible aux assertions de chaînes existantes.
+
+    it("create entity User : la table garde le nom du contrat, JAMAIS le pluriel", () => {
+      // 🔴 Le défaut : la règle du pluriel produisait `users`, face à un SQL du
+      // framework qui lit `User` en dur (recherche par compte externe,
+      // listing). La divergence ne LÈVE PAS — la recherche rend zéro ligne, et
+      // le provisionnement crée un compte de plus à CHAQUE connexion externe.
+      //
+      // Le refus de `--table` existait déjà et disait la bonne chose ; il
+      // n'empêchait pas le DÉFAUT de produire exactement ce qu'il interdisait.
+      const dest = app("eapp-user-table");
+      lierModuleUtilisateur(dest);
+      entity(dest, { name: "User", fields: "department:string?" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "User.ts"),
+        "utf8",
+      );
+      assert.include(
+        src,
+        'sqliteTable("User"',
+        "la table des utilisateurs s'appelle « User » — le SQL du framework l'écrit en dur",
+      );
+      assert.notMatch(
+        src,
+        /sqliteTable\("users"/u,
+        "« users » est la table que le pluriel produisait, et le SQL ne l'interroge jamais",
+      );
+      // Le champ demandé est bien là — sans lui, le test passerait sur une
+      // entité qui n'a rien reçu.
+      assert.include(src, 'department: text("department")');
+    });
+
+    it("create entity User : REMPLACE l'entité du gabarit, sans casser son câblage", () => {
+      // 🔴 Le second défaut, et le plus brutal : le gabarit d'application
+      // exportait `AppUserEntity`, le générateur écrit `UserEntity`. Relancer
+      // la commande — le geste que le fichier PRESCRIT — laissait un
+      // `index.ts` qui importe un symbole disparu : l'application ne compilait
+      // plus. Les deux noms ont convergé sur la convention du générateur.
+      const dest = app("eapp-user-wire");
+      lierModuleUtilisateur(dest);
+      // AVANT toute régénération : ce que l'index importe doit EXISTER dans le
+      // fichier d'entité que le gabarit vient de poser. Une application qui
+      // naît sur un import mort ne compile pas, et aucune assertion de chaîne
+      // ne le dit — c'est ce qui est arrivé.
+      const indexNeuf = readFileSync(path.join(dest, "index.ts"), "utf8");
+      const entiteNeuve = readFileSync(
+        path.join(dest, "nodefony", "entity", "User.ts"),
+        "utf8",
+      );
+      const importesAvant = [
+        ...indexNeuf.matchAll(
+          /import \{ ([A-Za-z]+) \} from "\.\/nodefony\/entity\/User"/gu,
+        ),
+      ].map(([, nom]) => nom);
+      assert.isNotEmpty(
+        importesAvant,
+        "l'application neuve doit câbler son entité utilisateur",
+      );
+      for (const nom of importesAvant) {
+        assert.match(
+          entiteNeuve,
+          new RegExp(`export const ${nom}\\b`, "u"),
+          `index.ts importe « ${nom} » — le gabarit d'entité doit l'exporter`,
+        );
+      }
+      entity(dest, { name: "User", fields: "department:string?" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "User.ts"),
+        "utf8",
+      );
+      assert.include(src, "export const UserEntity = defineEntity({");
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      // Tout ce que l'index importe de ce fichier doit y EXISTER — c'est la
+      // seule façon de dire « ça compile encore » sans compiler.
+      for (const [, nom] of index.matchAll(
+        /import \{ ([A-Za-z]+) \} from "\.\/nodefony\/entity\/User"/gu,
+      )) {
+        assert.include(
+          src,
+          `export const ${nom} `,
+          `index.ts importe « ${nom} » — le fichier d'entité doit l'exporter`,
+        );
+      }
+      // Le registre d'entités est PLAT et refuse un doublon au démarrage : une
+      // seconde entrée pour la même entité ferait échouer le boot.
+      assert.equal(
+        index.split("UserEntity").length - 1,
+        2,
+        `l'entité ne doit apparaître qu'une fois à l'import et une fois au ` +
+          `câblage : ${index
+            .split("\n")
+            .filter((l) => l.includes("UserEntity"))
+            .join(" | ")}`,
       );
     });
 
@@ -4725,7 +5082,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(index, 'import { entities } from "@nodefony/orm-core";');
       // L'application `complete` naît AVEC son entité `User` : le décorateur existe
       // donc déjà, et la liste s'allonge au lieu d'être créée.
-      assert.match(index, /@entities\(\[AppUserEntity, PostEntity\]\)/u);
+      assert.match(index, /@entities\(\[UserEntity, PostEntity\]\)/u);
       assert.match(index, /@controllers\(\[[^\]]*PostController\]\)/u);
     });
 
@@ -4737,7 +5094,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       assert.match(
         index,
-        /@entities\(\[AppUserEntity, PostEntity, CommentEntity\]\)/u,
+        /@entities\(\[UserEntity, PostEntity, CommentEntity\]\)/u,
       );
       assert.strictEqual(index.match(/@entities\(/gu)?.length, 1);
       // L'import du décorateur ne doit pas être ajouté deux fois.
@@ -4765,7 +5122,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       assert.match(
         index,
-        /@entities\(\[AppUserEntity, PostEntity, CommentEntity, TagEntity\]\)/u,
+        /@entities\(\[UserEntity, PostEntity, CommentEntity, TagEntity\]\)/u,
       );
       assert.notMatch(index, /import \w+Entity from /u);
     });
@@ -4797,7 +5154,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
       // L'application `complete` naît AVEC son entité `User` : le décorateur existe
       // donc déjà, et la liste s'allonge au lieu d'être créée.
-      assert.match(index, /@entities\(\[AppUserEntity, PostEntity\]\)/u);
+      assert.match(index, /@entities\(\[UserEntity, PostEntity\]\)/u);
       assert.notInclude(index, "PostController");
     });
 

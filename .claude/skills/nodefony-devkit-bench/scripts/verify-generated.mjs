@@ -33,6 +33,7 @@
  * Sortie : rapport console + code de sortie 1 à la première étape rouge.
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import {
   mkdirSync,
   rmSync,
@@ -69,6 +70,30 @@ function findRepoRoot(from) {
   }
   throw new Error("racine du dépôt Nodefony introuvable depuis " + from);
 }
+
+// 🔴 Avant toute chose : ce banc installe une application complète, la
+// compile et la démarre. Un drapeau mal tapé lui faisait dérouler tout ça « au
+// cas où » — la même garde protège les trois bancs, depuis une seule
+// implémentation.
+garderDrapeaux({
+  args: process.argv.slice(2),
+  connus: ["--database", "--keep", "--link", "--repack"],
+  aValeur: ["--database"],
+  usage: [
+    "Banc de vérité du code généré — compile-t-il, teste-t-il, répond-il ?",
+    "",
+    "  node verify-generated.mjs                  décor ISOLÉ, toutes les étapes",
+    "  node verify-generated.mjs --database <m>   le moteur du décor (défaut : sqlite)",
+    "",
+    "  --link    décor lié au dépôt : boucle courte, verdict AMPUTÉ",
+    "  --keep    conserve le décor à la fin (pour inspecter)",
+    "  --repack  refabrique les tarballs même s'ils paraissent à jour",
+    "",
+    "Sorties : 0 toutes les étapes passent · 1 une étape a échoué · 64 usage",
+  ].join("\n"),
+  avertissement:
+    "Rien n'a été lancé — ce banc installe, compile et démarre une application.",
+});
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
@@ -163,6 +188,17 @@ const APP = path.join(ROOT, "app");
  */
 const MODULE = "blog";
 const MODULE_PKG = `@app/${MODULE}`;
+
+/**
+ * Le controller RÉSERVÉ à une habilitation, et le rôle qu'il exige.
+ *
+ * Un rôle qu'aucune application générée ne déclare : sinon la hiérarchie
+ * attendue serait vraie AVANT le premier geste, et l'étape passerait sur un
+ * générateur qui n'a rien fait.
+ */
+const CONTROLLER_GARDE = "coffre";
+const CONTROLLER_GARDE_CLASS = "CoffreController";
+const ROLE_GARDE = "ROLE_COFFRE";
 
 /**
  * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
@@ -537,6 +573,48 @@ step(
     if (/\bgreet\b/u.test(generated)) {
       throw new Error(
         "la commande appelle « greet » : le générateur exige encore son propre exemple",
+      );
+    }
+
+    // Un controller RÉSERVÉ à une habilitation — la seule voie par laquelle la
+    // garde de rôle générée est COMPILÉE quelque part. Elle sort d'un bloc
+    // conditionnel du gabarit (import compris) : les assertions de chaînes du
+    // dépôt la lisent, personne ne la compile, et un décorateur importé de
+    // nulle part passerait tous les contrôles jusqu'à l'application de
+    // l'utilisateur.
+    run(process.execPath, [
+      BIN,
+      "create",
+      "controller",
+      CONTROLLER_GARDE,
+      "--role",
+      ROLE_GARDE,
+      "--yes",
+    ]);
+    const garde = readFileSync(
+      path.join(APP, "nodefony", "controllers", `${CONTROLLER_GARDE_CLASS}.ts`),
+      "utf8",
+    );
+    if (!garde.includes(`@IsGranted("${ROLE_GARDE}")`)) {
+      throw new Error(
+        `le controller généré ne porte pas la garde « ${ROLE_GARDE} » — ` +
+          "`--role` a-t-il été honoré ?",
+      );
+    }
+    // La hiérarchie vit dans le manifeste de l'APPLICATION : sans elle,
+    // l'administrateur devrait porter le rôle, et la garde ne généralise pas.
+    const manifeste = readFileSync(
+      path.join(APP, "nodefony.config.ts"),
+      "utf8",
+    );
+    if (
+      !new RegExp(`ROLE_ADMIN\\s*:\\s*\\[[^\\]]*"${ROLE_GARDE}"`, "u").test(
+        manifeste,
+      )
+    ) {
+      throw new Error(
+        `« ${ROLE_GARDE} » n'est pas déclaré sous ROLE_ADMIN dans roleHierarchy — ` +
+          "la garde ne vaudrait que pour les porteurs du rôle",
       );
     }
 
@@ -1092,7 +1170,7 @@ export const userTable = ${grammaire.table}("User", {
   updatedAt: ${grammaire.col("updatedAt")}.notNull(),
 });
 
-export const AppUserEntity = defineEntity({
+export const UserEntity = defineEntity({
   name: "User",
   module: "app",
   connector: FRAMEWORK_CONNECTOR,

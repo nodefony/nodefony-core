@@ -23,6 +23,12 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
+    // Un worker par FICHIER coûtait la moitié de la suite (spawn + réévaluation du
+    // graphe) : `vitest doctor` mesure −40 à −50 % avec des workers partagés, et
+    // a rejoué la suite deux fois en ordre mélangé sans qu'un test dépende de
+    // l'isolation. Un test qui s'en met à dépendre se voit : rétablir `true` ET
+    // nommer le coupable, jamais l'inverse.
+    isolate: false,
     include: ["nodefony/tests/unit/**/*.test.ts"],
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
     coverage: {

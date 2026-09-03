@@ -47,11 +47,11 @@
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
     "@types/node": "26.4.1",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "5.0.0",
     "nodefony": "*",
     "reflect-metadata": "0.2.2",
     "rimraf": "6.1.3",
-    "vitest": "4.1.11"
+    "vitest": "5.0.0"
   },
   "private": false,
   "license": "CECILL-B",

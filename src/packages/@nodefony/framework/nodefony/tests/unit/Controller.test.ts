@@ -18,6 +18,10 @@ interface HarnessOptions {
   template?: unknown;
   requestEnded?: boolean;
   range?: string;
+  /** Mode du kernel — la sonde CSP ne parle qu'en développement. */
+  environment?: string;
+  /** Valeur de `Content-Security-Policy` déjà posée sur la réponse. */
+  csp?: string;
 }
 
 // Harnais : on construit un VRAI Controller (Container + Event réels) pour que
@@ -60,11 +64,17 @@ function makeController(opts: HarnessOptions = {}) {
     setFileMimeType() {
       calls.fileMime++;
     },
+    // La sonde CSP lit l'en-tête RÉELLEMENT posé — c'est le firewall qui le
+    // compose, jamais une configuration relue.
+    getHeader(name: string) {
+      return name === "Content-Security-Policy" ? opts.csp : undefined;
+    },
   };
 
   const ctx = {
     container: new Container(),
     notificationsCenter: new Event(),
+    kernel: { environment: opts.environment ?? "production" },
     // Le vrai `Context` porte l'instrumentation de phases (`IContext`) — un stub
     // qui l'omet ne reproduit pas la donnée réelle et casse dès qu'un chemin la
     // mesure (renderView → phase `render`).
@@ -171,6 +181,132 @@ describe("Controller — render()", () => {
     const { c, calls } = makeController();
     await c.render("<h1>hi</h1>");
     expect(calls.render).to.deep.equal(["<h1>hi</h1>"]);
+  });
+});
+
+/**
+ * La sonde CSP — un avertissement qui NOMME le geste, jamais un refus.
+ *
+ * Ce que ces cas défendent : un `<script>` en ligne sous une politique à nonce
+ * ne s'exécutera PAS dans le navigateur, et personne ne le voit quand la page
+ * est produite par un test, un `curl` ou un agent. Mesuré au banc de
+ * découvrabilité : la doc portait la réponse, aucun message ne la nommait, et
+ * la tâche restait rouge deux runs sur trois.
+ *
+ * Elle ne parle qu'en développement, ne change aucune réponse, et se tait sur
+ * les trois formes qui sont DÉJÀ correctes.
+ */
+describe("Controller — avertissement CSP (script en ligne sans nonce)", () => {
+  const CSP_NONCE = "default-src 'self'; script-src 'self' 'nonce-abc123'";
+  const CSP_SANS_NONCE = "default-src 'self'; script-src 'self'";
+
+  /** Remplace `log` par un espion — le message est ce qu'on mesure. */
+  function espionner(c: Controller): string[] {
+    const vus: string[] = [];
+    (
+      c as unknown as { log: (m: unknown, s?: unknown, t?: unknown) => void }
+    ).log = (m: unknown) => {
+      vus.push(String(m));
+    };
+    return vus;
+  }
+
+  it("avertit, et nomme le nonce ET la voie du fichier servi", async () => {
+    const { c } = makeController({
+      environment: "development",
+      csp: CSP_NONCE,
+    });
+    const vus = espionner(c);
+    await c.render("<html><body><script>let n = 0;</script></body></html>");
+    expect(vus).to.have.lengthOf(1);
+    // Le message doit porter le GESTE, pas seulement le constat : c'est toute
+    // la différence entre un refus utilisable et un refus juste.
+    expect(vus[0]).to.include("cspNonce");
+    expect(vus[0]).to.include("script src");
+    expect(vus[0]).to.include("headers.md");
+  });
+
+  it("se tait quand le script porte déjà son nonce", async () => {
+    const { c } = makeController({
+      environment: "development",
+      csp: CSP_NONCE,
+    });
+    const vus = espionner(c);
+    await c.render('<script nonce="abc123">let n = 0;</script>');
+    expect(vus).to.have.lengthOf(0);
+  });
+
+  it("se tait quand le script est SERVI depuis un fichier", async () => {
+    const { c } = makeController({
+      environment: "development",
+      csp: CSP_NONCE,
+    });
+    const vus = espionner(c);
+    await c.render('<script src="/js/widget.js"></script>');
+    expect(vus).to.have.lengthOf(0);
+  });
+
+  it("se tait quand la politique n'exige aucun nonce", async () => {
+    const { c } = makeController({
+      environment: "development",
+      csp: CSP_SANS_NONCE,
+    });
+    const vus = espionner(c);
+    await c.render("<script>let n = 0;</script>");
+    expect(vus).to.have.lengthOf(0);
+  });
+
+  it("ne coûte RIEN hors développement — même page, même politique", async () => {
+    const { c } = makeController({ environment: "production", csp: CSP_NONCE });
+    const vus = espionner(c);
+    await c.render("<script>let n = 0;</script>");
+    expect(vus).to.have.lengthOf(0);
+  });
+
+  it("avertit aussi sur une VUE rendue, pas seulement sur render()", async () => {
+    const { c } = makeController({
+      environment: "development",
+      csp: CSP_NONCE,
+      template: { render: async () => "<script>let n = 0;</script>" },
+    });
+    const vus = espionner(c);
+    await c.renderView(HERE, {});
+    expect(vus).to.have.lengthOf(1);
+    expect(vus[0]).to.include("cspNonce");
+  });
+
+  it("ne change RIEN à la réponse envoyée", async () => {
+    const { c, calls } = makeController({
+      environment: "development",
+      csp: CSP_NONCE,
+    });
+    espionner(c);
+    await c.render("<script>let n = 0;</script>");
+    expect(calls.render).to.deep.equal(["<script>let n = 0;</script>"]);
+  });
+
+  it("🔴 la lecture de l'en-tête TIENT sur une vraie réponse Node, pas seulement sur le faux", async () => {
+    // Le contrôle d'INSTRUMENT, et il manquait. Les cas ci-dessus interrogent
+    // un faux `getHeader` : ils prouvent la règle, jamais qu'elle s'applique au
+    // chemin réel. Or le firewall pose l'en-tête en MINUSCULES
+    // (`HttpResponse.setHeader` normalise), et la sonde le lit sous sa forme
+    // canonique. Si Node distinguait les deux, la sonde serait muette en
+    // production pendant que ces sept cas resteraient verts.
+    const { createServer } = await import("node:http");
+    const serveur = createServer((_req, res) => {
+      res.setHeader("content-security-policy", CSP_NONCE);
+      // La question, et elle ne se pose qu'ici : la casse canonique retrouve
+      // ce que la casse basse a écrit ?
+      res.end(String(res.getHeader("Content-Security-Policy") ?? ""));
+    });
+    await new Promise<void>((r) => serveur.listen(0, "127.0.0.1", r));
+    const { port } = serveur.address() as { port: number };
+    try {
+      const reponse = await fetch(`http://127.0.0.1:${port}/`);
+      expect(await reponse.text()).to.equal(CSP_NONCE);
+    } finally {
+      await new Promise<void>((r) => serveur.close(() => r()));
+    }
   });
 });
 

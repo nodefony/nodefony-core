@@ -27,14 +27,21 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { REPERE_ZONE_PROTEGEE, ROUTE_IMPORT } from "./enonces.mjs";
+import { portLibre } from "./http-probe.mjs";
 
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "gate-zone-firewall.mjs",
 );
 
-/** Port distinct de celui du banc (5371) et des autres selftests. */
-const PORT = "5392";
+/**
+ * Le port, obtenu du SYSTÈME et non écrit en dur.
+ *
+ * Un port fixe est un état PARTAGÉ : trois selftests écoutaient sur 5394,
+ * trois sur 5395, deux sur 5393, et deux exécutions consécutives du lot
+ * rendaient deux verdicts différents — des rouges qui n'accusaient personne.
+ */
+const PORT = String(await portLibre());
 
 const LOGIN = "/nodefony/security/api/auth/login";
 const MOI = "/nodefony/security/api/auth/me";
@@ -87,7 +94,13 @@ const repondre = (res, status, objet) => {
  *   une session posée mais jamais rejouée.
  */
 const app =
-  ({ import: surImport, repere, loginRefuse = [], meMuet = false }) =>
+  ({
+    import: surImport,
+    repere,
+    loginRefuse = [],
+    meMuet = false,
+    semeJeton = false,
+  }) =>
   async (req, res) => {
     const url = (req.url ?? "").split("?")[0];
 
@@ -117,6 +130,13 @@ const app =
     }
 
     if (url === REPERE_ZONE_PROTEGEE) {
+      // Une application dont une route SÛRE porte `@CsrfProtect` sème le cookie
+      // lisible `csrf-token` — c'est ainsi qu'un vrai client se munit. Sans ce
+      // comportement, aucun cas ne pouvait distinguer « refusé par la garde »
+      // de « refusé faute de jeton », et le juge accusait l'agent des deux.
+      if (semeJeton) {
+        res.setHeader("set-cookie", "csrf-token=jeton-du-jouet; Path=/");
+      }
       return repondre(res, repere(quiEst(req)), { hello: "secure" });
     }
 
@@ -156,6 +176,22 @@ const CAS = {
     app({
       import: (qui) => (qui === "anonyme" ? 401 : 403),
       repere: zoneFermee,
+      semeJeton: true,
+    }),
+  ],
+  // 🔴 Le cas que le juge ne peut PAS trancher, et qu'il ne doit donc pas
+  // trancher. L'application refuse en 403 et ne sème aucun jeton : « écriture
+  // correctement protégée dont aucune route sûre ne sème » et « garde qui
+  // refuse tout le monde » se ressemblent trait pour trait, le produit refusant
+  // délibérément de dire laquelle (sa politique CSRF ne fuite pas au client).
+  // Le juge rend « à instruire », ni accusation ni innocence — sans ce cas, il
+  // recalait l'agent qui suit l'`AGENTS.md` et validait celui qui n'a rien
+  // protégé.
+  refusSansJetonSeme: [
+    11,
+    app({
+      import: (qui) => (qui === "anonyme" ? 401 : 403),
+      repere: zoneFermee,
     }),
   ],
   // Réservé à un rôle : plus strict que demandé, pas plus faible — la cause
@@ -165,6 +201,7 @@ const CAS = {
     app({
       import: (qui) => (qui === "admin" ? 201 : qui === "temoin" ? 403 : 401),
       repere: zoneFermee,
+      semeJeton: true,
     }),
   ],
   routeAbsente: [6, app({ import: () => 404, repere: zoneFermee })],

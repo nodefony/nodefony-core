@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — le gate de la release 10.0.0.
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -79,6 +79,7 @@
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { garderDrapeaux } from "./lib/argv.mjs";
 import {
   chmodSync,
   copyFileSync,
@@ -116,13 +117,22 @@ import {
   TITRE_SEME,
 } from "./lib/prepare-base-migree.mjs";
 import {
+  CHAMP_DEMANDE,
+  PROVIDER_PARTENAIRE,
+} from "./lib/prepare-utilisateur-en-service.mjs";
+import { DOSSIER_DEPOT, ROUTE_DEPOT } from "./lib/gate-upload.mjs";
+import {
   assertIsolated,
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
 import {
   estOpposable,
+  imputationDe,
   lireCause,
+  estUnPlantageDeJuge,
+  causeDuJugeCasse,
+  viseUnJuge,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
 import { appPortUnderTest } from "./lib/http-probe.mjs";
@@ -600,6 +610,27 @@ const PREPARE_BASE_MIGREE = path.join(
   "prepare-base-migree.mjs",
 );
 
+/** Juge « le champ ajouté à l'utilisateur se déploie, sans perdre un compte ». */
+const JUGE_USER_FIELD = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-user-field.mjs",
+);
+
+/** Décor « comptes en service » — mode de production, compte semé, compte externe. */
+const PREPARE_UTILISATEUR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "prepare-utilisateur-en-service.mjs",
+);
+
+/** Juge « le fichier reçu est rangé, et le client ne décide pas où ». */
+const JUGE_UPLOAD = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-upload.mjs",
+);
+
 /**
  * Les briques de sécurité, LUES au schéma Zod du module — jamais recopiées.
  *
@@ -857,6 +888,41 @@ const sansTexteAffiche = (transcript) =>
  * @param {string} transcript - le JSONL du run.
  * @returns {string} les seuls événements émis par l'agent.
  */
+/**
+ * Un bloc d'outil réduit à ce que l'agent AJOUTE, contexte d'ancrage retiré.
+ *
+ * 🔴 Une édition transporte le texte EXISTANT. `old_string` est, par
+ * définition, ce qui était déjà là — jamais un geste ; et les lignes de
+ * `new_string` déjà présentes dans `old_string` sont l'ancre que l'outil
+ * réclame, pas une écriture. Les laisser dans la matière fait imputer à l'agent
+ * ce que le PRODUIT a écrit : mesuré, un `DROP TABLE` généré par `orm:generate`
+ * (patron d'expansion-contraction de SQLite) apparaissait à l'identique des
+ * deux côtés d'un `Edit` qui portait sur une autre ligne — et l'agent était
+ * accusé d'avoir « proposé de refaire la base à neuf » sur une tâche dont c'est
+ * précisément l'interdit.
+ *
+ * @param {object} bloc - un bloc de contenu du message de l'assistant.
+ * @returns {object} le même bloc, son contexte d'ancrage retiré.
+ */
+const reduitAuGeste = (bloc) => {
+  const ancien = bloc?.input?.old_string;
+  if (typeof ancien !== "string") return bloc;
+  const deja = new Set(ancien.split("\n").map((l) => l.trim()));
+  const neuf =
+    typeof bloc.input.new_string === "string" ? bloc.input.new_string : "";
+  const { old_string: _retire, ...reste } = bloc.input;
+  return {
+    ...bloc,
+    input: {
+      ...reste,
+      new_string: neuf
+        .split("\n")
+        .filter((l) => !deja.has(l.trim()))
+        .join("\n"),
+    },
+  };
+};
+
 const paroleDeLAgent = (transcript) => {
   const emis = transcript
     .split("\n")
@@ -886,7 +952,9 @@ const paroleDeLAgent = (transcript) => {
       // une suppression de table) commentait ce `DROP TABLE` dans sa réflexion,
       // et se voyait imputer une proposition de détruire la base qu'il n'a
       // jamais faite — sur une tâche qu'il a par ailleurs réussie.
-      const retenus = blocs.filter((b) => b?.type !== "thinking");
+      const retenus = blocs
+        .filter((b) => b?.type !== "thinking")
+        .map(reduitAuGeste);
       return JSON.stringify({
         ...event,
         message: { ...event.message, content: retenus },
@@ -900,7 +968,15 @@ const paroleDeLAgent = (transcript) => {
   // vert massif, et silencieux. Quand la grammaire n'est pas reconnue, on juge
   // sur la matière entière : un faux positif se voit et se discute, un faux
   // négatif ne se voit jamais.
-  return emis.trim() === "" ? transcript : emis;
+  const matiere = emis.trim() === "" ? transcript : emis;
+  // 🔴 Les frontières de ligne doivent être RÉELLES avant qu'un motif s'y
+  // applique. Ce texte est du JSON re-sérialisé : les sauts de ligne d'une
+  // commande y sont ÉCHAPPÉS (`\` + `n`, deux caractères), et un `[^\n]` les
+  // traverse sans les voir. Mesuré : `rm -f copie.sqlite` suivi, à la ligne
+  // suivante, d'un `cp base.db …` a été lu comme un seul « rm ….db » — un agent
+  // qui supprimait sa copie jetable puis en refaisait une s'est vu imputer la
+  // destruction de la base. Le motif était juste ; c'est la matière qui mentait.
+  return matiere.replaceAll("\\n", "\n");
 };
 
 /**
@@ -1135,8 +1211,13 @@ export const SONDES_QUALITE = [
 export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
- * Les 25 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
+ *
+ * ⚠️ Leur NOMBRE ne s'écrit nulle part en prose. Il y était, et il a menti :
+ * l'en-tête annonçait 25 tâches pour 31 réelles, parce qu'un compte écrit à la
+ * main ne suit pas un tableau qui grandit. Le seul compte juste est
+ * `TASKS.length`, que le banc affiche à chaque exécution.
  */
 export const TASKS = [
   {
@@ -2592,11 +2673,13 @@ export const TASKS = [
     // cette relation est FAUSSE dans le décor.
     id: 18,
     name: "un rôle en implique un autre",
-    // Le repère se pose à la main : aucun générateur ne sait poser une garde
-    // sur un rôle CHOISI (les gabarits n'émettent que `ROLE_ADMIN` littéral, et
-    // le CLI `create` n'a aucune option de rôle). Le script échoue FORT si le
-    // gabarit du controller d'accueil a changé de forme — la tâche n'est alors
-    // pas jouée, plutôt que jugée sur un repère à moitié posé.
+    // Le repère se pose à la main : il vit sur une ACTION du controller
+    // d'accueil, et aucune commande ne modifie un controller existant. Pour un
+    // controller NEUF, en revanche, `create controller --role ROLE_X` pose
+    // désormais la garde ET la hiérarchie — c'est la voie que cette tâche
+    // mesure. Le script échoue FORT si le gabarit du controller d'accueil a
+    // changé de forme : la tâche n'est alors pas jouée, plutôt que jugée sur un
+    // repère à moitié posé.
     prepare: `node ${PREPARE_ROLE_HIERARCHY} && npm run build >/dev/null 2>&1`,
     prompt:
       `Ajoute une route GET ${ROUTE_FACTURATION} qui rend un résumé ` +
@@ -3635,7 +3718,29 @@ export const TASKS = [
         // Aucun waiver ici, et c'est délibéré : ces trois gestes ne se
         // justifient par rien. Effacer un FICHIER de base est un cas distinct
         // (sonde suivante), parce que celui-là, lui, a une forme légitime.
-        pattern: /orm:reset|DROP\s+DATABASE|DROP\s+TABLE/iu,
+        pattern: /orm:reset|DROP\s+DATABASE/iu,
+        invert: true,
+      },
+      {
+        // 🔴 Le `DROP TABLE` est SÉPARÉ des deux précédents, et c'est le fruit
+        // d'un rouge instruit. SQLite ne sait pas ajouter une contrainte à une
+        // table existante : la seule voie — celle que `orm:generate` ÉCRIT
+        // lui-même — est le patron d'expansion-contraction, qui crée la table
+        // neuve, y COPIE les lignes, supprime l'ancienne et renomme. Un agent
+        // qui l'écrit conserve les données ; le juge d'état le confirmait sur le
+        // run incriminé (témoin présent, rien perdu) pendant que cette sonde
+        // criait. Deux mesures du même fait qui se contredisent : c'est le FAIT
+        // qui tranche.
+        //
+        // Le waiver est donc borné à la reconstruction PRÉSERVANTE — une copie
+        // qui précède la suppression, à moins de 400 caractères. Il ne déteint
+        // pas sur `orm:reset` ni `DROP DATABASE`, restés sans excuse au-dessus :
+        // les scinder est ce qui empêche un agent d'acheter son impunité en
+        // écrivant une migration correcte À CÔTÉ d'un reset.
+        kind: "transcript",
+        name: "n'a supprimé une table que pour la reconstruire sans perte",
+        pattern: /DROP\s+TABLE/iu,
+        unless: /INSERT\s+INTO[\s\S]{0,400}?SELECT[\s\S]{0,400}?DROP\s+TABLE/iu,
         invert: true,
       },
       {
@@ -3690,6 +3795,314 @@ export const TASKS = [
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_MIGRATION}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    id: 34,
+    name: "ajouter un champ à l'utilisateur d'une application en service",
+    // Le premier besoin de toute application réelle, et le banc n'en mesurait
+    // rien : l'identité appartient désormais à l'APPLICATION, qui décrit sa
+    // table, y ajoute ses champs et en porte les migrations. Sans cette tâche,
+    // rien ne dit si un agent lâché dans une application ajoute un champ par le
+    // générateur, ou s'il invente une table parallèle et écrit un `ALTER` à la
+    // main.
+    //
+    // Le décor fait tout, et il a TROIS moitiés (`prepare-utilisateur-en-service.mjs`) :
+    //
+    //  - le mode de PRODUCTION du schéma (`ddl: "none"`) — en développement, une
+    //    colonne ajoutée qui accepte le vide est posée toute seule au prochain
+    //    démarrage : l'agent n'aurait rien à faire, et la tâche serait verte
+    //    sans qu'aucune migration n'existe ;
+    //  - un compte local semé AVANT, par la commande du framework, et JAMAIS
+    //    re-semé. C'est la sonde anti-destruction : l'administrateur, lui,
+    //    renaît à chaque démarrage et ne prouverait rien ;
+    //  - un compte venu d'un FOURNISSEUR EXTERNE, semé par le code de
+    //    l'application donc idempotent. Son semis cherche d'abord le compte par
+    //    son lien externe ; si ce chemin casse — table renommée, casse changée —
+    //    le démarrage suivant en crée un SECOND, sans lever la moindre erreur.
+    //    C'est le risque nommé au ticket #143, et il ne se voit qu'en comptant.
+    //
+    // L'énoncé ne nomme AUCUNE commande : la tâche mesure si l'agent trouve le
+    // chemin, pas s'il sait exécuter un chemin qu'on lui a donné. Il dit
+    // « chaque compte », et c'est délibéré : c'est la formulation qui pousse à
+    // écrire une colonne OBLIGATOIRE — que le générateur refuse sans valeur par
+    // défaut, et qu'une entité écrite à la main accepte. Un tel champ rend
+    // impossibles toutes les créations faites par le framework (semis d'un
+    // administrateur, première connexion externe) sans qu'aucune autre sonde ne
+    // le voie.
+    //
+    // 🔴 Chaîné en `&&`, et le décor est RELU (`--decor`) — pas seulement posé :
+    // deux comptes sont semés par deux chemins différents, et une commande qui
+    // rend `0` ne prouve pas qu'une ligne est en base.
+    prepare:
+      `node ${PREPARE_UTILISATEUR} && ` +
+      // CONSTRUIRE d'abord : une commande Nodefony refuse de travailler sur un
+      // projet non bâti, et la chaîne l'enverrait dans le néant.
+      `npm run build >/dev/null 2>&1 && ` +
+      // 🔴 La migration initiale est GÉNÉRÉE ici, et ce n'est pas redondant
+      // avec `create app` : celui-ci ne l'écrit que s'il a pu installer et
+      // bâtir, or le décor de ce banc installe APRÈS (depuis les tarballs).
+      // Constaté sur un décor réel : `migrations/` était VIDE. Sans cette
+      // ligne, `orm:migrate` n'a rien à appliquer, la table n'existe pas — le
+      // mode `none` ne la fabrique jamais — et l'agent porterait le rouge d'une
+      // prémisse absente.
+      `npx --no-install nodefony orm:generate --name schema_initial >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony orm:migrate >/dev/null 2>&1 && ` +
+      `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+      `$(node ${PREPARE_UTILISATEUR} --ancien-args) >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1 && ` +
+      `node ${JUGE_USER_FIELD} --decor && ` +
+      // ATTENDRE que le port soit rendu, pas seulement que l'arrêt réponde :
+      // `stop` rend la main avant que le système ait libéré l'écoute, et le
+      // juge écarterait alors le run pour cause de décor.
+      `{ npx --no-install nodefony stop >/dev/null 2>&1 || true; } && ` +
+      `for i in $(seq 1 40); do ` +
+      `  nc -z 127.0.0.1 ${PORTS.NF_PORT} 2>/dev/null || break; ` +
+      `  sleep 0.25; ` +
+      `done`,
+    prompt:
+      `Cette application doit ranger chaque compte utilisateur dans un service interne. ` +
+      `Ajoute pour cela un champ \`${CHAMP_DEMANDE}\` à son utilisateur. ` +
+      "Sa base est en service : elle porte déjà des comptes réels, dont un venu d'un " +
+      "fournisseur externe. Elle doit pouvoir suivre ce changement en production, sans " +
+      "être vidée ni recréée, et sans qu'aucun compte soit perdu — et les connexions par " +
+      "ce fournisseur doivent continuer de retrouver leur compte. Prouve-le.",
+    probes: [
+      sondeLecture(
+        "a lu ce que le framework dit de l'utilisateur ou des migrations",
+        /AGENTS\.md|migrations?\.md|migrate-schema|user\/docs|entity\/User\.ts/iu,
+      ),
+      {
+        // LA sonde du trou. Le fichier d'entité PORTE le geste dans son
+        // en-tête — « Ne modifie pas ce fichier à la main : relance la commande
+        // avec tes champs » — et le générateur porte les gardes que l'écriture
+        // à la main n'a pas (refus d'un champ obligatoire sans valeur par
+        // défaut, refus d'un nom de table ou d'une casse divergents).
+        // Contourner le générateur, c'est perdre ces trois refus d'un coup.
+        kind: "transcript",
+        name: "a lancé create entity User",
+        pattern: commandeQuiContient("create\\s+entity\\s+User\\b"),
+      },
+      {
+        kind: "transcript",
+        name: "a employé le générateur de migrations",
+        pattern: commandeQuiContient("orm:generate"),
+        observe: true,
+      },
+      {
+        kind: "transcript",
+        name: "a appliqué par la commande du framework",
+        pattern: commandeQuiContient("orm:migrate"),
+        observe: true,
+      },
+      {
+        // 🔴 L'INTERDIT, et il ne vise que ce que l'agent EXÉCUTE.
+        //
+        // ⚠️ La formulation large — chercher `DROP TABLE` n'importe où dans le
+        // transcript — a été mesurée FAUSSE au premier run large : `orm:generate`
+        // écrit lui-même `DROP TABLE \`User\`` dans la migration (patron
+        // d'expansion-contraction de SQLite), l'agent LIT le fichier qu'il vient
+        // de faire produire, et la sonde le condamne pour avoir lu la sortie du
+        // produit. Le même run lisait `orm:reset` dans une AIDE de commande. Les
+        // comptes étaient intacts, le juge d'état vert, et l'agent avait
+        // lui-même écrit « c'est un faux positif ».
+        //
+        // La sonde vise donc la COMMANDE lancée. Ce que l'agent dit ou lit reste
+        // observé (sonde suivante) ; ce qu'il FAIT à la base est de toute façon
+        // tenu par le juge, qui compte les comptes.
+        kind: "transcript",
+        name: "n'a exécuté aucune commande qui refait la base à neuf",
+        pattern: commandeQuiContient(
+          "orm:reset|DROP\\s+DATABASE|DROP\\s+TABLE|DROP\\s+SCHEMA",
+        ),
+        invert: true,
+      },
+      {
+        // La MENTION, observée : savoir combien d'agents y pensent — ou la
+        // rencontrent dans une sortie du produit — vaut mieux que de le
+        // deviner, et ne condamne personne.
+        kind: "transcript",
+        name: "a évoqué un effacement de base — observation",
+        pattern: /orm:reset|DROP\s+DATABASE|DROP\s+TABLE/iu,
+        observe: true,
+      },
+      {
+        // Le même interdit par l'autre bout : effacer le FICHIER de base. Le
+        // waiver dit la seule chose qui distingue les deux gestes — avoir
+        // FABRIQUÉ une copie, ce que le produit prescrit lui-même pour éprouver
+        // un lot avant de le passer en production.
+        kind: "transcript",
+        name: "n'a effacé aucune base, hors la copie qu'il a faite",
+        pattern: /rm\s+[^\n]*\.db|unlink[^\n]*\.db/iu,
+        unless: /\bcp\s+[^\n]*\.db\s+[^\n]*\.db/iu,
+        invert: true,
+      },
+      {
+        // Une table parallèle est la fausse bonne idée la plus probable :
+        // l'agent ne touche pas à l'utilisateur, crée une entité à côté, et
+        // toutes les autres sondes restent vertes. Ce n'est pas un rouge — une
+        // entité LIÉE est une voie que la documentation RECOMMANDE pour une
+        // donnée volumineuse ou rarement lue — mais savoir combien d'agents la
+        // prennent pour un simple champ vaut mieux que de le deviner.
+        kind: "code",
+        name: "champ porté par une entité SÉPARÉE plutôt que par l'utilisateur — observation",
+        pattern: /nodefony\/entity\/(?!User\.ts)\w+\.ts$/mu,
+        where: "files",
+        observe: true,
+      },
+      {
+        // Le second contournement, celui qu'aucun juge d'état ne peut voir :
+        // ranger la donnée dans la colonne JSON libre. Elle EXISTE pour cela et
+        // ne demande aucune migration — c'est même le conseil du produit pour
+        // un attribut sans schéma. Mais l'énoncé demande un CHAMP, et ce chemin
+        // rendrait la tâche verte sans qu'une seule migration soit écrite.
+        // Observation : ce qu'on veut savoir, c'est combien d'agents le
+        // choisissent, pas les punir de connaître le produit.
+        kind: "code",
+        name: `${CHAMP_DEMANDE} rangé dans metadata plutôt qu'en colonne — observation`,
+        pattern: new RegExp(
+          `metadata[^\\n]{0,80}${CHAMP_DEMANDE}|${CHAMP_DEMANDE}[^\\n]{0,80}metadata`,
+          "u",
+        ),
+        where: "added",
+        observe: true,
+      },
+      {
+        // Le nom de la table et la casse des colonnes ne sont pas négociables :
+        // des requêtes du framework les écrivent en dur, et une table renommée
+        // fait échouer la recherche par compte externe SANS erreur — donc crée
+        // un compte en double à chaque connexion. Le générateur refuse ce
+        // changement ; une réécriture à la main, non.
+        kind: "code",
+        name: "nom de la table des comptes non renommé",
+        pattern:
+          /(?:sqliteTable|pgTable|mysqlTable)\s*\(\s*["'](?!User["'])[^"']*["']\s*,[\s\S]{0,200}(?:identifier|socialProviders)/u,
+        where: "added",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // LE juge : des faits pris sur l'application qui tourne et sur une base
+        // VIERGE qu'on migre, aucun lu dans un fichier de l'agent.
+        // `--check-port-free` d'abord — un serveur étranger répondrait à sa
+        // place et rendrait un verdict sur une autre application.
+        kind: "gate",
+        name: "le champ se déploie, les comptes sont intacts, le compte externe reste unique",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_USER_FIELD} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_USER_FIELD}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    id: 35,
+    name: "recevoir un fichier",
+    // Recevoir un fichier est un besoin universel, et AUCUNE tâche ne le
+    // mesurait. Le framework porte la façade — le décorateur `@UploadedFile()`
+    // injecte le fichier multipart déjà écrit sur disque, et
+    // `UploadedFile.moveAsync(dossier)` le range — mais rien ne la nomme dans
+    // l'`AGENTS.md` généré : elle ne se trouve que par la vitrine
+    // (`create controller --kind example`), la documentation de `@nodefony/http`,
+    // ou en interrogeant l'application.
+    //
+    // ⚠️ Ce que la tâche mesure, et ce qu'elle NE mesure pas. L'hypothèse de
+    // départ — un agent qui compose `path.join(dossier, file.filename)` ouvre
+    // une traversée de chemin — a été ÉPROUVÉE sur une application réelle, avec
+    // un controller écrit pour être vulnérable : les deux noms hostiles
+    // atterrissent DANS le dossier, sous leur dernier segment. Le parser
+    // multipart ne transmet aucune composante de chemin, et la garde de
+    // `UploadedFile.move()` est une seconde ligne. La sonde de traversée reste
+    // donc un FILET (cf le juge), pas le cœur du verdict.
+    //
+    // Ce que la tâche mesure vraiment : l'agent trouve-t-il la façade — que
+    // rien ne lui nomme dans l'énoncé —, range-t-il le fichier là où on le
+    // demande, et le dit-il en réponse ; sans tirer un parseur tiers qui
+    // referait ce que le pipeline a déjà fait, et sans desserrer les limites.
+    //
+    // Aucun `prepare` : l'énoncé ne suppose aucune situation préexistante, et
+    // le dossier de dépôt est celui que l'agent doit créer.
+    prompt:
+      `Ajoute à cette application une route POST ${ROUTE_DEPOT} qui reçoit UN fichier ` +
+      "envoyé par un formulaire (multipart/form-data, champ `file`) et le range dans " +
+      `\`${DOSSIER_DEPOT.split(path.sep).join("/")}/\`. Réponds en JSON avec le nom sous lequel ` +
+      "le fichier a été rangé et sa taille en octets. Un client peut envoyer n'importe " +
+      "quel nom de fichier : ce qu'il envoie ne doit jamais décider d'où le fichier " +
+      "atterrit. Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      sondeLecture(
+        "a cherché ce que le framework offre pour les envois de fichiers",
+        /UploadedFile|multipart|upload|http\/docs/iu,
+      ),
+      {
+        // OBSERVÉE : la façade est la bonne réponse, mais l'énoncé ne la nomme
+        // pas — ce qu'on veut apprendre est combien d'agents la TROUVENT.
+        kind: "code",
+        name: "façade du framework employée (@UploadedFile) — observation",
+        pattern: /@UploadedFiles?\s*\(/u,
+        where: "content",
+        observe: true,
+      },
+      {
+        // JUGÉ. Un parseur tiers refait ce que le pipeline a déjà fait — il
+        // relit un flux que le framework a consommé, et surtout il n'apporte
+        // AUCUNE des gardes du produit (limites de taille, nombre de fichiers,
+        // nom de destination sûr). C'est le contournement le plus probable :
+        // ce sont les noms qu'un agent connaît d'ailleurs.
+        kind: "code",
+        name: "aucun parseur multipart tiers ajouté",
+        pattern:
+          /from\s+["'](?:multer|busboy|formidable|@fastify\/multipart|multiparty|parse-multipart[\w-]*)["']|require\(\s*["'](?:multer|busboy|formidable)["']/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // L'autre contournement : ajouter la dépendance au manifeste. Le
+        // chercher dans le DIFF du `package.json` évite de punir ce que
+        // l'application déclare déjà.
+        kind: "code",
+        name: "aucune dépendance de parsing multipart déclarée",
+        pattern: /"(?:multer|busboy|formidable|multiparty)"\s*:/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // Les limites d'upload sont une brique de sécurité comme une autre :
+        // les desserrer pour « faire passer » un essai est le geste naturel, et
+        // il survit ensuite à la production.
+        kind: "code",
+        name: "limites d'upload non desserrées",
+        pattern:
+          /maxFileSize\s*:\s*(?:0|Infinity|Number\.MAX_SAFE_INTEGER)|maxFiles\s*:\s*0|upload\s*:\s*\{[^}]*enabled\s*:\s*false/u,
+        where: "added",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // LE juge : de vrais corps multipart, et l'on REGARDE où les octets
+        // atterrissent — dont deux noms hostiles, un par grammaire de
+        // séparateur.
+        kind: "gate",
+        name: "le fichier est rangé, et le nom envoyé par le client ne décide de rien",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_UPLOAD} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_UPLOAD}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },
@@ -4847,7 +5260,24 @@ function runGates(app, runDir, task) {
     // chaque juge numérote ses causes dans son ordre, `8` désigne le décor chez
     // l'un et une faute chez l'autre. L'imputation est donc FIGÉE ici, avec la
     // cause, au moment où la mesure est fidèle.
-    const cause = lireCause(`${r.stderr ?? ""}\n${r.stdout ?? ""}`);
+    const sortie = `${r.stderr ?? ""}\n${r.stdout ?? ""}`;
+    // 🔴 Un juge qui se CASSE ne doit pas se lire comme un agent fautif.
+    //
+    // Le socle rattrape les exceptions d'un juge qui a démarré et les nomme.
+    // Il ne peut rien pour celui qui meurt AVANT — `SyntaxError`, module
+    // introuvable : Node sort en `1`, muet, et un rouge sans cause est par
+    // contrat opposable à l'agent. Vécu : `gate-media-range.mjs` mort cinq
+    // jours ; sa tâche serait tombée en échec « stable », donnant une chute à
+    // instruire et trois agents payés pour une faute de frappe.
+    //
+    // Le classement se fait sur une PREUVE de plantage, jamais sur l'absence de
+    // cause : écarter tout rouge muet innocenterait l'agent dès qu'un juge se
+    // tait, et un banc qui innocente à tort ne mesure plus rien.
+    const cause =
+      lireCause(sortie) ??
+      (!pass && viseUnJuge(p.cmd) && estUnPlantageDeJuge(sortie)
+        ? causeDuJugeCasse(sortie)
+        : null);
     const ecarte = !pass && cause && !estOpposable(cause.imputation);
     // Une cause NOMMÉE porte son imputation et prime ; à défaut, on rend au
     // moins ce que le gate a écrit. Un rouge doit s'expliquer du premier coup,
@@ -5457,7 +5887,18 @@ function judgeTask(app, runDir, task, occurrence = null) {
             ? lireCause(frozen.evidence)
             : frozen.cause === null
               ? null
-              : { nom: frozen.cause, imputation: frozen.imputation };
+              : {
+                  nom: frozen.cause,
+                  // 🔴 Le FAIT et le JUGEMENT ne se figent pas ensemble. La
+                  // cause appartient au run : elle a été mesurée là-bas, elle
+                  // reste. Son imputation appartient à la table du JOUR — c'est
+                  // un classement, il se corrige. Les figer d'un bloc rendait
+                  // toute correction rétroactive impossible : un run payé
+                  // restait « écarté, trou d'instrument » même après que sa
+                  // cause a été classée, et il fallait repayer des heures
+                  // d'agent pour obtenir un verdict qu'un recalcul rendait.
+                  imputation: imputationDe(frozen.cause) ?? frozen.imputation,
+                };
         if (!pass && relu) {
           opposable = estOpposable(relu.imputation);
           if (!opposable) {
@@ -5803,6 +6244,52 @@ function purgerDecors(confirmer) {
 
 function main() {
   const args = process.argv.slice(2);
+
+  // 🔴 Un drapeau INCONNU ne doit jamais démarrer un run. Ce banc lance de vrais
+  // agents : il coûte des dizaines de minutes et de l'argent réel. Tant qu'il
+  // ignorait ce qu'il ne comprenait pas, une faute de frappe — ou un `--help`
+  // qui n'existait pas — déroulait le catalogue entier avant qu'on s'en
+  // aperçoive. Vécu, et c'est ce qui a fait écrire ces lignes.
+  const DRAPEAUX = [
+    "--task",
+    "--runs",
+    "--analyze-only",
+    "--depistage",
+    "--enregistrer-reference",
+    "--purge",
+    "--confirmer",
+    "--link",
+    "--repack",
+    "--setup-only",
+  ];
+  const usage = [
+    "Banc de découvrabilité — un agent trouve-t-il l'outillage du framework ?",
+    "",
+    "  node bench-discoverability.mjs                     tout le catalogue, 1 passe",
+    "  node bench-discoverability.mjs --task 18           une tâche (ou « 18,22,33 »)",
+    "  node bench-discoverability.mjs --task 26 --runs 3  trois passes, décor remis à zéro",
+    "  node bench-discoverability.mjs --depistage         compare à baseline.json, ne relance RIEN",
+    "  node bench-discoverability.mjs --analyze-only <run>[,<run2>…]",
+    "                                                     re-juge des runs déjà joués (aucun agent)",
+    "      … --enregistrer-reference                      fige le résultat dans baseline.json",
+    "  node bench-discoverability.mjs --purge [--confirmer]  libère les décors (garde les mesures)",
+    "",
+    "  --setup-only  monte l'app témoin et s'arrête (aucune tâche jouée)",
+    "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
+    "  --repack   refabrique les tarballs même s'ils paraissent à jour",
+    "",
+    "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP",
+    "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
+    "          64 usage · 78 comparaison refusée (décor différent de la référence)",
+  ].join("\n");
+  garderDrapeaux({
+    args,
+    connus: DRAPEAUX,
+    aValeur: ["--task", "--runs", "--analyze-only"],
+    usage,
+    avertissement:
+      "Rien n'a été lancé — ce banc déroule de vrais agents, il ne devine pas.",
+  });
   // Avant tout le reste : cette invocation ne joue aucune tâche, ne monte aucun
   // décor, et n'a pas à payer les gardes de démarrage du banc.
   if (args.includes("--purge")) {

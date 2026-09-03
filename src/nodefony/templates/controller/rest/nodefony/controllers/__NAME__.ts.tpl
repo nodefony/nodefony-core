@@ -48,7 +48,20 @@ interface IItem {
  * ```
  */
 @controller("<%= it.route %>")
-class <%= it.nameClass %> extends Controller {
+<% if (it.roleGuard) { %>// Habilitation exigée pour TOUT ce controller.
+//
+// Posée sur la CLASSE : chaque action en hérite, y compris celles qu'on
+// ajoutera demain — c'est ce qui distingue une règle d'un rappel. Le refus est
+// rendu par le framework AVANT que le controller ne soit instancié (403), donc
+// aucune ligne de contrôle d'accès n'a sa place dans une action.
+//
+// L'administrateur y a accès sans porter ce rôle : `nodefony.config.ts` le
+// déclare sous `ROLE_ADMIN` dans `roleHierarchy` — administrer, c'est déjà
+// pouvoir tout consulter. Une hiérarchie vaut pour TOUTES les routes gardées par
+// ce rôle, présentes et futures ; lister les rôles un par un sur chaque action ne
+// généralise pas.
+@IsGranted("<%= it.role %>")
+<% } %>class <%= it.nameClass %> extends Controller {
   /** Store démo en mémoire — remplace par un repository (`create entity`). */
   static items = new Map<string, IItem>();
 

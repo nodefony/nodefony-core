@@ -11,7 +11,7 @@ import HelloController from "./nodefony/controllers/HelloController";
 <% } %><% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
 <% } else { %>import HomeController from "./nodefony/controllers/HomeController";
 <% } %><% if (it.complete) { %>import { entities } from "@nodefony/orm-core";
-import { AppUserEntity } from "./nodefony/entity/User";
+import { UserEntity } from "./nodefony/entity/User";
 import { provisionUsers } from "./nodefony/security/provisionUsers";
 <% } %>
 /**
@@ -32,7 +32,7 @@ export { env } from "./env";
  * service que tu ajoutes — le tien, ou celui que `nodefony create service`
  * génère — se déclare dans cette liste.
 <% } %> */
-<% if (it.complete) { %>@entities([AppUserEntity])
+<% if (it.complete) { %>@entities([UserEntity])
 @services([AppInfoService, AppBannerService])
 <% } %>@controllers([HelloController<% if (it.complete) { %>, LiveController<% } %><% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
 class App extends Module {
