@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T20:35:10.094Z",
+  "generatedAt": "2026-09-03T16:16:20.368Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 80,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 38,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -334,6 +334,20 @@
       "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 2.55,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 163,
+      "title": "fix(devkit): empêcher le mode dépistage de rejouer tout le catalogue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/163",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.55,
       "labels": [
