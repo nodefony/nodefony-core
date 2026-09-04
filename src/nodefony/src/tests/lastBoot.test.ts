@@ -48,11 +48,27 @@ const failed = (over: Partial<ILastBoot> = {}): ILastBoot =>
   });
 
 /** Capture la sortie standard : `check` ÉCRIT son rapport, il ne le retourne pas. */
+/**
+ * ⚠️ La LARGEUR est posée, elle n'est PAS héritée du terminal.
+ *
+ * `runCheckCommand` lit `process.stdout.columns` : sans cette pose, chaque
+ * machine rend un document différent, et une assertion `include` sur une phrase
+ * devient un tirage au sort. Vécu — « SANS aucun serveur en écoute » passait sur
+ * un terminal large et tombait en intégration continue, où la phrase est REPLIÉE
+ * en deux lignes : au-delà de 72 colonnes elle tient, en deçà elle se coupe.
+ *
+ * 100 plutôt que 80 : au-dessus de la borne haute du rendu (96), donc la même
+ * mise en page quelle que soit l'évolution de cette borne.
+ */
+const LARGEUR_DE_TEST = 100;
+
 async function capture(
   run: () => number | Promise<number>,
 ): Promise<{ out: string; code: number }> {
   const chunks: string[] = [];
   const write = process.stdout.write.bind(process.stdout);
+  const colonnes = process.stdout.columns;
+  process.stdout.columns = LARGEUR_DE_TEST;
   process.stdout.write = ((s: string) => {
     chunks.push(String(s));
     return true;
@@ -61,6 +77,7 @@ async function capture(
     return { code: await run(), out: chunks.join("") };
   } finally {
     process.stdout.write = write;
+    process.stdout.columns = colonnes;
   }
 }
 
@@ -163,7 +180,13 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           },
         }),
       );
-      const { out, code } = await capture(() => runCheckCommand([]));
+      // `--no-strict` est ÉNONCÉ : sans lui, ce test hérite de `CI` (posé sur
+      // toute forge), qui arme `--strict` et fait rendre 1 pour les contrôles
+      // SAUTÉS de ce décor hors application — un code qui ne dit alors plus
+      // rien du bilan de démarrage, seul objet de cette assertion.
+      const { out, code } = await capture(() =>
+        runCheckCommand(["--no-strict"]),
+      );
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "onBoot");
       assert.include(out, "Cannot find package 'redis'");
@@ -183,7 +206,9 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           warnings: 3,
         }),
       );
-      const { out, code } = await capture(() => runCheckCommand([]));
+      const { out, code } = await capture(() =>
+        runCheckCommand(["--no-strict"]),
+      );
       assert.include(out, "abouti mais il MANQUE des briques");
       assert.include(out, "redis");
       assert.include(out, "ECONNREFUSED");

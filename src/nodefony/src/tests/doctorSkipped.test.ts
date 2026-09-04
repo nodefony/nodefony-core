@@ -22,6 +22,7 @@ import {
   collectCheckReport,
   parseCheckArgv,
   resoudreStrict,
+  runCheckCommand,
 } from "../kernel/checks/runCheck";
 import {
   controlesSautes,
@@ -192,6 +193,71 @@ describe("doctor — sévérité d'un contrôle sauté", () => {
     // Une option inconnue reste un refus : un drapeau mal tapé lançait
     // autrefois un run complet en silence.
     assert.property(parseCheckArgv(["doctor", "--stritc"]), "error");
+  });
+});
+
+/**
+ * 🔴 La doctrine ci-dessus était prouvée sur la BRIQUE (`resoudreStrict`), et
+ * sur elle seule. La CHAÎNE — `runCheckCommand` lit l'environnement, arme le
+ * régime, rend un code — n'était éprouvée nulle part.
+ *
+ * Ce trou a coûté une intégration continue rouge sur trois plateformes : deux
+ * tests écrits AVANT cette doctrine appelaient la commande sans énoncer leur
+ * régime, héritaient du `CI` de la forge, et recevaient 1 là où ils attendaient
+ * 0. Verte en local (pas de `CI`), rouge partout ailleurs.
+ */
+describe("doctor — la doctrine du régime strict, de bout en bout", () => {
+  let dir = "";
+  let cwd = "";
+  let ciAvant: string | undefined;
+
+  beforeEach(() => {
+    // Un dossier NU : aucun `nodefony.config.ts` en remontant, donc les cinq
+    // familles sont sautées pour une seule cause. C'est le décor où le régime
+    // décide seul du code de sortie.
+    dir = mkdtempSync(path.join(tmpdir(), "nf-strict-"));
+    writeFileSync(path.join(dir, "package.json"), '{"name":"nu"}');
+    cwd = process.cwd();
+    ciAvant = process.env.CI;
+    process.chdir(dir);
+  });
+
+  afterEach(() => {
+    process.chdir(cwd);
+    if (ciAvant === undefined) delete process.env.CI;
+    else process.env.CI = ciAvant;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** Exécute la commande sans déverser son rapport dans la sortie des tests. */
+  const codeDe = async (argv: string[]): Promise<number> => {
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+    try {
+      return await runCheckCommand(argv);
+    } finally {
+      process.stdout.write = write;
+    }
+  };
+
+  it("devant un humain, des contrôles sautés laissent le code à 0", async () => {
+    delete process.env.CI;
+    assert.equal(await codeDe([]), 0);
+  });
+
+  it("🔴 sous `CI`, les MÊMES contrôles sautés font échouer la commande", async () => {
+    process.env.CI = "1";
+    assert.equal(await codeDe([]), 1);
+  });
+
+  it("`--no-strict` rend le code à 0 même sous `CI` — l'absence VOULUE s'énonce", async () => {
+    process.env.CI = "1";
+    assert.equal(await codeDe(["--no-strict"]), 0);
+  });
+
+  it("`--strict` fait échouer même sans `CI`", async () => {
+    delete process.env.CI;
+    assert.equal(await codeDe(["--strict"]), 1);
   });
 });
 
