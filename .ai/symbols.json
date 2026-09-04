@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T21:34:18.697Z",
+  "generated": "2026-09-04T21:53:40.667Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 808,
-    "symbols": 3840,
+    "symbols": 3841,
     "classes": 383,
     "interfaces": 1047,
     "types": 438,
     "enums": 4,
-    "functions": 1585,
+    "functions": 1586,
     "constants": 383
   },
   "symbols": {
@@ -9097,6 +9097,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le dialecte du connecteur, tel qu'on peut le déterminer SANS démarrer. Trois sources, dans l'ordre de précédence du produit : l'infrastructure déclarée gagne (un hébergeur pose l'URL), puis ce que …"
+    },
+    "toPortablePath": {
+      "name": "toPortablePath",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réécrit un chemin en séparateurs `/`, quelle que soit sa grammaire d'origine. 🔴 **Axiome 2 : normaliser AVANT de filtrer ou comparer.** Une exception de dialecte est un chemin qui VOYAGE — elle vi…"
     },
     "checkSurface": {
       "name": "checkSurface",

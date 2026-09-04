@@ -20,6 +20,7 @@ import {
   connectorDialect,
   coversEverything,
   publicAreas,
+  toPortablePath,
 } from "../kernel/checks/surface";
 import { collectCheckReport } from "../kernel/checks/runCheck";
 
@@ -260,6 +261,30 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
     assert.lengthOf(r.findings, 0);
     // Toujours COMPTÉE : une exception dispense du verdict, pas du relevé.
     assert.equal(r.entitiesScanned, 1);
+  });
+
+  it("🔴 l'exception mord AUSSI quand les chemins sont écrits à la Windows", () => {
+    // Le cas qui a rendu la forge Windows rouge pendant que la même passe
+    // était verte ailleurs. `path.relative` rend `nodefony\entity\x.ts` sous
+    // Windows ; l'exception, elle, vient de la configuration du projet et
+    // s'écrit en `/` — elle ne mordait donc jamais, et une divergence
+    // pourtant DÉCLARÉE était accusée.
+    //
+    // La grammaire est INJECTÉE (`path.win32.sep`) : sans cela, ce cas ne
+    // serait vérifiable que sous Windows, c'est-à-dire nulle part ici.
+    assert.equal(
+      toPortablePath("nodefony\\entity\\bench-pg.ts", path.win32.sep),
+      "nodefony/entity/bench-pg.ts",
+    );
+    // Et l'inverse : une exception écrite avec la grammaire d'un poste
+    // Windows doit mordre sur un dépôt POSIX.
+    assert.equal(
+      toPortablePath("entity\\bench-pg.ts", path.posix.sep),
+      "entity/bench-pg.ts",
+      "un `\\` résiduel doit tomber même quand ce n'est pas le séparateur du poste",
+    );
+    // Un chemin déjà portable ne bouge pas.
+    assert.equal(toPortablePath("entity/bench-pg.ts"), "entity/bench-pg.ts");
   });
 
   it("les tests ne sont pas du code servi — ils ne comptent pas", () => {

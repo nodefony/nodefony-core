@@ -357,6 +357,30 @@ function collectOpenings(
 }
 
 /**
+ * Réécrit un chemin en séparateurs `/`, quelle que soit sa grammaire d'origine.
+ *
+ * 🔴 **Axiome 2 : normaliser AVANT de filtrer ou comparer.** Une exception de
+ * dialecte est un chemin qui VOYAGE — elle vient de la configuration du projet,
+ * écrite une fois et lue sur les trois systèmes, donc en `/`. Le chemin auquel
+ * on la compare sort de `path.relative` : sous Windows il porte des `\`. Le
+ * filtre ne mordait donc jamais là-bas, et une divergence pourtant DÉCLARÉE
+ * par le projet était accusée — forge Windows rouge, même passe verte ailleurs.
+ *
+ * Les DEUX séparateurs sont traités, pas seulement celui du poste : rien ne dit
+ * que l'exception n'a pas été écrite avec la grammaire de la machine où elle a
+ * été ajoutée.
+ *
+ * @param chemin - le chemin à normaliser.
+ * @param sep - la grammaire à appliquer ; injectée pour que la règle
+ *   s'éprouve avec `path.win32.sep` depuis n'importe quel système — sans elle,
+ *   le cas Windows ne serait vérifiable que sous Windows.
+ * @returns le même chemin, en `/`.
+ */
+export function toPortablePath(chemin: string, sep: string = path.sep): string {
+  return chemin.split(sep).join("/").split("\\").join("/");
+}
+
+/**
  * Relève la surface ouverte et les entités hors dialecte.
  *
  * @param options - cibles, racine du projet, environnement, exceptions.
@@ -364,7 +388,9 @@ function collectOpenings(
  */
 export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
   const { roots, cwd, projectRoot, env } = options;
-  const exceptions = options.dialectExceptions ?? [];
+  const exceptions = (options.dialectExceptions ?? []).map((e) =>
+    toPortablePath(e),
+  );
   const findings: ISurfaceFinding[] = [];
   const openings: IOpening[] = [];
   let scanned = 0;
@@ -456,7 +482,8 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
       if (imported.has(dialect)) continue;
       // Le projet a DÉCLARÉ que cette divergence est voulue : un dépôt qui
       // porte un banc multi-moteurs ne doit pas être condamné pour cela.
-      if (exceptions.some((e) => relative.includes(e))) continue;
+      if (exceptions.some((e) => toPortablePath(relative).includes(e)))
+        continue;
       const wrote = [...imported].join(", ");
       findings.push({
         kind: "entity-other-dialect",
