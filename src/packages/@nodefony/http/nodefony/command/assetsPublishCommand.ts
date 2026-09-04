@@ -54,7 +54,7 @@ class AssetsPublish extends Command {
   constructor(cli: CliKernel) {
     super(
       "assets:publish",
-      "Assemble static assets (module publics + frontend bundles) into a CDN-ready tree",
+      "rassemble les fichiers statiques pour un CDN",
       cli,
       options,
     );

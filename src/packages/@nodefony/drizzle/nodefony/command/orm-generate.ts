@@ -145,7 +145,7 @@ class OrmGenerate extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:generate",
-      "Écrit la migration qui aligne la base sur les entités de l'application (--custom : un fichier SQL libre)",
+      "écrit la migration qui aligne la base sur les entités",
       cli,
       options,
     );

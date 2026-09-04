@@ -37,7 +37,7 @@ class SecurityUserList extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:user:list",
-      "Liste les comptes (identifiant, rôles, état) — jamais les mots de passe",
+      "liste les comptes : identifiant, rôles, état",
       cli,
       options,
     );

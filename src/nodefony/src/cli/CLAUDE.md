@@ -47,7 +47,7 @@ class DevCommand extends Command {
   constructor(cli: CliKernel) {
     super(
       "development", // name
-      "Start Server in development Mode", // description
+      "démarre en développement, rechargement automatique", // cf § description
       cli,
       options,
     );
@@ -112,6 +112,9 @@ interface OptionsCommandInterface {
   runProfile?: IRunProfile; // profil DÉCLARATIF { servers, lifetime, interactive }
   // appliqué par resolveCommand ; les profils DYNAMIQUES (dev parent/enfant,
   // master/worker) restent posés par setRunProfile() dans onKernelStart
+  helpGroup?: string; // l'INTENTION sous laquelle l'aide et le menu la rangent
+  // valeurs : cf HELP_GROUPS (cli/helpReport.ts). Absent → la commande tombe
+  // sous son MODULE, ce qui reste vrai pour un module tiers.
 }
 ```
 
@@ -123,6 +126,25 @@ interface OptionsCommandInterface {
 - `"onBoot"` — services kernel créés. Ex : `http:certificates`.
 - `"onRegister"` (défaut) — modules enregistrés. Ex : `build`, `install`, `http:network`.
 - `"onStart"` — app chargée, aucun module. Pour l'ultra-light (menu `start`).
+
+### 🔴 La description d'une commande est un TITRE D'INDEX
+
+Elle a **trois lecteurs** qui la mettent tous en colonne : l'aide, le menu interactif et
+`man nodefony`. Une seule qui déborde replie la page entière — l'œil cesse de lire un index.
+
+| Règle                                      | Pourquoi                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| **≤ 53 caractères**                        | la place réelle à 80 colonnes (cf `descriptionWidth`, qui la DÉRIVE) |
+| **français, minuscule initiale**           | c'est une glose, pas une phrase ; l'interface est en français        |
+| dit ce que la commande **FAIT**            | le « quand » est porté par le titre du groupe et par l'ordre         |
+| **ne répète ni une option ni un argument** | `--admin`, `--write`, la liste des types : déjà rendus par ailleurs  |
+| aucun détail d'implémentation              | « turbo + rolldown », « cgroup-aware », « core.hooksPath »           |
+
+Ce qui ne tient pas là va dans le `--help` de la commande, jamais dans sa description.
+
+⚠️ **Le gate `tests/commandDescriptions.test.ts` ne couvre QUE les commandes du framework** :
+les vingt qu'apporte une application vivent hors du workspace `nodefony`, que le cœur ne peut pas
+lire. Pour elles, la règle ci-dessus est tout ce qui existe.
 
 ## Pattern d'usage CLI Nodefony
 

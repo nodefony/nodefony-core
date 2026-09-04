@@ -22,7 +22,12 @@ const options: OptionsCommandInterface = {
  */
 class FrontendBuild extends Command {
   constructor(cli: CliKernel) {
-    super("frontend:build", "Build production frontends (Vite)", cli, options);
+    super(
+      "frontend:build",
+      "construit les fronts pour la production",
+      cli,
+      options,
+    );
     this.addOption("-f, --force", "rebuild even if the manifest is up-to-date");
   }
 

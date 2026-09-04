@@ -33,7 +33,7 @@ class DaemonTest extends Command {
   constructor(cli: CliKernel) {
     super(
       "test:daemon",
-      "Long-running daemon (CONSOLE, no server, parks until signal)",
+      "démon en console, sans serveur, jusqu'au signal",
       cli,
       options,
     );

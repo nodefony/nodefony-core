@@ -22,7 +22,7 @@ class Completion extends Command {
   constructor(cli: CliKernel) {
     super(
       "completion",
-      `Complétion shell : script à sourcer (${COMPLETION_SHELLS.join(" | ")})`,
+      `script de complétion du shell (${COMPLETION_SHELLS.join(" | ")})`,
       cli,
       options,
     );

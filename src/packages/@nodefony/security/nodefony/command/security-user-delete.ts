@@ -41,7 +41,7 @@ class SecurityUserDelete extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:user:delete",
-      "Supprime un compte (confirmation demandée ; le dernier admin est protégé)",
+      "supprime un compte, après confirmation",
       cli,
       options,
     );

@@ -604,13 +604,19 @@ class Cli extends Service {
         (opt) => opt.short === "-i" || opt.long === "--interactive",
       );
       if (!optionInteractiveExists) {
-        this.commander.option("-i, --interactive", "Interaction mode");
+        this.commander.option(
+          "-i, --interactive",
+          "mode interactif (questions au terminal)",
+        );
       }
       const optionDebugExists = this.commander.options.some(
         (opt) => opt.short === "-d" || opt.long === "--debug",
       );
       if (!optionDebugExists) {
-        this.commander.option("-d, --debug", "Debug mode");
+        this.commander.option(
+          "-d, --debug",
+          "mode débogage : journal détaillé",
+        );
       }
       const optionOptExists = this.commander.options.some(
         (opt) => opt.short === "-v" || opt.long === "--version",
@@ -730,7 +736,7 @@ class Cli extends Service {
       return this.commander.version(
         version,
         "-v, --version",
-        "Nodefony Current Version",
+        "affiche la version de Nodefony",
       );
     }
     throw new Error(`Commender not found`);

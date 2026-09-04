@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T20:44:25.335Z",
+  "generated": "2026-09-04T21:07:28.365Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 807,
-    "symbols": 3832,
+    "symbols": 3834,
     "classes": 383,
     "interfaces": 1044,
     "types": 438,
     "enums": 4,
-    "functions": 1580,
+    "functions": 1582,
     "constants": 383
   },
   "symbols": {
@@ -1669,6 +1669,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Le décor du rendu — tout ce que ce module refuse d'aller chercher."
+    },
+    "descriptionWidth": {
+      "name": "descriptionWidth",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La place qui reste pour une description, une fois la colonne des noms posée. 🔴 Exportée pour qu'un GATE puisse s'y adosser au lieu de recopier le calcul. La contrainte « une description tient sur …"
     },
     "grouperCommandes": {
       "name": "grouperCommandes",

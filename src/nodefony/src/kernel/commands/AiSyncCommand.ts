@@ -33,7 +33,7 @@ class AiSync extends Command {
   constructor(cli: CliKernel) {
     super(
       "ai:sync",
-      "Pointeurs vers les skills d'agent des paquets installés (.agents/skills + miroir .claude/skills)",
+      "installe les skills d'agent des paquets présents",
       cli as CliKernel,
       options,
     );

@@ -107,12 +107,7 @@ interface IDryRunReport {
  */
 class OrmMigrate extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
-    super(
-      "orm:migrate",
-      "Applique les migrations en attente (verrou, historique, validation avant écriture)",
-      cli,
-      options,
-    );
+    super("orm:migrate", "applique les migrations en attente", cli, options);
     this.addSharedOptions();
     this.addOption(
       "-n, --dry-run",

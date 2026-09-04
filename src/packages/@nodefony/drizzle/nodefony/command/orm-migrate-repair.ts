@@ -72,7 +72,7 @@ class OrmMigrateRepair extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:migrate:repair",
-      "Lève les marqueurs d'échec après inspection (ne modifie PAS la base)",
+      "lève un marqueur d'échec, sans toucher à la base",
       cli,
       options,
     );

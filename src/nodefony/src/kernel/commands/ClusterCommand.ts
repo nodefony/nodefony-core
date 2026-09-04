@@ -38,7 +38,7 @@ class Cluster extends Command {
   constructor(cli: CliKernel) {
     super(
       "cluster",
-      "Serveur en cluster : N workers isolés (cgroup-aware, respawn, arrêt gracieux)",
+      "démarre N workers isolés, relancés s'ils tombent",
       cli as CliKernel,
       options,
     );

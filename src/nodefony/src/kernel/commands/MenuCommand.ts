@@ -44,12 +44,7 @@ interface IRenderedChoice {
  */
 class Menu extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "menu",
-      "Menu interactif : les commandes utiles ici, expliquées",
-      cli,
-      options,
-    );
+    super("menu", "menu interactif : les commandes utiles ici", cli, options);
     //force interractive
     this.forceInteractiveMode();
   }

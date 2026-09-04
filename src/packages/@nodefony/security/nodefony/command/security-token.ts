@@ -109,7 +109,7 @@ class SecurityToken extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:token",
-      `Émet un jeton d'accès pour la porte MCP (--write : le pose chez tes agents)`,
+      `émet un jeton d'accès pour la porte MCP`,
       cli,
       options,
     );

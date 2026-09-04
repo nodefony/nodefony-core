@@ -35,7 +35,7 @@ class Symbols extends Command {
   constructor(cli: CliKernel) {
     super(
       "symbols",
-      "Graphe symbolique : définition, description et parenté d'un symbole",
+      "où un symbole est défini, et de qui il hérite",
       cli as CliKernel,
       options,
     );

@@ -32,7 +32,7 @@ class GitHooks extends Command {
   constructor(cli: CliKernel) {
     super(
       "git:hooks",
-      "Hooks git natifs (core.hooksPath) : typecheck+lint au commit, verify au push",
+      "pose les hooks git : contrôles au commit et au push",
       cli as CliKernel,
       options,
     );

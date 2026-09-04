@@ -111,7 +111,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:migrate:baseline",
-      "Déclare une base déjà peuplée comme à niveau, sans exécuter de SQL (adoption explicite)",
+      "déclare une base déjà peuplée comme à niveau",
       cli,
       options,
     );

@@ -13,7 +13,14 @@
  * Le mode `--check` est le gate : il ne réécrit rien, il constate. Sortie 1 si
  * la page committée ne correspond plus au CLI, avec la commande qui répare.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -26,6 +33,45 @@ if (!existsSync(DIST)) {
   console.error(
     `dist absent (${path.relative(ROOT, DIST)}) — \`npm run build\` d'abord :\n` +
       "  la page est rendue depuis le CLI CONSTRUIT, jamais depuis les sources.",
+  );
+  process.exit(69); // EX_UNAVAILABLE
+}
+
+/**
+ * 🔴 Un `dist` PÉRIMÉ est pire qu'un dist absent : il rend une page.
+ *
+ * Vécu — trente-neuf descriptions réécrites, ce script lancé, « ✓ écrite »
+ * affiché… et la page inchangée, parce que le `dist` datait d'avant. On croit
+ * alors avoir régénéré, on commite, et c'est le gate qui le découvre bien plus
+ * tard. L'absence était gardée ; la PÉREMPTION, qui est le cas fréquent, ne
+ * l'était pas.
+ *
+ * On compare donc le `dist` au source le plus récent du CLI. Pas de tolérance :
+ * un source plus récent d'une seconde suffit à rendre la sortie douteuse, et le
+ * remède coûte six secondes.
+ */
+function sourceLaPlusRecente(dossier) {
+  let recent = 0;
+  for (const entree of readdirSync(dossier, { withFileTypes: true })) {
+    if (entree.name === "dist" || entree.name === "node_modules") continue;
+    const chemin = path.join(dossier, entree.name);
+    if (entree.isDirectory())
+      recent = Math.max(recent, sourceLaPlusRecente(chemin));
+    else if (entree.name.endsWith(".ts")) {
+      recent = Math.max(recent, statSync(chemin).mtimeMs);
+    }
+  }
+  return recent;
+}
+
+const distDate = statSync(DIST).mtimeMs;
+const sourceDate = sourceLaPlusRecente(path.join(CORE, "src"));
+if (sourceDate > distDate) {
+  console.error(
+    `dist PÉRIMÉ (${path.relative(ROOT, DIST)}) — une source du cœur est plus\n` +
+      "  récente que lui. La page serait rendue depuis l'ANCIEN CLI, et ce script\n" +
+      "  annoncerait pourtant l'avoir écrite.\n" +
+      "  Réparer : npx turbo run build --force --filter=nodefony",
   );
   process.exit(69); // EX_UNAVAILABLE
 }

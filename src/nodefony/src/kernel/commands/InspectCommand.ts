@@ -88,7 +88,7 @@ class Inspect extends Command {
   constructor(cli: CliKernel) {
     super(
       "inspect",
-      "Inspecte l'état réel de l'app (routes, modules, services, config…) — sans serveur",
+      "l'état réel de l'app : routes, services, config",
       cli as CliKernel,
       options,
     );

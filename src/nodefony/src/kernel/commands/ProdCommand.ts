@@ -39,7 +39,7 @@ class Prod extends Command {
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Serveur de production : premier plan, cloud-native (topologie via --workers)",
+      "démarre en production, au premier plan",
       cli as CliKernel,
       options,
     );

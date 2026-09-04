@@ -39,7 +39,7 @@ class AiMcp extends Command {
   constructor(cli: CliKernel) {
     super(
       "ai:mcp",
-      "Déclare le serveur MCP de cette application à ton agent (.mcp.json)",
+      "déclare le serveur MCP de l'app à ton agent",
       cli as CliKernel,
       options,
     );

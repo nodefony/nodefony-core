@@ -23,7 +23,7 @@ class Certificates extends Command {
   constructor(cli: CliKernel) {
     super(
       "http:certificates",
-      "Generate / inspect the DEV TLS certificate",
+      "engendre ou inspecte le certificat TLS de dev",
       cli,
       options,
     );

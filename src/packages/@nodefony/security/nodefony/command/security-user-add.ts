@@ -48,7 +48,7 @@ class SecurityUserAdd extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:user:add",
-      "Crée un utilisateur (mot de passe demandé masqué ; --admin pour un compte administrateur)",
+      "crée un compte (mot de passe demandé masqué)",
       cli,
       options,
     );

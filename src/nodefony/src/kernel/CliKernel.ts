@@ -858,7 +858,7 @@ class CliKernel extends Cli {
       // `-h, --help` est posé par commander lui-même et n'apparaît pas dans
       // `options` : l'omettre ferait disparaître de l'aide le drapeau qu'on
       // vient de taper.
-      .concat([{ flags: "-h, --help", description: "Affiche cette aide" }])
+      .concat([{ flags: "-h, --help", description: "affiche cette aide" }])
       .sort((a, b) => a.flags.localeCompare(b.flags));
 
     const chargés = Object.keys(modules).filter((m) => m !== "app");

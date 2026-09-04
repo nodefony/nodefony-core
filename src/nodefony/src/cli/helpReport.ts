@@ -147,6 +147,49 @@ const COLONNE_MAX = 24;
 const ITEM = "    ";
 
 /**
+ * La place qui reste pour une description, une fois la colonne des noms posée.
+ *
+ * 🔴 Exportée pour qu'un GATE puisse s'y adosser au lieu de recopier le calcul.
+ * La contrainte « une description tient sur une ligne » ne vaut que rapportée à
+ * la colonne du moment, et celle-ci se DÉRIVE des commandes présentes : une
+ * borne écrite en dur dans un test deviendrait fausse le jour où un nom plus
+ * long élargit la colonne — le test resterait vert pendant que la page se
+ * replie.
+ *
+ * @param commands - les commandes qui composent la page.
+ * @param width - la largeur utile du terminal.
+ * @returns le nombre de colonnes offertes à une description sur sa première ligne.
+ */
+export function descriptionWidth(
+  commands: readonly IHelpCommand[],
+  width: number,
+): number {
+  return width - ITEM.length - nameColumnWidth(commands) - 2;
+}
+
+/**
+ * La largeur de la colonne des noms — UNE seule pour toute la page.
+ *
+ * Deux largeurs différentes selon le groupe feraient sauter l'œil d'un bloc à
+ * l'autre. Les noms qui dépassent {@link COLONNE_MAX} sont écartés du calcul :
+ * ils prennent leur propre ligne, et ne coûtent donc qu'à eux-mêmes.
+ *
+ * @param commands - les commandes qui composent la page.
+ * @returns la largeur de la colonne de gauche.
+ */
+function nameColumnWidth(commands: readonly IHelpCommand[]): number {
+  return Math.min(
+    COLONNE_MAX,
+    Math.max(
+      0,
+      ...commands
+        .map((c) => nomAffiche(c).length)
+        .filter((n) => n <= COLONNE_MAX),
+    ),
+  );
+}
+
+/**
  * Le nom d'une commande avec ses alias, tel qu'il se tape.
  *
  * @param cmd - la commande.
@@ -348,17 +391,7 @@ export function renderHelp(
   }
 
   const groupes = grouperCommandes(model.commands);
-  // UNE colonne pour toute la page : deux largeurs différentes selon le groupe
-  // feraient sauter l'œil d'un bloc à l'autre. Bornée par COLONNE_MAX.
-  const colonne = Math.min(
-    COLONNE_MAX,
-    Math.max(
-      0,
-      ...model.commands
-        .map((c) => nomAffiche(c).length)
-        .filter((n) => n <= COLONNE_MAX),
-    ),
-  );
+  const colonne = nameColumnWidth(model.commands);
 
   const section = (titre: string): void => {
     const { titre: t, filet } = titreSection(titre, largeur);

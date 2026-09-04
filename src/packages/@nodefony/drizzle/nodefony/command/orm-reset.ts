@@ -88,7 +88,7 @@ class OrmReset extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:reset",
-      "Vide la base de DÉVELOPPEMENT d'un connecteur (refusée dans tout autre environnement)",
+      "vide la base de développement d'un connecteur",
       cli,
       options,
     );

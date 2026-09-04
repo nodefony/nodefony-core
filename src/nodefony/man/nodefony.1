@@ -26,68 +26,61 @@ la commande est lancée. Pour la liste RÉELLE, dans le projet courant :
 .SH COMMANDS
 .TP
 .B ai:mcp
-Déclare le serveur MCP de cette application à ton agent (.mcp.json)
+déclare le serveur MCP de l'app à ton agent
 .TP
 .B ai:sync
-Pointeurs vers les skills d'agent des paquets installés (.agents/skills +
-miroir .claude/skills)
+installe les skills d'agent des paquets présents
 .TP
 .B build, compile
-Compile modules puis application (turbo + rolldown) vers dist/
+compile les modules puis l'application vers dist/
 .TP
 .B card, devkit:card
-Carte de visite de l'application : où aller, quoi lancer
+carte de visite : où l'on est, quoi lancer
 .TP
 .B cluster
-Serveur en cluster : N workers isolés (cgroup\-aware, respawn, arrêt
-gracieux)
+démarre N workers isolés, relancés s'ils tombent
 .TP
 .B completion
-Complétion shell : script à sourcer (bash | zsh | fish)
+script de complétion du shell (bash | zsh | fish)
 .TP
 .B create
-Génère app, module, entité… (app | module | controller | service | front
-| entity | command)
+engendre une application, un module, une entité…
 .TP
 .B development, dev
-Serveur de développement : rechargement auto du backend, HMR du front
+démarre en développement, rechargement automatique
 .TP
 .B doctor, check
-Diagnostic statique du projet : câblage, dépendances, bilan du dernier
-démarrage
+ce qui ne va pas dans cette application
 .TP
 .B env
-Variables d'environnement : cascade des .env, valeurs effectives et provenance
+les variables d'environnement et leur provenance
 .TP
 .B git:hooks
-Hooks git natifs (core.hooksPath) : typecheck+lint au commit, verify au push
+pose les hooks git : contrôles au commit et au push
 .TP
 .B inspect
-Inspecte l'état réel de l'app (routes, modules, services, config…) —
-sans serveur
+l'état réel de l'app : routes, services, config
 .TP
 .B install
-Installe les dépendances puis construit le projet
+installe les dépendances puis construit le projet
 .TP
 .B menu
-Menu interactif : les commandes utiles ici, expliquées
+menu interactif : les commandes utiles ici
 .TP
 .B outdated
-Liste les dépendances du projet en retard, agrégées par paquet
+les dépendances en retard, groupées par paquet
 .TP
 .B production, prod, start
-Serveur de production : premier plan, cloud\-native (topologie via
-\-\-workers)
+démarre en production, au premier plan
 .TP
 .B status
-Montre les runtimes Nodefony actifs (superviseur, serveurs, Vite) et leurs
-ports
+dit quels processus de ce projet tournent, et où
 .TP
 .B stop
-Arrête proprement les runtimes Nodefony actifs (dev, prod, cluster)
+arrête les processus Nodefony de ce projet
 .TP
 .B symbols
-Graphe symbolique : définition, description et parenté d'un symbole
+où un symbole est défini, et de qui il hérite
 .SH OPTIONS
 Options acceptées par toutes les commandes. Chaque commande porte en plus les
 siennes, que \fBnodefony \fI<commande>\fB \-\-help\fR détaille.

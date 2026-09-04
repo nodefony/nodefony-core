@@ -70,7 +70,7 @@ class Outdated extends Command {
   constructor(cli: CliKernel) {
     super(
       "outdated",
-      "Liste les dépendances du projet en retard, agrégées par paquet",
+      "les dépendances en retard, groupées par paquet",
       cli as CliKernel,
       optionsCommand,
     );

@@ -21,7 +21,7 @@ class Create extends Command {
   constructor(cli: CliKernel) {
     super(
       "create",
-      `Génère app, module, entité… (${CREATE_TYPES.join(" | ")})`,
+      "engendre une application, un module, une entité…",
       cli,
       options,
     );

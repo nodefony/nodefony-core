@@ -33,7 +33,7 @@ class ProxyGenerate extends Command {
   constructor(cli: CliKernel) {
     super(
       "proxy:generate",
-      "Generate a reverse-proxy config (nginx|haproxy) from introspection",
+      "engendre une configuration nginx ou haproxy",
       cli,
       options,
     );

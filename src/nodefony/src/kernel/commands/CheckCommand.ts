@@ -64,7 +64,7 @@ class Check extends Command {
   constructor(cli: CliKernel) {
     super(
       "doctor",
-      "Diagnostic statique du projet : câblage, dépendances, bilan du dernier démarrage",
+      "ce qui ne va pas dans cette application",
       cli as CliKernel,
       options,
     );

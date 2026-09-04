@@ -70,7 +70,7 @@ class SecuritySecrets extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:secrets",
-      "Génère les clés de chiffrement du module security (TOTP, webhooks, CSRF) et guide le câblage (--write : remplit le .env)",
+      "engendre les clés de chiffrement du module security",
       cli,
       options,
     );

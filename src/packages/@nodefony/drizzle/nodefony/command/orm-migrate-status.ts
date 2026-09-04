@@ -50,7 +50,7 @@ class OrmMigrateStatus extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:migrate:status",
-      "Affiche l'état des migrations d'un connecteur (lecture seule ; code de sortie 0 à jour, 1 action requise, 2 panne)",
+      "l'état des migrations d'un connecteur, sans écrire",
       cli,
       options,
     );

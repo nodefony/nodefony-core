@@ -42,7 +42,7 @@ class Card extends Command {
   constructor(cli: CliKernel) {
     super(
       "card",
-      "Carte de visite de l'application : où aller, quoi lancer",
+      "carte de visite : où l'on est, quoi lancer",
       cli as CliKernel,
       options,
     );

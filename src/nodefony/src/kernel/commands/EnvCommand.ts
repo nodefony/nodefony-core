@@ -42,7 +42,7 @@ class Env extends Command {
   constructor(cli: CliKernel) {
     super(
       "env",
-      "Variables d'environnement : cascade des .env, valeurs effectives et provenance",
+      "les variables d'environnement et leur provenance",
       cli as CliKernel,
       options,
     );
