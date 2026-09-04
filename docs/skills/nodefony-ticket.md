@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Description | 1006 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 4 page(s) |
-| Scripts | 12 |
+| Scripts | 13 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -91,6 +91,7 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--milestone` `--owner` `--paginate` `--slurp` `--state` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` |
 | `scripts/board-lint.test.mjs` | — | `--grep` | — |
+| `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--comment` `--format` `--grep` `--name-only` `--reverse` `--since` | — |

@@ -23,6 +23,8 @@
  */
 import { execFileSync } from "node:child_process";
 
+import { isPilotageCommit } from "./commit-kind.mjs";
+
 const OWNER = "nodefony";
 const PROJECT = 2;
 /** Mots-clés de fermeture reconnus par GitHub (EN et FR, tels qu'employés ici). */
@@ -42,10 +44,15 @@ const sh = (cmd, args) =>
  * Séparé de tout accès réseau, donc éprouvable sans GitHub — un contrôle qu'on ne
  * peut pas voir échouer ne garde rien.
  *
+ * Un commit de PILOTAGE ne met rien en cours : il cite pour rendre compte, pas
+ * pour avancer. Le verdict vient de `commit-kind.mjs`, que `board-lint.mjs` lit
+ * aussi — les deux bouts du même champ doivent juger sur la MÊME règle.
+ *
  * @param message - le message de commit complet (sujet + corps).
  * @returns les numéros, en chaînes, sans doublon et dans l'ordre d'apparition.
  */
 export function parseTargets(message) {
+  if (isPilotageCommit(message)) return [];
   const closed = new Set([...message.matchAll(CLOSING)].map((m) => m[2]));
   const mentioned = new Set([...message.matchAll(MENTION)].map((m) => m[1]));
   return [...mentioned].filter((n) => !closed.has(n));

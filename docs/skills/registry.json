@@ -5672,6 +5672,15 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/commit-kind.mjs",
+            "purpose": "Ce qu'un commit PROUVE au sujet des tickets qu'il cite.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/francise.mjs",
             "purpose": "Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français.",
             "usage": [

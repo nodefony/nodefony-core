@@ -30,12 +30,11 @@
  */
 import { execFileSync } from "node:child_process";
 
+import { isPilotageCommit } from "./commit-kind.mjs";
+
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
 const PROJECT = 2;
-
-/** Un commit de pilotage cite des tickets sans les faire avancer — cf #172. */
-const PILOTAGE = /^(docs\(session\)|chore\(pilotage\)|docs\(claude\))/;
 
 /** Au-delà, un statut « en cours » ne s'adosse plus à rien d'observable. */
 const JOURS_EN_COURS = 14;
@@ -206,7 +205,7 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
   for (const item of items) {
     if (item.status !== "In Progress") continue;
     const vivants = (commits[item.n] ?? []).filter(
-      (c) => !PILOTAGE.test(c.subject) && Date.parse(c.date) >= limite,
+      (c) => !isPilotageCommit(c.subject) && Date.parse(c.date) >= limite,
     );
     if (vivants.length) continue;
     add(
