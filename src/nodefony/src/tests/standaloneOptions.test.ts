@@ -46,6 +46,11 @@ function drapeauxAcceptes(fichier: string): Set<string> {
   // le déclarer serait d'ailleurs refusé (conflit avec l'option intégrée). Un
   // parseur standalone doit le reconnaître pour ne pas répondre « option
   // inconnue : --help » ; c'est un devoir, pas une option privée.
+  //
+  // Ce devoir est ÉPROUVÉ, et ailleurs : `standaloneHelp.test.ts` appelle
+  // chaque commande avec `--help` et regarde ce qui sort. Il a longtemps vécu
+  // ici en commentaire, et dix commandes le démentaient sans que rien ne
+  // tombe.
   flags.delete("--help");
   return flags;
 }

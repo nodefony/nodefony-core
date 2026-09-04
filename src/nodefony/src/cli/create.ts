@@ -1,4 +1,5 @@
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { besoinDeShell } from "./execPortable";
@@ -61,6 +62,8 @@ export const CREATE_TYPES = [
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
   /** `undefined` seulement avec `--describe-json` (décrire TOUS les types). */
   type?: TCreateType;
   /** Réponses partielles issues des flags (le reste : interactif ou défauts). */
@@ -103,9 +106,14 @@ export function parseCreateArgv(
   let dryRun = false;
   let describeJson = false;
   let answersJson: string | undefined;
+  let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--force" || word === "-f") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      help = true;
+    } else if (word === "--force" || word === "-f") {
       force = true;
     } else if (word === "--yes" || word === "-y") {
       yes = true;
@@ -232,6 +240,12 @@ export function parseCreateArgv(
     }
   }
   const [type, name, ...extra] = positionals;
+  // `--help` court-circuite TOUTE validation : « nodefony create --help » doit
+  // rendre la page, pas « type requis ». On demande l'aide précisément parce
+  // qu'on ne sait pas encore quel type existe.
+  if (help) {
+    return { help, answers, force, yes, install, git, dryRun, describeJson };
+  }
   // Le type est obligatoire pour AGIR, facultatif pour se DÉCRIRE : un agent
   // qui découvre l'outil demande le catalogue entier avant de savoir quel type
   // il veut.
@@ -263,6 +277,7 @@ export function parseCreateArgv(
     answers.fields = extra.join(" ");
   }
   return {
+    help,
     type: type as TCreateType | undefined,
     answers,
     dir,
@@ -276,8 +291,7 @@ export function parseCreateArgv(
   };
 }
 
-const USAGE =
-  `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
+const PAR_TYPE =
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
   `               [--agents <liste|none>] — agents de dev à câbler (défaut : aucun)\n` +
   `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
@@ -311,6 +325,66 @@ const USAGE =
   `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +
   `    --answers-json <fichier|->       réponses en JSON (- = entrée standard) ; les flags l'emportent\n` +
   `    --dry-run                        le plan (fichiers créés + diff des réécritures), sans rien écrire\n`;
+
+/** La page d'aide — `nodefony create --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony create",
+  tagline:
+    "engendre du code conforme au framework : une application, un module, " +
+    "un controller, un service, un front, une entité, une commande",
+  synopsis: [
+    `nodefony create <${CREATE_TYPES.join("|")}> [nom] [options]`,
+    "nodefony create --describe-json",
+  ],
+  sections: [
+    {
+      title: "CE QUE CHAQUE TYPE ACCEPTE",
+      lines: PAR_TYPE.split("\n").filter((l) => l !== ""),
+    },
+  ],
+  options: [
+    { term: "--dir <chemin>", text: "dossier cible (défaut : ./<nom>)" },
+    { term: "-f, --force", text: "accepte un dossier cible non vide" },
+    {
+      term: "-y, --yes",
+      text: "prend les défauts de la spec (saute l'interactif)",
+    },
+    { term: "-n, --dry-run", text: "le plan, sans rien écrire" },
+    {
+      term: "--describe-json",
+      text:
+        "types, questions, valeurs permises et cibles du projet, en JSON — " +
+        "la porte MACHINE, pour un agent ou un script",
+    },
+    {
+      term: "--answers-json <f>",
+      text: "réponses en JSON (`-` = entrée standard) ; les drapeaux l'emportent",
+    },
+  ],
+  examples: [
+    {
+      term: "nodefony create app mon-app",
+      text: "une application neuve, hors de tout projet",
+    },
+    {
+      term: "nodefony create entity Post title:string content:text",
+      text: "une entité, son repository, son controller et ses tests",
+    },
+    {
+      term: "nodefony create --describe-json | jq .",
+      text: "ce que le générateur sait faire, pour un agent",
+    },
+  ],
+  exitCodes: [
+    {
+      term: "73",
+      text: "le dossier cible ne peut pas être créé (EX_CANTCREAT)",
+    },
+  ],
+  footer:
+    "Sans drapeau dans un terminal, elle passe en mode interactif : les " +
+    "questions de la spec, puis un récapitulatif avant d'écrire.",
+};
 
 /**
  * Décrit le scaffold en JSON — la porte MACHINE de `nodefony create`.
@@ -902,8 +976,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     parsed = parseCreateArgv(complet);
   }
   if ("error" in parsed) {
-    process.stderr.write(`create: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   if (parsed.describeJson) {
     // Avant tout le reste : se décrire ne dépend d'aucune réponse, et doit
@@ -984,8 +1060,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     answers.link = false;
   }
   if (answers.name === undefined || answers.name === "") {
-    process.stderr.write(`create: nom requis\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, "nom requis");
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
   const dir =
@@ -1004,8 +1079,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.CANTCREAT;
     }
     if (message.includes("invalide")) {
-      process.stderr.write(USAGE);
-      return SysExit.USAGE;
+      return printUsageError(PAGE, message);
     }
     return SysExit.SOFTWARE;
   }

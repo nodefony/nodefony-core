@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T21:07:28.365Z",
+  "generated": "2026-09-04T21:25:46.928Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 807,
-    "symbols": 3834,
+    "files": 808,
+    "symbols": 3841,
     "classes": 383,
-    "interfaces": 1044,
+    "interfaces": 1047,
     "types": 438,
     "enums": 4,
-    "functions": 1582,
+    "functions": 1586,
     "constants": 383
   },
   "symbols": {
@@ -2100,6 +2100,57 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le tableau, ligne par ligne, sans retour chariot final."
+    },
+    "IUsageEntry": {
+      "name": "IUsageEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/usageReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une ligne à deux colonnes : un terme, ce qu'il fait."
+    },
+    "IUsageSection": {
+      "name": "IUsageSection",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/usageReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une section libre, insérée entre l'en-tête et les options. Elle porte ce qu'aucune liste d'options ne dirait : ce que la commande regarde, ce qu'elle refuse de faire, la frontière de ce qu'elle sait."
+    },
+    "IUsagePage": {
+      "name": "IUsagePage",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/usageReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tout ce qu'une page d'aide a besoin de savoir — et rien d'autre."
+    },
+    "renderUsage": {
+      "name": "renderUsage",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/usageReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend la page complète, retour chariot final compris."
+    },
+    "printUsage": {
+      "name": "printUsage",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/usageReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Écrit la page sur la sortie standard — la réponse à `--help`. Sur **stdout** et avec le code **0** : `--help` est une réponse, pas une erreur. Un `nodefony env --help | less` doit voir la page, et …"
+    },
+    "printUsageError": {
+      "name": "printUsageError",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/usageReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Écrit un refus PUIS la page, sur la sortie d'erreur. La page suit le refus parce que les deux questions arrivent ensemble : on vient de se tromper de drapeau, et ce qu'on veut lire tout de suite es…"
     },
     "noteServerEnv": {
       "name": "noteServerEnv",
@@ -29038,6 +29089,38 @@
         "src/nodefony/src/cli/agentTargets.ts",
         "src/nodefony/src/cli/aiMcp.ts"
       ],
+      "printUsage": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/aiSync.ts",
+        "src/nodefony/src/cli/card.ts",
+        "src/nodefony/src/cli/completion.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
+        "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "printUsageError": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/aiSync.ts",
+        "src/nodefony/src/cli/card.ts",
+        "src/nodefony/src/cli/completion.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
+        "src/nodefony/src/cli/symbols.ts"
+      ],
+      "IUsagePage": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/aiSync.ts",
+        "src/nodefony/src/cli/card.ts",
+        "src/nodefony/src/cli/completion.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
+        "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "poserPointeursAgents": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
@@ -29327,12 +29410,14 @@
       "creerPalette": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
+        "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "replier": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
+        "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -29342,12 +29427,14 @@
       ],
       "titreSection": [
         "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "IPalette": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
+        "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -29360,6 +29447,18 @@
       ],
       "MENU_GROUP_LABELS": [
         "src/nodefony/src/cli/startMenu.ts"
+      ],
+      "doitColorer": [
+        "src/nodefony/src/cli/usageReport.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "largeurUtile": [
+        "src/nodefony/src/cli/usageReport.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "RealtimeClient": [
         "src/nodefony/src/client/announce.ts",
@@ -29718,16 +29817,6 @@
       "runCreateCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
-      ],
-      "doitColorer": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
-        "src/nodefony/src/kernel/commands/InspectCommand.ts"
-      ],
-      "largeurUtile": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
-        "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "renderHelp": [
         "src/nodefony/src/kernel/CliKernel.ts"

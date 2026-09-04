@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import {
@@ -16,7 +17,45 @@ import {
   type IGitHooksPlan,
 } from "./gitHooksReport";
 
-const USAGE = `Usage : nodefony git:hooks [--dry-run] [--json] [--cwd <path>]\n`;
+/** La page d'aide — `nodefony git:hooks --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony git:hooks",
+  tagline:
+    "pose les hooks git de ce projet : contrôles au commit, vérification " +
+    "au push",
+  sections: [
+    {
+      title: "CE QU'ELLE FAIT",
+      paragraph:
+        "Elle écrit deux scripts shell et pose une seule clé de configuration " +
+        "git, qui désigne le dossier où git ira les chercher. Rien n'est " +
+        "installé à votre insu : la pose des hooks est un geste EXPLICITE, " +
+        "jamais l'effet de bord d'un `npm install`. Elle ne démarre pas " +
+        "l'application.",
+    },
+  ],
+  options: [
+    { term: "--dry-run", text: "le plan, sans rien écrire ni configurer" },
+    { term: "--json", text: "le même plan, exploitable par un script" },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony git:hooks", text: "pose les hooks dans ce dépôt" },
+    {
+      term: "nodefony git:hooks --dry-run",
+      text: "ce qu'elle écrirait, avant de la laisser faire",
+    },
+  ],
+  exitCodes: [
+    {
+      term: "66",
+      text: "aucune application, ou aucun dépôt git ici (EX_NOINPUT)",
+    },
+  ],
+};
 
 /**
  * Interroge git — sortie capturée, échec rendu `null`.
@@ -45,14 +84,20 @@ function git(args: string[], cwd: string): string | null {
  */
 export function parseGitHooksArgv(
   argv: string[],
-): { cwd: string; json: boolean; dryRun: boolean } | { error: string } {
+):
+  | { cwd: string; json: boolean; dryRun: boolean; help: boolean }
+  | { error: string } {
   const args = argv.slice(2).filter((a) => a !== "git:hooks");
   let cwd = process.cwd();
   let json = false;
   let dryRun = false;
+  let help = false;
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i] as string;
-    if (a === "--json") json = true;
+    // Une commande qui répond « option inconnue : --help » apprend au lecteur
+    // à ne plus croire le pied de l'aide, qui promet ce drapeau.
+    if (a === "--help" || a === "-h") help = true;
+    else if (a === "--json") json = true;
     else if (a === "--dry-run") dryRun = true;
     else if (a === "--cwd") {
       const v = args[i + 1];
@@ -61,7 +106,7 @@ export function parseGitHooksArgv(
       i += 1;
     } else return { error: `option inconnue : ${a}` };
   }
-  return { cwd, json, dryRun };
+  return { cwd, json, dryRun, help };
 }
 
 /**
@@ -159,8 +204,10 @@ export function installGitHooks(
 export function runGitHooksCommand(argv: string[]): number {
   const parsed = parseGitHooksArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`git:hooks: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {

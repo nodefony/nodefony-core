@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import {
   buildCard,
   renderCard,
@@ -39,13 +40,49 @@ import {
  * source, deux portes.
  */
 
-const USAGE = `usage : nodefony card [--json] [--cwd <path>]\n`;
+/** La page d'aide — `nodefony card --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony card",
+  tagline:
+    "la carte de visite de cette application : où l'on est, ce qu'elle " +
+    "embarque, et quoi taper ensuite",
+  aliases: ["nodefony devkit:card"],
+  sections: [
+    {
+      title: "CE QU'ELLE LIT",
+      paragraph:
+        "Des fichiers, et rien d'autre : elle ne DÉMARRE pas l'application. " +
+        "Elle répond donc dans une application pas encore construite, et dans " +
+        "un terminal qui n'a pas posé NODE_ENV — les deux situations où l'on " +
+        "cherche précisément par où commencer. La contrepartie est écrite dans " +
+        "la carte : elle connaît les modules INSTALLÉS, pas les modules " +
+        "CHARGÉS. Pour ceux-là, `nodefony inspect modules`.",
+    },
+  ],
+  options: [
+    { term: "-j, --json", text: "la même carte, exploitable par un script" },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony card", text: "la carte de l'application d'ici" },
+    {
+      term: "nodefony card --json | jq .",
+      text: "la même, pour un script ou un agent",
+    },
+  ],
+  exitCodes: [{ term: "66", text: "aucune application ici (EX_NOINPUT)" }],
+};
 
 /** Ce que la ligne de commande demande. */
 interface ICardRequest {
   json: boolean;
   /** Racine de recherche (défaut : le cwd). */
   cwd: string;
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
 }
 
 /**
@@ -61,9 +98,14 @@ export function parseCardArgv(
   const rest = at === -1 ? [] : argv.slice(at + 1);
   let json = false;
   let cwd = process.cwd();
+  let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--json" || word === "-j") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      help = true;
+    } else if (word === "--json" || word === "-j") {
       json = true;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
@@ -71,7 +113,7 @@ export function parseCardArgv(
       return { error: `option inconnue : ${word}` };
     }
   }
-  return { json, cwd };
+  return { json, cwd, help };
 }
 
 /** Lit un `package.json` sans jamais lever — absent ou illisible → `null`. */
@@ -194,8 +236,10 @@ export function runCardCommand(
 ): number {
   const parsed = parseCardArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`card: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {

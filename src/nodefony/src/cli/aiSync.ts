@@ -6,12 +6,46 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { planSync, renderPlan, SKILLS_DIR } from "./aiSyncReport";
 import type { IAiSyncPlan, IDiscoveredSkill } from "./aiSyncReport";
 
-const USAGE = `Usage : nodefony ai:sync [--dry-run] [--json] [--cwd <path>]\n`;
+/** La page d'aide — `nodefony ai:sync --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony ai:sync",
+  tagline:
+    "installe dans ce projet les pointeurs vers les skills d'agent que " +
+    "livrent les paquets présents",
+  sections: [
+    {
+      title: "CE QU'ELLE ÉCRIT",
+      paragraph:
+        "Des POINTEURS, jamais une copie : le contenu des skills reste dans " +
+        "les paquets, où npm le met à jour. Elle écrit `.agents/skills/` et " +
+        "son miroir `.claude/skills/`, et n'y touche qu'aux entrées qu'elle a " +
+        "posées. Elle ne DÉMARRE pas l'application — elle répond donc dans un " +
+        "terminal qui n'a pas posé NODE_ENV.",
+    },
+  ],
+  options: [
+    { term: "--dry-run", text: "le plan, sans rien écrire" },
+    { term: "--json", text: "le même plan, exploitable par un script" },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony ai:sync", text: "pose les pointeurs manquants" },
+    {
+      term: "nodefony ai:sync --dry-run",
+      text: "ce qu'elle ferait, avant de la laisser faire",
+    },
+  ],
+  exitCodes: [{ term: "66", text: "aucune application ici (EX_NOINPUT)" }],
+};
 
 /**
  * Les paquets d'où proviennent des skills.
@@ -227,14 +261,20 @@ export function readExistingPointers(
  */
 export function parseAiSyncArgv(
   argv: string[],
-): { cwd: string; json: boolean; dryRun: boolean } | { error: string } {
+):
+  | { cwd: string; json: boolean; dryRun: boolean; help: boolean }
+  | { error: string } {
   const args = argv.slice(2).filter((a) => a !== "ai:sync");
   let cwd = process.cwd();
   let json = false;
   let dryRun = false;
+  let help = false;
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i] as string;
-    if (a === "--json") json = true;
+    // Une commande qui répond « option inconnue : --help » apprend au lecteur
+    // à ne plus croire le pied de l'aide, qui promet ce drapeau.
+    if (a === "--help" || a === "-h") help = true;
+    else if (a === "--json") json = true;
     else if (a === "--dry-run") dryRun = true;
     else if (a === "--cwd") {
       const v = args[i + 1];
@@ -243,7 +283,7 @@ export function parseAiSyncArgv(
       i += 1;
     } else return { error: `option inconnue : ${a}` };
   }
-  return { cwd, json, dryRun };
+  return { cwd, json, dryRun, help };
 }
 
 /**
@@ -351,8 +391,10 @@ export function syncSkillPointers(
 export function runAiSyncCommand(argv: string[]): number {
   const parsed = parseAiSyncArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`ai:sync: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
   if (projectRoot === null) {

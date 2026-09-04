@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { poserPointeursAgents } from "./scaffold/engine";
 import { SysExit } from "./sysexits";
 import { chargePrompts } from "./prompts";
@@ -60,22 +61,84 @@ import {
 /** Chemin de la route MCP — dupliqué NULLE PART ailleurs dans le cœur. */
 const MCP_PATH = "/nodefony/mcp";
 
-const USAGE =
-  `Usage : nodefony ai:mcp [--auth|--no-auth] [--agent <liste>] [--remove]\n` +
-  `                        [--url <origine>] [--global] [--dry-run] [--json]\n` +
-  `                        [--cwd <path>]\n` +
-  `  Déclare le serveur MCP de cette application dans ${MCP_CONFIG_FILE}.\n` +
-  `  --auth : mode authentifié — l'en-tête porte \${${MCP_TOKEN_ENV}} (jamais le jeton lui-même).\n` +
-  `           sans option, le mode déjà en place est CONSERVÉ ; --no-auth le retire.\n` +
-  `         le jeton s'obtient par : nodefony security:token --write\n` +
-  `  --agent : déclare AUSSI la porte chez ces agents, via LEUR CLI —\n` +
-  `            ${AGENT_TARGETS.map((c) => c.cle).join(", ")}, all, none.\n` +
-  `            « none » (ou aucune case cochée en interactif) ne touche à aucun agent :\n` +
-  `            coder seul est un choix, pas un oubli.\n` +
-  `  --remove : retire la déclaration au lieu de la poser (avec --agent).\n`;
+/** La page d'aide — `nodefony ai:mcp --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony ai:mcp",
+  tagline:
+    "déclare le serveur MCP de cette application à ton agent, et si tu veux " +
+    "chez les agents installés",
+  synopsis: [
+    "nodefony ai:mcp [--auth|--no-auth] [--url <origine>] [options]",
+    "nodefony ai:mcp --agent <liste> [--remove] [--global] [options]",
+  ],
+  sections: [
+    {
+      title: "CE QU'ELLE ÉCRIT",
+      paragraph:
+        `Le fichier ${MCP_CONFIG_FILE} du projet, et — si --agent est donné — ` +
+        "la déclaration chez les agents nommés, par LEUR propre outil en " +
+        "ligne de commande. Elle ne DÉMARRE rien : le serveur MCP est une " +
+        "route de l'application, pas un process.",
+    },
+    {
+      title: "AGENTS RECONNUS",
+      lines: [`${AGENT_TARGETS.map((c) => c.cle).join(" · ")} · all · none`],
+      paragraph:
+        "« none » — ou aucune case cochée en mode interactif — ne touche à " +
+        "aucun agent : coder seul est un choix, pas un oubli.",
+    },
+  ],
+  options: [
+    {
+      term: "-a, --auth",
+      text:
+        `mode authentifié : l'en-tête porte \${${MCP_TOKEN_ENV}}, jamais le ` +
+        "jeton lui-même. Sans option, le mode déjà en place est CONSERVÉ",
+    },
+    { term: "--no-auth", text: "retire l'en-tête d'autorisation" },
+    {
+      term: "-u, --url <origine>",
+      text: "origine forcée (ex. https://localhost:5152)",
+    },
+    {
+      term: "--agent <liste>",
+      text: "déclare AUSSI la porte chez ces agents, via leur propre CLI",
+    },
+    {
+      term: "--remove",
+      text: "avec --agent : retire la déclaration au lieu de la poser",
+    },
+    {
+      term: "--global",
+      text:
+        "avec --agent : déclare dans TON foyer au lieu du projet (une seule " +
+        "application servie)",
+    },
+    { term: "-n, --dry-run", text: "le plan, sans rien écrire" },
+    { term: "-j, --json", text: "le même plan, exploitable par un script" },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony ai:mcp", text: "déclare la porte dans le projet" },
+    {
+      term: "nodefony ai:mcp --auth",
+      text: "en mode authentifié — le jeton s'obtient par `nodefony security:token --write`",
+    },
+    {
+      term: "nodefony ai:mcp --agent all",
+      text: "et chez tous les agents installés sur ce poste",
+    },
+  ],
+  exitCodes: [{ term: "66", text: "aucune application ici (EX_NOINPUT)" }],
+};
 
 /** Ce que la ligne de commande demande. */
 interface IAiMcpRequest {
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
   /** Origine forcée (`https://localhost:5152`), ou `null` pour la déduire. */
   url: string | null;
   /**
@@ -124,10 +187,15 @@ export function parseAiMcpArgv(
     dryRun: false,
     json: false,
     cwd: process.cwd(),
+    help: false,
   };
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--auth" || word === "-a") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « argument inconnu : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      req.help = true;
+    } else if (word === "--auth" || word === "-a") {
       req.auth = true;
     } else if (word === "--no-auth") {
       // Le retrait est un geste qui se NOMME.
@@ -694,8 +762,10 @@ export function readMcpConfig(file: string): IMcpConfigDocument | null {
 export async function runAiMcpCommand(argv: string[]): Promise<number> {
   const parsed = parseAiMcpArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`ai:mcp: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
 
   const projectRoot = findProjectRoot(parsed.cwd);

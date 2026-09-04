@@ -28,6 +28,7 @@ import {
 import { buildProjectTable, type IProjectRuntime } from "./devProjects";
 import { probeReadiness, type IReadinessProbe } from "./bootVerdict";
 import { runStopReport } from "./devStop";
+import { printUsage, type IUsagePage } from "../../cli/usageReport";
 
 /**
  * Rapport `nodefony status` — composition + exécution DÉCOUPLÉES de la classe Command.
@@ -50,6 +51,84 @@ const ANSI = {
 /** Commandes « système » exécutables SANS boot kernel ni trunk (outillage process). */
 const STANDALONE_DEV_COMMANDS = new Set<string>(["status", "stop"]);
 
+/** La page d'aide de `nodefony status`. */
+const STATUS_PAGE: IUsagePage = {
+  command: "nodefony status",
+  tagline:
+    "dit quels processus Nodefony de ce projet tournent, dans quel mode, et " +
+    "sur quels ports",
+  synopsis: ["nodefony status"],
+  sections: [
+    {
+      title: "CE QU'ELLE OBSERVE",
+      paragraph:
+        "Le fichier de pid du superviseur, le fichier d'état du runtime, les " +
+        "ports du poste, et — quand la machine l'offre — la table des " +
+        "processus. Aucune de ces sources n'est déduite de la plateforme : ce " +
+        "que `ps` ne peut pas donner ici est ANNONCÉ dans le rapport, jamais " +
+        "remplacé par un silence. Elle ne démarre ni n'arrête rien.",
+    },
+  ],
+  options: [],
+  examples: [
+    { term: "nodefony status", text: "l'état des processus de ce projet" },
+  ],
+};
+
+/** La page d'aide de `nodefony stop`. */
+const STOP_PAGE: IUsagePage = {
+  command: "nodefony stop",
+  tagline: "arrête proprement les processus Nodefony de ce projet",
+  synopsis: ["nodefony stop [projet] [--all]"],
+  sections: [
+    {
+      title: "CE QU'ELLE ARRÊTE",
+      paragraph:
+        "Le projet du répertoire courant, et lui seul. Un autre projet se " +
+        "désigne par son nom ou son chemin ; `--all` étend le geste à TOUS " +
+        "les projets Nodefony de cette machine, ce qui se demande " +
+        "explicitement parce que personne ne veut l'obtenir par défaut.",
+    },
+  ],
+  options: [
+    {
+      term: "--all",
+      text:
+        "arrête les processus Nodefony de TOUS les projets de cette machine " +
+        "(défaut : le projet courant seulement)",
+    },
+  ],
+  examples: [
+    { term: "nodefony stop", text: "arrête le projet d'ici" },
+    { term: "nodefony stop mon-app", text: "arrête un projet nommé" },
+    { term: "nodefony stop --all", text: "arrête tout, sur cette machine" },
+  ],
+  exitCodes: [
+    {
+      term: "1",
+      text: "la cible n'a pas pu être désignée — rien n'a été arrêté",
+    },
+  ],
+};
+
+/**
+ * `true` si l'invocation demande l'aide de la commande, et non son exécution.
+ *
+ * 🔴 Ces commandes analysent `process.argv` elles-mêmes — le fast-path court
+ * AVANT commander. Sans ce contrôle, `nodefony stop --help` ARRÊTAIT le serveur :
+ * le drapeau était simplement ignoré, et un lecteur qui cherchait la
+ * documentation obtenait l'effet.
+ *
+ * @param name - le nom de la commande, pour ne lire que ce qui la suit.
+ * @param argv - la ligne de commande.
+ * @returns `true` si `--help` ou `-h` a été demandé.
+ */
+function wantsHelp(name: string, argv: readonly string[]): boolean {
+  const at = argv.indexOf(name);
+  if (at === -1) return false;
+  return argv.slice(at + 1).some((a) => a === "--help" || a === "-h");
+}
+
 /** `true` si `name` est une commande système standalone (status/stop). */
 export function isStandaloneDevCommand(name: string): boolean {
   return STANDALONE_DEV_COMMANDS.has(name);
@@ -62,6 +141,9 @@ export function isStandaloneDevCommand(name: string): boolean {
  */
 export async function runStandaloneDevCommand(name: string): Promise<number> {
   const cwd = process.cwd();
+  if (wantsHelp(name, process.argv)) {
+    return printUsage(name === "stop" ? STOP_PAGE : STATUS_PAGE);
+  }
   if (name === "status") {
     await runStatusReport(cwd);
     return 0;

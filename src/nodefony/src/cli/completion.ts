@@ -10,6 +10,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { SysExit } from "./sysexits";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { OPTION_SUGGESTIONS } from "../command/Command";
 import type { Command as CommanderCommand } from "commander";
 
@@ -311,6 +312,45 @@ export function computeCompletions(
 export const COMPLETION_SHELLS = ["bash", "zsh", "fish"] as const;
 export type CompletionShell = (typeof COMPLETION_SHELLS)[number];
 
+/** La page d'aide — `nodefony completion --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony completion",
+  tagline:
+    "le script de complétion à sourcer, ou son installation dans le fichier " +
+    "de démarrage du shell",
+  synopsis: [
+    `nodefony completion [${COMPLETION_SHELLS.join("|")}]`,
+    `nodefony completion install|uninstall [${COMPLETION_SHELLS.join("|")}]`,
+  ],
+  sections: [
+    {
+      title: "CE QU'ELLE FAIT",
+      paragraph:
+        "Sans action, elle IMPRIME le script — à rediriger soi-même. Avec " +
+        "`install`, elle l'écrit et pose un bloc marqué, idempotent, dans le " +
+        "fichier de démarrage du shell ; `uninstall` le retire. Le script est " +
+        "STABLE : il délègue tout au binaire, donc les commandes qu'un module " +
+        "ajoute apparaissent sans jamais le régénérer. Sans shell nommé, " +
+        "celui de l'environnement est détecté.",
+    },
+  ],
+  options: [],
+  examples: [
+    {
+      term: "nodefony completion zsh",
+      text: "imprime le script — à rediriger où le shell le lira",
+    },
+    {
+      term: "nodefony completion install",
+      text: "l'installe pour le shell détecté",
+    },
+    {
+      term: "nodefony completion uninstall bash",
+      text: "retire le bloc posé dans le fichier de démarrage",
+    },
+  ],
+};
+
 /**
  * Rend le script de complétion à sourcer pour un shell. Le script est STABLE (il
  * délègue tout au binaire via `__complete`) : les commandes de module apparaissent
@@ -520,6 +560,17 @@ function reloadHint(shell: CompletionShell): string {
  * @returns exit code (`EX_OK`, ou `EX_USAGE` si shell inconnu et indétectable).
  */
 export function runCompletionCommand(argv: string[]): number {
+  // 🔴 Le drapeau se lit AVANT tout : cette commande FILTRAIT les options pour
+  // ne garder que les positionnels, si bien que `nodefony completion --help`
+  // imprimait le script du shell détecté. Un lecteur qui cherchait la
+  // documentation obtenait sept cents lignes de shell.
+  const at = argv.indexOf("completion");
+  if (
+    at !== -1 &&
+    argv.slice(at + 1).some((a) => a === "--help" || a === "-h")
+  ) {
+    return printUsage(PAGE);
+  }
   const positionals = argv.slice(2).filter((a) => !a.startsWith("-"));
   // positionals[0] = "completion" ; ensuite [action] [shell] ou [shell].
   const action =
@@ -535,11 +586,12 @@ export function runCompletionCommand(argv: string[]): number {
     !shell ||
     (arg && !(COMPLETION_SHELLS as readonly string[]).includes(arg))
   ) {
-    writeSync(
-      2,
-      `usage: nodefony completion [install|uninstall] <${COMPLETION_SHELLS.join("|")}>\n`,
+    return printUsageError(
+      PAGE,
+      arg
+        ? `shell inconnu : ${arg}`
+        : "shell indétectable — nommez-le (ex. nodefony completion zsh)",
     );
-    return SysExit.USAGE;
   }
   const home = os.homedir();
   if (action === "install") {

@@ -153,6 +153,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("parse type/name + défauts (answers partielles vides)", () => {
       const req = parseCreateArgv(argv("create", "app", "mon-app"));
       assert.deepEqual(req, {
+        help: false,
         type: "app",
         answers: { name: "mon-app" },
         dir: undefined,
@@ -186,6 +187,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       assert.deepEqual(req, {
+        help: false,
         type: "app",
         answers: {
           name: "x",

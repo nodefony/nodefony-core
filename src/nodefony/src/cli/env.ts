@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
@@ -48,6 +49,8 @@ interface IEnvRequest {
    * déploiement, on demande « qu'est-ce qui manquera là-bas ? ».
    */
   targetEnv: string | null;
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
 }
 
 /** Parse l'argv après le mot `env`. */
@@ -59,9 +62,14 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
   let check = false;
   let cwd = process.cwd();
   let targetEnv: string | null = null;
+  let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--json" || word === "-j") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      help = true;
+    } else if (word === "--json" || word === "-j") {
       json = true;
     } else if (word === "--example") {
       example = true;
@@ -83,21 +91,81 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
       return { error: `option inconnue : ${word}` };
     }
   }
-  if (check && !example) {
+  // Le contrôle de cohérence ne vaut PAS contre `--help` : demander l'aide
+  // d'une commande dont on ne connaît pas encore les combinaisons valides ne
+  // doit jamais rendre un refus.
+  if (check && !example && !help) {
     return { error: "--check n'a de sens qu'avec --example" };
   }
-  return { json, example, check, cwd, targetEnv };
+  return { json, example, check, cwd, targetEnv, help };
 }
 
-const USAGE =
-  `usage : nodefony env [--json] [--env <e>] [--cwd <path>]\n` +
-  `        nodefony env --example [--check] [--cwd <path>]\n` +
-  `  --env <e> : évalue les exigences sous CET environnement (ex. production)\n` +
-  `  depuis ce poste — les valeurs restent celles d'ici.\n` +
-  `  Montre la cascade des fichiers .env, les variables déclarées par l'app,\n` +
-  `  la valeur effective de chacune et SA PROVENANCE, puis ce qui est ignoré.\n` +
-  `  --example : dérive .env.example du catalogue env.ts (--check : vérifie\n` +
-  `  sans écrire, sort en erreur si le fichier diverge — pre-commit, CI).\n`;
+/** La page d'aide — `nodefony env --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony env",
+  tagline:
+    "la cascade des fichiers .env, la valeur effective de chaque variable, " +
+    "et d'où elle vient",
+  synopsis: [
+    "nodefony env [--json] [--env <e>] [--cwd <chemin>]",
+    "nodefony env --example [--check] [--cwd <chemin>]",
+  ],
+  sections: [
+    {
+      title: "CE QU'ELLE MONTRE",
+      paragraph:
+        "L'ordre dans lequel les fichiers .env sont lus, les variables que " +
+        "l'application DÉCLARE, la valeur retenue pour chacune et SA " +
+        "PROVENANCE — puis ce qui est présent dans l'environnement et que " +
+        "personne ne lit. Elle ne démarre pas l'application : on cherche une " +
+        "variable précisément quand celle-ci ne démarre PAS, et la faire " +
+        "booter la rendrait muette au seul moment où elle sert.",
+    },
+  ],
+  options: [
+    { term: "-j, --json", text: "la même réponse, exploitable par un script" },
+    {
+      term: "--env <e>",
+      text:
+        "évalue les exigences sous CET environnement (ex. production) depuis " +
+        "ce poste — les valeurs restent celles d'ici",
+    },
+    {
+      term: "--example",
+      text: "dérive .env.example du catalogue déclaré dans env.ts",
+    },
+    {
+      term: "--check",
+      text:
+        "avec --example : vérifie sans écrire, et sort en erreur si le " +
+        "fichier diverge (pre-commit, intégration continue)",
+    },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony env", text: "l'environnement d'ici, en entier" },
+    {
+      term: "nodefony env --env production",
+      text: "ce qui manquera là-bas, sans y aller",
+    },
+    {
+      term: "nodefony env --example --check",
+      text: "le .env.example est-il encore à jour ?",
+    },
+  ],
+  exitCodes: [
+    { term: "66", text: "aucune application ici (EX_NOINPUT)" },
+    {
+      term: "78",
+      text:
+        "une variable requise manque, ou .env.example diverge sous --check " +
+        "(EX_CONFIG)",
+    },
+  ],
+};
 
 /**
  * Lit les niveaux de fichiers de la cascade — l'ORDRE vient de `envFileOrder`,
@@ -404,8 +472,10 @@ export function applyEnvExample(
 export async function runEnvCommand(argv: string[]): Promise<number> {
   const parsed = parseEnvArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`env: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
 
