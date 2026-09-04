@@ -163,6 +163,17 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
 
 ### TypeScript / ESM
 
+- **🔴 TOUT IDENTIFIANT EST EN ANGLAIS — la prose reste en français.** Classe, méthode, fonction,
+  variable, type, interface, champ, constante, clé de config, nom de fichier → **anglais**. TSDoc,
+  commentaires `//`, titres de test (`it("…")`), messages affichés à l'utilisateur → **français**.
+  Le code part sur npm, entre dans les `.d.ts`, s'affiche dans l'autocomplétion de gens qui ne
+  parlent pas français, et se cherche au `grep` par des agents entraînés sur de l'anglais —
+  `controlesSautes` ne se trouve pas en cherchant `skipped`.
+  ⚠️ Cette règle EXISTAIT depuis juillet, mais enterrée dans un audit de design que rien ne
+  recharge en session : elle n'a donc jamais mordu, et un module entier (`kernel/checks/`) s'est
+  écrit en identifiants français avant qu'on s'en aperçoive. Le MÉLANGE est pire que l'un ou
+  l'autre — dans le même fichier, `checkPackageDeps` côtoyait `replier`, et plus rien ne disait
+  quelle règle suivre au prochain ajout.
 - **0 `any`, 0 `@ts-ignore`** → `unknown` + narrowing. **ESM only** : `import`, jamais `require()`.
 - **Préfixe `node:`** obligatoire : `import fs from "node:fs"`.
 - **Named exports only** — pas de `default` (sauf legacy `export default Framework` déjà en place).

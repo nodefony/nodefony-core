@@ -568,6 +568,35 @@ import fs from "node:fs";
 // ESM uniquement — import, jamais require
 ```
 
+### 🔴 LE CODE S'ÉCRIT EN ANGLAIS — la prose en français
+
+**Tout IDENTIFIANT est en anglais**, sans exception : nom de classe, de méthode,
+de fonction, de variable, de type, d'interface, de champ, de constante, de clé de
+configuration, de fichier. **Ce qu'un humain LIT reste en français** : TSDoc,
+commentaires, messages affichés à l'utilisateur, libellés d'interface, textes de
+test (`it("…")`), messages de commit, documentation.
+
+| Ce qu'on écrit                                 | Langue       |
+| ---------------------------------------------- | ------------ |
+| `function renderReport()`, `const width`       | **anglais**  |
+| `interface IRenderOptions`, `type CheckFamily` | **anglais**  |
+| Clés JSON, noms de fichiers, champs d'API      | **anglais**  |
+| TSDoc, `//`, `it("…")`, chaînes affichées      | **français** |
+
+**Pourquoi.** Le code est une surface PUBLIQUE : il part sur npm, entre dans les
+`.d.ts`, s'affiche dans l'autocomplétion de gens qui ne parlent pas français, et
+se cherche au `grep` par des agents entraînés sur de l'anglais. Un identifiant
+français y devient un mot que personne ne devine — `controlesSautes` ne se trouve
+pas en cherchant `skipped`. La prose, elle, ne voyage pas de la même façon : elle
+explique le POURQUOI à qui travaille ici, et le français y est plus précis pour
+l'auteur du framework.
+
+⚠️ Vécu (2026-09-04, `kernel/checks/`) : un module entier écrit avec des
+identifiants français — `rendreRapport`, `controlesSautes`, `largeurUtile`,
+`filet`, `accord` — a dû être renommé en bloc. Le mélange est pire que l'un ou
+l'autre : dans le même fichier, `checkPackageDeps` côtoyait `replier`, et plus
+rien ne disait quelle règle suivre au prochain ajout.
+
 ### Config de module — JAMAIS dérefencer le kernel à l'évaluation du module
 
 Un `nodefony/config/config.ts` ne doit **jamais** appeler `Nodefony.getKernel()` (ou lire `.path`,
