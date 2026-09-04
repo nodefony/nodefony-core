@@ -239,7 +239,7 @@ class Cli extends Service {
    *
    * @see {@link releaseProcessListeners}
    */
-  #detachProcess: Array<() => void> | null = null;
+  #detachProcess: Array<{ off: () => void; signal: boolean }> | null = null;
   /** Numéros POSIX → code de sortie forcé `128 + signum` au 2ᵉ signal. */
   protected static readonly SIGNUM: Record<string, number> = {
     SIGHUP: 1,
@@ -367,7 +367,10 @@ class Cli extends Service {
     for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT"] as const) {
       const handler = () => signalHandler(signal);
       process.on(signal, handler);
-      this.trackProcessListener(() => process.removeListener(signal, handler));
+      this.trackProcessListener(
+        () => process.removeListener(signal, handler),
+        true,
+      );
     }
   }
 
@@ -380,9 +383,14 @@ class Cli extends Service {
    * cast au moment de le retirer.
    *
    * @param off - retire le listener correspondant, et rien d'autre.
+   * @param signal - `true` s'il s'agit d'un gestionnaire de SIGNAL. Ce n'est
+   *   pas une étiquette de confort : le mode cluster doit reprendre la main sur
+   *   les signaux SANS toucher aux autres listeners de cette instance
+   *   (`warning`, `unhandledRejection`), que le master garde. Cf
+   *   {@link releaseSignalListeners}.
    */
-  protected trackProcessListener(off: () => void): void {
-    (this.#detachProcess ??= []).push(off);
+  protected trackProcessListener(off: () => void, signal = false): void {
+    (this.#detachProcess ??= []).push({ off, signal });
   }
 
   /**
@@ -402,11 +410,39 @@ class Cli extends Service {
       return 0;
     }
     const released = this.#detachProcess.length;
-    for (const off of this.#detachProcess) {
+    for (const { off } of this.#detachProcess) {
       off();
     }
     this.#detachProcess = null;
     return released;
+  }
+
+  /**
+   * Retire les gestionnaires de SIGNAUX de cette instance — et rien d'autre.
+   *
+   * 🔴 Il existe pour remplacer un `process.removeAllListeners(sig)`, qui
+   * arrachait AUSSI les gestionnaires qu'un module tiers avait posés sur
+   * `SIGTERM` pour son propre arrêt propre. Ce module ne recevait plus rien, et
+   * rien ne le lui disait : son code était juste, ses tests passaient, et son
+   * nettoyage cessait simplement de s'exécuter le jour où l'application passait
+   * en cluster — au moment le plus coûteux, l'arrêt.
+   *
+   * On ne retire donc que ce qu'on a posé soi-même. Les autres listeners de
+   * cette instance (`warning`, `unhandledRejection`, `uncaughtException`)
+   * restent : le master cluster en a besoin autant que n'importe quel process.
+   *
+   * @returns le nombre de gestionnaires de signaux retirés.
+   */
+  releaseSignalListeners(): number {
+    if (!this.#detachProcess) {
+      return 0;
+    }
+    const signaux = this.#detachProcess.filter((e) => e.signal);
+    for (const { off } of signaux) {
+      off();
+    }
+    this.#detachProcess = this.#detachProcess.filter((e) => !e.signal);
+    return signaux.length;
   }
 
   // Méthode privée pour gérer les avertissements
