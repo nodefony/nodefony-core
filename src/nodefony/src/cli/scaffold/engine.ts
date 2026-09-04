@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { pointeursInstructions } from "../agentTargets";
@@ -613,6 +613,16 @@ interface IAgentsData {
   hasMigrateRecipe: boolean;
   /** Modules du projet (`modules/*`), chemin relatif à la racine. */
   modules: { name: string; dir: string }[];
+  /**
+   * Clés des agents que l'utilisateur a CHOISIS — et rien qu'eux.
+   *
+   * Décide des fichiers-pointeurs posés à la racine. Une liste vide n'en pose
+   * aucun, et c'est le cas de la RÉGÉNÉRATION (`create module`) : elle décrit
+   * l'inventaire du projet, elle n'a pas à deviner quels agents on utilise
+   * aujourd'hui. Les pointeurs déjà présents restent — ils ne sont jamais
+   * réécrits (cf plus bas : « n'est écrit que s'il MANQUE »).
+   */
+  agents: readonly string[];
 }
 
 /**
@@ -656,7 +666,7 @@ function renderProjectAgents(
   // `IAgentTarget.instructions`). Chaque pointeur n'est écrit que s'il MANQUE :
   // celui qu'un développeur a remplacé lui appartient.
   const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
-  for (const { fichier, agents } of pointeursInstructions()) {
+  for (const { fichier, agents } of pointeursInstructions(data.agents)) {
     const cible = path.join(projectRoot, fichier);
     if (writer.exists(cible)) continue;
     const pointer = eta.renderString(gabarit, {
@@ -667,6 +677,56 @@ function renderProjectAgents(
     writer.write(cible, pointer);
     written.push(fichier);
   }
+}
+
+/**
+ * Pose le fichier-POINTEUR d'instructions des agents donnés, s'il manque.
+ *
+ * Extrait de {@link renderProjectAgents} pour être appelable AILLEURS : c'est
+ * `nodefony ai:mcp --agent <clé>` qui câble un agent après la création de
+ * l'application, et c'est donc là que son pointeur doit apparaître. Sans cette
+ * fonction, filtrer les pointeurs à la création (pour ne plus déposer un
+ * `GEMINI.md` chez qui a demandé Claude) aurait privé de son fichier tout agent
+ * ajouté ensuite — on aurait remplacé un défaut par un autre.
+ *
+ * Un pointeur DÉJÀ présent n'est jamais réécrit : celui qu'un développeur a
+ * remplacé lui appartient.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param cles - clés des agents concernés.
+ * @param appName - nom de l'application (rendu dans le gabarit).
+ * @returns les fichiers réellement écrits, relatifs à la racine.
+ */
+export function poserPointeursAgents(
+  projectRoot: string,
+  cles: readonly string[],
+  appName: string,
+): string[] {
+  const pointeurs = pointeursInstructions(cles);
+  if (pointeurs.length === 0) {
+    return [];
+  }
+  const tplDir = path.join(findPackageRoot(), "templates", "app", "agents");
+  const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
+  const eta = new Eta({ autoEscape: false });
+  const ecrits: string[] = [];
+  for (const { fichier, agents } of pointeurs) {
+    const cible = path.join(projectRoot, fichier);
+    if (existsSync(cible)) {
+      continue;
+    }
+    writeFileSync(
+      cible,
+      eta.renderString(gabarit, {
+        appName,
+        pointeur: fichier,
+        agents: agents.join(" et "),
+      }),
+      "utf8",
+    );
+    ecrits.push(fichier);
+  }
+  return ecrits;
 }
 
 /**
@@ -1328,6 +1388,13 @@ function dispatchScaffold(
   // recette de migration est-elle là ? » a la même réponse ici et dans
   // `create module`, sur un projet déjà écrit. Deux calculs de la même
   // condition auraient divergé au premier réglage.
+  // Les agents CHOISIS, et rien qu'eux : poser le fichier d'un outil que
+  // l'utilisateur n'a pas demandé encombre SON dépôt (« j'ai demandé un agent
+  // claude, je me retrouve avec un GEMINI.md »). Ceux qu'on câble plus tard
+  // reçoivent leur pointeur à ce moment-là (`nodefony ai:mcp --agent <clé>`).
+  const agentsChoisis = Array.isArray(answers.agents)
+    ? (answers.agents as string[])
+    : [];
   renderProjectAgents(
     eta,
     packageRoot,
@@ -1344,6 +1411,7 @@ function dispatchScaffold(
         path.join(dest, "deploy", "migrate-job.yaml"),
       ),
       modules: [],
+      agents: agentsChoisis,
     },
     written,
     writer,
@@ -1875,6 +1943,10 @@ function runModuleScaffold(
         hasMigrateRecipe: writer.exists(
           path.join(projectRoot, "deploy", "migrate-job.yaml"),
         ),
+        // Régénération : cette passe décrit l'inventaire, elle ne SAIT pas
+        // quels agents on utilise — et n'a pas à le deviner. Les pointeurs
+        // déjà posés restent, aucun n'est ajouté.
+        agents: [],
         modules: listTargets(projectRoot, writer)
           .filter((t) => t.kind === "module")
           .map((t) => ({

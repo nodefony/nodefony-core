@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { poserPointeursAgents } from "./scaffold/engine";
 import { SysExit } from "./sysexits";
 import { chargePrompts } from "./prompts";
 import {
@@ -866,6 +867,23 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
         parsed.remove,
       ),
     );
+    // Le fichier d'instructions que cet agent lit d'office — posé ICI, au
+    // moment où il entre dans le projet, et non à la création de l'application
+    // « au cas où ». `create app` ne dépose que les pointeurs des agents
+    // choisis ; celui-ci referme le seul trou que ce filtrage ouvrait.
+    // Jamais lors d'un retrait : on ne pose pas un fichier en débranchant.
+    if (!parsed.remove) {
+      const poses = poserPointeursAgents(
+        projectRoot,
+        cibles.map((c) => c.cle),
+        path.basename(projectRoot),
+      );
+      if (poses.length > 0) {
+        process.stdout.write(
+          `\n  instructions : ${poses.join(", ")} — pointeur(s) vers AGENTS.md\n`,
+        );
+      }
+    }
   }
 
   // Le geste SUIVANT, proposé plutôt que décrit.

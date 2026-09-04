@@ -677,15 +677,30 @@ export function agentsDemandes(
  * au standard. Deux agents qui liraient le même nom sont regroupés — le
  * pointeur est écrit une fois et les nomme tous les deux.
  *
+ * 🔴 **Le filtrage n'est pas un confort.** Sans `cles`, cette fonction rendait
+ * TOUS les pointeurs, et une application créée en répondant « Claude » naissait
+ * avec un `GEMINI.md` que personne n'avait demandé. Rapporté tel quel :
+ * « j'ai demandé un agent claude, je me retrouve avec un GEMINI.md ». Poser
+ * chez quelqu'un le fichier d'un outil qu'il n'utilise pas n'est pas une
+ * prévenance : c'est du bruit dans SON dépôt, qu'il devra expliquer à son
+ * équipe. L'agent qui arrive plus tard reçoit son pointeur au moment où on le
+ * câble (`nodefony ai:mcp --agent <clé>`), c'est-à-dire quand il entre
+ * réellement dans le projet.
+ *
+ * @param cles - clés d'agents retenues. **Obligatoire** : rendre tous les
+ *   pointeurs par défaut est précisément le défaut corrigé. Une liste vide ne
+ *   rend rien — coder seul est un choix.
  * @returns un couple `fichier` → agents concernés, trié par nom de fichier.
  */
-export function pointeursInstructions(): readonly {
+export function pointeursInstructions(cles: readonly string[]): readonly {
   fichier: string;
   agents: readonly string[];
 }[] {
+  const retenues = new Set(cles);
   const par = new Map<string, string[]>();
   for (const cible of AGENT_TARGETS) {
     if (cible.instructions.natif) continue;
+    if (!retenues.has(cible.cle)) continue;
     const deja = par.get(cible.instructions.fichier);
     if (deja) deja.push(cible.nom);
     else par.set(cible.instructions.fichier, [cible.nom]);

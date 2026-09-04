@@ -826,6 +826,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     const envOf = (dest: string) =>
       readFileSync(path.join(dest, ".env"), "utf8");
 
+    it("tout volume MONTÉ par un service est DÉCLARÉ en bas du fichier", () => {
+      // 🔴 Le défaut que ça ferme : monter `foo-data:/data` dans un service sans
+      // ajouter `foo-data:` au bloc `volumes:` final rend le compose INVALIDE —
+      // docker refuse de démarrer, sur un message qui parle du service et non de
+      // la déclaration manquante. Rien ne le voyait : les assertions cherchent
+      // des chaînes, et aucun test ne relie les deux endroits du fichier.
+      const dest = path.join(tmp, "volumes-compose");
+      scaffold(dest, {
+        name: "volumes",
+        preset: "complete",
+        frontend: "none",
+        database: "postgres",
+      });
+      const compose = composeOf(dest);
+      // Les volumes NOMMÉS montés par un service — un chemin d'hôte (`./x:/y`)
+      // n'a rien à déclarer, d'où l'exigence d'un premier caractère de nom.
+      const montes = new Set(
+        [...compose.matchAll(/^ {6}- ([A-Za-z][\w.-]*):\S/gmu)].map(
+          (m) => m[1],
+        ),
+      );
+      assert.isNotEmpty(
+        montes,
+        "aucun volume nommé trouvé — le motif ne mord plus, ce contrôle ne prouverait rien",
+      );
+      const bloc = compose.slice(compose.lastIndexOf("\nvolumes:"));
+      for (const nom of montes) {
+        assert.include(
+          bloc,
+          `${nom}:`,
+          `volume « ${nom} » monté par un service mais jamais déclaré — docker refusera de démarrer`,
+        );
+      }
+    });
+
     it("défaut sqlite : AUCUN service SQL, et l'URL reste commentée", () => {
       const dest = path.join(tmp, "solo");
       scaffold(dest, { name: "solo" });
@@ -2010,9 +2045,32 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   });
 
   describe("AGENTS.md — l'app naît parlante pour un agent", () => {
+    it("aucun agent demandé ⇒ AGENTS.md seul, aucun fichier à un nom d'outil", () => {
+      // 🔴 Le défaut corrigé, rapporté tel quel : « j'ai demandé un agent
+      // claude, je me retrouve avec un GEMINI.md ». Poser chez quelqu'un le
+      // fichier d'un outil qu'il n'utilise pas encombre SON dépôt.
+      const dest = path.join(tmp, "agents-aucun");
+      scaffold(dest, { name: "aucun", preset: "minimal", frontend: "none" });
+      assert.isTrue(existsSync(path.join(dest, "AGENTS.md")));
+      for (const cible of AGENT_TARGETS.filter((c) => !c.instructions.natif)) {
+        assert.isFalse(
+          existsSync(path.join(dest, cible.instructions.fichier)),
+          `${cible.instructions.fichier} posé sans que ${cible.nom} ait été demandé`,
+        );
+      }
+    });
+
     it("app : AGENTS.md (devise + générateurs + gates + zone notes) + CLAUDE.md pointeur", () => {
       const dest = path.join(tmp, "agents");
-      scaffold(dest, { name: "agents", preset: "complete", frontend: "none" });
+      // `agents: ["claude"]` — le pointeur d'un agent n'est posé QUE s'il a été
+      // demandé. Sans cette réponse, l'application naît avec son `AGENTS.md` et
+      // aucun fichier à un nom d'outil : c'est le cas éprouvé juste après.
+      scaffold(dest, {
+        name: "agents",
+        preset: "complete",
+        frontend: "none",
+        agents: ["claude"],
+      });
       const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
       // La devise ouvre le fichier — LA règle que l'agent doit retenir.
       assert.include(
@@ -6604,13 +6662,16 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 });
 
 describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => {
+  /** Toutes les clés — le cas « l'utilisateur les a tous choisis ». */
+  const TOUTES = AGENT_TARGETS.map((c) => c.cle);
+
   it("un pointeur par agent qui ne lit PAS AGENTS.md, aucun pour ceux qui le lisent", () => {
     const attendus = new Set(
       AGENT_TARGETS.filter((c) => !c.instructions.natif).map(
         (c) => c.instructions.fichier,
       ),
     );
-    const rendus = new Set(pointeursInstructions().map((p) => p.fichier));
+    const rendus = new Set(pointeursInstructions(TOUTES).map((p) => p.fichier));
     assert.deepEqual([...rendus].sort(), [...attendus].sort());
     for (const cible of AGENT_TARGETS.filter((c) => c.instructions.natif)) {
       assert.notInclude(
@@ -6622,13 +6683,36 @@ describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => 
   });
 
   it("chaque agent est NOMMÉ dans son pointeur — deux agents d'un même fichier y figurent tous les deux", () => {
-    for (const { fichier, agents } of pointeursInstructions()) {
+    for (const { fichier, agents } of pointeursInstructions(TOUTES)) {
       assert.isNotEmpty(agents, `${fichier} : pointeur sans agent nommé`);
       const attendus = AGENT_TARGETS.filter(
         (c) => !c.instructions.natif && c.instructions.fichier === fichier,
       ).map((c) => c.nom);
       assert.deepEqual([...agents].sort(), attendus.sort());
     }
+  });
+
+  it("seuls les agents CHOISIS reçoivent un pointeur", () => {
+    // 🔴 Le défaut, rapporté tel quel : « j'ai demandé un agent claude, je me
+    // retrouve avec un GEMINI.md ». La fonction rendait tous les pointeurs sans
+    // regarder ce qui avait été demandé.
+    const claude = AGENT_TARGETS.find((c) => c.cle === "claude");
+    const gemini = AGENT_TARGETS.find((c) => c.cle === "gemini");
+    assert.isDefined(claude, "l'agent `claude` a disparu du catalogue");
+    assert.isDefined(gemini, "l'agent `gemini` a disparu du catalogue");
+    const rendus = pointeursInstructions(["claude"]).map((p) => p.fichier);
+    assert.notInclude(
+      rendus,
+      gemini?.instructions.fichier,
+      "un agent NON demandé ne dépose rien dans le dépôt de l'utilisateur",
+    );
+    if (!claude?.instructions.natif) {
+      assert.include(rendus, claude?.instructions.fichier);
+    }
+  });
+
+  it("aucun agent choisi ⇒ aucun pointeur — coder seul est un choix", () => {
+    assert.isEmpty(pointeursInstructions([]));
   });
 
   it("chaque fait s'ancre dans le SOURCE de l'agent — jamais dans sa doc seule", () => {

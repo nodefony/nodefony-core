@@ -171,6 +171,11 @@ services:
     networks: [<%= it.appName %>]
     ports:
       - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
+    # Il garde SON état : la connexion enregistrée, les requêtes gardées, les
+    # préférences. Sans volume, on la ressaisit à chaque `compose down` — et un
+    # outil qu'on doit reconfigurer à chaque usage finit par ne plus servir.
+    volumes:
+      - redisinsight-data:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -318,5 +323,6 @@ networks:
 volumes:
   redis-data:
 <% if (it.db) { %>  <%= it.db.service %>-data:
-<% } %>  loki-data:
+<% } %>  redisinsight-data:
+  loki-data:
   grafana-data:

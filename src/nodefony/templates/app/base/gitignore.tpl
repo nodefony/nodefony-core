@@ -4,6 +4,11 @@ var/
 public/dist/
 *.log
 
+# vitest ≥ 5 : racine unique de ses artefacts (pièces jointes, blobs, rapports
+# json/junit/html). Elle apparaît dès le premier `npm test` — sans cette ligne,
+# une application fraîche naît avec un dossier non suivi que rien n'explique.
+.vitest/
+
 # Artefacts jetables — captures d'écran, journaux de console et arbres produits
 # par le navigateur du compose (`--profile browser`). Ce sont des PHOTOS d'un
 # instant : elles se refont, elles ne se versionnent pas.
