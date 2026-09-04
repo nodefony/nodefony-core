@@ -190,7 +190,24 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   effective = origine ; aucun → shell. Les suivants qui définissent la clé = `shadowed`.
 - Catalogue lu par import de `<projet>/dist/index.js` → `getEnvCatalog(mod.env)`. Pas de build →
   `null`, et le rapport le DIT (`catalogAvailable: false` + note) au lieu d'échouer.
-- Exit **78** (`EX_CONFIG`) si une variable requise manque. Requise = ni `default` ni `optional`.
+- Exit **78** (`EX_CONFIG`) si une variable requise manque. Requise = ni `default` ni `optional`,
+  **ou** `requiredIn: ["production"]` quand l'environnement évalué correspond.
+- `requiredIn` (`config/defineEnv.ts`) : exigence propre à un environnement. Règle UNIQUE
+  `isEnvVarRequired(meta, stages)` — trois lecteurs : le boot (`defineEnv` lève avant le parse
+  Zod, une `optional` passerait la validation par construction), `nodefony env`, `doctor`.
+  `resolveEnvStages(source)` rend les étiquettes : `NODE_ENV`, plus le déploiement
+  (`APP_ENV` > `NF_ENV`) s'il diffère → une preprod en `production` porte les deux.
+  `<VAR>_FILE` satisfait l'exigence (résolu AVANT le contrôle). Chaîne vide = absente.
+- `--env <e>` (sur `env` ET `doctor`) : évalue les exigences pour l'environnement VISÉ avec les
+  valeurs d'ICI. Les étiquettes sont REMPLACÉES, pas cumulées (sinon `--env production` exigerait
+  aussi les `requiredIn: ["development"]`). Rendu : `targetEnv` + `stages` dans le JSON, annoncé
+  en tête du rendu humain.
+- ⚠️ **La VALEUR d'une option ne doit jamais ressembler à une commande.** `detectEnvironmentFromArgv`
+  (`runtime/engineEnvironment.ts` — elle a quitté le bin, qui s'exécute à l'import et ne
+  s'éprouvait donc qu'en lisant son propre texte) ne lit que les mots AVANT la
+  première option : `doctor --env production` faisait sinon basculer TOUT le processus en
+  production — `.env.production` chargé, catalogue de l'app en échec à l'import, repli SILENCIEUX
+  sur un `dist` périmé (27 variables au lieu de 28).
 - `NF_` (variable d'app, déclarée dans `env.ts`) ≠ `NF__MODULE__CHEMIN` (surcharge directe d'une
   clé de module, rien à déclarer) ≠ `<VAR>_FILE` (secret monté). Les 3 sont rendus séparément.
 - Secrets : `pathLooksSecret` (`envOverride.ts`) — MÊME regex partout, jamais de valeur en clair.

@@ -29,6 +29,25 @@ started → preRegistered → registered → booted → ready → postReady
 - `ready` : set après `onReady` (dans `onReady()`)
 - `postReady` : set après `onPostReady` (dans `onReady()`)
 
+**`nodefony doctor` — `kernel/checks/`** (fast-path, zéro boot ; `--live` seul démarre) :
+
+- `report.ts` = types + PEINTURE + helpers de mise en page (purs). `FAMILLES` est la source
+  unique de l'ordre ; `SUBRULES` (`envCatalog`, `envTracked`) = règles de `readiness` qui portent
+  leur PROPRE état d'exécution sans compter comme familles → `COUNTED_FAMILIES` s'en dérive.
+  🔴 Ne jamais réécrire ces listes en dur : le compteur du bilan, le filtre du sommaire et le
+  dédoublonnage des sautés en dépendent tous les trois.
+- `runCheck.ts` = collecte (`collectCheckReport`) + verdict (`renderCheckReport`) + `usage`.
+  Les sondes (ports, git) sont INJECTÉES comme verdicts `{supported, …}`, jamais mesurées dans
+  la règle — sinon la branche qui compte n'est pas éprouvable.
+- `renderReport.ts` = document PUR (largeur/couleur/instant injectés). Grille : item colonne 4,
+  contenu colonne 7 (`ITEM`/`CORPS`). Ordre : en-tête → bandeau de verdict → ÉTAT → PROBLÈMES →
+  NON CONTRÔLÉ → DERNIERS DÉMARRAGES → À FAIRE ENSUITE → bilan.
+- Convention du GESTE : un message de contrôle porte `… → commande`. `separerGeste` le détache,
+  le rendu le pose sous un `▸` sans accents graves, et `aFaireEnsuite` le dédoublonne. Un geste
+  noyé dans la phrase n'apparaît NI sous le chevron NI dans la liste finale.
+- `IExecution.onDemand` : NON DEMANDÉ (`--live`) ≠ EMPÊCHÉ. Seul l'empêchement pèse sur le code
+  de sortie en mode strict ; les deux restent affichés (ni l'un ni l'autre n'est un quitus).
+
 **Bilan de boot persisté** — `var/last-boot.json` (`checks/lastBoot.ts` = source
 UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
 

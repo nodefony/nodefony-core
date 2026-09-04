@@ -35,6 +35,10 @@ import {
   preventedChecks,
   controlesSautes,
   replier,
+  titreSection,
+  isSubrule,
+  TITRES,
+  FAMILLES,
   countFindings,
   creerPalette,
   doitColorer,
@@ -213,7 +217,7 @@ export interface ICheckRequest {
  * @param p - la peinture en vigueur.
  * @returns le texte complet, retour chariot final compris.
  */
-function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
+export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
   // Une description qui déborde se replie sur la marge du terminal et se lit
   // comme une ligne d'option de plus. La colonne des drapeaux fait 20 : la
   // suite s'aligne dessous, pas sur la marge.
@@ -226,32 +230,151 @@ function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
       suite.map((l) => `${marge}${l}\n`).join("")
     );
   };
+  /** Un titre de section, prolongé par son filet — la forme du rapport. */
+  const section = (nom: string): string => {
+    const { titre, filet } = titreSection(nom, largeur);
+    return `\n${p.fort(titre)}${p.discret(filet)}\n\n`;
+  };
+  /**
+   * Les exemples : la commande, puis ce qu'elle répond.
+   *
+   * La colonne se DÉRIVE du plus long : figée, elle saute dès qu'un exemple
+   * la dépasse, et l'aide se met à ressembler à une sortie cassée.
+   */
+  const exemples: ReadonlyArray<readonly [string, string]> = [
+    [
+      "nodefony doctor",
+      "l'état d'ici : build, installation, dépendances, câblage",
+    ],
+    [
+      "nodefony doctor --live",
+      "et en plus ce que seule l'application démarrée sait : migrations, zones",
+    ],
+    [
+      "nodefony doctor --env production",
+      "ce qui manquera là-bas — variables requises en production, secrets versionnés",
+    ],
+    [
+      "nodefony doctor --json | jq .",
+      "le même document, pour un script ou un agent",
+    ],
+    [
+      "nodefony doctor --cwd modules/blog",
+      "depuis un sous-dossier : la racine de l'application est retrouvée seule",
+    ],
+  ];
+  const largeurExemple = Math.max(...exemples.map(([c]) => c.length));
+  const rendreExemples = (): string => {
+    // Une glose qui n'a plus la place de tenir passe SOUS sa commande : deux
+    // colonnes serrées à quinze caractères se lisent moins bien qu'une seule.
+    const enColonnes = largeur - largeurExemple - 4 >= 24;
+    return exemples
+      .map(([commande, quoi]) => {
+        if (!enColonnes) {
+          return (
+            `  ${p.geste(commande)}\n` +
+            replier(quoi, largeur - 6, "      ")
+              .map((l) => p.discret(l) + "\n")
+              .join("")
+          );
+        }
+        const retrait = " ".repeat(largeurExemple + 4);
+        const suite = replier(quoi, largeur - retrait.length, "");
+        return (
+          `  ${p.geste(commande.padEnd(largeurExemple, " "))}  ${p.discret(suite[0] ?? "")}\n` +
+          suite
+            .slice(1)
+            .map((l) => `${retrait}${p.discret(l)}\n`)
+            .join("")
+        );
+      })
+      .join("");
+  };
+  // Les familles sont DÉRIVÉES, jamais réécrites : une liste en dur ici
+  // vieillirait au premier contrôle ajouté, et l'aide décrirait un outil qui
+  // n'existe plus. C'est déjà arrivé sur le compteur du bilan.
+  const familles = FAMILLES.filter((f) => !isSubrule(f))
+    .map((f) => TITRES[f])
+    .join(" · ");
+
   return (
-    `\n  ${p.fort("nodefony doctor")} — diagnostic statique de l'application\n\n` +
-    `  usage : nodefony doctor [options]` +
-    p.discret(`        (alias : nodefony check)\n\n`) +
-    `  Contrôle ce qui est ÉCRIT — fraîcheur du build, état d'installation,\n` +
-    `  dépendances déclarées, câblage — et rapporte le dernier démarrage.\n` +
-    `  N'exécute rien : il répond même sur une application qui ne démarre plus.\n\n` +
+    `\n  ${p.fort("nodefony doctor")}\n` +
+    // La baseline se replie comme le reste : sur un terminal étroit, un titre
+    // qui déborde est la PREMIÈRE chose que le lecteur voit casser.
+    replier(
+      "ce qui ne va pas dans cette application, et quoi taper",
+      largeur - 4,
+      "  ",
+    )
+      .map((l) => p.discret(l) + "\n")
+      .join("") +
+    // L'alias tient sur la même ligne quand la place existe, passe dessous
+    // sinon : deux informations serrées valent mieux qu'une ligne coupée.
+    (largeur >= 66
+      ? `\n  usage : nodefony doctor [options]` +
+        p.discret(`        (alias : nodefony check)\n`)
+      : `\n  usage : nodefony doctor [options]\n` +
+        p.discret(`  alias : nodefony check\n`)) +
+    section("CE QU'IL REGARDE") +
+    replier(familles, largeur - 4, "  ")
+      .map((l) => `${l}\n`)
+      .join("") +
+    "\n" +
+    replier(
+      "Il lit des FICHIERS et n'exécute rien : il répond donc même sur une " +
+        "application qui ne démarre plus — c'est le moment où l'on en a le plus " +
+        "besoin. Les deux derniers contrôles font exception : ils exigent un " +
+        "démarrage, et ne jouent qu'avec `--live`.",
+      largeur - 4,
+      "  ",
+    )
+      .map((l) => `${l}\n`)
+      .join("") +
+    section("OPTIONS") +
     opt("--json", "le même rapport, exploitable par un script") +
-    opt("--strict", "un contrôle SAUTÉ fait échouer (d'office sous `CI`)") +
-    opt("--no-strict", "tolère un contrôle sauté, même sous `CI`") +
+    opt(
+      "--strict",
+      "un contrôle SAUTÉ fait échouer — armé tout seul quand la variable " +
+        "d'environnement `CI` est posée, ce que fait toute forge",
+    ) +
+    opt(
+      "--no-strict",
+      "tolère un contrôle sauté, y compris sur une forge : une absence VOULUE " +
+        "s'énonce, elle ne se contourne pas en désarmant la commande",
+    ) +
     opt(
       "--live",
-      "DEMANDE à l'application : migrations, cohérence des zones (boot, 0 port)",
+      "DEMANDE à l'application : migrations, cohérence des zones (boot console, aucun port ouvert)",
     ) +
     opt("--no-live", "s'en tient aux fichiers, quoi qu'un script demande") +
     opt(
       "--env <e>",
-      "dit ce qui manquera dans CET environnement (ex. production)",
+      "dit ce qui manquera dans CET environnement (`production`, `staging`…) sans y aller",
     ) +
     opt(
       "--cwd <chemin>",
-      "point de départ (la racine est résolue en remontant)",
+      "point de départ (la racine de l'app est résolue en remontant)",
     ) +
-    p.discret(
-      `\n  code de sortie : 0 rien à signaler · 1 manquement · 64 option inconnue\n\n`,
+    section("EXEMPLES") +
+    rendreExemples() +
+    section("CODES DE SORTIE") +
+    opt("0", "rien à signaler") +
+    opt(
+      "1",
+      "au moins un manquement — ou, en mode strict, un contrôle EMPÊCHÉ",
+    ) +
+    opt("64", "option inconnue (EX_USAGE)") +
+    "\n" +
+    replier(
+      "Un contrôle qui n'a PAS pu regarder est toujours annoncé : son silence " +
+        "ne vaut jamais quitus. Un contrôle non DEMANDÉ (`--live`) est affiché " +
+        "de même, mais ne pèse pas sur le code de sortie.",
+      largeur - 4,
+      "  ",
     )
+      .map((l) => p.discret(l) + "\n")
+      .join("") +
+    "\n"
   );
 }
 

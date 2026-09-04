@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T15:05:00.641Z",
+  "generated": "2026-09-04T15:47:22.492Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8471,6 +8471,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Lance le contrôle et écrit le rapport. **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même définiti…"
+    },
+    "usage": {
+      "name": "usage",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'usage, rendu avec le même soin que le rapport. Il se lit dans deux situations opposées : on découvre la commande, ou on vient de se tromper de drapeau. Il porte donc les deux réponses — ce que la…"
     },
     "resoudreStrict": {
       "name": "resoudreStrict",
@@ -30461,16 +30469,19 @@
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "FAMILLES": [
-        "src/nodefony/src/kernel/checks/renderReport.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "COUNTED_FAMILIES": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "isSubrule": [
-        "src/nodefony/src/kernel/checks/renderReport.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "titreSection": [
-        "src/nodefony/src/kernel/checks/renderReport.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "ligneSommaire": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
@@ -30489,7 +30500,8 @@
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "TITRES": [
-        "src/nodefony/src/kernel/checks/renderReport.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "CheckFamily": [
         "src/nodefony/src/kernel/checks/renderReport.ts",

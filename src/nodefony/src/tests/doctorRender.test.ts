@@ -30,6 +30,15 @@ import {
   type CheckFamily,
   type IExecution,
 } from "../kernel/checks/report";
+import { usage, parseCheckArgv } from "../kernel/checks/runCheck";
+import {
+  creerPalette,
+  TITRES,
+  COUNTED_FAMILIES,
+} from "../kernel/checks/report";
+import { readFileSync as lireFichier } from "node:fs";
+import cheminDeFichier from "node:path";
+import { fileURLToPath as versChemin } from "node:url";
 import type { ICheckReport } from "../kernel/checks/runCheck";
 
 /** Retire les séquences ANSI pour mesurer la LARGEUR VUE, pas celle écrite. */
@@ -526,5 +535,93 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
     // Toutes à la MÊME colonne : une gouttière qui saute ne relie plus rien.
     const colonnes = new Set(lignes.map((l) => l.indexOf("│")));
     assert.lengthOf([...colonnes], 1);
+  });
+});
+
+/**
+ * L'aide (`doctor --help`) — le premier écran, et souvent le seul qu'on lise.
+ *
+ * Elle se lit dans deux situations opposées : on découvre la commande, ou l'on
+ * vient de se tromper de drapeau. Elle doit donc porter les deux réponses, sans
+ * jamais décrire un outil qui n'existe plus.
+ */
+describe("doctor --help", () => {
+  const p = creerPalette(false);
+
+  // 🔴 Une liste écrite en dur vieillit au premier contrôle ajouté, et l'aide
+  // se met à décrire autre chose que le produit. Le compteur du bilan a déjà
+  // eu ce défaut : il ignorait l'étage 2.
+  it("nomme CHAQUE famille de contrôles, sans en oublier une", () => {
+    const texte = usage(p, 96);
+    for (const famille of COUNTED_FAMILIES) {
+      assert.include(
+        texte,
+        TITRES[famille],
+        `« ${TITRES[famille]} » est contrôlé mais l'aide n'en parle pas`,
+      );
+    }
+  });
+
+  // L'aide est la TROISIÈME déclaration des options (avec le parseur et
+  // commander) : une option qui n'y figure pas est invisible de qui tape
+  // `--help`, c'est-à-dire de tout le monde.
+  it("nomme chaque option que le parseur accepte", () => {
+    const source = lireFichier(
+      cheminDeFichier.join(
+        cheminDeFichier.dirname(versChemin(import.meta.url)),
+        "../kernel/checks/runCheck.ts",
+      ),
+      "utf8",
+    );
+    const zone = source.slice(source.indexOf("export function parseCheckArgv"));
+    const drapeaux = new Set(
+      [...zone.matchAll(/word === "(--[a-z-]+)"/gu)].map((m) => m[1]),
+    );
+    drapeaux.delete("--help");
+    const texte = usage(p, 96);
+    for (const drapeau of drapeaux) {
+      assert.include(
+        texte,
+        drapeau,
+        `${drapeau} est accepté mais absent de l'aide`,
+      );
+    }
+  });
+
+  it("porte des exemples et les codes de sortie", () => {
+    const texte = usage(p, 96);
+    assert.include(texte, "EXEMPLES");
+    assert.include(texte, "nodefony doctor --env production");
+    assert.include(texte, "CODES DE SORTIE");
+    assert.include(texte, "64");
+  });
+
+  // Le jargon d'un mainteneur n'est pas celui d'un lecteur : « sous CI » ne dit
+  // rien à qui ne connaît pas la variable d'environnement.
+  it("explique ce qu'est `CI` au lieu de l'invoquer", () => {
+    // Les blancs sont NORMALISÉS avant de chercher : l'aide se replie, et une
+    // expression peut être coupée par un retour à la ligne. Chercher dans le
+    // texte brut ferait échouer ce test pour une raison de mise en page.
+    const plat = usage(p, 96).replace(/\s+/gu, " ");
+    assert.include(plat, "variable d'environnement");
+  });
+
+  it("ne déborde à AUCUNE largeur", () => {
+    for (const largeur of [48, 58, 80, 96]) {
+      for (const ligne of usage(p, largeur).split("\n")) {
+        if (/^\s*\S+$/u.test(ligne)) continue;
+        assert.isAtMost(
+          [...ligne].length,
+          largeur,
+          `aide de ${[...ligne].length} colonnes sur ${largeur} :\n${ligne}`,
+        );
+      }
+    }
+  });
+
+  it("`--help` est reconnu par le parseur, jamais rejeté", () => {
+    const parsed = parseCheckArgv(["doctor", "--help"]);
+    assert.notProperty(parsed, "error");
+    assert.isTrue((parsed as { help: boolean }).help);
   });
 });
