@@ -140,7 +140,7 @@ dans le `nodefony.config.ts` généré :
 machine: {
   pattern: "^/api/machine",
   authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
-  stateless: true,            // false ⇒ l'app ouvre une session qu'il ne renverra jamais
+  stateless: true,            // false ⇒ un registre de sessions que ce client ne relit pas
 }
 ```
 
@@ -150,10 +150,12 @@ trie par longueur de pattern.
 
 ⚠️ `stateless: false` (le défaut) **ne fait pas échouer l'essai**, et c'est tout le piège : depuis
 un navigateur ou un `curl -c`, le cookie posé revient aux requêtes suivantes et tout semble
-marcher. Le vrai client ne stocke rien : il repart **anonyme** à chaque appel, et le défaut
-n'apparaît qu'en production, en 401 intermittents. Ajouter `"session"` à côté de `"apikey"`
-produit le même défaut, en plus discret. Règle : **un appelant qui ne stocke pas de cookie ne doit
-rien recevoir qu'il faille stocker.**
+marcher. Ce que ça coûte n'est pas un refus mais un **registre** — chaque appel portant un cookie
+inconnu fait reprendre puis réécrire une session serveur, et renvoyer un `Set-Cookie`, pour un
+appelant qui ne la relira jamais. `stateless: true` ferme cela : la zone n'ouvre ni ne reprend de
+session, et le cookie entrant est ignoré. Lister `"session"` dans une zone stateless est une
+contradiction, et l'application **refuse de démarrer** en nommant la zone. Règle : **un appelant
+qui ne stocke pas de cookie ne doit rien recevoir qu'il faille stocker.**
 
 Les clés s'émettent par `POST /nodefony/security/api/keys`.
 

@@ -1,6 +1,7 @@
 import type { ContextType } from "@nodefony/http";
 import type { IUserProvider } from "@nodefony/user";
 import type { IAuthenticator } from "../../contracts/IAuthenticator";
+import type { ISecuredArea } from "../../contracts/ISecuredArea";
 import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { resolveSessionIdentity } from "../sessionIdentity";
@@ -37,6 +38,37 @@ export class SessionAuthenticator implements IAuthenticator {
    */
   constructor(resolveProvider: () => IUserProvider) {
     this.#resolveProvider = resolveProvider;
+  }
+
+  /**
+   * Refuse une zone déclarée SANS REGISTRE — au boot, pas à la première requête.
+   *
+   * `stateless: true` annonce que l'identité tient tout entière dans la preuve
+   * portée par chaque requête, et que la session est ignorée « même si un
+   * cookie est présent ». Lister `session` dans une telle zone dit exactement
+   * l'inverse : {@link supports} y rendrait vrai dès qu'un cookie ramène une
+   * session porteuse d'un utilisateur, et la zone authentifierait par le
+   * registre qu'elle déclare ne pas tenir.
+   *
+   * Cette contradiction ne se voyait NULLE PART : l'application démarrait, la
+   * console d'administration affichait « aucun registre serveur », et le
+   * cookie authentifiait quand même. Elle se refuse donc au démarrage — le
+   * firewall en fait une erreur de configuration fail-closed, plutôt qu'une
+   * requête sur deux qui se comporte autrement que ce qui est écrit.
+   *
+   * @param area - la zone qui liste cet authenticator.
+   * @throws Error si la zone est `stateless` — le message la NOMME.
+   */
+  validateArea(area: ISecuredArea): void {
+    if (area.stateless) {
+      throw new Error(
+        `area "${area.name}": l'authenticator "${this.name}" est incompatible ` +
+          `avec \`stateless: true\` — une zone sans registre ne peut pas tirer ` +
+          `son identité d'une session serveur. Retirer "session" de cette zone ` +
+          `(l'appelant porte sa preuve : \`apikey\`, \`jwt\`, \`external-jwt\`), ` +
+          `ou passer la zone à \`stateless: false\` si elle sert un navigateur.`,
+      );
+    }
   }
 
   /** La requête porte-t-elle une session reprise avec un utilisateur ? */

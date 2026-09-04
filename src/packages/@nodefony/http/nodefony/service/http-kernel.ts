@@ -233,6 +233,10 @@ const WS_DEV_LOOPBACK = new Set<string>([
 
 @injectable()
 class HttpKernel extends Service implements IHttpKernelInterface {
+  // Zones stateless dont on a déjà signalé qu'une route y demandait une
+  // session. Lazy : `null` tant que la contradiction ne se produit pas — le cas
+  // est une anomalie de configuration, il ne doit rien coûter aux autres.
+  #statelessIntentVues: Set<string> | null = null;
   certificates: unknown;
   serviceCerticats: Certicates | null = null;
   key: string = "";
@@ -1143,6 +1147,37 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       return null;
     }
     const intent = context.sessionIntent;
+    // Une zone SANS REGISTRE n'ouvre ni ne reprend de session — c'est ce que
+    // `stateless: true` promet, et ce que rien n'appliquait : un cookie entrant
+    // suffisait à reprendre une session, à la réécrire quand son identifiant
+    // était inconnu, et à renvoyer un `Set-Cookie` — jusque dans un 401. La
+    // zone est posée sur le contexte par le firewall AVANT ce point (cf.
+    // `prepareFrontController`), donc la décision est disponible ici.
+    //
+    // L'authenticator `session` est déjà refusé au boot sur une telle zone
+    // (`SessionAuthenticator.validateArea`) : il ne reste que le cas d'une
+    // ROUTE qui demande une session sous une zone sans registre. La zone gagne
+    // — elle est la déclaration de sécurité —, et on le DIT, une fois par zone :
+    // un silence ferait chercher longtemps pourquoi `context.session` est nul.
+    if (context.security?.stateless === true) {
+      if (intent) {
+        const nom = context.security.name;
+        if (this.#statelessIntentVues === null) {
+          this.#statelessIntentVues = new Set();
+        }
+        if (!this.#statelessIntentVues.has(nom)) {
+          this.#statelessIntentVues.add(nom);
+          this.log(
+            `Zone "${nom}" is stateless: the session requested by this route is ` +
+              `IGNORED (no session opened, no cookie sent). Drop \`stateless: true\` ` +
+              `on the area, or stop requiring a session on its routes.`,
+            "WARNING",
+            "SESSION",
+          );
+        }
+      }
+      return null;
+    }
     // Lazy : ni intent de route, ni cookie de session entrant → 0 session, 0 write.
     if (!intent && !context.hasSession()) {
       return null;

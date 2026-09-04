@@ -292,6 +292,31 @@ handshake des zones protégées `realtime` (`firewall.ts:289`).
 - **Filet** : un revalidator re-lit la session avant chaque action data plane ; fail-closed →
   fermeture 4001.
 
+## 🗝️ `stateless` — la zone tient-elle un registre ?
+
+Une zone dit, par ce drapeau, **où vit l'identité** — et ce n'est pas la même chose que la liste de
+ses authentificateurs.
+
+| Valeur           | Ce que la zone fait                                                                                           | Pour qui                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `false` (défaut) | la zone **peut** tenir un registre serveur : session créée au login, cookie opaque révocable                  | un **navigateur** (modèle BFF)        |
+| `true`           | la zone n'ouvre **ni ne reprend** de session — le cookie entrant est ignoré, aucun `Set-Cookie` n'est renvoyé | un **porteur de preuve** (clé, jeton) |
+
+Ce que `true` évite concrètement : sans lui, un appelant qui envoie un cookie inconnu — un client
+qui recycle un en-tête, un navigateur qui traîne une vieille session, un attaquant qui en fabrique
+un — fait **reprendre puis réécrire une session serveur** et repartir un `Set-Cookie`, y compris
+quand la réponse est un 401. Un registre pour quelqu'un qui ne le relira jamais.
+
+> 🔴 **`stateless: true` et `"session"` dans la même zone est une contradiction, et l'application
+> REFUSE de démarrer** en la nommant (`SessionAuthenticator.validateArea`). Une zone sert un
+> navigateur **ou** un porteur de preuve. Si les deux publics doivent atteindre la même
+> fonctionnalité, ce sont **deux zones** — le firewall trie par longueur de motif, donc la plus
+> spécifique gagne.
+
+Une **route** qui demande une session (`@UseSession`) sous une zone stateless ne l'emporte pas : la
+zone est la déclaration de sécurité, elle gagne, et le journal le dit une fois par zone au lieu de
+laisser chercher pourquoi `context.session` est nul.
+
 ## ⚙️ Ordre et modes (`mode: "first"` vs `"all"`)
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`

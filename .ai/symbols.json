@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T08:01:48.376Z",
+  "generated": "2026-09-04T09:02:10.215Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -32895,7 +32895,8 @@
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
       ],
       "IAuthenticator": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
