@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T13:45:02.203Z",
+  "generatedAt": "2026-09-04T15:52:20.157Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 94,
+      "closed": 95,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 44,
+      "open": 43,
       "title": "10.0.0"
     }
   ],
@@ -1137,7 +1137,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
-      "jours": 3.5,
+      "jours": 2.5,
       "ordre": 6,
       "labels": [
         "10.0.0"
@@ -1189,8 +1189,8 @@
       "number": 183,
       "title": "feat(cli): voir depuis son poste ce qui manquera en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/183",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1430,7 +1430,7 @@
       "title": "feat(notification): doter le framework de l'envoi de messages sortants",
       "url": "https://github.com/nodefony/nodefony-core/issues/83",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 5,
@@ -1788,7 +1788,7 @@
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 8,

@@ -21,6 +21,12 @@
  *
  * Ancrée au SUJET (première ligne), jamais au corps : c'est le corps qui cite
  * les tickets, et c'est le type du commit qui dit ce que cette citation vaut.
+ *
+ * ⚠️ Le motif ne s'élargit PAS à tout le scope `pilotage` : `fix(pilotage)` et
+ * `feat(pilotage)` sont du VRAI travail — sur les tickets qui portent
+ * précisément cet outillage. Un commit de travail peut donc citer d'autres
+ * tickets en passant, et le lint les croira avancés ; c'est pourquoi la
+ * clôture de session REGARDE les « en cours » au lieu de s'en remettre à lui.
  */
 export const PILOTAGE = /^(docs\(session\)|chore\(pilotage\)|docs\(claude\))/;
 

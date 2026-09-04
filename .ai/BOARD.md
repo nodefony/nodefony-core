@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-04 13:45** (UTC).
+> Empreinte prise le **2026-09-04 15:52** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 25 | 1 | — |
-| 10.0.0 | 44 | 94 | 2026-11-15 |
+| 10.0.0 | 43 | 95 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 44 ouverts
+## Jalon 10.0.0 — 43 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -37,8 +37,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
 | 4.5 | P1 — figé à la création | 1.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
-| 6 | P2 — décision | 3.5 | #178 | feat(cli): faire de doctor un diagnostic complet |
-| 6.4 | P1 — figé à la création | 1 | #183 | feat(cli): voir depuis son poste ce qui manquera en production |
+| 6 | P2 — décision | 2.5 | #178 | feat(cli): faire de doctor un diagnostic complet |
 | 6.5 | P1 — figé à la création | 1 | #184 | feat(cli): dire ce qui disparaîtra en production avant d'y aller |
 | 6.6 | P2 — décision | 1 | #186 | feat(cli): montrer la surface ouverte et les entités hors dialecte |
 | 6.7 | P2 — décision | 0.5 | #185 | feat(cli): vérifier que les gardes du projet sont armées |
