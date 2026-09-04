@@ -26,8 +26,19 @@ import { z } from "zod";
  * listée ici (ex. `http: { insecureHTTPParser: true }` disparaîtrait). Ces
  * sections sont donc en **`z.looseObject`** (conservent les extras pour la lib).
  * Les sections **100 % consommées par notre code** (`securityHeaders`,
- * `trustProxy`, `certificates`, `session`, `upload`) restent en
- * **`z.object` strict** → le strip attrape les fautes de frappe.
+ * `trustProxy`, `certificates`, `session`, `upload`) restent en **`z.object`**,
+ * qui RETIRE les clés inconnues.
+ *
+ * 🔴 **Retirer n'est PAS refuser, et cette page a longtemps affirmé le
+ * contraire** (« le strip attrape les fautes de frappe »). Il ne les attrape
+ * pas : `use("@nodefony/http", { trustProxi: true })` est accepté, la clé
+ * disparaît, l'application démarre avec le DÉFAUT et personne n'est prévenu.
+ * Le seul filet est le TYPAGE (registre `NodefonyModuleConfig`), qui ne
+ * couvre pas ce qui contourne le compilateur : une config lue d'un fichier,
+ * un `as never`, un override d'environnement. Passer ces sections en
+ * `z.strictObject` est une décision de RUPTURE — une application qui passait
+ * une clé en trop ne démarrerait plus — et elle se prend avant la 10.0.0, pas
+ * après.
  *
  * ## Métadonnées de champ (`.meta()` natif zod)
  *

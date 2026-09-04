@@ -261,7 +261,8 @@ Les étapes, dans l'ordre, et ce que chacune protège :
    énumération avec défaut, entier avec défaut, index simple et composite,
    unicité composite, tailles de colonne, relation), dont deux émises pour
    PostgreSQL ;
-4. **module** — `create module` : workspace npm, manifeste, entité déposée dedans ;
+4. **module** — `create module` : workspace npm, manifeste, entité déposée
+   dedans (ce qu'il tient comme PAQUET est jugé plus loin, après le build) ;
 5. **compilation** — l'étape qui manquait : un type faux ne se voit pas dans une
    assertion de chaîne ;
 6. **le code des `AGENTS.md` compile** — les expressions citées dans les
@@ -281,16 +282,25 @@ Les étapes, dans l'ordre, et ce que chacune protège :
    visée, sinon la jointure est refusée par le moteur ;
 10. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
     invisible du serveur (cause n°1 des « ma route répond 404 ») ;
-11. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
+11. **le module généré tient debout comme un PAQUET** — il compile avec SON
+    tsconfig (témoin fautif d'abord : un typecheck qui ne lit rien rend vert),
+    ses tests passent, ses types se résolvent depuis l'APPLICATION, et une clé
+    de configuration mal orthographiée est REFUSÉE. Ce dernier point a trouvé un
+    défaut de produit : le gabarit levait une `Error` ordinaire, absorbée par le
+    fail-soft du kernel — `use("@app/blog", { gretting: … })` laissait
+    l'application démarrer en IGNORANT ce qui avait été écrit ;
+12. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
     lue ;
-12. **tests générés** — couche donnée ;
-13. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
+13. **tests générés** — couche donnée ;
+14. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
     PATCH, 204 puis 404 ; et, pour la liste, les deux faces de chaque
     capacité : le **refus** (tri hors allowlist, paramètre inconnu, valeur mal
     formée) **et l'effet** (le tri ordonne, le filtre filtre) — voir l'encadré
     ci-dessous, un `ORDER BY` mort passait les refus sans broncher ;
-14. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
-15. **inspection** — l'application se laisse lire sans ouvrir de port.
+15. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce,
+    et sert DEUX routes : celle de l'application et celle d'un MODULE — un module
+    qui se charge sans monter ses routes rendait 404 sans un mot ;
+16. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;
@@ -303,7 +313,7 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 > réclamé avant de générer. **Reste `front`, non couvert** (il tirerait un
 > écosystème Vite complet dans le décor).
 >
-> **Et l'étape 9 juge la SORTIE, pas le code de retour** : le gabarit journalise
+> **Et l'étape 12 juge la SORTIE, pas le code de retour** : le gabarit journalise
 > « service non enregistré » puis rend la main NORMALEMENT. Vérifié en
 > débranchant `@services([…])` — la commande sort **0** sans écrire une ligne de
 > JSON. Un banc qui aurait lu le code de retour aurait été vert sur une

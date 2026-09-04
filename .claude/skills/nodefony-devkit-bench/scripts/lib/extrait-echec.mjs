@@ -50,7 +50,19 @@ const SPINNER = /[⠀-⣿◢-◥▖-▟|/\\-]+/gu;
  * répond en français : c'est la sortie de `nodefony` qu'on lit le plus souvent.
  */
 const PORTEUSE =
-  /\b(error|errors|erreur|erreurs|failed|failing|failure|échec|echec|exception|cannot|refus\w*|invalid|unknown|missing|introuvable|denied|timeout|fatal|panic)\b|could not|^\s*(at\s|npm ERR!|Error:|[A-Za-z]*Error:)|[✗❌✖]|\b[A-Z]{2,}[A-Z0-9]*_[A-Z0-9_]+\b|\bE[A-Z]{4,}\b/u;
+  /\b(error|errors|erreur|erreurs|failed|failing|failure|échec|echec|exception|cannot|refus\w*|invalid|invalide|unrecognized|unknown|missing|introuvable|denied|timeout|fatal|panic)\b|could not|^\s*(npm ERR!|Error:|[A-Za-z]*Error:)|[✗❌✖]|\b[A-Z]{2,}[A-Z0-9]*_[A-Z0-9_]+\b|\bE[A-Z]{4,}\b/u;
+
+/**
+ * Une ligne de PILE d'appels.
+ *
+ * 🔴 Elle est du CONTEXTE, jamais la cause — et il a fallu un échec réel pour
+ * le voir : classée « porteuse » au même rang que le reste, une pile de vingt
+ * cadres mangeait tout le budget en remontant, et le message qui NOMMAIT la
+ * faute (`Unrecognized key: "greting"`, cent lignes plus haut) n'entrait pas.
+ * L'extrait montrait donc OÙ ça a cassé sans jamais dire QUOI. C'est le défaut
+ * d'origine, déplacé d'un cran.
+ */
+const PILE = /^\s*at\s/u;
 
 /**
  * Déplie une sortie de terminal en lignes LISIBLES.
@@ -120,22 +132,37 @@ export function extraitEchec(brut, opts = {}) {
   const complet = lignes.join("\n");
   if (complet.length <= budget) return complet;
 
+  // Les marqueurs « […] N ligne(s) écartée(s) » s'ajoutent APRÈS le remplissage :
+  // sans réserve, l'extrait dépasse le budget qu'il annonce (mesuré : 1 536 pour
+  // 1 500 demandés). Une borne qu'on dépasse n'est pas une borne.
+  const utile = Math.max(0, budget - 120);
+
   // La queue d'abord : elle porte le contexte immédiat de l'arrêt.
   const debutQueue = Math.max(0, lignes.length - queue);
   const gardees = new Set();
   let taille = 0;
   for (let i = lignes.length - 1; i >= debutQueue; i--) {
-    if (taille + lignes[i].length + 1 > budget) break;
+    if (taille + lignes[i].length + 1 > utile) break;
     gardees.add(i);
     taille += lignes[i].length + 1;
   }
   // Puis les lignes porteuses, des plus récentes aux plus anciennes : une cause
   // hors de la fenêtre est exactement le cas qui a coûté deux jobs rouges.
-  for (let i = debutQueue - 1; i >= 0; i--) {
-    if (!PORTEUSE.test(lignes[i])) continue;
-    if (taille + lignes[i].length + 1 > budget) break;
-    gardees.add(i);
-    taille += lignes[i].length + 1;
+  //
+  // DEUX passes, et l'ordre est tout : les MESSAGES d'abord, les cadres de pile
+  // seulement s'il reste de la place. Une seule passe laissait la pile — qui
+  // est toujours la plus proche de la fin — épuiser le budget avant que le
+  // message ne soit atteint.
+  for (const pileAdmise of [false, true]) {
+    for (let i = debutQueue - 1; i >= 0; i--) {
+      if (gardees.has(i)) continue;
+      const estPile = PILE.test(lignes[i]);
+      if (estPile !== pileAdmise) continue;
+      if (!estPile && !PORTEUSE.test(lignes[i])) continue;
+      if (taille + lignes[i].length + 1 > utile) break;
+      gardees.add(i);
+      taille += lignes[i].length + 1;
+    }
   }
 
   const rendu = [];

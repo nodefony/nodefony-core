@@ -189,6 +189,8 @@ const APP = path.join(ROOT, "app");
  */
 const MODULE = "blog";
 const MODULE_PKG = `@app/${MODULE}`;
+/** Le nom de sa classe exportée — `blog` → `BlogModule`, la règle du générateur. */
+const PASCAL_MODULE = MODULE[0].toUpperCase() + MODULE.slice(1);
 
 /**
  * Le controller RÉSERVÉ à une habilitation, et le rôle qu'il exige.
@@ -967,6 +969,131 @@ step(
 );
 
 step(
+  "le MODULE généré tient debout comme un PAQUET",
+  "Il compile, se teste, se consomme, et sa config REFUSE une faute de frappe.",
+  // Le module est un paquet npm complet — configuration validée, exports,
+  // types, documents pour agents, bundler. Chacune de ces pièces peut être
+  // fausse sans qu'aucune assertion de chaîne ne s'en aperçoive : c'est
+  // exactement par là qu'un défaut est déjà passé sur `create command`.
+  //
+  // ⚠️ Ce que cette étape ne prouve PAS, et qu'il faut savoir avant de la lire :
+  // le `include` du tsconfig d'une application ne contient pas `modules/**`,
+  // mais `create module` CHAÎNE les scripts de l'app vers ses workspaces
+  // (`ensureWorkspaces`, engine.ts) — le module est donc bien typechecké, testé
+  // et bâti par `npm run typecheck|test|build` de l'app. La lecture du seul
+  // tsconfig fait conclure à un trou qui n'existe pas ; c'est le chaînage npm
+  // qui décide. D'où le TÉMOIN FAUTIF ci-dessous : il constate que ce chaînage
+  // MORD, au lieu de le supposer d'après un fichier de configuration.
+  //
+  // Ce qui restait, lui, sans preuve : la frontière de paquet (les types du
+  // module se résolvent-ils depuis l'application ?) et le refus d'une clé de
+  // configuration mal orthographiée.
+  () => {
+    const dossier = path.join(APP, "modules", MODULE);
+
+    // 1. IL COMPILE — avec SON tsconfig, tests compris. La sonde se prouve
+    //    d'abord sur un témoin fautif : un typecheck qui ne lit rien rend vert.
+    const temoin = path.join(dossier, "nodefony", "temoin-du-banc.ts");
+    try {
+      writeFileSync(
+        temoin,
+        'const faux: number = "pas un nombre";\nexport default faux;\n',
+        "utf8",
+      );
+      let aTremble = false;
+      try {
+        run("npm", ["--workspace", MODULE_PKG, "run", "typecheck"]);
+      } catch {
+        aTremble = true;
+      }
+      if (!aTremble) {
+        throw new Error(
+          "le typecheck du module ne LIT PAS ses sources — un type faux le laisse vert, " +
+            "cette sonde ne prouverait rien (vérifier `include` de son tsconfig)",
+        );
+      }
+    } finally {
+      effaceDansApp(temoin);
+    }
+    run("npm", ["--workspace", MODULE_PKG, "run", "typecheck"]);
+
+    // 2. IL SE TESTE — le gabarit livre trois cas (import sans kernel, défauts,
+    //    refus d'une config invalide) et rien ne les lançait.
+    run("npm", ["--workspace", MODULE_PKG, "run", "test"]);
+
+    // 3. IL SE CONSOMME — ses types doivent se résoudre depuis l'APPLICATION,
+    //    pas seulement depuis son propre dossier. C'est la frontière de paquet
+    //    que le typecheck du module ne franchit jamais.
+    const consommateur = path.join(APP, "nodefony", "consommateur-du-banc.ts");
+    try {
+      writeFileSync(
+        consommateur,
+        `import ${PASCAL_MODULE}Module from "${MODULE_PKG}";\n` +
+          `export const _sonde: typeof ${PASCAL_MODULE}Module = ${PASCAL_MODULE}Module;\n`,
+        "utf8",
+      );
+      run("npm", ["run", "typecheck"]);
+    } finally {
+      effaceDansApp(consommateur);
+    }
+
+    // 4. SA CONFIG REFUSE UNE FAUTE DE FRAPPE — au DÉMARRAGE, pas en silence.
+    //    Zod retire par défaut les clés qu'il ne connaît pas : `use()` avec
+    //    `greting` produirait une application qui démarre en ignorant ce que
+    //    l'utilisateur a écrit, et le défaut n'éclate qu'à la lecture.
+    const manifeste = path.join(APP, "nodefony.config.ts");
+    const intact = readFileSync(manifeste, "utf8");
+    try {
+      // La forme écrite par `create module` est `use("<pkg>", {}),` — cf
+      // `engine.ts`. Viser une autre forme rendrait la sonde muette : d'où le
+      // refus explicite ci-dessous plutôt qu'un remplacement silencieux.
+      const fautif = intact.replace(
+        `use("${MODULE_PKG}", {})`,
+        `use("${MODULE_PKG}", { greting: "faute de frappe" } as never)`,
+      );
+      if (fautif === intact) {
+        throw new Error(
+          `impossible d'injecter une clé fautive dans le manifeste — ` +
+            `\`use("${MODULE_PKG}")\` ne s'y trouve pas sous la forme attendue`,
+        );
+      }
+      writeFileSync(manifeste, fautif, "utf8");
+      // Le refus peut tomber à DEUX moments, et les deux sont bons : `build`
+      // démarre un kernel (c'est ainsi qu'il rend le `dist/`), donc une erreur
+      // de configuration l'arrête avant même qu'on inspecte. N'attendre le refus
+      // que d'`inspect` faisait lire cette réussite comme un échec du banc.
+      let refus = null;
+      for (const geste of [
+        () => run("npm", ["run", "build"]),
+        () => run(process.execPath, [BIN, "inspect", "routes", "--json"]),
+      ]) {
+        try {
+          geste();
+        } catch (e) {
+          refus = e;
+          break;
+        }
+      }
+      if (!refus) {
+        throw new Error(
+          "une clé de config INCONNUE (`greting`) est acceptée en silence : " +
+            "l'application démarre en ignorant ce que l'utilisateur a écrit",
+        );
+      }
+      if (!/greting/u.test(String(refus.message))) {
+        throw new Error(
+          "l'application refuse, mais SANS nommer la clé fautive — le message " +
+            `n'aide pas à corriger : ${String(refus.message).slice(0, 300)}`,
+        );
+      }
+    } finally {
+      writeFileSync(manifeste, intact, "utf8");
+      run("npm", ["run", "build"]);
+    }
+  },
+);
+
+step(
   "le FRONT généré se bâtit — pour de bon, pas « à jour »",
   "Un composant qui ne compile qu'en développement passe TOUT le reste du banc.",
   // Étape séparée du build ci-dessus, et pour deux raisons qui se cumulent —
@@ -1298,18 +1425,26 @@ step(
       // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le
       // boot peut aussi échouer APRÈS l'ouverture du port (hook de cycle de
       // vie), et c'est exactement le cas qu'on garde ici.
-      const res = execFileSync(
-        process.execPath,
-        [
-          "-e",
-          `fetch("http://127.0.0.1:${PORTS.NF_PORT}/api/posts")` +
-            `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
-            `{ console.error("status " + r.status); process.exit(1); } })` +
-            `.catch((e) => { console.error(String(e.message ?? e)); process.exit(1); })`,
-        ],
-        { encoding: "utf8", timeout: 30_000 },
-      );
-      void res;
+      // Deux routes, et la seconde n'est pas un doublon : `/api/posts` vient de
+      // l'APPLICATION, `/api/<module>` d'un MODULE — un paquet npm séparé, que
+      // le Kernel importe par son nom et dont les controllers sont montés par
+      // un autre chemin. Un module qui se charge sans monter ses routes rendait
+      // 404 sans que rien ne le signale : le boot est vert, l'inventaire des
+      // routes se lit hors serveur, et aucune étape ne le frappait EN VRAI.
+      for (const chemin of ["/api/posts", `/api/${MODULE}`]) {
+        const res = execFileSync(
+          process.execPath,
+          [
+            "-e",
+            `fetch("http://127.0.0.1:${PORTS.NF_PORT}${chemin}")` +
+              `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
+              `{ console.error("${chemin} → status " + r.status); process.exit(1); } })` +
+              `.catch((e) => { console.error("${chemin} → " + String(e.message ?? e)); process.exit(1); })`,
+          ],
+          { encoding: "utf8", timeout: 30_000 },
+        );
+        void res;
+      }
     } finally {
       // Toujours, même en échec : un serveur détaché qui survit au banc tient
       // les ports et fait échouer le run SUIVANT sur un symptôme sans rapport.

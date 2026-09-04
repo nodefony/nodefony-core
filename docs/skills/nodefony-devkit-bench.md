@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 729 lignes |
-| Coût d'activation | ~12 358 tokens (le corps est chargé à l'invocation) |
+| Corps | 739 lignes |
+| Coût d'activation | ~12 545 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 4 page(s) |
@@ -90,7 +90,7 @@ script, donc toujours à jour après régénération.
 | `scripts/jeton-mcp.selftest.mjs` | Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run, | — | — |
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
-| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--force` `--from-database` `--frontend` `--index` `--inject` `--json` `--keep` `--link` `--module` `--name` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-tests` `--nom` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
+| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--force` `--from-database` `--frontend` `--index` `--inject` `--json` `--keep` `--link` `--module` `--name` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-tests` `--nom` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--workspace` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
 | `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il | `--config` `--etage` `--keep` `--link` `--reporter` | `APP` |
 
 **Invocation telle que documentée dans chaque script :**
@@ -104,7 +104,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs
 node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
 ```
 
-**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `CONTROLLER_GARDE_CLASS` · `DATA` · `DATABASE` · `DIALECT` · `ENTITE_MIGREE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_THROTTLE` · `JUGE_UPLOAD` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `LINKED` · `MCP_REGIME` · `MCP_SERVER_NOM` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `PAGE_WIDGET` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROLE_GARDE` · `ROUTE_ARTICLES` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_DEPOT` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `RUN_ROOT` · `SERVICE` · `SERVICE_METHOD` · `TITRE_SEME`
+**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `CHAMP_DEMANDE` · `COMMAND_ACTION` · `COMMAND_CLASS` · `CONTROLLER_GARDE_CLASS` · `DATA` · `DATABASE` · `DIALECT` · `ENTITE_MIGREE` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MIGRATION` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_THROTTLE` · `JUGE_UPLOAD` · `JUGE_USER_FIELD` · `JUGE_ZONE` · `LINKED` · `MCP_REGIME` · `MCP_SERVER_NOM` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MCP` · `NF_DEVKIT_BENCH_MODEL` · `NF_MCP_TOKEN` · `NF_MYSQL_URL` · `NF_PG_URL` · `NOM_APP_TEMOIN` · `ORIGINE_PARTENAIRE` · `OUT` · `PAGE_WIDGET` · `PASCAL_MODULE` · `PREPARE_BASE_MIGREE` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `PREPARE_UTILISATEUR` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROLE_GARDE` · `ROUTE_ARTICLES` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_DEPOT` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `RUN_ROOT` · `SERVICE` · `SERVICE_METHOD` · `TITRE_SEME`
 
 ## Conformité au standard Agent Skills
 
@@ -123,7 +123,7 @@ node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étape
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 729 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 739 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

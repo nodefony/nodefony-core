@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BootConfigurationError } from "nodefony";
 import { <%= it.camel %>ConfigSchema } from "./config";
 import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./config";
 
@@ -17,9 +18,20 @@ import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./conf
  * pas ici. Si le module a besoin d'une variable d'env DÉDIÉE, elle s'applique
  * APRÈS le parse, dans cette fonction, pour que le schéma reste pur.
  *
+ * 🔴 **`BootConfigurationError`, et pas une `Error` ordinaire.** Le kernel
+ * distingue les deux : un hook de cycle de vie qui lève une erreur QUELCONQUE
+ * est absorbé en développement (fail-soft — il protège la DX d'un module
+ * optionnel cassé), tandis qu'une erreur de CONFIGURATION interrompt le boot
+ * dans TOUS les environnements. Mesuré sur un module généré : avec une `Error`,
+ * `use("<%= it.pkgName %>", { gretting: "…" })` laissait l'application démarrer,
+ * servir, et rendre 0 — la faute de frappe n'atteignait personne. Une
+ * configuration explicite qu'on ne peut pas honorer ne se répare pas en
+ * continuant.
+ *
  * @param config - config brute venue de `use("<%= it.pkgName %>", { … })`.
  * @returns config validée et gelée.
- * @throws Error si un champ est invalide (toutes les erreurs Zod agrégées, par champ).
+ * @throws BootConfigurationError si un champ est invalide ou inconnu (toutes les
+ *   erreurs Zod agrégées, par champ) — le boot s'interrompt, en dev comme en prod.
  */
 export function define<%= it.pascal %>Config(
   config: <%= it.pascal %>ConfigInput = {},
@@ -35,9 +47,10 @@ export function define<%= it.pascal %>Config(
         : (e as Error).message;
     // `cause` garde l'erreur Zod d'origine : sans elle, le détail par champ
     // s'arrête à ce message et la trace d'où vient la valeur est perdue.
-    throw new Error(`[<%= it.pkgName %>] config invalide : ${issues}`, {
-      cause: e,
-    });
+    throw new BootConfigurationError(
+      `[<%= it.pkgName %>] config invalide : ${issues}`,
+      { cause: e },
+    );
   }
 }
 

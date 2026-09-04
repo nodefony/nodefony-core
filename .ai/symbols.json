@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-03T17:02:47.311Z",
+  "generated": "2026-09-04T01:39:27.020Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 796,
-    "symbols": 3658,
+    "symbols": 3659,
     "classes": 383,
     "interfaces": 1008,
     "types": 428,
     "enums": 4,
-    "functions": 1468,
+    "functions": 1469,
     "constants": 367
   },
   "symbols": {
@@ -5501,6 +5501,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
+    },
+    "poserPointeursAgents": {
+      "name": "poserPointeursAgents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose le fichier-POINTEUR d'instructions des agents donnés, s'il manque. Extrait de {@link renderProjectAgents} pour être appelable AILLEURS : c'est `nodefony ai:mcp --agent <clé>` qui câble un agen…"
     },
     "scaffoldCaps": {
       "name": "scaffoldCaps",
@@ -27985,6 +27993,9 @@
       ],
       "MCP_CONFIG_FILE": [
         "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "poserPointeursAgents": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "SysExit": [
