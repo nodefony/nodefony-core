@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-04T17:11:55.468Z",
+  "generatedAt": "2026-09-04T20:47:49.823Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
-      "closed": 1,
+      "closed": 2,
       "dueOn": null,
-      "open": 25,
+      "open": 26,
       "title": "10.1"
     },
     {
-      "closed": 99,
+      "closed": 101,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 44,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -951,7 +951,7 @@
       "title": "refactor(core)!: écrire tous les identifiants du framework en anglais",
       "url": "https://github.com/nodefony/nodefony-core/issues/187",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1.5,
@@ -1151,7 +1151,7 @@
       "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 2.5,
+      "jours": 1,
       "ordre": 6,
       "labels": [
         "10.0.0"
@@ -1175,8 +1175,8 @@
       "number": 190,
       "title": "fix(cli): rendre l'aide même hors d'une application",
       "url": "https://github.com/nodefony/nodefony-core/issues/190",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1203,8 +1203,8 @@
       "number": 191,
       "title": "feat(cli): grouper l'aide par intention, avec un rendu pur et testable",
       "url": "https://github.com/nodefony/nodefony-core/issues/191",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2468,6 +2468,34 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 137,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 194,
+      "title": "refactor(cli): une seule règle d'exclusion pour les marcheurs de doctor",
+      "url": "https://github.com/nodefony/nodefony-core/issues/194",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 138,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 195,
+      "title": "fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/195",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 139,
       "labels": [
         "10.1"
       ]
