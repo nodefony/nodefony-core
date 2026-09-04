@@ -851,6 +851,7 @@ export async function collectCheckReport(
                 "aucune source TypeScript sous les racines explorées : il n'y " +
                 "a rien où chercher une route ouverte",
               short: "aucune source",
+              notApplicable: true,
               unlock: "vérifie la racine visée (`--cwd`)",
             },
       // Le dialecte n'a de sens que s'il y a des entités : une application sans
@@ -865,6 +866,7 @@ export async function collectCheckReport(
                 "aucune entité Drizzle dans cette application — il n'y a pas " +
                 "de dialecte à confronter",
               short: "aucune entité",
+              notApplicable: true,
               // Un contrôle sauté SANS geste laisse le lecteur devant un
               // manque qu'il ne sait pas combler. Ici le geste n'est pas une
               // réparation : c'est ce qui rendrait le contrôle applicable.
@@ -909,6 +911,7 @@ export async function collectCheckReport(
                 "`@injectable`) n'a été trouvée : il n'y a rien à confronter " +
                 "au manifeste",
               short: "aucune classe",
+              notApplicable: true,
               unlock: "`nodefony create controller <Nom>`",
             },
     },

@@ -13,6 +13,13 @@
  */
 import { describe, it } from "vitest";
 import { assert } from "chai";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  preventedChecks,
+  type CheckFamily,
+  type IControleSaute,
+} from "../kernel/checks/report";
 import {
   checkGating,
   lostServices,
@@ -361,5 +368,87 @@ describe("engineModeOf — la règle du collapse, en un seul endroit", () => {
     ]) {
       assert.equal(engineModeOf(label), "production", `« ${label} »`);
     }
+  });
+});
+
+describe("mode strict — un contrôle SANS MATIÈRE n'est pas un contrôle bloqué", () => {
+  /**
+   * 🔴 La règle qui manquait, et qui condamnait toute application NEUVE.
+   *
+   * `CI` arme `--strict` d'office, et le mode strict fait échouer sur tout
+   * contrôle non exécuté. Or vingt-deux des vingt-trois états « non exécuté »
+   * du produit tombaient du côté « empêché », dont « aucune entité Drizzle »,
+   * « aucun ORM chargé », « aucun module de sécurité chargé ». Une application
+   * fraîchement générée n'a par construction ni entité ni base : elle échouait
+   * donc dans toute forge, avec un rapport qui écrivait « Rien à signaler
+   * parmi les 6 contrôles effectués ».
+   *
+   * Le critère : le contrôle a-t-il REGARDÉ et trouvé qu'il n'y avait rien
+   * (sans objet), ou n'a-t-il pas pu regarder (empêché) ?
+   */
+  const saute = (
+    famille: CheckFamily,
+    extra: Partial<IControleSaute> = {},
+  ): IControleSaute => ({
+    famille,
+    titre: famille,
+    reason: "peu importe",
+    ...extra,
+  });
+
+  it("« sans objet » ne pèse pas sur le code de sortie", () => {
+    assert.lengthOf(
+      preventedChecks([saute("dialect", { notApplicable: true })]),
+      0,
+    );
+  });
+
+  it("« non demandé » non plus — l'étage 2 exige un démarrage", () => {
+    assert.lengthOf(
+      preventedChecks([saute("migrations", { onDemand: true })]),
+      0,
+    );
+  });
+
+  it("🔴 mais un contrôle EMPÊCHÉ pèse toujours — sinon plus rien ne garde", () => {
+    // Le risque de la correction : tout laisser passer. Un manifeste illisible
+    // reste un manquement de couverture, et doit condamner en mode strict.
+    assert.lengthOf(preventedChecks([saute("guards")]), 1);
+  });
+
+  it("les états SANS MATIÈRE du produit sont marqués, pas seulement typés", () => {
+    // Le champ pourrait exister sans que personne ne le pose : c'est ainsi
+    // qu'une correction se perd. On confronte donc au SOURCE — les états qui
+    // disent « il n'y a rien » doivent porter la marque.
+    const attendus: ReadonlyArray<readonly [string, string]> = [
+      ["../kernel/checks/runCheck.ts", "aucune entité"],
+      ["../kernel/checks/runCheck.ts", "aucune source"],
+      ["../kernel/checks/runCheck.ts", "aucune classe"],
+      ["../kernel/checks/live.ts", "aucun ORM"],
+      ["../kernel/checks/live.ts", "sans migrations"],
+      ["../kernel/checks/live.ts", "sans firewall"],
+      ["../kernel/checks/gating.ts", "aucune cible"],
+    ];
+    const manquants: string[] = [];
+    for (const [fichier, court] of attendus) {
+      const texte = readFileSync(
+        path.resolve(import.meta.dirname, fichier),
+        "utf8",
+      );
+      const at = texte.indexOf(`short: "${court}"`);
+      if (at === -1) {
+        manquants.push(`${court} (état introuvable — a-t-il été renommé ?)`);
+        continue;
+      }
+      // La marque suit immédiatement le libellé court.
+      if (!texte.slice(at, at + 160).includes("notApplicable: true")) {
+        manquants.push(`${court} (compté comme EMPÊCHÉ)`);
+      }
+    }
+    assert.deepEqual(
+      manquants,
+      [],
+      `états sans matière non marqués : ${manquants.join(" · ")}`,
+    );
   });
 });

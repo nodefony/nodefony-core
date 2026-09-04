@@ -159,6 +159,7 @@ async function checkMigrations(
             "aucun ORM chargé dans cette application — il n'y a pas de base " +
             "dont l'état pourrait être constaté",
           short: "aucun ORM",
+          notApplicable: true,
           unlock: 'déclare un module ORM (`use("@nodefony/drizzle")`)',
         },
       };
@@ -180,6 +181,7 @@ async function checkMigrations(
               "summary",
             ) ?? "cette base ne se met pas à jour par des migrations de schéma",
           short: "sans migrations",
+          notApplicable: true,
         },
       };
     return {
@@ -256,6 +258,7 @@ async function checkFirewall(
             "aucun module de sécurité chargé — il n'y a pas de zone dont la " +
             "cohérence pourrait être constatée",
           short: "sans firewall",
+          notApplicable: true,
           unlock: 'déclare `use("@nodefony/security")`',
         },
       };

@@ -669,6 +669,14 @@ function appDeclareUnOrm(dest: string): boolean {
  * à la création, et les champs que l'utilisateur a demandés. Une source unique,
  * celle qui écrira aussi les migrations suivantes.
  *
+ * ## Écrite, puis APPLIQUÉE
+ *
+ * Les deux, et dans la foulée : une application dont les fichiers de migration
+ * existent mais dont la base ne les a jamais vus est à mi-chemin, et c'est le
+ * pire des deux états. Son premier démarrage en développement dérive le schéma
+ * du code, les tables apparaissent sans historique, et tout ce qui interroge
+ * cet état ensuite accuse à juste titre — `doctor --live` en tête.
+ *
  * ## Quand elle ne peut pas être écrite
  *
  * La commande démarre l'application, et le démarrage OUVRE la connexion : sans
@@ -713,7 +721,41 @@ function runInitialMigration(
     },
   );
   if (r.status === 0) {
-    return { ecrite: true, note: "écrite (migrations/)" };
+    // 🔴 ÉCRITE ne veut pas dire APPLIQUÉE, et l'application naissait à
+    // mi-chemin : ses fichiers de migration étaient là, sa base ne les avait
+    // jamais vus. Le premier démarrage en développement DÉRIVE alors le schéma
+    // du code — les tables apparaissent sans qu'aucune migration ne soit
+    // enregistrée —, et tout ce qui interroge cet état ensuite dit vrai en
+    // accusant : `doctor --live` rend « la base contient déjà des tables, mais
+    // aucune migration n'y est enregistrée », le boot loggue « no such table:
+    // User », et la forge du scaffold criait « 2 migrations à appliquer ».
+    //
+    // Un agent qui rencontre ça répare du vide. On applique donc, dans le même
+    // décor que l'écriture (`production` + `NF_STORE=memory`) : le mode `none`
+    // empêche le démarrage de fabriquer quoi que ce soit, et c'est bien la
+    // MIGRATION qui crée les tables.
+    const applique = spawnSync(
+      "npm",
+      ["exec", "--", "nodefony", "orm:migrate"],
+      {
+        cwd: dest,
+        encoding: "utf8",
+        shell: besoinDeShell("npm"),
+        env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+      },
+    );
+    if (applique.status === 0) {
+      return { ecrite: true, note: "écrite et appliquée (migrations/)" };
+    }
+    // L'écriture, elle, a bien eu lieu : le dire, plutôt que de laisser croire
+    // que rien n'a été fait. Le geste qui reste est nommé — une base
+    // injoignable au moment de la création est un cas parfaitement normal.
+    return {
+      ecrite: true,
+      note:
+        "écrite (migrations/), NON appliquée — lance « nodefony orm:migrate » " +
+        "quand ta base répond",
+    };
   }
   // Le motif court, pris sur ce que le processus a VRAIMENT dit : un message
   // inventé ici enverrait chercher la panne ailleurs.

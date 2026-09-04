@@ -238,8 +238,16 @@ export function rendreRapport(
       for (const l of replier(
         empeches.length > 0
           ? "mode strict : un contrôle EMPÊCHÉ fait échouer la commande."
-          : "mode strict : ce qui manque ici n'a pas été demandé — le code " +
-              "de sortie n'en tient pas compte.",
+          : // Deux raisons de ne pas peser, et la phrase les distingue : un
+            // contrôle qu'on n'a pas DEMANDÉ n'est pas un contrôle qui
+            // n'avait RIEN à examiner. Les confondre laisserait croire qu'il
+            // suffit de demander pour obtenir un verdict.
+            sautes.every((c) => c.notApplicable)
+            ? "mode strict : ce qui manque ici n'avait rien à examiner — le " +
+              "code de sortie n'en tient pas compte."
+            : "mode strict : ce qui manque ici n'a pas été demandé, ou " +
+              "n'avait rien à examiner — le code de sortie n'en tient pas " +
+              "compte.",
         largeur,
         CORPS,
       )) {

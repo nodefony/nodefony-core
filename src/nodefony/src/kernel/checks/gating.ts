@@ -96,6 +96,7 @@ export const NO_TARGET: IExecution = {
     "aucun environnement visé : il n'y a rien à comparer tant qu'on ne dit " +
     "pas OÙ l'on va",
   short: "aucune cible",
+  notApplicable: true,
   unlock: "`nodefony doctor --live --env production`",
 };
 

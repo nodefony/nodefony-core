@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T22:24:54.561Z",
+  "generated": "2026-09-04T22:57:03.586Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8733,7 +8733,7 @@
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Parmi les contrôles sautés, ceux qui CONDAMNENT en mode strict. Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture ; un contrôle NON DEMANDÉ (l'étage 2, qui exige un démar…"
+      "description": "Parmi les contrôles sautés, ceux qui CONDAMNENT en mode strict. Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture. Deux cas ne le sont pas, et pour la même raison : le co…"
     },
     "controlesSautes": {
       "name": "controlesSautes",

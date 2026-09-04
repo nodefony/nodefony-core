@@ -70,6 +70,30 @@ export interface IExecution {
    * quitus — il n'est simplement pas un manquement.
    */
   onDemand?: boolean;
+  /**
+   * `true` quand ce contrôle n'avait RIEN à examiner — et non pas quand
+   * quelque chose l'en a empêché.
+   *
+   * 🔴 **Un contrôle sans matière n'est pas un contrôle bloqué.** La
+   * distinction manquait, et vingt-deux des vingt-trois états « non exécuté »
+   * du produit tombaient du mauvais côté : « aucune entité Drizzle dans cette
+   * application », « aucun ORM chargé », « aucun module de sécurité chargé »,
+   * « cette base ne se met pas à jour par des migrations » — autant d'états
+   * parfaitement légitimes, comptés comme des empêchements. Une application
+   * NEUVE échouait donc dans toute forge (`CI` arme `--strict` d'office), avec
+   * un rapport qui écrivait « Rien à signaler parmi les 6 contrôles
+   * effectués ».
+   *
+   * Le critère qui tranche : le contrôle a-t-il REGARDÉ et trouvé qu'il n'y
+   * avait rien (sans objet), ou n'a-t-il pas pu regarder (empêché) ? « Le
+   * manifeste n'a pas pu être lu » est un empêchement ; « il n'y a aucune
+   * entité » ne l'est pas.
+   *
+   * Ce qui ne change PAS, comme pour {@link IExecution.onDemand} : la famille
+   * reste affichée en « NON CONTRÔLÉ », avec sa raison et son geste. Elle
+   * cesse seulement de compter comme un manquement de couverture.
+   */
+  notApplicable?: boolean;
 }
 
 /**
@@ -189,15 +213,22 @@ export interface IControleSaute {
   unlock?: string;
   /** Non DEMANDÉ plutôt qu'empêché — ne pèse pas sur le code de sortie. */
   onDemand?: boolean;
+  /** SANS OBJET plutôt qu'empêché — ne pèse pas non plus. */
+  notApplicable?: boolean;
 }
 
 /**
  * Parmi les contrôles sautés, ceux qui CONDAMNENT en mode strict.
  *
- * Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture ;
- * un contrôle NON DEMANDÉ (l'étage 2, qui exige un démarrage) ne l'est pas. Les
- * confondre faisait échouer `doctor` dans toute chaîne automatisée — `CI` arme
- * `--strict` d'office — tant qu'on n'ajoutait pas un boot complet à la commande.
+ * Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture.
+ * Deux cas ne le sont pas, et pour la même raison : le contrôle NON DEMANDÉ
+ * (l'étage 2, qui exige un démarrage) et le contrôle SANS OBJET (il a regardé,
+ * il n'y avait rien — aucune entité, aucun ORM, aucun module de sécurité).
+ *
+ * Les confondre faisait échouer `doctor` dans toute chaîne automatisée — `CI`
+ * arme `--strict` d'office. D'abord pour l'étage 2, tant qu'on n'ajoutait pas
+ * un boot complet à la commande ; puis, plus grave, pour toute application
+ * NEUVE, qui n'a par construction ni entité ni base.
  *
  * Une seule implémentation, parce que le RENDU et le CODE DE SORTIE doivent
  * dire la même chose : un bandeau qui annonce un échec que la commande ne
@@ -209,7 +240,7 @@ export interface IControleSaute {
 export function preventedChecks(
   sautes: readonly IControleSaute[],
 ): IControleSaute[] {
-  return sautes.filter((s) => !s.onDemand);
+  return sautes.filter((s) => !s.onDemand && !s.notApplicable);
 }
 
 /**
@@ -251,6 +282,7 @@ export function controlesSautes(
       famille,
       titre: TITRES[famille],
       ...(etat.onDemand ? { onDemand: true } : {}),
+      ...(etat.notApplicable ? { notApplicable: true } : {}),
       reason: etat.reason ?? "raison non précisée",
       unlock: etat.unlock,
     });
