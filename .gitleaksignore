@@ -1,0 +1,20 @@
+# Findings ACQUITTÉS un par un, par leur empreinte exacte
+# (`commit:fichier:règle:ligne`).
+#
+# 🔴 Pourquoi ce fichier plutôt qu'une règle dans `.gitleaks.toml` : une
+# empreinte ne désigne QU'UN finding, dans UN commit, à UNE ligne. Une exception
+# écrite dans la configuration, elle, vaut pour tout ce qui lui ressemblera
+# demain — c'est le geste qui aveugle un scanner sans qu'on s'en aperçoive.
+#
+# Chaque ligne se justifie, sinon elle n'a rien à faire ici.
+
+# Les deux TÉMOINS du gate lui-même, écrits en clair dans `secrets.yml` au
+# commit qui l'a introduit (`57cba4f7`). Le gate les a trouvés dès son premier
+# run — c'est la preuve qu'il mord —, et le commit suivant les COMPOSE à
+# l'exécution pour que le fichier n'en porte plus. L'historique, lui, ne se
+# réécrit pas : cette branche est publiée, et réécrire ferait plus de dégâts que
+# deux chaînes inventées. Ni l'une ni l'autre n'ouvre quoi que ce soit — le
+# jeton est fabriqué, la clé PEM est une ligne base64 tronquée qui ne charge
+# dans aucun outil.
+57cba4f7cf37ff4ec1595d7a89b28f6e4cb1315c:.github/workflows/secrets.yml:github-pat:81
+57cba4f7cf37ff4ec1595d7a89b28f6e4cb1315c:.github/workflows/secrets.yml:private-key:83

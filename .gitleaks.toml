@@ -13,6 +13,11 @@
 # NORMES embarqué hors ligne : ce sont les RFC elles-mêmes, on ne les édite pas,
 # et elles portent les jetons d'exemple de leurs propres sections d'exemple.
 #
+# Un finding DÉJÀ commité et acquitté ne vit PAS ici : il vit dans
+# `.gitleaksignore`, par son empreinte exacte (`commit:fichier:règle:ligne`).
+# La différence n'est pas cosmétique — une règle de ce fichier vaut pour tout ce
+# qui lui ressemblera demain, une empreinte ne vaut que pour UN finding.
+#
 # Rejouer à la main (les deux, l'un ne remplace pas l'autre) :
 #   gitleaks git . --config .gitleaks.toml --no-banner --exit-code 1
 #   gitleaks dir . --config .gitleaks.toml --no-banner --exit-code 1
