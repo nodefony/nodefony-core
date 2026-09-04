@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T09:47:25.036Z",
+  "generated": "2026-09-04T10:52:13.617Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 798,
-    "symbols": 3676,
+    "files": 799,
+    "symbols": 3697,
     "classes": 383,
-    "interfaces": 1012,
-    "types": 429,
+    "interfaces": 1016,
+    "types": 430,
     "enums": 4,
-    "functions": 1481,
-    "constants": 367
+    "functions": 1495,
+    "constants": 369
   },
   "symbols": {
     "Cli": {
@@ -8052,6 +8052,39 @@
       "module": "@nodefony/core",
       "description": "Contrôle l'état d'installation et l'environnement d'une application."
     },
+    "IOptionsRendu": {
+      "name": "IOptionsRendu",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le décor du rendu — tout ce que ce module refuse d'aller chercher lui-même."
+    },
+    "meriteDEtreDit": {
+      "name": "meriteDEtreDit",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un bilan de démarrage mérite d'être rapporté quand il porte une MAUVAISE nouvelle. Un démarrage abouti, complet et sans brique manquante ne se commente pas : l'afficher à chaque contrôle serait du …"
+    },
+    "grouperParRaison": {
+      "name": "grouperParRaison",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Regroupe les contrôles sautés qui partagent la MÊME raison. Hors d'une application, quatre familles sont sautées pour un seul et même motif. Les énumérer une par une répète quatre fois la même phra…"
+    },
+    "rendreRapport": {
+      "name": "rendreRapport",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le document complet, ligne par ligne, sans retour chariot final."
+    },
     "ILigneSommaire": {
       "name": "ILigneSommaire",
       "kind": "interface",
@@ -8060,6 +8093,24 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Une famille de contrôles, résumée en une ligne du sommaire."
+    },
+    "IExecution": {
+      "name": "IExecution",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "L'ÉTAT D'EXÉCUTION d'une famille de contrôles — a-t-elle seulement eu lieu ? Un contrôle rend deux choses de nature différente : ce qu'il a trouvé, et s'il a pu regarder. Les confondre est le mode …"
+    },
+    "IControleSaute": {
+      "name": "IControleSaute",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un contrôle qui n'a PAS eu lieu, prêt à être rendu."
     },
     "IDetailManquement": {
       "name": "IDetailManquement",
@@ -8070,13 +8121,70 @@
       "extends": null,
       "description": "Un manquement, tel qu'il s'affiche dans le détail."
     },
+    "IPalette": {
+      "name": "IPalette",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "La peinture du rapport, par RÔLE et non par couleur. Nommer `echec` plutôt que `red` laisse le choix de la teinte à un seul endroit, et rend le rendu lisible sans connaître la palette. Surtout : c'…"
+    },
     "EtatSection": {
       "name": "EtatSection",
       "kind": "type",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Mise en forme du rapport de `nodefony doctor` — la partie qu'un HUMAIN lit. Un diagnostic se lit en panne, souvent vite, parfois par quelqu'un qui ne connaît pas le projet. Une liste de croix en vr…"
+      "description": "Le verdict d'une famille de contrôles, tel qu'il s'affiche."
+    },
+    "CheckFamily": {
+      "name": "CheckFamily",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les familles de contrôles de `doctor`, telles que le rapport les nomme. Nommées ici plutôt que dérivées d'un tableau : c'est cette clé qui voyage dans le JSON, donc dans la CI et chez l'agent qui l…"
+    },
+    "controlesSautes": {
+      "name": "controlesSautes",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les contrôles qui n'ont PAS eu lieu, dans l'ordre de lecture du rapport. Fonction pure sur l'état d'exécution : c'est elle qui alimente à la fois le rendu humain, le JSON et le code de sortie en mo…"
+    },
+    "creerPalette": {
+      "name": "creerPalette",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La peinture en vigueur pour ce rendu."
+    },
+    "doitColorer": {
+      "name": "doitColorer",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Faut-il colorer cette sortie ? Un rapport de diagnostic finit souvent dans un fichier ou un journal d'intégration continue, où les séquences ANSI ne colorent rien et rendent le texte illisible (`[3…"
+    },
+    "unitesInsecables": {
+      "name": "unitesInsecables",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Découpe une phrase en unités INSÉCABLES pour le repli. Les messages de diagnostic portent des commandes entre accents graves (`` `npm run build` ``), qui contiennent des espaces. Couper dessus lais…"
+    },
+    "surlignerCode": {
+      "name": "surlignerCode",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en valeur ce qui est entre accents graves — une commande, un chemin. Sans couleur, les accents graves RESTENT : ils portent eux-mêmes l'information « ceci se tape tel quel », et un journal de C…"
     },
     "largeurUtile": {
       "name": "largeurUtile",
@@ -8142,6 +8250,22 @@
       "module": "@nodefony/core",
       "description": "Accorde un nom avec son nombre — « 1 contrôle passé », « 2 contrôles passés ». Les parenthèses de repli (« contrôle(s) passé(s) ») sont le signe d'un rapport écrit pour la machine ; celui-ci est lu…"
     },
+    "TITRES": {
+      "name": "TITRES",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le nom lisible de chaque famille. Une table unique évite qu'un titre affiché dans le sommaire diffère de celui de la section « non contrôlé » — deux libellés pour un même contrôle, et le lecteur cr…"
+    },
+    "FAMILLES": {
+      "name": "FAMILLES",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'ordre de lecture des familles — celui du sommaire ET du détail. L'ordre n'est pas cosmétique : la fraîcheur d'abord, parce qu'un build en retard rend faux tout ce qui suit ; puis ce qui empêche d…"
+    },
     "ICheckReport": {
       "name": "ICheckReport",
       "kind": "interface",
@@ -8150,6 +8274,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Lance le contrôle et écrit le rapport. **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même définiti…"
+    },
+    "resoudreStrict": {
+      "name": "resoudreStrict",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La sévérité d'un contrôle sauté, décidée hors de la ligne de commande. Un drapeau explicite gagne toujours — dans les deux sens : `--no-strict` existe pour qu'une absence VOULUE puisse s'énoncer en…"
     },
     "parseCheckArgv": {
       "name": "parseCheckArgv",
@@ -28873,7 +29005,7 @@
       ],
       "ILastBoot": [
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -29134,6 +29266,11 @@
       ],
       "countCheckFindings": [
         "src/nodefony/src/mcp/tools.ts"
+      ],
+      "controlesSautes": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "IMcpToolDefinition": [
         "src/nodefony/src/mcp/tools.ts"
@@ -30072,6 +30209,63 @@
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
+      "accord": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "creerPalette": [
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "FAMILLES": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "filet": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "ligneSommaire": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "replier": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "separerGeste": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "surlignerCode": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "symbole": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "TITRES": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "CheckFamily": [
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "EtatSection": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "IControleSaute": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "ILigneSommaire": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "IPalette": [
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "formatAge": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "LAST_BOOT_FILE": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "ICheckReport": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
       "checkPackageDeps": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -30081,19 +30275,19 @@
       "readLastBoot": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "formatAge": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "LAST_BOOT_FILE": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
       "checkReadiness": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "IPortProbe": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
+      "IReadinessResult": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "checkFreshness": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "IFreshnessResult": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "probePorts": [
@@ -30104,28 +30298,16 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
-      "filet": [
+      "doitColorer": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "largeurUtile": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "ligneSommaire": [
+      "IExecution": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "replier": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "separerGeste": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "accord": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "EtatSection": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "ILigneSommaire": [
+      "rendreRapport": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "OptionsCommandInterface": [

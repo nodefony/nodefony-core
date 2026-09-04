@@ -40,7 +40,14 @@ const ICI = path.dirname(fileURLToPath(import.meta.url));
 function drapeauxAcceptes(fichier: string): Set<string> {
   const source = readFileSync(fichier, "utf8");
   const trouves = source.match(/===\s*"(--[a-z][a-z-]*)"/gu) ?? [];
-  return new Set(trouves.map((f) => f.slice(f.indexOf('"--') + 1, -1)));
+  const flags = new Set(trouves.map((f) => f.slice(f.indexOf('"--') + 1, -1)));
+  // `--help` est posé par commander sur CHAQUE commande : il est donc déjà à
+  // l'aide, au TAB et au manuel sans qu'aucune commande ait à le déclarer — et
+  // le déclarer serait d'ailleurs refusé (conflit avec l'option intégrée). Un
+  // parseur standalone doit le reconnaître pour ne pas répondre « option
+  // inconnue : --help » ; c'est un devoir, pas une option privée.
+  flags.delete("--help");
+  return flags;
 }
 
 /** Drapeaux qu'une commande commander PUBLIE (`addOption`). */

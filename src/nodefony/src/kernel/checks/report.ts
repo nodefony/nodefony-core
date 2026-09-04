@@ -13,6 +13,7 @@
  * qui lit `process.stdout.columns` ne s'éprouve que dans le terminal où elle
  * tourne, c'est-à-dire jamais en intégration continue.
  */
+import clc from "../../colors";
 
 /** Le verdict d'une famille de contrôles, tel qu'il s'affiche. */
 export type EtatSection = "ok" | "echec" | "avertissement" | "non-controle";
@@ -26,12 +27,256 @@ export interface ILigneSommaire {
   detail: string;
 }
 
+/**
+ * L'ÉTAT D'EXÉCUTION d'une famille de contrôles — a-t-elle seulement eu lieu ?
+ *
+ * Un contrôle rend deux choses de nature différente : ce qu'il a trouvé, et
+ * s'il a pu regarder. Les confondre est le mode de défaillance le plus coûteux
+ * d'un outil de diagnostic — une liste de manquements vide se lit comme un
+ * quitus, alors qu'elle peut ne signifier que « je n'ai rien pu ouvrir ». Ce
+ * dépôt lui a déjà donné son nom : « un test sauté compte comme vert ».
+ *
+ * `reason` dit ce qui a empêché, `unlock` le geste qui rend le contrôle
+ * possible — sans lui, le lecteur sait qu'il lui manque quelque chose sans
+ * savoir quoi faire, et c'est ainsi qu'on apprend à ignorer un avertissement.
+ */
+export interface IExecution {
+  /** `true` si le contrôle a réellement regardé. */
+  ran: boolean;
+  /** Ce qui l'a empêché — absent quand il a tourné. */
+  reason?: string;
+  /**
+   * La même chose en trois mots, pour la colonne du sommaire.
+   *
+   * Une raison complète y serait tronquée par un `…` qui mange précisément
+   * l'information qu'on venait chercher ; un « voir plus bas » répété sur
+   * quatre lignes n'apprend rien. Deux formulations, chacune à sa place.
+   */
+  short?: string;
+  /** Le geste qui le rend possible — absent quand il a tourné. */
+  unlock?: string;
+}
+
+/**
+ * Les familles de contrôles de `doctor`, telles que le rapport les nomme.
+ *
+ * Nommées ici plutôt que dérivées d'un tableau : c'est cette clé qui voyage
+ * dans le JSON, donc dans la CI et chez l'agent qui lit le rapport. Un nom de
+ * famille est un contrat, pas un détail de rendu.
+ */
+export type CheckFamily =
+  "freshness" | "readiness" | "envCatalog" | "deps" | "wiring";
+
+/**
+ * Le nom lisible de chaque famille.
+ *
+ * Une table unique évite qu'un titre affiché dans le sommaire diffère de celui
+ * de la section « non contrôlé » — deux libellés pour un même contrôle, et le
+ * lecteur croit qu'il y en a deux.
+ */
+export const TITRES: Record<CheckFamily, string> = {
+  freshness: "Fraîcheur du build",
+  readiness: "Prêt à démarrer",
+  envCatalog: "Variables déclarées",
+  deps: "Dépendances",
+  wiring: "Câblage",
+};
+
+/**
+ * L'ordre de lecture des familles — celui du sommaire ET du détail.
+ *
+ * L'ordre n'est pas cosmétique : la fraîcheur d'abord, parce qu'un build en
+ * retard rend faux tout ce qui suit ; puis ce qui empêche de démarrer, qui
+ * explique souvent le reste.
+ */
+export const FAMILLES: readonly CheckFamily[] = [
+  "freshness",
+  "readiness",
+  "envCatalog",
+  "deps",
+  "wiring",
+];
+
+/** Un contrôle qui n'a PAS eu lieu, prêt à être rendu. */
+export interface IControleSaute {
+  famille: CheckFamily;
+  titre: string;
+  reason: string;
+  unlock?: string;
+}
+
+/**
+ * Les contrôles qui n'ont PAS eu lieu, dans l'ordre de lecture du rapport.
+ *
+ * Fonction pure sur l'état d'exécution : c'est elle qui alimente à la fois le
+ * rendu humain, le JSON et le code de sortie en mode strict. Les trois doivent
+ * dire la même chose — un rapport humain qui tait ce que le JSON porte est
+ * exactement le défaut que ce contrôle vient réparer.
+ *
+ * @param execution - l'état d'exécution de chaque famille.
+ * @returns un élément par contrôle sauté, vide si tout a été regardé.
+ */
+export function controlesSautes(
+  execution: Record<CheckFamily, IExecution>,
+): IControleSaute[] {
+  const sautes: IControleSaute[] = [];
+  for (const famille of FAMILLES) {
+    const etat = execution[famille];
+    if (etat.ran) continue;
+    // `envCatalog` est une RÈGLE de `readiness` : quand la famille entière a
+    // été sautée, sa sous-règle l'est forcément aussi, et l'annoncer une
+    // seconde fois ferait compter deux angles morts là où il n'y en a qu'un.
+    // L'état brut, lui, reste exact dans `execution` — c'est le RAPPORT qui
+    // dédoublonne, pas la mesure.
+    if (famille === "envCatalog" && !execution.readiness.ran) continue;
+    sautes.push({
+      famille,
+      titre: TITRES[famille],
+      reason: etat.reason ?? "raison non précisée",
+      unlock: etat.unlock,
+    });
+  }
+  return sautes;
+}
+
 /** Un manquement, tel qu'il s'affiche dans le détail. */
 export interface IDetailManquement {
   /** La phrase qui dit ce qui ne va pas. */
   message: string;
   /** Le fichier concerné, s'il y en a un. */
   file?: string;
+}
+
+/**
+ * La peinture du rapport, par RÔLE et non par couleur.
+ *
+ * Nommer `echec` plutôt que `red` laisse le choix de la teinte à un seul
+ * endroit, et rend le rendu lisible sans connaître la palette. Surtout : c'est
+ * une VALEUR injectée, donc un rapport se rend à l'identique sans couleur — ce
+ * que le TSDoc de ce module promettait déjà sans que le code le tienne.
+ */
+export interface IPalette {
+  /** Ce qu'on lit en premier : le nom de la commande, un titre de section. */
+  fort(t: string): string;
+  /** Ce qui accompagne sans réclamer l'attention : chemins, notes. */
+  discret(t: string): string;
+  /** Un contrôle passé. */
+  ok(t: string): string;
+  /** Un contrôle qui n'a pas eu lieu — ni bon ni mauvais, incomplet. */
+  alerte(t: string): string;
+  /** Un manquement. */
+  echec(t: string): string;
+  /** Le geste à faire — la seule chose que cherche un lecteur pressé. */
+  geste(t: string): string;
+}
+
+/** Sans couleur, chaque rôle rend le texte tel quel. */
+const NU = (t: string): string => t;
+
+/**
+ * La peinture en vigueur pour ce rendu.
+ *
+ * @param couleur - `true` pour émettre des séquences ANSI.
+ * @returns une palette : réelle, ou entièrement transparente.
+ */
+export function creerPalette(couleur: boolean): IPalette {
+  if (!couleur) {
+    return {
+      fort: NU,
+      discret: NU,
+      ok: NU,
+      alerte: NU,
+      echec: NU,
+      geste: NU,
+    };
+  }
+  return {
+    fort: (t) => clc.bold(t),
+    discret: (t) => clc.blackBright(t),
+    ok: (t) => clc.green(t),
+    alerte: (t) => clc.yellow(t),
+    echec: (t) => clc.red(t),
+    geste: (t) => clc.cyan(t),
+  };
+}
+
+/**
+ * Faut-il colorer cette sortie ?
+ *
+ * Un rapport de diagnostic finit souvent dans un fichier ou un journal
+ * d'intégration continue, où les séquences ANSI ne colorent rien et rendent le
+ * texte illisible (`[33m` partout). La convention `NO_COLOR` est respectée
+ * telle qu'elle est spécifiée : c'est sa PRÉSENCE qui compte, pas sa valeur.
+ *
+ * @param env - l'environnement, injecté.
+ * @param estUnTerminal - `process.stdout.isTTY`, injecté.
+ * @returns `true` s'il faut émettre des couleurs.
+ */
+export function doitColorer(
+  env: Record<string, string | undefined>,
+  estUnTerminal: boolean,
+): boolean {
+  if (env.NO_COLOR !== undefined && env.NO_COLOR !== "") return false;
+  if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "0") return true;
+  return estUnTerminal;
+}
+
+/**
+ * Découpe une phrase en unités INSÉCABLES pour le repli.
+ *
+ * Les messages de diagnostic portent des commandes entre accents graves
+ * (`` `npm run build` ``), qui contiennent des espaces. Couper dessus laisserait
+ * un accent grave orphelin en fin de ligne, et le lecteur ne saurait plus où
+ * commence la commande à taper.
+ *
+ * @param texte - la phrase.
+ * @returns les unités, accents graves compris.
+ */
+export function unitesInsecables(texte: string): string[] {
+  const unites: string[] = [];
+  let courante = "";
+  let dansCode = false;
+  for (const c of texte) {
+    if (c === "`") {
+      dansCode = !dansCode;
+      courante += c;
+      continue;
+    }
+    // ⚠️ Couper sur TOUT segment entre accents graves détacherait la ponctuation
+    // qui le suit : `` `@entity`, `` deviendrait deux unités, que le repli
+    // rejoindrait par un espace — « `@entity` , ». Une unité s'arrête à un
+    // espace, et seulement à un espace HORS accents graves.
+    if (!dansCode && /\s/u.test(c)) {
+      if (courante !== "") unites.push(courante);
+      courante = "";
+      continue;
+    }
+    courante += c;
+  }
+  if (courante !== "") unites.push(courante);
+  return unites;
+}
+
+/**
+ * Met en valeur ce qui est entre accents graves — une commande, un chemin.
+ *
+ * Sans couleur, les accents graves RESTENT : ils portent eux-mêmes
+ * l'information « ceci se tape tel quel », et un journal de CI en a autant
+ * besoin qu'un terminal. Avec couleur, ils s'effacent au profit de la teinte —
+ * deux façons de dire la même chose, jamais les deux à la fois.
+ *
+ * @param texte - la phrase, avec ses accents graves.
+ * @param palette - la peinture en vigueur.
+ * @param couleur - `true` si la palette colore réellement.
+ * @returns la phrase prête à écrire.
+ */
+export function surlignerCode(
+  texte: string,
+  palette: IPalette,
+  couleur: boolean,
+): string {
+  if (!couleur) return texte;
+  return texte.replace(/`([^`]*)`/gu, (_, code: string) => palette.fort(code));
 }
 
 /** Bornes de largeur : en deçà ça se chevauche, au-delà l'œil se perd. */
@@ -111,7 +356,7 @@ export function replier(
   const utile = Math.max(20, largeur - indent.length);
   const lignes: string[] = [];
   let courante = "";
-  for (const mot of texte.split(/\s+/u).filter(Boolean)) {
+  for (const mot of unitesInsecables(texte)) {
     if (courante === "") {
       courante = mot;
     } else if (courante.length + 1 + mot.length <= utile) {

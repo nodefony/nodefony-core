@@ -14,31 +14,29 @@ import path from "node:path";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { checkPackageDeps } from "./packageDeps";
 import { checkWiring } from "./wiring";
-import {
-  readLastBoot,
-  formatAge,
-  LAST_BOOT_FILE,
-  type ILastBoot,
-} from "./lastBoot";
+import { readLastBoot } from "./lastBoot";
 import { findProjectRoot } from "../../cli/projectRoot";
-import { checkReadiness, type IPortProbe } from "./readiness";
-import { checkFreshness } from "./freshness";
+import {
+  checkReadiness,
+  type IPortProbe,
+  type IReadinessResult,
+} from "./readiness";
+import { checkFreshness, type IFreshnessResult } from "./freshness";
 import {
   defaultDevPorts,
   probePorts,
   readRuntimeState,
 } from "../../service/dev/devProcess";
-import clc from "../../colors";
 import {
-  filet,
+  controlesSautes,
+  creerPalette,
+  doitColorer,
   largeurUtile,
-  ligneSommaire,
-  replier,
-  separerGeste,
-  accord,
-  type EtatSection,
-  type ILigneSommaire,
+  type IPalette,
+  type CheckFamily,
+  type IExecution,
 } from "./report";
+import { rendreRapport } from "./renderReport";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
 const CANDIDATE_ROOTS = [
@@ -105,106 +103,6 @@ function readExceptions(cwd: string): {
 }
 
 /**
- * Un bilan mérite d'être rapporté quand il porte une MAUVAISE nouvelle.
- *
- * Un démarrage abouti, complet et sans brique manquante ne se commente pas :
- * l'afficher à chaque contrôle serait du bruit, et le bruit finit par masquer
- * le signal. Les avertissements seuls ne suffisent pas non plus à déclencher —
- * un boot de développement en produit régulièrement.
- *
- * @param entry - le bilan lu.
- * @returns `true` s'il y a quelque chose à dire.
- */
-function worthReporting(entry: ILastBoot): boolean {
-  return (
-    entry.status === "failed" ||
-    entry.healthy === false ||
-    Boolean(entry.bricksSkipped?.length) ||
-    Boolean(entry.errors)
-  );
-}
-
-/**
- * Écrit en TÊTE du rapport le bilan du dernier démarrage, quand il a une
- * mauvaise nouvelle à donner.
- *
- * En tête, parce que c'est l'information la plus utile de tout le rapport quand
- * elle existe : celui qui lance `check` sur une application qui ne démarre plus
- * — ou qui démarre sans que ses briques répondent — cherche exactement ça, et
- * la faire suivre une liste de manquements de câblage reviendrait à la cacher.
- *
- * Elle n'entre PAS dans le code de sortie. `check` contrôle le CODE ; l'état
- * d'un démarrage est un fait d'exécution, souvent déjà réparé au moment où on
- * lit. Faire échouer une intégration continue sur le boot local d'avant-hier
- * apprendrait surtout à ignorer le contrôle.
- *
- * @param entry - le bilan lu, ou `null`.
- * @param now - instant de référence, injecté (fonction pure, donc éprouvable).
- */
-function reportLastBoot(entry: ILastBoot | null, now: number): void {
-  if (!entry || !worthReporting(entry)) return;
-  const out = process.stdout;
-  const age = formatAge(entry.timestamp, now);
-
-  if (entry.status === "failed") {
-    out.write(clc.red(`\n✖ Le dernier démarrage a ÉCHOUÉ (${age})\n`));
-    out.write(`  phase atteinte : ${entry.phase ?? "inconnue"}\n`);
-    out.write(`  environnement  : ${entry.environment}\n`);
-    if (entry.error) {
-      out.write(
-        `  cause          : ${entry.error.name}: ${entry.error.message}\n`,
-      );
-      if (entry.error.exitCode !== undefined) {
-        out.write(`  code de sortie : ${entry.error.exitCode}\n`);
-      }
-    }
-  } else {
-    // Le cas que personne ne diagnostique : ça DÉMARRE, donc ça a l'air sain.
-    out.write(
-      clc.yellow(
-        `\n⚠ Le dernier démarrage a abouti mais il MANQUE des briques (${age})\n`,
-      ),
-    );
-    out.write(`  environnement  : ${entry.environment}\n`);
-    if (entry.healthy === false) {
-      out.write(
-        clc.red(
-          `  verdict        : un profil serveur a fini SANS aucun serveur en écoute\n`,
-        ),
-      );
-    }
-  }
-
-  if (entry.bricksSkipped?.length) {
-    out.write(`  ${entry.bricksSkipped.length} brique(s) ignorée(s) :\n`);
-    for (const b of entry.bricksSkipped) {
-      out.write(
-        `    · ${b.module}${b.phase ? ` (${b.phase})` : ""} — ${b.reason}\n`,
-      );
-    }
-  }
-  if (entry.bricksGated?.length) {
-    // VOLONTAIRE — mais un module écarté en silence se diagnostique comme un
-    // module perdu, et on cherche longtemps un défaut qui n'existe pas.
-    out.write(
-      `  ${entry.bricksGated.length} brique(s) écartée(s) VOLONTAIREMENT :\n`,
-    );
-    for (const b of entry.bricksGated) {
-      out.write(`    · ${b.module} — ${b.reason}\n`);
-    }
-  }
-  if (entry.warnings || entry.errors) {
-    out.write(
-      `  journal du boot : ${entry.warnings ?? 0} avertissement(s), ${entry.errors ?? 0} erreur(s)\n`,
-    );
-  }
-  if (entry.remediation) {
-    out.write(clc.green(`  → ${entry.remediation}\n`));
-  }
-  out.write(`  bilan complet  : ${LAST_BOOT_FILE}\n\n`);
-}
-
-/**
  * Sonde les ports de développement et CONSTATE qui les tient.
  *
  * Le verdict `ownedByUs` vient de `readRuntimeState`, qui invalide de lui-même
@@ -230,12 +128,73 @@ interface ICheckRequest {
   json: boolean;
   /** Dossier de DÉPART de la remontée vers la racine (défaut : le cwd). */
   cwd: string;
+  /**
+   * `true` si un contrôle SAUTÉ doit faire échouer la commande.
+   *
+   * Même doctrine que les gates de test du dépôt (`vitest.gates.ts`) : devant
+   * un humain, un contrôle sauté est une information — il lit la section et
+   * décide. Dans une chaîne automatisée, personne ne lit : un angle mort
+   * silencieux y devient un quitus, et c'est ainsi qu'une passe « verte »
+   * n'exerce plus rien.
+   */
+  strict: boolean;
+  /** `true` si l'on demande seulement l'usage. */
+  help: boolean;
 }
 
-const USAGE =
-  `usage : nodefony doctor [--json] [--cwd <path>]  (alias : doctor)\n` +
-  `  Contrôle STATIQUE de l'application — dépendances déclarées, câblage,\n` +
-  `  et le bilan du dernier démarrage. N'exécute rien.\n`;
+/**
+ * L'usage, rendu avec le même soin que le rapport.
+ *
+ * Il se lit dans deux situations opposées : on découvre la commande, ou on
+ * vient de se tromper de drapeau. Il porte donc les deux réponses — ce que la
+ * commande FAIT, et ce que chaque option change — plus les codes de sortie,
+ * qu'aucune autre page ne donne et qu'un script doit connaître.
+ *
+ * @param p - la peinture en vigueur.
+ * @returns le texte complet, retour chariot final compris.
+ */
+function usage(p: IPalette): string {
+  const opt = (drapeau: string, quoi: string): string =>
+    `  ${p.geste(drapeau.padEnd(20, " "))} ${quoi}\n`;
+  return (
+    `\n  ${p.fort("nodefony doctor")} — diagnostic statique de l'application\n\n` +
+    `  usage : nodefony doctor [options]` +
+    p.discret(`        (alias : nodefony check)\n\n`) +
+    `  Contrôle ce qui est ÉCRIT — fraîcheur du build, état d'installation,\n` +
+    `  dépendances déclarées, câblage — et rapporte le dernier démarrage.\n` +
+    `  N'exécute rien : il répond même sur une application qui ne démarre plus.\n\n` +
+    opt("--json", "le même rapport, exploitable par un script") +
+    opt("--strict", "un contrôle SAUTÉ fait échouer (d'office sous `CI`)") +
+    opt("--no-strict", "tolère un contrôle sauté, même sous `CI`") +
+    opt(
+      "--cwd <chemin>",
+      "point de départ (la racine est résolue en remontant)",
+    ) +
+    p.discret(
+      `\n  code de sortie : 0 rien à signaler · 1 manquement · 64 option inconnue\n\n`,
+    )
+  );
+}
+
+/**
+ * La sévérité d'un contrôle sauté, décidée hors de la ligne de commande.
+ *
+ * Un drapeau explicite gagne toujours — dans les deux sens : `--no-strict`
+ * existe pour qu'une absence VOULUE puisse s'énoncer en intégration continue,
+ * plutôt que de se contourner en désarmant la commande entière.
+ *
+ * @param mot - `--strict`, `--no-strict`, ou rien.
+ * @param env - l'environnement, injecté (une fonction qui lit `process.env` ne
+ *   s'éprouve que dans l'environnement où elle tourne).
+ * @returns `true` si un contrôle sauté doit peser sur le code de sortie.
+ */
+export function resoudreStrict(
+  mot: boolean | undefined,
+  env: Record<string, string | undefined>,
+): boolean {
+  if (mot !== undefined) return mot;
+  return Boolean(env.CI);
+}
 
 /**
  * Parse l'argv après le mot `check` (ou son alias `doctor`).
@@ -252,17 +211,27 @@ export function parseCheckArgv(
   const rest = at === -1 ? argv : argv.slice(at + 1);
   let json = false;
   let cwd = process.cwd();
+  let strict: boolean | undefined;
+  let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--json" || word === "-j") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au lecteur
+      // qu'elle n'est pas finie — et c'est le premier mot qu'on tape.
+      help = true;
+    } else if (word === "--json" || word === "-j") {
       json = true;
+    } else if (word === "--strict") {
+      strict = true;
+    } else if (word === "--no-strict") {
+      strict = false;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
     } else {
       return { error: `option inconnue : ${word}` };
     }
   }
-  return { json, cwd };
+  return { json, cwd, help, strict: resoudreStrict(strict, process.env) };
 }
 
 /**
@@ -295,6 +264,8 @@ export function parseCheckArgv(
 export interface ICheckReport {
   /** Racine de l'application effectivement contrôlée. */
   root: string;
+  /** `nom version` tel que le manifeste le déclare — vide s'il ne dit rien. */
+  appName: string;
   /** Nombre de paquets parcourus. */
   scanned: number;
   /** Manquements de dépendances. */
@@ -305,13 +276,22 @@ export interface ICheckReport {
     findings: ReturnType<typeof checkWiring>["findings"];
   };
   /** Ce qui manque ICI et maintenant (env, modules, deps, ports). */
-  readiness: Awaited<ReturnType<typeof checkReadiness>>;
+  readiness: IReadinessResult;
   /** Écarts entre ce qui est ÉCRIT et ce qui s'EXÉCUTERA (build, plancher Node). */
-  freshness: ReturnType<typeof checkFreshness>;
+  freshness: IFreshnessResult;
   /** Bilan du dernier démarrage, s'il y en a un. */
   lastBoot: ReturnType<typeof readLastBoot>;
   /** Exceptions déclarées, comptées dans le rendu humain. */
   exceptions: number;
+  /**
+   * Ce que chaque famille a pu — ou n'a PAS pu — regarder.
+   *
+   * Porté par le rapport lui-même, donc identique dans toutes les portes : un
+   * agent qui lit ce document par MCP voit les mêmes angles morts que l'humain
+   * devant son terminal. C'est la moitié du diagnostic que l'absence de
+   * manquements ne dit pas.
+   */
+  execution: Record<CheckFamily, IExecution>;
 }
 
 /**
@@ -354,7 +334,12 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
   // L'état d'installation ne se contrôle QUE dans une application : hors projet
   // (ce dépôt, un dossier de paquets) il n'y a ni manifeste, ni environnement,
   // ni port à défendre — et une sonde y accuserait le premier serveur venu.
-  const readiness = projectRoot
+  //
+  // ⚠️ Cette abstention se DIT (`execution.readiness`). Rendre une liste de
+  // manquements vide sans un mot faisait afficher « ✓ Prêt à démarrer » à un
+  // contrôle qui n'avait rien ouvert : le pire rendu possible pour un outil de
+  // diagnostic — silencieux, et rassurant à tort.
+  const readiness: IReadinessResult = projectRoot
     ? await checkReadiness({
         projectRoot,
         probe: await probeLocalPorts(projectRoot),
@@ -363,12 +348,25 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
 
   // La fraîcheur ne se contrôle QUE dans une application : hors projet, il n'y
   // a pas de `dist/` à comparer, et le plancher de Node est celui du dépôt.
-  const freshness = projectRoot
+  const freshness: IFreshnessResult = projectRoot
     ? checkFreshness(projectRoot)
     : { findings: [], notComparable: true };
 
+  // Hors d'une application, les quatre familles sont sautées pour UNE seule
+  // cause. Leur donner chacune une raison différente (« aucun package.json »,
+  // « aucune classe ») décrirait les CONSÉQUENCES et ferait croire à quatre
+  // problèmes distincts, là où il n'y en a qu'un — et le geste « lance depuis
+  // une application » n'aurait aucun sens sous une raison qui n'en parle pas.
+  const horsProjet: IExecution = {
+    ran: false,
+    reason: "aucune application ici (pas de `nodefony.config.ts` en remontant)",
+    short: "hors application",
+    unlock: "lance `nodefony doctor` depuis une application",
+  };
+
   return {
     root: cwd,
+    appName: appName(cwd),
     scanned,
     findings,
     freshness,
@@ -378,6 +376,60 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
     exceptions:
       Object.values(typeCycles ?? {}).flat().length +
       (typesUnreachable?.length ?? 0),
+    execution: {
+      freshness: !projectRoot
+        ? horsProjet
+        : freshness.notComparable
+          ? {
+              ran: false,
+              reason:
+                "ni sources ni `dist/` à comparer sous cette racine — il n'y " +
+                "a rien à confronter",
+              short: "rien à comparer",
+              unlock: "construis l'application (`npm run build`)",
+            }
+          : { ran: true },
+      readiness: projectRoot ? { ran: true } : horsProjet,
+      // Sous-règle de `readiness` : le catalogue des variables déclarées se lit
+      // dans le `dist/`. Sur une application non construite il est illisible, et
+      // le silence de la règle « variable requise » ne vaut alors pas quitus.
+      envCatalog: !projectRoot
+        ? horsProjet
+        : readiness.catalogUnreadable
+          ? {
+              ran: false,
+              reason:
+                "le catalogue des variables déclarées se lit dans le `dist/` " +
+                "de l'application, qui n'est pas construite : le silence de la " +
+                "règle « variable requise » ne vaut pas quitus",
+              short: "catalogue illisible",
+              unlock: "`npm run build`",
+            }
+          : { ran: true },
+      deps: !projectRoot
+        ? horsProjet
+        : scanned > 0
+          ? { ran: true }
+          : {
+              ran: false,
+              reason: "aucun `package.json` sous les racines explorées",
+              short: "aucun paquet",
+              unlock: "vérifie la racine visée (`--cwd`)",
+            },
+      wiring: !projectRoot
+        ? horsProjet
+        : wiring.scanned > 0
+          ? { ran: true }
+          : {
+              ran: false,
+              reason:
+                "aucune classe déclarée (`@controller`, `@entity`, " +
+                "`@injectable`) n'a été trouvée : il n'y a rien à confronter " +
+                "au manifeste",
+              short: "aucune classe",
+              unlock: "`nodefony create controller <Nom>`",
+            },
+    },
   };
 }
 
@@ -394,181 +446,54 @@ export function countCheckFindings(report: ICheckReport): number {
 export async function runCheckCommand(argv: string[]): Promise<number> {
   const parsed = parseCheckArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`check: ${parsed.error}\n${USAGE}`);
+    // Un drapeau mal tapé ne doit JAMAIS se confondre avec un diagnostic : il
+    // part sur la sortie d'erreur, avec l'usage, et un code distinct de celui
+    // d'un manquement.
+    const p = creerPalette(
+      doitColorer(process.env, Boolean(process.stderr.isTTY)),
+    );
+    process.stderr.write(`  ${p.echec(`doctor : ${parsed.error}`)}\n`);
+    process.stderr.write(usage(p));
     return 64;
   }
-  const { json } = parsed;
-  const start = parsed.cwd;
-  const report = await collectCheckReport(start);
-  const {
-    root: cwd,
-    scanned,
-    findings,
-    wiring,
-    readiness,
-    freshness,
-    lastBoot,
-  } = report;
-
-  if (json) {
+  if (parsed.help) {
     process.stdout.write(
-      `${JSON.stringify(
-        {
-          root: cwd,
-          scanned,
-          findings,
-          wiring,
-          readiness,
-          lastBoot,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    return countCheckFindings(report) > 0 ? 1 : 0;
-  }
-
-  const out = process.stdout;
-  const largeur = largeurUtile(out.columns);
-  const total =
-    findings.length +
-    wiring.findings.length +
-    readiness.findings.length +
-    freshness.findings.length;
-
-  // ── En-tête : QUI est ausculté. Un rapport qui porte sur un autre dossier
-  //    que celui qu'on croit se lit de travers, dans les deux sens.
-  const nom = appName(cwd);
-  out.write(`\n  ${clc.bold("nodefony doctor")}${nom ? ` · ${nom}` : ""}\n`);
-  out.write(clc.blackBright(`  ${cwd}\n`));
-  if (path.resolve(cwd) !== path.resolve(start)) {
-    out.write(clc.blackBright(`  lancé depuis ${start}\n`));
-  }
-  out.write("\n");
-
-  // ── Sommaire : l'état de chaque famille, d'un coup d'œil. C'est ce qui
-  //    répond à « y a-t-il un problème, et où ? » sans rien lire d'autre.
-  const etat = (n: number): EtatSection => (n > 0 ? "echec" : "ok");
-  const sommaire: ILigneSommaire[] = [
-    {
-      titre: "Fraîcheur du build",
-      etat: freshness.notComparable
-        ? "non-controle"
-        : etat(freshness.findings.length),
-      detail: freshness.notComparable
-        ? "rien à comparer ici"
-        : freshness.findings.length > 0
-          ? accord(freshness.findings.length, "écart")
-          : "sources et build alignés",
-    },
-    {
-      titre: "Prêt à démarrer",
-      etat: etat(readiness.findings.length),
-      detail:
-        readiness.findings.length > 0
-          ? accord(readiness.findings.length, "manquement")
-          : "environnement, modules, ports",
-    },
-    {
-      titre: "Dépendances",
-      etat: etat(findings.length),
-      detail:
-        findings.length > 0
-          ? `${accord(findings.length, "manquement")} sur ${accord(scanned, "paquet")}`
-          : accord(scanned, "paquet"),
-    },
-    {
-      titre: "Câblage",
-      etat: etat(wiring.findings.length),
-      detail:
-        wiring.findings.length > 0
-          ? `${accord(wiring.findings.length, "manquement")} sur ${accord(wiring.scanned, "classe")}`
-          : `${accord(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
-    },
-  ];
-  if (readiness.catalogUnreadable) {
-    // Le silence de la règle « variable requise » ne vaut pas quitus quand le
-    // catalogue est illisible : le taire ferait passer une ignorance pour un
-    // contrôle réussi — ce qu'un outil de diagnostic ne doit jamais faire.
-    sommaire.push({
-      titre: "Variables déclarées",
-      etat: "non-controle",
-      detail: "catalogue illisible — construis l'application",
-    });
-  }
-  const largeurTitre = Math.max(...sommaire.map((l) => l.titre.length));
-  for (const ligne of sommaire) {
-    const couleur =
-      ligne.etat === "echec"
-        ? clc.red
-        : ligne.etat === "ok"
-          ? clc.green
-          : clc.yellow;
-    out.write(`${couleur(ligneSommaire(ligne, largeurTitre, largeur))}\n`);
-  }
-
-  reportLastBoot(lastBoot, Date.now());
-
-  if (total === 0) {
-    const exceptions = report.exceptions;
-    out.write(
-      clc.green(
-        `\n  Rien à signaler` +
-          (exceptions > 0
-            ? ` (${accord(exceptions, "exception")} déclarée${exceptions > 1 ? "s" : ""})`
-            : "") +
-          ".\n\n",
+      usage(
+        creerPalette(doitColorer(process.env, Boolean(process.stdout.isTTY))),
       ),
     );
     return 0;
   }
+  const { json, strict } = parsed;
+  const start = parsed.cwd;
+  const report = await collectCheckReport(start);
+  const sautes = controlesSautes(report.execution);
 
-  // ── Détail, groupé et ORDONNÉ. La fraîcheur d'abord : un build en retard
-  //    rend faux tout ce qui suit — une classe « non câblée » peut l'être dans
-  //    le dist et pas dans les sources qu'on vient d'éditer. Puis ce qui
-  //    empêche de DÉMARRER : une variable absente explique le reste.
-  const groupes: {
-    titre: string;
-    items: { message: string; file?: string }[];
-  }[] = [
-    { titre: "Fraîcheur du build", items: freshness.findings },
-    { titre: "Prêt à démarrer", items: readiness.findings },
-    { titre: "Dépendances", items: findings },
-    { titre: "Câblage", items: wiring.findings },
-  ];
-  for (const groupe of groupes) {
-    if (groupe.items.length === 0) continue;
-    out.write(`\n${clc.blackBright(filet(largeur))}\n`);
-    out.write(`\n  ${clc.red(clc.bold(groupe.titre.toUpperCase()))}\n`);
-    for (const item of groupe.items) {
-      const { constat, geste } = separerGeste(item.message);
-      out.write("\n");
-      for (const l of replier(constat, largeur, "     ")) {
-        out.write(`${l}\n`);
-      }
-      if (item.file) {
-        out.write(clc.blackBright(`     ${item.file}\n`));
-      }
-      if (geste) {
-        for (const l of replier(`→ ${geste}`, largeur, "     ")) {
-          out.write(`${clc.cyan(l)}\n`);
-        }
-      }
-    }
+  // Le verdict, en UN endroit : les trois portes (humain, JSON, MCP) doivent
+  // sortir le même code — un rapport qui affiche un angle mort mais rend 0 là
+  // où le JSON rend 1 apprendrait à ne croire ni l'un ni l'autre.
+  const code = (): number => {
+    if (countCheckFindings(report) > 0) return 1;
+    return strict && sautes.length > 0 ? 1 : 0;
+  };
+
+  if (json) {
+    process.stdout.write(
+      `${JSON.stringify({ ...report, skipped: sautes, strict }, null, 2)}\n`,
+    );
+    return code();
   }
 
-  out.write(`\n${clc.blackBright(filet(largeur))}\n`);
-  const nonControles = sommaire.filter((l) => l.etat === "non-controle").length;
-  const passes = sommaire.filter((l) => l.etat === "ok").length;
-  out.write(
-    `\n  ${clc.red(accord(total, "manquement"))}` +
-      ` · ${accord(passes, "contrôle passé", "contrôles passés")}` +
-      (nonControles > 0
-        ? ` · ${clc.yellow(accord(nonControles, "non contrôlé", "non contrôlés"))}`
-        : "") +
-      "\n\n",
-  );
-  return 1;
+  const out = process.stdout;
+  const lignes = rendreRapport(report, {
+    largeur: largeurUtile(out.columns),
+    couleur: doitColorer(process.env, Boolean(out.isTTY)),
+    now: Date.now(),
+    lanceDepuis: start,
+    strict,
+  });
+  out.write(`${lignes.join("\n")}\n`);
+  return code();
 }
 
 /**

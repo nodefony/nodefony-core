@@ -1,0 +1,350 @@
+/**
+ * `doctor` — le DOCUMENT qu'un humain lit, éprouvé ligne par ligne.
+ *
+ * Le rendu est une fonction pure (`rendreRapport`) : largeur, couleur et
+ * instant lui sont donnés, il rend des lignes. C'est ce qui permet de vérifier
+ * ici ce qu'aucun test ne pouvait atteindre tant que le rapport s'écrivait au
+ * fil de l'eau sur la sortie standard — la mise en page elle-même.
+ *
+ * Ce qu'ils protègent, par ordre d'importance :
+ *
+ * 1. **Aucune ligne verte pour un contrôle qui n'a rien regardé.** Le reste est
+ *    de la présentation ; celui-là est un mensonge.
+ * 2. **Rien ne déborde.** Un rapport qui dépasse la largeur se replie sur la
+ *    marge du terminal et devient illisible au moment précis où on en a besoin.
+ * 3. **Aucune séquence ANSI hors terminal.** Un journal de CI plein de `[33m`
+ *    ne se lit pas.
+ */
+import { describe, it } from "vitest";
+import { assert } from "chai";
+import {
+  rendreRapport,
+  grouperParRaison,
+  type IOptionsRendu,
+} from "../kernel/checks/renderReport";
+import { doitColorer, unitesInsecables } from "../kernel/checks/report";
+import type { ICheckReport } from "../kernel/checks/runCheck";
+
+/** Retire les séquences ANSI pour mesurer la LARGEUR VUE, pas celle écrite. */
+const nu = (s: string): string =>
+  // eslint-disable-next-line no-control-regex
+  s.replace(/\[[0-9;]*m/gu, "");
+
+const ANSI = /\[/u;
+
+/** Un rapport complet, ajusté par ce que le cas veut éprouver. */
+const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
+  root: "/app",
+  appName: "mon-app 1.0.0",
+  scanned: 3,
+  findings: [],
+  wiring: { scanned: 12, findings: [] },
+  readiness: { findings: [], catalogUnreadable: false, portsProbed: [] },
+  freshness: { findings: [], notComparable: false },
+  lastBoot: null,
+  exceptions: 0,
+  execution: {
+    freshness: { ran: true },
+    readiness: { ran: true },
+    envCatalog: { ran: true },
+    deps: { ran: true },
+    wiring: { ran: true },
+  },
+  ...patch,
+});
+
+const options = (patch: Partial<IOptionsRendu> = {}): IOptionsRendu => ({
+  largeur: 80,
+  couleur: false,
+  now: Date.parse("2026-09-04T12:00:00Z"),
+  strict: false,
+  ...patch,
+});
+
+/** Tous les contrôles d'état sautés — le décor « hors application ». */
+const horsApplication = (): ICheckReport =>
+  rapport({
+    scanned: 0,
+    wiring: { scanned: 0, findings: [] },
+    appName: "",
+    execution: {
+      freshness: {
+        ran: false,
+        reason: "pas d'app",
+        short: "hors app",
+        unlock: "va dans une app",
+      },
+      readiness: {
+        ran: false,
+        reason: "pas d'app",
+        short: "hors app",
+        unlock: "va dans une app",
+      },
+      envCatalog: {
+        ran: false,
+        reason: "pas d'app",
+        short: "hors app",
+        unlock: "va dans une app",
+      },
+      deps: {
+        ran: false,
+        reason: "pas d'app",
+        short: "hors app",
+        unlock: "va dans une app",
+      },
+      wiring: {
+        ran: false,
+        reason: "pas d'app",
+        short: "hors app",
+        unlock: "va dans une app",
+      },
+    },
+  });
+
+describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
+  it("🔴 un contrôle qui n'a rien regardé n'affiche AUCUN signe de succès", () => {
+    const lignes = rendreRapport(horsApplication(), options()).map(nu);
+    const sommaire = lignes.filter((l) => /^ {2}[✓✗—!] {2}\S/u.test(l));
+    assert.isNotEmpty(sommaire, "le sommaire doit exister");
+    for (const l of sommaire) {
+      assert.notInclude(l, "✓", `ligne verte pour un contrôle non fait : ${l}`);
+    }
+  });
+
+  it("🔴 le bilan final ne dit pas « rien à signaler » quand rien n'a été fait", () => {
+    const lignes = rendreRapport(horsApplication(), options()).map(nu);
+    const bilan = lignes.findLast((l) => l.trim() !== "") ?? "";
+    assert.include(bilan, "Aucun contrôle n'a pu être fait");
+    assert.notInclude(bilan, "Rien à signaler");
+    assert.include(bilan, "non contrôlés");
+  });
+
+  it("la section « NON CONTRÔLÉ » apparaît MÊME quand tout le reste est vert", () => {
+    // Le cas le plus dangereux : un rapport sans le moindre manquement, dont
+    // une famille n'a pourtant rien pu ouvrir. Sans cette section, il se lit
+    // comme un quitus complet.
+    const r = rapport({
+      execution: {
+        freshness: { ran: true },
+        readiness: { ran: true },
+        envCatalog: {
+          ran: false,
+          reason: "catalogue illisible",
+          short: "illisible",
+          unlock: "`npm run build`",
+        },
+        deps: { ran: true },
+        wiring: { ran: true },
+      },
+    });
+    const texte = rendreRapport(r, options()).map(nu).join("\n");
+    assert.include(texte, "NON CONTRÔLÉ");
+    assert.include(texte, "catalogue illisible");
+    assert.include(texte, "npm run build");
+    // Et la conclusion reste juste : ce qui n'a pas été regardé n'est pas
+    // « rien à signaler ».
+    assert.include(texte, "Rien à signaler parmi les");
+  });
+
+  it("🔴 aucune ligne ne dépasse la largeur demandée", () => {
+    // Une ligne trop longue se replie sur la marge du terminal : l'indentation
+    // saute, et le rapport devient illisible exactement quand on en a besoin.
+    const r = rapport({
+      freshness: {
+        notComparable: false,
+        findings: [
+          {
+            kind: "dist-stale",
+            message: `${"des sources ont changé APRÈS le dernier build ".repeat(4)} → \`npm run build\``,
+            file: `/un/chemin/vraiment/tres/long/${"segment/".repeat(12)}index.ts`,
+          },
+        ],
+      },
+      lastBoot: {
+        status: "failed",
+        timestamp: "2026-09-04T11:00:00.000Z",
+        environment: "production",
+        phase: "onPreBoot",
+        error: { name: "BootError", message: "cause ".repeat(40) },
+      } as ICheckReport["lastBoot"],
+      // Un contrôle sauté à raison LONGUE : sans lui, la section « non
+      // contrôlé » n'est pas rendue et son repli n'est jamais éprouvé — un
+      // décor incomplet fait passer un test qui ne mesure rien.
+      execution: {
+        freshness: { ran: true },
+        readiness: { ran: true },
+        envCatalog: {
+          ran: false,
+          reason: `${"le catalogue des variables se lit dans le dist ".repeat(3)}`,
+          short: "illisible",
+          unlock: `${"un geste assez long pour devoir se replier ".repeat(2)}`,
+        },
+        deps: { ran: true },
+        wiring: { ran: true },
+      },
+    });
+    // Les DEUX décors : celui qui a des manquements, et celui où tout est
+    // sauté — ce dernier joint quatre titres sur une seule ligne, et c'est
+    // précisément le genre de ligne qu'on oublie de replier.
+    const decors = [r, horsApplication()];
+    for (const largeur of [48, 60, 80, 96]) {
+      for (const l of decors.flatMap((d) =>
+        rendreRapport(d, options({ largeur, strict: true })),
+      )) {
+        const vue = nu(l);
+        // Un chemin d'un seul tenant ne se coupe pas : c'est voulu (le couper
+        // le rendrait incopiable). Seul le texte doit tenir.
+        if (/^\s*\S+$/u.test(vue)) continue;
+        assert.isAtMost(
+          vue.length,
+          largeur,
+          `ligne de ${vue.length} colonnes sur ${largeur} :\n${vue}`,
+        );
+      }
+    }
+  });
+
+  it("🔴 hors terminal, PAS une seule séquence ANSI", () => {
+    const texte = rendreRapport(
+      horsApplication(),
+      options({ couleur: false }),
+    ).join("\n");
+    assert.notMatch(
+      texte,
+      ANSI,
+      "un journal de CI ne doit pas recevoir d'ANSI",
+    );
+  });
+
+  it("dans un terminal, la couleur est bien émise", () => {
+    // L'inverse compte autant : une palette qui ne colore jamais serait un
+    // « propre » obtenu en perdant l'information.
+    const texte = rendreRapport(
+      horsApplication(),
+      options({ couleur: true }),
+    ).join("\n");
+    assert.match(texte, ANSI);
+  });
+
+  it("`NO_COLOR` gagne sur tout, `FORCE_COLOR` gagne sur l'absence de terminal", () => {
+    assert.isFalse(doitColorer({ NO_COLOR: "1", FORCE_COLOR: "1" }, true));
+    assert.isTrue(doitColorer({ FORCE_COLOR: "1" }, false));
+    assert.isFalse(doitColorer({ FORCE_COLOR: "0" }, false));
+    assert.isTrue(doitColorer({}, true));
+    assert.isFalse(doitColorer({}, false));
+    // `NO_COLOR=""` ne compte pas : la spécification parle de sa PRÉSENCE avec
+    // une valeur, et une variable vide est un accident de script courant.
+    assert.isTrue(doitColorer({ NO_COLOR: "" }, true));
+  });
+
+  it("le geste est sur SA ligne, jamais noyé dans le constat", () => {
+    const r = rapport({
+      freshness: {
+        notComparable: false,
+        findings: [
+          {
+            kind: "dist-missing",
+            message: "l'application n'est pas construite → `npm run build`",
+          },
+        ],
+      },
+    });
+    const lignes = rendreRapport(r, options()).map(nu);
+    const geste = lignes.find((l) => l.includes("→"));
+    assert.isDefined(geste);
+    assert.include(geste ?? "", "npm run build");
+    assert.notInclude(
+      geste ?? "",
+      "pas construite",
+      "le constat ne doit pas être sur la ligne du geste",
+    );
+  });
+
+  it("🔴 un mot entre accents graves ne se disloque pas au repli", () => {
+    // Vécu : `@entity`, devenait deux unités, que le repli rejoignait par un
+    // espace — « `@entity` , ». La ponctuation collée doit suivre son mot.
+    assert.deepEqual(unitesInsecables("a `@x`, `@y` b"), [
+      "a",
+      "`@x`,",
+      "`@y`",
+      "b",
+    ]);
+    // Un segment contenant des espaces reste d'un seul tenant.
+    assert.deepEqual(unitesInsecables("→ `npm run build`"), [
+      "→",
+      "`npm run build`",
+    ]);
+  });
+
+  it("les contrôles sautés pour la MÊME raison ne se répètent pas", () => {
+    const groupes = grouperParRaison([
+      { famille: "freshness", titre: "A", reason: "r", unlock: "u" },
+      { famille: "readiness", titre: "B", reason: "r", unlock: "u" },
+      { famille: "deps", titre: "C", reason: "autre", unlock: "u" },
+    ]);
+    assert.lengthOf(groupes, 2);
+    assert.deepEqual(groupes[0]?.titres, ["A", "B"]);
+    assert.deepEqual(groupes[1]?.titres, ["C"]);
+  });
+
+  it("le sommaire et le détail annoncent les familles dans le MÊME ordre", () => {
+    // Deux ordres différents pour les mêmes contrôles, et le lecteur cesse de
+    // faire le lien entre ce qu'il a vu en haut et ce qu'il lit en bas.
+    const r = rapport({
+      execution: {
+        freshness: { ran: true },
+        readiness: { ran: true },
+        envCatalog: { ran: false, reason: "x", short: "x" },
+        deps: { ran: true },
+        wiring: { ran: false, reason: "y", short: "y" },
+      },
+    });
+    const lignes = rendreRapport(r, options()).map(nu);
+    const rang = (mot: string): number =>
+      lignes.findIndex((l) => l.includes(mot));
+    assert.isBelow(
+      rang("Variables déclarées"),
+      rang("Câblage"),
+      "le sommaire liste Variables déclarées avant Câblage",
+    );
+    // Et la section « non contrôlé » garde le même ordre.
+    const section = lignes.slice(rang("NON CONTRÔLÉ"));
+    assert.isBelow(
+      section.findIndex((l) => l.includes("Variables déclarées")),
+      section.findIndex((l) => l.includes("Câblage")),
+    );
+  });
+
+  it("le mode strict s'ANNONCE — un code de sortie sans explication se subit", () => {
+    const texte = rendreRapport(horsApplication(), options({ strict: true }))
+      .map(nu)
+      .join("\n");
+    assert.include(texte, "mode strict");
+  });
+
+  it("sans contrôle sauté, aucune section « non contrôlé » ne s'invite", () => {
+    const texte = rendreRapport(rapport(), options()).map(nu).join("\n");
+    assert.notInclude(texte, "NON CONTRÔLÉ");
+    assert.include(texte, "Rien à signaler sur 4 contrôles");
+  });
+
+  it("l'en-tête dit d'où l'on a lancé quand ce n'est pas la racine auscultée", () => {
+    // Un rapport qui porte sur un autre dossier que celui qu'on croit se lit
+    // de travers, dans les deux sens.
+    const texte = rendreRapport(
+      rapport(),
+      options({ lanceDepuis: "/app/modules/blog" }),
+    )
+      .map(nu)
+      .join("\n");
+    assert.include(texte, "lancé depuis /app/modules/blog");
+    // Et se tait quand c'est le même dossier.
+    const memeDossier = rendreRapport(
+      rapport(),
+      options({ lanceDepuis: "/app" }),
+    )
+      .map(nu)
+      .join("\n");
+    assert.notInclude(memeDossier, "lancé depuis");
+  });
+});

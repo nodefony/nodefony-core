@@ -314,6 +314,38 @@ rien à redéclarer.
 
 ---
 
+## `nodefony doctor` (`src/kernel/checks/`) — diagnostic STATIQUE, zéro boot
+
+Trois fichiers, trois responsabilités qui ne se mélangent pas :
+
+| Fichier           | Rôle                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `runCheck.ts`     | COLLECTE (`collectCheckReport`) + ligne de commande + code de sortie. Ne met rien en forme.                      |
+| `report.ts`       | Primitives PURES : `IExecution`, `CheckFamily`, `TITRES`, `FAMILLES`, `controlesSautes`, palette, repli, accord. |
+| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                            |
+
+- **Un contrôle rend DEUX choses** : ses `findings`, et son `execution` (`{ran, reason, short, unlock}`).
+  Une liste vide ne vaut quitus que si `ran` est vrai — c'est la moitié du
+  diagnostic que « 0 manquement » ne dit pas. Familles : `freshness`,
+  `readiness`, `envCatalog` (sous-règle de `readiness`), `deps`, `wiring`.
+- `envCatalog` NE se rapporte PAS quand `readiness` est déjà sauté (`controlesSautes`
+  dédoublonne) : sinon le bilan chiffré ne colle plus aux lignes affichées.
+- **Le rendu produit le document ENTIER avant d'écrire** : c'est ce qui permet
+  d'aligner sur le plus long titre, de regrouper les sautés par raison
+  (`grouperParRaison`) et de faire tenir le bilan sur une ligne — ou de l'empiler.
+- **Couleur = `doitColorer(env, isTTY)`** (`NO_COLOR` gagne, puis `FORCE_COLOR`,
+  sinon TTY). `clc` émet TOUJOURS (`validateStream: false`) : c'est ici que la
+  porte se ferme, pas dans `colors.ts`.
+- `--strict` (ou `CI` posé) fait échouer sur un contrôle SAUTÉ ; `--no-strict`
+  énonce une absence voulue. Sans lui : 0 par défaut, un sauté n'est pas un manquement.
+- **3 portes, 1 rapport** : CLI (fast-path `CliKernel`), `--json`, MCP
+  (`nodefony_check` → verdict `ok` | `ok-mais-incomplet` | `manquements`).
+- ⚠️ `--help` est reconnu PAR LE PARSEUR (commander ne voit jamais la commande,
+  le fast-path la prend avant). Le gate `standaloneOptions.test.ts` l'exclut de
+  la comparaison parseur ↔ `addOption` : commander le publie d'office.
+
+---
+
 ## OAuth (`src/oauth/`) — protocole PUR, deux rôles symétriques
 
 Aucune crypto, aucun socket : composer des URL, juger un document, en composer un.

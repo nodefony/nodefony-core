@@ -208,7 +208,10 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         }),
       );
       const { out } = await capture(() => runCheckCommand([]));
-      assert.include(out, "écartée(s) VOLONTAIREMENT");
+      // « écartées exprès » : la nuance qui évite de chercher une panne là où
+      // le gating a fait son travail. Les parenthèses de repli « (s) » ont
+      // disparu du rendu — un rapport lu par quelqu'un accorde ses pluriels.
+      assert.include(out, "écartées exprès");
       assert.include(out, "studio");
     });
 

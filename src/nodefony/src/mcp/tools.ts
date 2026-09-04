@@ -21,6 +21,7 @@ import {
   collectCheckReport,
   countCheckFindings,
 } from "../kernel/checks/runCheck";
+import { controlesSautes } from "../kernel/checks/report";
 import type {
   IMcpTool,
   IMcpToolDefinition,
@@ -632,9 +633,20 @@ export function builtinMcpTools(
         // recompter trois listes pour savoir s'il peut passer à la suite — et
         // c'est exactement le genre de calcul qu'on lui fait rater.
         const total = countCheckFindings(report);
+        // ⚠️ Un verdict « ok » sur un contrôle qui n'a rien pu regarder est le
+        // pire message qu'on puisse rendre à un agent : il ne relira pas, et
+        // conclura que la voie est libre. Le troisième mot existe pour ça — et
+        // il ne se confond avec « ok » dans aucune comparaison.
+        const skipped = controlesSautes(report.execution);
         return mcpText({
-          verdict: total === 0 ? "ok" : "manquements",
+          verdict:
+            total > 0
+              ? "manquements"
+              : skipped.length > 0
+                ? "ok-mais-incomplet"
+                : "ok",
           total,
+          skipped,
           ...report,
         });
       },

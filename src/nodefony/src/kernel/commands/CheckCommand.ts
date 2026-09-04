@@ -33,9 +33,10 @@ const options: OptionsCommandInterface = {
  *
  * @example
  * ```bash
- * nodefony doctor         # sortie lisible, sort en erreur si un manquement
- * nodefony doctor --json  # même chose, exploitable par un script de CI
- * nodefony doctor          # alias historique — même commande
+ * nodefony doctor          # sortie lisible, sort en erreur si un manquement
+ * nodefony doctor --json   # même chose, exploitable par un script de CI
+ * nodefony doctor --strict # un contrôle SAUTÉ échoue aussi (défaut sous `CI`)
+ * nodefony check           # alias historique — même commande
  * ```
  */
 class Check extends Command {
@@ -55,6 +56,14 @@ class Check extends Command {
     this.alias("check");
     this.addOption("--json", "Machine-readable output");
     this.addOption(
+      "--strict",
+      "Un contrôle SAUTÉ fait échouer (actif d'office si `CI` est posé)",
+    );
+    this.addOption(
+      "--no-strict",
+      "Tolère un contrôle sauté même en intégration continue",
+    );
+    this.addOption(
       "--cwd <path>",
       "Start directory (the app root is resolved from it)",
     );
@@ -62,10 +71,14 @@ class Check extends Command {
 
   override async generate(opts?: {
     json?: boolean;
+    strict?: boolean;
+    noStrict?: boolean;
     cwd?: string;
   }): Promise<this> {
     const argv: string[] = [];
     if (opts?.json) argv.push("--json");
+    if (opts?.strict) argv.push("--strict");
+    if (opts?.noStrict) argv.push("--no-strict");
     if (opts?.cwd) argv.push("--cwd", opts.cwd);
     const code = await runCheckCommand(argv);
     await this.terminate(code);
