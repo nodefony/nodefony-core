@@ -333,6 +333,21 @@ SEULEMENT :
 6. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
 7. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 
+8. **S'IL EST TARD, proposer le travail de NUIT — la machine dort moins que le user.**
+   Certaines mesures coûtent des heures d'agents et n'ont aucune raison d'être payées
+   en séance : elles ne demandent qu'une machine allumée. Le seul moment où l'on peut
+   les proposer, c'est ici — la session se ferme, et le user va se coucher.
+
+   **Le contrôle** : est-il après ~22 h locale (`date +%H`) ? Alors nommer, en UNE
+   phrase, ce qui pourrait tourner cette nuit, avec son coût et sa durée — et
+   attendre le OUI, jamais lancer d'office. Ce qui est en attente vit dans les
+   mémoires `project_*_night_runs.md` ; aujourd'hui : **les 3 runs d'unanimité du
+   banc devkit** avant la release ([[project_devkit_bench_night_runs]], ~46 $ / 8,7 h).
+
+   Un travail de nuit se lance **détaché** avec sa sortie CAPTURÉE EN ENTIER dans un
+   fichier — au réveil elle se lit par `@agent-nodefony-run-log-report`, jamais par un `tail`
+   qui efface les SKIPS sans le dire.
+
 > **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
 > coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex
 > seulement → **`references/consolidate-toolkit.md`**, chargé à la demande. Le END courant ne le
