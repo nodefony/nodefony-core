@@ -249,10 +249,20 @@ jobs:
       # la passe suivante rejouera l'audit sur le même arbre.
       - name: Audit des dépendances
         shell: bash
+        # `--fetch-timeout` n'est pas un réglage de confort : le défaut de npm est
+        # de 300 000 ms, soit CINQ MINUTES par essai — plus que la limite du job une
+        # fois multiplié par trois. Le registre injoignable ne rendait donc pas une
+        # erreur qu'on classe : il faisait PENDRE la commande jusqu'à ce que le job
+        # entier soit abandonné, run marqué `cancelled`, et l'avertissement ci-dessous
+        # — celui qui existe pour dire « la mesure n'a pas eu lieu » — jamais imprimé.
+        # Vécu sur `ccf935ce` : essais à 03:50, 03:55, 04:00, job tué à 04:03.
+        # Une minute suffit : sur dépassement npm imprime « network timeout at: » ET
+        # « audit endpoint returned an error », que le classement ci-dessous reconnaît
+        # déjà tous les deux.
         run: |
           set -uo pipefail
           for essai in 1 2 3; do
-            sortie=$(npm audit --audit-level=high 2>&1) && exit 0
+            sortie=$(npm audit --audit-level=high --fetch-timeout=60000 2>&1) && exit 0
             if ! grep -qE "audit endpoint returned an error|ENOTFOUND|ETIMEDOUT|network timeout|503 Service Unavailable" <<<"$sortie"; then
               echo "$sortie"
               echo "::error::npm audit a TROUVÉ des vulnérabilités de niveau high ou plus"
