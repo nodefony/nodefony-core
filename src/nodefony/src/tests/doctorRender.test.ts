@@ -667,10 +667,15 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
         ],
       },
       // Le manquement vient de l'ÉTAGE 2 : `report.live`, pas `report.gating`.
+      //
+      // Porté par `migrations-not-ok` et non `service-lost` : ce dernier a
+      // cessé d'être un manquement — il CONSTATE, sans geste — et ne passe
+      // donc plus par « À FAIRE ENSUITE ». Ce que ce cas mesure est la MISE EN
+      // PAGE d'un geste long, pas la famille qui le porte.
       live: {
         findings: [
           {
-            kind: "service-lost" as const,
+            kind: "migrations-not-ok" as const,
             source: "gating",
             message: "le service « userService » ne sera plus fourni",
             action: gesteLong,
@@ -699,7 +704,7 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
     assert.include(bloc, "userService", "le geste nomme ce dont il parle");
     assert.include(
       bloc,
-      "Écart avec l'environnement visé",
+      "Migrations de schéma",
       "…et ce qu'il répare reste lisible sous lui",
     );
   });

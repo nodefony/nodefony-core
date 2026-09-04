@@ -257,6 +257,30 @@ export function rendreRapport(
     lignes.push(...ouvertures);
   }
 
+  const retires = manquementsLive(report, "service-lost");
+  if (retires.length > 0) {
+    // Un RELEVÉ, pas un verdict — même esprit que « SURFACE OUVERTE ». Ce que
+    // l'environnement visé retire est le plus souvent voulu : c'est à quoi
+    // sert `policy: "dev"`. Le service rendu est de le VOIR avant de partir,
+    // pas d'être accusé de l'avoir écrit.
+    section("CE QUE L'ENVIRONNEMENT VISÉ RETIRE", p.alerte);
+    for (const f of retires) {
+      for (const [i, l] of replier(f.message, largeur, CORPS).entries()) {
+        lignes.push(i === 0 ? `${ITEM}${p.alerte("—")}  ${l.trim()}` : l);
+      }
+    }
+    lignes.push("");
+    for (const l of replier(
+      'Un module `policy: "dev"` est ÉCARTÉ là-bas : c\'est sa raison ' +
+        "d'être, et ces lignes sont alors normales. À regarder seulement si " +
+        "du code servi en production réclame l'un de ces services.",
+      largeur - 4,
+      "  ",
+    )) {
+      lignes.push(p.discret(l));
+    }
+  }
+
   const bilansParlants = report.lastBoots.filter(meriteDEtreDit);
   if (bilansParlants.length > 0) {
     // APRÈS les problèmes, et c'est un choix : un démarrage passé n'est pas un
@@ -635,6 +659,16 @@ function sommaire(
 ): string[] {
   const { freshness, readiness, wiring, findings, scanned, execution } = report;
   const etat = (n: number): EtatSection => (n > 0 ? "echec" : "ok");
+  /**
+   * Les familles qui CONSTATENT au lieu d'accuser.
+   *
+   * 🔴 `gating` relève ce que l'environnement visé retire. Qu'un module
+   * `policy: "dev"` disparaisse en production est sa raison d'être : le rendre
+   * en `✗` faisait passer le fonctionnement NORMAL du produit pour un défaut,
+   * et le geste qui suivait — « retire `policy: "dev"` » — aurait embarqué
+   * l'outillage de développement en production.
+   */
+  const CONSTATENT: ReadonlySet<CheckFamily> = new Set(["gating"]);
   const ligne = (
     famille: CheckFamily,
     n: number,
@@ -644,7 +678,11 @@ function sommaire(
     // pas en vert et ne fait pas lever le rapport.
     const exec = execution[famille] ?? { ran: false, short: "état absent" };
     return exec.ran
-      ? { titre: TITRES[famille], etat: etat(n), detail }
+      ? {
+          titre: TITRES[famille],
+          etat: n > 0 && CONSTATENT.has(famille) ? "avertissement" : etat(n),
+          detail,
+        }
       : {
           titre: TITRES[famille],
           etat: "non-controle",
@@ -915,12 +953,8 @@ function groupesDeManquements(
         message: f.message,
       })),
     },
-    {
-      titre: TITRES.gating,
-      items: manquementsLive(report, "service-lost").map((f) => ({
-        message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
-      })),
-    },
+    // `gating` n'est PAS ici : ce qu'il relève n'est pas un problème, et il a
+    // sa propre section (« CE QUE L'ENVIRONNEMENT VISÉ RETIRE »).
   ];
 }
 

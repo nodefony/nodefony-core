@@ -412,7 +412,7 @@ async function checkTargetEnv(
     findings: result.findings.map((f) => ({
       kind: "service-lost" as const,
       message: f.message,
-      action: f.action,
+      // Pas de geste : ce constat INFORME (cf `lostServices`).
       source: "kernel/services",
     })),
     gated: result.gated,

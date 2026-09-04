@@ -144,7 +144,14 @@ describe("gateModuleManifest — la règle du gating, rejouée à froid", () => 
 });
 
 describe("lostServices — le DIFF, et rien d'autre", () => {
-  it("un service que l'environnement visé ne fournit plus est un manquement", () => {
+  it("un service que l'environnement visé ne fournit plus est CONSTATÉ", () => {
+    // 🔴 Constaté, pas accusé, et SANS geste. Qu'un module `policy: "dev"`
+    // disparaisse en production est sa raison d'être — le rendre en manquement
+    // faisait passer le fonctionnement normal du produit pour un défaut, et le
+    // geste qui suivait (« retire `policy: "dev"` ») aurait embarqué
+    // l'outillage de développement en production. La distinction qui manque
+    // est « ce service est-il REQUIS là-bas ? », et rien ne permet de la
+    // déclarer.
     const perdus = lostServices(
       [service("devkit", "devkit"), service("router", "framework")],
       [service("router", "framework")],
@@ -153,9 +160,11 @@ describe("lostServices — le DIFF, et rien d'autre", () => {
     assert.lengthOf(perdus, 1);
     assert.equal(perdus[0]?.service, "devkit");
     assert.deepEqual(perdus[0]?.providers, ["devkit"]);
-    assert.include(
-      perdus[0]?.message ?? "",
-      "ne sera plus fourni en production",
+    assert.include(perdus[0]?.message ?? "", "absent en production");
+    assert.notProperty(
+      perdus[0] ?? {},
+      "action",
+      "un constat ne porte pas de geste — celui-ci était nuisible",
     );
   });
 
@@ -180,7 +189,7 @@ describe("lostServices — le DIFF, et rien d'autre", () => {
     );
     assert.lengthOf(perdus, 1);
     assert.deepEqual(perdus[0]?.providers, ["a", "b"]);
-    assert.include(perdus[0]?.message ?? "", "ses seuls fournisseurs sont");
+    assert.include(perdus[0]?.message ?? "", "« a », « b »");
   });
 
   it("un service NOUVEAU là-bas n'est pas un manquement — le diff est orienté", () => {

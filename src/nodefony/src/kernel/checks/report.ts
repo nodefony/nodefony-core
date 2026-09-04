@@ -414,7 +414,12 @@ export interface ICountableReport {
   freshness: { findings: readonly unknown[] };
   surface: { findings: readonly unknown[] };
   guards: { findings: readonly unknown[] };
-  live?: { findings: readonly unknown[] } | undefined;
+  /**
+   * L'étage 2. Le `kind` est le SEUL champ typé ici, parce que le compte doit
+   * distinguer un manquement d'un simple constat (`service-lost`) — et que ce
+   * module ne veut rien savoir d'autre de la forme des trouvailles.
+   */
+  live?: { findings: readonly { kind: string }[] } | undefined;
 }
 
 /**
@@ -433,7 +438,14 @@ export function countFindings(report: ICountableReport): number {
     report.guards.findings.length +
     // L'étage 2 pèse comme les autres : une migration en échec n'est pas une
     // information de second rang, c'est la panne qu'on vient chercher.
-    (report.live?.findings.length ?? 0)
+    //
+    // 🔴 SAUF `service-lost`, qui n'est pas un manquement. Qu'un module
+    // `policy: "dev"` — et le service qu'il porte — disparaisse en production
+    // est sa RAISON D'ÊTRE. Ce contrôle ne sait pas distinguer la perte voulue
+    // de celle qui casse : il faudrait pouvoir déclarer qu'un service est
+    // requis là-bas, et rien ne le permet. Il informait donc en accusant, et
+    // `doctor --env production` sortait en 1 sur une application saine.
+    (report.live?.findings.filter((f) => f.kind !== "service-lost").length ?? 0)
   );
 }
 

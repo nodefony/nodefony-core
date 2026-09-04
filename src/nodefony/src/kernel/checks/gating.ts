@@ -46,8 +46,6 @@ export interface IGatingFinding {
   service: string;
   /** Le ou les modules qui le fournissaient ici. */
   providers: string[];
-  /** La conduite à tenir, telle qu'elle s'affiche sous le constat. */
-  action: string;
 }
 
 /** Ce que l'étage 2 a constaté du gating, et ce qu'il n'a PAS pu regarder. */
@@ -138,21 +136,21 @@ export function lostServices(
       service: name,
       providers: from,
       message:
-        `le service « ${name} » ne sera plus fourni en ${targetEnv} — ` +
-        `${from.length > 1 ? "ses seuls fournisseurs sont" : "son seul fournisseur est"} ` +
-        `${from.map((m) => `« ${m} »`).join(", ")}, que cet environnement écarte`,
-      // Deux issues, et le choix appartient à qui écrit l'application : le
-      // dire vaut mieux que laisser un constat sans porte de sortie — un
-      // avertissement sans geste est un avertissement qu'on apprend à ignorer.
+        `« ${name} » — fourni ici par ${from.map((m) => `« ${m} »`).join(", ")}, ` +
+        `absent en ${targetEnv}`,
+      // 🔴 AUCUN geste, et c'est le fond du sujet.
       //
-      // 🔴 Le geste se REDIT en entier, sans pronom. Il est repris tel quel
-      // dans « À FAIRE ENSUITE », loin du constat qui le motive : « fournis-le »
-      // y désignait un service que la liste ne nommait nulle part, et il fallait
-      // remonter dans le rapport pour comprendre de quoi on parlait.
-      action:
-        `fais fournir « ${name} » par un module toujours chargé, ou retire ` +
-        `\`policy: "dev"\` de ${from.map((m) => `« ${m} »`).join(" ou ")} ` +
-        `si cette brique est requise en ${targetEnv}`,
+      // Ce contrôle ne sait pas si la perte est VOULUE. Un module `policy:
+      // "dev"` disparaît en production : c'est sa raison d'être, pas un
+      // défaut. Le geste qui était proposé ici — « retire `policy: "dev"` » —
+      // était donc pire qu'inutile : le suivre embarquerait l'outillage de
+      // développement en production.
+      //
+      // La distinction qui manque est « ce service est-il REQUIS là-bas ? »,
+      // et rien dans le produit ne permet de la déclarer : `requiredIn`
+      // n'existe que pour les variables d'environnement. Tant qu'un service ne
+      // peut pas dire qu'on l'exige, ce contrôle INFORME — il n'accuse pas, il
+      // ne prescrit pas, et il ne pèse pas sur le code de sortie.
     }));
 }
 
