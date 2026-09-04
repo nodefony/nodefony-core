@@ -270,7 +270,15 @@ function creerServeur({
           // importance ici, seule compte l'arrivée d'AU MOINS une trame dans
           // la fenêtre du juge.
           const t = setInterval(() => {
-            if (socket.destroyed) {
+            // 🔴 `destroyed` NE SUFFIT PAS. Entre le `socket.end()` du cas
+            // « fermeture » et la destruction effective, le socket n'est plus
+            // WRITABLE mais n'est pas encore `destroyed` : le timer écrit dans
+            // cette fenêtre et Node jette `ERR_STREAM_WRITE_AFTER_END` — une
+            // erreur ASYNCHRONE, qui tue le process au lieu de faire échouer un
+            // cas. Invisible sur un poste (la fenêtre est trop courte), vue sur
+            // un agent de forge chargé, sous Node 26 seulement : le contrôle y
+            // est passé de 32 verts à un rouge que rien ne reproduisait ici.
+            if (!socket.writable || socket.destroyed) {
               clearInterval(t);
               return;
             }
@@ -282,6 +290,11 @@ function creerServeur({
                   params: { ts: Date.now() },
                 }),
               ),
+              // Le rappel d'erreur est la SECONDE ceinture : la fermeture peut
+              // arriver entre le test ci-dessus et l'écriture. Ici une écriture
+              // perdue n'est pas un défaut — le juge ne demande qu'AU MOINS une
+              // trame dans sa fenêtre.
+              () => {},
             );
           }, 100);
           timers.push(t);
