@@ -109,6 +109,51 @@ défaut** (`role:string=membre`), ou **se déclare facultatif** (`department:str
 besoin des deux — obligatoire, et sans défaut à terme — c'est trois migrations : ajouter avec
 défaut, remplir (`--custom`), puis retirer le défaut.
 
+#### 🔴 …et si le champ est UNIQUE, le conseil ci-dessus se retourne contre toi
+
+Une valeur par défaut est la **même pour toutes les lignes**. Sur un champ unique, elle ne répare
+donc rien : elle garantit la collision dès la deuxième ligne déjà présente
+(`UNIQUE constraint failed`). Et le générateur écrit l'ajout de colonne **et** son index unique
+dans la MÊME migration — un enchaînement qui ne réussit que sur une table vide.
+
+Le geste est en trois temps, et l'ordre ne s'inverse pas :
+
+```bash
+# 1. le champ, FACULTATIF et sans unicité, déclaré dans l'entité — puis :
+npx nodefony orm:generate --name ajout_slug
+npx nodefony orm:migrate
+
+# 2. remplir chaque ligne d'une valeur DISTINCTE (SQL libre : le générateur ne
+#    peut pas inventer la valeur métier de lignes qu'il ne connaît pas)
+npx nodefony orm:generate --custom --name remplir_slug
+#    → écrire l'UPDATE dans le fichier déposé, puis :
+npx nodefony orm:migrate
+
+# 3. le champ passe unique (et obligatoire si besoin) dans l'entité — puis :
+npx nodefony orm:generate --name slug_unique
+npx nodefony orm:migrate
+```
+
+`orm:generate` **te le dira** : il relit le SQL qu'il vient d'écrire et signale
+`add-not-null-sans-defaut` et `colonne-neuve-puis-index-unique` sous « À REGARDER avant
+d'appliquer ». Il ne refuse pas — il ne lit pas la base et ignore si ta table porte des lignes —,
+mais s'il le signale et que ta table n'est pas vide, la migration échouera.
+
+**À l'étape 3, sur sqlite, attends-toi à un refus `NF_GENERATE_DESTRUCTIVE`** — mesuré sur une
+table de deux lignes. Rendre une colonne obligatoire n'est pas un `ALTER` en sqlite : le moteur
+n'en a pas, alors l'outil RECONSTRUIT la table (`CREATE __new_billets` → `INSERT … SELECT` →
+`DROP TABLE` → `RENAME`). Le `DROP TABLE` est reconnu comme destructeur, et il l'est en général —
+ici il porte sur une table déjà recopiée, une ligne plus haut, dans la même migration. **Relis le
+fichier avant de décider** : si tu y vois l'`INSERT INTO __new_… SELECT … FROM …` juste avant le
+`DROP`, la reconstruction conserve les lignes, et `orm:migrate` l'applique sans broncher (les
+fichiers sont écrits, c'est leur mise en service qui était refusée). Éprouvé de bout en bout :
+deux lignes semées, trois étapes, deux lignes intactes et l'index unique en place.
+
+> **Ne jamais** répondre à un échec de migration en refaisant la base. Une migration qui n'est pas
+> passée n'a **rien** changé — sqlite et PostgreSQL l'annulent entière. C'est le fichier qu'il faut
+> découper, pas les données qu'il faut sacrifier. Et si tu dois t'y reprendre à plusieurs fois,
+> `NF_MIGRATE_DATABASE_URL` détourne la commande vers une base d'ESSAI et laisse la tienne intacte.
+
 ### La base existait AVANT toute migration — un geste de plus, une seule fois
 
 Une application passée du mode développement à la production a ses tables **et** un dossier

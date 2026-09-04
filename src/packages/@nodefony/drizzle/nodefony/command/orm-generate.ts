@@ -774,8 +774,10 @@ class OrmGenerate extends OrmMigrateCommand {
     }
     if (report.warnings.length > 0) {
       human +=
-        `\n${style.bold("⚠️  Opérations VERROUILLANTES en production")} ` +
-        `(rien n'est détruit, mais l'application peut cesser de répondre pendant l'application) :\n` +
+        `\n${style.bold("⚠️  À REGARDER avant d'appliquer")} ` +
+        `(rien n'est détruit — mais l'application peut cesser de répondre le ` +
+        `temps de l'opération, ou la migration ÉCHOUER si la table porte ` +
+        `déjà des lignes) :\n` +
         report.warnings
           .map((r) => `  • ${r.id} : ${r.what}\n    → ${r.todo}`)
           .join("\n") +

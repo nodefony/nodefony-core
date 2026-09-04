@@ -226,15 +226,20 @@ async function readMigrationFile(
         },
         nextActions: [
           {
-            command: "npm run generate:migrations",
-            args: ["run", "generate:migrations"],
+            command: "nodefony orm:migrate:status --json",
+            args: ["orm:migrate:status", "--json"],
           },
         ],
       },
       `Le journal de la source « ${source} » annonce la migration ` +
         `« ${entry.tag} », mais son fichier « ${file} » est introuvable. ` +
         `Cette source est incohérente avec elle-même : rien n'a été appliqué, ` +
-        `et l'applicateur ne devine jamais le contenu d'un fichier absent.`,
+        `et l'applicateur ne devine jamais le contenu d'un fichier absent. ` +
+        `Deux issues, et le statut ci-dessus dit laquelle : si « ${entry.tag} » ` +
+        `figure dans l'historique, la migration a DÉJÀ été appliquée et c'est le ` +
+        `fichier qu'il faut rendre (contrôle de version) ; si elle n'y figure pas, ` +
+        `retirer son entrée de « ${path.join(dir, "meta", "_journal.json")} ». ` +
+        `Ne PAS refaire la base : elle porte des données, et rien ici ne les concerne.`,
     );
   }
   const normalized = normalizeSql(content);
@@ -249,13 +254,16 @@ async function readMigrationFile(
         facts: { file, found: marker, expected: FORMAT_MARKER },
         nextActions: [
           {
-            command: "npm run generate:migrations",
-            args: ["run", "generate:migrations"],
+            command: `nodefony orm:generate --custom --name ${entry.tag}`,
+            args: ["orm:generate", "--custom", "--name", entry.tag],
           },
         ],
       },
       `Le fichier « ${file} » ne porte pas le format de migration attendu ` +
-        `(« ${FORMAT_MARKER} » ; lu : « ${marker} »). Il n'a PAS été appliqué.`,
+        `(« ${FORMAT_MARKER} » ; lu : « ${marker} »). Il n'a PAS été appliqué. ` +
+        `Un fichier de migration ne s'écrit pas à la main : « --custom » dépose le ` +
+        `gabarit, son marqueur et son entrée de journal, et c'est dedans que le SQL ` +
+        `libre se met. Sinon, poser « ${FORMAT_MARKER} » en première ligne du fichier.`,
     );
   }
   return {

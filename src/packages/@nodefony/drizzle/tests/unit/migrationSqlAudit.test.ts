@@ -106,6 +106,84 @@ describe("auditMigrationSql — ce qui détruit, ce qui verrouille", () => {
     });
   });
 
+  /**
+   * Le SQL de la tâche 33 du banc de découvrabilité, tel qu'il a été produit.
+   *
+   * L'agent devait ajouter un champ `slug` unique à une table qui portait déjà
+   * des données, sans les perdre. Il a fait tout ce qu'on attend : lu
+   * `AGENTS.md`, chargé le skill des migrations, appelé `orm:generate`. Ce que
+   * le générateur lui a rendu était inapplicable, et ne le disait pas. Il a
+   * amendé, l'unicité a explosé, puis il a supprimé la base.
+   *
+   * Ces deux règles ne peuvent pas REFUSER — le générateur ne lit pas la base
+   * et ignore si la table est peuplée. Mais l'inapplicabilité est une propriété
+   * du SQL écrit, pas de la donnée : elle se voit sans se connecter.
+   */
+  describe("inapplicable sur une table PEUPLÉE — vu sans lire la base", () => {
+    /** Ce que `orm:generate` a écrit, mot pour mot. */
+    const GENERE_TACHE_33 =
+      "ALTER TABLE `articles` ADD `slug` text NOT NULL;--> statement-breakpoint\n" +
+      "CREATE UNIQUE INDEX `articles_slug_unique` ON `articles` (`slug`);";
+
+    it("nomme les DEUX défauts du SQL réellement généré", () => {
+      const a = auditMigrationSql(GENERE_TACHE_33, "sqlite");
+      assert.deepEqual(ids(a.blocking).sort(), [
+        "add-not-null-sans-defaut",
+        "colonne-neuve-puis-index-unique",
+      ]);
+      assert.equal(a.destructive.length, 0, "ajouter ne détruit rien");
+    });
+
+    it("le défaut de valeur lève le premier grief, jamais le second", () => {
+      // Le geste que la documentation prescrivait — et qui a fait exploser
+      // l'unicité, toutes les lignes recevant la même chaîne vide.
+      const a = auditMigrationSql(
+        "ALTER TABLE `articles` ADD `slug` text NOT NULL DEFAULT '';" +
+          "--> statement-breakpoint\n" +
+          "CREATE UNIQUE INDEX `articles_slug_unique` ON `articles` (`slug`);",
+        "sqlite",
+      );
+      assert.deepEqual(ids(a.blocking), ["colonne-neuve-puis-index-unique"]);
+    });
+
+    it("vaut sur les trois moteurs — le risque n'est pas propre à un dialecte", () => {
+      for (const dialecte of ["sqlite", "postgres", "mysql"] as const) {
+        const a = auditMigrationSql(
+          'ALTER TABLE "t" ADD COLUMN "c" text NOT NULL;',
+          dialecte,
+        );
+        assert.ok(
+          ids(a.blocking).includes("add-not-null-sans-defaut"),
+          `rien signalé sur ${dialecte} — MySQL est celui qui remplit de vide`,
+        );
+      }
+    });
+
+    it("une colonne FACULTATIVE ne déclenche rien", () => {
+      const a = auditMigrationSql("ALTER TABLE `t` ADD `c` text;", "sqlite");
+      assert.deepEqual(a.blocking, []);
+    });
+
+    it("un index unique sur une colonne DÉJÀ en place ne déclenche rien", () => {
+      // Le faux positif qui rendrait l'alerte inaudible : ici rien n'est
+      // ajouté, donc les lignes portent déjà leurs valeurs distinctes.
+      const a = auditMigrationSql(
+        "CREATE UNIQUE INDEX `t_email_unique` ON `t` (`email`);",
+        "sqlite",
+      );
+      assert.deepEqual(a.blocking, []);
+    });
+
+    it("un index unique sur une AUTRE colonne que celle ajoutée ne déclenche rien", () => {
+      const a = auditMigrationSql(
+        "ALTER TABLE `t` ADD `note` text;--> statement-breakpoint\n" +
+          "CREATE UNIQUE INDEX `t_email_unique` ON `t` (`email`);",
+        "sqlite",
+      );
+      assert.deepEqual(a.blocking, []);
+    });
+  });
+
   describe("faux positifs — ce qui ferait ignorer l'alerte", () => {
     it("un mot-clé dans un COMMENTAIRE ne déclenche rien", () => {
       const a = auditMigrationSql(
