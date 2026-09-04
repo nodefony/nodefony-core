@@ -394,6 +394,9 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 09-04] **Un drapeau de config déclaré, validé par Zod, stocké, affiché en badge — et lu par AUCUN code.** `stateless` promettait « la session est ignorée même si un cookie est présent » ; `git log -S` rend deux commits, celui qui l'assigne et celui qui l'affiche. Le contrôle qui tranche en dix secondes : **`git log -S'.<champ>'` — si aucun commit ne montre une BRANCHE, la promesse n'est tenue par rien.**
+- [1× — 09-04] **Le récit d'un gabarit peut être faux SÉPARÉMENT du code.** Le même fichier décrivait un « 401 intermittent en production » qu'aucun mécanisme ne produit — et ce texte a orienté un agent du banc vers la mauvaise solution. Corriger le code ne corrige pas le récit ; les deux se relisent.
+
 - [1× — 09-04b] **`Closes #N` dans un commit ne ferme rien tant que le commit n'atteint pas
   la branche PAR DÉFAUT.** Le travail vit sur `claude-ts`, la branche par défaut est `main` :
   le ticket est resté OUVERT, statut `Todo`, alors que le commit affichait fièrement sa
@@ -756,6 +759,9 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-04] **`Tests no tests` ressemble à un succès.** Un `this.timeout()` recopié de mocha faisait échouer la COLLECTE du fichier ; vitest affiche « no tests » et sort sans rouge visible. Sans un `grep` sur la sortie entière, j'aurais compté un fichier de banc comme vert. (Aucun reste mocha dans le dépôt, vérifié : 0 import, 0 dépendance — la faute venait de moi.)
+- [1× — 09-04] **Débrancher LARGEMENT ne prouve rien de PRÉCIS.** J'ai coupé toutes les règles d'un audit pour voir mes 3 cas neufs tomber : 12 sont tombés, dont 9 sans rapport. Et sur un banc d'intégration, le débranchement a montré que **1 seul cas sur 4 prouvait la garde** — les autres étaient verts des deux côtés (le décor ne portait pas la condition). Débrancher ce qu'on VEUT éprouver, et écrire dans le fichier ce que chaque cas prouve vraiment.
 
 - [1× — 09-04b] **Le témoin qu'on écrit d'instinct pour prouver un scanner n'est pas
   détecté.** Pour montrer que le gate de secrets mord, j'ai planté
@@ -1275,6 +1281,9 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 09-04] **Le code de sortie d'une commande lancée en ARRIÈRE-PLAN ne dit rien de ce qu'elle a fait.** Deux commits d'affilée rapportés « exit 0 » alors que le hook les avait refusés (lint, puis longueur du sujet commitlint) ; j'ai enchaîné sur le suivant en croyant le premier passé. **Le seul verdict d'un commit est `git log -1`**, jamais le code de sortie du lancement — c'était déjà écrit dans l'état de la session précédente, et je m'y suis fait prendre quand même.
+- [1× — 09-04] **`sed -i '' 's/x\b/y/'` sur macOS ne remplace RIEN et sort 0.** Le sed BSD ne connaît pas `\b`. Le fichier reste inchangé, la commande paraît réussie, et on conclut que le renommage est fait. Vérifier par un `grep` APRÈS, ou passer par python dès qu'il y a une classe de caractères.
 
 - [1× — 09-04] **Le formateur du hook réécrit le fichier APRÈS le `git add`, et périme ce qui en
   dérive.** J'avais régénéré les fiches de skills, puis committé : le pre-commit a passé prettier
@@ -2110,6 +2119,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-04] **Une boucle de réessais qui suppose un échec RAPIDE ne protège de rien face à une commande qui PEND.** `npm audit` a un `fetch-timeout` de 5 min par défaut ; trois essais dépassaient la limite du job, qui mourait avant d'imprimer l'avertissement écrit exprès pour ce cas. La garde existait, elle n'a jamais été atteinte. **Borner le temps de ce qu'on réessaie**, sinon le réessai est le problème.
 
 - [1× — 09-04b] **La liste d'exceptions du scanner a avalé son propre témoin, une heure
   après avoir été écrite.** `tmp/` y figure (artefacts jetables) ; le témoin du gate était

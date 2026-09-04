@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-04 03:47** (UTC).
+> Empreinte prise le **2026-09-04 10:09** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 24 | 1 | — |
-| 10.0.0 | 37 | 89 | 2026-11-15 |
+| 10.0.0 | 46 | 91 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 37 ouverts
+## Jalon 10.0.0 — 46 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -36,6 +36,15 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 3 | P2 — décision | 0.5 | #26 | refactor(client)!: retirer l'appel non typé de la socket cliente |
 | 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
+| 6 | P2 — décision | 5 | #178 | feat(cli): faire de doctor un diagnostic complet |
+| 6.1 | P1 — figé à la création | 0.5 | #180 | fix(cli): que doctor DISE les contrôles qu'il n'a pas pu faire |
+| 6.2 | P1 — figé à la création | 0.5 | #181 | fix(kernel): que le bilan de démarrage dise QUI a échoué |
+| 6.3 | P1 — figé à la création | 2 | #182 | feat(cli): doctor demande à l'application, pas seulement à ses fichiers |
+| 6.4 | P1 — figé à la création | 1 | #184 | feat(cli): dire ce qui disparaîtra en production avant d'y aller |
+| 6.5 | P1 — figé à la création | 1 | #183 | feat(cli): voir depuis son poste ce qui manquera en production |
+| 6.6 | P2 — décision | 1 | #186 | feat(cli): montrer la surface ouverte et les entités hors dialecte |
+| 6.7 | P2 — décision | 0.5 | #185 | feat(cli): vérifier que les gardes du projet sont armées |
+| 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 11 | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 | 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T03:47:58.209Z",
+  "generatedAt": "2026-09-04T10:09:12.165Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,13 +10,28 @@
       "title": "10.1"
     },
     {
-      "closed": 89,
+      "closed": 91,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 37,
+      "open": 46,
       "title": "10.0.0"
     }
   ],
   "items": [
+    {
+      "number": 177,
+      "title": "fix(security): faire agir le drapeau stateless, aujourd'hui sans effet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/177",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 0.5,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
     {
       "number": 19,
       "title": "refactor(drizzle): rendre optionnels les pilotes de base de données",
@@ -1103,6 +1118,76 @@
       ]
     },
     {
+      "number": 178,
+      "title": "feat(cli): faire de doctor un diagnostic complet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/178",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 5,
+      "ordre": 6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 180,
+      "title": "fix(cli): que doctor DISE les contrôles qu'il n'a pas pu faire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/180",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 181,
+      "title": "fix(kernel): que le bilan de démarrage dise QUI a échoué",
+      "url": "https://github.com/nodefony/nodefony-core/issues/181",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 182,
+      "title": "feat(cli): doctor demande à l'application, pas seulement à ses fichiers",
+      "url": "https://github.com/nodefony/nodefony-core/issues/182",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 184,
+      "title": "feat(cli): dire ce qui disparaîtra en production avant d'y aller",
+      "url": "https://github.com/nodefony/nodefony-core/issues/184",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 45,
       "title": "docs(guides): retirer « mocha + bun » et les pages fantômes",
       "url": "https://github.com/nodefony/nodefony-core/issues/45",
@@ -1117,6 +1202,20 @@
       ]
     },
     {
+      "number": 183,
+      "title": "feat(cli): voir depuis son poste ce qui manquera en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/183",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 46,
       "title": "docs(core): documenter l'outillage de test livré aux applications",
       "url": "https://github.com/nodefony/nodefony-core/issues/46",
@@ -1124,6 +1223,20 @@
       "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 186,
+      "title": "feat(cli): montrer la surface ouverte et les entités hors dialecte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/186",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.6,
       "labels": [
@@ -1145,6 +1258,20 @@
       ]
     },
     {
+      "number": 185,
+      "title": "feat(cli): vérifier que les gardes du projet sont armées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/185",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 42,
       "title": "fix(client): corriger l'adresse du serveur temps réel par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/42",
@@ -1152,6 +1279,20 @@
       "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 176,
+      "title": "fix(orm): ne plus voir une destruction dans une table sqlite reconstruite",
+      "url": "https://github.com/nodefony/nodefony-core/issues/176",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.5,
       "labels": [
@@ -1800,6 +1941,20 @@
       ]
     },
     {
+      "number": 179,
+      "title": "feat(cli): que doctor voie le build en retard et le plancher Node",
+      "url": "https://github.com/nodefony/nodefony-core/issues/179",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 60.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 165,
       "title": "test(devkit): resserrer cinq contrôles du banc qui affirment trop",
       "url": "https://github.com/nodefony/nodefony-core/issues/165",
@@ -2198,7 +2353,7 @@
       "title": "fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage",
       "url": "https://github.com/nodefony/nodefony-core/issues/172",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1",
       "priorite": "P2 — décision",
       "jours": 0.5,
