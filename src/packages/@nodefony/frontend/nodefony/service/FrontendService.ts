@@ -288,6 +288,7 @@ class FrontendService extends Service implements IFrontendService {
         https: !!this.cfg.https,
         restartCount: 0,
         healthFailures: 0,
+        portRetries: 0,
         lastError: null,
         entries: this.entries,
       };

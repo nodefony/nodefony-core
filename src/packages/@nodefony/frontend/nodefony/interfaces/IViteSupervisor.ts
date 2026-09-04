@@ -39,6 +39,19 @@ export interface IViteSupervisorStatus {
   readonly restartCount: number;
   /** Nombre d'échecs consécutifs du health check (reset à chaque succès). */
   readonly healthFailures: number;
+  /**
+   * Nombre de REPLIS de port effectués au dernier démarrage — `0` quand Vite a
+   * pris le port demandé du premier coup.
+   *
+   * 🔴 Il est exposé pour rendre une cause OBSERVABLE, pas par curiosité. Quand
+   * une seconde application annonce le port de la première, deux explications
+   * s'affrontent et le port seul ne tranche pas : soit Vite n'a jamais dénoncé
+   * le conflit sous une forme reconnue et le repli n'est jamais parti
+   * (`portRetries === 0`), soit le repli a bien eu lieu et Vite a malgré tout
+   * fini sur le même numéro (`portRetries > 0`) — ce que `strictPort` doit
+   * interdire. Sans ce compteur, un banc rouge n'accuse personne et se relance.
+   */
+  readonly portRetries: number;
 }
 
 /**

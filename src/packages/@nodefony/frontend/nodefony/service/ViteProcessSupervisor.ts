@@ -331,6 +331,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       https: !!this.opts.https,
       restartCount: this.restartCount,
       healthFailures: this.healthFailures,
+      portRetries: this.portRetries,
     };
   }
 
@@ -345,6 +346,9 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   private async spawnWithPortRetry(): Promise<void> {
     const maxAttempts = this.cfg.portRetryAttempts;
     let lastErr: Error | null = null;
+    // Remis à zéro à chaque démarrage : le compteur décrit CE démarrage, pas
+    // l'histoire du superviseur — un cumul ne dirait plus rien du dernier.
+    this.portRetries = 0;
     for (let i = 0; i <= maxAttempts; i++) {
       const port = this.opts.devPort + i;
       try {
@@ -356,6 +360,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           this.opts.logger.info(
             `port ${port} unavailable — retrying on ${port + 1}`,
           );
+          this.portRetries += 1;
           continue;
         }
         throw lastErr;
@@ -363,6 +368,9 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     }
     throw lastErr ?? new FrontendSupervisorStartError("port retry exhausted");
   }
+
+  /** Replis de port du DERNIER démarrage — cf `IViteSupervisorStatus.portRetries`. */
+  private portRetries = 0;
 
   private isPortInUseError(e: Error): boolean {
     return isPortInUseMessage(e.message);

@@ -172,9 +172,45 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       await second.start([makeEntry()], {});
       const status = second.status();
       expect(status.state).to.equal("ready");
+      // 🔴 LA CAUSE, avant le verdict. Ce cas est tombé par intermittence sur
+      // les agents macOS partagés (`expected 49263 to be above 49263`) sans
+      // qu'on puisse dire POURQUOI : le port seul n'accuse personne. Deux
+      // explications s'affrontaient, et le compteur de replis les sépare —
+      //
+      //   `portRetries === 0` → Vite n'a jamais DÉNONCÉ le conflit sous une
+      //     forme que le superviseur reconnaît (ou l'a fait après le délai
+      //     accordé) : le repli n'est jamais parti. Le défaut est dans la
+      //     DÉTECTION.
+      //   `portRetries > 0`   → le repli a bien eu lieu et Vite a malgré tout
+      //     fini sur le même numéro : `strictPort` n'a pas tenu, ou deux
+      //     sockets coexistent sur ce port (familles d'adresses distinctes).
+      //     Le défaut est dans la LIAISON.
+      //
+      // Un banc qui ne nomme pas sa cause se relance au lieu d'être instruit,
+      // et son rouge finit par emporter le prochain vrai rouge avec lui.
+      if (status.port === port) {
+        expect.fail(
+          `la 2ᵉ instance annonce le port de la 1ʳᵉ (${port}) — ` +
+            `replis tentés : ${status.portRetries}. ` +
+            (status.portRetries === 0
+              ? "AUCUN repli : le conflit n'a pas été dénoncé sous une forme reconnue " +
+                "(`isPortInUseMessage`), ou il l'a été après le délai de démarrage."
+              : "le repli a eu lieu et Vite a fini sur le MÊME port : `strictPort` " +
+                "n'a pas tenu, ou deux sockets coexistent sur ce numéro."),
+        );
+      }
       // Décalé — et le port annoncé est le port RÉEL, pas celui demandé : c'est
       // lui que le HTML servira au navigateur.
       expect(status.port).to.be.greaterThan(port);
+      // Le décalage ne s'est pas fait tout seul : le superviseur a RELANCÉ.
+      // Sans cette ligne, un Vite qui se décalerait de lui-même (strictPort
+      // absent du config généré) rendrait ce cas vert en prouvant autre chose.
+      expect(
+        status.portRetries,
+        "le port a changé sans qu'aucun repli n'ait été tenté — " +
+          "ce n'est pas le superviseur qui a décalé, et ce cas ne prouve alors " +
+          "rien de ce qu'il annonce",
+      ).to.be.greaterThan(0);
       expect(await httpPing("127.0.0.1", status.port!)).to.be.greaterThan(0);
       // Les deux répondent : la 1ʳᵉ app n'a pas été délogée au passage.
       expect(await httpPing("127.0.0.1", port)).to.be.greaterThan(0);
