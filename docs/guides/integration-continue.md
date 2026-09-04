@@ -104,6 +104,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
 | `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **trois moteurs** (une application par moteur, ubuntu) | PostgreSQL, MySQL (job `dialectes`) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
+
 | `secrets.yml` | Aucun secret dans l'arbre | `gitleaks` sur l'arbre ET l'historique — le scanner se prouve d'abord sur un témoin planté | — |
 | `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`/`front`/`studio`) — manuel + hebdomadaire | conteneurs docker |
 | `release-preflight.yml` | OIDC · outils · jeton · docker | les ACCÈS de publication existent avant d'en avoir besoin (identité, versions minimales, quota) | — |
@@ -324,6 +325,16 @@ Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 
 **Perf dehors, mémoire dedans** : une latence dépend de la machine, une fuite
 fuit quelle que soit la charge.
+
+**Et un cas qui n'est ni dedans ni dehors : l'audit des dépendances quand le
+registre ne répond pas.** `npm audit` rend `1` aussi bien pour « des
+vulnérabilités » que pour « je n'ai pas pu demander » — deux faits opposés sous
+le même code. Une nuit de 503 sur `/-/npm/v1/security/advisories/bulk` a laissé
+la forge rouge sur une panne qui ne nous appartient pas, et c'est le pire des
+rouges : il n'apprend rien, et il apprend à ne plus regarder. L'étape réessaie
+trois fois, puis TRANCHE — des vulnérabilités font échouer, un registre
+injoignable produit un avertissement écrit dans le résumé du job. Jamais un vert
+muet : le trou est nommé, et Dependabot couvre le même besoin en continu.
 
 ---
 

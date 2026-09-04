@@ -235,8 +235,40 @@ jobs:
       # faite ICI, à un endroit qui peut casser la marche. Une faille de gravité
       # haute se ferme par un `overrides` dans le package.json racine, où la
       # décision se lit, plutôt qu'en laissant l'alerte vivre au tableau de bord.
+      # 🔴 Un audit IMPOSSIBLE n'est pas une vulnérabilité TROUVÉE, et `npm audit`
+      # rend `1` dans les deux cas. Vécu trois runs de suite : le registre npm a
+      # rendu 503 puis un timeout sur `/-/npm/v1/security/advisories/bulk`, et la
+      # forge est restée rouge une nuit entière sur une panne qui ne nous
+      # appartient pas. C'est le pire des rouges — il n'apprend rien, et il
+      # apprend à ne plus regarder.
+      #
+      # On réessaie donc (la panne est transitoire), puis on TRANCHE sur ce qui
+      # s'est passé : des vulnérabilités ⇒ échec ; un registre injoignable ⇒
+      # avertissement ANNONCÉ dans le résumé du job, jamais un vert muet. Ce
+      # trou-là est couvert autrement : Dependabot audit ce dépôt en continu, et
+      # la passe suivante rejouera l'audit sur le même arbre.
       - name: Audit des dépendances
-        run: npm audit --audit-level=high
+        shell: bash
+        run: |
+          set -uo pipefail
+          for essai in 1 2 3; do
+            sortie=$(npm audit --audit-level=high 2>&1) && exit 0
+            if ! grep -qE "audit endpoint returned an error|ENOTFOUND|ETIMEDOUT|network timeout|503 Service Unavailable" <<<"$sortie"; then
+              echo "$sortie"
+              echo "::error::npm audit a TROUVÉ des vulnérabilités de niveau high ou plus"
+              exit 1
+            fi
+            echo "essai $essai : le registre npm n'a pas répondu à l'audit — nouvelle tentative"
+            sleep $((essai * 15))
+          done
+          echo "$sortie"
+          echo "::warning::AUDIT NON EXÉCUTÉ — le registre npm est resté injoignable sur 3 essais.           Ce job ne dit donc RIEN des vulnérabilités de cet arbre ; Dependabot et la prochaine           poussée le rejoueront."
+          {
+            echo "### ⚠️ Audit des dépendances NON exécuté"
+            echo
+            echo "Le registre npm n'a pas répondu (\`/-/npm/v1/security/advisories/bulk\`) sur trois essais."
+            echo "**Ce job ne dit rien des vulnérabilités de cet arbre.**"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Conformité des skills au standard Agent Skills : fiches publiques à jour,
       # aucun renvoi mort, aucun fichier orphelin. Le contrôle existait en local
