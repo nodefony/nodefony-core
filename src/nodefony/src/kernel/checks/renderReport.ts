@@ -505,6 +505,26 @@ export function aFaireEnsuite(
 }
 
 /**
+ * Ce qu'un geste répare, rendu SOUS lui quand il ne tient pas à sa droite.
+ *
+ * @param pourquoi - la famille que ce geste referme.
+ * @param marge - l'indentation, alignée sous la commande.
+ * @param largeur - largeur utile du terminal.
+ * @param p - la peinture.
+ * @returns les lignes, repliées pour ne jamais déborder.
+ */
+function sousLeGeste(
+  pourquoi: string,
+  marge: string,
+  largeur: number,
+  p: IPalette,
+): string[] {
+  return replier(pourquoi, largeur - marge.length, "").map(
+    (l) => marge + p.discret(l),
+  );
+}
+
+/**
  * La liste des gestes, numérotée et alignée.
  *
  * @param gestes - les gestes, déjà dédoublonnés.
@@ -532,10 +552,15 @@ function listeDeGestes(
     const mesure = `${ITEM}${rang}  ${g.commande}`;
     // La glose ne s'affiche que si elle TIENT : coupée, elle ferait douter de
     // la commande elle-même, qui est la seule chose à copier ici.
-    const glose =
-      g.commande.length > colonne
-        ? ""
-        : `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
+    // Un geste trop long pour la colonne garde sa glose : elle passe sous lui,
+    // jamais à la trappe. 🔴 La supprimer laissait des gestes qui ne sont pas
+    // des commandes — une phrase — sans le moindre contexte : il fallait
+    // remonter dans le rapport pour savoir de quoi ils parlaient, ce qui est
+    // exactement ce que ce rappel existe pour éviter.
+    const enDessous = g.commande.length > colonne;
+    const glose = enDessous
+      ? ""
+      : `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
     if (mesure.length <= largeur) {
       const debut = `${ITEM}${p.discret(rang)}  ${p.geste(g.commande)}`;
       lignes.push(
@@ -543,6 +568,9 @@ function listeDeGestes(
           ? debut + p.discret(glose)
           : debut,
       );
+      if (enDessous || mesure.length + glose.length > largeur) {
+        lignes.push(...sousLeGeste(g.pourquoi, marge, largeur, p));
+      }
       continue;
     }
     // Terminal étroit : la commande se replie sous elle-même plutôt que de
@@ -555,6 +583,8 @@ function listeDeGestes(
     );
     lignes.push(`${ITEM}${p.discret(rang)}  ${p.geste(premiere ?? "")}`);
     for (const l of suite) lignes.push(marge + p.geste(l));
+    // Même règle qu'au-dessus : ce que ce geste répare se lit sous lui.
+    lignes.push(...sousLeGeste(g.pourquoi, marge, largeur, p));
   }
   return lignes;
 }

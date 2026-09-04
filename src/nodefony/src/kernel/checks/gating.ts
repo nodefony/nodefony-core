@@ -144,9 +144,15 @@ export function lostServices(
       // Deux issues, et le choix appartient à qui écrit l'application : le
       // dire vaut mieux que laisser un constat sans porte de sortie — un
       // avertissement sans geste est un avertissement qu'on apprend à ignorer.
+      //
+      // 🔴 Le geste se REDIT en entier, sans pronom. Il est repris tel quel
+      // dans « À FAIRE ENSUITE », loin du constat qui le motive : « fournis-le »
+      // y désignait un service que la liste ne nommait nulle part, et il fallait
+      // remonter dans le rapport pour comprendre de quoi on parlait.
       action:
-        'fournis-le par un défaut du framework, ou retire `policy: "dev"` ' +
-        "du module si cette brique est requise dans cet environnement",
+        `fais fournir « ${name} » par un module toujours chargé, ou retire ` +
+        `\`policy: "dev"\` de ${from.map((m) => `« ${m} »`).join(" ou ")} ` +
+        `si cette brique est requise en ${targetEnv}`,
     }));
 }
 

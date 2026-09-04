@@ -638,3 +638,89 @@ describe("doctor --help", () => {
     assert.isTrue((parsed as { help: boolean }).help);
   });
 });
+
+/**
+ * 🔴 « À FAIRE ENSUITE » reprend le geste LOIN de ce qui le motive.
+ *
+ * Signalé sur un rapport réel : la liste affichait « fournis-le par un défaut
+ * du framework, ou retire `policy: "dev"` du module… ». Le pronom désignait un
+ * service que la liste ne nommait nulle part, et la glose — la seule chose qui
+ * aurait situé le geste — était supprimée parce que la phrase était trop
+ * longue pour tenir à sa droite. Il fallait remonter dans le rapport pour
+ * comprendre, c'est-à-dire faire exactement ce que ce rappel doit éviter.
+ */
+describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
+  const gesteLong =
+    "fais fournir « userService » par un module toujours chargé, ou retire " +
+    '`policy: "dev"` de « devkit » si cette brique est requise en production';
+
+  const rendu = (largeur: number): string[] => {
+    const r = rapport({
+      freshness: {
+        notComparable: false,
+        findings: [
+          {
+            kind: "dist-stale" as const,
+            file: "nodefony/A.ts",
+            message: "des sources ont changé → `npm run build`",
+          },
+        ],
+      },
+      // Le manquement vient de l'ÉTAGE 2 : `report.live`, pas `report.gating`.
+      live: {
+        findings: [
+          {
+            kind: "service-lost" as const,
+            source: "gating",
+            message: "le service « userService » ne sera plus fourni",
+            action: gesteLong,
+          },
+        ],
+        execution: {
+          migrations: { ran: true },
+          firewall: { ran: true },
+          gating: { ran: true },
+        },
+      },
+    });
+    return rendreRapport(r, {
+      largeur,
+      couleur: false,
+      now: Date.now(),
+      strict: false,
+    });
+  };
+
+  it("⭐ la glose passe SOUS le geste au lieu de disparaître", () => {
+    const lignes = rendu(78);
+    const debut = lignes.findIndex((l) => l.includes("À FAIRE ENSUITE"));
+    assert.isAtLeast(debut, 0, "la section doit exister");
+    const bloc = lignes.slice(debut).join("\n");
+    assert.include(bloc, "userService", "le geste nomme ce dont il parle");
+    assert.include(
+      bloc,
+      "Écart avec l'environnement visé",
+      "…et ce qu'il répare reste lisible sous lui",
+    );
+  });
+
+  it("le geste court garde sa glose à DROITE — rien ne change pour lui", () => {
+    const lignes = rendu(78);
+    const ligne = lignes.find(
+      (l) => l.includes("npm run build") && l.includes("Fraîcheur"),
+    );
+    assert.isDefined(ligne, "un geste court reste sur une seule ligne");
+  });
+
+  it("🔴 et rien ne déborde, même sur un terminal étroit", () => {
+    for (const largeur of [78, 60, 48]) {
+      for (const l of rendu(largeur)) {
+        assert.isAtMost(
+          l.length,
+          largeur,
+          `ligne trop longue à ${largeur} : ${l}`,
+        );
+      }
+    }
+  });
+});
