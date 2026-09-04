@@ -94,6 +94,13 @@ const CORPS = "       ";
 /** L'indentation d'un ITEM — symbole, numéro, titre. */
 const ITEM = "    ";
 
+/**
+ * Au-delà de cette longueur, une commande occupe sa ligne SEULE.
+ *
+ * Elle cesse alors de fixer la colonne où s'aligne la glose des autres.
+ */
+const COLONNE_GESTE_MAX = 28;
+
 /** Au-delà, une énumération cesse d'informer et se met à noyer le rapport. */
 const PUCES_MAX = 3;
 
@@ -510,7 +517,14 @@ function listeDeGestes(
   p: IPalette,
   largeur: number,
 ): string[] {
-  const colonne = Math.max(...gestes.map((g) => g.commande.length));
+  // La colonne d'alignement s'ajuste sur les commandes COURTES seulement. Un
+  // seul geste long (un `npm pkg set …` de soixante caractères) suffisait
+  // sinon à repousser toutes les gloses hors de la largeur : le rappel perdait
+  // d'un coup ce qu'il apprend, à cause d'une ligne qui n'en avait pas besoin.
+  const courtes = gestes
+    .map((g) => g.commande.length)
+    .filter((n) => n <= COLONNE_GESTE_MAX);
+  const colonne = courtes.length > 0 ? Math.max(...courtes) : 0;
   const lignes: string[] = [];
   for (const [i, g] of gestes.entries()) {
     const rang = String(i + 1).padStart(String(gestes.length).length, " ");
@@ -518,11 +532,14 @@ function listeDeGestes(
     const mesure = `${ITEM}${rang}  ${g.commande}`;
     // La glose ne s'affiche que si elle TIENT : coupée, elle ferait douter de
     // la commande elle-même, qui est la seule chose à copier ici.
-    const glose = `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
+    const glose =
+      g.commande.length > colonne
+        ? ""
+        : `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
     if (mesure.length <= largeur) {
       const debut = `${ITEM}${p.discret(rang)}  ${p.geste(g.commande)}`;
       lignes.push(
-        mesure.length + glose.length <= largeur
+        glose !== "" && mesure.length + glose.length <= largeur
           ? debut + p.discret(glose)
           : debut,
       );
@@ -1092,7 +1109,11 @@ function bilan(
   if (total > 0) {
     segments.push(seg(accord(total, "manquement"), p.echec));
     segments.push(
-      seg(accord(passes, "contrôle passé", "contrôles passés"), (t) => t),
+      // « effectué », jamais « passé » : ce compte est celui des familles qui
+      // ont REGARDÉ, manquements compris. Dire « 7 contrôles passés » à côté
+      // de « 1 manquement » faisait annoncer huit familles là où il y en a
+      // sept, et laissait croire que la fautive avait réussi.
+      seg(accord(passes, "contrôle effectué", "contrôles effectués"), (t) => t),
     );
   } else if (passes === 0) {
     // Hors d'une application : dire « rien à signaler » serait un quitus rendu

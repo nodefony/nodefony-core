@@ -367,10 +367,11 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     familles.map((l) => `  ${l}\n`).join("") +
     "\n" +
     replier(
-      "Il lit des FICHIERS et n'exécute rien : il répond donc même sur une " +
-        "application qui ne démarre plus — c'est le moment où l'on en a le plus " +
-        `besoin. Les ${LIVE_FAMILIES.length} derniers contrôles font exception : ` +
-        "ils exigent un démarrage, et ne jouent qu'avec `--live`.",
+      "Il ne DÉMARRE pas l'application : il lit des fichiers, interroge git " +
+        "sur ce qu'il suit, et sonde les ports du poste. Il répond donc même " +
+        "sur une application qui ne démarre plus — c'est le moment où l'on en " +
+        `a le plus besoin. Les ${LIVE_FAMILIES.length} derniers contrôles font ` +
+        "exception : ils exigent un démarrage, et ne jouent qu'avec `--live`.",
       largeur - 4,
       "  ",
     )

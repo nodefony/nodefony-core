@@ -157,7 +157,7 @@ function isAllowedScope(files: unknown): boolean {
   return list.every(
     (f) =>
       typeof f === "string" &&
-      ALLOWED_OFF.some((mot) => f.toLowerCase().includes(mot)),
+      ALLOWED_OFF.some((word) => f.toLowerCase().includes(word)),
   );
 }
 
@@ -216,7 +216,8 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
         message:
           "aucun script `lint` : les règles du projet ne sont exécutées par " +
           "personne — ni en local, ni dans une forge, et leur configuration " +
-          "ne garde alors plus rien",
+          "ne garde alors plus rien. " +
+          '→ `npm pkg set scripts.lint="oxlint --deny-warnings"`',
       });
     } else if (!lint.includes("--deny-warnings")) {
       findings.push({
@@ -236,11 +237,12 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
         message:
           "aucun script `typecheck` : le bundler ne vérifie PAS les types, " +
           "et rien d'autre ne le fait — du code qui ne compile pas peut " +
-          "être publié sans qu'aucune barrière ne s'y oppose",
+          "être publié sans qu'aucune barrière ne s'y oppose. " +
+          '→ `npm pkg set scripts.typecheck="tsgo --noEmit"`',
       });
     } else armed++;
 
-    const manquantes = VERIFY_STEPS.filter((e) => !verify.includes(e));
+    const missing = VERIFY_STEPS.filter((step) => !verify.includes(step));
     if (!verify) {
       findings.push({
         kind: "verify-missing",
@@ -248,14 +250,15 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
         message:
           "aucune chaîne `verify` : rien n'enchaîne " +
           `${VERIFY_STEPS.join(", ")} en une seule commande — c'est celle ` +
-          "qu'une forge appelle, et celle qu'on tape avant de publier",
+          "qu'une forge appelle, et celle qu'on tape avant de publier. " +
+          `→ \`npm pkg set scripts.verify="${VERIFY_STEPS.map((e) => `npm run ${e}`).join(" && ")}"\``,
       });
-    } else if (manquantes.length > 0) {
+    } else if (missing.length > 0) {
       findings.push({
         kind: "verify-broken",
         file: manifestFile,
         message:
-          `la chaîne \`verify\` n'enchaîne plus ${manquantes.join(", ")} : ` +
+          `la chaîne \`verify\` n'enchaîne plus ${missing.join(", ")} : ` +
           "elle passe donc en ignorant ce qu'elle est censée contrôler, et " +
           "c'est elle qu'une forge appelle",
       });
@@ -283,12 +286,12 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
         return isOff(declaredRule(r, name)) && !isAllowedScope(bag.files);
       });
       if (large) {
-        const cible = (large as { files?: unknown }).files;
+        const target = (large as { files?: unknown }).files;
         findings.push({
           kind: "rule-disabled",
           file: linterFile,
           message:
-            `la règle \`${name}\` est désactivée sur ${JSON.stringify(cible)} — ` +
+            `la règle \`${name}\` est désactivée sur ${JSON.stringify(target)} — ` +
             `hors des zones où c'est voulu (tests, configuration, scripts). ${why}`,
         });
         continue;
