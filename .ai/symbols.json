@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T10:52:13.617Z",
+  "generated": "2026-09-04T11:08:10.521Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 799,
-    "symbols": 3697,
+    "symbols": 3703,
     "classes": 383,
     "interfaces": 1016,
-    "types": 430,
+    "types": 431,
     "enums": 4,
-    "functions": 1495,
-    "constants": 369
+    "functions": 1499,
+    "constants": 370
   },
   "symbols": {
     "Cli": {
@@ -7944,6 +7944,22 @@
       "extends": null,
       "description": "Ce qu'on sait du dernier démarrage — abouti ou non. Chaque champ répond à une question qu'on se pose devant une application dont on n'a pas vu démarrer : QUAND (donc : est-ce encore d'actualité ?),…"
     },
+    "LastBootProfile": {
+      "name": "LastBootProfile",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "QUI a démarré — la distinction sans laquelle le bilan désigne le mauvais coupable. `console` couvre tout ce qui boote sans ouvrir de port : `nodefony inspect`, `orm:migrate`, une commande de module…"
+    },
+    "lastBootFileFor": {
+      "name": "lastBootFileFor",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le fichier où un bilan doit s'écrire, d'après son profil. Une seule règle, un seul endroit : l'écrivain et le lecteur en dépendent, et deux copies divergeraient sans que rien ne le signale."
+    },
     "writeLastBoot": {
       "name": "writeLastBoot",
       "kind": "function",
@@ -7960,6 +7976,14 @@
       "module": "@nodefony/core",
       "description": "Lit le bilan, sans exécuter quoi que ce soit."
     },
+    "readLastBoots": {
+      "name": "readLastBoots",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Tous les bilans disponibles — serveur d'abord, console ensuite. L'ordre n'est pas neutre : celui qui lance `doctor` sur une application qui ne répond plus cherche le SERVEUR. Le bilan d'une command…"
+    },
     "formatAge": {
       "name": "formatAge",
       "kind": "function",
@@ -7974,7 +7998,15 @@
       "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Emplacement du bilan, relatif à la racine de l'application."
+      "description": "Emplacement du bilan du SERVEUR, relatif à la racine de l'application."
+    },
+    "LAST_BOOT_CONSOLE_FILE": {
+      "name": "LAST_BOOT_CONSOLE_FILE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Emplacement du bilan d'un démarrage CONSOLE. Un fichier séparé, et non une entrée de plus dans le premier : un `nodefony inspect` lancé POUR diagnostiquer une panne de serveur écrasait la preuve qu…"
     },
     "IPackageFinding": {
       "name": "IPackageFinding",
@@ -8084,6 +8116,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le document complet, ligne par ligne, sans retour chariot final."
+    },
+    "qui": {
+      "name": "qui",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "QUI a démarré, en toutes lettres. « Le dernier démarrage a ÉCHOUÉ » désignait le serveur quel que soit le coupable : un `nodefony inspect` lancé sans son environnement produisait la même phrase, et…"
     },
     "ILigneSommaire": {
       "name": "ILigneSommaire",
@@ -26689,6 +26729,7 @@
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
@@ -29005,7 +29046,11 @@
       ],
       "ILastBoot": [
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/checks/renderReport.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "LastBootProfile": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -30260,7 +30305,7 @@
       "formatAge": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "LAST_BOOT_FILE": [
+      "lastBootFileFor": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "ICheckReport": [
@@ -30272,7 +30317,7 @@
       "checkWiring": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "readLastBoot": [
+      "readLastBoots": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "checkReadiness": [

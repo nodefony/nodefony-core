@@ -24,8 +24,47 @@
 import path from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
-/** Emplacement du bilan, relatif à la racine de l'application. */
+/**
+ * QUI a démarré — la distinction sans laquelle le bilan désigne le mauvais
+ * coupable.
+ *
+ * `console` couvre tout ce qui boote sans ouvrir de port : `nodefony inspect`,
+ * `orm:migrate`, une commande de module. Ces démarrages sont fréquents, et
+ * échouent souvent pour des raisons qui ne concernent pas le serveur (un
+ * environnement absent dans le terminal de celui qui tape). Les confondre fait
+ * attribuer au serveur l'échec d'une commande, et chercher là où il n'y a rien.
+ */
+export type LastBootProfile = "server" | "console" | "cluster";
+
+/** Emplacement du bilan du SERVEUR, relatif à la racine de l'application. */
 export const LAST_BOOT_FILE = path.join("var", "last-boot.json");
+
+/**
+ * Emplacement du bilan d'un démarrage CONSOLE.
+ *
+ * Un fichier séparé, et non une entrée de plus dans le premier : un `nodefony
+ * inspect` lancé POUR diagnostiquer une panne de serveur écrasait la preuve
+ * qu'il venait chercher. Deux profils, deux fichiers — c'est la seule forme
+ * qui rend l'écrasement structurellement impossible.
+ */
+export const LAST_BOOT_CONSOLE_FILE = path.join(
+  "var",
+  "last-boot-console.json",
+);
+
+/**
+ * Le fichier où un bilan doit s'écrire, d'après son profil.
+ *
+ * Une seule règle, un seul endroit : l'écrivain et le lecteur en dépendent, et
+ * deux copies divergeraient sans que rien ne le signale.
+ *
+ * @param profile - profil du démarrage (absent = serveur, par compatibilité
+ *   avec les bilans écrits avant que le champ existe).
+ * @returns le chemin relatif du fichier.
+ */
+export function lastBootFileFor(profile: LastBootProfile | undefined): string {
+  return profile === "console" ? LAST_BOOT_CONSOLE_FILE : LAST_BOOT_FILE;
+}
 
 /** Une brique qui n'a pas été chargée, et la raison qui l'explique. */
 export interface ILastBootBrick {
@@ -53,6 +92,21 @@ export interface ILastBoot {
   status: "ok" | "failed";
   /** Horodatage ISO 8601 de la fin du démarrage. */
   timestamp: string;
+  /**
+   * QUI a démarré — serveur, commande console, ou maître de cluster.
+   *
+   * Sans lui, `doctor` attribuait au serveur l'échec d'un `nodefony inspect`
+   * lancé sans son environnement, et envoyait chercher là où il n'y a rien.
+   * Optionnel : un bilan écrit avant que ce champ existe reste lisible, et vaut
+   * `server` par défaut (cf {@link lastBootFileFor}).
+   */
+  profile?: LastBootProfile;
+  /**
+   * La commande qui a provoqué ce démarrage (`development`, `inspect`,
+   * `orm:migrate`…). C'est elle qu'on relance pour reproduire — le profil seul
+   * ne le dit pas.
+   */
+  command?: string;
   /** Environnement résolu (`development`, `production`…). */
   environment: string;
   /** PID du process — utile en cluster pour recouper les journaux. */
@@ -87,6 +141,18 @@ export interface ILastBoot {
   warnings?: number;
   /** Nombre de `ERROR` et pire émis pendant le démarrage. */
   errors?: number;
+  /**
+   * Les PREMIERS messages `ERROR` et pire, dans l'ordre où ils sont sortis.
+   *
+   * Un compte seul ne diagnostique rien : un firewall qui se déclare invalide
+   * au boot pose son erreur, loggue CRITIC, et laisse le boot continuer — le
+   * bilan disait alors `errors: 1` et rien d'autre. Le lecteur savait qu'il
+   * s'était passé quelque chose, pas quoi.
+   *
+   * Borné (les premiers suffisent : le reste est presque toujours une
+   * conséquence), et alloué SEULEMENT s'il y en a.
+   */
+  criticals?: string[];
   /** Serveurs réellement en écoute (description courte). */
   serversListening?: string[];
   /** Action corrective suggérée par le bilan, quand une heuristique l'a trouvée. */
@@ -124,7 +190,9 @@ export interface ILastBoot {
  */
 export function writeLastBoot(appPath: string, entry: ILastBoot): void {
   try {
-    const file = path.join(appPath, LAST_BOOT_FILE);
+    // Le profil décide du fichier : un démarrage console n'écrase JAMAIS le
+    // bilan du serveur. Cf {@link lastBootFileFor} — une seule règle.
+    const file = path.join(appPath, lastBootFileFor(entry.profile));
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, `${JSON.stringify(entry, null, 2)}\n`, "utf8");
   } catch {
@@ -142,8 +210,19 @@ export function writeLastBoot(appPath: string, entry: ILastBoot): void {
  *          justement diagnostiquer une application cassée.
  */
 export function readLastBoot(appPath: string): ILastBoot | null {
+  return readLastBootFile(appPath, LAST_BOOT_FILE);
+}
+
+/**
+ * Lit un bilan précis, en le validant.
+ *
+ * @param appPath - racine de l'application inspectée.
+ * @param fichier - chemin relatif du bilan.
+ * @returns le bilan, ou `null` s'il est absent ou illisible.
+ */
+function readLastBootFile(appPath: string, fichier: string): ILastBoot | null {
   try {
-    const raw = readFileSync(path.join(appPath, LAST_BOOT_FILE), "utf8");
+    const raw = readFileSync(path.join(appPath, fichier), "utf8");
     const parsed = JSON.parse(raw) as Partial<ILastBoot>;
     if (parsed.status !== "ok" && parsed.status !== "failed") return null;
     if (typeof parsed.timestamp !== "string") return null;
@@ -151,6 +230,26 @@ export function readLastBoot(appPath: string): ILastBoot | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Tous les bilans disponibles — serveur d'abord, console ensuite.
+ *
+ * L'ordre n'est pas neutre : celui qui lance `doctor` sur une application qui
+ * ne répond plus cherche le SERVEUR. Le bilan d'une commande console est utile
+ * (il explique souvent pourquoi un `orm:migrate` n'a rien fait) mais il ne
+ * doit jamais passer devant.
+ *
+ * @param appPath - racine de l'application inspectée.
+ * @returns les bilans présents, dans l'ordre de lecture. Jamais `null`.
+ */
+export function readLastBoots(appPath: string): ILastBoot[] {
+  const bilans: ILastBoot[] = [];
+  for (const fichier of [LAST_BOOT_FILE, LAST_BOOT_CONSOLE_FILE]) {
+    const bilan = readLastBootFile(appPath, fichier);
+    if (bilan) bilans.push(bilan);
+  }
+  return bilans;
 }
 
 /**

@@ -21,8 +21,11 @@ import path from "node:path";
 import {
   writeLastBoot,
   readLastBoot,
+  readLastBoots,
   formatAge,
   LAST_BOOT_FILE,
+  LAST_BOOT_CONSOLE_FILE,
+  lastBootFileFor,
   type ILastBoot,
 } from "../kernel/checks/lastBoot";
 import { runCheckCommand } from "../kernel/checks/runCheck";
@@ -245,12 +248,92 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     it("`--json` porte le bilan, pour un agent qui le lit au `jq`", async () => {
       writeLastBoot(dir, failed());
       const { out } = await capture(() => runCheckCommand(["--json"]));
-      const parsed = JSON.parse(out) as { lastBoot: ILastBoot | null };
-      assert.equal(parsed.lastBoot?.status, "failed");
+      // Un TABLEAU : serveur et console ont chacun leur bilan, et le premier
+      // ne doit plus être écrasé par un `nodefony inspect` lancé pour le lire.
+      const parsed = JSON.parse(out) as { lastBoots: ILastBoot[] };
+      assert.lengthOf(parsed.lastBoots, 1);
+      assert.equal(parsed.lastBoots[0]?.status, "failed");
       assert.equal(
-        parsed.lastBoot?.error?.message,
+        parsed.lastBoots[0]?.error?.message,
         "Cannot find package 'redis'",
       );
+    });
+
+    describe("QUI a démarré — le bilan ne désigne plus le mauvais coupable", () => {
+      it("🔴 un démarrage CONSOLE n'écrase PAS le bilan du serveur", () => {
+        // LE défaut : un `nodefony inspect` lancé POUR diagnostiquer une panne de
+        // serveur écrasait la preuve qu'il venait chercher. Le profil décide du
+        // fichier — c'est la seule forme qui rend l'écrasement impossible.
+        writeLastBoot(
+          dir,
+          failed({
+            profile: "server",
+            command: "development",
+            error: { name: "nodefonyError", message: "le serveur est mort" },
+          }),
+        );
+        writeLastBoot(
+          dir,
+          failed({
+            profile: "console",
+            command: "inspect",
+            error: { name: "nodefonyError", message: "pas de NF_DATABASE_URL" },
+          }),
+        );
+
+        const serveur = readLastBoot(dir);
+        assert.equal(
+          serveur?.error?.message,
+          "le serveur est mort",
+          "le bilan du serveur a été écrasé par une commande console",
+        );
+        assert.isTrue(existsSync(path.join(dir, LAST_BOOT_CONSOLE_FILE)));
+
+        // Les deux sont lisibles, serveur d'ABORD : celui qui lance `doctor` sur
+        // une application qui ne répond plus cherche le serveur.
+        const tous = readLastBoots(dir);
+        assert.deepEqual(
+          tous.map((b) => b.profile),
+          ["server", "console"],
+        );
+      });
+
+      it("un bilan SANS profil (écrit avant ce champ) reste celui du serveur", () => {
+        // Compatibilité : le fichier historique n'a pas de `profile`, et il
+        // décrivait bien un serveur. Le classer ailleurs le rendrait invisible.
+        assert.equal(lastBootFileFor(undefined), LAST_BOOT_FILE);
+        assert.equal(lastBootFileFor("server"), LAST_BOOT_FILE);
+        assert.equal(lastBootFileFor("cluster"), LAST_BOOT_FILE);
+        assert.equal(lastBootFileFor("console"), LAST_BOOT_CONSOLE_FILE);
+      });
+
+      it("le rapport NOMME la commande et son profil", async () => {
+        writeLastBoot(
+          dir,
+          failed({ profile: "console", command: "orm:migrate" }),
+        );
+        const { out } = await capture(() => runCheckCommand([]));
+        assert.include(out, "nodefony orm:migrate");
+        assert.include(out, "console");
+      });
+
+      it("🔴 les messages CRITIC sont DITS, pas seulement comptés", async () => {
+        // `errors: 1` sans un mot était le cas le plus frustrant du bilan : un
+        // firewall qui se déclare invalide au boot loggue CRITIC et laisse le
+        // boot continuer. Le lecteur savait qu'il s'était passé quelque chose.
+        writeLastBoot(
+          dir,
+          ok({
+            errors: 1,
+            criticals: [
+              "security : zone `admin` invalide, aucun pare-feu posé",
+            ],
+          }),
+        );
+        const { out } = await capture(() => runCheckCommand([]));
+        assert.include(out, "zone");
+        assert.include(out, "aucun pare-feu posé");
+      });
     });
   });
 

@@ -39,7 +39,7 @@ import {
   type ILigneSommaire,
   type IPalette,
 } from "./report";
-import { formatAge, LAST_BOOT_FILE, type ILastBoot } from "./lastBoot";
+import { formatAge, lastBootFileFor, type ILastBoot } from "./lastBoot";
 // Type SEUL : élidé à la compilation, donc aucune arête d'import à l'exécution
 // entre la collecte et son rendu.
 import type { ICheckReport } from "./runCheck";
@@ -136,14 +136,19 @@ export function rendreRapport(
   lignes.push(...enTete(report, opts, p));
   lignes.push(...sommaire(report, p, largeur));
 
-  if (report.lastBoot && meriteDEtreDit(report.lastBoot)) {
+  const bilansParlants = report.lastBoots.filter(meriteDEtreDit);
+  if (bilansParlants.length > 0) {
     // Une SECTION, comme les autres : sans filet ni titre, ce bloc flottait
     // entre le sommaire et le premier manquement, et se lisait comme une suite
     // du sommaire alors qu'il parle d'autre chose — d'une EXÉCUTION passée.
     lignes.push("", p.discret(filet(largeur)), "");
-    lignes.push(`  ${p.fort("DERNIER DÉMARRAGE")}`);
-    lignes.push("");
-    lignes.push(...dernierDemarrage(report.lastBoot, now, p, largeur));
+    lignes.push(
+      `  ${p.fort(bilansParlants.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE")}`,
+    );
+    for (const demarrage of bilansParlants) {
+      lignes.push("");
+      lignes.push(...dernierDemarrage(demarrage, now, p, largeur));
+    }
   }
 
   // ── Le détail, groupé et dans l'ordre de lecture des familles.
@@ -333,6 +338,32 @@ function groupesDeManquements(
 }
 
 /**
+ * QUI a démarré, en toutes lettres.
+ *
+ * « Le dernier démarrage a ÉCHOUÉ » désignait le serveur quel que soit le
+ * coupable : un `nodefony inspect` lancé sans son environnement produisait la
+ * même phrase, et envoyait chercher là où il n'y a rien. Nommer le profil ET
+ * la commande donne les deux choses qui manquaient — qui accuser, et quoi
+ * relancer pour reproduire.
+ *
+ * @param entry - le bilan.
+ * @returns « `nodefony inspect` (console) », ou « Le dernier démarrage ».
+ */
+export function qui(entry: ILastBoot): string {
+  const profil =
+    entry.profile === "console"
+      ? "console"
+      : entry.profile === "cluster"
+        ? "maître de cluster"
+        : entry.profile === "server"
+          ? "serveur"
+          : "";
+  if (!entry.command && !profil) return "Le dernier démarrage";
+  if (!entry.command) return `Le dernier démarrage (${profil})`;
+  return `\`nodefony ${entry.command}\`${profil ? ` (${profil})` : ""}`;
+}
+
+/**
  * Le bilan du dernier démarrage, quand il a une mauvaise nouvelle à donner.
  *
  * Placé haut, parce que c'est l'information la plus utile de tout le rapport
@@ -369,7 +400,18 @@ function dernierDemarrage(
     // la colonne saute d'une ligne à l'autre.
     const colonne = 18;
     const indent = CORPS + " ".repeat(colonne);
-    const [premiere, ...suite] = replier(valeur, largeur, indent);
+    const lignesValeur = replier(valeur, largeur, indent);
+    // Un chemin ou une URL ne se coupe PAS (le couper le rendrait incopiable).
+    // Sur un terminal étroit, la colonne d'alignement ne laisse alors pas assez
+    // de place : la valeur passe SOUS son libellé plutôt que de déborder.
+    const deborde = lignesValeur.some((l) => l.length > largeur);
+    if (deborde) {
+      return [
+        `${CORPS}${p.discret(nom)}`,
+        ...replier(valeur, largeur, `${CORPS}  `),
+      ];
+    }
+    const [premiere, ...suite] = lignesValeur;
     return [
       `${CORPS}${p.discret(nom.padEnd(colonne, " "))}${(premiere ?? "").trimStart()}`,
       ...suite,
@@ -386,7 +428,7 @@ function dernierDemarrage(
   };
 
   if (entry.status === "failed") {
-    lignes.push(...titre(`Le dernier démarrage a ÉCHOUÉ (${age})`, p.echec));
+    lignes.push(...titre(`${qui(entry)} a ÉCHOUÉ (${age})`, p.echec));
     lignes.push(...champ("phase atteinte", entry.phase ?? "inconnue"));
     lignes.push(...champ("environnement", entry.environment));
     if (entry.error) {
@@ -401,7 +443,7 @@ function dernierDemarrage(
     // Le cas que personne ne diagnostique : ça DÉMARRE, donc ça a l'air sain.
     lignes.push(
       ...titre(
-        `Le dernier démarrage a abouti mais il MANQUE des briques (${age})`,
+        `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
         p.alerte,
       ),
     );
@@ -442,12 +484,24 @@ function dernierDemarrage(
       ),
     );
   }
+  if (entry.criticals?.length) {
+    // Le compte disait qu'il s'était passé quelque chose ; ceci dit QUOI.
+    for (const message of entry.criticals) {
+      // La suite s'aligne SOUS le texte, pas sous la puce : une deuxième ligne
+      // rendue à la même colonne que le `·` se lit comme un deuxième message.
+      const [premiere, ...suite] = replier(message, largeur, `${CORPS}    `);
+      lignes.push(p.echec(`${CORPS}  · ${(premiere ?? "").trimStart()}`));
+      for (const l of suite) lignes.push(p.echec(l));
+    }
+  }
   if (entry.remediation) {
     for (const l of replier(`→ ${entry.remediation}`, largeur, CORPS)) {
       lignes.push(p.geste(l));
     }
   }
-  lignes.push(...champ("bilan complet", LAST_BOOT_FILE));
+  // SON fichier, pas celui du serveur : avec deux bilans affichés, un
+  // chemin unique enverrait lire le mauvais.
+  lignes.push(...champ("bilan complet", lastBootFileFor(entry.profile)));
   return lignes;
 }
 

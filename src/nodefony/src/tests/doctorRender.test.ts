@@ -41,7 +41,7 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
   wiring: { scanned: 12, findings: [] },
   readiness: { findings: [], catalogUnreadable: false, portsProbed: [] },
   freshness: { findings: [], notComparable: false },
-  lastBoot: null,
+  lastBoots: [],
   exceptions: 0,
   execution: {
     freshness: { ran: true },
@@ -160,13 +160,20 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
           },
         ],
       },
-      lastBoot: {
-        status: "failed",
-        timestamp: "2026-09-04T11:00:00.000Z",
-        environment: "production",
-        phase: "onPreBoot",
-        error: { name: "BootError", message: "cause ".repeat(40) },
-      } as ICheckReport["lastBoot"],
+      lastBoots: [
+        {
+          status: "failed",
+          timestamp: "2026-09-04T11:00:00.000Z",
+          profile: "console",
+          command: "orm:migrate",
+          environment: "production",
+          phase: "onPreBoot",
+          pid: 1,
+          node: "v26.0.0",
+          criticals: ["firewall : ".padEnd(220, "x")],
+          error: { name: "BootError", message: "cause ".repeat(40) },
+        },
+      ] as ICheckReport["lastBoots"],
       // Un contrôle sauté à raison LONGUE : sans lui, la section « non
       // contrôlé » n'est pas rendue et son repli n'est jamais éprouvé — un
       // décor incomplet fait passer un test qui ne mesure rien.

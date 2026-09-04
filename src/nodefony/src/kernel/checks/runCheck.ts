@@ -14,8 +14,9 @@ import path from "node:path";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { checkPackageDeps } from "./packageDeps";
 import { checkWiring } from "./wiring";
-import { readLastBoot } from "./lastBoot";
+import { readLastBoots } from "./lastBoot";
 import { findProjectRoot } from "../../cli/projectRoot";
+import type { ILastBoot } from "./lastBoot";
 import {
   checkReadiness,
   type IPortProbe,
@@ -279,8 +280,14 @@ export interface ICheckReport {
   readiness: IReadinessResult;
   /** Écarts entre ce qui est ÉCRIT et ce qui s'EXÉCUTERA (build, plancher Node). */
   freshness: IFreshnessResult;
-  /** Bilan du dernier démarrage, s'il y en a un. */
-  lastBoot: ReturnType<typeof readLastBoot>;
+  /**
+   * Les bilans de démarrage disponibles — serveur d'abord, console ensuite.
+   *
+   * DEUX, et pas un : un `nodefony inspect` lancé POUR diagnostiquer une panne
+   * de serveur écrasait le bilan qu'il venait lire. Chacun dit désormais QUI a
+   * démarré (`profile`) et par quelle commande.
+   */
+  lastBoots: ILastBoot[];
   /** Exceptions déclarées, comptées dans le rendu humain. */
   exceptions: number;
   /**
@@ -312,7 +319,7 @@ export interface ICheckReport {
 export async function collectCheckReport(start: string): Promise<ICheckReport> {
   const projectRoot = findProjectRoot(start);
   const cwd = projectRoot ?? start;
-  const lastBoot = readLastBoot(cwd);
+  const lastBoots = readLastBoots(cwd);
   const roots = CANDIDATE_ROOTS.map((r) => path.join(cwd, r)).filter((r) =>
     statSync(r, { throwIfNoEntry: false }),
   );
@@ -372,7 +379,7 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
     freshness,
     wiring: { scanned: wiring.scanned, findings: wiring.findings },
     readiness,
-    lastBoot,
+    lastBoots,
     exceptions:
       Object.values(typeCycles ?? {}).flat().length +
       (typesUnreachable?.length ?? 0),
