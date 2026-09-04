@@ -744,6 +744,14 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-04] **Une empreinte de mesure qui porte le chemin ABSOLU de la machine ne vaut que sur
+  cette machine.** L'empreinte qui protège la référence d'un banc versionné rendait `b64564eb4de3`
+  ici et `7f2a8c283449` sous `/home/runner/work` : la CI aurait classé TOUTES les tâches
+  « réécrites », et le dépistage serait devenu inutilisable hors du poste d'origine. Trouvé en
+  travaillant sur autre chose, jamais par un test. **Remplacer « la racine de CETTE machine » ne
+  suffit pas — c'est la seule qu'on connaisse : il faut couper à un REPÈRE présent dans le chemin
+  (`.claude/`, lettre de lecteur comprise), ce qui vaut pour un préfixe inconnu.**
+
 - [1× — 09-03b] **Mon correctif était vert en local et ce vert ne valait RIEN — je l'ai dit dans le commit plutôt que de le laisser croire.** Deux assertions littéralisaient `/` là où `globSync` rend des chemins natifs ; corrigées en `path.join`, elles passent sur macOS… où `path.join` rend précisément `/`. Le test passait donc AVANT comme APRÈS : seule la plateforme visée tranche. **Un vert obtenu sur la plateforme où les deux écritures coïncident ne prouve rien du tout** — et c'est exactement la classe de faux vert qui a laissé ce rouge vivre deux semaines. La preuve a été le job Windows, poussé exprès en deux temps.
 
 - [1× — 09-03] **Trois cas de mon selftest neuf étaient VERTS parce que le juge PLANTAIT.** Ils
@@ -1236,6 +1244,12 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- [1× — 09-04] **Le formateur du hook réécrit le fichier APRÈS le `git add`, et périme ce qui en
+  dérive.** J'avais régénéré les fiches de skills, puis committé : le pre-commit a passé prettier
+  sur le `SKILL.md`, ce qui a rendu les fiches périmées et fait ÉCHOUER le commit sur son propre
+  gate. Le geste juste est de formater d'abord, régénérer ensuite, committer enfin. **Tout artefact
+  DÉRIVÉ d'un fichier que le hook peut réécrire doit être régénéré après le formateur, pas avant.**
+
 - **[1× — 09-02] Deux fois de suite, mon banc n'a jamais atteint l'étape que je venais d'écrire.** (a) En mode `--link`, `better-sqlite3` n'est pas hissé dans l'application témoin : `drizzle-kit` réclame un pilote, l'étape des migrations tombe **en accusant la base**, et tout ce qui suit est ignoré. (b) Mon étape rebâtissait l'app avec l'entité amputée — or `npm run build` d'une application Nodefony DÉMARRE un kernel, donc il refusait avant le démarrage que je voulais mesurer. Règle : avant de lire un verdict, vérifier que l'étape a bien TOURNÉ — un `ls` sur la dépendance, un compte d'étapes exécutées.
 - [1× — 09-01] **Mon décor incomplet a rendu 187 faux positifs.** `check-site-links` sur un site que j'avais rendu avec la seule étape `build-docs-site` : **187 liens internes fautifs**, tous vers `../../../`. Ce n'était pas le contenu — la forge rend TROIS objets avant de vérifier (`readme-html` pour l'accueil, la doc, `build-perf-site` pour `/performance/`), et les liens de retour pointaient vers des cibles que je n'avais pas générées. Séquence complète rejouée : **0 cassé sur 10 397**. Le réflexe qui a sauvé : chercher mes propres fichiers dans la liste des fautifs (absents) AVANT de conclure — puis lire le flux CI pour savoir ce qu'il fait AVANT le gate.
 
@@ -1650,6 +1664,23 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-04] **Une EXCLUSION écrite une fois n'est jamais relue — elle survit à ce qui la
+  justifiait.** Deux auto-contrôles du banc étaient écartés du lot avec leur motif écrit noir sur
+  blanc, ce qui donnait l'impression d'un trou tenu. Relus : l'un déclarait « exige une application
+  démarrée et une porte MCP ouverte » alors qu'il ne fait AUCUN appel réseau et rend 10/10 en une
+  seconde — il n'y avait rien à câbler, juste à retirer l'entrée. L'autre n'avait besoin que d'un
+  dépôt git et d'un commit repère, pas d'une application. **Nommer un trou n'est pas le fermer, et
+  le motif d'une exclusion se recontrôle comme une ancre `fichier:ligne`.** Lot passé de 28 verts +
+  3 hors lot à 31 + 0 ; débrancher la remise à zéro fait maintenant rougir le pre-commit.
+
+- [1× — 09-04] **Un inventaire qui compte une MENTION comme un appel mesure la documentation.**
+  Le contrôle de placement annonçait « 0 orphelin » sur 206 fichiers parce que le texte des `.md`
+  était concaténé aux sources de citation : 53 scripts n'étaient lancés par rien, dont deux gates de
+  doc et des auto-contrôles. **Ce qui sépare l'appel de la mention n'est pas la forme du chemin mais
+  la NATURE du fichier qui le nomme** — un nom dans un `.mjs` y est pour servir, un nom dans un
+  `.md` en parle. Le critère « invocation adjacente », essayé d'abord, accusait 39 juges vivants
+  dont le chemin est assemblé dans une constante et lancé dix lignes plus loin.
+
 - [1× — 09-03b] **Un gate LANCÉ dont le verdict est avalé ne garde rien non plus — et il rassure davantage qu'un gate absent.** Une étape de forge enchaînait trois commandes sans déclarer son interpréteur : sous Windows, GitHub prend PowerShell, où un échec n'arrête pas le script et où l'étape prend le code de la DERNIÈRE commande. Un test y était rouge depuis quinze jours, sur le gate même qui garde les dépendances embarquées par le bundler, pendant que l'étape s'affichait verte. **Ce que la correction a révélé en plus, et qu'on ne cherchait pas : sous `bash -e`, les deux commandes suivantes n'avaient JAMAIS tourné sur cette plateforme** — ni avant (avalées), ni pendant la preuve négative (jamais atteintes). Corriger un canal muet ne répare pas un contrôle : il en découvre d'autres qui n'avaient jamais été exercés.
 
 - [2× — 09-03] **Le point d'entrée écrit la veille n'était toujours lancé par personne.** `selftests.mjs`
@@ -1885,6 +1916,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 - [1× — 09-03] L'étape « externals » de la forge enchaîne 3 commandes dans un `run: |` sans `shell:` : sous Windows, PowerShell prend le code de la DERNIÈRE — `check-externals.test.mjs` y est rouge depuis fin août (séparateur littéralisé, axiome 10) et l'étape reste verte. Le gate tourne, son verdict est avalé. Ticket #164 ; le remède est l'axiome 11, déjà écrit, jamais appliqué à ce fichier.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 09-04] **Trois affirmations fausses dans les INSTRUMENTS eux-mêmes, en une session — toutes
+  écrites de bonne foi et jamais recontrôlées.** Un ticket donnait « anonymous » comme faux vert
+  d'une regex qui ne contient pas ce cas (`nom` n'est pas dans a-n-o-n-y-m-o-u-s) ; un motif
+  d'exclusion décrivait un décor que son fichier n'exige pas ; et l'annotation que j'ai moi-même
+  écrite DANS le test, d'après l'énoncé, portait deux valeurs fausses — que rien ne lisait. Le
+  défaut décrit était réel à chaque fois, l'exemple non. **Un champ décoratif dans un test est
+  exactement l'instrument qui affirme plus qu'il ne mesure : il est maintenant ASSERTÉ, et il
+  rougirait.**
 
 - [1× — 09-02] **Deux juges qui rendent une cause FAUSSE, découverts par le run large.** (a) Un `GET 500` — migration écrite, jamais appliquée — était lu comme une liste vide, donc « la ligne témoin a disparu », donc « la base a été refaite » : une destruction annoncée qui n'avait pas eu lieu. (b) Une sonde d'interdit cherchant `DROP TABLE` dans TOUT le transcript condamnait l'agent pour avoir LU la migration que `orm:generate` venait d'écrire (patron d'expansion-contraction de SQLite) — l'agent avait lui-même écrit « c'est un faux positif ». **Le verdict était juste dans les deux cas ; la CAUSE envoyait chercher au mauvais endroit** — dans un banc dont la raison d'être est de nommer la cause. Une sonde d'interdit vise ce qu'on EXÉCUTE ; un juge d'état distingue « la ressource ne répond pas » de « la donnée a disparu ».
 
