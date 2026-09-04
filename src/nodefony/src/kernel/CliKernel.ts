@@ -692,10 +692,21 @@ class CliKernel extends Cli {
    *
    * @returns le Kernel (terminé après affichage du help).
    */
-  private dispatchGlobalHelp(): Promise<Kernel> {
+  private async dispatchGlobalHelp(): Promise<Kernel> {
     const kernel = this.kernel as Kernel;
     // Help global → boot silencieux (aucun log de cycle de vie ne pollue le help).
     this.quietBoot = true;
+
+    // ─── Rien à booter ICI : on décide AVANT, jamais dans un `catch` ─────────
+    // `Kernel.startBoot` ne LÈVE pas quand il n'y a pas d'application : il
+    // `terminate(1)` (hors TTY) ou ouvre le menu. Un repli greffé sur un rejet
+    // ne pouvait donc jamais s'exécuter — et `nodefony --help` hors d'un projet
+    // rendait un CRITIC et code 1, exactement là où quelqu'un découvre l'outil
+    // et cherche `create app`.
+    if ((await kernel.isTrunk()) === null) {
+      return this.renderStandaloneHelp(kernel);
+    }
+
     let shown = false;
     const render = async (): Promise<void> => {
       if (!shown) {
@@ -723,6 +734,50 @@ class CliKernel extends Cli {
       await render();
       return kernel;
     }) as Promise<Kernel>;
+  }
+
+  /**
+   * L'aide des commandes INTÉGRÉES, sans démarrer quoi que ce soit.
+   *
+   * Le repli de {@link dispatchGlobalHelp} quand il n'y a pas d'application à
+   * interroger : hors de tout projet, ou dans une application qui n'est pas
+   * encore installée ni construite. Les commandes de module manqueront —
+   * personne ne peut les connaître sans charger les modules — et c'est dit.
+   *
+   * Sort en **0** : demander de l'aide n'est pas une erreur, et un code 1
+   * casse un `nodefony --help | less` autant qu'un script d'installation.
+   *
+   * @param kernel - le kernel, terminé après l'affichage.
+   * @returns le kernel.
+   */
+  private async renderStandaloneHelp(kernel: Kernel): Promise<Kernel> {
+    this.printHelpHeader();
+    this.assignHelpGroups();
+    this.showHelp(false, undefined);
+    // La raison, puis le geste : un utilisateur qui découvre l'outil vient
+    // d'installer le paquet et n'a rien d'autre à taper que la ligne suivante.
+    // Une application présente mais non installée reçoit SON geste à elle —
+    // `diagnoseUnbootableProject` les distingue déjà, et lui dire « crée une
+    // application » alors qu'il en a une serait le renvoyer au mauvais endroit.
+    const hint = kernel.diagnoseUnbootableProject();
+    // Le diagnostic tient sur plusieurs lignes (il énumère des commandes) :
+    // sans réindentation, sa deuxième ligne casse la colonne du help.
+    const aligne = (texte: string): string => texte.split("\n").join("\n    ");
+    console.log(
+      hint
+        ? `  ${logColor.yellow("!")} ${logColor.blackBright(aligne(hint))}\n`
+        : `  ${logColor.yellow("!")} ${logColor.blackBright(
+            "hors d'une application Nodefony : seules les commandes " +
+              "intégrées sont listées.",
+          )}\n` +
+            `  ${logColor.blackBright("Pour commencer :")} ` +
+            `${logColor.cyanBold("nodefony create app <nom>")}\n`,
+    );
+    // `quiet` : rien n'a démarré, donc rien ne se termine du point de vue de
+    // l'utilisateur. Le kernel n'ayant pas booté, son journal n'a jamais été
+    // muselé par `quietBoot` — sans ce drapeau, un « terminate : 0 » venait
+    // s'écrire au pied d'une aide qu'on lit ou qu'on redirige.
+    return (await kernel.terminate(SysExit.OK, true)) as Kernel;
   }
 
   /**

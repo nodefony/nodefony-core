@@ -77,10 +77,11 @@ function runCli(
   args: string[],
   timeoutMs = CLI_TIMEOUT_MS,
   extraEnv?: Record<string, string>,
+  cwd: string = REPO_ROOT,
 ): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [BIN, ...args], {
-      cwd: REPO_ROOT,
+      cwd,
       env: { ...process.env, ...extraEnv },
     });
     let stdout = "";
@@ -293,6 +294,63 @@ describe.skipIf(!fs.existsSync(DIST))(
       const txt = r.stdout + r.stderr;
       for (const name of ["production", "cluster", "build", "development"]) {
         assert.ok(txt.includes(name), `--help doit lister "${name}"\n${txt}`);
+      }
+    });
+
+    // ─── Hors d'une APPLICATION — le moment où l'on découvre l'outil ─────────
+    // `Kernel.startBoot` ne LÈVE pas quand il n'y a rien à démarrer : il
+    // `terminate(1)`. Le repli greffé sur un rejet ne s'exécutait donc jamais,
+    // et `nodefony --help` répondait par un CRITIC et un code 1 à qui venait
+    // d'installer le paquet et cherchait `create app`.
+    it("⭐ `--help` hors d'un projet rend l'aide des intégrées, et sort en 0", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-help-hors-"));
+      try {
+        const r = await runCli(["--help"], CLI_TIMEOUT_MS, {}, dir);
+        assert.strictEqual(
+          r.code,
+          0,
+          `demander de l'aide n'est pas une erreur\n${r.stderr}`,
+        );
+        const txt = r.stdout + r.stderr;
+        for (const name of ["create", "development", "production", "doctor"]) {
+          assert.ok(txt.includes(name), `l'aide doit lister "${name}"\n${txt}`);
+        }
+        assert.ok(
+          /create app/.test(txt),
+          `l'aide doit dire par quoi commencer\n${txt}`,
+        );
+        assert.ok(!/CRITIC/.test(txt), `un help n'est pas un incident\n${txt}`);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("⭐ une application NON INSTALLÉE reçoit l'aide, et SON geste à elle", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-help-brut-"));
+      try {
+        fs.writeFileSync(
+          path.join(dir, "package.json"),
+          '{"name":"a","version":"1.0.0","main":"dist/index.js",' +
+            '"dependencies":{"nodefony":"^10.0.0"}}',
+        );
+        fs.writeFileSync(
+          path.join(dir, "nodefony.config.ts"),
+          "export default {};",
+        );
+        const r = await runCli(["--help"], CLI_TIMEOUT_MS, {}, dir);
+        assert.strictEqual(r.code, 0, r.stderr);
+        const txt = r.stdout + r.stderr;
+        assert.ok(txt.includes("development"), "l'aide est bien rendue");
+        assert.ok(
+          /npm install/.test(txt),
+          `qui A une application ne doit pas s'entendre dire d'en créer une\n${txt}`,
+        );
+        assert.ok(
+          !/create app/.test(txt),
+          `…et surtout pas le contraire de son geste\n${txt}`,
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
       }
     });
 
