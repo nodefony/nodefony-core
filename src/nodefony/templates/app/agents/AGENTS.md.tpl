@@ -537,7 +537,7 @@ milieu, et tu passes l'heure suivante sur des 404 fantômes.
 ## Gates — vérifier avant de dire « fait »
 
 ```bash
-npm run verify        # ⬅ LA commande. typecheck + lint + tests + check, dans cet ordre
+npm run verify        # ⬅ LA commande. typecheck + lint + tests + doctor, dans cet ordre
 ```
 
 **Une seule à retenir, et c'est délibéré.** Les quatre gates ci-dessous existent
@@ -552,11 +552,27 @@ type-check pas**, ton code peut être bâti, servi, et ne pas compiler.
 npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
 npm run lint          # style et pièges
 npm test              # unitaires, rapides, zéro serveur
-npm run doctor         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
+npm run doctor        # diagnostic : câblage, install, + BILAN du dernier démarrage
 npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : c'est le gate LENT
 ```
 
-**`check` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
+### `doctor` — le premier réflexe quand quelque chose ne va pas
+
+**Avant de chercher, demande.** `npx nodefony doctor` (ou `npm run doctor`) est
+la commande de diagnostic : elle répond depuis n'importe quel sous-dossier, elle
+n'exécute RIEN de ton application, et `--json` la rend exploitable par un script.
+`check` en est un alias historique — le nom à retenir est `doctor`.
+
+Ce qu'elle t'épargne : une demi-heure à chercher pourquoi une route répond 404,
+pourquoi un service est introuvable, ou pourquoi l'app « marche » sans faire ce
+qu'on lui demande. Elle ne devine pas — elle LIT, et elle nomme le geste.
+
+```bash
+npx nodefony doctor           # sortie lisible ; sort en erreur s'il manque quelque chose
+npx nodefony doctor --json    # même chose, pour un script ou un agent
+```
+
+**`doctor` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
 exécuter — donc il répond sur une app qui ne se lance plus :
 
 - une **variable REQUISE** sans valeur ;
@@ -564,15 +580,22 @@ exécuter — donc il répond sur une app qui ne se lance plus :
 - une dépendance déclarée **absente de `node_modules`** ;
 - un **port déjà tenu** par un autre programme (le tien ne compte pas).
 
-**`check` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
+Il nomme aussi une **classe écrite que rien ne déclare** — une entité hors de
+`@entities([…])`, un controller hors de `@controllers([…])`. Elle compile, les
+tests qui l'importent passent, et la panne n'arrive qu'au démarrage suivant :
+une table jamais créée, une route qui répond 404 sans que rien ne l'explique.
+C'est le mode d'échec de la COPIE, celui qu'on fait en recopiant le voisin au
+lieu d'appeler le générateur.
+
+**`doctor` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
 seule façon de l'apprendre après coup : l'app écrit son bilan dans
 `var/last-boot.json` à chaque boot. Deux cas que tu ne peux pas voir autrement :
 
-- **elle ne démarre plus** — `check` n'exécute rien, donc il répond quand même,
+- **elle ne démarre plus** — `doctor` n'exécute rien, donc il répond quand même,
   et il nomme la phase atteinte et la cause ;
 - **elle démarre mais AMPUTÉE** — c'est le cas piégeux : tout a l'air sain, et
   une brique manque (base injoignable, module écarté par sa `policy`). Le
-  journal l'a dit une fois, au terminal de celui qui a lancé. `check` te le
+  journal l'a dit une fois, au terminal de celui qui a lancé. `doctor` te le
   redit, avec la RAISON de chaque brique absente.
 
 Sur une app saine il n'en parle pas. S'il en parle, lis avant de coder.

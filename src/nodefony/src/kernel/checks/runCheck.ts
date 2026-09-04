@@ -22,6 +22,7 @@ import {
 } from "./lastBoot";
 import { findProjectRoot } from "../../cli/projectRoot";
 import { checkReadiness, type IPortProbe } from "./readiness";
+import { checkFreshness } from "./freshness";
 import {
   defaultDevPorts,
   probePorts,
@@ -295,6 +296,8 @@ export interface ICheckReport {
   };
   /** Ce qui manque ICI et maintenant (env, modules, deps, ports). */
   readiness: Awaited<ReturnType<typeof checkReadiness>>;
+  /** Écarts entre ce qui est ÉCRIT et ce qui s'EXÉCUTERA (build, plancher Node). */
+  freshness: ReturnType<typeof checkFreshness>;
   /** Bilan du dernier démarrage, s'il y en a un. */
   lastBoot: ReturnType<typeof readLastBoot>;
   /** Exceptions déclarées, comptées dans le rendu humain. */
@@ -348,10 +351,17 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
       })
     : { findings: [], catalogUnreadable: false, portsProbed: [] };
 
+  // La fraîcheur ne se contrôle QUE dans une application : hors projet, il n'y
+  // a pas de `dist/` à comparer, et le plancher de Node est celui du dépôt.
+  const freshness = projectRoot
+    ? checkFreshness(projectRoot)
+    : { findings: [], notComparable: true };
+
   return {
     root: cwd,
     scanned,
     findings,
+    freshness,
     wiring: { scanned: wiring.scanned, findings: wiring.findings },
     readiness,
     lastBoot,
@@ -366,7 +376,8 @@ export function countCheckFindings(report: ICheckReport): number {
   return (
     report.findings.length +
     report.wiring.findings.length +
-    report.readiness.findings.length
+    report.readiness.findings.length +
+    report.freshness.findings.length
   );
 }
 
@@ -379,7 +390,15 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
   const { json } = parsed;
   const start = parsed.cwd;
   const report = await collectCheckReport(start);
-  const { root: cwd, scanned, findings, wiring, readiness, lastBoot } = report;
+  const {
+    root: cwd,
+    scanned,
+    findings,
+    wiring,
+    readiness,
+    freshness,
+    lastBoot,
+  } = report;
 
   if (json) {
     process.stdout.write(
@@ -411,7 +430,8 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
   if (
     findings.length === 0 &&
     wiring.findings.length === 0 &&
-    readiness.findings.length === 0
+    readiness.findings.length === 0 &&
+    freshness.findings.length === 0
   ) {
     const exceptions = report.exceptions;
     process.stdout.write(
@@ -439,6 +459,15 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
   // Ce qui empêche de DÉMARRER passe en premier : quand l'application ne se
   // lance plus, une variable absente ou un port tenu explique tout le reste, et
   // le faire suivre une liste de manquements de câblage reviendrait à le cacher.
+  // La FRAÎCHEUR passe avant tout le reste : un build en retard rend faux tout
+  // ce qui suit — une classe « non câblée » peut l'être dans le dist, et pas
+  // dans les sources qu'on vient d'éditer. Le lecteur doit le savoir d'abord.
+  for (const f of freshness.findings) {
+    process.stdout.write(clc.red(`✗ ${f.message}\n`));
+    if (f.file) {
+      process.stdout.write(`  ${f.file}\n`);
+    }
+  }
   for (const f of readiness.findings) {
     process.stdout.write(clc.red(`✗ ${f.message}\n`));
     if (f.file) {
@@ -456,7 +485,10 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
     process.stdout.write(`  ${f.file}\n`);
   }
   const total =
-    findings.length + wiring.findings.length + readiness.findings.length;
+    findings.length +
+    wiring.findings.length +
+    readiness.findings.length +
+    freshness.findings.length;
   process.stdout.write(
     clc.red(
       `\n${total} manquement(s) sur ${scanned} paquet(s) et ${wiring.scanned} classe(s).\n`,

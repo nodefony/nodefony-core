@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T09:09:14.328Z",
+  "generated": "2026-09-04T09:35:17.622Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 796,
-    "symbols": 3659,
+    "files": 797,
+    "symbols": 3664,
     "classes": 383,
-    "interfaces": 1008,
+    "interfaces": 1010,
     "types": 428,
     "enums": 4,
-    "functions": 1469,
+    "functions": 1472,
     "constants": 367
   },
   "symbols": {
@@ -7891,6 +7891,40 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Exécute un endpoint du plan d'administration — **la porte unique**, sans HTTP. ⭐ **Une source, plusieurs portes.** Le data plane est un ensemble de fonctions `IAdminRequest → donnée` ; ce qui les e…"
+    },
+    "IFreshnessFinding": {
+      "name": "IFreshnessFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un écart entre ce qui est écrit et ce qui s'exécutera."
+    },
+    "IFreshnessResult": {
+      "name": "IFreshnessResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le contrôle a regardé — et ce qu'il n'a PAS pu regarder."
+    },
+    "requiredNodeMajor": {
+      "name": "requiredNodeMajor",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La version majeure exigée par `engines.node`, ou `null` si non déclarée."
+    },
+    "checkFreshness": {
+      "name": "checkFreshness",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Confronte les sources au build, et la version de Node au plancher déclaré."
     },
     "ILastBootBrick": {
       "name": "ILastBootBrick",
@@ -29964,6 +29998,9 @@
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "IPortProbe": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "checkFreshness": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "probePorts": [
