@@ -939,6 +939,31 @@ step(
       );
     }
     writeFileSync(index, after, "utf8");
+
+    // 🔴 Décâblées ne suffit pas : `doctor` scanne les FICHIERS, pas le
+    // câblage. Il voyait donc deux entités PostgreSQL dans une application
+    // SQLite et les accusait — « la table ne sera jamais créée » —, ce qui
+    // faisait échouer l'étape unitaire qui appelle `nodefony check`. La forge
+    // est restée rouge une journée là-dessus.
+    //
+    // Le produit offre le mécanisme exact pour ce cas, et son message le dit :
+    // « le projet a DÉCLARÉ que cette divergence est voulue — un dépôt qui
+    // porte un banc multi-moteurs ne doit pas être condamné pour cela ». Le
+    // banc EST ce dépôt : il déclare, plutôt que d'être excusé en silence.
+    const manifestePath = path.join(APP, "package.json");
+    const manifeste = JSON.parse(readFileSync(manifestePath, "utf8"));
+    manifeste.nodefony ??= {};
+    manifeste.nodefony.check ??= {};
+    // Écrits en `/` : c'est une clé qui VOYAGE, lue sur les trois systèmes.
+    manifeste.nodefony.check.entityDialect = [
+      "entity/PgAuthor.ts",
+      "entity/PgInvoice.ts",
+    ];
+    writeFileSync(
+      manifestePath,
+      `${JSON.stringify(manifeste, null, 2)}\n`,
+      "utf8",
+    );
   },
 );
 
