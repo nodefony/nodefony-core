@@ -15,6 +15,7 @@ import type { IAdminBrokerLike } from "../inspect/adminSubjects";
 import { localOperatorCaller } from "../adminPlane/adminCaller";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
   // vaut que pour une invocation directe) : sa sortie serait noyée sous le
   // journal de cycle de vie.

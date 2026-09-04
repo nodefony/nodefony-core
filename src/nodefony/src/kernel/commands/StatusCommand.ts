@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runStatusReport } from "../../service/dev/devStatusReport";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onStart",
 };

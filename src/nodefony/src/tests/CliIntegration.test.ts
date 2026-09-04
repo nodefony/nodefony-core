@@ -297,6 +297,34 @@ describe.skipIf(!fs.existsSync(DIST))(
       }
     });
 
+    // ─── L'aide est groupée par INTENTION, et rien n'y échappe ───────────────
+    // Une commande intégrée sans `helpGroup` tombe sous « AUTRES » : elle reste
+    // listée, mais dans le fourre-tout de fin de page, là où personne ne la
+    // cherche. L'invariant s'observe donc sur le PRODUIT, pas sur une table.
+    it("⭐ aucune commande intégrée ne tombe dans le fourre-tout de l'aide", async () => {
+      const r = await runCli(["--help"], CLI_TIMEOUT_MS, { NF_NO_COLOR: "1" });
+      assert.strictEqual(r.code, 0, r.stderr);
+      const txt = r.stdout + r.stderr;
+      assert.ok(
+        !/^\s{2}AUTRES\s/mu.test(txt),
+        `une intégrée a perdu son groupe d'intention\n${txt}`,
+      );
+      // …et les groupes attendus sont bien là, dans l'ordre de la journée.
+      const ordre = ["LANCER", "COMPRENDRE", "GÉNÉRER ET CONSTRUIRE"];
+      const positions = ordre.map((g) => txt.indexOf(`  ${g} `));
+      // `node:assert` strict ici (le fichier n'importe pas chai) : ses
+      // comparaisons se disent avec `ok`, et le message porte le diagnostic.
+      for (const [i, at] of positions.entries()) {
+        assert.ok(at >= 0, `groupe absent de l'aide : ${ordre[i]}`);
+        if (i > 0) {
+          assert.ok(
+            at > (positions[i - 1] ?? -1),
+            `groupes dans le désordre : ${ordre[i]} devrait suivre ${ordre[i - 1]}`,
+          );
+        }
+      }
+    });
+
     // ─── Hors d'une APPLICATION — le moment où l'on découvre l'outil ─────────
     // `Kernel.startBoot` ne LÈVE pas quand il n'y a rien à démarrer : il
     // `terminate(1)`. Le repli greffé sur un rejet ne s'exécutait donc jamais,

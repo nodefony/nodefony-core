@@ -18,6 +18,7 @@ import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // L'en-tête du menu est UNE ligne sobre (posée par interaction) — pas
   // l'ascii-art : un menu se lit, il ne s'annonce pas.
   showBanner: false,
@@ -161,7 +162,53 @@ class Menu extends Command {
     const builtins = (this.cli as CliKernel).getBuiltinCommandNames();
     return manifest.commands
       .filter((c) => !builtins.has(c.name))
-      .map((c) => ({ name: c.name, description: c.description }));
+      .map((c) => {
+        const entree: IStartMenuModuleCommand = {
+          name: c.name,
+          description: c.description,
+        };
+        // Le groupe voyage dans le manifeste : c'est ce qui permet au menu de
+        // ranger une commande de module là où l'aide la range, sans avoir à
+        // booter pour le lui demander.
+        if (c.group) entree.group = c.group;
+        return entree;
+      });
+  }
+
+  /**
+   * Les commandes INTÉGRÉES, telles que commander les connaît à `onStart`.
+   *
+   * Elles portent leur groupe d'intention et le nombre d'arguments qu'elles
+   * exigent : le menu s'en sert pour proposer tout ce qui existe, sans liste
+   * blanche à tenir.
+   *
+   * @returns le relevé, vide si commander n'est pas encore prêt.
+   */
+  private builtinCommands(): {
+    name: string;
+    description: string;
+    group?: string;
+    requiredArgs?: number;
+  }[] {
+    return (this.cli?.commander?.commands ?? [])
+      .filter((c) => !c.name().startsWith("__") && c.name() !== "help")
+      .map((c) => {
+        const group = (c as { helpGroup?: () => unknown }).helpGroup?.();
+        const entree: {
+          name: string;
+          description: string;
+          group?: string;
+          requiredArgs?: number;
+        } = {
+          name: c.name(),
+          description: c.description() || "",
+          requiredArgs: (c.registeredArguments ?? []).filter(
+            (a) => (a as { required?: boolean }).required,
+          ).length,
+        };
+        if (typeof group === "string" && group) entree.group = group;
+        return entree;
+      });
   }
 
   /**
@@ -193,6 +240,7 @@ class Menu extends Command {
         return command ? command.description() : null;
       },
       moduleCommands: this.moduleCommandsFromManifest(),
+      builtinCommands: this.builtinCommands(),
       npmScripts: this.npmScriptsFromPackageJson(),
     });
     const version = this.kernel?.version ? ` v${this.kernel.version}` : "";

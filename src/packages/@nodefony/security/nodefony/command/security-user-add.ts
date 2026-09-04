@@ -7,6 +7,7 @@ import {
 import type { UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   // `onPostReady` : `fireLifecycle("onReady")` attend TOUS ses listeners — dont
   // le `provisionUsers` de l'app qui pose le service "users" — avant de fire.

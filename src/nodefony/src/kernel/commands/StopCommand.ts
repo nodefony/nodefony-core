@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runStopReport } from "../../service/dev/devStop";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onStart",
 };

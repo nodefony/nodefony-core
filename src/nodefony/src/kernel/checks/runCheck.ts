@@ -44,6 +44,7 @@ import {
   FAMILLES,
   countFindings,
   creerPalette,
+  replierListe,
   doitColorer,
   largeurUtile,
   type IPalette,
@@ -244,22 +245,6 @@ export interface ICheckRequest {
  * @param p - la peinture en vigueur.
  * @returns le texte complet, retour chariot final compris.
  */
-function replierListe(items: readonly string[], largeur: number): string[] {
-  const lignes: string[] = [];
-  let courante = "";
-  for (const item of items) {
-    const essai = courante ? `${courante} · ${item}` : item;
-    if (essai.length <= largeur || !courante) {
-      courante = essai;
-      continue;
-    }
-    lignes.push(courante);
-    courante = item;
-  }
-  if (courante) lignes.push(courante);
-  return lignes;
-}
-
 export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
   // Une description qui déborde se replie sur la marge du terminal et se lit
   // comme une ligne d'option de plus. La colonne des drapeaux fait 20 : la

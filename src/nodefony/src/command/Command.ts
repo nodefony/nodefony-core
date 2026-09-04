@@ -54,6 +54,22 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * restent, et `-d/--debug` rétablit tout.
    */
   quietBoot?: boolean;
+  /**
+   * Le groupe d'INTENTION sous lequel l'aide range cette commande.
+   *
+   * 🔴 Déclaré par la commande elle-même, jamais déduit de son propriétaire.
+   * L'aide groupait par ORIGINE du code (« Commands: », « Module drizzle »),
+   * seul axe qu'un programme sache dériver seul — et le seul que personne ne
+   * cherche : on ne demande pas « qu'offre le module http ? », on demande
+   * comment lancer, ce qui cloche, comment faire évoluer. Une table tenue à
+   * part par le CLI aurait le défaut inverse : elle ne connaît pas les
+   * commandes des modules, qui n'existent pas encore quand elle s'écrit.
+   *
+   * Les valeurs vivent dans `HELP_GROUPS` (`cli/helpReport.ts`) : un groupe
+   * inconnu n'est pas une erreur — la commande tombe sous le module qui la
+   * porte, ce qui reste vrai pour un module tiers.
+   */
+  helpGroup?: string;
 }
 
 export type CommandArgs = any[];
@@ -406,6 +422,12 @@ class Command extends Service {
     const cmd = new Cmd(name);
     if (description) {
       cmd.description(description);
+    }
+    // Le groupe voyage avec la commande, DANS commander : c'est le seul endroit
+    // que le rendu de l'aide sait interroger pour les intégrées comme pour
+    // celles des modules — ces dernières ne sont pas dans `cli.commands`.
+    if (this.options?.helpGroup) {
+      cmd.helpGroup(this.options.helpGroup);
     }
     this.program.addCommand(cmd);
     return cmd;

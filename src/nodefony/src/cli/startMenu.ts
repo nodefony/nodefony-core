@@ -15,6 +15,8 @@
  * seule : `describe()` rend `null` et l'entrée n'est pas émise.
  */
 
+import { MENU_GROUP_LABELS } from "./helpReport";
+
 /** Contexte de lancement : dans un projet Nodefony, ou hors de tout projet. */
 export type StartMenuContext = "project" | "outside";
 
@@ -40,6 +42,14 @@ export type StartMenuItem =
 export interface IStartMenuModuleCommand {
   name: string;
   description: string;
+  /**
+   * Le groupe d'intention de la commande, quand elle en déclare un.
+   *
+   * Sans lui, toutes les commandes de module tombaient dans un unique
+   * fourre-tout (« Commandes du projet »), pendant que l'aide les rangeait par
+   * intention. Le même CLI se présentait donc de deux façons selon la porte.
+   */
+  group?: string;
 }
 
 export interface IStartMenuInput {
@@ -57,6 +67,25 @@ export interface IStartMenuInput {
    */
   moduleCommands?: IStartMenuModuleCommand[];
   /**
+   * Toutes les commandes que commander connaît DÉJÀ (les intégrées), avec leur
+   * groupe d'intention et le nombre d'arguments qu'elles EXIGENT.
+   *
+   * 🔴 C'est ce qui remplace la liste blanche. Le menu ne proposait que les
+   * commandes inscrites à la main dans son catalogue : une commande neuve n'y
+   * entrait jamais, et personne ne s'en apercevait — le menu avait toujours
+   * l'air complet. Le catalogue ne sert plus qu'à ce qu'aucune dérivation ne
+   * peut donner : l'ORDRE de lecture et le CONSEIL d'usage.
+   *
+   * Une commande qui exige un argument est écartée : le menu la lancerait sans
+   * lui, et l'utilisateur recevrait une erreur d'usage au lieu d'un geste.
+   */
+  builtinCommands?: readonly {
+    name: string;
+    description: string;
+    group?: string;
+    requiredArgs?: number;
+  }[];
+  /**
    * Noms des scripts présents dans le `package.json` du projet. Le menu n'en
    * propose que ceux de son catalogue (`NPM_SCRIPT_CATALOG`) : les gestes
    * qualité et infra qu'aucune commande nodefony ne porte. Un script absent
@@ -71,7 +100,14 @@ export interface IStartMenuInput {
 interface ICatalogEntry {
   value: string;
   contexts: StartMenuContext[];
-  /** Titre de groupe, par contexte (un même geste change de sens hors projet). */
+  /**
+   * Titre de groupe, par contexte (un même geste change de sens hors projet).
+   *
+   * 🔴 Dans un projet, il se DÉRIVE de l'intention déclarée par la commande —
+   * `menuGroupe()` traduit `HELP_GROUPS` en libellé de menu. Une seconde
+   * taxonomie écrite ici divergerait de l'aide au premier ajout, et le lecteur
+   * n'aurait plus aucune raison de croire l'une plutôt que l'autre.
+   */
   group: Record<StartMenuContext, string | null>;
   /** Le CONSEIL d'usage — la seule prose qui n'existe pas déjà ailleurs. */
   when: string;
@@ -82,99 +118,112 @@ interface ICatalogEntry {
  * groupe par groupe. Ajouter une commande au menu = une entrée ici, rien
  * d'autre (le résumé et la disponibilité viennent de commander).
  */
+/**
+ * Le libellé de menu d'une intention — la MÊME taxonomie que l'aide.
+ *
+ * @param intention - un groupe de `HELP_GROUPS`.
+ * @returns le libellé à afficher dans le menu.
+ */
+function menuGroupe(intention: keyof typeof MENU_GROUP_LABELS): string {
+  return MENU_GROUP_LABELS[intention] as string;
+}
+
 export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
   // ── Serveur ──────────────────────────────────────────────────────────────
   {
     value: "development",
     contexts: ["project"],
-    group: { project: "Serveur", outside: null },
+    group: { project: menuGroupe("LANCER"), outside: null },
     when: "Pour coder : rechargement automatique à chaque sauvegarde, HMR côté front. Ctrl+C pour arrêter.",
   },
   {
     value: "production",
     contexts: ["project"],
-    group: { project: "Serveur", outside: null },
+    group: { project: menuGroupe("LANCER"), outside: null },
     when: "Le mode des conteneurs et des pods : premier plan, logs sur la sortie standard, arrêt gracieux sur SIGTERM.",
   },
   {
     value: "cluster",
     contexts: ["project"],
-    group: { project: "Serveur", outside: null },
+    group: { project: menuGroupe("LANCER"), outside: null },
     when: "Plusieurs workers isolés sur une même machine (bare-metal/VPS) — relance automatique d'un worker tombé.",
   },
   {
     value: "status",
     contexts: ["project", "outside"],
-    group: { project: "Serveur", outside: "Machine" },
+    group: { project: menuGroupe("LANCER"), outside: "Machine" },
     when: "Qu'est-ce qui tourne ici ? Superviseur, serveurs, Vite, ports occupés — sans rien démarrer.",
   },
   {
     value: "stop",
     contexts: ["project", "outside"],
-    group: { project: "Serveur", outside: "Machine" },
+    group: { project: menuGroupe("LANCER"), outside: "Machine" },
     when: "Arrête proprement tout runtime Nodefony de la machine (dev, prod, cluster) — remplace le pkill -9.",
   },
   // ── Comprendre ───────────────────────────────────────────────────────────
   {
     value: "check",
     contexts: ["project"],
-    group: { project: "Comprendre", outside: null },
+    group: { project: menuGroupe("COMPRENDRE"), outside: null },
     when: "Diagnostic statique : marche même quand l'app ne démarre plus, et rapporte le bilan du dernier boot.",
   },
   {
     value: "inspect",
     contexts: ["project"],
-    group: { project: "Comprendre", outside: null },
+    group: { project: menuGroupe("COMPRENDRE"), outside: null },
     when: "L'état RÉEL de l'app — ce qui est monté, pas ce que le code laisse croire. Sans ouvrir de port.",
   },
   {
     value: "env",
     contexts: ["project"],
-    group: { project: "Comprendre", outside: null },
+    group: { project: menuGroupe("COMPRENDRE"), outside: null },
     when: "Chaque variable : sa valeur effective, le fichier .env qui l'a posée, et celles qui sont masquées ou inconnues.",
   },
   {
     value: "card",
     contexts: ["project"],
-    group: { project: "Comprendre", outside: null },
+    group: { project: menuGroupe("COMPRENDRE"), outside: null },
     when: "La carte de visite : modules installés, où aller (docs, console d'admin), quoi lancer. Le point de départ.",
   },
   // ── Faire évoluer / Démarrer ─────────────────────────────────────────────
   {
     value: "create",
     contexts: ["project", "outside"],
-    group: { project: "Faire évoluer", outside: "Démarrer" },
+    group: {
+      project: menuGroupe("GÉNÉRER ET CONSTRUIRE"),
+      outside: "Démarrer",
+    },
     when: "Le wizard pose les questions puis génère un code conforme : ne rien écrire à la main qu'un générateur produit.",
   },
   {
     value: "build",
     contexts: ["project"],
-    group: { project: "Faire évoluer", outside: null },
+    group: { project: menuGroupe("GÉNÉRER ET CONSTRUIRE"), outside: null },
     when: "Compile modules puis application. Le runtime charge dist/ : une route neuve n'existe qu'après ce geste.",
   },
   {
     value: "install",
     contexts: ["project"],
-    group: { project: "Faire évoluer", outside: null },
+    group: { project: menuGroupe("GÉNÉRER ET CONSTRUIRE"), outside: null },
     when: "Installe les dépendances puis construit — le geste après un clone ou un changement de dépendances.",
   },
   {
     value: "outdated",
     contexts: ["project"],
-    group: { project: "Faire évoluer", outside: null },
+    group: { project: menuGroupe("GÉNÉRER ET CONSTRUIRE"), outside: null },
     when: "Les dépendances en retard, agrégées par paquet — distingue une plage épinglée d'un simple npm update.",
   },
   // ── Outillage ────────────────────────────────────────────────────────────
   {
     value: "git:hooks",
     contexts: ["project"],
-    group: { project: "Outillage", outside: null },
+    group: { project: menuGroupe("AGENTS ET OUTILLAGE"), outside: null },
     when: "Pose .githooks/ (pre-commit léger, pre-push verify) via git config natif — zéro dépendance, geste explicite.",
   },
   {
     value: "ai:sync",
     contexts: ["project"],
-    group: { project: "Outillage", outside: null },
+    group: { project: menuGroupe("AGENTS ET OUTILLAGE"), outside: null },
     when: "Pose les pointeurs vers les skills d'agent livrés par les paquets installés — à rejouer après un npm update.",
   },
   {
@@ -182,32 +231,36 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
     // brancher un agent sur son application supposait d'avoir lu `--help`.
     value: "ai:mcp",
     contexts: ["project"],
-    group: { project: "Outillage", outside: null },
+    group: { project: menuGroupe("AGENTS ET OUTILLAGE"), outside: null },
     when: "Déclare le serveur MCP de cette application à ton agent (.mcp.json) — --auth pour le mode authentifié.",
   },
   {
     value: "symbols",
     contexts: ["project", "outside"],
-    group: { project: "Comprendre", outside: "Comprendre" },
+    group: { project: menuGroupe("COMPRENDRE"), outside: "Comprendre" },
     when: "Cherche un symbole du framework : où il est défini, ce qu'il étend, ce que dit sa doc — sans ouvrir un fichier.",
   },
   {
     value: "man",
     contexts: ["project", "outside"],
-    group: { project: "Comprendre", outside: "Comprendre" },
+    group: { project: menuGroupe("COMPRENDRE"), outside: "Comprendre" },
     when: "Page de manuel du CLI, générée depuis les commandes réellement enregistrées.",
   },
   {
     value: "completion",
     contexts: ["project", "outside"],
-    group: { project: "Outillage", outside: "Machine" },
+    group: { project: menuGroupe("AGENTS ET OUTILLAGE"), outside: "Machine" },
     when: "La complétion shell (bash, zsh, fish) : commandes, options et arguments au TAB.",
   },
 ];
 
 /** Groupes, dans l'ordre d'affichage, par contexte. */
 const GROUP_ORDER: Record<StartMenuContext, readonly string[]> = {
-  project: ["Serveur", "Comprendre", "Faire évoluer", "Outillage"],
+  // DÉRIVÉ de la taxonomie unique : un groupe d'intention ajouté à l'aide
+  // apparaît ici sans qu'on y pense. Écrit à la main, il manquait — et un
+  // groupe absent de cette liste fait disparaître ses commandes du menu, en
+  // silence.
+  project: Object.values(MENU_GROUP_LABELS),
   outside: ["Démarrer", "Machine"],
 };
 
@@ -378,12 +431,32 @@ export function buildStartMenu(input: IStartMenuInput): {
       (e) => e.contexts.includes(context) && e.group[context] === groupTitle,
     );
     const rendered: StartMenuItem[] = [];
+    const vues = new Set<string>();
     for (const entry of entries) {
       const summary = input.describe(entry.value);
       if (summary === null) {
         continue; // commande retirée du CLI → sortie du menu, sans erreur
       }
+      vues.add(entry.value);
       rendered.push(choice(entry.value, summary, entry.when));
+    }
+    // Puis TOUT le reste du groupe, dérivé de commander. Sans conseil d'usage —
+    // la description suffit à choisir — mais présent, ce qui est le point : le
+    // catalogue dit dans quel ORDRE lire, il ne décide plus de ce qui EXISTE.
+    if (context === "project") {
+      for (const cmd of input.builtinCommands ?? []) {
+        if (vues.has(cmd.name)) continue;
+        if ((cmd.requiredArgs ?? 0) > 0) continue;
+        if (!cmd.group || MENU_GROUP_LABELS[cmd.group] !== groupTitle) continue;
+        vues.add(cmd.name);
+        rendered.push(
+          choice(
+            cmd.name,
+            cmd.description,
+            "Commande intégrée du CLI — `nodefony <commande> --help` en dit plus.",
+          ),
+        );
+      }
     }
     if (rendered.length > 0) {
       items.push({ kind: "separator", label: groupTitle });
@@ -418,16 +491,36 @@ export function buildStartMenu(input: IStartMenuInput): {
   }
   if (context === "project") {
     if (input.moduleCommands?.length) {
-      items.push({ kind: "separator", label: MODULE_COMMANDS_GROUP });
+      // Rangées par INTENTION, comme dans l'aide — la même taxonomie, traduite
+      // par `MENU_GROUP_LABELS`. Celles qui n'en déclarent aucune (module
+      // tiers) gardent le groupe générique : mieux vaut un fourre-tout nommé
+      // qu'une commande absente.
+      const parGroupe = new Map<string, StartMenuItem[]>();
       for (const mc of input.moduleCommands) {
-        items.push({
+        const titre =
+          (mc.group && MENU_GROUP_LABELS[mc.group]) ?? MODULE_COMMANDS_GROUP;
+        const item: StartMenuItem = {
           kind: "choice",
           label: mc.name,
           summary: mc.description,
           value: mc.name,
           description:
             "Commande apportée par un module de cette application (relue du dernier démarrage dev).",
-        });
+        };
+        const bucket = parGroupe.get(titre);
+        if (bucket) bucket.push(item);
+        else parGroupe.set(titre, [item]);
+      }
+      // L'ordre des groupes est celui de la taxonomie, pas celui du cache.
+      const ordre = [
+        ...Object.values(MENU_GROUP_LABELS),
+        MODULE_COMMANDS_GROUP,
+      ];
+      for (const titre of ordre) {
+        const groupItems = parGroupe.get(titre);
+        if (!groupItems?.length) continue;
+        items.push({ kind: "separator", label: titre });
+        items.push(...groupItems);
       }
     }
   }

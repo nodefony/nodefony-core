@@ -8,6 +8,7 @@ import {
 } from "../src/assets/collectAssets";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   // `onReady` : mounts natifs posés + entries frontend déclarées (comme
   // proxy:generate). `lifetime: oneshot` → pas de serveurs.

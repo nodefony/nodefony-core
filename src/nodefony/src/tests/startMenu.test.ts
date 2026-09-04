@@ -396,3 +396,108 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
     expect(journal).toEqual([]);
   });
 });
+
+/**
+ * 🔴 Le menu ne tient plus de LISTE BLANCHE.
+ *
+ * Il ne proposait que les commandes inscrites à la main dans son catalogue :
+ * une commande neuve n'y entrait jamais, et rien ne le signalait — le menu
+ * avait toujours l'air complet. Le catalogue ne décide plus de ce qui EXISTE,
+ * seulement de l'ordre de lecture et du conseil d'usage.
+ */
+describe("buildStartMenu — ce qui existe est proposé, sans l'y inscrire", () => {
+  const base = {
+    inProject: true,
+    describe: (n: string) => (n === "inconnue" ? null : `résumé de ${n}`),
+  };
+
+  it("⭐ une commande intégrée HORS catalogue apparaît sous son intention", () => {
+    const { items } = buildStartMenu({
+      ...base,
+      builtinCommands: [
+        {
+          name: "commande-neuve",
+          description: "ce qu'elle fait",
+          group: "COMPRENDRE",
+          requiredArgs: 0,
+        },
+      ],
+    });
+    const at = items.findIndex(
+      (i) => i.kind === "choice" && i.value === "commande-neuve",
+    );
+    assert.isAtLeast(at, 0, "la commande doit être proposée");
+    const separateurs = items
+      .slice(0, at)
+      .filter((i) => i.kind === "separator");
+    assert.equal(
+      separateurs.at(-1)?.label,
+      "Comprendre",
+      "…sous le groupe que son intention désigne",
+    );
+  });
+
+  it("🔴 une commande qui EXIGE un argument n'est pas proposée", () => {
+    // Le menu la lancerait sans argument : l'utilisateur recevrait une erreur
+    // d'usage là où il attendait un geste.
+    const { items } = buildStartMenu({
+      ...base,
+      builtinCommands: [
+        {
+          name: "exige-un-sujet",
+          description: "…",
+          group: "COMPRENDRE",
+          requiredArgs: 1,
+        },
+      ],
+    });
+    assert.isFalse(
+      items.some((i) => i.kind === "choice" && i.value === "exige-un-sujet"),
+    );
+  });
+
+  it("une commande déjà au catalogue n'est pas proposée DEUX fois", () => {
+    const { items } = buildStartMenu({
+      ...base,
+      builtinCommands: [
+        {
+          name: "development",
+          description: "…",
+          group: "LANCER",
+          requiredArgs: 0,
+        },
+      ],
+    });
+    const combien = items.filter(
+      (i) => i.kind === "choice" && i.value === "development",
+    ).length;
+    assert.equal(combien, 1);
+  });
+
+  it("les commandes de MODULE se rangent aussi par intention", () => {
+    const { items } = buildStartMenu({
+      ...base,
+      moduleCommands: [
+        {
+          name: "orm:migrate",
+          description: "applique les migrations",
+          group: "BASE DE DONNÉES",
+        },
+        { name: "truc:machin", description: "d'un module tiers" },
+      ],
+    });
+    const titres = items
+      .filter((i) => i.kind === "separator")
+      .map((i) => i.label);
+    assert.include(
+      titres,
+      "Base de données",
+      "l'intention déclarée est suivie",
+    );
+    assert.include(
+      titres,
+      "Commandes du projet",
+      "…et celle qui n'en déclare aucune garde le groupe générique",
+    );
+  });
+});

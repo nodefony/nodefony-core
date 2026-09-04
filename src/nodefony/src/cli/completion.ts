@@ -44,6 +44,16 @@ export interface ICliManifestCommand {
    */
   args?: string[][];
   /**
+   * Le groupe d'INTENTION déclaré par la commande (cf `HELP_GROUPS`).
+   *
+   * Porté par le manifeste parce que ses deux autres lecteurs en ont besoin
+   * et ne peuvent pas le retrouver : le menu interactif s'ouvre à `onStart`,
+   * trop tôt pour connaître les commandes de module, et la page de manuel se
+   * rend hors de tout boot. Sans lui, les deux rangeaient tout un pan du CLI
+   * dans un fourre-tout, là où l'aide le classe.
+   */
+  group?: string;
+  /**
    * Les flags qui attendent une VALEUR, avec ce qu'on peut proposer.
    *
    * Un tableau vide dit « une valeur est attendue, mais je ne sais pas
@@ -127,6 +137,12 @@ export function buildCliManifest(
       // `nodefony create <TAB>` ne proposait jamais `app`).
       args: (cmd.registeredArguments ?? []).map((a) => a.argChoices ?? []),
       optionValues: optionValuesOf(cmd),
+      ...(typeof (cmd as { helpGroup?: () => unknown }).helpGroup?.() ===
+      "string"
+        ? {
+            group: (cmd as { helpGroup: () => string }).helpGroup(),
+          }
+        : {}),
     });
   }
   return {

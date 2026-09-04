@@ -2,7 +2,6 @@ import path from "node:path";
 
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
-import { logColor } from "../syslog/logColor";
 import { SysExit } from "../cli/sysexits";
 import { toImportSpecifier } from "./resolveModuleEntry";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
@@ -44,6 +43,12 @@ import {
 import Completion from "./commands/CompletionCommand";
 import Create from "./commands/CreateCommand";
 import { runCreateCommand } from "../cli/create";
+import { doitColorer, largeurUtile } from "./checks/report";
+import {
+  renderHelp,
+  type IHelpCommand,
+  type IHelpOption,
+} from "../cli/helpReport";
 import {
   isDoctorCommand,
   runCheckCommand,
@@ -720,10 +725,7 @@ class CliKernel extends Cli {
         // fichier) restait amputé chez qui n'avait jamais démarré l'application.
         // Best-effort, jamais bloquant : un help ne doit pas dépendre du disque.
         await this.writeCompletionManifest().catch(() => {});
-        this.printHelpHeader();
-        this.assignHelpGroups();
-        this.showHelp(false, undefined);
-        this.printHelpFooter();
+        this.writeHelp();
       }
       await this.kernel?.terminate(SysExit.OK);
     };
@@ -751,27 +753,21 @@ class CliKernel extends Cli {
    * @returns le kernel.
    */
   private async renderStandaloneHelp(kernel: Kernel): Promise<Kernel> {
-    this.printHelpHeader();
-    this.assignHelpGroups();
-    this.showHelp(false, undefined);
     // La raison, puis le geste : un utilisateur qui découvre l'outil vient
     // d'installer le paquet et n'a rien d'autre à taper que la ligne suivante.
     // Une application présente mais non installée reçoit SON geste à elle —
     // `diagnoseUnbootableProject` les distingue déjà, et lui dire « crée une
     // application » alors qu'il en a une serait le renvoyer au mauvais endroit.
     const hint = kernel.diagnoseUnbootableProject();
-    // Le diagnostic tient sur plusieurs lignes (il énumère des commandes) :
-    // sans réindentation, sa deuxième ligne casse la colonne du help.
-    const aligne = (texte: string): string => texte.split("\n").join("\n    ");
-    console.log(
+    this.writeHelp(
       hint
-        ? `  ${logColor.yellow("!")} ${logColor.blackBright(aligne(hint))}\n`
-        : `  ${logColor.yellow("!")} ${logColor.blackBright(
-            "hors d'une application Nodefony : seules les commandes " +
+        ? { note: hint.split("\n").join(" ") }
+        : {
+            note:
+              "hors d'une application Nodefony : seules les commandes " +
               "intégrées sont listées.",
-          )}\n` +
-            `  ${logColor.blackBright("Pour commencer :")} ` +
-            `${logColor.cyanBold("nodefony create app <nom>")}\n`,
+            noteAction: "nodefony create app <nom>",
+          },
     );
     // `quiet` : rien n'a démarré, donc rien ne se termine du point de vue de
     // l'utilisateur. Le kernel n'ayant pas booté, son journal n'a jamais été
@@ -781,92 +777,112 @@ class CliKernel extends Cli {
   }
 
   /**
-   * En-tête brandé du help global (1ʳᵉ ligne, pas de ligne vide en tête — norme
-   * sortie CLI). Couleur gatée par `logColor` (isTTY + NO_COLOR/FORCE_COLOR).
+   * Les commandes qui répondent en JSON — la seule chose qu'un agent cherche
+   * d'abord, et que rien n'affichait.
+   *
+   * Écrite ici plutôt que dérivée d'un `--json` cherché dans les options : la
+   * moitié des commandes en portent un pour un usage local (un fragment, un
+   * fichier), et les lister toutes noierait celles qui rendent un DOCUMENT
+   * exploitable. La liste est courte et se relit d'un coup d'œil.
    */
-  private printHelpHeader(): void {
-    // `shownVersion` et non `version` : ce fichier importe déjà `version` du
-    // `package.json` (utilisée par `--version` et le manifeste CLI). Un `version`
-    // local ici masquerait cet import — et l'en-tête tire sa valeur de commander,
-    // pas du paquet.
+  private static readonly JSON_COMMANDS: readonly string[] = [
+    "doctor --json",
+    "inspect <sujet> --json",
+    "env --json",
+    "card --json",
+  ];
+
+  /**
+   * Compose le modèle d'aide depuis commander, et l'écrit.
+   *
+   * 🔴 Le modèle se lit sur COMMANDER, jamais sur `cli.commands` : les
+   * commandes de module ne sont pas dans ce registre (elles s'enregistrent
+   * directement dans commander depuis `Module`), et c'est ce trou qui faisait
+   * déjà perdre des commandes au menu. Le groupe voyage donc avec la commande,
+   * posé par son constructeur (`OptionsCommandInterface.helpGroup`).
+   *
+   * @param extra - une note de situation, quand l'aide est rendue hors d'une
+   *   application ou dans une application non installée.
+   */
+  private writeHelp(extra?: { note?: string; noteAction?: string }): void {
+    const c = this.commander;
     let shownVersion = "";
     try {
-      const v: unknown = this.commander?.version();
+      const v: unknown = c?.version();
       if (typeof v === "string") shownVersion = v;
     } catch {
       /* commander sans version — ignore */
     }
-    const tag = shownVersion
-      ? ` ${logColor.blackBright(`v${shownVersion}`)}`
-      : "";
-    console.log(
-      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}   ` +
-        `${logColor.blackBright("framework fullstack Node.js — HTTP · WS · ORM · IA")}\n`,
-    );
-  }
 
-  /**
-   * Affecte un groupe d'aide (`helpGroup`) à chaque commande pour un help
-   * sectionné (Commander 15) : built-ins par catégorie statique ; commandes de
-   * module regroupées sous leur module propriétaire (résolu via `module.commands`).
-   */
-  private assignHelpGroups(): void {
-    const c = this.commander;
-    if (!c) {
-      return;
-    }
-    const builtin: Record<string, string> = {
-      development: "Serveur",
-      production: "Serveur",
-      cluster: "Serveur",
-      build: "Build & frontend",
-      start: "Console / jobs",
-      install: "Projet",
-      outdated: "Projet",
-      completion: "Projet",
-      create: "Projet",
-      check: "Projet",
-    };
-    // commande → module propriétaire (chaque Module garde ses commandes).
+    // Le module PROPRIÉTAIRE d'une commande : il ne sert qu'à ranger celles qui
+    // ne déclarent aucun groupe d'intention — un module tiers, dont personne
+    // ici ne peut deviner l'intention.
     const owner: Record<string, string> = {};
     const modules = this.kernel?.getModules?.() ?? {};
     for (const name in modules) {
       const cmds = (modules[name] as { commands?: Record<string, unknown> })
         .commands;
-      if (cmds) {
-        for (const cn in cmds) {
-          owner[cn] = name;
-        }
-      }
+      for (const cn in cmds ?? {}) owner[cn] = name;
     }
-    for (const cmd of c.commands) {
-      const n = cmd.name();
-      const group = builtin[n] ?? (owner[n] ? `Module ${owner[n]}` : undefined);
-      const hg = (cmd as { helpGroup?: (h: string) => unknown }).helpGroup;
-      if (group && typeof hg === "function") {
-        hg.call(cmd, group);
-      }
-    }
-  }
 
-  /**
-   * Pied du help global : modules chargés (introspection — tous, y compris ceux
-   * sans commande) + lien docs. Se termine par un seul `\n` (norme sortie CLI).
-   */
-  private printHelpFooter(): void {
-    const modules = Object.keys(this.kernel?.getModules?.() ?? {}).filter(
-      (m) => m !== "app",
+    const commands: IHelpCommand[] = (c?.commands ?? [])
+      // `help` est la commande que commander ajoute lui-même : elle fait double
+      // emploi avec `--help`, qu'on est en train de lire.
+      .filter((cmd) => cmd.name() !== "help")
+      .map((cmd) => {
+        const group = (
+          cmd as { helpGroup?: (h?: string) => unknown }
+        ).helpGroup?.();
+        // Ce que la commande ACCEPTE : dérivé des `choices()` de son premier
+        // argument, jamais recopié — une liste réécrite ici divergerait au
+        // premier sujet ajouté.
+        const arg = cmd.registeredArguments?.[0] as
+          { name(): string; argChoices?: string[] } | undefined;
+        const values = arg?.argChoices ?? [];
+        const entree: IHelpCommand = {
+          name: cmd.name(),
+          aliases: cmd.aliases?.() ?? [],
+          description: cmd.description() || "",
+        };
+        if (typeof group === "string" && group) entree.group = group;
+        const module = owner[cmd.name()];
+        if (module) entree.module = module;
+        if (values.length) {
+          entree.accepts = { label: arg?.name() ?? "valeurs", values };
+        }
+        return entree;
+      });
+
+    const globalOptions: IHelpOption[] = (c?.options ?? [])
+      .map((o) => ({ flags: o.flags, description: o.description }))
+      // `-h, --help` est posé par commander lui-même et n'apparaît pas dans
+      // `options` : l'omettre ferait disparaître de l'aide le drapeau qu'on
+      // vient de taper.
+      .concat([{ flags: "-h, --help", description: "Affiche cette aide" }])
+      .sort((a, b) => a.flags.localeCompare(b.flags));
+
+    const chargés = Object.keys(modules).filter((m) => m !== "app");
+    const out = process.stdout;
+    const lignes = renderHelp(
+      {
+        version: shownVersion,
+        commands,
+        globalOptions,
+        ...(chargés.length ? { modules: chargés } : {}),
+        jsonCommands: CliKernel.JSON_COMMANDS,
+        ...(extra?.note ? { note: extra.note } : {}),
+        ...(extra?.noteAction ? { noteAction: extra.noteAction } : {}),
+      },
+      {
+        largeur: largeurUtile(out.columns),
+        // UNE seule porte de couleur pour toute la page. Il y en avait deux
+        // (`logColor` pour l'en-tête, commander pour le corps), donc deux
+        // lectures de `NO_COLOR` — et un `NF_NO_TTY` respecté d'un côté
+        // seulement, ce dont les tests d'intégration dépendent.
+        couleur: doitColorer(process.env, Boolean(this.kernel?.isTTY)),
+      },
     );
-    if (modules.length) {
-      console.log(
-        `\n  ${logColor.cyanBold(`Modules chargés (${modules.length})`)}`,
-      );
-      console.log(`  ${logColor.blackBright(modules.join(" · "))}`);
-    }
-    console.log(
-      `\n  ${logColor.blackBright("Docs :")} github.com/nodefony/nodefony-core` +
-        `   ${logColor.blackBright("·")}   nodefony <cmd> -h\n`,
-    );
+    out.write(`${lignes.join("\n")}\n`);
   }
 
   /**

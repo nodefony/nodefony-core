@@ -20,6 +20,7 @@ import { readMigrationEnv } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "BASE DE DONNÉES",
   showBanner: false,
   kernelEvent: "onPostReady",
 };

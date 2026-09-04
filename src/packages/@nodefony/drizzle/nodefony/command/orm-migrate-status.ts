@@ -10,6 +10,7 @@ import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
  * Aucun serveur n'écoute pour autant : le profil console est respecté.
  */
 const options: OptionsCommandInterface = {
+  helpGroup: "BASE DE DONNÉES",
   showBanner: false,
   kernelEvent: "onPostReady",
 };

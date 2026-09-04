@@ -9,6 +9,7 @@ import {
 import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   // onPostReady (comme `development`/`production`) : l'UNIQUE Kernel boote complètement.
   // Décision master/worker prise dans onKernelStart (avant initServers). Plus de double-boot.

@@ -8,6 +8,7 @@ import {
 } from "../src/proxy/generateProxyConfig";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   // `onReady` : cross-wiring inter-modules terminé → les montages statiques
   // natifs `/<module>/` (server-static.mountModulePublics, posés à onReady) sont

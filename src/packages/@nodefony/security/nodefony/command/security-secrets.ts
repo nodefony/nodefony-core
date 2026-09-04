@@ -6,6 +6,7 @@ import path from "node:path";
 import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   kernelEvent: "onReady",
 };

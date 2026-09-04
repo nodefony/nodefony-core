@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { CREATE_TYPES, runCreateCommand } from "../../cli/create";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "GÉNÉRER ET CONSTRUIRE",
   showBanner: false,
   kernelEvent: "onStart",
 };

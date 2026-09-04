@@ -22,6 +22,7 @@ import { localOperatorCaller } from "../adminPlane/adminCaller";
  * défaut) est respecté par `Kernel.initServers`.
  */
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
   // un état et le rend. Appliqué par le CLI à la commande demandée SEULE.
   quietBoot: true,
@@ -93,10 +94,14 @@ class Inspect extends Command {
     // qu'elle existe (« missing required argument 'sujet' »). Réclamé en TTY par
     // `askArgument`, qui propose la LISTE des sujets — on ne demande pas de
     // deviner un mot dans une énumération qu'on connaît.
+    // `.choices(...)` DÉRIVÉ du registre, jamais recopié : il sert deux fois —
+    // l'aide rend les sujets en sous-ligne sous la commande, et la complétion
+    // shell les propose au TAB. Une liste écrite à la main divergerait au
+    // premier sujet ajouté.
     this.addArgument(
       "[sujet]",
       `sujet : ${Object.keys(INSPECT_SUBJECTS).join(" | ")}`,
-    );
+    ).choices(Object.keys(INSPECT_SUBJECTS));
     this.addArgument("[cible]", "paramètre du sujet (ex : le nom d'un module)");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
 

@@ -188,7 +188,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:91` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:636` |
-| `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:61` |
+| `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:62` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:132` |
 | `NF_NO_TTY` | `src/nodefony/src/kernel/Kernel.ts:504` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:98` |

@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runAiMcpCommand } from "../../cli/aiMcp";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "AGENTS ET OUTILLAGE",
   showBanner: false,
   kernelEvent: "onRegister",
   // 🔴 Le fast-path standalone ne s'applique QU'À une invocation directe :

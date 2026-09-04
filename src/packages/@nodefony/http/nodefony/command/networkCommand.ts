@@ -9,6 +9,7 @@ import {
 } from "nodefony";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   kernelEvent: "onRegister",
 };

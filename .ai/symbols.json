@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T20:09:03.927Z",
+  "generated": "2026-09-04T20:36:17.521Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 805,
-    "symbols": 3811,
+    "files": 806,
+    "symbols": 3823,
     "classes": 383,
-    "interfaces": 1039,
+    "interfaces": 1043,
     "types": 437,
     "enums": 4,
-    "functions": 1567,
-    "constants": 381
+    "functions": 1573,
+    "constants": 383
   },
   "symbols": {
     "Cli": {
@@ -1634,6 +1634,74 @@
       "module": "@nodefony/core",
       "description": "Les hooks que la commande sait poser, dans l'ordre d'affichage."
     },
+    "IHelpCommand": {
+      "name": "IHelpCommand",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une commande, réduite à ce que l'aide doit en dire."
+    },
+    "IHelpOption": {
+      "name": "IHelpOption",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une option globale, telle que l'aide la montre."
+    },
+    "IHelpModel": {
+      "name": "IHelpModel",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tout ce que le rendu a besoin de savoir — et rien d'autre."
+    },
+    "IHelpRenderOptions": {
+      "name": "IHelpRenderOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le décor du rendu — tout ce que ce module refuse d'aller chercher."
+    },
+    "grouperCommandes": {
+      "name": "grouperCommandes",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Range les commandes par groupe, dans l'ordre d'affichage. Les commandes sans groupe connu tombent sous leur MODULE — ce qui reste vrai pour un module tiers, dont personne ici ne peut deviner l'inte…"
+    },
+    "renderHelp": {
+      "name": "renderHelp",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'aide complète, ligne par ligne, sans retour chariot final."
+    },
+    "HELP_GROUPS": {
+      "name": "HELP_GROUPS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les groupes d'intention, dans l'ordre de la JOURNÉE de travail. On lance, on regarde ce qui cloche, on fait évoluer — puis viennent les domaines (base, comptes, front) et l'outillage. L'ordre est l…"
+    },
+    "MENU_GROUP_LABELS": {
+      "name": "MENU_GROUP_LABELS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/helpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le libellé de chaque intention DANS LE MENU interactif. 🔴 Une seule taxonomie, deux rendus. Le menu s'adresse à quelqu'un qui hésite (phrase, minuscules) et l'aide à quelqu'un qui balaie (titre, c…"
+    },
     "escapeRoff": {
       "name": "escapeRoff",
       "kind": "function",
@@ -1829,7 +1897,7 @@
       "file": "src/nodefony/src/cli/startMenu.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Composition PURE du menu interactif `nodefony menu` — même patron que `envReport`/`cardReport`/`aiSyncReport` : ce fichier reçoit l'état (contexte, descriptions, commandes de module) et rend une st…"
+      "description": "Contexte de lancement : dans un projet Nodefony, ou hors de tout projet."
     },
     "StartMenuItem": {
       "name": "StartMenuItem",
@@ -1884,8 +1952,7 @@
       "kind": "const",
       "file": "src/nodefony/src/cli/startMenu.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Catalogue déclaratif du menu. L'ordre du tableau EST l'ordre d'affichage, groupe par groupe. Ajouter une commande au menu = une entrée ici, rien d'autre (le résumé et la disponibilité viennent de c…"
+      "module": "@nodefony/core"
     },
     "NPM_SCRIPT_CATALOG": {
       "name": "NPM_SCRIPT_CATALOG",
@@ -8680,6 +8747,14 @@
       "module": "@nodefony/core",
       "description": "Accorde un nom avec son nombre — « 1 contrôle passé », « 2 contrôles passés ». Les parenthèses de repli (« contrôle(s) passé(s) ») sont le signe d'un rapport écrit pour la machine ; celui-ci est lu…"
     },
+    "replierListe": {
+      "name": "replierListe",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Replie une énumération par UNITÉS, jamais au milieu d'un élément. 🔴 Un repli aux espaces met le séparateur en tête de ligne : `\\s` avale l'espace insécable qui entoure le point médian, et la ligne…"
+    },
     "TITRES": {
       "name": "TITRES",
       "kind": "const",
@@ -8735,7 +8810,8 @@
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "L'usage, rendu avec le même soin que le rapport. Il se lit dans deux situations opposées : on découvre la commande, ou on vient de se tromper de drapeau. Il porte donc les deux réponses — ce que la…"
     },
     "@nodefony/core:editDistance": {
       "name": "editDistance",
@@ -29191,12 +29267,39 @@
       "IGitHooksPlan": [
         "src/nodefony/src/cli/gitHooks.ts"
       ],
+      "creerPalette": [
+        "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "replier": [
+        "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "replierListe": [
+        "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "titreSection": [
+        "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "IPalette": [
+        "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "ICliManifest": [
         "src/nodefony/src/cli/manPage.ts",
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "ICliManifestCommand": [
         "src/nodefony/src/cli/manPage.ts"
+      ],
+      "MENU_GROUP_LABELS": [
+        "src/nodefony/src/cli/startMenu.ts"
       ],
       "RealtimeClient": [
         "src/nodefony/src/client/announce.ts",
@@ -29461,18 +29564,6 @@
         "src/nodefony/src/finder/FileResult.ts",
         "src/nodefony/src/finder/Finder.ts"
       ],
-      "logColor": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/syslog/Syslog.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
       "toImportSpecifier": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
@@ -29568,6 +29659,23 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
+      "doitColorer": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "largeurUtile": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "renderHelp": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "IHelpCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "IHelpOption": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "isDoctorCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -29609,6 +29717,17 @@
       "runGitHooksCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts"
+      ],
+      "logColor": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
+        "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
+        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -30946,10 +31065,6 @@
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "creerPalette": [
-        "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
       "FAMILLES": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
@@ -30961,16 +31076,8 @@
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "titreSection": [
-        "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
       "ligneSommaire": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
-      ],
-      "replier": [
-        "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "separerGeste": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
@@ -30997,10 +31104,6 @@
       ],
       "ILigneSommaire": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
-      ],
-      "IPalette": [
-        "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "formatAge": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
@@ -31076,12 +31179,6 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "doitColorer": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "largeurUtile": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "rendreRapport": [
         "src/nodefony/src/kernel/checks/runCheck.ts"

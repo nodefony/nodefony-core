@@ -2,6 +2,7 @@ import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 
 const optionsCommand: OptionsCommandInterface = {
+  helpGroup: "GÉNÉRER ET CONSTRUIRE",
   showBanner: false,
   kernelEvent: "onRegister",
 };

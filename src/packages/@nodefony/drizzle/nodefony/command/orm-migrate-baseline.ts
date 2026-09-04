@@ -24,6 +24,7 @@ import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
 import { summarizeGap } from "../src/migrator/schemaDiff";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "BASE DE DONNÉES",
   showBanner: false,
   kernelEvent: "onPostReady",
 };

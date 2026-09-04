@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { COMPLETION_SHELLS, runCompletionCommand } from "../../cli/completion";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "AGENTS ET OUTILLAGE",
   showBanner: false,
   kernelEvent: "onStart",
 };

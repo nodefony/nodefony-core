@@ -3,6 +3,7 @@ import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import type Certificate from "../service/certificates";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   // `onBoot` : modules chargés + config résolue + `kernel.domain` défini. Avec
   // `lifetime: "oneshot"` (défaut), le Kernel termine à `onBoot` → cette commande

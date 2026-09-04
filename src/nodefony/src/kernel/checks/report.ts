@@ -632,3 +632,33 @@ export function accord(n: number, singulier: string, pluriel?: string): string {
   const mot = n > 1 ? (pluriel ?? `${singulier}s`) : singulier;
   return `${n} ${mot}`;
 }
+
+/**
+ * Replie une énumération par UNITÉS, jamais au milieu d'un élément.
+ *
+ * 🔴 Un repli aux espaces met le séparateur en tête de ligne : `\s` avale
+ * l'espace insécable qui entoure le point médian, et la ligne suivante commence
+ * par « · ». Cette fonction ne coupe qu'ENTRE deux éléments.
+ *
+ * @param items - les éléments à énumérer.
+ * @param largeur - largeur utile d'une ligne.
+ * @returns les lignes, séparateur « · » compris.
+ */
+export function replierListe(
+  items: readonly string[],
+  largeur: number,
+): string[] {
+  const lignes: string[] = [];
+  let courante = "";
+  for (const item of items) {
+    const essai = courante ? `${courante} · ${item}` : item;
+    if (essai.length <= largeur || !courante) {
+      courante = essai;
+      continue;
+    }
+    lignes.push(courante);
+    courante = item;
+  }
+  if (courante) lignes.push(courante);
+  return lignes;
+}

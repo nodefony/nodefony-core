@@ -57,6 +57,7 @@ import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
  * pour autant — le profil console est respecté.
  */
 const options: OptionsCommandInterface = {
+  helpGroup: "BASE DE DONNÉES",
   showBanner: false,
   kernelEvent: "onPostReady",
 };

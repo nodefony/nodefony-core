@@ -28,6 +28,7 @@ import {
 } from "../src/token/secretFile";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   // Services prêts, AUCUN serveur en écoute : cette commande SIGNE un jeton,
   // elle n'en demande pas un à une porte HTTP. C'est ce qui la rend utilisable

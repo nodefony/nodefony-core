@@ -4,6 +4,7 @@ import path from "node:path";
 import type FrontendService from "../service/FrontendService";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   kernelEvent: "onReady",
 };

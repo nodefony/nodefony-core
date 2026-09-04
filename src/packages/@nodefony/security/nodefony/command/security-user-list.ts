@@ -2,6 +2,7 @@ import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import type { UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   kernelEvent: "onReady",
   // Le journal de cycle de vie n'est pas la sortie : ici la sortie est la liste.
