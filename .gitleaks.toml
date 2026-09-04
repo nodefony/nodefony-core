@@ -58,13 +58,15 @@ paths = [
 regexes = [
   # Vecteurs de test de normes — publiés DANS la norme, sans quoi on ne peut
   # pas prouver l'implémentation. RFC 6238 (TOTP), annexe B.
-  '''GEZDGNBVGY3TQOJQ''',
-  '''12345678901234567890''',
+  '''^GEZDGNBVGY3TQOJQ$''',
+  '''^12345678901234567890$''',
   # Mots de passe des DÉCORS jetables (banc devkit, banc multipod) : ils
   # désignent des conteneurs liés à 127.0.0.1, détruits à la fin du run.
-  '''(TemoinPassw0rd42x|SondePassw0rd42x|AncienPassw0rd42x)''',
-  '''bench-secret-0123456789abcdefghij''',
-  '''(app-dev|nodefony-dev|banc-verite-admin|changeme)''',
+  '''^(TemoinPassw0rd42x|SondePassw0rd42x|AncienPassw0rd42x)$''',
+  '''^bench-secret-0123456789abcdefghij$''',
+  # ⚠️ ANCRÉS. Sans `^…$`, « app-dev » ignorerait tout secret qui CONTIENT cette
+  # sous-chaîne — un mot de passe de décor ne doit acquitter que lui-même.
+  '''^(app-dev|nodefony-dev|banc-verite-admin|changeme)$''',
   # Jeton JOUET du contrôle d'isolation du décor : sa charge utile est le texte
   # « jeton-du-depot », il n'est signé par rien.
   '''eyJhbGciOiJFZERTQSJ9\.jeton-du-depot''',
