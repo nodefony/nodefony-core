@@ -34,6 +34,7 @@ import {
 import {
   preventedChecks,
   controlesSautes,
+  replier,
   countFindings,
   creerPalette,
   doitColorer,
@@ -212,9 +213,19 @@ export interface ICheckRequest {
  * @param p - la peinture en vigueur.
  * @returns le texte complet, retour chariot final compris.
  */
-function usage(p: IPalette): string {
-  const opt = (drapeau: string, quoi: string): string =>
-    `  ${p.geste(drapeau.padEnd(20, " "))} ${quoi}\n`;
+function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
+  // Une description qui déborde se replie sur la marge du terminal et se lit
+  // comme une ligne d'option de plus. La colonne des drapeaux fait 20 : la
+  // suite s'aligne dessous, pas sur la marge.
+  const colonne = 20;
+  const marge = " ".repeat(colonne + 3);
+  const opt = (drapeau: string, quoi: string): string => {
+    const [premiere, ...suite] = replier(quoi, largeur - marge.length, "");
+    return (
+      `  ${p.geste(drapeau.padEnd(colonne, " "))} ${premiere ?? ""}\n` +
+      suite.map((l) => `${marge}${l}\n`).join("")
+    );
+  };
   return (
     `\n  ${p.fort("nodefony doctor")} — diagnostic statique de l'application\n\n` +
     `  usage : nodefony doctor [options]` +
@@ -600,19 +611,23 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
       doitColorer(process.env, Boolean(process.stderr.isTTY)),
     );
     process.stderr.write(`  ${p.echec(`doctor : ${parsed.error}`)}\n`);
-    process.stderr.write(usage(p));
+    process.stderr.write(usage(p, largeurUtile(process.stderr.columns)));
     return 64;
   }
   if (parsed.help) {
     process.stdout.write(
       usage(
         creerPalette(doitColorer(process.env, Boolean(process.stdout.isTTY))),
+        largeurUtile(process.stdout.columns),
       ),
     );
     return 0;
   }
+  // Mesurée ICI, autour de la collecte seule : le rendu ne coûte rien, et un
+  // chiffre qui l'inclurait mesurerait la vitesse du terminal.
+  const debut = Date.now();
   const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
-  return renderCheckReport(report, parsed);
+  return renderCheckReport(report, parsed, Date.now() - debut);
 }
 
 /**
@@ -653,6 +668,7 @@ export function attachLive(
 export function renderCheckReport(
   report: ICheckReport,
   parsed: ICheckRequest,
+  dureeMs?: number,
 ): number {
   const { json, strict } = parsed;
   const start = parsed.cwd;
@@ -686,6 +702,7 @@ export function renderCheckReport(
     lanceDepuis: start,
     strict,
     targetEnv: parsed.targetEnv,
+    ...(dureeMs === undefined ? {} : { dureeMs }),
   });
   out.write(`${lignes.join("\n")}\n`);
   return code();

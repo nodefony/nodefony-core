@@ -126,9 +126,11 @@ class Check extends Command {
       await this.terminate(await runCheckCommand(argv));
       return this;
     }
+    const debut = Date.now();
     const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
+    const complet = attachLive(report, await this.readLive());
     await this.terminate(
-      renderCheckReport(attachLive(report, await this.readLive()), parsed),
+      renderCheckReport(complet, parsed, Date.now() - debut),
     );
     return this;
   }

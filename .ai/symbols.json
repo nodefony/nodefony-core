@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T14:47:10.275Z",
+  "generated": "2026-09-04T15:05:00.641Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 800,
-    "symbols": 3728,
+    "symbols": 3737,
     "classes": 383,
-    "interfaces": 1020,
+    "interfaces": 1021,
     "types": 433,
     "enums": 4,
-    "functions": 1516,
+    "functions": 1524,
     "constants": 372
   },
   "symbols": {
@@ -8200,6 +8200,14 @@
       "module": "@nodefony/core",
       "description": "Le document complet, ligne par ligne, sans retour chariot final."
     },
+    "aFaireEnsuite": {
+      "name": "aFaireEnsuite",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les gestes du rapport, DÉDOUBLONNÉS et ordonnés. C'est ce qui manquait le plus : les gestes étaient dispersés dans le détail, chacun sous son problème, et le même `npm run build` pouvait apparaître…"
+    },
     "qui": {
       "name": "qui",
       "kind": "function",
@@ -8365,6 +8373,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Une ligne de sommaire alignée : ` ✓ Titre········· détail`. L'alignement se calcule sur le titre le PLUS LONG du lot, jamais sur une constante : une colonne figée déborde le jour où l'on ajoute « F…"
+    },
+    "titreSection": {
+      "name": "titreSection",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un titre de section, prolongé par un filet jusqu'au bord. Le rendu séparait ses sections par un filet PLEIN, posé sur sa propre ligne au-dessus du titre : trois lignes de décor pour annoncer une se…"
     },
     "replier": {
       "name": "replier",
@@ -30453,14 +30469,15 @@
       "isSubrule": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "filet": [
+      "titreSection": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "ligneSommaire": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "replier": [
-        "src/nodefony/src/kernel/checks/renderReport.ts"
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "separerGeste": [
         "src/nodefony/src/kernel/checks/renderReport.ts"

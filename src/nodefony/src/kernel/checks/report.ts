@@ -464,14 +464,48 @@ export function ligneSommaire(
   largeurTitre: number,
   largeur: number,
 ): string {
-  const titre = ligne.titre.padEnd(largeurTitre, " ");
-  const prefixe = `  ${symbole(ligne.etat)}  ${titre}  `;
-  const reste = largeur - prefixe.length;
+  const prefixe = `    ${symbole(ligne.etat)}  ${ligne.titre} `;
+  // Les points de conduite mènent l'œil du titre à son détail. Sur une ligne
+  // courte ils ne servent à rien ; sur un terminal large, sans eux, le regard
+  // saute d'une ligne à l'autre et l'on lit le détail de la mauvaise famille.
+  // +3 : même le titre le PLUS long garde des points de conduite, sinon sa
+  // ligne est la seule sans guide et l'œil la lit comme une autre section.
+  const colonneDetail = 4 + 1 + 2 + largeurTitre + 3;
+  const conduite =
+    colonneDetail > prefixe.length
+      ? `${POINT_DE_CONDUITE.repeat(colonneDetail - prefixe.length - 1)} `
+      : "";
+  const debut = prefixe + conduite;
+  const reste = largeur - debut.length;
   const detail =
     reste > 3 && ligne.detail.length > reste
       ? `${ligne.detail.slice(0, reste - 1)}…`
       : ligne.detail;
-  return `${prefixe}${detail}`.trimEnd();
+  return `${debut}${detail}`.trimEnd();
+}
+
+/** Le point qui relie un titre à son détail dans le sommaire. */
+const POINT_DE_CONDUITE = "·";
+
+/**
+ * Un titre de section, prolongé par un filet jusqu'au bord.
+ *
+ * Le rendu séparait ses sections par un filet PLEIN, posé sur sa propre ligne
+ * au-dessus du titre : trois lignes de décor pour annoncer une section, et le
+ * titre y flottait sans lui appartenir. Prolonger le titre coûte une ligne au
+ * lieu de trois, et dit à quoi le filet se rapporte.
+ *
+ * @param titre - le titre, déjà en majuscules.
+ * @param largeur - largeur utile.
+ * @returns la ligne, sans couleur (l'appelant teinte le titre et le filet).
+ */
+export function titreSection(
+  titre: string,
+  largeur: number,
+): { titre: string; filet: string } {
+  const pose = `  ${titre} `;
+  const restant = Math.max(0, largeur - pose.length - 2);
+  return { titre: `  ${titre} `, filet: "─".repeat(restant) };
 }
 
 /**

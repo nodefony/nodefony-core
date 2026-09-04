@@ -30,7 +30,7 @@ import {
   FAMILLES,
   COUNTED_FAMILIES,
   isSubrule,
-  filet,
+  titreSection,
   ligneSommaire,
   replier,
   separerGeste,
@@ -62,6 +62,14 @@ export interface IOptionsRendu {
   /** `true` si un contrôle sauté fait échouer la commande. */
   strict: boolean;
   /**
+   * Durée de la collecte, en millisecondes — affichée au pied du rapport.
+   *
+   * Un diagnostic qui prend deux secondes et un diagnostic qui en prend
+   * quarante ne se lisent pas pareil : le second dit que quelque chose rame,
+   * et c'est souvent le premier symptôme.
+   */
+  dureeMs?: number;
+  /**
    * L'environnement sous lequel les exigences ont été évaluées, s'il n'est pas
    * celui d'ici (`--env production`).
    *
@@ -73,7 +81,43 @@ export interface IOptionsRendu {
 }
 
 /** L'indentation du corps, alignée sous le titre des lignes à puce. */
-const CORPS = "     ";
+/**
+ * L'indentation du CONTENU d'un item.
+ *
+ * Le rendu tient sur une grille unique : un item commence colonne 4 (symbole ou
+ * numéro), son contenu colonne 7. Trois indentations différentes cohabitaient,
+ * et l'œil ne savait plus ce qui appartenait à quoi.
+ */
+const CORPS = "       ";
+
+/** L'indentation d'un ITEM — symbole, numéro, titre. */
+const ITEM = "    ";
+
+/** Au-delà, une énumération cesse d'informer et se met à noyer le rapport. */
+const PUCES_MAX = 3;
+
+/**
+ * Une énumération BORNÉE, qui dit combien elle a tu.
+ *
+ * Le bilan d'un démarrage peut porter huit modules écartés et quatre messages
+ * critiques : quarante lignes qui repoussaient le reste du rapport hors de
+ * l'écran. Les trois premières suffisent à reconnaître le motif ; le compte
+ * total est déjà donné juste au-dessus, et le fichier de bilan porte le reste.
+ *
+ * @param items - les lignes à énumérer, déjà peintes.
+ * @param p - la peinture.
+ * @returns les puces, plus une mention du reste s'il y en a.
+ */
+function quelquesUnes(items: readonly string[], p: IPalette): string[] {
+  const lignes = items
+    .slice(0, PUCES_MAX)
+    .map((texte) => `${CORPS}  · ${texte}`);
+  const reste = items.length - PUCES_MAX;
+  if (reste > 0) {
+    lignes.push(p.discret(`${CORPS}  · … et ${accord(reste, "autre")}`));
+  }
+  return lignes;
+}
 
 /**
  * Un bilan de démarrage mérite d'être rapporté quand il porte une MAUVAISE
@@ -140,78 +184,42 @@ export function rendreRapport(
   const { largeur, couleur, now, strict } = opts;
   const p = creerPalette(couleur);
   const lignes: string[] = [];
-  /** Écrit une phrase repliée sous une puce, avec sa teinte. */
-  const corps = (texte: string, teinte: (t: string) => string): void => {
-    for (const l of replier(texte, largeur, CORPS)) {
-      lignes.push(teinte(surlignerCode(l, p, couleur)));
-    }
+  const sautes = controlesSautes(report.execution);
+
+  /** Ouvre une section : un titre, prolongé par un filet jusqu'au bord. */
+  const section = (nom: string, teinte: (t: string) => string): void => {
+    const { titre, filet: trait } = titreSection(nom, largeur);
+    lignes.push("", teinte(p.fort(titre)) + p.discret(trait), "");
   };
 
   lignes.push(...enTete(report, opts, p));
+  lignes.push(...bandeau(report, sautes, p));
+
+  section("ÉTAT", (t) => t);
   lignes.push(...sommaire(report, p, largeur));
 
-  const bilansParlants = report.lastBoots.filter(meriteDEtreDit);
-  if (bilansParlants.length > 0) {
-    // Une SECTION, comme les autres : sans filet ni titre, ce bloc flottait
-    // entre le sommaire et le premier manquement, et se lisait comme une suite
-    // du sommaire alors qu'il parle d'autre chose — d'une EXÉCUTION passée.
-    lignes.push("", p.discret(filet(largeur)), "");
-    lignes.push(
-      `  ${p.fort(bilansParlants.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE")}`,
-    );
-    for (const demarrage of bilansParlants) {
-      lignes.push("");
-      lignes.push(...dernierDemarrage(demarrage, now, p, largeur));
+  const problemes = groupesDeManquements(report).filter(
+    (g) => g.items.length > 0,
+  );
+  if (problemes.length > 0) {
+    section("PROBLÈMES", p.echec);
+    const totalProblemes = problemes.reduce((n, g) => n + g.items.length, 0);
+    let numero = 0;
+    for (const { titre, items } of problemes) {
+      for (const item of items) {
+        if (numero > 0) lignes.push("");
+        lignes.push(
+          ...blocProbleme(++numero, totalProblemes, titre, item, p, opts),
+        );
+      }
     }
   }
 
-  // ── Le détail, groupé et dans l'ordre de lecture des familles.
-  for (const { titre, items } of groupesDeManquements(report)) {
-    if (items.length === 0) continue;
-    lignes.push("", p.discret(filet(largeur)), "");
-    lignes.push(`  ${p.echec(p.fort(titre.toUpperCase()))}`);
-    for (const item of items) {
-      const { constat, geste } = separerGeste(item.message);
-      lignes.push("");
-      const [premiere, ...suite] = replier(constat, largeur, CORPS);
-      // La puce reprend le symbole du sommaire : le lecteur retrouve d'un coup
-      // d'œil la ligne qui l'a amené ici.
-      lignes.push(
-        p.echec(
-          `  ${symbole("echec")}  ${surlignerCode((premiere ?? "").trimStart(), p, couleur)}`,
-        ),
-      );
-      for (const l of suite) lignes.push(surlignerCode(l, p, couleur));
-      if (item.file) lignes.push(p.discret(`${CORPS}${item.file}`));
-      if (geste) corps(`→ ${geste}`, p.geste);
-    }
-  }
-
-  const sautes = controlesSautes(report.execution);
   if (sautes.length > 0) {
     // SYSTÉMATIQUE, y compris quand tout le reste est vert : un diagnostic muet
     // sur son angle mort se lit comme un quitus.
-    lignes.push("", p.discret(filet(largeur)), "");
-    lignes.push(`  ${p.alerte(p.fort("NON CONTRÔLÉ"))}`);
-    for (const groupe of grouperParRaison(sautes)) {
-      lignes.push("");
-      // Quatre titres joints font vite soixante colonnes : cette ligne se
-      // replie comme n'importe quelle autre, sinon elle déborde exactement
-      // dans le cas où elle a le plus à dire.
-      const [premier, ...reste] = replier(
-        groupe.titres.join(", "),
-        largeur,
-        CORPS,
-      );
-      lignes.push(
-        p.alerte(
-          `  ${symbole("non-controle")}  ${(premier ?? "").trimStart()}`,
-        ),
-      );
-      for (const l of reste) lignes.push(p.alerte(l));
-      corps(groupe.reason, p.alerte);
-      if (groupe.unlock) corps(`→ ${groupe.unlock}`, p.geste);
-    }
+    section("NON CONTRÔLÉ", p.alerte);
+    lignes.push(...blocsNonControles(sautes, p, opts));
     if (strict) {
       lignes.push("");
       // La phrase doit dire ce que le code de sortie fera VRAIMENT. Annoncer
@@ -219,19 +227,308 @@ export function rendreRapport(
       // contrôles manquants n'ont pas été DEMANDÉS — apprend à ne plus croire
       // le bandeau, ce qui est pire que de ne rien annoncer.
       const empeches = preventedChecks(sautes);
-      corps(
+      for (const l of replier(
         empeches.length > 0
           ? "mode strict : un contrôle EMPÊCHÉ fait échouer la commande."
           : "mode strict : ce qui manque ici n'a pas été demandé — le code " +
               "de sortie n'en tient pas compte.",
-        p.discret,
-      );
+        largeur,
+        CORPS,
+      )) {
+        lignes.push(p.discret(l));
+      }
     }
   }
 
-  lignes.push("", p.discret(filet(largeur)), "");
-  lignes.push(...bilan(report, sautes, p, largeur));
+  const bilansParlants = report.lastBoots.filter(meriteDEtreDit);
+  if (bilansParlants.length > 0) {
+    // APRÈS les problèmes, et c'est un choix : un démarrage passé n'est pas un
+    // manquement du code — c'est une trace. Placé avant, il repoussait le
+    // premier vrai problème quarante lignes plus bas.
+    section(
+      bilansParlants.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE",
+      p.alerte,
+    );
+    let premier = true;
+    for (const demarrage of bilansParlants) {
+      if (!premier) lignes.push("");
+      premier = false;
+      lignes.push(...dernierDemarrage(demarrage, now, p, largeur));
+    }
+  }
+
+  const gestes = aFaireEnsuite(report, sautes);
+  if (gestes.length > 0) {
+    section("À FAIRE ENSUITE", p.geste);
+    lignes.push(...listeDeGestes(gestes, p, largeur));
+  }
+
   lignes.push("");
+  lignes.push(...bilan(report, sautes, p, largeur, opts.dureeMs));
+  lignes.push("");
+  return lignes;
+}
+
+/**
+ * Le VERDICT, avant tout le reste.
+ *
+ * Il était en bas, et c'était le défaut le plus coûteux de ce rendu : la
+ * question qu'on se pose en lançant `doctor` est « est-ce que ça va ? », et
+ * elle n'obtenait sa réponse qu'après soixante lignes de détail. Un rapport se
+ * lit en panne, souvent vite : il doit répondre à la première ligne, puis
+ * justifier.
+ *
+ * @param report - le diagnostic.
+ * @param sautes - les contrôles qui n'ont pas eu lieu.
+ * @param p - la peinture.
+ * @returns une ligne, plus une ligne vide.
+ */
+function bandeau(
+  report: ICheckReport,
+  sautes: readonly IControleSaute[],
+  p: IPalette,
+): string[] {
+  const total = countFindings(report);
+  const passes = nombreDeControlesPasses(report);
+  if (total > 0) {
+    // Les angles morts DANS le bandeau, et pas seulement plus bas : un lecteur
+    // qui corrige le problème annoncé doit savoir, à la même seconde, que le
+    // rapport n'a pas tout regardé — sinon il croira avoir tout vu.
+    const angles =
+      sautes.length > 0
+        ? p.alerte(`   ${accord(sautes.length, "angle mort", "angles morts")}`)
+        : "";
+    return [
+      p.echec(
+        `  ${symbole("echec")}  ${p.fort(accord(total, "PROBLÈME").toUpperCase())}`,
+      ) + angles,
+    ];
+  }
+  if (passes === 0) {
+    // Hors d'une application : « tout va bien » serait un quitus rendu sans
+    // avoir rien ouvert.
+    return [
+      p.alerte(
+        `  ${symbole("non-controle")}  ${p.fort("AUCUN CONTRÔLE N'A PU ÊTRE FAIT ICI")}`,
+      ),
+    ];
+  }
+  return [
+    sautes.length > 0
+      ? p.ok(`  ${symbole("ok")}  ${p.fort("RIEN À SIGNALER")}`) +
+        p.alerte(`  (${accord(sautes.length, "angle mort", "angles morts")})`)
+      : p.ok(`  ${symbole("ok")}  ${p.fort("RIEN À SIGNALER")}`),
+  ];
+}
+
+/**
+ * Un problème, rendu comme une erreur de compilateur.
+ *
+ * La forme vient de ce qui se fait de mieux dans un terminal : un numéro pour
+ * s'y référer, le nom de la famille pour savoir DE QUOI on parle, une gouttière
+ * qui relie visuellement le constat à son geste, et le geste seul sur sa ligne,
+ * préfixé d'un chevron — c'est la seule chose qu'un lecteur pressé cherche, et
+ * elle doit se copier sans attraper le reste de la phrase.
+ *
+ * @param numero - le rang du problème dans le rapport.
+ * @param famille - le titre de la famille dont il vient.
+ * @param item - le manquement (message, et le fichier qui le porte).
+ * @param p - la peinture.
+ * @param opts - le décor (largeur, couleur).
+ * @returns les lignes du bloc.
+ */
+function blocProbleme(
+  numero: number,
+  total: number,
+  famille: string,
+  item: { message: string; file?: string },
+  p: IPalette,
+  opts: IOptionsRendu,
+): string[] {
+  const { largeur, couleur } = opts;
+  const { constat, geste } = separerGeste(item.message);
+  const lignes: string[] = [];
+  // Le rang occupe la colonne du SYMBOLE des autres sections : une seule
+  // largeur pour toute la grille, élargie seulement s'il y a dix problèmes.
+  const rang = String(numero).padStart(String(total).length, " ");
+  lignes.push(`${ITEM}${p.echec(p.fort(rang))}  ${p.fort(famille)}`);
+  // La gouttière tient la colonne du texte : elle dit « ceci appartient encore
+  // au problème ci-dessus », y compris après un repli de six lignes.
+  const gouttiere = `${CORPS}${p.discret("│")} `;
+  for (const l of replier(constat, largeur - 10, "")) {
+    lignes.push(gouttiere + surlignerCode(l, p, couleur));
+  }
+  if (item.file) {
+    // Un chemin ne se COUPE pas — coupé, il n'est plus copiable, et c'est
+    // précisément ce qu'on vient chercher. Quand il ne tient pas derrière la
+    // gouttière, il prend la ligne entière plutôt que de déborder du terminal.
+    const derriereGouttiere = `${CORPS}│ ${item.file}`;
+    lignes.push(
+      derriereGouttiere.length <= largeur
+        ? gouttiere + p.discret(item.file)
+        : `${CORPS}${p.discret(item.file)}`,
+    );
+  }
+  lignes.push(...ligneDeGeste(geste, p, largeur));
+  return lignes;
+}
+
+/**
+ * Les contrôles qui n'ont pas eu lieu, groupés par cause.
+ *
+ * @param sautes - les contrôles sautés.
+ * @param p - la peinture.
+ * @param opts - le décor.
+ * @returns les lignes de la section.
+ */
+function blocsNonControles(
+  sautes: readonly IControleSaute[],
+  p: IPalette,
+  opts: IOptionsRendu,
+): string[] {
+  const { largeur, couleur } = opts;
+  const lignes: string[] = [];
+  let premier = true;
+  for (const groupe of grouperParRaison(sautes)) {
+    if (!premier) lignes.push("");
+    premier = false;
+    // Quatre titres joints font vite soixante colonnes : cette ligne se replie
+    // comme n'importe quelle autre, sinon elle déborde exactement dans le cas
+    // où elle a le plus à dire.
+    const [premierTitre, ...resteTitres] = replier(
+      groupe.titres.join(", "),
+      largeur - 8,
+      "",
+    );
+    lignes.push(
+      `${ITEM}${p.alerte(symbole("non-controle"))}  ${p.fort(premierTitre ?? "")}`,
+    );
+    for (const l of resteTitres) lignes.push(`${CORPS}${p.fort(l)}`);
+    const gouttiere = `${CORPS}${p.discret("│")} `;
+    for (const l of replier(groupe.reason, largeur - 10, "")) {
+      lignes.push(gouttiere + p.alerte(surlignerCode(l, p, couleur)));
+    }
+    lignes.push(...ligneDeGeste(groupe.unlock, p, largeur));
+  }
+  return lignes;
+}
+
+/**
+ * Le geste, seul sur sa ligne, sous un chevron.
+ *
+ * Les accents graves qui l'entourent dans le message SAUTENT : la ligne est
+ * déjà désignée comme une commande par son chevron, et un accent grave collé
+ * part avec la commande quand on la copie — puis le terminal se plaint d'un
+ * fichier introuvable.
+ *
+ * @param geste - le geste, ou `undefined` s'il n'y en a pas.
+ * @param p - la peinture.
+ * @param largeur - largeur utile.
+ * @returns les lignes, vides s'il n'y a pas de geste.
+ */
+function ligneDeGeste(
+  geste: string | undefined,
+  p: IPalette,
+  largeur: number,
+): string[] {
+  if (!geste) return [];
+  const propre = geste.replace(/`/gu, "").trim();
+  return replier(propre, largeur - 10, "").map((l, i) =>
+    i === 0
+      ? `${CORPS}${p.geste("▸")} ${p.geste(l)}`
+      : `${CORPS}  ${p.geste(l)}`,
+  );
+}
+
+/** Un geste à faire, et ce qu'il ferme. */
+interface IGeste {
+  /** La commande, telle qu'on la tape. */
+  commande: string;
+  /** Ce que ce geste répare — pour choisir par quoi commencer. */
+  pourquoi: string;
+}
+
+/**
+ * Les gestes du rapport, DÉDOUBLONNÉS et ordonnés.
+ *
+ * C'est ce qui manquait le plus : les gestes étaient dispersés dans le détail,
+ * chacun sous son problème, et le même `npm run build` pouvait apparaître trois
+ * fois. Un lecteur qui veut agir devait relire tout le rapport pour reconstituer
+ * la liste — et un agent, la deviner.
+ *
+ * L'ordre est celui des problèmes, puis des angles morts : ce qui EMPÊCHE
+ * d'abord, ce qui MANQUE ensuite.
+ *
+ * @param report - le diagnostic.
+ * @param sautes - les contrôles sautés.
+ * @returns les gestes, sans doublon, dans l'ordre où les faire.
+ */
+export function aFaireEnsuite(
+  report: ICheckReport,
+  sautes: readonly IControleSaute[],
+): IGeste[] {
+  const gestes: IGeste[] = [];
+  const vus = new Set<string>();
+  const ajouter = (commande: string, pourquoi: string): void => {
+    const propre = commande.replace(/^`|`$/gu, "").trim();
+    if (propre === "" || vus.has(propre)) return;
+    vus.add(propre);
+    gestes.push({ commande: propre, pourquoi });
+  };
+  for (const { titre, items } of groupesDeManquements(report)) {
+    for (const item of items) {
+      const { geste } = separerGeste(item.message);
+      if (geste) ajouter(geste, titre);
+    }
+  }
+  for (const groupe of grouperParRaison(sautes)) {
+    if (groupe.unlock) ajouter(groupe.unlock, groupe.titres.join(", "));
+  }
+  return gestes;
+}
+
+/**
+ * La liste des gestes, numérotée et alignée.
+ *
+ * @param gestes - les gestes, déjà dédoublonnés.
+ * @param p - la peinture.
+ * @param largeur - largeur utile.
+ * @returns les lignes de la section.
+ */
+function listeDeGestes(
+  gestes: readonly IGeste[],
+  p: IPalette,
+  largeur: number,
+): string[] {
+  const colonne = Math.max(...gestes.map((g) => g.commande.length));
+  const lignes: string[] = [];
+  for (const [i, g] of gestes.entries()) {
+    const rang = String(i + 1).padStart(String(gestes.length).length, " ");
+    const marge = ITEM + " ".repeat(rang.length + 2);
+    const mesure = `${ITEM}${rang}  ${g.commande}`;
+    // La glose ne s'affiche que si elle TIENT : coupée, elle ferait douter de
+    // la commande elle-même, qui est la seule chose à copier ici.
+    const glose = `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
+    if (mesure.length <= largeur) {
+      const debut = `${ITEM}${p.discret(rang)}  ${p.geste(g.commande)}`;
+      lignes.push(
+        mesure.length + glose.length <= largeur
+          ? debut + p.discret(glose)
+          : debut,
+      );
+      continue;
+    }
+    // Terminal étroit : la commande se replie sous elle-même plutôt que de
+    // déborder. Elle reste donnée en ENTIER dans le bloc du problème — cette
+    // liste est un rappel, pas la source.
+    const [premiere, ...suite] = replier(
+      g.commande,
+      largeur - marge.length,
+      "",
+    );
+    lignes.push(`${ITEM}${p.discret(rang)}  ${p.geste(premiere ?? "")}`);
+    for (const l of suite) lignes.push(marge + p.geste(l));
+  }
   return lignes;
 }
 
@@ -508,7 +805,7 @@ function dernierDemarrage(
   const titre = (texte: string, teinte: (t: string) => string): string[] => {
     const [premiere, ...suite] = replier(texte, largeur, CORPS);
     return [
-      teinte(`  ${symbole(etat)}  ${(premiere ?? "").trimStart()}`),
+      teinte(`${ITEM}${symbole(etat)}  ${(premiere ?? "").trimStart()}`),
       ...suite.map(teinte),
     ];
   };
@@ -548,19 +845,26 @@ function dernierDemarrage(
     lignes.push(
       ...champ("briques ignorées", String(entry.bricksSkipped.length)),
     );
-    for (const b of entry.bricksSkipped) {
-      lignes.push(
-        `${CORPS}  · ${b.module}${b.phase ? p.discret(` (${b.phase})`) : ""} — ${b.reason}`,
-      );
-    }
+    lignes.push(
+      ...quelquesUnes(
+        entry.bricksSkipped.map(
+          (b) =>
+            `${b.module}${b.phase ? p.discret(` (${b.phase})`) : ""} — ${b.reason}`,
+        ),
+        p,
+      ),
+    );
   }
   if (entry.bricksGated?.length) {
     // VOLONTAIRE — mais un module écarté en silence se diagnostique comme un
     // module perdu, et on cherche longtemps un défaut qui n'existe pas.
     lignes.push(...champ("écartées exprès", String(entry.bricksGated.length)));
-    for (const b of entry.bricksGated) {
-      lignes.push(`${CORPS}  · ${b.module} — ${b.reason}`);
-    }
+    lignes.push(
+      ...quelquesUnes(
+        entry.bricksGated.map((b) => `${b.module} — ${b.reason}`),
+        p,
+      ),
+    );
   }
   if (entry.warnings || entry.errors) {
     lignes.push(
@@ -572,12 +876,17 @@ function dernierDemarrage(
   }
   if (entry.criticals?.length) {
     // Le compte disait qu'il s'était passé quelque chose ; ceci dit QUOI.
-    for (const message of entry.criticals) {
+    const montres = entry.criticals.slice(0, PUCES_MAX);
+    for (const message of montres) {
       // La suite s'aligne SOUS le texte, pas sous la puce : une deuxième ligne
       // rendue à la même colonne que le `·` se lit comme un deuxième message.
       const [premiere, ...suite] = replier(message, largeur, `${CORPS}    `);
       lignes.push(p.echec(`${CORPS}  · ${(premiere ?? "").trimStart()}`));
       for (const l of suite) lignes.push(p.echec(l));
+    }
+    const reste = entry.criticals.length - montres.length;
+    if (reste > 0) {
+      lignes.push(p.discret(`${CORPS}  · … et ${accord(reste, "autre")}`));
     }
   }
   if (entry.remediation) {
@@ -603,6 +912,7 @@ function bilan(
   sautes: readonly IControleSaute[],
   p: IPalette,
   largeur: number,
+  dureeMs?: number,
 ): string[] {
   // ⚠️ La MÊME fonction que le code de sortie et que le serveur MCP. Recompter
   // ici a produit un bilan qui contredisait le sommaire juste au-dessus.
@@ -649,6 +959,13 @@ function bilan(
     segments.push(
       seg(accord(sautes.length, "non contrôlé", "non contrôlés"), p.alerte),
     );
+  }
+  if (dureeMs !== undefined) {
+    const texte =
+      dureeMs < 1000
+        ? `${Math.round(dureeMs)} ms`
+        : `${(dureeMs / 1000).toFixed(1)} s`;
+    segments.push(seg(texte, p.discret));
   }
 
   // Sur un terminal étroit, les segments s'EMPILENT au lieu de déborder. Une

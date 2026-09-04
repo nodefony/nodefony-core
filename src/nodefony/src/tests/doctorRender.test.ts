@@ -20,6 +20,7 @@ import { assert } from "chai";
 import {
   rendreRapport,
   grouperParRaison,
+  aFaireEnsuite,
   type IOptionsRendu,
 } from "../kernel/checks/renderReport";
 import {
@@ -265,7 +266,10 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
       },
     });
     const lignes = rendreRapport(r, options()).map(nu);
-    const geste = lignes.find((l) => l.includes("→"));
+    // Le geste porte un CHEVRON, pas une flèche : la ligne se lit comme une
+    // commande à taper, et le marqueur ne ressemble plus à la ponctuation du
+    // constat, où la flèche apparaît aussi.
+    const geste = lignes.find((l) => l.includes("▸"));
     assert.isDefined(geste);
     assert.include(geste ?? "", "npm run build");
     assert.notInclude(
@@ -364,5 +368,163 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
       .map(nu)
       .join("\n");
     assert.notInclude(memeDossier, "lancé depuis");
+  });
+});
+
+/**
+ * Ce que la refonte de la mise en page doit GARDER.
+ *
+ * Un rendu se juge sur trois questions, dans cet ordre : est-ce que ça va ?
+ * qu'est-ce qui ne va pas ? qu'est-ce que je tape ? Les trois réponses doivent
+ * être trouvables sans lire le reste — et la troisième doit se copier.
+ */
+describe("doctor — le rendu répond dans l'ordre des questions", () => {
+  const rang = (lignes: string[], motif: string): number =>
+    lignes.findIndex((l) => l.includes(motif));
+
+  // 🔴 LE défaut que la refonte corrige : le verdict était en DERNIÈRE ligne.
+  // La question qu'on se pose en lançant un diagnostic est « est-ce que ça
+  // va ? », et elle n'obtenait sa réponse qu'après soixante lignes de détail.
+  it("le verdict précède le détail", () => {
+    const lignes = rendreRapport(
+      rapport({
+        freshness: {
+          findings: [{ kind: "dist-stale" as const, message: "x" }],
+          notComparable: false,
+        },
+      }),
+      options(),
+    ).map(nu);
+    const verdict = rang(lignes, "PROBLÈME");
+    assert.notEqual(verdict, -1, "le verdict doit être annoncé");
+    assert.isBelow(
+      verdict,
+      rang(lignes, "ÉTAT"),
+      "le verdict doit venir AVANT le tableau des contrôles",
+    );
+  });
+
+  // Un lecteur qui corrige le problème annoncé doit savoir, à la même seconde,
+  // que le rapport n'a pas tout regardé — sinon il croira avoir tout vu.
+  it("le verdict dit AUSSI les angles morts", () => {
+    const r = rapport({
+      freshness: {
+        findings: [{ kind: "dist-stale" as const, message: "x" }],
+        notComparable: false,
+      },
+      execution: {
+        ...rapport().execution,
+        migrations: { ran: false, reason: "non demandé", onDemand: true },
+      },
+    });
+    // La ligne se CHERCHE, elle ne se compte pas : l'en-tête fait trois ou
+    // quatre lignes selon qu'on a lancé la commande ailleurs que dans l'app,
+    // et un index en dur ferait échouer ce test pour une raison sans rapport.
+    const bandeau =
+      rendreRapport(r, options())
+        .map(nu)
+        .find((l) => l.includes("PROBLÈME") && !l.includes("─")) ?? "";
+    assert.include(bandeau, "PROBLÈME");
+    assert.include(bandeau, "angle mort");
+  });
+
+  it("tout va bien : le rendu le dit en tête, sans emphase inutile", () => {
+    const lignes = rendreRapport(rapport(), options()).map(nu);
+    assert.notEqual(rang(lignes, "RIEN À SIGNALER"), -1);
+    assert.equal(rang(lignes, "PROBLÈMES"), -1, "aucune section de problèmes");
+  });
+});
+
+describe("doctor — les gestes, dédoublonnés et copiables", () => {
+  // Le même `npm run build` pouvait apparaître sous trois problèmes. Un lecteur
+  // qui veut agir devait relire tout le rapport pour reconstituer la liste.
+  it("un geste répété n'est listé qu'UNE fois", () => {
+    const r = rapport({
+      freshness: {
+        findings: [
+          { kind: "dist-stale" as const, message: "a → `npm run build`" },
+        ],
+        notComparable: false,
+      },
+      wiring: {
+        scanned: 1,
+        findings: [
+          {
+            kind: "orphan-entity" as const,
+            file: "x.ts",
+            message: "b → `npm run build`",
+          },
+        ],
+      },
+    });
+    const gestes = aFaireEnsuite(r, []);
+    assert.lengthOf(gestes, 1);
+    assert.equal(gestes[0]?.commande, "npm run build");
+  });
+
+  it("les gestes des contrôles SAUTÉS y figurent aussi", () => {
+    const r = horsApplication();
+    const commandes = aFaireEnsuite(
+      r,
+      grouperParRaison([
+        {
+          famille: "migrations",
+          titre: "Migrations de schéma",
+          reason: "il faut démarrer",
+          unlock: "`nodefony doctor --live`",
+        },
+      ]).flatMap((g) => [
+        {
+          famille: "migrations" as CheckFamily,
+          titre: g.titres[0] ?? "",
+          reason: g.reason,
+          unlock: g.unlock,
+        },
+      ]),
+    ).map((g) => g.commande);
+    assert.include(commandes, "nodefony doctor --live");
+  });
+
+  // 🔴 Un accent grave collé part AVEC la commande quand on la copie, et le
+  // terminal se plaint ensuite d'un fichier introuvable.
+  it("aucun accent grave dans la ligne du geste", () => {
+    const r = rapport({
+      freshness: {
+        findings: [
+          { kind: "dist-stale" as const, message: "a → `npm run build`" },
+        ],
+        notComparable: false,
+      },
+    });
+    const lignes = rendreRapport(r, options({ couleur: false })).map(nu);
+    const geste = lignes.find((l) => l.includes("▸"));
+    assert.isDefined(geste);
+    assert.notInclude(geste ?? "", "`");
+    assert.include(geste ?? "", "npm run build");
+  });
+
+  it("la gouttière tient toutes les lignes d'un même problème", () => {
+    const r = rapport({
+      freshness: {
+        findings: [
+          {
+            kind: "dist-stale" as const,
+            message:
+              "une phrase assez longue pour se replier sur au moins trois " +
+              "lignes du terminal, ce qui est exactement le cas où l'on perd " +
+              "de vue à quel problème elle appartient → `npm run build`",
+            file: "env.ts",
+          },
+        ],
+        notComparable: false,
+      },
+    });
+    const lignes = rendreRapport(r, options({ largeur: 60, couleur: false }))
+      .map(nu)
+      .filter((l) => l.includes("│"));
+    assert.isAbove(lignes.length, 2, "le constat doit s'être replié");
+    // Toutes à la MÊME colonne : une gouttière qui saute ne relie plus rien.
+    const colonnes = new Set(lignes.map((l) => l.indexOf("│")));
+    assert.lengthOf([...colonnes], 1);
   });
 });

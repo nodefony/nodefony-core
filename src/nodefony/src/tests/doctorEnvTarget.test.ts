@@ -167,7 +167,10 @@ describe("readiness — un `.env*.local` SUIVI par git", () => {
       assert.include(f?.message ?? "", "git rm --cached .env.local");
       // Retirer le fichier de l'index ne réécrit pas l'historique : taire ce
       // point ferait croire le problème réglé alors que le secret est poussé.
-      assert.include(f?.message ?? "", "compromis");
+      assert.include(f?.message ?? "", "COMPROMIS");
+      // Le geste se sépare par la flèche, sinon le rendu ne peut ni le poser
+      // seul sur sa ligne, ni le reprendre dans « à faire ensuite ».
+      assert.include(f?.message ?? "", "→ git rm --cached");
       assert.isNull(r.trackedUnknown, "le contrôle a bien regardé");
     } finally {
       nettoie();

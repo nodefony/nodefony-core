@@ -214,11 +214,14 @@ export async function checkReadiness(input: {
   for (const file of input.tracked?.supported ? input.tracked.tracked : []) {
     findings.push({
       kind: "env-file-tracked",
+      // Le geste se sépare par la flèche — c'est la convention que le rendu
+      // lit pour le poser seul sur sa ligne et le reprendre dans « à faire
+      // ensuite ». Noyé dans la phrase, il ne se copie pas.
       message:
-        `${file} est SUIVI par git — ce fichier porte les secrets de la machine, ` +
-        `et l'historique les garde même après suppression : ` +
-        `git rm --cached ${file}, l'ajouter à .gitignore, puis CONSIDÉRER comme ` +
-        `compromis tout secret déjà poussé (les faire tourner)`,
+        `${file} est SUIVI par git — il porte les secrets de la machine, et ` +
+        `l'historique les garde même après suppression : tout secret déjà ` +
+        `poussé est COMPROMIS, il faut le faire tourner. Puis ajouter le ` +
+        `fichier à .gitignore. → git rm --cached ${file}`,
       file,
     });
   }
