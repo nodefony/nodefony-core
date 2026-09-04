@@ -208,3 +208,120 @@ describe("--env — une faute de frappe ne doit pas rendre un rapport plausible"
     assert.isAbove(editDistance("a", "abcdefghij"), 3);
   });
 });
+
+/**
+ * 🔴 Ce que le contrôle ne voyait PAS : l'ABSENCE.
+ *
+ * Il n'incrémentait `armed` que faute d'avoir trouvé un `off` — donc une règle
+ * jamais déclarée, un `lint` inexistant et un `verify` absent comptaient tous
+ * comme des gardes en place. Un projet sans le moindre filet s'entendait dire
+ * « 3 gardes armées » : le contrôle reproduisait exactement le mode de
+ * défaillance qu'il existe pour attraper.
+ */
+describe("checkGuards — une garde ABSENTE n'est pas une garde armée", () => {
+  it("⭐ configuration VIDE et aucun script : rien n'est compté armé", () => {
+    poser("package.json", { scripts: {} });
+    poser(".oxlintrc.json", {});
+    const r = controler();
+    assert.equal(r.armed, 0, "aucune garde n'existe : le compte doit être nul");
+    const kinds = r.findings.map((f) => f.kind).sort();
+    assert.deepStrictEqual(kinds, [
+      "lint-missing",
+      "rule-missing",
+      "rule-missing",
+      "typecheck-missing",
+      "verify-missing",
+    ]);
+  });
+
+  it("🔴 une règle jamais déclarée est signalée — elle ne dit rien", () => {
+    poser(".oxlintrc.json", { rules: {} });
+    const r = controler();
+    assert.lengthOf(r.findings, 2);
+    assert.equal(r.findings[0]?.kind, "rule-missing");
+    assert.include(r.findings[0]?.message ?? "", "n'est déclarée nulle part");
+  });
+
+  it("la CATÉGORIE qui l'active suffit — sans nommer la règle", () => {
+    // Constaté en exécutant oxlint catégorie par catégorie : `no-explicit-any`
+    // est dans `restriction`, `ban-ts-comment` dans `pedantic`. Un projet qui
+    // les retient a la garde, et crier ici l'apprendrait à ignorer `doctor`.
+    poser(".oxlintrc.json", {
+      categories: { restriction: "warn", pedantic: "warn" },
+      rules: {},
+    });
+    const r = controler();
+    assert.lengthOf(r.findings, 0);
+    assert.equal(r.armed, 5);
+  });
+
+  it("une catégorie posée à `off` n'arme rien", () => {
+    poser(".oxlintrc.json", {
+      categories: { restriction: "off", pedantic: "allow" },
+      rules: {},
+    });
+    assert.lengthOf(controler().findings, 2);
+  });
+
+  it('🔴 `"allow"` est le mot d\'oxlint pour `off` — il désarme aussi', () => {
+    poser(".oxlintrc.json", {
+      rules: {
+        "typescript/no-explicit-any": "allow",
+        "typescript/ban-ts-comment": ["allow"],
+      },
+    });
+    const r = controler();
+    assert.lengthOf(r.findings, 2);
+    assert.equal(r.findings[0]?.kind, "rule-disabled");
+  });
+
+  it("l'alias `@typescript-eslint/…` compte — oxlint l'accepte", () => {
+    poser(".oxlintrc.json", {
+      rules: {
+        "@typescript-eslint/no-explicit-any": "warn",
+        "ban-ts-comment": "error",
+      },
+    });
+    const r = controler();
+    assert.lengthOf(
+      r.findings,
+      0,
+      "ce sont les MÊMES règles, écrites autrement",
+    );
+    assert.equal(r.armed, 5);
+  });
+
+  it("…et le même alias posé à `off` ne passe pas non plus", () => {
+    poser(".oxlintrc.json", {
+      rules: {
+        "@typescript-eslint/no-explicit-any": "off",
+        "typescript/ban-ts-comment": "warn",
+      },
+    });
+    const r = controler();
+    assert.lengthOf(r.findings, 1);
+    assert.equal(r.findings[0]?.kind, "rule-disabled");
+  });
+
+  it("🔴 sans script `lint`, la configuration du linter ne garde plus rien", () => {
+    poser("package.json", {
+      scripts: {
+        typecheck: "tsgo --noEmit",
+        verify: VERIFY_STEPS.join(" && "),
+      },
+    });
+    const r = controler();
+    assert.equal(r.findings[0]?.kind, "lint-missing");
+  });
+
+  it("🔴 sans chaîne `verify`, rien n'enchaîne les contrôles", () => {
+    poser("package.json", {
+      scripts: { lint: "oxlint --deny-warnings", typecheck: "tsgo --noEmit" },
+    });
+    const r = controler();
+    assert.equal(r.findings[0]?.kind, "verify-missing");
+    for (const etape of VERIFY_STEPS) {
+      assert.include(r.findings[0]?.message ?? "", etape);
+    }
+  });
+});

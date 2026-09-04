@@ -25,8 +25,11 @@ import path from "node:path";
 export interface IGuardFinding {
   kind:
     | "lint-not-blocking"
+    | "lint-missing"
     | "rule-disabled"
+    | "rule-missing"
     | "typecheck-missing"
+    | "verify-missing"
     | "verify-broken";
   message: string;
   file: string;
@@ -50,14 +53,26 @@ export interface IGuardResult {
  * que sa doctrine cite (« 0 `any`, 0 `@ts-ignore` »). Une liste dérivée de la
  * configuration ne dirait rien — c'est justement l'absence qu'on cherche.
  */
-export const REQUIRED_RULES: readonly { name: string; why: string }[] = [
+export const REQUIRED_RULES: readonly {
+  name: string;
+  why: string;
+  /**
+   * La catégorie oxlint qui l'active SANS déclaration — constatée en exécutant
+   * `oxlint` catégorie par catégorie, jamais déduite d'une documentation. Un
+   * projet qui active cette catégorie a la garde, même sans nommer la règle :
+   * l'ignorer ferait crier `doctor` sur une configuration saine.
+   */
+  category: string;
+}[] = [
   {
     name: "typescript/no-explicit-any",
     why: "un `any` explicite éteint le typage là où il compte le plus",
+    category: "restriction",
   },
   {
     name: "typescript/ban-ts-comment",
     why: "`@ts-ignore` fait taire le compilateur sans laisser de trace",
+    category: "pedantic",
   },
 ];
 
@@ -73,11 +88,66 @@ const ALLOWED_OFF = ["test", "spec", "config", "scripts", "skills"];
 /** Ce que la chaîne `verify` doit enchaîner pour mériter son nom. */
 export const VERIFY_STEPS: readonly string[] = ["typecheck", "lint", "test"];
 
+/** Les sévérités qui n'arment RIEN. `allow` est le mot d'oxlint pour `off`. */
+const SILENT_SEVERITIES = new Set<unknown>(["off", "allow", 0]);
+
 /** Une valeur de règle qui NE garde plus rien. */
 function isOff(value: unknown): boolean {
-  if (value === "off" || value === 0) return true;
-  if (Array.isArray(value)) return value[0] === "off" || value[0] === 0;
+  if (SILENT_SEVERITIES.has(value)) return true;
+  if (Array.isArray(value)) return SILENT_SEVERITIES.has(value[0]);
   return false;
+}
+
+/**
+ * Le nom d'une règle réduit à ce qui l'identifie vraiment.
+ *
+ * `typescript/no-explicit-any`, `@typescript-eslint/no-explicit-any` et
+ * `no-explicit-any` désignent la MÊME règle — oxlint accepte les trois formes
+ * (constaté en l'exécutant). Comparer les chaînes brutes faisait donc déclarer
+ * « absente » une règle écrite sous un autre de ses noms.
+ *
+ * @param name - le nom tel que la configuration l'écrit.
+ * @returns le segment qui suit le dernier `/`.
+ */
+function ruleKey(name: string): string {
+  const at = name.lastIndexOf("/");
+  return at === -1 ? name : name.slice(at + 1);
+}
+
+/**
+ * La valeur déclarée pour une règle, quel que soit l'alias employé.
+ *
+ * @param rules - le bloc `rules` de la configuration.
+ * @param name - la règle cherchée.
+ * @returns la valeur déclarée, ou `undefined` si la règle n'est pas nommée.
+ */
+function declaredRule(
+  rules: Record<string, unknown>,
+  name: string,
+): unknown | undefined {
+  const wanted = ruleKey(name);
+  let found: unknown | undefined;
+  // La DERNIÈRE déclaration gagne, comme dans l'objet JSON lui-même.
+  for (const key of Object.keys(rules)) {
+    if (ruleKey(key) === wanted) found = rules[key];
+  }
+  return found;
+}
+
+/**
+ * La catégorie qui armerait la règle est-elle activée ?
+ *
+ * @param linter - la configuration du linter.
+ * @param category - la catégorie oxlint de la règle.
+ * @returns `true` si la catégorie est déclarée avec une sévérité qui mord.
+ */
+function categoryArms(
+  linter: Record<string, unknown>,
+  category: string,
+): boolean {
+  const categories = (linter.categories ?? {}) as Record<string, unknown>;
+  const severity = categories[category];
+  return severity !== undefined && !isOff(severity);
 }
 
 /** `true` si ce motif de fichiers ne vise que des zones où le `off` est voulu. */
@@ -135,7 +205,20 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
 
     // Un linter qui rend 0 sur un avertissement ne garde rien : les règles du
     // projet sont en `warn`, et c'est `--deny-warnings` qui les rend bloquantes.
-    if (lint && !lint.includes("--deny-warnings")) {
+    if (!lint) {
+      // Une garde ABSENTE ne doit jamais compter comme armée : c'est le mode
+      // de défaillance que ce contrôle existe pour attraper, et il l'a
+      // reproduit sur lui-même — un projet sans `lint` affichait « gardes
+      // armées » sans qu'aucun linter n'ait jamais tourné.
+      findings.push({
+        kind: "lint-missing",
+        file: manifestFile,
+        message:
+          "aucun script `lint` : les règles du projet ne sont exécutées par " +
+          "personne — ni en local, ni dans une forge, et leur configuration " +
+          "ne garde alors plus rien",
+      });
+    } else if (!lint.includes("--deny-warnings")) {
       findings.push({
         kind: "lint-not-blocking",
         file: manifestFile,
@@ -144,7 +227,7 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
           "projet sont en `warn`, donc le linter passe même quand elles " +
           "mordent — la garde est là, mais elle ne retient rien",
       });
-    } else if (lint) armed++;
+    } else armed++;
 
     if (!typecheck) {
       findings.push({
@@ -158,7 +241,16 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
     } else armed++;
 
     const manquantes = VERIFY_STEPS.filter((e) => !verify.includes(e));
-    if (verify && manquantes.length > 0) {
+    if (!verify) {
+      findings.push({
+        kind: "verify-missing",
+        file: manifestFile,
+        message:
+          "aucune chaîne `verify` : rien n'enchaîne " +
+          `${VERIFY_STEPS.join(", ")} en une seule commande — c'est celle ` +
+          "qu'une forge appelle, et celle qu'on tape avant de publier",
+      });
+    } else if (manquantes.length > 0) {
       findings.push({
         kind: "verify-broken",
         file: manifestFile,
@@ -173,8 +265,8 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
   if (linter) {
     const rules = (linter.rules ?? {}) as Record<string, unknown>;
     const overrides = Array.isArray(linter.overrides) ? linter.overrides : [];
-    for (const { name, why } of REQUIRED_RULES) {
-      if (isOff(rules[name])) {
+    for (const { name, why, category } of REQUIRED_RULES) {
+      if (isOff(declaredRule(rules, name))) {
         findings.push({
           kind: "rule-disabled",
           file: linterFile,
@@ -188,7 +280,7 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
       const large = overrides.find((o) => {
         const bag = (o ?? {}) as Record<string, unknown>;
         const r = (bag.rules ?? {}) as Record<string, unknown>;
-        return isOff(r[name]) && !isAllowedScope(bag.files);
+        return isOff(declaredRule(r, name)) && !isAllowedScope(bag.files);
       });
       if (large) {
         const cible = (large as { files?: unknown }).files;
@@ -198,6 +290,23 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
           message:
             `la règle \`${name}\` est désactivée sur ${JSON.stringify(cible)} — ` +
             `hors des zones où c'est voulu (tests, configuration, scripts). ${why}`,
+        });
+        continue;
+      }
+      // 🔴 Une règle qu'on ne trouve NULLE PART n'est pas armée. Elle n'est
+      // active par défaut dans aucune catégorie que ce projet déclare : la
+      // compter faisait rendre « 3 gardes armées » sur une configuration vide.
+      if (
+        declaredRule(rules, name) === undefined &&
+        !categoryArms(linter, category)
+      ) {
+        findings.push({
+          kind: "rule-missing",
+          file: linterFile,
+          message:
+            `la règle \`${name}\` n'est déclarée nulle part, et la catégorie ` +
+            `\`${category}\` qui l'activerait n'est pas retenue : elle ne dit ` +
+            `donc rien. ${why}`,
         });
         continue;
       }
