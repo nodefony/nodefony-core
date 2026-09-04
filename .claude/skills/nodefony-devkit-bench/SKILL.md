@@ -215,11 +215,27 @@ mais **tel qu'un installeur le reçoit**.
 > plancher `engines` (Node 24, la version que pose la CI générée pour
 > l'application de l'utilisateur), plus une variante haute sur ubuntu. Le lancer
 > à la main sert à la boucle courte et au diagnostic, plus à obtenir le verdict :
-> il arrive à chaque poussée. En échec, le job remonte le journal complet et le
-> `report.json` en artefact — le décor, lui, ne l'est pas (~300 Mo), et le
-> rapport suffit à savoir quelle étape est tombée. **Ce que ce job n'éprouve
-> pas** est nommé dans [`docs/guides/integration-continue.md`](../../../docs/guides/integration-continue.md)
+> il arrive à chaque poussée. **Ce que ce job n'éprouve pas** est nommé dans
+> [`docs/guides/integration-continue.md`](../../../docs/guides/integration-continue.md)
 > § 6 : le front d'une application générée, et les dialectes autres que SQLite.
+
+> **Un job rouge doit se diagnostiquer SANS remonter le décor** — il pèse
+> ~300 Mo et la machine qui l'a produit est jetée à la fin du job. Ce qui part
+> en objet déposé (`if: failure()`) : le journal du banc, `report.json`,
+> `echec.log` (la sortie ENTIÈRE de la commande tombée), le journal du serveur
+> détaché de l'application témoin, l'état de son manifeste — et, sur les
+> moteurs serveur, le **journal des conteneurs de base**. Ce dernier n'est pas
+> un supplément : la cause d'un échec PostgreSQL tenait en une ligne côté
+> serveur, que le banc ne pouvait pas voir depuis son client.
+>
+> Et l'extrait affiché dans le journal du job n'est plus « la fin de la
+> sortie ». Une commande qui échoue derrière une barre de progression noyait sa
+> propre cause : les derniers caractères ne portaient que
+> `[⣷] 0 views fetching`. `scripts/lib/extrait-echec.mjs` déplie les réécritures de
+> ligne, retire l'ANSI, garde les lignes qui NOMMENT l'échec **en plus** de la
+> queue, et DIT combien de lignes il écarte — un extrait muet se lit comme une
+> sortie complète. Son auto-contrôle rejoue l'ancienne règle sur les sorties
+> réelles qui ont produit le défaut.
 
 > **Le décor de ce banc est ISOLÉ, et ce n'est pas un détail d'exécution.**
 > Longtemps il vivait sous le dépôt, paquets liés au checkout — la résolution de

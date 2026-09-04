@@ -52,6 +52,7 @@ import {
 } from "./lib/isolation.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
 import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { extraitEchec } from "./lib/extrait-echec.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -380,12 +381,12 @@ function run(cmd, args, cwd = APP, env = {}) {
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
-    // La sortie ENTIÈRE sur disque avant tout filtrage — le rapport ne garde que
-    // la fin, et la cause d'un échec n'est pas toujours là. Vécu : le lanceur du
-    // framework refusait la readiness en NOMMANT le module qui manquait, puis un
-    // moteur de test écrivait sa propre pile par-dessus ; les 1 500 derniers
-    // caractères ne portaient plus que la pile, et le diagnostic — produit,
-    // exact — n'atteignait aucun lecteur.
+    // La sortie ENTIÈRE sur disque avant tout filtrage — l'affichage, lui, ne
+    // peut pas tout porter. Vécu : le lanceur du framework refusait la readiness
+    // en NOMMANT le module qui manquait, puis un moteur de test écrivait sa
+    // propre pile par-dessus ; garder « la fin » ne montrait plus que la pile,
+    // et le diagnostic — produit, exact — n'atteignait aucun lecteur. C'est
+    // `extraitEchec` qui choisit maintenant quoi montrer : la cause d'abord.
     const journal = path.join(ROOT, "echec.log");
     try {
       writeFileSync(journal, `$ ${cmd} ${args.join(" ")}\n\n${out}\n`);
@@ -394,7 +395,7 @@ function run(cmd, args, cwd = APP, env = {}) {
     }
     throw new Error(
       `${cmd} ${args.join(" ")} → code ${res.status}` +
-        ` (sortie entière : ${journal})\n${out.slice(-1500)}`,
+        ` (sortie entière : ${journal})\n${extraitEchec(out)}`,
     );
   }
   return `${res.stdout ?? ""}`;
@@ -897,14 +898,14 @@ step(
       if (preuve.status === 0 || !vu.includes("oxlint.selfcheck")) {
         throw new Error(
           `le lint ne LIT PAS l'application témoin (code ${preuve.status}) — ` +
-            `un motif d'exclusion l'écarte, et ce gate rendrait vert sans rien juger :\n${vu.slice(-800)}`,
+            `un motif d'exclusion l'écarte, et ce gate rendrait vert sans rien juger :\n${extraitEchec(vu, { budget: 800 })}`,
         );
       }
       // 2. Verdict réel, témoin retiré.
       const verdict = lance();
       if (verdict.status !== 0) {
         throw new Error(
-          `${`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`.trim().slice(-1500)}`,
+          extraitEchec(`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`),
         );
       }
     } finally {
@@ -1399,7 +1400,15 @@ if (existsSync(ROOT)) {
 if (!failed && !keep) {
   rmSync(ROOT, { recursive: true, force: true });
 } else if (failed) {
-  process.stdout.write(`\n  décor CONSERVÉ pour investigation : ${APP}\n`);
+  // ⚠️ Sur une forge, cette machine est JETÉE à la fin du job : le chemin ne
+  // désigne alors rien, et il envoie le lecteur ouvrir un dossier qui n'existe
+  // plus. Ce qu'il lui reste est l'objet déposé — c'est cela qu'il faut nommer.
+  process.stdout.write(
+    process.env.CI
+      ? `\n  décor NON récupérable (machine de forge jetée) — la preuve est` +
+          ` dans l'objet déposé du job, pas dans ${APP}\n`
+      : `\n  décor CONSERVÉ pour investigation : ${APP}\n`,
+  );
 }
 process.stdout.write(
   failed
