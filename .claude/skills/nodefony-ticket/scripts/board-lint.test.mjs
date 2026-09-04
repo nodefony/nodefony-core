@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { lintBoard, parseBefore, parseDependsOn } from "./board-lint.mjs";
+import {
+  citeLeTicket,
+  lintBoard,
+  parseBefore,
+  parseDependsOn,
+} from "./board-lint.mjs";
 
 /** Un item sain : jalon, ordre, estimation, priorité, aucun statut menteur. */
 const sain = (n, extra = {}) => ({
@@ -60,6 +65,33 @@ describe("parseBefore", () => {
 
   it("ne confond pas une dépendance amont avec une contrainte inverse", () => {
     expect(parseBefore("**Dépend de** : #181")).toEqual([]);
+  });
+});
+
+describe("citeLeTicket — la borne que `git --grep` ne sait pas exprimer", () => {
+  it("reconnaît le ticket cité, dans le sujet comme dans le corps", () => {
+    expect(citeLeTicket("fix(x): corrige #53", 53)).toBe(true);
+    expect(citeLeTicket("sujet\n\nvoir #53 pour le contexte", 53)).toBe(true);
+  });
+
+  it("🔴 #9 ne ramène PAS le travail de #95", () => {
+    expect(citeLeTicket("feat: ferme #95", 9)).toBe(false);
+    expect(citeLeTicket("feat: ferme #9", 9)).toBe(true);
+  });
+
+  it("un numéro qui n'y est pas ne s'invente pas", () => {
+    expect(citeLeTicket("refactor: rien à voir", 53)).toBe(false);
+  });
+
+  it("le ticket collé à une ponctuation reste reconnu — c'est le cas courant", () => {
+    // Vécu : « (#53=8, #83=5) » dans un compte rendu. Une borne trop stricte
+    // rendrait « aucun commit » sur un commit qui existe.
+    expect(citeLeTicket("board: estimations posées (#53=8, #83=5)", 53)).toBe(
+      true,
+    );
+    expect(citeLeTicket("board: estimations posées (#53=8, #83=5)", 83)).toBe(
+      true,
+    );
   });
 });
 

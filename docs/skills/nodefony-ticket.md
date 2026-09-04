@@ -90,7 +90,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--milestone` `--owner` `--paginate` `--slurp` `--state` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` |
-| `scripts/board-lint.test.mjs` | — | — | — |
+| `scripts/board-lint.test.mjs` | — | `--grep` | — |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--comment` `--format` `--grep` `--name-only` `--reverse` `--since` | — |

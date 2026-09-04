@@ -5661,7 +5661,12 @@
             "path": "scripts/board-lint.test.mjs",
             "purpose": "",
             "usage": [],
-            "options": [],
+            "options": [
+              {
+                "flag": "--grep",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false

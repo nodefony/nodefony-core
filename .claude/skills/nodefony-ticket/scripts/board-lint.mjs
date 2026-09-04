@@ -368,22 +368,49 @@ function readIssues() {
   }));
 }
 
+/**
+ * `true` si ce texte cite VRAIMENT le ticket `n`.
+ *
+ * Pure et exportée parce qu'elle porte un piège coûteux : `#9` ne doit pas
+ * ramener le travail de `#95`, et la borne de mot `\b` — qui exprimerait
+ * exactement cela — n'appartient PAS à la grammaire ERE de `git --grep`. Selon
+ * la plateforme, elle n'y filtre rien, ou bien elle rejette tout. La règle vit
+ * donc ici, en JavaScript, où elle s'éprouve.
+ *
+ * @param texte - sujet et corps du commit, concaténés
+ * @param n - le numéro de ticket cherché
+ * @returns `true` si le ticket est cité, borne de mot comprise
+ */
+export function citeLeTicket(texte, n) {
+  return new RegExp(`#${n}(?![0-9])`).test(texte);
+}
+
 /** Les commits qui citent chaque ticket — la seule preuve qu'un travail avance. */
 function readCommits(numeros) {
   const out = {};
   for (const n of numeros) {
+    // ⚠️ Le filtrage FIN se fait en JavaScript, jamais dans `--grep`. La borne
+    // de mot `\\b` n'appartient pas à la grammaire ERE : selon la plateforme et
+    // la version de git, `--grep='#53\\b' -E` ne rend RIEN — et un lot de
+    // commits existants passe pour inexistant. Vécu ici même : six tickets
+    // déclarés « en cours sans le moindre commit » alors qu'un commit du jour
+    // les citait. `git` dégrossit, la regex tranche.
     const brut = sh("git", [
       "log",
-      "-8",
-      `--grep=#${n}\\b`,
-      "-E",
-      "--format=%H%x09%cI%x09%s",
+      "-30",
+      `--grep=#${n}`,
+      "--format=%H%x09%cI%x09%s%x09%b%x1e",
     ]);
     out[n] = brut
-      ? brut.split("\n").map((l) => {
-          const [sha, date, ...s] = l.split("\t");
-          return { sha, date, subject: s.join("\t") };
-        })
+      ? brut
+          .split("\u001e")
+          .map((bloc) => bloc.trim())
+          .filter(Boolean)
+          .map((bloc) => {
+            const [sha, date, subject, ...corps] = bloc.split("\t");
+            return { sha, date, subject, body: corps.join("\t") };
+          })
+          .filter((c) => citeLeTicket(`${c.subject} ${c.body}`, n))
       : [];
   }
   return out;
