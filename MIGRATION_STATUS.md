@@ -198,9 +198,11 @@ Console Logs Studio = panneau P10 de facto livré.
 > été scanné (`gitleaks`, 2 020 commits, 59 Mo) : **aucun secret**, 44 résultats tous expliqués
 > (35 = jetons d'exemple des RFC bundlées, 3 = vecteur de test RFC 6238, 1 = cert mkcert de dev).
 > Le **signalement privé GitHub est ACTIVÉ** (dépôt désormais PUBLIC — vérifié API 08-20,
-> `private-vulnerability-reporting: enabled`). 🔴 Reste **ouvert sur ce point, et il MONTE
-> maintenant que le dépôt est public** : brancher gitleaks en gate avec une allowlist (sinon les
-> 44 faux positifs le feront désactiver) — vérifié 08-20 : AUCUN workflow/hook gitleaks.
+> `private-vulnerability-reporting: enabled`). ✅ **`gitleaks` est branché en gate**
+> (`secrets.yml`, `57cba4f7`) : arbre ET historique, à chaque poussée, et le scanner se prouve
+> d'abord sur deux témoins plantés — une configuration qui ne charge pas rend « 0 secret » avec
+> le même aplomb qu'un dépôt propre. 50 trouvailles triées une par une, aucune exclusion en bloc
+> (`.gitleaks.toml`), **0 après tri**.
 > **(2)** ✅ **Vulnérabilités : 0** (`npm audit` re-prouvé 08-20, 0 alerte Dependabot — P9.4 ;
 > les « 166 » de la branche par défaut ont disparu avec l'alignement `main` ≡ `claude-ts`).
 > **(3)** **Provenance npm + 2FA** :
@@ -230,7 +232,7 @@ Console Logs Studio = panneau P10 de facto livré.
 | Renvois au code en dérive dans le corpus doc | 🟠 | [#49](https://github.com/nodefony/nodefony-core/issues/49) |
 | Option de tri mal formée = tri silencieusement ignoré | 🟠 | [#57](https://github.com/nodefony/nodefony-core/issues/57) |
 | Le corps des requêtes est injecté sans schéma | 🟠 | [#58](https://github.com/nodefony/nodefony-core/issues/58) — arbitrage |
-| Le cluster arrache les gestionnaires de signaux tiers | 🟠 | [#59](https://github.com/nodefony/nodefony-core/issues/59) |
+| Le cluster arrache les gestionnaires de signaux tiers | ✅ | [#59](https://github.com/nodefony/nodefony-core/issues/59) — `ee953505` : retrait NOMINATIF (`Cli.releaseSignalListeners`), un gestionnaire tiers survit |
 | Les noms de rôles sont écrits deux fois, front et back | 🟠 | [#60](https://github.com/nodefony/nodefony-core/issues/60) |
 | Une politique de canal ne mord pas sur un canal dynamique | 🔴 | [#61](https://github.com/nodefony/nodefony-core/issues/61) |
 | La sonde de disponibilité lit les ports de la config | 🟡 | [#62](https://github.com/nodefony/nodefony-core/issues/62) |
@@ -275,7 +277,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 > Les 9 constats, jamais instruits depuis juillet, ont été confrontés au code le 08-20 :
 >
 > - **5 CONFIRMÉS → montés au tableau des dettes ci-dessus** : `NF__HTTP__TRUSTPROXY=1` cassait le
->   boot (✅ soldé) · `ClusterManager` arrache les handlers tiers · table de routes `static` globale ·
+>   boot (✅ soldé) · `ClusterManager` arrachait les handlers tiers (✅ soldé, `ee953505`) · table de routes `static` globale ·
 >   `@Body()` injecte le payload brut sans validation de schéma (`routerDecorators.ts:1209` —
 >   **TRANCHÉ #58** : la validation vit dans le service, hooks `beforeCreate`/`beforeUpdate`
 >   d'`AbstractCrudService`, `await`és donc ouverts à l'asynchrone et communs à REST, socket et
