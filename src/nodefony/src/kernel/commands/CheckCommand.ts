@@ -94,6 +94,11 @@ class Check extends Command {
     this.addOption(
       "--env <name>",
       "Dit ce qui manquera dans CET environnement (ex. production), depuis ce poste",
+      // SUGGESTIONS, pas contraintes : un environnement de déploiement est une
+      // chaîne libre (`preprod`, `qa`, `recette`). Ce que la complétion propose
+      // couvre les cas courants ; ce que la commande ACCEPTE reste ouvert, et
+      // seule une faute de frappe manifeste est refusée.
+      ["production", "development", "preprod", "staging"],
     );
     this.addOption(
       "--cwd <path>",

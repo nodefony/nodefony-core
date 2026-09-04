@@ -24,7 +24,7 @@
  * exercer le dépôt, on exerce une version publiée.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -82,7 +82,6 @@ describe("scripts du dépôt — le binaire s'appelle par son CHEMIN", () => {
   it("aucune étape de la forge n'invoque `nodefony` par son nom", () => {
     const flux = path.join(RACINE, ".github", "workflows");
     if (!existsSync(flux)) return;
-    const { readdirSync } = require("node:fs") as typeof import("node:fs");
     const fautifs: string[] = [];
     for (const nom of readdirSync(flux)) {
       if (!/\.ya?ml$/.test(nom)) continue;

@@ -91,6 +91,8 @@ export type CheckFamily =
   | "surface"
   /** Les entités écrites pour un moteur que le connecteur n'est pas. */
   | "dialect"
+  /** Les filets du projet — sont-ils seulement ARMÉS ? */
+  | "guards"
   /** Étage 2 — l'état des migrations, que seule l'application démarrée sait. */
   | "migrations"
   /** Étage 2 — la cohérence des zones, née de la confrontation au boot. */
@@ -114,9 +116,10 @@ export const TITRES: Record<CheckFamily, string> = {
   wiring: "Câblage",
   surface: "Surface ouverte",
   dialect: "Entités et dialecte",
+  guards: "Gardes du projet",
   migrations: "Migrations de schéma",
   firewall: "Cohérence du firewall",
-  gating: "Ce qui disparaît là-bas",
+  gating: "Écart avec l'environnement visé",
 };
 
 /**
@@ -135,6 +138,7 @@ export const FAMILLES: readonly CheckFamily[] = [
   "wiring",
   "surface",
   "dialect",
+  "guards",
   // L'étage 2 ferme la marche : il exige un boot, donc il n'est pas toujours
   // là — et ce qui se lit sur des fichiers doit rester en tête, parce que
   // c'est ce qui répond quand l'application ne démarre plus.
@@ -409,6 +413,7 @@ export interface ICountableReport {
   readiness: { findings: readonly unknown[] };
   freshness: { findings: readonly unknown[] };
   surface: { findings: readonly unknown[] };
+  guards: { findings: readonly unknown[] };
   live?: { findings: readonly unknown[] } | undefined;
 }
 
@@ -425,6 +430,7 @@ export function countFindings(report: ICountableReport): number {
     report.readiness.findings.length +
     report.freshness.findings.length +
     report.surface.findings.length +
+    report.guards.findings.length +
     // L'étage 2 pèse comme les autres : une migration en échec n'est pas une
     // information de second rang, c'est la panne qu'on vient chercher.
     (report.live?.findings.length ?? 0)

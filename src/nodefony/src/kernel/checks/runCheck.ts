@@ -26,6 +26,7 @@ import {
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
 import { checkSurface, type ISurfaceResult } from "./surface";
+import { checkGuards, type IGuardResult } from "./guards";
 import { liveNotRun, LIVE_FAMILIES, type ILiveResult } from "./live";
 import {
   defaultDevPorts,
@@ -271,7 +272,8 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     ],
     [
       "nodefony doctor --env production",
-      "ce qui manquera là-bas — variables requises en production, secrets versionnés",
+      "ce qui manquera dans cet environnement — variables requises en " +
+        "production, secrets versionnés",
     ],
     [
       "nodefony doctor --json | jq .",
@@ -411,6 +413,70 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
  *   s'éprouve que dans l'environnement où elle tourne).
  * @returns `true` si un contrôle sauté doit peser sur le code de sortie.
  */
+/**
+ * Les MODES d'exécution connus — ceux que le moteur distingue vraiment.
+ *
+ * La liste des environnements de DÉPLOIEMENT, elle, est ouverte (`staging`,
+ * `preprod`, `qa`… sont des chaînes libres, cf `NF_ENV`) : la fermer refuserait
+ * des environnements parfaitement légitimes. C'est pourquoi la garde
+ * ci-dessous ne refuse PAS l'inconnu — elle refuse ce qui RESSEMBLE à une
+ * faute de frappe sur l'un de ces mots.
+ */
+const KNOWN_MODES = ["production", "development", "dev", "prod", "test"];
+
+/**
+ * La distance d'édition entre deux mots, bornée.
+ *
+ * Bornée parce qu'on ne cherche pas à mesurer : on cherche à savoir si deux
+ * mots sont à une ou deux frappes l'un de l'autre. Au-delà, la réponse est
+ * « non » et le calcul ne sert plus à rien.
+ */
+export function editDistance(a: string, b: string, max = 3): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j++) {
+      current[j] = Math.min(
+        (current[j - 1] ?? 0) + 1,
+        (previous[j] ?? 0) + 1,
+        (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length] ?? max + 1;
+}
+
+/**
+ * Le mode connu dont cet environnement est visiblement une faute de frappe.
+ *
+ * 🔴 Vécu, et c'est le pire mode de défaillance d'un diagnostic : `doctor --env
+ * produntion` rendait un rapport COMPLET et plausible, verdict compris, sur un
+ * environnement qui n'existe nulle part — le mot inventé s'affichait tel quel
+ * dans chaque phrase. Un outil dont le rôle est de dire la vérité ne doit pas
+ * être le seul à ne pas la vérifier sur sa propre entrée.
+ *
+ * On ne refuse PAS tout inconnu : un environnement de déploiement est une
+ * chaîne libre, et refuser `preprod` rendrait l'option inutilisable là où elle
+ * sert. On refuse ce qui est à une ou deux frappes d'un mode connu, sans en
+ * être un — c'est la signature d'une faute, pas d'un choix.
+ *
+ * @param env - l'environnement demandé.
+ * @returns le mode dont il est probablement une coquille, sinon `null`.
+ */
+export function likelyTypo(env: string): string | null {
+  const lower = env.toLowerCase();
+  if (KNOWN_MODES.includes(lower)) return null;
+  for (const mode of KNOWN_MODES) {
+    // Un seuil relatif au mot : sur « dev » (3 lettres), deux frappes d'écart
+    // en font un autre mot ; sur « production », non.
+    const seuil = mode.length <= 5 ? 1 : 2;
+    if (editDistance(lower, mode) <= seuil) return mode;
+  }
+  return null;
+}
+
 export function resoudreStrict(
   mot: boolean | undefined,
   env: Record<string, string | undefined>,
@@ -469,6 +535,14 @@ export function parseCheckArgv(
           error: "--env attend un environnement (ex. --env production)",
         };
       }
+      const coquille = likelyTypo(value);
+      if (coquille)
+        return {
+          error:
+            `environnement inconnu : ${value} — voulais-tu dire ` +
+            `${coquille} ? (un environnement de déploiement libre, comme ` +
+            `preprod ou qa, est accepté tel quel)`,
+        };
       targetEnv = value;
     } else {
       return { error: `option inconnue : ${word}` };
@@ -537,6 +611,14 @@ export interface ICheckReport {
    * mise au point reste ouverte en production.
    */
   surface: ISurfaceResult;
+  /**
+   * Les filets du projet — sont-ils ARMÉS ?
+   *
+   * Aucune occurrence de code n'est signalée ici : le linter le fait déjà, et
+   * mieux. Ce qui manquait, c'est de constater que la garde EXISTE — un filet
+   * décroché ne fait pas de bruit.
+   */
+  guards: IGuardResult;
   /**
    * Les bilans de démarrage disponibles — serveur d'abord, console ensuite.
    *
@@ -643,6 +725,17 @@ export async function collectCheckReport(
     ...(entityDialect ? { dialectExceptions: entityDialect } : {}),
   });
 
+  // Les gardes appartiennent au PROJET : hors d'une application, il n'y a ni
+  // manifeste ni configuration de linter dont on pourrait dire quoi que ce soit.
+  const guards: IGuardResult = projectRoot
+    ? checkGuards({ projectRoot })
+    : {
+        findings: [],
+        armed: 0,
+        linterUnreadable: true,
+        manifestUnreadable: true,
+      };
+
   // La fraîcheur ne se contrôle QUE dans une application : hors projet, il n'y
   // a pas de `dist/` à comparer, et le plancher de Node est celui du dépôt.
   const freshness: IFreshnessResult = projectRoot
@@ -668,6 +761,7 @@ export async function collectCheckReport(
     findings,
     freshness,
     surface,
+    guards,
     wiring: { scanned: wiring.scanned, findings: wiring.findings },
     readiness,
     lastBoots,
@@ -716,6 +810,18 @@ export async function collectCheckReport(
               reason: `${readiness.trackedUnknown} : impossible de dire si un fichier .env*.local est versionné`,
               short: "git muet",
               unlock: "lance depuis un dépôt git (`git init`)",
+            }
+          : { ran: true },
+      guards: !projectRoot
+        ? horsProjet
+        : guards.manifestUnreadable || guards.linterUnreadable
+          ? {
+              ran: false,
+              reason:
+                "le manifeste ou la configuration du linter n'a pas pu être " +
+                "lu : impossible de dire si les gardes du projet sont armées",
+              short: "config illisible",
+              unlock: "vérifie `package.json` et `.oxlintrc.json`",
             }
           : { ran: true },
       // La surface se lit sur les SOURCES : elle répond donc même sur une
@@ -814,7 +920,12 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
     const p = creerPalette(
       doitColorer(process.env, Boolean(process.stderr.isTTY)),
     );
-    process.stderr.write(`  ${p.echec(`doctor : ${parsed.error}`)}\n`);
+    // Replié comme le reste : un refus qui déborde du terminal est le premier
+    // texte que le lecteur voit casser, et il le voit au pire moment.
+    const largeur = largeurUtile(process.stderr.columns);
+    for (const l of replier(`doctor : ${parsed.error}`, largeur, "  ")) {
+      process.stderr.write(`${p.echec(l)}\n`);
+    }
     process.stderr.write(usage(p, largeurUtile(process.stderr.columns)));
     return 64;
   }

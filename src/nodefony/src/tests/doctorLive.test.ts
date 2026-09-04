@@ -221,6 +221,12 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       dialectFrom: "défaut du connecteur",
       entitiesScanned: 0,
     },
+    guards: {
+      findings: [],
+      armed: 5,
+      linterUnreadable: false,
+      manifestUnreadable: false,
+    },
     lastBoots: [],
     exceptions: 0,
     execution: {
@@ -231,6 +237,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       deps: { ran: true },
       wiring: { ran: true },
       surface: { ran: true },
+      guards: { ran: true },
       dialect: { ran: true },
       migrations: { ran: false, reason: "non demandé", short: "non demandé" },
       firewall: { ran: false, reason: "non demandé", short: "non demandé" },

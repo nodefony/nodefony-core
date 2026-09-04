@@ -96,7 +96,7 @@ export { WeakPasswordError } from "./nodefony/errors/WeakPasswordError";
 // ─── Data plane admin (P6.15) ────────────────────────────────────────────────
 // Défini ICI (propriétaire du domaine `UserService`/`IUser`) mais ENREGISTRÉ par
 // un module bootable (`@nodefony/security`), `@nodefony/user` étant une lib pure
-// non-bootable — cas explicitement prévu par le core (`IAdminApi` produable par
+// non-bootable — cas explicitement prévu par le core (`IAdminApi` que peut produire
 // un module qui ne dépend que de `nodefony`).
 export {
   createUserAdminApi,

@@ -73,6 +73,12 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
     dialectFrom: "défaut du connecteur",
     entitiesScanned: 0,
   },
+  guards: {
+    findings: [],
+    armed: 5,
+    linterUnreadable: false,
+    manifestUnreadable: false,
+  },
   lastBoots: [],
   exceptions: 0,
   // Toutes les familles ont « tourné » dans ce décor par défaut : ces tests

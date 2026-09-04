@@ -71,6 +71,15 @@ const defaultCommandOptions: OptionsCommandInterface = {
  * @extends Service
  */
 
+/**
+ * Les valeurs SUGGÉRÉES d'une option, pour la complétion du shell.
+ *
+ * Un registre à part plutôt qu'un champ posé sur l'objet de commander : ce sont
+ * ses objets, et les muter ferait dépendre le produit d'un détail non
+ * documenté. `WeakMap` parce qu'une option morte ne doit rien retenir.
+ */
+export const OPTION_SUGGESTIONS = new WeakMap<Option, readonly string[]>();
+
 class Command extends Service {
   public cli: Cli | CliKernel;
   public command: Cmd;
@@ -474,9 +483,18 @@ class Command extends Service {
    * @returns {Option} Instance de la classe Option.
    * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
-  addOption(flags: string, description?: string | undefined): Option {
+  addOption(
+    flags: string,
+    description?: string | undefined,
+    suggestions?: readonly string[],
+  ): Option {
     if (this.command) {
       const opt = new Option(flags, description);
+      // 🔴 Des SUGGESTIONS, pas des `choices()` : `Option.choices()` VALIDE, et
+      // une option dont les valeurs sont ouvertes par nature (un environnement
+      // de déploiement est une chaîne libre) deviendrait inutilisable là où
+      // elle sert. Ce registre n'est consulté que par la complétion.
+      if (suggestions?.length) OPTION_SUGGESTIONS.set(opt, suggestions);
       this.command.addOption(opt);
       return opt;
     }

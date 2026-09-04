@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T16:38:10.523Z",
+  "generated": "2026-09-04T16:53:35.617Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 803,
-    "symbols": 3781,
+    "files": 804,
+    "symbols": 3794,
     "classes": 383,
-    "interfaces": 1035,
+    "interfaces": 1038,
     "types": 437,
     "enums": 4,
-    "functions": 1545,
-    "constants": 377
+    "functions": 1552,
+    "constants": 380
   },
   "symbols": {
     "Cli": {
@@ -2163,8 +2163,7 @@
       "module": "@nodefony/core",
       "extends": "Service",
       "implements": [],
-      "decorators": [],
-      "description": "Classe Command représente une commande dans l'application."
+      "decorators": []
     },
     "OptionsCommandInterface": {
       "name": "OptionsCommandInterface",
@@ -2180,6 +2179,14 @@
       "file": "src/nodefony/src/command/Command.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "OPTION_SUGGESTIONS": {
+      "name": "OPTION_SUGGESTIONS",
+      "kind": "const",
+      "file": "src/nodefony/src/command/Command.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Classe Command représente une commande dans l'application."
     },
     "IConfigFieldMeta": {
       "name": "IConfigFieldMeta",
@@ -8126,6 +8133,56 @@
       "module": "@nodefony/core",
       "description": "Le délai au-delà duquel un boot cible qui n'a pas répondu est abandonné."
     },
+    "IGuardFinding": {
+      "name": "IGuardFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/guards.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une garde décrochée."
+    },
+    "IGuardResult": {
+      "name": "IGuardResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/guards.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le contrôle a pu constater."
+    },
+    "IGuardCheckOptions": {
+      "name": "IGuardCheckOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/guards.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "checkGuards": {
+      "name": "checkGuards",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/guards.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Constate que les gardes du projet sont armées."
+    },
+    "REQUIRED_RULES": {
+      "name": "REQUIRED_RULES",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/guards.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les règles dont la désactivation retire un filet, et pourquoi. Nommées ici plutôt que devinées : ce sont celles que le projet a choisies et que sa doctrine cite (« 0 `any`, 0 `@ts-ignore` »). Une l…"
+    },
+    "VERIFY_STEPS": {
+      "name": "VERIFY_STEPS",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/guards.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que la chaîne `verify` doit enchaîner pour mériter son nom."
+    },
     "ILastBootBrick": {
       "name": "ILastBootBrick",
       "kind": "interface",
@@ -8664,13 +8721,28 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "@nodefony/core:editDistance": {
+      "name": "editDistance",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La distance d'édition entre deux mots, bornée. Bornée parce qu'on ne cherche pas à mesurer : on cherche à savoir si deux mots sont à une ou deux frappes l'un de l'autre. Au-delà, la réponse est « n…"
+    },
+    "likelyTypo": {
+      "name": "likelyTypo",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le mode connu dont cet environnement est visiblement une faute de frappe. 🔴 Vécu, et c'est le pire mode de défaillance d'un diagnostic : `doctor --env produntion` rendait un rapport COMPLET et pla…"
+    },
     "resoudreStrict": {
       "name": "resoudreStrict",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "La sévérité d'un contrôle sauté, décidée hors de la ligne de commande. Un drapeau explicite gagne toujours — dans les deux sens : `--no-strict` existe pour qu'une absence VOULUE puisse s'énoncer en…"
+      "module": "@nodefony/core"
     },
     "parseCheckArgv": {
       "name": "parseCheckArgv",
@@ -28874,6 +28946,9 @@
         "src/nodefony/src/cli/card.ts",
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
+      "OPTION_SUGGESTIONS": [
+        "src/nodefony/src/cli/completion.ts"
+      ],
       "besoinDeShell": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
@@ -30860,6 +30935,12 @@
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "ISurfaceResult": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "checkGuards": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "IGuardResult": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "liveNotRun": [

@@ -145,7 +145,7 @@ export function lostServices(
       // avertissement sans geste est un avertissement qu'on apprend à ignorer.
       action:
         'fournis-le par un défaut du framework, ou retire `policy: "dev"` ' +
-        "du module si cette brique est requise là-bas",
+        "du module si cette brique est requise dans cet environnement",
     }));
 }
 

@@ -656,6 +656,13 @@ function sommaire(
           ? `${accord(surfaceFindings(report, "entity-other-dialect").length, "entité")} hors dialecte`
           : `${accord(report.surface.entitiesScanned, "entité")} sur ${report.surface.dialect ?? "?"}`,
     },
+    guards: {
+      n: report.guards.findings.length,
+      texte:
+        report.guards.findings.length > 0
+          ? `${accord(report.guards.findings.length, "garde")} décrochée${report.guards.findings.length > 1 ? "s" : ""}`
+          : `${accord(report.guards.armed, "garde")} armée${report.guards.armed > 1 ? "s" : ""}`,
+    },
     // Étage 2 : le compte vient des findings de CETTE famille, filtrés par leur
     // origine. Un manquement de migration ne doit pas grossir la ligne du
     // firewall — le sommaire perdrait sa seule vertu, dire OÙ regarder.
@@ -845,6 +852,7 @@ function groupesDeManquements(
       titre: TITRES.dialect,
       items: surfaceFindings(report, "entity-other-dialect"),
     },
+    { titre: TITRES.guards, items: report.guards.findings },
     // L'étage 2 en dernier : il n'existe que sur une application qui a démarré,
     // et le geste qu'il propose vient du PRODUCTEUR — il est rendu tel quel,
     // sous le constat, parce qu'une commande à taper se copie.

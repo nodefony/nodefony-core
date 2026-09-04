@@ -10,6 +10,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { SysExit } from "./sysexits";
+import { OPTION_SUGGESTIONS } from "../command/Command";
 import type { Command as CommanderCommand } from "commander";
 
 /**
@@ -42,6 +43,15 @@ export interface ICliManifestCommand {
    * manifests cache antérieurs → traité comme libre (compat lecture).
    */
   args?: string[][];
+  /**
+   * Les flags qui attendent une VALEUR, avec ce qu'on peut proposer.
+   *
+   * Un tableau vide dit « une valeur est attendue, mais je ne sais pas
+   * laquelle » — et c'est déjà l'essentiel : sans cela, le TAB proposait les
+   * AUTRES options juste après `--env`, ce qui laissait croire qu'aucun
+   * argument n'était requis. Absent des manifests antérieurs (compat lecture).
+   */
+  optionValues?: Record<string, string[]>;
 }
 
 /** Manifest de complétion (cache par projet). */
@@ -69,6 +79,31 @@ export function extractFlags(flags: string): string[] {
 }
 
 /**
+ * Les flags d'une commande qui attendent une valeur, et ce qu'on peut proposer.
+ *
+ * Deux sources, dans cet ordre : les `choices()` déclarés à commander (qui
+ * VALIDENT, donc font autorité) et le registre des suggestions du produit (qui
+ * ne valide rien, pour les options dont les valeurs sont ouvertes).
+ *
+ * @param cmd - la commande, telle que commander la porte.
+ * @returns un tableau de valeurs par flag ; vide = valeur libre.
+ */
+function optionValuesOf(cmd: CommanderCommand): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const o of cmd.options ?? []) {
+    // Un drapeau ne prend pas de valeur : le proposer en attendrait une, et le
+    // TAB deviendrait muet là où il devait proposer les autres options.
+    if (!o.required && !o.optional) continue;
+    const valeurs = [
+      ...(o.argChoices ?? []),
+      ...(OPTION_SUGGESTIONS.get(o) ?? []),
+    ];
+    for (const flag of extractFlags(o.flags)) out[flag] = valeurs;
+  }
+  return out;
+}
+
+/**
  * Construit le manifest depuis l'état COURANT de commander — appelé après que les
  * modules ont posé leurs commandes (`onPreRegister`) pour un manifest complet, ou
  * avec les seuls built-ins pour le fallback sans boot.
@@ -91,6 +126,7 @@ export function buildCliManifest(
       // `.choices()` d'un argument positionnel → candidats au TAB (vécu :
       // `nodefony create <TAB>` ne proposait jamais `app`).
       args: (cmd.registeredArguments ?? []).map((a) => a.argChoices ?? []),
+      optionValues: optionValuesOf(cmd),
     });
   }
   return {
@@ -242,6 +278,12 @@ export function computeCompletions(
         if (j > 0 && after[j - 1].startsWith("-")) continue;
         pos++;
       }
+      // 🔴 Le dernier mot VALIDÉ est un flag qui attend une valeur : c'est elle
+      // qu'on complète, pas une autre option. Proposer les options ici faisait
+      // croire que `--env` se suffisait à lui-même.
+      const dernier = validated[validated.length - 1] ?? "";
+      const attendues = cmd.optionValues?.[dernier];
+      if (attendues) return attendues;
       const choices = cmd.args?.[pos] ?? [];
       return [...choices, ...cmd.options, ...manifest.globalOptions];
     }
