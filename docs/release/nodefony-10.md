@@ -226,6 +226,32 @@ Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **s
 > l'OIDC, le dépannage) : [`docs/guides/publier-une-release.md`](../guides/publier-une-release.md).
 > Cette page-ci reste le PLAN : quoi publier, les décisions et leur pourquoi, ce qui reste à faire.
 
+### 7.0 La 10.0.0 n'est PAS la première publication — une beta la précède (#175)
+
+Ce plan a longtemps supposé que la chaîne s'exécuterait pour la première fois le jour J. Trois
+faits, constatés au registre, disent que ce serait le pire moment pour l'apprendre :
+
+1. **Aucun des treize paquets `@nodefony/*` n'existe sur npm** (vérifié un par un ; seul
+   `nodefony` est là, en 7.0.2). Ils sont tous à créer.
+2. **Le trusted publishing se configure sur un paquet qui EXISTE** — on lie un paquet à un dépôt
+   et un workflow. La première publication de chacun ne peut donc pas venir de la forge : elle
+   part d'un jeton, à la main. C'est structurel, pas un choix.
+3. **`npm publish` de quatorze paquets n'est pas une transaction.** Cassée au huitième, la version
+   est à moitié publiée — et une version publiée est BRÛLÉE.
+
+D'où l'ordre retenu : **`10.0.0-beta.1` sous le dist-tag `beta`**, qui crée les paquets, établit le
+scope, permet d'armer le trusted publishing, et éprouve la seule chose qu'aucun banc ne touche —
+**la résolution inter-paquets depuis le REGISTRE**. Les bancs installent depuis des tarballs, ce qui
+résout par chemin de fichier ; ce chemin-là n'est jamais pris.
+
+Un numéro de préversion ne coûte rien (`beta.2`, `beta.3`) ; `10.0.0` ne se reprend pas. Et
+`npm install nodefony` continue de servir 7.0.2 : personne ne reçoit la beta sans la nommer.
+
+**Rien à écrire pour cela** : `release.mjs` porte déjà `--npm-tag`, REFUSE une préversion sans
+dist-tag (`:180`) comme une version stable sous un autre tag que `latest` (`:187`), publie avec
+`--access public` explicite (`:650`), et calcule l'ordre de publication depuis les dépendances
+(`release-core.mjs:100`). Le mode existe ; il n'a jamais été lancé.
+
 **Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
 mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie que `start.sh`/`run.sh`).
 
