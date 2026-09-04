@@ -8,6 +8,8 @@ import {
   type InspectFailure,
 } from "../inspect/adminSubjects";
 import { localOperatorCaller } from "../adminPlane/adminCaller";
+import { renderTable, type TableRow } from "../../cli/tableReport";
+import { doitColorer, largeurUtile } from "../checks/report";
 
 /**
  * `kernelEvent: "onPostReady"` — et pas `onReady`, malgré les apparences.
@@ -222,8 +224,18 @@ class Inspect extends Command {
         );
         return;
       }
-      // `console.table` respecte la sortie standard et aligne seul.
-      console.table(payload);
+      // 🔴 PAS `console.table` : il rend toutes les colonnes à leur largeur
+      // naturelle, avec un index et des guillemets — mesuré ici, des lignes de
+      // 900 colonnes pour `inspect routes`. Un tableau plus large que l'écran
+      // n'est plus un tableau : le terminal le replie, et l'alignement qui
+      // justifiait la forme disparaît. Le rendu est donc BORNÉ, et bascule en
+      // fiches quand même la compression ne suffit pas.
+      const out = process.stdout;
+      const lignes = renderTable(payload as TableRow[], {
+        largeur: largeurUtile(out.columns),
+        couleur: doitColorer(process.env, Boolean(this.kernel?.isTTY)),
+      });
+      out.write(`${lignes.join("\n")}\n\n`);
       process.stdout.write(
         `${payload.length} ${subject} (environnement : ${this.environnement()})\n`,
       );

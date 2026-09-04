@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T20:36:17.521Z",
+  "generated": "2026-09-04T20:44:25.335Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 806,
-    "symbols": 3823,
+    "files": 807,
+    "symbols": 3832,
     "classes": 383,
-    "interfaces": 1043,
-    "types": 437,
+    "interfaces": 1044,
+    "types": 438,
     "enums": 4,
-    "functions": 1573,
+    "functions": 1580,
     "constants": 383
   },
   "symbols": {
@@ -2043,6 +2043,55 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Codes de sortie standardisés — convention BSD `sysexits.h` (FreeBSD `sysexits(3)`). Ce n'est PAS un RFC, mais le standard de facto Unix pour des exit codes porteurs de sens, au-delà du binaire POSI…"
+    },
+    "ITableOptions": {
+      "name": "ITableOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/tableReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le décor du rendu — tout ce que ce module refuse d'aller chercher."
+    },
+    "TableRow": {
+      "name": "TableRow",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/tableReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une ligne de données — les clés deviennent les colonnes."
+    },
+    "formatCell": {
+      "name": "formatCell",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/tableReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'une cellule doit à son lecteur : lisible, jamais du JSON brut."
+    },
+    "colonnesDe": {
+      "name": "colonnesDe",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/tableReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les colonnes présentes dans les données, dans l'ordre de rencontre."
+    },
+    "repartir": {
+      "name": "repartir",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/tableReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Répartit la largeur disponible entre les colonnes. Chacune reçoit ce qu'elle demande tant que le total tient. Au-delà, on rogne les PLUS LARGES d'abord, par paliers : rogner uniformément punirait u…"
+    },
+    "renderTable": {
+      "name": "renderTable",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/tableReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le tableau, ligne par ligne, sans retour chariot final."
     },
     "noteServerEnv": {
       "name": "noteServerEnv",
@@ -29269,11 +29318,13 @@
       ],
       "creerPalette": [
         "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "replier": [
         "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -29288,6 +29339,7 @@
       ],
       "IPalette": [
         "src/nodefony/src/cli/helpReport.ts",
+        "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -29661,11 +29713,13 @@
       ],
       "doitColorer": [
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "largeurUtile": [
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "renderHelp": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -31265,6 +31319,12 @@
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "InspectFailure": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "renderTable": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "TableRow": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "buildStartMenu": [
