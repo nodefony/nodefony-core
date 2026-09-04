@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T18:02:32.657Z",
+  "generated": "2026-09-04T19:49:01.429Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 804,
-    "symbols": 3805,
+    "files": 805,
+    "symbols": 3810,
     "classes": 383,
-    "interfaces": 1038,
+    "interfaces": 1039,
     "types": 437,
     "enums": 4,
-    "functions": 1563,
-    "constants": 380
+    "functions": 1566,
+    "constants": 381
   },
   "symbols": {
     "Cli": {
@@ -8921,6 +8921,47 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Relève la surface ouverte et les entités hors dialecte."
+    },
+    "IWalkOptions": {
+      "name": "IWalkOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/walk.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que l'appelant choisit — le reste est commun à tous les contrôles."
+    },
+    "isSkippedDir": {
+      "name": "isSkippedDir",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/walk.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce dossier est-il hors de portée de tout contrôle ?"
+    },
+    "isTestFile": {
+      "name": "isTestFile",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/walk.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce fichier est-il un test ? Reconnaît `x.test.ts` et `x.spec.ts`, dans toutes les extensions de source. Un test n'est ni servi, ni publié, ni bâti : aucun contrôle n'a de raison de le compter, et c…"
+    },
+    "collectSources": {
+      "name": "collectSources",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/walk.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les fichiers de source d'une cible, tests et dossiers produits exclus."
+    },
+    "SKIPPED_DIRS": {
+      "name": "SKIPPED_DIRS",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/walk.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les dossiers dans lesquels aucun contrôle n'entre. Trois familles, et chacune a son motif : ce qui est INSTALLÉ (`node_modules`), ce qui est PRODUIT (`dist`, `coverage`, `.turbo`, `tmp`, `var`), et…"
     },
     "IWiringFinding": {
       "name": "IWiringFinding",
@@ -30855,6 +30896,12 @@
       "duree": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
+      "isSkippedDir": [
+        "src/nodefony/src/kernel/checks/freshness.ts"
+      ],
+      "isTestFile": [
+        "src/nodefony/src/kernel/checks/freshness.ts"
+      ],
       "IModuleGated": [
         "src/nodefony/src/kernel/checks/gating.ts",
         "src/nodefony/src/kernel/checks/live.ts"
@@ -30879,6 +30926,11 @@
       ],
       "IProvidedService": [
         "src/nodefony/src/kernel/checks/live.ts"
+      ],
+      "collectSources": [
+        "src/nodefony/src/kernel/checks/packageDeps.ts",
+        "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"

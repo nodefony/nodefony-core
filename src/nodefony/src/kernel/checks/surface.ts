@@ -23,8 +23,9 @@
  * compris sur une application qui ne compile plus — c'est précisément là qu'on
  * le consulte.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { collectSources } from "./walk";
 
 /** Ce qui rend une route ou une zone atteignable sans authentification. */
 export type OpeningKind =
@@ -301,25 +302,6 @@ export function connectorDialect(
 const SOURCE_EXT = new Set([".ts", ".mts", ".cts"]);
 
 /**
- * Dossiers dont le contenu n'est jamais du code SERVI.
- *
- * `tests` en fait partie, et ce n'est pas un détail : une fixture de test écrit
- * `@BypassFirewall` pour éprouver le firewall, et l'inventorier ferait compter
- * comme surface ouverte du code qu'aucune requête n'atteint jamais.
- */
-const IGNORED_DIRS = new Set([
-  "node_modules",
-  "dist",
-  ".git",
-  "coverage",
-  ".turbo",
-  "tmp",
-  "var",
-  "tests",
-  "test",
-]);
-
-/**
  * Le dossier où les entités sont CHERCHÉES, tel que le producteur le définit.
  *
  * `nodefony/entity/**`, et rien d'autre (`appSchema.ts:71`). Élargir au reste
@@ -330,31 +312,10 @@ const ENTITY_DIR = `${path.sep}nodefony${path.sep}entity${path.sep}`;
 
 /** Les sources d'une cible, sans jamais entrer dans un `dist/`. */
 function sources(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string, depth: number): void => {
-    if (depth > 8) return;
-    let entries;
-    try {
-      entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.name.startsWith(".") && entry.name !== ".") continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (IGNORED_DIRS.has(entry.name)) continue;
-        walk(full, depth + 1);
-      } else if (
-        SOURCE_EXT.has(path.extname(entry.name)) &&
-        !entry.name.includes(".test.")
-      ) {
-        out.push(full);
-      }
-    }
-  };
-  walk(root, 0);
-  return out;
+  // Le marcheur est COMMUN (`walk.ts`) : ce qu'on saute ne se redécide pas
+  // contrôle par contrôle. Seule la profondeur est propre ici — une cible est
+  // un module, pas un dépôt.
+  return collectSources(root, { extensions: [...SOURCE_EXT], maxDepth: 8 });
 }
 
 /**

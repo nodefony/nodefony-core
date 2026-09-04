@@ -18,9 +18,10 @@
  * code analysé. Le contrôle doit répondre y compris sur une application qui ne
  * démarre plus — c'est précisément là qu'on le consulte.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
+import { collectSources } from "./walk";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
 export interface IWiringFinding {
@@ -341,34 +342,14 @@ function wiringSources(dir: string): string[] {
     const f = path.join(dir, name);
     if (statSync(f, { throwIfNoEntry: false })) found.push(f);
   }
-  const walk = (d: string): void => {
-    let entries;
-    try {
-      entries = readdirSync(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (
-        e.name === "node_modules" ||
-        e.name === "dist" ||
-        e.name === "tests" ||
-        e.name.startsWith(".")
-      ) {
-        continue;
-      }
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) {
-        walk(p);
-      } else if (/\.tsx?$/u.test(e.name) && !/\.test\.tsx?$/u.test(e.name)) {
-        found.push(p);
-      }
-    }
-  };
-  for (const sub of WIRING_DIRS) {
-    const d = path.join(dir, sub);
-    if (statSync(d, { throwIfNoEntry: false })) walk(d);
-  }
+  // Le marcheur et sa règle d'exclusion sont COMMUNS (`walk.ts`) : recopiée
+  // ici, la liste divergeait de celle des autres contrôles au premier ajout.
+  found.push(
+    ...collectSources(dir, {
+      extensions: [".ts", ".tsx"],
+      subdirs: WIRING_DIRS,
+    }),
+  );
   return found;
 }
 

@@ -24,6 +24,7 @@
 import path from "node:path";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { duree } from "./report";
+import { isSkippedDir, isTestFile } from "./walk";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
 export interface IFreshnessFinding {
@@ -59,11 +60,15 @@ const SOURCES = ["nodefony", "src", "index.ts", "nodefony.config.ts", "env.ts"];
  * @returns `true` si une modification de ce fichier périme le build.
  */
 function isBuiltSource(chemin: string): boolean {
+  // Un `.d.ts` est PRODUIT par le build : plus récent que lui par
+  // construction, il ferait crier à chaque compilation. C'est la seule
+  // exclusion propre à ce contrôle.
   if (!chemin.endsWith(".ts") || chemin.endsWith(".d.ts")) return false;
-  if (chemin.includes("/dist/") || chemin.includes("/node_modules/"))
-    return false;
-  if (/\.(test|spec)\.[cm]?tsx?$/u.test(chemin)) return false;
-  return !/(^|\/)(tests?|__tests__)\//u.test(chemin);
+  if (isTestFile(chemin)) return false;
+  // Le reste vient de la règle COMMUNE (`walk.ts`) : ce parcours ne peut pas
+  // lister les fichiers à sauter pour son compte — c'est ainsi qu'il s'est mis
+  // à compter les tests que les autres contrôles excluaient déjà.
+  return !chemin.split("/").some((segment) => isSkippedDir(segment));
 }
 
 /** La source la plus RÉCEMMENT modifiée sous un chemin, et laquelle. */
