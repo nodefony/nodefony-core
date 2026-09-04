@@ -1986,8 +1986,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 369,
-        "approxTokens": 7974
+        "bodyLines": 373,
+        "approxTokens": 8057
       },
       "requires": [],
       "resources": {
@@ -2069,7 +2069,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "369",
+            "detail": "373",
             "advisory": true
           }
         ]

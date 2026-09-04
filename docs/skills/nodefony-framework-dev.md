@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | --- | --- |
 | Version | `2.0.0` |
 | Famille | Développer le framework |
-| Corps | 369 lignes |
-| Coût d'activation | ~7 974 tokens (le corps est chargé à l'invocation) |
+| Corps | 373 lignes |
+| Coût d'activation | ~8 057 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 10 page(s), 85 fichiers au total |
@@ -97,7 +97,7 @@ _(+ 75 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 369 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 373 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -570,18 +570,25 @@ import fs from "node:fs";
 
 ### 🔴 LE CODE S'ÉCRIT EN ANGLAIS — la prose en français
 
-**Tout IDENTIFIANT est en anglais**, sans exception : nom de classe, de méthode,
-de fonction, de variable, de type, d'interface, de champ, de constante, de clé de
-configuration, de fichier. **Ce qu'un humain LIT reste en français** : TSDoc,
-commentaires, messages affichés à l'utilisateur, libellés d'interface, textes de
-test (`it("…")`), messages de commit, documentation.
+**Tout IDENTIFIANT du code de PRODUCTION est en anglais** : nom de classe, de
+méthode, de fonction, de variable, de type, d'interface, de champ, de constante,
+de clé de configuration, de fichier. **Ce qu'un humain LIT reste en français** :
+TSDoc, commentaires, messages affichés à l'utilisateur, libellés d'interface,
+textes de test (`it("…")`), messages de commit, documentation.
 
-| Ce qu'on écrit                                 | Langue       |
-| ---------------------------------------------- | ------------ |
-| `function renderReport()`, `const width`       | **anglais**  |
-| `interface IRenderOptions`, `type CheckFamily` | **anglais**  |
-| Clés JSON, noms de fichiers, champs d'API      | **anglais**  |
-| TSDoc, `//`, `it("…")`, chaînes affichées      | **français** |
+**Les TESTS sont exemptés pour leurs identifiants LOCAUX** (helpers, décors,
+variables) : ils ne partent pas sur npm, n'entrent dans aucun `.d.ts` et
+n'apparaissent dans l'autocomplétion de personne — l'argument qui fonde la règle
+ne les concerne pas. Un test qui IMPORTE un symbole de production suit
+évidemment son nom : le typecheck l'impose, ce n'est pas une décision.
+
+| Ce qu'on écrit                                  | Langue       |
+| ----------------------------------------------- | ------------ |
+| `function renderReport()`, `const width` (prod) | **anglais**  |
+| `interface IRenderOptions`, `type CheckFamily`  | **anglais**  |
+| Clés JSON, noms de fichiers, champs d'API       | **anglais**  |
+| TSDoc, `//`, `it("…")`, chaînes affichées       | **français** |
+| Variables et helpers LOCAUX d'un test           | libre        |
 
 **Pourquoi.** Le code est une surface PUBLIQUE : il part sur npm, entre dans les
 `.d.ts`, s'affiche dans l'autocomplétion de gens qui ne parlent pas français, et
@@ -591,8 +598,8 @@ pas en cherchant `skipped`. La prose, elle, ne voyage pas de la même façon : e
 explique le POURQUOI à qui travaille ici, et le français y est plus précis pour
 l'auteur du framework.
 
-⚠️ Vécu (2026-09-04, `kernel/checks/`) : un module entier écrit avec des
-identifiants français — `rendreRapport`, `controlesSautes`, `largeurUtile`,
+⚠️ Vécu (2026-09-04, `kernel/checks/`) : un module de PRODUCTION entier écrit
+avec des identifiants français — `rendreRapport`, `controlesSautes`, `largeurUtile`,
 `filet`, `accord` — a dû être renommé en bloc. Le mélange est pire que l'un ou
 l'autre : dans le même fichier, `checkPackageDeps` côtoyait `replier`, et plus
 rien ne disait quelle règle suivre au prochain ajout.

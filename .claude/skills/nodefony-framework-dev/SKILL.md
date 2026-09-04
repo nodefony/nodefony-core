@@ -163,9 +163,13 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
 
 ### TypeScript / ESM
 
-- **🔴 TOUT IDENTIFIANT EST EN ANGLAIS — la prose reste en français.** Classe, méthode, fonction,
-  variable, type, interface, champ, constante, clé de config, nom de fichier → **anglais**. TSDoc,
-  commentaires `//`, titres de test (`it("…")`), messages affichés à l'utilisateur → **français**.
+- **🔴 TOUT IDENTIFIANT DE PRODUCTION EST EN ANGLAIS — la prose reste en français.** Classe,
+  méthode, fonction, variable, type, interface, champ, constante, clé de config, nom de fichier →
+  **anglais**. TSDoc, commentaires `//`, titres de test (`it("…")`), messages affichés à
+  l'utilisateur → **français**. **Les TESTS sont exemptés pour leurs identifiants LOCAUX** (helpers,
+  décors, variables) : ils ne partent pas sur npm et n'entrent dans aucun `.d.ts` — l'argument qui
+  fonde la règle ne les concerne pas. Un symbole de production IMPORTÉ dans un test suit son nom :
+  le typecheck l'impose, ce n'est pas une décision.
   Le code part sur npm, entre dans les `.d.ts`, s'affiche dans l'autocomplétion de gens qui ne
   parlent pas français, et se cherche au `grep` par des agents entraînés sur de l'anglais —
   `controlesSautes` ne se trouve pas en cherchant `skipped`.
