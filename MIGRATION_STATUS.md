@@ -234,7 +234,7 @@ Console Logs Studio = panneau P10 de facto livré.
 | Le corps des requêtes est injecté sans schéma | 🟠 | [#58](https://github.com/nodefony/nodefony-core/issues/58) — arbitrage |
 | Le cluster arrache les gestionnaires de signaux tiers | ✅ | [#59](https://github.com/nodefony/nodefony-core/issues/59) — `ee953505` : retrait NOMINATIF (`Cli.releaseSignalListeners`), un gestionnaire tiers survit |
 | Les noms de rôles sont écrits deux fois, front et back | 🟠 | [#60](https://github.com/nodefony/nodefony-core/issues/60) |
-| Une politique de canal ne mord pas sur un canal dynamique | 🔴 | [#61](https://github.com/nodefony/nodefony-core/issues/61) |
+| Une politique de canal ne mord pas sur un canal dynamique | ✅ | [#61](https://github.com/nodefony/nodefony-core/issues/61) — `1a2ecf45` : politique par MOTIF (`chat:room:*`), exact > spécifique, motif échappé et borné |
 | La sonde de disponibilité lit les ports de la config | 🟡 | [#62](https://github.com/nodefony/nodefony-core/issues/62) |
 | Bancs : décor non démarré, compte partagé, seuils absolus | 🟠 | [#63](https://github.com/nodefony/nodefony-core/issues/63) |
 | 45 s de construction à chaque démarrage du superviseur | 🟡 | [#64](https://github.com/nodefony/nodefony-core/issues/64) |
