@@ -1040,3 +1040,69 @@ function appName(racine: string): string {
     return "";
   }
 }
+
+/**
+ * La commande demandée est-elle `doctor` (ou son alias historique `check`) ?
+ *
+ * @param requested - le nom de commande lu sur la ligne de commande.
+ * @returns `true` pour `doctor` et `check`.
+ */
+export function isDoctorCommand(requested: string | null): boolean {
+  return requested === "doctor" || requested === "check";
+}
+
+/**
+ * L'invocation demande-t-elle l'étage 2 — celui qui exige un boot ?
+ *
+ * Une SEULE implémentation de la règle, parce qu'elle sert à deux endroits qui
+ * doivent s'accorder : le fast-path standalone (qui ne se prend PAS quand
+ * l'étage 2 est demandé) et le rattrapage d'un boot mort. Écrite deux fois,
+ * elle divergerait au premier drapeau ajouté — `--no-live` en est déjà un, que
+ * la lecture naïve de `argv` ignorait.
+ *
+ * @param requested - le nom de commande lu sur la ligne de commande.
+ * @param argv - la ligne de commande complète.
+ * @returns `true` si l'application doit être démarrée puis interrogée.
+ */
+export function wantsLiveDoctor(
+  requested: string | null,
+  argv: readonly string[],
+): boolean {
+  if (!isDoctorCommand(requested)) return false;
+  const parsed = parseCheckArgv([...argv]);
+  // Un argv que la commande refuse (ou un `--help`) n'a pas à booter : le
+  // fast-path rendra le refus ou l'usage, sans démarrer quoi que ce soit.
+  return "error" in parsed ? false : parsed.live && !parsed.help;
+}
+
+/**
+ * Rend le rapport de `doctor` alors que l'application vient d'échouer à démarrer.
+ *
+ * 🔴 C'est le cas POUR lequel la commande existe. `--live` sort du fast-path et
+ * demande un boot : sans ce chemin, une application qui ne démarre plus rendait
+ * une pile brute et RIEN d'autre — moins que `doctor` nu. L'étage 2 devient
+ * alors un état d'exécution lisible (ce qui a manqué, et le geste), et l'étage
+ * 1 est rendu comme d'habitude, code de sortie compris.
+ *
+ * @param argv - la ligne de commande telle qu'elle a été tapée.
+ * @param reason - pourquoi l'application n'a pas pu répondre.
+ * @param unlock - le geste qui la rendrait interrogeable.
+ * @returns le code de sortie du rapport.
+ */
+export async function runCheckWithoutLive(
+  argv: string[],
+  reason: string,
+  unlock?: string,
+): Promise<number> {
+  const parsed = parseCheckArgv(argv);
+  // Un argv que la commande elle-même refuse : c'est le refus qui prime, et
+  // `runCheckCommand` porte déjà sa mise en forme et son code distinct.
+  if ("error" in parsed || parsed.help) return runCheckCommand(argv);
+  const start = Date.now();
+  const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
+  return renderCheckReport(
+    attachLive(report, liveNotRun(reason, unlock)),
+    parsed,
+    Date.now() - start,
+  );
+}

@@ -585,6 +585,33 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       );
     });
 
+    // ─── `doctor --live` sur une app qui NE DÉMARRE PAS ───────────────────────
+    // La BRIQUE (`runCheckWithoutLive`) est éprouvée à part ; ici la CHAÎNE —
+    // le binaire réel, un boot qui meurt pour de bon, et ce que l'utilisateur
+    // reçoit. C'est le cas POUR lequel `doctor` existe : tant qu'il n'était pas
+    // rattrapé, `--live` rendait 61 lignes de pile et aucun rapport, soit moins
+    // que `doctor` nu.
+    it("⭐ boot MORT → le rapport statique est rendu quand même, étage 2 expliqué", async () => {
+      const r = await runCli(["doctor", "--live"], CLI_TIMEOUT_MS, {
+        // Un hôte que le DNS ne résoudra jamais : le connecteur tombe à
+        // `onPreBoot`, donc bien avant `onPostReady` où l'étage 2 se branche.
+        NF_DATABASE_URL: "postgres://app:x@base-absente.invalid:5432/app",
+        NF_NO_COLOR: "1",
+      });
+      assert.ok(
+        /ÉTAT/.test(r.stdout),
+        `le rapport doit être rendu malgré le boot mort\n${r.stdout.slice(0, 600)}\n--- stderr ---\n${r.stderr.slice(0, 600)}`,
+      );
+      assert.ok(
+        /n'a pas démarré/.test(r.stdout),
+        `l'étage 2 doit DIRE pourquoi il n'a pas pu répondre\n${r.stdout.slice(-1500)}`,
+      );
+      assert.ok(
+        !READY_RE.test(r.stdout + r.stderr),
+        "un diagnostic ne monte aucun serveur",
+      );
+    });
+
     // ─── Happy-path d'une commande de MODULE (dispatch différé) ────────────────
     // La typo ci-dessus couvre le chemin d'ERREUR du dispatch différé ; ici le chemin
     // NOMINAL : la commande `http:network` (posée par @nodefony/http à onPreRegister,

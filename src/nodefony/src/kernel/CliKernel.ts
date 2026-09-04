@@ -44,7 +44,12 @@ import {
 import Completion from "./commands/CompletionCommand";
 import Create from "./commands/CreateCommand";
 import { runCreateCommand } from "../cli/create";
-import { runCheckCommand } from "./checks/runCheck";
+import {
+  isDoctorCommand,
+  runCheckCommand,
+  runCheckWithoutLive,
+  wantsLiveDoctor,
+} from "./checks/runCheck";
 import Env from "./commands/EnvCommand";
 import { runEnvCommand } from "../cli/env";
 import Card from "./commands/CardCommand";
@@ -245,8 +250,8 @@ class CliKernel extends Cli {
     // répond quand rien ne démarre —, et le boot ne se paie que s'il est
     // explicitement demandé.
     if (
-      (requested === "check" || requested === "doctor") &&
-      !process.argv.includes("--live")
+      isDoctorCommand(requested) &&
+      !wantsLiveDoctor(requested, process.argv)
     ) {
       return process.exit(await runCheckCommand(process.argv));
     }
@@ -422,10 +427,14 @@ class CliKernel extends Cli {
           return this.dispatchModuleCommand(requested);
         }
 
+        // Distingue un argv REFUSÉ d'un boot qui MEURT : les deux arrivent dans
+        // le même `catch`, et `doctor --live` ne doit rattraper que le second.
+        let booting = false;
         return this.commander
           ?.parseAsync()
           .then(async () => {
             if (!this.kernel) throw new Error(`Kernel not found`);
+            booting = true;
             return (this.kernel as Kernel).start();
           })
           .catch(async (e: unknown) => {
@@ -447,6 +456,25 @@ class CliKernel extends Cli {
             // ne pas re-logger une stack brute par-dessus le diagnostic clair ; le
             // code de sortie est celui porté par l'erreur (EX_CONFIG) sinon 1.
             const err = e as { presented?: boolean; exitCode?: number };
+
+            // ─── `doctor --live` : le boot est mort, le RAPPORT reste dû ─────
+            // C'est le cas pour lequel l'outil existe. Sans ce chemin, celui
+            // qui tape `--live` parce que « ça ne démarre plus » obtenait une
+            // pile brute et RIEN d'autre — donc moins qu'avec `doctor` nu. Le
+            // bilan de l'abandon est déjà écrit (`Kernel.start` le fige avant
+            // de relancer), l'étage 1 le lira ; l'étage 2 devient un état
+            // d'exécution lisible plutôt qu'une absence.
+            if (booting && wantsLiveDoctor(requested, process.argv)) {
+              const cause =
+                e instanceof Error ? e.message : String(e ?? "cause inconnue");
+              const reportCode = await runCheckWithoutLive(
+                process.argv,
+                `l'application n'a pas démarré — ${cause}`,
+                "corrige la cause ci-dessus, puis relance `nodefony doctor --live`",
+              );
+              return this.kernel?.terminate(reportCode) as Promise<Kernel>;
+            }
+
             if (!err.presented) {
               this.log(e, "ERROR");
             }

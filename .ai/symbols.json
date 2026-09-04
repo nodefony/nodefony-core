@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T17:03:51.737Z",
+  "generated": "2026-09-04T17:49:24.139Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 804,
-    "symbols": 3794,
+    "symbols": 3801,
     "classes": 383,
     "interfaces": 1038,
     "types": 437,
     "enums": 4,
-    "functions": 1552,
+    "functions": 1559,
     "constants": 380
   },
   "symbols": {
@@ -4405,6 +4405,14 @@
       "module": "@nodefony/core",
       "description": "Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS jamais écraser une variable déjà présente. **Convention B (Vite / Next.js)** — règle : les fichiers `*.local` (gitignorés…"
     },
+    "resolveEnvCascade": {
+      "name": "resolveEnvCascade",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/loadEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'environnement EFFECTIF d'un projet, sans toucher à `process.env`. Même cascade et même précédence que {@link loadEnv} — dont c'est désormais le moteur —, mais rendue plutôt qu'injectée. Elle sert…"
+    },
     "loadEnv": {
       "name": "loadEnv",
       "kind": "function",
@@ -8790,6 +8798,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le rapport et décide du code de sortie. Séparé de la collecte pour une raison précise : `doctor --live` boote, donc il compose son rapport en DEUX temps (les fichiers, puis l'application) et d…"
+    },
+    "isDoctorCommand": {
+      "name": "isDoctorCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La commande demandée est-elle `doctor` (ou son alias historique `check`) ?"
+    },
+    "wantsLiveDoctor": {
+      "name": "wantsLiveDoctor",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'invocation demande-t-elle l'étage 2 — celui qui exige un boot ? Une SEULE implémentation de la règle, parce qu'elle sert à deux endroits qui doivent s'accorder : le fast-path standalone (qui ne s…"
+    },
+    "runCheckWithoutLive": {
+      "name": "runCheckWithoutLive",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le rapport de `doctor` alors que l'application vient d'échouer à démarrer. 🔴 C'est le cas POUR lequel la commande existe. `--live` sort du fast-path et demande un boot : sans ce chemin, une a…"
     },
     "IOpening": {
       "name": "IOpening",
@@ -29479,9 +29511,18 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
+      "isDoctorCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "runCheckCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "runCheckWithoutLive": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "wantsLiveDoctor": [
+        "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Env": [
         "src/nodefony/src/kernel/CliKernel.ts"
