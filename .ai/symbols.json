@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T21:25:46.928Z",
+  "generated": "2026-09-04T21:34:18.697Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 808,
-    "symbols": 3841,
+    "symbols": 3840,
     "classes": 383,
     "interfaces": 1047,
     "types": 438,
     "enums": 4,
-    "functions": 1586,
+    "functions": 1585,
     "constants": 383
   },
   "symbols": {
@@ -29442,7 +29442,7 @@
         "src/nodefony/src/cli/manPage.ts",
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "ICliManifestCommand": [
+      "grouperCommandes": [
         "src/nodefony/src/cli/manPage.ts"
       ],
       "MENU_GROUP_LABELS": [

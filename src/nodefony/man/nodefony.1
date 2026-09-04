@@ -24,6 +24,58 @@ la commande est lancée. Pour la liste RÉELLE, dans le projet courant :
 .B nodefony \-\-help
 .RE
 .SH COMMANDS
+Les commandes sont rangées par INTENTION, dans l'ordre d'une journée de
+travail \- comme \fBnodefony \-\-help\fR. Un rangement alphabétique mettrait
+\fBai:mcp\fR avant \fBdevelopment\fR ; il ne répond à personne.
+.SS LANCER
+.TP
+.B development, dev
+démarre en développement, rechargement automatique
+.TP
+.B production, prod, start
+démarre en production, au premier plan
+.TP
+.B cluster
+démarre N workers isolés, relancés s'ils tombent
+.TP
+.B status
+dit quels processus de ce projet tournent, et où
+.TP
+.B stop
+arrête les processus Nodefony de ce projet
+.SS COMPRENDRE
+.TP
+.B card, devkit:card
+carte de visite : où l'on est, quoi lancer
+.TP
+.B doctor, check
+ce qui ne va pas dans cette application
+.TP
+.B inspect
+l'état réel de l'app : routes, services, config
+.TP
+.B env
+les variables d'environnement et leur provenance
+.TP
+.B symbols
+où un symbole est défini, et de qui il hérite
+.TP
+.B menu
+menu interactif : les commandes utiles ici
+.SS GÉNÉRER ET CONSTRUIRE
+.TP
+.B create
+engendre une application, un module, une entité…
+.TP
+.B build, compile
+compile les modules puis l'application vers dist/
+.TP
+.B install
+installe les dépendances puis construit le projet
+.TP
+.B outdated
+les dépendances en retard, groupées par paquet
+.SS AGENTS ET OUTILLAGE
 .TP
 .B ai:mcp
 déclare le serveur MCP de l'app à ton agent
@@ -31,56 +83,11 @@ déclare le serveur MCP de l'app à ton agent
 .B ai:sync
 installe les skills d'agent des paquets présents
 .TP
-.B build, compile
-compile les modules puis l'application vers dist/
-.TP
-.B card, devkit:card
-carte de visite : où l'on est, quoi lancer
-.TP
-.B cluster
-démarre N workers isolés, relancés s'ils tombent
-.TP
 .B completion
 script de complétion du shell (bash | zsh | fish)
 .TP
-.B create
-engendre une application, un module, une entité…
-.TP
-.B development, dev
-démarre en développement, rechargement automatique
-.TP
-.B doctor, check
-ce qui ne va pas dans cette application
-.TP
-.B env
-les variables d'environnement et leur provenance
-.TP
 .B git:hooks
 pose les hooks git : contrôles au commit et au push
-.TP
-.B inspect
-l'état réel de l'app : routes, services, config
-.TP
-.B install
-installe les dépendances puis construit le projet
-.TP
-.B menu
-menu interactif : les commandes utiles ici
-.TP
-.B outdated
-les dépendances en retard, groupées par paquet
-.TP
-.B production, prod, start
-démarre en production, au premier plan
-.TP
-.B status
-dit quels processus de ce projet tournent, et où
-.TP
-.B stop
-arrête les processus Nodefony de ce projet
-.TP
-.B symbols
-où un symbole est défini, et de qui il hérite
 .SH OPTIONS
 Options acceptées par toutes les commandes. Chaque commande porte en plus les
 siennes, que \fBnodefony \fI<commande>\fB \-\-help\fR détaille.

@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
-import type { ICliManifest, ICliManifestCommand } from "./completion";
+import type { ICliManifest } from "./completion";
+import { grouperCommandes } from "./helpReport";
 
 /**
  * Page de manuel Unix (`man nodefony`), rendue depuis le manifest du CLI.
@@ -118,12 +119,6 @@ function tagged(term: string, description: string): string {
   return `.TP\n.B ${term}\n${escapeRoff(description) || "\\-"}`;
 }
 
-/** La ligne de titre d'une commande : son nom, puis ses alias entre virgules. */
-function commandTerm(cmd: ICliManifestCommand): string {
-  const noms = [cmd.name, ...(cmd.aliases ?? [])];
-  return noms.map((n) => escapeRoff(n)).join(", ");
-}
-
 /**
  * Rend la page de manuel complète, en roff.
  *
@@ -176,11 +171,34 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   out.push(".RE");
 
   out.push(".SH COMMANDS");
-  const commandes = [...manifest.commands].sort((a, b) =>
-    a.name.localeCompare(b.name, "en"),
+  out.push(
+    "Les commandes sont rangées par INTENTION, dans l'ordre d'une journée de " +
+      "travail \\- comme \\fBnodefony \\-\\-help\\fR. Un rangement " +
+      "alphabétique mettrait \\fBai:mcp\\fR avant \\fBdevelopment\\fR ; " +
+      "il ne répond à personne.",
   );
-  for (const cmd of commandes) {
-    out.push(tagged(commandTerm(cmd), cmd.description));
+  // 🔴 Le CLASSEMENT vient de `grouperCommandes`, jamais d'une copie locale.
+  // C'est la même fonction qui range `nodefony --help` : deux tables auraient
+  // divergé au premier groupe ajouté, et la page de manuel aurait décrit un
+  // rangement que le CLI n'applique plus. Le manifeste porte le groupe
+  // précisément pour que cette page, rendue hors de tout boot, puisse le lire.
+  for (const groupe of grouperCommandes(
+    manifest.commands.map((c) => ({
+      name: c.name,
+      aliases: c.aliases ?? [],
+      description: c.description,
+      ...(c.group === undefined ? {} : { group: c.group }),
+    })),
+  )) {
+    out.push(`.SS ${escapeRoff(groupe.titre)}`);
+    for (const cmd of groupe.commandes) {
+      out.push(
+        tagged(
+          [cmd.name, ...cmd.aliases].map((n) => escapeRoff(n)).join(", "),
+          cmd.description,
+        ),
+      );
+    }
   }
 
   if (manifest.globalOptions.length > 0) {

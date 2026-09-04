@@ -79,12 +79,59 @@ describe("manPage — rendu", () => {
 
   it("les commandes sont TRIÉES, et leurs alias affichés", () => {
     const page = renderManPage(manifestBidon(), "9.9.9");
-    // L'ordre de commander n'a aucun sens pour un lecteur : on trie.
+    // L'ordre de commander n'a aucun sens pour un lecteur : à défaut de
+    // groupe, on trie.
     assert.ok(
       page.indexOf("aaa\\-premiere") < page.indexOf("zzz\\-derniere"),
       "les commandes ne sont pas triées",
     );
     assert.ok(page.includes("aaa\\-premiere, alias\\-a"));
+  });
+
+  it("🔴 les commandes sont rangées par INTENTION, comme --help", () => {
+    // Le manifeste porte le groupe précisément pour cette page, rendue hors de
+    // tout boot — et elle ne l'exploitait pas : elle listait les dix-neuf
+    // commandes du framework par ordre alphabétique, ce qui met `ai:mcp` avant
+    // `development` et ne répond à personne. Le rangement vient de la MÊME
+    // fonction que l'aide (`grouperCommandes`) : deux tables auraient divergé
+    // au premier groupe ajouté.
+    const page = renderManPage(
+      {
+        version: "9.9.9",
+        globalOptions: [],
+        commands: [
+          {
+            name: "outil",
+            aliases: [],
+            description: "un outil",
+            options: [],
+            args: [],
+            group: "AGENTS ET OUTILLAGE",
+          },
+          {
+            name: "demarre",
+            aliases: [],
+            description: "un runtime",
+            options: [],
+            args: [],
+            group: "LANCER",
+          },
+        ],
+      },
+      "9.9.9",
+    );
+    assert.ok(page.includes(".SS LANCER"), "sous-section d'intention absente");
+    assert.ok(page.includes(".SS AGENTS ET OUTILLAGE"));
+    // L'ORDRE des groupes est celui de la journée de travail, pas celui de
+    // première rencontre dans le manifeste — qui dépend de l'enregistrement.
+    assert.ok(
+      page.indexOf(".SS LANCER") < page.indexOf(".SS AGENTS ET OUTILLAGE"),
+      "les groupes ne suivent pas l'ordre de HELP_GROUPS",
+    );
+    assert.ok(
+      page.indexOf(".SS LANCER") < page.indexOf("demarre"),
+      "une commande précède le titre de son groupe",
+    );
   });
 
   it("🔴 la page ANNONCE qu'elle ne liste pas les commandes de module", () => {
