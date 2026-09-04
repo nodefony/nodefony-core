@@ -109,6 +109,30 @@ function firstAction(payload: unknown): string | undefined {
 }
 
 /**
+ * Le verdict que le migrateur rend quand il n'y a RIEN à faire.
+ *
+ * 🔴 `"up-to-date"`, et pas `"ok"`. Ce contrôle comparait à `"ok"` — un mot qui
+ * n'existe dans aucune énumération du produit : les verdicts sont
+ * `up-to-date | pending | drift | failed | adopt | divergent`
+ * (`MigrationVerdictName`, dans le module ORM). Il ne pouvait donc JAMAIS être
+ * vert : une base parfaitement à
+ * jour était rapportée comme un manquement, en portant sa propre phrase — « le
+ * connecteur est à jour » — sous un `✗`. Le verdict et son message se
+ * contredisaient dans la même ligne.
+ *
+ * Rien ne l'a vu parce que le DÉCOR du test posait le MÊME mot inventé pour
+ * son cas sain : les deux erreurs se validaient l'une l'autre. Un décor qui
+ * parle une autre langue que le produit valide n'importe quoi.
+ *
+ * Le cœur ne peut pas IMPORTER l'énumération : elle vit dans un module que le
+ * cœur ne connaît pas (la dépendance va dans l'autre sens). La valeur est donc
+ * recopiée ici — et un cas de `doctorLive.test.ts` la confronte au source du
+ * module quand celui-ci est présent, pour que la copie ne puisse pas dériver
+ * en silence.
+ */
+const MIGRATIONS_SAINES = "up-to-date";
+
+/**
  * L'état des migrations du connecteur par défaut.
  *
  * Trois issues, et chacune se DIT : le module n'est pas là, la base ne migre
@@ -186,7 +210,8 @@ async function checkMigrations(
       },
     };
 
-  if (verdict === "ok") return { findings: [], execution: { ran: true } };
+  if (verdict === MIGRATIONS_SAINES)
+    return { findings: [], execution: { ran: true } };
 
   const summary = readString(read.data, "summary");
   return {

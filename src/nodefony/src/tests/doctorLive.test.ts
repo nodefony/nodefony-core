@@ -13,6 +13,8 @@
  */
 import { describe, it } from "vitest";
 import { assert } from "chai";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   collectLiveReport,
   liveNotRun,
@@ -45,11 +47,23 @@ const firewallSain = producteur("security", "firewall", {
   configError: null,
 });
 
-/** Des migrations à jour — le décor « rien à signaler » de l'ORM. */
+/**
+ * Des migrations à jour — le décor « rien à signaler » de l'ORM.
+ *
+ * 🔴 `"up-to-date"`, le mot que le producteur rend VRAIMENT. Ce décor posait
+ * `"ok"` — une valeur qui n'existe dans aucune énumération du produit — et le
+ * contrôle comparait à `"ok"` lui aussi : les deux erreurs se validaient l'une
+ * l'autre. Une base parfaitement à jour était donc rapportée comme un
+ * manquement pendant que le décor jurait le contraire. Un décor qui parle une
+ * autre langue que le produit valide n'importe quoi.
+ */
+const VERDICT_SAIN = "up-to-date";
+const VERDICT_DERIVE = "divergent";
+
 const migrationsSaines = producteur("orm", "migrations", {
   formatVersion: 1,
   connector: "default",
-  verdict: "ok",
+  verdict: VERDICT_SAIN,
   summary: "tout est appliqué",
   nextActions: [],
   sources: [],
@@ -57,6 +71,56 @@ const migrationsSaines = producteur("orm", "migrations", {
 
 const lire = (broker: ReturnType<typeof brokerDe> | undefined) =>
   collectLiveReport(broker, localOperatorCaller());
+
+describe("doctor --live — le vocabulaire du producteur", () => {
+  it("🔴 les verdicts du décor sont ceux que le module ORM rend VRAIMENT", () => {
+    // Le contrôle comparait le verdict à « ok », et ce décor posait « ok » :
+    // les deux inventaient le même mot, qui n'existe nulle part dans le
+    // produit. Une base à jour était donc rapportée comme un manquement, en
+    // portant sa propre phrase — « le connecteur est à jour » — sous un ✗.
+    //
+    // Le cœur ne peut pas IMPORTER l'énumération (elle vit dans un module
+    // qu'il ne connaît pas : la dépendance va dans l'autre sens). On la LIT
+    // donc au source, quand le module est là. Absent, le cas se SAUTE en le
+    // disant : un contrôle muet vaudrait quitus, et c'est précisément ainsi
+    // qu'on n'a rien vu.
+    const source = path.resolve(
+      import.meta.dirname,
+      "../../../packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+    );
+    if (!existsSync(source)) {
+      console.warn(
+        "SAUTÉ — le module @nodefony/drizzle n'est pas dans cet arbre : " +
+          "le vocabulaire des verdicts n'a PAS été confronté à sa source.",
+      );
+      return;
+    }
+    const texte = readFileSync(source, "utf8");
+    const bloc = texte.slice(
+      texte.indexOf("export type MigrationVerdictName"),
+      texte.indexOf(";", texte.indexOf("export type MigrationVerdictName")),
+    );
+    const connus = new Set(
+      [...bloc.matchAll(/"([a-z-]+)"/gu)].map((m) => m[1] as string),
+    );
+    // Un motif qui ne trouve rien rendrait ce contrôle vert à vide.
+    assert.isAbove(
+      connus.size,
+      3,
+      "l'énumération n'a pas été reconnue — ce contrôle ne prouve plus rien",
+    );
+    // Les verdicts que CE fichier emploie, nommés — pas devinés par un
+    // `JSON.stringify` du décor : la donnée y vit derrière un handler, et le
+    // motif ne trouvait rien. Ce garde-fou était donc vert à vide, exactement
+    // le défaut qu'il prétend interdire.
+    for (const mot of [VERDICT_SAIN, VERDICT_DERIVE, "failed"]) {
+      assert.isTrue(
+        connus.has(mot),
+        `« ${mot} » n'est pas un verdict du migrateur — connus : ${[...connus].join(", ")}`,
+      );
+    }
+  });
+});
 
 describe("doctor --live — ce que seule l'application démarrée sait", () => {
   it("une base à jour et un firewall cohérent : les deux ont TOURNÉ, rien à dire", async () => {
@@ -70,7 +134,7 @@ describe("doctor --live — ce que seule l'application démarrée sait", () => {
     const live = await lire(
       brokerDe(
         producteur("orm", "migrations", {
-          verdict: "divergent",
+          verdict: VERDICT_DERIVE,
           summary:
             "Le connecteur « default » ne concorde plus avec son historique",
           nextActions: [
