@@ -18,6 +18,7 @@ import {
   balancedBlock,
   checkSurface,
   connectorDialect,
+  coversEverything,
   publicAreas,
 } from "../kernel/checks/surface";
 import { collectCheckReport } from "../kernel/checks/runCheck";
@@ -329,5 +330,78 @@ describe("collectCheckReport — le dialecte vient de l'app, pas du terminal", (
     poser(".env.local", "NF_DATABASE_URL=postgres://app@localhost:5432/app\n");
     report = await collectCheckReport(racine);
     assert.equal(report.surface.dialect, "postgres", "`.env.local` prime");
+  });
+});
+
+/**
+ * 🔴 « Cette zone couvre-t-elle TOUT ? » — une question qui se CONSTATE.
+ *
+ * Elle se répondait sur une liste de quatre chaînes écrite à la main. Cette
+ * liste disait le contraire du produit dans les deux sens : elle condamnait
+ * `^/api`, qui ne couvre que `/api…`, et ignorait `^/.*`, `.*` et `^`, qui
+ * ouvrent réellement toute l'application. Le motif est désormais compilé et
+ * éprouvé comme le firewall le fait.
+ */
+describe("coversEverything — le motif est ÉPROUVÉ, pas reconnu", () => {
+  it("les motifs qui laissent tout passer sont vus, liste ou pas", () => {
+    for (const motif of ["^/", "/", "^", ".*", "^.*$", "^/.*", "^/.*$"]) {
+      assert.isTrue(coversEverything(motif), `« ${motif} » couvre tout`);
+    }
+  });
+
+  it("🔴 `^/api` ne couvre PAS tout — l'accuser était un verdict faux", () => {
+    for (const motif of ["^/api", "^/api/", "^/admin", "^/nodefony"]) {
+      assert.isFalse(coversEverything(motif), `« ${motif} » est borné`);
+    }
+  });
+
+  it("un motif que le firewall refuserait n'est pas jugé ici", () => {
+    assert.isFalse(coversEverything("^/(["));
+  });
+
+  it("⭐ la CHAÎNE : `^/.*` remonte jusqu'au manquement", () => {
+    poser(
+      "nodefony.config.ts",
+      `export default { security: { areas: { tout: { pattern: "^/.*", security: false } } } };`,
+    );
+    const r = controler();
+    assert.equal(r.findings[0]?.kind, "public-area-covers-all");
+  });
+
+  it("…et une zone bornée reste un simple INVENTAIRE", () => {
+    poser(
+      "nodefony.config.ts",
+      `export default { security: { areas: { api: { pattern: "^/api", security: false } } } };`,
+    );
+    const r = controler();
+    assert.lengthOf(
+      r.findings,
+      0,
+      "une zone publique bornée n'est pas un verdict",
+    );
+    assert.equal(r.openings[0]?.kind, "public-area");
+  });
+});
+
+describe("connectorDialect — la provenance nomme la variable RÉELLEMENT lue", () => {
+  it("🔴 l'alias de plateforme ne s'annonce pas sous le nom préfixé", () => {
+    const r = connectorDialect("export default {}", {
+      DATABASE_URL: "mysql://app@base/app",
+    });
+    assert.equal(r.dialect, "mysql");
+    assert.equal(
+      r.from,
+      "DATABASE_URL",
+      "envoyer corriger `NF_DATABASE_URL`, absente du poste, ne mène nulle part",
+    );
+  });
+
+  it("la forme préfixée garde la priorité, et le dit", () => {
+    const r = connectorDialect("export default {}", {
+      NF_DATABASE_URL: "postgres://app@base/app",
+      DATABASE_URL: "mysql://app@base/app",
+    });
+    assert.equal(r.dialect, "postgres");
+    assert.equal(r.from, "NF_DATABASE_URL");
   });
 });

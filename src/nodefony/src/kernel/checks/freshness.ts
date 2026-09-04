@@ -47,13 +47,37 @@ export interface IFreshnessResult {
 /** Dossiers de sources d'une application, dans l'ordre où on les rencontre. */
 const SOURCES = ["nodefony", "src", "index.ts", "nodefony.config.ts", "env.ts"];
 
-/** La date de modification la plus RÉCENTE sous un chemin, `0` si absent. */
-function newestUnder(root: string, rel: string): number {
+/**
+ * Ce fichier entre-t-il dans le build ?
+ *
+ * Un test n'y entre PAS : le bundler ne l'emporte pas, et le `dist/` n'a
+ * aucune raison d'être plus récent que lui. Le compter faisait réclamer un
+ * `npm run build` après chaque test écrit — un geste inutile, réclamé par un
+ * outil de diagnostic, donc un outil qu'on apprend à ignorer.
+ *
+ * @param chemin - chemin relatif, écrit en `/`.
+ * @returns `true` si une modification de ce fichier périme le build.
+ */
+function isBuiltSource(chemin: string): boolean {
+  if (!chemin.endsWith(".ts") || chemin.endsWith(".d.ts")) return false;
+  if (chemin.includes("/dist/") || chemin.includes("/node_modules/"))
+    return false;
+  if (/\.(test|spec)\.[cm]?tsx?$/u.test(chemin)) return false;
+  return !/(^|\/)(tests?|__tests__)\//u.test(chemin);
+}
+
+/** La source la plus RÉCEMMENT modifiée sous un chemin, et laquelle. */
+function newestUnder(
+  root: string,
+  rel: string,
+): { mtime: number; file: string } {
+  const rien = { mtime: 0, file: "" };
   const cible = path.join(root, rel);
   const stat = statSync(cible, { throwIfNoEntry: false });
-  if (!stat) return 0;
-  if (stat.isFile()) return rel.endsWith(".ts") ? stat.mtimeMs : 0;
-  let plusRecent = 0;
+  if (!stat) return rien;
+  if (stat.isFile())
+    return isBuiltSource(rel) ? { mtime: stat.mtimeMs, file: rel } : rien;
+  let trouve = rien;
   for (const entree of readdirSync(cible, {
     recursive: true,
     encoding: "utf8",
@@ -61,13 +85,16 @@ function newestUnder(root: string, rel: string): number {
     // Normaliser AVANT de filtrer : `readdirSync` rend `a\b` sous Windows, et
     // un filtre écrit en `/` n'y mordrait pas.
     const chemin = entree.split(path.sep).join("/");
-    if (!chemin.endsWith(".ts") || chemin.endsWith(".d.ts")) continue;
-    if (chemin.includes("/dist/") || chemin.includes("/node_modules/"))
-      continue;
+    if (!isBuiltSource(chemin)) continue;
     const s = statSync(path.join(cible, entree), { throwIfNoEntry: false });
-    if (s?.isFile() && s.mtimeMs > plusRecent) plusRecent = s.mtimeMs;
+    if (s?.isFile() && s.mtimeMs > trouve.mtime) {
+      // Le FICHIER, pas la racine qui le contient : « `src` est plus récent
+      // que le build » n'apprend rien, et n'aide personne à comprendre
+      // pourquoi le contrôle crie.
+      trouve = { mtime: s.mtimeMs, file: `${rel}/${chemin}` };
+    }
   }
-  return plusRecent;
+  return trouve;
 }
 
 /** La version majeure exigée par `engines.node`, ou `null` si non déclarée. */
@@ -99,9 +126,9 @@ export function checkFreshness(
   let porteuse = "";
   for (const rel of SOURCES) {
     const quand = newestUnder(projectRoot, rel);
-    if (quand > plusRecente) {
-      plusRecente = quand;
-      porteuse = rel;
+    if (quand.mtime > plusRecente) {
+      plusRecente = quand.mtime;
+      porteuse = quand.file;
     }
   }
 

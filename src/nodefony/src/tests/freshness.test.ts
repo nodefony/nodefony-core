@@ -115,3 +115,71 @@ describe("doctor — fraîcheur du build et plancher de Node", () => {
     assert.equal(requiredNodeMajor(null), null);
   });
 });
+
+/**
+ * 🔴 Ce que la fraîcheur DÉSIGNAIT, et ce qu'elle comptait à tort.
+ *
+ * Elle nommait la racine explorée (« `src` est plus récent que le build »),
+ * ce qui n'apprend rien sur cinquante sources — et elle comptait les tests,
+ * qui n'entrent dans aucun build : écrire un test réclamait un `npm run
+ * build`. Un geste inutile réclamé par un diagnostic est un diagnostic qu'on
+ * apprend à ignorer.
+ */
+describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est pas bâti", () => {
+  const app = (): string => {
+    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-fresh2-"));
+    mkdirSync(path.join(racine, "dist"), { recursive: true });
+    writeFileSync(path.join(racine, "package.json"), JSON.stringify({}));
+    writeFileSync(path.join(racine, "dist", "index.js"), "//");
+    utimesSync(path.join(racine, "dist", "index.js"), 1_000, 1_000);
+    return racine;
+  };
+
+  /** Écrit une source datée APRÈS le build, et rend son chemin absolu. */
+  const posterApresLeBuild = (racine: string, rel: string): string => {
+    const cible = path.join(racine, ...rel.split("/"));
+    mkdirSync(path.dirname(cible), { recursive: true });
+    writeFileSync(cible, "export const a = 1;");
+    utimesSync(cible, 2_000, 2_000);
+    return cible;
+  };
+
+  it("⭐ le message nomme le FICHIER qui a bougé, pas la racine explorée", () => {
+    const racine = app();
+    posterApresLeBuild(racine, "nodefony/controller/WidgetController.ts");
+    const r = checkFreshness(racine);
+    assert.deepEqual(
+      r.findings.map((f) => f.kind),
+      ["dist-stale"],
+    );
+    assert.match(r.findings[0]!.message, /WidgetController\.ts/);
+    assert.equal(
+      r.findings[0]!.file,
+      "nodefony/controller/WidgetController.ts",
+    );
+  });
+
+  it("🔴 un `*.test.ts` récent ne périme AUCUN build", () => {
+    const racine = app();
+    posterApresLeBuild(racine, "nodefony/Widget.test.ts");
+    assert.deepEqual(checkFreshness(racine).findings, []);
+  });
+
+  it("🔴 ni un fichier sous `tests/`", () => {
+    const racine = app();
+    posterApresLeBuild(racine, "src/tests/decor.ts");
+    assert.deepEqual(checkFreshness(racine).findings, []);
+  });
+
+  it("…mais une vraie source à côté d'eux, si", () => {
+    const racine = app();
+    posterApresLeBuild(racine, "nodefony/Widget.test.ts");
+    posterApresLeBuild(racine, "nodefony/Widget.ts");
+    const r = checkFreshness(racine);
+    assert.deepEqual(
+      r.findings.map((f) => f.kind),
+      ["dist-stale"],
+    );
+    assert.equal(r.findings[0]!.file, "nodefony/Widget.ts");
+  });
+});

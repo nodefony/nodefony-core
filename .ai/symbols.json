@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T17:50:42.615Z",
+  "generated": "2026-09-04T18:01:05.528Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 804,
-    "symbols": 3802,
+    "symbols": 3805,
     "classes": 383,
     "interfaces": 1038,
     "types": 437,
     "enums": 4,
-    "functions": 1560,
+    "functions": 1563,
     "constants": 380
   },
   "symbols": {
@@ -4359,6 +4359,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le mode qu'une ligne de commande EXPRIME — détecté avant tout kernel. Pourquoi en amont : commander ne parse la sous-commande qu'au démarrage du kernel, si bien que `this.environment` reste indéfin…"
+    },
+    "engineModeOf": {
+      "name": "engineModeOf",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/engineEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le mode MOTEUR que désigne une étiquette d'environnement — le « collapse ». 🔴 Tout ce qui n'est pas `dev`/`development` tourne comme la PRODUCTION : `staging`, `canary`, `prod-eu` nomment un déplo…"
     },
     "DEFAULT_ENGINE_ENVIRONMENT": {
       "name": "DEFAULT_ENGINE_ENVIRONMENT",
@@ -8873,6 +8881,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les moteurs qu'une entité peut viser."
+    },
+    "coversEverything": {
+      "name": "coversEverything",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce motif de zone laisse-t-il passer TOUT l'espace d'URL ? CONSTATÉ, jamais listé : le motif est compilé et éprouvé exactement comme le firewall le fait (`SecuredArea.ts:25` — `new RegExp(pattern, \"…"
     },
     "balancedBlock": {
       "name": "balancedBlock",
@@ -29560,6 +29576,10 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
+      ],
+      "engineModeOf": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/gating.ts"
       ],
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"

@@ -154,8 +154,37 @@ const CONTROLLER_RE = new RegExp(
 /** Le bloc `areas: { … }` du manifeste, et lui seul. */
 const AREAS_BLOCK_RE = /\bareas\s*:\s*\{/u;
 
-/** Les motifs de zone qui couvrent TOUT — le cas indéfendable. */
-const COVERS_ALL = new Set(["^/", "^/api", "^/api/", "/"]);
+/**
+ * Des chemins témoins, choisis pour n'avoir AUCUN préfixe commun utile.
+ *
+ * Un motif qui les accepte tous accepte n'importe quelle requête.
+ */
+const PROBE_PATHS = ["/", "/admin", "/x/y/z", "/nodefony/kernel/api"] as const;
+
+/**
+ * Ce motif de zone laisse-t-il passer TOUT l'espace d'URL ?
+ *
+ * CONSTATÉ, jamais listé : le motif est compilé et éprouvé exactement comme le
+ * firewall le fait (`SecuredArea.ts:25` — `new RegExp(pattern, "u")`, non
+ * ancré, `test(pathname)`), puis confronté à des chemins sans parenté. Une
+ * liste écrite à la main disait le contraire du produit dans les deux sens :
+ * elle CONDAMNAIT `^/api`, qui ne couvre que `/api…`, et laissait passer
+ * `^/.*`, `.*` et `^`, qui ouvrent réellement tout.
+ *
+ * @param pattern - le motif tel que le manifeste l'écrit.
+ * @returns `true` si aucune route ne peut échapper à cette zone.
+ */
+export function coversEverything(pattern: string): boolean {
+  let re: RegExp;
+  try {
+    re = new RegExp(pattern, "u");
+  } catch {
+    // Un motif que le firewall lui-même refuserait : ce n'est pas à ce
+    // contrôle de le juger, il a déjà été inventorié.
+    return false;
+  }
+  return PROBE_PATHS.every((chemin) => re.test(chemin));
+}
 
 /**
  * Les commentaires, ôtés AVANT toute analyse.
@@ -242,15 +271,17 @@ export function connectorDialect(
   manifest: string,
   env: Record<string, string | undefined>,
 ): { dialect: SqlDialectName | null; from: string } {
+  // La provenance nomme la variable RÉELLEMENT lue : annoncer
+  // `NF_DATABASE_URL` alors que la valeur venait de l'alias de plateforme
+  // envoyait corriger une variable qui n'existe pas sur ce poste.
+  const from = env.NF_DATABASE_URL ? "NF_DATABASE_URL" : "DATABASE_URL";
   const url = env.NF_DATABASE_URL || env.DATABASE_URL;
   if (url) {
     const scheme = /^([a-z0-9+]+):/iu.exec(url)?.[1]?.toLowerCase() ?? "";
-    if (scheme.startsWith("postgres"))
-      return { dialect: "postgres", from: "NF_DATABASE_URL" };
-    if (scheme.startsWith("mysql"))
-      return { dialect: "mysql", from: "NF_DATABASE_URL" };
+    if (scheme.startsWith("postgres")) return { dialect: "postgres", from };
+    if (scheme.startsWith("mysql")) return { dialect: "mysql", from };
     if (scheme.startsWith("sqlite") || scheme === "file")
-      return { dialect: "sqlite", from: "NF_DATABASE_URL" };
+      return { dialect: "sqlite", from };
   }
   const written = /\bdialect\s*:\s*["'`](sqlite|postgres|mysql)["'`]/u.exec(
     withoutComments(manifest),
@@ -400,7 +431,7 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
       what: zone.pattern,
       file: path.relative(cwd, manifestPath),
     });
-    if (!COVERS_ALL.has(zone.pattern)) continue;
+    if (!coversEverything(zone.pattern)) continue;
     findings.push({
       kind: "public-area-covers-all",
       file: path.relative(cwd, manifestPath),
