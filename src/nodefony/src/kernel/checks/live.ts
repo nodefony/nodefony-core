@@ -288,14 +288,22 @@ export async function collectLiveReport(
  *
  * @param reason - ce qui a empêché le boot, ou l'absence de demande
  * @param unlock - le geste qui rendrait l'étage 2 possible
+ * @param onDemand - `true` si l'étage 2 n'a pas été DEMANDÉ (et non empêché) :
+ *   il est alors rapporté sans peser sur le code de sortie, même en mode
+ *   strict. Un boot demandé qui ÉCHOUE, lui, reste un empêchement.
  * @returns les deux familles marquées non exécutées, pour la même cause
  */
-export function liveNotRun(reason: string, unlock?: string): ILiveResult {
+export function liveNotRun(
+  reason: string,
+  unlock?: string,
+  onDemand = false,
+): ILiveResult {
   const execution: IExecution = {
     ran: false,
     reason,
-    short: "non demandé",
+    short: onDemand ? "non demandé" : "indisponible",
     ...(unlock ? { unlock } : {}),
+    ...(onDemand ? { onDemand: true } : {}),
   };
   return {
     findings: [],

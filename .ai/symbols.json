@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T12:16:15.236Z",
+  "generated": "2026-09-04T12:44:52.883Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 800,
-    "symbols": 3720,
+    "symbols": 3721,
     "classes": 383,
     "interfaces": 1019,
     "types": 433,
     "enums": 4,
-    "functions": 1510,
+    "functions": 1511,
     "constants": 371
   },
   "symbols": {
@@ -8236,6 +8236,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les familles de contrôles de `doctor`, telles que le rapport les nomme. Nommées ici plutôt que dérivées d'un tableau : c'est cette clé qui voyage dans le JSON, donc dans la CI et chez l'agent qui l…"
+    },
+    "controlesEmpeches": {
+      "name": "controlesEmpeches",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parmi les contrôles sautés, ceux qui CONDAMNENT en mode strict. Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture ; un contrôle NON DEMANDÉ (l'étage 2, qui exige un démar…"
     },
     "controlesSautes": {
       "name": "controlesSautes",
@@ -30357,6 +30365,10 @@
       ],
       "accord": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "controlesEmpeches": [
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "countFindings": [
         "src/nodefony/src/kernel/checks/renderReport.ts",

@@ -221,6 +221,8 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   it("essais ÉPUISÉS : rejette (le repli n'est pas infini)", async () => {
     const base = await occupy(0);
     // Occupe la fenêtre entière que le binder va explorer : base, base+1, base+2.
+    // Les `catch` ne sont pas décoratifs : un port de la fenêtre peut être
+    // INDISPONIBLE sans que nous l'ayons pris — c'est ce que la suite mesure.
     await occupy(base + 1).catch(() => undefined);
     await occupy(base + 2).catch(() => undefined);
 
@@ -230,13 +232,23 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
       await bindWithFallback(srv as unknown as Listenable, HOST, {
         desired: base,
         reserved: [],
-        attempts: 2, // base, +1, +2 → tous pris
+        attempts: 2, // base, +1, +2 → tous indisponibles
       });
       expect.fail("aurait dû rejeter après épuisement des essais");
     } catch (e) {
       code = (e as NodeJS.ErrnoException).code;
     }
-    expect(code).to.equal("EADDRINUSE");
+    // ⚠️ DEUX codes, et ce n'est pas un relâchement : ce test prouve que le
+    // repli s'ARRÊTE, pas quelle erreur système le noyau a choisie. Un port
+    // peut être indisponible sans être « occupé » — Windows réserve des plages
+    // entières (WinNAT/Hyper-V) et y répond `EACCES`. Vécu en intégration
+    // continue : vert sur les trois plateformes pendant des semaines, puis
+    // rouge sur Windows le jour où le port éphémère tiré est tombé dans une
+    // plage exclue. La cause n'est pas déduite de `process.platform` — elle est
+    // CONSTATÉE dans le code que le noyau rend.
+    expect(code).to.be.oneOf(["EADDRINUSE", "EACCES"]);
+    // Le fait qui compte vraiment, et qui ne dépend d'aucune plateforme.
+    expect(srv.listening).to.equal(false);
   });
 
   it("port 0 : le noyau alloue — aucun repli n'a de sens, et aucun n'est tenté", async () => {

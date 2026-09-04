@@ -25,11 +25,13 @@ import {
   runCheckCommand,
 } from "../kernel/checks/runCheck";
 import {
+  controlesEmpeches,
   controlesSautes,
   FAMILLES,
   type CheckFamily,
   type IExecution,
 } from "../kernel/checks/report";
+import { liveNotRun } from "../kernel/checks/live";
 
 /** Un état d'exécution complet, à partir des seules familles qu'on veut poser. */
 const execution = (
@@ -177,6 +179,45 @@ describe("doctor — un état d'exécution ABSENT n'est pas un état passé", ()
   });
 });
 
+describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
+  /**
+   * Le défaut que ces cas ferment a cassé l'intégration continue sur les trois
+   * plateformes : l'étage 2, jamais exécuté sans `--live`, était compté comme
+   * un contrôle empêché — donc condamné par `--strict`, que `CI` arme d'office.
+   * Toute chaîne qui lançait `doctor` échouait tant qu'elle n'ajoutait pas un
+   * démarrage complet à sa commande, y compris celle qui contrôle une
+   * application fraîchement générée.
+   */
+  it("🔴 l'étage 2 non demandé est RAPPORTÉ, mais ne condamne pas", () => {
+    const absent = liveNotRun(
+      "il faut démarrer l'application",
+      "`--live`",
+      true,
+    );
+    const sautes = controlesSautes({ ...execution({}), ...absent.execution });
+    // Rapporté : un contrôle non demandé n'est toujours pas un quitus.
+    assert.lengthOf(sautes, 2);
+    // Mais il ne pèse pas : c'est la moitié qui manquait.
+    assert.lengthOf(controlesEmpeches(sautes), 0);
+  });
+
+  it("un étage 2 DEMANDÉ qui échoue reste un empêchement, lui", () => {
+    // Le boot a été demandé et n'a pas abouti : là, il manque vraiment quelque
+    // chose, et une chaîne automatisée doit le savoir.
+    const echoue = liveNotRun("le plan d'administration est absent");
+    const sautes = controlesSautes({ ...execution({}), ...echoue.execution });
+    assert.lengthOf(controlesEmpeches(sautes), 2);
+  });
+
+  it("un contrôle STATIQUE sauté condamne toujours — la doctrine ne bouge pas", () => {
+    const sautes = controlesSautes({
+      ...execution({ deps: "aucun paquet" }),
+    });
+    assert.lengthOf(controlesEmpeches(sautes), 1);
+    assert.equal(controlesEmpeches(sautes)[0]?.famille, "deps");
+  });
+});
+
 describe("doctor — sévérité d'un contrôle sauté", () => {
   it("devant un humain, un contrôle sauté n'est PAS un manquement", () => {
     // Faire échouer par défaut ferait de `doctor` un outil qu'on apprend à
@@ -268,6 +309,22 @@ describe("doctor — la doctrine du régime strict, de bout en bout", () => {
   it("`--strict` fait échouer même sans `CI`", async () => {
     delete process.env.CI;
     assert.equal(await codeDe(["--strict"]), 1);
+  });
+
+  it("⭐ la COLLECTE pose elle-même « non demandé » sur l'étage 2", async () => {
+    // La brique (`liveNotRun`) était éprouvée, la CHAÎNE ne l'était pas — c'est
+    // par là que le défaut précédent était passé. Ici on vérifie que
+    // `collectCheckReport`, qui ne boote jamais, marque bien l'étage 2 comme
+    // non DEMANDÉ, et les familles statiques comme empêchées.
+    const report = await collectCheckReport(dir);
+    assert.isTrue(report.execution.migrations.onDemand);
+    assert.isTrue(report.execution.firewall.onDemand);
+    assert.isUndefined(report.execution.deps.onDemand);
+    assert.include(
+      report.execution.migrations.unlock ?? "",
+      "--live",
+      "le geste qui débloque doit être nommé",
+    );
   });
 });
 

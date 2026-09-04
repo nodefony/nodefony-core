@@ -23,6 +23,7 @@
 import path from "node:path";
 import {
   accord,
+  controlesEmpeches,
   controlesSautes,
   countFindings,
   creerPalette,
@@ -203,8 +204,16 @@ export function rendreRapport(
     }
     if (strict) {
       lignes.push("");
+      // La phrase doit dire ce que le code de sortie fera VRAIMENT. Annoncer
+      // « ça échoue » alors que la commande rend 0 — parce que les seuls
+      // contrôles manquants n'ont pas été DEMANDÉS — apprend à ne plus croire
+      // le bandeau, ce qui est pire que de ne rien annoncer.
+      const empeches = controlesEmpeches(sautes);
       corps(
-        "mode strict : un contrôle sauté fait échouer la commande.",
+        empeches.length > 0
+          ? "mode strict : un contrôle EMPÊCHÉ fait échouer la commande."
+          : "mode strict : ce qui manque ici n'a pas été demandé — le code " +
+              "de sortie n'en tient pas compte.",
         p.discret,
       );
     }

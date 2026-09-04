@@ -30,6 +30,7 @@ import {
   readRuntimeState,
 } from "../../service/dev/devProcess";
 import {
+  controlesEmpeches,
   controlesSautes,
   countFindings,
   creerPalette,
@@ -463,6 +464,10 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
         "l'état de la base et la cohérence des zones ne se lisent dans aucun " +
           "fichier : il faut démarrer l'application pour les constater",
         "`nodefony doctor --live`",
+        // NON DEMANDÉ, et non pas empêché : sans ce drapeau, `--strict` (donc
+        // toute chaîne automatisée, `CI` l'armant d'office) condamnait `doctor`
+        // tant qu'on n'ajoutait pas un démarrage complet à la commande.
+        true,
       ).execution,
       wiring: !projectRoot
         ? horsProjet
@@ -563,9 +568,14 @@ export function renderCheckReport(
   // Le verdict, en UN endroit : les trois portes (humain, JSON, MCP) doivent
   // sortir le même code — un rapport qui affiche un angle mort mais rend 0 là
   // où le JSON rend 1 apprendrait à ne croire ni l'un ni l'autre.
+  // Ce qui CONDAMNE en mode strict : les contrôles EMPÊCHÉS, jamais ceux
+  // qu'on n'a pas demandés. Les seconds restent rapportés — ils ne valent pas
+  // quitus — mais exiger un boot pour qu'une CI passe reviendrait à faire
+  // désarmer la commande entière, ce que `--no-strict` existe pour éviter.
+  const empeches = controlesEmpeches(sautes);
   const code = (): number => {
     if (countCheckFindings(report) > 0) return 1;
-    return strict && sautes.length > 0 ? 1 : 0;
+    return strict && empeches.length > 0 ? 1 : 0;
   };
 
   if (json) {

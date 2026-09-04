@@ -55,6 +55,21 @@ export interface IExecution {
   short?: string;
   /** Le geste qui le rend possible — absent quand il a tourné. */
   unlock?: string;
+  /**
+   * `true` quand ce contrôle n'a pas été DEMANDÉ, et non pas EMPÊCHÉ.
+   *
+   * 🔴 La distinction décide du code de sortie, et elle a été payée : l'étage 2
+   * (`--live`) ne tourne que sur demande, puisqu'il exige un démarrage. Compté
+   * comme un contrôle empêché, il faisait échouer `doctor` sous `CI` — c'est-à-
+   * dire dans TOUTE chaîne automatisée, y compris celle qui contrôle une
+   * application fraîchement générée, tant qu'elle n'ajoutait pas un boot
+   * complet à sa commande.
+   *
+   * Ce qui ne change PAS : la famille reste affichée en « NON CONTRÔLÉ », avec
+   * sa raison et son geste. Un contrôle non demandé n'est toujours pas un
+   * quitus — il n'est simplement pas un manquement.
+   */
+  onDemand?: boolean;
 }
 
 /**
@@ -130,6 +145,29 @@ export interface IControleSaute {
   titre: string;
   reason: string;
   unlock?: string;
+  /** Non DEMANDÉ plutôt qu'empêché — ne pèse pas sur le code de sortie. */
+  onDemand?: boolean;
+}
+
+/**
+ * Parmi les contrôles sautés, ceux qui CONDAMNENT en mode strict.
+ *
+ * Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture ;
+ * un contrôle NON DEMANDÉ (l'étage 2, qui exige un démarrage) ne l'est pas. Les
+ * confondre faisait échouer `doctor` dans toute chaîne automatisée — `CI` arme
+ * `--strict` d'office — tant qu'on n'ajoutait pas un boot complet à la commande.
+ *
+ * Une seule implémentation, parce que le RENDU et le CODE DE SORTIE doivent
+ * dire la même chose : un bandeau qui annonce un échec que la commande ne
+ * produit pas apprend à ne plus croire le bandeau.
+ *
+ * @param sautes - les contrôles sautés, tels que `controlesSautes` les rend
+ * @returns ceux qui pèsent sur le code de sortie en mode strict
+ */
+export function controlesEmpeches(
+  sautes: readonly IControleSaute[],
+): IControleSaute[] {
+  return sautes.filter((s) => !s.onDemand);
 }
 
 /**
@@ -170,6 +208,7 @@ export function controlesSautes(
     sautes.push({
       famille,
       titre: TITRES[famille],
+      ...(etat.onDemand ? { onDemand: true } : {}),
       reason: etat.reason ?? "raison non précisée",
       unlock: etat.unlock,
     });
