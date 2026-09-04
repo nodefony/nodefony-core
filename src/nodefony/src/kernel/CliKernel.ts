@@ -358,7 +358,11 @@ class CliKernel extends Cli {
           this.quietBoot = true;
         }
         this.commander.exitOverride();
-        this.commander.name(this.name);
+        // Le nom du PROGRAMME, pas celui du service : `this.name` vaut
+        // « NODEFONY » parce que le syslog s'en sert comme identifiant de
+        // message. Le donner à commander faisait afficher « Usage: NODEFONY »,
+        // et la faute se propageait à l'aide de chaque sous-commande.
+        this.commander.name("nodefony");
         this.commander.showHelpAfterError(false);
         this.commander.showSuggestionAfterError(true);
         this.commander.configureHelp({

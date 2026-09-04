@@ -15,7 +15,12 @@ const options: OptionsCommandInterface = {
 
 class Network extends Command {
   constructor(cli: CliKernel) {
-    super("http:network", "Show Network   ", cli, options);
+    super(
+      "http:network",
+      "les interfaces réseau et adresses de cette machine",
+      cli,
+      options,
+    );
     this.addArgument("[interface]", "Selection interface example eth0 ");
     this.addOption("-j, --json", "get json");
   }
