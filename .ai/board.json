@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T15:52:20.157Z",
+  "generatedAt": "2026-09-04T17:11:55.468Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 95,
+      "closed": 99,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 44,
       "title": "10.0.0"
     }
   ],
@@ -1133,10 +1133,24 @@
       "number": 178,
       "title": "feat(cli): faire de doctor un diagnostic complet",
       "url": "https://github.com/nodefony/nodefony-core/issues/178",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
+      "jours": 2.5,
+      "ordre": 6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 189,
+      "title": "feat(cli): refaire l'aide de nodefony pour l'humain et pour l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/189",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
       "jours": 2.5,
       "ordre": 6,
       "labels": [
@@ -1149,6 +1163,20 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/180",
       "state": "CLOSED",
       "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 190,
+      "title": "fix(cli): rendre l'aide même hors d'une application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/190",
+      "state": "OPEN",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1172,6 +1200,20 @@
       ]
     },
     {
+      "number": 191,
+      "title": "feat(cli): grouper l'aide par intention, avec un rendu pur et testable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/191",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 182,
       "title": "feat(cli): doctor demande à l'application, pas seulement à ses fichiers",
       "url": "https://github.com/nodefony/nodefony-core/issues/182",
@@ -1186,6 +1228,20 @@
       ]
     },
     {
+      "number": 192,
+      "title": "docs(cli): réécrire en français les descriptions des commandes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/192",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 183,
       "title": "feat(cli): voir depuis son poste ce qui manquera en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/183",
@@ -1194,6 +1250,20 @@
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
+      "ordre": 6.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 193,
+      "title": "fix(cli): tenir la promesse de --help sur les commandes standalone",
+      "url": "https://github.com/nodefony/nodefony-core/issues/193",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
       "ordre": 6.4,
       "labels": [
         "10.0.0"
@@ -1217,8 +1287,8 @@
       "number": 184,
       "title": "feat(cli): dire ce qui disparaîtra en production avant d'y aller",
       "url": "https://github.com/nodefony/nodefony-core/issues/184",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1245,8 +1315,8 @@
       "number": 186,
       "title": "feat(cli): montrer la surface ouverte et les entités hors dialecte",
       "url": "https://github.com/nodefony/nodefony-core/issues/186",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1273,8 +1343,8 @@
       "number": 185,
       "title": "feat(cli): vérifier que les gardes du projet sont armées",
       "url": "https://github.com/nodefony/nodefony-core/issues/185",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
