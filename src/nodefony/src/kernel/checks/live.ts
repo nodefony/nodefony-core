@@ -26,13 +26,29 @@ import {
 } from "../inspect/adminSubjects";
 import type { IAdminCaller } from "../adminPlane/adminCaller";
 import type { IExecution } from "./report";
+import {
+  checkGating,
+  NO_TARGET,
+  type IGatingInput,
+  type IProvidedService,
+} from "./gating";
+import type { IModuleGated } from "../moduleGating";
 
-/** Les familles que seul un boot peut renseigner. */
-export type LiveFamily = "migrations" | "firewall";
+/**
+ * Les familles que seul un boot peut renseigner.
+ *
+ * UNE liste, dont le type se dérive : quand la troisième est arrivée, le compte
+ * « 2 » était écrit en dur dans trois tests et dans `liveNotRun`, qui les
+ * énumérait à la main. Une famille de plus, et chacun d'eux mentait à sa façon.
+ */
+export const LIVE_FAMILIES = ["migrations", "firewall", "gating"] as const;
+
+/** Une famille que seul un boot peut renseigner. */
+export type LiveFamily = (typeof LIVE_FAMILIES)[number];
 
 /** Un manquement constaté sur l'application VIVANTE. */
 export interface ILiveFinding {
-  kind: "migrations-not-ok" | "firewall-config-invalid";
+  kind: "migrations-not-ok" | "firewall-config-invalid" | "service-lost";
   /**
    * La phrase du PRODUCTEUR, telle qu'il l'a écrite.
    *
@@ -51,6 +67,16 @@ export interface ILiveFinding {
 export interface ILiveResult {
   findings: ILiveFinding[];
   execution: Record<LiveFamily, IExecution>;
+  /**
+   * Les modules que l'environnement VISÉ écarte — une INFORMATION, pas un
+   * verdict.
+   *
+   * Un module `policy: "dev"` retiré en production est le comportement NORMAL :
+   * l'annoncer en manquement ferait crier `doctor` sur le cas sain, et c'est
+   * ainsi qu'on apprend à passer outre. Seul ce qu'il emporte AVEC lui — un
+   * service que plus personne ne fournit — devient un manquement.
+   */
+  gatedModules?: IModuleGated[];
 }
 
 /** Un objet indexable, sans rien affirmer de son contenu. */
@@ -264,17 +290,108 @@ async function checkFirewall(
 export async function collectLiveReport(
   broker: IAdminBrokerLike | undefined,
   caller: IAdminCaller,
+  target: ITargetContext | null = null,
 ): Promise<ILiveResult> {
-  const [migrations, firewall] = await Promise.all([
+  const [migrations, firewall, gating] = await Promise.all([
     checkMigrations(broker, caller),
     checkFirewall(broker, caller),
+    checkTargetEnv(broker, caller, target),
   ]);
   return {
-    findings: [...migrations.findings, ...firewall.findings],
+    findings: [
+      ...migrations.findings,
+      ...firewall.findings,
+      ...gating.findings,
+    ],
+    ...(gating.gated.length > 0 ? { gatedModules: gating.gated } : {}),
     execution: {
       migrations: migrations.execution,
       firewall: firewall.execution,
+      gating: gating.execution,
     },
+  };
+}
+
+/**
+ * Ce que la comparaison d'environnements a besoin de savoir — hors du broker.
+ *
+ * Le manifeste et la config viennent du kernel qui vient de démarrer ; le boot
+ * cible est INJECTÉ plutôt que lancé ici, pour que la famille s'éprouve sans
+ * démarrer quoi que ce soit.
+ */
+export interface ITargetContext {
+  targetEnv: string | null;
+  manifest: unknown;
+  config: IGatingInput["config"];
+  readTarget: IGatingInput["readTarget"];
+}
+
+/**
+ * Ce que l'environnement visé fera disparaître.
+ *
+ * Le « ici » ne se devine pas non plus : il vient du même producteur que
+ * `nodefony inspect services`, appelé sur l'application qui vient de démarrer.
+ * Les deux vues sortent donc du MÊME endpoint, ce qui est la seule façon
+ * qu'un diff ne mesure que l'environnement.
+ */
+async function checkTargetEnv(
+  broker: IAdminBrokerLike | undefined,
+  caller: IAdminCaller,
+  target: ITargetContext | null,
+): Promise<{
+  findings: ILiveFinding[];
+  gated: IModuleGated[];
+  execution: IExecution;
+}> {
+  // Court-circuit : sans cible, interroger le plan d'administration coûterait
+  // un appel pour une comparaison qui n'aura pas lieu.
+  if (!target?.targetEnv)
+    return { findings: [], gated: [], execution: NO_TARGET };
+
+  const read = await callAdminEndpoint(
+    broker,
+    { namespace: "kernel", path: "services", label: "services enregistrés" },
+    caller,
+  );
+  if (!read.ok)
+    return {
+      findings: [],
+      gated: [],
+      execution: { ran: false, reason: read.message, short: "non lisible" },
+    };
+  if (!Array.isArray(read.data))
+    return {
+      findings: [],
+      gated: [],
+      execution: {
+        ran: false,
+        reason:
+          "le plan d'administration a répondu autre chose qu'une liste de " +
+          "services — format inattendu, rien ne peut en être conclu",
+        short: "format inattendu",
+      },
+    };
+
+  const here: IProvidedService[] = read.data.map((row) => ({
+    name: readString(row, "name") ?? "",
+    module: readString(row, "module") ?? "",
+  }));
+  const result = await checkGating({
+    targetEnv: target.targetEnv,
+    manifest: target.manifest,
+    config: target.config,
+    here,
+    readTarget: target.readTarget,
+  });
+  return {
+    findings: result.findings.map((f) => ({
+      kind: "service-lost" as const,
+      message: f.message,
+      action: f.action,
+      source: "kernel/services",
+    })),
+    gated: result.gated,
+    execution: result.execution,
   };
 }
 
@@ -305,8 +422,10 @@ export function liveNotRun(
     ...(unlock ? { unlock } : {}),
     ...(onDemand ? { onDemand: true } : {}),
   };
-  return {
-    findings: [],
-    execution: { migrations: execution, firewall: execution },
-  };
+  // Dérivée de LIVE_FAMILIES : une famille ajoutée est couverte d'office, là
+  // où une énumération à la main l'aurait laissée SANS état — c'est-à-dire
+  // affichée en vert sans que rien ne l'ait regardée.
+  const familles = {} as Record<LiveFamily, IExecution>;
+  for (const famille of LIVE_FAMILIES) familles[famille] = execution;
+  return { findings: [], execution: familles };
 }

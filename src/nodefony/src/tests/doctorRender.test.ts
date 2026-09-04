@@ -64,19 +64,12 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
   freshness: { findings: [], notComparable: false },
   lastBoots: [],
   exceptions: 0,
-  execution: {
-    freshness: { ran: true },
-    readiness: { ran: true },
-    envCatalog: { ran: true },
-    envTracked: { ran: true },
-    deps: { ran: true },
-    wiring: { ran: true },
-    // L'étage 2 a « tourné » dans ce décor par défaut : ces tests portent sur la
-    // MISE EN PAGE, et une famille sautée y ajouterait une section qu'ils ne
-    // mesurent pas. Les cas de l'étage 2 vivent dans `doctorLive.test.ts`.
-    migrations: { ran: true },
-    firewall: { ran: true },
-  },
+  // Toutes les familles ont « tourné » dans ce décor par défaut : ces tests
+  // portent sur la MISE EN PAGE, et une famille sautée y ajouterait une section
+  // qu'ils ne mesurent pas. Les cas de l'étage 2 vivent dans `doctorLive`.
+  // DÉRIVÉ de `FAMILLES` (cf `etats`) : la liste écrite à la main devenait
+  // incomplète à chaque famille nouvelle, et le décor mentait sans le dire.
+  execution: etats({ ran: true }),
   ...patch,
 });
 
@@ -353,10 +346,13 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   it("sans contrôle sauté, aucune section « non contrôlé » ne s'invite", () => {
     const texte = rendreRapport(rapport(), options()).map(nu).join("\n");
     assert.notInclude(texte, "NON CONTRÔLÉ");
-    // SIX : les cinq familles statiques comptées (`envCatalog` est une
-    // sous-règle de `readiness`, jamais comptée à part) plus les deux de
-    // l'étage 2, que ce décor déclare exécutées.
-    assert.include(texte, "Rien à signaler sur 6 contrôles");
+    // Le compte est DÉRIVÉ : les familles comptées (les sous-règles de
+    // `readiness` n'en sont pas). L'écrire en dur le rendait faux à la
+    // première famille ajoutée, et le test accusait la mise en page.
+    assert.include(
+      texte,
+      `Rien à signaler sur ${COUNTED_FAMILIES.length} contrôles`,
+    );
   });
 
   it("l'en-tête dit d'où l'on a lancé quand ce n'est pas la racine auscultée", () => {

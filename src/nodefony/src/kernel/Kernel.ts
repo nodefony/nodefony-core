@@ -36,6 +36,7 @@ import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
 import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
+import { gateModuleManifest } from "./moduleGating";
 import {
   writeLastBoot,
   type ILastBoot,
@@ -52,10 +53,7 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
 } from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
-import type {
-  IModuleManifest,
-  IModuleManifestEntry,
-} from "../types/IModuleManifest";
+import type { IModuleManifest } from "../types/IModuleManifest";
 import {
   isConfigDescriptor,
   readAppEnvOverrideReport,
@@ -1433,10 +1431,6 @@ class Kernel extends Service implements IKernel {
     name: string;
     config?: Record<string, unknown>;
   }[] {
-    const manifest = this.options.modules;
-    if (!Array.isArray(manifest)) {
-      return [];
-    }
     // Gating `policy:"dev"` sur le MODE RUNTIME (NODE_ENV-aware) — un conteneur
     // staging (NODE_ENV=production) droppe bien les modules dev. Le gating fin par
     // environnement de déploiement passe par `when(config)` (axe appEnvironment).
@@ -1448,46 +1442,34 @@ class Kernel extends Service implements IKernel {
     // le WARNING par module ci-dessous) ; sans effet hors production.
     const devModulesForced =
       isProd && process.env[FORCE_DEV_MODULES_ENV] === "1";
+    // 🔴 La DÉCISION vit dans `gateModuleManifest`, pas ici : `nodefony doctor
+    // --env production` la rejoue à froid pour dire ce qui disparaîtra là-bas.
+    // Deux copies de la règle divergeraient, et le diagnostic cesserait de
+    // décrire le boot qu'il prétend prédire.
+    const outcome = gateModuleManifest(this.options.modules, {
+      isProduction: isProd,
+      forceDevModules: devModulesForced,
+      config: this.options,
+    });
     // Reset (défensif si rappelée) : les skips motivés sont re-collectés à chaque
     // résolution — sinon un double appel dupliquerait les entrées du bilan.
     this.modulesGated = null;
-    const result: { name: string; config?: Record<string, unknown> }[] = [];
-    for (const item of manifest) {
-      const entry: IModuleManifestEntry =
-        typeof item === "string" ? { name: item } : item;
-      if (!entry?.name) {
-        continue;
-      }
-      if (entry.policy === "dev" && isProd) {
-        if (devModulesForced) {
-          // Dérogation DEMANDÉE : on charge, on le CRIE, et on arme l'auto-arrêt.
-          // Un module de banc dans un runtime de production est une surface
-          // offerte — que personne ne doit découvrir en lisant les routes.
-          this.log(
-            `module "${entry.name}" (policy "dev") chargé en PRODUCTION sur ` +
-              `${FORCE_DEV_MODULES_ENV}=1 — dérogation explicite, à ne jamais poser sur un déploiement réel`,
-            "WARNING",
-            "KERNEL",
-          );
-          this.armDevModulesSelfStop();
-        } else {
-          this.recordModuleGated(
-            entry.name,
-            `policy "dev" — runtime production`,
-          );
-          continue;
-        }
-      }
-      if (typeof entry.when === "function" && !entry.when(this.options)) {
-        this.recordModuleGated(
-          entry.name,
-          "condition when(config) non remplie",
-        );
-        continue;
-      }
-      result.push({ name: entry.name, config: entry.config });
+    for (const gated of outcome.gated) {
+      this.recordModuleGated(gated.module, gated.reason);
     }
-    return result;
+    for (const name of outcome.derogated) {
+      // Dérogation DEMANDÉE : on charge, on le CRIE, et on arme l'auto-arrêt.
+      // Un module de banc dans un runtime de production est une surface
+      // offerte — que personne ne doit découvrir en lisant les routes.
+      this.log(
+        `module "${name}" (policy "dev") chargé en PRODUCTION sur ` +
+          `${FORCE_DEV_MODULES_ENV}=1 — dérogation explicite, à ne jamais poser sur un déploiement réel`,
+        "WARNING",
+        "KERNEL",
+      );
+      this.armDevModulesSelfStop();
+    }
+    return outcome.entries;
   }
 
   /**

@@ -688,9 +688,15 @@ export async function collectCheckReport(
       // ce qui lui permet de répondre sur une application cassée. La commande
       // remplace ces deux entrées quand `--live` a effectivement démarré.
       ...liveNotRun(
-        "l'état de la base et la cohérence des zones ne se lisent dans aucun " +
-          "fichier : il faut démarrer l'application pour les constater",
-        "`nodefony doctor --live`",
+        "l'état de la base, la cohérence des zones et ce qu'un autre " +
+          "environnement retirerait ne se lisent dans aucun fichier : il faut " +
+          "démarrer l'application pour les constater",
+        // Le geste REPREND la cible qu'on vient de demander : rendre
+        // `--live` tout court ferait retaper `--env production`, et le
+        // deuxième rapport ne dirait toujours pas ce qu'on cherchait.
+        targetEnv
+          ? `\`nodefony doctor --live --env ${targetEnv}\``
+          : "`nodefony doctor --live`",
         // NON DEMANDÉ, et non pas empêché : sans ce drapeau, `--strict` (donc
         // toute chaîne automatisée, `CI` l'armant d'office) condamnait `doctor`
         // tant qu'on n'ajoutait pas un démarrage complet à la commande.

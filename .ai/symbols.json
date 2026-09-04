@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T15:47:22.492Z",
+  "generated": "2026-09-04T16:20:23.780Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 800,
-    "symbols": 3737,
+    "files": 802,
+    "symbols": 3763,
     "classes": 383,
-    "interfaces": 1021,
-    "types": 433,
+    "interfaces": 1031,
+    "types": 435,
     "enums": 4,
-    "functions": 1524,
-    "constants": 372
+    "functions": 1533,
+    "constants": 377
   },
   "symbols": {
     "Cli": {
@@ -3246,6 +3246,74 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "IModuleEntry": {
+      "name": "IModuleEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entrée retenue, prête à charger."
+    },
+    "IModuleGated": {
+      "name": "IModuleGated",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un module volontairement écarté, avec la raison qui le dit."
+    },
+    "IGatingOutcome": {
+      "name": "IGatingOutcome",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la règle décide d'un manifeste, sans rien exécuter."
+    },
+    "IGatingInput": {
+      "name": "IGatingInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la règle a besoin de savoir de l'environnement — jamais lu ici."
+    },
+    "GateConfig": {
+      "name": "GateConfig",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que la garde `when()` d'un manifeste reçoit — la config fusionnée du kernel."
+    },
+    "gateModuleManifest": {
+      "name": "gateModuleManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Applique la règle de gating à un manifeste. `policy`/`when` ne font que FILTRER — jamais réordonner : l'ordre du tableau est la priorité de chargement, et un tri introduirait une dépendance que per…"
+    },
+    "GATED_BY_POLICY": {
+      "name": "GATED_BY_POLICY",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La raison affichée quand la politique du module l'écarte d'un runtime de production."
+    },
+    "GATED_BY_CONDITION": {
+      "name": "GATED_BY_CONDITION",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La raison affichée quand la garde `when(config)` du module refuse."
     },
     "ReadinessRegistry": {
       "name": "ReadinessRegistry",
@@ -7958,6 +8026,106 @@
       "module": "@nodefony/core",
       "description": "Confronte les sources au build, et la version de Node au plancher déclaré."
     },
+    "IProvidedService": {
+      "name": "IProvidedService",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un boot rend d'un service : son nom, et le module qui le porte."
+    },
+    "IGatingFinding": {
+      "name": "IGatingFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une brique que l'environnement visé fera disparaître."
+    },
+    "IGatingResult": {
+      "name": "IGatingResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que l'étage 2 a constaté du gating, et ce qu'il n'a PAS pu regarder."
+    },
+    "@nodefony/core:IGatingInput": {
+      "name": "IGatingInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce dont la famille a besoin pour travailler — tout est INJECTÉ."
+    },
+    "ITargetBootInput": {
+      "name": "ITargetBootInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut pour lancer le boot cible — injecté, jamais lu ici."
+    },
+    "ITargetProvision": {
+      "name": "ITargetProvision",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le résultat d'un boot console visant un environnement."
+    },
+    "lostServices": {
+      "name": "lostServices",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les services que l'environnement visé ne fournira plus. Fonction PURE : c'est un DIFF de deux listes, rien de plus. Un service encore présent là-bas ne lève rien, quel que soit le module qui le por…"
+    },
+    "checkGating": {
+      "name": "checkGating",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Confronte ce que l'application fournit ICI à ce qu'elle fournira LÀ-BAS. Ne lève jamais : un boot cible impossible devient un état d'exécution lisible. C'est la doctrine de tout l'étage 2 — le rapp…"
+    },
+    "targetEnvironment": {
+      "name": "targetEnvironment",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Demande à un boot console visant `env` ce qu'il fournit. `nodefony inspect services --json` et rien d'autre : c'est le producteur que la console d'administration et `inspect` lisent déjà, et le dép…"
+    },
+    "readTargetProvision": {
+      "name": "readTargetProvision",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "NO_TARGET": {
+      "name": "NO_TARGET",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'état d'exécution quand aucun environnement n'est visé. Une seule rédaction, parce que deux chemins y mènent — la commande sans `--env`, et la famille appelée sans cible — et que deux formulations…"
+    },
+    "TARGET_BOOT_TIMEOUT_MS": {
+      "name": "TARGET_BOOT_TIMEOUT_MS",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/gating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le délai au-delà duquel un boot cible qui n'a pas répondu est abandonné."
+    },
     "ILastBootBrick": {
       "name": "ILastBootBrick",
       "kind": "interface",
@@ -8058,13 +8226,22 @@
       "extends": null,
       "description": "Ce que l'étage 2 a constaté, et ce qu'il n'a PAS pu regarder."
     },
+    "ITargetContext": {
+      "name": "ITargetContext",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la comparaison d'environnements a besoin de savoir — hors du broker. Le manifeste et la config viennent du kernel qui vient de démarrer ; le boot cible est INJECTÉ plutôt que lancé ici, pour…"
+    },
     "LiveFamily": {
       "name": "LiveFamily",
       "kind": "type",
       "file": "src/nodefony/src/kernel/checks/live.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Les familles que seul un boot peut renseigner."
+      "description": "Une famille que seul un boot peut renseigner."
     },
     "collectLiveReport": {
       "name": "collectLiveReport",
@@ -8081,6 +8258,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "L'état d'exécution des deux familles quand l'étage 2 n'a PAS eu lieu. Le cas nominal : `doctor` sans `--live` ne boote pas, donc il ne sait rien de la base ni du firewall — et c'est une abstention …"
+    },
+    "LIVE_FAMILIES": {
+      "name": "LIVE_FAMILIES",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les familles que seul un boot peut renseigner. UNE liste, dont le type se dérive : quand la troisième est arrivée, le compte « 2 » était écrit en dur dans trois tests et dans `liveNotRun`, qui les …"
     },
     "IPackageFinding": {
       "name": "IPackageFinding",
@@ -26716,6 +26901,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/testing/index.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -29231,6 +29417,10 @@
       "resolveModuleEntry": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "gateModuleManifest": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/gating.ts"
+      ],
       "writeLastBoot": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -29267,10 +29457,8 @@
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts"
       ],
       "IModuleManifest": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "IModuleManifestEntry": [
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/moduleGating.ts"
       ],
       "isConfigDescriptor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -29388,6 +29576,9 @@
       ],
       "tagListener": [
         "src/nodefony/src/kernel/Module.ts"
+      ],
+      "IModuleManifestEntry": [
+        "src/nodefony/src/kernel/moduleGating.ts"
       ],
       "ADMIN_DEFAULT_ROLE": [
         "src/nodefony/src/mcp/caller.ts",
@@ -30446,9 +30637,30 @@
       "duree": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
+      "IModuleGated": [
+        "src/nodefony/src/kernel/checks/gating.ts",
+        "src/nodefony/src/kernel/checks/live.ts"
+      ],
+      "GateConfig": [
+        "src/nodefony/src/kernel/checks/gating.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
       "IExecution": [
+        "src/nodefony/src/kernel/checks/gating.ts",
         "src/nodefony/src/kernel/checks/live.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "checkGating": [
+        "src/nodefony/src/kernel/checks/live.ts"
+      ],
+      "NO_TARGET": [
+        "src/nodefony/src/kernel/checks/live.ts"
+      ],
+      "IGatingInput": [
+        "src/nodefony/src/kernel/checks/live.ts"
+      ],
+      "IProvidedService": [
+        "src/nodefony/src/kernel/checks/live.ts"
       ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
@@ -30634,6 +30846,9 @@
         "src/nodefony/src/kernel/commands/CheckCommand.ts"
       ],
       "collectLiveReport": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "readTargetProvision": [
         "src/nodefony/src/kernel/commands/CheckCommand.ts"
       ],
       "localOperatorCaller": [

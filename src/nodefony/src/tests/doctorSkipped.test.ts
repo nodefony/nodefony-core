@@ -31,7 +31,7 @@ import {
   type CheckFamily,
   type IExecution,
 } from "../kernel/checks/report";
-import { liveNotRun } from "../kernel/checks/live";
+import { liveNotRun, LIVE_FAMILIES } from "../kernel/checks/live";
 
 /** Un état d'exécution complet, à partir des seules familles qu'on veut poser. */
 const execution = (
@@ -196,7 +196,9 @@ describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
     );
     const sautes = controlesSautes({ ...execution({}), ...absent.execution });
     // Rapporté : un contrôle non demandé n'est toujours pas un quitus.
-    assert.lengthOf(sautes, 2);
+    // Le compte est DÉRIVÉ : l'écrire en dur le rendait faux à la première
+    // famille d'étage 2 ajoutée, et le test accusait alors la mauvaise chose.
+    assert.lengthOf(sautes, LIVE_FAMILIES.length);
     // Mais il ne pèse pas : c'est la moitié qui manquait.
     assert.lengthOf(preventedChecks(sautes), 0);
   });
@@ -206,7 +208,7 @@ describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
     // chose, et une chaîne automatisée doit le savoir.
     const echoue = liveNotRun("le plan d'administration est absent");
     const sautes = controlesSautes({ ...execution({}), ...echoue.execution });
-    assert.lengthOf(preventedChecks(sautes), 2);
+    assert.lengthOf(preventedChecks(sautes), LIVE_FAMILIES.length);
   });
 
   it("un contrôle STATIQUE sauté condamne toujours — la doctrine ne bouge pas", () => {

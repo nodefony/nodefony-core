@@ -90,7 +90,9 @@ export type CheckFamily =
   /** Étage 2 — l'état des migrations, que seule l'application démarrée sait. */
   | "migrations"
   /** Étage 2 — la cohérence des zones, née de la confrontation au boot. */
-  | "firewall";
+  | "firewall"
+  /** Étage 2 — ce que l'environnement VISÉ fera disparaître (`--env`). */
+  | "gating";
 
 /**
  * Le nom lisible de chaque famille.
@@ -108,6 +110,7 @@ export const TITRES: Record<CheckFamily, string> = {
   wiring: "Câblage",
   migrations: "Migrations de schéma",
   firewall: "Cohérence du firewall",
+  gating: "Ce qui disparaît là-bas",
 };
 
 /**
@@ -129,6 +132,7 @@ export const FAMILLES: readonly CheckFamily[] = [
   // c'est ce qui répond quand l'application ne démarre plus.
   "migrations",
   "firewall",
+  "gating",
 ];
 
 /**

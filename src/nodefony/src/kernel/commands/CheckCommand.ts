@@ -8,6 +8,9 @@ import {
   runCheckCommand,
 } from "../checks/runCheck";
 import { collectLiveReport, liveNotRun } from "../checks/live";
+import { readTargetProvision } from "../checks/gating";
+import type { GateConfig } from "../moduleGating";
+import type Kernel from "../Kernel";
 import type { IAdminBrokerLike } from "../inspect/adminSubjects";
 import { localOperatorCaller } from "../adminPlane/adminCaller";
 
@@ -128,7 +131,10 @@ class Check extends Command {
     }
     const debut = Date.now();
     const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
-    const complet = attachLive(report, await this.readLive());
+    const complet = attachLive(
+      report,
+      await this.readLive(parsed.cwd, parsed.targetEnv),
+    );
     await this.terminate(
       renderCheckReport(complet, parsed, Date.now() - debut),
     );
@@ -145,7 +151,10 @@ class Check extends Command {
    *
    * @returns ce que l'application a dit, ou la raison de son silence
    */
-  private async readLive(): Promise<ReturnType<typeof liveNotRun>> {
+  private async readLive(
+    start: string,
+    targetEnv: string | null,
+  ): Promise<ReturnType<typeof liveNotRun>> {
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBrokerLike | undefined;
     if (!broker)
@@ -158,7 +167,24 @@ class Check extends Command {
       // L'identité est ANNONCÉE, pas contournée : certains producteurs graduent
       // leur réponse selon les rôles, et un appelant anonyme obtiendrait une
       // vue amputée. Qui lance cette commande possède déjà le processus.
-      return await collectLiveReport(broker, localOperatorCaller());
+      const kernel = this.kernel as Kernel | null;
+      return await collectLiveReport(broker, localOperatorCaller(), {
+        targetEnv,
+        manifest: kernel?.options?.modules,
+        config: kernel?.options as GateConfig,
+        // 🔴 Le boot cible part dans un PROCESSUS À PART, et jamais ici :
+        // poser `NODE_ENV=production` dans celui-ci ferait basculer tout le
+        // diagnostic — catalogue, fraîcheur, jusqu'à la lecture des sources.
+        // Vécu, et le rapport était faux sans le dire.
+        readTarget: readTargetProvision({
+          execPath: process.execPath,
+          // Le binaire qui tourne, pas un chemin reconstruit : c'est le seul
+          // qui soit sûrement celui que l'utilisateur vient de lancer.
+          binPath: process.argv[1] ?? "",
+          cwd: kernel?.path ?? start,
+          env: process.env,
+        }),
+      });
     } catch (e) {
       return liveNotRun(
         `l'interrogation de l'application a échoué — ${(e as Error).message}`,

@@ -13,7 +13,11 @@
  */
 import { describe, it } from "vitest";
 import { assert } from "chai";
-import { collectLiveReport, liveNotRun } from "../kernel/checks/live";
+import {
+  collectLiveReport,
+  liveNotRun,
+  LIVE_FAMILIES,
+} from "../kernel/checks/live";
 import { attachLive, type ICheckReport } from "../kernel/checks/runCheck";
 import { countFindings, controlesSautes } from "../kernel/checks/report";
 import type { IAdminApi, IAdminEndpoint } from "../types/IAdminApi";
@@ -221,13 +225,20 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       },
     }) as unknown as ICheckReport;
 
-  it("🔴 la greffe REMPLACE les deux familles, elle ne s'ajoute pas à côté", async () => {
+  it("🔴 la greffe REMPLACE les familles ayant tourné, elle ne s'ajoute pas à côté", async () => {
     const live = await lire(brokerDe(migrationsSaines, firewallSain));
     const greffe = attachLive(statique(), live);
     assert.isTrue(greffe.execution.migrations.ran);
     assert.isTrue(greffe.execution.firewall.ran);
-    // Deux états pour un même contrôle, et le sommaire cesserait de dire vrai.
-    assert.lengthOf(controlesSautes(greffe.execution), 0);
+    // Deux états pour un même contrôle, et le sommaire cesserait de dire vrai :
+    // aucune des deux familles interrogées ne doit rester dans les sautés.
+    const sautes = controlesSautes(greffe.execution).map((c) => c.famille);
+    assert.notInclude(sautes, "migrations");
+    assert.notInclude(sautes, "firewall");
+    // `gating` reste sautée, et c'est EXACT : ce décor ne vise aucun
+    // environnement, donc il n'y a rien à comparer. Le dire ici évite qu'un
+    // « 0 sauté » écrit en dur transforme un angle mort en quitus.
+    assert.deepEqual(sautes, ["gating"]);
   });
 
   it("l'entrée n'est pas modifiée — le rapport statique reste ce qu'il était", async () => {
@@ -252,13 +263,15 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     assert.equal(countFindings(statique()), 0);
   });
 
-  it("sans boot, les deux familles sont annoncées « non contrôlé » avec leur geste", () => {
+  it("sans boot, TOUTES les familles d'étage 2 sont annoncées « non contrôlé » avec leur geste", () => {
     const absent = liveNotRun(
       "il faut démarrer l'application",
       "`doctor --live`",
     );
     const sautes = controlesSautes(attachLive(statique(), absent).execution);
-    assert.lengthOf(sautes, 2);
+    // Dérivé : une famille d'étage 2 ajoutée sans état serait affichée en vert
+    // sans que rien ne l'ait regardée — exactement ce que ce module combat.
+    assert.lengthOf(sautes, LIVE_FAMILIES.length);
     assert.equal(sautes[0]?.unlock, "`doctor --live`");
   });
 });

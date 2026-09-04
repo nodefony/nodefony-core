@@ -649,6 +649,17 @@ function sommaire(
           ? "configuration INVALIDE"
           : "zones et authentificateurs cohérents",
     },
+    gating: {
+      n: manquementsLive(report, "service-lost").length,
+      texte:
+        manquementsLive(report, "service-lost").length > 0
+          ? accord(manquementsLive(report, "service-lost").length, "brique") +
+            " perdue" +
+            (manquementsLive(report, "service-lost").length > 1 ? "s" : "")
+          : modulesEcartes(report).length > 0
+            ? `${accord(modulesEcartes(report).length, "module")} écarté${modulesEcartes(report).length > 1 ? "s" : ""}, rien de perdu`
+            : "rien ne disparaît",
+    },
   };
   // L'ordre est celui de FAMILLES, le MÊME que la section « non contrôlé » plus
   // bas : deux ordres différents pour les mêmes contrôles, et le lecteur cesse
@@ -689,6 +700,18 @@ function manquementsLive(
   return (report.live?.findings ?? []).filter((f) => f.kind === kind);
 }
 
+/**
+ * Les modules que l'environnement visé écarte — une INFORMATION.
+ *
+ * Elle ne devient jamais un manquement : retirer un module `policy: "dev"` en
+ * production est le comportement NORMAL, et un contrôle qui crie sur le cas
+ * sain apprend à être ignoré. Elle sert à la ligne du sommaire, qui distingue
+ * « rien ne disparaît » de « des modules partent, mais rien n'est perdu ».
+ */
+function modulesEcartes(report: ICheckReport): readonly { module: string }[] {
+  return report.live?.gatedModules ?? [];
+}
+
 /** Les familles de manquements, dans l'ordre où elles se lisent. */
 function groupesDeManquements(
   report: ICheckReport,
@@ -715,6 +738,12 @@ function groupesDeManquements(
       titre: TITRES.firewall,
       items: manquementsLive(report, "firewall-config-invalid").map((f) => ({
         message: f.message,
+      })),
+    },
+    {
+      titre: TITRES.gating,
+      items: manquementsLive(report, "service-lost").map((f) => ({
+        message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
       })),
     },
   ];
