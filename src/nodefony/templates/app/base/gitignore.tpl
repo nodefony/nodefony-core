@@ -21,6 +21,14 @@ tmp/
 # .env.local — ne JAMAIS les committer (rotation : nodefony security:secrets).
 *.local
 
+# Clés PRIVÉES. Le certificat public (`cert.pem`, `fullchain.pem`) peut se
+# committer ; la clé qui va avec, jamais — un dépôt public la publie
+# définitivement, et la retirer d'un commit ne la retire d'aucun clone.
+# Régénérer : `npx nodefony http:certificates`.
+*.key
+privkey*.pem
+*-key.pem
+
 # Secrets posés chez les agents de développement (nodefony security:token --write).
 # 🔴 `.gemini/.env` porte un JETON PORTEUR : la déclaration de la porte MCP,
 # elle, reste versionnable (.gemini/settings.json, .mcp.json) — c'est la CLÉ qui
