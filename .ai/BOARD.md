@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-04 03:37** (UTC).
+> Empreinte prise le **2026-09-04 03:47** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 24 | 1 | — |
-| 10.0.0 | 37 | 88 | 2026-11-15 |
+| 10.0.0 | 37 | 89 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 

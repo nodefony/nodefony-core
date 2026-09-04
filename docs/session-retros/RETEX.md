@@ -22,6 +22,13 @@
 
 ## 🏭 Ce que le PRODUIT construit n'est pas ce que la CONFIG demande
 
+- [1× — 09-04b] **Lire un fichier de configuration ne dit pas ce qui s'EXÉCUTE.** Le
+  `include` du tsconfig d'une app générée ne contient pas `modules/**` : j'en ai conclu — et
+  failli graver dans un commentaire — que le module généré n'était jamais typechecké. Faux :
+  `create module` CHAÎNE les scripts de l'app vers ses workspaces (`ensureWorkspaces`), et
+  c'est npm qui décide. Seul le TÉMOIN FAUTIF planté dans le module l'a montré. Une lecture
+  de config est une hypothèse, pas une mesure.
+
 - [1× — 09-02] **Le geste que le fichier PRESCRIT n'était joué par personne.** L'en-tête de l'entité générée dit « ne modifie pas ce fichier à la main : relance la commande avec tes champs ». Suivre ce conseil cassait l'application de TROIS façons — nom de table divergent, nom d'export divergent du gabarit (donc un `index.ts` qui importe un symbole disparu), câblage refusé. Aucun test ne jouait ce geste, et les trois sont tombés en vingt minutes dès qu'une tâche de banc l'a joué. **Ce qu'un produit conseille par écrit doit être exécuté par un banc** — sinon le conseil vieillit sans que personne s'en aperçoive.
 - [1× — 09-02] **Un second bloc TSDoc DÉTACHE le premier.** Une garde conditionnelle insérée entre le TSDoc d'une classe et son décorateur donnait, au rendu, deux blocs `/** */` successifs : le premier — la documentation de la classe — n'était plus attaché à rien. Le code compile, le gate de format est vert, aucun contrôle ne le dit. Un décorateur ajouté se pose ENTRE les décorateurs existants, jamais avant le commentaire de la déclaration.
 - [1× — 09-02] **Une ligne ajoutée à une table markdown casse les quatre variantes du gate de format.** prettier réaligne une table sur sa cellule la plus large : une entrée plus longue que ses voisines rend non conforme le rendu que l'UTILISATEUR reçoit, pas le gabarit du dépôt. Réaligner à la main sur la largeur des voisines, ou en faire une liste.
@@ -387,6 +394,12 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 09-04b] **`Closes #N` dans un commit ne ferme rien tant que le commit n'atteint pas
+  la branche PAR DÉFAUT.** Le travail vit sur `claude-ts`, la branche par défaut est `main` :
+  le ticket est resté OUVERT, statut `Todo`, alors que le commit affichait fièrement sa
+  clause. Quatre autres tickets fermés à la main le même soir ne l'ont pas révélé — c'est le
+  contrôle du tableau de bord qui l'a attrapé. **Sur ce dépôt, on ferme explicitement.**
+
 - **[1× — 09-02] Un TSDoc affirmait « elle rend un objet vide » ; mesuré sur les six croisements, elle LÈVE.** La conclusion pratique était juste (silence dans les deux cas, absorbé par un `catch`), la justification était inventée — et une justification inventée se recopie : elle était déjà passée dans le `MEMORY.md` du module. Même famille que le retex de la veille sur `--ignore-scripts`. Règle : ce qui est bon à AGIR ne suffit pas à ÉCRIRE ; un mécanisme énoncé dans un commentaire se mesure.
 - [1× — 31/08] **Un contrat écrit d'un SEUL côté du fil n'est pas tenu.** Le TSDoc serveur énonçait la règle (« le client doit attendre `realtime:welcome` ») ET ajoutait « ce que `RealtimeClient` fait nativement » — faux depuis toujours, le client rejouait sur `onOpen`. Personne ne relit une phrase de contrat : elle a l'air d'une garantie et n'est qu'une intention. Une règle inter-modules ne vaut que si un TEST la tient des deux côtés.
 
@@ -744,6 +757,14 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-04b] **Le témoin qu'on écrit d'instinct pour prouver un scanner n'est pas
+  détecté.** Pour montrer que le gate de secrets mord, j'ai planté
+  `AKIAIOSFODNN7EXAMPLE` — la clé d'exemple d'AWS. gitleaks la CONNAÎT et l'ignore : le
+  témoin était muet. Pire, mon contrôle comptait la ligne « no leaks found » comme une
+  trouvaille (`grep -c "Finding\|leaks found"`), donc il rendait vert. Deux instruments
+  faux qui se couvraient l'un l'autre. **Un témoin se vérifie DÉTECTÉ avant de servir de
+  preuve**, et un compte de lignes ne remplace jamais un code de sortie.
+
 - [1× — 09-04] **Une empreinte de mesure qui porte le chemin ABSOLU de la machine ne vaut que sur
   cette machine.** L'empreinte qui protège la référence d'un banc versionné rendait `b64564eb4de3`
   ici et `7f2a8c283449` sous `/home/runner/work` : la CI aurait classé TOUTES les tâches
@@ -1042,6 +1063,17 @@
 - [1× — 09-01] **Un chemin SECONDAIRE produit un artefact différent du chemin normal, et j'ai failli en tirer un défaut.** `orm:migrate:baseline --from-database` relit la base et renomme l'index (`User_identifier_key` au lieu de `User_identifier_unique`) ; j'ai conclu à une divergence du gabarit. Le chemin normal (`orm:generate` sur base vierge) produisait le nom exact, sur les trois moteurs. **Avant d'imputer un écart au produit, vérifier qu'on l'a mesuré par le chemin que l'utilisateur emprunte.**
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
+
+- [1× — 09-04b] **Un code de sortie qui porte DEUX faits opposés fait rougir la forge sur une
+  panne qui ne nous appartient pas.** `npm audit` rend `1` pour « des vulnérabilités » ET pour
+  « je n'ai pas pu demander » — le registre npm a rendu 503 puis un timeout, et la CI est
+  restée rouge une nuit entière. C'est le pire rouge : il n'apprend rien et il apprend à ne
+  plus regarder. **Un gate doit séparer « la mesure a échoué » de « la mesure est mauvaise »**,
+  et l'annoncer plutôt que de choisir en silence l'un des deux.
+- [1× — 09-04b] **Un gate qui tombe TÔT masque tous ceux qui suivent.** Les étapes d'un job
+  s'arrêtent au premier échec : réparer l'audit a révélé, derrière lui, un contrôle qui
+  écrivait sur un socket fermé depuis des semaines peut-être. Un job rouge ne dit pas combien
+  de rouges il contient.
 
 - [1× — 08-31e] **Le refus qui annonce une destruction accusait la BASE, jamais le dossier
   d'entités.** `NF_GENERATE_DESTRUCTIVE` nommait un `drop table` sans dire un mot de ce que la
@@ -2078,6 +2110,13 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-04b] **La liste d'exceptions du scanner a avalé son propre témoin, une heure
+  après avoir été écrite.** `tmp/` y figure (artefacts jetables) ; le témoin du gate était
+  écrit dans `tmp/`. Le contrôle « le scanner mord » ne pouvait donc jamais passer — et le
+  fichier de configuration ÉNONÇAIT pourtant la règle : « un dossier exclu avale les vrais
+  secrets qu'on y déposera demain ». Écrire la doctrine ne protège pas d'y contrevenir dans
+  le même fichier.
 
 - [1× — 09-03b] **Le commit intitulé « six tickets en cours que rien ne faisait avancer » les a tous remis en cours, dans la seconde.** Le statut se dérive du premier commit qui cite un ticket — bon principe, sauf qu'un commit de PILOTAGE cite des tickets sans travailler dessus : un retex les récapitule, une empreinte les liste, un recalage les nomme pour dire ce qu'ils sont. L'automate a donc annulé le geste qui le corrigeait, et le même jour a passé « en cours » six tickets ouverts dont pas une ligne n'existait. **Un automate qui lit une MENTION croit lire une INTENTION.** Le garde-fou (`NF_NO_TICKET_PROGRESS`) existe mais suppose qu'on y pense au moment du commit — c'est-à-dire le jugement humain que dériver le statut devait justement supprimer.
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T03:37:38.656Z",
+  "generatedAt": "2026-09-04T03:47:58.209Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 88,
+      "closed": 89,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 37,
       "title": "10.0.0"
@@ -154,7 +154,7 @@
       "title": "fix(config): refuser une clé de config inconnue au lieu de la retirer",
       "url": "https://github.com/nodefony/nodefony-core/issues/174",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1168,7 +1168,9 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 10,
-      "labels": []
+      "labels": [
+        "10.0.0"
+      ]
     },
     {
       "number": 139,
@@ -1180,7 +1182,9 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 11,
-      "labels": []
+      "labels": [
+        "10.0.0"
+      ]
     },
     {
       "number": 90,
@@ -1475,7 +1479,7 @@
       "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1801,12 +1805,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/165",
       "state": "CLOSED",
       "status": "Done",
-      "milestone": null,
+      "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 2.5,
       "ordre": 70,
       "labels": [
-        "backlog"
+        "10.0.0"
       ]
     },
     {
@@ -2129,7 +2133,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 130,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 68,
@@ -2141,7 +2147,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 131,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 74,
@@ -2153,7 +2161,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 132,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 65,
@@ -2165,7 +2175,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 133,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 171,
@@ -2177,7 +2189,9 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 134,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 172,
@@ -2189,7 +2203,9 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 135,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 173,
@@ -2201,7 +2217,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 136,
-      "labels": []
+      "labels": [
+        "10.1"
+      ]
     },
     {
       "number": 82,
