@@ -17,6 +17,7 @@ import { checkPackageDeps } from "./packageDeps";
 import { checkWiring } from "./wiring";
 import { readLastBoots } from "./lastBoot";
 import { findProjectRoot } from "../../cli/projectRoot";
+import { resolveEnvCascade } from "../../runtime/loadEnv";
 import type { ILastBoot } from "./lastBoot";
 import {
   checkReadiness,
@@ -50,6 +51,28 @@ import {
   type IExecution,
 } from "./report";
 import { rendreRapport } from "./renderReport";
+
+/**
+ * L'environnement que l'APPLICATION verrait, depuis ce poste.
+ *
+ * `process.env` ne porte que ce que le terminal a posé ; l'application, elle,
+ * lit d'abord sa cascade `.env*`. Un diagnostic qui l'ignore accuse ce qu'il
+ * n'a pas regardé. La cascade est celle d'ICI (mode runtime et environnement de
+ * déploiement du poste) — viser un autre environnement ne fait pas apparaître
+ * des fichiers qui ne sont pas sur cette machine.
+ *
+ * @param root - racine du projet (ou dossier de départ, hors projet).
+ * @returns l'environnement effectif ; `process.env` n'est jamais modifié.
+ */
+function appEnvironment(root: string): Record<string, string | undefined> {
+  const runtimeEnv = process.env.NODE_ENV ?? "development";
+  const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? "";
+  return resolveEnvCascade(process.env, {
+    cwd: root,
+    runtimeEnv,
+    ...(rawAppEnv && rawAppEnv !== runtimeEnv ? { appEnv: rawAppEnv } : {}),
+  });
+}
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
 const CANDIDATE_ROOTS = [
@@ -721,7 +744,13 @@ export async function collectCheckReport(
     // L'environnement est INJECTÉ : l'infrastructure déclarée décide du
     // dialecte, et une fonction qui lirait `process.env` elle-même ne
     // s'éprouverait que dans l'environnement où elle tourne.
-    env: process.env,
+    //
+    // 🔴 Et c'est l'environnement de l'APPLICATION, pas celui du terminal :
+    // `process.env` nu ignore la cascade `.env*`, où le gabarit PRESCRIT
+    // justement de poser `NF_DATABASE_URL`. Sans elle, une application
+    // Postgres voyait CHAQUE entité accusée d'être écrite pour le mauvais
+    // moteur — le contrôle qu'on finit par désactiver.
+    env: appEnvironment(cwd),
     ...(entityDialect ? { dialectExceptions: entityDialect } : {}),
   });
 

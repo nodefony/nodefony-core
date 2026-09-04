@@ -20,6 +20,7 @@ import {
   connectorDialect,
   publicAreas,
 } from "../kernel/checks/surface";
+import { collectCheckReport } from "../kernel/checks/runCheck";
 
 let racine = "";
 
@@ -270,5 +271,63 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
       `@controller("/y") class Y extends Controller { @BypassFirewall go() {} }`,
     );
     assert.lengthOf(controler().openings, 0);
+  });
+});
+
+/**
+ * 🔴 La CHAÎNE, pas la brique : d'où `collectCheckReport` tire l'environnement.
+ *
+ * Les cas ci-dessus INJECTENT l'environnement — c'est par là que le défaut est
+ * passé. Le produit, lui, ne lisait que `process.env`, quand le gabarit
+ * PRESCRIT de poser `NF_DATABASE_URL` dans `.env.local`. Résultat : une
+ * application Postgres voyait chacune de ses entités accusée, et sortait en
+ * erreur. Ces cas passent donc par le vrai point d'entrée, avec des fichiers
+ * sur disque et un `process.env` qui, lui, ne dit rien.
+ */
+describe("collectCheckReport — le dialecte vient de l'app, pas du terminal", () => {
+  /** Une application minimale : un manifeste, un paquet, une entité Postgres. */
+  const appPostgres = (): void => {
+    poser("package.json", '{"name":"app-pg","version":"1.0.0"}');
+    poser("nodefony.config.ts", "export default {};");
+    poser(
+      "nodefony/entity/Facture.ts",
+      `import { pgTable, text } from "drizzle-orm/pg-core";
+       export const factures = pgTable("factures", { id: text("id") });`,
+    );
+  };
+
+  it("⭐ `.env.local` pose le dialecte — aucune entité n'est accusée", async () => {
+    appPostgres();
+    poser(
+      ".env.local",
+      "NF_DATABASE_URL=postgres://app:x@localhost:5432/app\n",
+    );
+    const report = await collectCheckReport(racine);
+    assert.equal(report.surface.dialect, "postgres");
+    assert.deepStrictEqual(
+      report.surface.findings.filter((f) => f.kind === "entity-other-dialect"),
+      [],
+      "l'application déclare postgres : ses entités postgres sont à leur place",
+    );
+  });
+
+  it("sans cette déclaration, la MÊME entité est bien relevée — la cascade a mordu", async () => {
+    appPostgres();
+    const report = await collectCheckReport(racine);
+    assert.equal(report.surface.dialect, "sqlite");
+    assert.lengthOf(
+      report.surface.findings.filter((f) => f.kind === "entity-other-dialect"),
+      1,
+    );
+  });
+
+  it("`.env` committé compte aussi, et `.env.local` prime sur lui", async () => {
+    appPostgres();
+    poser(".env", "NF_DATABASE_URL=mysql://app@localhost:3306/app\n");
+    let report = await collectCheckReport(racine);
+    assert.equal(report.surface.dialect, "mysql");
+    poser(".env.local", "NF_DATABASE_URL=postgres://app@localhost:5432/app\n");
+    report = await collectCheckReport(racine);
+    assert.equal(report.surface.dialect, "postgres", "`.env.local` prime");
   });
 });

@@ -85,14 +85,33 @@ export function envFileOrder(
   return files;
 }
 
-export function loadEnv(opts: ILoadEnvOptions = {}): number {
+/**
+ * L'environnement EFFECTIF d'un projet, sans toucher à `process.env`.
+ *
+ * Même cascade et même précédence que {@link loadEnv} — dont c'est désormais le
+ * moteur —, mais rendue plutôt qu'injectée. Elle sert à tout ce qui doit LIRE
+ * l'environnement d'une application sans être cette application : un diagnostic
+ * lancé depuis un poste voit ainsi ce que l'app verra, alors que `process.env`
+ * nu ne montre que ce que le terminal a posé.
+ *
+ * 🔴 C'est exactement le trou que `doctor` portait : le dialecte du connecteur
+ * était déduit de `process.env` seul, donc une application dont l'URL vit dans
+ * `.env.local` — le chemin que le gabarit PRESCRIT — voyait chacune de ses
+ * entités accusée d'être écrite pour le mauvais moteur.
+ *
+ * @param base - l'environnement de départ, qui GAGNE sur les fichiers.
+ * @param opts - la cascade à lire (racine, mode runtime, environnement de déploiement).
+ * @returns un objet neuf ; ni `base` ni `process.env` ne sont modifiés.
+ */
+export function resolveEnvCascade(
+  base: Record<string, string | undefined>,
+  opts: ILoadEnvOptions = {},
+): Record<string, string | undefined> {
   const { cwd = process.cwd() } = opts;
-  // Du PLUS prioritaire au MOINS prioritaire : le premier fichier qui définit une
-  // clé gagne (après le shell, déjà présent dans process.env). `*.local` d'abord.
-  const files = envFileOrder(opts);
-
-  let injected = 0;
-  for (const file of files) {
+  const merged: Record<string, string | undefined> = { ...base };
+  // Du PLUS prioritaire au MOINS prioritaire : le premier niveau qui définit
+  // une clé gagne (après `base`, qui vient du shell).
+  for (const file of envFileOrder(opts)) {
     let parsed: Record<string, string>;
     try {
       parsed = parseEnv(readFileSync(resolve(cwd, file), "utf8")) as Record<
@@ -103,10 +122,19 @@ export function loadEnv(opts: ILoadEnvOptions = {}): number {
       continue; // fichier absent / illisible → niveau sauté
     }
     for (const key in parsed) {
-      if (process.env[key] === undefined) {
-        process.env[key] = parsed[key];
-        injected++;
-      }
+      if (merged[key] === undefined) merged[key] = parsed[key];
+    }
+  }
+  return merged;
+}
+
+export function loadEnv(opts: ILoadEnvOptions = {}): number {
+  const resolved = resolveEnvCascade(process.env, opts);
+  let injected = 0;
+  for (const key in resolved) {
+    if (process.env[key] === undefined) {
+      process.env[key] = resolved[key];
+      injected++;
     }
   }
   return injected;
