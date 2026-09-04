@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T10:09:12.165Z",
+  "generatedAt": "2026-09-04T11:22:09.803Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 91,
+      "closed": 93,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 46,
+      "open": 45,
       "title": "10.0.0"
     }
   ],
@@ -1135,8 +1135,8 @@
       "number": 180,
       "title": "fix(cli): que doctor DISE les contrôles qu'il n'a pas pu faire",
       "url": "https://github.com/nodefony/nodefony-core/issues/180",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1149,8 +1149,8 @@
       "number": 181,
       "title": "fix(kernel): que le bilan de démarrage dise QUI a échoué",
       "url": "https://github.com/nodefony/nodefony-core/issues/181",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

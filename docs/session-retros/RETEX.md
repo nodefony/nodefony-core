@@ -301,6 +301,15 @@
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
+- [1× — 09-04c] **Renommer par expression régulière casse ce qui n'était pas visé — et le mot le plus
+  anodin est le pire.** Pour passer `kernel/checks/` en anglais, j'ai mis `options` dans la table de
+  renommage (une variable locale de test). Résultat : `this.options` réécrit dans TOUT `Kernel.ts`,
+  ~40 erreurs de compilation. Second essai avec protection des chaînes et commentaires : des
+  occurrences orphelines, le fichier ne compilait toujours pas. Éditer du code est une opération
+  STRUCTURELLE sur un arbre syntaxique ; une regex fait de la correspondance de texte. Règle : un
+  renommage se fait fichier par fichier avec `tsgo --noEmit` derrière chacun, ou par un outil qui
+  comprend le langage — jamais par une table globale, si mécanique que la tâche paraisse.
+
 - [1× — 31/08] **« on fait le 10.1 en 10 » : j'ai basculé les 17 tickets du jalon, il en fallait 2.**
   La demande visait les tickets 10.1 **de la grappe en cours**, pas le jalon entier — le contexte de
   la phrase le disait, sa lettre non. Rattrapé en une minute (7 restaurations), mais c'est un geste
@@ -759,6 +768,14 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-04c] **Un débranchement qui ne fait RIEN tomber accuse le DÉCOR, pas le code.** J'ai coupé
+  le repli des phrases pour voir tomber « aucune ligne ne dépasse la largeur » : 14 verts. Le décor du
+  test ne rendait aucune section « non contrôlé », donc le code débranché n'était jamais atteint —
+  le test ne mesurait qu'une partie de ce que son titre promettait. L'enrichir a fait tomber le
+  débranchement ET révélé **deux débordements RÉELS** que personne ne cherchait (le bilan à 52
+  colonnes sur 48, les titres groupés à 62). Règle : un débranchement muet est une INFORMATION sur la
+  couverture, jamais un quitus — enrichir le décor jusqu'à ce qu'il rougisse.
 
 - [1× — 09-04] **`Tests no tests` ressemble à un succès.** Un `this.timeout()` recopié de mocha faisait échouer la COLLECTE du fichier ; vitest affiche « no tests » et sort sans rouge visible. Sans un `grep` sur la sortie entière, j'aurais compté un fichier de banc comme vert. (Aucun reste mocha dans le dépôt, vérifié : 0 import, 0 dépendance — la faute venait de moi.)
 - [1× — 09-04] **Débrancher LARGEMENT ne prouve rien de PRÉCIS.** J'ai coupé toutes les règles d'un audit pour voir mes 3 cas neufs tomber : 12 sont tombés, dont 9 sans rapport. Et sur un banc d'intégration, le débranchement a montré que **1 seul cas sur 4 prouvait la garde** — les autres étaient verts des deux côtés (le décor ne portait pas la condition). Débrancher ce qu'on VEUT éprouver, et écrire dans le fichier ce que chaque cas prouve vraiment.
@@ -1705,6 +1722,15 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-04c] **Une RÈGLE écrite hors des fichiers relus n'est pas une règle.** « Les identifiants
+  s'écrivent en anglais » existait depuis juillet — dans un audit de design ORM archivé en mémoire IA
+  (`orm-migrations-design-2026-07.md` §11.3). Aucune session ne recharge ce document : la règle n'a
+  jamais mordu, et j'ai écrit un module de production ENTIER (`kernel/checks/`, ~490 lignes) en
+  identifiants français sans que rien, nulle part, ne me contredise. Le user l'a vu en lisant le
+  diff. Corollaire : quand on découvre une règle non appliquée, la première question n'est pas « qui
+  l'a enfreinte » mais **« où vit-elle, et ce fichier est-il chargé au moment d'agir ? »** — ici la
+  réponse était `CLAUDE.md` + le skill `nodefony-framework-dev`, rien d'autre.
+
 - [1× — 09-04] **Une EXCLUSION écrite une fois n'est jamais relue — elle survit à ce qui la
   justifiait.** Deux auto-contrôles du banc étaient écartés du lot avec leur motif écrit noir sur
   blanc, ce qui donnait l'impression d'un trou tenu. Relus : l'un déclarait « exige une application
@@ -1957,6 +1983,19 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 - [1× — 09-03] L'étape « externals » de la forge enchaîne 3 commandes dans un `run: |` sans `shell:` : sous Windows, PowerShell prend le code de la DERNIÈRE — `check-externals.test.mjs` y est rouge depuis fin août (séparateur littéralisé, axiome 10) et l'étape reste verte. Le gate tourne, son verdict est avalé. Ticket #164 ; le remède est l'axiome 11, déjà écrit, jamais appliqué à ce fichier.
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- [1× — 09-04c] **Un relevé chiffré peut n'être qu'une devinette outillée — et le chiffre fait taire
+  la question.** J'ai annoncé « 164 identifiants français en production » : le compte venait d'une
+  liste de ~80 racines écrite À LA MAIN dans un `rg`, sans dictionnaire. Le user a posé la seule
+  question qui tranche (« tu as un dictionnaire ? »). Contre-mesure au dictionnaire système : **888**,
+  mais gonflé de faux positifs (`web2` date de 1913, il ne connaît ni `payload` ni `endpoints`). La
+  vérité est entre les deux, et **aucune des deux méthodes ne peut servir de critère de fin** — le
+  ticket a été corrigé pour le dire. Règle : avant d'écrire un nombre dans un ticket, nommer
+  l'instrument qui l'a produit et ce qu'il RATE ; un plancher présenté comme un compte oriente tout
+  le chantier qui suit.
+- [1× — 09-04c] **J'ai écrit `this.isClusterMaster` — qui n'existe pas.** Le nom était plausible (la
+  classe porte `clusterIsMaster()`), le typecheck l'a attrapé en dix secondes. Mais la même invention
+  dans une CHAÎNE ou un commentaire ne serait attrapée par rien.
 
 - [1× — 09-04] **Trois affirmations fausses dans les INSTRUMENTS eux-mêmes, en une session — toutes
   écrites de bonne foi et jamais recontrôlées.** Un ticket donnait « anonymous » comme faux vert
