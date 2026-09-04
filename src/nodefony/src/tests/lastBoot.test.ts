@@ -279,9 +279,15 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     it("il DIT sur quoi il a porté quand ce n'est pas là où on a tapé", async () => {
       // Sans cette ligne, un rapport vide se lit « mon module va bien » alors
       // qu'il parle de l'application entière — et inversement.
+      //
+      // On vérifie l'INTENTION, pas une formulation : l'en-tête doit nommer la
+      // racine réellement auscultée ET le dossier d'où l'on a tapé. Assertion
+      // sur les deux chemins — un libellé se réécrit, un chemin absent est un
+      // vrai défaut.
       const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
-      assert.include(out, "application :");
+      assert.include(out, dir);
       assert.include(out, "lancé depuis");
+      assert.include(out, sub);
     });
 
     it("`--json` porte la racine retenue", async () => {

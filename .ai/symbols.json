@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T09:35:17.622Z",
+  "generated": "2026-09-04T09:47:25.036Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 797,
-    "symbols": 3664,
+    "files": 798,
+    "symbols": 3676,
     "classes": 383,
-    "interfaces": 1010,
-    "types": 428,
+    "interfaces": 1012,
+    "types": 429,
     "enums": 4,
-    "functions": 1472,
+    "functions": 1481,
     "constants": 367
   },
   "symbols": {
@@ -8051,6 +8051,96 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Contrôle l'état d'installation et l'environnement d'une application."
+    },
+    "ILigneSommaire": {
+      "name": "ILigneSommaire",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une famille de contrôles, résumée en une ligne du sommaire."
+    },
+    "IDetailManquement": {
+      "name": "IDetailManquement",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un manquement, tel qu'il s'affiche dans le détail."
+    },
+    "EtatSection": {
+      "name": "EtatSection",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mise en forme du rapport de `nodefony doctor` — la partie qu'un HUMAIN lit. Un diagnostic se lit en panne, souvent vite, parfois par quelqu'un qui ne connaît pas le projet. Une liste de croix en vr…"
+    },
+    "largeurUtile": {
+      "name": "largeurUtile",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La largeur de rendu, bornée."
+    },
+    "symbole": {
+      "name": "symbole",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le symbole d'un état — la seule chose qui reste quand la couleur est ôtée."
+    },
+    "ligneSommaire": {
+      "name": "ligneSommaire",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une ligne de sommaire alignée : ` ✓ Titre········· détail`. L'alignement se calcule sur le titre le PLUS LONG du lot, jamais sur une constante : une colonne figée déborde le jour où l'on ajoute « F…"
+    },
+    "replier": {
+      "name": "replier",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Enveloppe un texte à la largeur donnée, en coupant aux espaces. Un message de diagnostic porte une phrase entière — chemin, cause, geste. Laissée au terminal, elle se replie sans indentation et le …"
+    },
+    "separerGeste": {
+      "name": "separerGeste",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sépare le CONSTAT du GESTE dans un message qui porte les deux. Les contrôles écrivent « … → `npm run build` » : la flèche est le signe qu'un geste suit. Le rendre sur sa propre ligne le rend trouva…"
+    },
+    "filet": {
+      "name": "filet",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un filet horizontal, pour séparer le sommaire du détail."
+    },
+    "duree": {
+      "name": "duree",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une durée en secondes, rendue lisible. « plus récent de 6359 s » demande un calcul mental au moment où le lecteur en a le moins envie. Ce n'est pas une précision qu'on perd : personne ne décide rie…"
+    },
+    "accord": {
+      "name": "accord",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Accorde un nom avec son nombre — « 1 contrôle passé », « 2 contrôles passés ». Les parenthèses de repli (« contrôle(s) passé(s) ») sont le signe d'un rapport écrit pour la machine ; celui-ci est lu…"
     },
     "ICheckReport": {
       "name": "ICheckReport",
@@ -29976,6 +30066,9 @@
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "duree": [
+        "src/nodefony/src/kernel/checks/freshness.ts"
+      ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
@@ -30010,6 +30103,30 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "filet": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "largeurUtile": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "ligneSommaire": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "replier": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "separerGeste": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "accord": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "EtatSection": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "ILigneSommaire": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/AiMcpCommand.ts",

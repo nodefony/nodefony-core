@@ -23,6 +23,7 @@
  */
 import path from "node:path";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { duree } from "./report";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
 export interface IFreshnessFinding {
@@ -114,12 +115,12 @@ export function checkFreshness(
       file: "dist/index.js",
     });
   } else if (distStat && plusRecente > distStat.mtimeMs) {
-    const ecart = Math.round((plusRecente - distStat.mtimeMs) / 1000);
+    const ecart = duree((plusRecente - distStat.mtimeMs) / 1000);
     findings.push({
       kind: "dist-stale",
       message:
         `des sources ont changé APRÈS le dernier build (\`${porteuse}\` est ` +
-        `plus récent de ${ecart} s que \`dist/index.js\`) : le runtime sert ` +
+        `plus récent de ${ecart} que \`dist/index.js\`) : le runtime sert ` +
         "encore l'ancien code — une route neuve répondra 404, un export retiré " +
         "restera servi. → `npm run build`",
       file: porteuse,

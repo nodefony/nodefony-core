@@ -29,6 +29,16 @@ import {
   readRuntimeState,
 } from "../../service/dev/devProcess";
 import clc from "../../colors";
+import {
+  filet,
+  largeurUtile,
+  ligneSommaire,
+  replier,
+  separerGeste,
+  accord,
+  type EtatSection,
+  type ILigneSommaire,
+} from "./report";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
 const CANDIDATE_ROOTS = [
@@ -418,81 +428,163 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
     return countCheckFindings(report) > 0 ? 1 : 0;
   }
 
-  // Dire QUOI a été contrôlé quand ce n'est pas là où on a tapé : un rapport
-  // qui porte sur un autre dossier que celui qu'on croit se lit de travers,
-  // dans les deux sens (« il n'a rien vu » comme « ça ne me concerne pas »).
-  if (path.resolve(cwd) !== path.resolve(start)) {
-    process.stdout.write(`application : ${cwd}\n  (lancé depuis ${start})\n`);
-  }
-
-  reportLastBoot(lastBoot, Date.now());
-
-  if (
-    findings.length === 0 &&
-    wiring.findings.length === 0 &&
-    readiness.findings.length === 0 &&
-    freshness.findings.length === 0
-  ) {
-    const exceptions = report.exceptions;
-    process.stdout.write(
-      clc.green(
-        `✓ ${scanned} paquet(s), ${wiring.scanned} classe(s) câblée(s) — rien à signaler` +
-          (exceptions > 0 ? ` (${exceptions} exception(s) déclarée(s))` : "") +
-          ".\n",
-      ),
-    );
-    // Le silence de la règle « variable requise » ne vaut pas quitus quand le
-    // catalogue est illisible : ne pas le dire ferait passer une ignorance pour
-    // un contrôle réussi — exactement ce qu'un outil de diagnostic ne doit
-    // jamais faire.
-    if (readiness.catalogUnreadable) {
-      process.stdout.write(
-        clc.yellow(
-          `  ⓘ variables d'environnement NON contrôlées : le catalogue se lit dans` +
-            ` dist/ — construis l'application (npm run build) pour cette règle.\n`,
-        ),
-      );
-    }
-    return 0;
-  }
-
-  // Ce qui empêche de DÉMARRER passe en premier : quand l'application ne se
-  // lance plus, une variable absente ou un port tenu explique tout le reste, et
-  // le faire suivre une liste de manquements de câblage reviendrait à le cacher.
-  // La FRAÎCHEUR passe avant tout le reste : un build en retard rend faux tout
-  // ce qui suit — une classe « non câblée » peut l'être dans le dist, et pas
-  // dans les sources qu'on vient d'éditer. Le lecteur doit le savoir d'abord.
-  for (const f of freshness.findings) {
-    process.stdout.write(clc.red(`✗ ${f.message}\n`));
-    if (f.file) {
-      process.stdout.write(`  ${f.file}\n`);
-    }
-  }
-  for (const f of readiness.findings) {
-    process.stdout.write(clc.red(`✗ ${f.message}\n`));
-    if (f.file) {
-      process.stdout.write(`  déclaré dans : ${f.file}\n`);
-    }
-  }
-  for (const f of findings) {
-    process.stdout.write(clc.red(`✗ ${f.message}\n`));
-    if (f.file) {
-      process.stdout.write(`  premier usage : ${f.file}\n`);
-    }
-  }
-  for (const f of wiring.findings) {
-    process.stdout.write(clc.red(`✗ ${f.message}\n`));
-    process.stdout.write(`  ${f.file}\n`);
-  }
+  const out = process.stdout;
+  const largeur = largeurUtile(out.columns);
   const total =
     findings.length +
     wiring.findings.length +
     readiness.findings.length +
     freshness.findings.length;
-  process.stdout.write(
-    clc.red(
-      `\n${total} manquement(s) sur ${scanned} paquet(s) et ${wiring.scanned} classe(s).\n`,
-    ),
+
+  // ── En-tête : QUI est ausculté. Un rapport qui porte sur un autre dossier
+  //    que celui qu'on croit se lit de travers, dans les deux sens.
+  const nom = appName(cwd);
+  out.write(`\n  ${clc.bold("nodefony doctor")}${nom ? ` · ${nom}` : ""}\n`);
+  out.write(clc.blackBright(`  ${cwd}\n`));
+  if (path.resolve(cwd) !== path.resolve(start)) {
+    out.write(clc.blackBright(`  lancé depuis ${start}\n`));
+  }
+  out.write("\n");
+
+  // ── Sommaire : l'état de chaque famille, d'un coup d'œil. C'est ce qui
+  //    répond à « y a-t-il un problème, et où ? » sans rien lire d'autre.
+  const etat = (n: number): EtatSection => (n > 0 ? "echec" : "ok");
+  const sommaire: ILigneSommaire[] = [
+    {
+      titre: "Fraîcheur du build",
+      etat: freshness.notComparable
+        ? "non-controle"
+        : etat(freshness.findings.length),
+      detail: freshness.notComparable
+        ? "rien à comparer ici"
+        : freshness.findings.length > 0
+          ? accord(freshness.findings.length, "écart")
+          : "sources et build alignés",
+    },
+    {
+      titre: "Prêt à démarrer",
+      etat: etat(readiness.findings.length),
+      detail:
+        readiness.findings.length > 0
+          ? accord(readiness.findings.length, "manquement")
+          : "environnement, modules, ports",
+    },
+    {
+      titre: "Dépendances",
+      etat: etat(findings.length),
+      detail:
+        findings.length > 0
+          ? `${accord(findings.length, "manquement")} sur ${accord(scanned, "paquet")}`
+          : accord(scanned, "paquet"),
+    },
+    {
+      titre: "Câblage",
+      etat: etat(wiring.findings.length),
+      detail:
+        wiring.findings.length > 0
+          ? `${accord(wiring.findings.length, "manquement")} sur ${accord(wiring.scanned, "classe")}`
+          : `${accord(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
+    },
+  ];
+  if (readiness.catalogUnreadable) {
+    // Le silence de la règle « variable requise » ne vaut pas quitus quand le
+    // catalogue est illisible : le taire ferait passer une ignorance pour un
+    // contrôle réussi — ce qu'un outil de diagnostic ne doit jamais faire.
+    sommaire.push({
+      titre: "Variables déclarées",
+      etat: "non-controle",
+      detail: "catalogue illisible — construis l'application",
+    });
+  }
+  const largeurTitre = Math.max(...sommaire.map((l) => l.titre.length));
+  for (const ligne of sommaire) {
+    const couleur =
+      ligne.etat === "echec"
+        ? clc.red
+        : ligne.etat === "ok"
+          ? clc.green
+          : clc.yellow;
+    out.write(`${couleur(ligneSommaire(ligne, largeurTitre, largeur))}\n`);
+  }
+
+  reportLastBoot(lastBoot, Date.now());
+
+  if (total === 0) {
+    const exceptions = report.exceptions;
+    out.write(
+      clc.green(
+        `\n  Rien à signaler` +
+          (exceptions > 0
+            ? ` (${accord(exceptions, "exception")} déclarée${exceptions > 1 ? "s" : ""})`
+            : "") +
+          ".\n\n",
+      ),
+    );
+    return 0;
+  }
+
+  // ── Détail, groupé et ORDONNÉ. La fraîcheur d'abord : un build en retard
+  //    rend faux tout ce qui suit — une classe « non câblée » peut l'être dans
+  //    le dist et pas dans les sources qu'on vient d'éditer. Puis ce qui
+  //    empêche de DÉMARRER : une variable absente explique le reste.
+  const groupes: {
+    titre: string;
+    items: { message: string; file?: string }[];
+  }[] = [
+    { titre: "Fraîcheur du build", items: freshness.findings },
+    { titre: "Prêt à démarrer", items: readiness.findings },
+    { titre: "Dépendances", items: findings },
+    { titre: "Câblage", items: wiring.findings },
+  ];
+  for (const groupe of groupes) {
+    if (groupe.items.length === 0) continue;
+    out.write(`\n${clc.blackBright(filet(largeur))}\n`);
+    out.write(`\n  ${clc.red(clc.bold(groupe.titre.toUpperCase()))}\n`);
+    for (const item of groupe.items) {
+      const { constat, geste } = separerGeste(item.message);
+      out.write("\n");
+      for (const l of replier(constat, largeur, "     ")) {
+        out.write(`${l}\n`);
+      }
+      if (item.file) {
+        out.write(clc.blackBright(`     ${item.file}\n`));
+      }
+      if (geste) {
+        for (const l of replier(`→ ${geste}`, largeur, "     ")) {
+          out.write(`${clc.cyan(l)}\n`);
+        }
+      }
+    }
+  }
+
+  out.write(`\n${clc.blackBright(filet(largeur))}\n`);
+  const nonControles = sommaire.filter((l) => l.etat === "non-controle").length;
+  const passes = sommaire.filter((l) => l.etat === "ok").length;
+  out.write(
+    `\n  ${clc.red(accord(total, "manquement"))}` +
+      ` · ${accord(passes, "contrôle passé", "contrôles passés")}` +
+      (nonControles > 0
+        ? ` · ${clc.yellow(accord(nonControles, "non contrôlé", "non contrôlés"))}`
+        : "") +
+      "\n\n",
   );
   return 1;
+}
+
+/**
+ * Le nom de l'application, tel que son manifeste le déclare.
+ *
+ * @param racine - racine du projet.
+ * @returns `nom@version`, ou une chaîne vide si le manifeste ne dit rien.
+ */
+function appName(racine: string): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(racine, "package.json"), "utf8"),
+    ) as { name?: string; version?: string };
+    if (!pkg.name) return "";
+    return pkg.version ? `${pkg.name} ${pkg.version}` : pkg.name;
+  } catch {
+    return "";
+  }
 }
