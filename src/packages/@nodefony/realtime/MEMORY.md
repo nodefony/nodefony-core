@@ -195,6 +195,7 @@ denials, close, dispose }`. Options : `url` · `origin` · `headers` · `cookies
 - **`onPlatformNotice` est posé APRÈS le handshake** : le controller pose le sien pendant
   (`RealtimeController.ts:538`) et l'écraserait. Les avertissements utiles (canal dynamique
   sans politique) naissent au premier `subscribe`, donc après.
+- **Une politique se déclare par NOM ou par MOTIF** (`registerChannelPolicy`) : `chat:room` ne garde que lui-même, `chat:room:*` garde la famille — les canaux dérivés servis par une fabrique dynamique (`chat:room:1000`) n'héritaient de rien. Précédence : nom exact > motif le plus spécifique (littéral le plus long). Le motif est ÉCHAPPÉ (`.` reste un point), borné à 3 `*` (au-delà : ignoré + WARNING — chaque `*` est un `.*` sur un nom que le CLIENT choisit), et un `*` dans un nom souscrit est REFUSÉ (un motif n'est pas un canal). Chemin chaud intact : la Map exacte répond en O(1), les motifs ne sont parcourus que s'il en existe.
 - **`frameAuthorizer` est le seul moyen d'éprouver une `policy`** : `realtime` ⊥ `security`
   au runtime — sans verrou, une politique déclarée n'est appliquée par personne, en test
   comme en production. Éprouvé contre le VRAI `buildFrameAuthorizer` dans

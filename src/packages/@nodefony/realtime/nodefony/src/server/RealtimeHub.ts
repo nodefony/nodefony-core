@@ -295,6 +295,28 @@ export class RealtimeHub {
   // sur un hub aux canaux libres. Alimenté (idempotent) au handshake.
   #channelPolicies: Map<string, IChannelPolicy> | null = null;
 
+  /**
+   * Politiques déclarées par MOTIF de nom (`chat:room:*`), triées du plus
+   * spécifique au plus général, et `null` tant qu'aucune n'est déclarée.
+   *
+   * 🔴 Pourquoi une liste À PART de la Map exacte, et pourquoi elle reste
+   * `null` : `resolveChannelPolicy` est appelé à CHAQUE `subscribe`. Le nom
+   * exact doit rester une lecture O(1) sans allocation ; les motifs ne sont
+   * parcourus que si aucun nom exact ne répond ET qu'il en existe. Une
+   * application qui n'en déclare aucun ne paie rien — pas même le test d'un
+   * tableau vide.
+   *
+   * Le tri à l'insertion (littéral le plus long d'abord) évite de trancher au
+   * moment de la lecture : entre `chat:*` et `chat:room:*`, c'est le second qui
+   * doit gagner sur `chat:room:12`, et l'ordre le dit une fois pour toutes.
+   */
+  #channelPolicyPatterns: Array<{
+    source: string;
+    re: RegExp;
+    poids: number;
+    policy: IChannelPolicy;
+  }> | null = null;
+
   // Registre des canaux SYSTÈME (plateforme) — factory par nom EXACT, fournie par
   // un module bas niveau (`@nodefony/security` → `nodefony:audit`) au boot, SANS
   // qu'aucun RealtimeController ne la connaisse. Consulté par `subscribe` en
@@ -363,6 +385,21 @@ export class RealtimeHub {
     factory: ChannelFactory,
     serialize?: ChannelSerializer,
   ): boolean {
+    // 🔴 Un `*` désigne un MOTIF de politique, jamais un canal. Sans ce refus,
+    // un client pourrait s'abonner littéralement à `chat:room:*` : le nom ne
+    // correspond à aucune politique EXACTE, et la garde par motif ne le couvre
+    // pas non plus (`^chat:room:.*$` matche pourtant `chat:room:*`…) — c'est
+    // exactement le genre de nom que personne ne pense à interdire, et qui
+    // ouvre une porte à côté du verrou.
+    if (channel.includes("*")) {
+      this.#notifyOnce(
+        "wildcard-channel",
+        `abonnement REFUSÉ au canal "${channel}" : le caractère « * » est ` +
+          `réservé aux MOTIFS de politique et n'a pas de sens dans un nom de ` +
+          `canal servi. Un motif garde une famille, il ne se souscrit pas.`,
+      );
+      return false;
+    }
     if (this.#frameAuthorizer === null && isReservedSystemChannel(channel)) {
       this.#systemFloorDeniedTotal += 1;
       this.#notifyOnce(
@@ -1026,11 +1063,7 @@ export class RealtimeHub {
    * RealtimeController pour émettre un WARNING au boot (fail-loud, jamais silencieux).
    */
   hasUnenforcedChannelPolicies(): boolean {
-    return (
-      this.#channelPolicies !== null &&
-      this.#channelPolicies.size > 0 &&
-      this.#frameAuthorizer === null
-    );
+    return this.hasChannelPolicies() && this.#frameAuthorizer === null;
   }
 
   /**
@@ -1039,7 +1072,20 @@ export class RealtimeHub {
    * le controller pour CHAQUE canal décoré (idempotent : même nom = écrase, les
    * controllers d'un même endpoint déclarent la même policy). Cold path.
    *
-   * @param name   - nom EXACT du canal (subscribe) ou de la méthode inbound.
+   * Deux formes de nom, et la seconde garde une FAMILLE :
+   *
+   * - un nom **exact** (`chat:room`) — lecture O(1) au `subscribe` ;
+   * - un **motif** (`chat:room:*`) — il couvre tout canal dérivé servi par une
+   *   fabrique dynamique (`chat:room:1000`), ce qu'un nom exact ne faisait pas.
+   *   Le `*` remplace n'importe quelle suite de caractères ; tout le reste du
+   *   motif est littéral (échappé), y compris `.` et `(`.
+   *
+   * Précédence : le nom **exact** l'emporte toujours — c'est ainsi qu'on ouvre
+   * une exception dans une famille gardée. Entre deux motifs, le plus
+   * **spécifique** gagne (littéral le plus long).
+   *
+   * @param name   - nom exact du canal (subscribe), de la méthode inbound, ou
+   *   MOTIF de famille s'il contient `*`.
    * @param policy - exigences ({@link IChannelPolicy}) lues par security.
    */
   registerChannelPolicy(name: string, policy: IChannelPolicy): void {
@@ -1057,10 +1103,69 @@ export class RealtimeHub {
           `applicatif si ce n'est pas voulu.`,
       );
     }
+    // Un nom qui porte `*` est un MOTIF, pas un canal. Il garde une FAMILLE —
+    // c'est la réponse au défaut que l'avertissement ci-dessous se contentait
+    // de signaler : `chat:room` ne couvrait pas `chat:room:1000`, servi par la
+    // fabrique dynamique, et l'auteur croyait son canal gardé.
+    if (name.includes("*")) {
+      this.#registerChannelPolicyPattern(name, policy);
+      return;
+    }
     (this.#channelPolicies ??= new Map<string, IChannelPolicy>()).set(
       name,
       policy,
     );
+  }
+
+  /**
+   * Nombre maximum de `*` dans un motif.
+   *
+   * Ce n'est pas une limite de confort : chaque `*` devient un `.*` dans
+   * l'expression compilée, et plusieurs `.*` sur une chaîne qui NE matche pas
+   * font revenir le moteur sur ses pas — un coût qui explose avec leur nombre.
+   * Un motif de canal en demande un, deux au pire ; au-delà, c'est une erreur
+   * de déclaration, et on le DIT plutôt que d'exposer un chemin coûteux à ce
+   * qu'un client peut nommer.
+   */
+  static readonly MAX_PATTERN_WILDCARDS = 3;
+
+  /**
+   * Compile un motif et l'insère à son rang de spécificité.
+   *
+   * Le motif est ÉCHAPPÉ intégralement avant que `*` ne devienne `.*` : rien de
+   * ce que l'auteur écrit n'est interprété comme une expression régulière. Un
+   * `.` reste un point, un `(` reste une parenthèse — sans quoi une déclaration
+   * anodine deviendrait une expression, avec ce que cela ouvre.
+   */
+  #registerChannelPolicyPattern(source: string, policy: IChannelPolicy): void {
+    const etoiles = source.split("*").length - 1;
+    if (etoiles > RealtimeHub.MAX_PATTERN_WILDCARDS) {
+      this.#notifyOnce(
+        `pattern-too-broad:${source}`,
+        `le motif de politique "${source}" porte ${etoiles} caractères « * » ` +
+          `(maximum ${RealtimeHub.MAX_PATTERN_WILDCARDS}) : il est IGNORÉ. Un ` +
+          `motif de canal en demande un, deux au pire — au-delà, la mise en ` +
+          `correspondance coûte cher sur des noms que le client choisit.`,
+      );
+      return;
+    }
+    const echappe = source.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const re = new RegExp(`^${echappe.split("\\*").join(".*")}$`, "u");
+    // Poids = longueur du LITTÉRAL, `*` retirés. Entre `chat:*` (5) et
+    // `chat:room:*` (10), le second gagne : il en dit plus.
+    const poids = source.split("*").join("").length;
+    const liste = (this.#channelPolicyPatterns ??= []);
+    const deja = liste.findIndex((p) => p.source === source);
+    const entree = { source, re, poids, policy };
+    if (deja >= 0) {
+      // Idempotent, comme la voie exacte : deux controllers d'un même endpoint
+      // déclarent le même motif.
+      liste[deja] = entree;
+      return;
+    }
+    const rang = liste.findIndex((p) => p.poids < poids);
+    if (rang < 0) liste.push(entree);
+    else liste.splice(rang, 0, entree);
   }
 
   /**
@@ -1069,12 +1174,25 @@ export class RealtimeHub {
    * la frame `subscribe`/inbound. O(1), 0 alloc quand le registre est vide.
    */
   resolveChannelPolicy(name: string): IChannelPolicy | null {
-    return this.#channelPolicies?.get(name) ?? null;
+    const exact = this.#channelPolicies?.get(name);
+    if (exact !== undefined) return exact;
+    // Les motifs ne coûtent QUE s'il en existe : une application qui n'en
+    // déclare aucun sort ici sans avoir rien parcouru. La liste est déjà triée
+    // du plus spécifique au plus général — le premier qui matche est le bon.
+    const motifs = this.#channelPolicyPatterns;
+    if (motifs === null) return null;
+    for (let i = 0; i < motifs.length; i++) {
+      if (motifs[i]!.re.test(name)) return motifs[i]!.policy;
+    }
+    return null;
   }
 
   /** Des politiques de canal sont-elles déclarées (au moins une) ? */
   hasChannelPolicies(): boolean {
-    return (this.#channelPolicies?.size ?? 0) > 0;
+    return (
+      (this.#channelPolicies?.size ?? 0) > 0 ||
+      (this.#channelPolicyPatterns?.length ?? 0) > 0
+    );
   }
 
   /**
@@ -1086,8 +1204,10 @@ export class RealtimeHub {
    * déclare `"chat:room"`, mais un canal dérivé (`chat:room:1000` — cadence,
    * forage, suffixe) est servi par la fabrique dynamique et **ne matche pas**.
    * L'auteur croit alors son canal gardé ; il ne l'est pas, et rien ne le lui
-   * dit. C'est précisément ce silence qu'on ferme ici. La levée complète (une
-   * politique déclarée par MOTIF) est un chantier à part.
+   * dit. C'est ce silence qu'on ferme ici — et depuis qu'une politique peut se
+   * déclarer par MOTIF (`chat:room:*`), cet avertissement ne parle plus que des
+   * canaux qu'aucun motif ne couvre : il désigne un vrai trou, pas une limite
+   * de l'outil.
    *
    * Appelé par le contrôleur, seul à savoir par quelle voie le canal a été
    * servi. Muet si aucune politique n'est déclarée (module aux canaux libres :
@@ -1102,11 +1222,11 @@ export class RealtimeHub {
       "unguarded-dynamic-channel",
       `le canal "${channel}" est servi par une fabrique DYNAMIQUE et n'est ` +
         `couvert par AUCUNE politique déclarée, alors que ce module en déclare ` +
-        `pour d'autres canaux. Les politiques (@RealtimeChannel) sont indexées ` +
-        `par nom EXACT : un canal dérivé (suffixe de cadence, forage, ` +
-        `identifiant) n'hérite pas de celle de son parent. Si ce canal doit ` +
-        `être gardé, l'exposer sous un nom déclaré, ou porter la vérification ` +
-        `dans la fabrique elle-même.`,
+        `pour d'autres canaux. Un canal dérivé (suffixe de cadence, forage, ` +
+        `identifiant) n'hérite pas de la politique de son parent : un nom ` +
+        `exact ne garde que lui-même. Déclarer un MOTIF pour garder la famille ` +
+        `— @RealtimeChannel("${channel.replace(/[^:]*$/u, "*")}", { … }) — ou ` +
+        `porter la vérification dans la fabrique elle-même.`,
     );
   }
 
@@ -1185,6 +1305,7 @@ export class RealtimeHub {
     this.#frameAuthorizer = null;
     this.#channelPolicies?.clear();
     this.#channelPolicies = null;
+    this.#channelPolicyPatterns = null;
     this.#originGuard = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.
