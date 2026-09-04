@@ -11,7 +11,7 @@
  * Ce fichier fige donc les DEUX issues. Il sert aussi le cas où la sortie est
  * perdue plutôt que lue : démarrage détaché, conteneur qui sort en 78, tâche
  * d'intégration continue, ou quelqu'un qui arrive après coup et n'a que
- * `nodefony check` — le contrôle qui, lui, n'exécute rien.
+ * `nodefony doctor` — le contrôle qui, lui, n'exécute rien.
  *
  * Écrivain (le Kernel) et lecteur (`check`) partagent ce module : le nom, le
  * chemin et la forme de l'enregistrement sont définis ICI et nulle part

@@ -4,7 +4,7 @@
  *
  * Ce fichier ne décide de rien : il EXPLIQUE. L'analyse vit dans le cœur
  * (`nodefony/src/kernel/checks/packageDeps.ts`) et sert aussi la commande
- * `nodefony check`, disponible dans toute application ; les exceptions sont
+ * `nodefony doctor`, disponible dans toute application ; les exceptions sont
  * déclarées dans le `package.json` racine, sous `nodefony.check`, exactement là
  * où une application déclarerait les siennes. Deux implémentations d'une même
  * règle divergent toujours — et deux LISTES de la même règle aussi : c'est
@@ -58,7 +58,7 @@ if (!existsSync(CORE)) {
 
 const { checkPackageDeps } = await import(pathToFileURL(CORE).href);
 
-// Source UNIQUE des exceptions : celle que lit aussi `nodefony check`.
+// Source UNIQUE des exceptions : celle que lit aussi `nodefony doctor`.
 const { typeCycles, typesUnreachable } =
   JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).nodefony
     ?.check ?? {};

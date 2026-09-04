@@ -155,7 +155,7 @@ export function buildCard(input: ICardInput): ICard {
 
   const verbes: ICardVerb[] = [
     {
-      commande: "npx nodefony check",
+      commande: "npx nodefony doctor",
       pourquoi:
         "diagnostic STATIQUE : il ne lit que des fichiers, donc il répond même quand l'application ne démarre plus.",
     },

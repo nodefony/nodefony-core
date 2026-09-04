@@ -38,7 +38,7 @@ export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
  * vers une brique qui répond DÉJÀ à une autre porte : `inspect` lit le plan
  * d'administration par {@link readAdminSubject} (la même fonction que la
  * commande `nodefony inspect`), `check` appelle {@link collectCheckReport} (la
- * même que `nodefony check`). Une source, plusieurs portes — un outil qui
+ * même que `nodefony doctor`). Une source, plusieurs portes — un outil qui
  * recalculerait sa réponse finirait par contredire la commande, et c'est lui
  * qu'on croirait sur parole.
  *

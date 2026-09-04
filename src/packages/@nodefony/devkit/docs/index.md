@@ -303,7 +303,7 @@ travaillent alors avec les mêmes recettes.
 
 ## Ce qu'il ne fait pas
 
-Le scaffold (`nodefony create …`), le diagnostic (`nodefony check`) et
+Le scaffold (`nodefony create …`), le diagnostic (`nodefony doctor`) et
 l'introspection (`nodefony inspect`) **ne sont pas ici** : ils vivent dans le
 cœur, parce qu'ils doivent répondre sans qu'aucun module soit installé — et
 surtout quand l'application est cassée. Un outil de diagnostic qui exige que

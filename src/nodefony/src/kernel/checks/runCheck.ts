@@ -1,5 +1,5 @@
 /**
- * Exécution STANDALONE de `nodefony check` — zéro boot, zéro Kernel.
+ * Exécution STANDALONE de `nodefony doctor` — zéro boot, zéro Kernel.
  *
  * Ce contrôle ne lit que des fichiers : des `package.json` et des sources. Le
  * faire passer par un boot d'application coûtait un démarrage complet (modules
@@ -222,7 +222,7 @@ interface ICheckRequest {
 }
 
 const USAGE =
-  `usage : nodefony check [--json] [--cwd <path>]  (alias : doctor)\n` +
+  `usage : nodefony doctor [--json] [--cwd <path>]  (alias : doctor)\n` +
   `  Contrôle STATIQUE de l'application — dépendances déclarées, câblage,\n` +
   `  et le bilan du dernier démarrage. N'exécute rien.\n`;
 

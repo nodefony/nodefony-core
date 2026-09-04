@@ -436,7 +436,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 > `context.request` (`80eb2801`, alias de `queryPost`, `body` devient un nom d'action réservé) ; et
 > **6 paquets publient des types injoignables après `npm i`** (`exports["."].types` → `./index.ts`,
 > absent de `files`) — `frontend` réparé, les 5 autres verrouillés par un cycle de types
-> `http ↔ framework ↔ security → user → orm-core`, tracés par la gate `nodefony check` (`1a139b14`,
+> `http ↔ framework ↔ security → user → orm-core`, tracés par la gate `nodefony doctor` (`1a139b14`,
 > `a4cc8b72`).
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.

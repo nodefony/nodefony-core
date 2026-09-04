@@ -139,7 +139,7 @@ arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
 
 ```bash
 npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
-npm run check        # cohérence du projet : config, modules déclarés, wiring
+npm run doctor        # cohérence du projet : config, modules déclarés, wiring
 npm run lint         # oxlint — garde-fous en warn, non-intrusif
 npm run format       # prettier — le style, c'est lui qui décide
 ```

@@ -20,7 +20,7 @@ const execFileAsync = promisify(execFile);
  *
  * On remonte donc au premier dossier portant `nodefony.config.ts`, avec la même
  * définition de « où commence l'app » que le lanceur, les scaffolds et
- * `nodefony check`. Hors projet (dépôt de paquets, test), le dossier courant
+ * `nodefony doctor`. Hors projet (dépôt de paquets, test), le dossier courant
  * reste le repli.
  */
 function appRoot(): string {

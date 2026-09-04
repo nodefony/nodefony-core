@@ -295,9 +295,9 @@ déclarées — le disque fait foi, sinon un dépôt en espaces de travail rend 
 module »), pas des modules **chargés**. La ligne le mentionne et renvoie à
 `npx nodefony inspect modules`. Sort en 66 (`EX_NOINPUT`) hors projet.
 
-## `nodefony check` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
+## `nodefony doctor` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
 
-`nodefony check [--json] [--cwd <path>]`, alias **`doctor`**. Ne lit que des fichiers
+`nodefony doctor [--json] [--cwd <path>]`, alias **`doctor`**. Ne lit que des fichiers
 (`package.json` + sources) — donc il fonctionne sur une application **qui ne démarre plus**, et
 c'est sa raison d'être. Fast-path `CliKernel.ts:230` : le faire booter coûterait un démarrage
 complet pour une réponse qui n'en dépend pas, et noierait le rapport sous le journal du Kernel.

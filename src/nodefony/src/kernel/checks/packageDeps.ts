@@ -14,7 +14,7 @@
  *     fichier absent du champ `files` donne un paquet sans aucun type après
  *     installation. Le dépôt d'origine ne le voit pas : la source y est.
  *
- * Cette logique est partagée par la commande `nodefony check` et par la garde
+ * Cette logique est partagée par la commande `nodefony doctor` et par la garde
  * de pré-commit du dépôt du framework — une seule implémentation, sinon les
  * deux divergent (c'est exactement la faute qu'on cherche ici).
  */

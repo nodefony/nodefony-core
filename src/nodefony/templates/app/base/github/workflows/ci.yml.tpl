@@ -1,7 +1,7 @@
 # CI de <%= it.appName %> — générée par `nodefony create app`.
 #
 # C'est ICI que vit le filet complet, pas dans des hooks git : `verify`
-# enchaîne typecheck, lint, tests et `nodefony check`, puis la suite e2e
+# enchaîne typecheck, lint, tests et `nodefony doctor`, puis la suite e2e
 # démarre l'application POUR DE VRAI (--detach --wait) et l'interroge en HTTP.
 # Un hook local est un doublon contournable (--no-verify) ; la forge, non.
 name: CI
@@ -84,7 +84,7 @@ jobs:
           FLUSH PRIVILEGES;
           SQL
 <% } %><% } %>
-      # typecheck + lint + tests + `nodefony check` — l'ordre du script.
+      # typecheck + lint + tests + `nodefony doctor` — l'ordre du script.
       - run: npm run verify
 
       # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.

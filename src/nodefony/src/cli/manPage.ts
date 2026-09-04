@@ -258,7 +258,7 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   );
   out.push(
     tagged(
-      "nodefony check",
+      "nodefony doctor",
       "Diagnostique le projet, même s'il ne démarre plus.",
     ),
   );

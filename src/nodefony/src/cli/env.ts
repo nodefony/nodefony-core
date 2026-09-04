@@ -248,7 +248,7 @@ function render(report: IEnvReport, projectRoot: string | null): string {
  * Compose le rapport d'environnement d'un projet — la MÊME donnée pour tous ses
  * lecteurs.
  *
- * Extraite de {@link runEnvCommand} pour que `nodefony check` puisse dire « il
+ * Extraite de {@link runEnvCommand} pour que `nodefony doctor` puisse dire « il
  * manque une variable REQUISE » sans réimplémenter la cascade : deux définitions
  * de « quelle valeur est effective » divergeraient, et chacune passerait ses
  * propres tests. Le second lecteur ne rend d'ailleurs pas le rapport, il n'en

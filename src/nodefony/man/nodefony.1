@@ -38,10 +38,6 @@ Compile modules puis application (turbo + rolldown) vers dist/
 .B card, devkit:card
 Carte de visite de l'application : où aller, quoi lancer
 .TP
-.B check, doctor
-Diagnostic statique du projet : câblage, dépendances, bilan du dernier
-démarrage
-.TP
 .B cluster
 Serveur en cluster : N workers isolés (cgroup\-aware, respawn, arrêt
 gracieux)
@@ -55,6 +51,10 @@ Génère app, module, entité… (app | module | controller | service | front
 .TP
 .B development, dev
 Serveur de développement : rechargement auto du backend, HMR du front
+.TP
+.B doctor, check
+Diagnostic statique du projet : câblage, dépendances, bilan du dernier
+démarrage
 .TP
 .B env
 Variables d'environnement : cascade des .env, valeurs effectives et provenance
@@ -142,7 +142,7 @@ Démarre en développement, avec redémarrage à chaud.
 .B nodefony inspect routes
 Affiche les routes RÉELLEMENT montées, sans ouvrir de port.
 .TP
-.B nodefony check
+.B nodefony doctor
 Diagnostique le projet, même s'il ne démarre plus.
 .SH SEE ALSO
 La documentation complète vit dans le projet (\fBdocs/\fR) et dans la console

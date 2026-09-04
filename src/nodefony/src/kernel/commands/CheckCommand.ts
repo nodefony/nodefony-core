@@ -12,7 +12,7 @@ const options: OptionsCommandInterface = {
 };
 
 /**
- * Commande `nodefony check` — contrôle la cohérence des paquets de l'application.
+ * Commande `nodefony doctor` — contrôle la cohérence des paquets de l'application.
  *
  * Elle répond à une question qu'aucun test applicatif ne pose : **ce que mes
  * modules importent, est-ce qu'ils le déclarent ?** Tant qu'on développe, la
@@ -33,24 +33,26 @@ const options: OptionsCommandInterface = {
  *
  * @example
  * ```bash
- * nodefony check          # sortie lisible, sort en erreur si un manquement
- * nodefony doctor         # même commande — le nom qu'on cherche quand ça ne va pas
- * nodefony check --json   # même chose, exploitable par un script de CI
+ * nodefony doctor         # sortie lisible, sort en erreur si un manquement
+ * nodefony doctor --json  # même chose, exploitable par un script de CI
+ * nodefony doctor          # alias historique — même commande
  * ```
  */
 class Check extends Command {
   constructor(cli: CliKernel) {
     super(
-      "check",
+      "doctor",
       "Diagnostic statique du projet : câblage, dépendances, bilan du dernier démarrage",
       cli as CliKernel,
       options,
     );
-    // `doctor` — le mot qu'on tape quand quelque chose ne va pas, et celui que
-    // les autres écosystèmes ont installé (`brew doctor`, `flutter doctor`).
-    // Un alias, pas une seconde commande : une règle ajoutée à `check` est
-    // servie par les deux, sans rien à recâbler.
-    this.alias("doctor");
+    // `doctor` est le nom PRINCIPAL : c'est le mot qu'on tape quand quelque
+    // chose ne va pas, celui que les autres écosystèmes ont installé
+    // (`brew doctor`, `flutter doctor`), et celui qu'un agent trouve en
+    // cherchant à diagnostiquer. « check » ne dit pas ce qu'il vérifie ; il
+    // reste en ALIAS, parce qu'il a voyagé et qu'un nom qui a servi ne se
+    // retire pas sans prévenir.
+    this.alias("check");
     this.addOption("--json", "Machine-readable output");
     this.addOption(
       "--cwd <path>",

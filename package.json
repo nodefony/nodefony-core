@@ -28,7 +28,7 @@
     "env:snapshot": "tsx scripts/env-snapshot.ts",
     "clean": "turbo run clean && rimraf dist",
     "test": "turbo run build && turbo run test --continue",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && node src/nodefony/bin/nodefony check",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && node src/nodefony/bin/nodefony doctor",
     "posttest": "node -e \"console.log('\\n\\x1b[33m⚠  npm test = suites unitaires seules — ni serveur, ni base.\\n   Image complète (infra + intégration) : \\x1b[1mnpm run test:all\\x1b[0m\\x1b[33m\\x1b[0m\\n')\"",
     "test:all": "tsx scripts/test-all.ts",
     "coverage": "tsx scripts/coverage-all.ts",

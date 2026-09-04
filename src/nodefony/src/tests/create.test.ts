@@ -345,7 +345,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["scripts"], "inspect");
       // `ai:sync` pose les skills livrés par les paquets. Sans cette ligne, le
       // verbe existe et personne ne l'apprend — le défaut mesuré au banc sur
-      // les commandes maison (`nodefony check` employé 5 fois sur 63).
+      // les commandes maison (`nodefony doctor` employé 5 fois sur 63).
       assert.property(pkg["scripts"], "ai:sync");
       // `clean` ne peut PAS s'appuyer sur `rimraf` : il n'est pas dans les
       // devDependencies du gabarit, et un script qui échoue au premier usage
@@ -6156,7 +6156,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // frameworks front, qui sont ajoutés par le moteur et non par le
       // manifeste. L'union est volontairement LARGE : ce contrôle ne juge pas
       // qu'une saveur déclare la bonne dépendance (c'est le travail de
-      // `nodefony check` sur l'app rendue), il attrape le paquet que
+      // `nodefony doctor` sur l'app rendue), il attrape le paquet que
       // PERSONNE ne déclare nulle part.
       const declared = new Set<string>();
       for (const rel of [
@@ -6177,7 +6177,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
 
       // Ancré en début de ligne, comme la règle `undeclared-import` de
-      // `nodefony check` : un gabarit MONTRE des imports dans son TSDoc (le
+      // `nodefony doctor` : un gabarit MONTRE des imports dans son TSDoc (le
       // snippet client de `create controller --kind realtime`), et réclamer une
       // dépendance pour du texte d'exemple serait un faux positif.
       const IMPORTS =

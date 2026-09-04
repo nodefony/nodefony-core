@@ -235,7 +235,7 @@ class CliKernel extends Cli {
     // coûtait un démarrage complet pour une réponse qui n'en dépend pas, noyait
     // le rapport sous le journal du Kernel, et le rendait inutilisable sur une
     // application qui justement ne démarre plus.
-    // `doctor` est l'ALIAS de `check` (cf `CheckCommand`) : il doit prendre le
+    // `check` est l'ALIAS de `doctor` (cf `CheckCommand`) : il doit prendre le
     // même fast-path, sinon commander ne le voit pas parmi les built-ins avant
     // le chargement des modules et il partirait en dispatch différé — donc en
     // boot, précisément ce que ce raccourci évite.

@@ -73,7 +73,7 @@ c'est pour cela qu'il est sur-employé : **déclarer vaut mieux que chercher.**
 ## Prouver
 
 ```bash
-npx nodefony check                # « porte @injectable mais n'est déclaré nulle part »
+npx nodefony doctor                # « porte @injectable mais n'est déclaré nulle part »
 npx nodefony inspect services     # ce que le conteneur porte VRAIMENT au démarrage
 npm test
 ```

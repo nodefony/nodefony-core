@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T09:02:10.215Z",
+  "generated": "2026-09-04T09:09:14.328Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8144,7 +8144,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "Commande `nodefony check` — contrôle la cohérence des paquets de l'application. Elle répond à une question qu'aucun test applicatif ne pose : **ce que mes modules importent, est-ce qu'ils le déclar…"
+      "description": "Commande `nodefony doctor` — contrôle la cohérence des paquets de l'application. Elle répond à une question qu'aucun test applicatif ne pose : **ce que mes modules importent, est-ce qu'ils le décla…"
     },
     "Cluster": {
       "name": "Cluster",

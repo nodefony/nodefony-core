@@ -56,7 +56,7 @@ export function renderGitHook(name: GitHookName): string {
 # est l'intégration continue — un commit doit rester rapide.
 npm run typecheck && npm run lint`
       : `# Le dernier rempart avant de partager : \`verify\` enchaîne typecheck,
-# lint, tests et \`nodefony check\`.
+# lint, tests et \`nodefony doctor\`.
 npm run verify`;
   return `#!/usr/bin/env sh
 # ${GIT_HOOKS_MARKER} — se met à jour en la relançant.

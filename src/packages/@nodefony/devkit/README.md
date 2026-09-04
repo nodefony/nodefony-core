@@ -32,7 +32,7 @@ Où aller :
   …
 
 Quoi lancer :
-  npx nodefony check
+  npx nodefony doctor
       diagnostic STATIQUE : il répond même quand l'application ne démarre plus.
   …
 ```
@@ -276,7 +276,7 @@ Par l'environnement : `NF__DEVKIT__ENABLED=false`.
   recalculé à chaque lecture, jamais mis en cache — une carte en cache mentirait
   au premier module ajouté.
 - **Il ne crée rien.** Le scaffold (`nodefony create …`), le diagnostic
-  (`nodefony check`) et l'introspection (`nodefony inspect`) vivent dans le
+  (`nodefony doctor`) et l'introspection (`nodefony inspect`) vivent dans le
   cœur : ils doivent répondre sans qu'aucun module soit installé, et quand
   l'application est cassée.
 - **Il ne dépend d'aucun fournisseur de modèle.** Son intérêt est de servir

@@ -321,7 +321,7 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
 
   it("defaultDevPorts : l'application qui DÉCLARE ses ports n'est plus jugée sur ceux d'une autre", () => {
     // 🔴 Vécu, et coûteux : une application témoin lancée avec `NF_PORT=5371`
-    // faisait sonder 5151/5152 à `nodefony check` — les ports du dépôt voisin.
+    // faisait sonder 5151/5152 à `nodefony doctor` — les ports du dépôt voisin.
     // Le vérificateur rendait donc « port déjà tenu » sur du code parfait, dès
     // qu'un AUTRE serveur tournait sur le poste. Deux sources de vérité pour
     // « quels ports cette application utilise » : le gabarit d'app déclare

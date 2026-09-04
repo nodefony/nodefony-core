@@ -14,7 +14,7 @@
  * appellera la commande. On ne fait donc pas appeler le générateur : on fait
  * échouer ce qui ne l'a pas appelé.
  *
- * Lecture PURE, comme le reste de `nodefony check` : aucun boot, aucun import du
+ * Lecture PURE, comme le reste de `nodefony doctor` : aucun boot, aucun import du
  * code analysé. Le contrôle doit répondre y compris sur une application qui ne
  * démarre plus — c'est précisément là qu'on le consulte.
  */

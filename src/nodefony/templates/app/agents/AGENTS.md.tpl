@@ -501,8 +501,8 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **La route existe dans le code et répond 404** — le runtime charge `dist/`, pas tes sources → `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date
 - **Ta route NEUVE répond 404, et le `dist/` est à jour** — elle n'est pas montée où tu crois : le chemin réel est le PRÉFIXE de son controller suivi du `path` de la route — une action `path: "/widget"` posée dans un controller `@controller("/api")` répond sur `/api/widget` → `npx nodefony inspect routes --json` donne le chemin MONTÉ ; si l'URL demandée ne doit pas porter le préfixe, la route va dans un controller qui n'en a pas
 - **TOUT répond 404, même les routes du gabarit** — un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris → `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer
-- **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
-- **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
+- **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run doctor` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
+- **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run doctor` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
 - **Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
 - **Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur
 - **Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
@@ -552,7 +552,7 @@ type-check pas**, ton code peut être bâti, servi, et ne pas compiler.
 npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
 npm run lint          # style et pièges
 npm test              # unitaires, rapides, zéro serveur
-npm run check         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
+npm run doctor         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
 npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : c'est le gate LENT
 ```
 

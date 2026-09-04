@@ -39,7 +39,7 @@ import { Service, Module, Container, Event, injectable } from "nodefony";
  *
  * ⚠️ Écrire cette classe ne suffit PAS : un service doit être DÉCLARÉ sur le
  * module, dans `@services([…])` de l'`index.ts`. Une classe `@injectable()` que
- * personne ne déclare n'existe pour personne — `npx nodefony check` le dit
+ * personne ne déclare n'existe pour personne — `npx nodefony doctor` le dit
  * (règle `orphan-service`), mais seulement si le décorateur est là.
  */
 @injectable()
