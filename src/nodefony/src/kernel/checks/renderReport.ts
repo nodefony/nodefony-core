@@ -24,8 +24,10 @@ import path from "node:path";
 import {
   accord,
   controlesSautes,
+  countFindings,
   creerPalette,
   FAMILLES,
+  FAMILLES_COMPTEES,
   filet,
   ligneSommaire,
   replier,
@@ -43,6 +45,7 @@ import { formatAge, lastBootFileFor, type ILastBoot } from "./lastBoot";
 // Type SEUL : élidé à la compilation, donc aucune arête d'import à l'exécution
 // entre la collecte et son rendu.
 import type { ICheckReport } from "./runCheck";
+import type { ILiveFinding } from "./live";
 
 /** Le décor du rendu — tout ce que ce module refuse d'aller chercher lui-même. */
 export interface IOptionsRendu {
@@ -259,7 +262,9 @@ function sommaire(
     n: number,
     detail: string,
   ): ILigneSommaire => {
-    const exec = execution[famille];
+    // Même garde que `controlesSautes` : un état absent se DIT, il ne se rend
+    // pas en vert et ne fait pas lever le rapport.
+    const exec = execution[famille] ?? { ran: false, short: "état absent" };
     return exec.ran
       ? { titre: TITRES[famille], etat: etat(n), detail }
       : {
@@ -303,6 +308,23 @@ function sommaire(
           ? `${accord(wiring.findings.length, "manquement")} sur ${accord(wiring.scanned, "classe")}`
           : `${accord(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
     },
+    // Étage 2 : le compte vient des findings de CETTE famille, filtrés par leur
+    // origine. Un manquement de migration ne doit pas grossir la ligne du
+    // firewall — le sommaire perdrait sa seule vertu, dire OÙ regarder.
+    migrations: {
+      n: manquementsLive(report, "migrations-not-ok").length,
+      texte:
+        manquementsLive(report, "migrations-not-ok").length > 0
+          ? accord(manquementsLive(report, "migrations-not-ok").length, "écart")
+          : "schéma et historique alignés",
+    },
+    firewall: {
+      n: manquementsLive(report, "firewall-config-invalid").length,
+      texte:
+        manquementsLive(report, "firewall-config-invalid").length > 0
+          ? "configuration INVALIDE"
+          : "zones et authentificateurs cohérents",
+    },
   };
   // L'ordre est celui de FAMILLES, le MÊME que la section « non contrôlé » plus
   // bas : deux ordres différents pour les mêmes contrôles, et le lecteur cesse
@@ -310,7 +332,7 @@ function sommaire(
   const lignes: ILigneSommaire[] = FAMILLES.filter(
     (f) =>
       f !== "envCatalog" ||
-      (!execution.envCatalog.ran && execution.readiness.ran),
+      (!execution.envCatalog?.ran && execution.readiness?.ran === true),
   ).map((f) => ligne(f, detail[f].n, detail[f].texte));
 
   const largeurTitre = Math.max(...lignes.map((l) => l.titre.length));
@@ -319,6 +341,24 @@ function sommaire(
       l.etat === "echec" ? p.echec : l.etat === "ok" ? p.ok : p.alerte;
     return teinte(ligneSommaire(l, largeurTitre, largeur));
   });
+}
+
+/**
+ * Les manquements de l'étage 2 d'une espèce donnée.
+ *
+ * Le rapport porte UNE liste ; le sommaire et le détail la découpent par
+ * famille. Filtrer ici plutôt que tenir deux listes évite qu'un jour l'une
+ * contienne ce que l'autre ignore.
+ *
+ * @param report - le rapport, dont `live` peut être absent (aucun boot)
+ * @param kind - l'espèce de manquement cherchée
+ * @returns les manquements de cette espèce, vide si l'étage 2 n'a pas eu lieu
+ */
+function manquementsLive(
+  report: ICheckReport,
+  kind: ILiveFinding["kind"],
+): ILiveFinding[] {
+  return (report.live?.findings ?? []).filter((f) => f.kind === kind);
 }
 
 /** Les familles de manquements, dans l'ordre où elles se lisent. */
@@ -334,6 +374,21 @@ function groupesDeManquements(
     { titre: TITRES.readiness, items: report.readiness.findings },
     { titre: TITRES.deps, items: report.findings },
     { titre: TITRES.wiring, items: report.wiring.findings },
+    // L'étage 2 en dernier : il n'existe que sur une application qui a démarré,
+    // et le geste qu'il propose vient du PRODUCTEUR — il est rendu tel quel,
+    // sous le constat, parce qu'une commande à taper se copie.
+    {
+      titre: TITRES.migrations,
+      items: manquementsLive(report, "migrations-not-ok").map((f) => ({
+        message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
+      })),
+    },
+    {
+      titre: TITRES.firewall,
+      items: manquementsLive(report, "firewall-config-invalid").map((f) => ({
+        message: f.message,
+      })),
+    },
   ];
 }
 
@@ -518,11 +573,9 @@ function bilan(
   p: IPalette,
   largeur: number,
 ): string[] {
-  const total =
-    report.findings.length +
-    report.wiring.findings.length +
-    report.readiness.findings.length +
-    report.freshness.findings.length;
+  // ⚠️ La MÊME fonction que le code de sortie et que le serveur MCP. Recompter
+  // ici a produit un bilan qui contredisait le sommaire juste au-dessus.
+  const total = countFindings(report);
   const passes = nombreDeControlesPasses(report);
 
   /**
@@ -579,8 +632,10 @@ function bilan(
 /** Combien de familles ont réellement regardé — la moitié utile du bilan. */
 function nombreDeControlesPasses(report: ICheckReport): number {
   let n = 0;
-  for (const famille of ["freshness", "readiness", "deps", "wiring"] as const) {
-    if (report.execution[famille].ran) n++;
+  // Dérivé de la source unique : une famille ajoutée est comptée sans qu'on ait
+  // à y penser — la liste écrite en dur ici ignorait l'étage 2.
+  for (const famille of FAMILLES_COMPTEES) {
+    if (report.execution[famille]?.ran) n++;
   }
   return n;
 }

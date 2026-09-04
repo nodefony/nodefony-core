@@ -295,12 +295,25 @@ déclarées — le disque fait foi, sinon un dépôt en espaces de travail rend 
 module »), pas des modules **chargés**. La ligne le mentionne et renvoie à
 `npx nodefony inspect modules`. Sort en 66 (`EX_NOINPUT`) hors projet.
 
-## `nodefony doctor` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
+## `nodefony doctor` / `doctor` — statique par défaut, `--live` DEMANDE à l'app
 
-`nodefony doctor [--json] [--cwd <path>]`, alias **`doctor`**. Ne lit que des fichiers
-(`package.json` + sources) — donc il fonctionne sur une application **qui ne démarre plus**, et
-c'est sa raison d'être. Fast-path `CliKernel.ts:230` : le faire booter coûterait un démarrage
-complet pour une réponse qui n'en dépend pas, et noierait le rapport sous le journal du Kernel.
+`nodefony doctor [--json] [--strict|--no-strict] [--live|--no-live] [--cwd <path>]`, alias
+**`check`**. Par défaut il ne lit que des fichiers (`package.json` + sources) — donc il fonctionne
+sur une application **qui ne démarre plus**, et c'est sa raison d'être. Fast-path dans
+`CliKernel.start()` : le faire booter coûterait un démarrage complet pour une réponse qui n'en
+dépend pas, et noierait le rapport sous le journal du Kernel.
+
+⚠️ **`--live` SORT du fast-path** — c'est tout son sujet. L'étage 2 interroge l'APPLICATION
+(`kernel/checks/live.ts`) : verdict des migrations (`orm/migrations`) et cohérence des zones
+(`security/firewall`, champ `configValid`), deux vérités qui ne sont dans AUCUN fichier. La
+commande boote donc, en `kernelEvent: "onPostReady"` — pas `onReady`, qui passerait avant
+l'écouteur qui peuple le plan d'administration — et **aucun port ne s'ouvre** (profil console).
+Rien n'y est recalculé : `summary` et `nextActions[0].command` du producteur sont rendus TELS
+QUELS, faute de quoi une seconde vérité divergerait de la console d'administration. Un producteur
+absent, une base sans migrations versionnées (501 `NF_MIGRATE_NO_MIGRATIONS`) ou un format
+inattendu ⇒ famille NON CONTRÔLÉE avec sa raison — jamais un quitus. L'étage 2 ne lève jamais :
+son échec devient un constat, et le rapport statique — celui dont on a besoin quand l'app va
+mal — sort quoi qu'il arrive.
 
 ⚠️ **La cible est l'APPLICATION, pas le dossier où l'on a tapé.** La commande remonte au premier
 dossier portant `nodefony.config.ts` (`findProjectRoot` — la MÊME définition de « où commence

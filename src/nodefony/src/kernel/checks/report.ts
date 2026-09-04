@@ -65,7 +65,15 @@ export interface IExecution {
  * famille est un contrat, pas un détail de rendu.
  */
 export type CheckFamily =
-  "freshness" | "readiness" | "envCatalog" | "deps" | "wiring";
+  | "freshness"
+  | "readiness"
+  | "envCatalog"
+  | "deps"
+  | "wiring"
+  /** Étage 2 — l'état des migrations, que seule l'application démarrée sait. */
+  | "migrations"
+  /** Étage 2 — la cohérence des zones, née de la confrontation au boot. */
+  | "firewall";
 
 /**
  * Le nom lisible de chaque famille.
@@ -80,6 +88,8 @@ export const TITRES: Record<CheckFamily, string> = {
   envCatalog: "Variables déclarées",
   deps: "Dépendances",
   wiring: "Câblage",
+  migrations: "Migrations de schéma",
+  firewall: "Cohérence du firewall",
 };
 
 /**
@@ -95,7 +105,24 @@ export const FAMILLES: readonly CheckFamily[] = [
   "envCatalog",
   "deps",
   "wiring",
+  // L'étage 2 ferme la marche : il exige un boot, donc il n'est pas toujours
+  // là — et ce qui se lit sur des fichiers doit rester en tête, parce que
+  // c'est ce qui répond quand l'application ne démarre plus.
+  "migrations",
+  "firewall",
 ];
+
+/**
+ * Les familles qui COMPTENT dans un bilan.
+ *
+ * `envCatalog` en est exclue : c'est une RÈGLE de `readiness`, pas une famille
+ * à part — la compter donnerait un total qui ne colle pas aux lignes affichées.
+ * Dérivée de {@link FAMILLES} et non réécrite : la liste avait été recopiée en
+ * dur dans le compteur du bilan, et une famille ajoutée n'y entrait pas.
+ */
+export const FAMILLES_COMPTEES: readonly CheckFamily[] = FAMILLES.filter(
+  (f) => f !== "envCatalog",
+);
 
 /** Un contrôle qui n'a PAS eu lieu, prêt à être rendu. */
 export interface IControleSaute {
@@ -121,14 +148,25 @@ export function controlesSautes(
 ): IControleSaute[] {
   const sautes: IControleSaute[] = [];
   for (const famille of FAMILLES) {
-    const etat = execution[famille];
+    // ⚠️ Un état ABSENT n'est pas un état « passé ». Le type l'interdit, mais un
+    // rapport peut arriver d'ailleurs — un `--json` produit par une version qui
+    // ne connaissait pas cette famille, relu par une version qui la connaît. Un
+    // outil de DIAGNOSTIC ne doit jamais lever : c'est précisément l'outil qu'on
+    // lance quand tout le reste est cassé.
+    const etat = execution[famille] ?? {
+      ran: false,
+      reason:
+        "ce rapport ne porte aucun état d'exécution pour cette famille — il a " +
+        "probablement été produit par une autre version",
+      short: "état absent",
+    };
     if (etat.ran) continue;
     // `envCatalog` est une RÈGLE de `readiness` : quand la famille entière a
     // été sautée, sa sous-règle l'est forcément aussi, et l'annoncer une
     // seconde fois ferait compter deux angles morts là où il n'y en a qu'un.
     // L'état brut, lui, reste exact dans `execution` — c'est le RAPPORT qui
     // dédoublonne, pas la mesure.
-    if (famille === "envCatalog" && !execution.readiness.ran) continue;
+    if (famille === "envCatalog" && !execution.readiness?.ran) continue;
     sautes.push({
       famille,
       titre: TITRES[famille],
@@ -277,6 +315,41 @@ export function surlignerCode(
 ): string {
   if (!couleur) return texte;
   return texte.replace(/`([^`]*)`/gu, (_, code: string) => palette.fort(code));
+}
+
+/**
+ * Ce dont le COMPTE a besoin d'un rapport — ses listes, et rien d'autre.
+ *
+ * Structural exprès : il vit ici, dans le module sans dépendance, pour que le
+ * rendu ET la commande comptent par la MÊME fonction. Le contraire a été
+ * mesuré — deux additions écrites à deux endroits, dont une seule mise à jour
+ * en ajoutant l'étage 2 : le sommaire affichait deux échecs pendant que le
+ * bilan chiffré en annonçait un seul.
+ */
+export interface ICountableReport {
+  findings: readonly unknown[];
+  wiring: { findings: readonly unknown[] };
+  readiness: { findings: readonly unknown[] };
+  freshness: { findings: readonly unknown[] };
+  live?: { findings: readonly unknown[] } | undefined;
+}
+
+/**
+ * Le nombre total de manquements d'un rapport — le verdict, en UN endroit.
+ *
+ * @param report - le rapport, étage 2 greffé ou non
+ * @returns la somme de toutes les familles, l'étage 2 compris
+ */
+export function countFindings(report: ICountableReport): number {
+  return (
+    report.findings.length +
+    report.wiring.findings.length +
+    report.readiness.findings.length +
+    report.freshness.findings.length +
+    // L'étage 2 pèse comme les autres : une migration en échec n'est pas une
+    // information de second rang, c'est la panne qu'on vient chercher.
+    (report.live?.findings.length ?? 0)
+  );
 }
 
 /** Bornes de largeur : en deçà ça se chevauche, au-delà l'œil se perd. */

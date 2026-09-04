@@ -23,6 +23,7 @@ import {
   type IReadinessResult,
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
+import { liveNotRun, type ILiveResult } from "./live";
 import {
   defaultDevPorts,
   probePorts,
@@ -30,6 +31,7 @@ import {
 } from "../../service/dev/devProcess";
 import {
   controlesSautes,
+  countFindings,
   creerPalette,
   doitColorer,
   largeurUtile,
@@ -125,7 +127,7 @@ async function probeLocalPorts(projectRoot: string): Promise<IPortProbe> {
 }
 
 /** Ce que la ligne de commande demande. */
-interface ICheckRequest {
+export interface ICheckRequest {
   json: boolean;
   /** Dossier de DÉPART de la remontée vers la racine (défaut : le cwd). */
   cwd: string;
@@ -139,6 +141,16 @@ interface ICheckRequest {
    * n'exerce plus rien.
    */
   strict: boolean;
+  /**
+   * `true` si l'on veut DEMANDER à l'application, pas seulement à ses fichiers.
+   *
+   * Coûteux (un boot console, sans le moindre port ouvert) et pas toujours
+   * possible — c'est pourquoi il se demande. Le rapport statique reste rendu
+   * quoi qu'il arrive : un étage 2 en échec devient un constat lisible, jamais
+   * une exception qui emporterait le diagnostic dont on a précisément besoin
+   * quand l'application va mal.
+   */
+  live: boolean;
   /** `true` si l'on demande seulement l'usage. */
   help: boolean;
 }
@@ -167,6 +179,11 @@ function usage(p: IPalette): string {
     opt("--json", "le même rapport, exploitable par un script") +
     opt("--strict", "un contrôle SAUTÉ fait échouer (d'office sous `CI`)") +
     opt("--no-strict", "tolère un contrôle sauté, même sous `CI`") +
+    opt(
+      "--live",
+      "DEMANDE à l'application : migrations, cohérence des zones (boot, 0 port)",
+    ) +
+    opt("--no-live", "s'en tient aux fichiers, quoi qu'un script demande") +
     opt(
       "--cwd <chemin>",
       "point de départ (la racine est résolue en remontant)",
@@ -213,6 +230,7 @@ export function parseCheckArgv(
   let json = false;
   let cwd = process.cwd();
   let strict: boolean | undefined;
+  let live = false;
   let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
@@ -226,13 +244,19 @@ export function parseCheckArgv(
       strict = true;
     } else if (word === "--no-strict") {
       strict = false;
+    } else if (word === "--live") {
+      live = true;
+    } else if (word === "--no-live") {
+      // Explicite, pour qu'un script puisse REFUSER le boot sans dépendre du
+      // défaut — le même raisonnement que `--no-strict`.
+      live = false;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
     } else {
       return { error: `option inconnue : ${word}` };
     }
   }
-  return { json, cwd, help, strict: resoudreStrict(strict, process.env) };
+  return { json, cwd, help, live, strict: resoudreStrict(strict, process.env) };
 }
 
 /**
@@ -290,6 +314,15 @@ export interface ICheckReport {
   lastBoots: ILastBoot[];
   /** Exceptions déclarées, comptées dans le rendu humain. */
   exceptions: number;
+  /**
+   * Ce que l'application DÉMARRÉE a dit d'elle-même — absent sans `--live`.
+   *
+   * Séparé du reste parce qu'il n'a pas la même nature : tout ce qui précède
+   * se lit sur des fichiers et répond donc même quand l'application ne démarre
+   * plus. Ceci exige un boot, et son absence est ÉNONCÉE dans `execution`
+   * plutôt que devinée d'un champ manquant.
+   */
+  live?: ILiveResult;
   /**
    * Ce que chaque famille a pu — ou n'a PAS pu — regarder.
    *
@@ -423,6 +456,14 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
               short: "aucun paquet",
               unlock: "vérifie la racine visée (`--cwd`)",
             },
+      // L'étage 2 n'a pas eu lieu : `collectCheckReport` ne boote JAMAIS, c'est
+      // ce qui lui permet de répondre sur une application cassée. La commande
+      // remplace ces deux entrées quand `--live` a effectivement démarré.
+      ...liveNotRun(
+        "l'état de la base et la cohérence des zones ne se lisent dans aucun " +
+          "fichier : il faut démarrer l'application pour les constater",
+        "`nodefony doctor --live`",
+      ).execution,
       wiring: !projectRoot
         ? horsProjet
         : wiring.scanned > 0
@@ -440,14 +481,15 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
   };
 }
 
-/** Nombre total de manquements d'un rapport — le verdict, en un endroit. */
+/**
+ * Nombre total de manquements d'un rapport — le verdict, en un endroit.
+ *
+ * Délègue à {@link countFindings} : le rendu compte par la même fonction, et
+ * le bilan chiffré ne peut donc plus contredire le sommaire qui le surmonte.
+ * Ce nom reste parce qu'il a voyagé (le serveur MCP le lit).
+ */
 export function countCheckFindings(report: ICheckReport): number {
-  return (
-    report.findings.length +
-    report.wiring.findings.length +
-    report.readiness.findings.length +
-    report.freshness.findings.length
-  );
+  return countFindings(report);
 }
 
 export async function runCheckCommand(argv: string[]): Promise<number> {
@@ -471,9 +513,51 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
     );
     return 0;
   }
+  const report = await collectCheckReport(parsed.cwd);
+  return renderCheckReport(report, parsed);
+}
+
+/**
+ * Greffe l'étage 2 sur un rapport statique.
+ *
+ * En UN endroit, parce que la fusion porte une règle : les deux familles de
+ * l'étage 2 sont REMPLACÉES, jamais complétées. `collectCheckReport` les a
+ * posées à « non demandé » — les laisser à côté du vrai résultat afficherait
+ * deux états pour un seul contrôle, et le sommaire cesserait de dire la vérité.
+ *
+ * @param report - le rapport statique, tel que la lecture pure l'a produit
+ * @param live - ce que l'application démarrée a dit d'elle-même
+ * @returns un rapport neuf ; l'entrée n'est pas modifiée
+ */
+export function attachLive(
+  report: ICheckReport,
+  live: ILiveResult,
+): ICheckReport {
+  return {
+    ...report,
+    live,
+    execution: { ...report.execution, ...live.execution },
+  };
+}
+
+/**
+ * Rend le rapport et décide du code de sortie.
+ *
+ * Séparé de la collecte pour une raison précise : `doctor --live` boote, donc
+ * il compose son rapport en DEUX temps (les fichiers, puis l'application) et
+ * doit rendre le tout par le même chemin. Deux rendus pour un même document
+ * finiraient par diverger — et c'est le rendu qui porte la doctrine du verdict.
+ *
+ * @param report - le rapport complet, étage 2 greffé ou non
+ * @param parsed - la demande, telle que la ligne de commande l'a exprimée
+ * @returns le code de sortie : 0 si rien à signaler, 1 sinon
+ */
+export function renderCheckReport(
+  report: ICheckReport,
+  parsed: ICheckRequest,
+): number {
   const { json, strict } = parsed;
   const start = parsed.cwd;
-  const report = await collectCheckReport(start);
   const sautes = controlesSautes(report.execution);
 
   // Le verdict, en UN endroit : les trois portes (humain, JSON, MCP) doivent

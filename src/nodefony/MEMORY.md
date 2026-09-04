@@ -314,20 +314,22 @@ rien à redéclarer.
 
 ---
 
-## `nodefony doctor` (`src/kernel/checks/`) — diagnostic STATIQUE, zéro boot
+## `nodefony doctor` (`src/kernel/checks/`) — statique par défaut, `--live` DEMANDE
 
-Trois fichiers, trois responsabilités qui ne se mélangent pas :
+Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
 
-| Fichier           | Rôle                                                                                                             |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `runCheck.ts`     | COLLECTE (`collectCheckReport`) + ligne de commande + code de sortie. Ne met rien en forme.                      |
-| `report.ts`       | Primitives PURES : `IExecution`, `CheckFamily`, `TITRES`, `FAMILLES`, `controlesSautes`, palette, repli, accord. |
-| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                            |
+| Fichier           | Rôle                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runCheck.ts`     | COLLECTE (`collectCheckReport`) + ligne de commande + `renderCheckReport` (rendu + code) + `attachLive`. Ne met rien en forme.                         |
+| `report.ts`       | Primitives PURES : `IExecution`, `CheckFamily`, `TITRES`, `FAMILLES`, `FAMILLES_COMPTEES`, `countFindings`, `controlesSautes`, palette, repli, accord. |
+| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                  |
+| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                              |
 
 - **Un contrôle rend DEUX choses** : ses `findings`, et son `execution` (`{ran, reason, short, unlock}`).
   Une liste vide ne vaut quitus que si `ran` est vrai — c'est la moitié du
   diagnostic que « 0 manquement » ne dit pas. Familles : `freshness`,
-  `readiness`, `envCatalog` (sous-règle de `readiness`), `deps`, `wiring`.
+  `readiness`, `envCatalog` (sous-règle de `readiness`), `deps`, `wiring`,
+  `migrations` et `firewall` (étage 2).
 - `envCatalog` NE se rapporte PAS quand `readiness` est déjà sauté (`controlesSautes`
   dédoublonne) : sinon le bilan chiffré ne colle plus aux lignes affichées.
 - **Le rendu produit le document ENTIER avant d'écrire** : c'est ce qui permet
@@ -338,6 +340,21 @@ Trois fichiers, trois responsabilités qui ne se mélangent pas :
   porte se ferme, pas dans `colors.ts`.
 - `--strict` (ou `CI` posé) fait échouer sur un contrôle SAUTÉ ; `--no-strict`
   énonce une absence voulue. Sans lui : 0 par défaut, un sauté n'est pas un manquement.
+- **`--live` = étage 2** : `CliKernel` laisse alors la commande BOOTER
+  (`kernelEvent: "onPostReady"`, aucun port — `Kernel.initServers` respecte le
+  profil console). `live.ts` appelle `callAdminEndpoint` sur `orm/migrations` et
+  `security/firewall`, et rend `summary` + `nextActions[0].command` TELS QUELS.
+  Rien n'est recalculé : le core ne peut de toute façon importer ni l'ORM ni la
+  sécurité, et une seconde vérité divergerait. `attachLive` REMPLACE les deux
+  entrées d'`execution` (les ajouter à côté afficherait deux états pour un
+  contrôle). Un producteur absent, un 501 `NF_MIGRATE_NO_MIGRATIONS` (base sans
+  migrations versionnées) ou un format inattendu ⇒ `ran: false` avec sa raison —
+  jamais un quitus. `readLive()` ne lève JAMAIS : le rapport statique est
+  justement celui dont on a besoin quand l'app va mal.
+- **UN SEUL compte** : `countFindings` (`report.ts`) sert le code de sortie, le
+  bilan chiffré et MCP ; `nombreDeControlesPasses` itère `FAMILLES_COMPTEES`.
+  Les deux avaient été écrits en dur ailleurs et ont divergé au premier ajout —
+  le sommaire montrait deux échecs quand le bilan en annonçait un.
 - **3 portes, 1 rapport** : CLI (fast-path `CliKernel`), `--json`, MCP
   (`nodefony_check` → verdict `ok` | `ok-mais-incomplet` | `manquements`).
 - ⚠️ `--help` est reconnu PAR LE PARSEUR (commander ne voit jamais la commande,

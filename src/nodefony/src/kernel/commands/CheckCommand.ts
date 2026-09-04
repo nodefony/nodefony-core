@@ -1,6 +1,15 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runCheckCommand } from "../checks/runCheck";
+import {
+  attachLive,
+  collectCheckReport,
+  parseCheckArgv,
+  renderCheckReport,
+  runCheckCommand,
+} from "../checks/runCheck";
+import { collectLiveReport, liveNotRun } from "../checks/live";
+import type { IAdminBrokerLike } from "../inspect/adminSubjects";
+import { localOperatorCaller } from "../adminPlane/adminCaller";
 
 const options: OptionsCommandInterface = {
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
@@ -8,7 +17,13 @@ const options: OptionsCommandInterface = {
   // journal de cycle de vie.
   quietBoot: true,
   showBanner: false,
-  kernelEvent: "onRegister",
+  // `onPostReady`, et pas `onReady` : le plan d'administration est monté PAR un
+  // écouteur de `onReady`, tandis que l'action d'une commande INTÉGRÉE est
+  // branchée avant qu'un seul module n'existe. À `onReady`, `--live`
+  // n'interrogerait qu'un registre vide et conclurait « aucun ORM chargé » sur
+  // une application qui en porte un. Aucun port ne s'ouvre pour autant : le
+  // profil console est respecté par `Kernel.initServers`.
+  kernelEvent: "onPostReady",
 };
 
 /**
@@ -36,6 +51,7 @@ const options: OptionsCommandInterface = {
  * nodefony doctor          # sortie lisible, sort en erreur si un manquement
  * nodefony doctor --json   # même chose, exploitable par un script de CI
  * nodefony doctor --strict # un contrôle SAUTÉ échoue aussi (défaut sous `CI`)
+ * nodefony doctor --live   # DEMANDE en plus à l'application (boot, 0 port)
  * nodefony check           # alias historique — même commande
  * ```
  */
@@ -64,6 +80,14 @@ class Check extends Command {
       "Tolère un contrôle sauté même en intégration continue",
     );
     this.addOption(
+      "--live",
+      "Demande aussi à l'application démarrée (migrations, cohérence des zones)",
+    );
+    this.addOption(
+      "--no-live",
+      "S'en tient aux fichiers : aucun démarrage, même si un script le demande",
+    );
+    this.addOption(
       "--cwd <path>",
       "Start directory (the app root is resolved from it)",
     );
@@ -73,16 +97,64 @@ class Check extends Command {
     json?: boolean;
     strict?: boolean;
     noStrict?: boolean;
+    live?: boolean;
     cwd?: string;
   }): Promise<this> {
     const argv: string[] = [];
     if (opts?.json) argv.push("--json");
     if (opts?.strict) argv.push("--strict");
     if (opts?.noStrict) argv.push("--no-strict");
+    if (opts?.live) argv.push("--live");
     if (opts?.cwd) argv.push("--cwd", opts.cwd);
-    const code = await runCheckCommand(argv);
-    await this.terminate(code);
+
+    // Sans `--live`, rien n'a changé : la lecture pure suffit, et c'est elle
+    // qui répond sur une application qui ne démarre plus.
+    if (!opts?.live) {
+      await this.terminate(await runCheckCommand(argv));
+      return this;
+    }
+
+    const parsed = parseCheckArgv(argv);
+    if ("error" in parsed) {
+      await this.terminate(await runCheckCommand(argv));
+      return this;
+    }
+    const report = await collectCheckReport(parsed.cwd);
+    await this.terminate(
+      renderCheckReport(attachLive(report, await this.readLive()), parsed),
+    );
     return this;
+  }
+
+  /**
+   * Interroge l'application que ce processus vient de démarrer.
+   *
+   * 🔴 **Ne lève jamais.** Le rapport statique est celui dont on a besoin quand
+   * l'application va mal : une exception ici l'emporterait tout entier, au pire
+   * moment. Un étage 2 impossible devient donc un état d'exécution lisible —
+   * ce qui a manqué, et le geste qui le rendrait possible.
+   *
+   * @returns ce que l'application a dit, ou la raison de son silence
+   */
+  private async readLive(): Promise<ReturnType<typeof liveNotRun>> {
+    const broker = this.kernel?.container?.get("adminBroker") as
+      IAdminBrokerLike | undefined;
+    if (!broker)
+      return liveNotRun(
+        "l'application a démarré, mais sans plan d'administration : aucun " +
+          "producteur ne peut être interrogé",
+        "vérifie que `@nodefony/framework` est bien chargé",
+      );
+    try {
+      // L'identité est ANNONCÉE, pas contournée : certains producteurs graduent
+      // leur réponse selon les rôles, et un appelant anonyme obtiendrait une
+      // vue amputée. Qui lance cette commande possède déjà le processus.
+      return await collectLiveReport(broker, localOperatorCaller());
+    } catch (e) {
+      return liveNotRun(
+        `l'interrogation de l'application a échoué — ${(e as Error).message}`,
+      );
+    }
   }
 }
 

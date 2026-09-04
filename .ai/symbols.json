@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T11:08:10.521Z",
+  "generated": "2026-09-04T12:09:29.227Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 799,
-    "symbols": 3703,
+    "files": 800,
+    "symbols": 3720,
     "classes": 383,
-    "interfaces": 1016,
-    "types": 431,
+    "interfaces": 1019,
+    "types": 433,
     "enums": 4,
-    "functions": 1499,
-    "constants": 370
+    "functions": 1510,
+    "constants": 371
   },
   "symbols": {
     "Cli": {
@@ -8008,6 +8008,48 @@
       "module": "@nodefony/core",
       "description": "Emplacement du bilan d'un démarrage CONSOLE. Un fichier séparé, et non une entrée de plus dans le premier : un `nodefony inspect` lancé POUR diagnostiquer une panne de serveur écrasait la preuve qu…"
     },
+    "ILiveFinding": {
+      "name": "ILiveFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un manquement constaté sur l'application VIVANTE."
+    },
+    "ILiveResult": {
+      "name": "ILiveResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que l'étage 2 a constaté, et ce qu'il n'a PAS pu regarder."
+    },
+    "LiveFamily": {
+      "name": "LiveFamily",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les familles que seul un boot peut renseigner."
+    },
+    "collectLiveReport": {
+      "name": "collectLiveReport",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Interroge l'application démarrée, et rend ce qu'elle SAIT d'elle-même. Les deux familles sont indépendantes : l'absence d'un module en saute une sans rien dire de l'autre. Aucune ne lève — un produ…"
+    },
+    "liveNotRun": {
+      "name": "liveNotRun",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/live.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'état d'exécution des deux familles quand l'étage 2 n'a PAS eu lieu. Le cas nominal : `doctor` sans `--live` ne boote pas, donc il ne sait rien de la base ni du firewall — et c'est une abstention …"
+    },
     "IPackageFinding": {
       "name": "IPackageFinding",
       "kind": "interface",
@@ -8170,6 +8212,15 @@
       "extends": null,
       "description": "La peinture du rapport, par RÔLE et non par couleur. Nommer `echec` plutôt que `red` laisse le choix de la teinte à un seul endroit, et rend le rendu lisible sans connaître la palette. Surtout : c'…"
     },
+    "ICountableReport": {
+      "name": "ICountableReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce dont le COMPTE a besoin d'un rapport — ses listes, et rien d'autre. Structural exprès : il vit ici, dans le module sans dépendance, pour que le rendu ET la commande comptent par la MÊME fonction…"
+    },
     "EtatSection": {
       "name": "EtatSection",
       "kind": "type",
@@ -8225,6 +8276,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Met en valeur ce qui est entre accents graves — une commande, un chemin. Sans couleur, les accents graves RESTENT : ils portent eux-mêmes l'information « ceci se tape tel quel », et un journal de C…"
+    },
+    "countFindings": {
+      "name": "countFindings",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le nombre total de manquements d'un rapport — le verdict, en UN endroit."
     },
     "largeurUtile": {
       "name": "largeurUtile",
@@ -8306,6 +8365,23 @@
       "module": "@nodefony/core",
       "description": "L'ordre de lecture des familles — celui du sommaire ET du détail. L'ordre n'est pas cosmétique : la fraîcheur d'abord, parce qu'un build en retard rend faux tout ce qui suit ; puis ce qui empêche d…"
     },
+    "FAMILLES_COMPTEES": {
+      "name": "FAMILLES_COMPTEES",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les familles qui COMPTENT dans un bilan. `envCatalog` en est exclue : c'est une RÈGLE de `readiness`, pas une famille à part — la compter donnerait un total qui ne colle pas aux lignes affichées. D…"
+    },
+    "ICheckRequest": {
+      "name": "ICheckRequest",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la ligne de commande demande."
+    },
     "ICheckReport": {
       "name": "ICheckReport",
       "kind": "interface",
@@ -8345,7 +8421,7 @@
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Nombre total de manquements d'un rapport — le verdict, en un endroit."
+      "description": "Nombre total de manquements d'un rapport — le verdict, en un endroit. Délègue à {@link countFindings} : le rendu compte par la même fonction, et le bilan chiffré ne peut donc plus contredire le som…"
     },
     "runCheckCommand": {
       "name": "runCheckCommand",
@@ -8353,6 +8429,22 @@
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "attachLive": {
+      "name": "attachLive",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Greffe l'étage 2 sur un rapport statique. En UN endroit, parce que la fusion porte une règle : les deux familles de l'étage 2 sont REMPLACÉES, jamais complétées. `collectCheckReport` les a posées à…"
+    },
+    "renderCheckReport": {
+      "name": "renderCheckReport",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le rapport et décide du code de sortie. Séparé de la collecte pour une raison précise : `doctor --live` boote, donc il compose son rapport en DEUX temps (les fichiers, puis l'application) et d…"
     },
     "IWiringFinding": {
       "name": "IWiringFinding",
@@ -29271,11 +29363,14 @@
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "callAdminEndpoint": [
-        "src/nodefony/src/mcp/tools.ts"
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/checks/live.ts"
       ],
       "IAdminBrokerLike": [
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/checks/live.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
@@ -29289,6 +29384,7 @@
       "IAdminCaller": [
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/checks/live.ts",
         "src/nodefony/src/kernel/inspect/adminSubjects.ts"
       ],
       "adminReadCatalog": [
@@ -29307,7 +29403,8 @@
         "src/nodefony/src/mcp/tools.ts"
       ],
       "collectCheckReport": [
-        "src/nodefony/src/mcp/tools.ts"
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
       ],
       "countCheckFindings": [
         "src/nodefony/src/mcp/tools.ts"
@@ -30251,17 +30348,28 @@
       "duree": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
+      "IExecution": [
+        "src/nodefony/src/kernel/checks/live.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
       "accord": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
+      "countFindings": [
+        "src/nodefony/src/kernel/checks/renderReport.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "creerPalette": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "FAMILLES": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "FAMILLES_COMPTEES": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "filet": [
@@ -30311,6 +30419,9 @@
       "ICheckReport": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
+      "ILiveFinding": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
       "checkPackageDeps": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -30335,6 +30446,13 @@
       "IFreshnessResult": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
+      "liveNotRun": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "ILiveResult": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "probePorts": [
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -30347,9 +30465,6 @@
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "largeurUtile": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
-      ],
-      "IExecution": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "rendreRapport": [
@@ -30396,6 +30511,22 @@
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
+      "attachLive": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "parseCheckArgv": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "renderCheckReport": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "collectLiveReport": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "localOperatorCaller": [
+        "src/nodefony/src/kernel/commands/CheckCommand.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts"
@@ -30418,9 +30549,6 @@
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "InspectFailure": [
-        "src/nodefony/src/kernel/commands/InspectCommand.ts"
-      ],
-      "localOperatorCaller": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "buildStartMenu": [

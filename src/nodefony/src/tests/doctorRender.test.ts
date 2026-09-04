@@ -22,7 +22,13 @@ import {
   grouperParRaison,
   type IOptionsRendu,
 } from "../kernel/checks/renderReport";
-import { doitColorer, unitesInsecables } from "../kernel/checks/report";
+import {
+  doitColorer,
+  FAMILLES,
+  unitesInsecables,
+  type CheckFamily,
+  type IExecution,
+} from "../kernel/checks/report";
 import type { ICheckReport } from "../kernel/checks/runCheck";
 
 /** Retire les séquences ANSI pour mesurer la LARGEUR VUE, pas celle écrite. */
@@ -49,6 +55,11 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
     envCatalog: { ran: true },
     deps: { ran: true },
     wiring: { ran: true },
+    // L'étage 2 a « tourné » dans ce décor par défaut : ces tests portent sur la
+    // MISE EN PAGE, et une famille sautée y ajouterait une section qu'ils ne
+    // mesurent pas. Les cas de l'étage 2 vivent dans `doctorLive.test.ts`.
+    migrations: { ran: true },
+    firewall: { ran: true },
   },
   ...patch,
 });
@@ -61,44 +72,37 @@ const options = (patch: Partial<IOptionsRendu> = {}): IOptionsRendu => ({
   ...patch,
 });
 
+/**
+ * L'état d'exécution des familles, DÉRIVÉ de `FAMILLES`.
+ *
+ * Jamais listé à la main : chaque décor écrit en dur devenait incomplet dès
+ * qu'une famille naissait, et le rendu tombait sur un `undefined.ran` — quatre
+ * décors d'un coup, le jour où l'étage 2 est arrivé.
+ *
+ * @param defaut - l'état donné à toutes les familles non nommées
+ * @param patch - les familles qui font exception
+ */
+const etats = (
+  defaut: IExecution,
+  patch: Partial<Record<CheckFamily, IExecution>> = {},
+): Record<CheckFamily, IExecution> => {
+  const out = {} as Record<CheckFamily, IExecution>;
+  for (const f of FAMILLES) out[f] = patch[f] ?? defaut;
+  return out;
+};
+
 /** Tous les contrôles d'état sautés — le décor « hors application ». */
 const horsApplication = (): ICheckReport =>
   rapport({
     scanned: 0,
     wiring: { scanned: 0, findings: [] },
     appName: "",
-    execution: {
-      freshness: {
-        ran: false,
-        reason: "pas d'app",
-        short: "hors app",
-        unlock: "va dans une app",
-      },
-      readiness: {
-        ran: false,
-        reason: "pas d'app",
-        short: "hors app",
-        unlock: "va dans une app",
-      },
-      envCatalog: {
-        ran: false,
-        reason: "pas d'app",
-        short: "hors app",
-        unlock: "va dans une app",
-      },
-      deps: {
-        ran: false,
-        reason: "pas d'app",
-        short: "hors app",
-        unlock: "va dans une app",
-      },
-      wiring: {
-        ran: false,
-        reason: "pas d'app",
-        short: "hors app",
-        unlock: "va dans une app",
-      },
-    },
+    execution: etats({
+      ran: false,
+      reason: "pas d'app",
+      short: "hors app",
+      unlock: "va dans une app",
+    }),
   });
 
 describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
@@ -124,18 +128,17 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
     // une famille n'a pourtant rien pu ouvrir. Sans cette section, il se lit
     // comme un quitus complet.
     const r = rapport({
-      execution: {
-        freshness: { ran: true },
-        readiness: { ran: true },
-        envCatalog: {
-          ran: false,
-          reason: "catalogue illisible",
-          short: "illisible",
-          unlock: "`npm run build`",
+      execution: etats(
+        { ran: true },
+        {
+          envCatalog: {
+            ran: false,
+            reason: "catalogue illisible",
+            short: "illisible",
+            unlock: "`npm run build`",
+          },
         },
-        deps: { ran: true },
-        wiring: { ran: true },
-      },
+      ),
     });
     const texte = rendreRapport(r, options()).map(nu).join("\n");
     assert.include(texte, "NON CONTRÔLÉ");
@@ -177,18 +180,17 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
       // Un contrôle sauté à raison LONGUE : sans lui, la section « non
       // contrôlé » n'est pas rendue et son repli n'est jamais éprouvé — un
       // décor incomplet fait passer un test qui ne mesure rien.
-      execution: {
-        freshness: { ran: true },
-        readiness: { ran: true },
-        envCatalog: {
-          ran: false,
-          reason: `${"le catalogue des variables se lit dans le dist ".repeat(3)}`,
-          short: "illisible",
-          unlock: `${"un geste assez long pour devoir se replier ".repeat(2)}`,
+      execution: etats(
+        { ran: true },
+        {
+          envCatalog: {
+            ran: false,
+            reason: `${"le catalogue des variables se lit dans le dist ".repeat(3)}`,
+            short: "illisible",
+            unlock: `${"un geste assez long pour devoir se replier ".repeat(2)}`,
+          },
         },
-        deps: { ran: true },
-        wiring: { ran: true },
-      },
+      ),
     });
     // Les DEUX décors : celui qui a des manquements, et celui où tout est
     // sauté — ce dernier joint quatre titres sur une seule ligne, et c'est
@@ -298,13 +300,13 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
     // Deux ordres différents pour les mêmes contrôles, et le lecteur cesse de
     // faire le lien entre ce qu'il a vu en haut et ce qu'il lit en bas.
     const r = rapport({
-      execution: {
-        freshness: { ran: true },
-        readiness: { ran: true },
-        envCatalog: { ran: false, reason: "x", short: "x" },
-        deps: { ran: true },
-        wiring: { ran: false, reason: "y", short: "y" },
-      },
+      execution: etats(
+        { ran: true },
+        {
+          envCatalog: { ran: false, reason: "x", short: "x" },
+          wiring: { ran: false, reason: "y", short: "y" },
+        },
+      ),
     });
     const lignes = rendreRapport(r, options()).map(nu);
     const rang = (mot: string): number =>
@@ -332,7 +334,10 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   it("sans contrôle sauté, aucune section « non contrôlé » ne s'invite", () => {
     const texte = rendreRapport(rapport(), options()).map(nu).join("\n");
     assert.notInclude(texte, "NON CONTRÔLÉ");
-    assert.include(texte, "Rien à signaler sur 4 contrôles");
+    // SIX : les cinq familles statiques comptées (`envCatalog` est une
+    // sous-règle de `readiness`, jamais comptée à part) plus les deux de
+    // l'étage 2, que ce décor déclare exécutées.
+    assert.include(texte, "Rien à signaler sur 6 contrôles");
   });
 
   it("l'en-tête dit d'où l'on a lancé quand ce n'est pas la racine auscultée", () => {

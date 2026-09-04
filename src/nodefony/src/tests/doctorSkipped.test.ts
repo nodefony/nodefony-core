@@ -26,6 +26,7 @@ import {
 } from "../kernel/checks/runCheck";
 import {
   controlesSautes,
+  FAMILLES,
   type CheckFamily,
   type IExecution,
 } from "../kernel/checks/report";
@@ -34,15 +35,10 @@ import {
 const execution = (
   sautees: Partial<Record<CheckFamily, string>>,
 ): Record<CheckFamily, IExecution> => {
-  const toutes: CheckFamily[] = [
-    "freshness",
-    "readiness",
-    "envCatalog",
-    "deps",
-    "wiring",
-  ];
+  // Dérivé de FAMILLES, jamais réécrit : une liste en dur ici laissait les
+  // familles neuves hors du décor, et le rendu plantait sur `undefined.ran`.
   const etat = {} as Record<CheckFamily, IExecution>;
-  for (const f of toutes) {
+  for (const f of FAMILLES) {
     const raison = sautees[f];
     etat[f] = raison ? { ran: false, reason: raison } : { ran: true };
   }
@@ -145,11 +141,8 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
     // tiret suivi de rien, qu'on lit comme un défaut d'affichage plutôt que
     // comme un contrôle manquant.
     const sautes = controlesSautes({
+      ...execution({}),
       freshness: { ran: false },
-      readiness: { ran: true },
-      envCatalog: { ran: true },
-      deps: { ran: true },
-      wiring: { ran: true },
     });
     assert.lengthOf(sautes, 1);
     assert.isNotEmpty(sautes[0]!.reason);
@@ -164,6 +157,23 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
       sautes.map((s) => s.famille),
       ["freshness", "deps", "wiring"],
     );
+  });
+});
+
+describe("doctor — un état d'exécution ABSENT n'est pas un état passé", () => {
+  it("🔴 une famille sans état est rapportée NON CONTRÔLÉE, et ne fait pas lever", () => {
+    // Le type l'interdit, mais un rapport peut venir d'ailleurs : un `--json`
+    // produit par une version qui ignorait cette famille, relu par une version
+    // qui la connaît. Un outil de diagnostic ne doit jamais lever — c'est
+    // précisément celui qu'on lance quand tout le reste est cassé.
+    const partiel = { ...execution({}) } as Record<CheckFamily, IExecution>;
+    delete (partiel as Partial<Record<CheckFamily, IExecution>>).migrations;
+    const sautes = controlesSautes(partiel);
+    assert.deepEqual(
+      sautes.map((s) => s.famille),
+      ["migrations"],
+    );
+    assert.include(sautes[0]?.reason ?? "", "autre version");
   });
 });
 

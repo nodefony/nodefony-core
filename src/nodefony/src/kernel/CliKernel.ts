@@ -239,7 +239,15 @@ class CliKernel extends Cli {
     // même fast-path, sinon commander ne le voit pas parmi les built-ins avant
     // le chargement des modules et il partirait en dispatch différé — donc en
     // boot, précisément ce que ce raccourci évite.
-    if (requested === "check" || requested === "doctor") {
+    // ⚠️ `--live` SORT du fast-path, et c'est tout son sujet : l'étage 2
+    // demande à l'APPLICATION (migrations, cohérence des zones), donc il faut
+    // qu'elle ait démarré. Le raccourci reste la voie par défaut — celle qui
+    // répond quand rien ne démarre —, et le boot ne se paie que s'il est
+    // explicitement demandé.
+    if (
+      (requested === "check" || requested === "doctor") &&
+      !process.argv.includes("--live")
+    ) {
       return process.exit(await runCheckCommand(process.argv));
     }
 
