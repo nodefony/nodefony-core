@@ -72,8 +72,13 @@ export const env = defineEnv({
    * 🔐 Clés de chiffrement au repos (module security) — les VALEURS vivent dans
    * `.env.local` (gitignoré), générées à la création de l'app. Rotation ou
    * rattrapage : `npx nodefony security:secrets --write`. En production :
-   * Secret k8s / vault — jamais en git. Absentes en prod = la brique concernée
-   * se désactive fail-safe (2FA / webhooks) avec un log CRITIC explicite.
+   * Secret k8s / vault — jamais en git.
+   *
+   * Les deux PREMIÈRES sont `optional` À DESSEIN : absentes, la brique
+   * concernée se désactive en fail-safe (2FA, webhooks) avec un log CRITIC —
+   * une application qui n'en use pas doit pouvoir démarrer sans elles. Ne pas
+   * leur ajouter `requiredIn` par symétrie : ce serait refuser de démarrer une
+   * application qui ne s'en sert pas.
    */
   NF_TOTP_KEY: envString({
     optional: true,
@@ -85,8 +90,17 @@ export const env = defineEnv({
     description:
       "Clé de chiffrement des secrets de signature webhook (32 octets base64).",
   }),
+  /**
+   * Celle-ci n'a PAS de repli acceptable. Absente, un secret est tiré au
+   * démarrage : chaque exemplaire en tire un différent, et chaque redémarrage
+   * en change — un pod refuse alors le jeton anti-CSRF qu'un autre vient
+   * d'émettre, et l'utilisateur voit un formulaire rejeté au hasard, sans la
+   * moindre erreur dans les journaux. `requiredIn` fait échouer le démarrage
+   * là où ça compte, et `nodefony doctor --env production` le dit AVANT.
+   */
   NF_CSRF_SECRET: envString({
     optional: true,
+    requiredIn: ["production"],
     description:
       "Secret des jetons anti-CSRF (synchronizer) — partagé entre process en cluster.",
   }),
@@ -96,6 +110,10 @@ export const env = defineEnv({
    * `nodefony/security/users.ts`). DEV : défaut `admin` (compte admin/admin,
    * comme Grafana — pratique, LOCAL uniquement). PROD : OBLIGATOIRE — sans lui
    * le seed refuse (jamais de mot de passe par défaut en production).
+   *
+   * Pas de `requiredIn` : l'exigence ne vaut qu'au PREMIER démarrage. Une fois
+   * le compte créé, la variable ne sert plus — la rendre requise ferait refuser
+   * de démarrer un déploiement qui tourne depuis des mois.
    */
   NF_ADMIN_PASSWORD: envString({
     optional: true,

@@ -29,10 +29,54 @@ import Kernel from "../kernel/Kernel";
 import {
   DEFAULT_ENGINE_ENVIRONMENT,
   defaultEngineEnvironment,
+  detectEnvironmentFromArgv,
 } from "../runtime/engineEnvironment";
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lire = (rel: string): string => readFileSync(path.join(SRC, rel), "utf8");
+
+describe("detectEnvironmentFromArgv — seule la COMMANDE exprime une intention", () => {
+  it("reconnaît les lanceurs et leurs alias", () => {
+    assert.equal(detectEnvironmentFromArgv(["production"]), "production");
+    assert.equal(detectEnvironmentFromArgv(["start"]), "production");
+    assert.equal(
+      detectEnvironmentFromArgv(["cluster", "-w", "4"]),
+      "production",
+    );
+    assert.equal(detectEnvironmentFromArgv(["development"]), "development");
+  });
+
+  it("une commande utilitaire n'exprime rien", () => {
+    assert.strictEqual(detectEnvironmentFromArgv(["doctor"]), undefined);
+    assert.strictEqual(detectEnvironmentFromArgv([]), undefined);
+  });
+
+  // 🔴 LE cas qui a motivé l'extraction : la VALEUR d'une option n'est pas une
+  // intention. Avant cette règle, `doctor --env production` faisait basculer le
+  // processus entier en production — il chargeait `.env.production` et les
+  // modules de production pour répondre à une question sur le POSTE, et le
+  // catalogue de l'application retombait en silence sur un build périmé.
+  it("la valeur d'une option ne décide PAS du mode", () => {
+    assert.strictEqual(
+      detectEnvironmentFromArgv(["doctor", "--env", "production"]),
+      undefined,
+    );
+    assert.strictEqual(
+      detectEnvironmentFromArgv(["env", "--env", "prod"]),
+      undefined,
+    );
+  });
+
+  // Corollaire : ce qui suit une option ne compte plus, même un mot de lanceur.
+  // Personne n'écrit `nodefony --json production`, et le prendre pour une
+  // intention rouvrirait exactement le trou qu'on vient de fermer.
+  it("tout ce qui suit la première option est ignoré", () => {
+    assert.strictEqual(
+      detectEnvironmentFromArgv(["--json", "production"]),
+      undefined,
+    );
+  });
+});
 
 /**
  * Joue un corps avec `NODE_ENV` retiré, puis le restaure.
@@ -200,7 +244,10 @@ describe("mode moteur — l'hypothèse dont dépend le défaut", () => {
     // dans la détection argv. `nodefony start` ne devait son mode qu'au défaut
     // de classe — il tombait du bon côté par ACCIDENT, accident qui disparaît
     // le jour où ce défaut change. Un alias qui lance un serveur DOIT être ici.
-    const bin = lire("bin/nodefony.ts");
+    // La détection a QUITTÉ le binaire pour `runtime/engineEnvironment.ts` :
+    // un binaire s'exécute à l'import, donc sa règle ne pouvait pas s'éprouver
+    // autrement qu'en lisant son texte. Elle s'appelle désormais.
+    const bin = lire("runtime/engineEnvironment.ts");
     const detection = bin.slice(
       bin.indexOf("function detectEnvironmentFromArgv"),
     );

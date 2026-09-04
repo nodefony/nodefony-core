@@ -13,39 +13,7 @@ import {
 // fonctions ne tirent que `node:fs`/`node:path` — le coût est nul, et le TAB
 // répond sans jamais charger le core.
 import { readCliManifest, computeCompletions } from "../cli/completion";
-
-/**
- * Détecte l'environment EN AMONT de `new CliKernel()` en scannant `process.argv`.
- *
- * Pourquoi : commander parse la sous-commande dans `kernel.start()`, donc sans
- * ce pré-parsing `this.environment` reste `undefined` pendant les ~9 premières
- * lignes du boot (avant `setEnv()`). Plusieurs branches conditionnelles
- * (notamment l'affichage du pid dans les logs) dépendent de cet environment —
- * elles ratent sans pré-détection.
- *
- * Coût : ~10 ns (scan linéaire d'un petit array de strings). Aucun changement
- * de logique commander : la sous-commande continue d'appeler `setEnv()` qui
- * confirme la valeur. Si on rate la détection (commande inconnue ou alias non
- * listé), on retombe sur `undefined` et le comportement legacy.
- */
-function detectEnvironmentFromArgv(
-  argv: string[],
-): EnvironmentType | undefined {
-  for (const a of argv) {
-    if (a === "development" || a === "dev") return "development";
-    // `start` est un ALIAS de `production` (`ProdCommand.alias("start")`) : sans
-    // lui, `nodefony start` n'exprimait AUCUNE intention et ne devait son mode
-    // qu'au défaut de classe du Kernel. Il tombait du bon côté par accident —
-    // un accident qui disparaît le jour où ce défaut change, c'est-à-dire
-    // aujourd'hui. Un alias qui lance un serveur DOIT être détecté ici.
-    if (a === "production" || a === "prod" || a === "start") return "production";
-    // `cluster` est un runtime PROD (master + workers). Sans cette détection,
-    // l'unique Kernel naissait en `development` (env non résolu au constructeur)
-    // alors que les workers tournent en production → env incohérent.
-    if (a === "cluster") return "production";
-  }
-  return undefined;
-}
+import { detectEnvironmentFromArgv } from "../runtime/engineEnvironment";
 
 /**
  * Résout le **mode runtime** (dev/prod) AVANT le kernel : `NODE_ENV` (ambiant)

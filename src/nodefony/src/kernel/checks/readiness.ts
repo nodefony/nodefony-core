@@ -6,10 +6,13 @@
  * L'INSTALLATION et répond à une autre question, celle qu'on se pose quand rien
  * ne démarre : « qu'est-ce qui manque ICI, sur cette machine, maintenant ? ».
  *
- * Quatre manquements, tous constatés au moins une fois en session :
+ * Cinq manquements, tous constatés au moins une fois en session :
  *
  * - une **variable requise absente** — l'application refuse de démarrer, et le
- *   message natif arrive au milieu d'un journal de boot ;
+ *   message natif arrive au milieu d'un journal de boot ; requise ICI, ou
+ *   requise LÀ OÙ L'ON VA (`requiredIn`, cf `--env production`) ;
+ * - un **fichier `.env*.local` suivi par git** — il porte les secrets de la
+ *   machine, et l'historique les garde après suppression ;
  * - un **module du manifeste non installé** — `use("@acme/blog")` déclaré,
  *   paquet absent : le Kernel échoue à l'import, très loin de la cause ;
  * - une **dépendance déclarée non installée** — un `npm install` oublié après un
@@ -36,6 +39,7 @@ import { buildProjectEnvReport } from "../../cli/env";
 export interface IReadinessFinding {
   kind:
     | "env-required-missing"
+    | "env-file-tracked"
     | "module-not-installed"
     | "dep-not-installed"
     | "port-busy";
@@ -56,6 +60,14 @@ export interface IReadinessResult {
   catalogUnreadable: boolean;
   /** Ports effectivement sondés (vide si aucune sonde n'a été fournie). */
   portsProbed: number[];
+  /**
+   * Pourquoi le contrôle « fichier d'environnement suivi par git » n'a PAS eu
+   * lieu — `null` quand il a regardé.
+   *
+   * Sans dépôt git, l'absence de trouvaille ne prouve rien : c'est le cas
+   * qu'un outil de diagnostic doit ÉNONCER plutôt qu'afficher en vert.
+   */
+  trackedUnknown: string | null;
 }
 
 /**
@@ -76,6 +88,25 @@ export interface IPortProbe {
    * courant : la règle se tait alors.
    */
   ownedByUs: boolean;
+}
+
+/**
+ * Le VERDICT de git sur les fichiers d'environnement — injecté, jamais mesuré ici.
+ *
+ * Même raison que la sonde de ports : une capacité se CONSTATE et se transmet.
+ * Lancer `git` depuis la règle la rendrait inéprouvable sans dépôt, donc non
+ * testée sur la seule branche qui compte — celle où un secret est versionné.
+ */
+export interface ITrackedEnvProbe {
+  /**
+   * `false` si git n'a rien pu dire (pas un dépôt, binaire absent). Le contrôle
+   * est alors SAUTÉ — pas vert.
+   */
+  supported: boolean;
+  /** Fichiers d'environnement LOCAUX effectivement suivis, relatifs à la racine. */
+  tracked: readonly string[];
+  /** Ce qui a empêché de constater — présent seulement si `supported` est faux. */
+  reason?: string;
 }
 
 /** Retire les commentaires pour qu'un exemple commenté ne compte pas. */
@@ -134,22 +165,61 @@ function isModuleResolvable(projectRoot: string, name: string): boolean {
 export async function checkReadiness(input: {
   projectRoot: string;
   probe?: IPortProbe | null;
+  /**
+   * Environnement à ÉVALUER, s'il n'est pas celui d'ici (`doctor --env
+   * production`). Les valeurs restent celles de la machine.
+   */
+  targetEnv?: string | null;
+  /** Verdict de git sur les fichiers d'environnement, ou `null` pour ne pas regarder. */
+  tracked?: ITrackedEnvProbe | null;
 }): Promise<IReadinessResult> {
   const { projectRoot } = input;
+  const targetEnv = input.targetEnv ?? null;
   const findings: IReadinessFinding[] = [];
 
   // ─── 1. Variables d'environnement REQUISES ────────────────────────────────
   // Déléguée à la brique de `nodefony env` : une seconde définition de « quelle
   // valeur est effective » divergerait de la première sans que rien ne le dise.
-  const env = await buildProjectEnvReport(projectRoot, projectRoot);
+  const env = await buildProjectEnvReport(projectRoot, projectRoot, targetEnv);
   const catalogUnreadable = env.vars.length === 0;
   for (const v of env.vars.filter((x) => x.missing)) {
+    // Une variable requise ICI et une variable requise LÀ-BAS n'appellent pas
+    // le même geste : la première empêche de démarrer maintenant, la seconde
+    // attend le déploiement. Un message unique enverrait chercher une panne
+    // locale qui n'existe pas.
+    const ailleurs = targetEnv !== null;
     findings.push({
       kind: "env-required-missing",
-      message:
-        `la variable REQUISE ${v.name} n'a aucune valeur — l'application ne démarrera pas : ` +
-        `la poser dans .env (ou dans l'environnement du conteneur)`,
+      message: ailleurs
+        ? `la variable ${v.name} est REQUISE en ${targetEnv} et n'a aucune valeur ici — ` +
+          `le déploiement refusera de démarrer : la poser dans l'environnement ` +
+          `du conteneur (Secret k8s, vault), jamais en git`
+        : `la variable REQUISE ${v.name} n'a aucune valeur — l'application ne démarrera pas : ` +
+          `la poser dans .env (ou dans l'environnement du conteneur)`,
       file: ".env",
+    });
+  }
+
+  // ─── 1 bis. Un secret local SUIVI par git ─────────────────────────────────
+  // Les fichiers `.env*.local` portent les secrets de la machine — c'est la
+  // convention que le framework écrit lui-même dans `.env.example`. Versionné,
+  // un tel fichier met ses secrets dans l'historique, d'où ils ne partent plus :
+  // le retirer de l'index ne réécrit pas les commits déjà poussés.
+  const trackedUnknown =
+    input.tracked && !input.tracked.supported
+      ? (input.tracked.reason ?? "git n'a rien pu dire de ce dossier")
+      : input.tracked
+        ? null
+        : "aucun verdict git n'a été fourni à ce contrôle";
+  for (const file of input.tracked?.supported ? input.tracked.tracked : []) {
+    findings.push({
+      kind: "env-file-tracked",
+      message:
+        `${file} est SUIVI par git — ce fichier porte les secrets de la machine, ` +
+        `et l'historique les garde même après suppression : ` +
+        `git rm --cached ${file}, l'ajouter à .gitignore, puis CONSIDÉRER comme ` +
+        `compromis tout secret déjà poussé (les faire tourner)`,
+      file,
     });
   }
 
@@ -229,5 +299,5 @@ export async function checkReadiness(input: {
     }
   }
 
-  return { findings, catalogUnreadable, portsProbed };
+  return { findings, catalogUnreadable, portsProbed, trackedUnknown };
 }

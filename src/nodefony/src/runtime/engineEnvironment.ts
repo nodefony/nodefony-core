@@ -78,3 +78,51 @@ export function defaultEngineEnvironment(
 ): EnvironmentType {
   return nodeEnv === undefined ? DEFAULT_ENGINE_ENVIRONMENT : "production";
 }
+
+/**
+ * Le mode qu'une ligne de commande EXPRIME — détecté avant tout kernel.
+ *
+ * Pourquoi en amont : commander ne parse la sous-commande qu'au démarrage du
+ * kernel, si bien que `this.environment` reste indéfini pendant les premières
+ * lignes du boot. Plusieurs branches en dépendent, et elles ratent sans cette
+ * pré-détection. Une commande non reconnue rend `undefined`, et le défaut
+ * reprend la main.
+ *
+ * 🔴 **Seuls les mots de COMMANDE sont examinés — ceux qui précèdent la première
+ * option.** La version précédente balayait l'argv ENTIER : n'importe quel mot,
+ * où qu'il soit, décidait du mode. `nodefony doctor --env production` faisait
+ * ainsi basculer tout le processus en production — il chargeait `.env.production`
+ * et les modules de production pour répondre à une question sur le poste, et le
+ * catalogue de l'application, refusant de se construire, retombait en silence
+ * sur une version périmée. Un argument de valeur n'est pas une intention.
+ *
+ * Vit ici plutôt que dans le binaire : ce module est la source unique de « quel
+ * mode », il est importable, et une règle qu'on ne peut pas importer est une
+ * règle qu'on ne peut pas éprouver.
+ *
+ * @param argv - les arguments APRÈS le binaire (`process.argv.slice(2)`).
+ * @returns le mode exprimé par la commande, ou `undefined` si elle n'en exprime aucun.
+ */
+export function detectEnvironmentFromArgv(
+  argv: string[],
+): EnvironmentType | undefined {
+  for (const a of argv) {
+    // La première option clôt les mots de commande : tout ce qui suit est un
+    // drapeau ou la VALEUR d'un drapeau, jamais une intention de mode.
+    // `break` et non `return` : la sortie unique reste en bas de la fonction.
+    if (a.startsWith("-")) break;
+    if (a === "development" || a === "dev") return "development";
+    // `start` est un ALIAS de `production` (`ProdCommand.alias("start")`) : sans
+    // lui, `nodefony start` n'exprimait AUCUNE intention et ne devait son mode
+    // qu'au défaut de classe du Kernel. Il tombait du bon côté par accident —
+    // un accident qui disparaît le jour où ce défaut change. Un alias qui lance
+    // un serveur DOIT être détecté ici.
+    if (a === "production" || a === "prod" || a === "start")
+      return "production";
+    // `cluster` est un runtime PROD (master + workers). Sans cette détection,
+    // l'unique Kernel naissait en `development` (env non résolu au constructeur)
+    // alors que les workers tournent en production → env incohérent.
+    if (a === "cluster") return "production";
+  }
+  return undefined;
+}

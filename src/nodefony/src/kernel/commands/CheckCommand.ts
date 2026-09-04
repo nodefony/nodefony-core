@@ -52,6 +52,7 @@ const options: OptionsCommandInterface = {
  * nodefony doctor --json   # même chose, exploitable par un script de CI
  * nodefony doctor --strict # un contrôle SAUTÉ échoue aussi (défaut sous `CI`)
  * nodefony doctor --live   # DEMANDE en plus à l'application (boot, 0 port)
+ * nodefony doctor --env production   # ce qui manquera LÀ-BAS, depuis ce poste
  * nodefony check           # alias historique — même commande
  * ```
  */
@@ -88,6 +89,10 @@ class Check extends Command {
       "S'en tient aux fichiers : aucun démarrage, même si un script le demande",
     );
     this.addOption(
+      "--env <name>",
+      "Dit ce qui manquera dans CET environnement (ex. production), depuis ce poste",
+    );
+    this.addOption(
       "--cwd <path>",
       "Start directory (the app root is resolved from it)",
     );
@@ -98,6 +103,7 @@ class Check extends Command {
     strict?: boolean;
     noStrict?: boolean;
     live?: boolean;
+    env?: string;
     cwd?: string;
   }): Promise<this> {
     const argv: string[] = [];
@@ -105,6 +111,7 @@ class Check extends Command {
     if (opts?.strict) argv.push("--strict");
     if (opts?.noStrict) argv.push("--no-strict");
     if (opts?.live) argv.push("--live");
+    if (opts?.env) argv.push("--env", opts.env);
     if (opts?.cwd) argv.push("--cwd", opts.cwd);
 
     // Sans `--live`, rien n'a changé : la lecture pure suffit, et c'est elle
@@ -119,7 +126,7 @@ class Check extends Command {
       await this.terminate(await runCheckCommand(argv));
       return this;
     }
-    const report = await collectCheckReport(parsed.cwd);
+    const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
     await this.terminate(
       renderCheckReport(attachLive(report, await this.readLive()), parsed),
     );

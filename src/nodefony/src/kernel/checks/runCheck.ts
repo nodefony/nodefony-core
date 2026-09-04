@@ -12,6 +12,7 @@
  */
 import path from "node:path";
 import { readdirSync, readFileSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { checkPackageDeps } from "./packageDeps";
 import { checkWiring } from "./wiring";
 import { readLastBoots } from "./lastBoot";
@@ -21,6 +22,7 @@ import {
   checkReadiness,
   type IPortProbe,
   type IReadinessResult,
+  type ITrackedEnvProbe,
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
 import { liveNotRun, type ILiveResult } from "./live";
@@ -127,6 +129,39 @@ async function probeLocalPorts(projectRoot: string): Promise<IPortProbe> {
   };
 }
 
+/**
+ * Les fichiers d'environnement LOCAUX que git suit — CONSTATÉ, jamais déduit.
+ *
+ * Trois choses peuvent manquer et ne se déduisent d'aucune autre : le binaire
+ * `git`, un dépôt, et le droit de lire son index. Le verdict porte donc
+ * `supported`, et la règle SAUTE au lieu d'afficher vert — un contrôle de
+ * secrets qui se tait sur un dossier non versionné est le pire des deux mondes.
+ *
+ * `git ls-files` reçoit ses motifs en ARGUMENTS, jamais par un shell : c'est
+ * git qui les développe, à l'identique sur les trois plateformes.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns le verdict à injecter dans la règle.
+ */
+function probeTrackedEnvFiles(projectRoot: string): ITrackedEnvProbe {
+  try {
+    const out = execFileSync(
+      "git",
+      ["ls-files", "-z", "--", ".env.local", ".env.*.local"],
+      { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    return { supported: true, tracked: out.split("\0").filter(Boolean) };
+  } catch (e) {
+    return {
+      supported: false,
+      tracked: [],
+      reason:
+        `git n'a pas pu dire ce qu'il suit ici — ${(e as Error).message.split("\n")[0]} ` +
+        `(dossier non versionné, ou binaire git absent)`,
+    };
+  }
+}
+
 /** Ce que la ligne de commande demande. */
 export interface ICheckRequest {
   json: boolean;
@@ -154,6 +189,16 @@ export interface ICheckRequest {
   live: boolean;
   /** `true` si l'on demande seulement l'usage. */
   help: boolean;
+  /**
+   * L'environnement dont on veut connaître les manques, s'il n'est pas celui
+   * d'ici (`--env production`).
+   *
+   * C'est la question qu'on se pose AVANT de déployer, et à laquelle rien ne
+   * répondait : une variable requise en production seulement est invisible sur
+   * un poste de développement, où elle est légitimement absente. Les valeurs
+   * restent celles de la machine — on ne simule pas un déploiement.
+   */
+  targetEnv: string | null;
 }
 
 /**
@@ -185,6 +230,10 @@ function usage(p: IPalette): string {
       "DEMANDE à l'application : migrations, cohérence des zones (boot, 0 port)",
     ) +
     opt("--no-live", "s'en tient aux fichiers, quoi qu'un script demande") +
+    opt(
+      "--env <e>",
+      "dit ce qui manquera dans CET environnement (ex. production)",
+    ) +
     opt(
       "--cwd <chemin>",
       "point de départ (la racine est résolue en remontant)",
@@ -233,6 +282,7 @@ export function parseCheckArgv(
   let strict: boolean | undefined;
   let live = false;
   let help = false;
+  let targetEnv: string | null = null;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (word === "--help" || word === "-h") {
@@ -253,11 +303,30 @@ export function parseCheckArgv(
       live = false;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
+    } else if (word === "--env") {
+      const value = rest[++i];
+      // Un `--env` sans valeur avalerait l'option suivante et diagnostiquerait
+      // un environnement nommé « --json ». Le refus nomme la forme attendue :
+      // une option mal comprise doit apprendre à s'en servir, pas seulement
+      // dire non.
+      if (value === undefined || value.startsWith("-")) {
+        return {
+          error: "--env attend un environnement (ex. --env production)",
+        };
+      }
+      targetEnv = value;
     } else {
       return { error: `option inconnue : ${word}` };
     }
   }
-  return { json, cwd, help, live, strict: resoudreStrict(strict, process.env) };
+  return {
+    json,
+    cwd,
+    help,
+    live,
+    targetEnv,
+    strict: resoudreStrict(strict, process.env),
+  };
 }
 
 /**
@@ -350,7 +419,10 @@ export interface ICheckReport {
  * @param start - dossier de départ de la remontée
  * @returns le rapport complet, sans verdict ni code de sortie
  */
-export async function collectCheckReport(start: string): Promise<ICheckReport> {
+export async function collectCheckReport(
+  start: string,
+  targetEnv: string | null = null,
+): Promise<ICheckReport> {
   const projectRoot = findProjectRoot(start);
   const cwd = projectRoot ?? start;
   const lastBoots = readLastBoots(cwd);
@@ -384,8 +456,15 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
     ? await checkReadiness({
         projectRoot,
         probe: await probeLocalPorts(projectRoot),
+        targetEnv,
+        tracked: probeTrackedEnvFiles(projectRoot),
       })
-    : { findings: [], catalogUnreadable: false, portsProbed: [] };
+    : {
+        findings: [],
+        catalogUnreadable: false,
+        portsProbed: [],
+        trackedUnknown: null,
+      };
 
   // La fraîcheur ne se contrôle QUE dans une application : hors projet, il n'y
   // a pas de `dist/` à comparer, et le plancher de Node est celui du dépôt.
@@ -445,6 +524,20 @@ export async function collectCheckReport(start: string): Promise<ICheckReport> {
                 "règle « variable requise » ne vaut pas quitus",
               short: "catalogue illisible",
               unlock: "`npm run build`",
+            }
+          : { ran: true },
+      // Sous-règle de `readiness` : sans dépôt git, personne ne peut dire si un
+      // `.env.local` est versionné — et le silence de la règle ne vaut alors
+      // pas quitus. C'est exactement le mode de défaillance qu'`envCatalog` a
+      // appris à énoncer.
+      envTracked: !projectRoot
+        ? horsProjet
+        : readiness.trackedUnknown
+          ? {
+              ran: false,
+              reason: `${readiness.trackedUnknown} : impossible de dire si un fichier .env*.local est versionné`,
+              short: "git muet",
+              unlock: "lance depuis un dépôt git (`git init`)",
             }
           : { ran: true },
       deps: !projectRoot
@@ -518,7 +611,7 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
     );
     return 0;
   }
-  const report = await collectCheckReport(parsed.cwd);
+  const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
   return renderCheckReport(report, parsed);
 }
 
@@ -592,6 +685,7 @@ export function renderCheckReport(
     now: Date.now(),
     lanceDepuis: start,
     strict,
+    targetEnv: parsed.targetEnv,
   });
   out.write(`${lignes.join("\n")}\n`);
   return code();

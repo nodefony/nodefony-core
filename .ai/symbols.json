@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-04T13:45:26.451Z",
+  "generated": "2026-09-04T14:47:10.275Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 800,
-    "symbols": 3721,
+    "symbols": 3728,
     "classes": 383,
-    "interfaces": 1019,
+    "interfaces": 1020,
     "types": 433,
     "enums": 4,
-    "functions": 1511,
-    "constants": 371
+    "functions": 1516,
+    "constants": 372
   },
   "symbols": {
     "Cli": {
@@ -2352,6 +2352,30 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "resolveEnvStages": {
+      "name": "resolveEnvStages",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les ÉTIQUETTES de l'environnement décrit par une source de variables. Deux notions cohabitent et ne se confondent pas : le MODE d'exécution (`NODE_ENV`, que Node et les outils lisent) et l'environn…"
+    },
+    "isEnvVarRequired": {
+      "name": "isEnvVarRequired",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si la variable est REQUISE dans l'environnement décrit par `stages`. Le « ou » est volontaire : une variable sans défaut et non optionnelle est requise PARTOUT (grammaire d'origine) ; `requi…"
+    },
+    "isRequiredByStage": {
+      "name": "isRequiredByStage",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'exigence qui vient de `requiredIn` SEULE — sans la règle d'origine. Séparée parce que les deux exigences ne se rapportent pas de la même façon : une variable requise partout absente est déjà reje…"
+    },
     "defineEnv": {
       "name": "defineEnv",
       "kind": "function",
@@ -4252,6 +4276,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le défaut à retenir SELON que `NODE_ENV` a été posé ou non. 🔴 **Poser `NODE_ENV` est un ACTE DE DÉPLOIEMENT ; ne rien poser est l'état d'un poste de développement.** C'est toute la distinction, et…"
+    },
+    "detectEnvironmentFromArgv": {
+      "name": "detectEnvironmentFromArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/engineEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le mode qu'une ligne de commande EXPRIME — détecté avant tout kernel. Pourquoi en amont : commander ne parse la sous-commande qu'au démarrage du kernel, si bien que `this.environment` reste indéfin…"
     },
     "DEFAULT_ENGINE_ENVIRONMENT": {
       "name": "DEFAULT_ENGINE_ENVIRONMENT",
@@ -8110,6 +8142,15 @@
       "extends": null,
       "description": "Le VERDICT d'une sonde de port, injecté — jamais mesuré ici. Une capacité se CONSTATE et se transmet ; la faire mesurer par la règle l'aurait rendue inéprouvable sans ouvrir de vrais ports, donc no…"
     },
+    "ITrackedEnvProbe": {
+      "name": "ITrackedEnvProbe",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le VERDICT de git sur les fichiers d'environnement — injecté, jamais mesuré ici. Même raison que la sonde de ports : une capacité se CONSTATE et se transmet. Lancer `git` depuis la règle la rendrai…"
+    },
     "declaredModules": {
       "name": "declaredModules",
       "kind": "function",
@@ -8236,6 +8277,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les familles de contrôles de `doctor`, telles que le rapport les nomme. Nommées ici plutôt que dérivées d'un tableau : c'est cette clé qui voyage dans le JSON, donc dans la CI et chez l'agent qui l…"
+    },
+    "isSubrule": {
+      "name": "isSubrule",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si cette famille est une sous-règle de `readiness`."
     },
     "preventedChecks": {
       "name": "preventedChecks",
@@ -8373,13 +8422,21 @@
       "module": "@nodefony/core",
       "description": "L'ordre de lecture des familles — celui du sommaire ET du détail. L'ordre n'est pas cosmétique : la fraîcheur d'abord, parce qu'un build en retard rend faux tout ce qui suit ; puis ce qui empêche d…"
     },
+    "SUBRULES": {
+      "name": "SUBRULES",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les SOUS-RÈGLES de `readiness` — des contrôles à part entière, mais qui ne sont pas des familles. Elles ont besoin de leur propre état d'exécution (leur silence peut ne rien prouver : catalogue ill…"
+    },
     "COUNTED_FAMILIES": {
       "name": "COUNTED_FAMILIES",
       "kind": "const",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Les familles qui COMPTENT dans un bilan. `envCatalog` en est exclue : c'est une RÈGLE de `readiness`, pas une famille à part — la compter donnerait un total qui ne colle pas aux lignes affichées. D…"
+      "description": "Les familles qui COMPTENT dans un bilan. Les sous-règles en sont exclues : ce sont des RÈGLES de `readiness`, pas des familles à part — les compter donnerait un total qui ne colle pas aux lignes af…"
     },
     "ICheckRequest": {
       "name": "ICheckRequest",
@@ -28359,6 +28416,9 @@
       "computeCompletions": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
+      "detectEnvironmentFromArgv": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
         "src/nodefony/src/cli/aiMcp.ts",
@@ -28653,6 +28713,12 @@
         "src/nodefony/src/cli/envReport.ts",
         "src/nodefony/src/config/defineConfig.ts",
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isEnvVarRequired": [
+        "src/nodefony/src/cli/envReport.ts"
+      ],
+      "resolveEnvStages": [
+        "src/nodefony/src/cli/envReport.ts"
       ],
       "isReservedEnv": [
         "src/nodefony/src/cli/envReport.ts"
@@ -30384,6 +30450,9 @@
       "COUNTED_FAMILIES": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
+      "isSubrule": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
       "filet": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
@@ -30450,6 +30519,9 @@
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "IReadinessResult": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "ITrackedEnvProbe": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "checkFreshness": [

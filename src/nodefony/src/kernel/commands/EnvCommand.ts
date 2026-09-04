@@ -55,6 +55,10 @@ class Env extends Command {
       "Avec --example : vérifie sans écrire, sort en erreur si le fichier diverge",
     );
     this.addOption(
+      "--env <name>",
+      "Évalue les exigences sous CET environnement (ex. production), depuis ce poste",
+    );
+    this.addOption(
       "--cwd <path>",
       "Point de départ (la racine de l'app est résolue en remontant)",
     );

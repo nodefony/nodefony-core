@@ -83,6 +83,8 @@ export type CheckFamily =
   | "freshness"
   | "readiness"
   | "envCatalog"
+  /** Sous-règle de `readiness` — un `.env*.local` versionné, que seul git sait dire. */
+  | "envTracked"
   | "deps"
   | "wiring"
   /** Étage 2 — l'état des migrations, que seule l'application démarrée sait. */
@@ -101,6 +103,7 @@ export const TITRES: Record<CheckFamily, string> = {
   freshness: "Fraîcheur du build",
   readiness: "Prêt à démarrer",
   envCatalog: "Variables déclarées",
+  envTracked: "Secrets hors de git",
   deps: "Dépendances",
   wiring: "Câblage",
   migrations: "Migrations de schéma",
@@ -118,6 +121,7 @@ export const FAMILLES: readonly CheckFamily[] = [
   "freshness",
   "readiness",
   "envCatalog",
+  "envTracked",
   "deps",
   "wiring",
   // L'étage 2 ferme la marche : il exige un boot, donc il n'est pas toujours
@@ -128,15 +132,37 @@ export const FAMILLES: readonly CheckFamily[] = [
 ];
 
 /**
+ * Les SOUS-RÈGLES de `readiness` — des contrôles à part entière, mais qui ne
+ * sont pas des familles.
+ *
+ * Elles ont besoin de leur propre état d'exécution (leur silence peut ne rien
+ * prouver : catalogue illisible, pas de dépôt git), sans quoi elles seraient
+ * affichées en vert alors qu'elles n'ont rien regardé. Mais les compter comme
+ * familles gonflerait le bilan de contrôles que le sommaire n'affiche pas.
+ *
+ * Une seule liste, dont TOUT le reste se dérive : quand la deuxième sous-règle
+ * est arrivée, la condition `f !== "envCatalog"` était écrite en dur à trois
+ * endroits — le compteur du bilan, le filtre du sommaire, et le dédoublonnage
+ * des contrôles sautés.
+ */
+export const SUBRULES: readonly CheckFamily[] = ["envCatalog", "envTracked"];
+
+/** `true` si cette famille est une sous-règle de `readiness`. */
+export function isSubrule(famille: CheckFamily): boolean {
+  return SUBRULES.includes(famille);
+}
+
+/**
  * Les familles qui COMPTENT dans un bilan.
  *
- * `envCatalog` en est exclue : c'est une RÈGLE de `readiness`, pas une famille
- * à part — la compter donnerait un total qui ne colle pas aux lignes affichées.
- * Dérivée de {@link FAMILLES} et non réécrite : la liste avait été recopiée en
- * dur dans le compteur du bilan, et une famille ajoutée n'y entrait pas.
+ * Les sous-règles en sont exclues : ce sont des RÈGLES de `readiness`, pas des
+ * familles à part — les compter donnerait un total qui ne colle pas aux lignes
+ * affichées. Dérivée de {@link FAMILLES} et non réécrite : la liste avait été
+ * recopiée en dur dans le compteur du bilan, et une famille ajoutée n'y entrait
+ * pas.
  */
 export const COUNTED_FAMILIES: readonly CheckFamily[] = FAMILLES.filter(
-  (f) => f !== "envCatalog",
+  (f) => !isSubrule(f),
 );
 
 /** Un contrôle qui n'a PAS eu lieu, prêt à être rendu. */
@@ -199,12 +225,12 @@ export function controlesSautes(
       short: "état absent",
     };
     if (etat.ran) continue;
-    // `envCatalog` est une RÈGLE de `readiness` : quand la famille entière a
-    // été sautée, sa sous-règle l'est forcément aussi, et l'annoncer une
-    // seconde fois ferait compter deux angles morts là où il n'y en a qu'un.
-    // L'état brut, lui, reste exact dans `execution` — c'est le RAPPORT qui
-    // dédoublonne, pas la mesure.
-    if (famille === "envCatalog" && !execution.readiness?.ran) continue;
+    // Une SOUS-RÈGLE de `readiness` : quand la famille entière a été sautée,
+    // ses règles le sont forcément aussi, et l'annoncer une seconde fois ferait
+    // compter deux angles morts là où il n'y en a qu'un. L'état brut, lui,
+    // reste exact dans `execution` — c'est le RAPPORT qui dédoublonne, pas la
+    // mesure.
+    if (isSubrule(famille) && !execution.readiness?.ran) continue;
     sautes.push({
       famille,
       titre: TITRES[famille],

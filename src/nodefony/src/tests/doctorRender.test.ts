@@ -45,7 +45,12 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
   scanned: 3,
   findings: [],
   wiring: { scanned: 12, findings: [] },
-  readiness: { findings: [], catalogUnreadable: false, portsProbed: [] },
+  readiness: {
+    findings: [],
+    catalogUnreadable: false,
+    portsProbed: [],
+    trackedUnknown: null,
+  },
   freshness: { findings: [], notComparable: false },
   lastBoots: [],
   exceptions: 0,
@@ -53,6 +58,7 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
     freshness: { ran: true },
     readiness: { ran: true },
     envCatalog: { ran: true },
+    envTracked: { ran: true },
     deps: { ran: true },
     wiring: { ran: true },
     // L'étage 2 a « tourné » dans ce décor par défaut : ces tests portent sur la

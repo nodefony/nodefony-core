@@ -29,6 +29,7 @@ import {
   creerPalette,
   FAMILLES,
   COUNTED_FAMILIES,
+  isSubrule,
   filet,
   ligneSommaire,
   replier,
@@ -60,6 +61,15 @@ export interface IOptionsRendu {
   lanceDepuis?: string;
   /** `true` si un contrôle sauté fait échouer la commande. */
   strict: boolean;
+  /**
+   * L'environnement sous lequel les exigences ont été évaluées, s'il n'est pas
+   * celui d'ici (`--env production`).
+   *
+   * ANNONCÉ en tête, jamais tu : un rapport qui réclame des variables de
+   * production sans dire qu'il regarde la production se lit comme une panne du
+   * poste — et l'on va corriger ce qui n'est pas cassé.
+   */
+  targetEnv?: string | null;
 }
 
 /** L'indentation du corps, alignée sous le titre des lignes à puce. */
@@ -241,6 +251,11 @@ function enTete(
   const nom = report.appName;
   if (nom) lignes[1] += p.discret(` · ${nom}`);
   lignes.push(p.discret(`  ${report.root}`));
+  if (opts.targetEnv) {
+    lignes.push(
+      p.alerte(`  exigences évaluées pour l'environnement ${opts.targetEnv}`),
+    );
+  }
   if (
     opts.lanceDepuis &&
     path.resolve(report.root) !== path.resolve(opts.lanceDepuis)
@@ -303,6 +318,9 @@ function sommaire(
     // part : elle n'apparaît que lorsqu'elle n'a pas pu jouer, sans quoi le
     // sommaire dirait deux fois la même chose.
     envCatalog: { n: 0, texte: "" },
+    // Idem : ses manquements sont RAPPORTÉS par `readiness` (c'est sa liste),
+    // et cette ligne n'existe que pour dire qu'on n'a pas pu regarder.
+    envTracked: { n: 0, texte: "" },
     deps: {
       n: findings.length,
       texte:
@@ -339,9 +357,13 @@ function sommaire(
   // bas : deux ordres différents pour les mêmes contrôles, et le lecteur cesse
   // de faire le lien entre le sommaire et le détail.
   const lignes: ILigneSommaire[] = FAMILLES.filter(
+    // Une sous-règle de `readiness` n'a pas de ligne à elle tant qu'elle a pu
+    // jouer : le sommaire dirait deux fois la même chose. Elle n'apparaît que
+    // pour ÉNONCER son angle mort — et seulement si la famille, elle, a bien
+    // regardé (sinon le même trou serait compté deux fois).
     (f) =>
-      f !== "envCatalog" ||
-      (!execution.envCatalog?.ran && execution.readiness?.ran === true),
+      !isSubrule(f) ||
+      (!execution[f]?.ran && execution.readiness?.ran === true),
   ).map((f) => ligne(f, detail[f].n, detail[f].texte));
 
   const largeurTitre = Math.max(...lignes.map((l) => l.titre.length));
