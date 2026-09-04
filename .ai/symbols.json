@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-04T16:20:23.780Z",
+  "generated": "2026-09-04T16:38:10.523Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 802,
-    "symbols": 3763,
+    "files": 803,
+    "symbols": 3781,
     "classes": 383,
-    "interfaces": 1031,
-    "types": 435,
+    "interfaces": 1035,
+    "types": 437,
     "enums": 4,
-    "functions": 1533,
+    "functions": 1545,
     "constants": 377
   },
   "symbols": {
@@ -8662,8 +8662,7 @@
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "L'usage, rendu avec le même soin que le rapport. Il se lit dans deux situations opposées : on découvre la commande, ou on vient de se tromper de drapeau. Il porte donc les deux réponses — ce que la…"
+      "module": "@nodefony/core"
     },
     "resoudreStrict": {
       "name": "resoudreStrict",
@@ -8719,6 +8718,89 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le rapport et décide du code de sortie. Séparé de la collecte pour une raison précise : `doctor --live` boote, donc il compose son rapport en DEUX temps (les fichiers, puis l'application) et d…"
+    },
+    "IOpening": {
+      "name": "IOpening",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un point d'entrée ouvert, tel qu'il s'affiche dans l'inventaire."
+    },
+    "ISurfaceFinding": {
+      "name": "ISurfaceFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un manquement de surface ou de dialecte."
+    },
+    "ISurfaceResult": {
+      "name": "ISurfaceResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le contrôle a relevé."
+    },
+    "ISurfaceCheckOptions": {
+      "name": "ISurfaceCheckOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "OpeningKind": {
+      "name": "OpeningKind",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qui rend une route ou une zone atteignable sans authentification."
+    },
+    "SqlDialectName": {
+      "name": "SqlDialectName",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les moteurs qu'une entité peut viser."
+    },
+    "balancedBlock": {
+      "name": "balancedBlock",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le contenu d'un bloc d'accolades ÉQUILIBRÉES à partir d'une position. Une expression régulière ne sait pas compter les accolades : un bloc `areas` contenant une zone qui contient ses authentificate…"
+    },
+    "publicAreas": {
+      "name": "publicAreas",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les zones publiques déclarées dans un manifeste. Fonction PURE sur le TEXTE du manifeste : c'est ce qui la rend éprouvable sans écrire de fichier, et ce qui lui permet de répondre sur un manifeste …"
+    },
+    "connectorDialect": {
+      "name": "connectorDialect",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le dialecte du connecteur, tel qu'on peut le déterminer SANS démarrer. Trois sources, dans l'ordre de précédence du produit : l'infrastructure déclarée gagne (un hébergeur pose l'URL), puis ce que …"
+    },
+    "checkSurface": {
+      "name": "checkSurface",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Relève la surface ouverte et les entités hors dialecte."
     },
     "IWiringFinding": {
       "name": "IWiringFinding",
@@ -30744,6 +30826,9 @@
       "ILiveFinding": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
+      "ISurfaceFinding": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
       "checkPackageDeps": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -30771,9 +30856,18 @@
       "IFreshnessResult": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
+      "checkSurface": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "ISurfaceResult": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "liveNotRun": [
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts"
+      ],
+      "LIVE_FAMILIES": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "ILiveResult": [
         "src/nodefony/src/kernel/checks/runCheck.ts"

@@ -118,6 +118,9 @@
           "@nodefony/security"
         ]
       },
+      "entityDialect": [
+        "entity/dolibarr/bench-pg.ts"
+      ],
       "typesUnreachable": [
         "@nodefony/http",
         "@nodefony/framework",

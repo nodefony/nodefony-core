@@ -25,7 +25,8 @@ import {
   type ITrackedEnvProbe,
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
-import { liveNotRun, type ILiveResult } from "./live";
+import { checkSurface, type ISurfaceResult } from "./surface";
+import { liveNotRun, LIVE_FAMILIES, type ILiveResult } from "./live";
 import {
   defaultDevPorts,
   probePorts,
@@ -99,6 +100,7 @@ function wiringTargets(cwd: string): string[] {
 function readExceptions(cwd: string): {
   typeCycles?: Record<string, string[]>;
   typesUnreachable?: string[];
+  entityDialect?: string[];
 } {
   try {
     const raw = readFileSync(path.join(cwd, "package.json"), "utf8");
@@ -107,6 +109,7 @@ function readExceptions(cwd: string): {
     return (check ?? {}) as {
       typeCycles?: Record<string, string[]>;
       typesUnreachable?: string[];
+      entityDialect?: string[];
     };
   } catch {
     return {};
@@ -217,6 +220,22 @@ export interface ICheckRequest {
  * @param p - la peinture en vigueur.
  * @returns le texte complet, retour chariot final compris.
  */
+function replierListe(items: readonly string[], largeur: number): string[] {
+  const lignes: string[] = [];
+  let courante = "";
+  for (const item of items) {
+    const essai = courante ? `${courante} · ${item}` : item;
+    if (essai.length <= largeur || !courante) {
+      courante = essai;
+      continue;
+    }
+    lignes.push(courante);
+    courante = item;
+  }
+  if (courante) lignes.push(courante);
+  return lignes;
+}
+
 export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
   // Une description qui déborde se replie sur la marge du terminal et se lit
   // comme une ligne d'option de plus. La colonne des drapeaux fait 20 : la
@@ -293,9 +312,13 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
   // Les familles sont DÉRIVÉES, jamais réécrites : une liste en dur ici
   // vieillirait au premier contrôle ajouté, et l'aide décrirait un outil qui
   // n'existe plus. C'est déjà arrivé sur le compteur du bilan.
-  const familles = FAMILLES.filter((f) => !isSubrule(f))
-    .map((f) => TITRES[f])
-    .join(" · ");
+  // 🔴 Repliée sur les SÉPARATEURS, jamais sur les espaces : `replier` coupe
+  // aux espaces, et « Surface ouverte » se retrouvait à cheval sur deux lignes,
+  // où plus personne ne reconnaît le nom d'un contrôle.
+  const familles = replierListe(
+    FAMILLES.filter((f) => !isSubrule(f)).map((f) => TITRES[f]),
+    largeur - 4,
+  );
 
   return (
     `\n  ${p.fort("nodefony doctor")}\n` +
@@ -316,15 +339,13 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
       : `\n  usage : nodefony doctor [options]\n` +
         p.discret(`  alias : nodefony check\n`)) +
     section("CE QU'IL REGARDE") +
-    replier(familles, largeur - 4, "  ")
-      .map((l) => `${l}\n`)
-      .join("") +
+    familles.map((l) => `  ${l}\n`).join("") +
     "\n" +
     replier(
       "Il lit des FICHIERS et n'exécute rien : il répond donc même sur une " +
         "application qui ne démarre plus — c'est le moment où l'on en a le plus " +
-        "besoin. Les deux derniers contrôles font exception : ils exigent un " +
-        "démarrage, et ne jouent qu'avec `--live`.",
+        `besoin. Les ${LIVE_FAMILIES.length} derniers contrôles font exception : ` +
+        "ils exigent un démarrage, et ne jouent qu'avec `--live`.",
       largeur - 4,
       "  ",
     )
@@ -509,6 +530,14 @@ export interface ICheckReport {
   /** Écarts entre ce qui est ÉCRIT et ce qui s'EXÉCUTERA (build, plancher Node). */
   freshness: IFreshnessResult;
   /**
+   * Ce qui est atteignable SANS authentification, et les entités hors dialecte.
+   *
+   * L'inventaire des ouvertures est une INFORMATION : chacune est légitime
+   * prise isolément, et c'est de ne les voir jamais ENSEMBLE qu'une route de
+   * mise au point reste ouverte en production.
+   */
+  surface: ISurfaceResult;
+  /**
    * Les bilans de démarrage disponibles — serveur d'abord, console ensuite.
    *
    * DEUX, et pas un : un `nodefony inspect` lancé POUR diagnostiquer une panne
@@ -563,7 +592,7 @@ export async function collectCheckReport(
   const roots = CANDIDATE_ROOTS.map((r) => path.join(cwd, r)).filter((r) =>
     statSync(r, { throwIfNoEntry: false }),
   );
-  const { typeCycles, typesUnreachable } = readExceptions(cwd);
+  const { typeCycles, typesUnreachable, entityDialect } = readExceptions(cwd);
   const { findings, scanned } = checkPackageDeps({
     roots,
     cwd,
@@ -600,6 +629,20 @@ export async function collectCheckReport(
         trackedUnknown: null,
       };
 
+  // La surface s'analyse sur les MÊMES cibles que le câblage : ce qui compte
+  // est ce que l'application et ses modules déclarent, pas ce que les paquets
+  // installés portent.
+  const surface = checkSurface({
+    roots: wiringTargets(cwd),
+    cwd,
+    ...(projectRoot ? { projectRoot } : {}),
+    // L'environnement est INJECTÉ : l'infrastructure déclarée décide du
+    // dialecte, et une fonction qui lirait `process.env` elle-même ne
+    // s'éprouverait que dans l'environnement où elle tourne.
+    env: process.env,
+    ...(entityDialect ? { dialectExceptions: entityDialect } : {}),
+  });
+
   // La fraîcheur ne se contrôle QUE dans une application : hors projet, il n'y
   // a pas de `dist/` à comparer, et le plancher de Node est celui du dépôt.
   const freshness: IFreshnessResult = projectRoot
@@ -624,6 +667,7 @@ export async function collectCheckReport(
     scanned,
     findings,
     freshness,
+    surface,
     wiring: { scanned: wiring.scanned, findings: wiring.findings },
     readiness,
     lastBoots,
@@ -674,6 +718,37 @@ export async function collectCheckReport(
               unlock: "lance depuis un dépôt git (`git init`)",
             }
           : { ran: true },
+      // La surface se lit sur les SOURCES : elle répond donc même sur une
+      // application qui ne compile plus. Son seul empêchement est de n'avoir
+      // rien à lire.
+      surface:
+        surface.scanned > 0
+          ? { ran: true }
+          : {
+              ran: false,
+              reason:
+                "aucune source TypeScript sous les racines explorées : il n'y " +
+                "a rien où chercher une route ouverte",
+              short: "aucune source",
+              unlock: "vérifie la racine visée (`--cwd`)",
+            },
+      // Le dialecte n'a de sens que s'il y a des entités : une application sans
+      // ORM SQL n'a rien à contredire, et l'annoncer en angle mort ferait
+      // crier `doctor` sur une architecture parfaitement saine.
+      dialect:
+        surface.entitiesScanned > 0
+          ? { ran: true }
+          : {
+              ran: false,
+              reason:
+                "aucune entité Drizzle dans cette application — il n'y a pas " +
+                "de dialecte à confronter",
+              short: "aucune entité",
+              // Un contrôle sauté SANS geste laisse le lecteur devant un
+              // manque qu'il ne sait pas combler. Ici le geste n'est pas une
+              // réparation : c'est ce qui rendrait le contrôle applicable.
+              unlock: "`nodefony create entity <Nom>`",
+            },
       deps: !projectRoot
         ? horsProjet
         : scanned > 0

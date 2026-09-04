@@ -62,6 +62,17 @@ const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
     trackedUnknown: null,
   },
   freshness: { findings: [], notComparable: false },
+  // Le décor de surface : rien d'ouvert, rien à contredire. Il est EXPLICITE
+  // parce que le rapport le porte — un champ absent faisait lever le compteur
+  // de manquements, et le test accusait la mise en page.
+  surface: {
+    findings: [],
+    openings: [],
+    scanned: 1,
+    dialect: "sqlite" as const,
+    dialectFrom: "défaut du connecteur",
+    entitiesScanned: 0,
+  },
   lastBoots: [],
   exceptions: 0,
   // Toutes les familles ont « tourné » dans ce décor par défaut : ces tests

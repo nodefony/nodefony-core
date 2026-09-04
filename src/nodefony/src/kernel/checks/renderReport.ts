@@ -48,6 +48,7 @@ import { formatAge, lastBootFileFor, type ILastBoot } from "./lastBoot";
 // entre la collecte et son rendu.
 import type { ICheckReport } from "./runCheck";
 import type { ILiveFinding } from "./live";
+import type { ISurfaceFinding } from "./surface";
 
 /** Le décor du rendu — tout ce que ce module refuse d'aller chercher lui-même. */
 export interface IOptionsRendu {
@@ -238,6 +239,15 @@ export function rendreRapport(
         lignes.push(p.discret(l));
       }
     }
+  }
+
+  const ouvertures = surfaceOuverte(report, largeur, p);
+  if (ouvertures.length > 0) {
+    // Une INFORMATION, en teinte neutre : chacune de ces ouvertures est un
+    // geste légitime. Ce que personne n'a jamais, c'est la LISTE — et c'est
+    // ainsi qu'une route de mise au point reste ouverte en production.
+    section("SURFACE OUVERTE", p.alerte);
+    lignes.push(...ouvertures);
   }
 
   const bilansParlants = report.lastBoots.filter(meriteDEtreDit);
@@ -632,6 +642,20 @@ function sommaire(
           ? `${accord(wiring.findings.length, "manquement")} sur ${accord(wiring.scanned, "classe")}`
           : `${accord(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
     },
+    surface: {
+      n: surfaceFindings(report, "public-area-covers-all").length,
+      texte:
+        surfaceFindings(report, "public-area-covers-all").length > 0
+          ? "une zone publique couvre TOUT"
+          : inventaireSurface(report),
+    },
+    dialect: {
+      n: surfaceFindings(report, "entity-other-dialect").length,
+      texte:
+        surfaceFindings(report, "entity-other-dialect").length > 0
+          ? `${accord(surfaceFindings(report, "entity-other-dialect").length, "entité")} hors dialecte`
+          : `${accord(report.surface.entitiesScanned, "entité")} sur ${report.surface.dialect ?? "?"}`,
+    },
     // Étage 2 : le compte vient des findings de CETTE famille, filtrés par leur
     // origine. Un manquement de migration ne doit pas grossir la ligne du
     // firewall — le sommaire perdrait sa seule vertu, dire OÙ regarder.
@@ -700,6 +724,94 @@ function manquementsLive(
   return (report.live?.findings ?? []).filter((f) => f.kind === kind);
 }
 
+/** Au-delà, la liste cesse d'informer et devient un mur — le reste se demande. */
+const OUVERTURES_MONTREES = 12;
+
+/** Le libellé de chaque espèce d'ouverture, tel qu'il se lit. */
+const OUVERTURE_LIBELLE: Record<string, string> = {
+  "bypass-firewall": "@BypassFirewall",
+  anonymous: "@Anonymous",
+  "bypass-option": "bypassFirewall: true",
+  "public-area": "zone publique",
+};
+
+/**
+ * L'inventaire de ce qui est atteignable SANS authentification.
+ *
+ * Rendu en INFORMATION, jamais en verdict : `@BypassFirewall` sur une sonde de
+ * vivacité est exactement ce qu'il faut écrire. Le service rendu est de les
+ * voir ENSEMBLE, ce qu'aucun outil ne fait aujourd'hui.
+ *
+ * La liste est BORNÉE : au-delà d'une douzaine de lignes elle cesse d'informer,
+ * et le rapport entier devient illisible. Le compte exact reste dit, et le
+ * reste s'obtient par `--json` — un rapport qui tronque doit dire où trouver
+ * ce qu'il a coupé.
+ */
+function surfaceOuverte(
+  report: ICheckReport,
+  largeur: number,
+  p: IPalette,
+): string[] {
+  const ouvertures = report.surface.openings;
+  if (ouvertures.length === 0) return [];
+  const lignes: string[] = [];
+  for (const o of ouvertures.slice(0, OUVERTURES_MONTREES)) {
+    const libelle = OUVERTURE_LIBELLE[o.kind] ?? o.kind;
+    const quoi = o.what ? `${libelle} ${o.what}` : libelle;
+    for (const [i, l] of replier(quoi, largeur, CORPS).entries()) {
+      lignes.push(i === 0 ? `${ITEM}${p.alerte("—")}  ${l.trim()}` : l);
+    }
+    lignes.push(p.discret(`${CORPS}${o.file}`));
+  }
+  const reste = ouvertures.length - OUVERTURES_MONTREES;
+  if (reste > 0) {
+    lignes.push("");
+    lignes.push(
+      p.discret(
+        `${CORPS}… et ${accord(reste, "autre")} — la liste complète : ` +
+          `nodefony doctor --json`,
+      ),
+    );
+  }
+  return lignes;
+}
+
+/**
+ * Les manquements de surface d'une espèce donnée.
+ *
+ * Le contrôle porte UNE liste ; le sommaire et le détail la découpent par
+ * famille. Filtrer ici plutôt que tenir deux listes évite qu'un jour l'une
+ * contienne ce que l'autre ignore.
+ */
+function surfaceFindings(
+  report: ICheckReport,
+  kind: ISurfaceFinding["kind"],
+): ISurfaceFinding[] {
+  return report.surface.findings.filter((f) => f.kind === kind);
+}
+
+/**
+ * L'inventaire de la surface ouverte, en une ligne.
+ *
+ * Chaque ouverture est LÉGITIME prise isolément — un `@BypassFirewall` sur une
+ * sonde de vivacité, une zone publique sur les pages d'accueil. Ce que
+ * personne n'a jamais, c'est le COMPTE : c'est ainsi qu'une route de mise au
+ * point reste ouverte en production. La ligne le donne sans accuser.
+ */
+function inventaireSurface(report: ICheckReport): string {
+  const routes = report.surface.openings.filter(
+    (o) => o.kind !== "public-area",
+  ).length;
+  const zones = report.surface.openings.length - routes;
+  if (routes === 0 && zones === 0) return "rien d'ouvert sans authentification";
+  const parts: string[] = [];
+  if (routes > 0)
+    parts.push(`${accord(routes, "route")} ouverte${routes > 1 ? "s" : ""}`);
+  if (zones > 0)
+    parts.push(`${accord(zones, "zone")} publique${zones > 1 ? "s" : ""}`);
+  return parts.join(", ");
+}
+
 /**
  * Les modules que l'environnement visé écarte — une INFORMATION.
  *
@@ -725,6 +837,14 @@ function groupesDeManquements(
     { titre: TITRES.readiness, items: report.readiness.findings },
     { titre: TITRES.deps, items: report.findings },
     { titre: TITRES.wiring, items: report.wiring.findings },
+    {
+      titre: TITRES.surface,
+      items: surfaceFindings(report, "public-area-covers-all"),
+    },
+    {
+      titre: TITRES.dialect,
+      items: surfaceFindings(report, "entity-other-dialect"),
+    },
     // L'étage 2 en dernier : il n'existe que sur une application qui a démarré,
     // et le geste qu'il propose vient du PRODUCTEUR — il est rendu tel quel,
     // sous le constat, parce qu'une commande à taper se copie.
