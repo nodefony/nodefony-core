@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-04T11:22:09.803Z",
+  "generatedAt": "2026-09-04T13:45:02.203Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 1,
       "dueOn": null,
-      "open": 24,
+      "open": 25,
       "title": "10.1"
     },
     {
-      "closed": 93,
+      "closed": 94,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 45,
+      "open": 44,
       "title": "10.0.0"
     }
   ],
@@ -947,6 +947,18 @@
       ]
     },
     {
+      "number": 187,
+      "title": "refactor(core)!: écrire tous les identifiants du framework en anglais",
+      "url": "https://github.com/nodefony/nodefony-core/issues/187",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1.5,
+      "ordre": 4.5,
+      "labels": []
+    },
+    {
       "number": 61,
       "title": "feat(realtime): garder les canaux dynamiques par un motif de nom",
       "url": "https://github.com/nodefony/nodefony-core/issues/61",
@@ -1125,7 +1137,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
-      "jours": 5,
+      "jours": 3.5,
       "ordre": 6,
       "labels": [
         "10.0.0"
@@ -1163,8 +1175,8 @@
       "number": 182,
       "title": "feat(cli): doctor demande à l'application, pas seulement à ses fichiers",
       "url": "https://github.com/nodefony/nodefony-core/issues/182",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -1174,9 +1186,9 @@
       ]
     },
     {
-      "number": 184,
-      "title": "feat(cli): dire ce qui disparaîtra en production avant d'y aller",
-      "url": "https://github.com/nodefony/nodefony-core/issues/184",
+      "number": 183,
+      "title": "feat(cli): voir depuis son poste ce qui manquera en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/183",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
@@ -1202,9 +1214,9 @@
       ]
     },
     {
-      "number": 183,
-      "title": "feat(cli): voir depuis son poste ce qui manquera en production",
-      "url": "https://github.com/nodefony/nodefony-core/issues/183",
+      "number": 184,
+      "title": "feat(cli): dire ce qui disparaîtra en production avant d'y aller",
+      "url": "https://github.com/nodefony/nodefony-core/issues/184",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0",
@@ -1418,10 +1430,10 @@
       "title": "feat(notification): doter le framework de l'envoi de messages sortants",
       "url": "https://github.com/nodefony/nodefony-core/issues/83",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": null,
+      "jours": 5,
       "ordre": 15,
       "labels": [
         "10.0.0"
@@ -1776,10 +1788,10 @@
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": null,
+      "jours": 8,
       "ordre": 40,
       "labels": [
         "10.0.0"
@@ -2353,7 +2365,7 @@
       "title": "fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage",
       "url": "https://github.com/nodefony/nodefony-core/issues/172",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2372,6 +2384,20 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 136,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 188,
+      "title": "test(mcp): dire POURQUOI l'outil de diagnostic n'a pas répondu",
+      "url": "https://github.com/nodefony/nodefony-core/issues/188",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 137,
       "labels": [
         "10.1"
       ]

@@ -30,7 +30,7 @@ import {
   readRuntimeState,
 } from "../../service/dev/devProcess";
 import {
-  controlesEmpeches,
+  preventedChecks,
   controlesSautes,
   countFindings,
   creerPalette,
@@ -572,7 +572,7 @@ export function renderCheckReport(
   // qu'on n'a pas demandés. Les seconds restent rapportés — ils ne valent pas
   // quitus — mais exiger un boot pour qu'une CI passe reviendrait à faire
   // désarmer la commande entière, ce que `--no-strict` existe pour éviter.
-  const empeches = controlesEmpeches(sautes);
+  const empeches = preventedChecks(sautes);
   const code = (): number => {
     if (countCheckFindings(report) > 0) return 1;
     return strict && empeches.length > 0 ? 1 : 0;

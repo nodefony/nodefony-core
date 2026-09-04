@@ -23,7 +23,7 @@
 import path from "node:path";
 import {
   accord,
-  controlesEmpeches,
+  preventedChecks,
   controlesSautes,
   countFindings,
   creerPalette,
@@ -208,7 +208,7 @@ export function rendreRapport(
       // « ça échoue » alors que la commande rend 0 — parce que les seuls
       // contrôles manquants n'ont pas été DEMANDÉS — apprend à ne plus croire
       // le bandeau, ce qui est pire que de ne rien annoncer.
-      const empeches = controlesEmpeches(sautes);
+      const empeches = preventedChecks(sautes);
       corps(
         empeches.length > 0
           ? "mode strict : un contrôle EMPÊCHÉ fait échouer la commande."

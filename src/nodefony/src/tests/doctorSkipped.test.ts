@@ -25,7 +25,7 @@ import {
   runCheckCommand,
 } from "../kernel/checks/runCheck";
 import {
-  controlesEmpeches,
+  preventedChecks,
   controlesSautes,
   FAMILLES,
   type CheckFamily,
@@ -198,7 +198,7 @@ describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
     // Rapporté : un contrôle non demandé n'est toujours pas un quitus.
     assert.lengthOf(sautes, 2);
     // Mais il ne pèse pas : c'est la moitié qui manquait.
-    assert.lengthOf(controlesEmpeches(sautes), 0);
+    assert.lengthOf(preventedChecks(sautes), 0);
   });
 
   it("un étage 2 DEMANDÉ qui échoue reste un empêchement, lui", () => {
@@ -206,15 +206,15 @@ describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
     // chose, et une chaîne automatisée doit le savoir.
     const echoue = liveNotRun("le plan d'administration est absent");
     const sautes = controlesSautes({ ...execution({}), ...echoue.execution });
-    assert.lengthOf(controlesEmpeches(sautes), 2);
+    assert.lengthOf(preventedChecks(sautes), 2);
   });
 
   it("un contrôle STATIQUE sauté condamne toujours — la doctrine ne bouge pas", () => {
     const sautes = controlesSautes({
       ...execution({ deps: "aucun paquet" }),
     });
-    assert.lengthOf(controlesEmpeches(sautes), 1);
-    assert.equal(controlesEmpeches(sautes)[0]?.famille, "deps");
+    assert.lengthOf(preventedChecks(sautes), 1);
+    assert.equal(preventedChecks(sautes)[0]?.famille, "deps");
   });
 });
 

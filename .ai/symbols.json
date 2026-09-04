@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T12:44:52.883Z",
+  "generated": "2026-09-04T13:45:26.451Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8237,8 +8237,8 @@
       "module": "@nodefony/core",
       "description": "Les familles de contrôles de `doctor`, telles que le rapport les nomme. Nommées ici plutôt que dérivées d'un tableau : c'est cette clé qui voyage dans le JSON, donc dans la CI et chez l'agent qui l…"
     },
-    "controlesEmpeches": {
-      "name": "controlesEmpeches",
+    "preventedChecks": {
+      "name": "preventedChecks",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -30366,7 +30366,7 @@
       "accord": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "controlesEmpeches": [
+      "preventedChecks": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],

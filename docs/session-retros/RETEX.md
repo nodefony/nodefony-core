@@ -109,6 +109,8 @@
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
 
+- [1× — 09-04] **Trois tests HÉRITAIENT de leur décor au lieu de l'ÉNONCER : verts chez moi, rouges partout ailleurs.** Deux lisaient `process.env.CI` sans le savoir (posé sur toute forge, il arme `--strict` et change le code de sortie mesuré) ; le troisième lisait `process.stdout.columns` — le rendu replie ses phrases, si bien qu'un `assert.include` sur « SANS aucun serveur en écoute » passe au-delà de 72 colonnes et tombe en deçà. **Tout ce qu'un test ne pose pas, il l'emprunte à la machine.** Le décor se pose dans le helper de capture (largeur fixée) ou s'écrit dans l'appel (`--no-strict`), jamais ne se subit.
+
 - [1× — 09-01] **Le décor du dépôt diverge de celui de la forge, et c'est le dépôt qui rend le faux rouge.** `test:all --load` démarre le serveur par `start.sh`, donc en développement AVEC le rechargement à chaud ; la CI lance le MÊME `test:load` en `development --no-watch`, précisément parce que le gate `heap WS sustained` est documenté depuis juin comme flaky avec le watcher (HMR/DevSupervisor retiennent du heap que `global.gc()` ne rend pas). Résultat : 70,6 MB en local contre un seuil de 30, et vert en CI sur le MÊME commit. Deux implémentations d'une même règle, dont la locale est la moins fidèle. **Avant de croire un seuil qui saute en local, regarder avec quel décor la forge le joue.**
 
 - [1× — 31/08] **Sept mocks décrivaient un serveur qui n'existe pas** : ils ouvraient la socket sans jamais envoyer le `realtime:welcome` que le vrai serveur enchaîne. **16 cas verts contre un serveur imaginaire**, dont un nommé « ré-abonnement automatique au reconnect » qui prouvait l'INVERSE de son titre — le serveur jette tout ce qui arrive avant son welcome. Un mock répond ce qu'on a imaginé : quand il modélise un PROTOCOLE, il doit enchaîner les mêmes étapes, sinon les tests gardent le défaut au lieu de l'attraper.
@@ -517,6 +519,8 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-04] **Le COMPTE des manquements de `doctor` était additionné à deux endroits, et la liste de ses familles énumérée à quatre.** Ajouter deux familles a fait diverger les deux copies le jour même : le bilan chiffré annonçait « 1 manquement » sous un sommaire qui en montrait deux, et « 4 contrôles passés » pour six familles. Les quatre énumérations en dur (le compteur, plus trois décors de test) sont devenues des dérivations de `FAMILLES`. **Le signe qui ne trompe pas : une liste littérale de valeurs d'un type union.** Elle compile toujours après l'ajout d'un membre — c'est exactement ce qui la rend muette.
+
 - [1× — 09-01] **Le même geste écrit à trois endroits portait trois fois le même trou.** `create app --no-install` vivait dans le banc de publication ET dans deux jobs de la forge (la vitrine poussée aux utilisateurs, l'image officielle `nodefony/nodefony`). Corriger le banc ne corrigeait rien chez les deux autres : l'image officielle serait restée en 503 sur une base vierge, « table absente ». Aucun des trois ne se savait triple. **Après avoir corrigé un appel, chercher les AUTRES appelants du même geste** — `grep` sur la commande, pas sur le fichier qu'on vient d'éditer.
 
 - [1× — 09-01] **Deux pages du même corpus se contredisaient, et chacune se lisait bien.** `pipeline-requete.md` plaçait l'instanciation du contrôleur AVANT le firewall et en tirait « ton contrôleur est instancié avant d'être autorisé » ; `controller.md` montrait déjà l'ordre juste. Aucun gate ne voit ça — les deux ont des ancres valides. Le code dit l'inverse (`prepareFrontController` ne fait que matcher, `@IsGranted` court-circuite l'instanciation). **Une contradiction interne au corpus ne se trouve qu'en lisant DEUX pages ensemble** : c'est ce qu'un audit de corpus rend, et qu'un contrôle page par page ne rendra jamais.
@@ -582,6 +586,8 @@
   de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- [1× — 09-04] **« Non demandé » et « empêché » n'étaient qu'une seule catégorie, et le mode strict condamnait les deux.** L'étage 2 de `doctor` ne tourne que sur `--live` ; compté comme un contrôle qu'on n'a pas PU faire, il faisait échouer la commande sous `CI` — donc dans toute chaîne automatisée, y compris celle qui contrôle une application fraîchement générée, tant qu'elle n'ajoutait pas un démarrage complet. **Une abstention VOULUE et un empêchement se ressemblent dans le rapport et s'opposent dans le verdict.** Les deux restent affichés (ni l'un ni l'autre n'est un quitus) ; seul le second pèse.
 
 - [1× — 31/08] **Deux surfaces voisines, deux défauts OPPOSÉS, et l'asymétrie n'est écrite nulle
   part.** Une action RPC non déclarée reçoit d'office une politique fermée ; un canal ENTRANT
@@ -768,6 +774,8 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [2× — 09-04] **La BRIQUE éprouvée, la CHAÎNE jamais — deux fois dans la même session, et la seconde fois APRÈS avoir tiré la leçon de la première.** `resoudreStrict` (« `CI` arme le mode strict ») avait quatre tests purs ; personne ne vérifiait que `runCheckCommand` lisait l'environnement, armait le régime et rendait le code — la CI est tombée sur les trois plateformes. Quelques heures plus tard, `liveNotRun` était éprouvée mais pas `collectCheckReport` qui l'appelle : la CI est retombée. **Une fonction pure testée ne prouve rien de son APPELANT.** Le test de chaîne coûte trois lignes et c'est le seul qui parle de ce que l'utilisateur exécute.
 
 - [1× — 09-04c] **Un débranchement qui ne fait RIEN tomber accuse le DÉCOR, pas le code.** J'ai coupé
   le repli des phrases pour voir tomber « aucune ligne ne dépasse la largeur » : 14 verts. Le décor du
@@ -1029,6 +1037,8 @@
 - [1× — 09-03] Le bouton « lancer ce fichier » de Studio passait le fichier derrière un `--` : vitest ignore ce qui suit, la suite ENTIÈRE tournait, et le compte rendu (18 fichiers, 204 tests) sortait vert sous le libellé du fichier demandé — en 4.1.11 comme en 5.0.0. Trouvé en sondant le câblage pour la montée de version, pas par un test : aucun n'exerçait la commande composée. Remède : la composition sort en fonction pure (`testRunCommand`), test vu rouge avec le `--`.
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
+
+- [1× — 09-04] **Le contrôle de pilotage que je venais d'écrire a rendu six accusations FAUSSES à son deuxième run.** Il déléguait la borne de mot à `git log --grep='#53\\b' -E` : `\\b` n'appartient pas à la grammaire ERE, et selon la plateforme elle ne filtre rien ou rejette tout. Ici elle rejetait tout — six tickets déclarés « en cours sans le moindre commit » alors qu'un commit du jour les citait. **Déléguer une règle à la grammaire d'un OUTIL, c'est la rendre inéprouvable** : `git` dégrossit maintenant, et la borne est une fonction pure testée. Un gate qui crie faux apprend à passer outre, et celui-là avait deux heures.
 
 - [1× — 09-03b] **Le mode « ne relance RIEN » relançait TOUT — et sa promesse était écrite deux fois.** `--depistage` du banc devkit lisait son drapeau très tôt, mais ne le TRAITAIT qu'après avoir monté un décor et déroulé le catalogue entier avec de vrais agents ; il comparait alors le rapport du run qu'il venait de payer. Lancé en croyant à une comparaison gratuite, il tournait encore une heure plus tard. Le texte de l'usage ET le skill affirmaient l'inverse — deux écrits ne valent pas une garde. **Le motif générique : entre LIRE un drapeau et le TRAITER, tout ce qui se trouve au milieu s'exécute.** Un mode dont le contrat est de ne rien faire refuse AVANT la première dépense, ou il ne le tient pas. Corollaire appliqué : le refus ne CHOISIT pas non plus la mesure à la place de l'opérateur — « le dernier run » serait un run partiel ou d'un autre décor, c'est-à-dire la comparaison fausse qu'une autre garde existait déjà pour interdire.
 
@@ -1721,6 +1731,8 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 09-04] **Une règle en PROSE n'est appliquée que si quelqu'un y pense au bon moment — et personne n'y pense devant un tableau de soixante-dix lignes.** Les règles de priorisation (un jalon ou le label `backlog`, un ordre qui encode les dépendances, un statut adossé à un commit) vivaient dans un SKILL.md. Preuve du coût : deux tickets, à deux mois d'écart, ont reçu un jalon sans jamais être inscrits au tableau — invisibles de tout compteur, et rien ne l'a dit. Le dépôt contrôlait déjà les ancres contre le code et les estimations contre le constaté ; **rien ne contrôlait le PILOTAGE lui-même**. Le remède n'est pas d'écrire la règle plus fort, c'est d'en faire un automate à verdict binaire que la reprise et la clôture lancent.
 
 - [1× — 09-04c] **Une RÈGLE écrite hors des fichiers relus n'est pas une règle.** « Les identifiants
   s'écrivent en anglais » existait depuis juillet — dans un audit de design ORM archivé en mémoire IA

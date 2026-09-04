@@ -164,7 +164,7 @@ export interface IControleSaute {
  * @param sautes - les contrôles sautés, tels que `controlesSautes` les rend
  * @returns ceux qui pèsent sur le code de sortie en mode strict
  */
-export function controlesEmpeches(
+export function preventedChecks(
   sautes: readonly IControleSaute[],
 ): IControleSaute[] {
   return sautes.filter((s) => !s.onDemand);

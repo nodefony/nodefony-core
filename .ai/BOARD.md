@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-04 11:22** (UTC).
+> Empreinte prise le **2026-09-04 13:45** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 24 | 1 | — |
-| 10.0.0 | 45 | 93 | 2026-11-15 |
+| 10.1 | 25 | 1 | — |
+| 10.0.0 | 44 | 94 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -35,11 +35,11 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 2 | P1 — figé à la création | 1 | #174 | fix(config): refuser une clé de config inconnue au lieu de la retirer |
 | 3 | P2 — décision | 0.5 | #26 | refactor(client)!: retirer l'appel non typé de la socket cliente |
 | 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
+| 4.5 | P1 — figé à la création | 1.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
-| 6 | P2 — décision | 5 | #178 | feat(cli): faire de doctor un diagnostic complet |
-| 6.3 | P1 — figé à la création | 2 | #182 | feat(cli): doctor demande à l'application, pas seulement à ses fichiers |
-| 6.4 | P1 — figé à la création | 1 | #184 | feat(cli): dire ce qui disparaîtra en production avant d'y aller |
-| 6.5 | P1 — figé à la création | 1 | #183 | feat(cli): voir depuis son poste ce qui manquera en production |
+| 6 | P2 — décision | 3.5 | #178 | feat(cli): faire de doctor un diagnostic complet |
+| 6.4 | P1 — figé à la création | 1 | #183 | feat(cli): voir depuis son poste ce qui manquera en production |
+| 6.5 | P1 — figé à la création | 1 | #184 | feat(cli): dire ce qui disparaîtra en production avant d'y aller |
 | 6.6 | P2 — décision | 1 | #186 | feat(cli): montrer la surface ouverte et les entités hors dialecte |
 | 6.7 | P2 — décision | 0.5 | #185 | feat(cli): vérifier que les gardes du projet sont armées |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
@@ -48,7 +48,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
 | 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
-| 15 | P1 — figé à la création | — | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
+| 15 | P1 — figé à la création | 5 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
 | 16 | P2 — décision | 1 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 17 | P1 — figé à la création | 1 | #84 | feat(mail): créer le module et son service d'envoi |
 | 18 | P1 — figé à la création | 1 | #85 | feat(mail): composer un courriel depuis un gabarit |
@@ -63,7 +63,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 31 | P3 — fin de cycle | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
-| 40 | P1 — figé à la création | — | #53 | docs: remettre la documentation à niveau avant la version 10 |
+| 40 | P1 — figé à la création | 8 | #53 | docs: remettre la documentation à niveau avant la version 10 |
 | 41 | P1 — figé à la création | 3 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
 | 42 | P1 — figé à la création | 0.5 | #157 | docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt |
 | 43 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
@@ -76,7 +76,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
-## Jalon 10.1 — 24 ouverts
+## Jalon 10.1 — 25 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -104,4 +104,5 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 134 | P2 — décision | 0.5 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
 | 135 | P2 — décision | 0.5 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
 | 136 | P3 — fin de cycle | 1 | #173 | feat(scaffold): servir l'application derrière un proxy inverse dans le compose |
+| 137 | P2 — décision | 0.5 | #188 | test(mcp): dire POURQUOI l'outil de diagnostic n'a pas répondu |
 
