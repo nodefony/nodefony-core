@@ -4897,8 +4897,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 571,
-        "approxTokens": 7046
+        "bodyLines": 592,
+        "approxTokens": 7308
       },
       "requires": [],
       "resources": {
@@ -5009,7 +5009,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "571",
+            "detail": "592",
             "advisory": true
           }
         ]
@@ -5565,10 +5565,12 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"quels tickets parlent de ce que j'ai changé ?\", \"ce ticket est trop vague\", \"il manque le contexte pour le prendre\".",
       "cost": {
-        "bodyLines": 543,
-        "approxTokens": 9953
+        "bodyLines": 582,
+        "approxTokens": 10741
       },
-      "requires": [],
+      "requires": [
+        "redis"
+      ],
       "resources": {
         "references": [
           "conventional-commits.md",
@@ -5578,6 +5580,92 @@
         ],
         "referenceFilesTotal": 4,
         "scripts": [
+          {
+            "path": "scripts/board-lint.mjs",
+            "purpose": "Confronte le TABLEAU DE BORD à ses propres règles de pilotage.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/board-lint.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--add-label",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--milestone",
+                "help": ""
+              },
+              {
+                "flag": "--owner",
+                "help": ""
+              },
+              {
+                "flag": "--paginate",
+                "help": ""
+              },
+              {
+                "flag": "--slurp",
+                "help": ""
+              },
+              {
+                "flag": "--state",
+                "help": ""
+              },
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "JOURS_EN_COURS",
+                "help": ""
+              },
+              {
+                "name": "OWNER",
+                "help": ""
+              },
+              {
+                "name": "PROJECT",
+                "help": ""
+              },
+              {
+                "name": "QUERY_ITEMS",
+                "help": ""
+              },
+              {
+                "name": "REPO",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/board-lint.test.mjs",
+            "purpose": "",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
           {
             "path": "scripts/francise.mjs",
             "purpose": "Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français.",
@@ -6008,7 +6096,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "543",
+            "detail": "582",
             "advisory": true
           }
         ]

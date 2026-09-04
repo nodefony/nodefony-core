@@ -111,6 +111,18 @@ fi
 > qu'on lit une empreinte, et de QUAND elle date : trois jours d'écart, c'est trois jours de
 > travail qu'elle ignore.
 
+**Puis CONTRÔLER le tableau avant de s'en servir.** Un ordre de travail restitué depuis un tableau
+incohérent envoie travailler au mauvais endroit — et l'incohérence ne crie pas : un ticket hors
+tableau est simplement absent de la liste qu'on vient de lire.
+
+```bash
+npm run ticket:lint    # 0 = le tableau se tient ; 1 = une erreur de pilotage à solder d'abord
+```
+
+Les erreurs se soldent **maintenant** (elles coûtent une commande), pas « plus tard » : c'est le
+seul moment où GitHub est joint et où l'on regarde le pilotage. Le détail des neuf contrôles vit
+dans le skill `nodefony-ticket` (§5) — le charger si un code est à interpréter.
+
 > 🔴 **Lire `.content.title`, JAMAIS `.title`.** Le champ `title` d'un item de tableau de bord est
 > une copie dérivée qui reste sur l'ancien libellé : mesuré, **38 items sur 38** portaient un titre
 > différent de leur issue. Restituer ce champ, c'est annoncer au user des tickets qu'il a fait
@@ -319,16 +331,25 @@ SEULEMENT :
    Pour chacun : un commit récent le cite-t-il ? (`git log --oneline --grep="#<n>" -3`). Sinon, le
    remettre à `Todo` — un statut qui ment est pire qu'un statut absent.
 
-5. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
-   vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
+5. **Contrôler le pilotage AVANT de le graver** — un ticket ouvert en séance a pu rester hors
+   tableau, un statut a pu monter tout seul, une estimation manque. L'empreinte du §5 bis
+   photographie ce qu'on lui donne : la prendre sur un tableau incohérent grave l'incohérence, et
+   c'est elle qu'on relira hors ligne.
 
    ```bash
-   npm run board:snapshot          # ou : node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+   npm run ticket:lint     # 0 = rien à solder ; 1 = corriger AVANT l'empreinte
    ```
 
-   Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le lire : un refus dit
-   soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
-   nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
+5 bis. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
+vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
+
+```bash
+npm run board:snapshot          # ou : node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+```
+
+Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le lire : un refus dit
+soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
+nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
 
 6. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
 7. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
