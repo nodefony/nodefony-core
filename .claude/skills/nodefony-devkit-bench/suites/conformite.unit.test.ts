@@ -89,14 +89,36 @@ describe("unit — le diagnostic du framework, sur l'application produite", () =
   it("`nodefony check` passe sur l'application générée", () => {
     // La commande du framework fait autorité : ce qu'un module importe, il doit
     // le déclarer. On l'APPELLE plutôt que de réimplémenter sa règle ici.
+    //
+    // 🔴 Le RAPPORT est remonté dans le message d'échec. `.not.toThrow()`
+    // rendait « Command failed: …/bin/nodefony check » et rien d'autre : le
+    // diagnostic, qui existait et nommait précisément le manquement, restait
+    // dans un tuyau que personne ne lisait. La forge a passé une journée rouge
+    // sans que le log dise POURQUOI — il fallait reproduire à la main ce que
+    // la commande avait déjà écrit.
     const bin = path.resolve("node_modules/nodefony/bin/nodefony");
-    expect(() =>
-      execFileSync(process.execPath, [bin, "check"], {
+    let rapport = "";
+    let code: number | null = null;
+    try {
+      rapport = execFileSync(process.execPath, [bin, "check"], {
         encoding: "utf8",
         timeout: 120_000,
         stdio: ["ignore", "pipe", "pipe"],
-      }),
-    ).not.toThrow();
+      });
+      code = 0;
+    } catch (e) {
+      const erreur = e as {
+        status?: number;
+        stdout?: string;
+        stderr?: string;
+      };
+      code = erreur.status ?? 1;
+      rapport = `${erreur.stdout ?? ""}${erreur.stderr ?? ""}`;
+    }
+    expect(
+      code,
+      `\`nodefony check\` a refusé l'application générée :\n${rapport}`,
+    ).toBe(0);
   });
 });
 

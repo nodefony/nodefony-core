@@ -41,6 +41,8 @@ import {
   readFileSync,
   writeFileSync,
   copyFileSync,
+  statSync,
+  utimesSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -1256,6 +1258,18 @@ step(
     const rendu = path.join(APP, "dist", "nodefony", "entity", "User.js");
     const sourceIntacte = readFileSync(entite, "utf8");
     const renduIntact = readFileSync(rendu, "utf8");
+    // 🔴 Les DATES aussi, pas seulement le contenu.
+    //
+    // Réécrire un fichier à l'identique lui donne un mtime NEUF. Cette étape
+    // rendait donc une source plus récente que son `dist` — et l'étape
+    // suivante, `nodefony check`, refusait l'application sur « Fraîcheur du
+    // build » : des sources ont changé après le dernier build. Un jour entier
+    // de forge rouge sur toutes les plateformes, pour un fichier dont pas un
+    // octet n'avait bougé. Tout ce qui raisonne sur la fraîcheur — ce
+    // contrôle, un build incrémental, un watcher — lit la DATE, jamais le
+    // contenu : restaurer un fichier, c'est restaurer sa date.
+    const datesSource = statSync(entite);
+    const datesRendu = statSync(rendu);
 
     // Grammaire du moteur de CETTE passe : une table Drizzle est écrite pour un
     // dialecte, et la lire dans un autre LÈVE (mesuré sur les six croisements).
@@ -1373,6 +1387,8 @@ export const UserEntity = defineEntity({
     } finally {
       writeFileSync(entite, sourceIntacte, "utf8");
       writeFileSync(rendu, renduIntact, "utf8");
+      utimesSync(entite, datesSource.atime, datesSource.mtime);
+      utimesSync(rendu, datesRendu.atime, datesRendu.mtime);
     }
   },
 );
