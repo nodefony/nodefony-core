@@ -33,6 +33,7 @@ import {
   resolveAnswers,
   linkLocalDeps,
   runScaffold,
+  type TScaffoldAnswers,
   getScaffoldContext,
   findModuleClassAnchor,
   filterProbe,
@@ -47,7 +48,11 @@ const argv = (...words: string[]): string[] => ["node", "nodefony", ...words];
 /** Rend le scaffold app dans un dossier de test avec réponses explicites. */
 const scaffold = (
   dir: string,
-  answers: Record<string, string | boolean>,
+  // `string[]` compris : la réponse `agents` est une LISTE (plusieurs agents se
+  // servent côte à côte). Le type du moteur (`TScaffoldAnswers`) le porte déjà ;
+  // ce helper le restreignait, et l'écart ne s'est vu qu'au typecheck du dépôt —
+  // vitest efface les types, un `npm test` vert n'en dit rien.
+  answers: TScaffoldAnswers,
   force = false,
 ) => runScaffold({ type: "app", answers, dir, force }, version);
 
