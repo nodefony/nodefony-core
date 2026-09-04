@@ -27,7 +27,7 @@ import {
   countFindings,
   creerPalette,
   FAMILLES,
-  FAMILLES_COMPTEES,
+  COUNTED_FAMILIES,
   filet,
   ligneSommaire,
   replier,
@@ -634,7 +634,7 @@ function nombreDeControlesPasses(report: ICheckReport): number {
   let n = 0;
   // Dérivé de la source unique : une famille ajoutée est comptée sans qu'on ait
   // à y penser — la liste écrite en dur ici ignorait l'étage 2.
-  for (const famille of FAMILLES_COMPTEES) {
+  for (const famille of COUNTED_FAMILIES) {
     if (report.execution[famille]?.ran) n++;
   }
   return n;

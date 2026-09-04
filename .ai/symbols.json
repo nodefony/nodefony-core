@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04T12:09:29.227Z",
+  "generated": "2026-09-04T12:16:15.236Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8365,8 +8365,8 @@
       "module": "@nodefony/core",
       "description": "L'ordre de lecture des familles — celui du sommaire ET du détail. L'ordre n'est pas cosmétique : la fraîcheur d'abord, parce qu'un build en retard rend faux tout ce qui suit ; puis ce qui empêche d…"
     },
-    "FAMILLES_COMPTEES": {
-      "name": "FAMILLES_COMPTEES",
+    "COUNTED_FAMILIES": {
+      "name": "COUNTED_FAMILIES",
       "kind": "const",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -30369,7 +30369,7 @@
       "FAMILLES": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "FAMILLES_COMPTEES": [
+      "COUNTED_FAMILIES": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "filet": [

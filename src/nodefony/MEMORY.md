@@ -318,12 +318,12 @@ rien à redéclarer.
 
 Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
 
-| Fichier           | Rôle                                                                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `runCheck.ts`     | COLLECTE (`collectCheckReport`) + ligne de commande + `renderCheckReport` (rendu + code) + `attachLive`. Ne met rien en forme.                         |
-| `report.ts`       | Primitives PURES : `IExecution`, `CheckFamily`, `TITRES`, `FAMILLES`, `FAMILLES_COMPTEES`, `countFindings`, `controlesSautes`, palette, repli, accord. |
-| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                  |
-| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                              |
+| Fichier           | Rôle                                                                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runCheck.ts`     | COLLECTE (`collectCheckReport`) + ligne de commande + `renderCheckReport` (rendu + code) + `attachLive`. Ne met rien en forme.                        |
+| `report.ts`       | Primitives PURES : `IExecution`, `CheckFamily`, `TITRES`, `FAMILLES`, `COUNTED_FAMILIES`, `countFindings`, `controlesSautes`, palette, repli, accord. |
+| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                 |
+| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                             |
 
 - **Un contrôle rend DEUX choses** : ses `findings`, et son `execution` (`{ran, reason, short, unlock}`).
   Une liste vide ne vaut quitus que si `ran` est vrai — c'est la moitié du
@@ -352,7 +352,7 @@ Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
   jamais un quitus. `readLive()` ne lève JAMAIS : le rapport statique est
   justement celui dont on a besoin quand l'app va mal.
 - **UN SEUL compte** : `countFindings` (`report.ts`) sert le code de sortie, le
-  bilan chiffré et MCP ; `nombreDeControlesPasses` itère `FAMILLES_COMPTEES`.
+  bilan chiffré et MCP ; `nombreDeControlesPasses` itère `COUNTED_FAMILIES`.
   Les deux avaient été écrits en dur ailleurs et ont divergé au premier ajout —
   le sommaire montrait deux échecs quand le bilan en annonçait un.
 - **3 portes, 1 rapport** : CLI (fast-path `CliKernel`), `--json`, MCP

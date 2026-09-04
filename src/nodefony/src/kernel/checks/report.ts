@@ -120,7 +120,7 @@ export const FAMILLES: readonly CheckFamily[] = [
  * Dérivée de {@link FAMILLES} et non réécrite : la liste avait été recopiée en
  * dur dans le compteur du bilan, et une famille ajoutée n'y entrait pas.
  */
-export const FAMILLES_COMPTEES: readonly CheckFamily[] = FAMILLES.filter(
+export const COUNTED_FAMILIES: readonly CheckFamily[] = FAMILLES.filter(
   (f) => f !== "envCatalog",
 );
 
