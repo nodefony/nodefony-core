@@ -7,7 +7,10 @@ import path from "node:path";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
 import { Nodefony } from "../Nodefony";
-import { DEFAULT_ENGINE_ENVIRONMENT } from "../runtime/engineEnvironment";
+import {
+  DEFAULT_ENGINE_ENVIRONMENT,
+  engineModeOf,
+} from "../runtime/engineEnvironment";
 import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
@@ -2484,9 +2487,9 @@ class Kernel extends Service implements IKernel {
       fromCommand ||
       this.environment ||
       DEFAULT_ENGINE_ENVIRONMENT;
-    return raw === "dev" || raw === "development"
-      ? "development"
-      : "production";
+    // La règle du collapse vit dans `engineEnvironment` : `doctor --env` la
+    // REJOUE pour prédire un déploiement, et deux copies divergeraient.
+    return engineModeOf(raw);
   }
 
   setEnv(environment?: EnvironmentType) {

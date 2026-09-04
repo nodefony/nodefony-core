@@ -29,6 +29,7 @@ import { spawn } from "node:child_process";
 import { gateModuleManifest, type IModuleGated } from "../moduleGating";
 import type { GateConfig } from "../moduleGating";
 import type { IExecution } from "./report";
+import { engineModeOf } from "../../runtime/engineEnvironment";
 
 /** Ce qu'un boot rend d'un service : son nom, et le module qui le porte. */
 export interface IProvidedService {
@@ -170,10 +171,11 @@ export async function checkGating(input: IGatingInput): Promise<IGatingResult> {
   // On la calcule avant le boot cible pour que son échec laisse quand même
   // cette moitié du diagnostic — c'est celle qui répond le plus souvent.
   const { gated } = gateModuleManifest(input.manifest, {
-    // Le collapse du Kernel : tout ce qui n'est pas « dev » tourne comme la
-    // production. Rejoué à l'identique, sinon `--env staging` ne dirait pas ce
-    // qu'un conteneur de préproduction fait vraiment.
-    isProduction: target !== "dev" && target !== "development",
+    // Le collapse du Kernel, APPELÉ et non recopié (`engineModeOf`) : tout ce
+    // qui n'est pas « dev » tourne comme la production. Une seconde écriture
+    // ferait dire à `--env staging` autre chose que ce que le conteneur de
+    // préproduction produit vraiment.
+    isProduction: engineModeOf(target) === "production",
     // La dérogation `NF_WITH_DEV_MODULES` n'est PAS reprise : elle décrit ce
     // poste-ci, pas le déploiement visé. La rejouer ferait dire « rien ne
     // disparaît » à cause d'une variable posée pour un banc local.

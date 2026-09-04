@@ -126,3 +126,25 @@ export function detectEnvironmentFromArgv(
   }
   return undefined;
 }
+
+/**
+ * Le mode MOTEUR que désigne une étiquette d'environnement — le « collapse ».
+ *
+ * 🔴 Tout ce qui n'est pas `dev`/`development` tourne comme la PRODUCTION :
+ * `staging`, `canary`, `prod-eu` nomment un déploiement, et un déploiement est
+ * optimisé, gated et tracé comme la production.
+ *
+ * Écrite ici, et nulle part ailleurs : cette règle décide à la fois de ce que
+ * le Kernel FAIT au démarrage et de ce que `doctor --env` PRÉDIT. Deux copies
+ * qui divergent feraient annoncer un déploiement que l'application ne produit
+ * pas — le pire défaut possible pour un outil dont c'est tout le propos.
+ *
+ * @param raw - l'étiquette telle qu'elle est posée (`NODE_ENV`, `--env`, …).
+ * @returns `"development"` ou `"production"` — jamais les formes courtes
+ *          `dev`/`prod`, que ce collapse a justement pour rôle de résoudre.
+ */
+export function engineModeOf(
+  raw: string | undefined,
+): "development" | "production" {
+  return raw === "dev" || raw === "development" ? "development" : "production";
+}

@@ -27,6 +27,7 @@ import {
   GATED_BY_CONDITION,
   type GateConfig,
 } from "../kernel/moduleGating";
+import { engineModeOf } from "../runtime/engineEnvironment";
 
 /** Une config vide : aucune `when()` de ces décors ne la lit vraiment. */
 const config = {} as GateConfig;
@@ -320,5 +321,36 @@ describe("readTargetProvision — le boot cible, dans un processus À PART", () 
     // valent, et le test passait avec une implémentation qui ne posait rien.
     assert.equal(env.NODE_ENV, "preprod");
     assert.equal(env.NF_ENV, "preprod");
+  });
+});
+
+/**
+ * 🔴 Le collapse dev/prod : UNE règle, deux lecteurs.
+ *
+ * Le Kernel décide de ce qu'il FAIT au démarrage ; `doctor --env` prédit ce
+ * qu'un déploiement PRODUIRA. Les deux l'écrivaient séparément. Deux copies
+ * d'une même décision divergent en silence — et ici la divergence ferait
+ * annoncer un déploiement que l'application ne produit pas.
+ */
+describe("engineModeOf — la règle du collapse, en un seul endroit", () => {
+  it("seuls `dev` et `development` sont du développement", () => {
+    assert.equal(engineModeOf("dev"), "development");
+    assert.equal(engineModeOf("development"), "development");
+  });
+
+  it("tout le reste tourne comme la production — un déploiement est un déploiement", () => {
+    for (const label of [
+      "production",
+      "prod",
+      "staging",
+      "preprod",
+      "canary",
+      "prod-eu",
+      "test",
+      "",
+      undefined,
+    ]) {
+      assert.equal(engineModeOf(label), "production", `« ${label} »`);
+    }
   });
 });
