@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T13:37:28.762Z",
+  "generatedAt": "2026-09-05T15:50:14.594Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 108,
+      "closed": 112,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -37,7 +37,7 @@
       "title": "refactor(drizzle): rendre optionnels les pilotes de base de données",
       "url": "https://github.com/nodefony/nodefony-core/issues/19",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -951,7 +951,7 @@
       "title": "refactor(core)!: écrire tous les identifiants du framework en anglais",
       "url": "https://github.com/nodefony/nodefony-core/issues/187",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1.5,
@@ -1007,7 +1007,7 @@
       "title": "chore(release): publier une beta avant la 10.0.0",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -1161,8 +1161,8 @@
       "number": 197,
       "title": "test(realtime): fermer les trous de couverture des bancs du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/197",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1329,8 +1329,8 @@
       "number": 202,
       "title": "test(realtime): éprouver la file de publication quand elle sature",
       "url": "https://github.com/nodefony/nodefony-core/issues/202",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -1371,8 +1371,8 @@
       "number": 203,
       "title": "test(realtime): éprouver ce que RealtimeError transporte",
       "url": "https://github.com/nodefony/nodefony-core/issues/203",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
@@ -2237,13 +2237,27 @@
       "title": "test(bancs): rendre chaque banc indépendant du décor partagé",
       "url": "https://github.com/nodefony/nodefony-core/issues/63",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1",
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 110,
       "labels": [
         "10.1"
+      ]
+    },
+    {
+      "number": 204,
+      "title": "test(orm): rendre réentrant le décor partagé des bancs de migration",
+      "url": "https://github.com/nodefony/nodefony-core/issues/204",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 110.1,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
@@ -2602,8 +2616,8 @@
       "number": 201,
       "title": "test(core): faire échouer le typecheck du cœur sur un test faux",
       "url": "https://github.com/nodefony/nodefony-core/issues/201",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,

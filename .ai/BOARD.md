@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-05 13:37** (UTC).
+> Empreinte prise le **2026-09-05 15:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 42 | 108 | 2026-11-15 |
+| 10.0.0 | 39 | 112 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 42 ouverts
+## Jalon 10.0.0 — 39 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -37,9 +37,6 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
 | 4.5 | P1 — figé à la création | 1.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
-| 6 | P1 — figé à la création | 1 | #197 | test(realtime): fermer les trous de couverture des bancs du temps réel |
-| 6.4 | P2 — décision | 0.5 | #202 | test(realtime): éprouver la file de publication quand elle sature |
-| 6.5 | P3 — fin de cycle | 0.5 | #203 | test(realtime): éprouver ce que RealtimeError transporte |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 11 | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
@@ -105,10 +102,4 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 137 | P2 — décision | 0.5 | #188 | test(mcp): dire POURQUOI l'outil de diagnostic n'a pas répondu |
 | 139 | P3 — fin de cycle | 0.5 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
 | 140 | P2 — décision | 0.5 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
-
-## Backlog — aucune date promise · 1 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 900 | P2 — décision | 0.5 | #201 | test(core): faire échouer le typecheck du cœur sur un test faux |
 

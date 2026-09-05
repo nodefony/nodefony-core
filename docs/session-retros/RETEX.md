@@ -307,6 +307,7 @@
   deux moteurs sur quatre. La bifurcation du test se fait sur le serveur **constaté**
   (`SELECT VERSION()`), jamais sur le port : les deux serveurs MySQL du dépôt partagent la même
   variable et se jouent en deux passes.
+- [1× — 09-05e] **`doctor` rendait « ✓ RIEN À SIGNALER » et sortait en 1**, sur les quatre plateformes. Les deux familles de l'étage `--deep` AFFICHAIENT « non demandé » sans poser le champ `onDemand` que `preventedChecks` lit : le texte du rapport et le champ qui décide du code de sortie disaient le contraire. C'est le défaut corrigé la veille sur l'étage `--live`, resté ouvert un étage plus loin — le correctif avait posé `onDemand` dans `live.ts` seulement, et le cas qui gardait la règle ne vérifiait que les deux familles de cet étage-là.
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
@@ -1073,6 +1074,8 @@
   ne poser la question qu'au dialecte visé) plutôt que de le faire tourner « pour tout le monde ».
 - [1× — 09-01] **Trois silences trouvés en EXÉCUTANT un prototype d'une demi-journée**, qu'aucune des deux conceptions écrites (la mienne et une relecture indépendante) n'avait vus : un champ obligatoire sans défaut fait échouer le semis avec un code de sortie 0 et 809 lignes sans un mot (application démarrée, aucun administrateur) ; une colonne du contrat retirée laisse démarrer ET laisse la commande de liste réussir ; un champ métier est écrit en base et ne ressort pas du dépôt. **Ce que la lecture ne voit pas, l'exécution le dit en vingt minutes.**
 - [1× — 09-03] Le bouton « lancer ce fichier » de Studio passait le fichier derrière un `--` : vitest ignore ce qui suit, la suite ENTIÈRE tournait, et le compte rendu (18 fichiers, 204 tests) sortait vert sous le libellé du fichier demandé — en 4.1.11 comme en 5.0.0. Trouvé en sondant le câblage pour la montée de version, pas par un test : aucun n'exerçait la commande composée. Remède : la composition sort en fonction pure (`testRunCommand`), test vu rouge avec le `--`.
+- [1× — 09-05e] **Un banc de 8 cas ne touchait pas l'hystérésis qu'il croyait couvrir.** Débranchée SEULE, elle ne faisait tomber aucun des huit : leur décor vide la file d'un coup, donc on repassait toujours sous la moitié du seuil sans jamais franchir la fenêtre. Il a fallu un acquittement PARTIEL pour l'atteindre. Un débranchement large (la borne entière) faisait tomber 6 cas et masquait que 0 ne visait l'hystérésis.
+- [1× — 09-05e] **Le geste que l'on tape ne voyait pas les tests.** `tsgo --noEmit` dans le cœur rendait un vert qui ne prouvait rien : `tsconfig.json` excluait `src/tests`, et rien ne le disait au moment de lancer. Remède retenu : INVERSER — le projet par défaut couvre tout, la restriction porte un nom (`tsconfig.src.json`). Piège attrapé en chemin : `tsconfig.declarations.json` HÉRITAIT de l'exclusion ; l'ouvrir aux tests la lui retirait sans un mot — mesuré, **170 `.d.ts` de bancs émis dans `dist/types`, build en exit 2**.
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -2209,6 +2212,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
   d'issue porte une DATE implicite : la confronter au `git log` du correctif le plus récent qui
   touche le même chemin.
 - [1× — 08-31] **Sept ancres fausses dans UNE grappe de quatre tickets** — dont une qui situait une garde à `orm-migrate-baseline.ts:118`, où vit une déclaration d'option, **171 lignes** avant sa cible ; et deux tickets frères qui désignaient la MÊME ligne (`orm-generate.ts:376`) pour deux refus différents — un seul pouvait avoir raison. Elles étaient toutes périmées pour la même raison : le travail décrit avait été FAIT entre-temps. Le contrôle qui tranche en une seconde : deux tickets ne pointent jamais la même ligne pour deux choses. Retirées plutôt que corrigées quand le fait avait disparu — une ancre juste sous une affirmation fausse est le pire des deux mondes.
+- [1× — 09-05e] **La preuve d'un ticket cherchait le NOM du module importé, pas le comportement.** #202 affirmait « aucun test n'importe `publishQueue` » (`rg -c` rendait 0) : un banc l'exerçait depuis six semaines à travers `RedisBackplane`, et il s'appelle `backplanePublishQueue.test.ts` — le relevé de couverture l'avait sous les yeux, dans sa propre colonne. L'instrument ne voyait que l'import DIRECT et a fabriqué DEUX faux, donc deux tickets.
+- [1× — 09-05e] **Un renvoi mort ressemble à un renvoi vivant.** #19 disait « Dépend de : arbitrage #6 » — #6 est une demande de fusion Dependabot TypeScript. Le vrai arbitrage était #32, fermé depuis. Le ticket paraissait bloqué et ne l'était pas.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
 
@@ -2376,6 +2381,12 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
   **Prouver sur un artefact ne prouve rien sur son jumeau**, et un `printf` mal alimenté ne lève
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
+## 🎪 Le DÉCOR d'un banc est un état PARTAGÉ — et il accuse le produit à sa place
+
+- [1× — 09-05e] **Deux bancs ORM composaient leur décor sur un chemin FIXE du dépôt** (`tmp/orm-adopt-<dialecte>`). Deux exécutions simultanées — un `npm test` complet et une vérification lancée à côté — écrivaient au même endroit : `ENOTEMPTY` plus deux expirations de délai, aucune n'appartenant au code. Le décor ne pouvait pas déménager sous `os.tmpdir()` (la résolution de `drizzle-kit` remonte aux `node_modules` du dépôt) : il reste sous `tmp/`, discriminé par le numéro de processus. Preuve : deux runs EN PARALLÈLE, chemin fixe → A=1 et B=1 ; chemin discriminé → A=0 et B=0.
+- [1× — 09-05e] **J'ai pollué la mesure du user** en lançant le même banc pendant le sien, puis en le tuant en plein vol. Trois rouges qui lui ont été présentés comme les siens. Avant de lancer une suite, demander si une autre tourne — un décor partagé ne se voit pas dans la sortie.
+- [1× — 09-05e] **Un banc qui ne pose pas les secrets que la PRODUCTION exige accuse l'ORM.** Le smoke `studio` lançait le conteneur sans `NF_CSRF_SECRET` : l'app refusait de démarrer (à raison), et l'échec se manifestait trois lignes plus loin en « migrations non appliquées » — un message qui envoie chercher dans l'ORM. Le scénario `base` n'était pas touché : son preset minimal n'exige aucun secret, ce qui rendait le défaut invisible.
+
 ## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
 
 - [1× — 09-01] **Le correctif était bon, sa JUSTIFICATION était inventée — et gravée dans un gabarit livré.** La veille, `--ignore-scripts` posé dans le Dockerfile des applications avec ce commentaire : « sans verrou npm SAUTE les scripts et le dit ; avec un verrou il les EXÉCUTE ». Mesuré cette fois dans `node:24-slim` : sans verrou npm **ne dit rien et n'exécute rien**, et aucun comportement général de npm ne distingue les deux cas. Le vrai motif est un défaut amont précis (`npm/cli#9837` : `gypfile: false` n'est pas lu sur un arbre bâti depuis un lockfile, npm SYNTHÉTISE alors un `node-gyp rebuild` que le paquet interdit). Le retex de la veille disait pourtant « ne pas conclure sur le mécanisme quand le FAIT suffit à agir » — juste pour AGIR, faux pour ÉCRIRE : une justification inventée survit au correctif, se recopie, et enverra chercher au mauvais endroit le jour où l'image de base passera à npm 12.
@@ -2418,6 +2429,7 @@ xargs kill -9`) — c'est-à-dire exactement ce qu'un agent lit puis applique. E
   documentation. Le balayage se fait sur le CONCEPT, pas sur le fichier corrigé.
 
 - [1× — 08-29f] **Le document d'accueil PRESCRIVAIT le geste interdit**, et l'agent l'a copié à la lettre — drapeaux compris (`npx nodefony orm:reset -c default -y`, la ligne d'`AGENTS.md` telle quelle). Le skill qui l'interdit était installé dans l'application et n'a JAMAIS été ouvert : aucun `Read`, aucun appel `Skill`. Il ne s'est chargé qu'après avoir écrit « charge d'abord le skill `X` » dans le renvoi. Deux leçons qui se complètent : ce qu'un agent lit, il l'exécute ; et ce qui n'est pas nommé à l'endroit qu'il lit n'existe pas.
+- [1× — 09-05e] **Un TICKET peut prescrire le geste que le CODE a explicitement rejeté.** #19 demandait de « rendre Vite optionnelle à la source » ; fait — puis annulé en lisant `pack-all.mjs:35`, qui porte la décision INVERSE avec sa mesure : une peer optionnelle DÉJÀ installée (Vite l'est, en devDep de l'app) SATISFAIT la peer et survit à `npm prune --omit=dev` ; la seule chose qui marche est de ne rien déclarer. Le ticket datait d'avant ce correctif. **Un ticket est cru sans être relu** — le lire ne suffit pas, il faut vérifier que le code ne l'a pas déjà dépassé. Le commentaire qui sauve était à trois lignes du geste.
 
 ## 👻 Un process qui n'écoute AUCUN port échappe à toute purge par port
 

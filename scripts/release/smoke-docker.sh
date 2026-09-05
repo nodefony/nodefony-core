@@ -25,6 +25,11 @@
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
+# Secret jetable des scénarios qui démarrent une app du preset complet : le
+# framework en EXIGE en production, et un banc qui ne les pose pas accuse le
+# produit d'un défaut qui est le sien. 32 hexadécimaux — la forme attendue.
+SMOKE_SECRET="0123456789abcdef0123456789abcdef"
+
 SCENARIO="all"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -570,7 +575,21 @@ process.stdout.write("studio → mandatory\n");
 
   step "[studio] run — l'UI publiée est-elle servie ?"
   docker rm -f "$SCTN" >/dev/null 2>&1 || true
-  docker run -d --name "$SCTN" -p "$SPORT:5151" "$SIMG" >/dev/null
+  # 🔴 Les SECRETS que la production EXIGE, posés comme un déploiement le ferait.
+  #
+  # Sans eux, l'application du preset complet refuse de démarrer — à raison :
+  # `NF_CSRF_SECRET` est requis en production. Le conteneur mourait donc au boot,
+  # et l'échec se manifestait trois lignes plus loin, sur `migrate_in`, sous la
+  # forme « migrations non appliquées » — un message qui envoie chercher dans
+  # l'ORM ce qui est un décor incomplet. Le scénario `base` n'était pas touché :
+  # son preset minimal n'embarque pas la sécurité, donc n'exige aucun secret.
+  #
+  # Valeurs jetables et LISIBLES comme telles : ce banc ne protège rien, il
+  # éprouve un démarrage.
+  docker run -d --name "$SCTN" -p "$SPORT:5151" \
+    -e NF_CSRF_SECRET="$SMOKE_SECRET" \
+    -e NF_SESSION_SECRET="$SMOKE_SECRET" \
+    "$SIMG" >/dev/null
   migrate_in "$SCTN"
   wait_ready "$SCTN" "$SPORT"
   SCODE=$(http_code "http://127.0.0.1:$SPORT/nodefony")
