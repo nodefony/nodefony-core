@@ -187,20 +187,20 @@ function exitWhenFlushed(code: number): void {
   if (streams.length === 0) {
     return process.exit(code);
   }
-  let restants = streams.length;
-  const fini = (): void => {
-    restants -= 1;
-    if (restants === 0) {
+  let pending = streams.length;
+  const done = (): void => {
+    pending -= 1;
+    if (pending === 0) {
       process.exit(code);
     }
   };
   for (const s of streams) {
-    s.once("drain", fini);
+    s.once("drain", done);
   }
   // Filet, jamais le chemin normal : `unref` pour ne pas retenir l'event-loop
   // si les drains arrivent d'abord.
-  const filet = setTimeout(() => process.exit(code), EXIT_FLUSH_DEADLINE_MS);
-  filet.unref();
+  const fallback = setTimeout(() => process.exit(code), EXIT_FLUSH_DEADLINE_MS);
+  fallback.unref();
 }
 
 class Cli extends Service {

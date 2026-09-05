@@ -155,12 +155,12 @@ class Check extends Command {
       // éprouvée, la chaîne ne l'appelait pas.
       reporterProgression(parsed.json),
     );
-    const complet = attachLive(
+    const complete = attachLive(
       report,
       await this.readLive(parsed.cwd, parsed.targetEnv),
     );
     await this.terminate(
-      renderDoctorReport(complet, parsed, Date.now() - debut),
+      renderDoctorReport(complete, parsed, Date.now() - debut),
     );
     return this;
   }

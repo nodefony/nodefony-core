@@ -116,23 +116,23 @@ export class ReadinessRegistry {
     // Un contributeur ne pèse sur la sonde que s'il est À LA FOIS non prêt et
     // opposable : le compte est tenu à l'écriture, jamais recalculé, parce que
     // c'est la LECTURE (`/readyz`, toutes les 2 s) qui doit rester gratuite.
-    const pese = (e: { ready: boolean; blocking: boolean }): boolean =>
+    const weighs = (e: { ready: boolean; blocking: boolean }): boolean =>
       !e.ready && e.blocking;
     if (entry === undefined) {
       const neuf = { ready, reason: ready ? undefined : reason, blocking };
       this.entries[name] = neuf;
       this.tracked += 1;
-      if (pese(neuf)) {
+      if (weighs(neuf)) {
         this.notReady += 1;
       }
     } else {
-      const pesait = pese(entry);
+      const weighedBefore = weighs(entry);
       entry.ready = ready;
       entry.blocking = blocking;
       entry.reason = ready ? undefined : reason;
-      const pese_maintenant = pese(entry);
-      if (pesait !== pese_maintenant) {
-        this.notReady += pese_maintenant ? 1 : -1;
+      const weighsNow = weighs(entry);
+      if (weighedBefore !== weighsNow) {
+        this.notReady += weighsNow ? 1 : -1;
       }
     }
     return wasBlocked !== this.notReady > 0;

@@ -839,18 +839,18 @@ class CliKernel extends Cli {
         const arg = cmd.registeredArguments?.[0] as
           { name(): string; argChoices?: string[] } | undefined;
         const values = arg?.argChoices ?? [];
-        const entree: IHelpCommand = {
+        const entry: IHelpCommand = {
           name: cmd.name(),
           aliases: cmd.aliases?.() ?? [],
           description: cmd.description() || "",
         };
-        if (typeof group === "string" && group) entree.group = group;
+        if (typeof group === "string" && group) entry.group = group;
         const module = owner[cmd.name()];
-        if (module) entree.module = module;
+        if (module) entry.module = module;
         if (values.length) {
-          entree.accepts = { label: arg?.name() ?? "valeurs", values };
+          entry.accepts = { label: arg?.name() ?? "valeurs", values };
         }
-        return entree;
+        return entry;
       });
 
     const globalOptions: IHelpOption[] = (c?.options ?? [])
@@ -861,14 +861,14 @@ class CliKernel extends Cli {
       .concat([{ flags: "-h, --help", description: "affiche cette aide" }])
       .sort((a, b) => a.flags.localeCompare(b.flags));
 
-    const chargés = Object.keys(modules).filter((m) => m !== "app");
+    const loaded = Object.keys(modules).filter((m) => m !== "app");
     const out = process.stdout;
-    const lignes = renderHelp(
+    const lines = renderHelp(
       {
         version: shownVersion,
         commands,
         globalOptions,
-        ...(chargés.length ? { modules: chargés } : {}),
+        ...(loaded.length ? { modules: loaded } : {}),
         jsonCommands: CliKernel.JSON_COMMANDS,
         ...(extra?.note ? { note: extra.note } : {}),
         ...(extra?.noteAction ? { noteAction: extra.noteAction } : {}),
@@ -882,7 +882,7 @@ class CliKernel extends Cli {
         color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
       },
     );
-    out.write(`${lignes.join("\n")}\n`);
+    out.write(`${lines.join("\n")}\n`);
   }
 
   /**

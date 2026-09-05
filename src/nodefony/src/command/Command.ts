@@ -305,14 +305,14 @@ class Command extends Service {
    * suspendu sur une question que personne ne lit, jusqu'au timeout du job.
    * L'échec reste un échec — mais il montre la ligne exacte à taper.
    *
-   * @param valeur - ce que la ligne de commande a fourni (souvent `undefined`)
+   * @param value - ce que la ligne de commande a fourni (souvent `undefined`)
    * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
    *               est INJECTABLE pour que la règle s'éprouve sans terminal
    * @returns la valeur, taillée
    * @throws Si l'argument manque et qu'aucun terminal ne peut le demander
    */
   public async askArgument(
-    valeur: string | undefined,
+    value: string | undefined,
     spec: {
       name: string;
       message: string;
@@ -320,22 +320,22 @@ class Command extends Service {
       isTTY?: boolean;
     },
   ): Promise<string> {
-    const donnee = typeof valeur === "string" ? valeur.trim() : "";
-    if (donnee.length > 0) return donnee;
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (trimmed.length > 0) return trimmed;
 
-    const interactifPossible = spec.isTTY ?? Boolean(process.stdin.isTTY);
-    if (!interactifPossible) {
-      const exemple = spec.choices?.length
+    const canPrompt = spec.isTTY ?? Boolean(process.stdin.isTTY);
+    if (!canPrompt) {
+      const example = spec.choices?.length
         ? `<${spec.choices.join("|")}>`
         : `<${spec.name}>`;
       throw new Error(
         `${spec.name} est requis — aucun terminal pour le demander : ` +
-          `nodefony ${this.name} ${exemple}`,
+          `nodefony ${this.name} ${example}`,
       );
     }
 
     await this.loadPrompts();
-    const reponse = spec.choices?.length
+    const answer = spec.choices?.length
       ? await this.prompts.select({
           message: spec.message,
           choices: spec.choices.map((c) => ({ name: c, value: c })),
@@ -345,7 +345,7 @@ class Command extends Service {
           validate: (v: string) =>
             v.trim().length > 0 || `${spec.name} est requis`,
         });
-    return String(reponse).trim();
+    return String(answer).trim();
   }
 
   /**

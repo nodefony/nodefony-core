@@ -290,15 +290,15 @@ export async function callAdminEndpoint(
   }
 
   if (execution.status === 403) {
-    const requis = (execution.body as { required?: string } | null)?.required;
+    const required = (execution.body as { required?: string } | null)?.required;
     return {
       ok: false,
       reason: "forbidden",
       status: 403,
       message:
         `« ${label} » refusé — ${caller.label}` +
-        (requis
-          ? ` ne porte pas le rôle « ${requis} »`
+        (required
+          ? ` ne porte pas le rôle « ${required} »`
           : " n'a pas le droit de lire ceci"),
       body: execution.body,
     };

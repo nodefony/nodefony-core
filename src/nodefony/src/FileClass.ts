@@ -31,7 +31,7 @@ const checkPath = function (myPath: string | fs.PathOrFileDescriptor): string {
 };
 
 const regHidden: RegExp = /^\./;
-const defautWriteOption = {
+const defaultWriteOption = {
   flags: "w",
   defaultEncoding: "utf8",
 };
@@ -341,7 +341,7 @@ class FileClass {
     data: string | NodeJS.ArrayBufferView,
     options: fs.WriteFileOptions,
   ): void {
-    fs.writeFileSync(this.path, data, extend({}, defautWriteOption, options));
+    fs.writeFileSync(this.path, data, extend({}, defaultWriteOption, options));
   }
 
   /**

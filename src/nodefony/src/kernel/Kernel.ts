@@ -1319,11 +1319,11 @@ class Kernel extends Service implements IKernel {
     // sortait en 0 : ni un script, ni un `&&`, ni une CI ne voyaient l'échec.
     // Un seul de ces neuf points prenait la précaution ; huit l'oubliaient.
     // La règle vit ici, au point de passage commun.
-    const echec =
+    const failure =
       typeof process.exitCode === "number" && process.exitCode !== 0
         ? process.exitCode
         : null;
-    return this.terminate(echec ?? code);
+    return this.terminate(failure ?? code);
   }
 
   override clean() {
@@ -1698,13 +1698,13 @@ class Kernel extends Service implements IKernel {
         // Journaliser la valeur RÉELLEMENT posée, jamais la devinette : un
         // journal qui affiche autre chose que ce que porte la config est le
         // genre de piste qu'on suit une heure.
-        const posee = readResolvedPath(
+        const appliedValue = readResolvedPath(
           mod.options as Record<string, unknown>,
           ov.path,
         );
         const shown = pathLooksSecret(ov.path)
           ? "«***»"
-          : JSON.stringify(posee);
+          : JSON.stringify(appliedValue);
         this.log(
           `Override env: ${mod.name}.${ov.path.join(".")} = ${shown}`,
           "INFO",
@@ -2743,12 +2743,12 @@ class Kernel extends Service implements IKernel {
     // développement. Vérifié au moment de la décision : dans les cinq modules
     // `critical = false` du dépôt, la seule source de `BootConfigurationError`
     // est la validation de config (`parseModuleConfig`).
-    const retenuPar = this.#readinessHold();
+    const heldBy = this.#readinessHold();
     const fatal =
       configError ||
       (critical !== false &&
         this.environment === "production" &&
-        retenuPar === null);
+        heldBy === null);
     const msg = error instanceof Error ? error.message : String(error);
     const tag = timedOut ? " [timeout]" : "";
     this.log(
@@ -2788,10 +2788,10 @@ class Kernel extends Service implements IKernel {
     // Le fail-soft dû à une RÉTENTION s'énonce, et il nomme qui retient : sans
     // cela, on lit un exemplaire « démarré » en production là où le même code
     // aurait crashé la veille, sans savoir pourquoi.
-    if (!fatal && retenuPar !== null) {
+    if (!fatal && heldBy !== null) {
       this.log(
         `boot lifecycle: l'échec de "${who}" n'interrompt PAS le boot — la mise ` +
-          `en service est retenue par ${retenuPar}. Cet exemplaire reste vivant ` +
+          `en service est retenue par ${heldBy}. Cet exemplaire reste vivant ` +
           `et ne reçoit aucun trafic (/readyz rend 503) ; il attend le geste qui ` +
           `lèvera la rétention.`,
         "WARNING",

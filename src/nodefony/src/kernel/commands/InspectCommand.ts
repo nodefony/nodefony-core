@@ -158,8 +158,8 @@ class Inspect extends Command {
       // tourne sur la machine de celui qui la lance, qui possède déjà le
       // processus et ses journaux. Les portes distantes (MCP) ne la publient
       // pas — un message d'exception porte ce que le code avait sous la main.
-      const pourquoi = read.cause ? ` — ${read.cause}` : "";
-      this.log(`${read.message}${pourquoi}${hint}`, "ERROR");
+      const why = read.cause ? ` — ${read.cause}` : "";
+      this.log(`${read.message}${why}${hint}`, "ERROR");
       // Le producteur joint souvent DE QUOI corriger l'appel (les valeurs
       // acceptées, le plan d'une page). Le taire laisse deviner ; le rendre
       // coûte une ligne.
@@ -176,7 +176,7 @@ class Inspect extends Command {
       // Même doctrine que le journal — la sortie EST le résultat, le reste
       // RACONTE. Sans cette ligne, deux mesures du même sujet dans deux modes
       // se contredisent sans que rien ne dise pourquoi.
-      process.stderr.write(`environnement : ${this.environnement()}\n`);
+      process.stderr.write(`environnement : ${this.currentEnvironment()}\n`);
       process.stdout.write(`${JSON.stringify(read.data, null, 2)}\n`);
     } else {
       this.renderHuman(subject, read.data);
@@ -201,7 +201,7 @@ class Inspect extends Command {
    *
    * @returns le nom de l'environnement, ou `"inconnu"`
    */
-  private environnement(): string {
+  private currentEnvironment(): string {
     return this.kernel?.environment ?? "inconnu";
   }
 
@@ -220,7 +220,7 @@ class Inspect extends Command {
         // route » en production, alors qu'il y en a en développement, est la
         // réponse qui trompe le plus.
         process.stdout.write(
-          `${subject} : aucun (environnement : ${this.environnement()})\n`,
+          `${subject} : aucun (environnement : ${this.currentEnvironment()})\n`,
         );
         return;
       }
@@ -231,13 +231,13 @@ class Inspect extends Command {
       // justifiait la forme disparaît. Le rendu est donc BORNÉ, et bascule en
       // fiches quand même la compression ne suffit pas.
       const out = process.stdout;
-      const lignes = renderTable(payload as TableRow[], {
+      const lines = renderTable(payload as TableRow[], {
         width: usableWidth(out.columns),
         color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
       });
-      out.write(`${lignes.join("\n")}\n\n`);
+      out.write(`${lines.join("\n")}\n\n`);
       process.stdout.write(
-        `${payload.length} ${subject} (environnement : ${this.environnement()})\n`,
+        `${payload.length} ${subject} (environnement : ${this.currentEnvironment()})\n`,
       );
       return;
     }

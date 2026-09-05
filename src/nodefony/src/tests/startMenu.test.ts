@@ -364,7 +364,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
       await import("../kernel/commands/MenuCommand");
     const cmd = Object.create(MenuCommand.prototype) as {
       cli: unknown;
-      appliquerCapacites: (n: string) => void;
+      applyCapabilities: (n: string) => void;
     };
     cmd.cli = cli;
     return cmd;
@@ -372,7 +372,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande qui déclare quietBoot fait taire le boot — ET rejoue le filtre", async () => {
     const { cli, journal } = fauxCli(true);
-    (await menuAvec(cli)).appliquerCapacites("doctor");
+    (await menuAvec(cli)).applyCapabilities("doctor");
     expect(cli.quietBoot).toBe(true);
     // Sans ce second appel, le filtre resterait celui calculé au démarrage du
     // menu, quand personne ne savait encore quelle commande serait choisie.
@@ -382,7 +382,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande qui ne le déclare pas ne fait taire personne", async () => {
     const { cli, journal } = fauxCli(false);
-    (await menuAvec(cli)).appliquerCapacites("doctor");
+    (await menuAvec(cli)).applyCapabilities("doctor");
     expect(cli.quietBoot).toBe(false);
     expect(journal).not.toContain("syslog");
     // Elle reste interactive : c'est un choix, pas une frappe.
@@ -391,7 +391,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande inconnue du CLI ne casse rien", async () => {
     const { cli, journal } = fauxCli(true);
-    (await menuAvec(cli)).appliquerCapacites("inexistante");
+    (await menuAvec(cli)).applyCapabilities("inexistante");
     expect(cli.quietBoot).toBe(false);
     expect(journal).toEqual([]);
   });
