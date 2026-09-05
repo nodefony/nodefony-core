@@ -1,12 +1,12 @@
 {
-  "generated": "2026-09-05T10:49:10.951Z",
+  "generated": "2026-09-05T10:51:06.922Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 811,
-    "symbols": 3887,
+    "symbols": 3888,
     "classes": 386,
-    "interfaces": 1057,
+    "interfaces": 1058,
     "types": 442,
     "enums": 4,
     "functions": 1609,
@@ -8424,6 +8424,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce que rend l'exécution d'un script : son verdict brut, avant jugement."
+    },
+    "IOutdatedRun": {
+      "name": "IOutdatedRun",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que rend l'interrogation du registre."
     },
     "DeepReporter": {
       "name": "DeepReporter",

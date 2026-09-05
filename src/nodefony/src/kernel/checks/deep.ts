@@ -28,7 +28,7 @@
  */
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { aggregateOutdated, type IOutdatedSummary } from "../../cli/outdated";
 import type { NpmOutdatedReport } from "../../cli/outdated";
 
@@ -342,15 +342,15 @@ function runNpmScript(projectRoot: string, step: string): Promise<IStepRun> {
  * @param run - l'exécuteur, injecté pour l'épreuve.
  * @returns le résumé, ou la raison de son absence.
  */
-export function readOutdated(
+export async function readOutdated(
   projectRoot: string,
-  run: () => { stdout: string; failed: boolean } = () =>
+  run: () => IOutdatedRun | Promise<IOutdatedRun> = () =>
     runNpmOutdated(projectRoot),
   report?: DeepReporter,
-): { summary: IOutdatedSummary | null; reason: string } {
+): Promise<{ summary: IOutdatedSummary | null; reason: string }> {
   const debut = Date.now();
   report?.({ step: "outdated", phase: "start" });
-  const r = run();
+  const r = await run();
   const annoncer = (outcome: "ok" | "unavailable"): void =>
     report?.({
       step: "outdated",
@@ -389,16 +389,33 @@ export function readOutdated(
   }
 }
 
-/** Interroge le registre, borné — le réseau ne se laisse pas attendre. */
-function runNpmOutdated(projectRoot: string): {
+/** Ce que rend l'interrogation du registre. */
+export interface IOutdatedRun {
   stdout: string;
   failed: boolean;
-} {
-  const r = spawnSync("npm", ["outdated", "--json"], {
-    cwd: projectRoot,
-    encoding: "utf8",
-    timeout: NETWORK_TIMEOUT_MS,
-    shell: process.platform === "win32",
+}
+
+/**
+ * Interroge le registre, borné — le réseau ne se laisse pas attendre.
+ *
+ * Asynchrone pour la MÊME raison que {@link runNpmScript} : un `spawnSync` fige
+ * la boucle d'évènements, donc l'animation de l'attente. Corriger un seul des
+ * deux appels aurait laissé le tourniquet immobile pendant les trente secondes
+ * de cette étape-ci — une moitié de correctif qu'on aurait crue entière.
+ */
+function runNpmOutdated(projectRoot: string): Promise<IOutdatedRun> {
+  return new Promise<IOutdatedRun>((resolve) => {
+    const child = spawn("npm", ["outdated", "--json"], {
+      cwd: projectRoot,
+      timeout: NETWORK_TIMEOUT_MS,
+      shell: process.platform === "win32",
+    });
+    let stdout = "";
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (c: string) => (stdout += c));
+    child.on("error", () => resolve({ stdout: "", failed: true }));
+    child.on("close", (_code, signal) =>
+      resolve({ stdout, failed: Boolean(signal) }),
+    );
   });
-  return { stdout: r.stdout ?? "", failed: Boolean(r.signal) };
 }

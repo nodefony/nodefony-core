@@ -773,7 +773,7 @@ export async function collectDoctorReport(
             undefined,
             report,
           );
-          const { summary, reason } = readOutdated(
+          const { summary, reason } = await readOutdated(
             projectRoot,
             undefined,
             report,

@@ -127,8 +127,8 @@ describe("doctor --deep — la première ligne utile", () => {
 });
 
 describe("doctor --deep — les paquets en retard", () => {
-  it("un registre muet n'accuse RIEN — ce n'est pas un défaut de l'application", () => {
-    const { summary, reason } = readOutdated("/peu-importe", () => ({
+  it("un registre muet n'accuse RIEN — ce n'est pas un défaut de l'application", async () => {
+    const { summary, reason } = await readOutdated("/peu-importe", () => ({
       stdout: "",
       failed: true,
     }));
@@ -136,11 +136,11 @@ describe("doctor --deep — les paquets en retard", () => {
     assert.match(reason, /registre npm n'a pas répondu/u);
   });
 
-  it("une sortie VIDE veut dire « rien en retard », pas « rien lu »", () => {
+  it("une sortie VIDE veut dire « rien en retard », pas « rien lu »", async () => {
     // `npm outdated` n'écrit rien quand tout est à jour. Confondre ce silence
     // avec une panne ferait annoncer un angle mort sur l'application la plus
     // saine qui soit.
-    const { summary, reason } = readOutdated("/peu-importe", () => ({
+    const { summary, reason } = await readOutdated("/peu-importe", () => ({
       stdout: "",
       failed: false,
     }));
@@ -149,8 +149,8 @@ describe("doctor --deep — les paquets en retard", () => {
     assert.equal(summary?.packages.length, 0);
   });
 
-  it("une réponse illisible se DIT, elle ne se devine pas", () => {
-    const { summary, reason } = readOutdated("/peu-importe", () => ({
+  it("une réponse illisible se DIT, elle ne se devine pas", async () => {
+    const { summary, reason } = await readOutdated("/peu-importe", () => ({
       stdout: "{ pas du json",
       failed: false,
     }));
@@ -158,8 +158,8 @@ describe("doctor --deep — les paquets en retard", () => {
     assert.match(reason, /pas lisible/u);
   });
 
-  it("agrège par la MÊME fonction que `nodefony outdated`", () => {
-    const { summary } = readOutdated("/peu-importe", () => ({
+  it("agrège par la MÊME fonction que `nodefony outdated`", async () => {
+    const { summary } = await readOutdated("/peu-importe", () => ({
       stdout: JSON.stringify({
         "@nodefony/http": {
           current: "9.0.0",
