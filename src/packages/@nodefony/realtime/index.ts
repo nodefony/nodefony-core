@@ -211,22 +211,14 @@ class Realtime extends Module<IRealtimeConfig> {
    * sans dupliquer la validation.
    */
   override async onKernelRegister(): Promise<this> {
-    let validated: IRealtimeConfig;
-    try {
-      validated = defineRealtimeConfig(
-        (this.options ?? {}) as IRealtimeConfigInput,
-      );
-    } catch (e) {
-      const issues =
-        e instanceof Error && "issues" in e && Array.isArray(e.issues)
-          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-              .join(" · ")
-          : (e as Error).message;
-      throw new Error(`[@nodefony/realtime] Invalid config: ${issues}`, {
-        cause: e,
-      });
-    }
+    // Aucun `try`/`catch` : `parseModuleConfig` (cœur) lève déjà une
+    // `BootConfigurationError` nommant le module et la clé fautive. Le bloc qui
+    // se trouvait ici la RE-EMBALLAIT en `Error` ordinaire, que le kernel absorbe
+    // en développement (fail-soft) — le refus disparaissait précisément là où la
+    // faute vient d'être écrite.
+    const validated: IRealtimeConfig = defineRealtimeConfig(
+      (this.options ?? {}) as IRealtimeConfigInput,
+    );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RealtimeService la lit sur son module (`this.module.config`).
     this.options = validated;

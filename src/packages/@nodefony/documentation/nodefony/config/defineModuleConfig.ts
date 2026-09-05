@@ -14,6 +14,7 @@
  */
 import { z } from "zod";
 import { documentationConfigSchema, type DocumentationConfig } from "./config";
+import { parseModuleConfig } from "nodefony";
 
 /** Lit une variable d'env non vide, ou `undefined` si absente/vide. */
 function env(name: string): string | undefined {
@@ -32,7 +33,11 @@ function env(name: string): string | undefined {
 export function defineDocumentationConfig(
   input: unknown = {},
 ): DocumentationConfig {
-  const parsed = documentationConfigSchema.parse(input ?? {});
+  const parsed = parseModuleConfig(
+    documentationConfigSchema,
+    input ?? {},
+    "@nodefony/documentation",
+  );
 
   // Surcharge ENV (précédence max) — appliquée APRÈS le parse pour garder le
   // schéma pur et déterministe. Utile en CI/prod détaché de git.

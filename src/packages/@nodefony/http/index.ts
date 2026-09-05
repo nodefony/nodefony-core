@@ -90,22 +90,16 @@ class Http extends Module<IHttpConfig> {
    * certificats `serialNumber`) — cf `defineHttpConfig`.
    */
   override async onKernelRegister(): Promise<this> {
-    try {
-      this.options = defineHttpConfig(
-        (this.options as IHttpConfigInput) ?? {},
-        this.kernel,
-      );
-    } catch (e) {
-      const issues =
-        e instanceof Error && "issues" in e && Array.isArray(e.issues)
-          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-              .join(" · ")
-          : (e as Error).message;
-      throw new Error(`[@nodefony/http] Invalid config: ${issues}`, {
-        cause: e,
-      });
-    }
+    // Aucun `try`/`catch` ici : `defineHttpConfig` lève déjà une
+    // `BootConfigurationError` nommant le module et la clé fautive. Le bloc qui
+    // se trouvait à cette place la RE-EMBALLAIT en `Error` ordinaire — et le
+    // kernel, qui distingue les deux, retombait alors en fail-soft : le refus
+    // disparaissait précisément en développement, là où la faute vient d'être
+    // écrite. Attraper pour ré-emballer, c'est perdre l'information.
+    this.options = defineHttpConfig(
+      (this.options as IHttpConfigInput) ?? {},
+      this.kernel,
+    );
     return this;
   }
 

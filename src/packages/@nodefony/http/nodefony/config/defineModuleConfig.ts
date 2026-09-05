@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseModuleConfig } from "nodefony";
 import { httpConfigSchema } from "./config";
 import type { IHttpConfig, IHttpConfigInput } from "../interfaces/IHttpConfig";
 
@@ -86,13 +87,19 @@ function applyKernelDefaults(
  * @param config - configuration brute (sections omises = défauts sûrs).
  * @param kernel - kernel courant, pour les défauts dérivés (tmpDir, domain).
  * @returns config validée et complétée (NON gelée — les services la mutent).
- * @throws ZodError si la config est invalide.
+ * @throws BootConfigurationError si un champ est invalide ou une clé inconnue —
+ *   `parseModuleConfig` (cœur) porte le message ET le type d'erreur, pour que le
+ *   refus interrompe le boot en développement comme en production.
  */
 export function defineHttpConfig(
   config: IHttpConfigInput = {},
   kernel?: IKernelConfigDefaults | null,
 ): IHttpConfig {
-  const parsed = httpConfigSchema.parse(config) as IHttpConfig;
+  const parsed = parseModuleConfig(
+    httpConfigSchema,
+    config,
+    "@nodefony/http",
+  ) as IHttpConfig;
   // Secure-by-default en PRODUCTION : ne PAS exposer l'identité du framework dans
   // l'en-tête `Server:` (anti-fingerprint OWASP) SAUF si explicitement configuré.
   // En dev le défaut « nodefony » reste (confort/branding). Override possible par

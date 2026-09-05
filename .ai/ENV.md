@@ -197,9 +197,9 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:591` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:591` |
-| `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:51` |
-| `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:45` |
-| `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:41` |
+| `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
+| `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |
+| `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:46` |
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:21` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |

@@ -34,7 +34,7 @@ import { z } from "zod";
 // sous-défauts s'appliquent même quand la section `resilience` est omise (Zod 4
 // n'applique pas les sous-défauts via un `.default({})` plat).
 const resilienceSchema = z
-  .object({
+  .strictObject({
     autoRestart: z
       .boolean()
       .default(true)
@@ -106,7 +106,7 @@ const resilienceSchema = z
   );
 
 export const frontendConfigSchema = z
-  .object({
+  .strictObject({
     devHost: z
       .string()
       .default("127.0.0.1")

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { realtimeConfigSchema, type RealtimeConfig } from "./config";
 import type { IBackplane } from "../interfaces/IBackplane";
+import { parseModuleConfig } from "nodefony";
 
 /**
  * Builder type-safe de la configuration de `@nodefony/realtime`.
@@ -36,7 +37,11 @@ export function defineRealtimeConfig(
   config: IRealtimeConfigInput = {},
   options: { backplane?: IBackplane } = {},
 ): IRealtimeConfig {
-  const parsed = realtimeConfigSchema.parse(config);
+  const parsed = parseModuleConfig(
+    realtimeConfigSchema,
+    config,
+    "@nodefony/realtime",
+  );
   // Env layering (après parse → schéma reste pur). Précédence max.
   const driver = process.env.NF_REALTIME_DRIVER || parsed.backplane.driver;
   // Secret de scellement : l'env est la voie NORMALE en déploiement (un secret

@@ -39,7 +39,7 @@ const serviceOptionsSchema = z.looseObject({});
 
 // Sous-schéma extrait (piège Zod 4 : un `.default({…})` plat ne ré-applique pas
 // les sous-défauts gcIntervalS/gcJitter → `.default(() => schema.parse({}))`).
-const idempotencySchema = z.object({
+const idempotencySchema = z.strictObject({
   store: z
     .string()
     .default("auto")
@@ -77,7 +77,7 @@ const idempotencySchema = z.object({
 });
 
 export const frameworkConfigSchema = z
-  .object({
+  .strictObject({
     router: serviceOptionsSchema
       .optional()
       .describe(

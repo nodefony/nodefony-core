@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T15:40:15.869Z",
+  "generated": "2026-09-05T16:46:47.698Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 811,
-    "symbols": 3891,
+    "files": 812,
+    "symbols": 3895,
     "classes": 385,
-    "interfaces": 1058,
+    "interfaces": 1059,
     "types": 442,
     "enums": 4,
-    "functions": 1613,
+    "functions": 1616,
     "constants": 389
   },
   "symbols": {
@@ -3659,6 +3659,14 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "parseModuleConfig": {
+      "name": "parseModuleConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/moduleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Valide la configuration d'un module contre son schéma Zod, et transforme un refus en {@link BootConfigurationError} nommant le module et la clé fautive. ⭐ TL;DR : c'est LA porte par laquelle toute …"
     },
     "IModuleEntry": {
       "name": "IModuleEntry",
@@ -30427,7 +30435,9 @@
       ],
       "BootConfigurationError": [
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/moduleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
       ],
       "IBootReport": [
@@ -32524,6 +32534,18 @@
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "parseModuleConfig": [
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"
       ],
       "IDevkitService": [
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",

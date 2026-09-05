@@ -37,7 +37,7 @@ import { z } from "zod";
  */
 
 const connectorSchema = z
-  .object({
+  .strictObject({
     uri: z
       .string()
       .min(1)
@@ -96,7 +96,7 @@ const connectorSchema = z
   .describe("Définition d'une connexion Mongoose nommée.");
 
 export const mongooseConfigSchema = z
-  .object({
+  .strictObject({
     debug: z
       .boolean()
       .default(false)

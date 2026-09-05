@@ -18,27 +18,31 @@ import { z } from "zod";
  * propre avec messages clairs si la config est invalide, plutôt qu'un
  * `undefined.x` silencieux en runtime.
  *
- * ## `strict` (strip) vs `loose` (passthrough) — décision de design
+ * ## `strict` (refus) vs `loose` (passthrough) — décision de design
  *
- * Zod, par défaut, **supprime silencieusement** les clés inconnues. Pour les
- * sections **transmises telles quelles à une lib tierce** (node:http/https/http2,
- * `ws`, `qs`, `serve-static`), un strip effacerait une option lib légitime non
- * listée ici (ex. `http: { insecureHTTPParser: true }` disparaîtrait). Ces
- * sections sont donc en **`z.looseObject`** (conservent les extras pour la lib).
- * Les sections **100 % consommées par notre code** (`securityHeaders`,
- * `trustProxy`, `certificates`, `session`, `upload`) restent en **`z.object`**,
- * qui RETIRE les clés inconnues.
+ * Deux formes, et **jamais `z.object`** — dont le comportement par défaut
+ * (RETIRER en silence les clés inconnues) est le seul des trois qu'on ne veuille
+ * nulle part. `use("@nodefony/http", { trustProxi: true })` était accepté, la
+ * clé disparaissait, l'application démarrait avec le DÉFAUT et personne n'était
+ * prévenu : celui qui croyait armer la confiance de proxy ne l'avait pas armée.
  *
- * 🔴 **Retirer n'est PAS refuser, et cette page a longtemps affirmé le
- * contraire** (« le strip attrape les fautes de frappe »). Il ne les attrape
- * pas : `use("@nodefony/http", { trustProxi: true })` est accepté, la clé
- * disparaît, l'application démarre avec le DÉFAUT et personne n'est prévenu.
- * Le seul filet est le TYPAGE (registre `NodefonyModuleConfig`), qui ne
- * couvre pas ce qui contourne le compilateur : une config lue d'un fichier,
- * un `as never`, un override d'environnement. Passer ces sections en
- * `z.strictObject` est une décision de RUPTURE — une application qui passait
- * une clé en trop ne démarrerait plus — et elle se prend avant la 10.0.0, pas
- * après.
+ * - **`z.strictObject`** pour les sections **100 % consommées par notre code**
+ *   (`securityHeaders`, `certificates`, `session`, `upload`, `rateLimit`, et la
+ *   RACINE — c'est elle qui porte `trustProxy`) : une clé inconnue INTERROMPT le
+ *   boot en la nommant. Le typage (registre `NodefonyModuleConfig`) attrape la
+ *   faute de frappe à la COMPILATION ; ceci l'attrape au DÉMARRAGE, pour tout ce
+ *   qui contourne le compilateur — une config lue d'un fichier, un `as never`,
+ *   un override d'environnement (`NF__HTTP__…`).
+ * - **`z.looseObject`** pour les sections **transmises telles quelles à une lib
+ *   tierce** (node:http/https/http2, `ws`, `qs`, `serve-static`) : y refuser une
+ *   clé interdirait une option lib légitime non listée ici (ex.
+ *   `http: { insecureHTTPParser: true }`). C'est leur raison d'être, pas un
+ *   relâchement.
+ *
+ * Le refus passe par `parseModuleConfig` (cœur), qui lève une
+ * **`BootConfigurationError`** — et pas une `Error` ordinaire, que le kernel
+ * absorberait en développement (fail-soft), c'est-à-dire exactement là où la
+ * faute vient d'être écrite.
  *
  * ## Métadonnées de champ (`.meta()` natif zod)
  *
@@ -78,7 +82,7 @@ import { z } from "zod";
 // ───────────────────────── securityHeaders (strict) ─────────────────────────
 
 const strictTransportSecuritySchema = z
-  .object({
+  .strictObject({
     maxAge: z
       .number()
       .int()
@@ -117,7 +121,7 @@ const strictTransportSecuritySchema = z
   );
 
 const securityHeadersSchema = z
-  .object({
+  .strictObject({
     contentTypeOptions: z
       .string()
       .nullable()
@@ -153,7 +157,7 @@ const securityHeadersSchema = z
 // ───────────────────────── upload (strict — mapping busboy) ──────────────────
 
 const uploadSchema = z
-  .object({
+  .strictObject({
     uploadDir: z
       .string()
       .default("")
@@ -384,7 +388,7 @@ const opensslAttrSchema = z
   .describe("Champ de sujet/issuer node-forge (CertificateField).");
 
 const opensslSchema = z
-  .object({
+  .strictObject({
     size: z
       .number()
       .int()
@@ -430,7 +434,7 @@ const opensslSchema = z
   .describe("Options de génération du certificat auto-signé (node-forge).");
 
 const sanSchema = z
-  .object({
+  .strictObject({
     dns: z
       .array(z.string())
       .default([])
@@ -451,7 +455,7 @@ const sanSchema = z
   );
 
 const certDevSchema = z
-  .object({
+  .strictObject({
     useMkcert: z
       .boolean()
       .default(true)
@@ -463,7 +467,7 @@ const certDevSchema = z
   .describe("Options de génération du certificat en développement.");
 
 const certificatesSchema = z
-  .object({
+  .strictObject({
     strategy: z
       .enum(["auto", "mkcert", "selfsigned", "explicit"])
       .default("auto")
@@ -736,7 +740,7 @@ const staticsSchema = z
 // ───────────────────────── session (strict) ─────────────────────────────────
 
 const sessionCookieSchema = z
-  .object({
+  .strictObject({
     maxAge: z
       .number()
       .int()
@@ -770,7 +774,7 @@ const sessionCookieSchema = z
   .describe("Options du cookie de session.");
 
 const sessionSchema = z
-  .object({
+  .strictObject({
     strictMode: z
       .boolean()
       .default(true)
@@ -856,7 +860,7 @@ const sessionSchema = z
 // close RFC 6455 1013 « Try Again Later » au lieu d'un 429). Désactivé par défaut
 // (cloud-native : souvent délégué à l'ingress/gateway ; opt-in explicite).
 const rateLimitSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(false)
@@ -977,7 +981,7 @@ const healthSchema = z
 // ───────────────────────── racine ───────────────────────────────────────────
 
 export const httpConfigSchema = z
-  .object({
+  .strictObject({
     headerServer: z
       .string()
       .nullable()

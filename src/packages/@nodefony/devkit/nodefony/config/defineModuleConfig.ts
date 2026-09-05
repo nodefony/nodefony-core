@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { devkitConfigSchema } from "./config";
 import type { DevkitConfig, DevkitConfigInput } from "./config";
+import { parseModuleConfig } from "nodefony";
 
 /**
  * @nodefony/devkit — LE COMMENT : builder PUR de la config.
@@ -19,26 +20,15 @@ import type { DevkitConfig, DevkitConfigInput } from "./config";
  *
  * @param config - config brute venue de `use("@nodefony/devkit", { … })`.
  * @returns config validée et gelée.
- * @throws Error si un champ est invalide (toutes les erreurs Zod agrégées, par champ).
+ * @throws BootConfigurationError si un champ est invalide ou une clé inconnue
+ *   (anomalies Zod agrégées) — le boot s'interrompt, en dev comme en prod.
  */
 export function defineDevkitConfig(
   config: DevkitConfigInput = {},
 ): DevkitConfig {
-  try {
-    return Object.freeze(devkitConfigSchema.parse(config));
-  } catch (e) {
-    const issues =
-      e instanceof Error && "issues" in e && Array.isArray(e.issues)
-        ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-            .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-            .join(" · ")
-        : (e as Error).message;
-    // `cause` garde l'erreur Zod d'origine : sans elle, le détail par champ
-    // s'arrête à ce message et la trace d'où vient la valeur est perdue.
-    throw new Error(`[@nodefony/devkit] config invalide : ${issues}`, {
-      cause: e,
-    });
-  }
+  return Object.freeze(
+    parseModuleConfig(devkitConfigSchema, config, "@nodefony/devkit"),
+  );
 }
 
 /**

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { frontendConfigSchema, type FrontendConfig } from "./config";
+import { parseModuleConfig } from "nodefony";
 
 /**
  * Builder type-safe de la configuration de `@nodefony/frontend`.
@@ -22,7 +23,9 @@ import { frontendConfigSchema, type FrontendConfig } from "./config";
 export function defineFrontendConfig(
   config: IFrontendConfigInput = {},
 ): FrontendConfig {
-  return Object.freeze(frontendConfigSchema.parse(config));
+  return Object.freeze(
+    parseModuleConfig(frontendConfigSchema, config, "@nodefony/frontend"),
+  );
 }
 
 /**

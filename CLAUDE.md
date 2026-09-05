@@ -495,6 +495,14 @@ Les **invariants** qui doivent rester présents en permanence :
   unique des défauts) + `nodefony/config/defineModuleConfig.ts` (le COMMENT — builder pur).
   Tout module qui expose une config **augmente le registre** `NodefonyModuleConfig`, sinon une clé
   mal orthographiée compile puis est retirée par Zod **sans un mot**.
+- **Un schéma de config CHOISIT sa sévérité — `z.object` est INTERDIT** (gate :
+  `src/nodefony/src/tests/configStrictness.test.ts`). `z.strictObject` quand la section est
+  consommée par notre code — une clé inconnue interrompt le boot en la nommant ; `z.looseObject`
+  quand elle part telle quelle dans une lib tierce, dont on ne connaît pas les options. Le défaut
+  de Zod RETIRE la clé en silence : `use("@nodefony/http", { trustProxi: true })` démarrait sur le
+  défaut sans un mot. Et la validation passe par **`parseModuleConfig`** (cœur), jamais par un
+  `try`/`catch` recopié : il lève une `BootConfigurationError`, seule fatale en développement —
+  une `Error` nue est absorbée par le fail-soft, là précisément où la faute vient d'être écrite.
 - **Scaffold** : un module neuf naît conforme via `nodefony create module` / skill
   `nodefony-create-module` — ne pas recomposer le squelette à la main.
 - **1 RÈGLE = 1 implémentation.** Avant d'encoder une décision (garde, filet, scoping, seuil,

@@ -63,22 +63,14 @@ class Mongoose extends Module<IMongooseConfig> {
    * propre avec messages clairs si la config est invalide (convention Zod).
    */
   override async onKernelRegister(): Promise<this> {
-    let validated: IMongooseConfig;
-    try {
-      validated = defineMongooseConfig(
-        (this.options ?? {}) as IMongooseConfigInput,
-      );
-    } catch (e) {
-      const issues =
-        e instanceof Error && "issues" in e && Array.isArray(e.issues)
-          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-              .join(" · ")
-          : (e as Error).message;
-      throw new Error(`[@nodefony/mongoose] Invalid config: ${issues}`, {
-        cause: e,
-      });
-    }
+    // Aucun `try`/`catch` : `parseModuleConfig` (cœur) lève déjà une
+    // `BootConfigurationError` nommant le module et la clé fautive. Le bloc qui
+    // se trouvait ici la RE-EMBALLAIT en `Error` ordinaire, que le kernel absorbe
+    // en développement (fail-soft) — le refus disparaissait précisément là où la
+    // faute vient d'être écrite.
+    const validated: IMongooseConfig = defineMongooseConfig(
+      (this.options ?? {}) as IMongooseConfigInput,
+    );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le MongooseService la lit sur son module (`this.module.config`).
     this.options = validated;

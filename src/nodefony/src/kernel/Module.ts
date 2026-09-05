@@ -298,21 +298,40 @@ class Module<TConfig = Record<string, unknown>>
   }
 
   /**
-   * Détecte les overrides de config destinés à d'autres modules (clés `Module-<name>`).
+   * Détecte les overrides de config destinés à d'autres modules (clés `Module-<name>`),
+   * les applique, puis les RETIRE des options du module porteur.
    *
    * Permet à un module de surcharger la config d'un autre module sans toucher au code de
    * ce dernier. Exemple : `Module-http: { port: 8080 }` dans la config de l'app → applique
    * `{ port: 8080 }` à `@nodefony/http`. Warn si module cible inconnu.
    *
+   * 🔴 **La clé est CONSOMMÉE.** C'est un ordre de configuration adressé à un
+   * autre module, pas une donnée du module porteur : une fois appliquée, elle
+   * n'a plus rien à faire dans ses options. La garder cassait la validation du
+   * porteur dès lors que son schéma refuse les clés inconnues — et déclarer
+   * `module-*` dans les onze schémas du dépôt aurait recopié onze fois une règle
+   * qui vit ici. Le retrait vaut AUSSI quand la cible est introuvable : la
+   * configuration est morte, elle vient d'être signalée, et rien ne gagne à ce
+   * qu'elle fasse en plus tomber le boot du porteur.
+   *
+   * Personne d'autre ne lit ces clés (`rg` sur `regModuleName` : ce fichier
+   * seul) ; sous l'ancien `z.object` elles disparaissaient de toute façon au
+   * parse, silencieusement — ce retrait rend explicite ce qui se produisait déjà.
+   *
    * @param deep - merge profond (`true`, défaut) vs shallow (`false`).
-   * @returns options du module courant (inchangées — c'est la config des AUTRES modules qui est mutée).
+   * @returns options du module courant, débarrassées des clés d'override consommées.
    */
   readOverrideModuleConfig(deep: boolean = true): DefaultOptionsService {
+    // Collectées puis supprimées APRÈS la boucle : muter l'objet qu'on itère est
+    // permis en JS mais dépend d'un détail d'implémentation qu'aucun lecteur ne
+    // devrait avoir à connaître.
+    const consumed: string[] = [];
     for (const ele in this.options) {
       let index: RegExpExecArray | null = null;
       const override: DefaultOptionsService = this.options[ele];
       index = regModuleName.exec(ele);
       if (index && index[1]) {
+        consumed.push(ele);
         const mod = this.kernel?.getModule(index[1] as string) as
           Module | undefined;
         if (!mod) {
@@ -340,6 +359,9 @@ class Module<TConfig = Record<string, unknown>>
           mod.options = extend({}, mod.options, override);
         }
       }
+    }
+    for (const key of consumed) {
+      delete this.options[key];
     }
     return this.options;
   }

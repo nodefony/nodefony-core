@@ -28,7 +28,7 @@ import { z } from "zod";
 // `.default({})` plat).
 
 const probeSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -43,7 +43,7 @@ const probeSchema = z
   .describe("Sonde agrégée pod (Phase 4c).");
 
 const backplaneSchema = z
-  .object({
+  .strictObject({
     driver: z
       .string()
       .default("loopback")
@@ -111,13 +111,13 @@ const backplaneSchema = z
   .describe("Driver IBackplane (fan-out cluster realtime cross-process).");
 
 const clusterSchema = z
-  .object({
+  .strictObject({
     probe: probeSchema.default(() => probeSchema.parse({})),
   })
   .describe("Comportement spécifique au mode cluster (worker IPC).");
 
 const slowConsumerSchema = z
-  .object({
+  .strictObject({
     bytes: z
       .number()
       .int()
@@ -138,7 +138,7 @@ const slowConsumerSchema = z
 
 // Bornes de ressources PAR CONNEXION — garde anti-DoS/OOM (revue 0.6, F6a).
 const limitsSchema = z
-  .object({
+  .strictObject({
     maxChannelsPerConnection: z
       .number()
       .int()
@@ -160,7 +160,7 @@ const limitsSchema = z
 
 // Seam sécurité #4 — Origin check natif sur upgrade WS (P13 Bloc A étape 6).
 const checkOriginSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(false)
@@ -199,7 +199,7 @@ const checkOriginSchema = z
 // Réception des journaux du NAVIGATEUR (#35) — surface d'ÉCRITURE, donc fermée par
 // défaut : un canal entrant qui écrit dans le journal du pod ne s'ouvre que sur décision.
 const clientLogsSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(false)
@@ -251,13 +251,13 @@ const clientLogsSchema = z
   .describe("Réception des journaux du navigateur (canal montant).");
 
 const csrfSchema = z
-  .object({
+  .strictObject({
     checkOrigin: checkOriginSchema.default(() => checkOriginSchema.parse({})),
   })
   .describe("Protections CSRF natives realtime (origin check upgrade WS).");
 
 export const realtimeConfigSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)

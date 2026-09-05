@@ -41,7 +41,7 @@ import { canonicalResourceUri, BUILTIN_MCP_TOOL_KEYS } from "nodefony";
  * quel porteur.
  */
 const mcpAuthorizationSchema = z
-  .object({
+  .strictObject({
     /**
      * Serveurs d'autorisation capables d'émettre un jeton pour cette porte.
      *
@@ -163,7 +163,7 @@ const mcpAuthorizationSchema = z
  * `sous.default(() => sous.parse({}))` — le callback force la ré-évaluation, et
  * une application qui n'écrit rien obtient bien les valeurs d'usine.
  */
-const mcpSchema = z.object({
+const mcpSchema = z.strictObject({
   /** Répond-on aux requêtes MCP ? Coupé, la route rend `404`. */
   enabled: z
     .boolean()
@@ -228,7 +228,7 @@ const mcpSchema = z.object({
     .describe("Serveur de ressource OAuth 2.1 (RFC 9728/6750/8707)"),
 });
 
-export const devkitConfigSchema = z.object({
+export const devkitConfigSchema = z.strictObject({
   /** Interrupteur du module — l'app peut le charger sans l'activer. */
   enabled: z
     .boolean()

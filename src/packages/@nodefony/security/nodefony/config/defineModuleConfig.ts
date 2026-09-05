@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { securityConfigSchema } from "./config";
 import type { ISecurityConfig, ISecurityConfigInput } from "./config";
+import { parseModuleConfig, BootConfigurationError } from "nodefony";
 
 /**
  * Builder type-safe de la configuration de sécurité Nodefony (PUR — ne retape
@@ -30,7 +31,11 @@ export type {
 export function defineSecurityConfig(
   config: ISecurityConfigInput = {},
 ): ISecurityConfig {
-  const validated = securityConfigSchema.parse(config);
+  const validated = parseModuleConfig(
+    securityConfigSchema,
+    config,
+    "@nodefony/security",
+  );
   detectConflicts(validated.areas);
   return Object.freeze(validated);
 }
@@ -50,8 +55,13 @@ function detectConflicts(areas: Record<string, { pattern: string }>): void {
   for (const [name, area] of Object.entries(areas)) {
     const prev = seen.get(area.pattern);
     if (prev) {
-      throw new Error(
-        `defineSecurityConfig: zones "${prev}" et "${name}" partagent le pattern "${area.pattern}".`,
+      // Même famille que les refus du schéma : une ambiguïté de zone est une
+      // faute de CONFIGURATION, et une `Error` ordinaire serait absorbée par le
+      // fail-soft du kernel en développement.
+      throw new BootConfigurationError(
+        `[@nodefony/security] zones "${prev}" et "${name}" partagent le motif ` +
+          `"${area.pattern}" — deux zones qui matchent la même route rendent la ` +
+          `règle appliquée imprévisible. Renomme le motif de l'une des deux.`,
       );
     }
     seen.set(area.pattern, name);

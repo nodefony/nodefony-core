@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BootConfigurationError } from "nodefony";
+import { parseModuleConfig } from "nodefony";
 import { <%= it.camel %>ConfigSchema } from "./config";
 import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./config";
 
@@ -18,15 +18,20 @@ import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./conf
  * pas ici. Si le module a besoin d'une variable d'env DÉDIÉE, elle s'applique
  * APRÈS le parse, dans cette fonction, pour que le schéma reste pur.
  *
- * 🔴 **`BootConfigurationError`, et pas une `Error` ordinaire.** Le kernel
- * distingue les deux : un hook de cycle de vie qui lève une erreur QUELCONQUE
- * est absorbé en développement (fail-soft — il protège la DX d'un module
- * optionnel cassé), tandis qu'une erreur de CONFIGURATION interrompt le boot
- * dans TOUS les environnements. Mesuré sur un module généré : avec une `Error`,
- * `use("<%= it.pkgName %>", { gretting: "…" })` laissait l'application démarrer,
- * servir, et rendre 0 — la faute de frappe n'atteignait personne. Une
+ * 🔴 **La validation passe par `parseModuleConfig`, du cœur** — un seul endroit
+ * pour une seule règle. Il lève une `BootConfigurationError`, et pas une `Error`
+ * ordinaire : le kernel distingue les deux. Un hook de cycle de vie qui lève une
+ * erreur QUELCONQUE est absorbé en développement (fail-soft — il protège la DX
+ * d'un module optionnel cassé), tandis qu'une erreur de CONFIGURATION interrompt
+ * le boot dans TOUS les environnements. Mesuré sur un module généré : avec une
+ * `Error`, `use("<%= it.pkgName %>", { gretting: "…" })` laissait l'application
+ * démarrer, servir, et rendre 0 — la faute de frappe n'atteignait personne. Une
  * configuration explicite qu'on ne peut pas honorer ne se répare pas en
  * continuant.
+ *
+ * ⚠️ Ne PAS réécrire ce bloc à la main : les dix modules du framework portaient
+ * chacun leur copie du `try`/`catch`, et elles avaient divergé sur les deux
+ * points qui comptent — le type de l'erreur levée et la langue du message.
  *
  * @param config - config brute venue de `use("<%= it.pkgName %>", { … })`.
  * @returns config validée et gelée.
@@ -36,22 +41,9 @@ import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./conf
 export function define<%= it.pascal %>Config(
   config: <%= it.pascal %>ConfigInput = {},
 ): <%= it.pascal %>Config {
-  try {
-    return Object.freeze(<%= it.camel %>ConfigSchema.parse(config));
-  } catch (e) {
-    const issues =
-      e instanceof Error && "issues" in e && Array.isArray(e.issues)
-        ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-            .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-            .join(" · ")
-        : (e as Error).message;
-    // `cause` garde l'erreur Zod d'origine : sans elle, le détail par champ
-    // s'arrête à ce message et la trace d'où vient la valeur est perdue.
-    throw new BootConfigurationError(
-      `[<%= it.pkgName %>] config invalide : ${issues}`,
-      { cause: e },
-    );
-  }
+  return Object.freeze(
+    parseModuleConfig(<%= it.camel %>ConfigSchema, config, "<%= it.pkgName %>"),
+  );
 }
 
 /**

@@ -6,6 +6,7 @@ export { Nodefony } from "./Nodefony";
 export { default as Kernel } from "./kernel/Kernel";
 export { default as Module } from "./kernel/Module";
 export { BootConfigurationError } from "./kernel/BootConfigurationError";
+export { parseModuleConfig } from "./kernel/moduleConfig";
 export { default as CliKernel } from "./kernel/CliKernel";
 export { default as Service } from "./Service";
 export { default as Container } from "./Container";
