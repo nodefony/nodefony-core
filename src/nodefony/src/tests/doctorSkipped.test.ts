@@ -21,7 +21,7 @@ import path from "node:path";
 import {
   collectDoctorReport,
   parseDoctorArgv,
-  resoudreStrict,
+  resolveStrict,
   runDoctorCommand,
 } from "../kernel/checks/runDoctor";
 import {
@@ -224,18 +224,18 @@ describe("doctor — sévérité d'un contrôle sauté", () => {
   it("devant un humain, un contrôle sauté n'est PAS un manquement", () => {
     // Faire échouer par défaut ferait de `doctor` un outil qu'on apprend à
     // ignorer : hors application, aucun contrôle d'état ne peut tourner.
-    assert.isFalse(resoudreStrict(undefined, {}));
+    assert.isFalse(resolveStrict(undefined, {}));
   });
 
   it("dans une chaîne automatisée, personne ne lit la section — donc ça échoue", () => {
-    assert.isTrue(resoudreStrict(undefined, { CI: "1" }));
+    assert.isTrue(resolveStrict(undefined, { CI: "1" }));
   });
 
   it("🔴 le drapeau explicite gagne DANS LES DEUX SENS", () => {
     // `--no-strict` existe pour qu'une absence VOULUE puisse s'énoncer, plutôt
     // que de se contourner en désarmant la commande entière.
-    assert.isTrue(resoudreStrict(true, {}));
-    assert.isFalse(resoudreStrict(false, { CI: "1" }));
+    assert.isTrue(resolveStrict(true, {}));
+    assert.isFalse(resolveStrict(false, { CI: "1" }));
   });
 
   it("`--strict` et `--no-strict` sont acceptés par la ligne de commande", () => {

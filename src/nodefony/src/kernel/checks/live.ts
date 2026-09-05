@@ -453,7 +453,7 @@ export function liveNotRun(
   // Dérivée de LIVE_FAMILIES : une famille ajoutée est couverte d'office, là
   // où une énumération à la main l'aurait laissée SANS état — c'est-à-dire
   // affichée en vert sans que rien ne l'ait regardée.
-  const familles = {} as Record<LiveFamily, IExecution>;
-  for (const famille of LIVE_FAMILIES) familles[famille] = execution;
-  return { findings: [], execution: familles };
+  const families = {} as Record<LiveFamily, IExecution>;
+  for (const family of LIVE_FAMILIES) families[family] = execution;
+  return { findings: [], execution: families };
 }

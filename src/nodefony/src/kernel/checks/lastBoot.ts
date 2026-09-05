@@ -217,12 +217,12 @@ export function readLastBoot(appPath: string): ILastBoot | null {
  * Lit un bilan précis, en le validant.
  *
  * @param appPath - racine de l'application inspectée.
- * @param fichier - chemin relatif du bilan.
+ * @param file - chemin relatif du bilan.
  * @returns le bilan, ou `null` s'il est absent ou illisible.
  */
-function readLastBootFile(appPath: string, fichier: string): ILastBoot | null {
+function readLastBootFile(appPath: string, file: string): ILastBoot | null {
   try {
-    const raw = readFileSync(path.join(appPath, fichier), "utf8");
+    const raw = readFileSync(path.join(appPath, file), "utf8");
     const parsed = JSON.parse(raw) as Partial<ILastBoot>;
     if (parsed.status !== "ok" && parsed.status !== "failed") return null;
     if (typeof parsed.timestamp !== "string") return null;
@@ -244,12 +244,12 @@ function readLastBootFile(appPath: string, fichier: string): ILastBoot | null {
  * @returns les bilans présents, dans l'ordre de lecture. Jamais `null`.
  */
 export function readLastBoots(appPath: string): ILastBoot[] {
-  const bilans: ILastBoot[] = [];
-  for (const fichier of [LAST_BOOT_FILE, LAST_BOOT_CONSOLE_FILE]) {
-    const bilan = readLastBootFile(appPath, fichier);
-    if (bilan) bilans.push(bilan);
+  const summaries: ILastBoot[] = [];
+  for (const file of [LAST_BOOT_FILE, LAST_BOOT_CONSOLE_FILE]) {
+    const summary = readLastBootFile(appPath, file);
+    if (summary) summaries.push(summary);
   }
-  return bilans;
+  return summaries;
 }
 
 /**

@@ -199,14 +199,14 @@ const EXTENDS_CONTROLLER_RE = /\bclass\s+\w+\s+extends\s+Controller\b/u;
  * décide, et parce que le poser deux fois produit une réponse que le client lit
  * de travers.
  */
-const REPONSE_CAST_RE = /\bthis\.response\s+as\s+(?:any|unknown)\b/u;
+const RESPONSE_CAST_RE = /\bthis\.response\s+as\s+(?:any|unknown)\b/u;
 
 /** `setHeader("Content-Type", …)` ou `setHeaders({ "content-type": … })`, sur quoi que ce soit. */
-const REPONSE_CONTENT_TYPE_RE =
+const RESPONSE_CONTENT_TYPE_RE =
   /\.setHeaders?\s*\(\s*(?:\{\s*)?["'`]content-type["'`]/iu;
 
 /** L'écriture directe dans le socle : `this.response.end(…)`, `writeHead(…)`. */
-const REPONSE_ECRITURE_BRUTE_RE =
+const RESPONSE_RAW_WRITE_RE =
   /\bthis\.response\s*\??\.\s*(?:end|writeHead)\s*\(/u;
 
 /**
@@ -261,7 +261,7 @@ const AREA_PATTERN_RE = /\bpattern\s*:\s*["'`]([^"'`\n]+)["'`]/gu;
  * commencerait par un avertissement portant sur du texte explicatif. Un
  * contrôle qui accuse sa propre documentation est un contrôle qu'on désactive.
  */
-function sansCommentaires(source: string): string {
+function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/\/\/[^\n]*/gu, "");
 }
 
@@ -273,11 +273,11 @@ function sansCommentaires(source: string): string {
  * désigne rien et ferait un conseil faux.
  */
 function prefixeLitteral(pattern: string): string {
-  const sansAncre = pattern.replace(/^\^/u, "");
-  const coupe = sansAncre.search(/[([{|?*+$\\]/u);
-  const litteral = coupe === -1 ? sansAncre : sansAncre.slice(0, coupe);
-  const dernier = litteral.lastIndexOf("/");
-  return dernier > 0 ? litteral.slice(0, dernier) : litteral;
+  const withoutAnchor = pattern.replace(/^\^/u, "");
+  const coupe = withoutAnchor.search(/[([{|?*+$\\]/u);
+  const litteral = coupe === -1 ? withoutAnchor : withoutAnchor.slice(0, coupe);
+  const last = litteral.lastIndexOf("/");
+  return last > 0 ? litteral.slice(0, last) : litteral;
 }
 
 /**
@@ -432,7 +432,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // Les zones vivent au niveau du PROJET : le contrôle se fait une fois, hors de
   // la boucle des cibles, sinon le même manquement serait rendu autant de fois
   // qu'il y a de modules locaux.
-  const areasBlock = AREAS_BLOCK_RE.exec(sansCommentaires(manifeste))?.[1];
+  const areasBlock = AREAS_BLOCK_RE.exec(withoutComments(manifeste))?.[1];
   if (areasBlock) {
     for (const [, pattern] of areasBlock.matchAll(AREA_PATTERN_RE)) {
       const prefix = zoneEnumere(pattern);
@@ -503,13 +503,13 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
         const routePath = m[1] ?? m[2] ?? "";
         const colon = COLON_SEGMENT_RE.exec(routePath);
         if (!colon) continue;
-        const corrige = routePath.replace(/\/:(\w+)/gu, "/{$1}");
+        const corrected = routePath.replace(/\/:(\w+)/gu, "/{$1}");
         findings.push({
           kind: "route-colon-param",
           file: rel(file),
           message:
             `le chemin "${routePath}" déclare son segment variable à la mode d'un autre ` +
-            `framework — Nodefony écrit "${corrige}". Tel quel, ":${colon[1]}" est monté ` +
+            `framework — Nodefony écrit "${corrected}". Tel quel, ":${colon[1]}" est monté ` +
             `comme un littéral : la route s'affiche dans inspect routes et répond 404 ` +
             `à toute URL réelle`,
         });
@@ -519,30 +519,30 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       // dit rien. Le corps est relu SANS ses commentaires — un exemple mis en
       // garde dans un TSDoc ne doit pas s'accuser lui-même.
       if (EXTENDS_CONTROLLER_RE.test(content)) {
-        const code = sansCommentaires(content);
+        const code = withoutComments(content);
         const facades =
           `les façades : this.renderJson(obj) pour du JSON, ` +
           `this.setContextHtml() puis this.render(html) pour une page, ` +
           `this.streamFile(f) / renderMediaStream(f) / renderFileDownload(f) pour un fichier`;
         const manquements: [RegExp, string][] = [
           [
-            REPONSE_CAST_RE,
+            RESPONSE_CAST_RE,
             `this.response est casté en any — c'est le signal d'une façade ratée, et le ` +
               `cast fait taire le seul contrôle qui aurait nommé la bonne`,
           ],
           [
-            REPONSE_CONTENT_TYPE_RE,
+            RESPONSE_CONTENT_TYPE_RE,
             `Content-Type est posé à la main — c'est la façade qui le décide, et le poser ` +
               `deux fois rend une réponse que le client lit de travers`,
           ],
           [
-            REPONSE_ECRITURE_BRUTE_RE,
+            RESPONSE_RAW_WRITE_RE,
             `la réponse est écrite directement dans le socle (end/writeHead) — le body part ` +
               `sans passer par le pipeline`,
           ],
         ];
-        for (const [motif, quoi] of manquements) {
-          if (!motif.test(code)) continue;
+        for (const [pattern, quoi] of manquements) {
+          if (!pattern.test(code)) continue;
           findings.push({
             kind: "reponse-a-la-main",
             file: rel(file),

@@ -110,7 +110,7 @@ export interface ITrackedEnvProbe {
 }
 
 /** Retire les commentaires pour qu'un exemple commenté ne compte pas. */
-function sansCommentaires(source: string): string {
+function withoutComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//gu, "")
     .replace(/(^|[^:])\/\/.*$/gmu, "$1");
@@ -129,13 +129,13 @@ function sansCommentaires(source: string): string {
  * @returns les noms passés à `use("…")`, dédoublonnés, dans l'ordre de lecture.
  */
 export function declaredModules(source: string): string[] {
-  const noms = new Set<string>();
-  for (const [, nom] of sansCommentaires(source).matchAll(
+  const names = new Set<string>();
+  for (const [, name] of withoutComments(source).matchAll(
     /\buse\(\s*["'`]([^"'`]+)["'`]/gu,
   )) {
-    noms.add(nom);
+    names.add(name);
   }
-  return [...noms];
+  return [...names];
 }
 
 /**
@@ -187,10 +187,10 @@ export async function checkReadiness(input: {
     // le même geste : la première empêche de démarrer maintenant, la seconde
     // attend le déploiement. Un message unique enverrait chercher une panne
     // locale qui n'existe pas.
-    const ailleurs = targetEnv !== null;
+    const elsewhere = targetEnv !== null;
     findings.push({
       kind: "env-required-missing",
-      message: ailleurs
+      message: elsewhere
         ? `la variable ${v.name} est REQUISE en ${targetEnv} et n'a aucune valeur ici — ` +
           `le déploiement refusera de démarrer : la poser dans l'environnement ` +
           `du conteneur (Secret k8s, vault), jamais en git`
@@ -235,8 +235,8 @@ export async function checkReadiness(input: {
     } catch {
       source = "";
     }
-    for (const nom of declaredModules(source)) {
-      if (isModuleResolvable(projectRoot, nom)) continue;
+    for (const name of declaredModules(source)) {
+      if (isModuleResolvable(projectRoot, name)) continue;
       findings.push({
         kind: "module-not-installed",
         // Ce message a dit le CONTRAIRE de ce que fait le framework, et c'est
@@ -246,11 +246,11 @@ export async function checkReadiness(input: {
         // « BOOT dégradé — 1 en échec ». C'est exactement le cas que `check` est
         // seul à savoir redire APRÈS coup — encore faut-il qu'il le décrive.
         message:
-          `le manifeste charge "${nom}" mais le paquet est INTROUVABLE ` +
+          `le manifeste charge "${name}" mais le paquet est INTROUVABLE ` +
           `(ni dans node_modules, ni dans modules/) — le boot ne s'arrêtera PAS : ` +
           `le module est écarté (fail-soft) et l'application démarre AMPUTÉE de ` +
           `ce qu'il apporte, sans erreur au point d'usage : ` +
-          `npm install ${nom}, ou retirer la ligne du manifeste`,
+          `npm install ${name}, ou retirer la ligne du manifeste`,
         file: "nodefony.config.ts",
       });
     }
@@ -273,14 +273,14 @@ export async function checkReadiness(input: {
     // paquet — ce serait cent lignes pour dire « npm install ».
     if (existsSync(path.join(projectRoot, "node_modules"))) {
       const declared = { ...pkg.dependencies, ...pkg.devDependencies };
-      for (const nom of Object.keys(declared)) {
+      for (const name of Object.keys(declared)) {
         // Une plage `file:`/`link:` non installée reste un défaut d'install,
         // mais le chemin de résolution est le même : présence du dossier.
-        if (existsSync(path.join(projectRoot, "node_modules", nom))) continue;
+        if (existsSync(path.join(projectRoot, "node_modules", name))) continue;
         findings.push({
           kind: "dep-not-installed",
           message:
-            `${nom} est déclaré dans package.json mais ABSENT de node_modules — ` +
+            `${name} est déclaré dans package.json mais ABSENT de node_modules — ` +
             `l'erreur au démarrage ne nommera que le premier import rencontré : npm install`,
           file: "package.json",
         });

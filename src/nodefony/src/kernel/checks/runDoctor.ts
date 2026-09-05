@@ -264,23 +264,23 @@ export interface ICheckRequest {
  * @param p - la peinture en vigueur.
  * @returns le texte complet, retour chariot final compris.
  */
-export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
+export function usage(p: IPalette, width: number = usableWidth(80)): string {
   // Une description qui déborde se replie sur la marge du terminal et se lit
   // comme une ligne d'option de plus. La colonne des drapeaux fait 20 : la
   // suite s'aligne dessous, pas sur la marge.
-  const colonne = 20;
-  const marge = " ".repeat(colonne + 3);
-  const opt = (drapeau: string, quoi: string): string => {
-    const [premiere, ...suite] = wrap(quoi, largeur - marge.length, "");
+  const column = 20;
+  const indent = " ".repeat(column + 3);
+  const opt = (flag: string, quoi: string): string => {
+    const [premiere, ...suite] = wrap(quoi, width - indent.length, "");
     return (
-      `  ${p.action(drapeau.padEnd(colonne, " "))} ${premiere ?? ""}\n` +
-      suite.map((l) => `${marge}${l}\n`).join("")
+      `  ${p.action(flag.padEnd(column, " "))} ${premiere ?? ""}\n` +
+      suite.map((l) => `${indent}${l}\n`).join("")
     );
   };
   /** Un titre de section, prolongé par son filet — la forme du rapport. */
-  const section = (nom: string): string => {
-    const { title: titre, divider: filet } = sectionTitle(nom, largeur);
-    return `\n${p.strong(titre)}${p.dim(filet)}\n\n`;
+  const section = (name: string): string => {
+    const { title, divider } = sectionTitle(name, width);
+    return `\n${p.strong(title)}${p.dim(divider)}\n\n`;
   };
   /**
    * Les exemples : la commande, puis ce qu'elle répond.
@@ -288,7 +288,7 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
    * La colonne se DÉRIVE du plus long : figée, elle saute dès qu'un exemple
    * la dépasse, et l'aide se met à ressembler à une sortie cassée.
    */
-  const exemples: ReadonlyArray<readonly [string, string]> = [
+  const examples: ReadonlyArray<readonly [string, string]> = [
     [
       "nodefony doctor",
       "l'état d'ici : build, installation, dépendances, câblage",
@@ -311,28 +311,28 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
       "depuis un sous-dossier : la racine de l'application est retrouvée seule",
     ],
   ];
-  const largeurExemple = Math.max(...exemples.map(([c]) => c.length));
-  const rendreExemples = (): string => {
+  const exampleWidth = Math.max(...examples.map(([c]) => c.length));
+  const renderExamples = (): string => {
     // Une glose qui n'a plus la place de tenir passe SOUS sa commande : deux
     // colonnes serrées à quinze caractères se lisent moins bien qu'une seule.
-    const enColonnes = largeur - largeurExemple - 4 >= 24;
-    return exemples
-      .map(([commande, quoi]) => {
-        if (!enColonnes) {
+    const inColumns = width - exampleWidth - 4 >= 24;
+    return examples
+      .map(([command, quoi]) => {
+        if (!inColumns) {
           return (
-            `  ${p.action(commande)}\n` +
-            wrap(quoi, largeur - 6, "      ")
+            `  ${p.action(command)}\n` +
+            wrap(quoi, width - 6, "      ")
               .map((l) => p.dim(l) + "\n")
               .join("")
           );
         }
-        const retrait = " ".repeat(largeurExemple + 4);
-        const suite = wrap(quoi, largeur - retrait.length, "");
+        const padding = " ".repeat(exampleWidth + 4);
+        const suite = wrap(quoi, width - padding.length, "");
         return (
-          `  ${p.action(commande.padEnd(largeurExemple, " "))}  ${p.dim(suite[0] ?? "")}\n` +
+          `  ${p.action(command.padEnd(exampleWidth, " "))}  ${p.dim(suite[0] ?? "")}\n` +
           suite
             .slice(1)
-            .map((l) => `${retrait}${p.dim(l)}\n`)
+            .map((l) => `${padding}${p.dim(l)}\n`)
             .join("")
         );
       })
@@ -344,9 +344,9 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
   // 🔴 Repliée sur les SÉPARATEURS, jamais sur les espaces : `replier` coupe
   // aux espaces, et « Surface ouverte » se retrouvait à cheval sur deux lignes,
   // où plus personne ne reconnaît le nom d'un contrôle.
-  const familles = wrapList(
+  const families = wrapList(
     FAMILIES.filter((f) => !isSubrule(f)).map((f) => TITLES[f]),
-    largeur - 4,
+    width - 4,
   );
 
   return (
@@ -355,7 +355,7 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
     // qui déborde est la PREMIÈRE chose que le lecteur voit casser.
     wrap(
       "ce qui ne va pas dans cette application, et quoi taper",
-      largeur - 4,
+      width - 4,
       "  ",
     )
       .map((l) => p.dim(l) + "\n")
@@ -366,7 +366,7 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
     // disparaître.
     `\n  usage : nodefony doctor [options]\n` +
     section("CE QU'IL REGARDE") +
-    familles.map((l) => `  ${l}\n`).join("") +
+    families.map((l) => `  ${l}\n`).join("") +
     "\n" +
     wrap(
       "Il ne DÉMARRE pas l'application : il lit des fichiers, interroge git " +
@@ -374,7 +374,7 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
         "sur une application qui ne démarre plus — c'est le moment où l'on en " +
         `a le plus besoin. Les ${LIVE_FAMILIES.length} derniers contrôles font ` +
         "exception : ils exigent un démarrage, et ne jouent qu'avec `--live`.",
-      largeur - 4,
+      width - 4,
       "  ",
     )
       .map((l) => `${l}\n`)
@@ -417,7 +417,7 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
       "point de départ (la racine de l'app est résolue en remontant)",
     ) +
     section("EXEMPLES") +
-    rendreExemples() +
+    renderExamples() +
     section("CODES DE SORTIE") +
     opt("0", "rien à signaler") +
     opt(
@@ -430,7 +430,7 @@ export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
       "Un contrôle qui n'a PAS pu regarder est toujours annoncé : son silence " +
         "ne vaut jamais quitus. Un contrôle non DEMANDÉ (`--live`) est affiché " +
         "de même, mais ne pèse pas sur le code de sortie.",
-      largeur - 4,
+      width - 4,
       "  ",
     )
       .map((l) => p.dim(l) + "\n")
@@ -509,17 +509,17 @@ export function likelyTypo(env: string): string | null {
   for (const mode of KNOWN_MODES) {
     // Un seuil relatif au mot : sur « dev » (3 lettres), deux frappes d'écart
     // en font un autre mot ; sur « production », non.
-    const seuil = mode.length <= 5 ? 1 : 2;
-    if (editDistance(lower, mode) <= seuil) return mode;
+    const threshold = mode.length <= 5 ? 1 : 2;
+    if (editDistance(lower, mode) <= threshold) return mode;
   }
   return null;
 }
 
-export function resoudreStrict(
-  mot: boolean | undefined,
+export function resolveStrict(
+  word: boolean | undefined,
   env: Record<string, string | undefined>,
 ): boolean {
-  if (mot !== undefined) return mot;
+  if (word !== undefined) return word;
   return Boolean(env.CI);
 }
 
@@ -583,12 +583,12 @@ export function parseDoctorArgv(
           error: "--env attend un environnement (ex. --env production)",
         };
       }
-      const coquille = likelyTypo(value);
-      if (coquille)
+      const typo = likelyTypo(value);
+      if (typo)
         return {
           error:
             `environnement inconnu : ${value} — voulais-tu dire ` +
-            `${coquille} ? (un environnement de déploiement libre, comme ` +
+            `${typo} ? (un environnement de déploiement libre, comme ` +
             `preprod ou qa, est accepté tel quel)`,
         };
       targetEnv = value;
@@ -609,7 +609,7 @@ export function parseDoctorArgv(
     live: live || (deep && !liveRefuse),
     deep,
     targetEnv,
-    strict: resoudreStrict(strict, process.env),
+    strict: resolveStrict(strict, process.env),
   };
 }
 
@@ -866,7 +866,7 @@ export async function collectDoctorReport(
   // « aucune classe ») décrirait les CONSÉQUENCES et ferait croire à quatre
   // problèmes distincts, là où il n'y en a qu'un — et le geste « lance depuis
   // une application » n'aurait aucun sens sous une raison qui n'en parle pas.
-  const horsProjet: IExecution = {
+  const outsideProject: IExecution = {
     ran: false,
     reason: "aucune application ici (pas de `nodefony.config.ts` en remontant)",
     short: "hors application",
@@ -890,7 +890,7 @@ export async function collectDoctorReport(
       (typesUnreachable?.length ?? 0),
     execution: {
       freshness: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : freshness.notComparable
           ? {
               ran: false,
@@ -901,12 +901,12 @@ export async function collectDoctorReport(
               unlock: "construis l'application (`npm run build`)",
             }
           : { ran: true },
-      readiness: projectRoot ? { ran: true } : horsProjet,
+      readiness: projectRoot ? { ran: true } : outsideProject,
       // Sous-règle de `readiness` : le catalogue des variables déclarées se lit
       // dans le `dist/`. Sur une application non construite il est illisible, et
       // le silence de la règle « variable requise » ne vaut alors pas quitus.
       envCatalog: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : readiness.catalogUnreadable
           ? {
               ran: false,
@@ -923,7 +923,7 @@ export async function collectDoctorReport(
       // pas quitus. C'est exactement le mode de défaillance qu'`envCatalog` a
       // appris à énoncer.
       envTracked: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : readiness.trackedUnknown
           ? {
               ran: false,
@@ -933,7 +933,7 @@ export async function collectDoctorReport(
             }
           : { ran: true },
       guards: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : guards.manifestUnreadable || guards.linterUnreadable
           ? {
               ran: false,
@@ -948,7 +948,7 @@ export async function collectDoctorReport(
       // afficher « rien à signaler » sur un contrôle qu'on n'a pas lancé est
       // le seul mensonge que ce rapport ne doit jamais faire.
       verify: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : deep === null
           ? {
               ran: false,
@@ -966,7 +966,7 @@ export async function collectDoctorReport(
             }
           : { ran: true },
       outdated: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : deep === null
           ? {
               ran: false,
@@ -1025,7 +1025,7 @@ export async function collectDoctorReport(
               unlock: "`nodefony create entity <Nom>`",
             },
       deps: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : scanned > 0
           ? { ran: true }
           : {
@@ -1053,7 +1053,7 @@ export async function collectDoctorReport(
         true,
       ).execution,
       wiring: !projectRoot
-        ? horsProjet
+        ? outsideProject
         : wiring.scanned > 0
           ? { ran: true }
           : {
@@ -1092,20 +1092,20 @@ export function countCheckFindings(report: IDoctorReport): number {
  * @param p - la palette (couleur ou non, selon le terminal).
  * @returns la ligne à écrire, sans retour chariot, ou `null`.
  */
-export function ligneProgression(e: IDeepProgress, p: IPalette): string | null {
+export function progressLine(e: IDeepProgress, p: IPalette): string | null {
   const quoi = e.step === "outdated" ? "npm outdated" : `npm run ${e.step}`;
   if (e.phase === "start") return p.dim(`  … ${quoi}`);
-  const secondes = e.ms === undefined ? "" : ` (${(e.ms / 1000).toFixed(1)} s)`;
+  const seconds = e.ms === undefined ? "" : ` (${(e.ms / 1000).toFixed(1)} s)`;
   switch (e.outcome) {
     case "passed":
     case "ok":
-      return `  ${p.ok("✓")} ${quoi}${p.dim(secondes)}`;
+      return `  ${p.ok("✓")} ${quoi}${p.dim(seconds)}`;
     case "failed":
-      return `  ${p.failure("✗")} ${quoi}${p.dim(secondes)}`;
+      return `  ${p.failure("✗")} ${quoi}${p.dim(seconds)}`;
     case "timeout":
-      return `  ${p.failure("⏱")} ${quoi}${p.dim(`${secondes} — interrompu`)}`;
+      return `  ${p.failure("⏱")} ${quoi}${p.dim(`${seconds} — interrompu`)}`;
     case "unavailable":
-      return `  ${p.warning("—")} ${quoi}${p.dim(`${secondes} — sans réponse`)}`;
+      return `  ${p.warning("—")} ${quoi}${p.dim(`${seconds} — sans réponse`)}`;
     default:
       return null;
   }
@@ -1130,13 +1130,13 @@ export function ligneProgression(e: IDeepProgress, p: IPalette): string | null {
  * progression**.
  *
  * @param json - `true` si le rapport est demandé en JSON.
- * @param ecrire - où écrire (injecté : une fonction qui touche `process.stderr`
+ * @param write - où écrire (injecté : une fonction qui touche `process.stderr`
  *   en dur ne s'éprouve que par capture globale, donc mal).
  * @returns le reporter, ou `undefined` s'il ne faut rien annoncer.
  */
 export function reporterProgression(
   json: boolean,
-  ecrire: (ligne: string) => void = (l) => process.stderr.write(`${l}\n`),
+  write: (line: string) => void = (l) => process.stderr.write(`${l}\n`),
   stream: NodeJS.WriteStream = process.stderr,
 ): DeepReporter | undefined {
   if (json) return undefined;
@@ -1162,11 +1162,11 @@ export function reporterProgression(
       // La ligne figée par `stop()` est celle-là même qu'écrit le mode non
       // animé : les deux rendus disent le MÊME verdict, seule l'attente diffère.
       if (e.phase === "start") spinner.start(label);
-      else spinner.stop(ligneProgression(e, p) ?? undefined);
+      else spinner.stop(progressLine(e, p) ?? undefined);
       return;
     }
-    const ligne = ligneProgression(e, p);
-    if (ligne !== null) ecrire(ligne);
+    const line = progressLine(e, p);
+    if (line !== null) write(line);
   };
 }
 
@@ -1181,8 +1181,8 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     );
     // Replié comme le reste : un refus qui déborde du terminal est le premier
     // texte que le lecteur voit casser, et il le voit au pire moment.
-    const largeur = usableWidth(process.stderr.columns);
-    for (const l of wrap(`doctor : ${parsed.error}`, largeur, "  ")) {
+    const width = usableWidth(process.stderr.columns);
+    for (const l of wrap(`doctor : ${parsed.error}`, width, "  ")) {
       process.stderr.write(`${p.failure(l)}\n`);
     }
     process.stderr.write(usage(p, usableWidth(process.stderr.columns)));
@@ -1253,11 +1253,11 @@ export function attachLive(
 export function renderDoctorReport(
   report: IDoctorReport,
   parsed: ICheckRequest,
-  dureeMs?: number,
+  durationMs?: number,
 ): number {
   const { json, strict } = parsed;
   const start = parsed.cwd;
-  const sautes = skippedChecks(report.execution);
+  const skipped = skippedChecks(report.execution);
 
   // Le verdict, en UN endroit : les trois portes (humain, JSON, MCP) doivent
   // sortir le même code — un rapport qui affiche un angle mort mais rend 0 là
@@ -1266,7 +1266,7 @@ export function renderDoctorReport(
   // qu'on n'a pas demandés. Les seconds restent rapportés — ils ne valent pas
   // quitus — mais exiger un boot pour qu'une CI passe reviendrait à faire
   // désarmer la commande entière, ce que `--no-strict` existe pour éviter.
-  const empeches = preventedChecks(sautes);
+  const empeches = preventedChecks(skipped);
   const code = (): number => {
     if (countCheckFindings(report) > 0) return 1;
     return strict && empeches.length > 0 ? 1 : 0;
@@ -1274,35 +1274,35 @@ export function renderDoctorReport(
 
   if (json) {
     process.stdout.write(
-      `${JSON.stringify({ ...report, skipped: sautes, strict }, null, 2)}\n`,
+      `${JSON.stringify({ ...report, skipped: skipped, strict }, null, 2)}\n`,
     );
     return code();
   }
 
   const out = process.stdout;
-  const lignes = renderReport(report, {
+  const lines = renderReport(report, {
     width: usableWidth(out.columns),
     color: shouldColorize(process.env, Boolean(out.isTTY)),
     now: Date.now(),
     launchedFrom: start,
     strict,
     targetEnv: parsed.targetEnv,
-    ...(dureeMs === undefined ? {} : { durationMs: dureeMs }),
+    ...(durationMs === undefined ? {} : { durationMs: durationMs }),
   });
-  out.write(`${lignes.join("\n")}\n`);
+  out.write(`${lines.join("\n")}\n`);
   return code();
 }
 
 /**
  * Le nom de l'application, tel que son manifeste le déclare.
  *
- * @param racine - racine du projet.
+ * @param root - racine du projet.
  * @returns `nom@version`, ou une chaîne vide si le manifeste ne dit rien.
  */
-function appName(racine: string): string {
+function appName(root: string): string {
   try {
     const pkg = JSON.parse(
-      readFileSync(path.join(racine, "package.json"), "utf8"),
+      readFileSync(path.join(root, "package.json"), "utf8"),
     ) as { name?: string; version?: string };
     if (!pkg.name) return "";
     return pkg.version ? `${pkg.name} ${pkg.version}` : pkg.name;

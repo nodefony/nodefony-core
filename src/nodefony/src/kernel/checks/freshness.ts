@@ -68,19 +68,19 @@ const SOURCES = ["nodefony", "src", "index.ts", "nodefony.config.ts", "env.ts"];
  * `npm run build` après chaque test écrit — un geste inutile, réclamé par un
  * outil de diagnostic, donc un outil qu'on apprend à ignorer.
  *
- * @param chemin - chemin relatif, écrit en `/`.
+ * @param filePath - chemin relatif, écrit en `/`.
  * @returns `true` si une modification de ce fichier périme le build.
  */
-function isBuiltSource(chemin: string): boolean {
+function isBuiltSource(filePath: string): boolean {
   // Un `.d.ts` est PRODUIT par le build : plus récent que lui par
   // construction, il ferait crier à chaque compilation. C'est la seule
   // exclusion propre à ce contrôle.
-  if (!chemin.endsWith(".ts") || chemin.endsWith(".d.ts")) return false;
-  if (isTestFile(chemin)) return false;
+  if (!filePath.endsWith(".ts") || filePath.endsWith(".d.ts")) return false;
+  if (isTestFile(filePath)) return false;
   // Le reste vient de la règle COMMUNE (`walk.ts`) : ce parcours ne peut pas
   // lister les fichiers à sauter pour son compte — c'est ainsi qu'il s'est mis
   // à compter les tests que les autres contrôles excluaient déjà.
-  return !chemin.split("/").some((segment) => isSkippedDir(segment));
+  return !filePath.split("/").some((segment) => isSkippedDir(segment));
 }
 
 /** La source la plus RÉCEMMENT modifiée sous un chemin, et laquelle. */
@@ -89,29 +89,29 @@ function newestUnder(
   rel: string,
 ): { mtime: number; file: string } {
   const rien = { mtime: 0, file: "" };
-  const cible = path.join(root, rel);
-  const stat = statSync(cible, { throwIfNoEntry: false });
+  const target = path.join(root, rel);
+  const stat = statSync(target, { throwIfNoEntry: false });
   if (!stat) return rien;
   if (stat.isFile())
     return isBuiltSource(rel) ? { mtime: stat.mtimeMs, file: rel } : rien;
-  let trouve = rien;
-  for (const entree of readdirSync(cible, {
+  let found = rien;
+  for (const entry of readdirSync(target, {
     recursive: true,
     encoding: "utf8",
   })) {
     // Normaliser AVANT de filtrer : `readdirSync` rend `a\b` sous Windows, et
     // un filtre écrit en `/` n'y mordrait pas.
-    const chemin = entree.split(path.sep).join("/");
-    if (!isBuiltSource(chemin)) continue;
-    const s = statSync(path.join(cible, entree), { throwIfNoEntry: false });
-    if (s?.isFile() && s.mtimeMs > trouve.mtime) {
+    const filePath = entry.split(path.sep).join("/");
+    if (!isBuiltSource(filePath)) continue;
+    const s = statSync(path.join(target, entry), { throwIfNoEntry: false });
+    if (s?.isFile() && s.mtimeMs > found.mtime) {
       // Le FICHIER, pas la racine qui le contient : « `src` est plus récent
       // que le build » n'apprend rien, et n'aide personne à comprendre
       // pourquoi le contrôle crie.
-      trouve = { mtime: s.mtimeMs, file: `${rel}/${chemin}` };
+      found = { mtime: s.mtimeMs, file: `${rel}/${filePath}` };
     }
   }
-  return trouve;
+  return found;
 }
 
 /** La version majeure exigée par `engines.node`, ou `null` si non déclarée. */
@@ -142,10 +142,10 @@ export function checkFreshness(
   let plusRecente = 0;
   let porteuse = "";
   for (const rel of SOURCES) {
-    const quand = newestUnder(projectRoot, rel);
-    if (quand.mtime > plusRecente) {
-      plusRecente = quand.mtime;
-      porteuse = quand.file;
+    const when = newestUnder(projectRoot, rel);
+    if (when.mtime > plusRecente) {
+      plusRecente = when.mtime;
+      porteuse = when.file;
     }
   }
 
@@ -159,12 +159,12 @@ export function checkFreshness(
       file: "dist/index.js",
     });
   } else if (distStat && plusRecente > distStat.mtimeMs) {
-    const ecart = formatDuration((plusRecente - distStat.mtimeMs) / 1000);
+    const gap = formatDuration((plusRecente - distStat.mtimeMs) / 1000);
     findings.push({
       kind: "dist-stale",
       message:
         `des sources ont changé APRÈS le dernier build (\`${porteuse}\` est ` +
-        `plus récent de ${ecart} que \`dist/index.js\`) : le runtime sert ` +
+        `plus récent de ${gap} que \`dist/index.js\`) : le runtime sert ` +
         "encore l'ancien code — une route neuve répondra 404, un export retiré " +
         "restera servi. → `npm run build`",
       file: porteuse,
@@ -178,8 +178,8 @@ export function checkFreshness(
         engines?: unknown;
       };
       const exige = requiredNodeMajor(pkg.engines);
-      const courant = Number.parseInt(nodeVersion.replace(/^v/u, ""), 10);
-      if (exige !== null && Number.isFinite(courant) && courant < exige) {
+      const current = Number.parseInt(nodeVersion.replace(/^v/u, ""), 10);
+      if (exige !== null && Number.isFinite(current) && current < exige) {
         findings.push({
           kind: "node-below-engines",
           message:
@@ -220,12 +220,12 @@ const PREFIXE_FRAMEWORK = "@nodefony/";
  * s'écrivent différemment dans le `package.json` — et certains ne s'y écrivent
  * pas du tout.
  *
- * @param chemin - le chemin du paquet sous `node_modules`.
+ * @param filePath - le chemin du paquet sous `node_modules`.
  * @returns `true` si c'est un lien vers un dossier de travail.
  */
-function estLie(chemin: string): boolean {
+function estLie(filePath: string): boolean {
   try {
-    return lstatSync(chemin).isSymbolicLink();
+    return lstatSync(filePath).isSymbolicLink();
   } catch {
     return false;
   }
@@ -257,9 +257,9 @@ export function checkFrameworkBuild(projectRoot: string): IFreshnessFinding[] {
     "node_modules",
     PREFIXE_FRAMEWORK.slice(0, -1),
   );
-  let noms: string[];
+  let names: string[];
   try {
-    noms = readdirSync(scope);
+    names = readdirSync(scope);
   } catch {
     // Ni `node_modules`, ni portée `@nodefony` : rien à dire. Une application
     // qui n'a pas encore installé ses dépendances a d'autres contrôles qui la
@@ -267,28 +267,28 @@ export function checkFrameworkBuild(projectRoot: string): IFreshnessFinding[] {
     return [];
   }
   const findings: IFreshnessFinding[] = [];
-  for (const nom of noms.sort()) {
-    const paquet = path.join(scope, nom);
-    if (!estLie(paquet)) continue;
-    const complet = `${PREFIXE_FRAMEWORK}${nom}`;
+  for (const name of names.sort()) {
+    const pkg = path.join(scope, name);
+    if (!estLie(pkg)) continue;
+    const fullName = `${PREFIXE_FRAMEWORK}${name}`;
     // Le lien est suivi une fois : tout ce qui suit porte sur le dossier de
     // travail réel, jamais sur le lien lui-même (dont la date ne dit rien).
-    let reel: string;
+    let actual: string;
     try {
-      reel = realpathSync(paquet);
+      actual = realpathSync(pkg);
     } catch {
       continue;
     }
-    const dist = statSync(path.join(reel, "dist", "index.js"), {
+    const dist = statSync(path.join(actual, "dist", "index.js"), {
       throwIfNoEntry: false,
     });
     let plusRecente = 0;
     let porteuse = "";
     for (const rel of SOURCES) {
-      const quand = newestUnder(reel, rel);
-      if (quand.mtime > plusRecente) {
-        plusRecente = quand.mtime;
-        porteuse = quand.file;
+      const when = newestUnder(actual, rel);
+      if (when.mtime > plusRecente) {
+        plusRecente = when.mtime;
+        porteuse = when.file;
       }
     }
     if (plusRecente === 0) continue; // aucune source : rien à comparer
@@ -296,25 +296,25 @@ export function checkFrameworkBuild(projectRoot: string): IFreshnessFinding[] {
       findings.push({
         kind: "framework-missing",
         message:
-          `\`${complet}\` est LIÉ à un dossier de travail qui n'est pas ` +
+          `\`${fullName}\` est LIÉ à un dossier de travail qui n'est pas ` +
           "construit (`dist/index.js` absent) : le runtime charge le build, " +
           "donc ce paquet n'apporte rien — routes en 404, exports " +
           "introuvables au démarrage. → `npm run build` dans le dépôt du " +
           "framework (bâtir l'application ne construit PAS ses paquets liés)",
-        file: path.join("node_modules", complet, "dist", "index.js"),
+        file: path.join("node_modules", fullName, "dist", "index.js"),
       });
       continue;
     }
     if (plusRecente > dist.mtimeMs) {
-      const ecart = formatDuration((plusRecente - dist.mtimeMs) / 1000);
+      const gap = formatDuration((plusRecente - dist.mtimeMs) / 1000);
       findings.push({
         kind: "framework-stale",
         message:
-          `\`${complet}\` est LIÉ, et ses sources ont changé APRÈS son build ` +
-          `(\`${porteuse}\` est plus récent de ${ecart} que son ` +
+          `\`${fullName}\` est LIÉ, et ses sources ont changé APRÈS son build ` +
+          `(\`${porteuse}\` est plus récent de ${gap} que son ` +
           "`dist/index.js`) : c'est l'ANCIEN code du framework qui s'exécute. " +
           "→ `npm run build` dans le dépôt du framework",
-        file: path.join("node_modules", complet, "dist", "index.js"),
+        file: path.join("node_modules", fullName, "dist", "index.js"),
       });
     }
   }

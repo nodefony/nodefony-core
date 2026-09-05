@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T18:59:50.181Z",
+  "generated": "2026-09-05T19:02:46.043Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -9301,8 +9301,8 @@
       "module": "@nodefony/core",
       "description": "Le mode connu dont cet environnement est visiblement une faute de frappe. 🔴 Vécu, et c'est le pire mode de défaillance d'un diagnostic : `doctor --env produntion` rendait un rapport COMPLET et pla…"
     },
-    "resoudreStrict": {
-      "name": "resoudreStrict",
+    "resolveStrict": {
+      "name": "resolveStrict",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
@@ -9332,8 +9332,8 @@
       "module": "@nodefony/core",
       "description": "Nombre total de manquements d'un rapport — le verdict, en un endroit. Délègue à {@link countFindings} : le rendu compte par la même fonction, et le bilan chiffré ne peut donc plus contredire le som…"
     },
-    "ligneProgression": {
-      "name": "ligneProgression",
+    "progressLine": {
+      "name": "progressLine",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
