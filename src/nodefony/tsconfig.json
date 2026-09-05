@@ -1,6 +1,6 @@
 {
   "include": ["./rolldown.config.ts", "./src"],
-  "exclude": ["src/tests/**/*", "src/bin/**/*", "node_modules", "dist"],
+  "exclude": ["src/bin/**/*", "node_modules", "dist"],
   "compilerOptions": {
     "esModuleInterop": true,
     "declaration": false,
@@ -15,9 +15,9 @@
     "strict": true,
     "noImplicitOverride": true,
     "useUnknownInCatchVariables": false,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "types": ["node"],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "types": ["node", "vitest/globals"],
     "paths": {
       "nodefony": ["./src/index.ts"]
     }

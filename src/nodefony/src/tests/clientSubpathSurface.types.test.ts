@@ -18,7 +18,7 @@
  * paquet ferait dépendre la sentinelle du `dist` — donc un `dist` périmé
  * donnerait un faux rouge, et un `dist` absent un faux vert.
  *
- * Couvert par `npm run typecheck` (`tsgo -p tsconfig.tests.json`).
+ * Couvert par `npm run typecheck` — et par `tsgo --noEmit` seul, qui couvre les tests.
  *
  * Wrap `_typeOnly()` jamais appelé — `declare const` purement typage.
  */
@@ -163,7 +163,7 @@ void _typeOnly;
 
 describe("surface publique des subpaths navigateur", () => {
   it("nomme les types rendus par `nodefony/client`, `/react`, `/vue`, `/angular` et `/svelte` (compile-only)", () => {
-    // Rien à exécuter : la preuve est faite par `tsgo -p tsconfig.tests.json`.
+    // Rien à exécuter : la preuve est faite par le typecheck du cœur, tests compris.
     // Ce cas existe pour que la sentinelle apparaisse dans le rapport vitest —
     // un fichier de types muet dans le rapport finit par être oublié.
   });

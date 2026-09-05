@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["./rolldown.config.ts", "./src"],
+  "exclude": ["src/tests/**/*", "src/bin/**/*", "node_modules", "dist"]
+}

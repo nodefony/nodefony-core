@@ -8,6 +8,8 @@
     "outDir": "./dist/types",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "exclude": ["src/tests/**/*", "src/bin/**/*", "node_modules", "dist"]
 }
