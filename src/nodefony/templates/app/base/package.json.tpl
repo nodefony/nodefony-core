@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=24.0.0"
   },
-<% if (it.complete) { %>  "allowScripts": {
+<% if (it.complete && it.dialect === "sqlite") { %>  "allowScripts": {
     "better-sqlite3": false
   },
 <% } %>  "scripts": {
@@ -46,7 +46,10 @@
 <% if (it.complete) { %>    "@nodefony/orm-core": "^<%= it.nodefonyVersion %>",
     "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",
     "drizzle-orm": "<%= it.pkg["drizzle-orm"] %>",
-    "@nodefony/user": "^<%= it.nodefonyVersion %>",
+<% if (it.dialect === "postgres") { %>    "pg": "<%= it.pkg["pg"] %>",
+<% } else if (it.dialect === "mysql") { %>    "mysql2": "<%= it.pkg["mysql2"] %>",
+<% } else { %>    "better-sqlite3": "<%= it.pkg["better-sqlite3"] %>",
+<% } %>    "@nodefony/user": "^<%= it.nodefonyVersion %>",
     "@node-rs/argon2": "<%= it.pkg["@node-rs/argon2"] %>",
     "@nodefony/realtime": "^<%= it.nodefonyVersion %>",
     "@nodefony/security": "^<%= it.nodefonyVersion %>",

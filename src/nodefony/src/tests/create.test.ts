@@ -540,6 +540,52 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    /**
+     * 🔴 L'APPLICATION déclare le pilote qu'elle ouvre — et lui seul.
+     *
+     * `@nodefony/drizzle` porte les trois en dépendance de pair OPTIONNELLE :
+     * la bibliothèque sait parler aux trois moteurs et n'en impose aucun. Mais
+     * « optionnel pour la bibliothèque » ne veut pas dire « optionnel pour
+     * l'app » : celle-ci ouvre une base, et une seule. Sans cette déclaration,
+     * npm n'avertit personne de l'absence et l'application meurt au premier
+     * accès.
+     *
+     * Avant, `better-sqlite3` était une dépendance DURE de l'adaptateur : une
+     * application PostgreSQL compilait un binaire natif qu'elle n'ouvrirait
+     * jamais. Ce que ces cas tiennent, c'est la symétrie — ce qui est vrai pour
+     * SQLite doit l'être pour les deux autres, et l'inverse aussi : le pilote
+     * NON choisi doit être ABSENT.
+     */
+    for (const [base, present, absents] of [
+      ["sqlite", "better-sqlite3", ["pg", "mysql2"]],
+      ["postgres", "pg", ["better-sqlite3", "mysql2"]],
+      ["mysql", "mysql2", ["better-sqlite3", "pg"]],
+    ] as [string, string, string[]][]) {
+      it(`preset complete / ${base} : l'app déclare \`${present}\`, et lui seul`, () => {
+        const dest = path.join(tmp, `pilote-${base}`);
+        scaffold(dest, {
+          name: `pilote${base}`,
+          preset: "complete",
+          frontend: "none",
+          database: base,
+        });
+        const pkg = readJson(path.join(dest, "package.json"));
+        const deps = (pkg["dependencies"] ?? {}) as Record<string, string>;
+        assert.property(
+          deps,
+          present,
+          `une application ${base} doit déclarer son pilote`,
+        );
+        for (const absent of absents) {
+          assert.notProperty(
+            deps,
+            absent,
+            `une application ${base} n'a aucune raison d'embarquer \`${absent}\``,
+          );
+        }
+      });
+    }
+
     it("preset minimal : aucune politique, le paquet n'est pas là", () => {
       const dest = path.join(tmp, "npm-deny-minimal");
       scaffold(dest, {

@@ -24,6 +24,21 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Version ÉPINGLÉE comme dans le monorepo : en 0.x la mineure porte les
   // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
   "drizzle-orm": "0.45.2",
+  // ── Les trois pilotes de base, et pourquoi l'APPLICATION les déclare ──
+  //
+  // `@nodefony/drizzle` les porte en dépendance de pair OPTIONNELLE : la
+  // bibliothèque sait parler aux trois et n'en impose aucun — une application
+  // PostgreSQL n'a aucune raison de compiler un binaire natif SQLite, et
+  // c'était pourtant le cas (161 Mo d'image, un `node-gyp` pour rien).
+  //
+  // Mais « optionnel pour la bibliothèque » ne veut pas dire « optionnel pour
+  // l'app » — même raison que `@node-rs/argon2` ci-dessous : l'application, elle,
+  // OUVRE une base, et une seule. Le scaffold pose donc le pilote du dialecte
+  // CHOISI, et lui seul. Sans cette déclaration, npm n'avertit personne de son
+  // absence et l'application meurt au premier accès.
+  "better-sqlite3": "13.0.3",
+  pg: "8.23.0",
+  mysql2: "3.24.3",
   // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
   // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
   // à faire dans une image de production, qui APPLIQUE des migrations déjà

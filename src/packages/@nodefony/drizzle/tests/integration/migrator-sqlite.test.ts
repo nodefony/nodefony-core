@@ -84,7 +84,11 @@ describe("Applicateur de migrations (sqlite)", () => {
    *
    * @returns un pilote sur la même base, à fermer par l'appelant.
    */
-  const open = (): SqliteMigrationDriver => new SqliteMigrationDriver(dbFile);
+  const open = async (): Promise<SqliteMigrationDriver> => {
+    const driver = new SqliteMigrationDriver(dbFile);
+    await driver.connect();
+    return driver;
+  };
 
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), "nf-migrator-db-"));
@@ -123,7 +127,7 @@ describe("Applicateur de migrations (sqlite)", () => {
 
   it("stocke une empreinte préfixée de son algorithme", async () => {
     await migrator().migrate();
-    const driver = open();
+    const driver = await open();
     try {
       const rows = await driver.query<{ hash: string; success: number }>(
         `SELECT hash, success FROM ${HISTORY_TABLE}`,
@@ -213,7 +217,7 @@ describe("Applicateur de migrations (sqlite)", () => {
       },
     );
     // Rien n'a été appliqué : le refus précède toute écriture.
-    const driver = open();
+    const driver = await open();
     try {
       assert.equal(await driver.tableExists("widget"), false);
     } finally {
@@ -291,7 +295,7 @@ describe("Applicateur de migrations (sqlite)", () => {
       run.applied.map((a) => `${a.source}/${a.tag}`),
       ["framework/0001_framework_suite"],
     );
-    const driver = open();
+    const driver = await open();
     try {
       assert.equal(await driver.tableExists("jeton"), true);
     } finally {
@@ -320,7 +324,7 @@ describe("Applicateur de migrations (sqlite)", () => {
       },
     );
 
-    const driver = open();
+    const driver = await open();
     try {
       // DDL transactionnel : la migration fautive est annulée ENTIÈREMENT.
       assert.equal(await driver.tableExists("bon"), false);
@@ -366,7 +370,7 @@ describe("Applicateur de migrations (sqlite)", () => {
 
   it("exige une adoption explicite sur une base déjà peuplée", async () => {
     // Une base d'avant les migrations : les tables existent, l'historique non.
-    const seed = open();
+    const seed = await open();
     try {
       await seed.exec("CREATE TABLE widget (id TEXT PRIMARY KEY, label TEXT)");
     } finally {
@@ -470,7 +474,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // Une version ultérieure a ajouté une colonne à la table d'historique.
     // Un applicateur qui ferait `SELECT *` ou une insertion positionnelle
     // casserait ici — c'est ce qui rend l'évolution inoffensive.
-    const driver = open();
+    const driver = await open();
     try {
       await driver.exec(
         `ALTER TABLE ${HISTORY_TABLE} ADD COLUMN installed_rank INTEGER`,
@@ -491,7 +495,7 @@ describe("Applicateur de migrations (sqlite)", () => {
   });
 
   it("amorce la table d'historique sur une base qui n'en a pas", async () => {
-    const before = open();
+    const before = await open();
     try {
       assert.equal(await before.tableExists(HISTORY_TABLE), false);
     } finally {
@@ -500,7 +504,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // `status()` est en LECTURE SEULE : une sonde qui écrit n'est plus une sonde.
     const plan = await migrator().status();
     assert.equal(plan.pending.length, 1);
-    const after = open();
+    const after = await open();
     try {
       assert.equal(await after.tableExists(HISTORY_TABLE), false);
     } finally {
@@ -525,7 +529,7 @@ describe("Applicateur de migrations (sqlite)", () => {
       ["framework/0000_framework_init"],
     );
 
-    const driver = open();
+    const driver = await open();
     try {
       const rows = await driver.query<{ name: string }>(
         `SELECT name FROM sqlite_master WHERE type = 'table' AND name <> ? ` +
@@ -564,7 +568,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     const run = await dataOnly.migrate();
     assert.deepEqual(run.applied, [], "rien n'est appliqué");
 
-    const driver = open();
+    const driver = await open();
     try {
       const rows = await driver.query<{ name: string }>(
         `SELECT name FROM sqlite_master WHERE type = 'table' AND name <> ? ` +
@@ -606,6 +610,7 @@ describe("Applicateur de migrations (sqlite)", () => {
      */
     const tablesDe = async (fichier: string): Promise<string[]> => {
       const driver = new SqliteMigrationDriver(fichier);
+      await driver.connect();
       try {
         const rows = await driver.query<{ name: string }>(
           `SELECT name FROM sqlite_master WHERE type = 'table' AND name <> ? ` +
@@ -622,6 +627,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // entité de framework n'est enregistrée, donc aucune table n'est émise.
     const baseDerivee = path.join(root, "derive.db");
     const amorce = new SqliteMigrationDriver(baseDerivee);
+    await amorce.connect();
     await amorce.close();
 
     // Chemin B — la migration du même module, sources résolues par la MÊME
