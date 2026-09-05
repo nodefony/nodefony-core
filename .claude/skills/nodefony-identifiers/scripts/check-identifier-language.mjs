@@ -48,9 +48,27 @@
  * @output  `fichier:ligne  identifiant  ← mot(s) français  → suggestion` ;
  *          sortie 1 dès qu'un identifiant sort, 0 sinon, 2 sur erreur d'usage.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+/**
+ * Racine du dépôt, trouvée en REMONTANT jusqu'au dossier qui porte `.git`.
+ *
+ * Ce script vit dans un skill, donc à quatre niveaux de la racine : un
+ * `path.resolve(dirname, "..")` désignerait le dossier du skill, et le balayage
+ * rendrait « 0 identifiant » — un vert parfaitement faux. Remonter jusqu'à la
+ * marque du dépôt survit à tout déplacement du fichier.
+ */
+const findRepoRoot = () => {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (;;) {
+    if (existsSync(path.join(dir, ".git"))) return dir;
+    const up = path.dirname(dir);
+    if (up === dir) return process.cwd();
+    dir = up;
+  }
+};
 
 /**
  * Tables du dictionnaire, chargées depuis le JSON voisin.
@@ -1344,7 +1362,7 @@ if (
     console.log(HELP);
     process.exit(0);
   }
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const root = findRepoRoot();
   const paths = [];
   let exceptions = [];
   let json = false;

@@ -149,6 +149,12 @@ const CASES = [
   ["est-ce que la page s'affiche ?", "nodefony-browser"],
   ["prends une capture d'écran de la page", "nodefony-browser"],
   // — tickets
+  ["renomme ce symbole partout dans le dépôt", "nodefony-identifiers"],
+  ["il reste des identifiants français dans ce paquet", "nodefony-identifiers"],
+  [
+    "comment prouver que ce renommage n'a cassé aucun symbole",
+    "nodefony-identifiers",
+  ],
   ["ouvre un ticket pour ça", "nodefony-ticket"],
   ["ce titre de ticket est incompréhensible", "nodefony-ticket"],
   ["mets un lexique dans les tickets", "nodefony-ticket"],

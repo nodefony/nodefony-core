@@ -9,7 +9,7 @@
  * celle que le plan demandait.
  *
  * Usage :
- *   node scripts/check-rename-drift.mjs --plan tmp/plan.json [--base HEAD]
+ *   node .claude/skills/nodefony-identifiers/scripts/check-rename-drift.mjs --plan tmp/plan.json [--base HEAD]
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

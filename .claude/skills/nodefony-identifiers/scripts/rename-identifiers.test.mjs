@@ -6,7 +6,7 @@
  * et un raccourci d'objet relié à la mauvaise déclaration. Le troisième cas
  * garde la garde honnête — trop large, elle refuserait des renommages sûrs.
  *
- * Lancer : `npm run check:rename:test`
+ * Lancer : `node --test .claude/skills/nodefony-identifiers/scripts/rename-identifiers.test.mjs`
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";

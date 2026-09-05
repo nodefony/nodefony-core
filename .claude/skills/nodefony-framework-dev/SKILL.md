@@ -183,15 +183,10 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
   proposée ; `npm run check:lang:test` l'éprouve, `npm run check:lang:bench` prouve son absence de
   faux positif sur du code tiers. Une tolérance se DÉCLARE, avec sa raison, dans
   `DEFAULT_EXCEPTIONS` (une exception que rien n'active est signalée : elle mentirait).
-  **Renommer en masse : jamais de regex** — `scripts/rename-identifiers.mjs` renomme par le
-  LanguageService TypeScript depuis un plan JSON `{ fichier: { ancien: nouveau } }`
-  (`ancien@512` vise la déclaration d'une ligne précise), puis
-  `scripts/check-rename-drift.mjs` confronte le résultat au plan liaison par liaison et
-  `scripts/check-literals-unchanged.mjs` prouve qu'aucune chaîne affichée n'a bougé. Ce que le
-  typecheck ne voit PAS, et qui se contrôle à la main après chaque lot : un `as ancienNom` laissé
-  dans un barrel (le renommage préserve le nom exporté par un ALIAS, et la rupture n'a alors pas
-  eu lieu), les consommateurs en `.mjs` et les scripts hors de tout `tsconfig`, une clé de données
-  désignée par chaîne, et la prose qui NOMME le symbole déplacé.
+  **Renommer en masse : jamais de regex, et jamais sans preuve** — outils, recette et les huit
+  choses qu'un typecheck vert ne dit PAS (un membre privé rendu public, un raccourci d'objet relié
+  à la mauvaise déclaration, un alias qui annule la rupture, les consommateurs hors de tout
+  `tsconfig`) → skill `nodefony-identifiers`, à charger AVANT d'écrire le premier plan.
 - **0 `any`, 0 `@ts-ignore`** → `unknown` + narrowing. **ESM only** : `import`, jamais `require()`.
 - **Préfixe `node:`** obligatoire : `import fs from "node:fs"`.
 - **Named exports only** — pas de `default` (sauf legacy `export default Framework` déjà en place).

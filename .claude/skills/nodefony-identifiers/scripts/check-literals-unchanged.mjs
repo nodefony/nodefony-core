@@ -8,7 +8,7 @@
  * les littéraux de chaîne d'avant et d'après. Il lit les fichiers MODIFIÉS que
  * git rapporte, jamais une liste tenue à la main.
  *
- * Usage : node scripts/check-literals-unchanged.mjs [--base HEAD]
+ * Usage : node .claude/skills/nodefony-identifiers/scripts/check-literals-unchanged.mjs [--base HEAD]
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

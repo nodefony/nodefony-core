@@ -9,7 +9,7 @@
  * du dépôt veut que la prose reste en français.
  *
  * Usage :
- *   node scripts/rename-identifiers.mjs --project src/nodefony/tsconfig.json \
+ *   node .claude/skills/nodefony-identifiers/scripts/rename-identifiers.mjs --project src/nodefony/tsconfig.json \
  *        --plan tmp/plan.json [--dry]
  *
  * Le plan est un objet { "<fichier>": { "<ancienNom>": "<nouveauNom>" } }.

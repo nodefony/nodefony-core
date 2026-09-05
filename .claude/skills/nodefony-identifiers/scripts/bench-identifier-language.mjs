@@ -38,9 +38,27 @@
  * @output  taux de faux positifs par paquet, sensibilité, échantillon terrain ;
  *          sortie 1 si un seuil est franchi, 0 sinon, 2 sur erreur d'usage.
  */
-import { lstatSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+/**
+ * Racine du dépôt, trouvée en REMONTANT jusqu'au dossier qui porte `.git`.
+ *
+ * Ce script vit dans un skill, donc à quatre niveaux de la racine : un
+ * `path.resolve(dirname, "..")` désignerait le dossier du skill, et le balayage
+ * rendrait « 0 identifiant » — un vert parfaitement faux. Remonter jusqu'à la
+ * marque du dépôt survit à tout déplacement du fichier.
+ */
+const findRepoRoot = () => {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (;;) {
+    if (existsSync(path.join(dir, ".git"))) return dir;
+    const up = path.dirname(dir);
+    if (up === dir) return process.cwd();
+    dir = up;
+  }
+};
 
 import {
   analyzeSource,
@@ -49,7 +67,7 @@ import {
   stripProse,
 } from "./check-identifier-language.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = findRepoRoot();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. CORPUS — collecte bornée, qui REFUSE les liens symboliques.

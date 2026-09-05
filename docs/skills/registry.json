@@ -3,8 +3,8 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-09-05",
-  "count": 25,
-  "conformant": 25,
+  "count": 26,
+  "conformant": 26,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -1994,8 +1994,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 387,
-        "approxTokens": 8357
+        "bodyLines": 382,
+        "approxTokens": 8255
       },
       "requires": [],
       "resources": {
@@ -2020,6 +2020,7 @@
         "nodefony-create-frontend-module",
         "nodefony-create-module",
         "nodefony-frontend-dev",
+        "nodefony-identifiers",
         "nodefony-inspect",
         "nodefony-load-test",
         "nodefony-rfc",
@@ -2077,7 +2078,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "387",
+            "detail": "382",
             "advisory": true
           }
         ]
@@ -2481,6 +2482,279 @@
       "links": {
         "source": ".claude/skills/nodefony-html-report/SKILL.md",
         "doc": "docs/skills/nodefony-html-report.md"
+      }
+    },
+    {
+      "name": "nodefony-identifiers",
+      "summary": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni aucune chaîne affichée bougé.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "renommer un symbole partout",
+        "renommer en masse",
+        "écrire le code en anglais",
+        "des identifiants sont en français",
+        "ce nom de variable est en français",
+        "quels identifiants restent à traduire",
+        "ce renommage a-t-il tout attrapé ?",
+        "prouver qu'un renommage est complet",
+        "un membre privé est devenu public"
+      ],
+      "description": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni aucune chaîne affichée bougé. Porte ce qu'un typecheck vert ne dit PAS : un membre privé rendu public, un raccourci d'objet relié à la mauvaise déclaration, un alias qui annule la rupture, les consommateurs qu'aucun tsconfig ne voit. À charger AVANT de lancer le gate ou d'écrire un plan : les outils rendent un compte rassurant sans le protocole. Déclencheurs : \"renommer un symbole partout\", \"renommer en masse\", \"écrire le code en anglais\", \"des identifiants sont en français\", \"ce nom de variable est en français\", \"quels identifiants restent à traduire\", \"ce renommage a-t-il tout attrapé ?\", \"prouver qu'un renommage est complet\", \"un membre privé est devenu public\".",
+      "cost": {
+        "bodyLines": 204,
+        "approxTokens": 3987
+      },
+      "requires": [
+        "redis"
+      ],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/bench-identifier-language.mjs",
+            "purpose": "Banc — éprouve le gate de langue sur du corpus RÉEL, pas sur des cas choisis.",
+            "usage": [
+              "node scripts/bench-identifier-language.mjs",
+              "node scripts/bench-identifier-language.mjs --limit 4000 --json"
+            ],
+            "options": [
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--sample",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "HELP",
+                "help": ""
+              }
+            ],
+            "output": "taux de faux positifs par paquet, sensibilité, échantillon terrain ;",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/check-identifier-language.mjs",
+            "purpose": "Gate — les IDENTIFIANTS du code de production s'écrivent en anglais.",
+            "usage": [
+              "node scripts/check-identifier-language.mjs [chemins…]",
+              "node scripts/check-identifier-language.mjs --json",
+              "node scripts/check-identifier-language.mjs --exceptions mes-exceptions.json"
+            ],
+            "options": [
+              {
+                "flag": "--depth",
+                "help": ""
+              },
+              {
+                "flag": "--exceptions",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "HELP",
+                "help": ""
+              },
+              {
+                "name": "IDENT",
+                "help": ""
+              },
+              {
+                "name": "MODIFIERS",
+                "help": ""
+              }
+            ],
+            "output": "`fichier:ligne  identifiant  ← mot(s) français  → suggestion` ;",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/check-identifier-language.test.mjs",
+            "purpose": "Suite du gate de langue des identifiants — écrite pour le faire ÉCHOUER,",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/check-literals-unchanged.mjs",
+            "purpose": "Vérifie qu'un renommage n'a touché AUCUNE chaîne de caractères.",
+            "usage": [
+              "Usage : node .claude/skills/nodefony-identifiers/scripts/check-literals-unchanged.mjs [--base HEAD]"
+            ],
+            "options": [
+              {
+                "flag": "--base",
+                "help": ""
+              },
+              {
+                "flag": "--except",
+                "help": ""
+              },
+              {
+                "flag": "--name-only",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/check-rename-drift.mjs",
+            "purpose": "Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a",
+            "usage": [
+              "node .claude/skills/nodefony-identifiers/scripts/check-rename-drift.mjs --plan tmp/plan.json [--base HEAD]"
+            ],
+            "options": [
+              {
+                "flag": "--base",
+                "help": ""
+              },
+              {
+                "flag": "--fix",
+                "help": ""
+              },
+              {
+                "flag": "--plan",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/rename-identifiers.mjs",
+            "purpose": "Renomme des identifiants par le LanguageService TypeScript — jamais par regex.",
+            "usage": [
+              "node .claude/skills/nodefony-identifiers/scripts/rename-identifiers.mjs --project src/nodefony/tsconfig.json \\"
+            ],
+            "options": [
+              {
+                "flag": "--dry",
+                "help": ""
+              },
+              {
+                "flag": "--plan",
+                "help": ""
+              },
+              {
+                "flag": "--project",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/rename-identifiers.test.mjs",
+            "purpose": "Auto-contrôle de `rename-identifiers.mjs`.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--plan",
+                "help": ""
+              },
+              {
+                "flag": "--project",
+                "help": ""
+              },
+              {
+                "flag": "--test",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-framework-dev",
+        "nodefony-inspect"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "965",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "204",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-identifiers/SKILL.md",
+        "doc": "docs/skills/nodefony-identifiers.md"
       }
     },
     {
