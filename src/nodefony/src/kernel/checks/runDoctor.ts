@@ -956,6 +956,12 @@ export async function collectDoctorReport(
                 "les gardes du projet n'ont pas été LANCÉES — seule leur " +
                 "présence a été constatée",
               short: "non demandé",
+              // NON DEMANDÉ n'est pas EMPÊCHÉ. Sans ce champ, le rendu écrit
+              // « non demandé » pendant que `preventedChecks` compte un
+              // empêchement : le texte et le verdict divergent, et `--strict`
+              // (que `CI` arme) condamne une application saine. C'est le
+              // défaut de l'étage 2, resté ouvert sur l'étage 3.
+              onDemand: true,
               unlock: "nodefony doctor --deep",
             }
           : { ran: true },
@@ -968,6 +974,10 @@ export async function collectDoctorReport(
                 "le registre npm n'a pas été interrogé — c'est du réseau, et " +
                 "il ne se paie que sur demande",
               short: "non demandé",
+              // Idem : ne pas AVOIR DEMANDÉ le réseau n'est pas un
+              // empêchement. Le registre qui ne répond pas, si — c'est le cas
+              // juste en dessous, et lui reste condamnable.
+              onDemand: true,
               unlock: "nodefony doctor --deep",
             }
           : deep.outdated === null

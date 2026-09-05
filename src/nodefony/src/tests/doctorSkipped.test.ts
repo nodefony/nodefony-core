@@ -313,6 +313,34 @@ describe("doctor — la doctrine du régime strict, de bout en bout", () => {
     assert.equal(await codeDe(["--strict"]), 1);
   });
 
+  it("🔴 l'étage 3 (`--deep`) non demandé ne condamne pas non plus", async () => {
+    // Le correctif de l'étage 2 s'est arrêté à `--live`. `verify` et `outdated`
+    // ont continué d'AFFICHER « non demandé » sans porter `onDemand` : le texte
+    // du rapport et le champ qui décide du code de sortie disaient le
+    // contraire. Effet mesuré en forge — `doctor` rendait « RIEN À SIGNALER »
+    // sur les quatre plateformes, et sortait en 1.
+    //
+    // Le décor doit être un PROJET : `findProjectRoot` exige `package.json` ET
+    // `nodefony.config.ts`. Sans les deux, les familles sortent « hors projet »
+    // — empêchées à bon droit — et le cas serait vert sans rien mesurer.
+    writeFileSync(path.join(dir, "nodefony.config.ts"), "export default {};");
+    const report = await collectDoctorReport(dir);
+
+    assert.isTrue(
+      report.execution.verify.onDemand,
+      "les gardes non LANCÉES sont non demandées, pas empêchées",
+    );
+    assert.isTrue(
+      report.execution.outdated.onDemand,
+      "le registre npm non interrogé est non demandé, pas empêché",
+    );
+    const empeches = preventedChecks(controlesSautes(report.execution)).map(
+      (c) => c.famille,
+    );
+    assert.notInclude(empeches, "verify");
+    assert.notInclude(empeches, "outdated");
+  });
+
   it("⭐ la COLLECTE pose elle-même « non demandé » sur l'étage 2", async () => {
     // La brique (`liveNotRun`) était éprouvée, la CHAÎNE ne l'était pas — c'est
     // par là que le défaut précédent était passé. Ici on vérifie que
