@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-04 20:47** (UTC).
+> Empreinte prise le **2026-09-05 00:01** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -15,8 +15,8 @@
 
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
-| 10.1 | 26 | 2 | — |
-| 10.0.0 | 42 | 101 | 2026-11-15 |
+| 10.1 | 27 | 2 | — |
+| 10.0.0 | 39 | 104 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -27,7 +27,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 42 ouverts
+## Jalon 10.0.0 — 39 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -37,9 +37,6 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
 | 4.5 | P1 — figé à la création | 1.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
-| 6 | P1 — figé à la création | 1 | #189 | feat(cli): refaire l'aide de nodefony pour l'humain et pour l'agent |
-| 6.3 | P2 — décision | 0.5 | #192 | docs(cli): réécrire en français les descriptions des commandes |
-| 6.4 | P1 — figé à la création | 0.5 | #193 | fix(cli): tenir la promesse de --help sur les commandes standalone |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 11 | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
@@ -74,7 +71,7 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
-## Jalon 10.1 — 26 ouverts
+## Jalon 10.1 — 27 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -104,4 +101,5 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 136 | P3 — fin de cycle | 1 | #173 | feat(scaffold): servir l'application derrière un proxy inverse dans le compose |
 | 137 | P2 — décision | 0.5 | #188 | test(mcp): dire POURQUOI l'outil de diagnostic n'a pas répondu |
 | 139 | P3 — fin de cycle | 0.5 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
+| 140 | P2 — décision | 0.5 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
 

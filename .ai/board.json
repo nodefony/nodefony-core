@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-04T20:47:49.823Z",
+  "generatedAt": "2026-09-05T00:01:47.770Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 2,
       "dueOn": null,
-      "open": 26,
+      "open": 27,
       "title": "10.1"
     },
     {
-      "closed": 101,
+      "closed": 104,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 42,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -1147,8 +1147,8 @@
       "number": 189,
       "title": "feat(cli): refaire l'aide de nodefony pour l'humain et pour l'agent",
       "url": "https://github.com/nodefony/nodefony-core/issues/189",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1231,8 +1231,8 @@
       "number": 192,
       "title": "docs(cli): réécrire en français les descriptions des commandes",
       "url": "https://github.com/nodefony/nodefony-core/issues/192",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -1259,8 +1259,8 @@
       "number": 193,
       "title": "fix(cli): tenir la promesse de --help sur les commandes standalone",
       "url": "https://github.com/nodefony/nodefony-core/issues/193",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2496,6 +2496,20 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 139,
+      "labels": [
+        "10.1"
+      ]
+    },
+    {
+      "number": 196,
+      "title": "fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique",
+      "url": "https://github.com/nodefony/nodefony-core/issues/196",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 140,
       "labels": [
         "10.1"
       ]

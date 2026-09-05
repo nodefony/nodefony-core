@@ -130,7 +130,7 @@ function firstAction(payload: unknown): string | undefined {
  * module quand celui-ci est présent, pour que la copie ne puisse pas dériver
  * en silence.
  */
-const MIGRATIONS_SAINES = "up-to-date";
+const HEALTHY_MIGRATION_VERDICT = "up-to-date";
 
 /**
  * L'état des migrations du connecteur par défaut.
@@ -212,7 +212,7 @@ async function checkMigrations(
       },
     };
 
-  if (verdict === MIGRATIONS_SAINES)
+  if (verdict === HEALTHY_MIGRATION_VERDICT)
     return { findings: [], execution: { ran: true } };
 
   const summary = readString(read.data, "summary");

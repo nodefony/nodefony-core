@@ -668,7 +668,7 @@ function sommaire(
   const { freshness, readiness, wiring, findings, scanned, execution } = report;
   const etat = (n: number): EtatSection => (n > 0 ? "echec" : "ok");
   /**
-   * Les familles qui CONSTATENT au lieu d'accuser.
+   * Les familles qui REPORTING_ONLY au lieu d'accuser.
    *
    * 🔴 `gating` relève ce que l'environnement visé retire. Qu'un module
    * `policy: "dev"` disparaisse en production est sa raison d'être : le rendre
@@ -676,7 +676,7 @@ function sommaire(
    * et le geste qui suivait — « retire `policy: "dev"` » — aurait embarqué
    * l'outillage de développement en production.
    */
-  const CONSTATENT: ReadonlySet<CheckFamily> = new Set(["gating"]);
+  const REPORTING_ONLY: ReadonlySet<CheckFamily> = new Set(["gating"]);
   const ligne = (
     famille: CheckFamily,
     n: number,
@@ -688,7 +688,8 @@ function sommaire(
     return exec.ran
       ? {
           titre: TITRES[famille],
-          etat: n > 0 && CONSTATENT.has(famille) ? "avertissement" : etat(n),
+          etat:
+            n > 0 && REPORTING_ONLY.has(famille) ? "avertissement" : etat(n),
           detail,
         }
       : {
