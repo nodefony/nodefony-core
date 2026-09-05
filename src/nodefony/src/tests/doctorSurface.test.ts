@@ -347,6 +347,56 @@ describe("collectDoctorReport — le dialecte vient de l'app, pas du terminal", 
     );
   });
 
+  /**
+   * 🔴 L'EXCEPTION aussi est une chaîne, et elle a cassé sans un mot.
+   *
+   * `checkSurface` reçoit `dialectExceptions` en argument, et un cas l'éprouve
+   * — la BRIQUE. Mais entre le manifeste de l'application et cet argument il y
+   * a `readExceptions`, et personne ne parcourait ce trajet. Le retrait de
+   * l'alias `check` de la commande a renommé la clé lue en `nodefony.doctor` :
+   * le produit et le manifeste du dépôt ont suivi, le gabarit posé par le banc
+   * devkit non. Une exception écrite sous un nom que personne ne lit ne se
+   * signale JAMAIS — elle laisse simplement le contrôle accuser, et la forge
+   * est restée rouge sur les quatre plateformes.
+   */
+  it("⭐ la CHAÎNE : l'exception déclarée dans le manifeste fait taire le contrôle", async () => {
+    appPostgres();
+    poser(
+      "package.json",
+      JSON.stringify({
+        name: "app-pg",
+        version: "1.0.0",
+        nodefony: { doctor: { entityDialect: ["entity/Facture.ts"] } },
+      }),
+    );
+    const report = await collectDoctorReport(racine);
+    assert.equal(report.surface.dialect, "sqlite");
+    assert.deepStrictEqual(
+      report.surface.findings.filter((f) => f.kind === "entity-other-dialect"),
+      [],
+      "le projet a DÉCLARÉ que cette divergence est voulue",
+    );
+  });
+
+  it("…et sous un AUTRE nom de clé, l'exception ne vaut rien — c'est ce qui a mordu", async () => {
+    appPostgres();
+    poser(
+      "package.json",
+      JSON.stringify({
+        name: "app-pg",
+        version: "1.0.0",
+        // L'ancien nom, celui que le banc posait encore.
+        nodefony: { check: { entityDialect: ["entity/Facture.ts"] } },
+      }),
+    );
+    const report = await collectDoctorReport(racine);
+    assert.lengthOf(
+      report.surface.findings.filter((f) => f.kind === "entity-other-dialect"),
+      1,
+      "une clé que `readExceptions` ne lit pas n'excuse rien, et ne le dit pas",
+    );
+  });
+
   it("`.env` committé compte aussi, et `.env.local` prime sur lui", async () => {
     appPostgres();
     poser(".env", "NF_DATABASE_URL=mysql://app@localhost:3306/app\n");

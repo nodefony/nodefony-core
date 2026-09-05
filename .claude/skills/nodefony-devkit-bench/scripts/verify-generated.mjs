@@ -956,19 +956,25 @@ step(
     // 🔴 Décâblées ne suffit pas : `doctor` scanne les FICHIERS, pas le
     // câblage. Il voyait donc deux entités PostgreSQL dans une application
     // SQLite et les accusait — « la table ne sera jamais créée » —, ce qui
-    // faisait échouer l'étape unitaire qui appelle `nodefony check`. La forge
+    // faisait échouer l'étape unitaire qui appelle `nodefony doctor`. La forge
     // est restée rouge une journée là-dessus.
     //
     // Le produit offre le mécanisme exact pour ce cas, et son message le dit :
     // « le projet a DÉCLARÉ que cette divergence est voulue — un dépôt qui
     // porte un banc multi-moteurs ne doit pas être condamné pour cela ». Le
     // banc EST ce dépôt : il déclare, plutôt que d'être excusé en silence.
+    //
+    // 🔴 La clé est `nodefony.doctor`, celle que `readExceptions` LIT
+    // (`runDoctor.ts:141`). Elle s'appelait `nodefony.check` ; le retrait de
+    // l'alias de la commande l'a renommée dans le produit et dans le manifeste
+    // du dépôt, mais pas ici — et une exception posée sous un nom que personne
+    // ne lit ne se signale JAMAIS : elle laisse simplement le contrôle accuser.
     const manifestePath = path.join(APP, "package.json");
     const manifeste = JSON.parse(readFileSync(manifestePath, "utf8"));
     manifeste.nodefony ??= {};
-    manifeste.nodefony.check ??= {};
+    manifeste.nodefony.doctor ??= {};
     // Écrits en `/` : c'est une clé qui VOYAGE, lue sur les trois systèmes.
-    manifeste.nodefony.check.entityDialect = [
+    manifeste.nodefony.doctor.entityDialect = [
       "entity/PgAuthor.ts",
       "entity/PgInvoice.ts",
     ];

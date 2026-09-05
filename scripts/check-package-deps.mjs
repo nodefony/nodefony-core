@@ -5,7 +5,7 @@
  * Ce fichier ne décide de rien : il EXPLIQUE. L'analyse vit dans le cœur
  * (`nodefony/src/kernel/checks/packageDeps.ts`) et sert aussi la commande
  * `nodefony doctor`, disponible dans toute application ; les exceptions sont
- * déclarées dans le `package.json` racine, sous `nodefony.check`, exactement là
+ * déclarées dans le `package.json` racine, sous `nodefony.doctor`, exactement là
  * où une application déclarerait les siennes. Deux implémentations d'une même
  * règle divergent toujours — et deux LISTES de la même règle aussi : c'est
  * précisément la faute que cette garde cherche.
