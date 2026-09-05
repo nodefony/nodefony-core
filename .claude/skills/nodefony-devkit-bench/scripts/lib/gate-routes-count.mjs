@@ -175,6 +175,50 @@ export async function judge(bin) {
     return;
   }
   const rapport = readFileSync("AUDIT.md", "utf8");
+  // 🔴 UN COMPTE NE SE PROUVE PAS AVEC DEUX INSTRUMENTS.
+  //
+  // Ce juge exigeait le chiffre que LUI obtient, par la porte MCP interrogée en
+  // ANONYME. L'agent, lui, interroge l'application par la voie qu'il veut — la
+  // CLI locale, la carte de visite, la porte avec un jeton — et ces voies ne
+  // rendent pas le même nombre : une porte anonyme ne voit pas ce qu'un appelant
+  // local voit. Mesuré sur une nuit de banc : l'agent avait écrit « 155 routes »
+  // avec le détail par module, exact et vérifiable ; le juge a remesuré 150,
+  // cherché `\b150\b`, et l'a recalé. C'est l'axiome 13 du dépôt transposé —
+  // un ORDRE ne se prouve pas avec deux horloges, un COMPTE pas davantage.
+  //
+  // On accepte donc TOUT compte qu'une voie légitime rend. Les deux sont
+  // mesurées : la porte, et le kernel booté à froid (qui voit ce qu'un appelant
+  // local voit). Un rapport qui porte l'un OU l'autre a répondu à la question
+  // posée — « combien de routes cette application expose-t-elle ».
+  // La seconde voie n'est mesurée QUE si la première ne suffit pas : bouter un
+  // kernel à froid coûte une seconde et n'apprend rien quand le rapport porte
+  // déjà le compte de la porte. Un juge qui paie systématiquement ce qu'il
+  // n'utilisera pas devient un juge qu'on n'ose plus lancer.
+  const porteDansLeRapport = new RegExp(`\\b${compte}\\b`).test(rapport);
+  const froidPourTolerance =
+    !porteDansLeRapport && "compte" in parLaPorte
+      ? compteParKernelFroid(bin)
+      : null;
+  const comptesAcceptes = [
+    compte,
+    ...(froidPourTolerance && "compte" in froidPourTolerance
+      ? [froidPourTolerance.compte]
+      : []),
+  ];
+  const annonce = comptesAcceptes.find((n) =>
+    new RegExp(`\\b${n}\\b`).test(rapport),
+  );
+  if (annonce !== undefined) {
+    const autres = comptesAcceptes.filter((n) => n !== annonce);
+    process.stdout.write(
+      `routes=${annonce}, annoncé — source : ${source}` +
+        (autres.length > 0
+          ? ` (une autre voie en compte ${autres.join(", ")} : ` +
+            `la porte anonyme et l'appelant local ne voient pas la même chose)\n`
+          : "\n"),
+    );
+    process.exit(0);
+  }
   if (!new RegExp(`\\b${compte}\\b`).test(rapport)) {
     exit(
       1,
@@ -182,8 +226,9 @@ export async function judge(bin) {
         ? `CAUSE=compte-sur-autre-application — routes réelles=${compte} selon ` +
             `${source} ; le rapport ne le porte pas, mais ce compte ne vient PAS ` +
             `de l'application que l'agent a interrogée.`
-        : `CAUSE=compte-non-annonce — routes réelles=${compte} selon ${source}, ` +
-            `absent du rapport`,
+        : `CAUSE=compte-non-annonce — le rapport ne porte AUCUN des comptes ` +
+            `qu'une voie légitime rend (${comptesAcceptes.join(", ")}) ; ` +
+            `référence : ${compte} selon ${source}`,
     );
     return;
   }

@@ -307,6 +307,33 @@ const port = await portLibre();
     repli.sortie.trim(),
   );
 }
+// ─── Le rouge nomme TOUTES les voies, pas seulement celle du juge ─────────────
+// 🔴 Un compte ne se prouve pas avec deux instruments : la porte MCP interrogée
+// en anonyme et l'appelant local ne voient pas le même nombre de routes.
+// L'agent répond par la voie qu'il veut ; le juge doit donc accepter tout compte
+// qu'une voie légitime rend, et son rouge doit DIRE lesquels il a acceptés —
+// sinon il envoie chercher une erreur de comptage là où il n'y a qu'un écart
+// d'instrument. Vécu : « 155 » écrit avec le détail par module, recalé contre
+// un « 150 » mesuré par une autre porte.
+{
+  const srv = await porteFactice(port, 512);
+  const faux = await jouer({
+    rapport: "L'application expose **901** routes.",
+    port,
+    bin: BIN_MORT,
+  });
+  verifier(
+    "le rouge dit qu'AUCUN compte accepté ne figure au rapport",
+    /AUCUN des comptes/u.test(faux.sortie),
+    faux.sortie.trim(),
+  );
+  verifier(
+    "le rouge ÉNUMÈRE les comptes acceptés",
+    /\(512\)/u.test(faux.sortie),
+    faux.sortie.trim(),
+  );
+  srv.close();
+}
 
 process.stdout.write(
   echecs === 0
