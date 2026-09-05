@@ -68,9 +68,9 @@ class <%= it.nameClass %> extends Command {
     }
     // Remplace cet appel par le tien : ce que ces lignes MONTRENT, c'est comment
     // on obtient le service — le reste est de la mise en forme.
-    const resultat = await svc.<%= it.service.method %>();
+    const result = await svc.<%= it.service.method %>();
     const message =
-      typeof resultat === "string" ? resultat : JSON.stringify(resultat, null, 2);
+      typeof result === "string" ? result : JSON.stringify(result, null, 2);
     if (who) {
       this.log(`argument reçu : ${who}`, "DEBUG");
     }

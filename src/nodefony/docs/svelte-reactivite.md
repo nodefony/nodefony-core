@@ -141,22 +141,22 @@ production.
     nodefonyState,
   } from "nodefony/svelte";
 
-  interface Evenement {
-    texte: string;
+  interface LiveEvent {
+    text: string;
     ts: number;
   }
 
   const live = nodefony();
   // `.current` se lit tel quel ; `$derived` lui donne un nom local si tu préfères.
-  const etat = nodefonyState();
-  const dernier = nodefonyChannelData<Evenement>("live:events");
+  const state = nodefonyState();
+  const last = nodefonyChannelData<LiveEvent>("live:events");
 
-  const dire = (texte: string) => live.emit("live:dire", { texte });
+  const say = (text: string) => live.emit("live:say", { text });
 </script>
 
-<p>connexion : {etat.current}</p>
-{#if dernier.current}<p>{dernier.current.texte}</p>{/if}
-<button onclick={() => dire("bonjour")}>envoyer</button>
+<p>connexion : {state.current}</p>
+{#if last.current}<p>{last.current.text}</p>{/if}
+<button onclick={() => say("bonjour")}>envoyer</button>
 ```
 
 Il n'y a **rien à libérer** : quand le composant meurt, plus aucun effet ne lit la valeur, et

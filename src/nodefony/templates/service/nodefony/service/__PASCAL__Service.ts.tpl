@@ -123,7 +123,7 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
    * `container.get("<%= it.inject.key %>")`, qui cherche à l'exécution et rend
    * `undefined` en silence si le service n'est pas enregistré.
    */
-  async depuis<%= it.inject.pascal %>(): Promise<unknown> {
+  async from<%= it.inject.pascal %>(): Promise<unknown> {
     return this.<%= it.inject.camel %>.<%= it.inject.method %>();
   }
 <% } %>

@@ -158,28 +158,28 @@ import {
   injectNodefonyState,
 } from "nodefony/angular";
 
-interface Evenement {
-  texte: string;
+interface LiveEvent {
+  text: string;
   ts: number;
 }
 
 @Component({
   selector: "app-root",
   template: `
-    <p>connexion : {{ etat() }}</p>
-    @if (dernier(); as e) {
-      <p>{{ e.texte }}</p>
+    <p>connexion : {{ state() }}</p>
+    @if (last(); as e) {
+      <p>{{ e.text }}</p>
     }
-    <button (click)="dire('bonjour')">envoyer</button>
+    <button (click)="say('bonjour')">envoyer</button>
   `,
 })
 export class AppComponent {
   private readonly live = injectNodefony();
-  readonly etat = injectNodefonyState();
-  readonly dernier = injectNodefonyChannelData<Evenement>("live:events");
+  readonly state = injectNodefonyState();
+  readonly last = injectNodefonyChannelData<LiveEvent>("live:events");
 
-  dire(texte: string): void {
-    this.live.emit("live:dire", { texte });
+  say(text: string): void {
+    this.live.emit("live:say", { text });
   }
 }
 ```
@@ -208,7 +208,7 @@ import { Component, signal } from "@angular/core";
 import { injectNodefonyChannelData } from "nodefony/angular";
 
 interface Message {
-  texte: string;
+  text: string;
 }
 
 @Component({ selector: "app-salon", template: `` })

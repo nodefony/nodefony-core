@@ -38,7 +38,7 @@ interface SecureData {
 }
 
 /** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
-interface Evenement {
+interface LiveEvent {
   n: number;
   ts: number;
   pid: number;
@@ -205,12 +205,12 @@ interface Evenement {
           </p>
           <p>
             état : <strong>{{ liveState() }}</strong>
-            @if (dernier(); as e) {
-              <span> · reçu <strong>{{ e.texte }}</strong> (pid {{ e.pid }})</span>
+            @if (last(); as e) {
+              <span> · reçu <strong>{{ e.text }}</strong> (pid {{ e.pid }})</span>
             }
           </p>
           <button (click)="doPing()">RPC live:ping</button>
-          <button (click)="doDire()">envoyer sur le canal</button>
+          <button (click)="doSay()">envoyer sur le canal</button>
           @if (pingMs(); as ms) {
             <span class="nf-dim"> pong en {{ ms }} ms</span>
           }
@@ -262,7 +262,7 @@ export class AppComponent implements OnInit, OnDestroy {
   // serveur est ref-compté et rejoué à chaque reconnexion ; ces règles vivent
   // dans le socle du framework, identiques en React, Vue, Angular et Svelte.
   liveState = injectNodefonyState();
-  dernier = injectNodefonyChannelData<Evenement>("live:events");
+  last = injectNodefonyChannelData<LiveEvent>("live:events");
   pingMs = signal<number | null>(null);
   /** La socket elle-même — pour ce qu'on lui DIT (`emit`, `request`). */
   #live = injectNodefony();
@@ -385,9 +385,9 @@ export class AppComponent implements OnInit, OnDestroy {
    * second onglet et cliquer suffit à le voir. C'est ce partage qui fait
    * l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
    */
-  doDire() {
-    this.#live.emit("live:dire", {
-      texte: `bonjour de la page (${Date.now() % 1000})`,
+  doSay() {
+    this.#live.emit("live:say", {
+      text: `bonjour de la page (${Date.now() % 1000})`,
     });
   }
 <% } else { %>

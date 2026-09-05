@@ -39,7 +39,7 @@
  * <script setup lang="ts">
  * import { useNodefonyChannelData, useNodefonyState } from "nodefony/vue";
  * const etat = useNodefonyState();
- * const dernier = useNodefonyChannelData<Evenement>("live:events");
+ * const last = useNodefonyChannelData<LiveEvent>("live:events");
  * </script>
  * ```
  *

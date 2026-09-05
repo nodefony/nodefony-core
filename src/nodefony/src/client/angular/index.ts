@@ -61,7 +61,7 @@
  * @Component({ selector: "app-root", template: `{{ etat() }}` })
  * export class AppComponent {
  *   readonly etat = injectNodefonyState();
- *   readonly dernier = injectNodefonyChannelData<Evenement>("live:events");
+ *   readonly last = injectNodefonyChannelData<LiveEvent>("live:events");
  * }
  * ```
  *

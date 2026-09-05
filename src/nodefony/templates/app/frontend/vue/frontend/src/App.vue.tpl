@@ -44,8 +44,8 @@ const error = ref<string | null>(null);
 const count = ref(0);
 <% if (it.complete) { %>
 /** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
-interface Evenement {
-  texte: string;
+interface LiveEvent {
+  text: string;
   ts: number;
   pid: number;
 }
@@ -56,7 +56,7 @@ interface Evenement {
 // libère. L'abonnement serveur est ref-compté et rejoué à chaque reconnexion.
 const live = useNodefony();
 const liveState = useNodefonyState();
-const dernier = useNodefonyChannelData<Evenement>("live:events");
+const last = useNodefonyChannelData<LiveEvent>("live:events");
 const pingMs = ref<number | null>(null);
 <% } else { %>const wsInput = ref("ping");
 const wsLog = ref<string[]>([]);
@@ -177,9 +177,9 @@ onUnmounted(() => {
 // Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir un
 // second onglet et cliquer suffit à le voir. C'est ce partage qui fait l'intérêt
 // d'une socket — pas un battement qui parlerait pour ne rien dire.
-const doDire = () =>
-  live.emit("live:dire", {
-    texte: `bonjour de la page (${Date.now() % 1000})`,
+const doSay = () =>
+  live.emit("live:say", {
+    text: `bonjour de la page (${Date.now() % 1000})`,
   });
 <% } else { %>const sendWs = () => {
   if (ws?.readyState === WebSocket.OPEN) {
@@ -327,10 +327,10 @@ const doDire = () =>
         </p>
         <p>
           état : <strong>{{ liveState }}</strong>
-          <template v-if="dernier"> · reçu <strong>{{ dernier.texte }}</strong> (pid {{ dernier.pid }})</template>
+          <template v-if="last"> · reçu <strong>{{ last.text }}</strong> (pid {{ last.pid }})</template>
         </p>
         <button @click="doPing">RPC live:ping</button>
-        <button @click="doDire">envoyer sur le canal</button>
+        <button @click="doSay">envoyer sur le canal</button>
         <span v-if="pingMs !== null" class="nf-dim"> pong en {{ pingMs }} ms</span>
       </div>
 <% } else { %>      <div class="nf-card">

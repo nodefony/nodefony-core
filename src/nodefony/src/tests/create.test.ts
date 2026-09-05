@@ -423,7 +423,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // distribuerait un battement enseignerait le polling inversé à chaque
       // application générée.
       assert.notInclude(live, "setInterval");
-      assert.include(live, '@RealtimeInbound("live:dire")');
+      assert.include(live, '@RealtimeInbound("live:say")');
       // Policy INLINE visible : l'ouverture d'une action est un choix ÉCRIT,
       // la protection par rôle est démontrée à côté.
       assert.include(
@@ -446,7 +446,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(e2e, 'from "nodefony/client"');
       assert.include(e2e, 'live.request("live:ping"');
       assert.include(e2e, 'live.subscribe("live:events")');
-      assert.include(e2e, 'live.emit("live:dire"');
+      assert.include(e2e, 'live.emit("live:say"');
     });
 
     it("secrets PAR-PROJET : .env.local porte 3 clés uniques, .gitignore les exclut", () => {
@@ -1719,7 +1719,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(rapp, '<NodefonyProvider url="/api/live/realtime">');
       assert.include(rapp, "useNodefony()");
       assert.include(rapp, "useNodefonyState()");
-      assert.include(rapp, 'useNodefonyChannelData<Evenement>("live:events")');
+      assert.include(rapp, 'useNodefonyChannelData<LiveEvent>("live:events")');
       assert.include(rapp, 'live.request("live:ping"');
       assert.notInclude(rapp, "new WebSocket(");
       // Les deux concepts RETIRÉS ne doivent pas revenir par la bande : sans ces
@@ -1746,7 +1746,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(vmain, '.use(nodefonyVue, { url: "/api/live/realtime" })');
       assert.include(vapp, "useNodefony()");
       assert.include(vapp, "useNodefonyState()");
-      assert.include(vapp, 'useNodefonyChannelData<Evenement>("live:events")');
+      assert.include(vapp, 'useNodefonyChannelData<LiveEvent>("live:events")');
       assert.include(vapp, 'live.request("live:ping"');
       assert.notInclude(vapp, "new WebSocket(");
       // Les mêmes deux refus qu'en React, pour la même raison : sans eux, on
@@ -1782,7 +1782,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(aapp, "injectNodefonyState()");
       assert.include(
         aapp,
-        'injectNodefonyChannelData<Evenement>("live:events")',
+        'injectNodefonyChannelData<LiveEvent>("live:events")',
       );
       assert.include(aapp, '#live.request("live:ping"');
       assert.notInclude(aapp, "new WebSocket(");
@@ -1818,7 +1818,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(sapp2, "nodefony()");
       assert.include(sapp2, "nodefonyState()");
-      assert.include(sapp2, 'nodefonyChannelData<Evenement>("live:events")');
+      assert.include(sapp2, 'nodefonyChannelData<LiveEvent>("live:events")');
       assert.include(sapp2, 'live.request("live:ping"');
       assert.notInclude(sapp2, "new WebSocket(");
       assert.notInclude(sapp2, "RealtimeClient.shared(");
@@ -1913,7 +1913,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(sapp, "nodefony()");
-      assert.include(sapp, 'nodefonyChannelData<Evenement>("live:events")');
+      assert.include(sapp, 'nodefonyChannelData<LiveEvent>("live:events")');
       assert.include(sapp, "$state");
       assert.notInclude(sapp, "new WebSocket(");
       const sentry = readFileSync(
@@ -3206,7 +3206,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "interfaces", "IInvoiceService.ts"),
         "utf8",
       );
-      assert.include(itf, "depuisBillingService(): Promise<unknown>;");
+      assert.include(itf, "fromBillingService(): Promise<unknown>;");
       assert.include(
         (r.notes ?? []).join("\n"),
         "BillingService est injecté par le CONSTRUCTEUR",

@@ -127,22 +127,22 @@ import {
   useNodefonyState,
 } from "nodefony/vue";
 
-interface Evenement {
-  texte: string;
+interface LiveEvent {
+  text: string;
   ts: number;
 }
 
 const live = useNodefony();
-const etat = useNodefonyState();
-const dernier = useNodefonyChannelData<Evenement>("live:events");
+const state = useNodefonyState();
+const last = useNodefonyChannelData<LiveEvent>("live:events");
 
-const dire = (texte: string): void => live.emit("live:dire", { texte });
+const say = (text: string): void => live.emit("live:say", { text });
 </script>
 
 <template>
-  <p>connexion : {{ etat }}</p>
-  <p v-if="dernier">{{ dernier.texte }}</p>
-  <button @click="dire('bonjour')">envoyer</button>
+  <p>connexion : {{ state }}</p>
+  <p v-if="last">{{ last.text }}</p>
+  <button @click="say('bonjour')">envoyer</button>
 </template>
 ```
 

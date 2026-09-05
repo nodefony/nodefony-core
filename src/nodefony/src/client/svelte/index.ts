@@ -58,10 +58,10 @@
  * <script lang="ts">
  *   import { nodefonyState, nodefonyChannelData } from "nodefony/svelte";
  *   const etat = nodefonyState();
- *   const dernier = nodefonyChannelData<Evenement>("live:events");
+ *   const last = nodefonyChannelData<LiveEvent>("live:events");
  * </script>
  * <p>connexion : {etat.current}</p>
- * {#if dernier.current}<p>{dernier.current.texte}</p>{/if}
+ * {#if last.current}<p>{last.current.text}</p>{/if}
  * ```
  *
  * @module nodefony/svelte

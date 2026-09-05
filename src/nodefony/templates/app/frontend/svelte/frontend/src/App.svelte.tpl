@@ -43,8 +43,8 @@
   let count = $state(0);
 <% if (it.complete) { %>
   /** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
-  interface Evenement {
-    texte: string;
+  interface LiveEvent {
+    text: string;
     ts: number;
     pid: number;
   }
@@ -54,10 +54,10 @@
   const live = nodefony();
   // Les valeurs se lisent `.current` ; `$derived` les rend au reste du fichier.
   // Rien à libérer : l'abonnement est rendu quand plus aucun effet ne les lit.
-  const etatVivant = nodefonyState();
-  const liveState = $derived(etatVivant.current);
-  const flux = nodefonyChannelData<Evenement>("live:events");
-  const dernier = $derived(flux.current);
+  const liveStateStore = nodefonyState();
+  const liveState = $derived(liveStateStore.current);
+  const flux = nodefonyChannelData<LiveEvent>("live:events");
+  const last = $derived(flux.current);
   let pingMs = $state<number | null>(null);
 <% } else { %>  let wsInput = $state("ping");
   let wsLog = $state<string[]>([]);
@@ -176,9 +176,9 @@
   // Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir un
   // second onglet et cliquer suffit à le voir. C'est ce partage qui fait
   // l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
-  const doDire = () =>
-    live.emit("live:dire", {
-      texte: `bonjour de la page (${Date.now() % 1000})`,
+  const doSay = () =>
+    live.emit("live:say", {
+      text: `bonjour de la page (${Date.now() % 1000})`,
     });
 <% } else { %>  const sendWs = () => {
     if (ws?.readyState === WebSocket.OPEN) {
@@ -333,10 +333,10 @@
       </p>
       <p>
         état : <strong>{liveState}</strong>
-        {#if dernier} · reçu <strong>{dernier.texte}</strong> (pid {dernier.pid}){/if}
+        {#if last} · reçu <strong>{last.text}</strong> (pid {last.pid}){/if}
       </p>
       <button onclick={doPing}>RPC live:ping</button>
-      <button onclick={doDire}>envoyer sur le canal</button>
+      <button onclick={doSay}>envoyer sur le canal</button>
       {#if pingMs !== null}<span class="nf-dim"> pong en {pingMs} ms</span>{/if}
     </div>
 <% } else { %>    <div class="nf-card">

@@ -73,7 +73,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     const live = new RealtimeClient({ url: `${WS_BASE}/api/live/realtime` });
     try {
       // Listener posé AVANT subscribe : le fournisseur démarre au 1ᵉʳ abonné.
-      const recuP = new Promise<unknown>((resolve, reject) => {
+      const receivedP = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(
           () => reject(new Error("timeout canal 10s")),
           10_000,
@@ -92,10 +92,10 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       // reçoivent. C'est ce partage qui fait l'intérêt d'une socket, pas un
       // battement qui coûterait une trame par seconde et par client.
       live.subscribe("live:events");
-      live.emit("live:dire", { texte: "bonjour e2e" });
-      const recu = (await recuP) as { texte: string; pid: number };
-      expect(recu.texte).toBe("bonjour e2e");
-      expect(recu.pid).toBeGreaterThan(0);
+      live.emit("live:say", { text: "bonjour e2e" });
+      const received = (await receivedP) as { text: string; pid: number };
+      expect(received.text).toBe("bonjour e2e");
+      expect(received.pid).toBeGreaterThan(0);
     } finally {
       // Le nettoyage vit dans le `finally` : une assertion qui tombe ne doit
       // jamais laisser une socket ouverte derrière le run.
