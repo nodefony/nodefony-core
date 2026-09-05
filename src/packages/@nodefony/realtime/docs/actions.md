@@ -294,10 +294,11 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:50
 | frame refusée par le verrou     | `-32001 "unauthorized"`                  | motif générique : pas d'oracle d'autorisation   |
 
 > [!WARNING]
-> **`RealtimeError` n'est pas l'erreur du protocole.** Son `code` est une chaîne de diagnostic
-> (`RealtimeError.ts:12`), pas un code JSON-RPC : la lever depuis une action donne un
-> `-32603` opaque comme n'importe quelle exception. Pour choisir ce que voit le client, c'est
-> `RpcError` (`JsonRpcPeer.ts:70`), importée depuis `nodefony`.
+> **Le temps réel n'a qu'UNE erreur, et elle vient du cœur.** Pour choisir ce que voit le client,
+> c'est `RpcError` (`JsonRpcPeer.ts:71`), importée depuis `nodefony` — son `code` est un entier
+> JSON-RPC et son `data` traverse le fil. Toute autre exception donne un `-32603` opaque. Ne pas
+> chercher d'erreur maison dans `@nodefony/realtime` : il n'y en a pas, et
+> `tests/unit/errorSurface.test.ts` refuse d'en exporter une que personne ne lève.
 
 ## 🔐 Autorisation — qui peut appeler quoi
 
@@ -524,7 +525,6 @@ passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit 
 | Le client attend indéfiniment, aucune erreur                 | le handler ne rend jamais (il publie au lieu de retourner) — pas de frame `result` | toujours `return` une valeur ; publier **en plus**, jamais **à la place**          |
 | `-32601 method not found`                                    | nom mal orthographié, ou action déclarée sur un **autre** endpoint                 | vérifier `socket.serverMethods` — c'est la liste réelle de CETTE connexion         |
 | `-32603 internal error` sans détail                          | un `throw` ordinaire est rendu opaque au client (Zero Trust)                       | lever une `RpcError` avec un code et un message publiables                         |
-| Une `RealtimeError` levée arrive en `-32603`                 | son `code` est une chaîne de diagnostic, pas un code JSON-RPC                      | utiliser `RpcError` (`JsonRpcPeer.ts:70`) pour parler au client                    |
 | `-32001 unauthorized` sur une action légitime                | le nom commence par `nodefony:`, le namespace réservé à la plateforme              | renommer hors de `nodefony:`, ou obtenir `ROLE_ADMIN`                              |
 | Une action sensible est appelable par un anonyme             | une action applicative est **libre** tant qu'aucune politique ne la couvre         | ajouter une règle de préfixe (`security/nodefony/config/config.ts:906`)            |
 | Un travail relancé crée deux jobs                            | action non idempotente rejouée après une reconnexion                               | action compagnon d'annulation, ou identifiant fourni par l'appelant + mémorisation |

@@ -130,7 +130,6 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 | `registerBackplaneDriver` / `getBackplaneDriver` / `listBackplaneDrivers` | functions | Registre ouvert de drivers |
 | `IBackplane` | interface | Contrat d'un fond de panier |
 | `IRealtimeAuthenticator` / `IRealtimeToken` / `IRealtimeHandshake` | interfaces | Seams sécurité du handshake |
-| `RealtimeError` | class | Erreur de base (code + contexte) |
 | `ANONYMOUS_REALTIME_TOKEN` | const | Jeton anonyme gelé — fallback Zero Trust |
 
 ## Tester un controller — `@nodefony/realtime/testing`

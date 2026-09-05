@@ -1,11 +1,11 @@
 {
-  "generated": "2026-09-05T13:25:55.638Z",
+  "generated": "2026-09-05T14:06:48.046Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 812,
-    "symbols": 3892,
-    "classes": 386,
+    "files": 811,
+    "symbols": 3891,
+    "classes": 385,
     "interfaces": 1058,
     "types": 442,
     "enums": 4,
@@ -23960,17 +23960,6 @@
       "module": "@nodefony/realtime",
       "description": "Transport de production : `process.send` + `process.on(\"message\")`."
     },
-    "RealtimeError": {
-      "name": "RealtimeError",
-      "kind": "class",
-      "file": "src/packages/@nodefony/realtime/nodefony/src/errors/RealtimeError.ts",
-      "exported": true,
-      "module": "@nodefony/realtime",
-      "extends": "Error",
-      "implements": [],
-      "decorators": [],
-      "description": "Erreur de base pour"
-    },
     "ANONYMOUS_REALTIME_TOKEN": {
       "name": "ANONYMOUS_REALTIME_TOKEN",
       "kind": "const",
@@ -26670,8 +26659,7 @@
         "MigrationToolError",
         "MigrationLockTimeoutError",
         "MigrationVerdictError",
-        "FrontendError",
-        "RealtimeError"
+        "FrontendError"
       ],
       "EventEmitter": [
         "Event"

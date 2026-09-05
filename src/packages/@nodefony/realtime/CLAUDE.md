@@ -86,7 +86,6 @@ src/packages/@nodefony/realtime/
 └── nodefony/
     ├── interfaces/                     ← IBackplane, IRealtimeController, IRealtimeProbe, IRealtimeAuthenticator
     ├── src/
-    │   ├── errors/RealtimeError.ts
     │   ├── server/                     ← RealtimeHub, RealtimeController, RealtimeAdminApi
     │   ├── backplane/                  ← LoopbackBackplane, ClusterBackplane, RedisBackplane + backplaneRegistry
     │   ├── config/defineModuleConfig.ts  ← builder + Zod

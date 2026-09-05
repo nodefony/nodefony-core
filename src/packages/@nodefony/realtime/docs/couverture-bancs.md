@@ -32,36 +32,44 @@ node scripts/realtime-coverage-map.mjs          # le relevé lisible
 node scripts/realtime-coverage-map.mjs --json   # pour un autre outil
 ```
 
-Le critère est mécanique : **un fichier de test IMPORTE-t-il ce module ?** Il ne
-juge pas si le test l'exerce vraiment — un import peut ne servir qu'à un décor.
+Le critère est mécanique : **un fichier de test ATTEINT-il ce module ?** —
+directement, ou à travers un module source lui-même testé. Il ne juge pas si le
+test l'exerce vraiment : un import peut ne servir qu'à un décor.
 Il balaie tout `src/`, plus les scripts de charge du skill `nodefony-load-test`,
 et range chaque banc par son CHEMIN (`/tests/integration/`, `.e2e.`,
 `/tests/websockets/` → jonction ; `.mjs` du skill → charge ; le reste → unitaire).
 
-**Deux limites, à connaître avant de croire un verdict :**
+**Sa limite, à connaître avant de croire un verdict : atteint n'est pas
+exercé.** Un module peut être importé pour un décor, ou traversé sans que sa
+logique propre soit éprouvée — cela ne se voit qu'en lisant le banc. La colonne
+« atteints à travers un module testé » est là pour ça : elle nomme le chemin,
+elle ne délivre pas un quitus.
 
-1. **Il ne voit que l'import DIRECT.** Un module atteint par défaut à travers un
-   autre sort « éprouvé par personne » à tort — c'est le cas de
-   `BrowserWsTransport`, que `RealtimeClient` fabrique lui-même et qu'un banc de
-   `@nodefony/http` exerce donc pour de vrai. Un module signalé se contrôle à la
-   main.
-2. **Importé n'est pas exercé.** L'inverse du premier point, et il ne se voit
-   qu'en lisant le banc.
-
-> ⚠️ Une première version de ce relevé ne balayait que les tests du module
-> `realtime` et accusait `BrowserWsTransport`. Un périmètre trop étroit ne rend
-> pas un verdict incomplet : il rend un verdict FAUX, et celui-là mettait
-> l'instrument à l'abri en accusant le code.
+> ⚠️ Cet instrument a rendu **trois** verdicts faux avant d'être corrigé, et
+> chacun accusait le code au lieu de lui-même. Une première version ne balayait
+> que les tests du module `realtime` et accusait `BrowserWsTransport` : un
+> périmètre trop étroit ne rend pas un verdict incomplet, il rend un verdict
+> FAUX. La suivante ne voyait que l'import DIRECT et a déclaré `publishQueue`
+> « éprouvé par personne » alors qu'un banc portant son nom
+> (`backplanePublishQueue.test.ts`) l'exerce depuis des semaines à travers
+> `RedisBackplane` — le relevé l'avait sous les yeux, dans sa propre colonne.
+> Deux tickets ont été ouverts sur ces faux. Une carte de couverture se
+> contrôle comme le reste : par le terrain, pas par sa sortie.
 
 ## Les trous, et ce qu'ils coûtent
 
-### Aucun test n'importe ces modules
+### Aucun test ne les atteint
 
-| Module                                           | Ce qu'un défaut y passerait sans être vu                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `publishQueue` (`src/backplane/publishQueue.ts`) | La file de publication vers le fond de panier est **bornée** : au-delà, elle jette. Rien n'éprouve ce qui se passe quand elle sature — ni le rejet, ni ce que l'émetteur en apprend. Une rafale cross-pod perdrait des messages **en silence**, et le symptôme apparaîtrait sur un AUTRE pod que celui qui a jeté.                      |
-| `RealtimeError` (`src/errors/RealtimeError.ts`)  | Le type d'erreur propre au module. Personne ne vérifie qu'il porte ce qu'il annonce (code, canal, cause) : une erreur qui perd son contexte est une erreur qu'on diagnostique en lisant le code du framework, pas les journaux.                                                                                                         |
-| `BrowserWsTransport`                             | **Faux positif de l'instrument** — exercé indirectement par `client-isomorphe-e2e.test.ts` (`@nodefony/http`), qui monte un vrai serveur WSS et un vrai `RealtimeClient`. Aucun test ne l'importe _directement_ : sa logique propre (états, reconnexion, codes de fermeture) n'est donc éprouvée qu'à travers ce que le client en fait. |
+**Aucun.** Les trente modules source du temps réel sont atteints par au moins un
+banc. Ce n'est pas un quitus — voir la section suivante, puis celle des modules
+jamais éprouvés dans la jonction.
+
+### Atteints seulement À TRAVERS un module testé
+
+| Module               | Chemin d'atteinte                                                                                                                                                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publishQueue`       | via `RedisBackplane` — `backplanePublishQueue.test.ts` (11 cas : saturation, anti-famine, drainage, échec du bus, hystérésis de l'annonce, ordre du jeté, contrôle négatif synchrone) et le banc de contre-pression RÉELLE de `RedisBackplane.test.ts` contre un vrai bus. |
+| `BrowserWsTransport` | via `RealtimeClient` — `client-isomorphe-e2e.test.ts` (`@nodefony/http`) monte un vrai serveur WSS et un vrai client. Sa logique propre (états, reconnexion, codes de fermeture) n'est éprouvée qu'à travers ce que le client en fait.                                     |
 
 ### Éprouvés en unitaire, jamais dans la jonction
 
@@ -87,7 +95,6 @@ les deux qui ne portait pas.
 | `AdaptiveRate`           | unit · charge       | `AdaptiveRate.test.ts`, `aimd-demo.mjs`                                                                             |
 | `AnonymousRealtimeToken` | unit                | `RealtimeHubSecurity.test.ts`, `RealtimeController.test.ts`, `RealtimeService.test.ts`                              |
 | `backplaneRegistry`      | unit                | `healthBackplaneDrivers.test.ts`, `backplaneRegistry.test.ts`                                                       |
-| `BrowserWsTransport`     | —                   | —                                                                                                                   |
 | `channelRate`            | unit                | `platformChannels.test.ts`, `channelRate.test.ts`                                                                   |
 | `ClusterBackplane`       | unit · charge       | `ClusterBackplane.test.ts`, `backplaneRegistry.test.ts`, `cluster-ipc.mjs`                                          |
 | `ClusterProbeClient`     | unit · charge       | `ClusterProbeClient.test.ts`, `cluster-health-endpoint-e2e.mjs`, `cluster-orm-rich-e2e.mjs`                         |
@@ -102,11 +109,9 @@ les deux qui ne portait pas.
 | `observe`                | unit · charge       | `clientObserve.test.ts`, `db-backend-cost.mjs`, `aimd-demo.mjs`                                                     |
 | `originId`               | unit · charge       | `originId.test.ts`, `RealtimeHub.test.ts`, `cluster-ipc.mjs`                                                        |
 | `platformChannels`       | unit · e2e          | `platformChannels.test.ts`, `clientSyslogUplink.test.ts`, `clientObserve.test.ts`                                   |
-| `publishQueue`           | —                   | —                                                                                                                   |
 | `RealtimeAdminApi`       | unit                | `healthBackplaneDrivers.test.ts`                                                                                    |
 | `RealtimeClient`         | unit · e2e          | `NodefonyProvider.test.ts`, `clientAngular.test.ts`, `clientSvelte.test.ts`                                         |
 | `RealtimeController`     | unit · e2e          | `realtimeChannelCap.attack.test.ts`, `realtimeUnknownChannel.test.ts`, `RealtimeController.test.ts`                 |
-| `RealtimeError`          | —                   | —                                                                                                                   |
 | `RealtimeEventMap`       | unit · e2e          | `JsonRpcPeer.types.test.ts`, `RealtimeClient.types.test.ts`, `JsonRpcPeer.test.ts`                                  |
 | `RealtimeHub`            | unit · e2e · charge | `realtimeUnenforcedPolicy.attack.test.ts`, `realtimeRevocation.attack.test.ts`, `realtimeChannelCap.attack.test.ts` |
 | `RealtimeService`        | unit · e2e          | `RealtimeService.test.ts`, `realtimeFirewallWiring.e2e.test.ts`                                                     |
