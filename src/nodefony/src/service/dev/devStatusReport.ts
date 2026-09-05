@@ -449,13 +449,13 @@ export async function collectDevStatus(
   const listening = ports.find(
     (p) => p.listening && owners[p.port] === undefined,
   );
-  const sonde = listening
+  const probe = listening
     ? await (opts.probeReadiness ?? probeReadiness)(listening.port)
     : null;
   // Le compte vient du runtime, le détail du fichier qu'il publie. On ne NOMME
   // que si les deux concordent : nommer depuis un fichier en retard d'un cycle
   // ferait chercher une cause déjà levée.
-  const readiness = withBlockedBy(sonde, cwd);
+  const readiness = withBlockedBy(probe, cwd);
   return buildDevStatus(
     cwd,
     pid,
@@ -497,11 +497,11 @@ export async function runStatusReport(
   const portsVoisins = [
     ...new Set(projects.filter((p) => !p.current).flatMap((p) => p.ports)),
   ].filter((port) => !report.ports.some((p) => p.port === port));
-  const sondesVoisines =
+  const neighborProbes =
     portsVoisins.length > 0
       ? await (deps.probe ?? probePorts)(portsVoisins)
       : [];
-  renderStatus(lines, report, projects, sondesVoisines);
+  renderStatus(lines, report, projects, neighborProbes);
   // UN écrit synchrone (writeSync) → jamais tronqué par l'exit qui suit.
   (deps.write ?? ((chunk: string) => writeSync(1, chunk)))(
     lines.join("\n") + "\n",
@@ -563,7 +563,7 @@ function renderForeign(
    * réécriture de ce rendu.
    */
   projects: readonly IProjectRuntime[] = [],
-  sondesVoisines: readonly PortState[] = [],
+  neighborProbes: readonly PortState[] = [],
 ): void {
   if (report.foreign.length === 0) return;
   // Un projet voisin se lit comme le nôtre : MÊME tableau, sous son nom. La liste
@@ -581,11 +581,11 @@ function renderForeign(
   }
   // Les sondes DÉJÀ faites sont transmises : ce sont les mêmes ports, il n'y a
   // aucune raison de les présenter deux fois avec deux degrés de certitude.
-  for (const projet of voisins)
+  for (const project of voisins)
     renderProjectBlock(
       lines,
-      projet,
-      [...report.ports, ...sondesVoisines],
+      project,
+      [...report.ports, ...neighborProbes],
       report.portOwners,
     );
 }
@@ -602,46 +602,47 @@ function renderForeign(
  */
 function renderProjectBlock(
   lines: string[],
-  projet: IProjectRuntime,
+  project: IProjectRuntime,
   /** États sondés — fournis pour NOTRE projet seulement. */
-  sondes: readonly PortState[] = [],
+  probes: readonly PortState[] = [],
   owners: Readonly<Record<number, string>> = {},
 ): void {
-  const marque = projet.current
-    ? `${ANSI.cyan}▸ ${ANSI.bold}${projet.name}${ANSI.reset} ${ANSI.dim}— ce projet${ANSI.reset}`
-    : `  ${ANSI.bold}${projet.name}${ANSI.reset}`;
+  const label = project.current
+    ? `${ANSI.cyan}▸ ${ANSI.bold}${project.name}${ANSI.reset} ${ANSI.dim}— ce projet${ANSI.reset}`
+    : `  ${ANSI.bold}${project.name}${ANSI.reset}`;
   const source =
-    projet.nameSource === "dossier"
+    project.nameSource === "dossier"
       ? ` ${ANSI.dim}(nom du dossier — aucun nom dans package.json)${ANSI.reset}`
       : "";
   lines.push(
     "",
-    `  ${marque}${source}`,
-    `    ${ANSI.dim}${projet.root}${ANSI.reset}`,
+    `  ${label}${source}`,
+    `    ${ANSI.dim}${project.root}${ANSI.reset}`,
   );
-  if (projet.procs.length > 0) renderProcessTable(lines, projet.procs, "    ");
+  if (project.procs.length > 0)
+    renderProcessTable(lines, project.procs, "    ");
 
   // Un port dont la SONDE a déjà répondu ne se présente pas comme « non sondé » :
   // le rapport porte l'état de tous les ports qu'il a interrogés, et `portOwners`
   // dit à qui ils appartiennent. Annoncer « déclaré, non sondé » un port que la
   // ligne du dessus donne pour occupé est un mensonge du rapport sur lui-même —
   // exactement le genre d'écart qui fait douter de tout le reste.
-  const rendus = projet.ports.map((port) => {
-    const sonde = sondes.find((s) => s.port === port);
-    const tenuPar = owners[port];
+  const rendered = project.ports.map((port) => {
+    const probe = probes.find((s) => s.port === port);
+    const heldBy = owners[port];
     // Un port déclaré par ce projet mais attribué à un AUTRE trahit un état
     // périmé : le dire plutôt que rendre un verdict qui semblerait le sien.
-    if (tenuPar !== undefined && tenuPar !== projet.root)
-      return `${port} ${ANSI.yellow}tenu par ${tenuPar}${ANSI.reset}`;
-    if (sonde)
-      return sonde.listening
+    if (heldBy !== undefined && heldBy !== project.root)
+      return `${port} ${ANSI.yellow}tenu par ${heldBy}${ANSI.reset}`;
+    if (probe)
+      return probe.listening
         ? `${port} ${ANSI.green}✓ écoute${ANSI.reset}`
         : `${port} ${ANSI.red}✗ silencieux${ANSI.reset}`;
     return `${port} ${ANSI.dim}déclaré${ANSI.reset}`;
   });
-  if (rendus.length > 0)
-    lines.push(`    ${ANSI.dim}ports${ANSI.reset}   ${rendus.join("   ")}`);
-  if (rendus.some((r) => r.includes("déclaré")))
+  if (rendered.length > 0)
+    lines.push(`    ${ANSI.dim}ports${ANSI.reset}   ${rendered.join("   ")}`);
+  if (rendered.some((r) => r.includes("déclaré")))
     lines.push(
       `    ${ANSI.dim}        « déclaré » = publié par le projet, pas sondé par cette commande${ANSI.reset}`,
     );
@@ -740,7 +741,7 @@ function renderStatus(
   report: DevStatusReport,
   projects: readonly IProjectRuntime[] = [],
   /** États des ports des projets VOISINS, réellement sondés par l'appelant. */
-  sondesVoisines: readonly PortState[] = [],
+  neighborProbes: readonly PortState[] = [],
 ): void {
   const tag = `${ANSI.dim}[status]${ANSI.reset}`;
   const { processes: procs } = report;
@@ -795,7 +796,7 @@ function renderStatus(
         : `  ${ANSI.dim}aucun package.json qui dépende de « nodefony » ici${ANSI.reset}\n` +
             `  ${ANSI.dim}→ place-toi à la racine d'une app, ou crée-en une : ${ANSI.reset}${ANSI.cyan}nodefony create app${ANSI.reset}`,
     );
-    renderForeign(lines, report, projects, sondesVoisines);
+    renderForeign(lines, report, projects, neighborProbes);
     renderSummary(lines, report, projects);
     lines.push("");
     return;
@@ -835,7 +836,7 @@ function renderStatus(
   }
   for (const w of report.warnings)
     lines.push(`  ${ANSI.yellow}⚠ ${w}${ANSI.reset}`);
-  renderForeign(lines, report, projects, sondesVoisines);
+  renderForeign(lines, report, projects, neighborProbes);
   renderSummary(lines, report, projects);
   lines.push("");
 }

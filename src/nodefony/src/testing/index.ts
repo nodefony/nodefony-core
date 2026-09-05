@@ -254,7 +254,7 @@ export async function startSpareApp(
   const root = options.root ?? process.cwd();
   const timeoutMs = options.timeoutMs ?? 60_000;
   // L'état d'exécution est relevé AVANT le spawn : c'est la seule photo fidèle.
-  const etat = readStateFiles(root);
+  const state = readStateFiles(root);
 
   const child = spawn(process.execPath, [nodefonyBin(), "production"], {
     cwd: root,
@@ -273,71 +273,71 @@ export async function startSpareApp(
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  let sortie = "";
-  child.stdout?.on("data", (c: Buffer) => (sortie += c.toString()));
-  child.stderr?.on("data", (c: Buffer) => (sortie += c.toString()));
-  let mort: number | null = null;
-  child.on("exit", (code: number | null) => (mort = code ?? -1));
+  let output = "";
+  child.stdout?.on("data", (c: Buffer) => (output += c.toString()));
+  child.stderr?.on("data", (c: Buffer) => (output += c.toString()));
+  let exitCode: number | null = null;
+  child.on("exit", (code: number | null) => (exitCode = code ?? -1));
 
-  const arreter = async (): Promise<void> => {
-    if (mort === null && typeof child.pid === "number") {
+  const stop = async (): Promise<void> => {
+    if (exitCode === null && typeof child.pid === "number") {
       signalProcessGroup(child.pid, "SIGKILL");
     }
     await once(child, "exit").catch(() => undefined);
-    restoreStateFiles(etat);
+    restoreStateFiles(state);
   };
 
-  const limite = Date.now() + timeoutMs;
+  const deadline = Date.now() + timeoutMs;
   for (;;) {
-    if (mort !== null) {
-      restoreStateFiles(etat);
+    if (exitCode !== null) {
+      restoreStateFiles(state);
       throw new Error(
-        `l'exemplaire jetable est mort avant de répondre (code ${mort}) :\n${sortie.slice(-2000)}`,
+        `l'exemplaire jetable est mort avant de répondre (code ${exitCode}) :\n${output.slice(-2000)}`,
       );
     }
     // `/livez` et non `/readyz` : on attend qu'il SERVE, pas qu'il soit prêt —
     // un exemplaire dont la mise en service est retenue répond quand même.
-    const vivant = await fetch(`http://127.0.0.1:${options.port}/livez`)
+    const alive = await fetch(`http://127.0.0.1:${options.port}/livez`)
       .then((r) => r.ok)
       .catch(() => false);
-    if (vivant) {
+    if (alive) {
       break;
     }
-    if (Date.now() > limite) {
-      await arreter();
+    if (Date.now() > deadline) {
+      await stop();
       throw new Error(
-        `l'exemplaire jetable n'a pas répondu sur le port ${options.port} en ${timeoutMs} ms :\n${sortie.slice(-2000)}`,
+        `l'exemplaire jetable n'a pas répondu sur le port ${options.port} en ${timeoutMs} ms :\n${output.slice(-2000)}`,
       );
     }
     await new Promise((r) => setTimeout(r, 250));
   }
 
-  return { port: options.port, output: () => sortie, stop: arreter };
+  return { port: options.port, output: () => output, stop: stop };
 }
 
 /** Contenu brut des fichiers d'état, ou `null` quand le fichier n'existe pas. */
-type EtatFichiers = ReadonlyArray<{ file: string; contenu: string | null }>;
+type StateFiles = ReadonlyArray<{ file: string; content: string | null }>;
 
 /** Relève les fichiers d'état qu'un exemplaire écrase en démarrant. */
-function readStateFiles(root: string): EtatFichiers {
+function readStateFiles(root: string): StateFiles {
   return [runtimeStateFile(root), readinessStateFile(root)].map((file) => {
     try {
-      return { file, contenu: readFileSync(file, "utf8") };
+      return { file, content: readFileSync(file, "utf8") };
     } catch {
-      return { file, contenu: null };
+      return { file, content: null };
     }
   });
 }
 
 /** Rend les fichiers d'état à ce qu'ils étaient — y compris leur absence. */
-function restoreStateFiles(etat: EtatFichiers): void {
-  for (const { file, contenu } of etat) {
+function restoreStateFiles(state: StateFiles): void {
+  for (const { file, content } of state) {
     try {
-      if (contenu === null) {
+      if (content === null) {
         rmSync(file, { force: true });
       } else {
         mkdirSync(path.dirname(file), { recursive: true });
-        writeFileSync(file, contenu, "utf8");
+        writeFileSync(file, content, "utf8");
       }
     } catch {
       /* best-effort : ne jamais faire échouer un arrêt sur un ménage */

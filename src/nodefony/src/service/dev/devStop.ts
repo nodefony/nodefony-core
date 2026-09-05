@@ -187,17 +187,17 @@ export function scopeAllToNodefonyProjects(
  * @param getCwd - lecture du répertoire courant d'un pid.
  * @returns les racines distinctes, sans celles qu'on n'a pas pu lire.
  */
-export function projetsDuPoste(
+export function hostProjects(
   procs: readonly DevProcessInfo[],
   getCwd: (pid: number) => string | null = processCwd,
 ): string[] {
-  const racines = new Set<string>();
+  const roots = new Set<string>();
   for (const p of procs) {
     if (p.role === "vite") continue;
     const cwd = getCwd(p.pid);
-    if (cwd) racines.add(path.resolve(cwd));
+    if (cwd) roots.add(path.resolve(cwd));
   }
-  return [...racines];
+  return [...roots];
 }
 
 /** Applique {@link scopeAllToNodefonyProjects} et ANNONCE les process épargnés. */
@@ -395,9 +395,9 @@ export async function runStopReport(
     ? [
         ...new Set([
           ...defaultDevPorts(cwd),
-          ...projetsDuPoste(before, opts.getCwd).flatMap(
-            (racine) =>
-              readRuntimeState(racine, { purgeStale: false })?.ports ?? [],
+          ...hostProjects(before, opts.getCwd).flatMap(
+            (projectRoot) =>
+              readRuntimeState(projectRoot, { purgeStale: false })?.ports ?? [],
           ),
         ]),
       ]

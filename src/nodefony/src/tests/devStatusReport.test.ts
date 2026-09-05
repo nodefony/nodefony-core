@@ -15,7 +15,7 @@ import {
   isStandaloneDevCommand,
   runStatusReport,
 } from "../service/dev/devStatusReport";
-import { projetsDuPoste, runStopReport } from "../service/dev/devStop";
+import { hostProjects, runStopReport } from "../service/dev/devStop";
 import {
   readRuntimeState,
   writeReadinessState,
@@ -400,14 +400,14 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     // Éprouvé sur la fonction PURE qui décide QUELLES racines interroger : le
     // chemin complet TUE, il n'a pas sa place dans une suite.
     writeRuntimeState(neighbour, { pid: process.pid, ports: [5153, 5154] });
-    const racines = projetsDuPoste(theirs, (pid: number) =>
+    const racines = hostProjects(theirs, (pid: number) =>
       theirs.some((p) => p.pid === pid) ? neighbour : null,
     );
     assert.deepStrictEqual(racines, [path.resolve(neighbour)]);
     // Un Vite n'apporte pas de racine : son parent la porte déjà, et il travaille
     // parfois dans un sous-dossier.
     assert.strictEqual(
-      projetsDuPoste(
+      hostProjects(
         theirs.filter((p) => p.role === "vite"),
         () => path.join(neighbour, "frontend"),
       ).length,
