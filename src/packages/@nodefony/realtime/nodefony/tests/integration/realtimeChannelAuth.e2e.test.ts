@@ -9,6 +9,7 @@ import {
 } from "../../decorators/realtimeDecorators.js";
 import type { ContextType } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
+import type { IRealtimeWelcome } from "../../../../../../nodefony/src/realtime/RealtimeEventMap.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
 // Le VRAI verrou d'autorisation de @nodefony/security, importé EN SOURCE (comme le
@@ -257,11 +258,18 @@ const testAuth: IRealtimeAuthenticator = {
   authenticate: async () => currentToken,
 };
 
-/** Configure le hub (token + verrou) AVANT le handshake, puis connecte un pair. */
+/**
+ * Configure le hub (token + verrou) AVANT le handshake, puis connecte un pair.
+ *
+ * Rend AUSSI la frame `realtime:welcome` telle que le SERVEUR l'a émise : le
+ * client n'en garde qu'une partie (le mode d'exécution part dans un module
+ * global, jamais sur une propriété), et vérifier ce que le serveur PROMET est
+ * plus fort que vérifier ce que le client a bien voulu en retenir.
+ */
 async function connectAs(
   token: IRealtimeToken,
   environment?: string,
-): Promise<{ client: RealtimeClient }> {
+): Promise<{ client: RealtimeClient; welcome: Partial<IRealtimeWelcome> }> {
   const hub = getRealtimeHub();
   hub.clear();
   currentToken = token;
@@ -271,8 +279,32 @@ async function connectAs(
       channelResolver: hub,
       systemRules: DEFAULT_SYSTEM_RULES,
     }),
+    {
+      // La sonde MUETTE, posée comme `@nodefony/security` la pose : même
+      // fabrique, mêmes arguments, sans rapporteur d'audit. C'est elle que le
+      // `realtime:welcome` interroge pour n'annoncer que l'obtenable — sans
+      // elle, l'annonce reste entière et le banc du welcome ci-dessous tombe.
+      silentProbe: buildFrameAuthorizer(firewall, {
+        channelResolver: hub,
+        systemRules: DEFAULT_SYSTEM_RULES,
+      }),
+    },
   );
   const wire = new LoopbackWire();
+  // Écoute du câble AVANT le handshake : le welcome est la toute première frame
+  // descendante, l'installer après la connexion la manquerait.
+  let welcome: Partial<IRealtimeWelcome> = {};
+  const deliver = wire.deliverToClient.bind(wire);
+  wire.deliverToClient = (raw: string): void => {
+    try {
+      const f = JSON.parse(raw) as { method?: string; params?: unknown };
+      if (f.method === "realtime:welcome")
+        welcome = (f.params ?? {}) as Partial<IRealtimeWelcome>;
+    } catch {
+      /* frame illisible : le banc du protocole s'en occupe, pas celui-ci */
+    }
+    deliver(raw);
+  };
   makeServer(wire, environment);
   const transport = new LoopbackClientTransport(wire);
   const client = new RealtimeClient(
@@ -282,7 +314,7 @@ async function connectAs(
   await client.connect();
   await flush();
   await flush();
-  return { client };
+  return { client, welcome };
 }
 
 // ── La matrice : canal × prédicat d'autorisation attendu ──────────────────
@@ -594,5 +626,105 @@ describe("E2E — le détail d'un refus, de bout en bout", () => {
     expect(denials[0]!.reason).to.equal("unknown");
     expect(denials[0]!.detail).to.contain("canal:qui:nexiste:pas");
     client.disconnect();
+  });
+});
+
+/**
+ * MATRICE E2E « ce que le welcome ANNONCE » — la toute PREMIÈRE frame.
+ *
+ * 🔴 Elle n'était éprouvée dans aucun banc de bout en bout identité par
+ * identité, alors qu'elle porte tout ce dont un client se sert pour décider quoi
+ * afficher et à quoi s'abonner. La conséquence était mesurable : le welcome
+ * annonçait les MÊMES canaux à un anonyme et à un administrateur, quand le
+ * produit refuse par ailleurs de dire POURQUOI un canal est refusé
+ * (`RealtimeDeniedReason` est générique par construction, pour ne pas devenir un
+ * oracle). Il donnait la carte en gardant la serrure.
+ *
+ * Ce banc vérifie la JONCTION : vrai client ↔ vrai contrôleur ↔ vrai verrou.
+ */
+describe("MATRICE E2E — ce que le welcome ANNONCE (channels × identité)", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  for (const [tokenName, token] of Object.entries(TOKENS)) {
+    it(`${tokenName} : n'apprend l'existence QUE des canaux qu'il pourrait obtenir`, async () => {
+      const { client } = await connectAs(token);
+      const obtenables = CHANNELS.filter((c) => c.allow(token))
+        .map((c) => c.channel)
+        .sort();
+      expect([...client.serverChannels].sort()).to.deep.equal(obtenables);
+    });
+
+    it(`${tokenName} : le bloc identity porte les rôles et scopes de CE jeton`, async () => {
+      const { client } = await connectAs(token);
+      expect(client.identity?.type).to.equal(token.type);
+      expect(client.identity?.authenticated).to.equal(token.isAuthenticated());
+      expect(client.identity?.userIdentifier).to.equal(
+        token.getUserIdentifier(),
+      );
+      expect(client.identity?.roles).to.deep.equal(token.getRoles());
+      expect(client.identity?.scopes).to.deep.equal(token.getScopes());
+    });
+  }
+
+  it("un anonyme n'apprend AUCUN nom de canal sensible", async () => {
+    const { client } = await connectAs(TOKENS.anon);
+    // Nommés un par un, et pas déduits de `CHANNELS` : un cas qui recalcule son
+    // attendu avec la même expression que le produit passe quoi qu'il arrive.
+    for (const secret of [
+      "members:area",
+      "team:feed",
+      "admin:metrics",
+      "api:flux",
+      "nodefony:syslog",
+    ]) {
+      expect(client.serverChannels, secret).to.not.include(secret);
+    }
+    expect(client.serverChannels).to.include("chat:public");
+  });
+
+  it("l'administrateur, lui, les voit — le filtre ne referme pas tout", async () => {
+    const { client } = await connectAs(TOKENS.admin);
+    expect(client.serverChannels).to.include("admin:metrics");
+    expect(client.serverChannels).to.include("nodefony:syslog");
+    expect(client.serverChannels).to.not.include("api:flux"); // scope, pas rôle
+  });
+
+  it("le mode d'exécution est annoncé hors production, et ABSENT en production", async () => {
+    const dev = await connectAs(TOKENS.anon, "development");
+    expect(dev.welcome.env).to.equal("development");
+    const prod = await connectAs(TOKENS.anon, "production");
+    expect(prod.welcome).to.not.have.property("env");
+  });
+
+  /**
+   * 🔴 Le verrou et la sonde sont DEUX closures — la duplication est rendue
+   * inévitable par le rapporteur d'audit, que la sonde ne doit pas tirer. Deux
+   * copies d'une même règle divergent au premier ajout, et chacune passe ses
+   * propres tests : celle-ci les confronte canal par canal, identité par
+   * identité. Si elle tombe, c'est que l'annonce et le refus ne disent plus la
+   * même chose — la faute la plus coûteuse possible ici.
+   */
+  it("la sonde du welcome et le verrou de subscribe rendent le MÊME verdict", async () => {
+    // 🔴 Le décor d'abord : `hub.clear()` vide le registre des politiques, qui
+    // n'est peuplé qu'au MONTAGE du contrôleur. Sans cette connexion, aucun
+    // canal n'a de politique, tout est libre, et la comparaison serait verte
+    // pour la mauvaise raison — elle a d'ailleurs commencé par l'être.
+    await connectAs(TOKENS.anon);
+    const hub = getRealtimeHub();
+    const verrou = buildFrameAuthorizer(firewall, {
+      channelResolver: hub,
+      systemRules: DEFAULT_SYSTEM_RULES,
+    });
+    for (const [tokenName, token] of Object.entries(TOKENS)) {
+      for (const c of CHANNELS) {
+        const parLeVerrou = verrou(
+          { method: "subscribe", params: { channel: c.channel } },
+          token,
+        );
+        expect(parLeVerrou, `${tokenName} × ${c.channel}`).to.equal(
+          c.allow(token),
+        );
+      }
+    }
   });
 });

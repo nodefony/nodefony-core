@@ -287,6 +287,15 @@ export class RealtimeHub {
   // Cf runAuthorizer / hasFrameAuthorizer.
   #frameAuthorizer: FrameAuthorizer | null = null;
 
+  // Le MÊME verdict que `#frameAuthorizer`, mais MUET : posé par le même appel
+  // (`setFrameAuthorizer`), issu de la même fabrique, sans le rapporteur d'audit.
+  // Il sert à répondre « ce visiteur pourrait-il s'abonner ici ? » hors de toute
+  // tentative — le welcome, qui interroge N canaux à chaque connexion. Passer par
+  // le verrou lui-même y écrirait N refus au journal d'audit pour des demandes
+  // que PERSONNE n'a faites, et un journal d'audit inondé de non-évènements
+  // cesse d'être lu. `null` = aucune sonde → on ne filtre rien (cf probeChannel).
+  #channelProbe: FrameAuthorizer | null = null;
+
   // Seam #1b — registre des politiques de canal DÉCLARÉES (`@RealtimeChannel`/
   // `@RealtimeInbound` avec opts), indexé par nom de canal/méthode. Le hub ne
   // DÉCIDE rien (il ignore la hiérarchie de rôles et l'identité réelle) : il
@@ -991,8 +1000,15 @@ export class RealtimeHub {
    * `null` retire la politique (bypass total). Posé 1× au boot par
    * `@nodefony/security` depuis les zones `realtime: true`. Cold path.
    */
-  setFrameAuthorizer(authorizer: FrameAuthorizer | null): void {
+  setFrameAuthorizer(
+    authorizer: FrameAuthorizer | null,
+    options?: { readonly silentProbe?: FrameAuthorizer | null },
+  ): void {
     this.#frameAuthorizer = authorizer;
+    // 🔴 Posée par le MÊME appel, volontairement : deux seams séparés se
+    // dépareillent le jour où quelqu'un n'en pose qu'un — et la dégradation
+    // serait MUETTE (le welcome recommencerait à tout annoncer, sans erreur).
+    this.#channelProbe = options?.silentProbe ?? null;
   }
 
   /**
@@ -1276,6 +1292,29 @@ export class RealtimeHub {
   runAuthorizer(frame: unknown, peer: JsonRpcPeer): boolean {
     if (this.#frameAuthorizer === null) return true;
     return this.#frameAuthorizer(frame, this.getTokenForPeer(peer));
+  }
+
+  /**
+   * Ce peer pourrait-il s'abonner à ce canal ? — même décision que `subscribe`,
+   * sans trace ni effet de bord.
+   *
+   * Rend `true` quand aucune sonde n'est posée : sans sécurité chargée, aucun
+   * canal n'est refusé, et l'absence de sonde ne doit jamais faire DISPARAÎTRE
+   * des canaux d'un welcome. Un filtre qui échoue doit échouer ouvert ici —
+   * c'est le verrou, pas l'annonce, qui protège l'accès.
+   *
+   * @param channel - le canal interrogé.
+   * @param peer - la connexion, d'où l'on tire le jeton résolu au handshake.
+   * @returns `true` si un `subscribe` sur ce canal serait accepté.
+   */
+  probeChannel(channel: string, peer: JsonRpcPeer): boolean {
+    if (this.#channelProbe === null) return true;
+    // La frame que `subscribe` produirait — la sonde et le verrou lisent donc
+    // exactement la même forme, et aucune règle n'est réécrite ici.
+    return this.#channelProbe(
+      { method: "subscribe", params: { channel } },
+      this.getTokenForPeer(peer),
+    );
   }
 
   /** Authenticators enregistrés (debug / tests). Lecture seule. */

@@ -653,11 +653,27 @@ export abstract class RealtimeController<
       this.log("WS realtime client disconnected — cleanup done", "INFO");
     });
 
-    // `realtime:welcome` annonce canaux + actions découvrables (décorateurs + override).
+    // `realtime:welcome` annonce canaux + actions découvrables (décorateurs +
+    // override) — mais SEULEMENT ceux que CE visiteur pourrait obtenir.
+    //
+    // 🔴 Le produit refuse déjà de dire POURQUOI un canal est refusé
+    // (`RealtimeDeniedReason` est générique par construction, pour ne pas
+    // devenir un oracle). Annoncer la liste entière à un anonyme donnait la
+    // carte en gardant la serrure : le nom exact des canaux sensibles était
+    // servi gratuitement, à la première frame, sans authentification.
+    //
+    // Le filtre appelle le MÊME verrou que `subscribe` (`probeChannel` → la
+    // sonde muette posée par `@nodefony/security`), jamais une seconde
+    // implémentation de la règle : deux copies divergeraient au premier canal
+    // ajouté, et chacune passerait ses propres tests. Sans sécurité chargée,
+    // aucune sonde n'est posée et rien n'est retiré.
+    //
+    // Coût : une fois par CONNEXION, jamais par frame — un appel de sonde par
+    // canal déclaré, sur un chemin déjà occupé par un handshake WebSocket.
     const announcedChannels = [
       ...(this._decoratedChannels ? Object.keys(this._decoratedChannels) : []),
       ...this.realtimeChannels(),
-    ];
+    ].filter((channel) => hub.probeChannel(channel, peer));
     // L'identité est lue sur le `token` NEUTRE (`IRealtimeToken`) déjà résolu au
     // handshake (authenticator P6 ou `ANONYMOUS_REALTIME_TOKEN`) — 0 dépendance
     // security, 0 re-lecture base. Le client la consomme pour savoir QUI il est
