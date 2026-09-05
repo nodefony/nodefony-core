@@ -115,8 +115,8 @@ export function renderUsage(
   };
 
   const section = (name: string): void => {
-    const { title: titre, divider: filet } = sectionTitle(name, width);
-    out.push("", `${p.strong(titre)}${p.dim(filet)}`, "");
+    const { title, divider } = sectionTitle(name, width);
+    out.push("", `${p.strong(title)}${p.dim(divider)}`, "");
   };
 
   const paragraph = (text: string): void => {

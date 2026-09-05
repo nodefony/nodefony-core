@@ -107,7 +107,7 @@ export interface IGitHooksPlan {
 /**
  * Décide, pour chaque hook et pour `core.hooksPath`, le geste à faire.
  *
- * @param existants - contenu actuel de chaque hook, `null` si absent.
+ * @param existing - contenu actuel de chaque hook, `null` si absent.
  * @param currentHooksPath - valeur actuelle de `core.hooksPath`, `null` si absente.
  * @param wantedHooksPath - valeur cible (relative au toplevel git, en `/`) —
  *   l'appelant la calcule, car SEUL lui sait où est le toplevel : un chemin
@@ -116,19 +116,19 @@ export interface IGitHooksPlan {
  * @returns le plan, applicable ou refusé.
  */
 export function planGitHooks(
-  existants: Record<string, string | null>,
+  existing: Record<string, string | null>,
   currentHooksPath: string | null,
   wantedHooksPath: string,
 ): IGitHooksPlan {
   const hooks: IPlannedGitHook[] = GIT_HOOK_NAMES.map((name) => {
     const content = renderGitHook(name);
-    const actuel = existants[name] ?? null;
+    const current = existing[name] ?? null;
     const action: GitHookAction =
-      actuel === null
+      current === null
         ? "pose"
-        : actuel === content
+        : current === content
           ? "inchange"
-          : actuel.includes(GIT_HOOKS_MARKER)
+          : current.includes(GIT_HOOKS_MARKER)
             ? "remplace"
             : "refus-etranger";
     return { name, action, target: `${GIT_HOOKS_DIR}/${name}`, content };
@@ -166,7 +166,7 @@ export function renderGitHooksPlan(
   plan: IGitHooksPlan,
   applique: boolean,
 ): string {
-  const lignes: string[] = [`\n  Hooks git natifs — ${plan.directory}\n`];
+  const lines: string[] = [`\n  Hooks git natifs — ${plan.directory}\n`];
 
   for (const h of plan.hooks) {
     const marque =
@@ -177,38 +177,38 @@ export function renderGitHooksPlan(
           : h.action === "inchange"
             ? "="
             : "✗";
-    lignes.push(`  ${marque} ${h.name.padEnd(12)}`);
+    lines.push(`  ${marque} ${h.name.padEnd(12)}`);
     if (h.action === "refus-etranger") {
-      lignes.push(
+      lines.push(
         ` un hook ÉTRANGER occupe ce nom — rien n'est écrasé.\n` +
           `      → le déplacer, ou le fusionner à la main avec ${h.target}`,
       );
     }
-    lignes.push(`\n`);
+    lines.push(`\n`);
   }
 
   const hp = plan.hooksPath;
   if (hp.action === "refus-autre") {
-    lignes.push(
+    lines.push(
       `  ✗ core.hooksPath vaut déjà « ${hp.current ?? ""} » — tes hooks sont gérés\n` +
         `    autrement, rien n'est touché. Pour adopter ceux-ci :\n` +
         `      git config --unset core.hooksPath   puis relancer\n`,
     );
   } else {
-    lignes.push(
+    lines.push(
       `  ${hp.action === "pose" ? "+" : "="} core.hooksPath → ${hp.wanted}\n`,
     );
   }
 
   if (plan.refused) {
-    lignes.push(`\n  REFUS — rien n'a été écrit ni configuré.\n`);
+    lines.push(`\n  REFUS — rien n'a été écrit ni configuré.\n`);
   } else if (!applique) {
-    lignes.push(`\n  Rien n'a été écrit (--dry-run).\n`);
+    lines.push(`\n  Rien n'a été écrit (--dry-run).\n`);
   } else {
-    lignes.push(
+    lines.push(
       `\n  Bypass ponctuel : --no-verify · désactiver :\n` +
         `    git config --unset core.hooksPath\n`,
     );
   }
-  return lignes.join("");
+  return lines.join("");
 }

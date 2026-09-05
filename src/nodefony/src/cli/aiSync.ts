@@ -76,51 +76,54 @@ const PAGE: IUsagePage = {
  * @param projectRoot - racine du projet.
  * @returns les noms de paquets produits ici.
  */
-function paquetsProduitsParCeProjet(projectRoot: string): Set<string> {
-  const produits = new Set<string>();
-  let motifs: unknown;
+function packagesBuiltByThisProject(projectRoot: string): Set<string> {
+  const produced = new Set<string>();
+  let patterns: unknown;
   try {
     const manifeste = JSON.parse(
       readFileSync(path.join(projectRoot, "package.json"), "utf8"),
     ) as { workspaces?: unknown };
-    motifs = manifeste.workspaces;
+    patterns = manifeste.workspaces;
   } catch {
-    return produits;
+    return produced;
   }
-  const liste = Array.isArray(motifs)
-    ? motifs
-    : Array.isArray((motifs as { packages?: unknown } | null)?.packages)
-      ? ((motifs as { packages: unknown[] }).packages as unknown[])
+  const list = Array.isArray(patterns)
+    ? patterns
+    : Array.isArray((patterns as { packages?: unknown } | null)?.packages)
+      ? ((patterns as { packages: unknown[] }).packages as unknown[])
       : [];
-  for (const motif of liste) {
-    if (typeof motif !== "string") continue;
+  for (const pattern of list) {
+    if (typeof pattern !== "string") continue;
     // Un motif d'espace de travail est soit un dossier, soit un dossier suivi
     // de `/*`. On n'implémente pas un moteur de motifs : ces deux formes
     // couvrent ce que npm résout réellement, et toute autre est ignorée plutôt
     // que devinée.
-    const etoile = motif.endsWith("/*");
-    const base = path.join(projectRoot, etoile ? motif.slice(0, -2) : motif);
-    for (const dossier of etoile ? listDir(base) : [""]) {
-      const dir = etoile ? path.join(base, dossier) : base;
+    const etoile = pattern.endsWith("/*");
+    const base = path.join(
+      projectRoot,
+      etoile ? pattern.slice(0, -2) : pattern,
+    );
+    for (const folder of etoile ? listDir(base) : [""]) {
+      const dir = etoile ? path.join(base, folder) : base;
       try {
-        const nom = (
+        const name = (
           JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as {
             name?: unknown;
           }
         ).name;
-        if (typeof nom === "string") produits.add(nom);
+        if (typeof name === "string") produced.add(name);
       } catch {
         // Un dossier sans manifeste n'est pas un espace de travail : on passe.
       }
     }
   }
-  return produits;
+  return produced;
 }
 
 function packageRoots(projectRoot: string): { dir: string; name: string }[] {
   const roots: { dir: string; name: string }[] = [];
   const scope = path.join(projectRoot, "node_modules", "@nodefony");
-  const produitsIci = paquetsProduitsParCeProjet(projectRoot);
+  const producedHere = packagesBuiltByThisProject(projectRoot);
   for (const name of listDir(scope)) {
     if (name.startsWith(".")) continue;
     // 🔴 Un paquet que CE dépôt PRODUIT ne reçoit pas de pointeur. Le pointeur
@@ -130,7 +133,7 @@ function packageRoots(projectRoot: string): { dir: string; name: string }[] {
     // pas seulement inutile, il NUIT — le pointeur (quelques lignes) entre en
     // concurrence avec le vrai skill dans tout ce qui indexe `.claude/skills/`,
     // et c'est le pauvre qui gagne parfois.
-    if (produitsIci.has(`@nodefony/${name}`)) continue;
+    if (producedHere.has(`@nodefony/${name}`)) continue;
     roots.push({ dir: path.join(scope, name), name: `@nodefony/${name}` });
   }
   const locaux = path.join(projectRoot, "modules");
@@ -169,9 +172,9 @@ function listDir(dir: string): string[] {
 export function readSkillHeader(
   src: string,
 ): { name: string; summary: string } | null {
-  const bloc = /^---\r?\n([\s\S]*?)\r?\n---/u.exec(src);
-  if (bloc === null) return null;
-  const fm = bloc[1] ?? "";
+  const block = /^---\r?\n([\s\S]*?)\r?\n---/u.exec(src);
+  if (block === null) return null;
+  const fm = block[1] ?? "";
   const name = /^name:[ \t]*(\S.*)$/mu.exec(fm)?.[1]?.trim();
   if (name === undefined || name === "") return null;
 
@@ -180,9 +183,9 @@ export function readSkillHeader(
   // PHRASE — le pointeur doit tenir dans les métadonnées chargées au démarrage.
   let desc = /^description:[ \t]*(\S.*)$/mu.exec(fm)?.[1]?.trim() ?? "";
   if (desc === "" || desc === ">" || desc === "|") {
-    const replie =
+    const wrapped =
       /^description:[ \t]*[>|][^\n]*\n((?:[ \t]+\S[^\n]*\n?)+)/mu.exec(fm)?.[1];
-    desc = (replie ?? "")
+    desc = (wrapped ?? "")
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean)
@@ -314,11 +317,11 @@ export function parseAiSyncArgv(
  * la main, un skill du dépôt lui-même — n'appartient pas à cette commande, et
  * ne se remplace pas.
  *
- * @param contenu - le fichier tel qu'il est sur le disque.
+ * @param content - le fichier tel qu'il est sur le disque.
  * @returns `true` si la synchronisation peut le remplacer.
  */
-function estUnPointeur(contenu: string): boolean {
-  return contenu.includes("nodefony-source-package:");
+function estUnPointeur(content: string): boolean {
+  return content.includes("nodefony-source-package:");
 }
 
 export function syncSkillPointers(
@@ -348,9 +351,9 @@ export function syncSkillPointers(
     // idempotence, même contenu — et RIEN d'autre n'est touché dans
     // `.claude/skills/`, qui appartient d'abord à l'utilisateur.
     const mirror = path.join(projectRoot, ...skill.mirrorTarget.split("/"));
-    let actuel: string | null = null;
+    let current: string | null = null;
     try {
-      actuel = readFileSync(mirror, "utf8");
+      current = readFileSync(mirror, "utf8");
     } catch {
       // Absent : il sera posé.
     }
@@ -360,11 +363,11 @@ export function syncSkillPointers(
     // ce dossier « appartient d'abord à l'utilisateur » ; l'intention y était,
     // la garde non, et 385 lignes ont disparu sous un pointeur sans qu'un seul
     // message ne le signale.
-    if (actuel !== null && !estUnPointeur(actuel)) {
+    if (current !== null && !estUnPointeur(current)) {
       plan.preserves.push(skill.mirrorTarget);
       continue;
     }
-    if (actuel !== skill.content) {
+    if (current !== skill.content) {
       mkdirSync(path.dirname(mirror), { recursive: true });
       writeFileSync(mirror, skill.content, "utf8");
     }

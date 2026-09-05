@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T19:09:04.770Z",
+  "generated": "2026-09-05T19:15:13.684Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -1521,8 +1521,8 @@
       "module": "@nodefony/core",
       "description": "Construit le rapport d'environnement."
     },
-    "besoinDeShell": {
-      "name": "besoinDeShell",
+    "needsShell": {
+      "name": "needsShell",
       "kind": "function",
       "file": "src/nodefony/src/cli/execPortable.ts",
       "exported": true,
@@ -1702,8 +1702,8 @@
       "module": "@nodefony/core",
       "description": "La place qui reste pour une description, une fois la colonne des noms posée. 🔴 Exportée pour qu'un GATE puisse s'y adosser au lieu de recopier le calcul. La contrainte « une description tient sur …"
     },
-    "grouperCommandes": {
-      "name": "grouperCommandes",
+    "groupCommands": {
+      "name": "groupCommands",
       "kind": "function",
       "file": "src/nodefony/src/cli/helpReport.ts",
       "exported": true,
@@ -2065,16 +2065,16 @@
       "extends": null,
       "description": "Les questions servies par cette porte — le sous-ensemble réellement utilisé."
     },
-    "ancreEventLoop": {
-      "name": "ancreEventLoop",
+    "anchorEventLoop": {
+      "name": "anchorEventLoop",
       "kind": "function",
       "file": "src/nodefony/src/cli/prompts.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "La porte UNIQUE par laquelle une commande pose une question. ⭐ Elle existe pour une raison qu'aucune commande ne peut résoudre seule : **attendre une réponse humaine ne retient pas Node.** Une ques…"
     },
-    "demande": {
-      "name": "demande",
+    "request": {
+      "name": "request",
       "kind": "function",
       "file": "src/nodefony/src/cli/prompts.ts",
       "exported": true,
@@ -2292,8 +2292,8 @@
       "module": "@nodefony/core",
       "description": "Ce qu'une cellule doit à son lecteur : lisible, jamais du JSON brut."
     },
-    "colonnesDe": {
-      "name": "colonnesDe",
+    "columnsOf": {
+      "name": "columnsOf",
       "kind": "function",
       "file": "src/nodefony/src/cli/tableReport.ts",
       "exported": true,
@@ -29653,11 +29653,10 @@
       "OPTION_SUGGESTIONS": [
         "src/nodefony/src/cli/completion.ts"
       ],
-      "besoinDeShell": [
+      "needsShell": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
-        "src/nodefony/src/kernel/commands/MenuCommand.ts",
-        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
@@ -29841,7 +29840,7 @@
         "src/nodefony/src/cli/manPage.ts",
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "grouperCommandes": [
+      "groupCommands": [
         "src/nodefony/src/cli/manPage.ts"
       ],
       "MENU_GROUP_LABELS": [
@@ -31208,7 +31207,7 @@
       "TPresetChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
-      "ancreEventLoop": [
+      "anchorEventLoop": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "IScaffoldCaps": [
@@ -36005,6 +36004,10 @@
       ],
       "MemoryWebAuthnCredentialStore": [
         "src/packages/@nodefony/security/nodefony/src/webauthn/webAuthnCredentialStoreRegistry.ts"
+      ],
+      "request": [
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookDelivery.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookDelivery.ts"
       ],
       "IWebhookDeliveryPolicy": [
         "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"

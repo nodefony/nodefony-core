@@ -74,7 +74,7 @@ export interface IMcpConfigPlan {
    * anonyme sans que personne l'ait demandé. Une configuration qu'on enlève se
    * NOMME.
    */
-  authRetiree?: boolean;
+  authRemoved?: boolean;
   /** `true` si l'entrée écrite porte l'en-tête d'autorisation. */
   auth?: boolean;
 }
@@ -140,7 +140,7 @@ export function planMcpConfig(
     : { type: "http", url };
   base.mcpServers[MCP_SERVER_KEY] = entry;
 
-  const authRetiree =
+  const authRemoved =
     Boolean(previous?.headers?.Authorization) && !entry.headers?.Authorization;
   if (!previous) {
     return { action: "pose", document: base, url, auth };
@@ -159,7 +159,7 @@ export function planMcpConfig(
     url,
     auth,
     previousUrl: previous.url,
-    ...(authRetiree ? { authRetiree: true } : {}),
+    ...(authRemoved ? { authRemoved: true } : {}),
   };
 }
 
@@ -198,24 +198,24 @@ export function renderMcpPlan(
       : plan.action === "remplace"
         ? "mis à jour"
         : "déjà à jour";
-  const lignes = [
+  const lines = [
     dryRun
       ? `${file} — ${plan.action} (simulation, rien n'est écrit)`
       : `${file} — ${verbe}`,
     `  serveur « ${MCP_SERVER_KEY} » → ${plan.url}`,
   ];
   if (plan.previousUrl && plan.previousUrl !== plan.url) {
-    lignes.push(`  (remplaçait ${plan.previousUrl})`);
+    lines.push(`  (remplaçait ${plan.previousUrl})`);
   }
-  if (plan.authRetiree) {
+  if (plan.authRemoved) {
     // Le seul changement peut être l'en-tête : le taire ferait passer une
     // dé-authentification pour un rafraîchissement anodin.
-    lignes.push(
+    lines.push(
       `  ⚠ l'en-tête Authorization a été RETIRÉ — la porte est redevenue anonyme.`,
       `    (le remettre : nodefony ai:mcp --auth)`,
     );
   }
-  lignes.push(
+  lines.push(
     "",
     "Pour que ça réponde :",
     "  1. l'application doit TOURNER (npm run dev) — le serveur MCP est une de ses routes ;",
@@ -226,7 +226,7 @@ export function renderMcpPlan(
     // d'un module produirait une phrase qui ment le jour où ce module la
     // déplace — et le cœur n'a pas à connaître les routes de `security`.
     const metadata = metadataUrlOf(plan.url);
-    lignes.push(
+    lines.push(
       "",
       `Mode AUTHENTIFIÉ — l'en-tête envoie \${${MCP_TOKEN_ENV}}, jamais un jeton écrit ici.`,
       `  1. la porte publie où prendre un jeton :  curl ${metadata}`,
@@ -248,5 +248,5 @@ export function renderMcpPlan(
       "ajoute les outils réservés, elle n'est pas un péage.",
     );
   }
-  return `${lignes.join("\n")}\n`;
+  return `${lines.join("\n")}\n`;
 }

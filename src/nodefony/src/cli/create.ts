@@ -2,7 +2,7 @@ import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { besoinDeShell } from "./execPortable";
+import { needsShell } from "./execPortable";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
@@ -549,7 +549,7 @@ function runInstall(dest: string): boolean {
   const r = spawnSync("npm", ["install"], {
     cwd: dest,
     stdio: "inherit",
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
   });
   return r.status === 0;
 }
@@ -638,7 +638,7 @@ function runBuild(dest: string): boolean {
   const r = spawnSync("npm", ["run", "build"], {
     cwd: dest,
     stdio: "inherit",
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
   });
   return r.status === 0;
 }
@@ -734,7 +734,7 @@ function runInitialMigration(
     {
       cwd: dest,
       encoding: "utf8",
-      shell: besoinDeShell("npm"),
+      shell: needsShell("npm"),
       // 🔴 Le décor MINIMAL sans lequel la commande se mord la queue. Elle
       // démarre l'application, et un démarrage en développement DÉRIVE le
       // schéma du code : la base se retrouve peuplée par la commande
@@ -767,7 +767,7 @@ function runInitialMigration(
       {
         cwd: dest,
         encoding: "utf8",
-        shell: besoinDeShell("npm"),
+        shell: needsShell("npm"),
         env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
       },
     );

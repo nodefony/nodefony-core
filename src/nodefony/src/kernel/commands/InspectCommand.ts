@@ -232,8 +232,8 @@ class Inspect extends Command {
       // fiches quand même la compression ne suffit pas.
       const out = process.stdout;
       const lignes = renderTable(payload as TableRow[], {
-        largeur: usableWidth(out.columns),
-        couleur: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
+        width: usableWidth(out.columns),
+        color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
       });
       out.write(`${lignes.join("\n")}\n\n`);
       process.stdout.write(

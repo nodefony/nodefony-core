@@ -9,7 +9,7 @@
 import { describe, it } from "vitest";
 import { assert } from "chai";
 import {
-  grouperCommandes,
+  groupCommands,
   HELP_GROUPS,
   renderHelp,
   type IHelpCommand,
@@ -53,14 +53,14 @@ const modele = (patch: Partial<IHelpModel> = {}): IHelpModel => ({
 
 /** Le rendu, à la largeur demandée, sans couleur. */
 const rendu = (largeur: number, patch: Partial<IHelpModel> = {}): string[] =>
-  renderHelp(modele(patch), { largeur, couleur: false });
+  renderHelp(modele(patch), { width: largeur, color: false });
 
 describe("grouperCommandes — par intention, jamais par origine du code", () => {
   it("range chaque commande sous le groupe qu'elle DÉCLARE", () => {
-    const groupes = grouperCommandes(modele().commands);
-    const lancer = groupes.find((g) => g.titre === "LANCER");
+    const groupes = groupCommands(modele().commands);
+    const lancer = groupes.find((g) => g.title === "LANCER");
     assert.deepStrictEqual(
-      lancer?.commandes.map((c) => c.name),
+      lancer?.commands.map((c) => c.name),
       ["development", "production"],
     );
   });
@@ -69,27 +69,27 @@ describe("grouperCommandes — par intention, jamais par origine du code", () =>
     // 🔴 commander ordonne ses groupes par première rencontre, donc par ordre
     // d'ENREGISTREMENT des commandes : ajouter une commande quelque part
     // réordonnait l'aide entière.
-    const titres = grouperCommandes([
+    const titres = groupCommands([
       cmd("orm:x", { group: "BASE DE DONNÉES" }),
       cmd("dev", { group: "LANCER" }),
-    ]).map((g) => g.titre);
+    ]).map((g) => g.title);
     assert.deepStrictEqual(titres, ["LANCER", "BASE DE DONNÉES"]);
   });
 
   it("dans COMPRENDRE, l'ordre est celui de la DÉCOUVERTE", () => {
-    const groupes = grouperCommandes(modele().commands);
+    const groupes = groupCommands(modele().commands);
     assert.deepStrictEqual(
       groupes
-        .find((g) => g.titre === "COMPRENDRE")
-        ?.commandes.map((c) => c.name),
+        .find((g) => g.title === "COMPRENDRE")
+        ?.commands.map((c) => c.name),
       ["card", "doctor", "inspect"],
       "la carte de visite dit où l'on est ; elle passe avant le reste",
     );
   });
 
   it("sans groupe connu, la commande tombe sous SON module", () => {
-    const groupes = grouperCommandes(modele().commands);
-    const titres = groupes.map((g) => g.titre);
+    const groupes = groupCommands(modele().commands);
+    const titres = groupes.map((g) => g.title);
     assert.include(titres, "MODULE DRIZZLE");
     assert.include(titres, "MODULE FRONTEND");
   });
@@ -97,27 +97,27 @@ describe("grouperCommandes — par intention, jamais par origine du code", () =>
   it("un groupe INCONNU n'est pas une erreur — il ne classe simplement pas", () => {
     // Un module tiers peut écrire ce qu'il veut : l'aide ne doit pas inventer
     // une section pour lui, ni perdre la commande.
-    const groupes = grouperCommandes([
+    const groupes = groupCommands([
       cmd("truc:machin", { group: "MON GROUPE À MOI", module: "truc" }),
     ]);
     assert.deepStrictEqual(
-      groupes.map((g) => g.titre),
+      groupes.map((g) => g.title),
       ["MODULE TRUC"],
     );
   });
 
   it("sans groupe NI module, la commande ferme la marche", () => {
-    const groupes = grouperCommandes(modele().commands);
-    assert.equal(groupes.at(-1)?.titre, "AUTRES");
+    const groupes = groupCommands(modele().commands);
+    assert.equal(groupes.at(-1)?.title, "AUTRES");
     assert.deepStrictEqual(
-      groupes.at(-1)?.commandes.map((c) => c.name),
+      groupes.at(-1)?.commands.map((c) => c.name),
       ["orphan"],
     );
   });
 
   it("aucune commande n'est perdue en chemin", () => {
     const commands = modele().commands;
-    const rendues = grouperCommandes(commands).flatMap((g) => g.commandes);
+    const rendues = groupCommands(commands).flatMap((g) => g.commands);
     assert.equal(rendues.length, commands.length);
   });
 });
@@ -237,8 +237,8 @@ describe("renderHelp — la couleur ne change QUE la couleur", () => {
   });
 
   it("avec couleur, le texte DÉPOUILLÉ est identique", () => {
-    const sans = renderHelp(modele(), { largeur: 80, couleur: false });
-    const avec = renderHelp(modele(), { largeur: 80, couleur: true });
+    const sans = renderHelp(modele(), { width: 80, color: false });
+    const avec = renderHelp(modele(), { width: 80, color: true });
     assert.deepStrictEqual(avec.map(nu), sans);
   });
 });

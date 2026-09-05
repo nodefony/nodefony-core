@@ -874,12 +874,12 @@ class CliKernel extends Cli {
         ...(extra?.noteAction ? { noteAction: extra.noteAction } : {}),
       },
       {
-        largeur: usableWidth(out.columns),
+        width: usableWidth(out.columns),
         // UNE seule porte de couleur pour toute la page. Il y en avait deux
         // (`logColor` pour l'en-tête, commander pour le corps), donc deux
         // lectures de `NO_COLOR` — et un `NF_NO_TTY` respecté d'un côté
         // seulement, ce dont les tests d'intégration dépendent.
-        couleur: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
+        color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
       },
     );
     out.write(`${lignes.join("\n")}\n`);

@@ -20,18 +20,18 @@ export type TableRow = Record<string, unknown>;
 /** Le décor du rendu — tout ce que ce module refuse d'aller chercher. */
 export interface ITableOptions {
   /** Largeur utile, déjà bornée. */
-  largeur: number;
+  width: number;
   /** `true` pour émettre des séquences ANSI. */
-  couleur: boolean;
+  color: boolean;
   /**
    * Colonnes à rendre, dans cet ordre. Par défaut : l'union des clés
    * rencontrées, dans l'ordre où elles apparaissent.
    */
-  colonnes?: readonly string[];
+  columns?: readonly string[];
 }
 
 /** En deçà, une colonne ne porte plus d'information — elle porte une ellipse. */
-const MIN_COLONNE = 6;
+const MIN_COLUMN = 6;
 
 /**
  * Au-delà, une colonne n'a pas besoin de plus pour se lire.
@@ -40,7 +40,7 @@ const MIN_COLONNE = 6;
  * réclame pas soixante caractères pour être utile, et la compter à sa largeur
  * naturelle ferait renoncer à des colonnes qui tenaient très bien.
  */
-const LARGEUR_UTILE = 28;
+const USABLE_WIDTH = 28;
 
 /** Ce qu'une cellule doit à son lecteur : lisible, jamais du JSON brut. */
 export function formatCell(value: unknown): string {
@@ -57,9 +57,9 @@ export function formatCell(value: unknown): string {
 }
 
 /** Tronque en gardant une marque de troncature — jamais en silence. */
-function tronquer(texte: string, largeur: number): string {
-  if (texte.length <= largeur) return texte;
-  return largeur <= 1 ? "…" : `${texte.slice(0, largeur - 1)}…`;
+function tronquer(text: string, width: number): string {
+  if (text.length <= width) return text;
+  return width <= 1 ? "…" : `${text.slice(0, width - 1)}…`;
 }
 
 /**
@@ -68,7 +68,7 @@ function tronquer(texte: string, largeur: number): string {
  * @param rows - les lignes.
  * @returns les noms de colonnes, sans doublon.
  */
-export function colonnesDe(rows: readonly TableRow[]): string[] {
+export function columnsOf(rows: readonly TableRow[]): string[] {
   const vues: string[] = [];
   for (const row of rows) {
     for (const clé of Object.keys(row)) {
@@ -86,30 +86,30 @@ export function colonnesDe(rows: readonly TableRow[]): string[] {
  * colonne de six caractères autant qu'une de soixante, et c'est la première
  * qu'on rend illisible.
  *
- * @param demandes - largeur idéale de chaque colonne.
- * @param disponible - place totale pour les contenus (séparateurs déduits).
+ * @param requested - largeur idéale de chaque colonne.
+ * @param available - place totale pour les contenus (séparateurs déduits).
  * @returns la largeur retenue pour chaque colonne, dans le même ordre.
  */
 export function repartir(
-  demandes: readonly number[],
-  disponible: number,
+  requested: readonly number[],
+  available: number,
 ): number[] {
-  const retenues = [...demandes];
-  let total = retenues.reduce((n, x) => n + x, 0);
-  if (total <= disponible) return retenues;
+  const selected = [...requested];
+  let total = selected.reduce((n, x) => n + x, 0);
+  if (total <= available) return selected;
   // Tant qu'il faut rogner, on retire un caractère à la colonne la plus large.
   // Simple, et le résultat est celui qu'on attend : les colonnes courtes
   // restent intactes, les longues convergent vers une largeur commune.
-  while (total > disponible) {
+  while (total > available) {
     let plusLarge = 0;
-    for (let i = 1; i < retenues.length; i++) {
-      if ((retenues[i] ?? 0) > (retenues[plusLarge] ?? 0)) plusLarge = i;
+    for (let i = 1; i < selected.length; i++) {
+      if ((selected[i] ?? 0) > (selected[plusLarge] ?? 0)) plusLarge = i;
     }
-    if ((retenues[plusLarge] ?? 0) <= MIN_COLONNE) break;
-    retenues[plusLarge] = (retenues[plusLarge] ?? 0) - 1;
+    if ((selected[plusLarge] ?? 0) <= MIN_COLUMN) break;
+    selected[plusLarge] = (selected[plusLarge] ?? 0) - 1;
     total -= 1;
   }
-  return retenues;
+  return selected;
 }
 
 /**
@@ -120,35 +120,35 @@ export function repartir(
  * où un tableau comprimé ne dit plus rien.
  *
  * @param rows - les lignes.
- * @param colonnes - les colonnes à rendre.
- * @param largeur - largeur utile.
+ * @param columns - les colonnes à rendre.
+ * @param width - largeur utile.
  * @param p - la peinture.
  * @returns les lignes à écrire.
  */
 function fiches(
   rows: readonly TableRow[],
-  colonnes: readonly string[],
-  largeur: number,
+  columns: readonly string[],
+  width: number,
   p: IPalette,
 ): string[] {
-  const lignes: string[] = [];
+  const lines: string[] = [];
   const col = Math.min(
-    Math.max(...colonnes.map((c) => c.length)),
-    Math.max(MIN_COLONNE, Math.floor(largeur / 3)),
+    Math.max(...columns.map((c) => c.length)),
+    Math.max(MIN_COLUMN, Math.floor(width / 3)),
   );
   for (const [i, row] of rows.entries()) {
-    if (i > 0) lignes.push("");
-    for (const clé of colonnes) {
-      const valeur = formatCell(row[clé]);
-      lignes.push(
+    if (i > 0) lines.push("");
+    for (const clé of columns) {
+      const value = formatCell(row[clé]);
+      lines.push(
         `  ${p.dim(tronquer(clé, col).padEnd(col))}  ${tronquer(
-          valeur,
-          Math.max(1, largeur - col - 4),
+          value,
+          Math.max(1, width - col - 4),
         )}`,
       );
     }
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -162,11 +162,11 @@ export function renderTable(
   rows: readonly TableRow[],
   opts: ITableOptions,
 ): string[] {
-  const { largeur, couleur } = opts;
-  const p = createPalette(couleur);
+  const { width, color } = opts;
+  const p = createPalette(color);
   if (rows.length === 0) return [];
-  const colonnes = opts.colonnes ? [...opts.colonnes] : colonnesDe(rows);
-  if (colonnes.length === 0) return [];
+  const columns = opts.columns ? [...opts.columns] : columnsOf(rows);
+  if (columns.length === 0) return [];
 
   // 🔴 La place se gagne d'abord en RETIRANT ce qui n'apprend rien, pas en
   // comprimant tout le monde. Une colonne dont toutes les lignes portent la
@@ -174,29 +174,27 @@ export function renderTable(
   // et ne distingue aucune ligne : c'est elle qui doit céder, pas le nom de la
   // route. Comprimer d'abord donnait huit colonnes de huit caractères, toutes
   // tronquées — un tableau qui tient dans l'écran sans plus rien dire.
-  const { gardees, constantes, omises } = elaguer(rows, colonnes, largeur);
+  const { kept, constants, omitted } = elaguer(rows, columns, width);
 
-  const cellules = rows.map((row) =>
-    gardees.map((clé) => formatCell(row[clé])),
-  );
-  const demandes = gardees.map((clé, i) =>
-    Math.max(clé.length, ...cellules.map((c) => (c[i] ?? "").length)),
+  const cells = rows.map((row) => kept.map((clé) => formatCell(row[clé])));
+  const requested = kept.map((clé, i) =>
+    Math.max(clé.length, ...cells.map((c) => (c[i] ?? "").length)),
   );
 
   // 2 espaces entre colonnes, 2 de marge à gauche.
-  const separateurs = 2 * (gardees.length - 1) + 2;
-  const disponible = largeur - separateurs;
+  const separators = 2 * (kept.length - 1) + 2;
+  const available = width - separators;
   // Même comprimé au minimum, ça ne tient pas : le tableau cède la place aux
   // fiches plutôt que de rendre des colonnes d'une lettre.
-  if (disponible < gardees.length * MIN_COLONNE) {
-    return fiches(rows, colonnes, largeur, p);
+  if (available < kept.length * MIN_COLUMN) {
+    return fiches(rows, columns, width, p);
   }
-  const retenues = repartir(demandes, disponible);
-  const colonnes_ = gardees;
+  const selected = repartir(requested, available);
+  const cols = kept;
 
-  const ligne = (valeurs: readonly string[], teinte: (t: string) => string) =>
-    `  ${valeurs
-      .map((v, i) => tronquer(v, retenues[i] ?? 0).padEnd(retenues[i] ?? 0))
+  const line = (values: readonly string[], teinte: (t: string) => string) =>
+    `  ${values
+      .map((v, i) => tronquer(v, selected[i] ?? 0).padEnd(selected[i] ?? 0))
       .join("  ")
       .trimEnd()}`
       .replace(/^ {2}/u, "  ")
@@ -204,39 +202,39 @@ export function renderTable(
       .map((l) => teinte(l))
       .join("\n");
 
-  const lignes = [ligne(colonnes_, p.strong)];
+  const lines = [line(cols, p.strong)];
   // Un filet sous l'en-tête, de la largeur réellement occupée : il sépare sans
   // encadrer. Les bordures de `console.table` coûtaient trois caractères par
   // colonne — sur neuf colonnes, un quart de l'écran.
   const occupée = Math.min(
-    largeur,
-    retenues.reduce((n, x) => n + x, 0) + separateurs,
+    width,
+    selected.reduce((n, x) => n + x, 0) + separators,
   );
-  lignes.push(p.dim(`  ${"─".repeat(Math.max(0, occupée - 2))}`));
-  for (const c of cellules) lignes.push(ligne(c, (t) => t));
+  lines.push(p.dim(`  ${"─".repeat(Math.max(0, occupée - 2))}`));
+  for (const c of cells) lines.push(line(c, (t) => t));
   // Ce qui a été retiré se DIT, avec sa valeur : une colonne qu'on ne voit
   // plus et dont on ignore le contenu vaut moins qu'une colonne absente.
   const notes: string[] = [];
-  if (constantes.length) {
+  if (constants.length) {
     notes.push(
-      `identique partout : ${constantes
-        .map(({ clé, valeur }) => `${clé} = ${valeur}`)
+      `identique partout : ${constants
+        .map(({ clé, value }) => `${clé} = ${value}`)
         .join(" · ")}`,
     );
   }
   // Une colonne retirée se DIT, avec la porte qui la rend : une donnée
   // silencieusement absente vaut moins qu'une donnée absente et annoncée.
-  if (omises.length) {
-    notes.push(`non affiché faute de place : ${omises.join(" · ")} (--json)`);
+  if (omitted.length) {
+    notes.push(`non affiché faute de place : ${omitted.join(" · ")} (--json)`);
   }
   for (const note of notes) {
     // Repliée, jamais tronquée : c'est elle qui dit ce qu'on ne voit PAS, et
     // une phrase coupée sur ce sujet précis laisse croire qu'on a tout vu.
-    for (const l of wrap(note, largeur - 2, "")) {
-      lignes.push(p.dim(`  ${l}`));
+    for (const l of wrap(note, width - 2, "")) {
+      lines.push(p.dim(`  ${l}`));
     }
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -249,44 +247,44 @@ export function renderTable(
  * lecteur.
  *
  * @param rows - les lignes.
- * @param colonnes - toutes les colonnes candidates.
- * @param largeur - largeur utile.
+ * @param columns - toutes les colonnes candidates.
+ * @param width - largeur utile.
  * @returns les colonnes gardées, et celles retirées avec leur valeur unique.
  */
 function elaguer(
   rows: readonly TableRow[],
-  colonnes: readonly string[],
-  largeur: number,
+  columns: readonly string[],
+  width: number,
 ): {
-  gardees: string[];
-  constantes: { clé: string; valeur: string }[];
-  omises: string[];
+  kept: string[];
+  constants: { clé: string; value: string }[];
+  omitted: string[];
 } {
-  const demande = (clé: string): number =>
+  const request = (clé: string): number =>
     Math.max(clé.length, ...rows.map((r) => formatCell(r[clé]).length));
-  const tient = (liste: readonly string[]): boolean =>
-    liste.reduce((n, clé) => n + Math.min(demande(clé), LARGEUR_UTILE), 0) +
-      2 * (liste.length - 1) +
+  const fits = (list: readonly string[]): boolean =>
+    list.reduce((n, clé) => n + Math.min(request(clé), USABLE_WIDTH), 0) +
+      2 * (list.length - 1) +
       2 <=
-    largeur;
+    width;
 
-  if (tient(colonnes)) {
-    return { gardees: [...colonnes], constantes: [], omises: [] };
+  if (fits(columns)) {
+    return { kept: [...columns], constants: [], omitted: [] };
   }
 
   // 1. Les colonnes qui ne DISTINGUENT rien cèdent en premier : une valeur
   //    unique sur toutes les lignes coûte sa largeur et n'apprend rien qu'une
   //    phrase ne dise mieux. La PREMIÈRE colonne reste quoi qu'il arrive —
   //    c'est l'identité de la ligne.
-  const constantes: { clé: string; valeur: string }[] = [];
-  let restantes: string[] = [];
-  for (const clé of colonnes) {
-    const valeurs = new Set(rows.map((r) => formatCell(r[clé])));
-    if (valeurs.size === 1 && restantes.length > 0) {
-      constantes.push({ clé, valeur: [...valeurs][0] ?? "" });
+  const constants: { clé: string; value: string }[] = [];
+  let remaining: string[] = [];
+  for (const clé of columns) {
+    const values = new Set(rows.map((r) => formatCell(r[clé])));
+    if (values.size === 1 && remaining.length > 0) {
+      constants.push({ clé, value: [...values][0] ?? "" });
       continue;
     }
-    restantes.push(clé);
+    remaining.push(clé);
   }
 
   // 2. Si ça ne suffit pas, ce sont les DERNIÈRES qui cèdent. L'ordre des clés
@@ -294,11 +292,11 @@ function elaguer(
   //    pour une route, `name` et `path` avant `host` et `bypassFirewall`. Une
   //    heuristique « garder les plus variées » ferait mieux sur le papier et
   //    perdrait `methods`, que personne ne veut perdre.
-  const omises: string[] = [];
-  while (restantes.length > 1 && !tient(restantes)) {
-    const derniere = restantes.at(-1) as string;
-    omises.unshift(derniere);
-    restantes = restantes.slice(0, -1);
+  const omitted: string[] = [];
+  while (remaining.length > 1 && !fits(remaining)) {
+    const last = remaining.at(-1) as string;
+    omitted.unshift(last);
+    remaining = remaining.slice(0, -1);
   }
-  return { gardees: restantes, constantes, omises };
+  return { kept: remaining, constants: constants, omitted: omitted };
 }

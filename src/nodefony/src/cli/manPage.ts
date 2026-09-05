@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { ICliManifest } from "./completion";
-import { grouperCommandes } from "./helpReport";
+import { groupCommands } from "./helpReport";
 
 /**
  * Page de manuel Unix (`man nodefony`), rendue depuis le manifest du CLI.
@@ -94,22 +94,22 @@ export function escapeRoff(text: string): string {
  * caractères pouvait en faire 90.
  */
 function wrap(line: string): string {
-  const poids = (s: string): number => Buffer.byteLength(s, "utf8");
-  if (line.startsWith(".") || poids(line) <= MAN_SOURCE_WIDTH) {
+  const byteLength = (s: string): number => Buffer.byteLength(s, "utf8");
+  if (line.startsWith(".") || byteLength(line) <= MAN_SOURCE_WIDTH) {
     return line;
   }
   const out: string[] = [];
-  let courante = "";
-  for (const mot of line.split(" ")) {
-    if (courante && poids(`${courante} ${mot}`) > MAN_SOURCE_WIDTH) {
-      out.push(courante);
-      courante = mot;
+  let current = "";
+  for (const word of line.split(" ")) {
+    if (current && byteLength(`${current} ${word}`) > MAN_SOURCE_WIDTH) {
+      out.push(current);
+      current = word;
     } else {
-      courante = courante ? `${courante} ${mot}` : mot;
+      current = current ? `${current} ${word}` : word;
     }
   }
-  if (courante) {
-    out.push(courante);
+  if (current) {
+    out.push(current);
   }
   return out.join("\n");
 }
@@ -182,7 +182,7 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   // divergé au premier groupe ajouté, et la page de manuel aurait décrit un
   // rangement que le CLI n'applique plus. Le manifeste porte le groupe
   // précisément pour que cette page, rendue hors de tout boot, puisse le lire.
-  for (const groupe of grouperCommandes(
+  for (const group of groupCommands(
     manifest.commands.map((c) => ({
       name: c.name,
       aliases: c.aliases ?? [],
@@ -190,8 +190,8 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
       ...(c.group === undefined ? {} : { group: c.group }),
     })),
   )) {
-    out.push(`.SS ${escapeRoff(groupe.titre)}`);
-    for (const cmd of groupe.commandes) {
+    out.push(`.SS ${escapeRoff(group.title)}`);
+    for (const cmd of group.commands) {
       out.push(
         tagged(
           [cmd.name, ...cmd.aliases].map((n) => escapeRoff(n)).join(", "),

@@ -151,17 +151,17 @@ export function installGitHooks(
     path.relative(toplevelReal, hooksDirAbs).split(path.sep).join("/") ||
     GIT_HOOKS_DIR;
 
-  const existants: Record<string, string | null> = {};
+  const existing: Record<string, string | null> = {};
   for (const name of ["pre-commit", "pre-push"]) {
     try {
-      existants[name] = readFileSync(path.join(hooksDirAbs, name), "utf8");
+      existing[name] = readFileSync(path.join(hooksDirAbs, name), "utf8");
     } catch {
-      existants[name] = null;
+      existing[name] = null;
     }
   }
 
   const plan = planGitHooks(
-    existants,
+    existing,
     git(["config", "--get", "core.hooksPath"], projectRoot),
     wanted,
   );

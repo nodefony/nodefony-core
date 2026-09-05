@@ -9,7 +9,7 @@
 import { describe, it } from "vitest";
 import { assert } from "chai";
 import {
-  colonnesDe,
+  columnsOf,
   formatCell,
   renderTable,
   repartir,
@@ -60,7 +60,7 @@ describe("formatCell — une cellule se lit, elle n'est pas du JSON", () => {
 describe("colonnesDe — l'union des clés, dans l'ordre du producteur", () => {
   it("garde l'ordre de rencontre et ne double aucune clé", () => {
     assert.deepStrictEqual(
-      colonnesDe([
+      columnsOf([
         { b: 1, a: 2 },
         { a: 3, c: 4 },
       ]),
@@ -91,7 +91,7 @@ describe("repartir — les colonnes LARGES cèdent, pas les courtes", () => {
 describe("renderTable — borné à la largeur, quoi qu'on lui donne", () => {
   it("⭐ aucune ligne ne déborde, de 40 à 200 colonnes", () => {
     for (const largeur of [40, 60, 80, 120, 200]) {
-      for (const l of renderTable(routes, { largeur, couleur: false })) {
+      for (const l of renderTable(routes, { width: largeur, color: false })) {
         assert.isAtMost(
           l.length,
           largeur,
@@ -102,9 +102,7 @@ describe("renderTable — borné à la largeur, quoi qu'on lui donne", () => {
   });
 
   it("large, TOUTES les colonnes sont rendues", () => {
-    const texte = renderTable(routes, { largeur: 200, couleur: false }).join(
-      "\n",
-    );
+    const texte = renderTable(routes, { width: 200, color: false }).join("\n");
     for (const clé of Object.keys(routes[0] as TableRow)) {
       assert.include(texte, clé);
     }
@@ -114,29 +112,25 @@ describe("renderTable — borné à la largeur, quoi qu'on lui donne", () => {
   it("🔴 étroit, ce qui ne DISTINGUE rien cède en premier", () => {
     // `host` et `bypassFirewall` portent la même valeur sur toutes les lignes :
     // ils coûtent leur largeur et ne séparent aucune ligne.
-    const texte = renderTable(routes, { largeur: 80, couleur: false }).join(
-      "\n",
-    );
+    const texte = renderTable(routes, { width: 80, color: false }).join("\n");
     assert.include(texte, "name", "l'identité de la ligne reste");
     assert.include(texte, "identique partout", "et ce qui a cédé est DIT");
     assert.include(texte, "host");
   });
 
   it("🔴 une colonne retirée faute de place est ANNONCÉE, avec sa porte", () => {
-    const texte = renderTable(routes, { largeur: 46, couleur: false }).join(
-      "\n",
-    );
+    const texte = renderTable(routes, { width: 46, color: false }).join("\n");
     assert.include(texte, "non affiché faute de place");
     assert.include(texte, "--json", "…et où la retrouver");
   });
 
   it("la PREMIÈRE colonne survit à tout — c'est l'identité de la ligne", () => {
-    const lignes = renderTable(routes, { largeur: 30, couleur: false });
+    const lignes = renderTable(routes, { width: 30, color: false });
     assert.include(lignes.join("\n"), "name");
   });
 
   it("trop étroit pour un tableau : des FICHES, pas des colonnes d'une lettre", () => {
-    const lignes = renderTable(routes, { largeur: 24, couleur: false });
+    const lignes = renderTable(routes, { width: 24, color: false });
     const texte = lignes.join("\n");
     assert.include(texte, "name");
     assert.include(texte, "path");
@@ -144,21 +138,18 @@ describe("renderTable — borné à la largeur, quoi qu'on lui donne", () => {
   });
 
   it("aucune donnée : aucune ligne — surtout pas un tableau vide", () => {
-    assert.deepStrictEqual(
-      renderTable([], { largeur: 80, couleur: false }),
-      [],
-    );
+    assert.deepStrictEqual(renderTable([], { width: 80, color: false }), []);
   });
 
   it("sans couleur, pas une seule séquence d'échappement", () => {
-    const texte = renderTable(routes, { largeur: 80, couleur: false }).join("");
+    const texte = renderTable(routes, { width: 80, color: false }).join("");
     assert.notInclude(texte, String.fromCharCode(27));
   });
 
   it("une clé absente d'une ligne rend une cellule vide, pas une erreur", () => {
     const lignes = renderTable([{ a: 1 }, { a: 2, b: "x" }], {
-      largeur: 40,
-      couleur: false,
+      width: 40,
+      color: false,
     });
     assert.include(lignes.join("\n"), "b");
   });

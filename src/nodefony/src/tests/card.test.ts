@@ -36,21 +36,21 @@ describe("carte de visite — composition (pure)", () => {
 
   it("n'ouvre la console d'administration que si `studio` est là", () => {
     const sans = buildCard(baseInput);
-    assert.isUndefined(sans.portes.find((p) => p.ou === "/nodefony"));
+    assert.isUndefined(sans.doors.find((p) => p.ou === "/nodefony"));
     const avec = buildCard({ ...baseInput, modules: ["http", "studio"] });
-    assert.isDefined(avec.portes.find((p) => p.ou === "/nodefony"));
+    assert.isDefined(avec.doors.find((p) => p.ou === "/nodefony"));
   });
 
   it("cite toujours `AGENTS.md` en PREMIÈRE porte", () => {
     // Un lecteur qui s'arrête au premier item doit tomber sur les instructions
     // de l'application, pas sur un catalogue générique.
-    assert.strictEqual(buildCard(baseInput).portes[0]?.ou, "AGENTS.md");
+    assert.strictEqual(buildCard(baseInput).doors[0]?.ou, "AGENTS.md");
   });
 
   it("préfixe toutes les commandes par `npx`", () => {
     // `nodefony` nu rend 127 : le binaire vit dans les node_modules de l'app.
     for (const verbe of buildCard(baseInput).verbes) {
-      assert.match(verbe.commande, /^(npx nodefony|npm) /u, verbe.commande);
+      assert.match(verbe.command, /^(npx nodefony|npm) /u, verbe.command);
     }
   });
 });

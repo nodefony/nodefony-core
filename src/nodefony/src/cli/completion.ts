@@ -105,11 +105,11 @@ function optionValuesOf(cmd: CommanderCommand): Record<string, string[]> {
     // Un drapeau ne prend pas de valeur : le proposer en attendrait une, et le
     // TAB deviendrait muet là où il devait proposer les autres options.
     if (!o.required && !o.optional) continue;
-    const valeurs = [
+    const values = [
       ...(o.argChoices ?? []),
       ...(OPTION_SUGGESTIONS.get(o) ?? []),
     ];
-    for (const flag of extractFlags(o.flags)) out[flag] = valeurs;
+    for (const flag of extractFlags(o.flags)) out[flag] = values;
   }
   return out;
 }
@@ -196,7 +196,7 @@ export async function writeCliManifest(
   // Le PID du nom sert ici une seconde fois : il dit si le propriétaire vit
   // encore. On n'efface QUE les morts — arracher le temporaire d'un process
   // vivant lui volerait son écriture en cours.
-  nettoyerTemporairesOrphelins(file);
+  cleanOrphanTempFiles(file);
 
   const tmp = `${file}.${process.pid}.tmp`;
   try {
@@ -223,16 +223,13 @@ export async function writeCliManifest(
  *
  * @param file - chemin du manifest ; ses temporaires en dérivent
  */
-function nettoyerTemporairesOrphelins(file: string): void {
+function cleanOrphanTempFiles(file: string): void {
   try {
-    const dossier = path.dirname(file);
+    const folder = path.dirname(file);
     const base = `${path.basename(file)}.`;
-    for (const entree of readdirSync(dossier)) {
-      if (!entree.startsWith(base) || !entree.endsWith(".tmp")) continue;
-      const pid = Number.parseInt(
-        entree.slice(base.length, -".tmp".length),
-        10,
-      );
+    for (const input of readdirSync(folder)) {
+      if (!input.startsWith(base) || !input.endsWith(".tmp")) continue;
+      const pid = Number.parseInt(input.slice(base.length, -".tmp".length), 10);
       if (!Number.isInteger(pid) || pid <= 0) continue;
       if (pid === process.pid) continue;
       try {
@@ -243,7 +240,7 @@ function nettoyerTemporairesOrphelins(file: string): void {
         // Mort (ESRCH) — ou hors de notre portée (EPERM), auquel cas il vit et
         // `rmSync` échouera sans conséquence.
       }
-      rmSync(path.join(dossier, entree), { force: true });
+      rmSync(path.join(folder, input), { force: true });
     }
   } catch {
     // Le balayage est un confort : son échec ne doit jamais coûter le manifest.
@@ -298,9 +295,9 @@ export function computeCompletions(
       // 🔴 Le dernier mot VALIDÉ est un flag qui attend une valeur : c'est elle
       // qu'on complète, pas une autre option. Proposer les options ici faisait
       // croire que `--env` se suffisait à lui-même.
-      const dernier = validated[validated.length - 1] ?? "";
-      const attendues = cmd.optionValues?.[dernier];
-      if (attendues) return attendues;
+      const last = validated[validated.length - 1] ?? "";
+      const expected = cmd.optionValues?.[last];
+      if (expected) return expected;
       const choices = cmd.args?.[pos] ?? [];
       return [...choices, ...cmd.options, ...manifest.globalOptions];
     }

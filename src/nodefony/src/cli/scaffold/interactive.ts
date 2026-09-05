@@ -1,5 +1,5 @@
 import readline from "node:readline/promises";
-import { ancreEventLoop } from "../prompts";
+import { anchorEventLoop } from "../prompts";
 import type { Readable, Writable } from "node:stream";
 import type { IScaffoldTypeSpec } from "./spec";
 import type {
@@ -104,7 +104,7 @@ export async function confirm(
   // ⭐ Ancre l'event loop le temps des questions : `create app` est servi sans
   // démarrer quoi que ce soit, donc l'attente d'une frappe est la seule chose
   // qui reste — et Node ne compte que les handles. Cf `cli/prompts.ts`.
-  const relacheAncre = ancreEventLoop();
+  const relacheAncre = anchorEventLoop();
   const rl = readline.createInterface({ input, output });
   try {
     const raw = await rl.question(`${question} [O/n] `);
@@ -132,7 +132,7 @@ export async function askMissing(
   // ⭐ Ancre l'event loop le temps des questions : `create app` est servi sans
   // démarrer quoi que ce soit, donc l'attente d'une frappe est la seule chose
   // qui reste — et Node ne compte que les handles. Cf `cli/prompts.ts`.
-  const relacheAncre = ancreEventLoop();
+  const relacheAncre = anchorEventLoop();
   const rl = readline.createInterface({ input, output });
   const answers: TScaffoldAnswers = { ...partial };
   try {

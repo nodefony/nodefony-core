@@ -54,7 +54,7 @@ export type {
 export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
-export { besoinDeShell } from "./cli/execPortable";
+export { needsShell as besoinDeShell } from "./cli/execPortable";
 // Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.
@@ -885,8 +885,8 @@ export type { IDoctorReport } from "./kernel/checks/runDoctor";
 export { buildCard, renderCard } from "./cli/cardReport";
 export {
   chargePrompts,
-  demande,
-  ancreEventLoop,
+  request as demande,
+  anchorEventLoop as ancreEventLoop,
   type IPrompts,
 } from "./cli/prompts";
 export type {

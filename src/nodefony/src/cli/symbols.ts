@@ -211,16 +211,16 @@ export function parseSymbolsArgv(
 
 /** Rend un symbole pour un lecteur humain — une ligne d'identité, puis la parenté. */
 function renderSymbol(sym: ISymbolEntry): string {
-  const lignes = [
+  const lines = [
     `${sym.name} — ${sym.kind} (${sym.module})`,
     `  ${sym.file}${sym.line ? `:${sym.line}` : ""}`,
   ];
-  if (sym.description) lignes.push(`  ${sym.description}`);
-  if (sym.extends) lignes.push(`  étend      : ${sym.extends}`);
+  if (sym.description) lines.push(`  ${sym.description}`);
+  if (sym.extends) lines.push(`  étend      : ${sym.extends}`);
   if (sym.implements?.length) {
-    lignes.push(`  implémente : ${sym.implements.join(", ")}`);
+    lines.push(`  implémente : ${sym.implements.join(", ")}`);
   }
-  return `${lignes.join("\n")}\n`;
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -288,14 +288,14 @@ export function runSymbolsCommand(argv: string[]): number {
 
   // Résumé : d'où vient le graphe (la question qu'on se pose en premier quand un
   // symbole manque), et ce qu'il couvre.
-  const parPaquet = new Map<string, number>();
+  const byPackage = new Map<string, number>();
   for (const sym of entries) {
-    parPaquet.set(sym.module, (parPaquet.get(sym.module) ?? 0) + 1);
+    byPackage.set(sym.module, (byPackage.get(sym.module) ?? 0) + 1);
   }
   process.stdout.write(`graphe : ${file}\n`);
   if (graph.generated) process.stdout.write(`généré : ${graph.generated}\n`);
   process.stdout.write(`${entries.length} symboles exportés\n\n`);
-  for (const [mod, n] of [...parPaquet].sort((a, b) => b[1] - a[1])) {
+  for (const [mod, n] of [...byPackage].sort((a, b) => b[1] - a[1])) {
     process.stdout.write(`  ${String(n).padStart(5)}  ${mod}\n`);
   }
   process.stdout.write(

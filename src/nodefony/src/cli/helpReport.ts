@@ -71,7 +71,7 @@ export const MENU_GROUP_LABELS: Record<string, string> = {
  * détail. Une commande absente de cette table passe après, par ordre
  * alphabétique — un module tiers ne peut pas être classé par nous.
  */
-const ORDRE_DANS_GROUPE: Record<string, readonly string[]> = {
+const ORDER_IN_GROUP: Record<string, readonly string[]> = {
   LANCER: ["development", "production", "cluster", "status", "stop"],
   COMPRENDRE: ["card", "doctor", "inspect", "env", "symbols"],
   "GÉNÉRER ET CONSTRUIRE": ["create", "build", "install", "outdated"],
@@ -128,9 +128,9 @@ export interface IHelpModel {
 /** Le décor du rendu — tout ce que ce module refuse d'aller chercher. */
 export interface IHelpRenderOptions {
   /** Largeur utile, déjà bornée. */
-  largeur: number;
+  width: number;
   /** `true` pour émettre des séquences ANSI. */
-  couleur: boolean;
+  color: boolean;
 }
 
 /**
@@ -141,7 +141,7 @@ export interface IHelpRenderOptions {
  * trente-huit autres, et l'aide devenait un mur de blanc. Au-delà, la
  * description passe SOUS le nom — un cas isolé ne coûte plus qu'à lui-même.
  */
-const COLONNE_MAX = 24;
+const COLUMN_MAX = 24;
 
 /** L'indentation d'une commande, sous le titre de son groupe. */
 const ITEM = "    ";
@@ -171,7 +171,7 @@ export function descriptionWidth(
  * La largeur de la colonne des noms — UNE seule pour toute la page.
  *
  * Deux largeurs différentes selon le groupe feraient sauter l'œil d'un bloc à
- * l'autre. Les noms qui dépassent {@link COLONNE_MAX} sont écartés du calcul :
+ * l'autre. Les noms qui dépassent {@link COLUMN_MAX} sont écartés du calcul :
  * ils prennent leur propre ligne, et ne coûtent donc qu'à eux-mêmes.
  *
  * @param commands - les commandes qui composent la page.
@@ -179,12 +179,12 @@ export function descriptionWidth(
  */
 function nameColumnWidth(commands: readonly IHelpCommand[]): number {
   return Math.min(
-    COLONNE_MAX,
+    COLUMN_MAX,
     Math.max(
       0,
       ...commands
-        .map((c) => nomAffiche(c).length)
-        .filter((n) => n <= COLONNE_MAX),
+        .map((c) => displayName(c).length)
+        .filter((n) => n <= COLUMN_MAX),
     ),
   );
 }
@@ -195,7 +195,7 @@ function nameColumnWidth(commands: readonly IHelpCommand[]): number {
  * @param cmd - la commande.
  * @returns `doctor|check`, ou le nom seul.
  */
-function nomAffiche(cmd: IHelpCommand): string {
+function displayName(cmd: IHelpCommand): string {
   return cmd.aliases.length ? `${cmd.name}|${cmd.aliases.join("|")}` : cmd.name;
 }
 
@@ -209,70 +209,70 @@ function nomAffiche(cmd: IHelpCommand): string {
  * @param commands - toutes les commandes connues.
  * @returns les groupes non vides, dans l'ordre de lecture.
  */
-export function grouperCommandes(
+export function groupCommands(
   commands: readonly IHelpCommand[],
-): { titre: string; commandes: IHelpCommand[] }[] {
+): { title: string; commands: IHelpCommand[] }[] {
   const par = new Map<string, IHelpCommand[]>();
-  const ajouter = (titre: string, cmd: IHelpCommand): void => {
-    const liste = par.get(titre);
-    if (liste) liste.push(cmd);
-    else par.set(titre, [cmd]);
+  const add = (title: string, cmd: IHelpCommand): void => {
+    const list = par.get(title);
+    if (list) list.push(cmd);
+    else par.set(title, [cmd]);
   };
   for (const cmd of commands) {
-    if (cmd.group && HELP_GROUPS.includes(cmd.group)) ajouter(cmd.group, cmd);
-    else if (cmd.module) ajouter(`MODULE ${cmd.module.toUpperCase()}`, cmd);
-    else ajouter("AUTRES", cmd);
+    if (cmd.group && HELP_GROUPS.includes(cmd.group)) add(cmd.group, cmd);
+    else if (cmd.module) add(`MODULE ${cmd.module.toUpperCase()}`, cmd);
+    else add("AUTRES", cmd);
   }
 
-  const rang = (titre: string, cmd: IHelpCommand): number => {
-    const ordre = ORDRE_DANS_GROUPE[titre];
-    if (!ordre) return Number.POSITIVE_INFINITY;
-    const at = ordre.indexOf(cmd.name);
+  const rang = (title: string, cmd: IHelpCommand): number => {
+    const order = ORDER_IN_GROUP[title];
+    if (!order) return Number.POSITIVE_INFINITY;
+    const at = order.indexOf(cmd.name);
     return at === -1 ? Number.POSITIVE_INFINITY : at;
   };
-  const trier = (titre: string, liste: IHelpCommand[]): IHelpCommand[] =>
-    [...liste].sort((a, b) => {
-      const ra = rang(titre, a);
-      const rb = rang(titre, b);
+  const sort = (title: string, list: IHelpCommand[]): IHelpCommand[] =>
+    [...list].sort((a, b) => {
+      const ra = rang(title, a);
+      const rb = rang(title, b);
       return ra === rb ? a.name.localeCompare(b.name) : ra - rb;
     });
 
-  const sortie: { titre: string; commandes: IHelpCommand[] }[] = [];
+  const output: { title: string; commands: IHelpCommand[] }[] = [];
   // Les groupes d'intention d'abord, dans l'ordre déclaré — jamais celui de
   // première rencontre, qui est ce que commander applique et qui dépend donc de
   // l'ordre d'ENREGISTREMENT des commandes.
-  for (const titre of HELP_GROUPS) {
-    const liste = par.get(titre);
-    if (liste) sortie.push({ titre, commandes: trier(titre, liste) });
+  for (const title of HELP_GROUPS) {
+    const list = par.get(title);
+    if (list) output.push({ title: title, commands: sort(title, list) });
   }
   const modules = [...par.keys()]
     .filter((t) => t.startsWith("MODULE "))
     .sort((a, b) => a.localeCompare(b));
-  for (const titre of modules) {
-    sortie.push({ titre, commandes: trier(titre, par.get(titre) ?? []) });
+  for (const title of modules) {
+    output.push({ title: title, commands: sort(title, par.get(title) ?? []) });
   }
-  const autres = par.get("AUTRES");
-  if (autres)
-    sortie.push({ titre: "AUTRES", commandes: trier("AUTRES", autres) });
-  return sortie;
+  const others = par.get("AUTRES");
+  if (others)
+    output.push({ title: "AUTRES", commands: sort("AUTRES", others) });
+  return output;
 }
 
 /**
  * Une entrée à deux colonnes, qui ne déborde jamais.
  *
  * @param terme - la colonne de gauche (nom, drapeaux).
- * @param texte - la colonne de droite.
- * @param colonne - largeur de la colonne de gauche.
- * @param largeur - largeur utile.
+ * @param text - la colonne de droite.
+ * @param column - largeur de la colonne de gauche.
+ * @param width - largeur utile.
  * @param p - la peinture.
  * @param teinte - le rôle de peinture de la colonne de gauche.
  * @returns une ou plusieurs lignes.
  */
-function entree(
+function input(
   terme: string,
-  texte: string,
-  colonne: number,
-  largeur: number,
+  text: string,
+  column: number,
+  width: number,
   p: IPalette,
   teinte: (t: string) => string,
   accepts?: { label: string; values: readonly string[] },
@@ -280,27 +280,27 @@ function entree(
   // Un mot ne se coupe JAMAIS — un nom de commande coupé en deux ne se cherche
   // plus. S'il ne tient pas dans la colonne de droite, c'est l'INDENTATION qui
   // cède : la description repart sous le nom, à la marge minimale.
-  const plusLongMot = Math.max(0, ...texte.split(" ").map((m) => m.length));
-  const alignee = `${ITEM}${" ".repeat(colonne + 2)}`;
-  const marge = largeur - alignee.length >= plusLongMot ? alignee : `${ITEM}  `;
+  const longestWord = Math.max(0, ...text.split(" ").map((m) => m.length));
+  const alignee = `${ITEM}${" ".repeat(column + 2)}`;
+  const indent = width - alignee.length >= longestWord ? alignee : `${ITEM}  `;
   // Un terme plus long que la colonne prend sa ligne : la description suit
   // dessous. C'est le cas isolé qui paie son coût, pas toute la page.
-  const lignes: string[] = [];
-  if (terme.length > colonne) {
-    lignes.push(`${ITEM}${teinte(terme)}`);
-    for (const l of wrap(texte, largeur - marge.length, "")) {
-      lignes.push(marge + p.dim(l));
+  const lines: string[] = [];
+  if (terme.length > column) {
+    lines.push(`${ITEM}${teinte(terme)}`);
+    for (const l of wrap(text, width - indent.length, "")) {
+      lines.push(indent + p.dim(l));
     }
   } else {
-    const pad = " ".repeat(colonne - terme.length);
-    const [premiere, ...suite] = wrap(texte, largeur - marge.length, "");
-    lignes.push(`${ITEM}${teinte(terme)}${pad}  ${p.dim(premiere ?? "")}`);
-    for (const l of suite) lignes.push(marge + p.dim(l));
+    const pad = " ".repeat(column - terme.length);
+    const [premiere, ...suite] = wrap(text, width - indent.length, "");
+    lines.push(`${ITEM}${teinte(terme)}${pad}  ${p.dim(premiere ?? "")}`);
+    for (const l of suite) lines.push(indent + p.dim(l));
   }
   if (accepts?.values.length) {
-    lignes.push(...valeurs(accepts, marge, largeur, p));
+    lines.push(...values(accepts, indent, width, p));
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -313,32 +313,32 @@ function entree(
  * valeur plutôt que sous le libellé.
  *
  * @param accepts - le libellé de l'argument et ses valeurs.
- * @param marge - l'indentation de la description.
- * @param largeur - largeur utile.
+ * @param indent - l'indentation de la description.
+ * @param width - largeur utile.
  * @param p - la peinture.
  * @returns les lignes de l'énumération.
  */
-function valeurs(
+function values(
   accepts: { label: string; values: readonly string[] },
-  marge: string,
-  largeur: number,
+  indent: string,
+  width: number,
   p: IPalette,
 ): string[] {
   const prefixe = `${accepts.label} : `;
-  const dispo = largeur - marge.length - prefixe.length;
+  const dispo = width - indent.length - prefixe.length;
   // Trop étroit pour aligner sous le libellé : l'énumération repart à la marge,
   // sur ses propres lignes. Une valeur coupée en deux ne se cherche plus.
   if (dispo < 12) {
-    const sortie = [marge + p.dim(prefixe.trimEnd())];
-    for (const l of wrapList([...accepts.values], largeur - marge.length)) {
-      sortie.push(marge + p.dim(l));
+    const output = [indent + p.dim(prefixe.trimEnd())];
+    for (const l of wrapList([...accepts.values], width - indent.length)) {
+      output.push(indent + p.dim(l));
     }
-    return sortie;
+    return output;
   }
   return wrapList([...accepts.values], dispo).map((l, i) =>
     i === 0
-      ? marge + p.dim(prefixe + l)
-      : marge + " ".repeat(prefixe.length) + p.dim(l),
+      ? indent + p.dim(prefixe + l)
+      : indent + " ".repeat(prefixe.length) + p.dim(l),
   );
 }
 
@@ -353,9 +353,9 @@ export function renderHelp(
   model: IHelpModel,
   opts: IHelpRenderOptions,
 ): string[] {
-  const { largeur, couleur } = opts;
-  const p = createPalette(couleur);
-  const lignes: string[] = [];
+  const { width, color } = opts;
+  const p = createPalette(color);
+  const lines: string[] = [];
 
   // L'en-tête tient sur UNE ligne quand la largeur le permet, sinon la
   // baseline passe dessous. Elle faisait 73 colonnes : sur un terminal étroit
@@ -366,50 +366,48 @@ export function renderHelp(
   const peint = `  ${p.strong("⬢ Nodefony")}${
     model.version ? ` ${p.dim(`v${model.version}`)}` : ""
   }`;
-  if (`  ${marque}   ${baseline}`.length <= largeur) {
-    lignes.push(`${peint}   ${p.dim(baseline)}`);
-  } else if (`  ${baseline}`.length <= largeur) {
+  if (`  ${marque}   ${baseline}`.length <= width) {
+    lines.push(`${peint}   ${p.dim(baseline)}`);
+  } else if (`  ${baseline}`.length <= width) {
     // Sur sa propre ligne. Elle n'est JAMAIS repliée : elle énumère avec des
     // points médians, et un repli aux espaces en mettrait un en tête de ligne.
-    lignes.push(peint, `  ${p.dim(baseline)}`);
+    lines.push(peint, `  ${p.dim(baseline)}`);
   } else {
     // Trop étroit même pour elle : c'est de l'ornement, il cède la place.
-    lignes.push(peint);
+    lines.push(peint);
   }
-  lignes.push("");
-  for (const [terme, valeur] of [
+  lines.push("");
+  for (const [terme, value] of [
     ["usage :", "nodefony <commande> [options]"],
     ["aide d'une commande :", "nodefony <commande> --help"],
   ] as const) {
-    const une = `  ${terme} ${valeur}`;
-    lignes.push(
-      une.length <= largeur
-        ? `  ${p.dim(terme)} ${valeur}`
-        : `  ${p.dim(terme)}`,
+    const une = `  ${terme} ${value}`;
+    lines.push(
+      une.length <= width ? `  ${p.dim(terme)} ${value}` : `  ${p.dim(terme)}`,
     );
-    if (une.length > largeur) lignes.push(`    ${valeur}`);
+    if (une.length > width) lines.push(`    ${value}`);
   }
 
-  const groupes = grouperCommandes(model.commands);
-  const colonne = nameColumnWidth(model.commands);
+  const groups = groupCommands(model.commands);
+  const column = nameColumnWidth(model.commands);
 
-  const section = (titre: string): void => {
-    const { title: t, divider: filet } = sectionTitle(titre, largeur);
-    lignes.push("", p.strong(t) + p.dim(filet), "");
+  const section = (title: string): void => {
+    const { title: t, divider } = sectionTitle(title, width);
+    lines.push("", p.strong(t) + p.dim(divider), "");
   };
 
-  for (const groupe of groupes) {
-    section(groupe.titre);
-    for (const cmd of groupe.commandes) {
+  for (const group of groups) {
+    section(group.title);
+    for (const cmd of group.commands) {
       // Ce que la commande accepte est rendu PAR `entree`, sous la description :
       // là où le lecteur rencontre la commande, jamais dans une section
       // séparée réservée aux agents.
-      lignes.push(
-        ...entree(
-          nomAffiche(cmd),
+      lines.push(
+        ...input(
+          displayName(cmd),
           cmd.description,
-          colonne,
-          largeur,
+          column,
+          width,
           p,
           p.action,
           cmd.accepts,
@@ -421,59 +419,59 @@ export function renderHelp(
   if (model.globalOptions.length > 0) {
     section("OPTIONS GLOBALES");
     const colOpt = Math.min(
-      COLONNE_MAX,
+      COLUMN_MAX,
       Math.max(0, ...model.globalOptions.map((o) => o.flags.length)),
     );
     for (const opt of model.globalOptions) {
-      lignes.push(
-        ...entree(opt.flags, opt.description, colOpt, largeur, p, p.strong),
+      lines.push(
+        ...input(opt.flags, opt.description, colOpt, width, p, p.strong),
       );
     }
   }
 
   if (model.modules && model.modules.length > 0) {
-    lignes.push(
+    lines.push(
       "",
       `  ${p.strong(`Modules chargés (${model.modules.length})`)}`,
     );
-    for (const l of wrapList([...model.modules], largeur - 2)) {
-      lignes.push(`  ${p.dim(l)}`);
+    for (const l of wrapList([...model.modules], width - 2)) {
+      lines.push(`  ${p.dim(l)}`);
     }
   }
 
   if (model.note) {
-    lignes.push("");
-    for (const l of wrap(model.note, largeur - 4, "")) {
-      lignes.push(`  ${p.warning("!")} ${p.dim(l)}`);
+    lines.push("");
+    for (const l of wrap(model.note, width - 4, "")) {
+      lines.push(`  ${p.warning("!")} ${p.dim(l)}`);
     }
     if (model.noteAction) {
-      lignes.push(
+      lines.push(
         `  ${p.dim("Pour commencer :")} ${p.action(model.noteAction)}`,
       );
     }
   }
 
   if (model.jsonCommands && model.jsonCommands.length > 0) {
-    lignes.push("");
+    lines.push("");
     const prefixe = "  Réponse machine (--json) :";
     // Le libellé et la liste ne partagent une ligne QUE si la liste y tient.
     // Alignée sous un préfixe de 28 colonnes, elle débordait sur un terminal
     // étroit — et la première chose qu'un agent lit était cassée.
-    const dispo = largeur - prefixe.length - 1;
+    const dispo = width - prefixe.length - 1;
     const plies = wrapList([...model.jsonCommands], Math.max(dispo, 1));
     const large = plies.every((l) => l.length <= dispo);
     if (large) {
       for (const [i, l] of plies.entries()) {
-        lignes.push(
+        lines.push(
           i === 0
             ? `${p.dim(prefixe)} ${p.dim(l)}`
             : `${" ".repeat(prefixe.length + 1)}${p.dim(l)}`,
         );
       }
     } else {
-      lignes.push(p.dim(prefixe));
-      for (const l of wrapList([...model.jsonCommands], largeur - 4)) {
-        lignes.push(`    ${p.dim(l)}`);
+      lines.push(p.dim(prefixe));
+      for (const l of wrapList([...model.jsonCommands], width - 4)) {
+        lines.push(`    ${p.dim(l)}`);
       }
     }
   }
@@ -481,12 +479,12 @@ export function renderHelp(
   // Le pied nomme les DEUX portes de documentation, et la page de manuel
   // d'abord : elle est hors ligne, déjà installée avec le paquet, et personne
   // ne devine qu'elle existe.
-  lignes.push("");
-  for (const [terme, valeur] of [
+  lines.push("");
+  for (const [terme, value] of [
     ["Manuel :", "man nodefony"],
     ["Docs :", "nodefony.github.io/nodefony-core"],
   ] as const) {
-    lignes.push(`  ${p.dim(terme)} ${valeur}`);
+    lines.push(`  ${p.dim(terme)} ${value}`);
   }
-  return lignes;
+  return lines;
 }

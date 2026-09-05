@@ -36,7 +36,7 @@ import path from "node:path";
  * execFileSync(process.execPath, [nodefonyBin(), "production", "--detach", "--wait"]);
  * ```
  *
- * @param depuis - d'où résoudre, si ce n'est pas depuis ce module (rare). Un
+ * @param since - d'où résoudre, si ce n'est pas depuis ce module (rare). Un
  *                 appelant installé À CÔTÉ du framework — un shim `create-*`,
  *                 par exemple — passe son propre `import.meta.url` pour que la
  *                 résolution parte de SON arbre de dépendances.
@@ -45,15 +45,15 @@ import path from "node:path";
  *         dit alors que c'est l'INSTALLATION qui manque, pas le chemin qui est
  *         faux.
  */
-export function nodefonyBin(depuis: string = import.meta.url): string {
-  const require = createRequire(depuis);
+export function nodefonyBin(since: string = import.meta.url): string {
+  const require = createRequire(since);
   let manifeste: string;
   try {
     manifeste = require.resolve("nodefony/package.json");
   } catch {
     throw new Error(
       "paquet `nodefony` introuvable depuis " +
-        depuis +
+        since +
         " — l'application est-elle installée (npm install) ?",
     );
   }
