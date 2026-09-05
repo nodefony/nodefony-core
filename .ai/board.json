@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T17:04:30.869Z",
+  "generatedAt": "2026-09-05T18:32:19.201Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 115,
+      "closed": 117,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 37,
+      "open": 41,
       "title": "10.0.0"
     }
   ],
@@ -726,8 +726,8 @@
       "number": 26,
       "title": "refactor(client)!: retirer l'appel non typé de la socket cliente",
       "url": "https://github.com/nodefony/nodefony-core/issues/26",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -936,8 +936,8 @@
       "number": 156,
       "title": "chore(release): recaler description et mots-clés des paquets",
       "url": "https://github.com/nodefony/nodefony-core/issues/156",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -969,9 +969,99 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 1.5,
+      "jours": 4.5,
       "ordre": 4.5,
       "labels": []
+    },
+    {
+      "number": 207,
+      "title": "refactor(core)!: écrire en anglais les identifiants du diagnostic et de la CLI",
+      "url": "https://github.com/nodefony/nodefony-core/issues/207",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.51,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 208,
+      "title": "refactor(core): écrire en anglais les identifiants restants du noyau",
+      "url": "https://github.com/nodefony/nodefony-core/issues/208",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.52,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 209,
+      "title": "refactor(orm): écrire en anglais les identifiants du moteur SQL",
+      "url": "https://github.com/nodefony/nodefony-core/issues/209",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.53,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 210,
+      "title": "refactor(devkit): écrire en anglais les identifiants des scripts du navigateur piloté",
+      "url": "https://github.com/nodefony/nodefony-core/issues/210",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.54,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 212,
+      "title": "feat(build): étendre le contrôle de langue aux gabarits de génération",
+      "url": "https://github.com/nodefony/nodefony-core/issues/212",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.55,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 211,
+      "title": "refactor(packages): écrire en anglais les identifiants des modules restants",
+      "url": "https://github.com/nodefony/nodefony-core/issues/211",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.56,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
     },
     {
       "number": 61,
@@ -1974,7 +2064,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 3,
+      "jours": 2.5,
       "ordre": 41,
       "labels": [
         "10.0.0"

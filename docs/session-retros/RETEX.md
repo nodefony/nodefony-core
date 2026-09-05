@@ -2129,6 +2129,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [2× — 09-05g] **Le même chiffre, deux fois faux, et il avait été GRAVÉ dans un ticket.**
+  #187 annonçait « 164 identifiants » (le `rg` fait main), une mémoire de session disait « 791 » ;
+  `npm run check:lang` — l'instrument à dictionnaire, éprouvé par un banc, qui existait DÉJÀ et que
+  le ticket demandait d'écrire — en rend **978**. Un chiffre faux dans un ticket ne se corrige
+  jamais tout seul : il se recopie, on estime dessus (1,5 j pour 6× le travail), et il aurait fait
+  attaquer un chantier de 13 modules comme une tâche. **Avant de s'en servir, chercher qui MESURE
+  déjà** — la question zéro vaut aussi pour un chiffre qu'on a soi-même écrit la veille.
+
 - [1× — 09-04c] **Un relevé chiffré peut n'être qu'une devinette outillée — et le chiffre fait taire
   la question.** J'ai annoncé « 164 identifiants français en production » : le compte venait d'une
   liste de ~80 racines écrite À LA MAIN dans un `rg`, sans dictionnaire. Le user a posé la seule
@@ -2394,6 +2402,13 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
   persiste.
 
 ## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
+
+- [1× — 09-05g] **Un gate qui EXCLUT un dossier applique la règle au produit et pas à ce que le
+  produit FAIT PRODUIRE.** `check-identifier-language.mjs:1050` exclut `templates` — or les 95
+  gabarits sont exactement ce que `nodefony create` écrit chez l'utilisateur : un identifiant
+  français y produit un identifiant français dans CHAQUE application générée, et rien ne le voit.
+  Même défaut que #174 (le framework moins sévère que ce qu'il fait produire). Le geste : devant un
+  gate, **lire sa liste d'exclusions avant de croire son verdict vert**.
 
 - [1× — 09-05] **`expect(...).not.toThrow()` autour d'une commande jette son rapport.** Le cas de conformité du banc lançait `nodefony check` et rendait « Command failed: …/bin/nodefony check », rien d'autre — alors que la commande AVAIT écrit un diagnostic nommant le manquement. Deux allers-retours de forge pour apprendre ce que la sortie disait du premier coup ; et une SECONDE cause, cachée derrière la première, n'est apparue qu'une fois le cas rendu bavard. Capter `stdout`/`stderr` et les remonter dans le message d'échec.
 - [1× — 08-31e] **Un symptôme qui ne se reproduit pas ne se chasse pas — il se rend LISIBLE.**

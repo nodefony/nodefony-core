@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-05 17:04** (UTC).
+> Empreinte prise le **2026-09-05 18:32** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,24 +16,28 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 37 | 115 | 2026-11-15 |
+| 10.0.0 | 41 | 117 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#26 — refactor(client)!: retirer l'appel non typé de la socket cliente**
+**#187 — refactor(core)!: écrire tous les identifiants du framework en anglais**
 
-Ordre 3 · P2 — décision · 0.5 j · jalon 10.0.0
+Ordre 4.5 · P1 — figé à la création · 4.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 37 ouverts
+## Jalon 10.0.0 — 41 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 3 | P2 — décision | 0.5 | #26 | refactor(client)!: retirer l'appel non typé de la socket cliente |
-| 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
-| 4.5 | P1 — figé à la création | 1.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
+| 4.5 | P1 — figé à la création | 4.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
+| 4.51 | P1 — figé à la création | 1 | #207 | refactor(core)!: écrire en anglais les identifiants du diagnostic et de la CLI |
+| 4.52 | P1 — figé à la création | 1 | #208 | refactor(core): écrire en anglais les identifiants restants du noyau |
+| 4.53 | P1 — figé à la création | 0.5 | #209 | refactor(orm): écrire en anglais les identifiants du moteur SQL |
+| 4.54 | P1 — figé à la création | 1 | #210 | refactor(devkit): écrire en anglais les identifiants des scripts du navigateur piloté |
+| 4.55 | P1 — figé à la création | 0.5 | #212 | feat(build): étendre le contrôle de langue aux gabarits de génération |
+| 4.56 | P1 — figé à la création | 0.5 | #211 | refactor(packages): écrire en anglais les identifiants des modules restants |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
@@ -57,7 +61,7 @@ Ordre 3 · P2 — décision · 0.5 j · jalon 10.0.0
 | 31 | P3 — fin de cycle | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 | 40 | P1 — figé à la création | 8 | #53 | docs: remettre la documentation à niveau avant la version 10 |
-| 41 | P1 — figé à la création | 3 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
+| 41 | P1 — figé à la création | 2.5 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
 | 42 | P1 — figé à la création | 0.5 | #157 | docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt |
 | 43 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
 | 44 | P2 — décision | 1 | #159 | docs(api): publier une référence d'API générée par paquet |
