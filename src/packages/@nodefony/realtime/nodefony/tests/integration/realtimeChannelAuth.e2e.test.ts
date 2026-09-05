@@ -181,7 +181,7 @@ class AuthRt extends RealtimeController {
   }
 }
 
-function makeServer(wire: LoopbackWire): AuthRt {
+function makeServer(wire: LoopbackWire, environment?: string): AuthRt {
   const conn = {
     get readyState() {
       return wire.serverConnOpen ? OPEN : TransportState.CLOSED;
@@ -205,6 +205,13 @@ function makeServer(wire: LoopbackWire): AuthRt {
     origin: "",
   };
   const rt = new AuthRt(ctx as unknown as ContextType);
+  // Le mode d'exécution du kernel décide si un refus dit POURQUOI. Les autres
+  // scénarios de ce fichier montent le contrôleur sans kernel : `environment`
+  // y vaut `undefined`, qui vaut production — leurs refus restent donc nus, et
+  // c'est ce qu'ils vérifient déjà.
+  if (environment !== undefined) {
+    rt.kernel = { environment } as unknown as typeof rt.kernel;
+  }
   wire.feedServer = (raw) => rt.feed(raw);
   return rt;
 }
@@ -253,6 +260,7 @@ const testAuth: IRealtimeAuthenticator = {
 /** Configure le hub (token + verrou) AVANT le handshake, puis connecte un pair. */
 async function connectAs(
   token: IRealtimeToken,
+  environment?: string,
 ): Promise<{ client: RealtimeClient }> {
   const hub = getRealtimeHub();
   hub.clear();
@@ -265,7 +273,7 @@ async function connectAs(
     }),
   );
   const wire = new LoopbackWire();
-  makeServer(wire);
+  makeServer(wire, environment);
   const transport = new LoopbackClientTransport(wire);
   const client = new RealtimeClient(
     { url: "ws://loopback/realtime", autoReconnect: false },
@@ -502,6 +510,89 @@ describe("MATRICE E2E — refus observable (contrat client)", () => {
       { channel: "random:unknown", reason: "unknown" },
     ]);
     expect(ticks).to.have.length(0); // aucun provider démarré
+    client.disconnect();
+  });
+});
+
+/**
+ * E2E — le DÉTAIL d'un refus traverse le contrôleur, et s'arrête à la production.
+ *
+ * `deniedDetail` est éprouvée en unitaire dans les deux sens, mais une fonction
+ * pure ne prouve pas sa JONCTION : rien ne disait que le contrôleur l'appelle,
+ * ni qu'il lui passe le mode du kernel, ni que le détail survit au transport
+ * jusqu'au client. La matrice ci-dessus ne pouvait pas le voir — elle monte le
+ * contrôleur SANS kernel, donc `environment` y vaut `undefined`, donc le détail
+ * est absent par construction et ses trente-trois cas restent verts quoi qu'on
+ * fasse ici. C'est exactement la forme d'angle mort qui laisse croire qu'une
+ * capacité est couverte.
+ */
+describe("E2E — le détail d'un refus, de bout en bout", () => {
+  beforeEach(() => getRealtimeHub().clear());
+
+  it("en développement : le refus dit POURQUOI, en plus du motif générique", async () => {
+    const { client } = await connectAs(TOKENS.anon, "development");
+    const denials: Array<{
+      channel: string;
+      reason: string;
+      detail?: string;
+    }> = [];
+    client.onDenied((d) => denials.push(d));
+    client.subscribe("admin:metrics");
+    await flush();
+    await flush();
+    expect(denials, "un refus attendu").to.have.length(1);
+    // Le motif reste générique — c'est lui qui interdit l'oracle, et il ne
+    // change pas d'un mode à l'autre.
+    expect(denials[0]!.reason).to.equal("forbidden");
+    // Le détail, lui, nomme ce qu'il faut regarder. On n'assène pas sa
+    // formulation exacte (elle se réécrit), mais il doit être là et parler du
+    // canal refusé — un détail qui ne nomme pas sa cause ne sert à rien.
+    expect(denials[0]!.detail, "le détail est dit en développement").to.be.a(
+      "string",
+    );
+    expect(denials[0]!.detail).to.contain("admin:metrics");
+    client.disconnect();
+  });
+
+  it("en production : le refus est le MÊME, sans le détail", async () => {
+    const { client } = await connectAs(TOKENS.anon, "production");
+    const denials: Array<{
+      channel: string;
+      reason: string;
+      detail?: string;
+    }> = [];
+    client.onDenied((d) => denials.push(d));
+    client.subscribe("admin:metrics");
+    await flush();
+    await flush();
+    expect(denials, "un refus attendu").to.have.length(1);
+    expect(denials[0]!.reason).to.equal("forbidden");
+    // La même phrase qui aide un développeur renseignerait un attaquant : elle
+    // ne franchit pas la production. Une absence vaut production, jamais
+    // l'inverse.
+    expect(denials[0]!.detail, "aucun détail en production").to.equal(
+      undefined,
+    );
+    client.disconnect();
+  });
+
+  it("un canal sans producteur rend `unknown` — et dit quoi vérifier (dev)", async () => {
+    // L'autre moitié du refus, et la plus fréquente en développement : le canal
+    // n'est pas gardé, il n'existe simplement pas. Le motif le distingue déjà ;
+    // le détail donne le geste — orthographe, controller chargé, `dist/` bâti.
+    const { client } = await connectAs(TOKENS.admin, "development");
+    const denials: Array<{
+      channel: string;
+      reason: string;
+      detail?: string;
+    }> = [];
+    client.onDenied((d) => denials.push(d));
+    client.subscribe("canal:qui:nexiste:pas");
+    await flush();
+    await flush();
+    expect(denials, "un refus attendu").to.have.length(1);
+    expect(denials[0]!.reason).to.equal("unknown");
+    expect(denials[0]!.detail).to.contain("canal:qui:nexiste:pas");
     client.disconnect();
   });
 });

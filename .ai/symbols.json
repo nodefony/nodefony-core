@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T07:21:20.407Z",
+  "generated": "2026-09-05T07:48:28.142Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 808,
-    "symbols": 3842,
+    "files": 809,
+    "symbols": 3843,
     "classes": 383,
     "interfaces": 1047,
     "types": 439,
     "enums": 4,
-    "functions": 1586,
+    "functions": 1587,
     "constants": 383
   },
   "symbols": {
@@ -23638,6 +23638,14 @@
       "exported": true,
       "module": "@nodefony/realtime"
     },
+    "deniedDetail": {
+      "name": "deniedDetail",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/deniedDetail.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Le détail d'un `realtime:denied` — dit au développeur, tu à l'utilisateur. `RealtimeDeniedReason` est fermé et générique par construction : `forbidden` ne dit pas si c'est un rôle qui manque ou le …"
+    },
     "buildOwnHealth": {
       "name": "buildOwnHealth",
       "kind": "function",
@@ -35359,6 +35367,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "welcomeEnv": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "deniedDetail": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "NODEFONY_CHANNEL_NAMESPACE": [

@@ -5345,6 +5345,81 @@ function runGates(app, runDir, task) {
     path.join(runDir, `task-${task.id}.gates.json`),
     JSON.stringify(results, null, 2),
   );
+  noterAvancement(runDir, task, results);
+}
+
+/**
+ * Le journal COURANT du run — réécrit après chaque tâche.
+ *
+ * 🔴 Un run de trois répétitions dure des heures, et son `report.json` n'est
+ * écrit qu'à la toute fin : pendant tout ce temps, savoir ce qui se passait
+ * exigeait de connaître le chemin du décor (affiché au montage, des milliers de
+ * lignes plus haut) puis d'ouvrir les `task-*.gates.json` un par un. Vécu :
+ * dix gates rouges lus au réveil, dont la cause a demandé de remonter une
+ * application témoin à la main.
+ *
+ * Ce fichier ne remplace pas le rapport final — il n'agrège rien et ne rend
+ * aucun verdict de tâche, qui n'a de sens qu'une fois les répétitions faites.
+ * Il répond à la seule question qu'on se pose pendant : où en est-on, et
+ * qu'est-ce qui est rouge, avec quelle cause.
+ *
+ * @param {string} runDir - le répertoire du run.
+ * @param {{id: number, name: string}} task - la tâche qui vient d'être jugée.
+ * @param {{name: string, pass: boolean, evidence: string, cause: string|null}[]} results
+ *   - les verdicts de ses gates.
+ */
+function noterAvancement(runDir, task, results) {
+  const p = path.join(runDir, "avancement.json");
+  let etat = { debut: new Date().toISOString(), taches: [] };
+  if (existsSync(p)) {
+    try {
+      etat = JSON.parse(readFileSync(p, "utf8"));
+    } catch {
+      // Un journal illisible ne doit pas tuer le run : on repart d'un neuf.
+    }
+  }
+  etat.taches.push({
+    id: task.id,
+    nom: task.name,
+    quand: new Date().toISOString(),
+    rouges: results
+      .filter((r) => !r.pass)
+      .map((r) => ({ gate: r.name, cause: r.cause, preuve: r.evidence })),
+  });
+  etat.dernier = new Date().toISOString();
+  writeFileSync(p, JSON.stringify(etat, null, 2));
+}
+
+/**
+ * Où en est le dernier run, et qu'est-ce qui est rouge — sans attendre la fin.
+ *
+ * Lit le journal courant du run le plus récent (ou de celui qu'on nomme) et le
+ * rend en clair. Aucun agent n'est lancé, rien n'est monté : c'est une lecture.
+ */
+export function rendreAvancement(runDir) {
+  const p = path.join(runDir, "avancement.json");
+  if (!existsSync(p)) {
+    console.log(
+      `aucun journal courant sous ${runDir} — run pas encore commencé`,
+    );
+    return 1;
+  }
+  const etat = JSON.parse(readFileSync(p, "utf8"));
+  const taches = etat.taches ?? [];
+  const rouges = taches.filter((t) => t.rouges.length > 0);
+  console.log(`\nrun : ${path.basename(runDir)}`);
+  console.log(
+    `  ${taches.length} tâche(s) jouée(s), dernière à ${etat.dernier}`,
+  );
+  console.log(`  ${rouges.length} avec au moins un gate rouge\n`);
+  for (const t of rouges) {
+    console.log(`  ❌ tâche ${t.id} — ${t.nom}`);
+    for (const r of t.rouges) {
+      console.log(`       ${r.gate}`);
+      console.log(`       cause=${r.cause ?? "—"} · ${r.preuve}`);
+    }
+  }
+  return 0;
 }
 
 /** Juge UNE tâche sur pièces : transcript + diff du commit de la tâche. */
@@ -6081,6 +6156,23 @@ function commitDuRun(runDir) {
  * dedans écartait en silence les runs à répétitions — c'est-à-dire exactement
  * ceux qu'on veut comparer.
  */
+/**
+ * Les runs qui portent un JOURNAL COURANT, du plus récent au plus ancien.
+ *
+ * Distinct de {@link runsComparables}, qui exige un rapport FINAL : ici on
+ * cherche précisément ce qu'un run pas encore terminé possède — c'est tout
+ * l'objet de `--status`. Le nom d'un run EST son horodatage, d'où le tri
+ * lexicographique.
+ */
+function runsEnJournal() {
+  if (!existsSync(RUN_ROOT)) return [];
+  return readdirSync(RUN_ROOT)
+    .filter((d) => existsSync(path.join(RUN_ROOT, d, "avancement.json")))
+    .sort()
+    .reverse()
+    .map((d) => path.join(RUN_ROOT, d));
+}
+
 function runsComparables(limite) {
   if (!existsSync(RUN_ROOT)) return [];
   return readdirSync(RUN_ROOT)
@@ -6330,6 +6422,7 @@ function main() {
     "--link",
     "--repack",
     "--setup-only",
+    "--status",
   ];
   const usage = [
     "Banc de découvrabilité — un agent trouve-t-il l'outillage du framework ?",
@@ -6343,6 +6436,8 @@ function main() {
     "                                                     re-juge des runs déjà joués (aucun agent)",
     "      … --enregistrer-reference                      fige le résultat dans baseline.json",
     "  node bench-discoverability.mjs --purge [--confirmer]  libère les décors (garde les mesures)",
+    "",
+    "  node bench-discoverability.mjs --status [<run>]      où en est un run EN COURS, et ce qui est rouge",
     "",
     "  --setup-only  monte l'app témoin et s'arrête (aucune tâche jouée)",
     "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
@@ -6364,6 +6459,24 @@ function main() {
   // décor, et n'a pas à payer les gardes de démarrage du banc.
   if (args.includes("--purge")) {
     process.exit(purgerDecors(args.includes("--confirmer")));
+  }
+  // Lecture pure d'un run EN COURS : aucun agent, aucun décor, aucune garde de
+  // démarrage. C'est la réponse à « où en est-on ? » pendant les heures que
+  // dure un run — question à laquelle il fallait auparavant répondre en
+  // ouvrant les `task-*.gates.json` un par un, dans un dossier dont le chemin
+  // n'était affiché qu'au montage.
+  if (args.includes("--status")) {
+    const i = args.indexOf("--status");
+    const nomme = args[i + 1];
+    const cible =
+      nomme && !nomme.startsWith("--")
+        ? path.resolve(nomme)
+        : (runsEnJournal()[0] ?? null);
+    if (cible === null) {
+      console.log("aucun run trouvé");
+      process.exit(1);
+    }
+    process.exit(rendreAvancement(cible));
   }
   refuserLesAncresDeDiff();
   const valeurDe = (drapeau) => {

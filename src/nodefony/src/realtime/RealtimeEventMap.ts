@@ -244,6 +244,22 @@ export interface IRealtimeDenied {
   channel: string;
   /** Motif générique (cf {@link RealtimeDeniedReason}) — jamais le détail de la policy. */
   reason: RealtimeDeniedReason;
+  /**
+   * Ce qui s'est passé, en clair — **hors production UNIQUEMENT**.
+   *
+   * `reason` est fermé et générique par construction : c'est ce qui empêche
+   * d'en faire un oracle. Mais un développeur qui reçoit `forbidden` n'a alors
+   * aucun moyen de savoir LEQUEL des cas il tient — rôle insuffisant, ou
+   * plancher de plateforme fermé faute de module de sécurité — ni quoi
+   * regarder. Il lui reste à deviner, et un signal qu'on ne sait pas lire ne
+   * vaut guère mieux qu'un silence.
+   *
+   * Ce champ porte donc la phrase utile, et il est posé par
+   * {@link deniedDetail}, sur le modèle EXACT de `welcomeEnv` : **absent en
+   * production**, où la même phrase deviendrait précisément l'oracle que
+   * `reason` refuse d'être. Une absence vaut production, jamais l'inverse.
+   */
+  detail?: string;
 }
 
 /**

@@ -1071,7 +1071,11 @@ export class RealtimeClient<
    * payload partiel (motif par défaut `forbidden`). Cold path (refus rare).
    */
   private ingestDenied(params: unknown): void {
-    const p = params as { channel?: unknown; reason?: unknown } | null;
+    const p = params as {
+      channel?: unknown;
+      reason?: unknown;
+      detail?: unknown;
+    } | null;
     const channel = typeof p?.channel === "string" ? p.channel : "";
     // Motif NORMALISÉ sur le contrat : un serveur plus récent (ou un pont mal
     // écrit) qui inventerait un motif ne doit pas faire tomber l'écran dans un
@@ -1080,7 +1084,19 @@ export class RealtimeClient<
     const brut = p?.reason;
     const reason: IRealtimeDenied["reason"] =
       brut === "unknown" || brut === "limit" ? brut : "forbidden";
-    const denied: IRealtimeDenied = { channel, reason };
+    // Le DÉTAIL est repris tel quel quand le serveur en pose un — il n'existe
+    // qu'hors production (`deniedDetail`, côté serveur), et il porte ce qu'il
+    // faut regarder là où `reason`, générique par construction, ne dit rien.
+    // Il n'est pas normalisé comme `reason` : ce n'est pas une valeur du
+    // protocole que du code lit, c'est une phrase qu'un humain lit. Filtré sur
+    // le TYPE seulement — une frame hostile ne doit pas glisser un objet là où
+    // l'écran attend du texte.
+    const detail = typeof p?.detail === "string" ? p.detail : undefined;
+    const denied: IRealtimeDenied = {
+      channel,
+      reason,
+      ...(detail === undefined ? {} : { detail }),
+    };
     this.fireNotice(deniedToNotice(denied));
     this.fireLocal(LOCAL_EVENTS.denied, denied);
   }

@@ -48,6 +48,7 @@ import {
   type RealtimeChannelFactory,
 } from "../../decorators/realtimeDecorators";
 import { welcomeEnv } from "./welcomeEnv";
+import { deniedDetail } from "./deniedDetail";
 
 /**
  * Statut HTTP-équivalent d'une erreur survenue pendant une invocation du pont.
@@ -467,7 +468,22 @@ export abstract class RealtimeController<
         if (channel !== undefined) {
           // Type de PROTOCOLE isomorphe (core) : un seul contrat, garanti par le
           // compilateur des deux bouts (serveur émet ⇄ client `ingestDenied`).
-          const denied: IRealtimeDenied = { channel, reason: "forbidden" };
+          const denied: IRealtimeDenied = {
+            channel,
+            reason: "forbidden",
+            // Le motif reste générique — c'est lui qui interdit l'oracle. Le
+            // détail, lui, ne franchit pas la production (`deniedDetail`) : en
+            // développement il évite de chercher pendant une heure une panne de
+            // transport là où une politique a simplement fait son travail.
+            ...deniedDetail(
+              this.kernel?.environment,
+              `le verrou de frame a refusé l'accès à « ${channel} » pour cette ` +
+                `identité : vérifie les rôles ou scopes exigés par le canal ` +
+                `(décorateur \`@RealtimeChannel(nom, { roles })\` ou clé ` +
+                `\`realtimeChannels\` de la configuration de sécurité), et ceux ` +
+                `que porte le jeton — le \`realtime:welcome\` te les rend`,
+            ),
+          };
           auditedPeer.notify("realtime:denied", denied);
         }
       };
@@ -718,7 +734,16 @@ export abstract class RealtimeController<
       // abonné). `realtime:denied` = convention existante ; motif `limit` (une borne
       // de ressource n'est pas un secret, ≠ oracle d'autorisation). Log DEBUG et NON
       // WARNING : un log par subscribe refusé sous flood serait un amplificateur.
-      const denied: IRealtimeDenied = { channel, reason: "limit" };
+      const denied: IRealtimeDenied = {
+        channel,
+        reason: "limit",
+        ...deniedDetail(
+          this.kernel?.environment,
+          `plafond de ${cap} canaux par connexion atteint : désabonne-toi d'un ` +
+            `canal avant d'en ouvrir un autre, ou relève ` +
+            `\`maxChannelsPerConnection\` dans la configuration realtime`,
+        ),
+      };
       state.peer.notify("realtime:denied", denied);
       this.log(
         `WS subscribe refusé (cap ${cap} canaux/connexion atteint) → ${channel}`,
@@ -784,6 +809,17 @@ export abstract class RealtimeController<
     const denied: IRealtimeDenied = {
       channel,
       reason: plancher ? "forbidden" : "unknown",
+      ...deniedDetail(
+        this.kernel?.environment,
+        plancher
+          ? `« ${channel} » appartient au namespace de plateforme, dont le ` +
+              `plancher est CLOS tant qu'aucun module de sécurité n'est chargé — ` +
+              `ce n'est pas ton identité qui est en cause`
+          : `aucun producteur pour « ${channel} » sur ce pod : vérifie ` +
+              `l'orthographe du canal, puis qu'un \`@RealtimeChannel("${channel}")\` ` +
+              `est bien déclaré dans un controller CHARGÉ (le runtime lit \`dist/\`, ` +
+              `pas les sources)`,
+      ),
     };
     state.peer.notify("realtime:denied", denied);
     // DEBUG et non WARNING : un log par subscribe refusé sous flood serait un

@@ -265,7 +265,30 @@ function creerServeur({
         }
         if (msg.method === "subscribe") {
           const canal = msg.params?.channel;
-          if (!canal || !cfg.autorise(qui, canal)) continue; // silence, comme documenté
+          if (!canal) continue;
+          if (!cfg.autorise(qui, canal)) {
+            // 🔴 Le jouet doit imiter le PRODUIT, pas une idée du produit. Il
+            // refusait en silence « comme documenté » — or le serveur réel DIT
+            // tout refus (`RealtimeController.startChannel` : « un abonnement
+            // qui n'aboutit pas se DIT, TOUJOURS », `realtime:denied`, motifs
+            // `forbidden` / `unknown` / `limit`). Un banc écrit contre un
+            // serveur imaginaire valide un juge qui ne marchera pas en face du
+            // vrai — c'est ce qui a laissé le juge conclure sur une absence de
+            // trame, faute de connaître le signal que le produit émet déjà.
+            if (socket.writable && !socket.destroyed) {
+              socket.write(
+                encoderTrame(
+                  JSON.stringify({
+                    jsonrpc: "2.0",
+                    method: "realtime:denied",
+                    params: { channel: canal, reason: "forbidden" },
+                  }),
+                ),
+                () => {},
+              );
+            }
+            continue;
+          }
           // Ticker accéléré (jouet) : la cadence réelle (1/s) n'a aucune
           // importance ici, seule compte l'arrivée d'AU MOINS une trame dans
           // la fenêtre du juge.
