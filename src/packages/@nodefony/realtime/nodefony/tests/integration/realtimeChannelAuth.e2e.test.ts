@@ -651,7 +651,13 @@ describe("MATRICE E2E — ce que le welcome ANNONCE (channels × identité)", ()
       const obtenables = CHANNELS.filter((c) => c.allow(token))
         .map((c) => c.channel)
         .sort();
-      expect([...client.serverChannels].sort()).to.deep.equal(obtenables);
+      // `serverChannels` est `readonly string[] | null` : le `null` compte, il
+      // signifie « aucun welcome reçu » — l'étaler sans le nommer masquerait
+      // exactement le cas où le banc ne prouve rien.
+      expect(client.serverChannels, "welcome reçu").to.not.equal(null);
+      expect([...(client.serverChannels ?? [])].sort()).to.deep.equal(
+        obtenables,
+      );
     });
 
     it(`${tokenName} : le bloc identity porte les rôles et scopes de CE jeton`, async () => {
