@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T15:50:14.594Z",
+  "generatedAt": "2026-09-05T17:04:30.869Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 112,
+      "closed": 115,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 39,
+      "open": 37,
       "title": "10.0.0"
     }
   ],
@@ -36,8 +36,8 @@
       "number": 19,
       "title": "refactor(drizzle): rendre optionnels les pilotes de base de données",
       "url": "https://github.com/nodefony/nodefony-core/issues/19",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -168,8 +168,8 @@
       "number": 174,
       "title": "fix(config): refuser une clé de config inconnue au lieu de la retirer",
       "url": "https://github.com/nodefony/nodefony-core/issues/174",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -344,6 +344,21 @@
       "ordre": 2.5,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 206,
+      "title": "fix(kernel): décider si une config fautive est fatale pour un module optionnel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/206",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 2.5,
+      "labels": [
+        "10.0.0",
+        "arbitrage"
       ]
     },
     {
@@ -1007,7 +1022,7 @@
       "title": "chore(release): publier une beta avant la 10.0.0",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -2200,6 +2215,20 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 70.5,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 205,
+      "title": "refactor(repo): ranger scripts/ et dire où va un contrôle neuf",
+      "url": "https://github.com/nodefony/nodefony-core/issues/205",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 90,
       "labels": [
         "backlog"
       ]

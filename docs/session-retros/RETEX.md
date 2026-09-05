@@ -177,6 +177,19 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 09-05f] **La bonne ligne n'était pas celle que le tag traçait.** Le kernel faisait passer
+  une erreur de CONFIGURATION derrière `critical = false` — si bien qu'un module optionnel mal
+  configuré démarrait en IGNORANT ce qu'on lui avait demandé. Les deux répondent à des questions
+  différentes : `critical` parle de DISPONIBILITÉ (« l'app tourne-t-elle sans ce module ? »), une
+  config fautive parle d'INTENTION (« ce qui est écrit peut-il être honoré ? »). La ligne juste
+  passe entre **une faute de CONFIG et une panne d'INFRA**, pas entre dev et prod : l'infra est
+  transitoire (se répare en démarrant un service → fail-soft dev), la config ne se répare qu'en
+  l'éditant. Ce qui a rendu l'arbitrage sûr, c'est de MESURER avant : dans les cinq modules
+  optionnels, la seule source de `BootConfigurationError` est la validation de config — aucune
+  panne d'infra ne passe par ce chemin. Sans cette vérification, on rendait le dev impraticable en
+  croyant fermer un silence. Corollaire de méthode : **un durcissement se livre avec le test qui le
+  BORNE** (ici « une `Error` ordinaire reste fail-soft »), sinon rien ne dit ce qu'on n'a pas cassé.
+
 - [1× — 09-05d] **Un gate peut avoir DEUX exigences, et satisfaire la première donne l'illusion d'avoir fini.** `scripts-audit` veut qu'un script soit cité par une page ET, s'il n'est lancé par aucun automate, qu'il soit ACQUITTÉ dans une liste. J'ai corrigé la première, vu « orphelins : 0 », et poussé — le gate sortait toujours en 1, la barrière de pré-poussée le disait, et c'est la forge qui l'aurait rattrapé. Lire le COMPTE qu'on vient d'améliorer ne remplace pas lire le CODE DE SORTIE.
 - [1× — 09-05d] **Un gate au périmètre trop étroit accuse ce qui est conforme.** Le même n'inventoriait la documentation que dans `docs/` racine, alors que depuis l'ADR-0001 la doc d'un module vit chez lui. Un script documenté dans `<module>/docs/` ressortait « cité nulle part ». Un gate qui refuse ce qui respecte la règle apprend à passer outre — et c'est la règle qu'on cesse d'appliquer, pas le gate.
 

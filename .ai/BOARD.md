@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-05 15:50** (UTC).
+> Empreinte prise le **2026-09-05 17:04** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,23 +16,21 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 39 | 112 | 2026-11-15 |
+| 10.0.0 | 37 | 115 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#19 — refactor(drizzle): rendre optionnels les pilotes de base de données**
+**#26 — refactor(client)!: retirer l'appel non typé de la socket cliente**
 
-Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
+Ordre 3 · P2 — décision · 0.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 39 ouverts
+## Jalon 10.0.0 — 37 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 1 | P1 — figé à la création | 2 | #19 | refactor(drizzle): rendre optionnels les pilotes de base de données |
-| 2 | P1 — figé à la création | 1 | #174 | fix(config): refuser une clé de config inconnue au lieu de la retirer |
 | 3 | P2 — décision | 0.5 | #26 | refactor(client)!: retirer l'appel non typé de la socket cliente |
 | 4 | P1 — figé à la création | 0.5 | #156 | chore(release): recaler description et mots-clés des paquets |
 | 4.5 | P1 — figé à la création | 1.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
@@ -70,6 +68,12 @@ Ordre 1 · P1 — figé à la création · 2 j · jalon 10.0.0
 | 49 | P3 — fin de cycle | 0.5 | #160 | chore(github): poser les gabarits de ticket et de fusion |
 | 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
+
+## Backlog — aucune date promise · 1 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
 ## Jalon 10.1 — 27 ouverts
 
