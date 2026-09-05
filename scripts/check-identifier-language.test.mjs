@@ -953,7 +953,13 @@ describe("scanRepo — sur un dépôt fabriqué", () => {
     const root = repo({
       "src/core/report.ts":
         "export function rendreRapport(largeur: number) {}\n",
-      "src/mirror/schema.ts":
+      // ⚠️ Ce nom de fichier de DÉCOR n'est pas anodin : `scripts-audit.mjs`
+      // repère les scripts « jamais lancés » en cherchant leur NOM DE FICHIER
+      // dans les sources. Un décor nommé `schema.ts` a suffi à lui faire
+      // conclure qu'un `schema.ts` situé sous `.claude/skills/nodefony-rfc/`
+      // était désormais lancé — et à faire tomber la forge sur un acquittement
+      // « périmé ». Préférer un nom que rien d'autre ne porte.
+      "src/mirror/mirroredValues.ts":
         "export const libelle = 1; export const montant = 2;\n",
     });
     const r = scanRepo({

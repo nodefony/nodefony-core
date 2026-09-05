@@ -443,17 +443,30 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
       // rend `forbidden` qu'il existe ou non.
       installWebSocket(cookie);
       const live = connectShared({ url: HUB });
-      const refus: { channel: string; reason: string }[] = [];
+      const refus: { channel: string; reason: string; detail?: string }[] = [];
       const off = live.socket.onDenied((d) => refus.push(d));
       live.start();
       await until("connecté", () => live.socket.state === "connected");
 
       live.socket.subscribe("app:canal-qui-nexiste-pas");
       await until("refus reçu", () => refus.length > 0);
-      expect(refus[0]).toEqual({
+      // `toMatchObject`, pas `toEqual` : le refus porte AUSSI un `detail` hors
+      // production (`deniedDetail`) — la phrase qui dit au développeur quoi
+      // regarder, tue en production où elle serait l'oracle que `reason` refuse
+      // d'être. Une égalité stricte gravait l'ancien contrat à deux champs et
+      // faisait tomber la forge sur un enrichissement VOULU.
+      expect(refus[0]).toMatchObject({
         channel: "app:canal-qui-nexiste-pas",
         reason: "unknown",
       });
+      // …et tant qu'à recaler, éprouver la promesse NEUVE plutôt que la
+      // contourner : hors production, le refus doit porter la phrase utile.
+      const horsProduction = process.env.NODE_ENV !== "production";
+      if (horsProduction)
+        expect(
+          typeof refus[0]?.detail === "string" && refus[0].detail.length > 0,
+          "hors production, un refus doit dire au développeur quoi regarder",
+        ).toBe(true);
       off();
     },
     TIMEOUT,
