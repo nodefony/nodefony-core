@@ -1295,7 +1295,7 @@ describe("Kernel — BootReport (verdict de boot)", () => {
         { severity: 2 }, // CRITIC
         { severity: 1 }, // ALERT
         { severity: 0 }, // EMERGENCY
-        { severity: -1 }, // SPINNER — ignoré
+        { severity: -1 }, // hors échelle — ignoré
       ],
     };
     const r = k.getBootReport();

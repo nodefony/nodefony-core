@@ -183,11 +183,10 @@ fire(); // émet "myEvent"
 
 ```typescript
 // Niveaux disponibles (SysLogSeverity)
-// EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7) SPINNER(-1)
+// EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7)
 
 svc.log("message", "INFO");
 svc.log("erreur", "ERROR", "MSGID", "détails");
-svc.spinlog("Chargement..."); // severity SPINNER
 svc.logger("debug payload"); // console.debug
 svc.trace("trace payload"); // console.trace
 
@@ -254,7 +253,6 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 | `initSyslog(env, debug, opts?)` | `Syslog \| null` | Initialise le syslog |
 | `clean(syslog?)` | `void` | Libère toutes les références |
 | `log(pci, sev?, msgid?, msg?)` | `Pdu` | Log structuré |
-| `spinlog(msg)` | `Pdu` | Log SPINNER |
 | `logger(pci, ...args)` | `void` | console.debug |
 | `trace(pci, ...args)` | `void` | console.trace |
 | `get<T>(name)` | `T \| null` | Récupère du container |

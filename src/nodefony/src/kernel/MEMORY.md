@@ -86,7 +86,7 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
   `resolveModuleEntries`, raison lisible, lazy null, reset à chaque résolution). Vocabulaire :
   fail-soft = « en échec », gating = « ignoré ».
 - `warnings`/`errors` = journal du boot (comptage ring syslog : WARNING=sev 4, errors=sev 0-3 ;
-  SPINNER=-1 exclu). **Figés** dans `bootLogCounts` quand `postReady` passe true (après, le ring
+  0–7). **Figés** dans `bootLogCounts` quand `postReady` passe true (après, le ring
   mélange boot et runtime) ; comptage à la volée avant.
 - Rendu dev = `BootReporter.#renderVerdict` (bloc « Bilan » : Modules/Vite/Process/Journal) ; la
   ligne Process = `discoverDevProcesses({includeSelf:true})` + `splitByProject(…, kernel.path).mine`

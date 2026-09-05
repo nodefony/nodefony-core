@@ -20,6 +20,36 @@ export { default as Cli } from "./Cli";
 export { default as clc } from "./colors";
 export type { ColorFn, Clc } from "./colors";
 export { SysExit } from "./cli/sysexits";
+// Attente et progression au terminal — publiées parce qu'une application qui
+// écrit une commande CLI en a le MÊME besoin que le framework, et qu'une
+// seconde implémentation divergerait dès le premier réglage. Doc :
+// `src/nodefony/docs/progression.md`.
+export {
+  Spinner,
+  ProgressBar,
+  LiveLine,
+  renderBar,
+  formatDuration,
+  supportsUnicode,
+  shouldAnimate,
+  fitToWidth,
+  BAR_STYLES,
+  BRAILLE_FRAMES,
+  LINE_FRAMES,
+  ARC_FRAMES,
+  BLOCK_FRAMES,
+  DOT_FRAMES,
+} from "./cli/progress";
+export type {
+  IBarStyle,
+  ILiveLineOptions,
+  IProgressBarOptions,
+  IProgressState,
+  IRenderBarOptions,
+  ISpinnerOptions,
+  ProgressRenderer,
+  SpinnerRenderer,
+} from "./cli/progress";
 export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.

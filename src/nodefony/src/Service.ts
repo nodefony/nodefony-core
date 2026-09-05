@@ -272,11 +272,6 @@ class Service implements IService {
     console.trace(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
   }
 
-  /** Log severity `SPINNER` — utilisé par le CLI pour animer un spinner. */
-  spinlog(message: string): Pdu {
-    return this.log(message, "SPINNER");
-  }
-
   // ─── Tracking interne des listeners ────────────────────────────────────────
 
   private trackListener(

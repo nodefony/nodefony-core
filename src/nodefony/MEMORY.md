@@ -57,10 +57,10 @@ Service(name, container?, notificationsCenter?, options?)
 
 - `log(pci, severity?, msgid?, msg?)` → `Pdu`
 - `pdu.severity` = numérique (enum `SysLogSeverity`), `pdu.severityName` = string
-- Severités : `EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7) SPINNER(-1)`
+- Severités : `EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7)`
 - Attention : c'est "CRITIC" pas "CRITICAL"
-- `spinlog(msg)` = `log(msg, "SPINNER")`
 - `logger(pci)` = `console.debug` | `trace(pci)` = `console.trace`
+- Attente/progression terminal : `cli/progress.ts` (`Spinner`, `ProgressBar`, `renderBar`) — écrit DIRECTEMENT sur le flux, JAMAIS par le Syslog
 - Fallback si `syslog null` : `new Pdu(pci, severity, this.name, msgid, msg)` — moduleName = nom du service
 
 **Container delegation**

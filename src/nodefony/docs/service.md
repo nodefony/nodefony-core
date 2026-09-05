@@ -38,7 +38,7 @@ flowchart LR
   subgraph S["Service (name)"]
     direction TB
     C["container<br/>DI — get / set / has"]
-    L["syslog<br/>log / logger / spinlog"]
+    L["syslog<br/>log / logger"]
     N["notificationsCenter<br/>on / fire / fireAsync"]
   end
   K["Kernel"] -->|"fournit container + bus"| S
@@ -347,12 +347,11 @@ les sondes de fuite.
 
 ### Journal
 
-| Appel                               | Ancre            | Usage                                             |
-| ----------------------------------- | ---------------- | ------------------------------------------------- |
-| `log(pci, severity?, msgid?, msg?)` | `Service.ts:209` | le point d'entrée de **tout** log Nodefony        |
-| `logger(pci, …)`                    | `Service.ts:266` | raccourci `DEBUG` + `console.debug` formaté       |
-| `trace(pci, …)`                     | `Service.ts:231` | idem avec `console.trace` (pile d'appels)         |
-| `spinlog(message)`                  | `Service.ts:236` | sévérité `SPINNER` — animation CLI, hors RFC 5424 |
+| Appel                               | Ancre            | Usage                                       |
+| ----------------------------------- | ---------------- | ------------------------------------------- |
+| `log(pci, severity?, msgid?, msg?)` | `Service.ts:209` | le point d'entrée de **tout** log Nodefony  |
+| `logger(pci, …)`                    | `Service.ts:266` | raccourci `DEBUG` + `console.debug` formaté |
+| `trace(pci, …)`                     | `Service.ts:231` | idem avec `console.trace` (pile d'appels)   |
 
 `log()` est **increvable** : sans syslog il fabrique un `Pdu` directement, et toute exception y est
 attrapée pour retomber sur `console` (`Service.ts:218`). Un service qui journalise ne peut pas faire

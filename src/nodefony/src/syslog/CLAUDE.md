@@ -25,17 +25,16 @@ src/nodefony/src/syslog/
 
 ## Sévérités — `SysLogSeverity` (RFC 5424 + extension)
 
-| #   | Nom                         | Usage                             |
-| --- | --------------------------- | --------------------------------- |
-| 0   | `EMERGENCY`                 | Système inutilisable              |
-| 1   | `ALERT`                     | Action immédiate                  |
-| 2   | **`CRITIC`** (PAS CRITICAL) | Conditions critiques              |
-| 3   | `ERROR`                     | Erreurs logique                   |
-| 4   | `WARNING`                   | Conditions d'alerte               |
-| 5   | `NOTICE`                    | Normal mais important             |
-| 6   | `INFO`                      | Informationnel                    |
-| 7   | `DEBUG`                     | Debug                             |
-| -1  | `SPINNER`                   | Animation CLI (extension non-RFC) |
+| #   | Nom                         | Usage                 |
+| --- | --------------------------- | --------------------- |
+| 0   | `EMERGENCY`                 | Système inutilisable  |
+| 1   | `ALERT`                     | Action immédiate      |
+| 2   | **`CRITIC`** (PAS CRITICAL) | Conditions critiques  |
+| 3   | `ERROR`                     | Erreurs logique       |
+| 4   | `WARNING`                   | Conditions d'alerte   |
+| 5   | `NOTICE`                    | Normal mais important |
+| 6   | `INFO`                      | Informationnel        |
+| 7   | `DEBUG`                     | Debug                 |
 
 ⚠️ Le nom dans l'enum est `"CRITIC"`, jamais `"CRITICAL"`.
 
@@ -108,7 +107,6 @@ class MyService extends Service {
   doSomething(): void {
     this.log("simple", "INFO");
     this.log(error, "ERROR", "AUTH", "user login failed");
-    this.spinlog("Chargement..."); // SPINNER
 
     const pdu = this.log("returned", "WARNING");
     pdu.severityName; // "WARNING"

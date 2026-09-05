@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T10:51:06.922Z",
+  "generated": "2026-09-05T11:00:16.484Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -5264,7 +5264,7 @@
       "file": "src/nodefony/src/syslog/Pdu.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Un nom de sévérité RFC 5424 (hors extension `SPINNER`)."
+      "description": "Un nom de sévérité RFC 5424."
     },
     "SEVERITY_NAMES": {
       "name": "SEVERITY_NAMES",
@@ -5272,7 +5272,7 @@
       "file": "src/nodefony/src/syslog/Pdu.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la valeur : `SEVERITY_NAMES[3] === \"ERROR\"`). `SPINNER` (-1) en est absent : c'est une extension d'affichage CLI, jamais un ni…"
+      "description": "Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la valeur : `SEVERITY_NAMES[3] === \"ERROR\"`). Les huit niveaux de la RFC, et rien d'autre : une animation de terminal n'est pa…"
     },
     "BROWSER_ORIGIN": {
       "name": "BROWSER_ORIGIN",

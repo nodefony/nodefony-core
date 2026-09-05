@@ -232,17 +232,16 @@ export default defineConfig((ctx) => ({
 Huit niveaux normalisés, plus une extension maison pour le CLI. L'enum `SysLogSeverity`
 (`Pdu.ts:27`) est la source unique :
 
-| #      | Nom         | Quand l'employer                                        | Sortie |
-| ------ | ----------- | ------------------------------------------------------- | ------ |
-| 0      | `EMERGENCY` | Le système est inutilisable.                            | stderr |
-| 1      | `ALERT`     | Action humaine immédiate requise.                       | stderr |
-| 2      | `CRITIC`    | Condition critique (⚠️ **pas** `CRITICAL`).             | stderr |
-| 3      | `ERROR`     | Une opération a échoué.                                 | stderr |
-| 4      | `WARNING`   | Anomalie tolérée, à surveiller.                         | stdout |
-| 5      | `NOTICE`    | Normal mais notable (bascule, reconfiguration).         | stdout |
-| 6      | `INFO`      | Déroulé nominal — **le défaut d'un `Service`**.         | stdout |
-| 7      | `DEBUG`     | Détail de mise au point.                                | stdout |
-| **-1** | `SPINNER`   | Animation CLI (extension hors RFC) — jamais bufférisée. | stdout |
+| #   | Nom         | Quand l'employer                                | Sortie |
+| --- | ----------- | ----------------------------------------------- | ------ |
+| 0   | `EMERGENCY` | Le système est inutilisable.                    | stderr |
+| 1   | `ALERT`     | Action humaine immédiate requise.               | stderr |
+| 2   | `CRITIC`    | Condition critique (⚠️ **pas** `CRITICAL`).     | stderr |
+| 3   | `ERROR`     | Une opération a échoué.                         | stderr |
+| 4   | `WARNING`   | Anomalie tolérée, à surveiller.                 | stdout |
+| 5   | `NOTICE`    | Normal mais notable (bascule, reconfiguration). | stdout |
+| 6   | `INFO`      | Déroulé nominal — **le défaut d'un `Service`**. | stdout |
+| 7   | `DEBUG`     | Détail de mise au point.                        | stdout |
 
 Points de vigilance, tous vérifiables au code :
 
@@ -577,7 +576,6 @@ Les signatures complètes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; voi
 this.log("message"); // INFO — msgid = nom du service
 this.log(err, "ERROR"); // sévérité explicite
 this.log(data, "DEBUG", "MON_MSGID"); // catégorie personnalisée
-this.spinlog("Chargement…"); // SPINNER — animation CLI, jamais bufférisée
 ```
 
 Toutes les variantes **renvoient le `Pdu`** — pratique pour un test ou un audit signé.
@@ -814,7 +812,7 @@ Le journal est l'un des sous-systèmes les plus testés du cœur. Familles prés
 
 - **Unitaires — le hub** (`src/nodefony/src/tests/Syslog.test.ts`) : ring buffer et ses limites,
   sévérités, conditions de filtrage (`&&` / `||`), rate limiting aux bornes, `rawLog` et le cas
-  `SPINNER`, bufférisation de sortie, détournement de `console`, les quatre transports historiques,
+  bufférisation de sortie, détournement de `console`, les quatre transports historiques,
   les compteurs d'erreurs par worker, la corrélation `requestId` via l'ALS, la gate d'entrée et les
   overrides de debug par module.
 - **Unitaires — le masquage** (`src/nodefony/src/tests/redact.test.ts`) : les trois familles de

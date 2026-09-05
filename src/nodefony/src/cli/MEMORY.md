@@ -279,3 +279,39 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - `getEmoji(undefined)` → `random().emoji` (branche `else`); `getEmoji("name")` → `get("name")`
 - `addCommand(Ctor)` stocke `commands[cmd.name]` → le nom vient du constructeur Command, pas du Ctor
 - Alias Commander : `alias("al")` → la commande répond à `"al"` ET `"alias-cmd"`
+
+## progress.ts — attente et progression (Spinner, ProgressBar)
+
+`Spinner` (indéterminé) · `ProgressBar` (done/total, `spin: true` ajoute un
+tourniquet) · `LiveLine` (socle) · `renderBar()` PURE · `formatDuration()`.
+5 jeux d'images (`BRAILLE_FRAMES` défaut, `LINE_FRAMES` ASCII, `ARC_FRAMES`,
+`BLOCK_FRAMES`, `DOT_FRAMES`), 4 styles de barre (`BAR_STYLES`).
+
+**Jamais par le Syslog** — animation = 10 Pdu/s au ring + transports + backplane.
+Écrit DIRECTEMENT sur le flux (défaut `process.stdout` ; `doctor` passe `stderr`).
+
+`shouldAnimate(stream, env)` refuse : pas de TTY · `CI` · `TERM=dumb` ·
+`NF_NO_PROGRESS`. Hors animation, seule la ligne finale de `stop()` est écrite.
+
+`supportsUnicode(env, platform)` — capacité CONSTATÉE, jamais déduite de
+`process.platform` : repli `LINE_FRAMES` + `BAR_STYLES.ascii` sur un `cmd.exe` nu,
+braille conservé sur Windows Terminal / VS Code. Les 2 paramètres sont injectés
+→ le cas Windows s'éprouve depuis n'importe quelle machine.
+
+Curseur masqué pendant l'animation, restauré sur `exit`/`SIGINT`/`SIGTERM`
+(protocole `signal-exit` : agir seulement si notre écouteur est le SEUL, se
+retirer, puis `process.kill` — jamais `process.exit`). ⚠️ `SIGHUP` lève `ENOSYS`
+sous Windows : non écouté.
+
+`fitToWidth(line, columns)` tronque sans compter les séquences ANSI (sinon la
+ligne wrappe et `clearLine` n'en efface qu'une → traînée). Sortie synchronisée
+mode 2026 (anti-scintillement). Minuteur `unref()`.
+
+**Gotchas**
+
+- ⚠️ **`spawnSync` fige l'animation** : la boucle d'évènements est bloquée, aucun
+  `setInterval` ne se déclenche. Tout appelant doit attendre en ASYNCHRONE.
+- ⚠️ `renderBar(NaN, n)` rendait "" (`repeat(NaN)`), d'où `safeCount`.
+- ⚠️ Un test qui simule un terminal doit poser `animate: true` : sinon il lit
+  `process.env`, où la forge pose `CI` — vert en local, rouge en CI.
+- Une seule LIGNE : pas de rendu multi-lignes (laisserait des traînées).

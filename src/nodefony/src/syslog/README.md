@@ -6,17 +6,16 @@ Système de logging structuré pour Nodefony. Buffer circulaire FIFO, filtrage c
 
 ## Niveaux de sévérité
 
-| Nom         | Valeur | Console  | Usage                         |
-| ----------- | ------ | -------- | ----------------------------- |
-| `EMERGENCY` | 0      | `stderr` | Système inutilisable          |
-| `ALERT`     | 1      | `stderr` | Action immédiate requise      |
-| `CRITIC`    | 2      | `stderr` | Condition critique            |
-| `ERROR`     | 3      | `stderr` | Erreur                        |
-| `WARNING`   | 4      | `stderr` | Avertissement                 |
-| `NOTICE`    | 5      | `stdout` | Normal mais significatif      |
-| `INFO`      | 6      | `stdout` | Information                   |
-| `DEBUG`     | 7      | `stdout` | Débogage                      |
-| `SPINNER`   | -1     | `stdout` | Animation CLI (pas bufferisé) |
+| Nom         | Valeur | Console  | Usage                    |
+| ----------- | ------ | -------- | ------------------------ |
+| `EMERGENCY` | 0      | `stderr` | Système inutilisable     |
+| `ALERT`     | 1      | `stderr` | Action immédiate requise |
+| `CRITIC`    | 2      | `stderr` | Condition critique       |
+| `ERROR`     | 3      | `stderr` | Erreur                   |
+| `WARNING`   | 4      | `stderr` | Avertissement            |
+| `NOTICE`    | 5      | `stdout` | Normal mais significatif |
+| `INFO`      | 6      | `stdout` | Information              |
+| `DEBUG`     | 7      | `stdout` | Débogage                 |
 
 > **Attention** : `CRITIC` (pas `CRITICAL`).
 
@@ -216,7 +215,6 @@ Syslog.rawLog(pdu, "[PID 1234]"); // préfixe optionnel
 | `object` / `Error` / `array` | `util.inspect(payload, depth:3, colors:true)` |
 | severity ≤ 3 (ERROR+)        | `process.stderr`                              |
 | severity > 3                 | `process.stdout`                              |
-| SPINNER (-1)                 | `process.stdout.write("\r...")`               |
 
 > `rawLog` est la base du futur **Transport Layer** (session planifiée — voir `MIGRATION_STATUS.md`).
 
@@ -386,5 +384,5 @@ class MyService extends Service {
 | Logs `INVALID`                   | Exception dans `log()`        | Vérifier le type de `payload`                           |
 | Pas d'affichage console          | `init()` non appelé           | Appeler `syslog.init(env, debug)`                       |
 | `CRITIC` inconnu                 | Faute de frappe               | C'est `"CRITIC"`, pas `"CRITICAL"`                      |
-| `translateSeverity` throw        | Sévérité numérique invalide   | Utiliser 0–7 ou -1 (SPINNER)                            |
+| `translateSeverity` throw        | Sévérité numérique invalide   | Utiliser 0–7                                            |
 | Récursion avec `overrideConsole` | console.\* dans les listeners | Utiliser `Syslog._nativeConsole` — déjà géré en interne |

@@ -52,7 +52,6 @@ export interface IService {
   log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu;
   logger(pci: Pci, ...args: unknown[]): void;
   trace(pci: Pci, ...args: unknown[]): void;
-  spinlog(message: string): Pdu;
 
   // ─── Container delegation ──────────────────────────────────────────────────
   get<T>(name: string): T | null;

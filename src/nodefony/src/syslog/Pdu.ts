@@ -33,7 +33,6 @@ enum SysLogSeverity {
   NOTICE = 5,
   INFO = 6,
   DEBUG = 7,
-  SPINNER = -1,
 }
 
 const sysLogSeverity: SysLogSeverity[] = [
@@ -45,13 +44,12 @@ const sysLogSeverity: SysLogSeverity[] = [
   SysLogSeverity.NOTICE,
   SysLogSeverity.INFO,
   SysLogSeverity.DEBUG,
-  SysLogSeverity.SPINNER,
 ];
 
 /**
  * Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la
- * valeur : `SEVERITY_NAMES[3] === "ERROR"`). `SPINNER` (-1) en est absent :
- * c'est une extension d'affichage CLI, jamais un niveau de journal.
+ * valeur : `SEVERITY_NAMES[3] === "ERROR"`). Les huit niveaux de la RFC, et
+ * rien d'autre : une animation de terminal n'est pas un niveau de journal.
  *
  * Source **unique** du vocabulaire, côté serveur comme côté navigateur (le
  * bundle client la réexporte). Elle existe parce qu'elle était écrite trois
@@ -73,7 +71,7 @@ export const SEVERITY_NAMES = [
   "DEBUG",
 ] as const;
 
-/** Un nom de sévérité RFC 5424 (hors extension `SPINNER`). */
+/** Un nom de sévérité RFC 5424. */
 export type SeverityName = (typeof SEVERITY_NAMES)[number];
 
 /**
@@ -93,7 +91,6 @@ export const BROWSER_ORIGIN = "browser";
 
 const translateSeverity = function (severity: Severity = "INFO"): number {
   if (typeof severity === "number") {
-    if (severity === SysLogSeverity.SPINNER) return SysLogSeverity.SPINNER;
     if (sysLogSeverity[severity] !== undefined) {
       return sysLogSeverity[severity];
     } else {
