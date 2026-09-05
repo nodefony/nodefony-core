@@ -12,7 +12,7 @@
  *
  * @module
  */
-import { creerPalette, replier, type IPalette } from "../kernel/checks/report";
+import { createPalette, wrap, type IPalette } from "../kernel/checks/report";
 
 /** Une ligne de données — les clés deviennent les colonnes. */
 export type TableRow = Record<string, unknown>;
@@ -141,7 +141,7 @@ function fiches(
     for (const clé of colonnes) {
       const valeur = formatCell(row[clé]);
       lignes.push(
-        `  ${p.discret(tronquer(clé, col).padEnd(col))}  ${tronquer(
+        `  ${p.dim(tronquer(clé, col).padEnd(col))}  ${tronquer(
           valeur,
           Math.max(1, largeur - col - 4),
         )}`,
@@ -163,7 +163,7 @@ export function renderTable(
   opts: ITableOptions,
 ): string[] {
   const { largeur, couleur } = opts;
-  const p = creerPalette(couleur);
+  const p = createPalette(couleur);
   if (rows.length === 0) return [];
   const colonnes = opts.colonnes ? [...opts.colonnes] : colonnesDe(rows);
   if (colonnes.length === 0) return [];
@@ -204,7 +204,7 @@ export function renderTable(
       .map((l) => teinte(l))
       .join("\n");
 
-  const lignes = [ligne(colonnes_, p.fort)];
+  const lignes = [ligne(colonnes_, p.strong)];
   // Un filet sous l'en-tête, de la largeur réellement occupée : il sépare sans
   // encadrer. Les bordures de `console.table` coûtaient trois caractères par
   // colonne — sur neuf colonnes, un quart de l'écran.
@@ -212,7 +212,7 @@ export function renderTable(
     largeur,
     retenues.reduce((n, x) => n + x, 0) + separateurs,
   );
-  lignes.push(p.discret(`  ${"─".repeat(Math.max(0, occupée - 2))}`));
+  lignes.push(p.dim(`  ${"─".repeat(Math.max(0, occupée - 2))}`));
   for (const c of cellules) lignes.push(ligne(c, (t) => t));
   // Ce qui a été retiré se DIT, avec sa valeur : une colonne qu'on ne voit
   // plus et dont on ignore le contenu vaut moins qu'une colonne absente.
@@ -232,8 +232,8 @@ export function renderTable(
   for (const note of notes) {
     // Repliée, jamais tronquée : c'est elle qui dit ce qu'on ne voit PAS, et
     // une phrase coupée sur ce sujet précis laisse croire qu'on a tout vu.
-    for (const l of replier(note, largeur - 2, "")) {
-      lignes.push(p.discret(`  ${l}`));
+    for (const l of wrap(note, largeur - 2, "")) {
+      lignes.push(p.dim(`  ${l}`));
     }
   }
   return lignes;

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T17:57:36.207Z",
+  "generated": "2026-09-05T18:55:41.944Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -9013,8 +9013,8 @@
       "module": "@nodefony/core",
       "description": "QUI a démarré, en toutes lettres. « Le dernier démarrage a ÉCHOUÉ » désignait le serveur quel que soit le coupable : un `nodefony inspect` lancé sans son environnement produisait la même phrase, et…"
     },
-    "ILigneSommaire": {
-      "name": "ILigneSommaire",
+    "ISummaryLine": {
+      "name": "ISummaryLine",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -9031,8 +9031,8 @@
       "extends": null,
       "description": "L'ÉTAT D'EXÉCUTION d'une famille de contrôles — a-t-elle seulement eu lieu ? Un contrôle rend deux choses de nature différente : ce qu'il a trouvé, et s'il a pu regarder. Les confondre est le mode …"
     },
-    "IControleSaute": {
-      "name": "IControleSaute",
+    "ISkippedCheck": {
+      "name": "ISkippedCheck",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -9040,8 +9040,8 @@
       "extends": null,
       "description": "Un contrôle qui n'a PAS eu lieu, prêt à être rendu."
     },
-    "IDetailManquement": {
-      "name": "IDetailManquement",
+    "IFindingDetail": {
+      "name": "IFindingDetail",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -9056,7 +9056,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "La peinture du rapport, par RÔLE et non par couleur. Nommer `echec` plutôt que `red` laisse le choix de la teinte à un seul endroit, et rend le rendu lisible sans connaître la palette. Surtout : c'…"
+      "description": "La peinture du rapport, par RÔLE et non par couleur. Nommer `failure` plutôt que `red` laisse le choix de la teinte à un seul endroit, et rend le rendu lisible sans connaître la palette. Surtout : …"
     },
     "ICountableReport": {
       "name": "ICountableReport",
@@ -9067,8 +9067,8 @@
       "extends": null,
       "description": "Ce dont le COMPTE a besoin d'un rapport — ses listes, et rien d'autre. Structural exprès : il vit ici, dans le module sans dépendance, pour que le rendu ET la commande comptent par la MÊME fonction…"
     },
-    "EtatSection": {
-      "name": "EtatSection",
+    "SectionState": {
+      "name": "SectionState",
       "kind": "type",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -9099,40 +9099,40 @@
       "module": "@nodefony/core",
       "description": "Parmi les contrôles sautés, ceux qui CONDAMNENT en mode strict. Un contrôle EMPÊCHÉ (on n'a pas pu regarder) est un manquement de couverture. Deux cas ne le sont pas, et pour la même raison : le co…"
     },
-    "controlesSautes": {
-      "name": "controlesSautes",
+    "skippedChecks": {
+      "name": "skippedChecks",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les contrôles qui n'ont PAS eu lieu, dans l'ordre de lecture du rapport. Fonction pure sur l'état d'exécution : c'est elle qui alimente à la fois le rendu humain, le JSON et le code de sortie en mo…"
     },
-    "creerPalette": {
-      "name": "creerPalette",
+    "createPalette": {
+      "name": "createPalette",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "La peinture en vigueur pour ce rendu."
     },
-    "doitColorer": {
-      "name": "doitColorer",
+    "shouldColorize": {
+      "name": "shouldColorize",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Faut-il colorer cette sortie ? Un rapport de diagnostic finit souvent dans un fichier ou un journal d'intégration continue, où les séquences ANSI ne colorent rien et rendent le texte illisible (`[3…"
     },
-    "unitesInsecables": {
-      "name": "unitesInsecables",
+    "unbreakableUnits": {
+      "name": "unbreakableUnits",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Découpe une phrase en unités INSÉCABLES pour le repli. Les messages de diagnostic portent des commandes entre accents graves (`` `npm run build` ``), qui contiennent des espaces. Couper dessus lais…"
     },
-    "surlignerCode": {
-      "name": "surlignerCode",
+    "highlightCode": {
+      "name": "highlightCode",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -9147,96 +9147,96 @@
       "module": "@nodefony/core",
       "description": "Le nombre total de manquements d'un rapport — le verdict, en UN endroit."
     },
-    "largeurUtile": {
-      "name": "largeurUtile",
+    "usableWidth": {
+      "name": "usableWidth",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "La largeur de rendu, bornée."
     },
-    "symbole": {
-      "name": "symbole",
+    "stateSymbol": {
+      "name": "stateSymbol",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le symbole d'un état — la seule chose qui reste quand la couleur est ôtée."
     },
-    "ligneSommaire": {
-      "name": "ligneSommaire",
+    "summaryLine": {
+      "name": "summaryLine",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Une ligne de sommaire alignée : ` ✓ Titre········· détail`. L'alignement se calcule sur le titre le PLUS LONG du lot, jamais sur une constante : une colonne figée déborde le jour où l'on ajoute « F…"
     },
-    "titreSection": {
-      "name": "titreSection",
+    "sectionTitle": {
+      "name": "sectionTitle",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Un titre de section, prolongé par un filet jusqu'au bord. Le rendu séparait ses sections par un filet PLEIN, posé sur sa propre ligne au-dessus du titre : trois lignes de décor pour annoncer une se…"
     },
-    "replier": {
-      "name": "replier",
+    "wrap": {
+      "name": "wrap",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Enveloppe un texte à la largeur donnée, en coupant aux espaces. Un message de diagnostic porte une phrase entière — chemin, cause, geste. Laissée au terminal, elle se replie sans indentation et le …"
     },
-    "separerGeste": {
-      "name": "separerGeste",
+    "splitAction": {
+      "name": "splitAction",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sépare le CONSTAT du GESTE dans un message qui porte les deux. Les contrôles écrivent « … → `npm run build` » : la flèche est le signe qu'un geste suit. Le rendre sur sa propre ligne le rend trouva…"
     },
-    "filet": {
-      "name": "filet",
+    "divider": {
+      "name": "divider",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Un filet horizontal, pour séparer le sommaire du détail."
     },
-    "duree": {
-      "name": "duree",
+    "@nodefony/core:formatDuration": {
+      "name": "formatDuration",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Une durée en secondes, rendue lisible. « plus récent de 6359 s » demande un calcul mental au moment où le lecteur en a le moins envie. Ce n'est pas une précision qu'on perd : personne ne décide rie…"
     },
-    "accord": {
-      "name": "accord",
+    "pluralize": {
+      "name": "pluralize",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Accorde un nom avec son nombre — « 1 contrôle passé », « 2 contrôles passés ». Les parenthèses de repli (« contrôle(s) passé(s) ») sont le signe d'un rapport écrit pour la machine ; celui-ci est lu…"
     },
-    "replierListe": {
-      "name": "replierListe",
+    "wrapList": {
+      "name": "wrapList",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Replie une énumération par UNITÉS, jamais au milieu d'un élément. 🔴 Un repli aux espaces met le séparateur en tête de ligne : `\\s` avale l'espace insécable qui entoure le point médian, et la ligne…"
     },
-    "TITRES": {
-      "name": "TITRES",
+    "TITLES": {
+      "name": "TITLES",
       "kind": "const",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le nom lisible de chaque famille. Une table unique évite qu'un titre affiché dans le sommaire diffère de celui de la section « non contrôlé » — deux libellés pour un même contrôle, et le lecteur cr…"
     },
-    "FAMILLES": {
-      "name": "FAMILLES",
+    "FAMILIES": {
+      "name": "FAMILIES",
       "kind": "const",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -29808,25 +29808,25 @@
       "IGitHooksPlan": [
         "src/nodefony/src/cli/gitHooks.ts"
       ],
-      "creerPalette": [
+      "createPalette": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "replier": [
+      "wrap": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "replierListe": [
+      "wrapList": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "titreSection": [
+      "sectionTitle": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
@@ -29849,13 +29849,13 @@
       "MENU_GROUP_LABELS": [
         "src/nodefony/src/cli/startMenu.ts"
       ],
-      "doitColorer": [
+      "shouldColorize": [
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
-      "largeurUtile": [
+      "usableWidth": [
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts",
@@ -30636,7 +30636,7 @@
       "countCheckFindings": [
         "src/nodefony/src/mcp/tools.ts"
       ],
-      "controlesSautes": [
+      "skippedChecks": [
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
@@ -31588,7 +31588,7 @@
         "src/nodefony/src/kernel/checks/deep.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
       ],
-      "duree": [
+      "formatDuration": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
       "isSkippedDir": [
@@ -31630,7 +31630,7 @@
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
-      "accord": [
+      "pluralize": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "preventedChecks": [
@@ -31641,7 +31641,7 @@
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "FAMILLES": [
+      "FAMILIES": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
@@ -31652,19 +31652,19 @@
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "ligneSommaire": [
+      "summaryLine": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "separerGeste": [
+      "splitAction": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "surlignerCode": [
+      "highlightCode": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "symbole": [
+      "stateSymbol": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "TITRES": [
+      "TITLES": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
@@ -31672,13 +31672,13 @@
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "EtatSection": [
+      "SectionState": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "IControleSaute": [
+      "ISkippedCheck": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "ILigneSommaire": [
+      "ISummaryLine": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "formatAge": [

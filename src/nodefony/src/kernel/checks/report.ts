@@ -16,13 +16,13 @@
 import clc from "../../colors";
 
 /** Le verdict d'une famille de contrôles, tel qu'il s'affiche. */
-export type EtatSection = "ok" | "echec" | "avertissement" | "non-controle";
+export type SectionState = "ok" | "echec" | "avertissement" | "non-controle";
 
 /** Une famille de contrôles, résumée en une ligne du sommaire. */
-export interface ILigneSommaire {
+export interface ISummaryLine {
   /** Nom lisible de la famille — « Câblage », « Fraîcheur du build ». */
-  titre: string;
-  etat: EtatSection;
+  title: string;
+  state: SectionState;
   /** Ce qui a été constaté, en quelques mots. */
   detail: string;
 }
@@ -135,7 +135,7 @@ export type DoctorFamily =
  * de la section « non contrôlé » — deux libellés pour un même contrôle, et le
  * lecteur croit qu'il y en a deux.
  */
-export const TITRES: Record<DoctorFamily, string> = {
+export const TITLES: Record<DoctorFamily, string> = {
   freshness: "Fraîcheur du build",
   readiness: "Prêt à démarrer",
   envCatalog: "Variables déclarées",
@@ -159,7 +159,7 @@ export const TITRES: Record<DoctorFamily, string> = {
  * retard rend faux tout ce qui suit ; puis ce qui empêche de démarrer, qui
  * explique souvent le reste.
  */
-export const FAMILLES: readonly DoctorFamily[] = [
+export const FAMILIES: readonly DoctorFamily[] = [
   "freshness",
   "readiness",
   "envCatalog",
@@ -199,8 +199,8 @@ export const FAMILLES: readonly DoctorFamily[] = [
 export const SUBRULES: readonly DoctorFamily[] = ["envCatalog", "envTracked"];
 
 /** `true` si cette famille est une sous-règle de `readiness`. */
-export function isSubrule(famille: DoctorFamily): boolean {
-  return SUBRULES.includes(famille);
+export function isSubrule(family: DoctorFamily): boolean {
+  return SUBRULES.includes(family);
 }
 
 /**
@@ -208,18 +208,18 @@ export function isSubrule(famille: DoctorFamily): boolean {
  *
  * Les sous-règles en sont exclues : ce sont des RÈGLES de `readiness`, pas des
  * familles à part — les compter donnerait un total qui ne colle pas aux lignes
- * affichées. Dérivée de {@link FAMILLES} et non réécrite : la liste avait été
+ * affichées. Dérivée de {@link FAMILIES} et non réécrite : la liste avait été
  * recopiée en dur dans le compteur du bilan, et une famille ajoutée n'y entrait
  * pas.
  */
-export const COUNTED_FAMILIES: readonly DoctorFamily[] = FAMILLES.filter(
+export const COUNTED_FAMILIES: readonly DoctorFamily[] = FAMILIES.filter(
   (f) => !isSubrule(f),
 );
 
 /** Un contrôle qui n'a PAS eu lieu, prêt à être rendu. */
-export interface IControleSaute {
-  famille: DoctorFamily;
-  titre: string;
+export interface ISkippedCheck {
+  family: DoctorFamily;
+  title: string;
   reason: string;
   unlock?: string;
   /** Non DEMANDÉ plutôt qu'empêché — ne pèse pas sur le code de sortie. */
@@ -245,13 +245,13 @@ export interface IControleSaute {
  * dire la même chose : un bandeau qui annonce un échec que la commande ne
  * produit pas apprend à ne plus croire le bandeau.
  *
- * @param sautes - les contrôles sautés, tels que `controlesSautes` les rend
+ * @param skipped - les contrôles sautés, tels que `controlesSautes` les rend
  * @returns ceux qui pèsent sur le code de sortie en mode strict
  */
 export function preventedChecks(
-  sautes: readonly IControleSaute[],
-): IControleSaute[] {
-  return sautes.filter((s) => !s.onDemand && !s.notApplicable);
+  skipped: readonly ISkippedCheck[],
+): ISkippedCheck[] {
+  return skipped.filter((s) => !s.onDemand && !s.notApplicable);
 }
 
 /**
@@ -265,44 +265,44 @@ export function preventedChecks(
  * @param execution - l'état d'exécution de chaque famille.
  * @returns un élément par contrôle sauté, vide si tout a été regardé.
  */
-export function controlesSautes(
+export function skippedChecks(
   execution: Record<DoctorFamily, IExecution>,
-): IControleSaute[] {
-  const sautes: IControleSaute[] = [];
-  for (const famille of FAMILLES) {
+): ISkippedCheck[] {
+  const skipped: ISkippedCheck[] = [];
+  for (const family of FAMILIES) {
     // ⚠️ Un état ABSENT n'est pas un état « passé ». Le type l'interdit, mais un
     // rapport peut arriver d'ailleurs — un `--json` produit par une version qui
     // ne connaissait pas cette famille, relu par une version qui la connaît. Un
     // outil de DIAGNOSTIC ne doit jamais lever : c'est précisément l'outil qu'on
     // lance quand tout le reste est cassé.
-    const etat = execution[famille] ?? {
+    const state = execution[family] ?? {
       ran: false,
       reason:
         "ce rapport ne porte aucun état d'exécution pour cette famille — il a " +
         "probablement été produit par une autre version",
       short: "état absent",
     };
-    if (etat.ran) continue;
+    if (state.ran) continue;
     // Une SOUS-RÈGLE de `readiness` : quand la famille entière a été sautée,
     // ses règles le sont forcément aussi, et l'annoncer une seconde fois ferait
     // compter deux angles morts là où il n'y en a qu'un. L'état brut, lui,
     // reste exact dans `execution` — c'est le RAPPORT qui dédoublonne, pas la
     // mesure.
-    if (isSubrule(famille) && !execution.readiness?.ran) continue;
-    sautes.push({
-      famille,
-      titre: TITRES[famille],
-      ...(etat.onDemand ? { onDemand: true } : {}),
-      ...(etat.notApplicable ? { notApplicable: true } : {}),
-      reason: etat.reason ?? "raison non précisée",
-      unlock: etat.unlock,
+    if (isSubrule(family) && !execution.readiness?.ran) continue;
+    skipped.push({
+      family,
+      title: TITLES[family],
+      ...(state.onDemand ? { onDemand: true } : {}),
+      ...(state.notApplicable ? { notApplicable: true } : {}),
+      reason: state.reason ?? "raison non précisée",
+      unlock: state.unlock,
     });
   }
-  return sautes;
+  return skipped;
 }
 
 /** Un manquement, tel qu'il s'affiche dans le détail. */
-export interface IDetailManquement {
+export interface IFindingDetail {
   /** La phrase qui dit ce qui ne va pas. */
   message: string;
   /** Le fichier concerné, s'il y en a un. */
@@ -312,53 +312,53 @@ export interface IDetailManquement {
 /**
  * La peinture du rapport, par RÔLE et non par couleur.
  *
- * Nommer `echec` plutôt que `red` laisse le choix de la teinte à un seul
+ * Nommer `failure` plutôt que `red` laisse le choix de la teinte à un seul
  * endroit, et rend le rendu lisible sans connaître la palette. Surtout : c'est
  * une VALEUR injectée, donc un rapport se rend à l'identique sans couleur — ce
  * que le TSDoc de ce module promettait déjà sans que le code le tienne.
  */
 export interface IPalette {
   /** Ce qu'on lit en premier : le nom de la commande, un titre de section. */
-  fort(t: string): string;
+  strong(t: string): string;
   /** Ce qui accompagne sans réclamer l'attention : chemins, notes. */
-  discret(t: string): string;
+  dim(t: string): string;
   /** Un contrôle passé. */
   ok(t: string): string;
   /** Un contrôle qui n'a pas eu lieu — ni bon ni mauvais, incomplet. */
-  alerte(t: string): string;
+  warning(t: string): string;
   /** Un manquement. */
-  echec(t: string): string;
+  failure(t: string): string;
   /** Le geste à faire — la seule chose que cherche un lecteur pressé. */
-  geste(t: string): string;
+  action(t: string): string;
 }
 
 /** Sans couleur, chaque rôle rend le texte tel quel. */
-const NU = (t: string): string => t;
+const PLAIN = (t: string): string => t;
 
 /**
  * La peinture en vigueur pour ce rendu.
  *
- * @param couleur - `true` pour émettre des séquences ANSI.
+ * @param color - `true` pour émettre des séquences ANSI.
  * @returns une palette : réelle, ou entièrement transparente.
  */
-export function creerPalette(couleur: boolean): IPalette {
-  if (!couleur) {
+export function createPalette(color: boolean): IPalette {
+  if (!color) {
     return {
-      fort: NU,
-      discret: NU,
-      ok: NU,
-      alerte: NU,
-      echec: NU,
-      geste: NU,
+      strong: PLAIN,
+      dim: PLAIN,
+      ok: PLAIN,
+      warning: PLAIN,
+      failure: PLAIN,
+      action: PLAIN,
     };
   }
   return {
-    fort: (t) => clc.bold(t),
-    discret: (t) => clc.blackBright(t),
+    strong: (t) => clc.bold(t),
+    dim: (t) => clc.blackBright(t),
     ok: (t) => clc.green(t),
-    alerte: (t) => clc.yellow(t),
-    echec: (t) => clc.red(t),
-    geste: (t) => clc.cyan(t),
+    warning: (t) => clc.yellow(t),
+    failure: (t) => clc.red(t),
+    action: (t) => clc.cyan(t),
   };
 }
 
@@ -371,16 +371,16 @@ export function creerPalette(couleur: boolean): IPalette {
  * telle qu'elle est spécifiée : c'est sa PRÉSENCE qui compte, pas sa valeur.
  *
  * @param env - l'environnement, injecté.
- * @param estUnTerminal - `process.stdout.isTTY`, injecté.
+ * @param isTerminal - `process.stdout.isTTY`, injecté.
  * @returns `true` s'il faut émettre des couleurs.
  */
-export function doitColorer(
+export function shouldColorize(
   env: Record<string, string | undefined>,
-  estUnTerminal: boolean,
+  isTerminal: boolean,
 ): boolean {
   if (env.NO_COLOR !== undefined && env.NO_COLOR !== "") return false;
   if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "0") return true;
-  return estUnTerminal;
+  return isTerminal;
 }
 
 /**
@@ -391,32 +391,32 @@ export function doitColorer(
  * un accent grave orphelin en fin de ligne, et le lecteur ne saurait plus où
  * commence la commande à taper.
  *
- * @param texte - la phrase.
+ * @param text - la phrase.
  * @returns les unités, accents graves compris.
  */
-export function unitesInsecables(texte: string): string[] {
-  const unites: string[] = [];
-  let courante = "";
-  let dansCode = false;
-  for (const c of texte) {
+export function unbreakableUnits(text: string): string[] {
+  const units: string[] = [];
+  let current = "";
+  let inCode = false;
+  for (const c of text) {
     if (c === "`") {
-      dansCode = !dansCode;
-      courante += c;
+      inCode = !inCode;
+      current += c;
       continue;
     }
     // ⚠️ Couper sur TOUT segment entre accents graves détacherait la ponctuation
     // qui le suit : `` `@entity`, `` deviendrait deux unités, que le repli
     // rejoindrait par un espace — « `@entity` , ». Une unité s'arrête à un
     // espace, et seulement à un espace HORS accents graves.
-    if (!dansCode && /\s/u.test(c)) {
-      if (courante !== "") unites.push(courante);
-      courante = "";
+    if (!inCode && /\s/u.test(c)) {
+      if (current !== "") units.push(current);
+      current = "";
       continue;
     }
-    courante += c;
+    current += c;
   }
-  if (courante !== "") unites.push(courante);
-  return unites;
+  if (current !== "") units.push(current);
+  return units;
 }
 
 /**
@@ -427,18 +427,18 @@ export function unitesInsecables(texte: string): string[] {
  * besoin qu'un terminal. Avec couleur, ils s'effacent au profit de la teinte —
  * deux façons de dire la même chose, jamais les deux à la fois.
  *
- * @param texte - la phrase, avec ses accents graves.
+ * @param text - la phrase, avec ses accents graves.
  * @param palette - la peinture en vigueur.
- * @param couleur - `true` si la palette colore réellement.
+ * @param color - `true` si la palette colore réellement.
  * @returns la phrase prête à écrire.
  */
-export function surlignerCode(
-  texte: string,
+export function highlightCode(
+  text: string,
   palette: IPalette,
-  couleur: boolean,
+  color: boolean,
 ): string {
-  if (!couleur) return texte;
-  return texte.replace(/`([^`]*)`/gu, (_, code: string) => palette.fort(code));
+  if (!color) return text;
+  return text.replace(/`([^`]*)`/gu, (_, code: string) => palette.strong(code));
 }
 
 /**
@@ -493,24 +493,24 @@ export function countFindings(report: ICountableReport): number {
 }
 
 /** Bornes de largeur : en deçà ça se chevauche, au-delà l'œil se perd. */
-const LARGEUR_MIN = 48;
-const LARGEUR_MAX = 96;
+const WIDTH_MIN = 48;
+const WIDTH_MAX = 96;
 
 /**
  * La largeur de rendu, bornée.
  *
- * @param colonnes - largeur annoncée par le terminal, ou `undefined` quand la
+ * @param columns - largeur annoncée par le terminal, ou `undefined` quand la
  *   sortie n'en est pas un (redirection, journal de CI).
  * @returns une largeur toujours utilisable.
  */
-export function largeurUtile(colonnes: number | undefined): number {
-  if (!colonnes || !Number.isFinite(colonnes)) return 80;
-  return Math.max(LARGEUR_MIN, Math.min(LARGEUR_MAX, Math.floor(colonnes)));
+export function usableWidth(columns: number | undefined): number {
+  if (!columns || !Number.isFinite(columns)) return 80;
+  return Math.max(WIDTH_MIN, Math.min(WIDTH_MAX, Math.floor(columns)));
 }
 
 /** Le symbole d'un état — la seule chose qui reste quand la couleur est ôtée. */
-export function symbole(etat: EtatSection): string {
-  switch (etat) {
+export function stateSymbol(state: SectionState): string {
+  switch (state) {
     case "ok":
       return "✓";
     case "echec":
@@ -529,33 +529,33 @@ export function symbole(etat: EtatSection): string {
  * constante : une colonne figée déborde le jour où l'on ajoute « Fraîcheur du
  * build », et le rendu se met à sauter d'une ligne à l'autre.
  *
- * @param ligne - la famille à rendre.
- * @param largeurTitre - largeur de la colonne des titres.
- * @param largeur - largeur totale disponible.
+ * @param line - la famille à rendre.
+ * @param titleWidth - largeur de la colonne des titres.
+ * @param width - largeur totale disponible.
  * @returns la ligne, sans retour chariot ni couleur.
  */
-export function ligneSommaire(
-  ligne: ILigneSommaire,
-  largeurTitre: number,
-  largeur: number,
+export function summaryLine(
+  line: ISummaryLine,
+  titleWidth: number,
+  width: number,
 ): string {
-  const prefixe = `    ${symbole(ligne.etat)}  ${ligne.titre} `;
+  const prefixe = `    ${stateSymbol(line.state)}  ${line.title} `;
   // Les points de conduite mènent l'œil du titre à son détail. Sur une ligne
   // courte ils ne servent à rien ; sur un terminal large, sans eux, le regard
   // saute d'une ligne à l'autre et l'on lit le détail de la mauvaise famille.
   // +3 : même le titre le PLUS long garde des points de conduite, sinon sa
   // ligne est la seule sans guide et l'œil la lit comme une autre section.
-  const colonneDetail = 4 + 1 + 2 + largeurTitre + 3;
+  const detailColumn = 4 + 1 + 2 + titleWidth + 3;
   const conduite =
-    colonneDetail > prefixe.length
-      ? `${POINT_DE_CONDUITE.repeat(colonneDetail - prefixe.length - 1)} `
+    detailColumn > prefixe.length
+      ? `${POINT_DE_CONDUITE.repeat(detailColumn - prefixe.length - 1)} `
       : "";
   const debut = prefixe + conduite;
-  const reste = largeur - debut.length;
+  const remainder = width - debut.length;
   const detail =
-    reste > 3 && ligne.detail.length > reste
-      ? `${ligne.detail.slice(0, reste - 1)}…`
-      : ligne.detail;
+    remainder > 3 && line.detail.length > remainder
+      ? `${line.detail.slice(0, remainder - 1)}…`
+      : line.detail;
   return `${debut}${detail}`.trimEnd();
 }
 
@@ -570,17 +570,17 @@ const POINT_DE_CONDUITE = "·";
  * titre y flottait sans lui appartenir. Prolonger le titre coûte une ligne au
  * lieu de trois, et dit à quoi le filet se rapporte.
  *
- * @param titre - le titre, déjà en majuscules.
- * @param largeur - largeur utile.
+ * @param title - le titre, déjà en majuscules.
+ * @param width - largeur utile.
  * @returns la ligne, sans couleur (l'appelant teinte le titre et le filet).
  */
-export function titreSection(
-  titre: string,
-  largeur: number,
-): { titre: string; filet: string } {
-  const pose = `  ${titre} `;
-  const restant = Math.max(0, largeur - pose.length - 2);
-  return { titre: `  ${titre} `, filet: "─".repeat(restant) };
+export function sectionTitle(
+  title: string,
+  width: number,
+): { title: string; divider: string } {
+  const pose = `  ${title} `;
+  const remaining = Math.max(0, width - pose.length - 2);
+  return { title: `  ${title} `, divider: "─".repeat(remaining) };
 }
 
 /**
@@ -590,31 +590,27 @@ export function titreSection(
  * Laissée au terminal, elle se replie sans indentation et le geste se retrouve
  * collé à la marge, illisible au milieu du reste.
  *
- * @param texte - la phrase à replier.
- * @param largeur - largeur maximale d'une ligne, indentation comprise.
+ * @param text - la phrase à replier.
+ * @param width - largeur maximale d'une ligne, indentation comprise.
  * @param indent - le blanc posé devant chaque ligne.
  * @returns les lignes, prêtes à être écrites.
  */
-export function replier(
-  texte: string,
-  largeur: number,
-  indent: string,
-): string[] {
-  const utile = Math.max(20, largeur - indent.length);
-  const lignes: string[] = [];
-  let courante = "";
-  for (const mot of unitesInsecables(texte)) {
-    if (courante === "") {
-      courante = mot;
-    } else if (courante.length + 1 + mot.length <= utile) {
-      courante += ` ${mot}`;
+export function wrap(text: string, width: number, indent: string): string[] {
+  const usable = Math.max(20, width - indent.length);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of unbreakableUnits(text)) {
+    if (current === "") {
+      current = word;
+    } else if (current.length + 1 + word.length <= usable) {
+      current += ` ${word}`;
     } else {
-      lignes.push(indent + courante);
-      courante = mot;
+      lines.push(indent + current);
+      current = word;
     }
   }
-  if (courante !== "") lignes.push(indent + courante);
-  return lignes;
+  if (current !== "") lines.push(indent + current);
+  return lines;
 }
 
 /**
@@ -628,23 +624,25 @@ export function replier(
  * @param message - le message d'un contrôle.
  * @returns le constat, et le geste s'il y en a un.
  */
-export function separerGeste(message: string): {
-  constat: string;
-  geste?: string;
+export function splitAction(message: string): {
+  finding: string;
+  action?: string;
 } {
   const i = message.lastIndexOf("→");
-  if (i === -1) return { constat: message.trim() };
-  const geste = message.slice(i + 1).trim();
-  const constat = message
+  if (i === -1) return { finding: message.trim() };
+  const action = message.slice(i + 1).trim();
+  const finding = message
     .slice(0, i)
     .trim()
     .replace(/[.,;:]$/u, "");
-  return geste === "" ? { constat: message.trim() } : { constat, geste };
+  return action === ""
+    ? { finding: message.trim() }
+    : { finding: finding, action: action };
 }
 
 /** Un filet horizontal, pour séparer le sommaire du détail. */
-export function filet(largeur: number): string {
-  return `  ${"─".repeat(Math.max(10, largeur - 4))}`;
+export function divider(width: number): string {
+  return `  ${"─".repeat(Math.max(10, width - 4))}`;
 }
 
 /**
@@ -654,20 +652,20 @@ export function filet(largeur: number): string {
  * en a le moins envie. Ce n'est pas une précision qu'on perd : personne ne
  * décide rien sur la seconde près à cette échelle.
  *
- * @param secondes - l'écart mesuré.
+ * @param seconds - l'écart mesuré.
  * @returns « 12 s », « 4 min », « 1 h 46 », « 3 j ».
  */
-export function duree(secondes: number): string {
-  const s = Math.max(0, Math.round(secondes));
+export function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
   if (s < 90) return `${s} s`;
   const minutes = Math.round(s / 60);
   if (minutes < 90) return `${minutes} min`;
-  const heures = Math.floor(s / 3600);
-  if (heures < 48) {
-    const reste = Math.round((s % 3600) / 60);
-    return reste === 0
-      ? `${heures} h`
-      : `${heures} h ${String(reste).padStart(2, "0")}`;
+  const hours = Math.floor(s / 3600);
+  if (hours < 48) {
+    const remainder = Math.round((s % 3600) / 60);
+    return remainder === 0
+      ? `${hours} h`
+      : `${hours} h ${String(remainder).padStart(2, "0")}`;
   }
   return `${Math.round(s / 86400)} j`;
 }
@@ -679,13 +677,17 @@ export function duree(secondes: number): string {
  * rapport écrit pour la machine ; celui-ci est lu par quelqu'un.
  *
  * @param n - la quantité.
- * @param singulier - la forme au singulier.
- * @param pluriel - la forme au pluriel, si elle ne s'obtient pas par un « s ».
+ * @param singular - la forme au singulier.
+ * @param plural - la forme au pluriel, si elle ne s'obtient pas par un « s ».
  * @returns « 3 écarts ».
  */
-export function accord(n: number, singulier: string, pluriel?: string): string {
-  const mot = n > 1 ? (pluriel ?? `${singulier}s`) : singulier;
-  return `${n} ${mot}`;
+export function pluralize(
+  n: number,
+  singular: string,
+  plural?: string,
+): string {
+  const word = n > 1 ? (plural ?? `${singular}s`) : singular;
+  return `${n} ${word}`;
 }
 
 /**
@@ -696,24 +698,21 @@ export function accord(n: number, singulier: string, pluriel?: string): string {
  * par « · ». Cette fonction ne coupe qu'ENTRE deux éléments.
  *
  * @param items - les éléments à énumérer.
- * @param largeur - largeur utile d'une ligne.
+ * @param width - largeur utile d'une ligne.
  * @returns les lignes, séparateur « · » compris.
  */
-export function replierListe(
-  items: readonly string[],
-  largeur: number,
-): string[] {
-  const lignes: string[] = [];
-  let courante = "";
+export function wrapList(items: readonly string[], width: number): string[] {
+  const lines: string[] = [];
+  let current = "";
   for (const item of items) {
-    const essai = courante ? `${courante} · ${item}` : item;
-    if (essai.length <= largeur || !courante) {
-      courante = essai;
+    const attempt = current ? `${current} · ${item}` : item;
+    if (attempt.length <= width || !current) {
+      current = attempt;
       continue;
     }
-    lignes.push(courante);
-    courante = item;
+    lines.push(current);
+    current = item;
   }
-  if (courante) lignes.push(courante);
-  return lignes;
+  if (current) lines.push(current);
+  return lines;
 }

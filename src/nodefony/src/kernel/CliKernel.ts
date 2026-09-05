@@ -43,7 +43,7 @@ import {
 import Completion from "./commands/CompletionCommand";
 import Create from "./commands/CreateCommand";
 import { runCreateCommand } from "../cli/create";
-import { doitColorer, largeurUtile } from "./checks/report";
+import { shouldColorize, usableWidth } from "./checks/report";
 import {
   renderHelp,
   type IHelpCommand,
@@ -874,12 +874,12 @@ class CliKernel extends Cli {
         ...(extra?.noteAction ? { noteAction: extra.noteAction } : {}),
       },
       {
-        largeur: largeurUtile(out.columns),
+        largeur: usableWidth(out.columns),
         // UNE seule porte de couleur pour toute la page. Il y en avait deux
         // (`logColor` pour l'en-tête, commander pour le corps), donc deux
         // lectures de `NO_COLOR` — et un `NF_NO_TTY` respecté d'un côté
         // seulement, ce dont les tests d'intégration dépendent.
-        couleur: doitColorer(process.env, Boolean(this.kernel?.isTTY)),
+        couleur: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
       },
     );
     out.write(`${lignes.join("\n")}\n`);

@@ -9,7 +9,7 @@ import {
 } from "../inspect/adminSubjects";
 import { localOperatorCaller } from "../adminPlane/adminCaller";
 import { renderTable, type TableRow } from "../../cli/tableReport";
-import { doitColorer, largeurUtile } from "../checks/report";
+import { shouldColorize, usableWidth } from "../checks/report";
 
 /**
  * `kernelEvent: "onPostReady"` — et pas `onReady`, malgré les apparences.
@@ -232,8 +232,8 @@ class Inspect extends Command {
       // fiches quand même la compression ne suffit pas.
       const out = process.stdout;
       const lignes = renderTable(payload as TableRow[], {
-        largeur: largeurUtile(out.columns),
-        couleur: doitColorer(process.env, Boolean(this.kernel?.isTTY)),
+        largeur: usableWidth(out.columns),
+        couleur: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
       });
       out.write(`${lignes.join("\n")}\n\n`);
       process.stdout.write(

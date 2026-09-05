@@ -30,7 +30,7 @@ import {
   realpathSync,
   statSync,
 } from "node:fs";
-import { duree } from "./report";
+import { formatDuration } from "./report";
 import { isSkippedDir, isTestFile } from "./walk";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
@@ -159,7 +159,7 @@ export function checkFreshness(
       file: "dist/index.js",
     });
   } else if (distStat && plusRecente > distStat.mtimeMs) {
-    const ecart = duree((plusRecente - distStat.mtimeMs) / 1000);
+    const ecart = formatDuration((plusRecente - distStat.mtimeMs) / 1000);
     findings.push({
       kind: "dist-stale",
       message:
@@ -306,7 +306,7 @@ export function checkFrameworkBuild(projectRoot: string): IFreshnessFinding[] {
       continue;
     }
     if (plusRecente > dist.mtimeMs) {
-      const ecart = duree((plusRecente - dist.mtimeMs) / 1000);
+      const ecart = formatDuration((plusRecente - dist.mtimeMs) / 1000);
       findings.push({
         kind: "framework-stale",
         message:

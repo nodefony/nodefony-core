@@ -21,7 +21,7 @@ import {
   collectDoctorReport,
   countCheckFindings,
 } from "../kernel/checks/runDoctor";
-import { controlesSautes } from "../kernel/checks/report";
+import { skippedChecks } from "../kernel/checks/report";
 import type {
   IMcpTool,
   IMcpToolDefinition,
@@ -637,7 +637,7 @@ export function builtinMcpTools(
         // pire message qu'on puisse rendre à un agent : il ne relira pas, et
         // conclura que la voie est libre. Le troisième mot existe pour ça — et
         // il ne se confond avec « ok » dans aucune comparaison.
-        const skipped = controlesSautes(report.execution);
+        const skipped = skippedChecks(report.execution);
         return mcpText({
           verdict:
             total > 0

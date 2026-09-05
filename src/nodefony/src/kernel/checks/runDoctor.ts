@@ -44,17 +44,17 @@ import {
 } from "../../service/dev/devProcess";
 import {
   preventedChecks,
-  controlesSautes,
-  replier,
-  titreSection,
+  skippedChecks,
+  wrap,
+  sectionTitle,
   isSubrule,
-  TITRES,
-  FAMILLES,
+  TITLES,
+  FAMILIES,
   countFindings,
-  creerPalette,
-  replierListe,
-  doitColorer,
-  largeurUtile,
+  createPalette,
+  wrapList,
+  shouldColorize,
+  usableWidth,
   type IPalette,
   type DoctorFamily,
   type IExecution,
@@ -264,23 +264,23 @@ export interface ICheckRequest {
  * @param p - la peinture en vigueur.
  * @returns le texte complet, retour chariot final compris.
  */
-export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
+export function usage(p: IPalette, largeur: number = usableWidth(80)): string {
   // Une description qui déborde se replie sur la marge du terminal et se lit
   // comme une ligne d'option de plus. La colonne des drapeaux fait 20 : la
   // suite s'aligne dessous, pas sur la marge.
   const colonne = 20;
   const marge = " ".repeat(colonne + 3);
   const opt = (drapeau: string, quoi: string): string => {
-    const [premiere, ...suite] = replier(quoi, largeur - marge.length, "");
+    const [premiere, ...suite] = wrap(quoi, largeur - marge.length, "");
     return (
-      `  ${p.geste(drapeau.padEnd(colonne, " "))} ${premiere ?? ""}\n` +
+      `  ${p.action(drapeau.padEnd(colonne, " "))} ${premiere ?? ""}\n` +
       suite.map((l) => `${marge}${l}\n`).join("")
     );
   };
   /** Un titre de section, prolongé par son filet — la forme du rapport. */
   const section = (nom: string): string => {
-    const { titre, filet } = titreSection(nom, largeur);
-    return `\n${p.fort(titre)}${p.discret(filet)}\n\n`;
+    const { title: titre, divider: filet } = sectionTitle(nom, largeur);
+    return `\n${p.strong(titre)}${p.dim(filet)}\n\n`;
   };
   /**
    * Les exemples : la commande, puis ce qu'elle répond.
@@ -320,19 +320,19 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
       .map(([commande, quoi]) => {
         if (!enColonnes) {
           return (
-            `  ${p.geste(commande)}\n` +
-            replier(quoi, largeur - 6, "      ")
-              .map((l) => p.discret(l) + "\n")
+            `  ${p.action(commande)}\n` +
+            wrap(quoi, largeur - 6, "      ")
+              .map((l) => p.dim(l) + "\n")
               .join("")
           );
         }
         const retrait = " ".repeat(largeurExemple + 4);
-        const suite = replier(quoi, largeur - retrait.length, "");
+        const suite = wrap(quoi, largeur - retrait.length, "");
         return (
-          `  ${p.geste(commande.padEnd(largeurExemple, " "))}  ${p.discret(suite[0] ?? "")}\n` +
+          `  ${p.action(commande.padEnd(largeurExemple, " "))}  ${p.dim(suite[0] ?? "")}\n` +
           suite
             .slice(1)
-            .map((l) => `${retrait}${p.discret(l)}\n`)
+            .map((l) => `${retrait}${p.dim(l)}\n`)
             .join("")
         );
       })
@@ -344,21 +344,21 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
   // 🔴 Repliée sur les SÉPARATEURS, jamais sur les espaces : `replier` coupe
   // aux espaces, et « Surface ouverte » se retrouvait à cheval sur deux lignes,
   // où plus personne ne reconnaît le nom d'un contrôle.
-  const familles = replierListe(
-    FAMILLES.filter((f) => !isSubrule(f)).map((f) => TITRES[f]),
+  const familles = wrapList(
+    FAMILIES.filter((f) => !isSubrule(f)).map((f) => TITLES[f]),
     largeur - 4,
   );
 
   return (
-    `\n  ${p.fort("nodefony doctor")}\n` +
+    `\n  ${p.strong("nodefony doctor")}\n` +
     // La baseline se replie comme le reste : sur un terminal étroit, un titre
     // qui déborde est la PREMIÈRE chose que le lecteur voit casser.
-    replier(
+    wrap(
       "ce qui ne va pas dans cette application, et quoi taper",
       largeur - 4,
       "  ",
     )
-      .map((l) => p.discret(l) + "\n")
+      .map((l) => p.dim(l) + "\n")
       .join("") +
     // Plus d'alias à annoncer : « check » a été retiré. Une aide qui nomme un
     // second nom oblige le lecteur à choisir entre deux mots pour un seul
@@ -368,7 +368,7 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     section("CE QU'IL REGARDE") +
     familles.map((l) => `  ${l}\n`).join("") +
     "\n" +
-    replier(
+    wrap(
       "Il ne DÉMARRE pas l'application : il lit des fichiers, interroge git " +
         "sur ce qu'il suit, et sonde les ports du poste. Il répond donc même " +
         "sur une application qui ne démarre plus — c'est le moment où l'on en " +
@@ -426,14 +426,14 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     ) +
     opt("64", "option inconnue (EX_USAGE)") +
     "\n" +
-    replier(
+    wrap(
       "Un contrôle qui n'a PAS pu regarder est toujours annoncé : son silence " +
         "ne vaut jamais quitus. Un contrôle non DEMANDÉ (`--live`) est affiché " +
         "de même, mais ne pèse pas sur le code de sortie.",
       largeur - 4,
       "  ",
     )
-      .map((l) => p.discret(l) + "\n")
+      .map((l) => p.dim(l) + "\n")
       .join("") +
     "\n"
   );
@@ -1094,18 +1094,18 @@ export function countCheckFindings(report: IDoctorReport): number {
  */
 export function ligneProgression(e: IDeepProgress, p: IPalette): string | null {
   const quoi = e.step === "outdated" ? "npm outdated" : `npm run ${e.step}`;
-  if (e.phase === "start") return p.discret(`  … ${quoi}`);
+  if (e.phase === "start") return p.dim(`  … ${quoi}`);
   const secondes = e.ms === undefined ? "" : ` (${(e.ms / 1000).toFixed(1)} s)`;
   switch (e.outcome) {
     case "passed":
     case "ok":
-      return `  ${p.ok("✓")} ${quoi}${p.discret(secondes)}`;
+      return `  ${p.ok("✓")} ${quoi}${p.dim(secondes)}`;
     case "failed":
-      return `  ${p.echec("✗")} ${quoi}${p.discret(secondes)}`;
+      return `  ${p.failure("✗")} ${quoi}${p.dim(secondes)}`;
     case "timeout":
-      return `  ${p.echec("⏱")} ${quoi}${p.discret(`${secondes} — interrompu`)}`;
+      return `  ${p.failure("⏱")} ${quoi}${p.dim(`${secondes} — interrompu`)}`;
     case "unavailable":
-      return `  ${p.alerte("—")} ${quoi}${p.discret(`${secondes} — sans réponse`)}`;
+      return `  ${p.warning("—")} ${quoi}${p.dim(`${secondes} — sans réponse`)}`;
     default:
       return null;
   }
@@ -1140,8 +1140,8 @@ export function reporterProgression(
   stream: NodeJS.WriteStream = process.stderr,
 ): DeepReporter | undefined {
   if (json) return undefined;
-  const p = creerPalette(
-    doitColorer(process.env, Boolean(process.stderr.isTTY)),
+  const p = createPalette(
+    shouldColorize(process.env, Boolean(process.stderr.isTTY)),
   );
   // Sur un terminal, l'attente est ANIMÉE. Sans cela, `--deep` écrivait
   // « … npm run typecheck » puis se taisait trente-huit secondes : un point
@@ -1153,7 +1153,7 @@ export function reporterProgression(
   const spinner = animated
     ? new Spinner({
         stream,
-        render: (frame, label) => `  ${p.ok(frame)} ${p.discret(label)}`,
+        render: (frame, label) => `  ${p.ok(frame)} ${p.dim(label)}`,
       })
     : null;
   return (e) => {
@@ -1176,23 +1176,25 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     // Un drapeau mal tapé ne doit JAMAIS se confondre avec un diagnostic : il
     // part sur la sortie d'erreur, avec l'usage, et un code distinct de celui
     // d'un manquement.
-    const p = creerPalette(
-      doitColorer(process.env, Boolean(process.stderr.isTTY)),
+    const p = createPalette(
+      shouldColorize(process.env, Boolean(process.stderr.isTTY)),
     );
     // Replié comme le reste : un refus qui déborde du terminal est le premier
     // texte que le lecteur voit casser, et il le voit au pire moment.
-    const largeur = largeurUtile(process.stderr.columns);
-    for (const l of replier(`doctor : ${parsed.error}`, largeur, "  ")) {
-      process.stderr.write(`${p.echec(l)}\n`);
+    const largeur = usableWidth(process.stderr.columns);
+    for (const l of wrap(`doctor : ${parsed.error}`, largeur, "  ")) {
+      process.stderr.write(`${p.failure(l)}\n`);
     }
-    process.stderr.write(usage(p, largeurUtile(process.stderr.columns)));
+    process.stderr.write(usage(p, usableWidth(process.stderr.columns)));
     return 64;
   }
   if (parsed.help) {
     process.stdout.write(
       usage(
-        creerPalette(doitColorer(process.env, Boolean(process.stdout.isTTY))),
-        largeurUtile(process.stdout.columns),
+        createPalette(
+          shouldColorize(process.env, Boolean(process.stdout.isTTY)),
+        ),
+        usableWidth(process.stdout.columns),
       ),
     );
     return 0;
@@ -1255,7 +1257,7 @@ export function renderDoctorReport(
 ): number {
   const { json, strict } = parsed;
   const start = parsed.cwd;
-  const sautes = controlesSautes(report.execution);
+  const sautes = skippedChecks(report.execution);
 
   // Le verdict, en UN endroit : les trois portes (humain, JSON, MCP) doivent
   // sortir le même code — un rapport qui affiche un angle mort mais rend 0 là
@@ -1279,8 +1281,8 @@ export function renderDoctorReport(
 
   const out = process.stdout;
   const lignes = rendreRapport(report, {
-    largeur: largeurUtile(out.columns),
-    couleur: doitColorer(process.env, Boolean(out.isTTY)),
+    largeur: usableWidth(out.columns),
+    couleur: shouldColorize(process.env, Boolean(out.isTTY)),
     now: Date.now(),
     lanceDepuis: start,
     strict,

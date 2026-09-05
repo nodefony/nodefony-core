@@ -21,7 +21,7 @@ import {
   LIVE_FAMILIES,
 } from "../kernel/checks/live";
 import { attachLive, type IDoctorReport } from "../kernel/checks/runDoctor";
-import { countFindings, controlesSautes } from "../kernel/checks/report";
+import { countFindings, skippedChecks } from "../kernel/checks/report";
 import type { IAdminApi, IAdminEndpoint } from "../types/IAdminApi";
 import { localOperatorCaller } from "../kernel/adminPlane/adminCaller";
 
@@ -342,7 +342,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     assert.isTrue(greffe.execution.firewall.ran);
     // Deux états pour un même contrôle, et le sommaire cesserait de dire vrai :
     // aucune des deux familles interrogées ne doit rester dans les sautés.
-    const sautes = controlesSautes(greffe.execution).map((c) => c.famille);
+    const sautes = skippedChecks(greffe.execution).map((c) => c.family);
     assert.notInclude(sautes, "migrations");
     assert.notInclude(sautes, "firewall");
     // `gating` reste sautée, et c'est EXACT : ce décor ne vise aucun
@@ -378,7 +378,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       "il faut démarrer l'application",
       "`doctor --live`",
     );
-    const sautes = controlesSautes(attachLive(statique(), absent).execution);
+    const sautes = skippedChecks(attachLive(statique(), absent).execution);
     // Dérivé : une famille d'étage 2 ajoutée sans état serait affichée en vert
     // sans que rien ne l'ait regardée — exactement ce que ce module combat.
     //
@@ -388,13 +388,13 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     // exigent un BOOT, et confondre les deux étages ferait passer sous silence
     // une famille d'étage 2 oubliée le jour où l'étage 3 s'enrichit.
     const etage2 = sautes.filter((c) =>
-      (LIVE_FAMILIES as readonly string[]).includes(c.famille),
+      (LIVE_FAMILIES as readonly string[]).includes(c.family),
     );
     assert.lengthOf(etage2, LIVE_FAMILIES.length);
     assert.equal(etage2[0]?.unlock, "`doctor --live`");
     // Et l'étage 3 est bien là, avec SON geste — jamais celui de l'étage 2.
     const etage3 = sautes.filter((c) =>
-      ["verify", "outdated"].includes(c.famille),
+      ["verify", "outdated"].includes(c.family),
     );
     assert.lengthOf(etage3, 2);
     for (const c of etage3) {

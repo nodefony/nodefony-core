@@ -22,25 +22,25 @@
  */
 import path from "node:path";
 import {
-  accord,
+  pluralize,
   preventedChecks,
-  controlesSautes,
+  skippedChecks,
   countFindings,
-  creerPalette,
-  FAMILLES,
+  createPalette,
+  FAMILIES,
   COUNTED_FAMILIES,
   isSubrule,
-  titreSection,
-  ligneSommaire,
-  replier,
-  separerGeste,
-  surlignerCode,
-  symbole,
-  TITRES,
+  sectionTitle,
+  summaryLine,
+  wrap,
+  splitAction,
+  highlightCode,
+  stateSymbol,
+  TITLES,
   type DoctorFamily,
-  type EtatSection,
-  type IControleSaute,
-  type ILigneSommaire,
+  type SectionState,
+  type ISkippedCheck,
+  type ISummaryLine,
   type IPalette,
 } from "./report";
 import { formatAge, lastBootFileFor, type ILastBoot } from "./lastBoot";
@@ -122,7 +122,7 @@ function quelquesUnes(items: readonly string[], p: IPalette): string[] {
     .map((texte) => `${CORPS}  · ${texte}`);
   const reste = items.length - PUCES_MAX;
   if (reste > 0) {
-    lignes.push(p.discret(`${CORPS}  · … et ${accord(reste, "autre")}`));
+    lignes.push(p.dim(`${CORPS}  · … et ${pluralize(reste, "autre")}`));
   }
   return lignes;
 }
@@ -160,17 +160,17 @@ export function meriteDEtreDit(entry: ILastBoot): boolean {
  * @returns un groupe par raison distincte, l'ordre du premier membre conservé.
  */
 export function grouperParRaison(
-  sautes: readonly IControleSaute[],
+  sautes: readonly ISkippedCheck[],
 ): { titres: string[]; reason: string; unlock?: string }[] {
   const groupes: { titres: string[]; reason: string; unlock?: string }[] = [];
   for (const saute of sautes) {
     const existant = groupes.find(
       (g) => g.reason === saute.reason && g.unlock === saute.unlock,
     );
-    if (existant) existant.titres.push(saute.titre);
+    if (existant) existant.titres.push(saute.title);
     else
       groupes.push({
-        titres: [saute.titre],
+        titres: [saute.title],
         reason: saute.reason,
         unlock: saute.unlock,
       });
@@ -190,14 +190,14 @@ export function rendreRapport(
   opts: IOptionsRendu,
 ): string[] {
   const { largeur, couleur, now, strict } = opts;
-  const p = creerPalette(couleur);
+  const p = createPalette(couleur);
   const lignes: string[] = [];
-  const sautes = controlesSautes(report.execution);
+  const sautes = skippedChecks(report.execution);
 
   /** Ouvre une section : un titre, prolongé par un filet jusqu'au bord. */
   const section = (nom: string, teinte: (t: string) => string): void => {
-    const { titre, filet: trait } = titreSection(nom, largeur);
-    lignes.push("", teinte(p.fort(titre)) + p.discret(trait), "");
+    const { title: titre, divider: trait } = sectionTitle(nom, largeur);
+    lignes.push("", teinte(p.strong(titre)) + p.dim(trait), "");
   };
 
   lignes.push(...enTete(report, opts, p));
@@ -210,7 +210,7 @@ export function rendreRapport(
     (g) => g.items.length > 0,
   );
   if (problemes.length > 0) {
-    section("PROBLÈMES", p.echec);
+    section("PROBLÈMES", p.failure);
     const totalProblemes = problemes.reduce((n, g) => n + g.items.length, 0);
     let numero = 0;
     for (const { titre, items } of problemes) {
@@ -226,7 +226,7 @@ export function rendreRapport(
   if (sautes.length > 0) {
     // SYSTÉMATIQUE, y compris quand tout le reste est vert : un diagnostic muet
     // sur son angle mort se lit comme un quitus.
-    section("NON CONTRÔLÉ", p.alerte);
+    section("NON CONTRÔLÉ", p.warning);
     lignes.push(...blocsNonControles(sautes, p, opts));
     if (strict) {
       lignes.push("");
@@ -235,7 +235,7 @@ export function rendreRapport(
       // contrôles manquants n'ont pas été DEMANDÉS — apprend à ne plus croire
       // le bandeau, ce qui est pire que de ne rien annoncer.
       const empeches = preventedChecks(sautes);
-      for (const l of replier(
+      for (const l of wrap(
         empeches.length > 0
           ? "mode strict : un contrôle EMPÊCHÉ fait échouer la commande."
           : // Deux raisons de ne pas peser, et la phrase les distingue : un
@@ -251,7 +251,7 @@ export function rendreRapport(
         largeur,
         CORPS,
       )) {
-        lignes.push(p.discret(l));
+        lignes.push(p.dim(l));
       }
     }
   }
@@ -261,7 +261,7 @@ export function rendreRapport(
     // Une INFORMATION, en teinte neutre : chacune de ces ouvertures est un
     // geste légitime. Ce que personne n'a jamais, c'est la LISTE — et c'est
     // ainsi qu'une route de mise au point reste ouverte en production.
-    section("SURFACE OUVERTE", p.alerte);
+    section("SURFACE OUVERTE", p.warning);
     lignes.push(...ouvertures);
   }
 
@@ -271,21 +271,21 @@ export function rendreRapport(
     // l'environnement visé retire est le plus souvent voulu : c'est à quoi
     // sert `policy: "dev"`. Le service rendu est de le VOIR avant de partir,
     // pas d'être accusé de l'avoir écrit.
-    section("CE QUE L'ENVIRONNEMENT VISÉ RETIRE", p.alerte);
+    section("CE QUE L'ENVIRONNEMENT VISÉ RETIRE", p.warning);
     for (const f of retires) {
-      for (const [i, l] of replier(f.message, largeur, CORPS).entries()) {
-        lignes.push(i === 0 ? `${ITEM}${p.alerte("—")}  ${l.trim()}` : l);
+      for (const [i, l] of wrap(f.message, largeur, CORPS).entries()) {
+        lignes.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
       }
     }
     lignes.push("");
-    for (const l of replier(
+    for (const l of wrap(
       'Un module `policy: "dev"` est ÉCARTÉ là-bas : c\'est sa raison ' +
         "d'être, et ces lignes sont alors normales. À regarder seulement si " +
         "du code servi en production réclame l'un de ces services.",
       largeur - 4,
       "  ",
     )) {
-      lignes.push(p.discret(l));
+      lignes.push(p.dim(l));
     }
   }
 
@@ -296,7 +296,7 @@ export function rendreRapport(
     // premier vrai problème quarante lignes plus bas.
     section(
       bilansParlants.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE",
-      p.alerte,
+      p.warning,
     );
     let premier = true;
     for (const demarrage of bilansParlants) {
@@ -308,7 +308,7 @@ export function rendreRapport(
 
   const gestes = aFaireEnsuite(report, sautes);
   if (gestes.length > 0) {
-    section("À FAIRE ENSUITE", p.geste);
+    section("À FAIRE ENSUITE", p.action);
     lignes.push(...listeDeGestes(gestes, p, largeur));
   }
 
@@ -334,7 +334,7 @@ export function rendreRapport(
  */
 function bandeau(
   report: IDoctorReport,
-  sautes: readonly IControleSaute[],
+  sautes: readonly ISkippedCheck[],
   p: IPalette,
 ): string[] {
   const total = countFindings(report);
@@ -345,11 +345,13 @@ function bandeau(
     // rapport n'a pas tout regardé — sinon il croira avoir tout vu.
     const angles =
       sautes.length > 0
-        ? p.alerte(`   ${accord(sautes.length, "angle mort", "angles morts")}`)
+        ? p.warning(
+            `   ${pluralize(sautes.length, "angle mort", "angles morts")}`,
+          )
         : "";
     return [
-      p.echec(
-        `  ${symbole("echec")}  ${p.fort(accord(total, "PROBLÈME").toUpperCase())}`,
+      p.failure(
+        `  ${stateSymbol("echec")}  ${p.strong(pluralize(total, "PROBLÈME").toUpperCase())}`,
       ) + angles,
     ];
   }
@@ -357,16 +359,18 @@ function bandeau(
     // Hors d'une application : « tout va bien » serait un quitus rendu sans
     // avoir rien ouvert.
     return [
-      p.alerte(
-        `  ${symbole("non-controle")}  ${p.fort("AUCUN CONTRÔLE N'A PU ÊTRE FAIT ICI")}`,
+      p.warning(
+        `  ${stateSymbol("non-controle")}  ${p.strong("AUCUN CONTRÔLE N'A PU ÊTRE FAIT ICI")}`,
       ),
     ];
   }
   return [
     sautes.length > 0
-      ? p.ok(`  ${symbole("ok")}  ${p.fort("RIEN À SIGNALER")}`) +
-        p.alerte(`  (${accord(sautes.length, "angle mort", "angles morts")})`)
-      : p.ok(`  ${symbole("ok")}  ${p.fort("RIEN À SIGNALER")}`),
+      ? p.ok(`  ${stateSymbol("ok")}  ${p.strong("RIEN À SIGNALER")}`) +
+        p.warning(
+          `  (${pluralize(sautes.length, "angle mort", "angles morts")})`,
+        )
+      : p.ok(`  ${stateSymbol("ok")}  ${p.strong("RIEN À SIGNALER")}`),
   ];
 }
 
@@ -395,17 +399,17 @@ function blocProbleme(
   opts: IOptionsRendu,
 ): string[] {
   const { largeur, couleur } = opts;
-  const { constat, geste } = separerGeste(item.message);
+  const { finding: constat, action: geste } = splitAction(item.message);
   const lignes: string[] = [];
   // Le rang occupe la colonne du SYMBOLE des autres sections : une seule
   // largeur pour toute la grille, élargie seulement s'il y a dix problèmes.
   const rang = String(numero).padStart(String(total).length, " ");
-  lignes.push(`${ITEM}${p.echec(p.fort(rang))}  ${p.fort(famille)}`);
+  lignes.push(`${ITEM}${p.failure(p.strong(rang))}  ${p.strong(famille)}`);
   // La gouttière tient la colonne du texte : elle dit « ceci appartient encore
   // au problème ci-dessus », y compris après un repli de six lignes.
-  const gouttiere = `${CORPS}${p.discret("│")} `;
-  for (const l of replier(constat, largeur - 10, "")) {
-    lignes.push(gouttiere + surlignerCode(l, p, couleur));
+  const gouttiere = `${CORPS}${p.dim("│")} `;
+  for (const l of wrap(constat, largeur - 10, "")) {
+    lignes.push(gouttiere + highlightCode(l, p, couleur));
   }
   if (item.file) {
     // Un chemin ne se COUPE pas — coupé, il n'est plus copiable, et c'est
@@ -414,8 +418,8 @@ function blocProbleme(
     const derriereGouttiere = `${CORPS}│ ${item.file}`;
     lignes.push(
       derriereGouttiere.length <= largeur
-        ? gouttiere + p.discret(item.file)
-        : `${CORPS}${p.discret(item.file)}`,
+        ? gouttiere + p.dim(item.file)
+        : `${CORPS}${p.dim(item.file)}`,
     );
   }
   lignes.push(...ligneDeGeste(geste, p, largeur));
@@ -431,7 +435,7 @@ function blocProbleme(
  * @returns les lignes de la section.
  */
 function blocsNonControles(
-  sautes: readonly IControleSaute[],
+  sautes: readonly ISkippedCheck[],
   p: IPalette,
   opts: IOptionsRendu,
 ): string[] {
@@ -444,18 +448,18 @@ function blocsNonControles(
     // Quatre titres joints font vite soixante colonnes : cette ligne se replie
     // comme n'importe quelle autre, sinon elle déborde exactement dans le cas
     // où elle a le plus à dire.
-    const [premierTitre, ...resteTitres] = replier(
+    const [premierTitre, ...resteTitres] = wrap(
       groupe.titres.join(", "),
       largeur - 8,
       "",
     );
     lignes.push(
-      `${ITEM}${p.alerte(symbole("non-controle"))}  ${p.fort(premierTitre ?? "")}`,
+      `${ITEM}${p.warning(stateSymbol("non-controle"))}  ${p.strong(premierTitre ?? "")}`,
     );
-    for (const l of resteTitres) lignes.push(`${CORPS}${p.fort(l)}`);
-    const gouttiere = `${CORPS}${p.discret("│")} `;
-    for (const l of replier(groupe.reason, largeur - 10, "")) {
-      lignes.push(gouttiere + p.alerte(surlignerCode(l, p, couleur)));
+    for (const l of resteTitres) lignes.push(`${CORPS}${p.strong(l)}`);
+    const gouttiere = `${CORPS}${p.dim("│")} `;
+    for (const l of wrap(groupe.reason, largeur - 10, "")) {
+      lignes.push(gouttiere + p.warning(highlightCode(l, p, couleur)));
     }
     lignes.push(...ligneDeGeste(groupe.unlock, p, largeur));
   }
@@ -482,10 +486,10 @@ function ligneDeGeste(
 ): string[] {
   if (!geste) return [];
   const propre = geste.replace(/`/gu, "").trim();
-  return replier(propre, largeur - 10, "").map((l, i) =>
+  return wrap(propre, largeur - 10, "").map((l, i) =>
     i === 0
-      ? `${CORPS}${p.geste("▸")} ${p.geste(l)}`
-      : `${CORPS}  ${p.geste(l)}`,
+      ? `${CORPS}${p.action("▸")} ${p.action(l)}`
+      : `${CORPS}  ${p.action(l)}`,
   );
 }
 
@@ -514,7 +518,7 @@ interface IGeste {
  */
 export function aFaireEnsuite(
   report: IDoctorReport,
-  sautes: readonly IControleSaute[],
+  sautes: readonly ISkippedCheck[],
 ): IGeste[] {
   const gestes: IGeste[] = [];
   const vus = new Set<string>();
@@ -526,7 +530,7 @@ export function aFaireEnsuite(
   };
   for (const { titre, items } of groupesDeManquements(report)) {
     for (const item of items) {
-      const { geste } = separerGeste(item.message);
+      const { action: geste } = splitAction(item.message);
       if (geste) ajouter(geste, titre);
     }
   }
@@ -551,8 +555,8 @@ function sousLeGeste(
   largeur: number,
   p: IPalette,
 ): string[] {
-  return replier(pourquoi, largeur - marge.length, "").map(
-    (l) => marge + p.discret(l),
+  return wrap(pourquoi, largeur - marge.length, "").map(
+    (l) => marge + p.dim(l),
   );
 }
 
@@ -594,10 +598,10 @@ function listeDeGestes(
       ? ""
       : `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
     if (mesure.length <= largeur) {
-      const debut = `${ITEM}${p.discret(rang)}  ${p.geste(g.commande)}`;
+      const debut = `${ITEM}${p.dim(rang)}  ${p.action(g.commande)}`;
       lignes.push(
         glose !== "" && mesure.length + glose.length <= largeur
-          ? debut + p.discret(glose)
+          ? debut + p.dim(glose)
           : debut,
       );
       if (enDessous || mesure.length + glose.length > largeur) {
@@ -608,13 +612,9 @@ function listeDeGestes(
     // Terminal étroit : la commande se replie sous elle-même plutôt que de
     // déborder. Elle reste donnée en ENTIER dans le bloc du problème — cette
     // liste est un rappel, pas la source.
-    const [premiere, ...suite] = replier(
-      g.commande,
-      largeur - marge.length,
-      "",
-    );
-    lignes.push(`${ITEM}${p.discret(rang)}  ${p.geste(premiere ?? "")}`);
-    for (const l of suite) lignes.push(marge + p.geste(l));
+    const [premiere, ...suite] = wrap(g.commande, largeur - marge.length, "");
+    lignes.push(`${ITEM}${p.dim(rang)}  ${p.action(premiere ?? "")}`);
+    for (const l of suite) lignes.push(marge + p.action(l));
     // Même règle qu'au-dessus : ce que ce geste répare se lit sous lui.
     lignes.push(...sousLeGeste(g.pourquoi, marge, largeur, p));
   }
@@ -633,20 +633,20 @@ function enTete(
   opts: IOptionsRendu,
   p: IPalette,
 ): string[] {
-  const lignes = ["", `  ${p.fort("nodefony doctor")}`];
+  const lignes = ["", `  ${p.strong("nodefony doctor")}`];
   const nom = report.appName;
-  if (nom) lignes[1] += p.discret(` · ${nom}`);
-  lignes.push(p.discret(`  ${report.root}`));
+  if (nom) lignes[1] += p.dim(` · ${nom}`);
+  lignes.push(p.dim(`  ${report.root}`));
   if (opts.targetEnv) {
     lignes.push(
-      p.alerte(`  exigences évaluées pour l'environnement ${opts.targetEnv}`),
+      p.warning(`  exigences évaluées pour l'environnement ${opts.targetEnv}`),
     );
   }
   if (
     opts.lanceDepuis &&
     path.resolve(report.root) !== path.resolve(opts.lanceDepuis)
   ) {
-    lignes.push(p.discret(`  lancé depuis ${opts.lanceDepuis}`));
+    lignes.push(p.dim(`  lancé depuis ${opts.lanceDepuis}`));
   }
   lignes.push("");
   return lignes;
@@ -666,7 +666,7 @@ function sommaire(
   largeur: number,
 ): string[] {
   const { freshness, readiness, wiring, findings, scanned, execution } = report;
-  const etat = (n: number): EtatSection => (n > 0 ? "echec" : "ok");
+  const etat = (n: number): SectionState => (n > 0 ? "echec" : "ok");
   /**
    * Les familles qui REPORTING_ONLY au lieu d'accuser.
    *
@@ -681,20 +681,20 @@ function sommaire(
     famille: DoctorFamily,
     n: number,
     detail: string,
-  ): ILigneSommaire => {
+  ): ISummaryLine => {
     // Même garde que `controlesSautes` : un état absent se DIT, il ne se rend
     // pas en vert et ne fait pas lever le rapport.
     const exec = execution[famille] ?? { ran: false, short: "état absent" };
     return exec.ran
       ? {
-          titre: TITRES[famille],
-          etat:
+          title: TITLES[famille],
+          state:
             n > 0 && REPORTING_ONLY.has(famille) ? "avertissement" : etat(n),
           detail,
         }
       : {
-          titre: TITRES[famille],
-          etat: "non-controle",
+          title: TITLES[famille],
+          state: "non-controle",
           // Court ICI, complet dans la section dédiée : une raison tronquée
           // par un `…` cache justement ce qu'on aurait besoin de lire.
           detail: exec.short ?? "non contrôlé",
@@ -705,14 +705,14 @@ function sommaire(
       n: freshness.findings.length,
       texte:
         freshness.findings.length > 0
-          ? accord(freshness.findings.length, "écart")
+          ? pluralize(freshness.findings.length, "écart")
           : "sources et build alignés",
     },
     readiness: {
       n: readiness.findings.length,
       texte:
         readiness.findings.length > 0
-          ? accord(readiness.findings.length, "manquement")
+          ? pluralize(readiness.findings.length, "manquement")
           : "environnement, modules, ports",
     },
     // « Variables déclarées » est une RÈGLE de `readiness`, pas une famille à
@@ -726,15 +726,15 @@ function sommaire(
       n: findings.length,
       texte:
         findings.length > 0
-          ? `${accord(findings.length, "manquement")} sur ${accord(scanned, "paquet")}`
-          : accord(scanned, "paquet"),
+          ? `${pluralize(findings.length, "manquement")} sur ${pluralize(scanned, "paquet")}`
+          : pluralize(scanned, "paquet"),
     },
     wiring: {
       n: wiring.findings.length,
       texte:
         wiring.findings.length > 0
-          ? `${accord(wiring.findings.length, "manquement")} sur ${accord(wiring.scanned, "classe")}`
-          : `${accord(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
+          ? `${pluralize(wiring.findings.length, "manquement")} sur ${pluralize(wiring.scanned, "classe")}`
+          : `${pluralize(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
     },
     surface: {
       n: surfaceFindings(report, "public-area-covers-all").length,
@@ -747,14 +747,14 @@ function sommaire(
       n: surfaceFindings(report, "entity-other-dialect").length,
       texte:
         surfaceFindings(report, "entity-other-dialect").length > 0
-          ? `${accord(surfaceFindings(report, "entity-other-dialect").length, "entité")} hors dialecte`
-          : `${accord(report.surface.entitiesScanned, "entité")} sur ${report.surface.dialect ?? "?"}`,
+          ? `${pluralize(surfaceFindings(report, "entity-other-dialect").length, "entité")} hors dialecte`
+          : `${pluralize(report.surface.entitiesScanned, "entité")} sur ${report.surface.dialect ?? "?"}`,
     },
     guards: {
       n: report.guards.findings.length,
       texte:
         report.guards.findings.length > 0
-          ? `${accord(report.guards.findings.length, "garde")} décrochée${report.guards.findings.length > 1 ? "s" : ""}`
+          ? `${pluralize(report.guards.findings.length, "garde")} décrochée${report.guards.findings.length > 1 ? "s" : ""}`
           : gardesArmees(report.guards.armed, report.guards.armedNames),
     },
     // Étage 3 — les scripts LANCÉS. Un script absent ne compte pas : c'est
@@ -807,8 +807,8 @@ function sommaire(
           (paquet) => paquet.severity === "major",
         ).length;
         return majeurs > 0
-          ? `${accord(n, "paquet")} en retard, dont ${majeurs} majeure${majeurs > 1 ? "s" : ""}`
-          : `${accord(n, "paquet")} en retard`;
+          ? `${pluralize(n, "paquet")} en retard, dont ${majeurs} majeure${majeurs > 1 ? "s" : ""}`
+          : `${pluralize(n, "paquet")} en retard`;
       })(),
     },
     // Étage 2 : le compte vient des findings de CETTE famille, filtrés par leur
@@ -818,7 +818,10 @@ function sommaire(
       n: manquementsLive(report, "migrations-not-ok").length,
       texte:
         manquementsLive(report, "migrations-not-ok").length > 0
-          ? accord(manquementsLive(report, "migrations-not-ok").length, "écart")
+          ? pluralize(
+              manquementsLive(report, "migrations-not-ok").length,
+              "écart",
+            )
           : "schéma et historique alignés",
     },
     firewall: {
@@ -832,18 +835,21 @@ function sommaire(
       n: manquementsLive(report, "service-lost").length,
       texte:
         manquementsLive(report, "service-lost").length > 0
-          ? accord(manquementsLive(report, "service-lost").length, "brique") +
+          ? pluralize(
+              manquementsLive(report, "service-lost").length,
+              "brique",
+            ) +
             " perdue" +
             (manquementsLive(report, "service-lost").length > 1 ? "s" : "")
           : modulesEcartes(report).length > 0
-            ? `${accord(modulesEcartes(report).length, "module")} écarté${modulesEcartes(report).length > 1 ? "s" : ""}, rien de perdu`
+            ? `${pluralize(modulesEcartes(report).length, "module")} écarté${modulesEcartes(report).length > 1 ? "s" : ""}, rien de perdu`
             : "rien ne disparaît",
     },
   };
   // L'ordre est celui de FAMILLES, le MÊME que la section « non contrôlé » plus
   // bas : deux ordres différents pour les mêmes contrôles, et le lecteur cesse
   // de faire le lien entre le sommaire et le détail.
-  const lignes: ILigneSommaire[] = FAMILLES.filter(
+  const lignes: ISummaryLine[] = FAMILIES.filter(
     // Une sous-règle de `readiness` n'a pas de ligne à elle tant qu'elle a pu
     // jouer : le sommaire dirait deux fois la même chose. Elle n'apparaît que
     // pour ÉNONCER son angle mort — et seulement si la famille, elle, a bien
@@ -853,11 +859,11 @@ function sommaire(
       (!execution[f]?.ran && execution.readiness?.ran === true),
   ).map((f) => ligne(f, detail[f].n, detail[f].texte));
 
-  const largeurTitre = Math.max(...lignes.map((l) => l.titre.length));
+  const largeurTitre = Math.max(...lignes.map((l) => l.title.length));
   return lignes.map((l) => {
     const teinte =
-      l.etat === "echec" ? p.echec : l.etat === "ok" ? p.ok : p.alerte;
-    return teinte(ligneSommaire(l, largeurTitre, largeur));
+      l.state === "echec" ? p.failure : l.state === "ok" ? p.ok : p.warning;
+    return teinte(summaryLine(l, largeurTitre, largeur));
   });
 }
 
@@ -913,17 +919,17 @@ function surfaceOuverte(
   for (const o of ouvertures.slice(0, OUVERTURES_MONTREES)) {
     const libelle = OUVERTURE_LIBELLE[o.kind] ?? o.kind;
     const quoi = o.what ? `${libelle} ${o.what}` : libelle;
-    for (const [i, l] of replier(quoi, largeur, CORPS).entries()) {
-      lignes.push(i === 0 ? `${ITEM}${p.alerte("—")}  ${l.trim()}` : l);
+    for (const [i, l] of wrap(quoi, largeur, CORPS).entries()) {
+      lignes.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
     }
-    lignes.push(p.discret(`${CORPS}${o.file}`));
+    lignes.push(p.dim(`${CORPS}${o.file}`));
   }
   const reste = ouvertures.length - OUVERTURES_MONTREES;
   if (reste > 0) {
     lignes.push("");
     lignes.push(
-      p.discret(
-        `${CORPS}… et ${accord(reste, "autre")} — la liste complète : ` +
+      p.dim(
+        `${CORPS}… et ${pluralize(reste, "autre")} — la liste complète : ` +
           `nodefony doctor --json`,
       ),
     );
@@ -961,9 +967,9 @@ function inventaireSurface(report: IDoctorReport): string {
   if (routes === 0 && zones === 0) return "rien d'ouvert sans authentification";
   const parts: string[] = [];
   if (routes > 0)
-    parts.push(`${accord(routes, "route")} ouverte${routes > 1 ? "s" : ""}`);
+    parts.push(`${pluralize(routes, "route")} ouverte${routes > 1 ? "s" : ""}`);
   if (zones > 0)
-    parts.push(`${accord(zones, "zone")} publique${zones > 1 ? "s" : ""}`);
+    parts.push(`${pluralize(zones, "zone")} publique${zones > 1 ? "s" : ""}`);
   return parts.join(", ");
 }
 
@@ -1000,7 +1006,7 @@ function gardesArmees(armed: number, noms: readonly string[]): string {
   // Pas de noms (rapport ancien, ou décor partiel) : on rend le compte seul
   // plutôt que d'affirmer une liste vide.
   if (noms.length === 0)
-    return `${accord(armed, "garde")} armée${armed > 1 ? "s" : ""}`;
+    return `${pluralize(armed, "garde")} armée${armed > 1 ? "s" : ""}`;
   const PLACE = 3;
   const montres = noms.slice(0, PLACE);
   const reste = noms.length - montres.length;
@@ -1016,26 +1022,26 @@ function groupesDeManquements(
   // qu'on vient d'éditer. Puis ce qui empêche de DÉMARRER : une variable
   // absente explique souvent le reste.
   return [
-    { titre: TITRES.freshness, items: report.freshness.findings },
-    { titre: TITRES.readiness, items: report.readiness.findings },
-    { titre: TITRES.deps, items: report.findings },
-    { titre: TITRES.wiring, items: report.wiring.findings },
+    { titre: TITLES.freshness, items: report.freshness.findings },
+    { titre: TITLES.readiness, items: report.readiness.findings },
+    { titre: TITLES.deps, items: report.findings },
+    { titre: TITLES.wiring, items: report.wiring.findings },
     {
-      titre: TITRES.surface,
+      titre: TITLES.surface,
       items: surfaceFindings(report, "public-area-covers-all"),
     },
     {
-      titre: TITRES.dialect,
+      titre: TITLES.dialect,
       items: surfaceFindings(report, "entity-other-dialect"),
     },
-    { titre: TITRES.guards, items: report.guards.findings },
+    { titre: TITLES.guards, items: report.guards.findings },
     // Étage 3 — le script LANCÉ qui a échoué, avec sa première ligne utile.
     // Sans ce groupe, le sommaire comptait le manquement et la section des
     // problèmes ne le montrait pas : le rapport disait OÙ regarder sans jamais
     // dire QUOI, ce qui oblige à relancer la commande à la main — exactement
     // le geste que cet étage existe pour éviter.
     {
-      titre: TITRES.verify,
+      titre: TITLES.verify,
       items: (report.deep?.steps ?? [])
         .filter((st) => st.outcome === "failed" || st.outcome === "timeout")
         .map((st) => ({
@@ -1056,13 +1062,13 @@ function groupesDeManquements(
     // et le geste qu'il propose vient du PRODUCTEUR — il est rendu tel quel,
     // sous le constat, parce qu'une commande à taper se copie.
     {
-      titre: TITRES.migrations,
+      titre: TITLES.migrations,
       items: manquementsLive(report, "migrations-not-ok").map((f) => ({
         message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
       })),
     },
     {
-      titre: TITRES.firewall,
+      titre: TITLES.firewall,
       items: manquementsLive(report, "firewall-config-invalid").map((f) => ({
         message: f.message,
       })),
@@ -1118,7 +1124,7 @@ function dernierDemarrage(
 ): string[] {
   const lignes: string[] = [];
   const age = formatAge(entry.timestamp, now);
-  const etat: EtatSection =
+  const etat: SectionState =
     entry.status === "failed" ? "echec" : "avertissement";
   /**
    * Un couple « libellé — valeur », la valeur repliée SOUS elle-même.
@@ -1135,35 +1141,32 @@ function dernierDemarrage(
     // la colonne saute d'une ligne à l'autre.
     const colonne = 18;
     const indent = CORPS + " ".repeat(colonne);
-    const lignesValeur = replier(valeur, largeur, indent);
+    const lignesValeur = wrap(valeur, largeur, indent);
     // Un chemin ou une URL ne se coupe PAS (le couper le rendrait incopiable).
     // Sur un terminal étroit, la colonne d'alignement ne laisse alors pas assez
     // de place : la valeur passe SOUS son libellé plutôt que de déborder.
     const deborde = lignesValeur.some((l) => l.length > largeur);
     if (deborde) {
-      return [
-        `${CORPS}${p.discret(nom)}`,
-        ...replier(valeur, largeur, `${CORPS}  `),
-      ];
+      return [`${CORPS}${p.dim(nom)}`, ...wrap(valeur, largeur, `${CORPS}  `)];
     }
     const [premiere, ...suite] = lignesValeur;
     return [
-      `${CORPS}${p.discret(nom.padEnd(colonne, " "))}${(premiere ?? "").trimStart()}`,
+      `${CORPS}${p.dim(nom.padEnd(colonne, " "))}${(premiere ?? "").trimStart()}`,
       ...suite,
     ];
   };
 
   /** Le titre du bloc, replié comme n'importe quelle autre phrase. */
   const titre = (texte: string, teinte: (t: string) => string): string[] => {
-    const [premiere, ...suite] = replier(texte, largeur, CORPS);
+    const [premiere, ...suite] = wrap(texte, largeur, CORPS);
     return [
-      teinte(`${ITEM}${symbole(etat)}  ${(premiere ?? "").trimStart()}`),
+      teinte(`${ITEM}${stateSymbol(etat)}  ${(premiere ?? "").trimStart()}`),
       ...suite.map(teinte),
     ];
   };
 
   if (entry.status === "failed") {
-    lignes.push(...titre(`${qui(entry)} a ÉCHOUÉ (${age})`, p.echec));
+    lignes.push(...titre(`${qui(entry)} a ÉCHOUÉ (${age})`, p.failure));
     lignes.push(...champ("phase atteinte", entry.phase ?? "inconnue"));
     lignes.push(...champ("environnement", entry.environment));
     if (entry.error) {
@@ -1179,7 +1182,7 @@ function dernierDemarrage(
     lignes.push(
       ...titre(
         `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
-        p.alerte,
+        p.warning,
       ),
     );
     lignes.push(...champ("environnement", entry.environment));
@@ -1187,7 +1190,7 @@ function dernierDemarrage(
       lignes.push(
         ...champ(
           "verdict",
-          p.echec("un profil serveur a fini SANS aucun serveur en écoute"),
+          p.failure("un profil serveur a fini SANS aucun serveur en écoute"),
         ),
       );
     }
@@ -1201,7 +1204,7 @@ function dernierDemarrage(
       ...quelquesUnes(
         entry.bricksSkipped.map(
           (b) =>
-            `${b.module}${b.phase ? p.discret(` (${b.phase})`) : ""} — ${b.reason}`,
+            `${b.module}${b.phase ? p.dim(` (${b.phase})`) : ""} — ${b.reason}`,
         ),
         p,
       ),
@@ -1222,7 +1225,7 @@ function dernierDemarrage(
     lignes.push(
       ...champ(
         "journal du boot",
-        `${accord(entry.warnings ?? 0, "avertissement")}, ${accord(entry.errors ?? 0, "erreur")}`,
+        `${pluralize(entry.warnings ?? 0, "avertissement")}, ${pluralize(entry.errors ?? 0, "erreur")}`,
       ),
     );
   }
@@ -1232,18 +1235,18 @@ function dernierDemarrage(
     for (const message of montres) {
       // La suite s'aligne SOUS le texte, pas sous la puce : une deuxième ligne
       // rendue à la même colonne que le `·` se lit comme un deuxième message.
-      const [premiere, ...suite] = replier(message, largeur, `${CORPS}    `);
-      lignes.push(p.echec(`${CORPS}  · ${(premiere ?? "").trimStart()}`));
-      for (const l of suite) lignes.push(p.echec(l));
+      const [premiere, ...suite] = wrap(message, largeur, `${CORPS}    `);
+      lignes.push(p.failure(`${CORPS}  · ${(premiere ?? "").trimStart()}`));
+      for (const l of suite) lignes.push(p.failure(l));
     }
     const reste = entry.criticals.length - montres.length;
     if (reste > 0) {
-      lignes.push(p.discret(`${CORPS}  · … et ${accord(reste, "autre")}`));
+      lignes.push(p.dim(`${CORPS}  · … et ${pluralize(reste, "autre")}`));
     }
   }
   if (entry.remediation) {
-    for (const l of replier(`→ ${entry.remediation}`, largeur, CORPS)) {
-      lignes.push(p.geste(l));
+    for (const l of wrap(`→ ${entry.remediation}`, largeur, CORPS)) {
+      lignes.push(p.action(l));
     }
   }
   // SON fichier, pas celui du serveur : avec deux bilans affichés, un
@@ -1261,7 +1264,7 @@ function dernierDemarrage(
  */
 function bilan(
   report: IDoctorReport,
-  sautes: readonly IControleSaute[],
+  sautes: readonly ISkippedCheck[],
   p: IPalette,
   largeur: number,
   dureeMs?: number,
@@ -1285,35 +1288,38 @@ function bilan(
 
   const segments: { mesure: string; peint: string }[] = [];
   if (total > 0) {
-    segments.push(seg(accord(total, "manquement"), p.echec));
+    segments.push(seg(pluralize(total, "manquement"), p.failure));
     segments.push(
       // « effectué », jamais « passé » : ce compte est celui des familles qui
       // ont REGARDÉ, manquements compris. Dire « 7 contrôles passés » à côté
       // de « 1 manquement » faisait annoncer huit familles là où il y en a
       // sept, et laissait croire que la fautive avait réussi.
-      seg(accord(passes, "contrôle effectué", "contrôles effectués"), (t) => t),
+      seg(
+        pluralize(passes, "contrôle effectué", "contrôles effectués"),
+        (t) => t,
+      ),
     );
   } else if (passes === 0) {
     // Hors d'une application : dire « rien à signaler » serait un quitus rendu
     // sans avoir rien ouvert.
-    segments.push(seg("Aucun contrôle n'a pu être fait ici", p.alerte));
+    segments.push(seg("Aucun contrôle n'a pu être fait ici", p.warning));
   } else {
     const exceptions =
       report.exceptions > 0
-        ? ` (${accord(report.exceptions, "exception")} déclarée${report.exceptions > 1 ? "s" : ""})`
+        ? ` (${pluralize(report.exceptions, "exception")} déclarée${report.exceptions > 1 ? "s" : ""})`
         : "";
     const phrase =
       sautes.length > 0
-        ? `Rien à signaler parmi les ${accord(passes, "contrôle effectué", "contrôles effectués")}`
-        : `Rien à signaler sur ${accord(passes, "contrôle", "contrôles")}`;
+        ? `Rien à signaler parmi les ${pluralize(passes, "contrôle effectué", "contrôles effectués")}`
+        : `Rien à signaler sur ${pluralize(passes, "contrôle", "contrôles")}`;
     segments.push({
       mesure: phrase + exceptions,
-      peint: p.ok(phrase) + p.discret(exceptions),
+      peint: p.ok(phrase) + p.dim(exceptions),
     });
   }
   if (sautes.length > 0) {
     segments.push(
-      seg(accord(sautes.length, "non contrôlé", "non contrôlés"), p.alerte),
+      seg(pluralize(sautes.length, "non contrôlé", "non contrôlés"), p.warning),
     );
   }
   if (dureeMs !== undefined) {
@@ -1321,7 +1327,7 @@ function bilan(
       dureeMs < 1000
         ? `${Math.round(dureeMs)} ms`
         : `${(dureeMs / 1000).toFixed(1)} s`;
-    segments.push(seg(texte, p.discret));
+    segments.push(seg(texte, p.dim));
   }
 
   // Sur un terminal étroit, les segments s'EMPILENT au lieu de déborder. Une

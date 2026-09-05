@@ -23,11 +23,11 @@
  * @module
  */
 import {
-  creerPalette,
-  doitColorer,
-  largeurUtile,
-  replier,
-  titreSection,
+  createPalette,
+  shouldColorize,
+  usableWidth,
+  wrap,
+  sectionTitle,
   type IPalette,
 } from "../kernel/checks/report";
 
@@ -99,7 +99,7 @@ const TERM_COLUMN = 20;
 export function renderUsage(
   page: IUsagePage,
   p: IPalette,
-  width: number = largeurUtile(80),
+  width: number = usableWidth(80),
 ): string {
   const out: string[] = [];
 
@@ -109,23 +109,23 @@ export function renderUsage(
   // se lisait comme un seul mot.
   const entry = (term: string, text: string, column: number): void => {
     const margin = " ".repeat(column + 4);
-    const [first, ...rest] = replier(text, width - margin.length, "");
-    out.push(`  ${p.geste(term.padEnd(column, " "))}  ${first ?? ""}`);
+    const [first, ...rest] = wrap(text, width - margin.length, "");
+    out.push(`  ${p.action(term.padEnd(column, " "))}  ${first ?? ""}`);
     for (const line of rest) out.push(`${margin}${line}`);
   };
 
   const section = (name: string): void => {
-    const { titre, filet } = titreSection(name, width);
-    out.push("", `${p.fort(titre)}${p.discret(filet)}`, "");
+    const { title: titre, divider: filet } = sectionTitle(name, width);
+    out.push("", `${p.strong(titre)}${p.dim(filet)}`, "");
   };
 
   const paragraph = (text: string): void => {
-    for (const line of replier(text, width - 4, "  ")) out.push(line);
+    for (const line of wrap(text, width - 4, "  ")) out.push(line);
   };
 
-  out.push("", `  ${p.fort(page.command)}`);
-  for (const line of replier(page.tagline, width - 4, "  ")) {
-    out.push(p.discret(line));
+  out.push("", `  ${p.strong(page.command)}`);
+  for (const line of wrap(page.tagline, width - 4, "  ")) {
+    out.push(p.dim(line));
   }
 
   out.push("");
@@ -139,11 +139,9 @@ export function renderUsage(
     const alias = `alias : ${page.aliases.join(", ")}`;
     const inline = `  usage : ${forms[0] ?? ""}        ${alias}`;
     if (forms.length === 1 && inline.length <= width) {
-      out[out.length - 1] = `  usage : ${forms[0]}${p.discret(
-        `        ${alias}`,
-      )}`;
+      out[out.length - 1] = `  usage : ${forms[0]}${p.dim(`        ${alias}`)}`;
     } else {
-      out.push(p.discret(`  ${alias}`));
+      out.push(p.dim(`  ${alias}`));
     }
   }
 
@@ -174,18 +172,18 @@ export function renderUsage(
     const twoColumns = width - widest - 4 >= 24;
     for (const e of page.examples) {
       if (!twoColumns) {
-        out.push(`  ${p.geste(e.term)}`);
-        for (const l of replier(e.text, width - 6, "      ")) {
-          out.push(p.discret(l));
+        out.push(`  ${p.action(e.term)}`);
+        for (const l of wrap(e.text, width - 6, "      ")) {
+          out.push(p.dim(l));
         }
         continue;
       }
       const indent = " ".repeat(widest + 4);
-      const [first, ...rest] = replier(e.text, width - indent.length, "");
+      const [first, ...rest] = wrap(e.text, width - indent.length, "");
       out.push(
-        `  ${p.geste(e.term.padEnd(widest, " "))}  ${p.discret(first ?? "")}`,
+        `  ${p.action(e.term.padEnd(widest, " "))}  ${p.dim(first ?? "")}`,
       );
-      for (const l of rest) out.push(`${indent}${p.discret(l)}`);
+      for (const l of rest) out.push(`${indent}${p.dim(l)}`);
     }
   }
 
@@ -203,8 +201,8 @@ export function renderUsage(
 
   if (page.footer) {
     out.push("");
-    for (const line of replier(page.footer, width - 4, "  ")) {
-      out.push(p.discret(line));
+    for (const line of wrap(page.footer, width - 4, "  ")) {
+      out.push(p.dim(line));
     }
   }
   out.push("");
@@ -225,8 +223,8 @@ export function printUsage(page: IUsagePage): number {
   process.stdout.write(
     renderUsage(
       page,
-      creerPalette(doitColorer(process.env, Boolean(process.stdout.isTTY))),
-      largeurUtile(process.stdout.columns),
+      createPalette(shouldColorize(process.env, Boolean(process.stdout.isTTY))),
+      usableWidth(process.stdout.columns),
     ),
   );
   return 0;
@@ -244,13 +242,13 @@ export function printUsage(page: IUsagePage): number {
  * @returns le code de sortie, toujours 64 (EX_USAGE).
  */
 export function printUsageError(page: IUsagePage, message: string): number {
-  const p = creerPalette(
-    doitColorer(process.env, Boolean(process.stderr.isTTY)),
+  const p = createPalette(
+    shouldColorize(process.env, Boolean(process.stderr.isTTY)),
   );
-  const width = largeurUtile(process.stderr.columns);
+  const width = usableWidth(process.stderr.columns);
   const name = page.command.replace(/^nodefony\s+/u, "");
-  for (const line of replier(`${name} : ${message}`, width, "  ")) {
-    process.stderr.write(`${p.echec(line)}\n`);
+  for (const line of wrap(`${name} : ${message}`, width, "  ")) {
+    process.stderr.write(`${p.failure(line)}\n`);
   }
   process.stderr.write(renderUsage(page, p, width));
   return 64;

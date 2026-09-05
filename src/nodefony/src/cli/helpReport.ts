@@ -19,10 +19,10 @@
  * @module
  */
 import {
-  creerPalette,
-  replier,
-  replierListe,
-  titreSection,
+  createPalette,
+  wrap,
+  wrapList,
+  sectionTitle,
   type IPalette,
 } from "../kernel/checks/report";
 
@@ -288,14 +288,14 @@ function entree(
   const lignes: string[] = [];
   if (terme.length > colonne) {
     lignes.push(`${ITEM}${teinte(terme)}`);
-    for (const l of replier(texte, largeur - marge.length, "")) {
-      lignes.push(marge + p.discret(l));
+    for (const l of wrap(texte, largeur - marge.length, "")) {
+      lignes.push(marge + p.dim(l));
     }
   } else {
     const pad = " ".repeat(colonne - terme.length);
-    const [premiere, ...suite] = replier(texte, largeur - marge.length, "");
-    lignes.push(`${ITEM}${teinte(terme)}${pad}  ${p.discret(premiere ?? "")}`);
-    for (const l of suite) lignes.push(marge + p.discret(l));
+    const [premiere, ...suite] = wrap(texte, largeur - marge.length, "");
+    lignes.push(`${ITEM}${teinte(terme)}${pad}  ${p.dim(premiere ?? "")}`);
+    for (const l of suite) lignes.push(marge + p.dim(l));
   }
   if (accepts?.values.length) {
     lignes.push(...valeurs(accepts, marge, largeur, p));
@@ -329,16 +329,16 @@ function valeurs(
   // Trop étroit pour aligner sous le libellé : l'énumération repart à la marge,
   // sur ses propres lignes. Une valeur coupée en deux ne se cherche plus.
   if (dispo < 12) {
-    const sortie = [marge + p.discret(prefixe.trimEnd())];
-    for (const l of replierListe([...accepts.values], largeur - marge.length)) {
-      sortie.push(marge + p.discret(l));
+    const sortie = [marge + p.dim(prefixe.trimEnd())];
+    for (const l of wrapList([...accepts.values], largeur - marge.length)) {
+      sortie.push(marge + p.dim(l));
     }
     return sortie;
   }
-  return replierListe([...accepts.values], dispo).map((l, i) =>
+  return wrapList([...accepts.values], dispo).map((l, i) =>
     i === 0
-      ? marge + p.discret(prefixe + l)
-      : marge + " ".repeat(prefixe.length) + p.discret(l),
+      ? marge + p.dim(prefixe + l)
+      : marge + " ".repeat(prefixe.length) + p.dim(l),
   );
 }
 
@@ -354,7 +354,7 @@ export function renderHelp(
   opts: IHelpRenderOptions,
 ): string[] {
   const { largeur, couleur } = opts;
-  const p = creerPalette(couleur);
+  const p = createPalette(couleur);
   const lignes: string[] = [];
 
   // L'en-tête tient sur UNE ligne quand la largeur le permet, sinon la
@@ -363,15 +363,15 @@ export function renderHelp(
   // de l'aide était déjà celle qui cassait.
   const marque = `⬢ Nodefony${model.version ? ` v${model.version}` : ""}`;
   const baseline = "framework fullstack Node.js — HTTP · WS · ORM · IA";
-  const peint = `  ${p.fort("⬢ Nodefony")}${
-    model.version ? ` ${p.discret(`v${model.version}`)}` : ""
+  const peint = `  ${p.strong("⬢ Nodefony")}${
+    model.version ? ` ${p.dim(`v${model.version}`)}` : ""
   }`;
   if (`  ${marque}   ${baseline}`.length <= largeur) {
-    lignes.push(`${peint}   ${p.discret(baseline)}`);
+    lignes.push(`${peint}   ${p.dim(baseline)}`);
   } else if (`  ${baseline}`.length <= largeur) {
     // Sur sa propre ligne. Elle n'est JAMAIS repliée : elle énumère avec des
     // points médians, et un repli aux espaces en mettrait un en tête de ligne.
-    lignes.push(peint, `  ${p.discret(baseline)}`);
+    lignes.push(peint, `  ${p.dim(baseline)}`);
   } else {
     // Trop étroit même pour elle : c'est de l'ornement, il cède la place.
     lignes.push(peint);
@@ -384,8 +384,8 @@ export function renderHelp(
     const une = `  ${terme} ${valeur}`;
     lignes.push(
       une.length <= largeur
-        ? `  ${p.discret(terme)} ${valeur}`
-        : `  ${p.discret(terme)}`,
+        ? `  ${p.dim(terme)} ${valeur}`
+        : `  ${p.dim(terme)}`,
     );
     if (une.length > largeur) lignes.push(`    ${valeur}`);
   }
@@ -394,8 +394,8 @@ export function renderHelp(
   const colonne = nameColumnWidth(model.commands);
 
   const section = (titre: string): void => {
-    const { titre: t, filet } = titreSection(titre, largeur);
-    lignes.push("", p.fort(t) + p.discret(filet), "");
+    const { title: t, divider: filet } = sectionTitle(titre, largeur);
+    lignes.push("", p.strong(t) + p.dim(filet), "");
   };
 
   for (const groupe of groupes) {
@@ -411,7 +411,7 @@ export function renderHelp(
           colonne,
           largeur,
           p,
-          p.geste,
+          p.action,
           cmd.accepts,
         ),
       );
@@ -426,26 +426,29 @@ export function renderHelp(
     );
     for (const opt of model.globalOptions) {
       lignes.push(
-        ...entree(opt.flags, opt.description, colOpt, largeur, p, p.fort),
+        ...entree(opt.flags, opt.description, colOpt, largeur, p, p.strong),
       );
     }
   }
 
   if (model.modules && model.modules.length > 0) {
-    lignes.push("", `  ${p.fort(`Modules chargés (${model.modules.length})`)}`);
-    for (const l of replierListe([...model.modules], largeur - 2)) {
-      lignes.push(`  ${p.discret(l)}`);
+    lignes.push(
+      "",
+      `  ${p.strong(`Modules chargés (${model.modules.length})`)}`,
+    );
+    for (const l of wrapList([...model.modules], largeur - 2)) {
+      lignes.push(`  ${p.dim(l)}`);
     }
   }
 
   if (model.note) {
     lignes.push("");
-    for (const l of replier(model.note, largeur - 4, "")) {
-      lignes.push(`  ${p.alerte("!")} ${p.discret(l)}`);
+    for (const l of wrap(model.note, largeur - 4, "")) {
+      lignes.push(`  ${p.warning("!")} ${p.dim(l)}`);
     }
     if (model.noteAction) {
       lignes.push(
-        `  ${p.discret("Pour commencer :")} ${p.geste(model.noteAction)}`,
+        `  ${p.dim("Pour commencer :")} ${p.action(model.noteAction)}`,
       );
     }
   }
@@ -457,20 +460,20 @@ export function renderHelp(
     // Alignée sous un préfixe de 28 colonnes, elle débordait sur un terminal
     // étroit — et la première chose qu'un agent lit était cassée.
     const dispo = largeur - prefixe.length - 1;
-    const plies = replierListe([...model.jsonCommands], Math.max(dispo, 1));
+    const plies = wrapList([...model.jsonCommands], Math.max(dispo, 1));
     const large = plies.every((l) => l.length <= dispo);
     if (large) {
       for (const [i, l] of plies.entries()) {
         lignes.push(
           i === 0
-            ? `${p.discret(prefixe)} ${p.discret(l)}`
-            : `${" ".repeat(prefixe.length + 1)}${p.discret(l)}`,
+            ? `${p.dim(prefixe)} ${p.dim(l)}`
+            : `${" ".repeat(prefixe.length + 1)}${p.dim(l)}`,
         );
       }
     } else {
-      lignes.push(p.discret(prefixe));
-      for (const l of replierListe([...model.jsonCommands], largeur - 4)) {
-        lignes.push(`    ${p.discret(l)}`);
+      lignes.push(p.dim(prefixe));
+      for (const l of wrapList([...model.jsonCommands], largeur - 4)) {
+        lignes.push(`    ${p.dim(l)}`);
       }
     }
   }
@@ -483,7 +486,7 @@ export function renderHelp(
     ["Manuel :", "man nodefony"],
     ["Docs :", "nodefony.github.io/nodefony-core"],
   ] as const) {
-    lignes.push(`  ${p.discret(terme)} ${valeur}`);
+    lignes.push(`  ${p.dim(terme)} ${valeur}`);
   }
   return lignes;
 }

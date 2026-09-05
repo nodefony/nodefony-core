@@ -184,7 +184,7 @@ export function coversEverything(pattern: string): boolean {
     // contrôle de le juger, il a déjà été inventorié.
     return false;
   }
-  return PROBE_PATHS.every((chemin) => re.test(chemin));
+  return PROBE_PATHS.every((rawPath) => re.test(rawPath));
 }
 
 /**
@@ -370,14 +370,17 @@ function collectOpenings(
  * que l'exception n'a pas été écrite avec la grammaire de la machine où elle a
  * été ajoutée.
  *
- * @param chemin - le chemin à normaliser.
+ * @param rawPath - le chemin à normaliser.
  * @param sep - la grammaire à appliquer ; injectée pour que la règle
  *   s'éprouve avec `path.win32.sep` depuis n'importe quel système — sans elle,
  *   le cas Windows ne serait vérifiable que sous Windows.
  * @returns le même chemin, en `/`.
  */
-export function toPortablePath(chemin: string, sep: string = path.sep): string {
-  return chemin.split(sep).join("/").split("\\").join("/");
+export function toPortablePath(
+  rawPath: string,
+  sep: string = path.sep,
+): string {
+  return rawPath.split(sep).join("/").split("\\").join("/");
 }
 
 /**

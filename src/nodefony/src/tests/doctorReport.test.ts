@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {
-  filet,
-  largeurUtile,
-  ligneSommaire,
-  replier,
-  separerGeste,
-  symbole,
+  divider,
+  usableWidth,
+  summaryLine,
+  wrap,
+  splitAction,
+  stateSymbol,
 } from "../kernel/checks/report";
 
 /**
@@ -20,34 +20,36 @@ describe("doctor — mise en forme du rapport", () => {
   it("la largeur est bornée des DEUX côtés", () => {
     // Un terminal très étroit fait chevaucher les colonnes ; un très large
     // envoie l'œil chercher le détail à l'autre bout de l'écran.
-    assert.equal(largeurUtile(20), 48);
-    assert.equal(largeurUtile(300), 96);
-    assert.equal(largeurUtile(80), 80);
+    assert.equal(usableWidth(20), 48);
+    assert.equal(usableWidth(300), 96);
+    assert.equal(usableWidth(80), 80);
     // Sortie redirigée : pas de terminal, donc pas de largeur annoncée.
-    assert.equal(largeurUtile(undefined), 80);
-    assert.equal(largeurUtile(Number.NaN), 80);
+    assert.equal(usableWidth(undefined), 80);
+    assert.equal(usableWidth(Number.NaN), 80);
   });
 
   it("chaque état garde un SYMBOLE distinct, sans couleur", () => {
     // La couleur disparaît dans un journal de CI, dans un `| cat`, et pour qui
     // ne la distingue pas. Le symbole doit suffire à lire le verdict.
     const vus = new Set(
-      (["ok", "echec", "avertissement", "non-controle"] as const).map(symbole),
+      (["ok", "echec", "avertissement", "non-controle"] as const).map(
+        stateSymbol,
+      ),
     );
     assert.equal(vus.size, 4, "deux états partagent le même symbole");
   });
 
   it("les lignes du sommaire s'alignent sur le titre le plus long", () => {
     const lignes = [
-      { titre: "Câblage", etat: "ok" as const, detail: "55 classes" },
+      { title: "Câblage", state: "ok" as const, detail: "55 classes" },
       {
-        titre: "Fraîcheur du build",
-        etat: "echec" as const,
+        title: "Fraîcheur du build",
+        state: "echec" as const,
         detail: "build en retard",
       },
     ];
-    const largeurTitre = Math.max(...lignes.map((l) => l.titre.length));
-    const rendues = lignes.map((l) => ligneSommaire(l, largeurTitre, 80));
+    const largeurTitre = Math.max(...lignes.map((l) => l.title.length));
+    const rendues = lignes.map((l) => summaryLine(l, largeurTitre, 80));
     // Le détail commence à la MÊME colonne sur les deux lignes.
     assert.equal(
       rendues[0]!.indexOf("55 classes"),
@@ -56,8 +58,8 @@ describe("doctor — mise en forme du rapport", () => {
   });
 
   it("un détail trop long est coupé, jamais replié sur la marge", () => {
-    const l = ligneSommaire(
-      { titre: "X", etat: "ok", detail: "d".repeat(200) },
+    const l = summaryLine(
+      { title: "X", state: "ok", detail: "d".repeat(200) },
       1,
       60,
     );
@@ -66,7 +68,7 @@ describe("doctor — mise en forme du rapport", () => {
   });
 
   it("🔴 le GESTE est séparé du constat — c'est ce qu'on cherche en panne", () => {
-    const { constat, geste } = separerGeste(
+    const { finding: constat, action: geste } = splitAction(
       "des sources ont changé après le build. → `npm run build`",
     );
     assert.equal(geste, "`npm run build`");
@@ -80,19 +82,19 @@ describe("doctor — mise en forme du rapport", () => {
   it("un message SANS geste reste intact", () => {
     // Ne pas inventer un geste là où le contrôle n'en propose pas : une
     // suggestion fabriquée est pire qu'un constat nu.
-    const r = separerGeste("le catalogue est illisible");
-    assert.equal(r.constat, "le catalogue est illisible");
-    assert.equal(r.geste, undefined);
+    const r = splitAction("le catalogue est illisible");
+    assert.equal(r.finding, "le catalogue est illisible");
+    assert.equal(r.action, undefined);
   });
 
   it("une flèche FINALE sans geste ne fabrique pas de ligne vide", () => {
-    const r = separerGeste("quelque chose ne va pas →");
-    assert.equal(r.geste, undefined);
-    assert.ok(r.constat.length > 0);
+    const r = splitAction("quelque chose ne va pas →");
+    assert.equal(r.action, undefined);
+    assert.ok(r.finding.length > 0);
   });
 
   it("le repli respecte la largeur ET l'indentation", () => {
-    const lignes = replier("mot ".repeat(40).trim(), 40, "     ");
+    const lignes = wrap("mot ".repeat(40).trim(), 40, "     ");
     assert.ok(lignes.length > 1, "une phrase longue doit se replier");
     for (const l of lignes) {
       assert.ok(l.startsWith("     "), "chaque ligne porte l'indentation");
@@ -102,12 +104,12 @@ describe("doctor — mise en forme du rapport", () => {
 
   it("un mot plus long que la largeur ne fait pas boucler le repli", () => {
     // Un chemin absolu très long est le cas normal, pas l'exception.
-    const lignes = replier("/a/".padEnd(120, "b"), 40, "  ");
+    const lignes = wrap("/a/".padEnd(120, "b"), 40, "  ");
     assert.equal(lignes.length, 1);
   });
 
   it("le filet ne dépasse jamais la largeur", () => {
-    assert.ok(filet(60).length <= 60);
-    assert.ok(filet(10).length >= 10);
+    assert.ok(divider(60).length <= 60);
+    assert.ok(divider(10).length >= 10);
   });
 });

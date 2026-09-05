@@ -26,8 +26,8 @@ import {
 } from "../kernel/checks/runDoctor";
 import {
   preventedChecks,
-  controlesSautes,
-  FAMILLES,
+  skippedChecks,
+  FAMILIES,
   type DoctorFamily,
   type IExecution,
 } from "../kernel/checks/report";
@@ -40,7 +40,7 @@ const execution = (
   // Dérivé de FAMILLES, jamais réécrit : une liste en dur ici laissait les
   // familles neuves hors du décor, et le rendu plantait sur `undefined.ran`.
   const etat = {} as Record<DoctorFamily, IExecution>;
-  for (const f of FAMILLES) {
+  for (const f of FAMILIES) {
     const raison = sautees[f];
     etat[f] = raison ? { ran: false, reason: raison } : { ran: true };
   }
@@ -63,16 +63,16 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
       // Une liste vide, oui — mais accompagnée de l'aveu qu'elle ne prouve rien.
       assert.deepEqual(report.readiness.findings, []);
 
-      const sautes = controlesSautes(report.execution);
+      const sautes = skippedChecks(report.execution);
       assert.includeMembers(
-        sautes.map((s) => s.famille),
+        sautes.map((s) => s.family),
         ["readiness", "freshness"],
       );
       for (const saute of sautes) {
-        assert.isNotEmpty(saute.reason, `${saute.famille} sans raison`);
+        assert.isNotEmpty(saute.reason, `${saute.family} sans raison`);
         assert.isNotEmpty(
           saute.unlock ?? "",
-          `${saute.famille} sans geste de déblocage — le lecteur sait qu'il ` +
+          `${saute.family} sans geste de déblocage — le lecteur sait qu'il ` +
             `lui manque quelque chose sans savoir quoi faire`,
         );
       }
@@ -103,8 +103,8 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
         report.execution.envCatalog.ran,
         "un catalogue illisible ne vaut pas quitus sur les variables requises",
       );
-      const sautes = controlesSautes(report.execution);
-      const envCatalog = sautes.find((s) => s.famille === "envCatalog");
+      const sautes = skippedChecks(report.execution);
+      const envCatalog = sautes.find((s) => s.family === "envCatalog");
       assert.isDefined(envCatalog, "`envCatalog` doit être rapporté");
       assert.include(envCatalog?.unlock ?? "", "build");
     } finally {
@@ -116,24 +116,24 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
     // `envCatalog` est une règle de `readiness`. Les annoncer tous les deux
     // ferait compter deux angles morts là où il n'y en a qu'un — et le bilan
     // chiffré ne collerait plus aux lignes affichées.
-    const sautes = controlesSautes(
+    const sautes = skippedChecks(
       execution({
         readiness: "hors application",
         envCatalog: "hors application",
       }),
     );
     assert.deepEqual(
-      sautes.map((s) => s.famille),
+      sautes.map((s) => s.family),
       ["readiness"],
     );
   });
 
   it("la même sous-règle EST rapportée quand sa famille a tourné", () => {
-    const sautes = controlesSautes(
+    const sautes = skippedChecks(
       execution({ envCatalog: "catalogue illisible" }),
     );
     assert.deepEqual(
-      sautes.map((s) => s.famille),
+      sautes.map((s) => s.family),
       ["envCatalog"],
     );
   });
@@ -142,7 +142,7 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
     // Le rendu affiche `titre — reason` : une raison absente produirait un
     // tiret suivi de rien, qu'on lit comme un défaut d'affichage plutôt que
     // comme un contrôle manquant.
-    const sautes = controlesSautes({
+    const sautes = skippedChecks({
       ...execution({}),
       freshness: { ran: false },
     });
@@ -152,11 +152,11 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
 
   it("l'ordre de lecture est celui du rapport, pas celui de l'objet", () => {
     // La fraîcheur d'abord : un build en retard rend faux tout ce qui suit.
-    const sautes = controlesSautes(
+    const sautes = skippedChecks(
       execution({ wiring: "a", freshness: "b", deps: "c" }),
     );
     assert.deepEqual(
-      sautes.map((s) => s.famille),
+      sautes.map((s) => s.family),
       ["freshness", "deps", "wiring"],
     );
   });
@@ -170,9 +170,9 @@ describe("doctor — un état d'exécution ABSENT n'est pas un état passé", ()
     // précisément celui qu'on lance quand tout le reste est cassé.
     const partiel = { ...execution({}) } as Record<DoctorFamily, IExecution>;
     delete (partiel as Partial<Record<DoctorFamily, IExecution>>).migrations;
-    const sautes = controlesSautes(partiel);
+    const sautes = skippedChecks(partiel);
     assert.deepEqual(
-      sautes.map((s) => s.famille),
+      sautes.map((s) => s.family),
       ["migrations"],
     );
     assert.include(sautes[0]?.reason ?? "", "autre version");
@@ -194,7 +194,7 @@ describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
       "`--live`",
       true,
     );
-    const sautes = controlesSautes({ ...execution({}), ...absent.execution });
+    const sautes = skippedChecks({ ...execution({}), ...absent.execution });
     // Rapporté : un contrôle non demandé n'est toujours pas un quitus.
     // Le compte est DÉRIVÉ : l'écrire en dur le rendait faux à la première
     // famille d'étage 2 ajoutée, et le test accusait alors la mauvaise chose.
@@ -207,16 +207,16 @@ describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
     // Le boot a été demandé et n'a pas abouti : là, il manque vraiment quelque
     // chose, et une chaîne automatisée doit le savoir.
     const echoue = liveNotRun("le plan d'administration est absent");
-    const sautes = controlesSautes({ ...execution({}), ...echoue.execution });
+    const sautes = skippedChecks({ ...execution({}), ...echoue.execution });
     assert.lengthOf(preventedChecks(sautes), LIVE_FAMILIES.length);
   });
 
   it("un contrôle STATIQUE sauté condamne toujours — la doctrine ne bouge pas", () => {
-    const sautes = controlesSautes({
+    const sautes = skippedChecks({
       ...execution({ deps: "aucun paquet" }),
     });
     assert.lengthOf(preventedChecks(sautes), 1);
-    assert.equal(preventedChecks(sautes)[0]?.famille, "deps");
+    assert.equal(preventedChecks(sautes)[0]?.family, "deps");
   });
 });
 
@@ -334,8 +334,8 @@ describe("doctor — la doctrine du régime strict, de bout en bout", () => {
       report.execution.outdated.onDemand,
       "le registre npm non interrogé est non demandé, pas empêché",
     );
-    const empeches = preventedChecks(controlesSautes(report.execution)).map(
-      (c) => c.famille,
+    const empeches = preventedChecks(skippedChecks(report.execution)).map(
+      (c) => c.family,
     );
     assert.notInclude(empeches, "verify");
     assert.notInclude(empeches, "outdated");

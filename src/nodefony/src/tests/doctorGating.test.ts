@@ -18,7 +18,7 @@ import path from "node:path";
 import {
   preventedChecks,
   type DoctorFamily,
-  type IControleSaute,
+  type ISkippedCheck,
 } from "../kernel/checks/report";
 import {
   checkGating,
@@ -388,10 +388,10 @@ describe("mode strict — un contrôle SANS MATIÈRE n'est pas un contrôle bloq
    */
   const saute = (
     famille: DoctorFamily,
-    extra: Partial<IControleSaute> = {},
-  ): IControleSaute => ({
-    famille,
-    titre: famille,
+    extra: Partial<ISkippedCheck> = {},
+  ): ISkippedCheck => ({
+    family: famille,
+    title: famille,
     reason: "peu importe",
     ...extra,
   });

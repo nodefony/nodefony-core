@@ -24,16 +24,16 @@ import {
   type IOptionsRendu,
 } from "../kernel/checks/renderReport";
 import {
-  doitColorer,
-  FAMILLES,
-  unitesInsecables,
+  shouldColorize,
+  FAMILIES,
+  unbreakableUnits,
   type DoctorFamily,
   type IExecution,
 } from "../kernel/checks/report";
 import { usage, parseDoctorArgv } from "../kernel/checks/runDoctor";
 import {
-  creerPalette,
-  TITRES,
+  createPalette,
+  TITLES,
   COUNTED_FAMILIES,
 } from "../kernel/checks/report";
 import { readFileSync as lireFichier } from "node:fs";
@@ -117,7 +117,7 @@ const etats = (
   patch: Partial<Record<DoctorFamily, IExecution>> = {},
 ): Record<DoctorFamily, IExecution> => {
   const out = {} as Record<DoctorFamily, IExecution>;
-  for (const f of FAMILLES) out[f] = patch[f] ?? defaut;
+  for (const f of FAMILIES) out[f] = patch[f] ?? defaut;
   return out;
 };
 
@@ -266,14 +266,14 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   });
 
   it("`NO_COLOR` gagne sur tout, `FORCE_COLOR` gagne sur l'absence de terminal", () => {
-    assert.isFalse(doitColorer({ NO_COLOR: "1", FORCE_COLOR: "1" }, true));
-    assert.isTrue(doitColorer({ FORCE_COLOR: "1" }, false));
-    assert.isFalse(doitColorer({ FORCE_COLOR: "0" }, false));
-    assert.isTrue(doitColorer({}, true));
-    assert.isFalse(doitColorer({}, false));
+    assert.isFalse(shouldColorize({ NO_COLOR: "1", FORCE_COLOR: "1" }, true));
+    assert.isTrue(shouldColorize({ FORCE_COLOR: "1" }, false));
+    assert.isFalse(shouldColorize({ FORCE_COLOR: "0" }, false));
+    assert.isTrue(shouldColorize({}, true));
+    assert.isFalse(shouldColorize({}, false));
     // `NO_COLOR=""` ne compte pas : la spécification parle de sa PRÉSENCE avec
     // une valeur, et une variable vide est un accident de script courant.
-    assert.isTrue(doitColorer({ NO_COLOR: "" }, true));
+    assert.isTrue(shouldColorize({ NO_COLOR: "" }, true));
   });
 
   it("le geste est sur SA ligne, jamais noyé dans le constat", () => {
@@ -305,14 +305,14 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   it("🔴 un mot entre accents graves ne se disloque pas au repli", () => {
     // Vécu : `@entity`, devenait deux unités, que le repli rejoignait par un
     // espace — « `@entity` , ». La ponctuation collée doit suivre son mot.
-    assert.deepEqual(unitesInsecables("a `@x`, `@y` b"), [
+    assert.deepEqual(unbreakableUnits("a `@x`, `@y` b"), [
       "a",
       "`@x`,",
       "`@y`",
       "b",
     ]);
     // Un segment contenant des espaces reste d'un seul tenant.
-    assert.deepEqual(unitesInsecables("→ `npm run build`"), [
+    assert.deepEqual(unbreakableUnits("→ `npm run build`"), [
       "→",
       "`npm run build`",
     ]);
@@ -320,9 +320,9 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
 
   it("les contrôles sautés pour la MÊME raison ne se répètent pas", () => {
     const groupes = grouperParRaison([
-      { famille: "freshness", titre: "A", reason: "r", unlock: "u" },
-      { famille: "readiness", titre: "B", reason: "r", unlock: "u" },
-      { famille: "deps", titre: "C", reason: "autre", unlock: "u" },
+      { family: "freshness", title: "A", reason: "r", unlock: "u" },
+      { family: "readiness", title: "B", reason: "r", unlock: "u" },
+      { family: "deps", title: "C", reason: "autre", unlock: "u" },
     ]);
     assert.lengthOf(groupes, 2);
     assert.deepEqual(groupes[0]?.titres, ["A", "B"]);
@@ -494,15 +494,15 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
       r,
       grouperParRaison([
         {
-          famille: "migrations",
-          titre: "Migrations de schéma",
+          family: "migrations",
+          title: "Migrations de schéma",
           reason: "il faut démarrer",
           unlock: "`nodefony doctor --live`",
         },
       ]).flatMap((g) => [
         {
-          famille: "migrations" as DoctorFamily,
-          titre: g.titres[0] ?? "",
+          family: "migrations" as DoctorFamily,
+          title: g.titres[0] ?? "",
           reason: g.reason,
           unlock: g.unlock,
         },
@@ -563,7 +563,7 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
  * jamais décrire un outil qui n'existe plus.
  */
 describe("doctor --help", () => {
-  const p = creerPalette(false);
+  const p = createPalette(false);
 
   // 🔴 Une liste écrite en dur vieillit au premier contrôle ajouté, et l'aide
   // se met à décrire autre chose que le produit. Le compteur du bilan a déjà
@@ -573,8 +573,8 @@ describe("doctor --help", () => {
     for (const famille of COUNTED_FAMILIES) {
       assert.include(
         texte,
-        TITRES[famille],
-        `« ${TITRES[famille]} » est contrôlé mais l'aide n'en parle pas`,
+        TITLES[famille],
+        `« ${TITLES[famille]} » est contrôlé mais l'aide n'en parle pas`,
       );
     }
   });
