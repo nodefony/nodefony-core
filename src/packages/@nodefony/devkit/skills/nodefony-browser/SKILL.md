@@ -294,7 +294,7 @@ premier.
     "seo": 91,
     "agentic-browsing": 96
   },
-  "auditsRates": { "total": 22, "exemples": [] },
+  "failedAudits": { "total": 22, "examples": [] },
   "rapportComplet": "tmp/browser/lighthouse-….json"
 }
 ```

@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
  * Un nom absent d'ici est REFUSÉ (code 64), jamais ignoré : une famille
  * fautée en silence ferait croire qu'on a mesuré ce qu'on n'a pas mesuré.
  */
-export const FAMILLES = Object.freeze({
+export const FAMILIES = Object.freeze({
   a11y: "accessibilité — étiquettes, noms accessibles, titres, cibles, arbre ARIA",
   axe: "audit WCAG complet par axe-core — une centaine de règles, dont le contraste de tout le texte",
   rendu:
@@ -33,30 +33,30 @@ export const FAMILLES = Object.freeze({
  * `Object.hasOwn` et non `in` : `"toString" in FAMILLES` est vrai par la chaîne
  * de prototypes, et une « famille » toString serait acceptée sans exister.
  *
- * @param {string|undefined} brut - valeur brute (`"a11y,perf"`, `"toutes"`, vide).
- * @param {string[]} [defaut] - familles retenues quand rien n'est demandé.
- * @returns {{ retenues: string[], inconnues: string[] }} les familles valides,
+ * @param {string|undefined} raw - valeur brute (`"a11y,perf"`, `"toutes"`, vide).
+ * @param {string[]} [fallback] - familles retenues quand rien n'est demandé.
+ * @returns {{ kept: string[], unknown: string[] }} les familles valides,
  *   et celles qui n'existent pas — à refuser, jamais à ignorer.
  */
-export function parseFamilies(brut, defaut = []) {
-  const demande = String(brut ?? "").trim();
-  if (!demande) return { retenues: [...defaut], inconnues: [] };
-  if (demande === "toutes") {
-    return { retenues: Object.keys(FAMILLES), inconnues: [] };
+export function parseFamilies(raw, fallback = []) {
+  const requested = String(raw ?? "").trim();
+  if (!requested) return { kept: [...fallback], unknown: [] };
+  if (requested === "toutes") {
+    return { kept: Object.keys(FAMILIES), unknown: [] };
   }
-  const retenues = [];
-  const inconnues = [];
-  for (const nom of demande
+  const kept = [];
+  const unknown = [];
+  for (const name of requested
     .split(",")
     .map((n) => n.trim())
     .filter(Boolean)) {
-    if (Object.hasOwn(FAMILLES, nom)) {
-      if (!retenues.includes(nom)) retenues.push(nom);
+    if (Object.hasOwn(FAMILIES, name)) {
+      if (!kept.includes(name)) kept.push(name);
     } else {
-      inconnues.push(nom);
+      unknown.push(name);
     }
   }
-  return { retenues, inconnues };
+  return { kept, unknown };
 }
 
 /**
@@ -65,30 +65,30 @@ export function parseFamilies(brut, defaut = []) {
  * Les entrées malformées sont RENDUES, pas avalées : une sonde qu'on croit
  * poser et qui n'existe pas est une mesure qui manque sans bruit.
  *
- * @param {string|undefined} brut - entrées séparées par des virgules.
- * @returns {{ sondes: { label: string, sel: string }[], rejetees: string[] }}
+ * @param {string|undefined} raw - entrées séparées par des virgules.
+ * @returns {{ probes: { label: string, sel: string }[], rejected: string[] }}
  */
-export function parseProbes(brut) {
-  const sondes = [];
-  const rejetees = [];
-  for (const morceau of String(brut ?? "")
+export function parseProbes(raw) {
+  const probes = [];
+  const rejected = [];
+  for (const chunk of String(raw ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean)) {
-    const i = morceau.indexOf("=");
-    const label = i > 0 ? morceau.slice(0, i).trim() : "";
-    const sel = i > 0 ? morceau.slice(i + 1).trim() : "";
-    if (label && sel) sondes.push({ label, sel });
-    else rejetees.push(morceau);
+    const i = chunk.indexOf("=");
+    const label = i > 0 ? chunk.slice(0, i).trim() : "";
+    const sel = i > 0 ? chunk.slice(i + 1).trim() : "";
+    if (label && sel) probes.push({ label, sel });
+    else rejected.push(chunk);
   }
-  return { sondes, rejetees };
+  return { probes, rejected };
 }
 
 /** Verbes qui prennent une VALEUR après la cible. Les autres n'en ont aucune. */
-const VERBES_A_VALEUR = new Set(["saisir"]);
+const VERBS_WITH_VALUE = new Set(["saisir"]);
 
 /** Verbes reconnus d'une action, le premier étant celui par défaut. */
-export const VERBES_ACTION = [
+export const ACTION_VERBS = [
   "clic",
   "double",
   "droit",
@@ -119,38 +119,38 @@ export const VERBES_ACTION = [
  *    crochets — `saisir:input[name=q]=bonjour` saisit bien « bonjour » dans
  *    `input[name=q]`.
  *
- * @param brut - la valeur de la variable d'environnement, ou une chaîne vide.
+ * @param raw - la valeur de la variable d'environnement, ou une chaîne vide.
  * @returns la liste des actions `{ verbe, cible, valeur }`, dans l'ordre.
  */
-export function parseActions(brut) {
-  const verbes = VERBES_ACTION.join("|");
-  const entete = new RegExp(`^(${verbes}):([\\s\\S]*)$`);
-  return String(brut ?? "")
+export function parseActions(raw) {
+  const verbs = ACTION_VERBS.join("|");
+  const header = new RegExp(`^(${verbs}):([\\s\\S]*)$`);
+  return String(raw ?? "")
     .split("|")
     .map((a) => a.trim())
     .filter(Boolean)
-    .map((entree) => {
-      const m = entete.exec(entree);
-      const verbe = m ? m[1] : "clic";
-      const reste = m ? m[2] : entree;
-      if (!VERBES_A_VALEUR.has(verbe)) {
-        return { verbe, cible: reste.trim(), valeur: "" };
+    .map((entry) => {
+      const m = header.exec(entry);
+      const verb = m ? m[1] : "clic";
+      const rest = m ? m[2] : entry;
+      if (!VERBS_WITH_VALUE.has(verb)) {
+        return { verb, target: rest.trim(), value: "" };
       }
       // Dernier `=` HORS crochets : la valeur est ce qui suit.
-      let profondeur = 0;
-      let coupe = -1;
-      for (let i = 0; i < reste.length; i += 1) {
-        const c = reste[i];
-        if (c === "[") profondeur += 1;
-        else if (c === "]") profondeur = Math.max(0, profondeur - 1);
-        else if (c === "=" && profondeur === 0) coupe = i;
+      let depth = 0;
+      let cut = -1;
+      for (let i = 0; i < rest.length; i += 1) {
+        const c = rest[i];
+        if (c === "[") depth += 1;
+        else if (c === "]") depth = Math.max(0, depth - 1);
+        else if (c === "=" && depth === 0) cut = i;
       }
-      return coupe === -1
-        ? { verbe, cible: reste.trim(), valeur: "" }
+      return cut === -1
+        ? { verb, target: rest.trim(), value: "" }
         : {
-            verbe,
-            cible: reste.slice(0, coupe).trim(),
-            valeur: reste.slice(coupe + 1),
+            verb,
+            target: rest.slice(0, cut).trim(),
+            value: rest.slice(cut + 1),
           };
     });
 }
@@ -166,18 +166,18 @@ export function parseActions(brut) {
  * mesurer le thème par défaut en croyant tenir l'autre — le faux vert dont un
  * défaut visible dans UN SEUL thème est le cas d'école.
  *
- * @param {string|undefined} brut - valeur brute (`"light"`, `"dark"`, vide).
- * @returns {{ schema: "light"|"dark"|"no-preference"|null, invalide: string|null }}
+ * @param {string|undefined} raw - valeur brute (`"light"`, `"dark"`, vide).
+ * @returns {{ schema: "light"|"dark"|"no-preference"|null, invalid: string|null }}
  *   `schema` à null quand rien n'est demandé (on ne force rien).
  */
-export function parseColorScheme(brut) {
-  const v = String(brut ?? "")
+export function parseColorScheme(raw) {
+  const v = String(raw ?? "")
     .trim()
     .toLowerCase();
-  if (!v) return { schema: null, invalide: null };
+  if (!v) return { schema: null, invalid: null };
   if (v === "light" || v === "dark" || v === "no-preference")
-    return { schema: v, invalide: null };
-  return { schema: null, invalide: v };
+    return { schema: v, invalid: null };
+  return { schema: null, invalid: v };
 }
 
 /**
@@ -194,23 +194,23 @@ export function parseColorScheme(brut) {
  * Forme `clé=valeur`, séparées par des virgules. Une valeur peut contenir `=`
  * (jeton, JSON) : seul le PREMIER `=` sépare.
  *
- * @param {string|undefined} brut - entrées séparées par des virgules.
- * @returns {{ entrees: { cle: string, valeur: string }[], rejetees: string[] }}
+ * @param {string|undefined} raw - entrées séparées par des virgules.
+ * @returns {{ entries: { key: string, value: string }[], rejected: string[] }}
  */
-export function parseStorage(brut) {
-  const entrees = [];
-  const rejetees = [];
-  for (const morceau of String(brut ?? "")
+export function parseStorage(raw) {
+  const entries = [];
+  const rejected = [];
+  for (const chunk of String(raw ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean)) {
-    const i = morceau.indexOf("=");
-    const cle = i > 0 ? morceau.slice(0, i).trim() : "";
-    const valeur = i > 0 ? morceau.slice(i + 1).trim() : "";
-    if (cle && valeur) entrees.push({ cle, valeur });
-    else rejetees.push(morceau);
+    const i = chunk.indexOf("=");
+    const key = i > 0 ? chunk.slice(0, i).trim() : "";
+    const value = i > 0 ? chunk.slice(i + 1).trim() : "";
+    if (key && value) entries.push({ key, value });
+    else rejected.push(chunk);
   }
-  return { entrees, rejetees };
+  return { entries, rejected };
 }
 
 /**
@@ -226,18 +226,18 @@ export function parseStorage(brut) {
  * évite de faire dire à `process.platform` une chose qu'il ne sait pas. Une
  * capacité se constate ; c'est l'appelant qui constate, cette fonction décide.
  *
- * @param {{dansConteneur: boolean, base?: string, out?: string}} decor -
+ * @param {{inContainer: boolean, base?: string, out?: string}} stage -
  *   le constat, et les valeurs explicites qui l'emportent toujours.
  * @returns {{ base: string, out: string }} origine à joindre, dossier de sortie.
  */
-export function defautsDecor({ dansConteneur, base, out } = {}) {
+export function environmentDefaults({ inContainer, base, out } = {}) {
   return {
     base:
       base ||
-      (dansConteneur
+      (inContainer
         ? "https://host.docker.internal:5152"
         : "https://127.0.0.1:5152"),
-    out: out || (dansConteneur ? "/output" : "tmp/browser"),
+    out: out || (inContainer ? "/output" : "tmp/browser"),
   };
 }
 
@@ -257,15 +257,18 @@ export function defautsDecor({ dansConteneur, base, out } = {}) {
  * fragment (`a@b` et `a-b`) — et une collision de nom rouvrirait exactement le
  * trou qu'on ferme.
  *
- * @param {string|undefined} identifiant - l'identifiant de connexion demandé.
+ * @param {string|undefined} login - l'identifiant de connexion demandé.
  * @returns {string} le nom de fichier, sans dossier.
  */
-export function nomEtatAuth(identifiant) {
-  const brut = String(identifiant ?? "");
-  const lisible =
-    brut.replace(/[^A-Za-z0-9._-]/gu, "_").slice(0, 40) || "anonyme";
-  const empreinte = createHash("sha256").update(brut).digest("hex").slice(0, 8);
-  return `.auth-state-${lisible}-${empreinte}.json`;
+export function authStateName(login) {
+  const raw = String(login ?? "");
+  const readable =
+    raw.replace(/[^A-Za-z0-9._-]/gu, "_").slice(0, 40) || "anonyme";
+  const fingerprint = createHash("sha256")
+    .update(raw)
+    .digest("hex")
+    .slice(0, 8);
+  return `.auth-state-${readable}-${fingerprint}.json`;
 }
 
 /**
@@ -275,24 +278,24 @@ export function nomEtatAuth(identifiant) {
  * écran mais un mur d'affichage — et un zéro ou un négatif ferait échouer le
  * redimensionnement avec un message qui n'incrimine pas la vraie cause.
  *
- * @param {string|undefined} brut - largeurs en pixels, séparées par des virgules.
- * @returns {{ largeurs: number[], invalides: string[] }}
+ * @param {string|undefined} raw - largeurs en pixels, séparées par des virgules.
+ * @returns {{ widths: number[], invalidWidths: string[] }}
  */
-export function parseWidths(brut) {
-  const largeurs = [];
-  const invalides = [];
-  for (const morceau of String(brut ?? "")
+export function parseWidths(raw) {
+  const widths = [];
+  const invalidWidths = [];
+  for (const chunk of String(raw ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean)) {
-    const n = Number(morceau);
+    const n = Number(chunk);
     if (Number.isInteger(n) && n >= 240 && n <= 4000) {
-      if (!largeurs.includes(n)) largeurs.push(n);
+      if (!widths.includes(n)) widths.push(n);
     } else {
-      invalides.push(morceau);
+      invalidWidths.push(chunk);
     }
   }
-  return { largeurs, invalides };
+  return { widths, invalidWidths };
 }
 
 /**
@@ -314,14 +317,14 @@ export function verdictGlobal(verdicts) {
  * Une moyenne est déplacée par un seul aller-retour aberrant (GC, réveil de
  * connexion) ; la médiane dit ce qu'un appel TYPIQUE coûte.
  *
- * @param {number[]} valeurs - mesures en millisecondes.
+ * @param {number[]} values - mesures en millisecondes.
  * @returns {number|null} la médiane, ou null si la série est vide.
  */
-export function mediane(valeurs) {
-  if (!Array.isArray(valeurs) || valeurs.length === 0) return null;
-  const tri = [...valeurs].sort((a, b) => a - b);
-  const m = Math.floor(tri.length / 2);
-  return tri.length % 2 === 1 ? tri[m] : (tri[m - 1] + tri[m]) / 2;
+export function median(values) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const m = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
 }
 /**
  * Résume un rapport axe-core en un bloc lisible — le tri éditorial, pas la mesure.
@@ -329,53 +332,53 @@ export function mediane(valeurs) {
  * Rendue à part et PURE pour être éprouvée sans navigateur : c'est la seule
  * partie qu'on écrit soi-même, donc la seule qui puisse être fausse.
  *
- * @param {{violations: object[], passes?: object[], incomplete?: object[]}} rapport
+ * @param {{violations: object[], passes?: object[], incomplete?: object[]}} report
  *   ce que rend `axe.run()`.
  * @returns {object} verdict, comptes par gravité, et les manquements les plus
  *   graves avec un exemple de cible chacun.
  */
-export function resumeAxe(rapport) {
-  const violations = rapport.violations ?? [];
-  const parGravite = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+export function summarizeAxe(report) {
+  const violations = report.violations ?? [];
+  const bySeverity = { critical: 0, serious: 0, moderate: 0, minor: 0 };
   for (const v of violations)
-    if (Object.hasOwn(parGravite, v.impact ?? "")) parGravite[v.impact] += 1;
-  const rang = { critical: 0, serious: 1, moderate: 2, minor: 3 };
-  const graves = [...violations].sort(
-    (a, b) => (rang[a.impact] ?? 9) - (rang[b.impact] ?? 9),
+    if (Object.hasOwn(bySeverity, v.impact ?? "")) bySeverity[v.impact] += 1;
+  const rank = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+  const sortedBySeverity = [...violations].sort(
+    (a, b) => (rank[a.impact] ?? 9) - (rank[b.impact] ?? 9),
   );
   return {
     // Un manquement AVÉRÉ vaut alerte ; `incomplete` ne suffit pas — ce sont
     // les cas qu'axe refuse de trancher seul (fond en image, par exemple), pas
     // des défauts. Les compter comme tels ferait crier la sonde à tort.
     verdict: violations.length === 0 ? "OK" : "ALERTE",
-    moteur: `axe-core ${rapport.testEngine?.version ?? "?"}`,
-    reglesJouees:
+    engine: `axe-core ${report.testEngine?.version ?? "?"}`,
+    rulesRun:
       violations.length +
-      (rapport.passes?.length ?? 0) +
-      (rapport.incomplete?.length ?? 0),
-    conformes: rapport.passes?.length ?? 0,
-    manquements: { total: violations.length, parGravite },
+      (report.passes?.length ?? 0) +
+      (report.incomplete?.length ?? 0),
+    passed: report.passes?.length ?? 0,
+    failures: { total: violations.length, bySeverity },
     // À trancher à la main — axe dit qu'il ne peut pas conclure, il ne dit pas
     // que c'est bon.
-    aVerifier: (rapport.incomplete ?? []).slice(0, 5).map((v) => ({
-      regle: v.id,
+    toReview: (report.incomplete ?? []).slice(0, 5).map((v) => ({
+      rule: v.id,
       description: v.help,
-      cibles: v.nodes.length,
+      targets: v.nodes.length,
     })),
-    plusGraves: graves.slice(0, 8).map((v) => ({
-      regle: v.id,
-      gravite: v.impact,
+    worst: sortedBySeverity.slice(0, 8).map((v) => ({
+      rule: v.id,
+      severity: v.impact,
       description: v.help,
-      criteres: (v.tags ?? []).filter((t) => /^wcag\d|^best-practice$/.test(t)),
-      cibles: v.nodes.length,
+      criteria: (v.tags ?? []).filter((t) => /^wcag\d|^best-practice$/.test(t)),
+      targets: v.nodes.length,
       // Jusqu'à CINQ cibles par règle, pas une seule : une même règle couvre
       // des défauts DISTINCTS à des endroits distincts — huit contrastes ratés
       // dans huit composants différents ne se corrigent pas d'un seul geste.
       // N'en montrer qu'un ferait croire le travail fini après le premier.
-      exemples: v.nodes.slice(0, 5).map((n) => ({
-        cible: n.target?.join(" ") ?? "",
+      examples: v.nodes.slice(0, 5).map((n) => ({
+        target: n.target?.join(" ") ?? "",
         // Le « pourquoi » calculé par axe : contraste mesuré, rôle attendu…
-        constat: (
+        reason: (
           n.any?.[0]?.message ??
           n.all?.[0]?.message ??
           n.failureSummary ??
@@ -383,9 +386,9 @@ export function resumeAxe(rapport) {
         )
           .replace(/\s+/g, " ")
           .slice(0, 200),
-        extrait: (n.html ?? "").slice(0, 120),
+        snippet: (n.html ?? "").slice(0, 120),
       })),
-      autresCibles: Math.max(0, v.nodes.length - 5),
+      otherTargets: Math.max(0, v.nodes.length - 5),
       documentation: v.helpUrl,
     })),
   };
@@ -406,10 +409,10 @@ export function resumeAxe(rapport) {
  *    alors qu'un audit important est au plus bas. On rend donc les DEUX.
  *
  * @param {object} lhr - le rapport (`runnerResult.lhr`).
- * @param {number} [seuil] - score en deçà duquel un audit est retenu (0–1).
+ * @param {number} [threshold] - score en deçà duquel un audit est retenu (0–1).
  * @returns {object} scores par catégorie, audits ratés, et le décor de mesure.
  */
-export function resumeLighthouse(lhr, seuil = 0.9) {
+export function summarizeLighthouse(lhr, threshold = 0.9) {
   const audits = lhr?.audits ?? {};
   const categories = Object.values(lhr?.categories ?? {});
   const scores = {};
@@ -420,21 +423,21 @@ export function resumeLighthouse(lhr, seuil = 0.9) {
         ? null
         : +(c.score * 100).toFixed(0);
   }
-  const rates = [];
+  const failed = [];
   for (const c of categories) {
     for (const ref of c.auditRefs ?? []) {
       const a = audits[ref.id];
       if (!a || a.score === null || a.score === undefined) continue;
-      if (a.score >= seuil) continue;
-      rates.push({
-        categorie: c.id,
+      if (a.score >= threshold) continue;
+      failed.push({
+        category: c.id,
         audit: ref.id,
-        titre: a.title,
+        title: a.title,
         score: +(a.score * 100).toFixed(0),
         // Le poids dans la note : un audit à 0 qui pèse 0 ne coûte rien, et
         // c'est ce qui explique un score élevé malgré des rouges.
-        poids: ref.weight ?? 0,
-        valeur: a.displayValue ?? null,
+        weight: ref.weight ?? 0,
+        value: a.displayValue ?? null,
         details: (a.description ?? "")
           .replace(/\s*\[.*?\]\(.*?\)/gu, "")
           .trim()
@@ -444,24 +447,24 @@ export function resumeLighthouse(lhr, seuil = 0.9) {
   }
   // Trié par poids décroissant puis score croissant : ce qui coûte le plus, en
   // premier — un tri par score seul remonterait des broutilles sans influence.
-  rates.sort((a, b) => b.poids - a.poids || a.score - b.score);
+  failed.sort((a, b) => b.weight - a.weight || a.score - b.score);
   return {
-    verdict: rates.length === 0 ? "OK" : "ALERTE",
-    moteur: `lighthouse ${lhr?.lighthouseVersion ?? "?"}`,
+    verdict: failed.length === 0 ? "OK" : "ALERTE",
+    engine: `lighthouse ${lhr?.lighthouseVersion ?? "?"}`,
     url: lhr?.finalDisplayedUrl ?? lhr?.finalUrl ?? null,
     // Le DÉCOR fait partie de la mesure : un score de performance n'a aucun
     // sens sans savoir quel appareil et quel réseau ont été simulés.
-    decor: {
-      appareil: lhr?.configSettings?.formFactor ?? "?",
-      bridage: lhr?.configSettings?.throttlingMethod ?? "?",
+    stage: {
+      device: lhr?.configSettings?.formFactor ?? "?",
+      throttling: lhr?.configSettings?.throttlingMethod ?? "?",
     },
     scores,
     // Les catégories SANS score sont dites : elles n'ont pas été évaluées, ce
     // qui n'est pas la même chose qu'un score parfait.
-    nonNotees: Object.entries(scores)
+    unscored: Object.entries(scores)
       .filter(([, v]) => v === null)
       .map(([k]) => k),
-    auditsRates: { total: rates.length, exemples: rates.slice(0, 12) },
+    failedAudits: { total: failed.length, examples: failed.slice(0, 12) },
   };
 }
 
@@ -488,11 +491,11 @@ export function resumeLighthouse(lhr, seuil = 0.9) {
  * rabattre en silence sur un autre navigateur que celui exigé rendrait une
  * mesure attribuée au mauvais moteur.
  *
- * @param {string|undefined} explicite - navigateur imposé (`NF_BROWSER_ENGINE`).
+ * @param {string|undefined} explicit - navigateur imposé (`NF_BROWSER_ENGINE`).
  * @returns {string[]} les navigateurs à essayer, dans l'ordre.
  */
-export function ordreNavigateurs(explicite) {
-  const v = String(explicite ?? "").trim();
+export function browserOrder(explicit) {
+  const v = String(explicit ?? "").trim();
   if (v) return [v];
   return ["chromium", "chrome", "msedge"];
 }

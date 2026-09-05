@@ -19,9 +19,9 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import {
-  defautsDecor,
-  nomEtatAuth,
-  ordreNavigateurs,
+  environmentDefaults,
+  authStateName,
+  browserOrder,
   parseColorScheme,
   parseStorage,
 } from "./probes.mjs";
@@ -61,8 +61,8 @@ try {
  * en croyant que l'application est en panne.
  */
 const DANS_CONTENEUR = existsSync("/.dockerenv");
-const { base: baseDecor, out: OUT } = defautsDecor({
-  dansConteneur: DANS_CONTENEUR,
+const { base: baseDecor, out: OUT } = environmentDefaults({
+  inContainer: DANS_CONTENEUR,
   base: process.env.NF_BROWSER_BASE,
   out: process.env.NF_BROWSER_OUT,
 });
@@ -71,8 +71,8 @@ const { base: baseDecor, out: OUT } = defautsDecor({
 export const SORTIE = OUT;
 export const BASE = baseDecor;
 
-/** Les navigateurs à essayer, dans l'ordre — voir `ordreNavigateurs`. */
-const NAVIGATEURS = ordreNavigateurs(process.env.NF_BROWSER_ENGINE);
+/** Les navigateurs à essayer, dans l'ordre — voir `browserOrder`. */
+const NAVIGATEURS = browserOrder(process.env.NF_BROWSER_ENGINE);
 
 /**
  * Le navigateur RÉELLEMENT utilisé, renseigné à l'ouverture.
@@ -111,12 +111,12 @@ if (USER && !LOGIN) {
  * Sans lui, chaque inspection rejoue le parcours de connexion — quelques
  * secondes perdues et une occasion d'échec de plus à chaque exécution.
  *
- * Son nom porte l'IDENTIFIANT (cf {@link nomEtatAuth}) : un état est la session
+ * Son nom porte l'IDENTIFIANT (cf {@link authStateName}) : un état est la session
  * de quelqu'un, et le réutiliser pour un autre compte fait mesurer une identité
  * qu'on n'a pas demandée. Effet de bord bienvenu — deux comptes gardent chacun
  * leur session, donc aucun des deux ne se reconnecte à cause de l'autre.
  */
-const STATE = path.join(OUT, nomEtatAuth(process.env.NF_BROWSER_USER));
+const STATE = path.join(OUT, authStateName(process.env.NF_BROWSER_USER));
 // Créé AVANT la première écriture : en local, le dossier n'existe pas encore,
 // et l'échec ne surviendrait qu'à la sauvegarde — après la connexion, donc
 // après avoir fait croire que tout allait bien.
@@ -138,7 +138,7 @@ mkdirSync(OUT, { recursive: true });
  * Un défaut qui n'existe que dans un thème est invisible tant qu'on ne peut pas
  * demander l'autre : c'est ce qui a fait passer un menu à 1,63:1 sous le radar.
  */
-const { schema: COLOR_SCHEME, invalide: schemaInvalide } = parseColorScheme(
+const { schema: COLOR_SCHEME, invalid: schemaInvalide } = parseColorScheme(
   process.env.NF_BROWSER_COLOR_SCHEME,
 );
 if (schemaInvalide) {
@@ -148,12 +148,12 @@ if (schemaInvalide) {
   );
   process.exit(64); // EX_USAGE
 }
-const { entrees: STORAGE, rejetees: storageRejetees } = parseStorage(
+const { entries: STORAGE, rejected: storageRejected } = parseStorage(
   process.env.NF_BROWSER_STORAGE,
 );
-if (storageRejetees.length > 0) {
+if (storageRejected.length > 0) {
   console.error(
-    `NF_BROWSER_STORAGE — entrée(s) malformée(s) ignorable(s) en silence, donc REFUSÉE(S) : ${storageRejetees.join(", ")}\n` +
+    `NF_BROWSER_STORAGE — entrée(s) malformée(s) ignorable(s) en silence, donc REFUSÉE(S) : ${storageRejected.join(", ")}\n` +
       "Forme attendue : clé=valeur, séparées par des virgules.",
   );
   process.exit(64); // EX_USAGE

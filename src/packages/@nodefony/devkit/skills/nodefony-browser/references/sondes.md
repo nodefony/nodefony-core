@@ -60,13 +60,13 @@ le moteur qu'embarque Lighthouse pour son volet accessibilité.
 <!-- prettier-ignore -->
 | Champ | Ce qu'il dit |
 | --- | --- |
-| `manquements` | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur) |
-| `plusGraves` | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `constat` calculé (contraste mesuré, rôle attendu) |
-| `autresCibles` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence |
-| `aVerifier` | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts |
-| `conformes` | Les règles passées, pour situer le reste |
+| `failures` | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur) |
+| `worst` | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `reason` calculé (contraste mesuré, rôle attendu) |
+| `otherTargets` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence |
+| `toReview` | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts |
+| `passed` | Les règles passées, pour situer le reste |
 
-- **`aVerifier` n'est pas un manquement** et ne déclenche pas l'alerte. Le confondre ferait crier la
+- **`toReview` n'est pas un manquement** et ne déclenche pas l'alerte. Le confondre ferait crier la
   sonde sur des pages saines, et on cesserait de la lire.
 - **Cinq cibles par règle, pas une.** Une même règle couvre des défauts à des endroits différents,
   qui ne se corrigent pas d'un seul geste ; n'en montrer qu'un fait croire le travail fini.

@@ -27,7 +27,7 @@
  * `@exit` 0 scénario joué (les verdicts sont des DONNÉES) · 64 usage (endpoint manquant, params illisibles) · 65 accueil jamais reçu
  */
 import { open, goTo } from "./lib/browser.mjs";
-import { mediane } from "./lib/probes.mjs";
+import { median } from "./lib/probes.mjs";
 
 const ENDPOINT = process.argv[2] ?? process.env.NF_BROWSER_SOCKET ?? "";
 if (!ENDPOINT.startsWith("/")) {
@@ -347,7 +347,7 @@ try {
 // La médiane se calcule ici, avec la fonction que les tests éprouvent — la
 // moyenne serait déplacée par un seul aller-retour aberrant.
 if (Array.isArray(resultat.latence?.mesuresMs)) {
-  resultat.latence.medianeMs = mediane(resultat.latence.mesuresMs);
+  resultat.latence.medianeMs = median(resultat.latence.mesuresMs);
 }
 
 console.log(JSON.stringify(resultat, null, 2));

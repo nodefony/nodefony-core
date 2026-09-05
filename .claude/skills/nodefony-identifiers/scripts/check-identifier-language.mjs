@@ -224,6 +224,25 @@ export const DEFAULT_EXCEPTIONS = [
     identifier: "canaux",
     reason: "même clé de ligne affichée que `adresse` ci-dessus.",
   },
+  {
+    path: "src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/probes.mjs",
+    identifier: "rendu",
+    reason:
+      "clé de DONNÉES, pas identifiant : `FAMILIES` est l'allowlist des familles " +
+      "de sondes, et ses clés sont ce que l'utilisateur ÉCRIT dans " +
+      "`NF_BROWSER_FAMILIES=rendu,reseau`. Les angliciser change la ligne de " +
+      "commande documentée, pas un nommage interne.",
+  },
+  {
+    path: "src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/probes.mjs",
+    identifier: "reseau",
+    reason: "même clé d'allowlist que `rendu` ci-dessus.",
+  },
+  {
+    path: "src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/probes.mjs",
+    identifier: "stockage",
+    reason: "même clé d'allowlist que `rendu` ci-dessus.",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

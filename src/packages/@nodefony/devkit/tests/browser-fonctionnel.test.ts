@@ -12,9 +12,9 @@ import { chargerModule, commeObjet, fonctionDe } from "./browser-outils";
  * définition ici déposerait un état que plus personne ne lit — un test de
  * reprise vert qui n'aurait rien repris.
  */
-const nomEtatAuth = fonctionDe<(identifiant: string) => string>(
+const authStateName = fonctionDe<(identifiant: string) => string>(
   await chargerModule("../skills/nodefony-browser/scripts/lib/probes.mjs"),
-  "nomEtatAuth",
+  "authStateName",
 );
 
 /**
@@ -218,7 +218,7 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
  * Dépose un état d'authentification ARBITRAIRE dans le volume du conteneur,
  * SOUS LE NOM que la sonde ira lire pour l'utilisateur visé.
  *
- * Le nom est dérivé de l'identifiant (`nomEtatAuth`) : le poser en dur ici
+ * Le nom est dérivé de l'identifiant (`authStateName`) : le poser en dur ici
  * ferait déposer un état que plus personne ne lit, et les deux tests de reprise
  * passeraient au vert sans avoir rien éprouvé. On appelle donc la MÊME fonction
  * que le script — une seconde définition dériverait le jour où l'autre change.
@@ -227,7 +227,7 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
  * @param identifiant - le compte pour lequel la sonde le cherchera.
  */
 function poserEtat(contenu: string, identifiant: string = USER): void {
-  const nom = nomEtatAuth(identifiant);
+  const nom = authStateName(identifiant);
   const dossier = mkdtempSync(path.join(tmpdir(), "nf-browser-test-"));
   const fichier = path.join(dossier, nom);
   writeFileSync(fichier, contenu);
@@ -250,7 +250,7 @@ function poserEtat(contenu: string, identifiant: string = USER): void {
 function relireEtat(identifiant: string = USER): string {
   const res = spawnSync(
     "docker",
-    ["exec", CONTENEUR, "cat", `/output/${nomEtatAuth(identifiant)}`],
+    ["exec", CONTENEUR, "cat", `/output/${authStateName(identifiant)}`],
     { encoding: "utf8", timeout: 20000 },
   );
   return res.stdout ?? "";

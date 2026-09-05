@@ -41,12 +41,12 @@ import * as decor from "./lib/browser.mjs";
 import { open, goTo, LOGIN, SORTIE } from "./lib/browser.mjs";
 import { sourceWcag } from "./lib/wcag.mjs";
 import {
-  FAMILLES,
+  FAMILIES,
   parseActions,
   parseFamilies,
   parseProbes,
   parseWidths,
-  resumeAxe,
+  summarizeAxe,
   verdictGlobal,
 } from "./lib/probes.mjs";
 
@@ -88,14 +88,16 @@ const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
  */
 const ACTIONS = parseActions(process.env.NF_BROWSER_ACTIONS);
 
-const { retenues, inconnues } = parseFamilies(process.env.NF_BROWSER_FAMILIES);
+const { kept: retenues, unknown: inconnues } = parseFamilies(
+  process.env.NF_BROWSER_FAMILIES,
+);
 if (inconnues.length > 0) {
   // Refuser, jamais ignorer : une famille fautée en silence ferait croire
   // qu'on a mesuré ce qu'on n'a pas mesuré.
   console.error(
     `Famille(s) de sondes inconnue(s) : ${inconnues.join(", ")}\n` +
       `Familles disponibles (ou « toutes ») :\n` +
-      Object.entries(FAMILLES)
+      Object.entries(FAMILIES)
         .map(([nom, description]) => `  ${nom} — ${description}`)
         .join("\n"),
   );
@@ -112,7 +114,7 @@ const actives = new Set(retenues);
  * fait l'inverse — elle mesure une IMPLÉMENTATION et doit viser la classe.
  * Le défaut vise des éléments que TOUTE page possède.
  */
-const { sondes: PROBES, rejetees } = parseProbes(
+const { probes: PROBES, rejected: rejetees } = parseProbes(
   process.env.NF_BROWSER_PROBES ?? "titre principal=h1,corps de page=body",
 );
 if (rejetees.length > 0) {
@@ -255,7 +257,7 @@ if (EXPECT) {
 // toute mesure. Une action qui ne trouve pas sa cible ARRÊTE la sonde : la
 // mesure qui suivrait porterait sur un écran qu'on n'a pas ouvert, et rien ne
 // le dirait.
-for (const { verbe, cible, valeur } of ACTIONS) {
+for (const { verb: verbe, target: cible, value: valeur } of ACTIONS) {
   if (verbe === "defiler") {
     const pixels = Number.parseInt(cible, 10);
     if (!Number.isFinite(pixels)) {
@@ -357,7 +359,7 @@ function fondEffectif(el) {
   for (let n = el; n; n = n.parentElement) {
     const bg = getComputedStyle(n).backgroundColor;
     if (!bg || /transparent/.test(bg)) continue;
-    const { a } = parseCouleur(bg);
+    const { a } = parseColor(bg);
     if (a === 0) continue;
     if (a >= 1) {
       socle = bg;
@@ -369,14 +371,13 @@ function fondEffectif(el) {
   // défaut le blanc, qui est ce qu'un navigateur peint sous un document nu.
   if (socle === null) {
     const racine = getComputedStyle(document.documentElement).backgroundColor;
-    socle =
-      racine && parseCouleur(racine).a >= 1 ? racine : "rgb(255, 255, 255)";
+    socle = racine && parseColor(racine).a >= 1 ? racine : "rgb(255, 255, 255)";
   }
   // De la plus basse à la plus haute : chacune se compose sur le résultat
   // précédent, jamais sur le socle seul.
   let perçu = socle;
   for (let i = couches.length - 1; i >= 0; i--)
-    perçu = composer(couches[i], perçu);
+    perçu = compose(couches[i], perçu);
   return perçu;
 }
 
@@ -630,7 +631,7 @@ async function mesurePage(args) {
       const cs = getComputedStyle(el);
       const fond = fondEffectif(el);
       const r = el.getBoundingClientRect();
-      const contraste = contrastRatio(composer(cs.color, fond), fond);
+      const contraste = contrastRatio(compose(cs.color, fond), fond);
       const px = parseFloat(cs.fontSize);
       const gras = Number(cs.fontWeight) >= 700;
       return {
@@ -696,7 +697,7 @@ if (actives.has("axe")) {
         elementRef: false,
       });
     }, codeAxe);
-    measured.axe = resumeAxe(rapport);
+    measured.axe = summarizeAxe(rapport);
   } catch (e) {
     // Dire l'indisponibilité, ne JAMAIS rendre un verdict OK sans avoir mesuré.
     measured.axe = {
@@ -821,7 +822,7 @@ await page.screenshot({
 });
 
 if (actives.has("responsive")) {
-  const { largeurs, invalides } = parseWidths(
+  const { widths: largeurs, invalidWidths: invalides } = parseWidths(
     process.env.NF_BROWSER_WIDTHS ?? "360,768,1280",
   );
   if (invalides.length > 0)

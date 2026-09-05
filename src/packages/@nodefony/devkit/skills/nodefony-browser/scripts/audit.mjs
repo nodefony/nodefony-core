@@ -32,7 +32,7 @@ import path from "node:path";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { BASE, LOGIN, PASSWORD, SORTIE, USER } from "./lib/browser.mjs";
-import { resumeLighthouse } from "./lib/probes.mjs";
+import { summarizeLighthouse } from "./lib/probes.mjs";
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
 const SEUIL = Number(process.env.NF_BROWSER_SEUIL_AUDIT ?? 90) / 100;
@@ -159,7 +159,7 @@ try {
 
   console.log(
     JSON.stringify(
-      { ...resumeLighthouse(lhr, SEUIL), rapportComplet: complet },
+      { ...summarizeLighthouse(lhr, SEUIL), rapportComplet: complet },
       null,
       2,
     ),

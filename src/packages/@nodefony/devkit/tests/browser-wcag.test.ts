@@ -28,9 +28,9 @@ const contrastRatio = fonctionDe<(a: string, b: string) => number>(
   wcag,
   "contrastRatio",
 );
-const estTexteLarge = fonctionDe<(px: number, gras: boolean) => boolean>(
+const isLargeText = fonctionDe<(px: number, gras: boolean) => boolean>(
   wcag,
-  "estTexteLarge",
+  "isLargeText",
 );
 const verdictWcag = fonctionDe<
   (ratio: number, px: number, gras: boolean) => string
@@ -69,14 +69,14 @@ describe("wcag — luminance et contraste", () => {
 
 describe("wcag — le seuil dépend de la POLICE", () => {
   it("24 px est large, 23,9 px ne l'est pas", () => {
-    expect(estTexteLarge(24, false)).toBe(true);
-    expect(estTexteLarge(23.9, false)).toBe(false);
+    expect(isLargeText(24, false)).toBe(true);
+    expect(isLargeText(23.9, false)).toBe(false);
   });
 
   it("18,66 px n'est large QU'EN gras", () => {
-    expect(estTexteLarge(18.66, true)).toBe(true);
-    expect(estTexteLarge(18.66, false)).toBe(false);
-    expect(estTexteLarge(18.5, true)).toBe(false);
+    expect(isLargeText(18.66, true)).toBe(true);
+    expect(isLargeText(18.66, false)).toBe(false);
+    expect(isLargeText(18.5, true)).toBe(false);
   });
 });
 
@@ -117,7 +117,7 @@ describe("wcag — la source injectée est AUTOSUFFISANTE", () => {
     );
     await writeFile(
       fichier,
-      `${sourceWcag()}\nexport { srgbLuminance, contrastRatio, estTexteLarge, verdictWcag };\n`,
+      `${sourceWcag()}\nexport { srgbLuminance, contrastRatio, isLargeText, verdictWcag };\n`,
       "utf8",
     );
     let injecte: Record<string, unknown>;
