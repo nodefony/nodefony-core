@@ -199,6 +199,72 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     expect(res.shiftedFrom).to.equal(p1);
   });
 
+  /**
+   * Serveur qui refuse les N premiers `listen` avec le code donné, puis accepte.
+   *
+   * Seul endroit du fichier qui ne passe pas par un vrai socket, et c'est
+   * assumé : `EACCES` sur un port éphémère n'existe QUE sous Windows, où
+   * Hyper-V/WSL réservent des plages entières. Ce qu'on éprouve ici n'est pas le
+   * noyau — c'est la DÉCISION de `bindWithFallback` face à un code d'erreur, la
+   * seule chose qui puisse être fausse depuis macOS ou linux.
+   */
+  function refusing(code: string, times: number): Listenable {
+    let left = times;
+    const handlers = new Map<string, (...a: never[]) => void>();
+    let bound = 0;
+    return {
+      listen(port: number): void {
+        bound = port;
+        queueMicrotask(() => {
+          if (left > 0) {
+            left -= 1;
+            const err = new Error(`listen ${code}`) as NodeJS.ErrnoException;
+            err.code = code;
+            handlers.get("error")?.(err as never);
+          } else handlers.get("listening")?.();
+        });
+      },
+      address: () => ({ address: HOST, family: "IPv4", port: bound }),
+      once(event: string, listener: (...a: never[]) => void) {
+        handlers.set(event, listener);
+        return this;
+      },
+      removeListener(event: string) {
+        handlers.delete(event);
+        return this;
+      },
+    };
+  }
+
+  it("enjambe un EACCES sur port éphémère — les plages réservées de Windows", async () => {
+    // Hyper-V/WSL réservent des plages entières : `listen` y rend EACCES, pas
+    // EADDRINUSE. Sans ce cas, une app Windows qui glisse meurt sur la première.
+    const res = await bindWithFallback(refusing("EACCES", 2), HOST, {
+      desired: 40000,
+      reserved: [],
+      attempts: 10,
+    });
+    expect(res.address.port).to.equal(40002);
+    expect(res.shiftedFrom).to.equal(40000);
+  });
+
+  it("un EACCES sous 1024 REJETTE : c'est un refus de privilège, pas un port pris", async () => {
+    let code: string | undefined;
+    try {
+      await bindWithFallback(refusing("EACCES", 1), HOST, {
+        desired: 80,
+        reserved: [],
+        attempts: 10,
+      });
+      expect.fail(
+        "glisser de 80 à 81 en silence serait une dégradation muette",
+      );
+    } catch (e) {
+      code = (e as NodeJS.ErrnoException).code;
+    }
+    expect(code).to.equal("EACCES");
+  });
+
   it("`attempts: 0` (STRICT) : port pris ⇒ EADDRINUSE, jamais de glissement", async () => {
     const taken = await occupy(0);
 
