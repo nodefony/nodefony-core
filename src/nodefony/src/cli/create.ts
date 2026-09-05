@@ -930,8 +930,8 @@ export function argvCablageMcp(
 ): string[] | null {
   if (choisis.length === 0) return null;
   const parCli = detectes
-    .filter((c) => c.declaration === "cli" && choisis.includes(c.cle))
-    .map((c) => c.cle);
+    .filter((c) => c.declaration === "cli" && choisis.includes(c.key))
+    .map((c) => c.key);
   return [
     "ai:mcp",
     "--cwd",

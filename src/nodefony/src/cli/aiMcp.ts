@@ -21,11 +21,11 @@ import {
 } from "./aiMcpReport";
 import {
   AGENT_TARGETS,
-  agentsDemandes,
+  requestedAgents,
   agentsPresents,
   litVariable,
   planAgentDeclaration,
-  racineAgent,
+  agentRoot,
   renderPlanShell,
   type IAgentTarget,
 } from "./agentTargets";
@@ -82,7 +82,7 @@ const PAGE: IUsagePage = {
     },
     {
       title: "AGENTS RECONNUS",
-      lines: [`${AGENT_TARGETS.map((c) => c.cle).join(" · ")} · all · none`],
+      lines: [`${AGENT_TARGETS.map((c) => c.key).join(" · ")} · all · none`],
       paragraph:
         "« none » — ou aucune case cochée en mode interactif — ne touche à " +
         "aucun agent : coder seul est un choix, pas un oubli.",
@@ -284,9 +284,9 @@ export interface IChainedToken {
  * on ne vérifie pas la signature ici — ce n'est pas une décision d'accès, c'est
  * un renseignement. La porte, elle, vérifie tout.
  */
-export interface IEtatJeton {
+export interface ITokenState {
   /** Secondes restantes ; négatif s'il est expiré, `null` si sans échéance. */
-  restantSecondes: number | null;
+  remainingSeconds: number | null;
   /** Scopes que le jeton porte, tels qu'il les déclare. */
   scopes: string[];
 }
@@ -294,16 +294,16 @@ export interface IEtatJeton {
 /**
  * Lit l'échéance et les scopes d'un JWT, sans le valider ni le divulguer.
  *
- * @param jeton - le jeton compact (`en-tête.charge.signature`).
- * @param maintenantSecondes - l'instant de référence, INJECTÉ pour que le banc
+ * @param token - le jeton compact (`en-tête.charge.signature`).
+ * @param nowSeconds - l'instant de référence, INJECTÉ pour que le banc
  *   n'ait pas à attendre le temps qui passe.
  * @returns l'état lisible, ou `null` si ce n'est pas un JWT exploitable.
  */
-export function etatDuJeton(
-  jeton: string,
-  maintenantSecondes: number,
-): IEtatJeton | null {
-  const parts = jeton.split(".");
+export function tokenState(
+  token: string,
+  nowSeconds: number,
+): ITokenState | null {
+  const parts = token.split(".");
   if (parts.length !== 3 || !parts[1]) return null;
   try {
     const charge = JSON.parse(
@@ -311,8 +311,8 @@ export function etatDuJeton(
     ) as { exp?: unknown; scope?: unknown };
     const scope = typeof charge.scope === "string" ? charge.scope : "";
     return {
-      restantSecondes:
-        typeof charge.exp === "number" ? charge.exp - maintenantSecondes : null,
+      remainingSeconds:
+        typeof charge.exp === "number" ? charge.exp - nowSeconds : null,
       scopes: scope.split(/\s+/u).filter((s) => s !== ""),
     };
   } catch {
@@ -325,26 +325,26 @@ export function etatDuJeton(
 /**
  * Phrase d'état d'un jeton, pour un humain devant une question.
  *
- * @param etat - ce que {@link etatDuJeton} a lu, ou `null` s'il n'y en a pas.
+ * @param state - ce que {@link tokenState} a lu, ou `null` s'il n'y en a pas.
  * @returns la ligne à afficher.
  */
-export function renderEtatJeton(etat: IEtatJeton | null): string {
-  if (etat === null) return "aucun jeton lisible n'est posé chez tes agents";
+export function renderTokenState(state: ITokenState | null): string {
+  if (state === null) return "aucun jeton lisible n'est posé chez tes agents";
   const scopes =
-    etat.scopes.length > 0 ? etat.scopes.join(" ") : "aucun scope déclaré";
-  if (etat.restantSecondes === null) return `jeton sans échéance (${scopes})`;
-  if (etat.restantSecondes <= 0) {
-    const depuis = Math.round(-etat.restantSecondes / 60);
-    return `jeton EXPIRÉ depuis ${depuis} min (${scopes}) — c'est lui qui provoque les 401`;
+    state.scopes.length > 0 ? state.scopes.join(" ") : "aucun scope déclaré";
+  if (state.remainingSeconds === null) return `jeton sans échéance (${scopes})`;
+  if (state.remainingSeconds <= 0) {
+    const since = Math.round(-state.remainingSeconds / 60);
+    return `jeton EXPIRÉ depuis ${since} min (${scopes}) — c'est lui qui provoque les 401`;
   }
-  const heures = etat.restantSecondes / 3600;
-  const reste =
-    heures >= 48
-      ? `${Math.round(heures / 24)} jours`
-      : heures >= 2
-        ? `${Math.round(heures)} heures`
-        : `${Math.round(etat.restantSecondes / 60)} min`;
-  return `jeton valide encore ${reste} (${scopes})`;
+  const hours = state.remainingSeconds / 3600;
+  const remainder =
+    hours >= 48
+      ? `${Math.round(hours / 24)} jours`
+      : hours >= 2
+        ? `${Math.round(hours)} heures`
+        : `${Math.round(state.remainingSeconds / 60)} min`;
+  return `jeton valide encore ${remainder} (${scopes})`;
 }
 
 /**
@@ -356,25 +356,22 @@ export function renderEtatJeton(etat: IEtatJeton | null): string {
  * vient d'être rafraîchi — et c'est précisément l'écart qu'on ne voit jamais,
  * parce qu'il se manifeste par un `401` chez un seul outil.
  *
- * @param cibles - agents détectés sur ce poste.
+ * @param targets - agents détectés sur ce poste.
  * @param projectRoot - racine du projet, pour résoudre leurs fichiers.
- * @param maintenantSecondes - instant de référence, injecté pour le banc.
+ * @param nowSeconds - instant de référence, injecté pour le banc.
  * @returns pour chaque agent, sa phrase d'état.
  */
-export function etatJetonsAgents(
-  cibles: readonly IAgentTarget[],
+export function agentTokenStates(
+  targets: readonly IAgentTarget[],
   projectRoot: string,
-  maintenantSecondes: number,
+  nowSeconds: number,
 ): Map<string, string> {
-  const etats = new Map<string, string>();
-  for (const cible of cibles) {
-    const fichier = path.resolve(
-      racineAgent(cible, { projectRoot }),
-      cible.fichier,
-    );
-    let contenu = "";
+  const states = new Map<string, string>();
+  for (const target of targets) {
+    const file = path.resolve(agentRoot(target, { projectRoot }), target.file);
+    let content = "";
     try {
-      contenu = readFileSync(fichier, "utf8");
+      content = readFileSync(file, "utf8");
     } catch (e) {
       // ABSENT et ILLISIBLE ne se disent pas pareil, et le test préalable les
       // confondait : `existsSync` puis `readFileSync` laisse la fenêtre où le
@@ -383,24 +380,24 @@ export function etatJetonsAgents(
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
         // Un fichier illisible n'est pas une panne de cette commande : on se tait
         // sur cet agent plutôt que d'affirmer qu'il n'a pas de jeton.
-        etats.set(cible.cle, "état du jeton illisible");
+        states.set(target.key, "état du jeton illisible");
         continue;
       }
     }
-    const jeton = litVariable(cible.forme, contenu, MCP_TOKEN_ENV);
-    etats.set(
-      cible.cle,
-      jeton === null
+    const token = litVariable(target.forme, content, MCP_TOKEN_ENV);
+    states.set(
+      target.key,
+      token === null
         ? "pas de jeton posé"
-        : renderEtatJeton(etatDuJeton(jeton, maintenantSecondes)),
+        : renderTokenState(tokenState(token, nowSeconds)),
     );
   }
-  return etats;
+  return states;
 }
 
 export function planTokenChaining(
-  demande: Pick<IAiMcpRequest, "auth" | "dryRun" | "json">,
-  contexte: {
+  request: Pick<IAiMcpRequest, "auth" | "dryRun" | "json">,
+  context: {
     projectRoot: string;
     isTTY: boolean;
     env?: Record<string, string | undefined>;
@@ -423,38 +420,38 @@ export function planTokenChaining(
   },
 ): IChainedToken | null {
   // Un jeton n'a de sens que si l'en-tête le RÉCLAME.
-  if (demande.auth !== true) return null;
+  if (request.auth !== true) return null;
   // `--dry-run` ne doit rien produire ; `--json` part vers un script, qu'une
   // question romprait.
-  if (demande.dryRun || demande.json) return null;
-  if (!contexte.isTTY) return null;
+  if (request.dryRun || request.json) return null;
+  if (!context.isTTY) return null;
   const argv = ["security:token", "--write"];
-  if (contexte.ttlMinutes !== undefined) {
-    argv.push("--ttl", String(contexte.ttlMinutes));
+  if (context.ttlMinutes !== undefined) {
+    argv.push("--ttl", String(context.ttlMinutes));
   }
-  if (contexte.scopes !== undefined && contexte.scopes.trim() !== "") {
-    argv.push("--scope", contexte.scopes);
+  if (context.scopes !== undefined && context.scopes.trim() !== "") {
+    argv.push("--scope", context.scopes);
   }
   return {
     argv,
-    env: { ...(contexte.env ?? process.env), NODE_ENV: "development" },
-    cwd: contexte.projectRoot,
+    env: { ...(context.env ?? process.env), NODE_ENV: "development" },
+    cwd: context.projectRoot,
   };
 }
 
 /** Ce qu'il est advenu de la déclaration chez un agent. */
-export interface IResultatDeclaration {
+export interface IDeclarationResult {
   /** L'agent visé. */
-  cible: IAgentTarget;
+  target: IAgentTarget;
   /**
    * La déclaration a-t-elle été écrite DANS le projet ?
    *
-   * Ne se déduit pas de `cible.portee` — qui dit où l'agent lit ses VARIABLES,
+   * Ne se déduit pas de `target.scope` — qui dit où l'agent lit ses VARIABLES,
    * pas où sa porte est déclarée. Pour Vibe et Codex, les deux diffèrent : le
    * jeton reste au foyer (un `.env` de projet se commite par accident), la
    * porte va dans le projet (son URL porte un port).
    */
-  enProjet?: boolean;
+  inProject?: boolean;
   /**
    * `declare`/`retire` : sa CLI a répondu OK, et le contrôle le CONFIRME quand
    * il est possible. `sans-effet` : elle a répondu OK, mais la porte est encore
@@ -463,7 +460,7 @@ export interface IResultatDeclaration {
    * `cli-absente` : l'outil n'est pas installé — la commande est rendue pour le
    * jour où il le sera. `echec` : sa CLI a refusé, et c'est ELLE qui dit pourquoi.
    */
-  etat:
+  state:
     | "declare"
     | "retire"
     | "fichier-projet"
@@ -471,7 +468,7 @@ export interface IResultatDeclaration {
     | "echec"
     | "sans-effet";
   /** La commande, telle qu'on peut la recopier. Vide pour `fichier-projet`. */
-  commande: string;
+  command: string;
   /** Ce que la CLI a écrit quand elle a refusé. */
   detail?: string;
   /**
@@ -483,7 +480,7 @@ export interface IResultatDeclaration {
    * disputent le même nom de serveur. Sans cette ligne, la seconde efface la
    * première en silence.
    */
-  remplaceAutreUrl?: boolean;
+  replacesOtherUrl?: boolean;
 }
 
 /**
@@ -500,49 +497,49 @@ export interface IResultatDeclaration {
  * d'erreur à chaque appel, et les laisser passer ferait lire un succès comme
  * une panne.
  *
- * @param cibles - agents à servir
+ * @param targets - agents à servir
  * @param ctx - l'URL de la porte, et le sens du geste
  * @returns un verdict par agent — jamais une exception : un agent qui refuse
  *          n'empêche pas de servir les suivants
  */
-export async function declarerChezAgents(
-  cibles: readonly IAgentTarget[],
+export async function declareToAgents(
+  targets: readonly IAgentTarget[],
   ctx: {
     url: string;
-    retirer: boolean;
+    remove: boolean;
     projectRoot: string;
     /** Écrire dans le foyer de l'utilisateur au lieu du projet. */
     global?: boolean;
   },
-): Promise<IResultatDeclaration[]> {
+): Promise<IDeclarationResult[]> {
   const { spawnSync } = await import("node:child_process");
   const { mkdirSync } = await import("node:fs");
-  const resultats: IResultatDeclaration[] = [];
-  for (const cible of cibles) {
+  const results: IDeclarationResult[] = [];
+  for (const target of targets) {
     const plan = planAgentDeclaration(
-      cible,
+      target,
       { url: ctx.url, tokenEnv: MCP_TOKEN_ENV },
-      ctx.retirer,
+      ctx.remove,
     );
     if (plan.voie !== "cli") {
-      resultats.push({ cible, etat: "fichier-projet", commande: "" });
+      results.push({ target: target, state: "fichier-projet", command: "" });
       continue;
     }
-    const commande = renderPlanShell(plan);
+    const command = renderPlanShell(plan);
     // 🔴 L'URL de la porte porte un PORT, et deux applications Nodefony n'ont
     // pas le même. Une déclaration dans le foyer de l'utilisateur ne peut donc
     // en désigner qu'UNE — la dernière câblée efface la précédente sans un mot.
     // Ces CLI n'ont pas d'option de portée, mais elles obéissent toutes deux à
     // une variable qui déplace leur dossier (`VIBE_HOME`, `CODEX_HOME`) : on la
-    // pointe sur `<projet>/<marqueur>`, et c'est LEUR binaire qui écrit LEUR
+    // pointe sur `<projet>/<marker>`, et c'est LEUR binaire qui écrit LEUR
     // format, à l'endroit du projet. Écrire ce TOML nous-mêmes aurait été
     // reprendre à notre compte le format d'un tiers.
     // Vérifié au disque pour les deux, y compris la ligne d'authentification.
-    const racineProjet = cible.home
-      ? path.join(ctx.projectRoot, cible.marqueur)
+    const projectRoot = target.home
+      ? path.join(ctx.projectRoot, target.marker)
       : undefined;
-    const enProjet = racineProjet !== undefined && !ctx.global;
-    if (enProjet && racineProjet) {
+    const inProject = projectRoot !== undefined && !ctx.global;
+    if (inProject && projectRoot) {
       // Codex REFUSE de démarrer si le dossier n'existe pas encore — constaté :
       // « CODEX_HOME points to "…", but that path does not exist ».
       //
@@ -553,7 +550,7 @@ export async function declarerChezAgents(
       // dira ; si elle est là, c'est ELLE qui dira pourquoi elle n'a pas pu
       // écrire. La capacité se CONSTATE, elle ne se pré-vérifie pas.
       try {
-        mkdirSync(racineProjet, { recursive: true });
+        mkdirSync(projectRoot, { recursive: true });
       } catch {
         /* laissé au constat du spawn — voir ci-dessus */
       }
@@ -562,24 +559,24 @@ export async function declarerChezAgents(
     // d'après-coup parlerait du foyer de l'utilisateur et vaudrait faux dans
     // les deux sens.
     const envAgent =
-      enProjet && racineProjet && cible.home
-        ? { ...process.env, [cible.home]: racineProjet }
+      inProject && projectRoot && target.home
+        ? { ...process.env, [target.home]: projectRoot }
         : process.env;
     // Ce qui était déclaré AVANT — on ne peut le savoir qu'en regardant, et
     // seulement après coup ce serait trop tard : la CLI aura déjà écrasé.
-    const argvListeAvant = cible.argvListe?.();
-    let remplaceAutreUrl = false;
-    if (argvListeAvant && !ctx.retirer) {
-      const avant = spawnSync(plan.bin, argvListeAvant, {
+    const argvListBefore = target.argvList?.();
+    let replacesOtherUrl = false;
+    if (argvListBefore && !ctx.remove) {
+      const before = spawnSync(plan.bin, argvListBefore, {
         encoding: "utf8",
         shell: false,
         cwd: ctx.projectRoot,
         env: envAgent,
       });
-      const vu = `${avant.stdout ?? ""}${avant.stderr ?? ""}`;
-      remplaceAutreUrl =
-        !avant.error &&
-        avant.status === 0 &&
+      const vu = `${before.stdout ?? ""}${before.stderr ?? ""}`;
+      replacesOtherUrl =
+        !before.error &&
+        before.status === 0 &&
         vu.includes(MCP_SERVER_KEY) &&
         !vu.includes(ctx.url);
     }
@@ -600,14 +597,14 @@ export async function declarerChezAgents(
     // La CAPACITÉ se constate : on ne demande pas au `PATH` si l'outil existe,
     // on l'appelle. `ENOENT` est la réponse, et elle est sans ambiguïté.
     if (r.error && (r.error as NodeJS.ErrnoException).code === "ENOENT") {
-      resultats.push({ cible, etat: "cli-absente", commande });
+      results.push({ target: target, state: "cli-absente", command: command });
       continue;
     }
     if (r.status !== 0) {
-      resultats.push({
-        cible,
-        etat: "echec",
-        commande,
+      results.push({
+        target: target,
+        state: "echec",
+        command: command,
         // Borné : l'une de ces CLI crache une vingtaine de lignes de bruit
         // avant son vrai message.
         detail: `${r.stderr ?? ""}${r.stdout ?? ""}`
@@ -622,9 +619,9 @@ export async function declarerChezAgents(
     // CLI sort en 0 en disant « not found » et laisse l'entrée en place. Le
     // constat se fait par SA propre commande de lecture, jamais en relisant son
     // fichier : son format lui appartient.
-    const argvListe = cible.argvListe?.();
-    if (argvListe) {
-      const vue = spawnSync(plan.bin, argvListe, {
+    const argvList = target.argvList?.();
+    if (argvList) {
+      const vue = spawnSync(plan.bin, argvList, {
         encoding: "utf8",
         shell: false,
         // Même racine que le geste : lue ailleurs, la liste parlerait d'un
@@ -632,30 +629,30 @@ export async function declarerChezAgents(
         cwd: ctx.projectRoot,
         env: envAgent,
       });
-      const sortie = `${vue.stdout ?? ""}${vue.stderr ?? ""}`;
+      const output = `${vue.stdout ?? ""}${vue.stderr ?? ""}`;
       // La lecture n'a pas pu se faire : on ne conclut RIEN de son silence —
       // une absence de trace n'est pas une preuve.
       const lisible = !vue.error && vue.status === 0;
-      const present = sortie.includes(MCP_SERVER_KEY);
-      if (lisible && present === ctx.retirer) {
-        resultats.push({
-          cible,
-          etat: "sans-effet",
-          commande,
-          detail: sortie.trim().split("\n").slice(-4).join("\n"),
+      const present = output.includes(MCP_SERVER_KEY);
+      if (lisible && present === ctx.remove) {
+        results.push({
+          target: target,
+          state: "sans-effet",
+          command: command,
+          detail: output.trim().split("\n").slice(-4).join("\n"),
         });
         continue;
       }
     }
-    resultats.push({
-      cible,
-      enProjet,
-      etat: ctx.retirer ? "retire" : "declare",
-      commande,
-      ...(remplaceAutreUrl ? { remplaceAutreUrl: true } : {}),
+    results.push({
+      target: target,
+      inProject: inProject,
+      state: ctx.remove ? "retire" : "declare",
+      command: command,
+      ...(replacesOtherUrl ? { replacesOtherUrl: true } : {}),
     });
   }
-  return resultats;
+  return results;
 }
 
 /**
@@ -664,14 +661,14 @@ export async function declarerChezAgents(
  * PURE : c'est le texte que l'utilisateur lit, et il doit pouvoir être éprouvé
  * sans lancer la moindre CLI.
  *
- * @param resultats - un verdict par agent
- * @param retirer - le sens du geste, pour accorder les phrases
+ * @param results - un verdict par agent
+ * @param remove - le sens du geste, pour accorder les phrases
  */
 export function renderDeclarations(
-  resultats: readonly IResultatDeclaration[],
-  retirer: boolean,
+  results: readonly IDeclarationResult[],
+  remove: boolean,
 ): string {
-  if (resultats.length === 0) {
+  if (results.length === 0) {
     // 🔴 Le silence serait ambigu : « rien ne s'est passé » ou « ça a échoué » ?
     // Coder seul est un CHOIX, et il s'affiche comme tel.
     return (
@@ -680,14 +677,14 @@ export function renderDeclarations(
     );
   }
   let out = "\n";
-  for (const r of resultats) {
-    if (r.etat === "fichier-projet") {
+  for (const r of results) {
+    if (r.state === "fichier-projet") {
       out +=
-        `  • ${r.cible.nom} — rien à faire : il lit ${MCP_CONFIG_FILE}, ` +
-        `${retirer ? "retiré par --no-auth ou à la main" : "déjà à jour"}.\n`;
-    } else if (r.etat === "declare") {
+        `  • ${r.target.name} — rien à faire : il lit ${MCP_CONFIG_FILE}, ` +
+        `${remove ? "retiré par --no-auth ou à la main" : "déjà à jour"}.\n`;
+    } else if (r.state === "declare") {
       // 🔴 La PORTÉE se dit. Deux de ces agents n'ont pas de notion de projet :
-      // ⚠️ La portée se lit sur le GESTE, jamais sur `cible.portee` — celui-ci
+      // ⚠️ La portée se lit sur le GESTE, jamais sur `target.scope` — celui-ci
       // dit où l'agent tient ses VARIABLES, pas où sa porte est déclarée, et
       // les deux diffèrent pour Vibe et Codex. Une déclaration qui vaut pour
       // TOUS les projets et qu'on croit locale, c'est la deuxième application
@@ -697,42 +694,42 @@ export function renderDeclarations(
       // `.codex/config.toml` posé dans un projet « n'est PAS lu ». C'est FAUX,
       // et mesuré : le fichier déposé, `codex mcp list` montre le serveur. La
       // confiance du dépôt était la variable, pas la portée.
-      const portee =
-        r.enProjet || r.cible.portee === "projet"
+      const scope =
+        r.inProject || r.target.scope === "projet"
           ? "dans ce projet"
           : "GLOBALE — elle vaut pour tous tes projets";
-      out += `  ✓ ${r.cible.nom} — porte déclarée, ${portee}. RELANCE-le.\n`;
-      if (r.etat === "declare" && r.remplaceAutreUrl) {
+      out += `  ✓ ${r.target.name} — porte déclarée, ${scope}. RELANCE-le.\n`;
+      if (r.state === "declare" && r.replacesOtherUrl) {
         out +=
           `    ⚠ elle a REMPLACÉ une déclaration « ${MCP_SERVER_KEY} » qui ` +
           `visait ailleurs — une autre application ?\n`;
       }
-      if (r.cible.noteApres) out += `    ⓘ ${r.cible.noteApres}\n`;
-    } else if (r.etat === "retire") {
-      out += `  ✓ ${r.cible.nom} — déclaration retirée.\n`;
-    } else if (r.etat === "sans-effet") {
+      if (r.target.noteAfter) out += `    ⓘ ${r.target.noteAfter}\n`;
+    } else if (r.state === "retire") {
+      out += `  ✓ ${r.target.name} — déclaration retirée.\n`;
+    } else if (r.state === "sans-effet") {
       out +=
-        `  ⚠ ${r.cible.nom} — sa CLI a répondu « ok », mais la porte est ` +
-        `${retirer ? "TOUJOURS déclarée" : "INTROUVABLE"} chez lui.\n` +
+        `  ⚠ ${r.target.name} — sa CLI a répondu « ok », mais la porte est ` +
+        `${remove ? "TOUJOURS déclarée" : "INTROUVABLE"} chez lui.\n` +
         `    Ce qu'elle liste :\n` +
         `${(r.detail ?? "")
           .split("\n")
           .map((l) => `      ${l}`)
           .join("\n")}\n` +
-        `    La commande jouée : ${r.commande}\n` +
+        `    La commande jouée : ${r.command}\n` +
         `    Son outil ne l'a pas honorée — reprends depuis SA configuration.\n`;
-    } else if (r.etat === "cli-absente") {
+    } else if (r.state === "cli-absente") {
       out +=
-        `  ⚠ ${r.cible.nom} — sa commande « ${r.cible.bin} » est introuvable ici.\n` +
-        `    Le jour où tu l'installes :\n      ${r.commande}\n`;
+        `  ⚠ ${r.target.name} — sa commande « ${r.target.bin} » est introuvable ici.\n` +
+        `    Le jour où tu l'installes :\n      ${r.command}\n`;
     } else {
       out +=
-        `  ⚠ ${r.cible.nom} — sa CLI a refusé :\n` +
+        `  ⚠ ${r.target.name} — sa CLI a refusé :\n` +
         `${(r.detail ?? "")
           .split("\n")
           .map((l) => `      ${l}`)
           .join("\n")}\n` +
-        `    La commande jouée était :\n      ${r.commande}\n`;
+        `    La commande jouée était :\n      ${r.command}\n`;
     }
   }
   return out;
@@ -783,21 +780,21 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   // qui lance la commande depuis un menu, ou pour rafraîchir son URL, n'a pas
   // demandé ça. La question vit ICI, dans le chemin standalone, parce que c'est
   // lui qui répond à une invocation directe comme à un choix de menu.
-  const rienDemande =
+  const nothingRequested =
     parsed.auth === null &&
     !parsed.dryRun &&
     !parsed.json &&
     parsed.url === null;
-  if (rienDemande && process.stdin.isTTY) {
-    const dejaAuth = Boolean(
+  if (nothingRequested && process.stdin.isTTY) {
+    const alreadyAuth = Boolean(
       readMcpConfig(path.join(projectRoot, MCP_CONFIG_FILE))?.mcpServers?.[
         "nodefony"
       ]?.headers?.Authorization,
     );
     const { confirm } = await chargePrompts();
     parsed.auth = await confirm({
-      message: `Mode authentifié ? (en-tête \${${MCP_TOKEN_ENV}}${dejaAuth ? " — répondre non le RETIRE" : ""})`,
-      default: dejaAuth,
+      message: `Mode authentifié ? (en-tête \${${MCP_TOKEN_ENV}}${alreadyAuth ? " — répondre non le RETIRE" : ""})`,
+      default: alreadyAuth,
     });
   }
 
@@ -828,22 +825,22 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
 
   // Qui déclare-t-on chez lui ? La réponse se décide AVANT le rendu JSON, pour
   // qu'un script obtienne le même verdict qu'un humain.
-  const demandes = agentsDemandes(parsed.agent);
-  if (demandes instanceof Error) {
-    process.stderr.write(`ai:mcp: ${demandes.message}\n`);
+  const requests = requestedAgents(parsed.agent);
+  if (requests instanceof Error) {
+    process.stderr.write(`ai:mcp: ${requests.message}\n`);
     return SysExit.USAGE;
   }
-  let cibles: readonly IAgentTarget[] = demandes ?? [];
-  if (demandes === undefined && !parsed.dryRun && !parsed.json) {
+  let targets: readonly IAgentTarget[] = requests ?? [];
+  if (requests === undefined && !parsed.dryRun && !parsed.json) {
     // 🔴 Rien n'est coché par défaut, et ce n'est pas de la timidité : écrire
     // dans la configuration d'un autre outil est un geste qui doit être VOULU.
     // Un développeur peut parfaitement coder seul — ce n'est pas un oubli à
     // rattraper, c'est un choix qu'on lui laisse, et la question le dit.
-    const detectes = agentsPresents({
+    const detected = agentsPresents({
       projectRoot,
-      existe: existsSync,
+      exists: existsSync,
     });
-    const presents = detectes.filter((c) => c.declaration === "cli");
+    const presents = detected.filter((c) => c.declaration === "cli");
     // ⚠️ Un agent DÉTECTÉ mais absent de la liste doit être EXPLIQUÉ. Ceux qui
     // lisent le fichier de projet — Claude Code lit le `.mcp.json` qu'on vient
     // d'écrire — n'ont aucune commande à lancer : leur proposer une case à
@@ -851,12 +848,10 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     // déclaration dans le dossier de l'utilisateur, invisible du dépôt et
     // jamais rafraîchie. Mais les taire fait chercher, puis conclure qu'ils ne
     // sont pas gérés — vécu.
-    const parFichier = detectes.filter(
-      (c) => c.declaration === "fichier-projet",
-    );
-    if (detectes.length > 0 && process.stdin.isTTY) {
+    const byFile = detected.filter((c) => c.declaration === "fichier-projet");
+    if (detected.length > 0 && process.stdin.isTTY) {
       const { checkbox } = await chargePrompts();
-      const choisis = (await checkbox({
+      const chosen = (await checkbox({
         message: `Déclarer la porte chez quels agents ? ${"(espace pour cocher — ENTRÉE sans rien cocher : aucun, je code seul)"}`,
         choices: [
           // ⚠️ Les agents servis par le FICHIER de projet figurent dans la
@@ -865,22 +860,22 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           // « non géré », alors qu'il est déjà servi — c'est même le seul qui
           // n'ait rien à attendre de cette question. Un choix inerte qui
           // s'EXPLIQUE vaut mieux qu'une absence qui s'interprète.
-          ...parFichier.map((c) => ({
-            name: `${c.nom} — servi par le ${path.basename(file)} de ce projet`,
-            value: c.cle,
+          ...byFile.map((c) => ({
+            name: `${c.name} — servi par le ${path.basename(file)} de ce projet`,
+            value: c.key,
             checked: true,
             disabled: "déjà à jour, rien à lancer",
           })),
           ...presents.map((c) => ({
-            name: `${c.nom} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
-            value: c.cle,
+            name: `${c.name} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
+            value: c.key,
             checked: false,
           })),
         ],
       })) as string[];
       // Un choix désactivé n'est jamais rendu par la question : le filtre porte
       // donc bien sur les seuls agents qui ont une CLI à lancer.
-      cibles = presents.filter((c) => choisis.includes(c.cle));
+      targets = presents.filter((c) => chosen.includes(c.key));
     }
   }
 
@@ -891,7 +886,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           file,
           ...plan,
           dryRun: parsed.dryRun,
-          agents: cibles.map((c) => c.cle),
+          agents: targets.map((c) => c.key),
         },
         null,
         2,
@@ -905,10 +900,10 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   // MONTRE, et une commande qui écrirait quand même dans la configuration d'un
   // outil tiers ferait mentir l'option qui sert précisément à ne rien risquer.
   if (parsed.dryRun) {
-    if (cibles.length > 0) {
+    if (targets.length > 0) {
       process.stdout.write(
         `\n  À lancer (non joué — --dry-run) :\n` +
-          cibles
+          targets
             .map((c) => {
               const p = planAgentDeclaration(
                 c,
@@ -917,20 +912,20 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
               );
               return p.voie === "cli"
                 ? `      ${renderPlanShell(p)}\n`
-                : `      (${c.nom} : rien — il lit ${MCP_CONFIG_FILE})\n`;
+                : `      (${c.name} : rien — il lit ${MCP_CONFIG_FILE})\n`;
             })
             .join(""),
       );
     }
-  } else if (demandes !== undefined || cibles.length > 0) {
+  } else if (requests !== undefined || targets.length > 0) {
     // Le compte rendu n'est écrit que si la question a été posée ou si des
     // agents ont été demandés : une invocation qui ne parlait pas d'agents ne
     // doit pas se mettre à en parler.
     process.stdout.write(
       renderDeclarations(
-        await declarerChezAgents(cibles, {
+        await declareToAgents(targets, {
           url: mcpUrl,
-          retirer: parsed.remove,
+          remove: parsed.remove,
           projectRoot,
           global: parsed.global,
         }),
@@ -945,7 +940,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     if (!parsed.remove) {
       const poses = poserPointeursAgents(
         projectRoot,
-        cibles.map((c) => c.cle),
+        targets.map((c) => c.key),
         path.basename(projectRoot),
       );
       if (poses.length > 0) {
@@ -976,33 +971,33 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     // ici remplace une enquête. Et le défaut de la question suit le constat :
     // on ne pousse pas à réémettre un jeton qui a encore une semaine devant
     // lui, mais on le propose franchement s'il est mort.
-    const detectesPourJeton = agentsPresents({
+    const detectedForToken = agentsPresents({
       projectRoot,
-      existe: existsSync,
+      exists: existsSync,
     });
-    const etats = etatJetonsAgents(
-      detectesPourJeton,
+    const states = agentTokenStates(
+      detectedForToken,
       projectRoot,
       Math.floor(Date.now() / 1000),
     );
-    for (const cible of detectesPourJeton) {
-      process.stdout.write(`  ${cible.nom} : ${etats.get(cible.cle)}\n`);
+    for (const target of detectedForToken) {
+      process.stdout.write(`  ${target.name} : ${states.get(target.key)}\n`);
     }
     // « Périmé » vaut pour l'ENSEMBLE : si un seul agent porte un jeton mort,
     // proposer par défaut de réémettre est le bon service — c'est lui qui
     // rendra des 401 sans qu'on sache lequel.
     const perime =
-      detectesPourJeton.length === 0 ||
-      [...etats.values()].some(
+      detectedForToken.length === 0 ||
+      [...states.values()].some(
         (phrase) =>
           phrase.includes("EXPIRÉ") || phrase.includes("pas de jeton"),
       );
-    const maintenant = await confirm({
+    const now = await confirm({
       message: `${perime ? "Obtenir" : "Réémettre"} un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
       default: perime,
     });
     const bin = process.argv[1];
-    if (maintenant && bin) {
+    if (now && bin) {
       // ⭐ La DURÉE se demande, elle ne se subit pas. Le jeton part dans un
       // en-tête statique que rien ne rafraîchit : le défaut de l'émetteur
       // (15 min) oblige à tout recommencer au quart d'heure, et le refus qui
@@ -1039,7 +1034,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           },
         ],
       });
-      const avecDuree = planTokenChaining(parsed, {
+      const withDuration = planTokenChaining(parsed, {
         projectRoot,
         isTTY: true,
         ttlMinutes,
@@ -1048,7 +1043,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       const { spawnSync } = await import("node:child_process");
       // `stdio: "inherit"` — l'enfant hérite du TERMINAL, sans quoi il ne
       // pourrait poser aucune question (son `process.stdin.isTTY` serait faux).
-      spawnSync(process.execPath, [bin, ...(avecDuree ?? chainage).argv], {
+      spawnSync(process.execPath, [bin, ...(withDuration ?? chainage).argv], {
         stdio: "inherit",
         cwd: chainage.cwd,
         env: chainage.env,

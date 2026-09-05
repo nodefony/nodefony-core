@@ -56,6 +56,30 @@ const declarations = (text, fileName) => {
   return { named, shorthands };
 };
 
+const nameOfEntry = (entry) =>
+  entry.lastIndexOf("@") === -1
+    ? entry
+    : entry.slice(0, entry.lastIndexOf("@"));
+
+// Un renommage est GLOBAL : le symbole déclaré dans un fichier voit ses usages
+// — et les propriétés d'objet qui le portent — changer partout ailleurs. Un
+// contrôle qui ne regarderait que la table du fichier accuserait ces
+// changements-là d'être hors plan.
+const globalPlan = new Map();
+for (const table of Object.values(plan)) {
+  for (const [entry, newName] of Object.entries(table)) {
+    const from = nameOfEntry(entry);
+    const known = globalPlan.get(from);
+    if (known !== undefined && known !== newName) {
+      console.log(
+        `✗ plan ambigu — « ${from} » visé à la fois par « ${known} » et « ${newName} »`,
+      );
+      process.exit(2);
+    }
+    globalPlan.set(from, newName);
+  }
+}
+
 let drift = 0;
 for (const [relFile, table] of Object.entries(plan)) {
   const before = execFileSync("git", ["show", `${base}:${relFile}`], {
@@ -75,20 +99,21 @@ for (const [relFile, table] of Object.entries(plan)) {
   const { counts: countsBefore, short: shortBefore } = tally(before);
   const { counts: countsAfter, short: shortAfter } = tally(after);
 
-  const nameOf = (entry) =>
-    entry.lastIndexOf("@") === -1
-      ? entry
-      : entry.slice(0, entry.lastIndexOf("@"));
+  const nameOf = nameOfEntry;
   /** Ce que le plan promet de faire gagner à chaque nom cible. */
   const promised = new Map();
-  for (const [entry, newName] of Object.entries(table)) {
-    const from = nameOf(entry);
+  const asked = new Set(Object.keys(table).map(nameOf));
+  for (const [from, newName] of globalPlan) {
     const moved = countsBefore.get(from) ?? 0;
     if (moved === 0) {
-      console.log(
-        `✗ ${relFile} — « ${from} » : aucune déclaration de ce nom avant`,
-      );
-      drift += 1;
+      // Un nom demandé POUR ce fichier et introuvable est une faute de plan ;
+      // un nom venu d'un autre fichier du lot n'a rien à faire ici.
+      if (asked.has(from)) {
+        console.log(
+          `✗ ${relFile} — « ${from} » : aucune déclaration de ce nom avant`,
+        );
+        drift += 1;
+      }
       continue;
     }
     const left = countsAfter.get(from) ?? 0;
@@ -119,8 +144,8 @@ for (const [relFile, table] of Object.entries(plan)) {
   }
 
   // Un nom qui disparaît sans être une source du plan est un symbole écrasé.
-  const sources = new Set(Object.keys(table).map(nameOf));
-  const targets = new Set(Object.values(table));
+  const sources = new Set(globalPlan.keys());
+  const targets = new Set(globalPlan.values());
   for (const [name, n] of countsBefore) {
     const now = countsAfter.get(name) ?? 0;
     if (now < n && !sources.has(name) && !targets.has(name)) {

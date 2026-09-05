@@ -2126,8 +2126,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isTrue(existsSync(path.join(dest, "AGENTS.md")));
       for (const cible of AGENT_TARGETS.filter((c) => !c.instructions.natif)) {
         assert.isFalse(
-          existsSync(path.join(dest, cible.instructions.fichier)),
-          `${cible.instructions.fichier} posé sans que ${cible.nom} ait été demandé`,
+          existsSync(path.join(dest, cible.instructions.file)),
+          `${cible.instructions.file} posé sans que ${cible.name} ait été demandé`,
         );
       }
     });
@@ -6659,7 +6659,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
     assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
-    const cle = parCli[0]!.cle;
+    const cle = parCli[0]!.key;
     assert.deepEqual(argvCablageMcp([cle], AGENT_TARGETS, "/tmp/app"), [
       "ai:mcp",
       "--cwd",
@@ -6677,7 +6677,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       "fixture : au moins un agent servi par fichier",
     );
     const argv = argvCablageMcp(
-      [parFichier[0]!.cle],
+      [parFichier[0]!.key],
       AGENT_TARGETS,
       "/tmp/app",
     );
@@ -6697,8 +6697,8 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent NON coché ne part jamais dans l'appel", () => {
     if (parCli.length < 2) return;
-    const argv = argvCablageMcp([parCli[0]!.cle], AGENT_TARGETS, "/tmp/app");
-    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.cle);
+    const argv = argvCablageMcp([parCli[0]!.key], AGENT_TARGETS, "/tmp/app");
+    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.key);
   });
 
   it("des agents choisis + app installée ET construite → on câble", () => {
@@ -6735,31 +6735,31 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
 describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => {
   /** Toutes les clés — le cas « l'utilisateur les a tous choisis ». */
-  const TOUTES = AGENT_TARGETS.map((c) => c.cle);
+  const TOUTES = AGENT_TARGETS.map((c) => c.key);
 
   it("un pointeur par agent qui ne lit PAS AGENTS.md, aucun pour ceux qui le lisent", () => {
     const attendus = new Set(
       AGENT_TARGETS.filter((c) => !c.instructions.natif).map(
-        (c) => c.instructions.fichier,
+        (c) => c.instructions.file,
       ),
     );
-    const rendus = new Set(pointeursInstructions(TOUTES).map((p) => p.fichier));
+    const rendus = new Set(pointeursInstructions(TOUTES).map((p) => p.file));
     assert.deepEqual([...rendus].sort(), [...attendus].sort());
     for (const cible of AGENT_TARGETS.filter((c) => c.instructions.natif)) {
       assert.notInclude(
         [...rendus],
-        cible.instructions.fichier,
-        `${cible.nom} lit AGENTS.md : rien à poser`,
+        cible.instructions.file,
+        `${cible.name} lit AGENTS.md : rien à poser`,
       );
     }
   });
 
   it("chaque agent est NOMMÉ dans son pointeur — deux agents d'un même fichier y figurent tous les deux", () => {
-    for (const { fichier, agents } of pointeursInstructions(TOUTES)) {
+    for (const { file: fichier, agents } of pointeursInstructions(TOUTES)) {
       assert.isNotEmpty(agents, `${fichier} : pointeur sans agent nommé`);
       const attendus = AGENT_TARGETS.filter(
-        (c) => !c.instructions.natif && c.instructions.fichier === fichier,
-      ).map((c) => c.nom);
+        (c) => !c.instructions.natif && c.instructions.file === fichier,
+      ).map((c) => c.name);
       assert.deepEqual([...agents].sort(), attendus.sort());
     }
   });
@@ -6768,18 +6768,18 @@ describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => 
     // 🔴 Le défaut, rapporté tel quel : « j'ai demandé un agent claude, je me
     // retrouve avec un GEMINI.md ». La fonction rendait tous les pointeurs sans
     // regarder ce qui avait été demandé.
-    const claude = AGENT_TARGETS.find((c) => c.cle === "claude");
-    const gemini = AGENT_TARGETS.find((c) => c.cle === "gemini");
+    const claude = AGENT_TARGETS.find((c) => c.key === "claude");
+    const gemini = AGENT_TARGETS.find((c) => c.key === "gemini");
     assert.isDefined(claude, "l'agent `claude` a disparu du catalogue");
     assert.isDefined(gemini, "l'agent `gemini` a disparu du catalogue");
-    const rendus = pointeursInstructions(["claude"]).map((p) => p.fichier);
+    const rendus = pointeursInstructions(["claude"]).map((p) => p.file);
     assert.notInclude(
       rendus,
-      gemini?.instructions.fichier,
+      gemini?.instructions.file,
       "un agent NON demandé ne dépose rien dans le dépôt de l'utilisateur",
     );
     if (!claude?.instructions.natif) {
-      assert.include(rendus, claude?.instructions.fichier);
+      assert.include(rendus, claude?.instructions.file);
     }
   });
 
@@ -6790,8 +6790,8 @@ describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => 
   it("chaque fait s'ancre dans le SOURCE de l'agent — jamais dans sa doc seule", () => {
     for (const cible of AGENT_TARGETS) {
       assert.isNotEmpty(
-        cible.instructions.preuve,
-        `${cible.nom} : le fichier d'instructions est affirmé sans preuve`,
+        cible.instructions.proof,
+        `${cible.name} : le fichier d'instructions est affirmé sans preuve`,
       );
     }
   });

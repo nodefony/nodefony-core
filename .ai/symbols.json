@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T19:02:46.043Z",
+  "generated": "2026-09-05T19:09:04.770Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -658,8 +658,8 @@
       "extends": null,
       "description": "Un agent de développement, et l'endroit où il lit ses variables. ⭐ **Cette table existe parce qu'aucun agent ne lit `.env.local`.** Ce fichier est celui de l'APPLICATION ; le client MCP, lui, résou…"
     },
-    "IDeclarationContexte": {
-      "name": "IDeclarationContexte",
+    "IDeclarationContext": {
+      "name": "IDeclarationContext",
       "kind": "interface",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
@@ -699,8 +699,8 @@
       "module": "@nodefony/core",
       "description": "Rend le plan sous la forme qu'on peut recopier dans un terminal. C'est le repli quand la CLI est absente : dire ce qu'il aurait fallu lancer vaut mieux que constater l'absence — la commande reste j…"
     },
-    "racineAgent": {
-      "name": "racineAgent",
+    "agentRoot": {
+      "name": "agentRoot",
       "kind": "function",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
@@ -730,15 +730,15 @@
       "module": "@nodefony/core",
       "description": "Ce fichier porte-t-il DÉJÀ cette variable ? ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui porte …"
     },
-    "porteDejaLaCle": {
-      "name": "porteDejaLaCle",
+    "alreadyHasKey": {
+      "name": "alreadyHasKey",
       "kind": "function",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
       "module": "@nodefony/core"
     },
-    "agentsDemandes": {
-      "name": "agentsDemandes",
+    "requestedAgents": {
+      "name": "requestedAgents",
       "kind": "function",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
@@ -770,8 +770,8 @@
       "extends": null,
       "description": "Ce qu'il faut lancer pour obtenir le jeton, ou `null` s'il n'y a rien à faire."
     },
-    "IEtatJeton": {
-      "name": "IEtatJeton",
+    "ITokenState": {
+      "name": "ITokenState",
       "kind": "interface",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
@@ -779,8 +779,8 @@
       "extends": null,
       "description": "Décide s'il faut enchaîner sur `security:token`, et avec quoi. PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux. Trois choses ne « suivent » pas toutes seules d'un proce…"
     },
-    "IResultatDeclaration": {
-      "name": "IResultatDeclaration",
+    "IDeclarationResult": {
+      "name": "IDeclarationResult",
       "kind": "interface",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
@@ -804,24 +804,24 @@
       "module": "@nodefony/core",
       "description": "Déduit l'origine du serveur de développement. ⚠️ **Le port en clair est préféré au port TLS**, et ce n'est pas une négligence : en développement le certificat est auto-signé, et un client MCP qui l…"
     },
-    "etatDuJeton": {
-      "name": "etatDuJeton",
+    "tokenState": {
+      "name": "tokenState",
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit l'échéance et les scopes d'un JWT, sans le valider ni le divulguer."
     },
-    "renderEtatJeton": {
-      "name": "renderEtatJeton",
+    "renderTokenState": {
+      "name": "renderTokenState",
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Phrase d'état d'un jeton, pour un humain devant une question."
     },
-    "etatJetonsAgents": {
-      "name": "etatJetonsAgents",
+    "agentTokenStates": {
+      "name": "agentTokenStates",
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
@@ -835,8 +835,8 @@
       "exported": true,
       "module": "@nodefony/core"
     },
-    "declarerChezAgents": {
-      "name": "declarerChezAgents",
+    "declareToAgents": {
+      "name": "declareToAgents",
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
@@ -29576,9 +29576,8 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
-      "agentsDemandes": [
-        "src/nodefony/src/cli/aiMcp.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      "requestedAgents": [
+        "src/nodefony/src/cli/aiMcp.ts"
       ],
       "agentsPresents": [
         "src/nodefony/src/cli/aiMcp.ts",
@@ -29590,9 +29589,8 @@
       "planAgentDeclaration": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
-      "racineAgent": [
-        "src/nodefony/src/cli/aiMcp.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      "agentRoot": [
+        "src/nodefony/src/cli/aiMcp.ts"
       ],
       "renderPlanShell": [
         "src/nodefony/src/cli/aiMcp.ts"
@@ -34659,9 +34657,6 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "poseVariable": [
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
-      ],
-      "porteDejaLaCle": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "ecrireSecretSync": [

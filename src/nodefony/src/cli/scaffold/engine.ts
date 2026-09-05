@@ -666,7 +666,7 @@ function renderProjectAgents(
   // `IAgentTarget.instructions`). Chaque pointeur n'est écrit que s'il MANQUE :
   // celui qu'un développeur a remplacé lui appartient.
   const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
-  for (const { fichier, agents } of pointeursInstructions(data.agents)) {
+  for (const { file: fichier, agents } of pointeursInstructions(data.agents)) {
     const cible = path.join(projectRoot, fichier);
     if (writer.exists(cible)) continue;
     const pointer = eta.renderString(gabarit, {
@@ -710,7 +710,7 @@ export function poserPointeursAgents(
   const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
   const eta = new Eta({ autoEscape: false });
   const ecrits: string[] = [];
-  for (const { fichier, agents } of pointeurs) {
+  for (const { file: fichier, agents } of pointeurs) {
     const cible = path.join(projectRoot, fichier);
     if (existsSync(cible)) {
       continue;

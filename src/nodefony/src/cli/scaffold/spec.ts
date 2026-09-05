@@ -277,8 +277,8 @@ const APP_SPEC: IScaffoldTypeSpec = {
           hint: "AGENTS.md + MCP déposés dans le projet, aucune CLI lancée",
         },
         ...AGENT_TARGETS.map((cible) => ({
-          value: cible.cle,
-          label: cible.nom,
+          value: cible.key,
+          label: cible.name,
           hint:
             cible.declaration === "cli"
               ? `configuré par sa CLI (\`${cible.bin}\`)`

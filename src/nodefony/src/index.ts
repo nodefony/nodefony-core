@@ -841,16 +841,16 @@ export {
   AGENT_TARGETS,
   planAgentDeclaration,
   renderPlanShell,
-  racineAgent,
+  agentRoot as racineAgent,
   poseVariable,
-  porteDejaLaCle,
-  agentsDemandes,
+  alreadyHasKey as porteDejaLaCle,
+  requestedAgents as agentsDemandes,
   agentsPresents,
   MCP_TOKEN_ENV,
 } from "./cli/agentTargets";
 export type {
   IAgentTarget,
-  IDeclarationContexte,
+  IDeclarationContext as IDeclarationContexte,
   IDeclarationPlan,
   VoieDeclaration,
 } from "./cli/agentTargets";

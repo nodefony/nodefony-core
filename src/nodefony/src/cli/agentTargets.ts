@@ -51,19 +51,19 @@ export type VoieDeclaration = "fichier-projet" | "cli";
  */
 export interface IAgentTarget {
   /** Clé courte — ce que `--agent` accepte, et ce qu'une question propose. */
-  cle: string;
+  key: string;
   /** Nom affiché. */
-  nom: string;
+  name: string;
   /**
    * Où vit sa configuration : dans le PROJET, ou dans le dossier de
    * l'utilisateur. La distinction commande la garde appliquée — un fichier de
    * projet peut se retrouver commité, celui de l'utilisateur non.
    */
-  portee: "projet" | "utilisateur";
-  /** Ce dont la présence prouve que l'agent est utilisé — résolu selon `portee`. */
-  marqueur: string;
+  scope: "projet" | "utilisateur";
+  /** Ce dont la présence prouve que l'agent est utilisé — résolu selon `scope`. */
+  marker: string;
   /** Fichier à écrire — relatif au projet, ou au dossier de l'agent. */
-  fichier: string;
+  file: string;
   /** Grammaire du fichier. */
   forme: "json-env" | "dotenv";
   /**
@@ -72,7 +72,7 @@ export interface IAgentTarget {
    * Elle sert DEUX fois. À la lecture, elle dit où l'agent tient ses variables
    * quand l'utilisateur l'a déplacé. À l'écriture, elle est ce qui donne une
    * portée PROJET à une CLI qui n'en offre pas : pointée sur
-   * `<projet>/<marqueur>`, la commande de l'agent écrit son propre format dans
+   * `<projet>/<marker>`, la commande de l'agent écrit son propre format dans
    * le projet au lieu du foyer. Sa présence vaut donc capacité — un agent qui
    * la porte peut être déclaré par projet ; les autres ne le peuvent pas.
    */
@@ -89,9 +89,9 @@ export interface IAgentTarget {
    * l'autre, valeur de l'en-tête ici, NOM de la variable là), et un gabarit
    * commun les aurait déformées toutes les quatre.
    */
-  argvAjout?: (ctx: IDeclarationContexte) => string[];
+  argvAdd?: (ctx: IDeclarationContext) => string[];
   /** Arguments qui RETIRENT la déclaration. */
-  argvRetrait?: () => string[];
+  argvRemove?: () => string[];
   /**
    * Arguments qui LISTENT les serveurs déclarés, quand la CLI sait le faire.
    *
@@ -105,7 +105,7 @@ export interface IAgentTarget {
    * Absente chez un agent qui n'offre pas de lecture : on ne prétend alors
    * rien, plutôt que de deviner.
    */
-  argvListe?: () => string[];
+  argvList?: () => string[];
   /**
    * Ce qu'il reste à faire APRÈS une déclaration réussie, quand l'agent pose
    * une condition de son cru.
@@ -116,7 +116,7 @@ export interface IAgentTarget {
    * d'un outil qui n'apparaît nulle part : le pire retour possible, et une
    * heure passée à soupçonner le jeton.
    */
-  noteApres?: string;
+  noteAfter?: string;
   /**
    * Le fichier d'instructions que cet agent lit **d'office**, et s'il s'agit
    * d'`AGENTS.md` lui-même.
@@ -131,26 +131,26 @@ export interface IAgentTarget {
    * configuration d'un outil tiers (même règle que la déclaration MCP, qui
    * passe par SA CLI).
    *
-   * `preuve` ancre le fait dans le SOURCE de l'agent, pas dans sa
+   * `proof` ancre le fait dans le SOURCE de l'agent, pas dans sa
    * documentation : c'est elle qui se re-vérifie le jour où l'un d'eux change
    * d'avis, et la doc de l'un d'eux dit déjà autre chose que son code.
    */
   instructions: {
     /** Nom du fichier lu d'office (relatif à la racine du projet). */
-    fichier: string;
+    file: string;
     /** `true` quand ce fichier EST `AGENTS.md` — rien à poser. */
     natif: boolean;
     /** Où le constater dans le source de l'agent (ou la mesure qui l'a établi). */
-    preuve: string;
+    proof: string;
   };
 }
 
 /** Ce qu'il faut savoir pour composer la déclaration chez un agent. */
-export interface IDeclarationContexte {
+export interface IDeclarationContext {
   /** URL absolue de la porte MCP (`http://localhost:5151/nodefony/mcp`). */
   url: string;
   /** Nom sous lequel le serveur est déclaré. */
-  nom: string;
+  name: string;
   /** Nom de la variable qui porte le jeton — jamais le jeton lui-même. */
   tokenEnv: string;
 }
@@ -205,7 +205,7 @@ export interface IDeclarationContexte {
  * ⭐ **La sortie n'est ni de renoncer, ni d'écrire leur TOML nous-mêmes** — ce
  * serait reprendre à notre compte le format d'un tiers, précisément ce que ce
  * fichier existe pour éviter. Les deux obéissent à une variable qui déplace
- * leur dossier (`VIBE_HOME`, `CODEX_HOME`) : pointée sur `<projet>/<marqueur>`,
+ * leur dossier (`VIBE_HOME`, `CODEX_HOME`) : pointée sur `<projet>/<marker>`,
  * c'est LEUR binaire qui écrit LEUR format, dans le PROJET. Vérifié au disque
  * pour les deux, ligne d'authentification comprise.
  *
@@ -238,21 +238,21 @@ export interface IDeclarationContexte {
  */
 export const AGENT_TARGETS: readonly IAgentTarget[] = [
   {
-    cle: "claude",
-    nom: "Claude Code",
-    portee: "projet",
-    marqueur: ".claude",
-    fichier: ".claude/settings.local.json",
+    key: "claude",
+    name: "Claude Code",
+    scope: "projet",
+    marker: ".claude",
+    file: ".claude/settings.local.json",
     forme: "json-env",
     instructions: {
-      fichier: "CLAUDE.md",
+      file: "CLAUDE.md",
       natif: false,
       // Mesuré sur le binaire 2.1.240, outils de lecture COUPÉS : un projet
       // n'ayant qu'un `AGENTS.md` rend « INCONNU », le même projet avec un
       // `CLAUDE.md` restitue son contenu. Son propre binaire porte pourtant la
       // phrase « Claude Code hardcodes CLAUDE.md / AGENTS.md discovery » — elle
       // parle des noms non configurables, pas de deux fichiers lus.
-      preuve: "mesure : CLAUDE.md chargé, AGENTS.md seul ignoré (2.1.240)",
+      proof: "mesure : CLAUDE.md chargé, AGENTS.md seul ignoré (2.1.240)",
     },
     // Il lit le `.mcp.json` du projet — celui que cette commande vient
     // d'écrire. `claude mcp add` poserait une seconde entrée en portée
@@ -261,29 +261,29 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     declaration: "fichier-projet",
   },
   {
-    cle: "gemini",
-    nom: "Gemini CLI",
-    portee: "projet",
-    marqueur: ".gemini",
-    fichier: ".gemini/.env",
+    key: "gemini",
+    name: "Gemini CLI",
+    scope: "projet",
+    marker: ".gemini",
+    file: ".gemini/.env",
     forme: "dotenv",
     instructions: {
-      fichier: "GEMINI.md",
+      file: "GEMINI.md",
       natif: false,
       // `DEFAULT_CONTEXT_FILENAME = 'GEMINI.md'`. Le nom est configurable
       // (`context.fileName`, qui accepte un TABLEAU), mais cela vit dans SA
       // configuration : on pose un pointeur à nous plutôt que d'y écrire.
-      preuve:
+      proof:
         "gemini-cli packages/core/src/tools/memoryTool.ts (DEFAULT_CONTEXT_FILENAME)",
     },
     declaration: "cli",
     bin: "gemini",
     // `--scope project` écrit dans `.gemini/settings.json`, à côté du `.env` où
     // le jeton est posé : la porte et sa clé restent dans le même projet.
-    argvAjout: (c) => [
+    argvAdd: (c) => [
       "mcp",
       "add",
-      c.nom,
+      c.name,
       c.url,
       "--transport",
       "http",
@@ -295,32 +295,31 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
       // L'écrire développé graverait le jeton dans un fichier de projet.
       `Authorization: Bearer \${${c.tokenEnv}}`,
     ],
-    argvRetrait: () => ["mcp", "remove", MCP_SERVER_KEY, "--scope", "project"],
-    argvListe: () => ["mcp", "list"],
+    argvRemove: () => ["mcp", "remove", MCP_SERVER_KEY, "--scope", "project"],
+    argvList: () => ["mcp", "list"],
     // Constaté : après une déclaration parfaitement acceptée, `gemini mcp list`
     // rend « Disabled » et l'avertissement « this folder is untrusted ».
-    noteApres:
+    noteAfter:
       "Gemini n'active un serveur que dans un dossier de CONFIANCE — sinon il " +
       "reste « Disabled ». Accorde la confiance au premier lancement, ou " +
       "`gemini --skip-trust` le temps d'une session.",
   },
   {
-    cle: "vibe",
-    nom: "Vibe (Mistral)",
-    portee: "utilisateur",
-    marqueur: ".vibe",
-    fichier: ".env",
+    key: "vibe",
+    name: "Vibe (Mistral)",
+    scope: "utilisateur",
+    marker: ".vibe",
+    file: ".env",
     forme: "dotenv",
     home: "VIBE_HOME",
     instructions: {
-      fichier: "AGENTS.md",
+      file: "AGENTS.md",
       natif: true,
-      preuve:
-        "mistral-vibe vibe/core/paths/conventions.py (AGENTS_MD_FILENAME)",
+      proof: "mistral-vibe vibe/core/paths/conventions.py (AGENTS_MD_FILENAME)",
     },
     declaration: "cli",
     bin: "vibe",
-    noteApres:
+    noteAfter:
       "Déclaration de PROJET (`.vibe/config.toml`), écrite par sa propre CLI " +
       "via `VIBE_HOME`. Vibe ne la lira que dans un dossier qu'il tient pour " +
       "de CONFIANCE : `vibe --trust` une fois, ici. `--global` la remet dans " +
@@ -328,10 +327,10 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
       "puisque l'URL porte un port.",
     // Il prend le NOM de la variable, pas sa valeur : le secret ne transite ni
     // par la ligne de commande (visible dans `ps`) ni par sa configuration.
-    argvAjout: (c) => [
+    argvAdd: (c) => [
       "mcp",
       "add",
-      c.nom,
+      c.name,
       "--transport",
       "streamable-http",
       "--url",
@@ -339,41 +338,41 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
       "--api-key-env",
       c.tokenEnv,
     ],
-    argvRetrait: () => ["mcp", "remove", MCP_SERVER_KEY],
+    argvRemove: () => ["mcp", "remove", MCP_SERVER_KEY],
   },
   {
-    cle: "codex",
-    nom: "Codex",
-    portee: "utilisateur",
-    marqueur: ".codex",
-    fichier: ".env",
+    key: "codex",
+    name: "Codex",
+    scope: "utilisateur",
+    marker: ".codex",
+    file: ".env",
     forme: "dotenv",
     home: "CODEX_HOME",
     instructions: {
-      fichier: "AGENTS.md",
+      file: "AGENTS.md",
       natif: true,
       // `DEFAULT_AGENTS_MD_FILENAME` + `AGENTS.override.md` en surcharge locale.
-      preuve:
+      proof:
         "codex codex-rs/core/src/agents_md.rs (DEFAULT_AGENTS_MD_FILENAME)",
     },
     declaration: "cli",
     bin: "codex",
-    noteApres:
+    noteAfter:
       "Déclaration de PROJET (`.codex/config.toml`), écrite par sa propre CLI " +
       "via `CODEX_HOME` — il répond « Added global », mot qui parle de SON " +
       "dossier, pas du tien. Codex ne la lira que dans un dépôt de CONFIANCE " +
       "(`trust_level`). `--global` la remet dans ton foyer.",
-    argvAjout: (c) => [
+    argvAdd: (c) => [
       "mcp",
       "add",
-      c.nom,
+      c.name,
       "--url",
       c.url,
       "--bearer-token-env-var",
       c.tokenEnv,
     ],
-    argvRetrait: () => ["mcp", "remove", MCP_SERVER_KEY],
-    argvListe: () => ["mcp", "list"],
+    argvRemove: () => ["mcp", "remove", MCP_SERVER_KEY],
+    argvList: () => ["mcp", "list"],
   },
 ];
 
@@ -388,7 +387,7 @@ export type IDeclarationPlan =
   | {
       voie: "fichier-projet";
       /** Le fichier qui porte DÉJÀ la déclaration — rien à lancer. */
-      fichier: string;
+      file: string;
     }
   | {
       voie: "cli";
@@ -401,24 +400,24 @@ export type IDeclarationPlan =
 /**
  * Compose la déclaration de la porte MCP chez un agent.
  *
- * @param cible - l'agent visé
+ * @param target - l'agent visé
  * @param ctx - l'URL de la porte et le nom de la variable qui porte le jeton
- * @param retirer - `true` pour retirer la déclaration au lieu de la poser
+ * @param remove - `true` pour retirer la déclaration au lieu de la poser
  * @returns le plan d'exécution, jamais `null` — un agent sans CLI est un agent
  *          dont la déclaration vit déjà dans un fichier du projet
  */
 export function planAgentDeclaration(
-  cible: IAgentTarget,
-  ctx: Pick<IDeclarationContexte, "url" | "tokenEnv">,
-  retirer = false,
+  target: IAgentTarget,
+  ctx: Pick<IDeclarationContext, "url" | "tokenEnv">,
+  remove = false,
 ): IDeclarationPlan {
-  if (cible.declaration === "fichier-projet" || !cible.bin) {
-    return { voie: "fichier-projet", fichier: MCP_CONFIG_FILE };
+  if (target.declaration === "fichier-projet" || !target.bin) {
+    return { voie: "fichier-projet", file: MCP_CONFIG_FILE };
   }
-  const argv = retirer
-    ? (cible.argvRetrait?.() ?? [])
-    : (cible.argvAjout?.({ ...ctx, nom: MCP_SERVER_KEY }) ?? []);
-  return { voie: "cli", bin: cible.bin, argv };
+  const argv = remove
+    ? (target.argvRemove?.() ?? [])
+    : (target.argvAdd?.({ ...ctx, name: MCP_SERVER_KEY }) ?? []);
+  return { voie: "cli", bin: target.bin, argv };
 }
 
 /**
@@ -446,23 +445,23 @@ export function renderPlanShell(plan: IDeclarationPlan): string {
  * compris la grammaire de chemins d'une autre plateforme — sans dépendre du
  * poste qui exécute le test.
  *
- * @param cible - l'agent visé
+ * @param target - l'agent visé
  * @param ctx - racine du projet, dossier de l'utilisateur, environnement
  */
-export function racineAgent(
-  cible: IAgentTarget,
+export function agentRoot(
+  target: IAgentTarget,
   ctx: {
     projectRoot: string;
     home?: string;
     env?: Record<string, string | undefined>;
   },
 ): string {
-  if (cible.portee === "projet") return ctx.projectRoot;
-  const surcharge = cible.home
-    ? (ctx.env ?? process.env)[cible.home]
+  if (target.scope === "projet") return ctx.projectRoot;
+  const surcharge = target.home
+    ? (ctx.env ?? process.env)[target.home]
     : undefined;
   return path.resolve(
-    surcharge ?? path.join(ctx.home ?? homedir(), cible.marqueur),
+    surcharge ?? path.join(ctx.home ?? homedir(), target.marker),
   );
 }
 
@@ -485,12 +484,12 @@ export function agentsPresents(ctx: {
   projectRoot: string;
   home?: string;
   env?: Record<string, string | undefined>;
-  existe: (chemin: string) => boolean;
+  exists: (filePath: string) => boolean;
 }): IAgentTarget[] {
   return AGENT_TARGETS.filter((c) => {
     // 🔴 On cherche le marqueur DANS LE PROJET **et** chez l'utilisateur, quelle
     // que soit la portée d'écriture — parce que ce sont deux questions
-    // distinctes que `portee` confondait : « où prouve-t-on que cet agent
+    // distinctes que `scope` confondait : « où prouve-t-on que cet agent
     // sert ? » et « où écrit-on sa déclaration ? ».
     //
     // Le cercle que cela fermait : Gemini écrit en portée PROJET
@@ -502,11 +501,11 @@ export function agentsPresents(ctx: {
     // Élargir ne concède rien : rien n'est coché par défaut, la question est un
     // choix explicite, et un dossier d'agent chez l'utilisateur prouve qu'il
     // s'en sert — pas seulement qu'un binaire traîne dans le `PATH`.
-    const dansProjet = ctx.existe(path.resolve(ctx.projectRoot, c.marqueur));
-    const chezUtilisateur = ctx.existe(
-      racineAgent({ ...c, portee: "utilisateur" }, ctx),
+    const inProject = ctx.exists(path.resolve(ctx.projectRoot, c.marker));
+    const inUserHome = ctx.exists(
+      agentRoot({ ...c, scope: "utilisateur" }, ctx),
     );
-    return dansProjet || chezUtilisateur;
+    return inProject || inUserHome;
   });
 }
 
@@ -534,39 +533,39 @@ export function agentsPresents(ctx: {
  * `trimEnd()` ne convient pas : il emporterait aussi espaces et tabulations,
  * alors qu'on ne veut normaliser QUE la fin de ligne avant d'ajouter la nôtre.
  */
-function sansSautsFinaux(texte: string): string {
-  let fin = texte.length;
-  while (fin > 0 && texte.charCodeAt(fin - 1) === 10) fin -= 1;
-  return texte.slice(0, fin);
+function withoutTrailingNewlines(text: string): string {
+  let fin = text.length;
+  while (fin > 0 && text.charCodeAt(fin - 1) === 10) fin -= 1;
+  return text.slice(0, fin);
 }
 
 export function poseVariable(
   forme: IAgentTarget["forme"],
-  actuel: string,
-  cle: string,
-  valeur: string,
+  current: string,
+  key: string,
+  value: string,
 ): string | Error {
   if (forme === "dotenv") {
-    const ligne = `${cle}=${valeur}`;
-    const motif = new RegExp(`^\\s*${cle}\\s*=.*$`, "m");
-    if (motif.test(actuel)) return actuel.replace(motif, ligne);
-    return actuel.length === 0
-      ? `${ligne}\n`
-      : `${sansSautsFinaux(actuel)}\n${ligne}\n`;
+    const line = `${key}=${value}`;
+    const pattern = new RegExp(`^\\s*${key}\\s*=.*$`, "m");
+    if (pattern.test(current)) return current.replace(pattern, line);
+    return current.length === 0
+      ? `${line}\n`
+      : `${withoutTrailingNewlines(current)}\n${line}\n`;
   }
   let doc: Record<string, unknown>;
   try {
     doc =
-      actuel.trim() === ""
+      current.trim() === ""
         ? {}
-        : (JSON.parse(actuel) as Record<string, unknown>);
+        : (JSON.parse(current) as Record<string, unknown>);
   } catch {
     // Un fichier corrompu ne se réécrit pas en silence : il porte les réglages
     // de quelqu'un, et les remplacer par les nôtres serait pire que ne rien faire.
     return new Error("le fichier existe mais n'est pas du JSON valide");
   }
   const env = (doc.env ?? {}) as Record<string, unknown>;
-  env[cle] = valeur;
+  env[key] = value;
   doc.env = env;
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
@@ -593,44 +592,44 @@ export function poseVariable(
  * ce qu'il en montre n'est pas le jeton.
  *
  * @param forme - grammaire du fichier
- * @param contenu - contenu actuel, ou chaîne vide
- * @param cle - nom de la variable
+ * @param content - contenu actuel, ou chaîne vide
+ * @param key - nom de la variable
  * @returns la valeur, ou `null` si elle est absente ou vide
  */
 export function litVariable(
   forme: IAgentTarget["forme"],
-  contenu: string,
-  cle: string,
+  content: string,
+  key: string,
 ): string | null {
-  if (contenu.trim() === "") return null;
+  if (content.trim() === "") return null;
   if (forme === "dotenv") {
-    const trouve = new RegExp(`^\\s*${cle}\\s*=\\s*(.*)$`, "m").exec(contenu);
-    if (!trouve?.[1]) return null;
+    const found = new RegExp(`^\\s*${key}\\s*=\\s*(.*)$`, "m").exec(content);
+    if (!found?.[1]) return null;
     // Les guillemets sont une convention d'écriture, pas une part de la valeur.
-    const brut = trouve[1].trim().replace(/^["']|["']$/gu, "");
+    const brut = found[1].trim().replace(/^["']|["']$/gu, "");
     return brut === "" ? null : brut;
   }
   try {
-    const doc = JSON.parse(contenu) as { env?: Record<string, unknown> };
-    const valeur = doc.env?.[cle];
-    return typeof valeur === "string" && valeur !== "" ? valeur : null;
+    const doc = JSON.parse(content) as { env?: Record<string, unknown> };
+    const value = doc.env?.[key];
+    return typeof value === "string" && value !== "" ? value : null;
   } catch {
     return null;
   }
 }
 
-export function porteDejaLaCle(
+export function alreadyHasKey(
   forme: IAgentTarget["forme"],
-  contenu: string,
-  cle: string,
+  content: string,
+  key: string,
 ): boolean {
-  if (contenu.trim() === "") return false;
+  if (content.trim() === "") return false;
   if (forme === "dotenv") {
-    return new RegExp(`^\\s*${cle}\\s*=`, "m").test(contenu);
+    return new RegExp(`^\\s*${key}\\s*=`, "m").test(content);
   }
   try {
-    const doc = JSON.parse(contenu) as { env?: Record<string, unknown> };
-    return typeof doc.env?.[cle] === "string" && doc.env[cle] !== "";
+    const doc = JSON.parse(content) as { env?: Record<string, unknown> };
+    return typeof doc.env?.[key] === "string" && doc.env[key] !== "";
   } catch {
     return false;
   }
@@ -648,25 +647,25 @@ export function porteDejaLaCle(
  * @param raw - la valeur telle que tapée, ou rien
  * @returns les cibles demandées, `undefined` si rien n'est demandé, une `Error` sinon
  */
-export function agentsDemandes(
+export function requestedAgents(
   raw: string | undefined,
 ): readonly IAgentTarget[] | undefined | Error {
   if (raw === undefined) return undefined;
-  const cles = raw
+  const keys = raw
     .split(/[\s,]+/u)
     .map((c) => c.trim().toLowerCase())
     .filter(Boolean);
-  if (cles.length === 1 && cles[0] === "none") return [];
-  if (cles.length === 1 && cles[0] === "all") return AGENT_TARGETS;
-  const connues = AGENT_TARGETS.map((c) => c.cle);
-  const inconnues = cles.filter((c) => !connues.includes(c));
-  if (inconnues.length > 0) {
+  if (keys.length === 1 && keys[0] === "none") return [];
+  if (keys.length === 1 && keys[0] === "all") return AGENT_TARGETS;
+  const known = AGENT_TARGETS.map((c) => c.key);
+  const unknown = keys.filter((c) => !known.includes(c));
+  if (unknown.length > 0) {
     return new Error(
-      `--agent : « ${inconnues.join(", ")} » inconnu — attendus : ` +
-        `${connues.join(", ")}, all, none`,
+      `--agent : « ${unknown.join(", ")} » inconnu — attendus : ` +
+        `${known.join(", ")}, all, none`,
     );
   }
-  return AGENT_TARGETS.filter((c) => cles.includes(c.cle));
+  return AGENT_TARGETS.filter((c) => keys.includes(c.key));
 }
 
 /**
@@ -677,7 +676,7 @@ export function agentsDemandes(
  * au standard. Deux agents qui liraient le même nom sont regroupés — le
  * pointeur est écrit une fois et les nomme tous les deux.
  *
- * 🔴 **Le filtrage n'est pas un confort.** Sans `cles`, cette fonction rendait
+ * 🔴 **Le filtrage n'est pas un confort.** Sans `keys`, cette fonction rendait
  * TOUS les pointeurs, et une application créée en répondant « Claude » naissait
  * avec un `GEMINI.md` que personne n'avait demandé. Rapporté tel quel :
  * « j'ai demandé un agent claude, je me retrouve avec un GEMINI.md ». Poser
@@ -687,27 +686,27 @@ export function agentsDemandes(
  * câble (`nodefony ai:mcp --agent <clé>`), c'est-à-dire quand il entre
  * réellement dans le projet.
  *
- * @param cles - clés d'agents retenues. **Obligatoire** : rendre tous les
+ * @param keys - clés d'agents retenues. **Obligatoire** : rendre tous les
  *   pointeurs par défaut est précisément le défaut corrigé. Une liste vide ne
  *   rend rien — coder seul est un choix.
- * @returns un couple `fichier` → agents concernés, trié par nom de fichier.
+ * @returns un couple `file` → agents concernés, trié par nom de fichier.
  */
-export function pointeursInstructions(cles: readonly string[]): readonly {
-  fichier: string;
+export function pointeursInstructions(keys: readonly string[]): readonly {
+  file: string;
   agents: readonly string[];
 }[] {
-  const retenues = new Set(cles);
+  const kept = new Set(keys);
   const par = new Map<string, string[]>();
-  for (const cible of AGENT_TARGETS) {
-    if (cible.instructions.natif) continue;
-    if (!retenues.has(cible.cle)) continue;
-    const deja = par.get(cible.instructions.fichier);
-    if (deja) deja.push(cible.nom);
-    else par.set(cible.instructions.fichier, [cible.nom]);
+  for (const target of AGENT_TARGETS) {
+    if (target.instructions.natif) continue;
+    if (!kept.has(target.key)) continue;
+    const already = par.get(target.instructions.file);
+    if (already) already.push(target.name);
+    else par.set(target.instructions.file, [target.name]);
   }
   return [...par.entries()]
-    .map(([fichier, agents]) => ({ fichier, agents }))
-    .sort((a, b) => a.fichier.localeCompare(b.fichier));
+    .map(([file, agents]) => ({ file: file, agents }))
+    .sort((a, b) => a.file.localeCompare(b.file));
 }
 
 /** Ré-export de commodité — la table et la variable vont toujours ensemble. */

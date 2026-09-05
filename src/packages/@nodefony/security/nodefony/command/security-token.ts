@@ -188,7 +188,7 @@ class SecurityToken extends Command {
   /** Contenu du fichier d'une cible, "" s'il n'existe pas. */
   #contenuDe(cible: IAgentTarget): string {
     try {
-      const abs = path.resolve(this.#racineDe(cible), cible.fichier);
+      const abs = path.resolve(this.#racineDe(cible), cible.file);
       return lireSiPresentSync(abs) ?? "";
     } catch {
       return "";
@@ -206,7 +206,7 @@ class SecurityToken extends Command {
     // que si le projet était DÉJÀ configuré pour lui — donc jamais servi la
     // première fois. Deux implémentations d'une même règle divergent, et c'est
     // toujours celle qu'on relit le moins qui garde le défaut.
-    return agentsPresents({ projectRoot: this.#root(), existe: existsSync });
+    return agentsPresents({ projectRoot: this.#root(), exists: existsSync });
   }
 
   /**
@@ -232,14 +232,14 @@ class SecurityToken extends Command {
       const racine = this.#racineDe(cible);
       // La garde git ne vaut que pour le projet : le dossier de l'utilisateur
       // n'est pas versionné, et `git ls-files` y répondrait sur un autre dépôt.
-      if (cible.portee === "projet" && this.#tracked(cible.fichier)) {
+      if (cible.scope === "projet" && this.#tracked(cible.file)) {
         w(
-          `${YELLOW}⚠ ${cible.fichier} est SUIVI par git — rien n'est écrit.${RESET}\n` +
+          `${YELLOW}⚠ ${cible.file} est SUIVI par git — rien n'est écrit.${RESET}\n` +
             `${DIM}  Un jeton commité est un jeton publié.${RESET}\n\n`,
         );
         continue;
       }
-      const abs = path.resolve(racine, cible.fichier);
+      const abs = path.resolve(racine, cible.file);
       // Lire d'abord, traiter l'absence ensuite : `existsSync` puis `read` teste
       // un état qui peut changer avant l'usage — et l'on écrit ici un SECRET.
       const pose = poseVariable(
@@ -250,7 +250,7 @@ class SecurityToken extends Command {
       );
       if (pose instanceof Error) {
         w(
-          `${YELLOW}⚠ ${cible.fichier} : ${pose.message} — rien n'est écrit.${RESET}\n\n`,
+          `${YELLOW}⚠ ${cible.file} : ${pose.message} — rien n'est écrit.${RESET}\n\n`,
         );
         continue;
       }
@@ -261,7 +261,7 @@ class SecurityToken extends Command {
         ecrireSecretSync(abs, pose);
       } catch (error) {
         w(
-          `${YELLOW}⚠ ${cible.fichier} : écriture impossible — ${(error as Error).message}${RESET}\n\n`,
+          `${YELLOW}⚠ ${cible.file} : écriture impossible — ${(error as Error).message}${RESET}\n\n`,
         );
         continue;
       }
@@ -274,20 +274,20 @@ class SecurityToken extends Command {
         w(`${YELLOW}⚠ ${messageNonRestreint(abs, modeObtenu)}${RESET}\n`);
       }
       w(
-        `${GREEN}✓ ${MCP_TOKEN_ENV} posé pour ${cible.nom}${RESET} ` +
+        `${GREEN}✓ ${MCP_TOKEN_ENV} posé pour ${cible.name}${RESET} ` +
           // Le chemin AFFICHÉ est celui qu'on a réellement écrit : rendre
           // « .env » pour un fichier qui vit dans le dossier de l'utilisateur
           // le ferait confondre avec celui du projet, et chercher au mauvais
           // endroit le jour où quelque chose cloche.
-          `${DIM}(${cible.portee === "projet" ? cible.fichier : abs})${RESET}\n` +
+          `${DIM}(${cible.scope === "projet" ? cible.file : abs})${RESET}\n` +
           `${DIM}  RELANCE-le : il lit sa configuration au démarrage.${RESET}\n`,
       );
       // Le fichier n'est pas suivi AUJOURD'HUI — mais rien n'empêche un
       // `git add -A` de l'emporter demain. Un jeton commité est un jeton
       // publié : la seule faute de cette commande qui serait irrattrapable.
-      if (cible.portee === "projet" && !this.#gitIgnored(cible.fichier)) {
+      if (cible.scope === "projet" && !this.#gitIgnored(cible.file)) {
         w(
-          `${YELLOW}  ⚠ ${cible.fichier} n'est PAS couvert par .gitignore — ` +
+          `${YELLOW}  ⚠ ${cible.file} n'est PAS couvert par .gitignore — ` +
             `un « git add -A » l'emporterait.${RESET}\n`,
         );
       }
@@ -580,12 +580,12 @@ class SecurityToken extends Command {
           const choisis = (await checkbox({
             message: "Poser le jeton chez quels agents ?",
             choices: nouveaux.map((c) => ({
-              name: `${c.nom} — ${c.portee === "projet" ? c.fichier : `$${c.home}/${c.fichier}`}`,
-              value: c.cle,
+              name: `${c.name} — ${c.scope === "projet" ? c.file : `$${c.home}/${c.file}`}`,
+              value: c.key,
               checked: true,
             })),
           })) as string[];
-          cibles = nouveaux.filter((c) => choisis.includes(c.cle));
+          cibles = nouveaux.filter((c) => choisis.includes(c.key));
         } else if (porteurs.length === 0) {
           // Hors terminal : servir ce qui est détecté, sinon la commande ne
           // ferait rien du tout dans un script.
@@ -594,10 +594,10 @@ class SecurityToken extends Command {
           // Des agents sont là mais n'ont jamais été câblés : le DIRE, sans
           // décider à leur place — la rotation ne doit pas élargir le périmètre.
           w(
-            `${DIM}  ${nouveaux.map((c) => c.nom).join(", ")} ` +
+            `${DIM}  ${nouveaux.map((c) => c.name).join(", ")} ` +
               `${nouveaux.length > 1 ? "sont présents" : "est présent"} mais ne porte` +
               `${nouveaux.length > 1 ? "nt" : ""} pas encore le jeton — ` +
-              `ajoute --agent ${nouveaux.map((c) => c.cle).join(",")}.${RESET}\n\n`,
+              `ajoute --agent ${nouveaux.map((c) => c.key).join(",")}.${RESET}\n\n`,
           );
         }
       }
@@ -608,7 +608,7 @@ class SecurityToken extends Command {
             `${DIM}  Les agents connus rangent leur configuration ici :${RESET}\n` +
             AGENT_TARGETS.map(
               (c) =>
-                `${DIM}    ${c.nom} : ${c.portee === "projet" ? c.fichier : `$${c.home ?? "HOME"}/${c.fichier}`}${RESET}\n`,
+                `${DIM}    ${c.name} : ${c.scope === "projet" ? c.file : `$${c.home ?? "HOME"}/${c.file}`}${RESET}\n`,
             ).join("") +
             `\n  Le geste qui vaut pour TOUS — dans le shell d'où tu lances l'agent :\n\n` +
             `  ${BOLD}export ${MCP_TOKEN_ENV}=${jeton}${RESET}\n\n`,
