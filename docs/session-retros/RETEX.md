@@ -51,6 +51,18 @@
 
 ## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
 
+- [1× — 09-06] **Un renommage peut CHANGER LE COMPORTEMENT sous un typecheck vert, et le contrôle
+  de dérive le valide.** Deux fois dans le même lot. (1) Le span de rename d'un membre privé PORTE
+  le croisillon : `#prendreVerrou` est devenu `takeLock`, membre **public** — compile, passe les
+  tests, expose une méthode interne. (2) Renommer `cible` → `target` à côté d'un `target` existant
+  ne casse rien : ça crée deux homonymes, et TypeScript relie le raccourci `{ target }` à la
+  MAUVAISE — la fonction s'est mise à renvoyer l'URL analysée au lieu de la cible de migration.
+  Le contrôle de dérive a dit « aucune dérive » : la transformation demandée est exactement celle
+  qui a eu lieu. C'est `oxlint` (`no-unused-vars`) qui a sauvé le coup, par chance. **La règle qui
+  en sort : avant de renommer, vérifier que la cible n'est pas DÉJÀ déclarée dans le fichier** —
+  c'est une garde, pas une vigilance. Outil corrigé + auto-contrôle (`515be4f3`), les deux cas
+  vus rouges en débranchant leur moitié.
+
 - [1× — 09-05i] **Quatre sortes de consommateurs ne sont dans AUCUN programme TypeScript — et
   rompre un export ne leur arrache pas un mot.** Le retrait des alias de la veille les a tous
   trouvés d'un coup : (1) du `.mjs`, qui crie au moins une `SyntaxError` au premier import ; (2) un
@@ -878,6 +890,14 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-06] **Déplacer un script qui balaie le dépôt le rend MUET, pas cassé.** Deux outils
+  trouvaient la racine par `path.resolve(dirname(import.meta.url), "..")` — vrai tant qu'ils
+  vivaient dans `scripts/`. Portés dans un skill (quatre niveaux plus bas), ils auraient balayé le
+  dossier du skill et rendu « 0 identifiant français » : un vert parfaitement faux, qu'aucun test
+  n'aurait contredit. Remède : remonter jusqu'au dossier qui porte `.git`, et **comparer le compte
+  avant/après le déplacement** (331 sur 1508 fichiers, à l'identique) — un chiffre inchangé est la
+  seule preuve qu'un déplacement n'a rien éteint.
+
 - [1× — 09-05h] **Le critère de fin d'un ticket valait déjà 0 avant tout travail.** Il comptait un
   symbole dans `index.d.ts`, que le barrel n'expose pas — la cible vivait dans les `.d.ts` par
   module. Un critère écrit sans avoir été vu mordre est une case à cocher, pas une preuve. Et le
@@ -1238,6 +1258,15 @@
 - [1× — 09-01] **Un chemin SECONDAIRE produit un artefact différent du chemin normal, et j'ai failli en tirer un défaut.** `orm:migrate:baseline --from-database` relit la base et renomme l'index (`User_identifier_key` au lieu de `User_identifier_unique`) ; j'ai conclu à une divergence du gabarit. Le chemin normal (`orm:generate` sur base vierge) produisait le nom exact, sur les trois moteurs. **Avant d'imputer un écart au produit, vérifier qu'on l'a mesuré par le chemin que l'utilisateur emprunte.**
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
+
+- [1× — 09-06] **Un port peut être indisponible SANS être « déjà pris » — et seulement sous
+  Windows.** Le repli de port ne retentait que sur `EADDRINUSE`. Or Hyper-V, WSL et WinNAT
+  **réservent des plages entières** de ports éphémères, qu'un `listen` refuse en **`EACCES`**. Une
+  app qui glisse de port en port y tombe statistiquement — et meurt là où linux et macOS
+  continuent. Le symptôme en forge était un test rouge **par intermittence**, selon la plage
+  tirée : exactement ce qu'on classe « flake » avant de regarder. Le remède a une borne, sans quoi
+  il devient un défaut : sous 1024, `EACCES` veut dire « pas les droits », et glisser de 80 à 81 en
+  silence serait la dégradation muette qu'on refuse (`f1212cde`).
 
 - [1× — 09-04b] **Un code de sortie qui porte DEUX faits opposés fait rougir la forge sur une
   panne qui ne nous appartient pas.** `npm audit` rend `1` pour « des vulnérabilités » ET pour
@@ -1907,6 +1936,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 09-06] **Un outil de chantier câblé au `package.json` promet une automatisation qu'il n'a
+  pas.** Six outils du chantier de langue vivaient à la racine avec quatre scripts npm — et
+  AUCUN n'était lancé par un automate, ni forge ni hook. Le critère qui a servi à trancher :
+  un **gate du produit** est automatisé et subi par l'utilisateur (`check:nul`, `check:filenames`
+  tournent en pre-commit) ; un **outil de chantier** se lance sciemment et ne vaut rien sans son
+  protocole — sa place est dans un skill, qui part avec lui le jour où le chantier se ferme. Et
+  l'audit de placement l'a dit tout seul, à trois reprises, à chaque étape du déplacement.
 
 - [1× — 09-05i] **Un job de forge s'arrête au PREMIER gate rouge — les suivants ne disent alors
   rien, et leur silence se lit comme un vert.** Le refus de `skills:check` a masqué cinq gates

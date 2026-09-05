@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T20:52:29.240Z",
+  "generatedAt": "2026-09-05T22:18:19.160Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 119,
+      "closed": 120,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 40,
+      "open": 39,
       "title": "10.0.0"
     }
   ],
@@ -966,10 +966,10 @@
       "title": "refactor(core)!: écrire tous les identifiants du framework en anglais",
       "url": "https://github.com/nodefony/nodefony-core/issues/187",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 2.5,
+      "jours": 2,
       "ordre": 4.5,
       "labels": []
     },
@@ -1007,8 +1007,8 @@
       "number": 209,
       "title": "refactor(orm): écrire en anglais les identifiants du moteur SQL",
       "url": "https://github.com/nodefony/nodefony-core/issues/209",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
