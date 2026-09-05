@@ -293,11 +293,33 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     },
     lastBoots: [],
     exceptions: 0,
+    // L'étage profond n'est pas exercé par ce décor : `null` le DIT.
+    deep: null,
     execution: {
       freshness: { ran: true },
       readiness: { ran: true },
       envCatalog: { ran: true },
       envTracked: { ran: true },
+      // Étage 3 : ce décor n'exerce pas `--deep`, et son absence se DIT — un
+      // contrôle non lancé rendu en vert serait le seul mensonge que ce
+      // rapport ne doit jamais faire. Le `unlock` est celui que le PRODUIT
+      // pose : un décor qui l'omet éprouverait un rapport imaginaire.
+      verify: {
+        ran: false,
+        reason:
+          "les gardes du projet n'ont pas été LANCÉES — seule leur présence a " +
+          "été constatée",
+        short: "non demandé",
+        unlock: "nodefony doctor --deep",
+      },
+      outdated: {
+        ran: false,
+        reason:
+          "le registre npm n'a pas été interrogé — c'est du réseau, et il ne " +
+          "se paie que sur demande",
+        short: "non demandé",
+        unlock: "nodefony doctor --deep",
+      },
       deps: { ran: true },
       wiring: { ran: true },
       surface: { ran: true },
@@ -358,7 +380,24 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     const sautes = controlesSautes(attachLive(statique(), absent).execution);
     // Dérivé : une famille d'étage 2 ajoutée sans état serait affichée en vert
     // sans que rien ne l'ait regardée — exactement ce que ce module combat.
-    assert.lengthOf(sautes, LIVE_FAMILIES.length);
-    assert.equal(sautes[0]?.unlock, "`doctor --live`");
+    //
+    // Le décor ne demande NI `--live` NI `--deep`, et les deux familles de
+    // l'étage 3 se déclarent donc « non contrôlées » elles aussi. On les
+    // sépare plutôt que de gonfler l'attendu : ce cas parle des familles qui
+    // exigent un BOOT, et confondre les deux étages ferait passer sous silence
+    // une famille d'étage 2 oubliée le jour où l'étage 3 s'enrichit.
+    const etage2 = sautes.filter((c) =>
+      (LIVE_FAMILIES as readonly string[]).includes(c.famille),
+    );
+    assert.lengthOf(etage2, LIVE_FAMILIES.length);
+    assert.equal(etage2[0]?.unlock, "`doctor --live`");
+    // Et l'étage 3 est bien là, avec SON geste — jamais celui de l'étage 2.
+    const etage3 = sautes.filter((c) =>
+      ["verify", "outdated"].includes(c.famille),
+    );
+    assert.lengthOf(etage3, 2);
+    for (const c of etage3) {
+      assert.equal(c.unlock, "nodefony doctor --deep");
+    }
   });
 });

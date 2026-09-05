@@ -757,6 +757,46 @@ function sommaire(
           ? `${accord(report.guards.findings.length, "garde")} décrochée${report.guards.findings.length > 1 ? "s" : ""}`
           : `${accord(report.guards.armed, "garde")} armée${report.guards.armed > 1 ? "s" : ""}`,
     },
+    // Étage 3 — les scripts LANCÉS. Un script absent ne compte pas : c'est
+    // `guards` qui répond de sa présence, et le dire deux fois ferait porter un
+    // seul manquement par deux lignes, avec deux gestes différents.
+    verify: {
+      n: (report.deep?.steps ?? []).filter(
+        (s) => s.outcome === "failed" || s.outcome === "timeout",
+      ).length,
+      texte: (() => {
+        const steps = report.deep?.steps ?? [];
+        const rouges = steps.filter(
+          (s) => s.outcome === "failed" || s.outcome === "timeout",
+        );
+        if (rouges.length > 0)
+          return rouges.map((s) => s.step).join(", ") + " en échec";
+        const passes = steps.filter((s) => s.outcome === "passed");
+        return passes.length > 0
+          ? `${passes.map((s) => s.step).join(", ")} au vert`
+          : "aucun script à lancer";
+      })(),
+    },
+    // 🔴 `outdated` ne compte JAMAIS de manquement : un paquet en retard n'est
+    // pas un défaut de l'application. C'est une information — celle qu'on veut
+    // avant de publier, et qui n'a rien à faire dans un code de sortie. La
+    // famille est déclarée REPORTING_ONLY plus haut, qui la rend en
+    // avertissement plutôt qu'en échec.
+    outdated: {
+      n: report.deep?.outdated?.packages.length ?? 0,
+      texte: (() => {
+        const retard = report.deep?.outdated;
+        if (!retard) return "non interrogé";
+        const n = retard.packages.length;
+        if (n === 0) return "tout est à jour";
+        const majeurs = retard.packages.filter(
+          (paquet) => paquet.severity === "major",
+        ).length;
+        return majeurs > 0
+          ? `${accord(n, "paquet")} en retard, dont ${majeurs} majeure${majeurs > 1 ? "s" : ""}`
+          : `${accord(n, "paquet")} en retard`;
+      })(),
+    },
     // Étage 2 : le compte vient des findings de CETTE famille, filtrés par leur
     // origine. Un manquement de migration ne doit pas grossir la ligne du
     // firewall — le sommaire perdrait sa seule vertu, dire OÙ regarder.
@@ -947,6 +987,22 @@ function groupesDeManquements(
       items: surfaceFindings(report, "entity-other-dialect"),
     },
     { titre: TITRES.guards, items: report.guards.findings },
+    // Étage 3 — le script LANCÉ qui a échoué, avec sa première ligne utile.
+    // Sans ce groupe, le sommaire comptait le manquement et la section des
+    // problèmes ne le montrait pas : le rapport disait OÙ regarder sans jamais
+    // dire QUOI, ce qui oblige à relancer la commande à la main — exactement
+    // le geste que cet étage existe pour éviter.
+    {
+      titre: TITRES.verify,
+      items: (report.deep?.steps ?? [])
+        .filter((st) => st.outcome === "failed" || st.outcome === "timeout")
+        .map((st) => ({
+          message:
+            `\`npm run ${st.step}\` a échoué (${Math.round(st.ms / 1000)} s)` +
+            (st.detail ? ` :\n  ${st.detail}` : "") +
+            `\n  → relance-le seul pour voir la sortie entière : \`npm run ${st.step}\``,
+        })),
+    },
     // L'étage 2 en dernier : il n'existe que sur une application qui a démarré,
     // et le geste qu'il propose vient du PRODUCTEUR — il est rendu tel quel,
     // sous le constat, parce qu'une commande à taper se copie.

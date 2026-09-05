@@ -88,6 +88,10 @@ class Check extends Command {
       "Tolère un contrôle sauté même en intégration continue",
     );
     this.addOption(
+      "--deep",
+      "LANCE ce que le projet déclare (typecheck, lint, test) et interroge npm",
+    );
+    this.addOption(
       "--live",
       "Demande aussi à l'application démarrée (migrations, cohérence des zones)",
     );
@@ -115,6 +119,7 @@ class Check extends Command {
     strict?: boolean;
     noStrict?: boolean;
     live?: boolean;
+    deep?: boolean;
     env?: string;
     cwd?: string;
   }): Promise<this> {
@@ -123,6 +128,7 @@ class Check extends Command {
     if (opts?.strict) argv.push("--strict");
     if (opts?.noStrict) argv.push("--no-strict");
     if (opts?.live) argv.push("--live");
+    if (opts?.deep) argv.push("--deep");
     if (opts?.env) argv.push("--env", opts.env);
     if (opts?.cwd) argv.push("--cwd", opts.cwd);
 
@@ -139,7 +145,11 @@ class Check extends Command {
       return this;
     }
     const debut = Date.now();
-    const report = await collectDoctorReport(parsed.cwd, parsed.targetEnv);
+    const report = await collectDoctorReport(
+      parsed.cwd,
+      parsed.targetEnv,
+      parsed.deep,
+    );
     const complet = attachLive(
       report,
       await this.readLive(parsed.cwd, parsed.targetEnv),

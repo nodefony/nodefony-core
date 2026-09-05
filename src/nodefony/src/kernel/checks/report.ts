@@ -122,7 +122,11 @@ export type DoctorFamily =
   /** Étage 2 — la cohérence des zones, née de la confrontation au boot. */
   | "firewall"
   /** Étage 2 — ce que l'environnement VISÉ fera disparaître (`--env`). */
-  | "gating";
+  | "gating"
+  /** Étage 3 — les scripts que le projet DÉCLARE, réellement lancés (`--deep`). */
+  | "verify"
+  /** Étage 3 — les paquets en retard : un CONSTAT, jamais un manquement. */
+  | "outdated";
 
 /**
  * Le nom lisible de chaque famille.
@@ -144,6 +148,8 @@ export const TITRES: Record<DoctorFamily, string> = {
   migrations: "Migrations de schéma",
   firewall: "Cohérence du firewall",
   gating: "Écart avec l'environnement visé",
+  verify: "Gardes du projet, LANCÉES",
+  outdated: "Paquets en retard",
 };
 
 /**
@@ -169,6 +175,11 @@ export const FAMILLES: readonly DoctorFamily[] = [
   "migrations",
   "firewall",
   "gating",
+  // L'étage 3 après l'étage 2 : il LANCE des commandes, donc il coûte des
+  // secondes là où tout le reste coûte des millisecondes. Ce qui est cher se
+  // lit en dernier, et ne s'exécute que sur demande (`--deep`).
+  "verify",
+  "outdated",
 ];
 
 /**

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T08:30:37.418Z",
+  "generated": "2026-09-05T08:50:13.878Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 809,
-    "symbols": 3845,
+    "files": 810,
+    "symbols": 3854,
     "classes": 383,
-    "interfaces": 1047,
+    "interfaces": 1049,
     "types": 439,
     "enums": 4,
-    "functions": 1589,
+    "functions": 1596,
     "constants": 383
   },
   "symbols": {
@@ -8197,6 +8197,56 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Exécute un endpoint du plan d'administration — **la porte unique**, sans HTTP. ⭐ **Une source, plusieurs portes.** Le data plane est un ensemble de fonctions `IAdminRequest → donnée` ; ce qui les e…"
+    },
+    "IVerifyStepResult": {
+      "name": "IVerifyStepResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le verdict d'un script déclaré par le projet, une fois lancé."
+    },
+    "IDeepResult": {
+      "name": "IDeepResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que l'étage profond a pu établir — et ce qu'il n'a PAS pu."
+    },
+    "declaredSteps": {
+      "name": "declaredSteps",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les scripts que le manifeste déclare, parmi ceux qu'on sait lancer. On ne lance QUE ce que le projet déclare : inventer une commande qu'il n'a pas (`npx tsc`, par exemple) reviendrait à juger une a…"
+    },
+    "firstUsefulLine": {
+      "name": "firstUsefulLine",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La première ligne qui NOMME l'échec, en sautant l'annonce de l'exécuteur. 🔴 Un script lancé par `npm run` reçoit d'abord `npm notice run <app> <nom>`. Retenir cette ligne explique l'échec par le n…"
+    },
+    "runVerifySteps": {
+      "name": "runVerifySteps",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lance les scripts déclarés, dans l'ordre, et rend leur verdict. L'ordre compte : `typecheck` avant `test`, parce qu'un type faux fait échouer la suite pour une raison qui n'a rien à voir avec elle,…"
+    },
+    "readOutdated": {
+      "name": "readOutdated",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le résumé des paquets en retard, via la MÊME agrégation que `nodefony outdated`. `aggregateOutdated` est appelée, jamais recopiée : elle porte le classement par sévérité (majeure / mineure / correc…"
     },
     "IFreshnessFinding": {
       "name": "IFreshnessFinding",
@@ -31195,6 +31245,18 @@
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "aggregateOutdated": [
+        "src/nodefony/src/kernel/checks/deep.ts",
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "IOutdatedSummary": [
+        "src/nodefony/src/kernel/checks/deep.ts",
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "NpmOutdatedReport": [
+        "src/nodefony/src/kernel/checks/deep.ts",
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
       "duree": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
@@ -31342,7 +31404,19 @@
       "checkGuards": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
+      "VERIFY_STEPS": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
       "IGuardResult": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "readOutdated": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "runVerifySteps": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "IDeepResult": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "liveNotRun": [
@@ -31477,9 +31551,6 @@
       "planMenuAction": [
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
-      "aggregateOutdated": [
-        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
-      ],
       "formatDependents": [
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
       ],
@@ -31487,12 +31558,6 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
       ],
       "toTableRows": [
-        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
-      ],
-      "IOutdatedSummary": [
-        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
-      ],
-      "NpmOutdatedReport": [
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
       ],
       "startClusterMaster": [

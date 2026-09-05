@@ -27,7 +27,8 @@ import {
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
 import { checkSurface, type ISurfaceResult } from "./surface";
-import { checkGuards, type IGuardResult } from "./guards";
+import { checkGuards, VERIFY_STEPS, type IGuardResult } from "./guards";
+import { readOutdated, runVerifySteps, type IDeepResult } from "./deep";
 import { liveNotRun, LIVE_FAMILIES, type ILiveResult } from "./live";
 import {
   defaultDevPorts,
@@ -220,6 +221,16 @@ export interface ICheckRequest {
    * quand l'application va mal.
    */
   live: boolean;
+  /**
+   * `true` si l'on veut LANCER ce que le projet déclare — étage 3.
+   *
+   * Les autres étages LISENT ; celui-ci exécute les scripts du projet
+   * (`typecheck`, `lint`, `test`) et interroge le registre npm. Il coûte donc
+   * des dizaines de secondes là où `doctor` en coûte moins d'une, et c'est
+   * exactement pourquoi il se demande : un diagnostic qui coûte une minute
+   * cesse d'être lancé, et un contrôle qu'on ne lance plus ne garde rien.
+   */
+  deep: boolean;
   /** `true` si l'on demande seulement l'usage. */
   help: boolean;
   /**
@@ -378,6 +389,11 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     ) +
     opt("--no-live", "s'en tient aux fichiers, quoi qu'un script demande") +
     opt(
+      "--deep",
+      "LANCE ce que le projet déclare — `typecheck`, `lint`, `test` — et " +
+        "interroge npm sur les paquets en retard (des dizaines de secondes)",
+    ) +
+    opt(
       "--env <e>",
       "dit ce qui manquera dans CET environnement (`production`, `staging`…) sans y aller",
     ) +
@@ -509,6 +525,7 @@ export function parseDoctorArgv(
   let cwd = process.cwd();
   let strict: boolean | undefined;
   let live = false;
+  let deep = false;
   let help = false;
   let targetEnv: string | null = null;
   for (let i = 0; i < rest.length; i++) {
@@ -523,6 +540,8 @@ export function parseDoctorArgv(
       strict = true;
     } else if (word === "--no-strict") {
       strict = false;
+    } else if (word === "--deep") {
+      deep = true;
     } else if (word === "--live") {
       live = true;
     } else if (word === "--no-live") {
@@ -560,6 +579,7 @@ export function parseDoctorArgv(
     cwd,
     help,
     live,
+    deep,
     targetEnv,
     strict: resoudreStrict(strict, process.env),
   };
@@ -627,6 +647,14 @@ export interface IDoctorReport {
    */
   guards: IGuardResult;
   /**
+   * Étage 3 — ce que le projet DÉCLARE, réellement lancé (`--deep`).
+   *
+   * `null` quand l'étage n'a pas été demandé : l'absence de résultat et un
+   * résultat vide ne se confondent pas, et c'est l'état d'exécution qui le dit
+   * au lecteur plutôt qu'un silence.
+   */
+  deep: IDeepResult | null;
+  /**
    * Les bilans de démarrage disponibles — serveur d'abord, console ensuite.
    *
    * DEUX, et pas un : un `nodefony inspect` lancé POUR diagnostiquer une panne
@@ -674,9 +702,21 @@ export interface IDoctorReport {
 export async function collectDoctorReport(
   start: string,
   targetEnv: string | null = null,
+  deepRequested = false,
 ): Promise<IDoctorReport> {
   const projectRoot = findProjectRoot(start);
   const cwd = projectRoot ?? start;
+  // Étage 3 : il LANCE des commandes, donc il ne s'exécute que sur demande, et
+  // seulement dans une application — hors projet il n'y a aucun manifeste à
+  // lire, donc aucun script à lancer.
+  const deep: IDeepResult | null =
+    deepRequested && projectRoot
+      ? (() => {
+          const steps = runVerifySteps(projectRoot, VERIFY_STEPS);
+          const { summary, reason } = readOutdated(projectRoot);
+          return { steps, outdated: summary, outdatedReason: reason };
+        })()
+      : null;
   const lastBoots = readLastBoots(cwd);
   const roots = CANDIDATE_ROOTS.map((r) => path.join(cwd, r)).filter((r) =>
     statSync(r, { throwIfNoEntry: false }),
@@ -777,6 +817,7 @@ export async function collectDoctorReport(
     guards,
     wiring: { scanned: wiring.scanned, findings: wiring.findings },
     readiness,
+    deep,
     lastBoots,
     exceptions:
       Object.values(typeCycles ?? {}).flat().length +
@@ -837,6 +878,43 @@ export async function collectDoctorReport(
               unlock: "vérifie `package.json` et `.oxlintrc.json`",
             }
           : { ran: true },
+      // Étage 3 — il ne s'exécute que sur demande, et son absence se DIT :
+      // afficher « rien à signaler » sur un contrôle qu'on n'a pas lancé est
+      // le seul mensonge que ce rapport ne doit jamais faire.
+      verify: !projectRoot
+        ? horsProjet
+        : deep === null
+          ? {
+              ran: false,
+              reason:
+                "les gardes du projet n'ont pas été LANCÉES — seule leur " +
+                "présence a été constatée",
+              short: "non demandé",
+              unlock: "nodefony doctor --deep",
+            }
+          : { ran: true },
+      outdated: !projectRoot
+        ? horsProjet
+        : deep === null
+          ? {
+              ran: false,
+              reason:
+                "le registre npm n'a pas été interrogé — c'est du réseau, et " +
+                "il ne se paie que sur demande",
+              short: "non demandé",
+              unlock: "nodefony doctor --deep",
+            }
+          : deep.outdated === null
+            ? {
+                ran: false,
+                reason: deep.outdatedReason,
+                short: "registre muet",
+                // Le registre qui ne répond pas n'est pas un défaut de
+                // l'application : le contrôle est EMPÊCHÉ, il n'a pas
+                // « regardé et rien trouvé ».
+                unlock: "réessaie quand le réseau répond",
+              }
+            : { ran: true },
       // La surface se lit sur les SOURCES : elle répond donc même sur une
       // application qui ne compile plus. Son seul empêchement est de n'avoir
       // rien à lire.
@@ -957,7 +1035,11 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
   // Mesurée ICI, autour de la collecte seule : le rendu ne coûte rien, et un
   // chiffre qui l'inclurait mesurerait la vitesse du terminal.
   const debut = Date.now();
-  const report = await collectDoctorReport(parsed.cwd, parsed.targetEnv);
+  const report = await collectDoctorReport(
+    parsed.cwd,
+    parsed.targetEnv,
+    parsed.deep,
+  );
   return renderDoctorReport(report, parsed, Date.now() - debut);
 }
 
@@ -1120,7 +1202,11 @@ export async function runDoctorWithoutLive(
   // `runDoctorCommand` porte déjà sa mise en forme et son code distinct.
   if ("error" in parsed || parsed.help) return runDoctorCommand(argv);
   const start = Date.now();
-  const report = await collectDoctorReport(parsed.cwd, parsed.targetEnv);
+  const report = await collectDoctorReport(
+    parsed.cwd,
+    parsed.targetEnv,
+    parsed.deep,
+  );
   return renderDoctorReport(
     attachLive(report, liveNotRun(reason, unlock)),
     parsed,

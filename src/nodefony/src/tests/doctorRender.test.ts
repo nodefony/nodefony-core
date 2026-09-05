@@ -54,6 +54,9 @@ const rapport = (patch: Partial<IDoctorReport> = {}): IDoctorReport => ({
   appName: "mon-app 1.0.0",
   scanned: 3,
   findings: [],
+  // `null` et non un objet vide : l'étage profond n'a PAS été demandé, ce qui
+  // ne se confond pas avec « demandé et rien trouvé ».
+  deep: null,
   wiring: { scanned: 12, findings: [] },
   readiness: {
     findings: [],
