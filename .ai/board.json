@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-09-05T00:01:47.770Z",
+  "generatedAt": "2026-09-05T09:22:38.673Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
-      "closed": 2,
+      "closed": 1,
       "dueOn": null,
       "open": 27,
       "title": "10.1"
     },
     {
-      "closed": 104,
+      "closed": 105,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 39,
+      "open": 43,
       "title": "10.0.0"
     }
   ],
@@ -1007,7 +1007,7 @@
       "title": "chore(release): publier une beta avant la 10.0.0",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -1158,6 +1158,20 @@
       ]
     },
     {
+      "number": 197,
+      "title": "test(realtime): fermer les trous de couverture des bancs du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/197",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 180,
       "title": "fix(cli): que doctor DISE les contrôles qu'il n'a pas pu faire",
       "url": "https://github.com/nodefony/nodefony-core/issues/180",
@@ -1177,6 +1191,20 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/190",
       "state": "CLOSED",
       "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 198,
+      "title": "test(realtime): inventorier ce que les bancs du temps réel n'éprouvent pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/198",
+      "state": "OPEN",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1214,6 +1242,20 @@
       ]
     },
     {
+      "number": 199,
+      "title": "fix(realtime): ne plus annoncer les canaux qu'un visiteur ne peut pas obtenir",
+      "url": "https://github.com/nodefony/nodefony-core/issues/199",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 182,
       "title": "feat(cli): doctor demande à l'application, pas seulement à ses fichiers",
       "url": "https://github.com/nodefony/nodefony-core/issues/182",
@@ -1235,6 +1277,20 @@
       "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 200,
+      "title": "test(realtime): éprouver le welcome de bout en bout, identité par identité",
+      "url": "https://github.com/nodefony/nodefony-core/issues/200",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.3,
       "labels": [
@@ -2478,12 +2534,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/194",
       "state": "CLOSED",
       "status": "Done",
-      "milestone": "10.1",
+      "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 138,
       "labels": [
-        "10.1"
+        "10.0.0"
       ]
     },
     {
