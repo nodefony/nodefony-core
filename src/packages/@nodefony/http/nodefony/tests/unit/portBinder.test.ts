@@ -14,9 +14,13 @@ import {
 /**
  * Banc du repli de port.
  *
- * Ce fichier ne simule RIEN du réseau : il ouvre de vrais sockets et occupe de
- * vrais ports. Un mock de `listen` prouverait seulement que le mock fait ce que
- * je crois — or tout le sujet est le comportement du noyau (`EADDRINUSE`).
+ * Ce fichier ouvre de VRAIS sockets et occupe de vrais ports : un mock de
+ * `listen` prouverait seulement que le mock fait ce que je crois, or tout le
+ * sujet est le comportement du noyau (`EADDRINUSE`).
+ *
+ * La seule exception est nommée et justifiée sur place (`refusing`) : `EACCES`
+ * sur un port éphémère n'existe QUE sous Windows, et ce qui peut être faux
+ * depuis macOS n'est pas le noyau — c'est la décision prise face à un code.
  */
 
 const HOST = "127.0.0.1";
