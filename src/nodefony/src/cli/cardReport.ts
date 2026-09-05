@@ -35,7 +35,7 @@ export interface ICardDoor {
   /** Ce que la porte ouvre, en quelques mots. */
   title: string;
   /** URL servie, ou chemin de fichier relatif à la racine de l'application. */
-  ou: string;
+  where: string;
   /** Pourquoi y aller — la raison, pas la description. */
   why: string;
 }
@@ -76,7 +76,7 @@ export interface ICard {
   /** Où aller, par valeur décroissante. */
   doors: ICardDoor[];
   /** Quoi lancer, par valeur décroissante. */
-  verbes: ICardVerb[];
+  verbs: ICardVerb[];
 }
 
 /**
@@ -120,36 +120,36 @@ export function buildCard(input: ICardInput): ICard {
   const doors: ICardDoor[] = [
     {
       title: "Les instructions de cette application",
-      ou: "AGENTS.md",
+      where: "AGENTS.md",
       why: "générateurs disponibles, table tâche → fichier, gates à passer. À lire AVANT d'écrire du code.",
     },
     {
       title: "Le catalogue des briques",
-      ou: "node_modules/nodefony/docs/catalogue.md",
+      where: "node_modules/nodefony/docs/catalogue.md",
       why: "quel module prendre pour quel besoin, et quand ne PAS le prendre.",
     },
     {
       title: "La documentation des modules installés",
-      ou: "node_modules/@nodefony/*/docs/",
+      where: "node_modules/@nodefony/*/docs/",
       why: "elle est versionnée AVEC le code installé : elle ne peut pas décrire une autre version que la tienne.",
     },
   ];
   if (has("studio")) {
     doors.push({
       title: "La console d'administration",
-      ou: "/nodefony",
+      where: "/nodefony",
       why: "l'application en marche : routes montées, services, config résolue, sessions, journaux.",
     });
   }
   if (has("documentation")) {
     doors.push({
       title: "L'index de documentation, en JSON",
-      ou: "/nodefony/documentation/api/tree",
+      where: "/nodefony/documentation/api/tree",
       why: "la même documentation, lisible par un programme.",
     });
   }
 
-  const verbes: ICardVerb[] = [
+  const verbs: ICardVerb[] = [
     {
       command: "npx nodefony doctor",
       why: "diagnostic STATIQUE : il ne lit que des fichiers, donc il répond même quand l'application ne démarre plus.",
@@ -178,7 +178,7 @@ export function buildCard(input: ICardInput): ICard {
     modules,
     source: input.source ?? "runtime",
     doors: doors,
-    verbes,
+    verbs: verbs,
   };
 }
 
@@ -209,10 +209,10 @@ export function renderCard(card: ICard): string {
       : `Modules chargés (${card.modules.length}) : ${card.modules.join(", ")}`,
     "",
     "Où aller :",
-    ...card.doors.map((p) => `  ${p.ou}\n      ${p.title} — ${p.why}`),
+    ...card.doors.map((p) => `  ${p.where}\n      ${p.title} — ${p.why}`),
     "",
     "Quoi lancer :",
-    ...card.verbes.map((v) => `  ${v.command}\n      ${v.why}`),
+    ...card.verbs.map((v) => `  ${v.command}\n      ${v.why}`),
     "",
   ];
   return lines.join("\n");

@@ -60,14 +60,14 @@ describe("devkit — carte de visite", () => {
   });
 
   it("n'ouvre une porte que si le module qui la sert est CHARGÉ", () => {
-    const sans = buildCard(base).portes.map((p) => p.ou);
+    const sans = buildCard(base).doors.map((p) => p.where);
     expect(sans).not.toContain("/nodefony");
     expect(sans).not.toContain("/nodefony/documentation/api/tree");
 
     const avec = buildCard({
       ...base,
       modules: [...base.modules, "studio", "documentation"],
-    }).portes.map((p) => p.ou);
+    }).doors.map((p) => p.where);
     expect(avec).toContain("/nodefony");
     expect(avec).toContain("/nodefony/documentation/api/tree");
   });
@@ -75,7 +75,7 @@ describe("devkit — carte de visite", () => {
   it("adresse les instructions de l'app en PREMIER", () => {
     // La tête est la ressource rare : un lecteur qui s'arrête au premier item
     // doit être tombé sur celui qui compte.
-    expect(buildCard(base).portes[0].ou).toBe("AGENTS.md");
+    expect(buildCard(base).doors[0].where).toBe("AGENTS.md");
   });
 
   it("se rend lisible au terminal, sans rien perdre", () => {
@@ -85,11 +85,11 @@ describe("devkit — carte de visite", () => {
     // découverte.
     const card = buildCard({ ...base, modules: [...base.modules, "studio"] });
     const rendu = renderCard(card);
-    for (const porte of card.portes) {
-      expect(rendu).toContain(porte.ou);
+    for (const door of card.doors) {
+      expect(rendu).toContain(door.where);
     }
-    for (const verbe of card.verbes) {
-      expect(rendu).toContain(verbe.commande);
+    for (const verb of card.verbs) {
+      expect(rendu).toContain(verb.command);
     }
     expect(rendu).toContain("ma-boutique 2.4.0 — development");
   });
@@ -99,7 +99,7 @@ describe("devkit — carte de visite", () => {
     // Un agent recopie la forme qu'on lui montre : une seule commande nue
     // suffit à l'envoyer dans le mur au premier geste.
     const nodefonyVerbs = buildCard(base)
-      .verbes.map((v) => v.commande)
+      .verbs.map((v) => v.command)
       .filter((c) => c.includes("nodefony"));
     expect(nodefonyVerbs.length).toBeGreaterThan(0);
     for (const commande of nodefonyVerbs) {
