@@ -1,13 +1,13 @@
 {
-  "generated": "2026-09-05T00:03:24.473Z",
+  "generated": "2026-09-05T07:21:20.407Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 808,
-    "symbols": 3841,
+    "symbols": 3842,
     "classes": 383,
     "interfaces": 1047,
-    "types": 438,
+    "types": 439,
     "enums": 4,
     "functions": 1586,
     "constants": 383
@@ -1348,6 +1348,14 @@
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "CreateStepOutcome": {
+      "name": "CreateStepOutcome",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'une étape de post-génération a fait : rien, ou réussi, ou échoué. Trois états parce que deux ne suffisent pas — cf {@link createExitCode}."
     },
     "parseCreateArgv": {
       "name": "parseCreateArgv",

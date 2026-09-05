@@ -162,6 +162,23 @@ function verifierExplicationGate() {
       ["", "npm notice run app@0.1.0 check\n"],
       "npm notice run app@0.1.0 check",
     ],
+    [
+      // 🔴 L'ANGLE MORT de cette table : tous les cas ci-dessus donnent un
+      // `stderr` VIDE, et le défaut ne vit que lorsqu'il ne l'est pas. La
+      // fonction parcourait les flux et rendait la première ligne du PREMIER
+      // flux non vide ; un `stderr` ne portant QUE le bruit de npm suffisait
+      // donc à masquer un `stdout` qui, lui, nomme le manquement. Mesuré : dix
+      // gates rouges sur une nuit de banc, tous rendus « npm notice run
+      // bench-app@0.1.0 check ». Le saut du bruit doit porter sur les DEUX flux
+      // avant de se rabattre sur l'un d'eux.
+      "stderr ne porte QUE du bruit — la cause est sur stdout",
+      [
+        "npm notice run bench-app@0.1.0 check\nnpm notice run npm run doctor\n",
+        "  nodefony doctor · bench-app 0.1.0\n" +
+          "  \u2717  1 PROBL\u00c8ME   4 angles morts\n",
+      ],
+      "nodefony doctor \u00b7 bench-app 0.1.0",
+    ],
   ];
   for (const [label, [err, out], attendu] of cas) {
     if (expliquerEchec(err, out) !== attendu) rates.push(label);

@@ -592,13 +592,36 @@ function runFormat(dest: string, files: string[]): void {
  * L'installation sautée (`--no-install`) ne compte pas comme un échec : rien
  * n'a été tenté, et la commande l'annonce dans ses prochaines étapes.
  *
- * @param installed - l'installation des dépendances a-t-elle eu lieu ?
- * @param built - `npm run build` a-t-il réussi ? (faux aussi s'il n'a pas tourné)
- * @returns `OK`, ou `SOFTWARE` si le build a été tenté et a échoué.
+ * 🔴 **Sautée et ratée sont deux états, pas un booléen.** Les deux étapes
+ * étaient rendues par `boolean`, où `false` disait à la fois « on ne l'a pas
+ * lancée » et « on l'a lancée et elle a échoué ». Une installation ratée
+ * tombait donc du bon côté : code 0. Or elle emporte TOUT ce qui la suit — le
+ * formatage, le build, la migration initiale — et l'utilisateur reçoit une
+ * application qui ne peut pas démarrer, sous un succès. Constaté sur le décor
+ * du banc de découvrabilité, dont l'application témoin n'avait jamais eu de
+ * `dist/` ni de `migrations/` : le manifeste pointait encore vers un registre
+ * où aucun paquet `@nodefony/*` n'est publié.
+ *
+ * @param install - l'installation des dépendances : sautée, réussie, échouée.
+ * @param build - `npm run build` : sauté (l'install n'a pas eu lieu), réussi,
+ *   échoué.
+ * @returns `OK`, ou `SOFTWARE` dès qu'une étape TENTÉE a échoué.
  */
-export function createExitCode(installed: boolean, built: boolean): SysExit {
-  return installed && !built ? SysExit.SOFTWARE : SysExit.OK;
+export function createExitCode(
+  install: CreateStepOutcome,
+  build: CreateStepOutcome,
+): SysExit {
+  return install === "failed" || build === "failed"
+    ? SysExit.SOFTWARE
+    : SysExit.OK;
 }
+
+/**
+ * Ce qu'une étape de post-génération a fait : rien, ou réussi, ou échoué.
+ *
+ * Trois états parce que deux ne suffisent pas — cf {@link createExitCode}.
+ */
+export type CreateStepOutcome = "skipped" | "succeeded" | "failed";
 
 /**
  * `npm run build` dans l'app générée — le runtime charge `dist/index.js`
@@ -1354,5 +1377,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
   // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
   // ne peut distinguer une application prête d'une application à réparer.
-  return createExitCode(installed, built);
+  return createExitCode(
+    parsed.install ? (installed ? "succeeded" : "failed") : "skipped",
+    installed ? (built ? "succeeded" : "failed") : "skipped",
+  );
 }

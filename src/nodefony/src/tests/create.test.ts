@@ -245,17 +245,28 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // d'intégration, banc, agent qui enchaîne — ne peut distinguer une
       // application prête d'une application à réparer. C'est ce qui a laissé le
       // front d'une application générée ne pas se bâtir sans que rien ne tombe.
-      assert.equal(createExitCode(true, false), SysExit.SOFTWARE);
+      assert.equal(createExitCode("succeeded", "failed"), SysExit.SOFTWARE);
     });
 
     it("build réussi → OK", () => {
-      assert.equal(createExitCode(true, true), SysExit.OK);
+      assert.equal(createExitCode("succeeded", "succeeded"), SysExit.OK);
     });
 
     it("installation SAUTÉE → OK : rien n'a été tenté, et c'est dit", () => {
       // `--no-install` saute aussi le build. Rendre un échec ici punirait un
       // geste volontaire, que les prochaines étapes affichent déjà.
-      assert.equal(createExitCode(false, false), SysExit.OK);
+      assert.equal(createExitCode("skipped", "skipped"), SysExit.OK);
+    });
+
+    it("🔴 installation TENTÉE et ratée → SOFTWARE, pas OK", () => {
+      // Le défaut fermé : `installed` était un booléen, et `false` disait à la
+      // fois « sautée par --no-install » et « tentée et ratée ». Le second cas
+      // rendait donc 0 — alors que rien n'est installé, rien n'est construit,
+      // rien n'est formaté et la migration initiale n'est pas écrite :
+      // l'utilisateur reçoit une application qui ne peut pas démarrer, avec un
+      // succès affiché. Constaté sur le décor du banc de découvrabilité, dont
+      // l'application témoin n'a JAMAIS eu de `dist/`.
+      assert.equal(createExitCode("failed", "skipped"), SysExit.SOFTWARE);
     });
   });
 

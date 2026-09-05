@@ -4439,6 +4439,27 @@ function monterDecor(runDir, app) {
       packTarballs(REPO, process.argv.includes("--repack")),
     );
   }
+  // 🔴 **Le décor doit CONSTRUIRE l'application, parce que `create app` n'a
+  // pas pu le faire ici.**
+  //
+  // `create app` enchaîne install → format → build → migration, chaque étape
+  // conditionnée par la précédente. Au moment où il tourne, le manifeste
+  // pointe encore vers le registre public — où AUCUN paquet `@nodefony/*`
+  // n'est publié : son `npm install` échoue, et les trois étapes suivantes
+  // sont sautées. Le décor réécrit ensuite le manifeste vers ses tarballs et
+  // installe lui-même, mais ne rejouait ni le build ni la migration.
+  //
+  // Conséquence mesurée : l'application témoin n'a JAMAIS eu de `dist/`. Un
+  // utilisateur, lui, en a un — donc le banc mesurait un agent placé devant
+  // une application que personne ne reçoit. Le trou est resté invisible tant
+  // que rien ne regardait le build ; le jour où `nodefony doctor` a appris à
+  // le voir, cinq tâches sont tombées en bloc pour un motif qui ne disait rien
+  // de l'agent.
+  //
+  // Ce build est donc une PIÈCE DU DÉCOR, pas une commodité : sans lui, le
+  // décor n'est pas celui de l'utilisateur.
+  console.log("• npm run build (l'app témoin naît construite)…");
+  sh("npm", ["run", "build"], { cwd: app });
   // 🔴 **Le commit MESURÉ est celui du PACK, jamais celui de la fin du run.**
   // Il était lu au moment d'écrire le rapport — c'est-à-dire des heures après,
   // sur un dépôt où l'on a continué de travailler. Constaté : un run empaqueté
@@ -5227,14 +5248,34 @@ const BRUIT_EXECUTEUR =
   /^(?:npm (?:notice|warn|WARN)\b|>\s|\$\s|yarn run |pnpm )/u;
 
 export function expliquerEchec(stderr, stdout) {
-  for (const flux of [stderr ?? "", stdout ?? ""]) {
-    const lignes = flux.split("\n").filter((l) => l.trim().length > 0);
-    if (lignes.length === 0) continue;
-    const utile = lignes.find((l) => !BRUIT_EXECUTEUR.test(l.trim()));
-    const propre = (utile ?? lignes[0]).trim();
-    return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
+  const flux = [stderr ?? "", stdout ?? ""];
+  // 🔴 Le saut du bruit se fait sur LES DEUX flux avant de se rabattre sur
+  // l'un d'eux. La boucle rendait `lignes[0]` du PREMIER flux non vide : un
+  // `stderr` ne portant que `npm notice run <app> check` suffisait donc à
+  // renvoyer ce bruit et à ne JAMAIS lire `stdout`, où l'outil écrit son
+  // rapport. Mesuré : dix gates rouges sur une nuit entière, tous rendus comme
+  // « npm notice run bench-app@0.1.0 check » — sept heures de mesure sans une
+  // seule cause, et un diagnostic qui a dû remonter une application témoin à
+  // la main pour lire ce que le gate avait sous les yeux.
+  for (const f of flux) {
+    const utile = f
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !BRUIT_EXECUTEUR.test(l));
+    if (utile.length > 0) return borner(utile[0]);
+  }
+  // Rien que du bruit partout : on le rend quand même — un gate qui se tait et
+  // un gate qu'on n'a pas su lire ne se confondent pas.
+  for (const f of flux) {
+    const lignes = f.split("\n").filter((l) => l.trim().length > 0);
+    if (lignes.length > 0) return borner(lignes[0].trim());
   }
   return "";
+}
+
+/** Borne une explication : une trace entière rend le rapport illisible. */
+function borner(ligne) {
+  return ligne.length > 200 ? `${ligne.slice(0, 197)}…` : ligne;
 }
 
 function runGates(app, runDir, task) {
