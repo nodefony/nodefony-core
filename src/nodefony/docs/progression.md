@@ -1,5 +1,6 @@
 ---
 title: "Attente et progression au terminal"
+navTitle: Attente et progression
 lang: fr
 module: "@nodefony/core"
 topic: progression
@@ -65,6 +66,30 @@ for (const file of files) {
 }
 bar.stop(`✓ ${files.length} bundles`);
 ```
+
+## 🗺️ Où vit quoi
+
+| Ce qu'on cherche                                       | Où c'est                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------- |
+| Le socle des deux formes — une ligne réécrite en place | `src/nodefony/src/cli/progress.ts:375` (`LiveLine`)              |
+| Le tourniquet                                          | `src/nodefony/src/cli/progress.ts:498` (`Spinner`)               |
+| La barre                                               | `src/nodefony/src/cli/progress.ts:645` (`ProgressBar`)           |
+| Le dessin PUR, utilisable sans terminal                | `src/nodefony/src/cli/progress.ts:322` (`renderBar`)             |
+| La capacité Unicode, CONSTATÉE sur l'environnement     | `src/nodefony/src/cli/progress.ts:117` (`supportsUnicode`)       |
+| Les images, et leur repli                              | `src/nodefony/src/cli/progress.ts:46` (braille) et `:60` (ASCII) |
+| Pourquoi une commande longue n'est plus interrompue    | `src/nodefony/src/command/Command.ts:256`                        |
+| L'appelant asynchrone qui rend l'animation possible    | `src/nodefony/src/kernel/checks/deep.ts:297` (`runNpmScript`)    |
+
+## 📖 Lexique
+
+| Terme                          | Ce que c'est                                                                                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tourniquet** (`Spinner`)     | L'attente dont on ne connaît PAS la durée : une image qui tourne, aucun pourcentage.                                                                       |
+| **Barre** (`ProgressBar`)      | L'attente dont on connaît le total : `renderBar` dessine, le reste anime.                                                                                  |
+| **Ligne vivante** (`LiveLine`) | Une ligne réécrite en place, sans image ni total — le socle des deux formes.                                                                               |
+| **Image** (_frame_)            | Un des caractères que le tourniquet fait défiler (`⠋ ⠙ ⠹ …`, ou `- \\                                                                                      | /` en repli). |
+| **Repli ASCII**                | Ce que le produit dessine quand l'environnement ne promet pas l'Unicode : `cmd.exe` rend `⠋` en carré vide, et une animation illisible est pire qu'aucune. |
+| **TTY**                        | Un terminal réel en face. Sans lui, on n'anime pas : une forge recevrait dix images par seconde dans son journal.                                          |
 
 ## 🔴 Ce qui ne passe JAMAIS par le Syslog
 
@@ -166,7 +191,38 @@ bloque : aucun `setInterval` ne s'y déclenche, et le tourniquet reste figé sur
 première image. Tout appelant qui attend un processus doit donc le faire de
 façon **asynchrone** — c'est ce qui a été corrigé dans `kernel/checks/deep.ts`.
 
-## Voir aussi
+## ⚠️ Pièges (symptôme → cause → correction)
 
-- [Journalisation (Syslog)](syslog.md) — ce qui, à l'inverse, doit passer par le journal
-- [Ligne de commande](cli.md) — `Cli` et `Command`
+| Symptôme                                                   | Cause                                                                                                                                                                        | Correction                                                                                                                                               |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Le tourniquet peint sa première image puis reste **figé**  | Un `spawnSync` bloque la boucle d'évènements : aucun `setInterval` ne s'y déclenche                                                                                          | Attendre le processus de façon **asynchrone** (`spawn` + promesse) — cf `kernel/checks/deep.ts`                                                          |
+| Une commande longue **sort en 0 au milieu** de son travail | L'action d'une commande est câblée comme un écouteur de cycle de vie, borné par le délai de démarrage. Passer en asynchrone a RÉVEILLÉ ce minuteur, que le blocage éteignait | L'action est marquée `tagUnboundedListener` : la borne du boot ne s'y applique plus (`command/Command.ts`)                                               |
+| Rien ne s'anime alors qu'un terminal est là                | `CI` est posé, ou la sortie n'est pas un TTY                                                                                                                                 | Voulu : une forge ne doit pas recevoir dix images par seconde. Forcer avec `animate: true`                                                               |
+| Des carrés vides à la place des images, sous Windows       | `cmd.exe` ne rend pas le braille ; le produit replie en ASCII                                                                                                                | Rien à corriger — c'est le repli. Un TEST qui exige du braille doit injecter son `env` (`{ WT_SESSION: "1" }`), jamais hériter du terminal de la machine |
+| Une barre de vingt cellules **disparaît**                  | `"▰".repeat(NaN)` rend la chaîne vide                                                                                                                                        | `renderBar` borne son entrée ; ne pas recalculer un ratio à côté                                                                                         |
+
+## 🧪 Tests & couverture
+
+Un seul fichier couvre cette surface — les **chiffres exacts vivent dans la carte de l'aperçu**,
+régénérée depuis vitest, jamais figés ici :
+
+- **`progress.test.ts`** — le rendu pur (`renderBar` : ratios, bornes, largeurs), la décision
+  d'animer (TTY, `CI`, `animate`), la constatation de capacité (`supportsUnicode` sur les trois
+  plateformes, par injection de la grammaire), le tourniquet (première image immédiate, rotation
+  au fil du temps, jeu d'images alternatif), la barre (dessin, avancement, libellé, tourniquet
+  greffé sur un avancement figé), et le curseur (masqué au départ, RENDU à la sortie).
+
+Ce qui **manque** aujourd'hui, et qu'il faut savoir :
+
+- **Aucune épreuve sur un vrai terminal Windows.** La capacité est constatée par injection
+  (`supportsUnicode(env, "win32")`), ce qui prouve la RÈGLE mais pas le rendu réel de `cmd.exe`.
+- **Aucun banc de charge** : l'animation n'est pas dans un chemin chaud, elle n'a pas de budget.
+
+Couverture : `npm run coverage` dans `src/nodefony`.
+
+## 🔗 Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
+- 🧭 **Pages sœurs** : [Journalisation (Syslog)](syslog.md) — ce qui, à l'inverse, doit passer par
+  le journal · [Ligne de commande](cli.md) — `Cli` et `Command`, qui portent les commandes que ces
+  formes accompagnent

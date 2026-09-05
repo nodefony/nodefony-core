@@ -105,6 +105,13 @@
       "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts"
     ]
   },
+  "ci-guide": {
+    "unit": [
+      "src/nodefony/src/tests/bancsPortables.test.ts",
+      "src/nodefony/src/tests/Cli.test.ts"
+    ],
+    "integration": ["src/nodefony/src/tests/CliIntegration.test.ts"]
+  },
   "cli": {
     "unit": [
       "src/nodefony/src/tests/Cli.test.ts",
@@ -129,6 +136,18 @@
       "src/nodefony/src/tests/roles.test.ts",
       "src/nodefony/src/tests/DebugBar.test.ts",
       "src/nodefony/src/tests/Profiler.client.test.ts"
+    ]
+  },
+  "cloud-native-guide": {
+    "unit": [
+      "src/nodefony/src/tests/Cli.test.ts",
+      "src/nodefony/src/tests/ClusterManager.test.ts",
+      "src/nodefony/src/tests/ClusterProbeAggregator.test.ts",
+      "src/nodefony/src/tests/ClusterRelay.test.ts"
+    ],
+    "integration": [
+      "src/nodefony/src/tests/CliIntegration.test.ts",
+      "src/nodefony/src/tests/detachedStart.test.ts"
     ]
   },
   "configuration": {
@@ -205,6 +224,12 @@
       "src/packages/@nodefony/http/nodefony/tests/integration/lifecycle-als.test.ts"
     ]
   },
+  "debugbar": {
+    "unit": [
+      "src/nodefony/src/tests/DebugBar.test.ts",
+      "src/nodefony/src/tests/debugbarInteraction.test.ts"
+    ]
+  },
   "decorateurs": {
     "unit": [
       "src/packages/@nodefony/framework/nodefony/tests/unit/httpMethodDecorators.test.ts",
@@ -266,6 +291,22 @@
   },
   "frontend": {
     "globs": ["src/packages/@nodefony/frontend/nodefony/tests/**/*.test.ts"]
+  },
+  "frontend-react-guide": {
+    "unit": [
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteConfigGenerator.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteBuilder.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/templateHelperOrigin.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/originDerivationPolicy.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/viteSupervisorStop.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/pidFromNetstat.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/remoteDev.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts"
+    ]
   },
   "headers": {
     "unit": [
@@ -361,6 +402,22 @@
   "orm-core": {
     "globs": ["src/packages/@nodefony/orm-core/tests/**/*.test.ts"]
   },
+  "persistence-guide": {
+    "unit": [
+      "src/nodefony/src/tests/infra.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditStoreRegistry.test.ts",
+      "src/packages/@nodefony/security/tests/unit/tokenStore.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotencyStoreRegistry.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/resolverIdempotency.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/auto-register.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/auto-register-postgres.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/auto-register-mysql.test.ts"
+    ]
+  },
   "pipeline-requete": {
     "unit": [
       "src/packages/@nodefony/http/nodefony/tests/unit/requestId.test.ts",
@@ -389,6 +446,10 @@
       "src/packages/@nodefony/http/nodefony/tests/load/stream-load.test.ts"
     ]
   },
+  "progression": {
+    "unit": ["src/nodefony/src/tests/progress.test.ts"],
+    "integration": []
+  },
   "rate-limit": {
     "unit": [
       "src/packages/@nodefony/http/nodefony/tests/unit/rateLimit.test.ts",
@@ -410,6 +471,16 @@
   },
   "redis": {
     "globs": ["src/packages/@nodefony/redis/nodefony/tests/**/*.test.ts"]
+  },
+  "release": {
+    "unit": [
+      "src/nodefony/src/tests/packageDeps.test.ts",
+      "src/nodefony/src/tests/clientSubpathSurface.types.test.ts",
+      "src/nodefony/src/tests/clientSurfaceExercised.test.ts",
+      "src/packages/@nodefony/studio/nodefony/tests/unit/packageSurface.test.ts",
+      "scripts/release/release-core.test.mjs",
+      "scripts/check-externals.test.mjs"
+    ]
   },
   "request-context": {
     "globs": ["src/nodefony/src/tests/RequestContext.test.ts"]
@@ -504,6 +575,25 @@
       "src/packages/@nodefony/http/nodefony/tests/support/sessionStoreContract.ts"
     ]
   },
+  "session-storage-guide": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/session-facets.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/session-pagination.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/SessionsAdmin.test.ts",
+      "src/nodefony/src/tests/infra.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/session-storage.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-sqlite.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/session-storage.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/session-resilience.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/session-store-mysql.e2e.test.ts"
+    ]
+  },
   "studio": {
     "globs": ["src/packages/@nodefony/studio/nodefony/tests/**/*.test.ts"]
   },
@@ -528,6 +618,12 @@
     ],
     "integration": [
       "src/packages/@nodefony/http/nodefony/tests/websockets/ws-bridge-rendered-action.test.ts"
+    ]
+  },
+  "testing": {
+    "unit": [
+      "src/nodefony/src/tests/testing.test.ts",
+      "src/nodefony/src/tests/create.test.ts"
     ]
   },
   "tokens": {
@@ -590,6 +686,17 @@
   },
   "user": {
     "globs": ["src/packages/@nodefony/user/tests/**/*.test.ts"]
+  },
+  "user-champs-personnalises": {
+    "globs": [
+      "src/packages/@nodefony/drizzle/tests/unit/userContractParity.test.ts",
+      "src/packages/@nodefony/mongoose/tests/unit/userContractParity.test.ts",
+      "src/packages/@nodefony/mongoose/tests/unit/userContractGuard.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/user-contrat-colonnes.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/user-champs-metier.test.ts",
+      "src/packages/@nodefony/user/tests/unit/userContract.test.ts"
+    ]
   },
   "vue-composables": {
     "globs": [
@@ -658,109 +765,6 @@
     "contract": [
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
-    ]
-  },
-  "session-storage-guide": {
-    "unit": [
-      "src/packages/@nodefony/http/nodefony/tests/unit/session-facets.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/unit/session-pagination.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/unit/SessionsAdmin.test.ts",
-      "src/nodefony/src/tests/infra.test.ts"
-    ],
-    "integration": [
-      "src/packages/@nodefony/drizzle/tests/integration/session-storage.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/session-store-sqlite.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/session-storage.test.ts",
-      "src/packages/@nodefony/redis/nodefony/tests/integration/session-store.test.ts",
-      "src/packages/@nodefony/redis/nodefony/tests/integration/session-resilience.test.ts"
-    ],
-    "e2e": [
-      "src/packages/@nodefony/drizzle/tests/integration/session-store-postgres.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/session-store-mysql.e2e.test.ts"
-    ]
-  },
-  "persistence-guide": {
-    "unit": [
-      "src/nodefony/src/tests/infra.test.ts",
-      "src/packages/@nodefony/security/tests/unit/auditStoreRegistry.test.ts",
-      "src/packages/@nodefony/security/tests/unit/tokenStore.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotencyStoreRegistry.test.ts",
-      "src/packages/@nodefony/framework/nodefony/tests/unit/resolverIdempotency.test.ts"
-    ],
-    "integration": [
-      "src/packages/@nodefony/drizzle/tests/integration/auto-register.test.ts"
-    ],
-    "e2e": [
-      "src/packages/@nodefony/drizzle/tests/integration/auto-register-postgres.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/auto-register-mysql.test.ts"
-    ]
-  },
-  "frontend-react-guide": {
-    "unit": [
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteConfigGenerator.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteBuilder.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/templateHelperOrigin.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/originDerivationPolicy.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/viteSupervisorStop.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/pidFromNetstat.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/remoteDev.test.ts"
-    ],
-    "integration": [
-      "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/integration/frontend-build.test.ts"
-    ]
-  },
-  "release": {
-    "unit": [
-      "src/nodefony/src/tests/packageDeps.test.ts",
-      "src/nodefony/src/tests/clientSubpathSurface.types.test.ts",
-      "src/nodefony/src/tests/clientSurfaceExercised.test.ts",
-      "src/packages/@nodefony/studio/nodefony/tests/unit/packageSurface.test.ts",
-      "scripts/release/release-core.test.mjs",
-      "scripts/check-externals.test.mjs"
-    ]
-  },
-  "cloud-native-guide": {
-    "unit": [
-      "src/nodefony/src/tests/Cli.test.ts",
-      "src/nodefony/src/tests/ClusterManager.test.ts",
-      "src/nodefony/src/tests/ClusterProbeAggregator.test.ts",
-      "src/nodefony/src/tests/ClusterRelay.test.ts"
-    ],
-    "integration": [
-      "src/nodefony/src/tests/CliIntegration.test.ts",
-      "src/nodefony/src/tests/detachedStart.test.ts"
-    ]
-  },
-  "ci-guide": {
-    "unit": [
-      "src/nodefony/src/tests/bancsPortables.test.ts",
-      "src/nodefony/src/tests/Cli.test.ts"
-    ],
-    "integration": ["src/nodefony/src/tests/CliIntegration.test.ts"]
-  },
-  "debugbar": {
-    "unit": [
-      "src/nodefony/src/tests/DebugBar.test.ts",
-      "src/nodefony/src/tests/debugbarInteraction.test.ts"
-    ]
-  },
-  "testing": {
-    "unit": [
-      "src/nodefony/src/tests/testing.test.ts",
-      "src/nodefony/src/tests/create.test.ts"
-    ]
-  },
-  "user-champs-personnalises": {
-    "globs": [
-      "src/packages/@nodefony/drizzle/tests/unit/userContractParity.test.ts",
-      "src/packages/@nodefony/mongoose/tests/unit/userContractParity.test.ts",
-      "src/packages/@nodefony/mongoose/tests/unit/userContractGuard.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/user-contrat-colonnes.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/user-migrations.e2e.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/user-champs-metier.test.ts",
-      "src/packages/@nodefony/user/tests/unit/userContract.test.ts"
     ]
   }
 }
