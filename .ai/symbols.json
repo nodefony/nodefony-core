@@ -1,13 +1,13 @@
 {
-  "generated": "2026-09-05T17:03:06.461Z",
+  "generated": "2026-09-05T17:57:36.207Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 812,
-    "symbols": 3895,
+    "symbols": 3898,
     "classes": 385,
     "interfaces": 1059,
-    "types": 442,
+    "types": 445,
     "enums": 4,
     "functions": 1616,
     "constants": 389
@@ -4709,6 +4709,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Résultat attendu d'une RPC (`out`)."
+    },
+    "ContractActionNames": {
+      "name": "ContractActionNames",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Noms d'actions RÉELLEMENT déclarés par le contrat — `never` quand la map n'en déclare aucune ({@link DefaultActionsMap}). ⚠️ À ne pas confondre avec {@link ActionNames}, qui vaut `string` sur une m…"
+    },
+    "ContractParams": {
+      "name": "ContractParams",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`params` d'une RPC : dictés par le contrat quand `K` lui appartient, libres sinon. Règle UNIQUE — `IRealtimeSocket`, `RealtimeClient` et `ServerRealtimeSocket` la partagent au lieu de la recopier."
+    },
+    "ContractResult": {
+      "name": "ContractResult",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résultat d'une RPC : dicté par le contrat quand `K` lui appartient, sinon le `T` que l'appelant demande. Pendant de {@link ContractParams}."
     },
     "TypedRpcActionHandler": {
       "name": "TypedRpcActionHandler",
@@ -30627,27 +30651,6 @@
         "src/nodefony/src/oauth/protectedResource.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
-      "ActionNames": [
-        "src/nodefony/src/realtime/IRealtimeSocket.ts",
-        "src/nodefony/src/realtime/JsonRpcPeer.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
-      ],
-      "ActionParams": [
-        "src/nodefony/src/realtime/IRealtimeSocket.ts",
-        "src/nodefony/src/realtime/JsonRpcPeer.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
-      ],
-      "ActionResult": [
-        "src/nodefony/src/realtime/IRealtimeSocket.ts",
-        "src/nodefony/src/realtime/JsonRpcPeer.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
-      ],
       "ActionsMap": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
@@ -30689,6 +30692,31 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
+      ],
+      "ContractParams": [
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
+      ],
+      "ContractResult": [
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
+      ],
+      "ActionNames": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "ActionParams": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "ActionResult": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "TypedRpcActionHandler": [
         "src/nodefony/src/realtime/JsonRpcPeer.ts",

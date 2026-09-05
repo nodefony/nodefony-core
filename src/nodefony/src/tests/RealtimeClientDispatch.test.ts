@@ -33,7 +33,9 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
   it("RÉPONSE (id, result, SANS method) → résout la requête sortante", async () => {
     const { client, internal } = newClient();
     openTransport(internal);
-    const p = client.request<{ ok: boolean }>("nodefony:kernel:ping"); // 1ʳᵉ requête → id 1
+    const p = client.request<"nodefony:kernel:ping", { ok: boolean }>(
+      "nodefony:kernel:ping",
+    ); // 1ʳᵉ requête → id 1
     internal.handleMessage(
       JSON.stringify({ jsonrpc: "2.0", id: 1, result: { ok: true } }),
     );

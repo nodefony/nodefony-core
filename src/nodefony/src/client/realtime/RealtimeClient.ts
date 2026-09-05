@@ -63,6 +63,8 @@ import type {
   IRealtimeWelcome,
   RealtimeIdentity,
   TypedRpcActionHandler,
+  ContractParams,
+  ContractResult,
 } from "../../realtime/RealtimeEventMap";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
@@ -728,35 +730,38 @@ export class RealtimeClient<
     path: `/${string}`,
     timeoutMs?: number,
   ): Promise<T>;
-  /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */
+  /**
+   * Request/response JSON-RPC 2.0 — `Promise` résolue avec le `result`.
+   *
+   * Le 1ᵉʳ générique est le **nom de la méthode**, le 2ᵉ le type du résultat :
+   * ```ts
+   * const r = await socket.request<"nodefony:kernel:ping", { pong: boolean }>(
+   *   "nodefony:kernel:ping",
+   * );
+   * ```
+   * Quand `method` appartient au contrat `Actions`, `params` ET le résultat en
+   * sont déduits — un payload hors contrat est REFUSÉ à la compilation.
+   *
+   * ⚠️ **Rupture 10.0.0** : la forme `request<MonType>("ma:methode")` (`<T>` =
+   * résultat) n'existe plus. Elle était un attrape-tout qui rendait inopérant le
+   * contrôle des `params`. La réécrire en `request<"ma:methode", MonType>`.
+   */
   async request<K extends string, T = unknown>(
     method: K,
-    params?: K extends ActionNames<Actions>
-      ? ActionParams<Actions, K>
-      : unknown,
+    params?: ContractParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
+  ): Promise<ContractResult<Actions, K, T>>;
   /**
-   * Forme HISTORIQUE `request<T>(method, params?)` — `T` est le type du RÉSULTAT.
-   *
-   * ⚠️ Cette surcharge est aussi un ATTRAPE-TOUT : quand la surcharge typée
-   * ci-dessus échoue (params mal formés sur une action du contrat), TS retombe
-   * ici et accepte n'importe quel payload. Le garde-fou « params conformes au
-   * contrat » est donc INOPÉRANT tant qu'elle existe (prouvé dans
-   * `tests/RealtimeClient.types.test.ts`).
-   *
-   * Elle est CONSERVÉE sciemment : la retirer est un *breaking change* d'API
-   * publique, pas un correctif. Les deux formes se disputent le 1ᵉʳ paramètre
-   * générique (`<T>` = résultat ici, `<K>` = nom de méthode au-dessus) : tout
-   * appel `request<MonType>("ma:methode")` — dont `ping()` et le Studio
-   * (`request<IScaffoldJobState>("nodefony:scaffold:run", …)`) — devrait être réécrit en
-   * `request<"ma:methode", MonType>`. À trancher hors session de dette.
+   * Contrat {@link IRealtimePeer} rendu EXPLICITE — `method` et `params` sont
+   * tous deux bornés par le contrat `Actions`. Sans elle, la liste de surcharges
+   * (qui type `params` par un conditionnel non résolu) n'est pas assignable à la
+   * signature du peer et TS2416 tombe.
    */
-  async request<T = unknown>(
-    method: string,
-    params?: unknown,
+  async request<K extends ActionNames<Actions>>(
+    method: K,
+    params?: ActionParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<T>;
+  ): Promise<ActionResult<Actions, K>>;
   async request<T = unknown>(
     method: string,
     params?: unknown,
@@ -877,11 +882,15 @@ export class RealtimeClient<
         ? performance.now()
         : Date.now();
     const t0 = now();
-    const res = await this.request<KernelPingResult>(
-      PLATFORM_METHODS.ping,
-      undefined,
-      timeoutMs,
-    );
+    // `request()` rend un type CONDITIONNEL sur `Actions`, paramètre de classe
+    // non résolu ici — donc inexploitable depuis l'intérieur de la classe. D'où
+    // le cast, sur un contrat que le serveur garantit (`nodefony:kernel:ping`).
+    // Passer par `request()` et non par le moteur est délibéré : c'est le point
+    // d'extension que les tests et les décors substituent.
+    const res = (await this.request<
+      typeof PLATFORM_METHODS.ping,
+      KernelPingResult
+    >(PLATFORM_METHODS.ping, undefined, timeoutMs)) as KernelPingResult;
     return { ...res, rtt: Math.round(now() - t0) };
   }
 

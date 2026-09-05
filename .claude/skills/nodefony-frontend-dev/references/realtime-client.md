@@ -131,13 +131,19 @@ Convention de **cadence dans le nom du canal** (`channelRate.ts`) : `base` nu = 
 ## 5. RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`
 
 ```ts
-// Deux formes (overloads, RealtimeClient.ts:562-600) :
+// Trois surcharges (RealtimeClient.ts:729-763) :
 request<T>(path: `/${string}`, timeoutMs?): Promise<T>;          // forme PATH → pont api.request (lecture GET)
-request<K, T>(method: K, params?, timeoutMs?): Promise<…>;       // forme RPC JSON-RPC classique
+request<K, T>(method: K, params?, timeoutMs?): Promise<…>;       // forme RPC — K = NOM de la méthode, T = résultat
+request<K extends ActionNames<Actions>>(method: K, params?, …);  // contrat IRealtimePeer rendu explicite
 ```
 
+> 🔴 **Rupture 10.0.0** — la forme `request<MonType>("ma:methode")` (un seul générique = le
+> RÉSULTAT) N'EXISTE PLUS : c'était un attrape-tout `(method: string, params?: unknown)` qui
+> rendait inopérant le contrôle des `params` (un payload hors contrat compilait). S'écrit
+> désormais `request<"ma:methode", MonType>("ma:methode")`. La forme PATH est inchangée.
+
 - **Forme RPC** : `request("kernel:ping", params, timeout)` → requête JSON-RPC corrélée, Promise résolue avec `result`, rejette avec `RpcError` sur `error`/timeout (défaut 30000 ms).
-- **Forme PATH** (« API souveraine » : 1 action controller = N transports) : un argument commençant par `/` est détecté au runtime (charCode 47, `:724`) et réécrit en méthode `api.request` avec `params = { path }`. Le 2ᵉ argument devient alors le **timeout**. Exemple :
+- **Forme PATH** (« API souveraine » : 1 action controller = N transports) : un argument commençant par `/` est détecté au runtime (charCode 47, `:773`) et réécrit en méthode `api.request` avec `params = { path }`. Le 2ᵉ argument devient alors le **timeout**. Exemple :
   ```ts
   const modules = await socket.request("/nodefony/kernel/api/modules");
   // = la même action controller que le GET REST, via la socket.

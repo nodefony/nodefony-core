@@ -42,7 +42,7 @@ paint = `GET /nodefony/realtime/api/health`. Panneau « Hub » = KpiCard canaux/
 ## 2. Actions (requête→réponse, ≠ pub/sub) — direction CONTRÔLE
 
 - Une frame **avec `id`** attend une réponse `result`/`error` (boutons « reconnecter / vacuum / purger / Force GC »).
-  Front : `const r = await conn.request<T>("kernel:ping", params)` (Promise id-matchée, timeout 30 s) ; helper
+  Front : `const r = await conn.request<"kernel:ping", T>("kernel:ping", params)` (Promise id-matchée, timeout 30 s) ; helper
   réutilisable `conn.ping()` (RTT). Le `realtime:welcome` annonce `params.methods` → **actions découvrables**.
 - Côté serveur : le controller étend **`RealtimeController`** (framework) et déclare `realtimeActions()`
   (`kernel:ping`/`kernel:gc`). Inconnu → `-32601` ; throw → `-32603` générique. **Pour ajouter une action serveur

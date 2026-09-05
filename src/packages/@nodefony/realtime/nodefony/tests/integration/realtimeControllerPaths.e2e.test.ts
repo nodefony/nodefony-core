@@ -359,9 +359,10 @@ describe("RealtimeController E2E — pont api.request (toute la grille)", () => 
 
   it("succès : api.request {path} → result de l'action (≡ GET REST)", async () => {
     const { client } = await connect();
-    const res = await client.request<{ ok: boolean }>("api.request", {
-      path: "/nodefony/kernel/api/x?a=1&a=2&b=3",
-    });
+    const res = await client.request<"api.request", { ok: boolean }>(
+      "api.request",
+      { path: "/nodefony/kernel/api/x?a=1&a=2&b=3" },
+    );
     expect(res.ok).to.equal(true);
     client.disconnect();
   });

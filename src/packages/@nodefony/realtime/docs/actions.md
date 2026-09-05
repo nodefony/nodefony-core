@@ -217,7 +217,11 @@ export async function askQuote(orderId: string): Promise<IQuote | null> {
   // pas — c'est ainsi qu'un bouton s'active au lieu d'être écrit en dur.
   if (!socket.serverMethods?.includes("orders:quote")) return null;
   // Signature POSITIONNELLE : (méthode, params, délai en ms). Défaut 30 000.
-  return socket.request<IQuote>("orders:quote", { orderId }, 5000);
+  return socket.request<"orders:quote", IQuote>(
+    "orders:quote",
+    { orderId },
+    5000,
+  );
 }
 ```
 

@@ -146,6 +146,33 @@ export type ActionParams<
 export type ActionResult<M extends ActionsMap, K extends keyof M> = M[K]["out"];
 
 /**
+ * Noms d'actions RÉELLEMENT déclarés par le contrat — `never` quand la map n'en
+ * déclare aucune ({@link DefaultActionsMap}).
+ *
+ * ⚠️ À ne pas confondre avec {@link ActionNames}, qui vaut `string` sur une map
+ * non paramétrée : ce repli est ce qu'il faut pour une CONTRAINTE (accepter
+ * n'importe quelle méthode), mais il rend toujours VRAIE la condition d'un type
+ * conditionnel — la branche permissive devient alors inatteignable et le type de
+ * résultat demandé par l'appelant est écrasé en `unknown`.
+ */
+export type ContractActionNames<M extends ActionsMap> = LiteralKeys<M>;
+
+/**
+ * `params` d'une RPC : dictés par le contrat quand `K` lui appartient, libres
+ * sinon. Règle UNIQUE — `IRealtimeSocket`, `RealtimeClient` et
+ * `ServerRealtimeSocket` la partagent au lieu de la recopier.
+ */
+export type ContractParams<M extends ActionsMap, K> =
+  K extends ContractActionNames<M> ? ActionParams<M, K & keyof M> : unknown;
+
+/**
+ * Résultat d'une RPC : dicté par le contrat quand `K` lui appartient, sinon le
+ * `T` que l'appelant demande. Pendant de {@link ContractParams}.
+ */
+export type ContractResult<M extends ActionsMap, K, T> =
+  K extends ContractActionNames<M> ? ActionResult<M, K & keyof M> : T;
+
+/**
  * Handler typé pour une RPC entrante (côté qui expose via `register`).
  * Sync ou async — JSON-RPC 2.0 §5.1 : throw → réponse `-32603 internal_error`.
  */
