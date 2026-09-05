@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T18:32:19.201Z",
+  "generatedAt": "2026-09-05T19:51:33.704Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 117,
+      "closed": 118,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 41,
+      "open": 40,
       "title": "10.0.0"
     }
   ],
@@ -969,7 +969,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 4.5,
+      "jours": 3.5,
       "ordre": 4.5,
       "labels": []
     },
@@ -977,8 +977,8 @@
       "number": 207,
       "title": "refactor(core)!: écrire en anglais les identifiants du diagnostic et de la CLI",
       "url": "https://github.com/nodefony/nodefony-core/issues/207",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,

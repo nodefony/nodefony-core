@@ -51,6 +51,19 @@
 
 ## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
 
+- [1× — 09-05h] **Un outil de renommage qui réutilise un offset relevé AVANT sa première édition
+  désigne un AUTRE symbole.** `symbole()` s'est retrouvée nommée `state()`, homonyme de son propre
+  paramètre — et ça COMPILE. Le typecheck ne voit pas un renommage FAUX, seulement un renommage
+  INCOHÉRENT ; seul un contrôle qui confronte le résultat au plan, liaison par liaison, l'attrape.
+  Corollaire : renommer édite aussi des sites situés AVANT celui qu'on traite, donc tout relevé de
+  positions antérieur est périmé — recollecter à chaque tour.
+- [1× — 09-05h] **Trois choses portent un nom sans être des identifiants, et se cassent si on les
+  renomme** : une clé de registre désignée par chaîne (`group: "LANCER"` dans chaque commande), un
+  littéral d'union qui est un CONTRAT (`"ok" | "echec"`), et du CODE écrit dans une chaîne (un
+  worker passé à `node -e`). La première a fait disparaître deux groupes entiers d'un menu — sept
+  tests rouges ; la troisième a rompu le protocole entre deux processus, sans un mot, parce que le
+  récepteur lisait un `JSON.parse` donc un `any`.
+
 - [1× — 09-05c] **Le gate de langue s'accusait lui-même 404 fois — et il avait tort.** Tous les constats portaient sur les CLÉS de sa table de traduction (`rendre: "render"`) : un dictionnaire français DOIT contenir des mots français. Mais écrites en JavaScript, ces clés sont des DÉCLARATIONS de propriété, que le gate a raison d'extraire ailleurs. Les quoter ne tenait pas (le formateur les dé-quote). Remède : sortir les données en `.json`, où un mot redevient une donnée — gate 2 880 → 1 147 lignes, `scripts/` 558 → 154 constats réels.
 - [1× — 09-05c] **Le seul faux positif du dictionnaire sur 79 523 identifiants tiers était `comparer`** — un NOM anglais (`IEqualsComparer` mobx, rxjs, `IComparer` .NET) dont la racine `compare` figurait DÉJÀ dans les homographes exclus. Aucune règle syntaxique ne pouvait le trouver : « exclu + suffixe » rend 48 cas dont 47 légitimes (`cacher`, `chargement`, `poser` ne sont pas anglais). **Seule la mesure sur corpus tiers tranche cette question-là.**
 
@@ -840,6 +853,16 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-05h] **Le critère de fin d'un ticket valait déjà 0 avant tout travail.** Il comptait un
+  symbole dans `index.d.ts`, que le barrel n'expose pas — la cible vivait dans les `.d.ts` par
+  module. Un critère écrit sans avoir été vu mordre est une case à cocher, pas une preuve. Et le
+  remède crie faux à son tour si l'on compte les OCCURRENCES au lieu des DÉCLARATIONS : le TSDoc
+  français traverse le build, `symbole` et `filet` s'y trouvent 5 et 9 fois, à leur place.
+- [1× — 09-05h] **Mon test « voir la garde rouge » a rendu VERT, et j'ai failli conclure que le
+  contrôle était aveugle.** `sed -i '' 's/\balready\b/deja/'` n'avait rien remplacé : le sed BSD
+  de macOS ignore `\b`. Le contrôle avait raison. Avant de juger ce qu'un contrôle dit d'une
+  mutation, vérifier que la MUTATION a eu lieu.
 
 - [1× — 09-05d] **Un test qui n'énonce pas son décor hérite de celui de la machine — et accuse le produit ailleurs.** `progress.test.ts` littéralisait `⠋` et `▰` ; le produit replie légitimement en ASCII quand l'environnement ne promet pas l'Unicode (`cmd.exe`). Vert sur trois plateformes, rouge sur les trois jobs Windows de la forge, en accusant un produit qui faisait exactement son travail. Un cas qui éprouve un rendu doit DIRE dans quel terminal il se place (env injecté), et la preuve se fait en injectant la grammaire : `supportsUnicode(ENV, "win32") === true`, `supportsUnicode({}, "win32") === false` — sans machine Windows.
 
@@ -2315,6 +2338,13 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-05h] **L'outil dont le but était de ROMPRE une API l'a laissée intacte.**
+  `ts.findRenameLocations` préserve le nom exporté en ajoutant un alias : le barrel publiait
+  `request as demande`, et neuf commits de rupture assumée n'avaient rien changé pour
+  l'utilisateur. C'est en RETIRANT les alias que le typecheck de la racine a nommé les vrais
+  consommateurs — invisibles jusque-là, le programme TypeScript d'un paquet s'arrêtant à sa
+  frontière. Un renommage se prouve donc à DEUX endroits : le barrel publié, et les 25 paquets.
 
 - [1× — 09-04] **Une boucle de réessais qui suppose un échec RAPIDE ne protège de rien face à une commande qui PEND.** `npm audit` a un `fetch-timeout` de 5 min par défaut ; trois essais dépassaient la limite du job, qui mourait avant d'imprimer l'avertissement écrit exprès pour ce cas. La garde existait, elle n'a jamais été atteinte. **Borner le temps de ce qu'on réessaie**, sinon le réessai est le problème.
 

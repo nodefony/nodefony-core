@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-05 18:32** (UTC).
+> Empreinte prise le **2026-09-05 19:51** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,23 +16,22 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 41 | 117 | 2026-11-15 |
+| 10.0.0 | 40 | 118 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
 **#187 — refactor(core)!: écrire tous les identifiants du framework en anglais**
 
-Ordre 4.5 · P1 — figé à la création · 4.5 j · jalon 10.0.0
+Ordre 4.5 · P1 — figé à la création · 3.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 41 ouverts
+## Jalon 10.0.0 — 40 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 4.5 | P1 — figé à la création | 4.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
-| 4.51 | P1 — figé à la création | 1 | #207 | refactor(core)!: écrire en anglais les identifiants du diagnostic et de la CLI |
+| 4.5 | P1 — figé à la création | 3.5 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
 | 4.52 | P1 — figé à la création | 1 | #208 | refactor(core): écrire en anglais les identifiants restants du noyau |
 | 4.53 | P1 — figé à la création | 0.5 | #209 | refactor(orm): écrire en anglais les identifiants du moteur SQL |
 | 4.54 | P1 — figé à la création | 1 | #210 | refactor(devkit): écrire en anglais les identifiants des scripts du navigateur piloté |
