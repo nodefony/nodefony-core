@@ -2719,11 +2719,36 @@ class Kernel extends Service implements IKernel {
     //
     // Une erreur de CONFIGURATION reste fatale : elle ne se répare pas en
     // attendant, et un exemplaire qui l'attendrait attendrait pour toujours.
+    //
+    // 🔴 LA LIGNE PASSE ENTRE UNE FAUTE DE CONFIG ET UNE PANNE D'INFRA — pas
+    // entre développement et production. Une panne d'infra (Redis éteint, base
+    // injoignable) est TRANSITOIRE : elle se répare en démarrant le service, pas
+    // en éditant du code. Elle arrive ici en `Error` ordinaire, et reste donc
+    // fail-soft en développement : c'est la résilience qui rend le dev
+    // praticable, et elle est intacte. Une erreur de configuration, elle, ne se
+    // répare qu'en la corrigeant.
+    //
+    // 🔴 Et elle l'est INDÉPENDAMMENT du tag `critical`. Les deux répondent à des
+    // questions différentes, que ce calcul confondait : `critical = false` dit
+    // « cette application peut tourner SANS ce module » — une affirmation sur sa
+    // DISPONIBILITÉ ; une erreur de configuration dit « ce que l'utilisateur a
+    // écrit ne peut pas être honoré » — une affirmation sur son INTENTION. Un
+    // module optionnel mal configuré démarrait donc en ignorant ce qu'on lui
+    // avait demandé, avec pour seule trace un avertissement : exactement le
+    // silence que le refus des clés inconnues visait à supprimer.
+    //
+    // Ce que cela NE change PAS, et c'est ce qui rend l'arbitrage sûr : un module
+    // optionnel dont l'INFRA est absente (Redis éteint) ne lève pas cette
+    // erreur-là — il propage une `Error` ordinaire, qui reste fail-soft en
+    // développement. Vérifié au moment de la décision : dans les cinq modules
+    // `critical = false` du dépôt, la seule source de `BootConfigurationError`
+    // est la validation de config (`parseModuleConfig`).
     const retenuPar = this.#readinessHold();
     const fatal =
-      critical !== false &&
-      (configError ||
-        (this.environment === "production" && retenuPar === null));
+      configError ||
+      (critical !== false &&
+        this.environment === "production" &&
+        retenuPar === null);
     const msg = error instanceof Error ? error.message : String(error);
     const tag = timedOut ? " [timeout]" : "";
     this.log(

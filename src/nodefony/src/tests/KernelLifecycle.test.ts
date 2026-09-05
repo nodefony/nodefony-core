@@ -1001,7 +1001,13 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     );
   });
 
-  it("dev: BootConfigurationError d'un module NON critique (critical=false) → fail-soft (tag respecté)", async () => {
+  // 🔴 Ce cas affirmait l'INVERSE : le tag `critical = false` court-circuitait la
+  // fatalité d'une erreur de configuration. Les deux répondent à des questions
+  // différentes — `critical = false` dit « l'application peut tourner SANS ce
+  // module » (disponibilité), l'erreur dit « ce qui est écrit ne peut pas être
+  // honoré » (intention). Un module optionnel mal configuré démarrait donc en
+  // ignorant sa config, avec pour seule trace un avertissement.
+  it("dev: BootConfigurationError d'un module NON critique → REJETTE quand même (la config prime sur le tag)", async () => {
     const k = mkKernel("development");
     const hook = (): void => {
       throw new BootConfigurationError("config optionnelle cassée");
@@ -1009,9 +1015,27 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     (hook as any).__nodefony_owner = "opt";
     (hook as any).__nodefony_critical = false;
     k.on("onBoot", hook);
+    await assert.rejects(
+      () => k.fireLifecycle("onBoot", k),
+      /config optionnelle cassée/,
+    );
+  });
+
+  // Le pendant qui borne la décision : une erreur ORDINAIRE d'un module optionnel
+  // reste fail-soft. C'est par là qu'arrive une infra absente (Redis éteint), et
+  // c'est ce qui rend le durcissement ci-dessus sûr — sans ce cas, on ne saurait
+  // pas si l'on vient de rendre le développement impraticable.
+  it("dev: une Error ORDINAIRE d'un module NON critique reste fail-soft", async () => {
+    const k = mkKernel("development");
+    const hook = (): void => {
+      throw new Error("redis éteint");
+    };
+    (hook as any).__nodefony_owner = "opt";
+    (hook as any).__nodefony_critical = false;
+    k.on("onBoot", hook);
     const r = await k.fireLifecycle("onBoot", k);
     assert.strictEqual(r.errors.length, 1);
-    assert.strictEqual(r.stopped, false); // le tag critical=false garde la main
+    assert.strictEqual(r.stopped, false);
   });
 
   it("BootConfigurationError.is : instance, Error au même name (cross-copies), négatif", () => {

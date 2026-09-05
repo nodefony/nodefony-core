@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T16:46:47.698Z",
+  "generated": "2026-09-05T17:03:06.461Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -3388,7 +3388,7 @@
       "extends": "Error",
       "implements": [],
       "decorators": [],
-      "description": "Erreur de **configuration** détectée pendant le boot — TOUJOURS fatale (dev ET prod) pour un module critique, là où un échec de boot ordinaire n'est fatal qu'en production (fail-soft dev). **Pourqu…"
+      "description": "Erreur de **configuration** détectée pendant le boot — TOUJOURS fatale, dans TOUS les environnements et pour TOUT module, là où un échec de boot ordinaire n'est fatal qu'en production pour un modul…"
     },
     "IBootFailure": {
       "name": "IBootFailure",

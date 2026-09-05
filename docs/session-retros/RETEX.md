@@ -22,6 +22,15 @@
 
 ## 🏭 Ce que le PRODUIT construit n'est pas ce que la CONFIG demande
 
+- [1× — 09-05f] **Un mécanisme du produit injectait une clé que AUCUN fichier de configuration ne
+  contient.** Passer les schémas de module en `z.strictObject` a fait tomber le boot du dépôt
+  entier sur `module-security` — pas une faute de frappe, mais l'override inter-modules
+  (`readOverrideModuleConfig`) : la clé est APPLIQUÉE à sa cible puis LAISSÉE dans les options du
+  porteur. `z.object` la faisait disparaître au parse, donc personne ne l'avait jamais vue en des
+  années. La leçon dépasse le cas : **la config qu'un schéma valide n'est pas celle qu'on lit dans
+  les fichiers** — elle est composée au boot par le Kernel, et durcir une validation révèle
+  d'abord ce que le produit s'injecte à lui-même.
+
 - [1× — 09-04b] **Lire un fichier de configuration ne dit pas ce qui s'EXÉCUTE.** Le
   `include` du tsconfig d'une app générée ne contient pas `modules/**` : j'en ai conclu — et
   failli graver dans un commentaire — que le module généré n'était jamais typechecké. Faux :
@@ -111,6 +120,16 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
+
+- [1× — 09-05f] **786 tests verts, et pas un seul ne bootait.** Le user a posé la question qui
+  tranche : « comment un crash serveur sans test en échec, c'est possible ? » Réponse : les suites
+  de `http`, `framework` et des huit autres modules valident les schémas sur des configs
+  **fabriquées par le test**. Aucune ne compose la configuration comme le Kernel la compose. Le
+  seul test qui boote pour de vrai (`CliIntegration.test.ts`) est **opt-in** (`NF_RUN_CLI_BOOT`),
+  donc skippé par `npm test` — et un skip compte comme vert. Il rendait 10 échecs dès qu'on le
+  lançait. **La forge le pose, le trou était LOCAL** : une passe verte en local ne dit rien de ce
+  que la forge exercera. Corollaire : quand un changement touche ce que le RUNTIME compose, la
+  seule preuve est un boot, pas une suite unitaire — si longue soit-elle.
 
 - [1× — 09-04] **Trois tests HÉRITAIENT de leur décor au lieu de l'ÉNONCER : verts chez moi, rouges partout ailleurs.** Deux lisaient `process.env.CI` sans le savoir (posé sur toute forge, il arme `--strict` et change le code de sortie mesuré) ; le troisième lisait `process.stdout.columns` — le rendu replie ses phrases, si bien qu'un `assert.include` sur « SANS aucun serveur en écoute » passe au-delà de 72 colonnes et tombe en deçà. **Tout ce qu'un test ne pose pas, il l'emprunte à la machine.** Le décor se pose dans le helper de capture (largeur fixée) ou s'écrit dans l'appel (`--no-strict`), jamais ne se subit.
 
@@ -531,6 +550,14 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-05f] **Le même bloc `try`/`catch` recopié ONZE fois avait divergé sur les deux points
+  qui comptent** : le TYPE de l'erreur levée et la LANGUE du message. Dix modules levaient une
+  `Error` nue — que le kernel absorbe en développement — pendant que le gabarit du module GÉNÉRÉ,
+  écrit plus tard, levait la bonne `BootConfigurationError`. **Le framework était donc moins
+  sévère que ce qu'il fait produire**, et aucune lecture d'un seul fichier ne pouvait le montrer :
+  chacun était cohérent avec lui-même. Le test qui trouve ça se pose sur la FAMILLE, jamais sur
+  l'exemplaire — `rg -c 'throw new Error' <les onze chemins>` a rendu le verdict en une seconde.
+
 - [1× — 09-05c] **La règle était connue, écrite, commentée — et appliquée à UN banc sur TROIS.** `bench-schema.mjs` portait `--no-install` avec sa justification (« les deps du scaffold pointent le registre npm, où la version 10 n'est pas publiée ») ; `verify-generated.mjs` et `bench-discoverability.mjs` ne l'avaient pas. Sept jobs de forge sont tombés dessus. Une règle qui vit dans un seul de N appelants n'est pas une règle, c'est un souvenir — et rien ne la compare. Le contrôle qui manque : `grep` du geste sur TOUS les sites avant de croire une règle appliquée.
 
 - [1× — 09-04] **Quatre marcheurs de fichiers, quatre listes d'exclusion — et aucun test ne les comparait.** Elles avaient déjà divergé sans bruit : la fraîcheur du build comptait les tests que la surface excluait depuis toujours, si bien qu'écrire un test réclamait un `npm run build`. Unifier a révélé le contrecoup : la liste la plus riche contenait `test` au SINGULIER, qui est un nom de module légitime — le dépôt en a un, et l'unification faisait disparaître ses entités du câblage. **Ce qui se mesure avant d'unifier : le compte AVANT et APRÈS sur le produit réel.**
@@ -767,6 +794,14 @@
   le plus étroit se durcit tout seul dans le bon sens. [1× — 08-22e]
 
 ## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
+
+- [1× — 09-05f] **Un FAUX secret dans un dépôt public est refusé exactement comme un vrai, et
+  c'est correct.** `SMOKE_SECRET="0123456789abcdef…"` — 32 hexadécimaux, valeur jetable d'un banc
+  local, n'ouvrant rien — a fait rougir le gate `Secrets` le soir même. Aucun relecteur, humain ou
+  automate, ne distingue les deux. Un secret jetable se **TIRE** (`openssl rand -hex 16`, repli
+  `/dev/urandom`) : il n'a aucune raison d'être reproductible. L'exclure par une règle de
+  `.gitleaks.toml` aurait appris au scanner à se taire sur cette FORME partout ailleurs — c'est
+  `.gitleaksignore`, par empreinte exacte, qui acquitte un constat déjà commité.
 
 - **Un jeton écrit SANS son mode : 0644, lisible par toute la machine.** Parti d'une alerte de
   RACE (`existsSync` puis `write`), j'ai trouvé pire à deux lignes. Et le remède existait DÉJÀ dans
@@ -1364,6 +1399,17 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- [1× — 09-05f] **`&` ET `run_in_background` dans le même appel : le shell rend la main aussitôt,
+  et le « exit 0 » ne mesure RIEN.** J'ai lu un log tronqué au milieu d'un run comme s'il était
+  fini, et failli conclure. Le run relancé sans `&` a rendu le vrai verdict (23/24). Un code de
+  sortie ne vaut que si le process qui l'émet est bien celui dont on attend le travail.
+- [1× — 09-05f] **Deux fois le même piège en une heure : mesurer sur un artefact BÂTI, pas sur la
+  source.** `turbo run build` a rendu `FULL TURBO` en restaurant un dist caché SANS le symbole
+  neuf (`--force` requis), puis `bin/nodefony` — un binaire bundlé — a rejoué l'ancien code et
+  affiché la MÊME erreur après correction, à la ligne près. Le repère qui tranche en deux
+  secondes : la trace pointait `bin/nodefony:2182`, un numéro de ligne qui n'existe dans aucune
+  source.
 
 - [1× — 09-05c] **Mon essai tournait DANS `/tmp`, donc sans la config du dépôt — et il disait l'inverse de la vérité.** Question : « prettier dé-quote-t-il les clés d'objet ? ». Essai hors dépôt : non. Essai DANS le dépôt : oui. La réponse conditionnait toute une solution (quoter les clés du dictionnaire), qui n'aurait pas tenu un commit. Un outil configurable ne se teste que là où sa configuration s'applique.
 - [1× — 09-05c] **`--json` arrivait TRONQUÉ dans un pipe, complet dans un fichier.** `process.exit()` juste après `console.log()` tue le processus avant le vidage d'un stdout asynchrone (tampon 64 Ko). Vers un fichier l'écriture est synchrone : le défaut ne se montrait qu'au-delà du tampon, donc jamais sur un petit rapport. Remède : `process.exitCode`, jamais `process.exit()` après avoir écrit.
