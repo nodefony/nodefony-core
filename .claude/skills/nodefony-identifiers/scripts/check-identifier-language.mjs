@@ -18,11 +18,12 @@
  * se répond avec un dictionnaire de mots DISCRIMINANTS, constitué à la main.
  *
  * Ce que le script fait, dans l'ordre :
- *  1. balaie les sources de PRODUCTION — TypeScript, JavaScript et shell : la
- *     règle porte sur le CODE, pas sur un langage (les tests, `dist`,
- *     `node_modules`,
- *     `templates` et `coverage` sont hors périmètre — les tests sont EXEMPTÉS
- *     pour leurs identifiants locaux, les gabarits portent des balises) ;
+ *  1. balaie les sources de PRODUCTION — TypeScript, JavaScript, composants à
+ *     fichier unique et shell, y compris les GABARITS `*.tpl` : la règle porte
+ *     sur le CODE, pas sur un langage, et un gabarit est le code que l'on fait
+ *     produire chez l'utilisateur (`dist`, `node_modules` et `coverage` sont
+ *     hors périmètre ; les tests sont EXEMPTÉS pour leurs identifiants
+ *     locaux — y compris les tests GÉNÉRÉS, par le même mécanisme) ;
  *  2. BLANCHIT commentaires, chaînes et littéraux de gabarit — c'est là que le
  *     français est légitime, et c'est le faux positif qui tuerait l'outil ;
  *  3. extrait les identifiants DÉCLARÉS (fonction, classe, interface, type,
@@ -272,7 +273,16 @@ export function normalizeWord(word) {
  */
 export function splitIdentifier(identifier) {
   const words = [];
-  for (const part of identifier.split(/[_$#]+/)) {
+  // Les marqueurs de substitution des gabarits (`__NAME__`, `__PASCAL__`) sont
+  // OPAQUES : ce n'est pas l'auteur du gabarit qui nomme, c'est le générateur
+  // qui remplacera. Les juger ferait crier le gate sur un mot que personne n'a
+  // choisi — et un gate qui crie faux apprend à passer outre.
+  //
+  // MAJUSCULES exigées entre les deux paires de croisillons, et c'est ce qui
+  // rend la règle sûre : `__proto__`, `__dirname`, `__filename` sont de vrais
+  // identifiants JavaScript, écrits en minuscules, et restent jugés.
+  const withoutMarkers = identifier.replace(/__[A-Z0-9]+__/g, "_");
+  for (const part of withoutMarkers.split(/[_$#]+/)) {
     if (!part) continue;
     // Acronyme (suivi d'une minuscule ou de la fin), mot capitalisé ou
     // minuscule, suite de chiffres — les trois alternatives sont disjointes.
@@ -1125,39 +1135,54 @@ const EXCLUDED_SEGMENTS = new Set([
   "fixtures",
   "dist",
   "node_modules",
-  "templates",
   "coverage",
   ".coverage",
   ".git",
 ]);
 
 /**
- * Extensions contrôlées : TypeScript ET JavaScript.
+ * Extensions contrôlées : TypeScript, JavaScript, composants à fichier unique,
+ * shell — et les GABARITS, qui portent l'une de ces extensions avant `.tpl`.
  *
  * La règle du `CLAUDE.md` parle du CODE, pas d'un langage — un `monterDecor`
  * dans un `.mjs` d'outillage est aussi introuvable au `grep` anglais qu'un
  * `rendreRapport` dans un `.ts`. Le blanchiment de la prose et l'extraction des
  * déclarations valent tels quels : JavaScript est TypeScript sans les types,
  * les motifs propres aux types ne trouvent simplement rien.
+ *
+ * Les gabarits comptent DOUBLE : un identifiant français y est recopié dans
+ * CHAQUE application que `nodefony create` écrit. Appliquer la règle au
+ * framework sans l'appliquer à ce qu'il fait produire la rendrait décorative.
+ * L'extension utile est celle qui précède `.tpl` — `App.vue.tpl` est du code,
+ * `package.json.tpl` n'en est pas.
  */
-const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?|sh|bash)$/;
+const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?|sh|bash|vue|svelte)(?:\.tpl)?$/;
 
 /**
  * Fichiers de test, hors périmètre quelle que soit leur extension.
  *
  * Les tests sont EXEMPTÉS par la règle pour leurs identifiants locaux : ils ne
  * partent pas sur npm et n'entrent dans aucun `.d.ts`.
+ *
+ * Le suffixe `.tpl` est accepté ici pour la même raison qu'il l'est plus haut,
+ * et l'exemption vaut donc pour les tests GÉNÉRÉS : `e2e.test.ts.tpl` produit
+ * un test chez l'utilisateur, et un test reste un test. C'est l'écrasante
+ * majorité du français des gabarits — 32 constats sur 55 au moment où le
+ * périmètre a été ouvert.
  */
-const TEST_FILE = /\.(?:test|spec|selftest)\.(?:[cm]?[jt]sx?|sh|bash)$/;
+const TEST_FILE =
+  /\.(?:test|spec|selftest)\.(?:[cm]?[jt]sx?|sh|bash|vue|svelte)(?:\.tpl)?$/;
 
 /**
  * Dit si un chemin (relatif, en `/`) est un fichier de PRODUCTION à contrôler.
  *
- * Contrôlés : `.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.sh`
- * `.bash`. Hors périmètre : tout segment `tests`/`__tests__`/`fixtures`/`dist`/
- * `node_modules`/`templates`/`coverage`, les `*.test.ts`, `*.spec.ts`,
- * `*.selftest.ts`, les `.d.ts` générés, et les configs `vitest.*`. Le segment
- * `test` au singulier reste DANS le périmètre : c'est le nom d'un module.
+ * Contrôlés : `.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.vue`
+ * `.svelte` `.sh` `.bash`, chacun éventuellement suffixé `.tpl` (gabarit).
+ * Hors périmètre : tout segment `tests`/`__tests__`/`fixtures`/`dist`/
+ * `node_modules`/`coverage`, les `*.test.ts`, `*.spec.ts`, `*.selftest.ts`
+ * (suffixe `.tpl` compris), les `.d.ts` générés, et les configs `vitest.*`
+ * (dont `vitest.config.ts.tpl`). Le segment `test` au singulier reste DANS le
+ * périmètre : c'est le nom d'un module.
  *
  * @param relPath - chemin relatif à la racine, séparateur `/`
  * @returns `true` si le fichier doit être contrôlé
@@ -1368,9 +1393,10 @@ Usage : node scripts/check-identifier-language.mjs [options] [chemins…]
   --help                cette aide
 
 Sortie : 0 si aucun identifiant ne sort, 1 sinon, 2 sur erreur d'usage.
-Contrôlés : .ts .tsx .mts .cts .js .jsx .mjs .cjs .sh .bash — la règle porte sur le CODE,
+Contrôlés : .ts .tsx .mts .cts .js .jsx .mjs .cjs .vue .svelte .sh .bash, et les
+gabarits *.tpl qui portent l'une de ces extensions — la règle porte sur le CODE,
 pas sur un langage. Les scripts shell sont lus par leur propre automate.
-Hors périmètre : tests (*.test.*, **/tests/**), dist, node_modules, templates, coverage.`;
+Hors périmètre : tests (*.test.*, **/tests/**, y compris générés), dist, node_modules, coverage.`;
 
 if (
   process.argv[1] &&

@@ -61,6 +61,12 @@ describe("splitIdentifier — toutes les conventions", () => {
     ["$scope", ["scope"]],
     ["#largeur", ["largeur"]],
     ["__proto__", ["proto"]],
+    // Marqueur de substitution d'un gabarit : OPAQUE, il n'est pas nommé par
+    // l'auteur. Les MAJUSCULES le distinguent de `__proto__` / `__dirname`,
+    // qui sont de vrais identifiants JavaScript et restent jugés.
+    ["__NAME__Service", ["Service"]],
+    ["__PASCAL__Largeur", ["Largeur"]],
+    ["__KEBAB__", []],
     ["a", ["a"]],
   ];
   for (const [input, expected] of cases) {
@@ -814,11 +820,20 @@ describe("isProductionFile — le périmètre", () => {
       "src/x/legacy.js",
       "src/x/config.cjs",
       "src/x/widget.jsx",
+      // GABARITS : le code que `nodefony create` écrit chez l'utilisateur.
+      // L'extension utile est celle qui PRÉCÈDE `.tpl`.
+      "src/nodefony/templates/app/base/index.ts.tpl",
+      "src/nodefony/templates/app/frontend/vue/frontend/src/App.vue.tpl",
+      "src/nodefony/templates/app/frontend/svelte/frontend/src/App.svelte.tpl",
+      "src/nodefony/templates/service/nodefony/service/__PASCAL__Service.ts.tpl",
+      // Composants à fichier unique, gabarit ou non.
+      "src/modules/test-frontend-vue/frontend/src/App.vue",
+      "src/modules/test-frontend-svelte/frontend/src/App.svelte",
     ])
       assert.ok(isProductionFile(p), p);
   });
 
-  it("exclut tests, dist, node_modules, templates, coverage, .d.ts, vitest.*", () => {
+  it("exclut tests, dist, node_modules, coverage, .d.ts, vitest.*", () => {
     for (const p of [
       "src/nodefony/src/tests/Kernel.test.ts",
       "src/nodefony/src/kernel/Kernel.test.ts",
@@ -829,7 +844,6 @@ describe("isProductionFile — le périmètre", () => {
       "src/x/fixtures/a.ts",
       "src/nodefony/dist/index.ts",
       "src/nodefony/node_modules/zod/index.ts",
-      "src/nodefony/templates/app/base/index.ts",
       "src/packages/@nodefony/devkit/coverage/devkit/x.ts",
       "src/nodefony/dist/types/index.d.ts",
       "src/packages/@nodefony/http/vitest.config.ts",
@@ -841,6 +855,15 @@ describe("isProductionFile — le périmètre", () => {
       "scripts/gate.spec.mjs",
       "src/x/tests/helper.mjs",
       "src/x/tools.test.js",
+      // Un gabarit qui produit un TEST reste un test : l'exemption des
+      // identifiants locaux traverse la génération. C'est l'écrasante majorité
+      // du français des gabarits — 32 constats sur 55 à l'ouverture du
+      // périmètre. Une extension NON source ne rentre pas non plus.
+      "src/nodefony/templates/app/base/tests/e2e.test.ts.tpl",
+      "src/nodefony/templates/entity/tests/tests/__KEBAB__.e2e.test.ts.tpl",
+      "src/nodefony/templates/app/base/vitest.config.ts.tpl",
+      "src/nodefony/templates/app/base/package.json.tpl",
+      "src/nodefony/templates/app/base/README.md.tpl",
     ])
       assert.ok(!isProductionFile(p), p);
   });
@@ -934,14 +957,24 @@ describe("scanRepo — sur un dépôt fabriqué", () => {
       "src/core/report.test.ts": "const largeur = 1; const filet = 2;\n",
       "src/core/tests/helpers.ts": "export const controlesSautes = [];\n",
       "src/core/dist/report.ts": "export const accord = 1;\n",
-      "src/core/templates/x.ts": "export const gabarit = 1;\n",
+      // Un GABARIT est du code de production : ce qu'il porte est recopié dans
+      // chaque application générée, donc il est balayé comme le reste.
+      "src/core/templates/x.ts.tpl": "export const gabarit = 1;\n",
+      // Sauf s'il produit un TEST — l'exemption traverse la génération.
+      "src/core/templates/tests/x.test.ts.tpl": "const largeur = 1;\n",
+      // Et sauf si ce qu'il produit n'est pas du code.
+      "src/core/templates/package.json.tpl": '{ "largeur": 1 }\n',
       "src/core/notes.md": "largeur filet accord\n",
     });
     const r = scanRepo({ root });
-    assert.equal(r.scanned, 2);
+    assert.equal(r.scanned, 3);
     assert.deepEqual(
       r.findings.map((f) => `${f.file}:${f.line} ${f.identifier}`).sort(),
-      ["src/core/report.ts:1 largeur", "src/core/report.ts:1 rendreRapport"],
+      [
+        "src/core/report.ts:1 largeur",
+        "src/core/report.ts:1 rendreRapport",
+        "src/core/templates/x.ts.tpl:1 gabarit",
+      ],
     );
     // Les exceptions par défaut sont déclarées mais, sur ce dépôt, sans effet — et dites.
     assert.equal(r.exceptions.declared, DEFAULT_EXCEPTIONS.length);
