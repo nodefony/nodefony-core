@@ -114,12 +114,16 @@ const isDeclarationName = (node) => {
  * `line` restreint aux déclarations situées sur cette ligne : une même
  * orthographe peut nommer des symboles SANS rapport — une fonction et la
  * propriété d'une interface — que rien ne doit renommer ensemble.
+ *
+ * Un membre privé de classe est un `PrivateIdentifier`, pas un `Identifier` :
+ * sans lui, `#prendreVerrou` était introuvable et l'outil le déclarait « aucune
+ * déclaration ». Son `text` PORTE le croisillon — le plan l'écrit donc `#nom`.
  */
 const collectDeclarations = (sourceFile, name, line) => {
   const found = [];
   const visit = (node) => {
     if (
-      ts.isIdentifier(node) &&
+      (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) &&
       node.text === name &&
       isDeclarationName(node)
     ) {
@@ -136,6 +140,42 @@ const collectDeclarations = (sourceFile, name, line) => {
   };
   visit(sourceFile);
   return found;
+};
+
+/**
+ * Vrai si la déclaration à cette position LIE un nom dans une portée.
+ *
+ * Une propriété de type ou de littéral (`{ name?: string }`) porte le même
+ * texte sans rien lier : la compter ferait refuser des renommages parfaitement
+ * sûrs — `colonnes` → `columns` dans un fichier qui décrit une table.
+ */
+const bindsAValue = (sourceFile, position) => {
+  const find = (node) => {
+    if (position < node.getStart(sourceFile) || position >= node.getEnd())
+      return undefined;
+    let hit;
+    ts.forEachChild(node, (child) => {
+      hit ??= find(child);
+    });
+    if (hit) return hit;
+    return (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) &&
+      node.getStart(sourceFile) === position
+      ? node
+      : undefined;
+  };
+  const node = find(sourceFile);
+  const parent = node?.parent;
+  if (!parent) return false;
+  return (
+    ts.isVariableDeclaration(parent) ||
+    ts.isFunctionDeclaration(parent) ||
+    ts.isClassDeclaration(parent) ||
+    ts.isParameter(parent) ||
+    ts.isBindingElement(parent) ||
+    ts.isImportSpecifier(parent) ||
+    ts.isImportClause(parent) ||
+    ts.isNamespaceImport(parent)
+  );
 };
 
 // --- Application ----------------------------------------------------------
@@ -194,6 +234,17 @@ for (const [relFile, table] of Object.entries(plan)) {
       untouched.push(`${relFile} — aucune déclaration nommée « ${oldName} »`);
       continue;
     }
+    // Le nom visé porte parfois PLUSIEURS déclarations : les homonymes que nos
+    // propres tours créent ne sont pas une collision. Seul ce qui portait déjà
+    // ce nom AVANT la première édition en est une.
+    const bareTarget = newName.startsWith("#") ? newName.slice(1) : newName;
+    const preexisting = collectDeclarations(sourceFile, newName)
+      .concat(
+        newName === bareTarget
+          ? []
+          : collectDeclarations(sourceFile, bareTarget),
+      )
+      .filter((pos) => bindsAValue(sourceFile, pos)).length;
     let guard = remaining + 1;
     while (remaining > 0 && guard > 0) {
       guard -= 1;
@@ -202,6 +253,18 @@ for (const [relFile, table] of Object.entries(plan)) {
       const positions = collectDeclarations(current, oldName, line);
       if (positions.length === 0) break;
       const position = positions[0];
+      // Une cible DÉJÀ déclarée dans ce fichier ne produit pas une erreur de
+      // renommage : elle produit deux déclarations homonymes, et TypeScript
+      // relie alors les usages — un raccourci `{ target }` compris — à la
+      // MAUVAISE. Vécu : `cible` renommé `target` à côté d'un `target`
+      // existant a fait renvoyer l'URL analysée à la place de la cible de
+      // migration, sous un typecheck vert et un contrôle de dérive muet.
+      if (preexisting > 0) {
+        untouched.push(
+          `${relFile} — « ${oldName} » → « ${newName} » REFUSÉ : ce nom est déjà déclaré dans le fichier`,
+        );
+        break;
+      }
       const locations = service.findRenameLocations(
         fileName,
         position,
@@ -215,7 +278,13 @@ for (const [relFile, table] of Object.entries(plan)) {
         );
         break;
       }
-      const withName = locations.map((l) => ({ ...l, newName }));
+      // Le span d'un membre privé PORTE le croisillon : sans lui, `#x` devient
+      // `x` — un membre privé rendu PUBLIC, que le typecheck accepte sans un mot.
+      const effectiveName =
+        oldName.startsWith("#") && !newName.startsWith("#")
+          ? `#${newName}`
+          : newName;
+      const withName = locations.map((l) => ({ ...l, newName: effectiveName }));
       if (dryRun) {
         for (const l of locations) touchedFiles.add(normalize(l.fileName));
         remaining = 0; // à blanc, rien n'est édité : une passe suffit à décrire

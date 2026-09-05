@@ -30,6 +30,7 @@
     "check:lang": "node scripts/check-identifier-language.mjs",
     "check:lang:bench": "node scripts/bench-identifier-language.mjs",
     "check:lang:test": "node --test scripts/check-identifier-language.test.mjs",
+    "check:rename:test": "node --test scripts/rename-identifiers.test.mjs",
     "check:nul": "node scripts/check-no-nul-bytes.mjs",
     "clean": "turbo run clean && rimraf dist",
     "coverage": "tsx scripts/coverage-all.ts",

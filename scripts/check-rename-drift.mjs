@@ -38,7 +38,10 @@ const declarations = (text, fileName) => {
   const named = [];
   const shorthands = [];
   const visit = (node) => {
-    if (ts.isIdentifier(node)) {
+    // Un membre privé est un `PrivateIdentifier`, pas un `Identifier` : sans
+    // lui, `#nom` n'a « aucune liaison » et toute dérive sur un membre privé
+    // — sa PORTÉE comprise — passe inaperçue.
+    if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) {
       const parent = node.parent;
       if (
         parent &&
