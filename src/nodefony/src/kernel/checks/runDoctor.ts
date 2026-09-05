@@ -59,7 +59,7 @@ import {
   type DoctorFamily,
   type IExecution,
 } from "./report";
-import { rendreRapport } from "./renderReport";
+import { renderReport } from "./renderReport";
 import { stripGlobalCliFlags } from "../../cli/globalFlags";
 
 /**
@@ -1280,14 +1280,14 @@ export function renderDoctorReport(
   }
 
   const out = process.stdout;
-  const lignes = rendreRapport(report, {
-    largeur: usableWidth(out.columns),
-    couleur: shouldColorize(process.env, Boolean(out.isTTY)),
+  const lignes = renderReport(report, {
+    width: usableWidth(out.columns),
+    color: shouldColorize(process.env, Boolean(out.isTTY)),
     now: Date.now(),
-    lanceDepuis: start,
+    launchedFrom: start,
     strict,
     targetEnv: parsed.targetEnv,
-    ...(dureeMs === undefined ? {} : { dureeMs }),
+    ...(dureeMs === undefined ? {} : { durationMs: dureeMs }),
   });
   out.write(`${lignes.join("\n")}\n`);
   return code();

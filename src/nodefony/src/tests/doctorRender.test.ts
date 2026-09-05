@@ -18,10 +18,10 @@
 import { describe, it } from "vitest";
 import { assert } from "chai";
 import {
-  rendreRapport,
-  grouperParRaison,
-  aFaireEnsuite,
-  type IOptionsRendu,
+  renderReport,
+  groupByReason,
+  nextActions,
+  type IRenderOptions,
 } from "../kernel/checks/renderReport";
 import {
   shouldColorize,
@@ -94,9 +94,9 @@ const rapport = (patch: Partial<IDoctorReport> = {}): IDoctorReport => ({
   ...patch,
 });
 
-const options = (patch: Partial<IOptionsRendu> = {}): IOptionsRendu => ({
-  largeur: 80,
-  couleur: false,
+const options = (patch: Partial<IRenderOptions> = {}): IRenderOptions => ({
+  width: 80,
+  color: false,
   now: Date.parse("2026-09-04T12:00:00Z"),
   strict: false,
   ...patch,
@@ -137,7 +137,7 @@ const horsApplication = (): IDoctorReport =>
 
 describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   it("🔴 un contrôle qui n'a rien regardé n'affiche AUCUN signe de succès", () => {
-    const lignes = rendreRapport(horsApplication(), options()).map(nu);
+    const lignes = renderReport(horsApplication(), options()).map(nu);
     const sommaire = lignes.filter((l) => /^ {2}[✓✗—!] {2}\S/u.test(l));
     assert.isNotEmpty(sommaire, "le sommaire doit exister");
     for (const l of sommaire) {
@@ -146,7 +146,7 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   });
 
   it("🔴 le bilan final ne dit pas « rien à signaler » quand rien n'a été fait", () => {
-    const lignes = rendreRapport(horsApplication(), options()).map(nu);
+    const lignes = renderReport(horsApplication(), options()).map(nu);
     const bilan = lignes.findLast((l) => l.trim() !== "") ?? "";
     assert.include(bilan, "Aucun contrôle n'a pu être fait");
     assert.notInclude(bilan, "Rien à signaler");
@@ -170,7 +170,7 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
         },
       ),
     });
-    const texte = rendreRapport(r, options()).map(nu).join("\n");
+    const texte = renderReport(r, options()).map(nu).join("\n");
     assert.include(texte, "NON CONTRÔLÉ");
     assert.include(texte, "catalogue illisible");
     assert.include(texte, "npm run build");
@@ -228,7 +228,7 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
     const decors = [r, horsApplication()];
     for (const largeur of [48, 60, 80, 96]) {
       for (const l of decors.flatMap((d) =>
-        rendreRapport(d, options({ largeur, strict: true })),
+        renderReport(d, options({ width: largeur, strict: true })),
       )) {
         const vue = nu(l);
         // Un chemin d'un seul tenant ne se coupe pas : c'est voulu (le couper
@@ -244,9 +244,9 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   });
 
   it("🔴 hors terminal, PAS une seule séquence ANSI", () => {
-    const texte = rendreRapport(
+    const texte = renderReport(
       horsApplication(),
-      options({ couleur: false }),
+      options({ color: false }),
     ).join("\n");
     assert.notMatch(
       texte,
@@ -258,9 +258,9 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   it("dans un terminal, la couleur est bien émise", () => {
     // L'inverse compte autant : une palette qui ne colore jamais serait un
     // « propre » obtenu en perdant l'information.
-    const texte = rendreRapport(
+    const texte = renderReport(
       horsApplication(),
-      options({ couleur: true }),
+      options({ color: true }),
     ).join("\n");
     assert.match(texte, ANSI);
   });
@@ -288,7 +288,7 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
         ],
       },
     });
-    const lignes = rendreRapport(r, options()).map(nu);
+    const lignes = renderReport(r, options()).map(nu);
     // Le geste porte un CHEVRON, pas une flèche : la ligne se lit comme une
     // commande à taper, et le marqueur ne ressemble plus à la ponctuation du
     // constat, où la flèche apparaît aussi.
@@ -319,14 +319,14 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   });
 
   it("les contrôles sautés pour la MÊME raison ne se répètent pas", () => {
-    const groupes = grouperParRaison([
+    const groupes = groupByReason([
       { family: "freshness", title: "A", reason: "r", unlock: "u" },
       { family: "readiness", title: "B", reason: "r", unlock: "u" },
       { family: "deps", title: "C", reason: "autre", unlock: "u" },
     ]);
     assert.lengthOf(groupes, 2);
-    assert.deepEqual(groupes[0]?.titres, ["A", "B"]);
-    assert.deepEqual(groupes[1]?.titres, ["C"]);
+    assert.deepEqual(groupes[0]?.titles, ["A", "B"]);
+    assert.deepEqual(groupes[1]?.titles, ["C"]);
   });
 
   it("le sommaire et le détail annoncent les familles dans le MÊME ordre", () => {
@@ -341,7 +341,7 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
         },
       ),
     });
-    const lignes = rendreRapport(r, options()).map(nu);
+    const lignes = renderReport(r, options()).map(nu);
     const rang = (mot: string): number =>
       lignes.findIndex((l) => l.includes(mot));
     assert.isBelow(
@@ -358,14 +358,14 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   });
 
   it("le mode strict s'ANNONCE — un code de sortie sans explication se subit", () => {
-    const texte = rendreRapport(horsApplication(), options({ strict: true }))
+    const texte = renderReport(horsApplication(), options({ strict: true }))
       .map(nu)
       .join("\n");
     assert.include(texte, "mode strict");
   });
 
   it("sans contrôle sauté, aucune section « non contrôlé » ne s'invite", () => {
-    const texte = rendreRapport(rapport(), options()).map(nu).join("\n");
+    const texte = renderReport(rapport(), options()).map(nu).join("\n");
     assert.notInclude(texte, "NON CONTRÔLÉ");
     // Le compte est DÉRIVÉ : les familles comptées (les sous-règles de
     // `readiness` n'en sont pas). L'écrire en dur le rendait faux à la
@@ -379,17 +379,17 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
   it("l'en-tête dit d'où l'on a lancé quand ce n'est pas la racine auscultée", () => {
     // Un rapport qui porte sur un autre dossier que celui qu'on croit se lit
     // de travers, dans les deux sens.
-    const texte = rendreRapport(
+    const texte = renderReport(
       rapport(),
-      options({ lanceDepuis: "/app/modules/blog" }),
+      options({ launchedFrom: "/app/modules/blog" }),
     )
       .map(nu)
       .join("\n");
     assert.include(texte, "lancé depuis /app/modules/blog");
     // Et se tait quand c'est le même dossier.
-    const memeDossier = rendreRapport(
+    const memeDossier = renderReport(
       rapport(),
-      options({ lanceDepuis: "/app" }),
+      options({ launchedFrom: "/app" }),
     )
       .map(nu)
       .join("\n");
@@ -412,7 +412,7 @@ describe("doctor — le rendu répond dans l'ordre des questions", () => {
   // La question qu'on se pose en lançant un diagnostic est « est-ce que ça
   // va ? », et elle n'obtenait sa réponse qu'après soixante lignes de détail.
   it("le verdict précède le détail", () => {
-    const lignes = rendreRapport(
+    const lignes = renderReport(
       rapport({
         freshness: {
           findings: [{ kind: "dist-stale" as const, message: "x" }],
@@ -447,7 +447,7 @@ describe("doctor — le rendu répond dans l'ordre des questions", () => {
     // quatre lignes selon qu'on a lancé la commande ailleurs que dans l'app,
     // et un index en dur ferait échouer ce test pour une raison sans rapport.
     const bandeau =
-      rendreRapport(r, options())
+      renderReport(r, options())
         .map(nu)
         .find((l) => l.includes("PROBLÈME") && !l.includes("─")) ?? "";
     assert.include(bandeau, "PROBLÈME");
@@ -455,7 +455,7 @@ describe("doctor — le rendu répond dans l'ordre des questions", () => {
   });
 
   it("tout va bien : le rendu le dit en tête, sans emphase inutile", () => {
-    const lignes = rendreRapport(rapport(), options()).map(nu);
+    const lignes = renderReport(rapport(), options()).map(nu);
     assert.notEqual(rang(lignes, "RIEN À SIGNALER"), -1);
     assert.equal(rang(lignes, "PROBLÈMES"), -1, "aucune section de problèmes");
   });
@@ -483,16 +483,16 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
         ],
       },
     });
-    const gestes = aFaireEnsuite(r, []);
+    const gestes = nextActions(r, []);
     assert.lengthOf(gestes, 1);
-    assert.equal(gestes[0]?.commande, "npm run build");
+    assert.equal(gestes[0]?.command, "npm run build");
   });
 
   it("les gestes des contrôles SAUTÉS y figurent aussi", () => {
     const r = horsApplication();
-    const commandes = aFaireEnsuite(
+    const commandes = nextActions(
       r,
-      grouperParRaison([
+      groupByReason([
         {
           family: "migrations",
           title: "Migrations de schéma",
@@ -502,12 +502,12 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
       ]).flatMap((g) => [
         {
           family: "migrations" as DoctorFamily,
-          title: g.titres[0] ?? "",
+          title: g.titles[0] ?? "",
           reason: g.reason,
           unlock: g.unlock,
         },
       ]),
-    ).map((g) => g.commande);
+    ).map((g) => g.command);
     assert.include(commandes, "nodefony doctor --live");
   });
 
@@ -522,7 +522,7 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
         notComparable: false,
       },
     });
-    const lignes = rendreRapport(r, options({ couleur: false })).map(nu);
+    const lignes = renderReport(r, options({ color: false })).map(nu);
     const geste = lignes.find((l) => l.includes("▸"));
     assert.isDefined(geste);
     assert.notInclude(geste ?? "", "`");
@@ -545,7 +545,7 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
         notComparable: false,
       },
     });
-    const lignes = rendreRapport(r, options({ largeur: 60, couleur: false }))
+    const lignes = renderReport(r, options({ width: 60, color: false }))
       .map(nu)
       .filter((l) => l.includes("│"));
     assert.isAbove(lignes.length, 2, "le constat doit s'être replié");
@@ -694,9 +694,9 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
         },
       },
     });
-    return rendreRapport(r, {
-      largeur,
-      couleur: false,
+    return renderReport(r, {
+      width: largeur,
+      color: false,
       now: Date.now(),
       strict: false,
     });
@@ -728,7 +728,7 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
     // ni ce qui est gardé, ni si la garde qu'on croit posée en fait partie. Le
     // compte agrégeait en plus deux natures sans le dire — des scripts du
     // manifeste et des règles du linter.
-    const lignes = rendreRapport(
+    const lignes = renderReport(
       rapport({
         guards: {
           findings: [],
@@ -738,7 +738,7 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
           manifestUnreadable: false,
         },
       }),
-      { largeur: 78, couleur: false, now: Date.now(), strict: false },
+      { width: 78, color: false, now: Date.now(), strict: false },
     );
     const ligne =
       lignes.map(nu).find((l) => l.includes("Gardes du projet ")) ?? "";

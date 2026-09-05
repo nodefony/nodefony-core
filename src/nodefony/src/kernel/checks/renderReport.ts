@@ -51,15 +51,15 @@ import type { ILiveFinding } from "./live";
 import type { ISurfaceFinding } from "./surface";
 
 /** Le décor du rendu — tout ce que ce module refuse d'aller chercher lui-même. */
-export interface IOptionsRendu {
+export interface IRenderOptions {
   /** Largeur utile, déjà bornée. */
-  largeur: number;
+  width: number;
   /** `true` pour émettre des séquences ANSI. */
-  couleur: boolean;
+  color: boolean;
   /** Instant de référence, pour l'âge du dernier démarrage. */
   now: number;
   /** Le dossier d'où la commande a été lancée, s'il diffère de la racine. */
-  lanceDepuis?: string;
+  launchedFrom?: string;
   /** `true` si un contrôle sauté fait échouer la commande. */
   strict: boolean;
   /**
@@ -69,7 +69,7 @@ export interface IOptionsRendu {
    * quarante ne se lisent pas pareil : le second dit que quelque chose rame,
    * et c'est souvent le premier symptôme.
    */
-  dureeMs?: number;
+  durationMs?: number;
   /**
    * L'environnement sous lequel les exigences ont été évaluées, s'il n'est pas
    * celui d'ici (`--env production`).
@@ -89,7 +89,7 @@ export interface IOptionsRendu {
  * numéro), son contenu colonne 7. Trois indentations différentes cohabitaient,
  * et l'œil ne savait plus ce qui appartenait à quoi.
  */
-const CORPS = "       ";
+const BODY = "       ";
 
 /** L'indentation d'un ITEM — symbole, numéro, titre. */
 const ITEM = "    ";
@@ -99,7 +99,7 @@ const ITEM = "    ";
  *
  * Elle cesse alors de fixer la colonne où s'aligne la glose des autres.
  */
-const COLONNE_GESTE_MAX = 28;
+const ACTION_COLUMN_MAX = 28;
 
 /** Au-delà, une énumération cesse d'informer et se met à noyer le rapport. */
 const PUCES_MAX = 3;
@@ -116,15 +116,13 @@ const PUCES_MAX = 3;
  * @param p - la peinture.
  * @returns les puces, plus une mention du reste s'il y en a.
  */
-function quelquesUnes(items: readonly string[], p: IPalette): string[] {
-  const lignes = items
-    .slice(0, PUCES_MAX)
-    .map((texte) => `${CORPS}  · ${texte}`);
-  const reste = items.length - PUCES_MAX;
-  if (reste > 0) {
-    lignes.push(p.dim(`${CORPS}  · … et ${pluralize(reste, "autre")}`));
+function firstFew(items: readonly string[], p: IPalette): string[] {
+  const lines = items.slice(0, PUCES_MAX).map((text) => `${BODY}  · ${text}`);
+  const remainder = items.length - PUCES_MAX;
+  if (remainder > 0) {
+    lines.push(p.dim(`${BODY}  · … et ${pluralize(remainder, "autre")}`));
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -139,7 +137,7 @@ function quelquesUnes(items: readonly string[], p: IPalette): string[] {
  * @param entry - le bilan lu.
  * @returns `true` s'il y a quelque chose à dire.
  */
-export function meriteDEtreDit(entry: ILastBoot): boolean {
+export function worthReporting(entry: ILastBoot): boolean {
   return (
     entry.status === "failed" ||
     entry.healthy === false ||
@@ -156,26 +154,26 @@ export function meriteDEtreDit(entry: ILastBoot): boolean {
  * geste : le lecteur croit à quatre problèmes distincts et cesse de lire avant
  * la fin. Une seule entrée, quatre titres, un geste.
  *
- * @param sautes - les contrôles sautés, dans l'ordre de lecture.
+ * @param skipped - les contrôles sautés, dans l'ordre de lecture.
  * @returns un groupe par raison distincte, l'ordre du premier membre conservé.
  */
-export function grouperParRaison(
-  sautes: readonly ISkippedCheck[],
-): { titres: string[]; reason: string; unlock?: string }[] {
-  const groupes: { titres: string[]; reason: string; unlock?: string }[] = [];
-  for (const saute of sautes) {
-    const existant = groupes.find(
-      (g) => g.reason === saute.reason && g.unlock === saute.unlock,
+export function groupByReason(
+  skipped: readonly ISkippedCheck[],
+): { titles: string[]; reason: string; unlock?: string }[] {
+  const groups: { titles: string[]; reason: string; unlock?: string }[] = [];
+  for (const check of skipped) {
+    const existing = groups.find(
+      (g) => g.reason === check.reason && g.unlock === check.unlock,
     );
-    if (existant) existant.titres.push(saute.title);
+    if (existing) existing.titles.push(check.title);
     else
-      groupes.push({
-        titres: [saute.title],
-        reason: saute.reason,
-        unlock: saute.unlock,
+      groups.push({
+        titles: [check.title],
+        reason: check.reason,
+        unlock: check.unlock,
       });
   }
-  return groupes;
+  return groups;
 }
 
 /**
@@ -185,56 +183,54 @@ export function grouperParRaison(
  * @param opts - le décor de rendu (largeur, couleur, instant).
  * @returns les lignes à écrire, dans l'ordre.
  */
-export function rendreRapport(
+export function renderReport(
   report: IDoctorReport,
-  opts: IOptionsRendu,
+  opts: IRenderOptions,
 ): string[] {
-  const { largeur, couleur, now, strict } = opts;
-  const p = createPalette(couleur);
-  const lignes: string[] = [];
-  const sautes = skippedChecks(report.execution);
+  const { width, color, now, strict } = opts;
+  const p = createPalette(color);
+  const lines: string[] = [];
+  const skipped = skippedChecks(report.execution);
 
   /** Ouvre une section : un titre, prolongé par un filet jusqu'au bord. */
-  const section = (nom: string, teinte: (t: string) => string): void => {
-    const { title: titre, divider: trait } = sectionTitle(nom, largeur);
-    lignes.push("", teinte(p.strong(titre)) + p.dim(trait), "");
+  const section = (name: string, teinte: (t: string) => string): void => {
+    const { title, divider: trait } = sectionTitle(name, width);
+    lines.push("", teinte(p.strong(title)) + p.dim(trait), "");
   };
 
-  lignes.push(...enTete(report, opts, p));
-  lignes.push(...bandeau(report, sautes, p));
+  lines.push(...enTete(report, opts, p));
+  lines.push(...bandeau(report, skipped, p));
 
   section("ÉTAT", (t) => t);
-  lignes.push(...sommaire(report, p, largeur));
+  lines.push(...renderSummary(report, p, width));
 
-  const problemes = groupesDeManquements(report).filter(
-    (g) => g.items.length > 0,
-  );
-  if (problemes.length > 0) {
+  const problems = findingGroups(report).filter((g) => g.items.length > 0);
+  if (problems.length > 0) {
     section("PROBLÈMES", p.failure);
-    const totalProblemes = problemes.reduce((n, g) => n + g.items.length, 0);
-    let numero = 0;
-    for (const { titre, items } of problemes) {
+    const totalProblems = problems.reduce((n, g) => n + g.items.length, 0);
+    let index = 0;
+    for (const { title, items } of problems) {
       for (const item of items) {
-        if (numero > 0) lignes.push("");
-        lignes.push(
-          ...blocProbleme(++numero, totalProblemes, titre, item, p, opts),
+        if (index > 0) lines.push("");
+        lines.push(
+          ...problemBlock(++index, totalProblems, title, item, p, opts),
         );
       }
     }
   }
 
-  if (sautes.length > 0) {
+  if (skipped.length > 0) {
     // SYSTÉMATIQUE, y compris quand tout le reste est vert : un diagnostic muet
     // sur son angle mort se lit comme un quitus.
     section("NON CONTRÔLÉ", p.warning);
-    lignes.push(...blocsNonControles(sautes, p, opts));
+    lines.push(...uncheckedBlocks(skipped, p, opts));
     if (strict) {
-      lignes.push("");
+      lines.push("");
       // La phrase doit dire ce que le code de sortie fera VRAIMENT. Annoncer
       // « ça échoue » alors que la commande rend 0 — parce que les seuls
       // contrôles manquants n'ont pas été DEMANDÉS — apprend à ne plus croire
       // le bandeau, ce qui est pire que de ne rien annoncer.
-      const empeches = preventedChecks(sautes);
+      const empeches = preventedChecks(skipped);
       for (const l of wrap(
         empeches.length > 0
           ? "mode strict : un contrôle EMPÊCHÉ fait échouer la commande."
@@ -242,27 +238,27 @@ export function rendreRapport(
             // contrôle qu'on n'a pas DEMANDÉ n'est pas un contrôle qui
             // n'avait RIEN à examiner. Les confondre laisserait croire qu'il
             // suffit de demander pour obtenir un verdict.
-            sautes.every((c) => c.notApplicable)
+            skipped.every((c) => c.notApplicable)
             ? "mode strict : ce qui manque ici n'avait rien à examiner — le " +
               "code de sortie n'en tient pas compte."
             : "mode strict : ce qui manque ici n'a pas été demandé, ou " +
               "n'avait rien à examiner — le code de sortie n'en tient pas " +
               "compte.",
-        largeur,
-        CORPS,
+        width,
+        BODY,
       )) {
-        lignes.push(p.dim(l));
+        lines.push(p.dim(l));
       }
     }
   }
 
-  const ouvertures = surfaceOuverte(report, largeur, p);
-  if (ouvertures.length > 0) {
+  const openings = openSurface(report, width, p);
+  if (openings.length > 0) {
     // Une INFORMATION, en teinte neutre : chacune de ces ouvertures est un
     // geste légitime. Ce que personne n'a jamais, c'est la LISTE — et c'est
     // ainsi qu'une route de mise au point reste ouverte en production.
     section("SURFACE OUVERTE", p.warning);
-    lignes.push(...ouvertures);
+    lines.push(...openings);
   }
 
   const retires = manquementsLive(report, "service-lost");
@@ -273,49 +269,49 @@ export function rendreRapport(
     // pas d'être accusé de l'avoir écrit.
     section("CE QUE L'ENVIRONNEMENT VISÉ RETIRE", p.warning);
     for (const f of retires) {
-      for (const [i, l] of wrap(f.message, largeur, CORPS).entries()) {
-        lignes.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
+      for (const [i, l] of wrap(f.message, width, BODY).entries()) {
+        lines.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
       }
     }
-    lignes.push("");
+    lines.push("");
     for (const l of wrap(
       'Un module `policy: "dev"` est ÉCARTÉ là-bas : c\'est sa raison ' +
         "d'être, et ces lignes sont alors normales. À regarder seulement si " +
         "du code servi en production réclame l'un de ces services.",
-      largeur - 4,
+      width - 4,
       "  ",
     )) {
-      lignes.push(p.dim(l));
+      lines.push(p.dim(l));
     }
   }
 
-  const bilansParlants = report.lastBoots.filter(meriteDEtreDit);
-  if (bilansParlants.length > 0) {
+  const tellingSummaries = report.lastBoots.filter(worthReporting);
+  if (tellingSummaries.length > 0) {
     // APRÈS les problèmes, et c'est un choix : un démarrage passé n'est pas un
     // manquement du code — c'est une trace. Placé avant, il repoussait le
     // premier vrai problème quarante lignes plus bas.
     section(
-      bilansParlants.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE",
+      tellingSummaries.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE",
       p.warning,
     );
     let premier = true;
-    for (const demarrage of bilansParlants) {
-      if (!premier) lignes.push("");
+    for (const startup of tellingSummaries) {
+      if (!premier) lines.push("");
       premier = false;
-      lignes.push(...dernierDemarrage(demarrage, now, p, largeur));
+      lines.push(...lastStartup(startup, now, p, width));
     }
   }
 
-  const gestes = aFaireEnsuite(report, sautes);
-  if (gestes.length > 0) {
+  const actions = nextActions(report, skipped);
+  if (actions.length > 0) {
     section("À FAIRE ENSUITE", p.action);
-    lignes.push(...listeDeGestes(gestes, p, largeur));
+    lines.push(...actionList(actions, p, width));
   }
 
-  lignes.push("");
-  lignes.push(...bilan(report, sautes, p, largeur, opts.dureeMs));
-  lignes.push("");
-  return lignes;
+  lines.push("");
+  lines.push(...footer(report, skipped, p, width, opts.durationMs));
+  lines.push("");
+  return lines;
 }
 
 /**
@@ -328,25 +324,25 @@ export function rendreRapport(
  * justifier.
  *
  * @param report - le diagnostic.
- * @param sautes - les contrôles qui n'ont pas eu lieu.
+ * @param skipped - les contrôles qui n'ont pas eu lieu.
  * @param p - la peinture.
  * @returns une ligne, plus une ligne vide.
  */
 function bandeau(
   report: IDoctorReport,
-  sautes: readonly ISkippedCheck[],
+  skipped: readonly ISkippedCheck[],
   p: IPalette,
 ): string[] {
   const total = countFindings(report);
-  const passes = nombreDeControlesPasses(report);
+  const passes = passedCheckCount(report);
   if (total > 0) {
     // Les angles morts DANS le bandeau, et pas seulement plus bas : un lecteur
     // qui corrige le problème annoncé doit savoir, à la même seconde, que le
     // rapport n'a pas tout regardé — sinon il croira avoir tout vu.
     const angles =
-      sautes.length > 0
+      skipped.length > 0
         ? p.warning(
-            `   ${pluralize(sautes.length, "angle mort", "angles morts")}`,
+            `   ${pluralize(skipped.length, "angle mort", "angles morts")}`,
           )
         : "";
     return [
@@ -365,10 +361,10 @@ function bandeau(
     ];
   }
   return [
-    sautes.length > 0
+    skipped.length > 0
       ? p.ok(`  ${stateSymbol("ok")}  ${p.strong("RIEN À SIGNALER")}`) +
         p.warning(
-          `  (${pluralize(sautes.length, "angle mort", "angles morts")})`,
+          `  (${pluralize(skipped.length, "angle mort", "angles morts")})`,
         )
       : p.ok(`  ${stateSymbol("ok")}  ${p.strong("RIEN À SIGNALER")}`),
   ];
@@ -383,87 +379,87 @@ function bandeau(
  * préfixé d'un chevron — c'est la seule chose qu'un lecteur pressé cherche, et
  * elle doit se copier sans attraper le reste de la phrase.
  *
- * @param numero - le rang du problème dans le rapport.
- * @param famille - le titre de la famille dont il vient.
+ * @param index - le rang du problème dans le rapport.
+ * @param family - le titre de la famille dont il vient.
  * @param item - le manquement (message, et le fichier qui le porte).
  * @param p - la peinture.
  * @param opts - le décor (largeur, couleur).
  * @returns les lignes du bloc.
  */
-function blocProbleme(
-  numero: number,
+function problemBlock(
+  index: number,
   total: number,
-  famille: string,
+  family: string,
   item: { message: string; file?: string },
   p: IPalette,
-  opts: IOptionsRendu,
+  opts: IRenderOptions,
 ): string[] {
-  const { largeur, couleur } = opts;
-  const { finding: constat, action: geste } = splitAction(item.message);
-  const lignes: string[] = [];
+  const { width, color } = opts;
+  const { finding, action } = splitAction(item.message);
+  const lines: string[] = [];
   // Le rang occupe la colonne du SYMBOLE des autres sections : une seule
   // largeur pour toute la grille, élargie seulement s'il y a dix problèmes.
-  const rang = String(numero).padStart(String(total).length, " ");
-  lignes.push(`${ITEM}${p.failure(p.strong(rang))}  ${p.strong(famille)}`);
+  const rang = String(index).padStart(String(total).length, " ");
+  lines.push(`${ITEM}${p.failure(p.strong(rang))}  ${p.strong(family)}`);
   // La gouttière tient la colonne du texte : elle dit « ceci appartient encore
   // au problème ci-dessus », y compris après un repli de six lignes.
-  const gouttiere = `${CORPS}${p.dim("│")} `;
-  for (const l of wrap(constat, largeur - 10, "")) {
-    lignes.push(gouttiere + highlightCode(l, p, couleur));
+  const gutter = `${BODY}${p.dim("│")} `;
+  for (const l of wrap(finding, width - 10, "")) {
+    lines.push(gutter + highlightCode(l, p, color));
   }
   if (item.file) {
     // Un chemin ne se COUPE pas — coupé, il n'est plus copiable, et c'est
     // précisément ce qu'on vient chercher. Quand il ne tient pas derrière la
     // gouttière, il prend la ligne entière plutôt que de déborder du terminal.
-    const derriereGouttiere = `${CORPS}│ ${item.file}`;
-    lignes.push(
-      derriereGouttiere.length <= largeur
-        ? gouttiere + p.dim(item.file)
-        : `${CORPS}${p.dim(item.file)}`,
+    const behindGutter = `${BODY}│ ${item.file}`;
+    lines.push(
+      behindGutter.length <= width
+        ? gutter + p.dim(item.file)
+        : `${BODY}${p.dim(item.file)}`,
     );
   }
-  lignes.push(...ligneDeGeste(geste, p, largeur));
-  return lignes;
+  lines.push(...actionLine(action, p, width));
+  return lines;
 }
 
 /**
  * Les contrôles qui n'ont pas eu lieu, groupés par cause.
  *
- * @param sautes - les contrôles sautés.
+ * @param skipped - les contrôles sautés.
  * @param p - la peinture.
  * @param opts - le décor.
  * @returns les lignes de la section.
  */
-function blocsNonControles(
-  sautes: readonly ISkippedCheck[],
+function uncheckedBlocks(
+  skipped: readonly ISkippedCheck[],
   p: IPalette,
-  opts: IOptionsRendu,
+  opts: IRenderOptions,
 ): string[] {
-  const { largeur, couleur } = opts;
-  const lignes: string[] = [];
+  const { width, color } = opts;
+  const lines: string[] = [];
   let premier = true;
-  for (const groupe of grouperParRaison(sautes)) {
-    if (!premier) lignes.push("");
+  for (const group of groupByReason(skipped)) {
+    if (!premier) lines.push("");
     premier = false;
     // Quatre titres joints font vite soixante colonnes : cette ligne se replie
     // comme n'importe quelle autre, sinon elle déborde exactement dans le cas
     // où elle a le plus à dire.
-    const [premierTitre, ...resteTitres] = wrap(
-      groupe.titres.join(", "),
-      largeur - 8,
+    const [firstTitle, ...otherTitles] = wrap(
+      group.titles.join(", "),
+      width - 8,
       "",
     );
-    lignes.push(
-      `${ITEM}${p.warning(stateSymbol("non-controle"))}  ${p.strong(premierTitre ?? "")}`,
+    lines.push(
+      `${ITEM}${p.warning(stateSymbol("non-controle"))}  ${p.strong(firstTitle ?? "")}`,
     );
-    for (const l of resteTitres) lignes.push(`${CORPS}${p.strong(l)}`);
-    const gouttiere = `${CORPS}${p.dim("│")} `;
-    for (const l of wrap(groupe.reason, largeur - 10, "")) {
-      lignes.push(gouttiere + p.warning(highlightCode(l, p, couleur)));
+    for (const l of otherTitles) lines.push(`${BODY}${p.strong(l)}`);
+    const gutter = `${BODY}${p.dim("│")} `;
+    for (const l of wrap(group.reason, width - 10, "")) {
+      lines.push(gutter + p.warning(highlightCode(l, p, color)));
     }
-    lignes.push(...ligneDeGeste(groupe.unlock, p, largeur));
+    lines.push(...actionLine(group.unlock, p, width));
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -474,31 +470,31 @@ function blocsNonControles(
  * part avec la commande quand on la copie — puis le terminal se plaint d'un
  * fichier introuvable.
  *
- * @param geste - le geste, ou `undefined` s'il n'y en a pas.
+ * @param action - le geste, ou `undefined` s'il n'y en a pas.
  * @param p - la peinture.
- * @param largeur - largeur utile.
+ * @param width - largeur utile.
  * @returns les lignes, vides s'il n'y a pas de geste.
  */
-function ligneDeGeste(
-  geste: string | undefined,
+function actionLine(
+  action: string | undefined,
   p: IPalette,
-  largeur: number,
+  width: number,
 ): string[] {
-  if (!geste) return [];
-  const propre = geste.replace(/`/gu, "").trim();
-  return wrap(propre, largeur - 10, "").map((l, i) =>
+  if (!action) return [];
+  const cleaned = action.replace(/`/gu, "").trim();
+  return wrap(cleaned, width - 10, "").map((l, i) =>
     i === 0
-      ? `${CORPS}${p.action("▸")} ${p.action(l)}`
-      : `${CORPS}  ${p.action(l)}`,
+      ? `${BODY}${p.action("▸")} ${p.action(l)}`
+      : `${BODY}  ${p.action(l)}`,
   );
 }
 
 /** Un geste à faire, et ce qu'il ferme. */
-interface IGeste {
+interface IAction {
   /** La commande, telle qu'on la tape. */
-  commande: string;
+  command: string;
   /** Ce que ce geste répare — pour choisir par quoi commencer. */
-  pourquoi: string;
+  why: string;
 }
 
 /**
@@ -513,79 +509,77 @@ interface IGeste {
  * d'abord, ce qui MANQUE ensuite.
  *
  * @param report - le diagnostic.
- * @param sautes - les contrôles sautés.
+ * @param skipped - les contrôles sautés.
  * @returns les gestes, sans doublon, dans l'ordre où les faire.
  */
-export function aFaireEnsuite(
+export function nextActions(
   report: IDoctorReport,
-  sautes: readonly ISkippedCheck[],
-): IGeste[] {
-  const gestes: IGeste[] = [];
+  skipped: readonly ISkippedCheck[],
+): IAction[] {
+  const actions: IAction[] = [];
   const vus = new Set<string>();
-  const ajouter = (commande: string, pourquoi: string): void => {
-    const propre = commande.replace(/^`|`$/gu, "").trim();
-    if (propre === "" || vus.has(propre)) return;
-    vus.add(propre);
-    gestes.push({ commande: propre, pourquoi });
+  const add = (command: string, why: string): void => {
+    const cleaned = command.replace(/^`|`$/gu, "").trim();
+    if (cleaned === "" || vus.has(cleaned)) return;
+    vus.add(cleaned);
+    actions.push({ command: cleaned, why: why });
   };
-  for (const { titre, items } of groupesDeManquements(report)) {
+  for (const { title, items } of findingGroups(report)) {
     for (const item of items) {
-      const { action: geste } = splitAction(item.message);
-      if (geste) ajouter(geste, titre);
+      const { action } = splitAction(item.message);
+      if (action) add(action, title);
     }
   }
-  for (const groupe of grouperParRaison(sautes)) {
-    if (groupe.unlock) ajouter(groupe.unlock, groupe.titres.join(", "));
+  for (const group of groupByReason(skipped)) {
+    if (group.unlock) add(group.unlock, group.titles.join(", "));
   }
-  return gestes;
+  return actions;
 }
 
 /**
  * Ce qu'un geste répare, rendu SOUS lui quand il ne tient pas à sa droite.
  *
- * @param pourquoi - la famille que ce geste referme.
- * @param marge - l'indentation, alignée sous la commande.
- * @param largeur - largeur utile du terminal.
+ * @param why - la famille que ce geste referme.
+ * @param indent - l'indentation, alignée sous la commande.
+ * @param width - largeur utile du terminal.
  * @param p - la peinture.
  * @returns les lignes, repliées pour ne jamais déborder.
  */
-function sousLeGeste(
-  pourquoi: string,
-  marge: string,
-  largeur: number,
+function underAction(
+  why: string,
+  indent: string,
+  width: number,
   p: IPalette,
 ): string[] {
-  return wrap(pourquoi, largeur - marge.length, "").map(
-    (l) => marge + p.dim(l),
-  );
+  return wrap(why, width - indent.length, "").map((l) => indent + p.dim(l));
 }
 
 /**
  * La liste des gestes, numérotée et alignée.
  *
- * @param gestes - les gestes, déjà dédoublonnés.
+ * @param actions - les gestes, déjà dédoublonnés.
  * @param p - la peinture.
- * @param largeur - largeur utile.
+ * @param width - largeur utile.
  * @returns les lignes de la section.
  */
-function listeDeGestes(
-  gestes: readonly IGeste[],
+function actionList(
+  actions: readonly IAction[],
   p: IPalette,
-  largeur: number,
+  width: number,
 ): string[] {
   // La colonne d'alignement s'ajuste sur les commandes COURTES seulement. Un
   // seul geste long (un `npm pkg set …` de soixante caractères) suffisait
   // sinon à repousser toutes les gloses hors de la largeur : le rappel perdait
   // d'un coup ce qu'il apprend, à cause d'une ligne qui n'en avait pas besoin.
-  const courtes = gestes
-    .map((g) => g.commande.length)
-    .filter((n) => n <= COLONNE_GESTE_MAX);
-  const colonne = courtes.length > 0 ? Math.max(...courtes) : 0;
-  const lignes: string[] = [];
-  for (const [i, g] of gestes.entries()) {
-    const rang = String(i + 1).padStart(String(gestes.length).length, " ");
-    const marge = ITEM + " ".repeat(rang.length + 2);
-    const mesure = `${ITEM}${rang}  ${g.commande}`;
+  const shortLengths = actions
+    .map((g) => g.command.length)
+    .filter((n) => n <= ACTION_COLUMN_MAX);
+  const column = shortLengths.length > 0 ? Math.max(...shortLengths) : 0;
+  const lines: string[] = [];
+  for (const [i, g] of actions.entries()) {
+    const rang = String(i + 1).padStart(String(actions.length).length, " ");
+    const indent = ITEM + " ".repeat(rang.length + 2);
+    const measure = `${ITEM}${rang}  ${g.command}`;
     // La glose ne s'affiche que si elle TIENT : coupée, elle ferait douter de
     // la commande elle-même, qui est la seule chose à copier ici.
     // Un geste trop long pour la colonne garde sa glose : elle passe sous lui,
@@ -593,32 +587,32 @@ function listeDeGestes(
     // des commandes — une phrase — sans le moindre contexte : il fallait
     // remonter dans le rapport pour savoir de quoi ils parlaient, ce qui est
     // exactement ce que ce rappel existe pour éviter.
-    const enDessous = g.commande.length > colonne;
-    const glose = enDessous
+    const overflows = g.command.length > column;
+    const glose = overflows
       ? ""
-      : `  ${" ".repeat(colonne - g.commande.length)}${g.pourquoi}`;
-    if (mesure.length <= largeur) {
-      const debut = `${ITEM}${p.dim(rang)}  ${p.action(g.commande)}`;
-      lignes.push(
-        glose !== "" && mesure.length + glose.length <= largeur
+      : `  ${" ".repeat(column - g.command.length)}${g.why}`;
+    if (measure.length <= width) {
+      const debut = `${ITEM}${p.dim(rang)}  ${p.action(g.command)}`;
+      lines.push(
+        glose !== "" && measure.length + glose.length <= width
           ? debut + p.dim(glose)
           : debut,
       );
-      if (enDessous || mesure.length + glose.length > largeur) {
-        lignes.push(...sousLeGeste(g.pourquoi, marge, largeur, p));
+      if (overflows || measure.length + glose.length > width) {
+        lines.push(...underAction(g.why, indent, width, p));
       }
       continue;
     }
     // Terminal étroit : la commande se replie sous elle-même plutôt que de
     // déborder. Elle reste donnée en ENTIER dans le bloc du problème — cette
     // liste est un rappel, pas la source.
-    const [premiere, ...suite] = wrap(g.commande, largeur - marge.length, "");
-    lignes.push(`${ITEM}${p.dim(rang)}  ${p.action(premiere ?? "")}`);
-    for (const l of suite) lignes.push(marge + p.action(l));
+    const [premiere, ...suite] = wrap(g.command, width - indent.length, "");
+    lines.push(`${ITEM}${p.dim(rang)}  ${p.action(premiere ?? "")}`);
+    for (const l of suite) lines.push(indent + p.action(l));
     // Même règle qu'au-dessus : ce que ce geste répare se lit sous lui.
-    lignes.push(...sousLeGeste(g.pourquoi, marge, largeur, p));
+    lines.push(...underAction(g.why, indent, width, p));
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -630,26 +624,26 @@ function listeDeGestes(
  */
 function enTete(
   report: IDoctorReport,
-  opts: IOptionsRendu,
+  opts: IRenderOptions,
   p: IPalette,
 ): string[] {
-  const lignes = ["", `  ${p.strong("nodefony doctor")}`];
-  const nom = report.appName;
-  if (nom) lignes[1] += p.dim(` · ${nom}`);
-  lignes.push(p.dim(`  ${report.root}`));
+  const lines = ["", `  ${p.strong("nodefony doctor")}`];
+  const name = report.appName;
+  if (name) lines[1] += p.dim(` · ${name}`);
+  lines.push(p.dim(`  ${report.root}`));
   if (opts.targetEnv) {
-    lignes.push(
+    lines.push(
       p.warning(`  exigences évaluées pour l'environnement ${opts.targetEnv}`),
     );
   }
   if (
-    opts.lanceDepuis &&
-    path.resolve(report.root) !== path.resolve(opts.lanceDepuis)
+    opts.launchedFrom &&
+    path.resolve(report.root) !== path.resolve(opts.launchedFrom)
   ) {
-    lignes.push(p.dim(`  lancé depuis ${opts.lanceDepuis}`));
+    lines.push(p.dim(`  lancé depuis ${opts.launchedFrom}`));
   }
-  lignes.push("");
-  return lignes;
+  lines.push("");
+  return lines;
 }
 
 /**
@@ -660,13 +654,13 @@ function enTete(
  * contrôle qui n'a rien regardé n'a rien trouvé, et l'afficher en vert est le
  * seul mensonge que ce sommaire ne doit jamais dire.
  */
-function sommaire(
+function renderSummary(
   report: IDoctorReport,
   p: IPalette,
-  largeur: number,
+  width: number,
 ): string[] {
   const { freshness, readiness, wiring, findings, scanned, execution } = report;
-  const etat = (n: number): SectionState => (n > 0 ? "echec" : "ok");
+  const state = (n: number): SectionState => (n > 0 ? "echec" : "ok");
   /**
    * Les familles qui REPORTING_ONLY au lieu d'accuser.
    *
@@ -677,40 +671,40 @@ function sommaire(
    * l'outillage de développement en production.
    */
   const REPORTING_ONLY: ReadonlySet<DoctorFamily> = new Set(["gating"]);
-  const ligne = (
-    famille: DoctorFamily,
+  const line = (
+    family: DoctorFamily,
     n: number,
     detail: string,
   ): ISummaryLine => {
     // Même garde que `controlesSautes` : un état absent se DIT, il ne se rend
     // pas en vert et ne fait pas lever le rapport.
-    const exec = execution[famille] ?? { ran: false, short: "état absent" };
+    const exec = execution[family] ?? { ran: false, short: "état absent" };
     return exec.ran
       ? {
-          title: TITLES[famille],
+          title: TITLES[family],
           state:
-            n > 0 && REPORTING_ONLY.has(famille) ? "avertissement" : etat(n),
+            n > 0 && REPORTING_ONLY.has(family) ? "avertissement" : state(n),
           detail,
         }
       : {
-          title: TITLES[famille],
+          title: TITLES[family],
           state: "non-controle",
           // Court ICI, complet dans la section dédiée : une raison tronquée
           // par un `…` cache justement ce qu'on aurait besoin de lire.
           detail: exec.short ?? "non contrôlé",
         };
   };
-  const detail: Record<DoctorFamily, { n: number; texte: string }> = {
+  const detail: Record<DoctorFamily, { n: number; text: string }> = {
     freshness: {
       n: freshness.findings.length,
-      texte:
+      text:
         freshness.findings.length > 0
           ? pluralize(freshness.findings.length, "écart")
           : "sources et build alignés",
     },
     readiness: {
       n: readiness.findings.length,
-      texte:
+      text:
         readiness.findings.length > 0
           ? pluralize(readiness.findings.length, "manquement")
           : "environnement, modules, ports",
@@ -718,44 +712,44 @@ function sommaire(
     // « Variables déclarées » est une RÈGLE de `readiness`, pas une famille à
     // part : elle n'apparaît que lorsqu'elle n'a pas pu jouer, sans quoi le
     // sommaire dirait deux fois la même chose.
-    envCatalog: { n: 0, texte: "" },
+    envCatalog: { n: 0, text: "" },
     // Idem : ses manquements sont RAPPORTÉS par `readiness` (c'est sa liste),
     // et cette ligne n'existe que pour dire qu'on n'a pas pu regarder.
-    envTracked: { n: 0, texte: "" },
+    envTracked: { n: 0, text: "" },
     deps: {
       n: findings.length,
-      texte:
+      text:
         findings.length > 0
           ? `${pluralize(findings.length, "manquement")} sur ${pluralize(scanned, "paquet")}`
           : pluralize(scanned, "paquet"),
     },
     wiring: {
       n: wiring.findings.length,
-      texte:
+      text:
         wiring.findings.length > 0
           ? `${pluralize(wiring.findings.length, "manquement")} sur ${pluralize(wiring.scanned, "classe")}`
           : `${pluralize(wiring.scanned, "classe")} déclarée${wiring.scanned > 1 ? "s" : ""}`,
     },
     surface: {
       n: surfaceFindings(report, "public-area-covers-all").length,
-      texte:
+      text:
         surfaceFindings(report, "public-area-covers-all").length > 0
           ? "une zone publique couvre TOUT"
           : inventaireSurface(report),
     },
     dialect: {
       n: surfaceFindings(report, "entity-other-dialect").length,
-      texte:
+      text:
         surfaceFindings(report, "entity-other-dialect").length > 0
           ? `${pluralize(surfaceFindings(report, "entity-other-dialect").length, "entité")} hors dialecte`
           : `${pluralize(report.surface.entitiesScanned, "entité")} sur ${report.surface.dialect ?? "?"}`,
     },
     guards: {
       n: report.guards.findings.length,
-      texte:
+      text:
         report.guards.findings.length > 0
           ? `${pluralize(report.guards.findings.length, "garde")} décrochée${report.guards.findings.length > 1 ? "s" : ""}`
-          : gardesArmees(report.guards.armed, report.guards.armedNames),
+          : armedGuards(report.guards.armed, report.guards.armedNames),
     },
     // Étage 3 — les scripts LANCÉS. Un script absent ne compte pas : c'est
     // `guards` qui répond de sa présence, et le dire deux fois ferait porter un
@@ -768,7 +762,7 @@ function sommaire(
       // et c'est ainsi qu'on apprend à ne plus croire un rapport.
       n: (report.deep?.steps ?? []).filter((s) => s.outcome === "failed")
         .length,
-      texte: (() => {
+      text: (() => {
         const steps = report.deep?.steps ?? [];
         const failed = steps.filter((s) => s.outcome === "failed");
         const interrupted = steps.filter((s) => s.outcome === "timeout");
@@ -798,13 +792,13 @@ function sommaire(
     // avertissement plutôt qu'en échec.
     outdated: {
       n: report.deep?.outdated?.packages.length ?? 0,
-      texte: (() => {
+      text: (() => {
         const retard = report.deep?.outdated;
         if (!retard) return "non interrogé";
         const n = retard.packages.length;
         if (n === 0) return "tout est à jour";
         const majeurs = retard.packages.filter(
-          (paquet) => paquet.severity === "major",
+          (pkg) => pkg.severity === "major",
         ).length;
         return majeurs > 0
           ? `${pluralize(n, "paquet")} en retard, dont ${majeurs} majeure${majeurs > 1 ? "s" : ""}`
@@ -816,7 +810,7 @@ function sommaire(
     // firewall — le sommaire perdrait sa seule vertu, dire OÙ regarder.
     migrations: {
       n: manquementsLive(report, "migrations-not-ok").length,
-      texte:
+      text:
         manquementsLive(report, "migrations-not-ok").length > 0
           ? pluralize(
               manquementsLive(report, "migrations-not-ok").length,
@@ -826,14 +820,14 @@ function sommaire(
     },
     firewall: {
       n: manquementsLive(report, "firewall-config-invalid").length,
-      texte:
+      text:
         manquementsLive(report, "firewall-config-invalid").length > 0
           ? "configuration INVALIDE"
           : "zones et authentificateurs cohérents",
     },
     gating: {
       n: manquementsLive(report, "service-lost").length,
-      texte:
+      text:
         manquementsLive(report, "service-lost").length > 0
           ? pluralize(
               manquementsLive(report, "service-lost").length,
@@ -849,7 +843,7 @@ function sommaire(
   // L'ordre est celui de FAMILLES, le MÊME que la section « non contrôlé » plus
   // bas : deux ordres différents pour les mêmes contrôles, et le lecteur cesse
   // de faire le lien entre le sommaire et le détail.
-  const lignes: ISummaryLine[] = FAMILIES.filter(
+  const lines: ISummaryLine[] = FAMILIES.filter(
     // Une sous-règle de `readiness` n'a pas de ligne à elle tant qu'elle a pu
     // jouer : le sommaire dirait deux fois la même chose. Elle n'apparaît que
     // pour ÉNONCER son angle mort — et seulement si la famille, elle, a bien
@@ -857,13 +851,13 @@ function sommaire(
     (f) =>
       !isSubrule(f) ||
       (!execution[f]?.ran && execution.readiness?.ran === true),
-  ).map((f) => ligne(f, detail[f].n, detail[f].texte));
+  ).map((f) => line(f, detail[f].n, detail[f].text));
 
-  const largeurTitre = Math.max(...lignes.map((l) => l.title.length));
-  return lignes.map((l) => {
+  const titleWidth = Math.max(...lines.map((l) => l.title.length));
+  return lines.map((l) => {
     const teinte =
       l.state === "echec" ? p.failure : l.state === "ok" ? p.ok : p.warning;
-    return teinte(summaryLine(l, largeurTitre, largeur));
+    return teinte(summaryLine(l, titleWidth, width));
   });
 }
 
@@ -886,10 +880,10 @@ function manquementsLive(
 }
 
 /** Au-delà, la liste cesse d'informer et devient un mur — le reste se demande. */
-const OUVERTURES_MONTREES = 12;
+const OPENINGS_SHOWN = 12;
 
 /** Le libellé de chaque espèce d'ouverture, tel qu'il se lit. */
-const OUVERTURE_LIBELLE: Record<string, string> = {
+const OPENING_LABEL: Record<string, string> = {
   "bypass-firewall": "@BypassFirewall",
   anonymous: "@Anonymous",
   "bypass-option": "bypassFirewall: true",
@@ -908,33 +902,33 @@ const OUVERTURE_LIBELLE: Record<string, string> = {
  * reste s'obtient par `--json` — un rapport qui tronque doit dire où trouver
  * ce qu'il a coupé.
  */
-function surfaceOuverte(
+function openSurface(
   report: IDoctorReport,
-  largeur: number,
+  width: number,
   p: IPalette,
 ): string[] {
-  const ouvertures = report.surface.openings;
-  if (ouvertures.length === 0) return [];
-  const lignes: string[] = [];
-  for (const o of ouvertures.slice(0, OUVERTURES_MONTREES)) {
-    const libelle = OUVERTURE_LIBELLE[o.kind] ?? o.kind;
-    const quoi = o.what ? `${libelle} ${o.what}` : libelle;
-    for (const [i, l] of wrap(quoi, largeur, CORPS).entries()) {
-      lignes.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
+  const openings = report.surface.openings;
+  if (openings.length === 0) return [];
+  const lines: string[] = [];
+  for (const o of openings.slice(0, OPENINGS_SHOWN)) {
+    const label = OPENING_LABEL[o.kind] ?? o.kind;
+    const quoi = o.what ? `${label} ${o.what}` : label;
+    for (const [i, l] of wrap(quoi, width, BODY).entries()) {
+      lines.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
     }
-    lignes.push(p.dim(`${CORPS}${o.file}`));
+    lines.push(p.dim(`${BODY}${o.file}`));
   }
-  const reste = ouvertures.length - OUVERTURES_MONTREES;
-  if (reste > 0) {
-    lignes.push("");
-    lignes.push(
+  const remainder = openings.length - OPENINGS_SHOWN;
+  if (remainder > 0) {
+    lines.push("");
+    lines.push(
       p.dim(
-        `${CORPS}… et ${pluralize(reste, "autre")} — la liste complète : ` +
+        `${BODY}… et ${pluralize(remainder, "autre")} — la liste complète : ` +
           `nodefony doctor --json`,
       ),
     );
   }
-  return lignes;
+  return lines;
 }
 
 /**
@@ -998,50 +992,50 @@ function modulesEcartes(report: IDoctorReport): readonly { module: string }[] {
  * une liste tronquée par un `…` muet en serait la caricature.
  *
  * @param armed - le nombre total de gardes constatées.
- * @param noms - leurs noms, dans l'ordre où le contrôle les a rencontrées.
+ * @param names - leurs noms, dans l'ordre où le contrôle les a rencontrées.
  * @returns le texte de la ligne.
  */
-function gardesArmees(armed: number, noms: readonly string[]): string {
+function armedGuards(armed: number, names: readonly string[]): string {
   if (armed === 0) return "aucune garde armée";
   // Pas de noms (rapport ancien, ou décor partiel) : on rend le compte seul
   // plutôt que d'affirmer une liste vide.
-  if (noms.length === 0)
+  if (names.length === 0)
     return `${pluralize(armed, "garde")} armée${armed > 1 ? "s" : ""}`;
   const PLACE = 3;
-  const montres = noms.slice(0, PLACE);
-  const reste = noms.length - montres.length;
-  return reste > 0 ? `${montres.join(", ")} +${reste}` : montres.join(", ");
+  const shown = names.slice(0, PLACE);
+  const remainder = names.length - shown.length;
+  return remainder > 0 ? `${shown.join(", ")} +${remainder}` : shown.join(", ");
 }
 
 /** Les familles de manquements, dans l'ordre où elles se lisent. */ /** Les familles de manquements, dans l'ordre où elles se lisent. */
-function groupesDeManquements(
+function findingGroups(
   report: IDoctorReport,
-): { titre: string; items: { message: string; file?: string }[] }[] {
+): { title: string; items: { message: string; file?: string }[] }[] {
   // La fraîcheur d'abord : un build en retard rend faux tout ce qui suit — une
   // classe « non câblée » peut l'être dans le dist et pas dans les sources
   // qu'on vient d'éditer. Puis ce qui empêche de DÉMARRER : une variable
   // absente explique souvent le reste.
   return [
-    { titre: TITLES.freshness, items: report.freshness.findings },
-    { titre: TITLES.readiness, items: report.readiness.findings },
-    { titre: TITLES.deps, items: report.findings },
-    { titre: TITLES.wiring, items: report.wiring.findings },
+    { title: TITLES.freshness, items: report.freshness.findings },
+    { title: TITLES.readiness, items: report.readiness.findings },
+    { title: TITLES.deps, items: report.findings },
+    { title: TITLES.wiring, items: report.wiring.findings },
     {
-      titre: TITLES.surface,
+      title: TITLES.surface,
       items: surfaceFindings(report, "public-area-covers-all"),
     },
     {
-      titre: TITLES.dialect,
+      title: TITLES.dialect,
       items: surfaceFindings(report, "entity-other-dialect"),
     },
-    { titre: TITLES.guards, items: report.guards.findings },
+    { title: TITLES.guards, items: report.guards.findings },
     // Étage 3 — le script LANCÉ qui a échoué, avec sa première ligne utile.
     // Sans ce groupe, le sommaire comptait le manquement et la section des
     // problèmes ne le montrait pas : le rapport disait OÙ regarder sans jamais
     // dire QUOI, ce qui oblige à relancer la commande à la main — exactement
     // le geste que cet étage existe pour éviter.
     {
-      titre: TITLES.verify,
+      title: TITLES.verify,
       items: (report.deep?.steps ?? [])
         .filter((st) => st.outcome === "failed" || st.outcome === "timeout")
         .map((st) => ({
@@ -1062,13 +1056,13 @@ function groupesDeManquements(
     // et le geste qu'il propose vient du PRODUCTEUR — il est rendu tel quel,
     // sous le constat, parce qu'une commande à taper se copie.
     {
-      titre: TITLES.migrations,
+      title: TITLES.migrations,
       items: manquementsLive(report, "migrations-not-ok").map((f) => ({
         message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
       })),
     },
     {
-      titre: TITLES.firewall,
+      title: TITLES.firewall,
       items: manquementsLive(report, "firewall-config-invalid").map((f) => ({
         message: f.message,
       })),
@@ -1091,7 +1085,7 @@ function groupesDeManquements(
  * @returns « `nodefony inspect` (console) », ou « Le dernier démarrage ».
  */
 export function qui(entry: ILastBoot): string {
-  const profil =
+  const profile =
     entry.profile === "console"
       ? "console"
       : entry.profile === "cluster"
@@ -1099,9 +1093,9 @@ export function qui(entry: ILastBoot): string {
         : entry.profile === "server"
           ? "serveur"
           : "";
-  if (!entry.command && !profil) return "Le dernier démarrage";
-  if (!entry.command) return `Le dernier démarrage (${profil})`;
-  return `\`nodefony ${entry.command}\`${profil ? ` (${profil})` : ""}`;
+  if (!entry.command && !profile) return "Le dernier démarrage";
+  if (!entry.command) return `Le dernier démarrage (${profile})`;
+  return `\`nodefony ${entry.command}\`${profile ? ` (${profile})` : ""}`;
 }
 
 /**
@@ -1116,15 +1110,15 @@ export function qui(entry: ILastBoot): string {
  * d'un démarrage est un fait d'exécution, souvent déjà réparé au moment où on
  * lit.
  */
-function dernierDemarrage(
+function lastStartup(
   entry: ILastBoot,
   now: number,
   p: IPalette,
-  largeur: number,
+  width: number,
 ): string[] {
-  const lignes: string[] = [];
+  const lines: string[] = [];
   const age = formatAge(entry.timestamp, now);
-  const etat: SectionState =
+  const state: SectionState =
     entry.status === "failed" ? "echec" : "avertissement";
   /**
    * Un couple « libellé — valeur », la valeur repliée SOUS elle-même.
@@ -1135,60 +1129,60 @@ function dernierDemarrage(
    * message se retrouve alignée avec les libellés, et on ne distingue plus ce
    * qui est un champ de ce qui est du texte.
    */
-  const champ = (nom: string, valeur: string): string[] => {
+  const field = (name: string, value: string): string[] => {
     // Assez large pour le PLUS LONG libellé (« briques ignorées », 16), plus
     // une colonne de respiration : en deçà, un libellé long colle sa valeur et
     // la colonne saute d'une ligne à l'autre.
-    const colonne = 18;
-    const indent = CORPS + " ".repeat(colonne);
-    const lignesValeur = wrap(valeur, largeur, indent);
+    const column = 18;
+    const indent = BODY + " ".repeat(column);
+    const valueLines = wrap(value, width, indent);
     // Un chemin ou une URL ne se coupe PAS (le couper le rendrait incopiable).
     // Sur un terminal étroit, la colonne d'alignement ne laisse alors pas assez
     // de place : la valeur passe SOUS son libellé plutôt que de déborder.
-    const deborde = lignesValeur.some((l) => l.length > largeur);
+    const deborde = valueLines.some((l) => l.length > width);
     if (deborde) {
-      return [`${CORPS}${p.dim(nom)}`, ...wrap(valeur, largeur, `${CORPS}  `)];
+      return [`${BODY}${p.dim(name)}`, ...wrap(value, width, `${BODY}  `)];
     }
-    const [premiere, ...suite] = lignesValeur;
+    const [premiere, ...suite] = valueLines;
     return [
-      `${CORPS}${p.dim(nom.padEnd(colonne, " "))}${(premiere ?? "").trimStart()}`,
+      `${BODY}${p.dim(name.padEnd(column, " "))}${(premiere ?? "").trimStart()}`,
       ...suite,
     ];
   };
 
   /** Le titre du bloc, replié comme n'importe quelle autre phrase. */
-  const titre = (texte: string, teinte: (t: string) => string): string[] => {
-    const [premiere, ...suite] = wrap(texte, largeur, CORPS);
+  const title = (text: string, teinte: (t: string) => string): string[] => {
+    const [premiere, ...suite] = wrap(text, width, BODY);
     return [
-      teinte(`${ITEM}${stateSymbol(etat)}  ${(premiere ?? "").trimStart()}`),
+      teinte(`${ITEM}${stateSymbol(state)}  ${(premiere ?? "").trimStart()}`),
       ...suite.map(teinte),
     ];
   };
 
   if (entry.status === "failed") {
-    lignes.push(...titre(`${qui(entry)} a ÉCHOUÉ (${age})`, p.failure));
-    lignes.push(...champ("phase atteinte", entry.phase ?? "inconnue"));
-    lignes.push(...champ("environnement", entry.environment));
+    lines.push(...title(`${qui(entry)} a ÉCHOUÉ (${age})`, p.failure));
+    lines.push(...field("phase atteinte", entry.phase ?? "inconnue"));
+    lines.push(...field("environnement", entry.environment));
     if (entry.error) {
-      lignes.push(
-        ...champ("cause", `${entry.error.name}: ${entry.error.message}`),
+      lines.push(
+        ...field("cause", `${entry.error.name}: ${entry.error.message}`),
       );
       if (entry.error.exitCode !== undefined) {
-        lignes.push(...champ("code de sortie", String(entry.error.exitCode)));
+        lines.push(...field("code de sortie", String(entry.error.exitCode)));
       }
     }
   } else {
     // Le cas que personne ne diagnostique : ça DÉMARRE, donc ça a l'air sain.
-    lignes.push(
-      ...titre(
+    lines.push(
+      ...title(
         `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
         p.warning,
       ),
     );
-    lignes.push(...champ("environnement", entry.environment));
+    lines.push(...field("environnement", entry.environment));
     if (entry.healthy === false) {
-      lignes.push(
-        ...champ(
+      lines.push(
+        ...field(
           "verdict",
           p.failure("un profil serveur a fini SANS aucun serveur en écoute"),
         ),
@@ -1197,11 +1191,11 @@ function dernierDemarrage(
   }
 
   if (entry.bricksSkipped?.length) {
-    lignes.push(
-      ...champ("briques ignorées", String(entry.bricksSkipped.length)),
+    lines.push(
+      ...field("briques ignorées", String(entry.bricksSkipped.length)),
     );
-    lignes.push(
-      ...quelquesUnes(
+    lines.push(
+      ...firstFew(
         entry.bricksSkipped.map(
           (b) =>
             `${b.module}${b.phase ? p.dim(` (${b.phase})`) : ""} — ${b.reason}`,
@@ -1213,17 +1207,17 @@ function dernierDemarrage(
   if (entry.bricksGated?.length) {
     // VOLONTAIRE — mais un module écarté en silence se diagnostique comme un
     // module perdu, et on cherche longtemps un défaut qui n'existe pas.
-    lignes.push(...champ("écartées exprès", String(entry.bricksGated.length)));
-    lignes.push(
-      ...quelquesUnes(
+    lines.push(...field("écartées exprès", String(entry.bricksGated.length)));
+    lines.push(
+      ...firstFew(
         entry.bricksGated.map((b) => `${b.module} — ${b.reason}`),
         p,
       ),
     );
   }
   if (entry.warnings || entry.errors) {
-    lignes.push(
-      ...champ(
+    lines.push(
+      ...field(
         "journal du boot",
         `${pluralize(entry.warnings ?? 0, "avertissement")}, ${pluralize(entry.errors ?? 0, "erreur")}`,
       ),
@@ -1231,28 +1225,28 @@ function dernierDemarrage(
   }
   if (entry.criticals?.length) {
     // Le compte disait qu'il s'était passé quelque chose ; ceci dit QUOI.
-    const montres = entry.criticals.slice(0, PUCES_MAX);
-    for (const message of montres) {
+    const shown = entry.criticals.slice(0, PUCES_MAX);
+    for (const message of shown) {
       // La suite s'aligne SOUS le texte, pas sous la puce : une deuxième ligne
       // rendue à la même colonne que le `·` se lit comme un deuxième message.
-      const [premiere, ...suite] = wrap(message, largeur, `${CORPS}    `);
-      lignes.push(p.failure(`${CORPS}  · ${(premiere ?? "").trimStart()}`));
-      for (const l of suite) lignes.push(p.failure(l));
+      const [premiere, ...suite] = wrap(message, width, `${BODY}    `);
+      lines.push(p.failure(`${BODY}  · ${(premiere ?? "").trimStart()}`));
+      for (const l of suite) lines.push(p.failure(l));
     }
-    const reste = entry.criticals.length - montres.length;
-    if (reste > 0) {
-      lignes.push(p.dim(`${CORPS}  · … et ${pluralize(reste, "autre")}`));
+    const remainder = entry.criticals.length - shown.length;
+    if (remainder > 0) {
+      lines.push(p.dim(`${BODY}  · … et ${pluralize(remainder, "autre")}`));
     }
   }
   if (entry.remediation) {
-    for (const l of wrap(`→ ${entry.remediation}`, largeur, CORPS)) {
-      lignes.push(p.action(l));
+    for (const l of wrap(`→ ${entry.remediation}`, width, BODY)) {
+      lines.push(p.action(l));
     }
   }
   // SON fichier, pas celui du serveur : avec deux bilans affichés, un
   // chemin unique enverrait lire le mauvais.
-  lignes.push(...champ("bilan complet", lastBootFileFor(entry.profile)));
-  return lignes;
+  lines.push(...field("bilan complet", lastBootFileFor(entry.profile)));
+  return lines;
 }
 
 /**
@@ -1262,17 +1256,17 @@ function dernierDemarrage(
  * quand aucun contrôle n'a pu tourner. « Rien à signaler · 0 contrôle passé »
  * s'y lisait comme un succès alors que rien n'avait été regardé.
  */
-function bilan(
+function footer(
   report: IDoctorReport,
-  sautes: readonly ISkippedCheck[],
+  skipped: readonly ISkippedCheck[],
   p: IPalette,
-  largeur: number,
-  dureeMs?: number,
+  width: number,
+  durationMs?: number,
 ): string[] {
   // ⚠️ La MÊME fonction que le code de sortie et que le serveur MCP. Recompter
   // ici a produit un bilan qui contredisait le sommaire juste au-dessus.
   const total = countFindings(report);
-  const passes = nombreDeControlesPasses(report);
+  const passes = passedCheckCount(report);
 
   /**
    * Un segment du bilan : ce qu'il MESURE, et ce qui s'AFFICHE.
@@ -1281,12 +1275,12 @@ function bilan(
    * pour zéro colonne mais pour plusieurs caractères. Mesurer la version peinte
    * ferait passer une ligne courte pour trop longue, et l'inverse.
    */
-  const seg = (texte: string, teinte: (t: string) => string) => ({
-    mesure: texte,
-    peint: teinte(texte),
+  const seg = (text: string, teinte: (t: string) => string) => ({
+    measure: text,
+    peint: teinte(text),
   });
 
-  const segments: { mesure: string; peint: string }[] = [];
+  const segments: { measure: string; peint: string }[] = [];
   if (total > 0) {
     segments.push(seg(pluralize(total, "manquement"), p.failure));
     segments.push(
@@ -1309,43 +1303,46 @@ function bilan(
         ? ` (${pluralize(report.exceptions, "exception")} déclarée${report.exceptions > 1 ? "s" : ""})`
         : "";
     const phrase =
-      sautes.length > 0
+      skipped.length > 0
         ? `Rien à signaler parmi les ${pluralize(passes, "contrôle effectué", "contrôles effectués")}`
         : `Rien à signaler sur ${pluralize(passes, "contrôle", "contrôles")}`;
     segments.push({
-      mesure: phrase + exceptions,
+      measure: phrase + exceptions,
       peint: p.ok(phrase) + p.dim(exceptions),
     });
   }
-  if (sautes.length > 0) {
+  if (skipped.length > 0) {
     segments.push(
-      seg(pluralize(sautes.length, "non contrôlé", "non contrôlés"), p.warning),
+      seg(
+        pluralize(skipped.length, "non contrôlé", "non contrôlés"),
+        p.warning,
+      ),
     );
   }
-  if (dureeMs !== undefined) {
-    const texte =
-      dureeMs < 1000
-        ? `${Math.round(dureeMs)} ms`
-        : `${(dureeMs / 1000).toFixed(1)} s`;
-    segments.push(seg(texte, p.dim));
+  if (durationMs !== undefined) {
+    const text =
+      durationMs < 1000
+        ? `${Math.round(durationMs)} ms`
+        : `${(durationMs / 1000).toFixed(1)} s`;
+    segments.push(seg(text, p.dim));
   }
 
   // Sur un terminal étroit, les segments s'EMPILENT au lieu de déborder. Une
   // dernière ligne coupée par le terminal est celle qu'on retient de travers.
-  const surUneLigne = `  ${segments.map((s) => s.mesure).join(" · ")}`;
-  if (surUneLigne.length <= largeur) {
+  const oneLine = `  ${segments.map((s) => s.measure).join(" · ")}`;
+  if (oneLine.length <= width) {
     return [`  ${segments.map((s) => s.peint).join(" · ")}`];
   }
   return segments.map((s) => `  ${s.peint}`);
 }
 
 /** Combien de familles ont réellement regardé — la moitié utile du bilan. */
-function nombreDeControlesPasses(report: IDoctorReport): number {
+function passedCheckCount(report: IDoctorReport): number {
   let n = 0;
   // Dérivé de la source unique : une famille ajoutée est comptée sans qu'on ait
   // à y penser — la liste écrite en dur ici ignorait l'étage 2.
-  for (const famille of COUNTED_FAMILIES) {
-    if (report.execution[famille]?.ran) n++;
+  for (const family of COUNTED_FAMILIES) {
+    if (report.execution[family]?.ran) n++;
   }
   return n;
 }

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T18:55:41.944Z",
+  "generated": "2026-09-05T18:59:50.181Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8964,8 +8964,8 @@
       "module": "@nodefony/core",
       "description": "Contrôle l'état d'installation et l'environnement d'une application."
     },
-    "IOptionsRendu": {
-      "name": "IOptionsRendu",
+    "IRenderOptions": {
+      "name": "IRenderOptions",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/checks/renderReport.ts",
       "exported": true,
@@ -8973,32 +8973,32 @@
       "extends": null,
       "description": "Le décor du rendu — tout ce que ce module refuse d'aller chercher lui-même."
     },
-    "meriteDEtreDit": {
-      "name": "meriteDEtreDit",
+    "worthReporting": {
+      "name": "worthReporting",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/renderReport.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Un bilan de démarrage mérite d'être rapporté quand il porte une MAUVAISE nouvelle. Un démarrage abouti, complet et sans brique manquante ne se commente pas : l'afficher à chaque contrôle serait du …"
     },
-    "grouperParRaison": {
-      "name": "grouperParRaison",
+    "groupByReason": {
+      "name": "groupByReason",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/renderReport.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Regroupe les contrôles sautés qui partagent la MÊME raison. Hors d'une application, quatre familles sont sautées pour un seul et même motif. Les énumérer une par une répète quatre fois la même phra…"
     },
-    "rendreRapport": {
-      "name": "rendreRapport",
+    "renderReport": {
+      "name": "renderReport",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/renderReport.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le document complet, ligne par ligne, sans retour chariot final."
     },
-    "aFaireEnsuite": {
-      "name": "aFaireEnsuite",
+    "nextActions": {
+      "name": "nextActions",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/renderReport.ts",
       "exported": true,
@@ -31777,7 +31777,7 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
-      "rendreRapport": [
+      "renderReport": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "OptionsCommandInterface": [
