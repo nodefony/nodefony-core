@@ -4431,7 +4431,12 @@ function monterDecor(runDir, app) {
     "complete",
     "--frontend",
     "none",
-    ...(LINKED ? ["--link"] : []),
+    // Voir `bench-schema.mjs` : en décor isolé, le scaffold ne doit pas
+    // installer — ses deps `@nodefony/*` ne sont publiées nulle part (#175) et
+    // son `npm install` part sur le registre. `installFromTarballs`, juste
+    // dessous, installe depuis les tarballs. La règle était appliquée à UN banc
+    // sur trois ; c'était la définition d'une règle qui ne tient pas.
+    ...(LINKED ? ["--link"] : ["--no-install"]),
     "--yes",
   ]);
   if (LINKED) {

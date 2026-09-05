@@ -1515,6 +1515,10 @@
                 "help": ""
               },
               {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
                 "flag": "--no-tests",
                 "help": ""
               },

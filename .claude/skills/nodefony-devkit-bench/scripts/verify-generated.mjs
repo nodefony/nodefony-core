@@ -451,6 +451,19 @@ step(
         "--database",
         DATABASE,
         ...(LINKED ? ["--link"] : []),
+        // 🔴 En décor ISOLÉ, le scaffold ne doit PAS installer : ses dépendances
+        // `@nodefony/*` ne sont publiées nulle part (#175), son `npm install`
+        // part donc sur le registre et rend 404. C'est `installFromTarballs`,
+        // deux lignes plus bas, qui installe — depuis les tarballs, ce qui est
+        // tout l'objet de ce décor.
+        //
+        // Cet appel était là depuis toujours et ne se voyait pas : `create app`
+        // rendait 0 sur une installation ratée, le banc enchaînait, et la
+        // réécriture en `file:` réparait tout après coup. `103d688a` a rendu
+        // l'échec FATAL — il n'a rien cassé, il a montré que ce décor
+        // s'appuyait sur une tolérance. En `--link`, l'install du scaffold est
+        // légitime : les chemins `file:` visent le checkout, ils résolvent.
+        ...(LINKED ? [] : ["--no-install"]),
         "--yes",
       ],
       ROOT,
