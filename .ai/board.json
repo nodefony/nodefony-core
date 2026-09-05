@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T11:07:54.178Z",
+  "generatedAt": "2026-09-05T13:37:28.762Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 105,
+      "closed": 108,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 43,
+      "open": 42,
       "title": "10.0.0"
     }
   ],
@@ -1165,7 +1165,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 2,
+      "jours": 1,
       "ordre": 6,
       "labels": [
         "10.0.0"
@@ -1203,8 +1203,8 @@
       "number": 198,
       "title": "test(realtime): inventorier ce que les bancs du temps réel n'éprouvent pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/198",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1245,8 +1245,8 @@
       "number": 199,
       "title": "fix(realtime): ne plus annoncer les canaux qu'un visiteur ne peut pas obtenir",
       "url": "https://github.com/nodefony/nodefony-core/issues/199",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1287,8 +1287,8 @@
       "number": 200,
       "title": "test(realtime): éprouver le welcome de bout en bout, identité par identité",
       "url": "https://github.com/nodefony/nodefony-core/issues/200",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1326,6 +1326,20 @@
       ]
     },
     {
+      "number": 202,
+      "title": "test(realtime): éprouver la file de publication quand elle sature",
+      "url": "https://github.com/nodefony/nodefony-core/issues/202",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 45,
       "title": "docs(guides): retirer « mocha + bun » et les pages fantômes",
       "url": "https://github.com/nodefony/nodefony-core/issues/45",
@@ -1348,6 +1362,20 @@
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
+      "ordre": 6.5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 203,
+      "title": "test(realtime): éprouver ce que RealtimeError transporte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/203",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
       "ordre": 6.5,
       "labels": [
         "10.0.0"
@@ -2568,6 +2596,20 @@
       "ordre": 140,
       "labels": [
         "10.1"
+      ]
+    },
+    {
+      "number": 201,
+      "title": "test(core): faire échouer le typecheck du cœur sur un test faux",
+      "url": "https://github.com/nodefony/nodefony-core/issues/201",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 900,
+      "labels": [
+        "backlog"
       ]
     },
     {
