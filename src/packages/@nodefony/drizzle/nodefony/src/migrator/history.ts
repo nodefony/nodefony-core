@@ -79,20 +79,20 @@ const BASE_COLUMNS = [
  * @param message - message d'erreur rendu par le pilote.
  * @returns la colonne d'historique introuvable, ou `null`.
  */
-export function colonneHistoriqueAbsente(message: string): string | null {
-  const motifs = [
+export function missingHistoryColumn(message: string): string | null {
+  const patterns = [
     /no such column:\s*(?:[\w."`]*\.)?[`"']?(\w+)[`"']?/i, // sqlite
     /column\s+[`"']?(?:[\w.]*\.)?[`"']?(\w+)[`"']?\s+does not exist/i, // postgres
     /unknown column\s+[`"']?(?:[\w.]*\.)?[`"']?(\w+)[`"']?/i, // mysql
   ];
-  for (const motif of motifs) {
-    const trouve = motif.exec(message);
-    const nom = trouve?.[1]?.toLowerCase();
+  for (const pattern of patterns) {
+    const found = pattern.exec(message);
+    const name = found?.[1]?.toLowerCase();
     if (
-      nom !== undefined &&
-      (BASE_COLUMNS as readonly string[]).includes(nom)
+      name !== undefined &&
+      (BASE_COLUMNS as readonly string[]).includes(name)
     ) {
-      return nom;
+      return name;
     }
   }
   return null;
@@ -315,22 +315,22 @@ export async function forgetEntries(
   driver: IMigrationDriver,
   entries: readonly { source: string; tag: string }[],
 ): Promise<{ source: string; tag: string }[]> {
-  const presentes = await readHistory(driver);
-  const retirees: { source: string; tag: string }[] = [];
-  for (const cible of entries) {
-    const existe = presentes.some(
-      (row) => row.source === cible.source && row.tag === cible.tag,
+  const existing = await readHistory(driver);
+  const removed: { source: string; tag: string }[] = [];
+  for (const target of entries) {
+    const exists = existing.some(
+      (row) => row.source === target.source && row.tag === target.tag,
     );
-    if (!existe) {
+    if (!exists) {
       continue;
     }
     await driver.query(
       `DELETE FROM ${HISTORY_TABLE} WHERE source = ? AND tag = ?`,
-      [cible.source, cible.tag],
+      [target.source, target.tag],
     );
-    retirees.push({ source: cible.source, tag: cible.tag });
+    removed.push({ source: target.source, tag: target.tag });
   }
-  return retirees;
+  return removed;
 }
 
 /**

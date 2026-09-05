@@ -287,12 +287,12 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
         opts.fromDatabase !== true &&
         !resolution.fromMigrateUrl
       ) {
-        const ecart = await gapAgainstDeclared(resolution.connector);
-        if (ecart !== null) {
+        const gap = await gapAgainstDeclared(resolution.connector);
+        if (gap !== null) {
           this.fail(
             resolution.connector,
             "NF_MIGRATE_BASELINE_AMBIGUOUS",
-            `La base ne correspond pas au schéma déclaré : ${summarizeGap(ecart)}. Rien n'a été inscrit.`,
+            `La base ne correspond pas au schéma déclaré : ${summarizeGap(gap)}. Rien n'a été inscrit.`,
             "Adopter reviendrait à déclarer appliquées des migrations que cette base n'a jamais " +
               "reçues — une affirmation fausse gravée dans l'historique, qu'aucune commande ne " +
               "peut ensuite rattraper. Dis jusqu'où la base suit avec `--up-to <tag>` : les " +

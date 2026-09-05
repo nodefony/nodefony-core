@@ -322,8 +322,8 @@ export function postgresSchemaOf(url: string): string | null {
   if (options === null) {
     return null;
   }
-  const trouve = /(?:^|\s)-c\s*search_path=([^\s]+)/u.exec(options);
-  const premier = trouve?.[1]?.split(",")[0]?.trim();
+  const found = /(?:^|\s)-c\s*search_path=([^\s]+)/u.exec(options);
+  const premier = found?.[1]?.split(",")[0]?.trim();
   return premier !== undefined && premier !== "" ? premier : null;
 }
 

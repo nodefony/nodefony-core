@@ -324,13 +324,13 @@ class DrizzleService extends Service {
         // elle se prend en tapant la commande — jamais en relançant un
         // processus.
         const prevu = await migrator.status();
-        const pertes = dataLoss(scanDestructive(prevu.pending));
-        if (pertes.length > 0) {
+        const losses = dataLoss(scanDestructive(prevu.pending));
+        if (losses.length > 0) {
           this.log(
-            `${summarizeDestructive(pertes, name)}\n` +
+            `${summarizeDestructive(losses, name)}\n` +
               `  Le démarrage N'APPLIQUE PAS ces migrations : un exemplaire qui ` +
               `redémarre ne supprime jamais de données de lui-même.\n` +
-              renderDestructive(pertes, true) +
+              renderDestructive(losses, true) +
               `  À faire, une fois la décision prise : ` +
               `nodefony orm:migrate --connector ${name} --allow-destructive`,
             "CRITIC",

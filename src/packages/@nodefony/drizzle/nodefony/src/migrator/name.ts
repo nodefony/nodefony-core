@@ -47,11 +47,11 @@ export type MigrationNameCheck =
 /**
  * Dérive un nom acceptable d'une saisie qui ne l'est pas.
  *
- * @param saisie - ce que l'utilisateur a tapé.
+ * @param input - ce que l'utilisateur a tapé.
  * @returns un nom conforme, ou `undefined` s'il n'en reste rien de sensé.
  */
-export function suggestMigrationName(saisie: string): string | undefined {
-  const derive = saisie
+export function suggestMigrationName(input: string): string | undefined {
+  const derive = input
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     // `_` et non `_+` : la ligne au-dessus réduit TOUT run de caractères non
@@ -71,41 +71,41 @@ export function suggestMigrationName(saisie: string): string | undefined {
 /**
  * Vérifie un nom de migration, et dit ce qu'il faudrait taper à la place.
  *
- * @param saisie - nom reçu de la ligne de commande, éventuellement absent.
+ * @param input - nom reçu de la ligne de commande, éventuellement absent.
  * @returns le verdict, avec sa raison et sa suggestion.
  */
 export function checkMigrationName(
-  saisie: string | undefined,
+  input: string | undefined,
 ): MigrationNameCheck {
-  if (!saisie) {
+  if (!input) {
     return { ok: false, reason: "Il manque le nom de la migration." };
   }
-  if (saisie.length > MIGRATION_NAME_MAX) {
+  if (input.length > MIGRATION_NAME_MAX) {
     return {
       ok: false,
       reason:
-        `Le nom fait ${saisie.length} caractères, la limite est ` +
+        `Le nom fait ${input.length} caractères, la limite est ` +
         `${MIGRATION_NAME_MAX} : il devient un nom de fichier, et un chemin ` +
         `trop long échoue à l'écriture sur certains systèmes.`,
-      suggestion: suggestMigrationName(saisie),
+      suggestion: suggestMigrationName(input),
     };
   }
-  if (!FORME.test(saisie)) {
+  if (!FORME.test(input)) {
     return {
       ok: false,
       reason:
-        `Le nom « ${saisie} » ne convient pas : minuscules, chiffres et ` +
+        `Le nom « ${input} » ne convient pas : minuscules, chiffres et ` +
         `« _ » seulement.`,
-      suggestion: suggestMigrationName(saisie),
+      suggestion: suggestMigrationName(input),
     };
   }
-  if (!SUBSTANCE.test(saisie)) {
+  if (!SUBSTANCE.test(input)) {
     return {
       ok: false,
       reason:
-        `Le nom « ${saisie} » ne porte aucune lettre ni chiffre : il ` +
+        `Le nom « ${input} » ne porte aucune lettre ni chiffre : il ` +
         `produirait un tag que personne ne saura relire.`,
     };
   }
-  return { ok: true, name: saisie };
+  return { ok: true, name: input };
 }

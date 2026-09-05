@@ -14,7 +14,7 @@ import {
   scanDestructive,
   summarizeDestructive,
   touchesExistingRows,
-  verifierLesDonnees,
+  checkDataAdvice,
 } from "../src/migrator/destructive";
 import { readMigrationEnv } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
@@ -144,13 +144,13 @@ class OrmMigrate extends OrmMigrateCommand {
       // retour arrière. L'outil ne sauvegarde pas (aucun ne le fait, et le
       // faire donnerait une assurance qui n'existe pas) : il empêche
       // d'appliquer sans savoir.
-      const avant = await migrator.status();
-      const trouvailles = scanDestructive(avant.pending);
-      const pertes = dataLoss(trouvailles);
+      const before = await migrator.status();
+      const findings = scanDestructive(before.pending);
+      const losses = dataLoss(findings);
       const enDev =
         readMigrationEnv(this.kernel as never).runtime === "development";
       if (
-        pertes.length > 0 &&
+        losses.length > 0 &&
         opts.dryRun !== true &&
         opts.allowDestructive !== true &&
         !enDev
@@ -158,15 +158,15 @@ class OrmMigrate extends OrmMigrateCommand {
         this.fail(
           resolution.connector,
           "NF_MIGRATE_DESTRUCTIVE",
-          summarizeDestructive(trouvailles, resolution.connector),
-          renderDestructive(trouvailles, true),
+          summarizeDestructive(findings, resolution.connector),
+          renderDestructive(findings, true),
           destructiveActions(resolution.connector).map((c) => action(c)),
           opts.json,
           EXIT.actionRequired,
         );
         return this;
       }
-      if (trouvailles.length > 0) {
+      if (findings.length > 0) {
         // 🔴 « Jamais en silence » vaut AUSSI pour un lecteur machine. Ce bloc
         // était conditionné à l'absence de `--json` : en sortie machine — le
         // mode que le produit prescrit à un agent — une migration détruisait
@@ -174,7 +174,7 @@ class OrmMigrate extends OrmMigrateCommand {
         // d'ERREUR est libre par contrat, même quand la sortie standard porte
         // du JSON pur : c'est exactement à cela qu'elle sert.
         process.stderr.write(
-          style.yellow(renderDestructive(trouvailles, false)) + "\n",
+          style.yellow(renderDestructive(findings, false)) + "\n",
         );
       }
 
@@ -206,11 +206,11 @@ class OrmMigrate extends OrmMigrateCommand {
             tag: f.tag,
             sql: [...f.statements],
           })),
-          destructive: trouvailles,
+          destructive: findings,
         };
         let human = `${style.bold("Essai — RIEN n'a été appliqué.")}\n\n`;
-        if (trouvailles.length > 0) {
-          human += `${style.yellow(renderDestructive(trouvailles, false))}\n`;
+        if (findings.length > 0) {
+          human += `${style.yellow(renderDestructive(findings, false))}\n`;
         }
         if (pending.length === 0) {
           human += `${style.green("Aucune migration en attente : il n'y a rien à appliquer.")}\n`;
@@ -250,11 +250,11 @@ class OrmMigrate extends OrmMigrateCommand {
       // Comme pour l'avertissement destructeur ci-dessus, la sortie d'ERREUR
       // porte le conseil quand la sortie standard est réservée au JSON : elle
       // est libre par contrat, et c'est exactement à cela qu'elle sert.
-      if (touchesExistingRows(avant.pending)) {
+      if (touchesExistingRows(before.pending)) {
         // La cible vient du RAPPORT, pas d'une reconstruction : c'est la
         // même valeur que la sortie machine publie, donc celle que l'agent
         // relit. La recomposer ici en ferait une seconde vérité.
-        const conseil = verifierLesDonnees(resolution.connector, report.driver);
+        const conseil = checkDataAdvice(resolution.connector, report.driver);
         if (opts.json === true) {
           process.stderr.write(`${conseil}\n`);
         } else {
@@ -269,9 +269,7 @@ class OrmMigrate extends OrmMigrateCommand {
       // n'avait aucune trace de la perte dans ce qu'il relit. Ajout additif,
       // conforme au contrat de version de format.
       this.emitReport(
-        trouvailles.length > 0
-          ? { ...report, destructive: trouvailles }
-          : report,
+        findings.length > 0 ? { ...report, destructive: findings } : report,
         human,
         opts.json,
       );

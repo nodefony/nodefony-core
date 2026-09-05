@@ -834,12 +834,12 @@ export class DrizzleOrm extends Orm {
         "INFO",
       );
     }
-    const reste: ISchemaComparison = {
+    const remaining: ISchemaComparison = {
       additive: [],
       blocking: comparison.blocking,
       missingTables: comparison.missingTables,
     };
-    this.#drift = hasGap(reste) ? reste : null;
+    this.#drift = hasGap(remaining) ? remaining : null;
     if (this.#drift) {
       this.log(this.#explainDrift(this.#drift), "CRITIC");
     }
@@ -852,28 +852,28 @@ export class DrizzleOrm extends Orm {
    * @returns le texte à journaliser, geste compris.
    */
   #explainDrift(drift: ISchemaComparison): string {
-    const lignes: string[] = [
+    const lines: string[] = [
       `La base du connecteur « ${this.name} » ne correspond pas au code, et ` +
         `l'écart ne se rattrape pas tout seul :`,
     ];
     for (const table of drift.missingTables) {
-      lignes.push(`  · table « ${table} » absente`);
+      lines.push(`  · table « ${table} » absente`);
     }
     for (const gap of drift.blocking) {
-      lignes.push(
+      lines.push(
         `  · colonne « ${gap.table}.${gap.column} » (${gap.type}) absente et ` +
           `OBLIGATOIRE — la poser exigerait d'inventer une valeur pour les ` +
           `lignes déjà présentes`,
       );
     }
-    lignes.push(
+    lines.push(
       `  Les index et les requêtes qui portent sur ces colonnes échoueront.`,
       `  En développement, le geste est : nodefony orm:reset --connector ${this.name}`,
       `  (il SUPPRIME et recrée la base — jamais hors développement).`,
       `  Sur une base qui porte des données, c'est une migration qu'il faut : ` +
         `nodefony orm:migrate:status --connector ${this.name}`,
     );
-    return lignes.join("\n");
+    return lines.join("\n");
   }
 
   /**
@@ -1079,7 +1079,7 @@ export class DrizzleOrm extends Orm {
       };
       cx.on("error", puitsTx);
       /** Rend la connexion, en retirant d'abord NOTRE puits. */
-      const rendre = (err?: unknown): void => {
+      const giveBack = (err?: unknown): void => {
         // Synchrone jusqu'au `release`, donc aucune fenêtre sans auditeur :
         // `_release` réattache celui du pool avant toute autre chose.
         cx.removeListener("error", puitsTx);
@@ -1093,7 +1093,7 @@ export class DrizzleOrm extends Orm {
       try {
         await cx.query("BEGIN");
       } catch (e) {
-        rendre(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
+        giveBack(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
         throw e;
       }
       return new DrizzleTransaction(pgDrizzle(cx) as DrizzleDb, {
@@ -1101,7 +1101,7 @@ export class DrizzleOrm extends Orm {
           await cx.query(sql);
         },
         quoteIdent: (name: string): string => `"${name}"`,
-        release: rendre,
+        release: giveBack,
       });
     };
     for (const entity of entities) {
@@ -1688,7 +1688,7 @@ export class DrizzleOrm extends Orm {
       if (!table) {
         continue;
       }
-      const nom =
+      const name =
         this.#dialect === "postgres"
           ? getPgTableConfig(table as PgTable).name
           : this.#dialect === "mysql"
@@ -1696,7 +1696,7 @@ export class DrizzleOrm extends Orm {
             : getTableConfig(table as SQLiteTable).name;
       out.push({
         entity: entity.name,
-        table: nom,
+        table: name,
         columns: this.describeEntity(entity.name),
       });
     }

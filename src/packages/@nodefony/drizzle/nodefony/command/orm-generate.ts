@@ -344,7 +344,7 @@ class OrmGenerate extends OrmMigrateCommand {
     const framework = new Set(await frameworkTables(dialect));
     const usurped = usurpedTables(tables, framework);
     if (usurped.length > 0) {
-      const liste = usurped
+      const list = usurped
         .map(
           (t) =>
             `  • « ${t.tableName} », exportée par ${relative(t.file)} (${t.exportName})`,
@@ -353,7 +353,7 @@ class OrmGenerate extends OrmMigrateCommand {
       this.fail(
         connector,
         "NF_GENERATE_FRAMEWORK_TABLE",
-        `L'application fournit ${usurped.length} table(s) qui appartiennent au framework :\n${liste}`,
+        `L'application fournit ${usurped.length} table(s) qui appartiennent au framework :\n${list}`,
         "Rien n'a été écrit. Ces tables sont créées par les migrations du framework, appliquées AVANT celles de l'application. Les décrire ici produirait un second « CREATE TABLE » pour la même table : la migration passerait sur une base vierge et échouerait sur toute base déjà migrée — c'est-à-dire en production, et nulle part ailleurs. Pour pointer vers une table du framework, garder la référence dans le code de l'entité sans la RÉ-EXPORTER ; pour une vraie clé étrangère SQL, écrire une migration libre (--custom).",
         [action(`nodefony orm:generate --custom --name lien_${name}`)],
         opts.json,
@@ -447,15 +447,15 @@ class OrmGenerate extends OrmMigrateCommand {
       ),
     );
     if (!tables.some((t) => decrites.has(t.tableName))) {
-      const refus = await this.#alreadyInDatabase(
+      const refusal = await this.#alreadyInDatabase(
         opts,
         connector,
         name,
         tables,
         database,
       );
-      if (refus !== null) {
-        return refus;
+      if (refusal !== null) {
+        return refusal;
       }
     }
 
@@ -504,12 +504,12 @@ class OrmGenerate extends OrmMigrateCommand {
       //
       // Le produit SAIT pourtant voir cet écart : la même brique que le verdict
       // `divergent`, qui NOMME les tables et colonnes manquantes.
-      const ecart = await gapAgainstDeclared(connector);
-      if (ecart !== null) {
+      const gap = await gapAgainstDeclared(connector);
+      if (gap !== null) {
         this.fail(
           connector,
           "NF_GENERATE_DATABASE_BEHIND",
-          `Rien à écrire, et pourtant la base ne porte pas le schéma déclaré : ${summarizeGap(ecart)}.`,
+          `Rien à écrire, et pourtant la base ne porte pas le schéma déclaré : ${summarizeGap(gap)}.`,
           "Les fichiers de migration décrivent déjà ce que le code déclare — il n'y a donc rien de " +
             "neuf à générer. Mais la base, elle, ne l'a pas reçu : son historique affirme des " +
             "migrations qu'elle n'a pas exécutées. C'est l'HISTORIQUE qu'il faut reprendre, pas le " +
@@ -570,13 +570,13 @@ class OrmGenerate extends OrmMigrateCommand {
       warnings.push(...audit.blocking);
     }
     if (destructive.length > 0 && opts.allowDestructive !== true) {
-      const liste = destructive
+      const list = destructive
         .map((r) => `  • ${r.id} : ${r.what}\n    → ${r.todo}`)
         .join("\n");
       this.fail(
         connector,
         "NF_GENERATE_DESTRUCTIVE",
-        `Cette migration DÉTRUIT des données :\n${liste}\n\nLes fichiers ont été écrits — les RELIRE avant toute décision :\n${written.map((f) => `  ${f}`).join("\n")}`,
+        `Cette migration DÉTRUIT des données :\n${list}\n\nLes fichiers ont été écrits — les RELIRE avant toute décision :\n${written.map((f) => `  ${f}`).join("\n")}`,
         "Ils ne sont pas effacés : ce sont eux qu'il faut lire pour décider, et les supprimer priverait de la seule chose à regarder. C'est leur mise en service qui est refusée. S'il s'agit d'un renommage mal interprété, annuler ces fichiers avec l'outil de gestion de versions puis regénérer dans un terminal interactif, et répondre « renamed » : l'outil produit alors un RENAME, et les données suivent. Si la perte est ASSUMÉE, il n'y a rien à regénérer — les fichiers sont là : c'est l'application qui décide, et elle a sa propre garde.",
         // 🔴 Les gestes décrivent les DEUX issues réelles, et aucune ne
         // consiste à rejouer cette commande : les fichiers sont déjà écrits ET
@@ -669,11 +669,11 @@ class OrmGenerate extends OrmMigrateCommand {
     // connaisse les tables d'un module désactivé ou d'une entité absente du
     // registre — celles-là mêmes que la migration créerait. Une base muette ne
     // déclenche rien : on ne refuse pas sans preuve.
-    const presentes = await this.#presentInDatabase(
+    const presentTables = await this.#presentInDatabase(
       target,
       tables.map((t) => t.tableName),
     );
-    if (presentes.length === 0) {
+    if (presentTables.length === 0) {
       return null;
     }
     // 🔴 Le second geste ne se propose que s'il PRODUIT quelque chose.
@@ -692,16 +692,16 @@ class OrmGenerate extends OrmMigrateCommand {
     const adopter = action(
       `nodefony orm:migrate:baseline --from-database --connector ${connector}`,
     );
-    const complet = presentes.length === tables.length;
+    const complete = presentTables.length === tables.length;
     this.fail(
       connector,
       "NF_GENERATE_DATABASE_NOT_ADOPTED",
-      complet
+      complete
         ? `Rien n'a été écrit : aucune migration n'existe encore, et la base ` +
-            `porte déjà TOUTES les tables déclarées (${presentes.join(", ")}).`
+            `porte déjà TOUTES les tables déclarées (${presentTables.join(", ")}).`
         : `Rien n'a été écrit : aucune migration n'existe encore, et la base porte ` +
-            `déjà ${presentes.length} des ${tables.length} tables à créer (${presentes.join(", ")}).`,
-      complet
+            `déjà ${presentTables.length} des ${tables.length} tables à créer (${presentTables.join(", ")}).`,
+      complete
         ? "Une première migration décrit la création du schéma. Écrite ici, " +
             "elle porterait un « CREATE TABLE » de tables qui existent, avec " +
             "leurs données : elle ne s'appliquerait jamais. Et comme la base " +
@@ -719,7 +719,7 @@ class OrmGenerate extends OrmMigrateCommand {
             "être ADOPTÉE — sa migration de référence se lit sur elle, pas sur le " +
             "code, et rien n'est exécuté dessus. La suite redevient ordinaire : le " +
             "champ ajouté produit alors un « ALTER TABLE ».",
-      complet
+      complete
         ? [adopter]
         : [
             adopter,

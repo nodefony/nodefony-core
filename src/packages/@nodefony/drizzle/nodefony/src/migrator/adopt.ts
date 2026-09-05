@@ -81,7 +81,7 @@ export function introspectionUrl(target: IMigrationTarget): string | null {
 }
 
 /** L'en-tête que l'outil pose devant un corps commenté. */
-const ENTETE_INTROSPECTION =
+const INTROSPECTION_HEADER =
   /^\s*--[^\n]*generated after introspecting[^\n]*\n(?:\s*--[^\n]*\n)*/u;
 
 /**
@@ -99,21 +99,21 @@ const ENTETE_INTROSPECTION =
  * @returns le SQL exécutable, ou `null` si aucun bloc commenté n'a été trouvé.
  */
 export function uncommentIntrospection(sql: string): string | null {
-  const sansEntete = sql.replace(ENTETE_INTROSPECTION, "");
-  const debut = sansEntete.indexOf("/*");
-  const fin = sansEntete.lastIndexOf("*/");
+  const withoutHeader = sql.replace(INTROSPECTION_HEADER, "");
+  const debut = withoutHeader.indexOf("/*");
+  const fin = withoutHeader.lastIndexOf("*/");
   if (debut === -1 || fin === -1 || fin < debut) {
     return null;
   }
-  const corps = sansEntete.slice(debut + 2, fin);
-  const reste = `${sansEntete.slice(0, debut)}${sansEntete.slice(fin + 2)}`;
+  const body = withoutHeader.slice(debut + 2, fin);
+  const remainder = `${withoutHeader.slice(0, debut)}${withoutHeader.slice(fin + 2)}`;
   // Ce qui vivait HORS du bloc n'est pas du SQL — c'étaient les délimiteurs et
   // les blancs qui les entouraient. Le vérifier plutôt que le supposer : un
   // jour où l'outil écrira deux blocs, on veut le savoir, pas en perdre un.
-  if (reste.trim() !== "") {
+  if (remainder.trim() !== "") {
     return null;
   }
-  return `${corps.trim()}\n`;
+  return `${body.trim()}\n`;
 }
 
 /** Une entrée du journal des fichiers, telle que l'outil l'écrit. */
@@ -164,23 +164,23 @@ export async function readJournal(outDir: string): Promise<IJournal | null> {
  * ensuite. Le fixer ici, une fois, avant que quiconque l'ait vu.
  *
  * @param outDir - dossier `<migrations>/<dialecte>`.
- * @param ancien - tag tiré par l'outil.
- * @param nouveau - tag voulu.
+ * @param oldTag - tag tiré par l'outil.
+ * @param newTag - tag voulu.
  * @returns le chemin du fichier SQL, sous son nom final.
  */
 export async function renameTag(
   outDir: string,
-  ancien: string,
-  nouveau: string,
+  oldTag: string,
+  newTag: string,
 ): Promise<string> {
-  const cible = path.join(outDir, `${nouveau}.sql`);
-  if (ancien !== nouveau) {
-    await fs.rename(path.join(outDir, `${ancien}.sql`), cible);
+  const targetFile = path.join(outDir, `${newTag}.sql`);
+  if (oldTag !== newTag) {
+    await fs.rename(path.join(outDir, `${oldTag}.sql`), targetFile);
     const journal = await readJournal(outDir);
     if (journal) {
       for (const entry of journal.entries) {
-        if (entry.tag === ancien) {
-          entry.tag = nouveau;
+        if (entry.tag === oldTag) {
+          entry.tag = newTag;
         }
       }
       await fs.writeFile(
@@ -190,7 +190,7 @@ export async function renameTag(
       );
     }
   }
-  return cible;
+  return targetFile;
 }
 
 /**
@@ -358,13 +358,13 @@ export async function normalizeIntrospection(
   const qualifie = schema !== null && schema !== "public";
 
   /** Une séquence appartient-elle à une table qu'on a écartée ? */
-  const satellite = (nom: string): boolean =>
-    excludedTables.some((t) => nom.startsWith(`${t}_`));
+  const satellite = (objectName: string): boolean =>
+    excludedTables.some((t) => objectName.startsWith(`${t}_`));
 
   const snapshotFile = path.join(outDir, "meta", "0000_snapshot.json");
-  const sequencesRetirees: string[] = [];
+  const removedSequences: string[] = [];
   /** Colonnes booléennes rendues à leur forme déclarée (MySQL). */
-  let booleens = 0;
+  let booleans = 0;
   let brut: string | null = null;
   try {
     brut = await fs.readFile(snapshotFile, "utf8");
@@ -375,27 +375,27 @@ export async function normalizeIntrospection(
   }
   if (brut !== null) {
     const doc = JSON.parse(brut) as ISnapshotDocument;
-    let modifie = false;
+    let changed = false;
 
     // 🔴 On ne CRÉE aucun champ : un instantané sqlite n'a pas de séquences, et
     // lui en poser une — fût-elle vide — le rend « malformé » pour l'outil qui
     // le relira. On ne touche qu'à ce qui existe.
     if (doc.sequences !== undefined) {
       const sequences: Record<string, ISnapshotSequence> = {};
-      for (const [cle, seq] of Object.entries(doc.sequences)) {
-        const nom = seq.name ?? cle.split(".").pop() ?? cle;
-        if (satellite(nom)) {
-          sequencesRetirees.push(nom);
-          modifie = true;
+      for (const [key, seq] of Object.entries(doc.sequences)) {
+        const sequenceName = seq.name ?? key.split(".").pop() ?? key;
+        if (satellite(sequenceName)) {
+          removedSequences.push(sequenceName);
+          changed = true;
           continue;
         }
-        const clef =
-          qualifie && cle.startsWith(`${schema}.`)
-            ? `public.${cle.slice(schema.length + 1)}`
-            : cle;
-        sequences[clef] = qualifie ? { ...seq, schema: "public" } : seq;
-        if (clef !== cle) {
-          modifie = true;
+        const publicKey =
+          qualifie && key.startsWith(`${schema}.`)
+            ? `public.${key.slice(schema.length + 1)}`
+            : key;
+        sequences[publicKey] = qualifie ? { ...seq, schema: "public" } : seq;
+        if (publicKey !== key) {
+          changed = true;
         }
       }
       doc.sequences = sequences;
@@ -403,13 +403,13 @@ export async function normalizeIntrospection(
 
     if (qualifie && doc.tables !== undefined) {
       const tables: Record<string, ISnapshotTable> = {};
-      for (const [cle, table] of Object.entries(doc.tables)) {
-        const clef = cle.startsWith(`${schema}.`)
-          ? `public.${cle.slice(schema.length + 1)}`
-          : cle;
-        tables[clef] = { ...table, schema: "" };
-        if (clef !== cle) {
-          modifie = true;
+      for (const [key, table] of Object.entries(doc.tables)) {
+        const publicKey = key.startsWith(`${schema}.`)
+          ? `public.${key.slice(schema.length + 1)}`
+          : key;
+        tables[publicKey] = { ...table, schema: "" };
+        if (publicKey !== key) {
+          changed = true;
         }
       }
       doc.tables = tables;
@@ -420,45 +420,45 @@ export async function normalizeIntrospection(
 
     if (options.dialect === "mysql" && doc.tables !== undefined) {
       for (const table of Object.values(doc.tables)) {
-        for (const colonne of Object.values(table.columns ?? {})) {
-          if (colonne.type === "tinyint(1)") {
-            colonne.type = "boolean";
-            booleens += 1;
-            modifie = true;
+        for (const column of Object.values(table.columns ?? {})) {
+          if (column.type === "tinyint(1)") {
+            column.type = "boolean";
+            booleans += 1;
+            changed = true;
           }
         }
       }
     }
 
     if (stripTables.length > 0 && doc.tables !== undefined) {
-      const aRetirer = new Set(stripTables);
-      const gardees: Record<string, ISnapshotTable> = {};
-      for (const [cle, table] of Object.entries(doc.tables)) {
-        if (aRetirer.has(cle.split(".").pop() ?? cle)) {
-          modifie = true;
+      const toRemove = new Set(stripTables);
+      const kept: Record<string, ISnapshotTable> = {};
+      for (const [key, table] of Object.entries(doc.tables)) {
+        if (toRemove.has(key.split(".").pop() ?? key)) {
+          changed = true;
           continue;
         }
-        gardees[cle] = table;
+        kept[key] = table;
       }
-      doc.tables = gardees;
+      doc.tables = kept;
     }
 
-    if (modifie) {
+    if (changed) {
       await fs.writeFile(snapshotFile, JSON.stringify(doc, null, 2), "utf8");
     }
   }
 
   if (
     !qualifie &&
-    sequencesRetirees.length === 0 &&
+    removedSequences.length === 0 &&
     stripTables.length === 0 &&
-    booleens === 0
+    booleans === 0
   ) {
     // Rien à défaire : ne pas réécrire un fichier qu'on n'a pas changé.
     return;
   }
   let sql = await fs.readFile(file, "utf8");
-  if (booleens > 0) {
+  if (booleans > 0) {
     // La même correction sur le SQL : l'instantané sert à comparer, le fichier
     // sert à rejouer — les deux doivent dire la même chose, sans quoi la
     // référence rejouée sur un environnement neuf recréerait l'écart.
@@ -474,17 +474,17 @@ export async function normalizeIntrospection(
       )
       .replaceAll(`"${schema}".`, "");
   }
-  for (const nom of sequencesRetirees) {
+  for (const removedSequence of removedSequences) {
     sql = sql.replace(
       new RegExp(
-        `^CREATE SEQUENCE "${nom}"[^;]*;(?:\\s*-->[^\\n]*)?\\n?`,
+        `^CREATE SEQUENCE "${removedSequence}"[^;]*;(?:\\s*-->[^\\n]*)?\\n?`,
         "gmu",
       ),
       "",
     );
   }
-  for (const nom of stripTables) {
-    const ident = `[\`"]?${nom.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}[\`"]?`;
+  for (const tableName of stripTables) {
+    const ident = `[\`"]?${tableName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}[\`"]?`;
     sql = sql
       // Le corps d'un `CREATE TABLE` ne porte pas de `;` : sa fin est la
       // parenthèse fermante en début de ligne, suivie du point-virgule.
@@ -543,13 +543,13 @@ export async function tablesPresentIn(
   reader: ISchemaReader,
   tables: readonly string[],
 ): Promise<string[]> {
-  const presentes: string[] = [];
-  for (const nom of tables) {
-    if (await reader.tableExists(nom)) {
-      presentes.push(nom);
+  const presentTables: string[] = [];
+  for (const candidateTable of tables) {
+    if (await reader.tableExists(candidateTable)) {
+      presentTables.push(candidateTable);
     }
   }
-  return presentes;
+  return presentTables;
 }
 
 /**
@@ -563,12 +563,12 @@ export async function tablesPresentIn(
  */
 async function serverVersion(target: IMigrationTarget): Promise<string | null> {
   try {
-    const pilote = await openMigrationDriver(target);
+    const driver = await openMigrationDriver(target);
     try {
-      const lignes = await pilote.query<{ v: string }>("SELECT VERSION() AS v");
-      return lignes[0]?.v ?? null;
+      const rows = await driver.query<{ v: string }>("SELECT VERSION() AS v");
+      return rows[0]?.v ?? null;
     } finally {
-      await pilote.close();
+      await driver.close();
     }
   } catch {
     return null;
@@ -587,7 +587,7 @@ async function serverVersion(target: IMigrationTarget): Promise<string | null> {
  * @param cause - l'erreur telle que l'outil l'a produite.
  * @returns l'erreur à lever.
  */
-async function expliquerEchec(
+async function explainFailure(
   target: IMigrationTarget,
   cause: Error,
 ): Promise<Error> {
@@ -669,43 +669,43 @@ async function expliquerEchec(
  * @param tables - tables adoptées, dont on relit les index.
  * @returns pour chaque nom d'index, la liste de colonnes que le moteur écrit.
  */
-async function colonnesDIndexReelles(
+async function actualIndexColumns(
   target: IMigrationTarget,
   schema: string,
   tables: readonly string[],
 ): Promise<Map<string, string>> {
-  const parNom = new Map<string, string>();
+  const byName = new Map<string, string>();
   if (target.dialect !== "postgres" || tables.length === 0) {
-    return parNom;
+    return byName;
   }
-  const pilote = await openMigrationDriver(target);
+  const driver = await openMigrationDriver(target);
   try {
-    const trous = tables.map(() => "?").join(",");
-    const lignes = await pilote.query<{
+    const placeholders = tables.map(() => "?").join(",");
+    const rows = await driver.query<{
       indexname: string;
       indexdef: string;
     }>(
       `SELECT indexname, indexdef FROM pg_indexes
-        WHERE schemaname = ? AND tablename IN (${trous})`,
+        WHERE schemaname = ? AND tablename IN (${placeholders})`,
       [schema, ...tables],
     );
-    for (const ligne of lignes) {
+    for (const row of rows) {
       // La définition du moteur se termine par la liste de colonnes entre
       // parenthèses : `… USING btree (author, created_at)`. On n'en retient
       // QUE cette liste — le reste du statement produit par l'outil (nom,
       // table, méthode) est déjà juste, et le réécrire ferait diverger deux
       // façons d'écrire la même chose.
-      const colonnes = /\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/u.exec(
-        ligne.indexdef,
+      const columns = /\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*$/u.exec(
+        row.indexdef,
       );
-      if (colonnes?.[1] !== undefined) {
-        parNom.set(ligne.indexname, colonnes[1].trim());
+      if (columns?.[1] !== undefined) {
+        byName.set(row.indexname, columns[1].trim());
       }
     }
   } finally {
-    await pilote.close();
+    await driver.close();
   }
-  return parNom;
+  return byName;
 }
 
 /**
@@ -719,26 +719,26 @@ async function colonnesDIndexReelles(
  *
  * @param sql - corps exécutable de la référence.
  * @param outDir - dossier de sortie, qui porte `meta/0000_snapshot.json`.
- * @param reelles - listes de colonnes rendues par le moteur, par nom d'index.
+ * @param actual - listes de colonnes rendues par le moteur, par nom d'index.
  * @returns le SQL corrigé.
  */
-async function reecrireIndexComposites(
+async function rewriteCompositeIndexes(
   sql: string,
   outDir: string,
-  reelles: ReadonlyMap<string, string>,
+  actual: ReadonlyMap<string, string>,
 ): Promise<string> {
-  if (reelles.size === 0) {
+  if (actual.size === 0) {
     return sql;
   }
-  let corrige = sql;
-  for (const [nom, colonnes] of reelles) {
-    const echappe = nom.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    corrige = corrige.replace(
+  let fixed = sql;
+  for (const [indexName, columns] of actual) {
+    const echappe = indexName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    fixed = fixed.replace(
       new RegExp(
         `(CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+"${echappe}"[^;]*?USING\\s+\\w+\\s*)\\([^;]*?\\)`,
         "giu",
       ),
-      `$1(${colonnes})`,
+      `$1(${columns})`,
     );
   }
 
@@ -747,51 +747,51 @@ async function reecrireIndexComposites(
     const doc = JSON.parse(
       await fs.readFile(snapshotFile, "utf8"),
     ) as ISnapshotDocument;
-    let modifie = false;
+    let changed = false;
     for (const table of Object.values(doc.tables ?? {})) {
-      for (const [cle, index] of Object.entries(table.indexes ?? {})) {
-        const colonnes = reelles.get(index.name ?? cle);
-        if (colonnes === undefined) {
+      for (const [key, index] of Object.entries(table.indexes ?? {})) {
+        const columns = actual.get(index.name ?? key);
+        if (columns === undefined) {
           continue;
         }
         // Une classe d'opérateur ne se garde que si le moteur la NOMME : il
         // tait celles qui sont le défaut du type, et c'est exactement le
         // partage qu'on veut refaire ici.
-        for (const colonne of index.columns ?? []) {
-          const nom = colonne.expression;
-          const nommee =
-            nom === undefined || colonne.isExpression === true
+        for (const column of index.columns ?? []) {
+          const columnName = column.expression;
+          const named =
+            columnName === undefined || column.isExpression === true
               ? undefined
               : new RegExp(
-                  `(?:^|,)\\s*"?${nom.replace(
+                  `(?:^|,)\\s*"?${columnName.replace(
                     /[.*+?^${}()|[\]\\]/gu,
                     "\\$&",
                   )}"?\\s+(\\w+_ops)\\b`,
                   "u",
-                ).exec(colonnes)?.[1];
-          if (nommee === undefined) {
-            if (colonne.opclass !== undefined) {
-              delete colonne.opclass;
-              modifie = true;
+                ).exec(columns)?.[1];
+          if (named === undefined) {
+            if (column.opclass !== undefined) {
+              delete column.opclass;
+              changed = true;
             }
-          } else if (colonne.opclass !== nommee) {
-            colonne.opclass = nommee;
-            modifie = true;
+          } else if (column.opclass !== named) {
+            column.opclass = named;
+            changed = true;
           }
         }
       }
     }
-    if (modifie) {
+    if (changed) {
       await fs.writeFile(snapshotFile, JSON.stringify(doc, null, 2), "utf8");
     }
   } catch {
     // Pas d'instantané lisible : le SQL corrigé reste le gain principal, et
     // échouer ici priverait l'utilisateur d'une référence applicable.
   }
-  return corrige;
+  return fixed;
 }
 
-async function uniquesDeColonnePerdues(
+async function lostColumnUniques(
   target: IMigrationTarget,
   tables: readonly string[],
   sql: string,
@@ -799,14 +799,14 @@ async function uniquesDeColonnePerdues(
   if (target.dialect !== "sqlite") {
     return [];
   }
-  const ajouts: string[] = [];
-  const pilote = await openMigrationDriver(target);
+  const additions: string[] = [];
+  const driver = await openMigrationDriver(target);
   try {
     for (const table of tables) {
       const ident = `"${table.replace(/"/gu, '""')}"`;
       // `PRAGMA` n'accepte pas de paramètre lié : le nom vient du CATALOGUE,
       // jamais d'une saisie, et il est cité comme un identifiant.
-      const index = await pilote.query<{
+      const index = await driver.query<{
         name: string;
         unique: number;
         origin: string;
@@ -817,28 +817,28 @@ async function uniquesDeColonnePerdues(
         if (Number(idx.unique) !== 1 || idx.origin !== "u") {
           continue;
         }
-        const colonnes = await pilote.query<{ name: string }>(
+        const columns = await driver.query<{ name: string }>(
           `PRAGMA index_info("${String(idx.name).replace(/"/gu, '""')}")`,
         );
-        const noms = colonnes.map((c) => c.name).filter((n) => n !== null);
-        if (noms.length === 0) {
+        const names = columns.map((c) => c.name).filter((n) => n !== null);
+        if (names.length === 0) {
           continue;
         }
-        const nom = `${table}_${noms.join("_")}_key`;
+        const constraintName = `${table}_${names.join("_")}_key`;
         // Ne rien ajouter deux fois : l'outil a pu rendre cet index lui-même.
-        if (sql.includes(nom)) {
+        if (sql.includes(constraintName)) {
           continue;
         }
-        const cibles = noms.map((n) => `\`${n}\``).join(",");
-        ajouts.push(
-          `CREATE UNIQUE INDEX \`${nom}\` ON \`${table}\` (${cibles});`,
+        const quotedNames = names.map((n) => `\`${n}\``).join(",");
+        additions.push(
+          `CREATE UNIQUE INDEX \`${constraintName}\` ON \`${table}\` (${quotedNames});`,
         );
       }
     }
   } finally {
-    await pilote.close();
+    await driver.close();
   }
-  return ajouts;
+  return additions;
 }
 
 /**
@@ -898,8 +898,8 @@ export async function adoptFromDatabase({
     );
   }
   const configFile = path.join(workDir, `introspect.${dialect}.config.ts`);
-  const relatif = (cible: string): string =>
-    path.relative(projectRoot, cible).split(path.sep).join("/");
+  const relatif = (targetFile: string): string =>
+    path.relative(projectRoot, targetFile).split(path.sep).join("/");
   // 🔴 En MySQL, EXCLURE une table qui porte une contrainte `CHECK` tue
   // l'introspection : code non nul, sortie d'erreur VIDE, rien écrit. L'outil
   // lit les contraintes de la base ENTIÈRE — comme il en lit les tables — puis
@@ -932,7 +932,7 @@ export async function adoptFromDatabase({
         label: `la base du connecteur (${dialect})`,
       });
     } catch (e) {
-      throw await expliquerEchec(target, e as Error);
+      throw await explainFailure(target, e as Error);
     }
   } finally {
     await fs.rm(workDir, { recursive: true, force: true });
@@ -960,33 +960,33 @@ export async function adoptFromDatabase({
     stripTables: lectureSansExclusion ? excludedTables : [],
     dialect,
   });
-  const lues = await snapshotTables(outDir);
+  const readTables = await snapshotTables(outDir);
   const declarees = new Set(declaredTables);
   const brut = await fs.readFile(file, "utf8");
   const executable = uncommentIntrospection(brut);
   if (executable !== null) {
     // Ce que l'introspection a laissé derrière elle, remis AVANT l'écriture :
     // le fichier livré est le seul artefact qui compte.
-    const manquants = await uniquesDeColonnePerdues(target, lues, executable);
-    const complet =
-      manquants.length === 0
+    const missing = await lostColumnUniques(target, readTables, executable);
+    const complete =
+      missing.length === 0
         ? executable
-        : `${executable.trimEnd()}\n--> statement-breakpoint\n${manquants.join(
+        : `${executable.trimEnd()}\n--> statement-breakpoint\n${missing.join(
             "\n--> statement-breakpoint\n",
           )}\n`;
     // Puis ce qu'elle a rendu FAUX : les classes d'opérateur d'un index
     // composite, recopiées d'une colonne sur toutes les autres.
-    const corrige = await reecrireIndexComposites(
-      complet,
+    const fixed = await rewriteCompositeIndexes(
+      complete,
       outDir,
-      await colonnesDIndexReelles(target, schema ?? "public", lues),
+      await actualIndexColumns(target, schema ?? "public", readTables),
     );
-    await fs.writeFile(file, corrige, "utf8");
+    await fs.writeFile(file, fixed, "utf8");
   }
   return {
     tag,
     file,
     runnable: executable !== null,
-    extraTables: lues.filter((t) => !declarees.has(t)),
+    extraTables: readTables.filter((t) => !declarees.has(t)),
   };
 }

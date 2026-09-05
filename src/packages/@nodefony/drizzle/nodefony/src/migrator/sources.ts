@@ -328,28 +328,28 @@ export function splitStatements(
   normalized: string,
   dialect: SqlDialect,
 ): string[] {
-  const grammaire = GRAMMAIRES_CHAINE[dialect];
+  const grammar = STRING_GRAMMARS[dialect];
   const statements: string[] = [];
-  let courant: string[] = [];
+  let current: string[] = [];
   // Curseur alloué UNE fois pour tout le fichier : le balayage écrit dedans
   // plutôt que de rendre un objet par ligne.
-  const curseur: ICurseurChaine = { ouverte: "", coupe: -1 };
+  const curseur: IStringCursor = { open: "", coupe: -1 };
 
   /** Clôt le statement en cours — vide, il ne compte pas. */
   const clore = (): void => {
-    const statement = courant.join("\n").trim();
+    const statement = current.join("\n").trim();
     if (statement.length > 0) {
       statements.push(statement);
     }
-    courant = [];
+    current = [];
     // Après un séparateur, une instruction NEUVE commence : aucune chaîne ne
     // peut rester ouverte d'un statement à l'autre.
-    curseur.ouverte = "";
+    curseur.open = "";
   };
 
-  for (const ligne of normalized.split("\n")) {
-    if (curseur.ouverte === "") {
-      const tete = ligne.trimStart();
+  for (const line of normalized.split("\n")) {
+    if (curseur.open === "") {
+      const tete = line.trimStart();
       if (tete.startsWith(STATEMENT_BREAKPOINT)) {
         clore();
         continue;
@@ -361,10 +361,10 @@ export function splitStatements(
       if (tete.startsWith("--")) {
         continue;
       }
-      balayerLigne(ligne, STATEMENT_BREAKPOINT, grammaire, curseur);
+      scanLine(line, STATEMENT_BREAKPOINT, grammar, curseur);
       const coupe = curseur.coupe;
       if (coupe >= 0) {
-        courant.push(ligne.slice(0, coupe));
+        current.push(line.slice(0, coupe));
         clore();
         // 🔴 Ce qui SUIT le marqueur sur la même ligne ouvre l'instruction
         // suivante — il était jeté, en silence. Le gabarit dit « séparer les
@@ -372,19 +372,19 @@ export function splitStatements(
         // un remplissage écrit à la main y perdait son second `UPDATE`, la
         // migration s'inscrivait en succès avec l'empreinte du fichier ENTIER,
         // et aucun verdict ne pouvait plus le voir.
-        const reste = ligne.slice(coupe + STATEMENT_BREAKPOINT.length);
-        if (reste.trim() !== "") {
-          courant.push(reste);
-          balayerLigne(reste, "", grammaire, curseur);
+        const remainder = line.slice(coupe + STATEMENT_BREAKPOINT.length);
+        if (remainder.trim() !== "") {
+          current.push(remainder);
+          scanLine(remainder, "", grammar, curseur);
         }
         continue;
       }
       // Pas de coupe : le balayage a lu la ligne entière, `ouverte` est à jour.
-      courant.push(ligne);
+      current.push(line);
       continue;
     }
-    courant.push(ligne);
-    balayerLigne(ligne, "", grammaire, curseur);
+    current.push(line);
+    scanLine(line, "", grammar, curseur);
   }
   clore();
   return statements;
@@ -397,9 +397,9 @@ export function splitStatements(
  * que tester le dialecte dans le scanner garde UNE implémentation du balayage,
  * et rend chaque écart lisible à l'endroit où il est décidé.
  */
-interface IGrammaireChaine {
+interface IStringGrammar {
   /** Une contre-oblique échappe le caractère suivant dans une chaîne `'…'`. */
-  readonly contreObliqueDansApostrophe: boolean;
+  readonly backslashInSingleQuote: boolean;
   /** Le préfixe `E'…'` ouvre une chaîne où la contre-oblique échappe. */
   readonly apostropheEchappeePrefixee: boolean;
   /** Les corps `$tag$…$tag$` sont des chaînes littérales. */
@@ -414,19 +414,19 @@ interface IGrammaireChaine {
  * grammaire de MySQL serait aussi faux que l'inverse — c'est pourquoi le
  * routage se fait dans les DEUX sens, et pas seulement pour ajouter des cas.
  */
-const GRAMMAIRES_CHAINE: Readonly<Record<SqlDialect, IGrammaireChaine>> = {
+const STRING_GRAMMARS: Readonly<Record<SqlDialect, IStringGrammar>> = {
   sqlite: {
-    contreObliqueDansApostrophe: false,
+    backslashInSingleQuote: false,
     apostropheEchappeePrefixee: false,
     dollarQuote: false,
   },
   postgres: {
-    contreObliqueDansApostrophe: false,
+    backslashInSingleQuote: false,
     apostropheEchappeePrefixee: true,
     dollarQuote: true,
   },
   mysql: {
-    contreObliqueDansApostrophe: true,
+    backslashInSingleQuote: true,
     apostropheEchappeePrefixee: false,
     dollarQuote: false,
   },
@@ -438,18 +438,18 @@ const GRAMMAIRES_CHAINE: Readonly<Record<SqlDialect, IGrammaireChaine>> = {
  * Mutable et réutilisé : un fichier de migration peut compter des milliers de
  * lignes, et rendre un objet par ligne allouerait pour rien.
  */
-interface ICurseurChaine {
+interface IStringCursor {
   /**
    * Délimiteur qu'il reste à trouver pour refermer la chaîne courante — `''`
    * hors chaîne, `'` ou `e'` dans une apostrophe, `$tag$` dans un corps.
    */
-  ouverte: string;
+  open: string;
   /** Indice du motif rencontré hors chaîne, ou `-1`. */
   coupe: number;
 }
 
 /** Vrai si `c` peut faire partie d'un identifiant SQL non quoté. */
-function estCaractereIdentifiant(c: string | undefined): boolean {
+function isIdentifierChar(c: string | undefined): boolean {
   return c !== undefined && /[A-Za-z0-9_$]/.test(c);
 }
 
@@ -466,78 +466,75 @@ function estCaractereIdentifiant(c: string | undefined): boolean {
  * ligne, avec une chaîne close par construction (un statement neuf commence).
  * Passer un motif vide balaye donc la ligne entière.
  *
- * @param ligne - ligne à balayer.
- * @param motif - texte cherché hors chaîne ; vide pour ne rien chercher.
- * @param grammaire - grammaire de chaîne du moteur visé.
+ * @param line - ligne à balayer.
+ * @param needle - texte cherché hors chaîne ; vide pour ne rien chercher.
+ * @param grammar - grammaire de chaîne du moteur visé.
  * @param curseur - état lu ET écrit : chaîne ouverte, indice du motif.
  */
-function balayerLigne(
-  ligne: string,
-  motif: string,
-  grammaire: IGrammaireChaine,
-  curseur: ICurseurChaine,
+function scanLine(
+  line: string,
+  needle: string,
+  grammar: IStringGrammar,
+  curseur: IStringCursor,
 ): void {
   curseur.coupe = -1;
-  let ouverte = curseur.ouverte;
-  for (let i = 0; i < ligne.length; i += 1) {
-    const c = ligne[i] as string;
-    if (ouverte.startsWith("$")) {
+  let open = curseur.open;
+  for (let i = 0; i < line.length; i += 1) {
+    const c = line[i] as string;
+    if (open.startsWith("$")) {
       // Un corps délimité par des dollars ne se referme QUE sur son propre
       // marqueur : un `$$` nu croisé dans un `$corps$` ne termine rien.
-      if (ligne.startsWith(ouverte, i)) {
-        i += ouverte.length - 1;
-        ouverte = "";
+      if (line.startsWith(open, i)) {
+        i += open.length - 1;
+        open = "";
       }
       continue;
     }
-    if (ouverte !== "") {
-      if (
-        c === "\\" &&
-        (grammaire.contreObliqueDansApostrophe || ouverte === "e'")
-      ) {
+    if (open !== "") {
+      if (c === "\\" && (grammar.backslashInSingleQuote || open === "e'")) {
         // La contre-oblique emporte le caractère suivant — l'apostrophe qu'elle
         // protège ne referme donc rien.
         i += 1;
         continue;
       }
       if (c === "'") {
-        if (ligne[i + 1] === "'") {
+        if (line[i + 1] === "'") {
           i += 1;
           continue;
         }
-        ouverte = "";
+        open = "";
       }
       continue;
     }
     if (c === "'") {
-      ouverte = "'";
+      open = "'";
       continue;
     }
     if (
-      grammaire.apostropheEchappeePrefixee &&
+      grammar.apostropheEchappeePrefixee &&
       (c === "E" || c === "e") &&
-      ligne[i + 1] === "'" &&
-      !estCaractereIdentifiant(ligne[i - 1])
+      line[i + 1] === "'" &&
+      !isIdentifierChar(line[i - 1])
     ) {
-      ouverte = "e'";
+      open = "e'";
       i += 1;
       continue;
     }
-    if (grammaire.dollarQuote && c === "$") {
-      const tag = delimiteurDollar(ligne, i);
+    if (grammar.dollarQuote && c === "$") {
+      const tag = delimiteurDollar(line, i);
       if (tag !== null) {
-        ouverte = tag;
+        open = tag;
         i += tag.length - 1;
         continue;
       }
     }
-    if (motif !== "" && ligne.startsWith(motif, i)) {
+    if (needle !== "" && line.startsWith(needle, i)) {
       curseur.coupe = i;
-      curseur.ouverte = ouverte;
+      curseur.open = open;
       return;
     }
   }
-  curseur.ouverte = ouverte;
+  curseur.open = open;
 }
 
 /**
@@ -547,20 +544,20 @@ function balayerLigne(
  * exclut `$1`, un paramètre de requête, qu'il ne faut surtout pas lire comme
  * l'ouverture d'une chaîne.
  *
- * @param ligne - ligne balayée.
+ * @param line - ligne balayée.
  * @param debut - indice du `$` candidat.
  * @returns le délimiteur complet, ou `null` si ce n'en est pas un.
  */
-function delimiteurDollar(ligne: string, debut: number): string | null {
+function delimiteurDollar(line: string, debut: number): string | null {
   let i = debut + 1;
-  while (i < ligne.length && /[A-Za-z0-9_]/.test(ligne[i] as string)) {
+  while (i < line.length && /[A-Za-z0-9_]/.test(line[i] as string)) {
     // Un tag ne commence pas par un chiffre — `$1` est un paramètre.
-    if (i === debut + 1 && /[0-9]/.test(ligne[i] as string)) {
+    if (i === debut + 1 && /[0-9]/.test(line[i] as string)) {
       return null;
     }
     i += 1;
   }
-  return ligne[i] === "$" ? ligne.slice(debut, i + 1) : null;
+  return line[i] === "$" ? line.slice(debut, i + 1) : null;
 }
 
 /**

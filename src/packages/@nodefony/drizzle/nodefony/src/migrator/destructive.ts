@@ -168,7 +168,7 @@ function isTableRebuild(statements: readonly string[]): boolean {
 }
 
 /** Borne une instruction pour l'affichage, sans jamais la déformer. */
-function borne(statement: string): string {
+function truncate(statement: string): string {
   const plat = statement.replace(/\s+/g, " ").trim();
   return plat.length > MAX_STATEMENT
     ? `${plat.slice(0, MAX_STATEMENT)}…`
@@ -205,7 +205,7 @@ export function scanDestructive(
           what: structurel
             ? "recrée la table pour modifier une colonne (SQLite ne sait pas faire autrement) — les lignes sont recopiées, MAIS une colonne absente du `INSERT … SELECT` serait perdue : lire le SQL"
             : p.what,
-          statement: borne(statement),
+          statement: truncate(statement),
         });
         break;
       }
@@ -232,10 +232,10 @@ export function renderDestructive(
   findings: readonly IDestructiveFinding[],
   bloquant: boolean,
 ): string {
-  const titre = bloquant
+  const title = bloquant
     ? `Ces migrations DÉTRUISENT des données — rien n'a été appliqué.`
     : `Ces migrations touchent à des données existantes.`;
-  let out = `${titre}\n\n`;
+  let out = `${title}\n\n`;
   for (const f of findings) {
     const marque = f.severity === "data-loss" ? "✗" : "!";
     out += `  ${marque} ${f.source}/${f.tag} — ${f.what}\n`;
@@ -272,11 +272,11 @@ export function summarizeDestructive(
   findings: readonly IDestructiveFinding[],
   connector: string,
 ): string {
-  const pertes = dataLoss(findings);
-  const noms = [...new Set(pertes.map((f) => `${f.source}/${f.tag}`))];
+  const losses = dataLoss(findings);
+  const names = [...new Set(losses.map((f) => `${f.source}/${f.tag}`))];
   return (
-    `Le connecteur « ${connector} » a ${pertes.length} instruction(s) qui ` +
-    `SUPPRIMENT des données, dans ${noms.length} migration(s) : ${noms.join(", ")}.`
+    `Le connecteur « ${connector} » a ${losses.length} instruction(s) qui ` +
+    `SUPPRIMENT des données, dans ${names.length} migration(s) : ${names.join(", ")}.`
   );
 }
 
@@ -294,7 +294,7 @@ export function summarizeDestructive(
  * Un lot purement `CREATE TABLE` ne pose pas la question : il n'y avait rien
  * avant. C'est ce qui distingue un schéma initial d'une évolution.
  */
-const TOUCHE_LES_LIGNES: readonly RegExp[] = [
+const ROW_TOUCHING_PATTERNS: readonly RegExp[] = [
   /\bALTER\s+TABLE\b/i,
   /\bUPDATE\s+/i,
   /\bINSERT\s+INTO\b/i,
@@ -312,7 +312,7 @@ export function touchesExistingRows(
 ): boolean {
   for (const file of files) {
     for (const statement of file.statements) {
-      if (TOUCHE_LES_LIGNES.some((re) => re.test(statement))) {
+      if (ROW_TOUCHING_PATTERNS.some((re) => re.test(statement))) {
         return true;
       }
     }
@@ -341,23 +341,23 @@ export function touchesExistingRows(
  * syntaxe POSIX, que celui de Windows refuse.
  *
  * @param connector - connecteur visé, pour composer la commande.
- * @param cible - la base telle que le rapport la publie (`driver.target`),
+ * @param target - la base telle que le rapport la publie (`driver.target`),
  *   et son dialecte : on copie un FICHIER en sqlite, on exporte ailleurs.
  * @returns la phrase à rendre après une application réussie.
  */
-export function verifierLesDonnees(
+export function checkDataAdvice(
   connector: string,
-  cible?: { dialect: string; target?: string },
+  target?: { dialect: string; target?: string },
 ): string {
   const suffixe = connector === "default" ? "" : ` --connector ${connector}`;
-  const sqlite = cible?.dialect === "sqlite";
-  const nommee = cible?.target ?? "<la base de ce connecteur>";
+  const sqlite = target?.dialect === "sqlite";
+  const named = target?.target ?? "<la base de ce connecteur>";
   // 🔴 Comment OBTENIR la copie, pas seulement quoi en faire. Une base
   // d'historique écrite à la main n'a pas les colonnes du framework, et la
   // migration y échoue pour une raison qui n'a rien à voir avec elle.
-  const copie = sqlite
-    ? `copie le fichier « ${nommee} » (par exemple vers « essai.db ») — ne la RECRÉE pas à la main, l'historique du framework a ses propres colonnes`
-    : `fabrique la copie par un export du moteur (« pg_dump » / « mysqldump ») depuis « ${nommee} » — ne la RECRÉE pas à la main, l'historique du framework a ses propres colonnes`;
+  const copy = sqlite
+    ? `copie le fichier « ${named} » (par exemple vers « essai.db ») — ne la RECRÉE pas à la main, l'historique du framework a ses propres colonnes`
+    : `fabrique la copie par un export du moteur (« pg_dump » / « mysqldump ») depuis « ${named} » — ne la RECRÉE pas à la main, l'historique du framework a ses propres colonnes`;
   const url = sqlite ? "sqlite:essai.db" : "<url de la copie>";
   return (
     "Ces migrations ont modifié des tables qui portaient déjà des lignes. " +
@@ -366,7 +366,7 @@ export function verifierLesDonnees(
     "question. Deux moyens. Compter et regarder sur place — « SELECT " +
     "COUNT(*) » sur les tables touchées, et les valeurs des colonnes " +
     "nouvellement remplies. Ou rejouer le même lot sur une COPIE, sans " +
-    `toucher à celle-ci : ${copie}, puis désigne-la par ` +
+    `toucher à celle-ci : ${copy}, puis désigne-la par ` +
     `NF_MIGRATE_DATABASE_URL :\n  NF_MIGRATE_DATABASE_URL=${url} nodefony orm:migrate${suffixe}\n` +
     `  (PowerShell : $env:NF_MIGRATE_DATABASE_URL = "${url}" ; ` +
     `nodefony orm:migrate${suffixe})`

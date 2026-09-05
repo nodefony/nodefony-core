@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T20:29:35.463Z",
+  "generated": "2026-09-05T21:54:25.225Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -21485,8 +21485,8 @@
       "module": "@nodefony/drizzle",
       "description": "Ce lot de migrations touche-t-il des lignes qui existaient déjà ?"
     },
-    "verifierLesDonnees": {
-      "name": "verifierLesDonnees",
+    "checkDataAdvice": {
+      "name": "checkDataAdvice",
       "kind": "function",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
       "exported": true,
@@ -21743,8 +21743,8 @@
       "extends": null,
       "description": "Table d'historique : sa création, son amorçage, et sa lecture. 🔴 **La table qui sert à migrer doit savoir se migrer ELLE-MÊME.** Un `CREATE TABLE IF NOT EXISTS` seul ne fait pas évoluer un schéma,…"
     },
-    "colonneHistoriqueAbsente": {
-      "name": "colonneHistoriqueAbsente",
+    "missingHistoryColumn": {
+      "name": "missingHistoryColumn",
       "kind": "function",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/history.ts",
       "exported": true,
@@ -22007,8 +22007,8 @@
       "module": "@nodefony/drizzle",
       "description": "Codes d'arrêt propres à la ligne de commande (l'applicateur a les siens)."
     },
-    "outilDeGenerationAbsent": {
-      "name": "outilDeGenerationAbsent",
+    "generationToolMissing": {
+      "name": "generationToolMissing",
       "kind": "function",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
       "exported": true,
@@ -32754,7 +32754,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
-      "colonneHistoriqueAbsente": [
+      "missingHistoryColumn": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
       "MigrationToolError": [
@@ -33030,7 +33030,7 @@
       "touchesExistingRows": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
       ],
-      "verifierLesDonnees": [
+      "checkDataAdvice": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
       ],
       "resetAllowed": [
@@ -35428,7 +35428,7 @@
       "ISchemaGap": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
-      "outilDeGenerationAbsent": [
+      "generationToolMissing": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "knownConnectors": [

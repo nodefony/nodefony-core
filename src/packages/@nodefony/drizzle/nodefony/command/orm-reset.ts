@@ -111,7 +111,7 @@ class OrmReset extends OrmMigrateCommand {
 
     const env = readMigrationEnv(this.kernel as Kernel | null);
     if (!resetAllowed(env)) {
-      const constate =
+      const observed =
         env.nodeEnv ??
         process.env.NF_ENV ??
         process.env.APP_ENV ??
@@ -119,7 +119,7 @@ class OrmReset extends OrmMigrateCommand {
       this.fail(
         resolution.connector,
         "NF_MIGRATE_NOT_DEVELOPMENT",
-        `Cette commande efface des données : elle n'est acceptée qu'en développement. L'environnement constaté est « ${constate} ».`,
+        `Cette commande efface des données : elle n'est acceptée qu'en développement. L'environnement constaté est « ${observed} ».`,
         "La règle est une liste blanche : seul `development` passe. Un environnement inconnu, un `staging`, un `test` sont refusés — c'est ce qui empêche un accident sur ce que personne n'avait pensé à nommer. Pour vider une base ailleurs, fais-le avec l'outil de ta base, en sachant ce que tu fais. Sur un poste de développement, c'est l'environnement de l'application qui doit dire `development` — pas une variable posée devant la commande.",
         // 🔴 AUCUN geste ne doit ouvrir cette garde. La version précédente
         // proposait `NODE_ENV=development nodefony orm:reset` : la liste
@@ -137,7 +137,7 @@ class OrmReset extends OrmMigrateCommand {
       return this;
     }
 
-    const cible =
+    const target =
       resolution.dialect === "sqlite"
         ? (resolution.target.filename ?? ":memory:")
         : redact(resolution.target.url ?? "");
@@ -161,7 +161,7 @@ class OrmReset extends OrmMigrateCommand {
             exitCode: 0,
             dropped: [],
           },
-          `${style.green("La base est déjà vide")} ${style.dim(`(${resolution.dialect} : ${cible})`)} — rien à faire.\n`,
+          `${style.green("La base est déjà vide")} ${style.dim(`(${resolution.dialect} : ${target})`)} — rien à faire.\n`,
           0,
           opts.json,
         );
@@ -183,7 +183,7 @@ class OrmReset extends OrmMigrateCommand {
           this.fail(
             resolution.connector,
             "NF_MIGRATE_CONFIRM_REQUIRED",
-            `Cette commande va supprimer ${tables.length} table(s) de « ${cible} » (${resolution.dialect}) : ${tables.join(", ")}.`,
+            `Cette commande va supprimer ${tables.length} table(s) de « ${target} » (${resolution.dialect}) : ${tables.join(", ")}.`,
             "Hors terminal — ou en sortie machine, où un dialogue n'a pas sa place —, il n'y a personne pour répondre à une question, et un effacement ne se déduit pas d'un silence. Relance avec `--yes` si c'est bien ce que tu veux.",
             [
               action(
@@ -197,7 +197,7 @@ class OrmReset extends OrmMigrateCommand {
         }
         process.stdout.write(
           `${style.yellow(style.bold("Effacement de la base de développement"))}\n` +
-            `  base    : ${style.bold(cible)} ${style.dim(`(${resolution.dialect})`)}\n` +
+            `  base    : ${style.bold(target)} ${style.dim(`(${resolution.dialect})`)}\n` +
             `  tables  : ${tables.join(", ")}\n\n`,
         );
         await this.loadPrompts();
@@ -235,7 +235,7 @@ class OrmReset extends OrmMigrateCommand {
           dropped: tables,
           nextActions: actions,
         },
-        `${style.green(style.bold(`✓ ${tables.length} table(s) supprimée(s)`))} ${style.dim(`(${resolution.dialect} : ${cible})`)}\n` +
+        `${style.green(style.bold(`✓ ${tables.length} table(s) supprimée(s)`))} ${style.dim(`(${resolution.dialect} : ${target})`)}\n` +
           `${tables.map((t) => `  ${style.dim("−")} ${t}`).join("\n")}\n\n` +
           `${suite}\n\n${style.bold("À faire :")}\n${actions.map((a) => `  ${style.green(a.command)}`).join("\n")}\n`,
         0,

@@ -8,7 +8,7 @@ import {
 import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
 import type { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
 import { HISTORY_TABLE, MigrationVerdictError } from "../src/migrator/types";
-import { colonneHistoriqueAbsente } from "../src/migrator/history";
+import { missingHistoryColumn } from "../src/migrator/history";
 import { MigrationToolError } from "../src/migrator/refusals";
 import type { IMigrationAction } from "../src/migrator/types";
 import {
@@ -233,15 +233,15 @@ export abstract class OrmMigrateCommand extends Command {
     const wanted = opts.connector ?? "default";
     const config = this.drizzleConfig();
     if (!config) {
-      const refus = moduleAbsent();
+      const refusal = moduleAbsent();
       this.fail(
         wanted,
-        refus.code,
-        refus.summary,
-        refus.meaning,
-        refus.nextActions,
+        refusal.code,
+        refusal.summary,
+        refusal.meaning,
+        refusal.nextActions,
         opts.json,
-        refus.exitCode,
+        refusal.exitCode,
       );
       return null;
     }
@@ -257,15 +257,15 @@ export abstract class OrmMigrateCommand extends Command {
       // d'administration la rend telle quelle. Écrire ici « connecteur
       // inconnu » et là-bas autre chose donnerait deux réponses à la même
       // question, chacune vraie dans son test.
-      const refus = describeResolutionRefusal(wanted, resolution, config);
+      const refusal = describeResolutionRefusal(wanted, resolution, config);
       this.fail(
         wanted,
-        refus.code,
-        refus.summary,
-        refus.meaning,
-        refus.nextActions,
+        refusal.code,
+        refusal.summary,
+        refusal.meaning,
+        refusal.nextActions,
         opts.json,
-        refus.exitCode,
+        refusal.exitCode,
       );
       return null;
     }
@@ -369,12 +369,12 @@ export abstract class OrmMigrateCommand extends Command {
     // parfaitement. Mesuré au banc, c'est ce message qui a fait détruire une
     // base réelle — l'agent y avait rejoué sa migration sur une copie
     // fabriquée à la main, et le refus ne lui laissait aucun autre chemin.
-    const colonne = colonneHistoriqueAbsente(cause);
-    if (colonne !== null) {
+    const column = missingHistoryColumn(cause);
+    if (column !== null) {
       this.fail(
         connector,
         "NF_MIGRATE_HISTORY_FOREIGN",
-        `La table « ${HISTORY_TABLE} » de cette base n'est pas celle du framework : la colonne « ${colonne} » y manque. Rien n'a été appliqué.`,
+        `La table « ${HISTORY_TABLE} » de cette base n'est pas celle du framework : la colonne « ${column} » y manque. Rien n'a été appliqué.`,
         `Une table de ce nom existe déjà, avec d'autres colonnes — le framework ne la remplace jamais, et ne peut pas la lire. Deux provenances, deux gestes. Base d'ESSAI fabriquée à la main : ne pas écrire l'historique soi-même, mais COPIER la base d'origine (le fichier en sqlite, un export « pg_dump » / « mysqldump » ailleurs) — c'est cette copie qui porte déjà le bon historique. Base RÉELLE venue d'un autre outil de migration : la table porte le même nom par coïncidence ; la renommer, ou faire porter le framework sur une autre base. Dans tous les cas la base n'est PAS en cause : elle a répondu, et ce n'est pas une question de droits.`,
         [
           action("nodefony orm:migrate:status --json"),

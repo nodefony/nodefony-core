@@ -21,7 +21,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
-import { MigrationToolError, outilDeGenerationAbsent } from "./refusals";
+import { MigrationToolError, generationToolMissing } from "./refusals";
 
 /** Ce qu'une règle d'audit rend quand elle reconnaît une instruction. */
 export interface IAuditRule {
@@ -90,7 +90,7 @@ export function resolveDrizzleKitBin(from: string): string {
       // fourre-tout des commandes de migration, qui explique toute exception
       // par une base injoignable — et publie deux explications qui se
       // contredisent.
-      throw new MigrationToolError(outilDeGenerationAbsent());
+      throw new MigrationToolError(generationToolMissing());
     }
     dir = parent;
   }
@@ -134,7 +134,7 @@ export function runGenerate({
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (result.status !== 0 || !generationHappened(output)) {
     if (isInteractivePromptFailure(output)) {
-      const rejouer =
+      const replay =
         regenerateCommand ?? `nodefony orm:generate --name ${name}`;
       throw new Error(
         `Un RENOMMAGE probable a été détecté sur ${label}, et il faut trancher.\n\n` +
@@ -144,7 +144,7 @@ export function runGenerate({
           `  sont PERDUES. Il pose donc la question, et il n'y a pas de terminal\n` +
           `  ici pour y répondre.\n\n` +
           `  Rejouer la commande dans un terminal interactif :\n` +
-          `    ${rejouer}\n\n` +
+          `    ${replay}\n\n` +
           `  ⚠️ Après avoir répondu « renamed », RELIRE le fichier produit : quand\n` +
           `  une colonne est renommée ET que son type change, l'outil n'écrit que\n` +
           `  le renommage et OUBLIE le changement de type (drizzle-orm#3826).`,
@@ -350,10 +350,10 @@ const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
     id: "colonne-neuve-puis-index-unique",
     pattern: /\bCREATE\s+UNIQUE\s+INDEX\b/i,
     detect: (code) => {
-      const ajoutees = [
+      const added = [
         ...code.matchAll(/\bADD\s+(?:COLUMN\s+)?[`"']?(\w+)[`"']?/gi),
       ].map((m) => (m[1] as string).toLowerCase());
-      if (ajoutees.length === 0) {
+      if (added.length === 0) {
         return false;
       }
       // La colonne visée par l'index, telle qu'écrite entre les parenthèses.
@@ -363,7 +363,7 @@ const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
         (m[1] as string)
           .split(",")
           .map((c) => c.trim().replace(/[`"']/g, "").toLowerCase())
-          .some((c) => ajoutees.includes(c)),
+          .some((c) => added.includes(c)),
       );
     },
     what:

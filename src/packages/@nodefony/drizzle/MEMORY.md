@@ -114,11 +114,11 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   Balayage ligne par ligne, une seule passe, avec l'état « dans une chaîne ». Le séparateur n'est
   PAS reconnu « ligne entière » : drizzle-kit le colle en fin d'instruction, et celui qui vit dans
   une valeur littérale est ignoré. 🔴 **La grammaire de chaîne est celle du MOTEUR** — `splitStatements`
-  prend le dialecte en paramètre REQUIS (`GRAMMAIRES_CHAINE`) : MySQL échappe par contre-oblique,
+  prend le dialecte en paramètre REQUIS (`STRING_GRAMMARS`) : MySQL échappe par contre-oblique,
   PostgreSQL délimite par `$tag$` et par `E'…'`, SQLite ne connaît ni l'un ni l'autre. Une grammaire
   fausse ne lève RIEN : elle retire une ligne de donnée prise pour un commentaire, ou coupe une
   instruction sur un séparateur porté par un texte — et la migration s'inscrit en succès avec
-  l'empreinte du fichier entier. Un SEUL balayage (`balayerLigne`) répond aux deux questions (où
+  l'empreinte du fichier entier. Un SEUL balayage (`scanLine`) répond aux deux questions (où
   couper, chaîne ouverte en fin de ligne) : les deux fonctions jumelles d'avant portaient chacune sa
   copie de la grammaire. Ne concerne que les migrations LIBRES (`--custom`).
 - **Lecture du catalogue = UNE implémentation** (`migrator/catalog.ts`, `schemaReader(dialect,
@@ -273,7 +273,7 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
   `snapshotTables` et publiées (`reference.extraTables`), sinon le diff suivant proposerait un
   `DROP`. (2) **Sur MariaDB l'adoption est IMPOSSIBLE** : JSON y est `longtext` + `CHECK
 (json_valid(…))`, que l'outil ne sait pas lire — il meurt code 1, **stderr VIDE**, et les tables
-  du framework suffisent à le déclencher. `expliquerEchec` constate la version (`SELECT VERSION()`)
+  du framework suffisent à le déclencher. `explainFailure` constate la version (`SELECT VERSION()`)
   et rend un refus qui nomme la cause + le repli `--custom`. MySQL Community (json natif),
   PostgreSQL et SQLite passent. **N'affecte QUE cette commande** — création, migration et runtime
   MariaDB sont intacts.
