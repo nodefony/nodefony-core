@@ -28,7 +28,15 @@ set -euo pipefail
 # Secret jetable des scénarios qui démarrent une app du preset complet : le
 # framework en EXIGE en production, et un banc qui ne les pose pas accuse le
 # produit d'un défaut qui est le sien. 32 hexadécimaux — la forme attendue.
-SMOKE_SECRET="0123456789abcdef0123456789abcdef"
+#
+# 🔴 TIRÉ, jamais littéralisé. Écrite en clair, cette valeur est un secret
+# d'APPARENCE dans un dépôt public : le gate `Secrets` la refuse (règle
+# `generic-api-key`), et il a raison — aucun relecteur, humain ou automate, ne
+# distingue un faux secret d'un vrai. L'exclure par une exception aurait appris
+# au gate à se taire sur cette forme partout ailleurs.
+SMOKE_SECRET="$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+[[ ${#SMOKE_SECRET} -eq 32 ]] ||
+  { echo "✗ impossible de tirer le secret jetable (openssl et /dev/urandom muets)" >&2; exit 1; }
 
 SCENARIO="all"
 while [[ $# -gt 0 ]]; do

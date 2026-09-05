@@ -18,3 +18,12 @@
 # dans aucun outil.
 57cba4f7cf37ff4ec1595d7a89b28f6e4cb1315c:.github/workflows/secrets.yml:github-pat:81
 57cba4f7cf37ff4ec1595d7a89b28f6e4cb1315c:.github/workflows/secrets.yml:private-key:83
+
+# Le secret JETABLE du banc de publication (`smoke-docker.sh`), écrit en clair
+# au commit qui l'a introduit (`895e6757`). Ce n'était pas un secret : la
+# chaîne `0123456789abcdef…` était posée en variable d'environnement d'un
+# conteneur local détruit à la fin du run, elle n'ouvre rien et il n'y a donc
+# rien à faire tourner. Le commit suivant la TIRE (`openssl rand -hex 16`) pour
+# que l'arbre n'en porte plus. Même motif que les témoins ci-dessus :
+# l'historique d'une branche publiée ne se réécrit pas pour une valeur inventée.
+895e6757cfaf806b4c3ad8b592ab77c5e3d566ea:scripts/release/smoke-docker.sh:generic-api-key:31
