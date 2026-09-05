@@ -51,6 +51,24 @@
 
 ## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
 
+- [1× — 09-05i] **Quatre sortes de consommateurs ne sont dans AUCUN programme TypeScript — et
+  rompre un export ne leur arrache pas un mot.** Le retrait des alias de la veille les a tous
+  trouvés d'un coup : (1) du `.mjs`, qui crie au moins une `SyntaxError` au premier import ; (2) un
+  fichier `.ts` **hors de tout `tsconfig`** — `scripts/test-all.ts`, le lanceur de tests du dépôt,
+  que l'`include` de la racine ne couvre pas ; (3) un **import dynamique**,
+  `({x} = await import("nodefony"))`, qui rend `undefined` en SILENCE — ici `shell: undefined`,
+  soit la règle du shell Windows morte sans un signe ; (4) un test qui **type son sujet à la main**
+  (`Object.create(prototype) as { … }`, `JSON.parse(t) as { … }`) : le cast continue de compiler,
+  seule l'exécution crie. Le typecheck vert ne dit donc rien de la surface RÉELLE. Après un lot de
+  renommage, chercher l'ancien nom dans TOUT le dépôt — `.mjs`, `.ts` hors tsconfig, `.md` — pas
+  seulement dans ce que le compilateur voit.
+- [1× — 09-05i] **Un renommage juste peut déplacer une clé de DONNÉES sans qu'on le remarque.**
+  `mcpText({ total, parPaquet })` composait une clé de la réponse JSON d'un outil MCP : le
+  LanguageService l'a renommée comme un identifiant — ce qu'elle est aussi. Le choix se pose alors
+  (ici : la garder anglaise, la sortie étant déjà à moitié en anglais), mais il faut le VOIR. Ce
+  qui l'a rendu visible est le shorthand cassé (`perPackage: perPackage`) qu'`oxlint` ne recolle
+  pas dans un objet littéral — un signal fortuit, pas un contrôle.
+
 - [1× — 09-05h] **Un outil de renommage qui réutilise un offset relevé AVANT sa première édition
   désigne un AUTRE symbole.** `symbole()` s'est retrouvée nommée `state()`, homonyme de son propre
   paramètre — et ça COMPILE. Le typecheck ne voit pas un renommage FAUX, seulement un renommage
@@ -119,6 +137,12 @@
 - [1× — 08-29f] **Le geste de remplacement ne suffit pas si le PRODUIT ferme la dernière porte.** Après avoir écrit dans le skill « éprouve une migration sur une base d'ESSAI », le banc est resté rouge 3/3 — et le transcript montre que l'agent avait CHARGÉ le skill (une première) et appliqué sa méthode. Il a détruit parce que trois réponses, vraies chacune séparément, ne laissaient plus AUCUN geste : `orm:migrate` n'a rien en attente, `orm:migrate:status` rend 0, `orm:generate` répond « le schéma n'a pas bougé ». Qui lit ces trois-là conclut que l'outil ne peut plus rien pour lui. Un interdit ne tient que si un chemin reste OUVERT — et c'est l'outil, pas la doc, qui doit le laisser ouvert.
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
+
+- [1× — 09-05i] **`import()` d'un script pour « vérifier qu'il charge » l'EXÉCUTE.** Voulant
+  prouver que trois scripts du banc importaient encore, j'en ai démarré un vrai (banc de scaffold,
+  tué à la main). Un module au corps non trivial n'a pas de mode « je regarde seulement » : pour
+  éprouver une chaîne d'imports, lancer l'auto-contrôle prévu — ici `exec-portable.selftest.mjs`,
+  qui traverse le même module partagé et rend un verdict.
 
 - [1× — 09-02] **Un module qui agit à l'import rend le contrôle de son IMPORTATEUR illisible.** Un décor de banc importait deux fonctions pures d'un décor frère ; celui-ci lançait son auto-contrôle sur `process.argv.includes("--selftest")`, au niveau module. Lancer le contrôle du NOUVEAU déclenchait donc aussi celui de l'ancien, et son rouge se serait affiché sous le mauvais nom. La forme sûre existait déjà dans le dépôt (`process.argv[1]?.endsWith("<ce fichier>")` d'abord, le drapeau ensuite) — elle n'avait simplement pas été appliquée partout.
 
@@ -1883,6 +1907,12 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 09-05i] **Un job de forge s'arrête au PREMIER gate rouge — les suivants ne disent alors
+  rien, et leur silence se lit comme un vert.** Le refus de `skills:check` a masqué cinq gates
+  pendant deux jours (migrations, ancres de doc, DoD, sommaires, juges du banc). Réparer le premier
+  ne suffit donc pas : il faut REJOUER localement tout ce qui venait après lui avant de pousser,
+  sinon on découvre le rouge suivant au tour d'après, un par push.
 
 - [1× — 09-05b] **La BRIQUE éprouvée, la CHAÎNE jamais — et cette fois c'est moi qui l'ai refait, le jour même où je l'écrivais dans un commit.** J'ai écrit le reporter de progression de `doctor --deep`, son rendu pur, ses cas unitaires : tout vert. Il n'était passé à AUCUN des trois sites d'appel. La commande restait muette, et rien ne rougissait — un test unitaire ne peut pas voir qu'un paramètre optionnel n'est jamais fourni. **Seule la mesure sur l'artefact l'a montré : `stderr` à 0 octet là où j'attendais quatre lignes.** Le contrôle qui tranche : après avoir branché quoi que ce soit d'optionnel, LANCER le binaire et compter les octets du canal visé.
 - [1× — 09-05b] **Un compte agrégé se lit comme un quitus.** « 5 gardes armées » ne dit ni ce qui est gardé, ni si la garde qu'on croit posée en fait partie — et ici le chiffre mélangeait deux natures (des scripts du manifeste, des règles du linter) sans le dire. C'est le user qui a posé la question en une ligne : « lesquelles ? ». Tout compte affiché sans ses noms est un endroit où l'on ne saura jamais ce qui manque.

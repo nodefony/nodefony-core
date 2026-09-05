@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T19:51:33.704Z",
+  "generatedAt": "2026-09-05T20:52:29.240Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 118,
+      "closed": 119,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 40,
       "title": "10.0.0"
@@ -969,7 +969,7 @@
       "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 3.5,
+      "jours": 2.5,
       "ordre": 4.5,
       "labels": []
     },
@@ -992,8 +992,8 @@
       "number": 208,
       "title": "refactor(core): écrire en anglais les identifiants restants du noyau",
       "url": "https://github.com/nodefony/nodefony-core/issues/208",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1008,7 +1008,7 @@
       "title": "refactor(orm): écrire en anglais les identifiants du moteur SQL",
       "url": "https://github.com/nodefony/nodefony-core/issues/209",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1038,7 +1038,7 @@
       "title": "feat(build): étendre le contrôle de langue aux gabarits de génération",
       "url": "https://github.com/nodefony/nodefony-core/issues/212",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1538,6 +1538,20 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 6.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 213,
+      "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
+      "url": "https://github.com/nodefony/nodefony-core/issues/213",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.4,
       "labels": [
         "10.0.0"
       ]
