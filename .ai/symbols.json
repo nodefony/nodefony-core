@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T10:39:45.437Z",
+  "generated": "2026-09-05T10:49:10.951Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 811,
-    "symbols": 3881,
+    "symbols": 3887,
     "classes": 386,
-    "interfaces": 1056,
+    "interfaces": 1057,
     "types": 442,
     "enums": 4,
-    "functions": 1604,
+    "functions": 1609,
     "constants": 389
   },
   "symbols": {
@@ -1935,6 +1935,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rendu d'une ligne de progression."
+    },
+    "supportsUnicode": {
+      "name": "supportsUnicode",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le terminal sait-il dessiner du braille et des blocs ? 🔴 Windows est un impératif produit ici, et `cmd.exe` rend `⠋` en carré vide ou en point d'interrogation : une animation illisible est pire qu…"
+    },
+    "shouldAnimate": {
+      "name": "shouldAnimate",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Faut-il animer du tout ? Un terminal ne suffit pas : une forge d'intégration peut en fournir un (`CI=true` avec un pseudo-terminal), et y déverser dix images par seconde remplit un journal que pers…"
+    },
+    "fitToWidth": {
+      "name": "fitToWidth",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Tronque une ligne à la largeur du terminal, séquences ANSI non comptées. 🔴 Sans cela, une ligne trop longue passe à la ligne — et `clearLine` n'en efface qu'UNE : la queue reste à l'écran, l'anima…"
     },
     "renderBar": {
       "name": "renderBar",
@@ -8391,6 +8415,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce que l'étage profond a pu établir — et ce qu'il n'a PAS pu."
+    },
+    "IStepRun": {
+      "name": "IStepRun",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que rend l'exécution d'un script : son verdict brut, avant jugement."
     },
     "DeepReporter": {
       "name": "DeepReporter",

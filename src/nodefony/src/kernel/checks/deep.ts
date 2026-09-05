@@ -28,7 +28,7 @@
  */
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { aggregateOutdated, type IOutdatedSummary } from "../../cli/outdated";
 import type { NpmOutdatedReport } from "../../cli/outdated";
 
@@ -217,17 +217,13 @@ function clamp(line: string): string {
  *   que sur la machine qui l'exécute, c'est-à-dire nulle part.
  * @returns un verdict par script demandé.
  */
-export function runVerifySteps(
+export async function runVerifySteps(
   projectRoot: string,
   steps: readonly string[],
-  run: (step: string) => {
-    status: number | null;
-    stderr: string;
-    stdout: string;
-    ms: number;
-  } = (step) => runNpmScript(projectRoot, step),
+  run: (step: string) => IStepRun | Promise<IStepRun> = (step) =>
+    runNpmScript(projectRoot, step),
   report?: DeepReporter,
-): IVerifyStepResult[] {
+): Promise<IVerifyStepResult[]> {
   const { present } = declaredSteps(projectRoot, steps);
   const results: IVerifyStepResult[] = [];
   for (const step of steps) {
@@ -238,7 +234,7 @@ export function runVerifySteps(
       continue;
     }
     report?.({ step, phase: "start" });
-    const r = run(step);
+    const r = await run(step);
     if (r.status === null) {
       report?.({ step, phase: "done", outcome: "timeout", ms: r.ms });
       results.push({
@@ -272,31 +268,66 @@ export function runVerifySteps(
   return results;
 }
 
-/** Lance un script npm du projet, borné dans le temps. */
-function runNpmScript(
-  projectRoot: string,
-  step: string,
-): { status: number | null; stderr: string; stdout: string; ms: number } {
+/** Ce que rend l'exécution d'un script : son verdict brut, avant jugement. */
+export interface IStepRun {
+  status: number | null;
+  stderr: string;
+  stdout: string;
+  ms: number;
+}
+
+/**
+ * Lance un script npm du projet, borné dans le temps — de façon ASYNCHRONE.
+ *
+ * 🔴 **`spawnSync` est ce qui empêchait toute animation, et rien ne le disait.**
+ * Un appel synchrone bloque la boucle d'évènements de Node : aucun `setInterval`
+ * ne s'y déclenche. Le tourniquet de `--deep` peignait donc sa PREMIÈRE image
+ * puis restait figé pendant les trente-huit secondes du `typecheck` — le point
+ * fixe exact qu'il était censé remplacer.
+ *
+ * Le défaut ne pouvait pas se voir en éprouvant le tourniquet : celui-ci est
+ * juste, et ses vingt-sept cas passent. Il ne se voyait qu'en regardant la
+ * CHAÎNE tourner dans un vrai terminal. C'est le motif « la brique éprouvée, la
+ * chaîne jamais », et il coûte à chaque fois le même prix.
+ *
+ * @param projectRoot - la racine de l'application.
+ * @param step - le script npm à lancer.
+ * @returns son code de sortie (`null` = tué par la borne), ses flux et sa durée.
+ */
+function runNpmScript(projectRoot: string, step: string): Promise<IStepRun> {
   const timeout = timeoutForStep(step);
-  const debut = Date.now();
-  const r = spawnSync("npm", ["run", step], {
-    cwd: projectRoot,
-    encoding: "utf8",
-    timeout,
-    // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse d'exécuter
-    // sans shell depuis le correctif de CVE-2024-27980 — et il rend `ENOENT`,
-    // qui se lit « npm n'est pas installé » sur une machine où il l'est.
-    shell: process.platform === "win32",
+  const startedAt = Date.now();
+  return new Promise<IStepRun>((resolve) => {
+    const child = spawn("npm", ["run", step], {
+      cwd: projectRoot,
+      timeout,
+      // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse
+      // d'exécuter sans shell depuis le correctif de CVE-2024-27980 — et il
+      // rend `ENOENT`, qui se lit « npm n'est pas installé » sur une machine
+      // où il l'est.
+      shell: process.platform === "win32",
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (c: string) => (stdout += c));
+    child.stderr?.on("data", (c: string) => (stderr += c));
+    const done = (status: number | null): void =>
+      resolve({ status, stderr, stdout, ms: Date.now() - startedAt });
+    // `npm` introuvable, droits refusés : un échec de LANCEMENT n'est pas un
+    // échec du script, mais il doit rendre la main plutôt que pendre.
+    child.on("error", (e: Error) => {
+      stderr += `${e.message}\n`;
+      done(1);
+    });
+    child.on("close", (code, signal) => {
+      // `signal` posé = tué par la borne de temps, pas terminé : rendre `null`,
+      // et ne JAMAIS le confondre avec 0, qui ferait passer un dépassement
+      // pour un succès.
+      done(signal ? null : (code ?? 1));
+    });
   });
-  return {
-    // `signal` posé = tué par la borne de temps, pas terminé : `status` vaut
-    // alors `null`, et le confondre avec 0 ferait passer un timeout pour un
-    // succès.
-    status: r.signal ? null : (r.status ?? 1),
-    stderr: r.stderr ?? "",
-    stdout: r.stdout ?? "",
-    ms: Date.now() - debut,
-  };
 }
 
 /**

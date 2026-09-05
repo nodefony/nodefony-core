@@ -52,12 +52,12 @@ describe("doctor --deep — les scripts DÉCLARÉS, et rien d'autre", () => {
     });
   });
 
-  it("🔴 un script ABSENT n'est pas un échec de cet étage", () => {
+  it("🔴 un script ABSENT n'est pas un échec de cet étage", async () => {
     // C'est le contrôle « les gardes du projet sont-elles armées ? » qui répond
     // de l'absence. Le dire ici AUSSI ferait compter un manquement pour deux,
     // et la seconde accusation porterait un geste différent de la première.
     const racine = projetAvec({ test: "vitest" });
-    const r = runVerifySteps(racine, ["lint", "test"], () => ({
+    const r = await runVerifySteps(racine, ["lint", "test"], () => ({
       status: 0,
       stderr: "",
       stdout: "",
@@ -67,9 +67,9 @@ describe("doctor --deep — les scripts DÉCLARÉS, et rien d'autre", () => {
     assert.equal(r.find((x) => x.step === "test")?.outcome, "passed");
   });
 
-  it("un script qui échoue rend sa PREMIÈRE ligne utile, pas l'annonce de npm", () => {
+  it("un script qui échoue rend sa PREMIÈRE ligne utile, pas l'annonce de npm", async () => {
     const racine = projetAvec({ typecheck: "tsgo --noEmit" });
-    const r = runVerifySteps(racine, ["typecheck"], () => ({
+    const r = await runVerifySteps(racine, ["typecheck"], () => ({
       status: 1,
       stderr: "",
       stdout:
@@ -82,13 +82,13 @@ describe("doctor --deep — les scripts DÉCLARÉS, et rien d'autre", () => {
     assert.equal(r[0]!.detail, "src/a.ts(3,5): error TS2345: nope");
   });
 
-  it("🔴 un script tué par la borne de temps n'est PAS un succès", () => {
+  it("🔴 un script tué par la borne de temps n'est PAS un succès", async () => {
     // Vécu sur ce dépôt : une commande réseau qui pendait cinq minutes par
     // essai et tuait le job de forge. Un `status` nul avec un signal posé se
     // lit « terminé sans erreur » si on ne regarde que le code — le pire des
     // verdicts, puisqu'il est vert.
     const racine = projetAvec({ test: "vitest" });
-    const r = runVerifySteps(racine, ["test"], () => ({
+    const r = await runVerifySteps(racine, ["test"], () => ({
       status: null,
       stderr: "",
       stdout: "",

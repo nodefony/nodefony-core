@@ -766,8 +766,8 @@ export async function collectDoctorReport(
   // lire, donc aucun script à lancer.
   const deep: IDeepResult | null =
     deepRequested && projectRoot
-      ? (() => {
-          const steps = runVerifySteps(
+      ? await (async () => {
+          const steps = await runVerifySteps(
             projectRoot,
             VERIFY_STEPS,
             undefined,

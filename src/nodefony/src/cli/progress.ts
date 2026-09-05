@@ -99,6 +99,166 @@ export const BAR_STYLES = {
   dots: { filled: "●", empty: "○" },
 } as const satisfies Record<string, IBarStyle>;
 
+/**
+ * Le terminal sait-il dessiner du braille et des blocs ?
+ *
+ * 🔴 Windows est un impératif produit ici, et `cmd.exe` rend `⠋` en carré vide
+ * ou en point d'interrogation : une animation illisible est pire qu'aucune.
+ * La capacité se CONSTATE sur l'environnement plutôt que de se déduire de
+ * `process.platform` — Windows Terminal, VS Code et les consoles modernes
+ * affichent parfaitement le braille, et les punir serait aussi faux que de
+ * supposer que toutes y arrivent.
+ *
+ * Même méthode que `is-unicode-supported`, sans la dépendance.
+ *
+ * @param env - l'environnement à interroger (injecté : une fonction qui lit
+ *   `process.env` en dur ne s'éprouve pas).
+ */
+export function supportsUnicode(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: string = process.platform,
+): boolean {
+  if (platform !== "win32") {
+    if (env["TERM"] === "linux") return false; // la console noyau, pas un émulateur
+    const locale = env["LC_ALL"] ?? env["LC_CTYPE"] ?? env["LANG"] ?? "";
+    return /UTF-?8$/i.test(locale) || locale === "";
+  }
+  return Boolean(
+    env["WT_SESSION"] || // Windows Terminal
+    env["TERMINUS_SUBLIME"] ||
+    env["ConEmuTask"] === "{cmd::Cmder}" ||
+    env["TERM_PROGRAM"] === "vscode" ||
+    env["TERM"] === "xterm-256color" ||
+    env["TERM"] === "alacritty",
+  );
+}
+
+/**
+ * Faut-il animer du tout ?
+ *
+ * Un terminal ne suffit pas : une forge d'intégration peut en fournir un
+ * (`CI=true` avec un pseudo-terminal), et y déverser dix images par seconde
+ * remplit un journal que personne ne pourra relire. `TERM=dumb` est la
+ * déclaration explicite d'un terminal qui ne sait rien réécrire.
+ */
+export function shouldAnimate(
+  stream: NodeJS.WriteStream,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (!stream.isTTY) return false;
+  if (env["TERM"] === "dumb") return false;
+  if (env["CI"]) return false;
+  if (env["NF_NO_PROGRESS"]) return false;
+  return true;
+}
+
+// ── Curseur : masqué pendant l'animation, RESTAURÉ quoi qu'il arrive ────────
+//
+// 🔴 Un curseur laissé masqué survit au programme : l'utilisateur se retrouve
+// avec un terminal où il tape à l'aveugle, et il n'a aucune raison de faire le
+// lien avec l'outil qu'il vient d'interrompre. C'est le défaut le plus
+// désagréable de cette famille d'objets, et il n'arrive JAMAIS au cas nominal —
+// seulement sur Ctrl+C, c'est-à-dire précisément quand l'utilisateur est déjà
+// contrarié.
+
+/** Nombre d'indicateurs qui animent en ce moment — le curseur suit ce compte. */
+let animatingCount = 0;
+/** Le flux sur lequel le curseur a été masqué, `null` s'il ne l'est pas. */
+let cursorHiddenOn: NodeJS.WriteStream | null = null;
+/** Retrait des gardes de sortie — `null` tant qu'elles ne sont pas posées. */
+let releaseGuards: (() => void) | null = null;
+
+function showCursor(): void {
+  if (cursorHiddenOn === null) return;
+  cursorHiddenOn.write("\u001B[?25h");
+  cursorHiddenOn = null;
+  releaseGuards?.();
+  releaseGuards = null;
+}
+
+function hideCursor(stream: NodeJS.WriteStream): void {
+  if (cursorHiddenOn !== null) return;
+  stream.write("\u001B[?25l");
+  cursorHiddenOn = stream;
+
+  const onExit = (): void => showCursor();
+  // Le protocole est celui de `signal-exit`, lu dans ses sources plutôt que de
+  // mémoire : (1) n'agir que si notre écouteur est le SEUL — sinon
+  // l'application a son propre arrêt gracieux et c'est à lui de conclure ;
+  // (2) se RETIRER avant d'agir, pour ne pas se rappeler soi-même ;
+  // (3) réémettre le signal par `process.kill`, JAMAIS `process.exit`.
+  //
+  // Le point (3) n'est pas un détail : `process.exit(130)` ment au shell, qui
+  // croit à une sortie ordinaire. `process.kill` laisse le système appliquer
+  // la sémantique du signal — un `^C` reste un `^C`, et une boucle `bash` qui
+  // teste l'interruption continue de fonctionner.
+  //
+  // ⚠️ **Windows** : `SIGHUP` y lève `ENOSYS` — `signal-exit` le remplace par
+  // `SIGINT`. On ne l'écoute pas du tout, ce qui est le plus sûr : `SIGINT` et
+  // `SIGTERM` sont les deux que Node émule sur toutes les plateformes.
+  const onSignal = (signal: NodeJS.Signals): void => {
+    if (process.listenerCount(signal) > 1) {
+      showCursor();
+      return;
+    }
+    showCursor(); // retire aussi nos écouteurs, via `releaseGuards`
+    process.kill(process.pid, signal);
+  };
+  process.once("exit", onExit);
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  releaseGuards = () => {
+    process.removeListener("exit", onExit);
+    process.removeListener("SIGINT", onSignal);
+    process.removeListener("SIGTERM", onSignal);
+  };
+}
+
+/**
+ * Tronque une ligne à la largeur du terminal, séquences ANSI non comptées.
+ *
+ * 🔴 Sans cela, une ligne trop longue passe à la ligne — et `clearLine` n'en
+ * efface qu'UNE : la queue reste à l'écran, l'animation laisse une traînée. Le
+ * dépôt a déjà payé ce défaut ailleurs (`inspect routes` sortait à 900
+ * colonnes). Deux colonnes sont laissées libres : certains terminaux passent à
+ * la ligne dès la dernière atteinte.
+ */
+export function fitToWidth(line: string, columns: number | undefined): string {
+  const width = columns && columns > 8 ? columns - 2 : 78;
+  // eslint-disable-next-line no-control-regex
+  const ansi = /\u001B\[[0-9;]*m/g;
+  let visible = 0;
+  let out = "";
+  let index = 0;
+  for (const match of line.matchAll(ansi)) {
+    const text = line.slice(index, match.index);
+    for (const ch of text) {
+      if (visible >= width) return out;
+      out += ch;
+      visible++;
+    }
+    out += match[0]; // une séquence de couleur n'occupe aucune colonne
+    index = match.index + match[0].length;
+  }
+  for (const ch of line.slice(index)) {
+    if (visible >= width) return out;
+    out += ch;
+    visible++;
+  }
+  return out;
+}
+
+/**
+ * Séquences de sortie synchronisée (mode 2026) et d'effacement de ligne.
+ *
+ * `\u001B[2K` efface la ligne entière, `\u001B[1G` ramène en colonne 1 : c'est
+ * ce que fait `readline.clearLine` + `cursorTo`, en UNE écriture au lieu de
+ * deux — ce qui est exactement ce que la sortie synchronisée cherche à obtenir.
+ */
+const SYNC_BEGIN = "\u001B[?2026h";
+const SYNC_END = "\u001B[?2026l";
+const ERASE_LINE = "\u001B[2K\u001B[1G";
+
 /** Cadence par défaut, en millisecondes — au-delà l'animation saccade. */
 const DEFAULT_INTERVAL_MS = 80;
 
@@ -191,6 +351,15 @@ export function formatDuration(ms: number): string {
 export interface ILiveLineOptions {
   /** Flux de sortie. Défaut : `process.stdout`. */
   readonly stream?: NodeJS.WriteStream;
+  /**
+   * Forcer ou interdire l'animation, court-circuitant {@link shouldAnimate}.
+   *
+   * À ne poser que pour éprouver le comportement : en usage normal, c'est
+   * l'environnement qui décide, et lui seul sait s'il est une forge.
+   */
+  readonly animate?: boolean;
+  /** Environnement à interroger. Défaut : `process.env`. */
+  readonly env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -207,14 +376,18 @@ export abstract class LiveLine {
   protected readonly stream: NodeJS.WriteStream;
   /** Vrai entre `start()` et `stop()`, même hors terminal. */
   protected active = false;
+  /** Résultat de {@link shouldAnimate}, résolu UNE fois à la construction. */
+  protected readonly interactive: boolean;
 
   constructor(options: ILiveLineOptions = {}) {
     this.stream = options.stream ?? process.stdout;
+    this.interactive =
+      options.animate ?? shouldAnimate(this.stream, options.env);
   }
 
-  /** Vrai si le flux est un terminal — donc si l'on peut dessiner en place. */
+  /** Vrai si l'on peut dessiner en place — terminal, hors forge, `TERM` utile. */
   get isInteractive(): boolean {
-    return Boolean(this.stream.isTTY);
+    return this.interactive;
   }
 
   /** Vrai entre `start()` et `stop()`. */
@@ -233,8 +406,18 @@ export abstract class LiveLine {
   stop(finalLine?: string): void {
     this.halt();
     this.erase();
+    if (this.active && this.isInteractive) {
+      animatingCount = Math.max(0, animatingCount - 1);
+      if (animatingCount === 0) showCursor();
+    }
     this.active = false;
     if (finalLine !== undefined) this.stream.write(`${finalLine}\n`);
+  }
+
+  /** Masque le curseur au premier indicateur qui anime, et le compte. */
+  protected claimCursor(): void {
+    animatingCount++;
+    hideCursor(this.stream);
   }
 
   /** Arrête la mécanique propre à la forme (minuteur, compteurs). */
@@ -243,8 +426,24 @@ export abstract class LiveLine {
   /** Efface la ligne courante puis écrit la nouvelle. Muet hors terminal. */
   protected paint(text: string): void {
     if (!this.isInteractive) return;
-    this.erase();
-    this.stream.write(text);
+    // Sortie SYNCHRONISÉE (mode 2026) : le terminal retient l'affichage entre
+    // les deux séquences et le publie d'un coup. Sans elle, l'effacement puis
+    // la réécriture peuvent être rendus séparément — la ligne clignote dix fois
+    // par seconde. Les terminaux qui ne connaissent pas ce mode ignorent
+    // simplement les séquences, il n'y a donc rien à détecter. Repris de
+    // `log-update`, dont c'est l'apport le plus visible.
+    //
+    // ⚠️ Limite ASSUMÉE : ces indicateurs écrivent UNE ligne. Un rendu
+    // multi-lignes exigerait de compter les lignes déjà écrites pour toutes les
+    // effacer (ce que fait `log-update` avec `wrap-ansi` et la hauteur du
+    // terminal) ; ce n'est pas le besoin ici, et le supposer silencieusement
+    // laisserait des traînées.
+    this.stream.write(
+      SYNC_BEGIN +
+        ERASE_LINE +
+        fitToWidth(text, this.stream.columns) +
+        SYNC_END,
+    );
   }
 
   /** Ramène le curseur en début de ligne et efface ce qui s'y trouvait. */
@@ -309,7 +508,11 @@ export class Spinner extends LiveLine {
   constructor(options: ISpinnerOptions = {}) {
     super(options);
     this.#intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-    this.#frames = options.frames ?? BRAILLE_FRAMES;
+    // Le braille par DÉFAUT, l'ASCII quand le terminal ne sait pas le dessiner.
+    // Un jeu d'images EXPLICITE est respecté tel quel : l'appelant a choisi.
+    this.#frames =
+      options.frames ??
+      (supportsUnicode(options.env) ? BRAILLE_FRAMES : LINE_FRAMES);
     this.#render = options.render ?? ((frame, label) => `  ${frame} ${label}…`);
   }
 
@@ -337,6 +540,7 @@ export class Spinner extends LiveLine {
     }
     this.active = true;
     if (!this.isInteractive) return;
+    this.claimCursor();
     this.#frame = 0;
     this.#draw();
     this.#timer = setInterval(() => {
@@ -456,10 +660,16 @@ export class ProgressBar extends LiveLine {
   constructor(options: IProgressBarOptions = {}) {
     super(options);
     this.#width = options.width ?? DEFAULT_BAR_WIDTH;
-    this.#style = options.style ?? BAR_STYLES.blocks;
+    // Même règle pour la barre : `▰▱` sur un terminal qui les dessine, `=-`
+    // sinon. Une barre en carrés vides ne dit rien de la progression.
+    this.#style =
+      options.style ??
+      (supportsUnicode(options.env) ? BAR_STYLES.blocks : BAR_STYLES.ascii);
     this.#spin = options.spin ?? false;
     this.#intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-    this.#frames = options.frames ?? BRAILLE_FRAMES;
+    this.#frames =
+      options.frames ??
+      (supportsUnicode(options.env) ? BRAILLE_FRAMES : LINE_FRAMES);
     this.#render =
       options.render ??
       (({ bar, done, total, label, frame }) =>
@@ -498,6 +708,7 @@ export class ProgressBar extends LiveLine {
     }
     this.active = true;
     if (!this.isInteractive) return;
+    this.claimCursor();
     this.#draw();
     if (!this.#spin) return;
     this.#timer = setInterval(() => {
