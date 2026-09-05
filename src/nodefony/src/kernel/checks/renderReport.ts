@@ -755,7 +755,7 @@ function sommaire(
       texte:
         report.guards.findings.length > 0
           ? `${accord(report.guards.findings.length, "garde")} décrochée${report.guards.findings.length > 1 ? "s" : ""}`
-          : `${accord(report.guards.armed, "garde")} armée${report.guards.armed > 1 ? "s" : ""}`,
+          : gardesArmees(report.guards.armed, report.guards.armedNames),
     },
     // Étage 3 — les scripts LANCÉS. Un script absent ne compte pas : c'est
     // `guards` qui répond de sa présence, et le dire deux fois ferait porter un
@@ -965,7 +965,35 @@ function modulesEcartes(report: IDoctorReport): readonly { module: string }[] {
   return report.live?.gatedModules ?? [];
 }
 
-/** Les familles de manquements, dans l'ordre où elles se lisent. */
+/**
+ * Ce que dit la ligne « Gardes du projet » quand tout est armé — les NOMS.
+ *
+ * 🔴 « 5 gardes armées » se lit comme un quitus et n'apprend rien : le lecteur
+ * ne sait ni ce qui est gardé, ni si la garde qu'il croit posée en fait partie.
+ * Le compte agrégeait en plus deux natures sans le dire — des scripts du
+ * manifeste (`typecheck`, `verify`) et des règles du linter.
+ *
+ * La ligne du sommaire est étroite : on nomme donc autant de gardes que la
+ * place le permet, et l'on DIT combien restent. Un « +3 » est une information ;
+ * une liste tronquée par un `…` muet en serait la caricature.
+ *
+ * @param armed - le nombre total de gardes constatées.
+ * @param noms - leurs noms, dans l'ordre où le contrôle les a rencontrées.
+ * @returns le texte de la ligne.
+ */
+function gardesArmees(armed: number, noms: readonly string[]): string {
+  if (armed === 0) return "aucune garde armée";
+  // Pas de noms (rapport ancien, ou décor partiel) : on rend le compte seul
+  // plutôt que d'affirmer une liste vide.
+  if (noms.length === 0)
+    return `${accord(armed, "garde")} armée${armed > 1 ? "s" : ""}`;
+  const PLACE = 3;
+  const montres = noms.slice(0, PLACE);
+  const reste = noms.length - montres.length;
+  return reste > 0 ? `${montres.join(", ")} +${reste}` : montres.join(", ");
+}
+
+/** Les familles de manquements, dans l'ordre où elles se lisent. */ /** Les familles de manquements, dans l'ordre où elles se lisent. */
 function groupesDeManquements(
   report: IDoctorReport,
 ): { titre: string; items: { message: string; file?: string }[] }[] {

@@ -79,6 +79,7 @@ const rapport = (patch: Partial<IDoctorReport> = {}): IDoctorReport => ({
   guards: {
     findings: [],
     armed: 5,
+    armedNames: ["typecheck", "lint --deny-warnings", "verify"],
     linterUnreadable: false,
     manifestUnreadable: false,
   },
@@ -720,6 +721,32 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
       (l) => l.includes("npm run build") && l.includes("Fraîcheur"),
     );
     assert.isDefined(ligne, "un geste court reste sur une seule ligne");
+  });
+
+  it("les gardes armées sont NOMMÉES, pas seulement comptées", () => {
+    // « 5 gardes armées » se lit comme un quitus et n'apprend rien : on ne sait
+    // ni ce qui est gardé, ni si la garde qu'on croit posée en fait partie. Le
+    // compte agrégeait en plus deux natures sans le dire — des scripts du
+    // manifeste et des règles du linter.
+    const lignes = rendreRapport(
+      rapport({
+        guards: {
+          findings: [],
+          armed: 5,
+          armedNames: ["lint", "typecheck", "verify", "regle-a", "regle-b"],
+          linterUnreadable: false,
+          manifestUnreadable: false,
+        },
+      }),
+      { largeur: 78, couleur: false, now: Date.now(), strict: false },
+    );
+    const ligne =
+      lignes.map(nu).find((l) => l.includes("Gardes du projet ")) ?? "";
+    assert.include(ligne, "lint");
+    assert.include(ligne, "typecheck");
+    // La place est étroite : ce qui ne tient pas est ANNONCÉ, jamais tronqué
+    // par un « … » muet qui laisserait croire à une liste complète.
+    assert.include(ligne, "+2");
   });
 
   it("🔴 et rien ne déborde, même sur un terminal étroit", () => {

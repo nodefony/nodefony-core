@@ -848,6 +848,7 @@ export async function collectDoctorReport(
     : {
         findings: [],
         armed: 0,
+        armedNames: [],
         linterUnreadable: true,
         manifestUnreadable: true,
       };

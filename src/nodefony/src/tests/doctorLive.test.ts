@@ -288,6 +288,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     guards: {
       findings: [],
       armed: 5,
+      armedNames: ["typecheck", "lint --deny-warnings", "verify"],
       linterUnreadable: false,
       manifestUnreadable: false,
     },

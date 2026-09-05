@@ -40,6 +40,16 @@ export interface IGuardResult {
   findings: IGuardFinding[];
   /** Les gardes effectivement CONSTATÉES en place — le compte du sommaire. */
   armed: number;
+  /**
+   * Le NOM de chacune — sans quoi « 5 gardes armées » ne dit rien.
+   *
+   * Un compte seul se lit comme un quitus : le lecteur ne sait ni ce qui est
+   * gardé, ni ce qui ne l'est pas, et n'a aucun moyen de vérifier que la garde
+   * qu'il croyait posée en fait partie. Les noms sont hétérogènes par nature —
+   * des scripts du manifeste et des règles du linter — et c'est précisément ce
+   * qu'il faut montrer : le chiffre agrégeait deux choses sans le dire.
+   */
+  armedNames: string[];
   /** `true` si la configuration du linter n'a pas pu être lue. */
   linterUnreadable: boolean;
   /** `true` si le manifeste n'a pas pu être lu. */
@@ -188,6 +198,7 @@ export interface IGuardCheckOptions {
 export function checkGuards(options: IGuardCheckOptions): IGuardResult {
   const findings: IGuardFinding[] = [];
   let armed = 0;
+  const armedNames: string[] = [];
 
   const manifestPath = path.join(options.projectRoot, "package.json");
   const linterPath = path.join(options.projectRoot, ".oxlintrc.json");
@@ -228,7 +239,10 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
           "projet sont en `warn`, donc le linter passe même quand elles " +
           "mordent — la garde est là, mais elle ne retient rien",
       });
-    } else armed++;
+    } else {
+      armed++;
+      armedNames.push("lint");
+    }
 
     if (!typecheck) {
       findings.push({
@@ -240,7 +254,10 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
           "être publié sans qu'aucune barrière ne s'y oppose. " +
           '→ `npm pkg set scripts.typecheck="tsgo --noEmit"`',
       });
-    } else armed++;
+    } else {
+      armed++;
+      armedNames.push("typecheck");
+    }
 
     const missing = VERIFY_STEPS.filter((step) => !verify.includes(step));
     if (!verify) {
@@ -262,7 +279,10 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
           "elle passe donc en ignorant ce qu'elle est censée contrôler, et " +
           "c'est elle qu'une forge appelle",
       });
-    } else if (verify) armed++;
+    } else if (verify) {
+      armed++;
+      armedNames.push("verify");
+    }
   }
 
   if (linter) {
@@ -314,12 +334,14 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
         continue;
       }
       armed++;
+      armedNames.push(name);
     }
   }
 
   return {
     findings,
     armed,
+    armedNames,
     linterUnreadable: linter === null,
     manifestUnreadable: manifest === null,
   };
