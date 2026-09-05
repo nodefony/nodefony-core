@@ -165,6 +165,20 @@ export const DEFAULT_EXCEPTIONS = [
       "`fk_user_creat`, `libelle` sont un CONTRAT avec la base adoptée, pas un " +
       "choix de nommage ; le banc ORM les lit telles quelles.",
   },
+  {
+    path: "src/nodefony/src/cli/helpReport.ts",
+    identifier: "LANCER",
+    reason:
+      "clé de DONNÉES, pas identifiant : chaque commande déclare son groupe " +
+      'par la chaîne `group: "LANCER"`, que rien ne relie à la clé — ni ' +
+      "TypeScript, ni ce gate. La renommer a fait disparaître deux groupes du " +
+      "menu interactif. L'angliciser suppose de changer un contrat de données.",
+  },
+  {
+    path: "src/nodefony/src/cli/helpReport.ts",
+    identifier: "COMPRENDRE",
+    reason: "même contrat de données que `LANCER` ci-dessus.",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
