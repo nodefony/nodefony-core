@@ -9,12 +9,17 @@
  * vraiment le mécanisme ou seulement l'importe pour un décor. Il rend la carte ;
  * le jugement reste à l'humain qui la lit.
  *
- * 🔴 Sa SECONDE limite, à connaître avant de croire un verdict : il ne voit que
- * l'import DIRECT. Un module atteint par défaut à travers un autre — c'est le
- * cas de `BrowserWsTransport`, que `RealtimeClient` fabrique lui-même — sort
- * « éprouvé par personne » alors qu'un banc l'exerce réellement. Un module
- * signalé ici se contrôle donc à la main avant d'en conclure quoi que ce soit ;
- * l'inverse est vrai aussi (importé ≠ exercé).
+ * 🔴 Sa SECONDE limite était de ne voir que l'import DIRECT — un module atteint
+ * à travers un autre sortait « éprouvé par personne » alors qu'un banc l'exerce.
+ * Elle a fabriqué DEUX faux verdicts, donc deux tickets : `BrowserWsTransport`
+ * (que `RealtimeClient` construit lui-même) et `publishQueue` (que
+ * `RedisBackplane` porte, et qu'un banc nommé `backplanePublishQueue.test.ts`
+ * exerçait déjà — le relevé l'avait sous les yeux). Ce script mesure donc
+ * désormais l'atteinte INDIRECTE : un module importé par un module source
+ * lui-même testé est rangé à part, ni trou ni preuve.
+ *
+ * Ce qui RESTE vrai et qu'aucun automate ne dira : atteint ≠ exercé, et importé
+ * ≠ exercé. La carte se lit, elle ne conclut pas.
  *
  * Usage : node scripts/realtime-coverage-map.mjs [--json]
  */
@@ -124,24 +129,60 @@ for (const m of modules) {
 }
 
 rows.sort((a, b) => a.module.localeCompare(b.module));
-const trous = rows.filter(
-  (r) => r.unit.length === 0 && r.e2e.length === 0 && r.load.length === 0,
+
+// Atteinte INDIRECTE : qui, parmi les modules SOURCE, importe ce module ? Si l'un
+// d'eux est lui-même testé, le module est atteint — c'est ce que l'import direct
+// ne voyait pas, et c'est ce qui accusait le code au lieu de l'instrument.
+const testedDirectly = new Set(
+  rows
+    .filter((r) => r.unit.length + r.e2e.length + r.load.length > 0)
+    .map((r) => r.module),
 );
+const sourceImporters = new Map(modules.map((m) => [m.stem, []]));
+for (const m of modules) {
+  const src = read(m.file);
+  for (const other of modules) {
+    if (other.stem === m.stem) continue;
+    const re = new RegExp(
+      `from\\s+["'][^"']*/${other.stem}(\\.js|\\.ts)?["']`,
+      "u",
+    );
+    if (re.test(src)) sourceImporters.get(other.stem).push(m.stem);
+  }
+}
+for (const r of rows) {
+  r.indirect = testedDirectly.has(r.module)
+    ? []
+    : sourceImporters.get(r.module).filter((p) => testedDirectly.has(p));
+}
+
+const trous = rows.filter(
+  (r) => !testedDirectly.has(r.module) && r.indirect.length === 0,
+);
+const indirects = rows.filter((r) => r.indirect.length > 0);
 const sansE2e = rows.filter(
   (r) => r.e2e.length === 0 && (r.unit.length > 0 || r.load.length > 0),
 );
 
 if (process.argv.includes("--json")) {
-  process.stdout.write(JSON.stringify({ rows, trous, sansE2e }, null, 2));
+  process.stdout.write(
+    JSON.stringify({ rows, trous, indirects, sansE2e }, null, 2),
+  );
 } else {
   console.log(`${rows.length} modules source du temps réel`);
   console.log(
     `  éprouvés par au moins un étage : ${rows.length - trous.length}`,
   );
-  console.log(`  AUCUN test ne les importe      : ${trous.length}`);
+  console.log(`  atteints seulement INDIRECTEMENT : ${indirects.length}`);
+  console.log(`  AUCUN test ne les atteint      : ${trous.length}`);
   console.log(`  sans étage intégration/e2e     : ${sansE2e.length}`);
-  console.log("\n── Aucun test n'importe ces modules ──");
+  console.log("\n── Aucun test ne les atteint, même indirectement ──");
   for (const r of trous) console.log(`  ${r.module}  (${r.file})`);
+  console.log(
+    "\n── Atteints À TRAVERS un module testé (atteint ≠ exercé : à lire) ──",
+  );
+  for (const r of indirects)
+    console.log(`  ${r.module}  ← via ${r.indirect.join(", ")}`);
   console.log("\n── Éprouvés en unitaire, JAMAIS dans la jonction ──");
   for (const r of sansE2e)
     console.log(`  ${r.module}  ← ${r.unit.join(", ") || r.load.join(", ")}`);
