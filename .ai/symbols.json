@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-05T09:19:41.800Z",
+  "generated": "2026-09-05T10:39:45.437Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 810,
-    "symbols": 3859,
-    "classes": 383,
-    "interfaces": 1050,
-    "types": 440,
+    "files": 811,
+    "symbols": 3881,
+    "classes": 386,
+    "interfaces": 1056,
+    "types": 442,
     "enums": 4,
-    "functions": 1599,
-    "constants": 383
+    "functions": 1604,
+    "constants": 389
   },
   "symbols": {
     "Cli": {
@@ -1832,6 +1832,173 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Compose la phrase d'en-tête qui dit ce qui a été trouvé — et ce qui a été agrégé. Nommer le nombre d'entrées brutes n'est pas décoratif : c'est ce qui explique pourquoi la sortie tient en quelques …"
+    },
+    "LiveLine": {
+      "name": "LiveLine",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Une ligne de terminal qu'on réécrit en place. Porte ce que toutes les formes répètent sinon : le choix du flux, la détection du terminal, l'effacement AVANT écriture (sans quoi un texte court laiss…"
+    },
+    "Spinner": {
+      "name": "Spinner",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "LiveLine",
+      "implements": [],
+      "decorators": [],
+      "description": "Attente **indéterminée** : on montre que ça vit, sans promettre de fin. Le minuteur est `unref()` — il n'empêche jamais le processus de se terminer — et {@link LiveLine.stop} l'arrête explicitement…"
+    },
+    "ProgressBar": {
+      "name": "ProgressBar",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "LiveLine",
+      "implements": [],
+      "decorators": [],
+      "description": "Progression **déterminée** : on connaît le total, on montre où l'on en est. Redessine à chaque {@link update}. Avec `spin: true`, un minuteur anime en plus un tourniquet en tête — utile quand l'ava…"
+    },
+    "IBarStyle": {
+      "name": "IBarStyle",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Paire de caractères d'une barre : ce qui est fait, ce qui reste."
+    },
+    "IRenderBarOptions": {
+      "name": "IRenderBarOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de {@link renderBar}."
+    },
+    "ILiveLineOptions": {
+      "name": "ILiveLineOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages communs à toutes les formes."
+    },
+    "ISpinnerOptions": {
+      "name": "ISpinnerOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "ILiveLineOptions",
+      "description": "Réglages d'un {@link Spinner}."
+    },
+    "IProgressState": {
+      "name": "IProgressState",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un rendu de barre reçoit pour composer sa ligne."
+    },
+    "IProgressBarOptions": {
+      "name": "IProgressBarOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "ILiveLineOptions",
+      "description": "Réglages d'une {@link ProgressBar}."
+    },
+    "SpinnerRenderer": {
+      "name": "SpinnerRenderer",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rendu d'une ligne animée : c'est le CONSOMMATEUR qui décide du contenu."
+    },
+    "ProgressRenderer": {
+      "name": "ProgressRenderer",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rendu d'une ligne de progression."
+    },
+    "renderBar": {
+      "name": "renderBar",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Dessine une barre de progression, et rien d'autre. Fonction PURE : elle n'écrit nulle part, ne connaît aucun terminal et se teste par simple comparaison de chaînes. C'est ce qui permet de la réutil…"
+    },
+    "formatDuration": {
+      "name": "formatDuration",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme une durée pour un humain : `840ms`, `12.3s`, `4m 05s`."
+    },
+    "BRAILLE_FRAMES": {
+      "name": "BRAILLE_FRAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Indicateurs d'attente et de progression pour un terminal — la seule implémentation du framework. Ils existent parce qu'une commande qui annonce une étape puis se tait pendant quarante secondes est …"
+    },
+    "LINE_FRAMES": {
+      "name": "LINE_FRAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Tourniquet ASCII — le repli quand la police ne porte pas le braille."
+    },
+    "ARC_FRAMES": {
+      "name": "ARC_FRAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Arcs tournants — plus discret que le braille, même encombrement."
+    },
+    "BLOCK_FRAMES": {
+      "name": "BLOCK_FRAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Barres montantes — suggère une activité qui « pompe »."
+    },
+    "DOT_FRAMES": {
+      "name": "DOT_FRAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Points qui s'ajoutent — le plus sobre, et le seul purement ASCII."
+    },
+    "BAR_STYLES": {
+      "name": "BAR_STYLES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/progress.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Styles de barre prêts à l'emploi."
     },
     "findProjectRoot": {
       "name": "findProjectRoot",
@@ -8232,6 +8399,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce qui reçoit les annonces — `undefined` quand personne n'écoute."
+    },
+    "timeoutForStep": {
+      "name": "timeoutForStep",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La borne à appliquer à une étape, à défaut la borne générale."
     },
     "declaredSteps": {
       "name": "declaredSteps",
@@ -26446,6 +26621,14 @@
         "Security",
         "Studio"
       ],
+      "LiveLine": [
+        "Spinner",
+        "ProgressBar"
+      ],
+      "ILiveLineOptions": [
+        "ISpinnerOptions",
+        "IProgressBarOptions"
+      ],
       "EnvVarMeta": [
         "NamedEnvVarMeta"
       ],
@@ -31397,6 +31580,9 @@
       ],
       "ISurfaceFinding": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "Spinner": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkPackageDeps": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"

@@ -761,16 +761,30 @@ function sommaire(
     // `guards` qui répond de sa présence, et le dire deux fois ferait porter un
     // seul manquement par deux lignes, avec deux gestes différents.
     verify: {
-      n: (report.deep?.steps ?? []).filter(
-        (s) => s.outcome === "failed" || s.outcome === "timeout",
-      ).length,
+      // 🔴 `timeout` NE COMPTE PAS comme un manquement. Il ne dit rien du
+      // projet : il dit que NOTRE borne était trop courte — un contrôle
+      // EMPÊCHÉ, au même titre qu'un registre npm qui ne répond pas. Le
+      // compter en rouge, c'est accuser le mesuré d'un défaut de l'instrument,
+      // et c'est ainsi qu'on apprend à ne plus croire un rapport.
+      n: (report.deep?.steps ?? []).filter((s) => s.outcome === "failed")
+        .length,
       texte: (() => {
         const steps = report.deep?.steps ?? [];
-        const rouges = steps.filter(
-          (s) => s.outcome === "failed" || s.outcome === "timeout",
-        );
-        if (rouges.length > 0)
-          return rouges.map((s) => s.step).join(", ") + " en échec";
+        const failed = steps.filter((s) => s.outcome === "failed");
+        const interrupted = steps.filter((s) => s.outcome === "timeout");
+        if (failed.length > 0)
+          return (
+            failed.map((s) => s.step).join(", ") +
+            " en échec" +
+            (interrupted.length > 0
+              ? ` (+ ${interrupted.length} interrompu(s) par la borne)`
+              : "")
+          );
+        if (interrupted.length > 0)
+          return (
+            interrupted.map((s) => s.step).join(", ") +
+            " interrompu(s) par la borne — NON CONTRÔLÉ, pas en échec"
+          );
         const passes = steps.filter((s) => s.outcome === "passed");
         return passes.length > 0
           ? `${passes.map((s) => s.step).join(", ")} au vert`
@@ -1026,9 +1040,16 @@ function groupesDeManquements(
         .filter((st) => st.outcome === "failed" || st.outcome === "timeout")
         .map((st) => ({
           message:
-            `\`npm run ${st.step}\` a échoué (${Math.round(st.ms / 1000)} s)` +
-            (st.detail ? ` :\n  ${st.detail}` : "") +
-            `\n  → relance-le seul pour voir la sortie entière : \`npm run ${st.step}\``,
+            st.outcome === "timeout"
+              ? // Un dépassement de borne n'a pas « échoué » : il n'a pas eu
+                // lieu. Le geste n'est donc pas « corrige ton projet » mais
+                // « donne-lui le temps, ou lance-le toi-même ».
+                `\`npm run ${st.step}\` n'a PAS pu être contrôlé — interrompu par la borne ` +
+                `après ${Math.round(st.ms / 1000)} s` +
+                `\n  → lance-le seul, sans borne : \`npm run ${st.step}\``
+              : `\`npm run ${st.step}\` a échoué (${Math.round(st.ms / 1000)} s)` +
+                (st.detail ? ` :\n  ${st.detail}` : "") +
+                `\n  → relance-le seul pour voir la sortie entière : \`npm run ${st.step}\``,
         })),
     },
     // L'étage 2 en dernier : il n'existe que sur une application qui a démarré,

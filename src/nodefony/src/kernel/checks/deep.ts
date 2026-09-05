@@ -40,10 +40,44 @@ import type { NpmOutdatedReport } from "../../cli/outdated";
  * de temps n'échoue pas, elle immobilise ; et l'opérateur conclut que l'outil
  * est cassé, jamais que le réseau ne répond pas.
  */
-const LIMITE_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+/**
+ * Bornes PAR ÉTAPE — une suite de tests n'est pas un `typecheck`.
+ *
+ * 🔴 Vécu sur ce dépôt même : une borne unique de deux minutes condamnait
+ * d'office la suite de tout projet sérieux. Ici 3 699 tests : `--deep` rendait
+ * TOUJOURS « ⏱ npm run test — interrompu », c'est-à-dire un rouge qui ne disait
+ * rien du projet et tout de l'instrument. Un outil de diagnostic qui accuse le
+ * mesuré pour un défaut de sa propre mesure est pire qu'un outil absent : on
+ * apprend à ignorer ce qu'il dit.
+ *
+ * Les valeurs sont des ORDRES DE GRANDEUR, pas des promesses : ce qui compte
+ * est qu'elles soient distinctes, et qu'un dépassement ne se lise pas comme un
+ * échec du projet (cf `outcome: "timeout"`, classé EMPÊCHÉ).
+ */
+const STEP_TIMEOUTS: Readonly<Record<string, number>> = {
+  // Compilation et style : rapides, et un dépassement est vraiment suspect.
+  lint: 120_000,
+  format: 120_000,
+  "format:check": 120_000,
+  typecheck: 300_000,
+  build: 600_000,
+  // Les suites de tests. Un dépôt de framework en porte des milliers ; la
+  // borne existe pour attraper un blocage, pas pour arbitrer une durée.
+  test: 1_800_000,
+  "test:unit": 1_800_000,
+  "test:integration": 1_800_000,
+  verify: 1_800_000,
+};
+
+/** La borne à appliquer à une étape, à défaut la borne générale. */
+export function timeoutForStep(step: string): number {
+  return STEP_TIMEOUTS[step] ?? DEFAULT_TIMEOUT_MS;
+}
 
 /** Le temps accordé au registre npm — plus court : c'est du réseau, pas du calcul. */
-const LIMITE_RESEAU_MS = 30_000;
+const NETWORK_TIMEOUT_MS = 30_000;
 
 /**
  * Ce qu'un étage profond ANNONCE pendant qu'il travaille.
@@ -149,24 +183,24 @@ export function declaredSteps(
 export function firstUsefulLine(stderr: string, stdout: string): string {
   const bruit =
     /^(?:npm (?:notice|warn|WARN|ERR!)\b|>\s|\$\s|yarn run |pnpm )/u;
-  const flux = [stderr, stdout];
-  for (const f of flux) {
-    const utile = f
+  const streams = [stderr, stdout];
+  for (const f of streams) {
+    const useful = f
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length > 0 && !bruit.test(l));
-    if (utile.length > 0) return borner(utile[0] as string);
+    if (useful.length > 0) return clamp(useful[0] as string);
   }
-  for (const f of flux) {
-    const lignes = f.split("\n").filter((l) => l.trim().length > 0);
-    if (lignes.length > 0) return borner((lignes[0] as string).trim());
+  for (const f of streams) {
+    const lines = f.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length > 0) return clamp((lines[0] as string).trim());
   }
   return "";
 }
 
 /** Borne une explication : une trace entière rend le rapport illisible. */
-function borner(ligne: string): string {
-  return ligne.length > 160 ? `${ligne.slice(0, 157)}…` : ligne;
+function clamp(line: string): string {
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
 }
 
 /**
@@ -195,23 +229,26 @@ export function runVerifySteps(
   report?: DeepReporter,
 ): IVerifyStepResult[] {
   const { present } = declaredSteps(projectRoot, steps);
-  const resultats: IVerifyStepResult[] = [];
+  const results: IVerifyStepResult[] = [];
   for (const step of steps) {
     if (!present.includes(step)) {
       // Un script absent n'est pas ANNONCÉ : rien n'a été lancé, et prévenir
       // qu'on ne lance pas quelque chose ajoute du bruit à une attente.
-      resultats.push({ step, outcome: "absent", ms: 0 });
+      results.push({ step, outcome: "absent", ms: 0 });
       continue;
     }
     report?.({ step, phase: "start" });
     const r = run(step);
     if (r.status === null) {
       report?.({ step, phase: "done", outcome: "timeout", ms: r.ms });
-      resultats.push({
+      results.push({
         step,
         outcome: "timeout",
         ms: r.ms,
-        detail: `interrompu après ${Math.round(r.ms / 1000)} s — sans borne de temps, une commande qui ne rend pas la main immobilise au lieu d'échouer`,
+        detail:
+          `interrompu après ${Math.round(r.ms / 1000)} s — la borne de CE contrôle ` +
+          `(${Math.round(timeoutForStep(step) / 1000)} s) était trop courte, ce qui ne dit rien du projet. ` +
+          `Relance l'étape seule : npm run ${step}`,
       });
       continue;
     }
@@ -221,7 +258,7 @@ export function runVerifySteps(
       outcome: r.status === 0 ? "passed" : "failed",
       ms: r.ms,
     });
-    resultats.push(
+    results.push(
       r.status === 0
         ? { step, outcome: "passed", ms: r.ms }
         : {
@@ -232,7 +269,7 @@ export function runVerifySteps(
           },
     );
   }
-  return resultats;
+  return results;
 }
 
 /** Lance un script npm du projet, borné dans le temps. */
@@ -240,11 +277,12 @@ function runNpmScript(
   projectRoot: string,
   step: string,
 ): { status: number | null; stderr: string; stdout: string; ms: number } {
+  const timeout = timeoutForStep(step);
   const debut = Date.now();
   const r = spawnSync("npm", ["run", step], {
     cwd: projectRoot,
     encoding: "utf8",
-    timeout: LIMITE_MS,
+    timeout,
     // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse d'exécuter
     // sans shell depuis le correctif de CVE-2024-27980 — et il rend `ENOENT`,
     // qui se lit « npm n'est pas installé » sur une machine où il l'est.
@@ -328,7 +366,7 @@ function runNpmOutdated(projectRoot: string): {
   const r = spawnSync("npm", ["outdated", "--json"], {
     cwd: projectRoot,
     encoding: "utf8",
-    timeout: LIMITE_RESEAU_MS,
+    timeout: NETWORK_TIMEOUT_MS,
     shell: process.platform === "win32",
   });
   return { stdout: r.stdout ?? "", failed: Boolean(r.signal) };

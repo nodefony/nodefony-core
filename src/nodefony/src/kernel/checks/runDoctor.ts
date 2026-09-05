@@ -11,6 +11,7 @@
  * Même famille que `status`, `stop`, `create` et `--version`.
  */
 import path from "node:path";
+import { Spinner } from "../../cli/progress";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { checkPackageDeps } from "./packageDeps";
@@ -1125,12 +1126,34 @@ export function ligneProgression(e: IDeepProgress, p: IPalette): string | null {
 export function reporterProgression(
   json: boolean,
   ecrire: (ligne: string) => void = (l) => process.stderr.write(`${l}\n`),
+  stream: NodeJS.WriteStream = process.stderr,
 ): DeepReporter | undefined {
   if (json) return undefined;
   const p = creerPalette(
     doitColorer(process.env, Boolean(process.stderr.isTTY)),
   );
+  // Sur un terminal, l'attente est ANIMÉE. Sans cela, `--deep` écrivait
+  // « … npm run typecheck » puis se taisait trente-huit secondes : un point
+  // fixe n'est pas une progression, et l'utilisateur ne peut pas distinguer
+  // « ça travaille » de « c'est planté » — il interrompt, puis cesse de s'en
+  // servir. Hors terminal (forge, redirection), le comportement ne bouge pas
+  // d'un octet : une ligne par évènement, écrite par `ecrire`.
+  const animated = Boolean(stream.isTTY);
+  const spinner = animated
+    ? new Spinner({
+        stream,
+        render: (frame, label) => `  ${p.ok(frame)} ${p.discret(label)}`,
+      })
+    : null;
   return (e) => {
+    const label = e.step === "outdated" ? "npm outdated" : `npm run ${e.step}`;
+    if (spinner !== null) {
+      // La ligne figée par `stop()` est celle-là même qu'écrit le mode non
+      // animé : les deux rendus disent le MÊME verdict, seule l'attente diffère.
+      if (e.phase === "start") spinner.start(label);
+      else spinner.stop(ligneProgression(e, p) ?? undefined);
+      return;
+    }
     const ligne = ligneProgression(e, p);
     if (ligne !== null) ecrire(ligne);
   };
