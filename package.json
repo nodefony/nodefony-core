@@ -107,7 +107,7 @@
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "readmeFilename": "README.md",
   "nodefony": {
-    "check": {
+    "doctor": {
       "typeCycles": {
         "nodefony": [
           "@nodefony/http",

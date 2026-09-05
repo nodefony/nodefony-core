@@ -18,9 +18,9 @@ import {
 } from "../kernel/adminPlane/catalog";
 import { readSymbolsGraph, lookupSymbol } from "../cli/symbols";
 import {
-  collectCheckReport,
+  collectDoctorReport,
   countCheckFindings,
-} from "../kernel/checks/runCheck";
+} from "../kernel/checks/runDoctor";
 import { controlesSautes } from "../kernel/checks/report";
 import type {
   IMcpTool,
@@ -38,7 +38,7 @@ export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
  * ⚠️ **Rien n'est calculé ici.** Chaque outil intégré traduit un appel JSON-RPC
  * vers une brique qui répond DÉJÀ à une autre porte : `inspect` lit le plan
  * d'administration par {@link readAdminSubject} (la même fonction que la
- * commande `nodefony inspect`), `check` appelle {@link collectCheckReport} (la
+ * commande `nodefony inspect`), `check` appelle {@link collectDoctorReport} (la
  * même que `nodefony doctor`). Une source, plusieurs portes — un outil qui
  * recalculerait sa réponse finirait par contredire la commande, et c'est lui
  * qu'on croirait sur parole.
@@ -628,7 +628,7 @@ export function builtinMcpTools(
         "tests ne voient qu'une classe n'est branchée à rien.",
       inputSchema: { type: "object", properties: {} },
       handler: async () => {
-        const report = await collectCheckReport(deps.projectRoot);
+        const report = await collectDoctorReport(deps.projectRoot);
         // Le VERDICT accompagne le rapport : sans lui, un agent devrait
         // recompter trois listes pour savoir s'il peut passer à la suite — et
         // c'est exactement le genre de calcul qu'on lui fait rater.

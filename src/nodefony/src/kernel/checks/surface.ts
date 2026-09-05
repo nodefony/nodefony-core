@@ -92,7 +92,7 @@ export interface ISurfaceCheckOptions {
   /**
    * Les chemins d'entités dont le dialecte divergent est ASSUMÉ.
    *
-   * Déclarés par le projet (`package.json` → `nodefony.check.entityDialect`).
+   * Déclarés par le projet (`package.json` → `nodefony.doctor.entityDialect`).
    * Sans cette porte, un dépôt qui porte volontairement des entités
    * multi-moteurs — un banc de portabilité, par exemple — ne peut jamais être
    * vert, et c'est le contrôle entier qu'on finit par ignorer.

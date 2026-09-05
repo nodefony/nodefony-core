@@ -354,7 +354,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // statique (répond sur une app cassée), `inspect` est runtime (ce qui est
       // VRAIMENT monté). Un agent les apprend ensemble, et n'en exposer qu'un
       // laisse croire que l'autre n'existe pas.
-      assert.property(pkg["scripts"], "check");
+      // Le script `check` a été RETIRÉ : il n'était qu'un alias de `doctor`,
+      // et son nom entrait en collision de sens avec `typecheck` et
+      // `format:check`, qui vérifient bel et bien quelque chose de précis.
+      assert.notProperty(pkg["scripts"], "check");
+      assert.property(pkg["scripts"], "doctor");
       assert.property(pkg["scripts"], "inspect");
       // `ai:sync` pose les skills livrés par les paquets. Sans cette ligne, le
       // verbe existe et personne ne l'apprend — le défaut mesuré au banc sur
@@ -380,7 +384,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // gate de forme de la CI générée tombait après coup, ailleurs.
         "format:check",
         "test",
-        "check",
+        // `doctor`, jamais « check » : l'alias a été retiré, et son nom entrait
+        // en collision de sens avec les deux gates ci-dessus, qui vérifient bel
+        // et bien quelque chose de précis. Un `verify` qui enchaîne
+        // `format:check` puis `check` ne dit à personne ce que le second fait.
+        "doctor",
       ]) {
         assert.include(
           pkg["scripts"]["verify"],

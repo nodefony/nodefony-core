@@ -2,11 +2,11 @@ import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import {
   attachLive,
-  collectCheckReport,
-  parseCheckArgv,
-  renderCheckReport,
-  runCheckCommand,
-} from "../checks/runCheck";
+  collectDoctorReport,
+  parseDoctorArgv,
+  renderDoctorReport,
+  runDoctorCommand,
+} from "../checks/runDoctor";
 import { collectLiveReport, liveNotRun } from "../checks/live";
 import { readTargetProvision } from "../checks/gating";
 import type { GateConfig } from "../moduleGating";
@@ -46,7 +46,7 @@ const options: OptionsCommandInterface = {
  * lit que des fichiers. Le `generate()` ci-dessous n'est qu'un FILET.
  *
  * Un projet déclare ses exceptions dans son `package.json`, clé
- * `nodefony.check` (`typeCycles`, `typesUnreachable`) : un cycle de types
+ * `nodefony.doctor` (`typeCycles`, `typesUnreachable`) : un cycle de types
  * légitime existe, et un contrôle qu'on ne peut pas satisfaire est un contrôle
  * qu'on apprend à ignorer.
  *
@@ -57,7 +57,6 @@ const options: OptionsCommandInterface = {
  * nodefony doctor --strict # un contrôle SAUTÉ échoue aussi (défaut sous `CI`)
  * nodefony doctor --live   # DEMANDE en plus à l'application (boot, 0 port)
  * nodefony doctor --env production   # ce qui manquera LÀ-BAS, depuis ce poste
- * nodefony check           # alias historique — même commande
  * ```
  */
 class Check extends Command {
@@ -68,13 +67,17 @@ class Check extends Command {
       cli as CliKernel,
       options,
     );
-    // `doctor` est le nom PRINCIPAL : c'est le mot qu'on tape quand quelque
-    // chose ne va pas, celui que les autres écosystèmes ont installé
-    // (`brew doctor`, `flutter doctor`), et celui qu'un agent trouve en
-    // cherchant à diagnostiquer. « check » ne dit pas ce qu'il vérifie ; il
-    // reste en ALIAS, parce qu'il a voyagé et qu'un nom qui a servi ne se
-    // retire pas sans prévenir.
-    this.alias("check");
+    // `doctor` est le SEUL nom : c'est le mot qu'on tape quand quelque chose ne
+    // va pas, celui que les autres écosystèmes ont installé (`brew doctor`,
+    // `flutter doctor`), et celui qu'un agent trouve en cherchant à
+    // diagnostiquer. « check » ne dit pas ce qu'il vérifie, et il entrait en
+    // collision de sens avec les scripts `typecheck` et `format:check` d'une
+    // application, qui eux vérifient bel et bien quelque chose de précis.
+    //
+    // L'alias historique est RETIRÉ, pas déprécié : aucun paquet `@nodefony/*`
+    // n'est publié (#175), donc ce nom n'a jamais atteint une application
+    // installée. Une dépréciation protègerait des utilisateurs qui n'existent
+    // pas, au prix d'un second nom à porter toute la série majeure.
     this.addOption("--json", "Machine-readable output");
     this.addOption(
       "--strict",
@@ -126,23 +129,23 @@ class Check extends Command {
     // Sans `--live`, rien n'a changé : la lecture pure suffit, et c'est elle
     // qui répond sur une application qui ne démarre plus.
     if (!opts?.live) {
-      await this.terminate(await runCheckCommand(argv));
+      await this.terminate(await runDoctorCommand(argv));
       return this;
     }
 
-    const parsed = parseCheckArgv(argv);
+    const parsed = parseDoctorArgv(argv);
     if ("error" in parsed) {
-      await this.terminate(await runCheckCommand(argv));
+      await this.terminate(await runDoctorCommand(argv));
       return this;
     }
     const debut = Date.now();
-    const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
+    const report = await collectDoctorReport(parsed.cwd, parsed.targetEnv);
     const complet = attachLive(
       report,
       await this.readLive(parsed.cwd, parsed.targetEnv),
     );
     await this.terminate(
-      renderCheckReport(complet, parsed, Date.now() - debut),
+      renderDoctorReport(complet, parsed, Date.now() - debut),
     );
     return this;
   }

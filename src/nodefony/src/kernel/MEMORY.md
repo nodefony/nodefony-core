@@ -36,7 +36,7 @@ started → preRegistered → registered → booted → ready → postReady
   leur PROPRE état d'exécution sans compter comme familles → `COUNTED_FAMILIES` s'en dérive.
   🔴 Ne jamais réécrire ces listes en dur : le compteur du bilan, le filtre du sommaire et le
   dédoublonnage des sautés en dépendent tous les trois.
-- `runCheck.ts` = collecte (`collectCheckReport`) + verdict (`renderCheckReport`) + `usage`.
+- `runCheck.ts` = collecte (`collectDoctorReport`) + verdict (`renderDoctorReport`) + `usage`.
   Les sondes (ports, git) sont INJECTÉES comme verdicts `{supported, …}`, jamais mesurées dans
   la règle — sinon la branche qui compte n'est pas éprouvable.
 - `renderReport.ts` = document PUR (largeur/couleur/instant injectés). Grille : item colonne 4,

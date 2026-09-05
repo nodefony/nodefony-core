@@ -22,7 +22,7 @@ import {
   publicAreas,
   toPortablePath,
 } from "../kernel/checks/surface";
-import { collectCheckReport } from "../kernel/checks/runCheck";
+import { collectDoctorReport } from "../kernel/checks/runDoctor";
 
 let racine = "";
 
@@ -301,7 +301,7 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
 });
 
 /**
- * 🔴 La CHAÎNE, pas la brique : d'où `collectCheckReport` tire l'environnement.
+ * 🔴 La CHAÎNE, pas la brique : d'où `collectDoctorReport` tire l'environnement.
  *
  * Les cas ci-dessus INJECTENT l'environnement — c'est par là que le défaut est
  * passé. Le produit, lui, ne lisait que `process.env`, quand le gabarit
@@ -310,7 +310,7 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
  * erreur. Ces cas passent donc par le vrai point d'entrée, avec des fichiers
  * sur disque et un `process.env` qui, lui, ne dit rien.
  */
-describe("collectCheckReport — le dialecte vient de l'app, pas du terminal", () => {
+describe("collectDoctorReport — le dialecte vient de l'app, pas du terminal", () => {
   /** Une application minimale : un manifeste, un paquet, une entité Postgres. */
   const appPostgres = (): void => {
     poser("package.json", '{"name":"app-pg","version":"1.0.0"}');
@@ -328,7 +328,7 @@ describe("collectCheckReport — le dialecte vient de l'app, pas du terminal", (
       ".env.local",
       "NF_DATABASE_URL=postgres://app:x@localhost:5432/app\n",
     );
-    const report = await collectCheckReport(racine);
+    const report = await collectDoctorReport(racine);
     assert.equal(report.surface.dialect, "postgres");
     assert.deepStrictEqual(
       report.surface.findings.filter((f) => f.kind === "entity-other-dialect"),
@@ -339,7 +339,7 @@ describe("collectCheckReport — le dialecte vient de l'app, pas du terminal", (
 
   it("sans cette déclaration, la MÊME entité est bien relevée — la cascade a mordu", async () => {
     appPostgres();
-    const report = await collectCheckReport(racine);
+    const report = await collectDoctorReport(racine);
     assert.equal(report.surface.dialect, "sqlite");
     assert.lengthOf(
       report.surface.findings.filter((f) => f.kind === "entity-other-dialect"),
@@ -350,10 +350,10 @@ describe("collectCheckReport — le dialecte vient de l'app, pas du terminal", (
   it("`.env` committé compte aussi, et `.env.local` prime sur lui", async () => {
     appPostgres();
     poser(".env", "NF_DATABASE_URL=mysql://app@localhost:3306/app\n");
-    let report = await collectCheckReport(racine);
+    let report = await collectDoctorReport(racine);
     assert.equal(report.surface.dialect, "mysql");
     poser(".env.local", "NF_DATABASE_URL=postgres://app@localhost:5432/app\n");
-    report = await collectCheckReport(racine);
+    report = await collectDoctorReport(racine);
     assert.equal(report.surface.dialect, "postgres", "`.env.local` prime");
   });
 });

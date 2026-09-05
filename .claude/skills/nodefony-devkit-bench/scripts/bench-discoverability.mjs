@@ -1113,11 +1113,15 @@ export const SONDES_QUALITE = [
   },
   {
     // Le produit porte DÉJÀ son vérificateur : l'agent qui écrit ce que
-    // `nodefony check` refuse (un `:id` à la mode d'un autre framework, par
+    // `nodefony doctor` refuse (un `:id` à la mode d'un autre framework, par
     // exemple) est en faute contre le framework lui-même, pas contre un goût.
+    //
+    // `doctor` et non « check » : l'alias a été retiré du produit, et le script
+    // `check` d'une application générée avec lui — un gate qui appelle un script
+    // absent échoue en nommant npm, jamais le manquement.
     kind: "gate",
-    name: "aucun manquement au vérificateur du framework (nodefony check)",
-    cmd: ["npm", "run", "check"],
+    name: "aucun manquement au vérificateur du framework (nodefony doctor)",
+    cmd: ["npm", "run", "doctor"],
   },
   {
     // `addedTs` — hors tests : dans une fixture, un `as any` est une commodité

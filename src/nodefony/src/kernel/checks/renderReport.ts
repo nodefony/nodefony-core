@@ -37,7 +37,7 @@ import {
   surlignerCode,
   symbole,
   TITRES,
-  type CheckFamily,
+  type DoctorFamily,
   type EtatSection,
   type IControleSaute,
   type ILigneSommaire,
@@ -46,7 +46,7 @@ import {
 import { formatAge, lastBootFileFor, type ILastBoot } from "./lastBoot";
 // Type SEUL : élidé à la compilation, donc aucune arête d'import à l'exécution
 // entre la collecte et son rendu.
-import type { ICheckReport } from "./runCheck";
+import type { IDoctorReport } from "./runDoctor";
 import type { ILiveFinding } from "./live";
 import type { ISurfaceFinding } from "./surface";
 
@@ -186,7 +186,7 @@ export function grouperParRaison(
  * @returns les lignes à écrire, dans l'ordre.
  */
 export function rendreRapport(
-  report: ICheckReport,
+  report: IDoctorReport,
   opts: IOptionsRendu,
 ): string[] {
   const { largeur, couleur, now, strict } = opts;
@@ -333,7 +333,7 @@ export function rendreRapport(
  * @returns une ligne, plus une ligne vide.
  */
 function bandeau(
-  report: ICheckReport,
+  report: IDoctorReport,
   sautes: readonly IControleSaute[],
   p: IPalette,
 ): string[] {
@@ -513,7 +513,7 @@ interface IGeste {
  * @returns les gestes, sans doublon, dans l'ordre où les faire.
  */
 export function aFaireEnsuite(
-  report: ICheckReport,
+  report: IDoctorReport,
   sautes: readonly IControleSaute[],
 ): IGeste[] {
   const gestes: IGeste[] = [];
@@ -629,7 +629,7 @@ function listeDeGestes(
  * l'APPLICATION et non le dossier où l'on a tapé.
  */
 function enTete(
-  report: ICheckReport,
+  report: IDoctorReport,
   opts: IOptionsRendu,
   p: IPalette,
 ): string[] {
@@ -661,7 +661,7 @@ function enTete(
  * seul mensonge que ce sommaire ne doit jamais dire.
  */
 function sommaire(
-  report: ICheckReport,
+  report: IDoctorReport,
   p: IPalette,
   largeur: number,
 ): string[] {
@@ -676,9 +676,9 @@ function sommaire(
    * et le geste qui suivait — « retire `policy: "dev"` » — aurait embarqué
    * l'outillage de développement en production.
    */
-  const REPORTING_ONLY: ReadonlySet<CheckFamily> = new Set(["gating"]);
+  const REPORTING_ONLY: ReadonlySet<DoctorFamily> = new Set(["gating"]);
   const ligne = (
-    famille: CheckFamily,
+    famille: DoctorFamily,
     n: number,
     detail: string,
   ): ILigneSommaire => {
@@ -700,7 +700,7 @@ function sommaire(
           detail: exec.short ?? "non contrôlé",
         };
   };
-  const detail: Record<CheckFamily, { n: number; texte: string }> = {
+  const detail: Record<DoctorFamily, { n: number; texte: string }> = {
     freshness: {
       n: freshness.findings.length,
       texte:
@@ -819,7 +819,7 @@ function sommaire(
  * @returns les manquements de cette espèce, vide si l'étage 2 n'a pas eu lieu
  */
 function manquementsLive(
-  report: ICheckReport,
+  report: IDoctorReport,
   kind: ILiveFinding["kind"],
 ): ILiveFinding[] {
   return (report.live?.findings ?? []).filter((f) => f.kind === kind);
@@ -849,7 +849,7 @@ const OUVERTURE_LIBELLE: Record<string, string> = {
  * ce qu'il a coupé.
  */
 function surfaceOuverte(
-  report: ICheckReport,
+  report: IDoctorReport,
   largeur: number,
   p: IPalette,
 ): string[] {
@@ -885,7 +885,7 @@ function surfaceOuverte(
  * contienne ce que l'autre ignore.
  */
 function surfaceFindings(
-  report: ICheckReport,
+  report: IDoctorReport,
   kind: ISurfaceFinding["kind"],
 ): ISurfaceFinding[] {
   return report.surface.findings.filter((f) => f.kind === kind);
@@ -899,7 +899,7 @@ function surfaceFindings(
  * personne n'a jamais, c'est le COMPTE : c'est ainsi qu'une route de mise au
  * point reste ouverte en production. La ligne le donne sans accuser.
  */
-function inventaireSurface(report: ICheckReport): string {
+function inventaireSurface(report: IDoctorReport): string {
   const routes = report.surface.openings.filter(
     (o) => o.kind !== "public-area",
   ).length;
@@ -921,13 +921,13 @@ function inventaireSurface(report: ICheckReport): string {
  * sain apprend à être ignoré. Elle sert à la ligne du sommaire, qui distingue
  * « rien ne disparaît » de « des modules partent, mais rien n'est perdu ».
  */
-function modulesEcartes(report: ICheckReport): readonly { module: string }[] {
+function modulesEcartes(report: IDoctorReport): readonly { module: string }[] {
   return report.live?.gatedModules ?? [];
 }
 
 /** Les familles de manquements, dans l'ordre où elles se lisent. */
 function groupesDeManquements(
-  report: ICheckReport,
+  report: IDoctorReport,
 ): { titre: string; items: { message: string; file?: string }[] }[] {
   // La fraîcheur d'abord : un build en retard rend faux tout ce qui suit — une
   // classe « non câblée » peut l'être dans le dist et pas dans les sources
@@ -1155,7 +1155,7 @@ function dernierDemarrage(
  * s'y lisait comme un succès alors que rien n'avait été regardé.
  */
 function bilan(
-  report: ICheckReport,
+  report: IDoctorReport,
   sautes: readonly IControleSaute[],
   p: IPalette,
   largeur: number,
@@ -1229,7 +1229,7 @@ function bilan(
 }
 
 /** Combien de familles ont réellement regardé — la moitié utile du bilan. */
-function nombreDeControlesPasses(report: ICheckReport): number {
+function nombreDeControlesPasses(report: IDoctorReport): number {
   let n = 0;
   // Dérivé de la source unique : une famille ajoutée est comptée sans qu'on ait
   // à y penser — la liste écrite en dur ici ignorait l'étage 2.

@@ -69,7 +69,7 @@ function drapeauxPublies(fichier: string): Set<string> {
 /**
  * Les paires (parseur standalone, commande commander).
  *
- * `check` est absent : son parseur vit dans `kernel/checks/runCheck.ts`, pas
+ * `check` est absent : son parseur vit dans `kernel/checks/runDoctor.ts`, pas
  * dans `cli/`. Il est ajouté ici parce que le défaut ne connaît pas les
  * dossiers.
  */
@@ -81,9 +81,9 @@ const PAIRES: ReadonlyArray<readonly [string, string, string]> = [
   ["git:hooks", "../cli/gitHooks.ts", "../kernel/commands/GitHooksCommand.ts"],
   ["symbols", "../cli/symbols.ts", "../kernel/commands/SymbolsCommand.ts"],
   [
-    "check",
-    "../kernel/checks/runCheck.ts",
-    "../kernel/commands/CheckCommand.ts",
+    "doctor",
+    "../kernel/checks/runDoctor.ts",
+    "../kernel/commands/DoctorCommand.ts",
   ],
 ];
 

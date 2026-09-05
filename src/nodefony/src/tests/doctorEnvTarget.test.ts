@@ -19,7 +19,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
-import { collectCheckReport, parseCheckArgv } from "../kernel/checks/runCheck";
+import {
+  collectDoctorReport,
+  parseDoctorArgv,
+} from "../kernel/checks/runDoctor";
 import { buildEnvReport } from "../cli/envReport";
 import { checkReadiness } from "../kernel/checks/readiness";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
@@ -48,20 +51,20 @@ const rapport = (
 
 describe("--env : lecture de la ligne de commande", () => {
   it("retient l'environnement visé", () => {
-    const parsed = parseCheckArgv(["doctor", "--env", "production"]);
+    const parsed = parseDoctorArgv(["doctor", "--env", "production"]);
     assert.notProperty(parsed, "error");
     assert.equal((parsed as { targetEnv: string }).targetEnv, "production");
   });
 
   it("sans drapeau, aucun environnement n'est visé — le rapport parle d'ici", () => {
-    const parsed = parseCheckArgv(["doctor"]);
+    const parsed = parseDoctorArgv(["doctor"]);
     assert.isNull((parsed as { targetEnv: string | null }).targetEnv);
   });
 
   // PIÈGE : `--env --json` avalerait l'option suivante et diagnostiquerait un
   // environnement nommé « --json », sans que rien ne le dise.
   it("refuse `--env` sans valeur, et nomme la forme attendue", () => {
-    const parsed = parseCheckArgv(["doctor", "--env", "--json"]);
+    const parsed = parseDoctorArgv(["doctor", "--env", "--json"]);
     assert.include((parsed as { error: string }).error, "--env attend");
     assert.include((parsed as { error: string }).error, "production");
   });
@@ -229,13 +232,13 @@ describe("readiness — un `.env*.local` SUIVI par git", () => {
  * 🔴 Deux fois de suite, une fonction pure éprouvée et son appelant jamais
  * appelé ont produit une intégration continue rouge. Une sonde correcte que
  * personne ne branche ne garde rien : ces deux cas passent par
- * `collectCheckReport`, c'est-à-dire par le vrai câblage.
+ * `collectDoctorReport`, c'est-à-dire par le vrai câblage.
  */
-describe("collectCheckReport — le contrôle git est réellement BRANCHÉ", () => {
+describe("collectDoctorReport — le contrôle git est réellement BRANCHÉ", () => {
   it("dans un dossier hors dépôt, la sous-règle est annoncée non contrôlée", async () => {
     const dir = creerApp("nf-doctor-nogit-");
     try {
-      const report = await collectCheckReport(dir);
+      const report = await collectDoctorReport(dir);
       // La cause doit être GIT, pas « hors application » : sans cette
       // vérification, un décor incomplet ferait passer le test pour une raison
       // qui n'a rien à voir avec ce qu'il prétend éprouver.
@@ -271,7 +274,7 @@ describe("collectCheckReport — le contrôle git est réellement BRANCHÉ", () 
       git("init", "-q");
       git("add", ".env.local");
 
-      const report = await collectCheckReport(dir);
+      const report = await collectDoctorReport(dir);
       assert.isTrue(
         report.execution.envTracked.ran,
         "le dossier est versionné : le contrôle devait avoir lieu",

@@ -672,7 +672,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     });
 
     // ─── `doctor --live` sur une app qui NE DÉMARRE PAS ───────────────────────
-    // La BRIQUE (`runCheckWithoutLive`) est éprouvée à part ; ici la CHAÎNE —
+    // La BRIQUE (`runDoctorWithoutLive`) est éprouvée à part ; ici la CHAÎNE —
     // le binaire réel, un boot qui meurt pour de bon, et ce que l'utilisateur
     // reçoit. C'est le cas POUR lequel `doctor` existe : tant qu'il n'était pas
     // rattrapé, `--live` rendait 61 lignes de pile et aucun rapport, soit moins

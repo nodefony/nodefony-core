@@ -12,7 +12,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { checkGuards, VERIFY_STEPS } from "../kernel/checks/guards";
-import { editDistance, likelyTypo } from "../kernel/checks/runCheck";
+import { editDistance, likelyTypo } from "../kernel/checks/runDoctor";
 
 let racine = "";
 

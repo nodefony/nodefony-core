@@ -103,7 +103,7 @@ export interface IExecution {
  * dans le JSON, donc dans la CI et chez l'agent qui lit le rapport. Un nom de
  * famille est un contrat, pas un détail de rendu.
  */
-export type CheckFamily =
+export type DoctorFamily =
   | "freshness"
   | "readiness"
   | "envCatalog"
@@ -131,7 +131,7 @@ export type CheckFamily =
  * de la section « non contrôlé » — deux libellés pour un même contrôle, et le
  * lecteur croit qu'il y en a deux.
  */
-export const TITRES: Record<CheckFamily, string> = {
+export const TITRES: Record<DoctorFamily, string> = {
   freshness: "Fraîcheur du build",
   readiness: "Prêt à démarrer",
   envCatalog: "Variables déclarées",
@@ -153,7 +153,7 @@ export const TITRES: Record<CheckFamily, string> = {
  * retard rend faux tout ce qui suit ; puis ce qui empêche de démarrer, qui
  * explique souvent le reste.
  */
-export const FAMILLES: readonly CheckFamily[] = [
+export const FAMILLES: readonly DoctorFamily[] = [
   "freshness",
   "readiness",
   "envCatalog",
@@ -185,10 +185,10 @@ export const FAMILLES: readonly CheckFamily[] = [
  * endroits — le compteur du bilan, le filtre du sommaire, et le dédoublonnage
  * des contrôles sautés.
  */
-export const SUBRULES: readonly CheckFamily[] = ["envCatalog", "envTracked"];
+export const SUBRULES: readonly DoctorFamily[] = ["envCatalog", "envTracked"];
 
 /** `true` si cette famille est une sous-règle de `readiness`. */
-export function isSubrule(famille: CheckFamily): boolean {
+export function isSubrule(famille: DoctorFamily): boolean {
   return SUBRULES.includes(famille);
 }
 
@@ -201,13 +201,13 @@ export function isSubrule(famille: CheckFamily): boolean {
  * recopiée en dur dans le compteur du bilan, et une famille ajoutée n'y entrait
  * pas.
  */
-export const COUNTED_FAMILIES: readonly CheckFamily[] = FAMILLES.filter(
+export const COUNTED_FAMILIES: readonly DoctorFamily[] = FAMILLES.filter(
   (f) => !isSubrule(f),
 );
 
 /** Un contrôle qui n'a PAS eu lieu, prêt à être rendu. */
 export interface IControleSaute {
-  famille: CheckFamily;
+  famille: DoctorFamily;
   titre: string;
   reason: string;
   unlock?: string;
@@ -255,7 +255,7 @@ export function preventedChecks(
  * @returns un élément par contrôle sauté, vide si tout a été regardé.
  */
 export function controlesSautes(
-  execution: Record<CheckFamily, IExecution>,
+  execution: Record<DoctorFamily, IExecution>,
 ): IControleSaute[] {
   const sautes: IControleSaute[] = [];
   for (const famille of FAMILLES) {

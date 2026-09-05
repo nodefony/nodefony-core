@@ -19,27 +19,27 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  collectCheckReport,
-  parseCheckArgv,
+  collectDoctorReport,
+  parseDoctorArgv,
   resoudreStrict,
-  runCheckCommand,
-} from "../kernel/checks/runCheck";
+  runDoctorCommand,
+} from "../kernel/checks/runDoctor";
 import {
   preventedChecks,
   controlesSautes,
   FAMILLES,
-  type CheckFamily,
+  type DoctorFamily,
   type IExecution,
 } from "../kernel/checks/report";
 import { liveNotRun, LIVE_FAMILIES } from "../kernel/checks/live";
 
 /** Un état d'exécution complet, à partir des seules familles qu'on veut poser. */
 const execution = (
-  sautees: Partial<Record<CheckFamily, string>>,
-): Record<CheckFamily, IExecution> => {
+  sautees: Partial<Record<DoctorFamily, string>>,
+): Record<DoctorFamily, IExecution> => {
   // Dérivé de FAMILLES, jamais réécrit : une liste en dur ici laissait les
   // familles neuves hors du décor, et le rendu plantait sur `undefined.ran`.
-  const etat = {} as Record<CheckFamily, IExecution>;
+  const etat = {} as Record<DoctorFamily, IExecution>;
   for (const f of FAMILLES) {
     const raison = sautees[f];
     etat[f] = raison ? { ran: false, reason: raison } : { ran: true };
@@ -53,7 +53,7 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
     // dont deux VERTES, pour des contrôles qui n'avaient rien ouvert.
     const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-vide-"));
     try {
-      const report = await collectCheckReport(dir);
+      const report = await collectDoctorReport(dir);
 
       assert.isFalse(
         report.execution.readiness.ran,
@@ -94,7 +94,7 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
       );
       mkdirSync(path.join(dir, "node_modules"), { recursive: true });
 
-      const report = await collectCheckReport(dir);
+      const report = await collectDoctorReport(dir);
 
       // La famille, elle, a bien tourné : c'est SA sous-règle « variable
       // requise » qui n'a rien pu lire, faute de `dist/`.
@@ -168,8 +168,8 @@ describe("doctor — un état d'exécution ABSENT n'est pas un état passé", ()
     // produit par une version qui ignorait cette famille, relu par une version
     // qui la connaît. Un outil de diagnostic ne doit jamais lever — c'est
     // précisément celui qu'on lance quand tout le reste est cassé.
-    const partiel = { ...execution({}) } as Record<CheckFamily, IExecution>;
-    delete (partiel as Partial<Record<CheckFamily, IExecution>>).migrations;
+    const partiel = { ...execution({}) } as Record<DoctorFamily, IExecution>;
+    delete (partiel as Partial<Record<DoctorFamily, IExecution>>).migrations;
     const sautes = controlesSautes(partiel);
     assert.deepEqual(
       sautes.map((s) => s.famille),
@@ -239,19 +239,19 @@ describe("doctor — sévérité d'un contrôle sauté", () => {
   });
 
   it("`--strict` et `--no-strict` sont acceptés par la ligne de commande", () => {
-    const strict = parseCheckArgv(["doctor", "--strict"]);
+    const strict = parseDoctorArgv(["doctor", "--strict"]);
     assert.isTrue("strict" in strict && strict.strict);
-    const lache = parseCheckArgv(["doctor", "--no-strict"]);
+    const lache = parseDoctorArgv(["doctor", "--no-strict"]);
     assert.isTrue("strict" in lache && !lache.strict);
     // Une option inconnue reste un refus : un drapeau mal tapé lançait
     // autrefois un run complet en silence.
-    assert.property(parseCheckArgv(["doctor", "--stritc"]), "error");
+    assert.property(parseDoctorArgv(["doctor", "--stritc"]), "error");
   });
 });
 
 /**
  * 🔴 La doctrine ci-dessus était prouvée sur la BRIQUE (`resoudreStrict`), et
- * sur elle seule. La CHAÎNE — `runCheckCommand` lit l'environnement, arme le
+ * sur elle seule. La CHAÎNE — `runDoctorCommand` lit l'environnement, arme le
  * régime, rend un code — n'était éprouvée nulle part.
  *
  * Ce trou a coûté une intégration continue rouge sur trois plateformes : deux
@@ -287,7 +287,7 @@ describe("doctor — la doctrine du régime strict, de bout en bout", () => {
     const write = process.stdout.write.bind(process.stdout);
     process.stdout.write = (() => true) as typeof process.stdout.write;
     try {
-      return await runCheckCommand(argv);
+      return await runDoctorCommand(argv);
     } finally {
       process.stdout.write = write;
     }
@@ -316,9 +316,9 @@ describe("doctor — la doctrine du régime strict, de bout en bout", () => {
   it("⭐ la COLLECTE pose elle-même « non demandé » sur l'étage 2", async () => {
     // La brique (`liveNotRun`) était éprouvée, la CHAÎNE ne l'était pas — c'est
     // par là que le défaut précédent était passé. Ici on vérifie que
-    // `collectCheckReport`, qui ne boote jamais, marque bien l'étage 2 comme
+    // `collectDoctorReport`, qui ne boote jamais, marque bien l'étage 2 comme
     // non DEMANDÉ, et les familles statiques comme empêchées.
-    const report = await collectCheckReport(dir);
+    const report = await collectDoctorReport(dir);
     assert.isTrue(report.execution.migrations.onDemand);
     assert.isTrue(report.execution.firewall.onDemand);
     assert.isUndefined(report.execution.deps.onDemand);
@@ -336,7 +336,7 @@ describe("doctor — le rapport JSON porte TOUT ce qui pèse sur le verdict", ()
     // causé — la famille était comptée dans le verdict et absente du flux.
     const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-json-"));
     try {
-      const report = await collectCheckReport(dir);
+      const report = await collectDoctorReport(dir);
       assert.property(report, "freshness");
       assert.property(report, "execution");
       for (const famille of [
@@ -345,7 +345,7 @@ describe("doctor — le rapport JSON porte TOUT ce qui pèse sur le verdict", ()
         "envCatalog",
         "deps",
         "wiring",
-      ] as CheckFamily[]) {
+      ] as DoctorFamily[]) {
         assert.property(
           report.execution,
           famille,

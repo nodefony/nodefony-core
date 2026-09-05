@@ -20,7 +20,7 @@ import {
   liveNotRun,
   LIVE_FAMILIES,
 } from "../kernel/checks/live";
-import { attachLive, type ICheckReport } from "../kernel/checks/runCheck";
+import { attachLive, type IDoctorReport } from "../kernel/checks/runDoctor";
 import { countFindings, controlesSautes } from "../kernel/checks/report";
 import type { IAdminApi, IAdminEndpoint } from "../types/IAdminApi";
 import { localOperatorCaller } from "../kernel/adminPlane/adminCaller";
@@ -261,7 +261,7 @@ describe("doctor --live — une absence n'est JAMAIS un quitus", () => {
 
 describe("doctor --live — la greffe sur le rapport statique", () => {
   /** Un rapport statique minimal, tel que la lecture pure le produit. */
-  const statique = (): ICheckReport => ({
+  const statique = (): IDoctorReport => ({
     root: "/app",
     appName: "app",
     scanned: 1,

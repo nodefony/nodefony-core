@@ -843,10 +843,10 @@ export { runGitHooksCommand, installGitHooks } from "./cli/gitHooks";
 // Diagnostic statique — la COLLECTE, séparée de son rendu, pour que la commande
 // `check` et le serveur MCP du devkit rendent le même document.
 export {
-  collectCheckReport,
+  collectDoctorReport,
   countCheckFindings,
-} from "./kernel/checks/runCheck";
-export type { ICheckReport } from "./kernel/checks/runCheck";
+} from "./kernel/checks/runDoctor";
+export type { IDoctorReport } from "./kernel/checks/runDoctor";
 
 export { buildCard, renderCard } from "./cli/cardReport";
 export {

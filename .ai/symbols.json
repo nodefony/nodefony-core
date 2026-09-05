@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T07:48:28.142Z",
+  "generated": "2026-09-05T08:25:00.503Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8719,8 +8719,8 @@
       "module": "@nodefony/core",
       "description": "Le verdict d'une famille de contrôles, tel qu'il s'affiche."
     },
-    "CheckFamily": {
-      "name": "CheckFamily",
+    "DoctorFamily": {
+      "name": "DoctorFamily",
       "kind": "type",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
@@ -8906,16 +8906,16 @@
     "ICheckRequest": {
       "name": "ICheckRequest",
       "kind": "interface",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce que la ligne de commande demande."
     },
-    "ICheckReport": {
-      "name": "ICheckReport",
+    "IDoctorReport": {
+      "name": "IDoctorReport",
       "kind": "interface",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
@@ -8924,7 +8924,7 @@
     "usage": {
       "name": "usage",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "L'usage, rendu avec le même soin que le rapport. Il se lit dans deux situations opposées : on découvre la commande, ou on vient de se tromper de drapeau. Il porte donc les deux réponses — ce que la…"
@@ -8932,7 +8932,7 @@
     "@nodefony/core:editDistance": {
       "name": "editDistance",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "La distance d'édition entre deux mots, bornée. Bornée parce qu'on ne cherche pas à mesurer : on cherche à savoir si deux mots sont à une ou deux frappes l'un de l'autre. Au-delà, la réponse est « n…"
@@ -8940,7 +8940,7 @@
     "likelyTypo": {
       "name": "likelyTypo",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le mode connu dont cet environnement est visiblement une faute de frappe. 🔴 Vécu, et c'est le pire mode de défaillance d'un diagnostic : `doctor --env produntion` rendait un rapport COMPLET et pla…"
@@ -8948,22 +8948,22 @@
     "resoudreStrict": {
       "name": "resoudreStrict",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core"
     },
-    "parseCheckArgv": {
-      "name": "parseCheckArgv",
+    "parseDoctorArgv": {
+      "name": "parseDoctorArgv",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Parse l'argv après le mot `check` (ou son alias `doctor`). La borne est le mot de commande, pas la position : le fast-path passe `process.argv` entier (`node`, chemin du binaire, `check`, …) tandis…"
     },
-    "collectCheckReport": {
-      "name": "collectCheckReport",
+    "collectDoctorReport": {
+      "name": "collectDoctorReport",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Collecte le diagnostic — sans rien imprimer. Séparé du rendu pour la même raison que la table des sujets d'`inspect` : dès qu'une deuxième porte existe, une collecte enfouie dans une fonction qui é…"
@@ -8971,30 +8971,30 @@
     "countCheckFindings": {
       "name": "countCheckFindings",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nombre total de manquements d'un rapport — le verdict, en un endroit. Délègue à {@link countFindings} : le rendu compte par la même fonction, et le bilan chiffré ne peut donc plus contredire le som…"
     },
-    "runCheckCommand": {
-      "name": "runCheckCommand",
+    "runDoctorCommand": {
+      "name": "runDoctorCommand",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core"
     },
     "attachLive": {
       "name": "attachLive",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Greffe l'étage 2 sur un rapport statique. En UN endroit, parce que la fusion porte une règle : les deux familles de l'étage 2 sont REMPLACÉES, jamais complétées. `collectCheckReport` les a posées à…"
+      "description": "Greffe l'étage 2 sur un rapport statique. En UN endroit, parce que la fusion porte une règle : les deux familles de l'étage 2 sont REMPLACÉES, jamais complétées. `collectDoctorReport` les a posées …"
     },
-    "renderCheckReport": {
-      "name": "renderCheckReport",
+    "renderDoctorReport": {
+      "name": "renderDoctorReport",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le rapport et décide du code de sortie. Séparé de la collecte pour une raison précise : `doctor --live` boote, donc il compose son rapport en DEUX temps (les fichiers, puis l'application) et d…"
@@ -9002,23 +9002,23 @@
     "isDoctorCommand": {
       "name": "isDoctorCommand",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "La commande demandée est-elle `doctor` (ou son alias historique `check`) ?"
+      "description": "La commande demandée est-elle `doctor` ? L'alias historique `check` a été RETIRÉ : il ne disait pas ce qu'il vérifie, et il entrait en collision de sens avec les scripts `typecheck` et `format:chec…"
     },
     "wantsLiveDoctor": {
       "name": "wantsLiveDoctor",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "L'invocation demande-t-elle l'étage 2 — celui qui exige un boot ? Une SEULE implémentation de la règle, parce qu'elle sert à deux endroits qui doivent s'accorder : le fast-path standalone (qui ne s…"
     },
-    "runCheckWithoutLive": {
-      "name": "runCheckWithoutLive",
+    "runDoctorWithoutLive": {
+      "name": "runDoctorWithoutLive",
       "kind": "function",
-      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le rapport de `doctor` alors que l'application vient d'échouer à démarrer. 🔴 C'est le cas POUR lequel la commande existe. `--live` sort du fast-path et demande un boot : sans ce chemin, une a…"
@@ -9240,17 +9240,6 @@
       "decorators": [],
       "description": "Commande `nodefony card` — la carte de visite de l'application : qui répond, où aller ensuite, quoi lancer. C'est la PREMIÈRE commande d'un agent (ou d'un humain) qui arrive dans une application qu…"
     },
-    "Check": {
-      "name": "Check",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/commands/CheckCommand.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Command",
-      "implements": [],
-      "decorators": [],
-      "description": "Commande `nodefony doctor` — contrôle la cohérence des paquets de l'application. Elle répond à une question qu'aucun test applicatif ne pose : **ce que mes modules importent, est-ce qu'ils le décla…"
-    },
     "Cluster": {
       "name": "Cluster",
       "kind": "class",
@@ -9302,6 +9291,17 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`true` si l'invocation demande un mode développement SANS superviseur. Lu sur `argv` et non sur les options analysées, comme `--detach` : ce choix décide de la topologie du process, donc il se tran…"
+    },
+    "Check": {
+      "name": "Check",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/DoctorCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony doctor` — contrôle la cohérence des paquets de l'application. Elle répond à une question qu'aucun test applicatif ne pose : **ce que mes modules importent, est-ce qu'ils le décla…"
     },
     "Env": {
       "name": "Env",
@@ -26429,11 +26429,11 @@
         "AiSync",
         "Build",
         "Card",
-        "Check",
         "Cluster",
         "Completion",
         "Create",
         "Dev",
+        "Check",
         "Env",
         "GitHooks",
         "Inspect",
@@ -27027,11 +27027,11 @@
         "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -27352,9 +27352,9 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/testing/index.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -29090,7 +29090,7 @@
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
@@ -29182,7 +29182,7 @@
       ],
       "defaultDevPorts": [
         "src/nodefony/src/cli/aiMcp.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -29436,31 +29436,31 @@
         "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "replier": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "replierListe": [
         "src/nodefony/src/cli/helpReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "titreSection": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IPalette": [
         "src/nodefony/src/cli/helpReport.ts",
         "src/nodefony/src/cli/tableReport.ts",
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "ICliManifest": [
         "src/nodefony/src/cli/manPage.ts",
@@ -29475,13 +29475,13 @@
       "doitColorer": [
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "largeurUtile": [
         "src/nodefony/src/cli/usageReport.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "RealtimeClient": [
@@ -29638,11 +29638,11 @@
         "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -29854,11 +29854,11 @@
       "isDoctorCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "runCheckCommand": [
+      "runDoctorCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
-      "runCheckWithoutLive": [
+      "runDoctorWithoutLive": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "wantsLiveDoctor": [
@@ -29980,7 +29980,7 @@
       "ILastBoot": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "LastBootProfile": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -30212,7 +30212,7 @@
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/checks/live.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
@@ -30244,9 +30244,9 @@
       "lookupSymbol": [
         "src/nodefony/src/mcp/tools.ts"
       ],
-      "collectCheckReport": [
+      "collectDoctorReport": [
         "src/nodefony/src/mcp/tools.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "countCheckFindings": [
         "src/nodefony/src/mcp/tools.ts"
@@ -30254,7 +30254,7 @@
       "controlesSautes": [
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IMcpToolDefinition": [
         "src/nodefony/src/mcp/tools.ts"
@@ -30383,7 +30383,7 @@
       ],
       "readRuntimeState": [
         "src/nodefony/src/testing/index.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devProjects.ts",
         "src/nodefony/src/service/dev/devStop.ts",
@@ -31202,12 +31202,12 @@
       ],
       "GateConfig": [
         "src/nodefony/src/kernel/checks/gating.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "IExecution": [
         "src/nodefony/src/kernel/checks/gating.ts",
         "src/nodefony/src/kernel/checks/live.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkGating": [
         "src/nodefony/src/kernel/checks/live.ts"
@@ -31234,22 +31234,22 @@
       ],
       "preventedChecks": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "countFindings": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "FAMILLES": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "COUNTED_FAMILIES": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "isSubrule": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "ligneSommaire": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
@@ -31265,11 +31265,11 @@
       ],
       "TITRES": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "CheckFamily": [
+      "DoctorFamily": [
         "src/nodefony/src/kernel/checks/renderReport.ts",
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "EtatSection": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
@@ -31286,7 +31286,7 @@
       "lastBootFileFor": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
-      "ICheckReport": [
+      "IDoctorReport": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "ILiveFinding": [
@@ -31296,59 +31296,59 @@
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "checkPackageDeps": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkWiring": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "readLastBoots": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "resolveEnvCascade": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkReadiness": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IPortProbe": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IReadinessResult": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "ITrackedEnvProbe": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkFreshness": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IFreshnessResult": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkSurface": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "ISurfaceResult": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkGuards": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IGuardResult": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "liveNotRun": [
-        "src/nodefony/src/kernel/checks/runCheck.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "LIVE_FAMILIES": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "ILiveResult": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "probePorts": [
-        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -31356,18 +31356,18 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "rendreRapport": [
-        "src/nodefony/src/kernel/checks/runCheck.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
         "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
-        "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -31399,25 +31399,6 @@
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
-      "attachLive": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
-      ],
-      "parseCheckArgv": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
-      ],
-      "renderCheckReport": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
-      ],
-      "collectLiveReport": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
-      ],
-      "readTargetProvision": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts"
-      ],
-      "localOperatorCaller": [
-        "src/nodefony/src/kernel/commands/CheckCommand.ts",
-        "src/nodefony/src/kernel/commands/InspectCommand.ts"
-      ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts"
@@ -31438,6 +31419,25 @@
       ],
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "attachLive": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "parseDoctorArgv": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "renderDoctorReport": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "collectLiveReport": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "readTargetProvision": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "localOperatorCaller": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "InspectFailure": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"

@@ -25,7 +25,6 @@
     "typecheck": "tsgo --noEmit",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run doctor",
     "doctor": "nodefony doctor",
-    "check": "npm run doctor",
     "inspect": "nodefony inspect",
     "ai:sync": "nodefony ai:sync",
     "see:setup": "npm i -D playwright axe-core",

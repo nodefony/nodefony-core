@@ -58,10 +58,19 @@ if (!existsSync(CORE)) {
 
 const { checkPackageDeps } = await import(pathToFileURL(CORE).href);
 
-// Source UNIQUE des exceptions : celle que lit aussi `nodefony doctor`.
+// Les exceptions que lit aussi `nodefony doctor` — clé `nodefony.doctor` du
+// manifeste racine.
+//
+// 🔴 Le commentaire disait « source UNIQUE » et ne l'était pas : la clé est lue
+// à DEUX endroits écrits séparément — ici, et `readExceptions` dans
+// `src/nodefony/src/kernel/checks/runDoctor.ts`. La duplication a divergé au
+// premier renommage : passer la clé de `check` à `doctor` a fait perdre à CE
+// script ses exceptions, et neuf manquements légitimement exemptés sont
+// réapparus d'un coup, sur un commit qui n'avait touché aucun des manifestes
+// accusés. Deux copies d'une règle passent chacune leurs propres tests.
 const { typeCycles, typesUnreachable } =
   JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).nodefony
-    ?.check ?? {};
+    ?.doctor ?? {};
 
 const { findings, scanned } = checkPackageDeps({
   roots: [

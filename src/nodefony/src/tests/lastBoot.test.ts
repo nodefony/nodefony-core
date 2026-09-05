@@ -28,7 +28,7 @@ import {
   lastBootFileFor,
   type ILastBoot,
 } from "../kernel/checks/lastBoot";
-import { runCheckCommand } from "../kernel/checks/runCheck";
+import { runDoctorCommand } from "../kernel/checks/runDoctor";
 
 const ok = (over: Partial<ILastBoot> = {}): ILastBoot => ({
   status: "ok",
@@ -51,7 +51,7 @@ const failed = (over: Partial<ILastBoot> = {}): ILastBoot =>
 /**
  * ⚠️ La LARGEUR est posée, elle n'est PAS héritée du terminal.
  *
- * `runCheckCommand` lit `process.stdout.columns` : sans cette pose, chaque
+ * `runDoctorCommand` lit `process.stdout.columns` : sans cette pose, chaque
  * machine rend un document différent, et une assertion `include` sur une phrase
  * devient un tirage au sort. Vécu — « SANS aucun serveur en écoute » passait sur
  * un terminal large et tombait en intégration continue, où la phrase est REPLIÉE
@@ -185,7 +185,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       // SAUTÉS de ce décor hors application — un code qui ne dit alors plus
       // rien du bilan de démarrage, seul objet de cette assertion.
       const { out, code } = await capture(() =>
-        runCheckCommand(["--no-strict"]),
+        runDoctorCommand(["--no-strict"]),
       );
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "onBoot");
@@ -207,7 +207,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         }),
       );
       const { out, code } = await capture(() =>
-        runCheckCommand(["--no-strict"]),
+        runDoctorCommand(["--no-strict"]),
       );
       assert.include(out, "abouti mais il MANQUE des briques");
       assert.include(out, "redis");
@@ -218,7 +218,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
 
     it("un profil serveur qui finit SANS serveur est nommé", async () => {
       writeLastBoot(dir, ok({ healthy: false }));
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.include(out, "SANS aucun serveur en écoute");
     });
 
@@ -235,7 +235,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           ],
         }),
       );
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       // « écartées exprès » : la nuance qui évite de chercher une panne là où
       // le gating a fait son travail. Les parenthèses de repli « (s) » ont
       // disparu du rendu — un rapport lu par quelqu'un accorde ses pluriels.
@@ -251,7 +251,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           remediation: "npm run clean && npm run build",
         }),
       );
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.include(out, "npm run clean && npm run build");
     });
 
@@ -260,19 +260,19 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         dir,
         ok({ healthy: true, warnings: 2, modulesLoaded: ["http"] }),
       );
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.notInclude(out, "MANQUE des briques");
       assert.notInclude(out, "a ÉCHOUÉ");
     });
 
     it("aucun bilan du tout : silence", async () => {
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.notInclude(out, "dernier démarrage");
     });
 
     it("`--json` porte le bilan, pour un agent qui le lit au `jq`", async () => {
       writeLastBoot(dir, failed());
-      const { out } = await capture(() => runCheckCommand(["--json"]));
+      const { out } = await capture(() => runDoctorCommand(["--json"]));
       // Un TABLEAU : serveur et console ont chacun leur bilan, et le premier
       // ne doit plus être écrasé par un `nodefony inspect` lancé pour le lire.
       const parsed = JSON.parse(out) as { lastBoots: ILastBoot[] };
@@ -337,7 +337,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           dir,
           failed({ profile: "console", command: "orm:migrate" }),
         );
-        const { out } = await capture(() => runCheckCommand([]));
+        const { out } = await capture(() => runDoctorCommand([]));
         assert.include(out, "nodefony orm:migrate");
         assert.include(out, "console");
       });
@@ -355,7 +355,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
             ],
           }),
         );
-        const { out } = await capture(() => runCheckCommand([]));
+        const { out } = await capture(() => runDoctorCommand([]));
         assert.include(out, "zone");
         assert.include(out, "aucun pare-feu posé");
       });
@@ -382,7 +382,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
 
     it("⭐ lancé dans `modules/blog`, il trouve le bilan de l'app", async () => {
       writeLastBoot(dir, failed());
-      const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", sub]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "Cannot find package 'redis'");
     });
@@ -395,7 +395,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       // racine réellement auscultée ET le dossier d'où l'on a tapé. Assertion
       // sur les deux chemins — un libellé se réécrit, un chemin absent est un
       // vrai défaut.
-      const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", sub]));
       assert.include(out, dir);
       assert.include(out, "lancé depuis");
       assert.include(out, sub);
@@ -403,14 +403,14 @@ describe("last-boot — le bilan du dernier démarrage", () => {
 
     it("`--json` porte la racine retenue", async () => {
       const { out } = await capture(() =>
-        runCheckCommand(["check", "--cwd", sub, "--json"]),
+        runDoctorCommand(["doctor", "--cwd", sub, "--json"]),
       );
       const parsed = JSON.parse(out) as { root: string };
       assert.equal(path.resolve(parsed.root), path.resolve(dir));
     });
 
     it("depuis la racine, aucune annonce — il n'y a rien à signaler", async () => {
-      const { out } = await capture(() => runCheckCommand(["--cwd", dir]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", dir]));
       assert.notInclude(out, "lancé depuis");
     });
 
@@ -422,7 +422,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         return true;
       }) as typeof process.stderr.write;
       try {
-        assert.equal(await runCheckCommand(["check", "--jsno"]), 64);
+        assert.equal(await runDoctorCommand(["doctor", "--jsno"]), 64);
       } finally {
         process.stderr.write = write;
       }
@@ -435,7 +435,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       // Ce dépôt-ci comme n'importe quel dossier de travail : le repli n'est
       // pas un cas dégradé, c'est un usage.
       writeLastBoot(dir, failed());
-      const { out } = await capture(() => runCheckCommand(["--cwd", dir]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", dir]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.notInclude(out, "lancé depuis");
     });

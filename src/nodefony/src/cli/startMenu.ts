@@ -162,7 +162,7 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
   },
   // ── Comprendre ───────────────────────────────────────────────────────────
   {
-    value: "check",
+    value: "doctor",
     contexts: ["project"],
     group: { project: menuGroupe("COMPRENDRE"), outside: null },
     when: "Diagnostic statique : marche même quand l'app ne démarre plus, et rapporte le bilan du dernier boot.",

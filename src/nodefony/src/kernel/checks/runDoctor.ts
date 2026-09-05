@@ -48,7 +48,7 @@ import {
   doitColorer,
   largeurUtile,
   type IPalette,
-  type CheckFamily,
+  type DoctorFamily,
   type IExecution,
 } from "./report";
 import { rendreRapport } from "./renderReport";
@@ -115,7 +115,7 @@ function wiringTargets(cwd: string): string[] {
  * Exceptions déclarées par le projet dans son `package.json` :
  *
  * ```json
- * "nodefony": { "check": { "typeCycles": {…}, "typesUnreachable": [...] } }
+ * "nodefony": { "doctor": { "typeCycles": {…}, "typesUnreachable": [...] } }
  * ```
  *
  * Sans cette porte, un projet portant un cycle de types légitime ne peut jamais
@@ -129,8 +129,8 @@ function readExceptions(cwd: string): {
 } {
   try {
     const raw = readFileSync(path.join(cwd, "package.json"), "utf8");
-    const check = (JSON.parse(raw) as { nodefony?: { check?: unknown } })
-      .nodefony?.check;
+    const check = (JSON.parse(raw) as { nodefony?: { doctor?: unknown } })
+      .nodefony?.doctor;
     return (check ?? {}) as {
       typeCycles?: Record<string, string[]>;
       typesUnreachable?: string[];
@@ -341,13 +341,11 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     )
       .map((l) => p.discret(l) + "\n")
       .join("") +
-    // L'alias tient sur la même ligne quand la place existe, passe dessous
-    // sinon : deux informations serrées valent mieux qu'une ligne coupée.
-    (largeur >= 66
-      ? `\n  usage : nodefony doctor [options]` +
-        p.discret(`        (alias : nodefony check)\n`)
-      : `\n  usage : nodefony doctor [options]\n` +
-        p.discret(`  alias : nodefony check\n`)) +
+    // Plus d'alias à annoncer : « check » a été retiré. Une aide qui nomme un
+    // second nom oblige le lecteur à choisir entre deux mots pour un seul
+    // geste, et fait vivre dans les scripts d'autrui celui qu'on veut voir
+    // disparaître.
+    `\n  usage : nodefony doctor [options]\n` +
     section("CE QU'IL REGARDE") +
     familles.map((l) => `  ${l}\n`).join("") +
     "\n" +
@@ -502,10 +500,10 @@ export function resoudreStrict(
  * filet de {@link Check.generate} ne passe que les options. Sans mot de
  * commande, tout l'argv reçu est donc considéré comme des options.
  */
-export function parseCheckArgv(
+export function parseDoctorArgv(
   argv: string[],
 ): ICheckRequest | { error: string } {
-  const at = argv.findIndex((w) => w === "check" || w === "doctor");
+  const at = argv.findIndex((w) => w === "doctor");
   const rest = at === -1 ? argv : argv.slice(at + 1);
   let json = false;
   let cwd = process.cwd();
@@ -594,7 +592,7 @@ export function parseCheckArgv(
  * (le serveur MCP) rende le MÊME objet — un diagnostic qui différerait selon
  * l'outil qui le demande serait pire qu'aucun diagnostic.
  */
-export interface ICheckReport {
+export interface IDoctorReport {
   /** Racine de l'application effectivement contrôlée. */
   root: string;
   /** `nom version` tel que le manifeste le déclare — vide s'il ne dit rien. */
@@ -655,7 +653,7 @@ export interface ICheckReport {
    * devant son terminal. C'est la moitié du diagnostic que l'absence de
    * manquements ne dit pas.
    */
-  execution: Record<CheckFamily, IExecution>;
+  execution: Record<DoctorFamily, IExecution>;
 }
 
 /**
@@ -673,10 +671,10 @@ export interface ICheckReport {
  * @param start - dossier de départ de la remontée
  * @returns le rapport complet, sans verdict ni code de sortie
  */
-export async function collectCheckReport(
+export async function collectDoctorReport(
   start: string,
   targetEnv: string | null = null,
-): Promise<ICheckReport> {
+): Promise<IDoctorReport> {
   const projectRoot = findProjectRoot(start);
   const cwd = projectRoot ?? start;
   const lastBoots = readLastBoots(cwd);
@@ -882,7 +880,7 @@ export async function collectCheckReport(
               short: "aucun paquet",
               unlock: "vérifie la racine visée (`--cwd`)",
             },
-      // L'étage 2 n'a pas eu lieu : `collectCheckReport` ne boote JAMAIS, c'est
+      // L'étage 2 n'a pas eu lieu : `collectDoctorReport` ne boote JAMAIS, c'est
       // ce qui lui permet de répondre sur une application cassée. La commande
       // remplace ces deux entrées quand `--live` a effectivement démarré.
       ...liveNotRun(
@@ -925,12 +923,12 @@ export async function collectCheckReport(
  * le bilan chiffré ne peut donc plus contredire le sommaire qui le surmonte.
  * Ce nom reste parce qu'il a voyagé (le serveur MCP le lit).
  */
-export function countCheckFindings(report: ICheckReport): number {
+export function countCheckFindings(report: IDoctorReport): number {
   return countFindings(report);
 }
 
-export async function runCheckCommand(argv: string[]): Promise<number> {
-  const parsed = parseCheckArgv(argv);
+export async function runDoctorCommand(argv: string[]): Promise<number> {
+  const parsed = parseDoctorArgv(argv);
   if ("error" in parsed) {
     // Un drapeau mal tapé ne doit JAMAIS se confondre avec un diagnostic : il
     // part sur la sortie d'erreur, avec l'usage, et un code distinct de celui
@@ -959,15 +957,15 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
   // Mesurée ICI, autour de la collecte seule : le rendu ne coûte rien, et un
   // chiffre qui l'inclurait mesurerait la vitesse du terminal.
   const debut = Date.now();
-  const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
-  return renderCheckReport(report, parsed, Date.now() - debut);
+  const report = await collectDoctorReport(parsed.cwd, parsed.targetEnv);
+  return renderDoctorReport(report, parsed, Date.now() - debut);
 }
 
 /**
  * Greffe l'étage 2 sur un rapport statique.
  *
  * En UN endroit, parce que la fusion porte une règle : les deux familles de
- * l'étage 2 sont REMPLACÉES, jamais complétées. `collectCheckReport` les a
+ * l'étage 2 sont REMPLACÉES, jamais complétées. `collectDoctorReport` les a
  * posées à « non demandé » — les laisser à côté du vrai résultat afficherait
  * deux états pour un seul contrôle, et le sommaire cesserait de dire la vérité.
  *
@@ -976,9 +974,9 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
  * @returns un rapport neuf ; l'entrée n'est pas modifiée
  */
 export function attachLive(
-  report: ICheckReport,
+  report: IDoctorReport,
   live: ILiveResult,
-): ICheckReport {
+): IDoctorReport {
   return {
     ...report,
     live,
@@ -998,8 +996,8 @@ export function attachLive(
  * @param parsed - la demande, telle que la ligne de commande l'a exprimée
  * @returns le code de sortie : 0 si rien à signaler, 1 sinon
  */
-export function renderCheckReport(
-  report: ICheckReport,
+export function renderDoctorReport(
+  report: IDoctorReport,
   parsed: ICheckRequest,
   dureeMs?: number,
 ): number {
@@ -1060,13 +1058,18 @@ function appName(racine: string): string {
 }
 
 /**
- * La commande demandée est-elle `doctor` (ou son alias historique `check`) ?
+ * La commande demandée est-elle `doctor` ?
+ *
+ * L'alias historique `check` a été RETIRÉ : il ne disait pas ce qu'il vérifie,
+ * et il entrait en collision de sens avec les scripts `typecheck` et
+ * `format:check` d'une application. Aucun paquet `@nodefony/*` n'étant publié
+ * (#175), ce nom n'a jamais atteint une application installée.
  *
  * @param requested - le nom de commande lu sur la ligne de commande.
- * @returns `true` pour `doctor` et `check`.
+ * @returns `true` pour `doctor`.
  */
 export function isDoctorCommand(requested: string | null): boolean {
-  return requested === "doctor" || requested === "check";
+  return requested === "doctor";
 }
 
 /**
@@ -1087,7 +1090,7 @@ export function wantsLiveDoctor(
   argv: readonly string[],
 ): boolean {
   if (!isDoctorCommand(requested)) return false;
-  const parsed = parseCheckArgv([...argv]);
+  const parsed = parseDoctorArgv([...argv]);
   // Un argv que la commande refuse (ou un `--help`) n'a pas à booter : le
   // fast-path rendra le refus ou l'usage, sans démarrer quoi que ce soit.
   return "error" in parsed ? false : parsed.live && !parsed.help;
@@ -1107,18 +1110,18 @@ export function wantsLiveDoctor(
  * @param unlock - le geste qui la rendrait interrogeable.
  * @returns le code de sortie du rapport.
  */
-export async function runCheckWithoutLive(
+export async function runDoctorWithoutLive(
   argv: string[],
   reason: string,
   unlock?: string,
 ): Promise<number> {
-  const parsed = parseCheckArgv(argv);
+  const parsed = parseDoctorArgv(argv);
   // Un argv que la commande elle-même refuse : c'est le refus qui prime, et
-  // `runCheckCommand` porte déjà sa mise en forme et son code distinct.
-  if ("error" in parsed || parsed.help) return runCheckCommand(argv);
+  // `runDoctorCommand` porte déjà sa mise en forme et son code distinct.
+  if ("error" in parsed || parsed.help) return runDoctorCommand(argv);
   const start = Date.now();
-  const report = await collectCheckReport(parsed.cwd, parsed.targetEnv);
-  return renderCheckReport(
+  const report = await collectDoctorReport(parsed.cwd, parsed.targetEnv);
+  return renderDoctorReport(
     attachLive(report, liveNotRun(reason, unlock)),
     parsed,
     Date.now() - start,

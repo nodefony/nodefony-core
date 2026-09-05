@@ -11,7 +11,7 @@ import { runGitHooksCommand } from "../cli/gitHooks";
 import { runCreateCommand } from "../cli/create";
 import { runCompletionCommand } from "../cli/completion";
 import { runStandaloneDevCommand } from "../service/dev/devStatusReport";
-import { runCheckCommand } from "../kernel/checks/runCheck";
+import { runDoctorCommand } from "../kernel/checks/runDoctor";
 
 /**
  * 🔴 Le pied de l'aide promet `nodefony <commande> --help`. Dix commandes le
@@ -49,7 +49,7 @@ const STANDALONE: ReadonlyArray<
   ["git:hooks", runGitHooksCommand],
   ["create", runCreateCommand],
   ["completion", runCompletionCommand],
-  ["doctor", runCheckCommand],
+  ["doctor", runDoctorCommand],
   ["status", () => runStandaloneDevCommand("status")],
   ["stop", () => runStandaloneDevCommand("stop")],
 ];

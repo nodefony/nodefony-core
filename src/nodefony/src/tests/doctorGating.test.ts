@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   preventedChecks,
-  type CheckFamily,
+  type DoctorFamily,
   type IControleSaute,
 } from "../kernel/checks/report";
 import {
@@ -387,7 +387,7 @@ describe("mode strict — un contrôle SANS MATIÈRE n'est pas un contrôle bloq
    * (sans objet), ou n'a-t-il pas pu regarder (empêché) ?
    */
   const saute = (
-    famille: CheckFamily,
+    famille: DoctorFamily,
     extra: Partial<IControleSaute> = {},
   ): IControleSaute => ({
     famille,
@@ -421,9 +421,9 @@ describe("mode strict — un contrôle SANS MATIÈRE n'est pas un contrôle bloq
     // qu'une correction se perd. On confronte donc au SOURCE — les états qui
     // disent « il n'y a rien » doivent porter la marque.
     const attendus: ReadonlyArray<readonly [string, string]> = [
-      ["../kernel/checks/runCheck.ts", "aucune entité"],
-      ["../kernel/checks/runCheck.ts", "aucune source"],
-      ["../kernel/checks/runCheck.ts", "aucune classe"],
+      ["../kernel/checks/runDoctor.ts", "aucune entité"],
+      ["../kernel/checks/runDoctor.ts", "aucune source"],
+      ["../kernel/checks/runDoctor.ts", "aucune classe"],
       ["../kernel/checks/live.ts", "aucun ORM"],
       ["../kernel/checks/live.ts", "sans migrations"],
       ["../kernel/checks/live.ts", "sans firewall"],

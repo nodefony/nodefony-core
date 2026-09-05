@@ -15,14 +15,20 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   isDoctorCommand,
-  runCheckWithoutLive,
+  runDoctorWithoutLive,
   wantsLiveDoctor,
-} from "../kernel/checks/runCheck";
+} from "../kernel/checks/runDoctor";
 
 describe("wantsLiveDoctor — UNE règle pour deux lecteurs", () => {
-  it("reconnaît `doctor` et son alias historique `check`", () => {
+  it("reconnaît `doctor`, et RIEN d'autre — l'alias `check` est retiré", () => {
     assert.isTrue(isDoctorCommand("doctor"));
-    assert.isTrue(isDoctorCommand("check"));
+    // 🔴 L'alias historique a été RETIRÉ, pas déprécié : il ne disait pas ce
+    // qu'il vérifie, et il entrait en collision de sens avec les scripts
+    // `typecheck` et `format:check` d'une application. Aucun paquet
+    // `@nodefony/*` n'étant publié (#175), ce nom n'a jamais atteint une
+    // application installée — une dépréciation aurait protégé des utilisateurs
+    // qui n'existent pas, au prix d'un second nom à porter toute la majeure.
+    assert.isFalse(isDoctorCommand("check"));
     assert.isFalse(isDoctorCommand("inspect"));
     assert.isFalse(isDoctorCommand(null));
   });
@@ -32,7 +38,7 @@ describe("wantsLiveDoctor — UNE règle pour deux lecteurs", () => {
       wantsLiveDoctor("doctor", ["node", "nodefony", "doctor", "--live"]),
     );
     assert.isTrue(
-      wantsLiveDoctor("check", ["node", "nodefony", "check", "--live"]),
+      wantsLiveDoctor("doctor", ["node", "nodefony", "doctor", "--live"]),
     );
     assert.isFalse(wantsLiveDoctor("doctor", ["node", "nodefony", "doctor"]));
   });
@@ -78,7 +84,7 @@ describe("wantsLiveDoctor — UNE règle pour deux lecteurs", () => {
   });
 });
 
-describe("runCheckWithoutLive — le rapport reste dû quand le boot est mort", () => {
+describe("runDoctorWithoutLive — le rapport reste dû quand le boot est mort", () => {
   let dir: string;
   /** Ce que la commande a écrit sur la sortie standard. */
   let sortie: string;
@@ -101,7 +107,7 @@ describe("runCheckWithoutLive — le rapport reste dû quand le boot est mort", 
   });
 
   const lancer = (argv: string[]) =>
-    runCheckWithoutLive(
+    runDoctorWithoutLive(
       argv,
       "l'application n'a pas démarré — connecteur injoignable",
       "corrige la cause ci-dessus, puis relance `nodefony doctor --live`",

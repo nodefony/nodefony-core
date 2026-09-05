@@ -585,7 +585,7 @@ ne les concerne pas. Un test qui IMPORTE un symbole de production suit
 | Ce qu'on écrit                                  | Langue       |
 | ----------------------------------------------- | ------------ |
 | `function renderReport()`, `const width` (prod) | **anglais**  |
-| `interface IRenderOptions`, `type CheckFamily`  | **anglais**  |
+| `interface IRenderOptions`, `type DoctorFamily` | **anglais**  |
 | Clés JSON, noms de fichiers, champs d'API       | **anglais**  |
 | TSDoc, `//`, `it("…")`, chaînes affichées       | **français** |
 | Variables et helpers LOCAUX d'un test           | libre        |

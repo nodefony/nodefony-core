@@ -242,7 +242,7 @@ rien à redéclarer.
 | --- | --- | --- |
 | `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue |
 | `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
-| `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
+| `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectDoctorReport`, `lookupSymbol`, `getCard`) |
 | `declareMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`. **Non servable tel quel** : contient les réservés |
 | `collectMcpTools(opts)` | `src/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
 | `mcpDeclaredScopes(opts)` | `src/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
@@ -318,12 +318,12 @@ rien à redéclarer.
 
 Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
 
-| Fichier           | Rôle                                                                                                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `runCheck.ts`     | COLLECTE (`collectCheckReport`) + ligne de commande + `renderCheckReport` (rendu + code) + `attachLive`. Ne met rien en forme.                                           |
-| `report.ts`       | Primitives PURES : `IExecution`, `CheckFamily`, `TITRES`, `FAMILLES`, `COUNTED_FAMILIES`, `countFindings`, `controlesSautes`, `preventedChecks`, palette, repli, accord. |
-| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                                    |
-| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                                                |
+| Fichier           | Rôle                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runCheck.ts`     | COLLECTE (`collectDoctorReport`) + ligne de commande + `renderDoctorReport` (rendu + code) + `attachLive`. Ne met rien en forme.                                          |
+| `report.ts`       | Primitives PURES : `IExecution`, `DoctorFamily`, `TITRES`, `FAMILLES`, `COUNTED_FAMILIES`, `countFindings`, `controlesSautes`, `preventedChecks`, palette, repli, accord. |
+| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                                     |
+| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                                                 |
 
 - **Un contrôle rend DEUX choses** : ses `findings`, et son `execution` (`{ran, reason, short, unlock}`).
   Une liste vide ne vaut quitus que si `ran` est vrai — c'est la moitié du

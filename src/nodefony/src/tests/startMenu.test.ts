@@ -48,7 +48,7 @@ describe("startMenu — composition pure du menu interactif", () => {
       "cluster",
       "status",
       "stop",
-      "check",
+      "doctor",
       "inspect",
       "env",
       "card",
@@ -206,7 +206,7 @@ describe("startMenu — composition pure du menu interactif", () => {
     // s'ouvre à `onStart` ; les commandes de module ne sont posées dans
     // commander qu'à `onPreRegister` (dispatch différé). Un menu qui PROPOSE un
     // geste puis le refuse est pire que celui qui ne le proposait pas.
-    const builtins = new Set(["development", "inspect", "check"]);
+    const builtins = new Set(["development", "inspect", "doctor"]);
     const isBuiltin = (n: string) => builtins.has(n);
 
     assert.deepEqual(planMenuAction("http:network", isBuiltin), {
@@ -353,7 +353,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
     };
     const cli = {
       quietBoot: false,
-      getCommand: (n: string) => (n === "check" ? commande : undefined),
+      getCommand: (n: string) => (n === "doctor" ? commande : undefined),
       initSyslog: () => journal.push("syslog"),
     };
     return { cli, journal };
@@ -372,7 +372,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande qui déclare quietBoot fait taire le boot — ET rejoue le filtre", async () => {
     const { cli, journal } = fauxCli(true);
-    (await menuAvec(cli)).appliquerCapacites("check");
+    (await menuAvec(cli)).appliquerCapacites("doctor");
     expect(cli.quietBoot).toBe(true);
     // Sans ce second appel, le filtre resterait celui calculé au démarrage du
     // menu, quand personne ne savait encore quelle commande serait choisie.
@@ -382,7 +382,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande qui ne le déclare pas ne fait taire personne", async () => {
     const { cli, journal } = fauxCli(false);
-    (await menuAvec(cli)).appliquerCapacites("check");
+    (await menuAvec(cli)).appliquerCapacites("doctor");
     expect(cli.quietBoot).toBe(false);
     expect(journal).not.toContain("syslog");
     // Elle reste interactive : c'est un choix, pas une frappe.

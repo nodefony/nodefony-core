@@ -1000,7 +1000,7 @@ describe("MCP — conformité de la révision 2026-07-28", () => {
 });
 
 describe("MCP — les outils de diagnostic", () => {
-  // ⚠️ Ce cas EXÉCUTE le diagnostic complet du dépôt (`collectCheckReport`
+  // ⚠️ Ce cas EXÉCUTE le diagnostic complet du dépôt (`collectDoctorReport`
   // balaie les sources réelles) : quelques secondes, et davantage sur une
   // machine partagée. Le timeout par défaut de vitest — 5 s — n'avait donc
   // jamais été CHOISI pour lui : il passait ici et tombait sur les six jobs de

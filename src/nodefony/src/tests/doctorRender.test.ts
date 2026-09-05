@@ -27,10 +27,10 @@ import {
   doitColorer,
   FAMILLES,
   unitesInsecables,
-  type CheckFamily,
+  type DoctorFamily,
   type IExecution,
 } from "../kernel/checks/report";
-import { usage, parseCheckArgv } from "../kernel/checks/runCheck";
+import { usage, parseDoctorArgv } from "../kernel/checks/runDoctor";
 import {
   creerPalette,
   TITRES,
@@ -39,7 +39,7 @@ import {
 import { readFileSync as lireFichier } from "node:fs";
 import cheminDeFichier from "node:path";
 import { fileURLToPath as versChemin } from "node:url";
-import type { ICheckReport } from "../kernel/checks/runCheck";
+import type { IDoctorReport } from "../kernel/checks/runDoctor";
 
 /** Retire les séquences ANSI pour mesurer la LARGEUR VUE, pas celle écrite. */
 const nu = (s: string): string =>
@@ -49,7 +49,7 @@ const nu = (s: string): string =>
 const ANSI = /\[/u;
 
 /** Un rapport complet, ajusté par ce que le cas veut éprouver. */
-const rapport = (patch: Partial<ICheckReport> = {}): ICheckReport => ({
+const rapport = (patch: Partial<IDoctorReport> = {}): IDoctorReport => ({
   root: "/app",
   appName: "mon-app 1.0.0",
   scanned: 3,
@@ -110,15 +110,15 @@ const options = (patch: Partial<IOptionsRendu> = {}): IOptionsRendu => ({
  */
 const etats = (
   defaut: IExecution,
-  patch: Partial<Record<CheckFamily, IExecution>> = {},
-): Record<CheckFamily, IExecution> => {
-  const out = {} as Record<CheckFamily, IExecution>;
+  patch: Partial<Record<DoctorFamily, IExecution>> = {},
+): Record<DoctorFamily, IExecution> => {
+  const out = {} as Record<DoctorFamily, IExecution>;
   for (const f of FAMILLES) out[f] = patch[f] ?? defaut;
   return out;
 };
 
 /** Tous les contrôles d'état sautés — le décor « hors application ». */
-const horsApplication = (): ICheckReport =>
+const horsApplication = (): IDoctorReport =>
   rapport({
     scanned: 0,
     wiring: { scanned: 0, findings: [] },
@@ -202,7 +202,7 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
           criticals: ["firewall : ".padEnd(220, "x")],
           error: { name: "BootError", message: "cause ".repeat(40) },
         },
-      ] as ICheckReport["lastBoots"],
+      ] as IDoctorReport["lastBoots"],
       // Un contrôle sauté à raison LONGUE : sans lui, la section « non
       // contrôlé » n'est pas rendue et son repli n'est jamais éprouvé — un
       // décor incomplet fait passer un test qui ne mesure rien.
@@ -497,7 +497,7 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
         },
       ]).flatMap((g) => [
         {
-          famille: "migrations" as CheckFamily,
+          famille: "migrations" as DoctorFamily,
           titre: g.titres[0] ?? "",
           reason: g.reason,
           unlock: g.unlock,
@@ -582,11 +582,13 @@ describe("doctor --help", () => {
     const source = lireFichier(
       cheminDeFichier.join(
         cheminDeFichier.dirname(versChemin(import.meta.url)),
-        "../kernel/checks/runCheck.ts",
+        "../kernel/checks/runDoctor.ts",
       ),
       "utf8",
     );
-    const zone = source.slice(source.indexOf("export function parseCheckArgv"));
+    const zone = source.slice(
+      source.indexOf("export function parseDoctorArgv"),
+    );
     const drapeaux = new Set(
       [...zone.matchAll(/word === "(--[a-z-]+)"/gu)].map((m) => m[1]),
     );
@@ -633,7 +635,7 @@ describe("doctor --help", () => {
   });
 
   it("`--help` est reconnu par le parseur, jamais rejeté", () => {
-    const parsed = parseCheckArgv(["doctor", "--help"]);
+    const parsed = parseDoctorArgv(["doctor", "--help"]);
     assert.notProperty(parsed, "error");
     assert.isTrue((parsed as { help: boolean }).help);
   });
