@@ -629,7 +629,10 @@ export type {
 export { getScaffoldSpec } from "./cli/scaffold/spec";
 // Le câblage des agents choisis à la création : UNE construction d'appel, servie
 // au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
-export { argvCablageMcp, planCablageMcp } from "./cli/create";
+export {
+  argvMcpWiring as argvCablageMcp,
+  mcpWiringPlan as planCablageMcp,
+} from "./cli/create";
 export type {
   IScaffoldQuestion,
   IScaffoldTypeSpec,

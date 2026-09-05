@@ -50,10 +50,10 @@ async function ask(
         .split(/[\s,]+/u)
         .filter(Boolean)
         .map((n) => Number.parseInt(n, 10));
-      const valides = nums.every(
+      const valid = nums.every(
         (n) => Number.isInteger(n) && n >= 1 && n <= spec.choices!.length,
       );
-      if (valides) {
+      if (valid) {
         // Un TABLEAU, jamais une chaîne à virgules : le moteur garde chaque
         // valeur d'une question `list` ENTIÈRE et ne re-découpe rien — « a,b »
         // y deviendrait UNE valeur nommée « a,b », que personne ne verrait.
@@ -104,7 +104,7 @@ export async function confirm(
   // ⭐ Ancre l'event loop le temps des questions : `create app` est servi sans
   // démarrer quoi que ce soit, donc l'attente d'une frappe est la seule chose
   // qui reste — et Node ne compte que les handles. Cf `cli/prompts.ts`.
-  const relacheAncre = anchorEventLoop();
+  const releaseAnchor = anchorEventLoop();
   const rl = readline.createInterface({ input, output });
   try {
     const raw = await rl.question(`${question} [O/n] `);
@@ -112,7 +112,7 @@ export async function confirm(
     return t === "" || t === "o" || t === "y" || t === "oui" || t === "yes";
   } finally {
     rl.close();
-    relacheAncre();
+    releaseAnchor();
   }
 }
 
@@ -132,7 +132,7 @@ export async function askMissing(
   // ⭐ Ancre l'event loop le temps des questions : `create app` est servi sans
   // démarrer quoi que ce soit, donc l'attente d'une frappe est la seule chose
   // qui reste — et Node ne compte que les handles. Cf `cli/prompts.ts`.
-  const relacheAncre = anchorEventLoop();
+  const releaseAnchor = anchorEventLoop();
   const rl = readline.createInterface({ input, output });
   const answers: TScaffoldAnswers = { ...partial };
   try {
@@ -157,7 +157,7 @@ export async function askMissing(
     }
   } finally {
     rl.close();
-    relacheAncre();
+    releaseAnchor();
   }
   return answers;
 }

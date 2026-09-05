@@ -16,11 +16,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
-  argvCablageMcp,
+  argvMcpWiring,
   createExitCode,
-  doitDemanderLeType,
+  shouldAskForType,
   parseCreateArgv,
-  planCablageMcp,
+  mcpWiringPlan,
   renderDryRun,
   runCreateCommand,
   type ICreateRequest,
@@ -6654,13 +6654,13 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
   );
 
   it("aucun agent coché → RIEN n'est écrit (pas même le .mcp.json)", () => {
-    assert.isNull(argvCablageMcp([], AGENT_TARGETS, "/tmp/app"));
+    assert.isNull(argvMcpWiring([], AGENT_TARGETS, "/tmp/app"));
   });
 
   it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
     assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
     const cle = parCli[0]!.key;
-    assert.deepEqual(argvCablageMcp([cle], AGENT_TARGETS, "/tmp/app"), [
+    assert.deepEqual(argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app"), [
       "ai:mcp",
       "--cwd",
       "/tmp/app",
@@ -6676,11 +6676,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       1,
       "fixture : au moins un agent servi par fichier",
     );
-    const argv = argvCablageMcp(
-      [parFichier[0]!.key],
-      AGENT_TARGETS,
-      "/tmp/app",
-    );
+    const argv = argvMcpWiring([parFichier[0]!.key], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
     assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
   });
@@ -6689,7 +6685,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     // Il ne correspond à aucun outil de la table : c'est le cas de l'agent
     // conforme qu'on ne pilote pas. `--agent none` dit « aucune CLI », pas
     // « rien faire » — le `.mcp.json` est écrit, et c'est lui que l'agent lit.
-    const argv = argvCablageMcp(["standard"], AGENT_TARGETS, "/tmp/app");
+    const argv = argvMcpWiring(["standard"], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
     assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
     assert.include(argv ?? [], "--auth");
@@ -6697,22 +6693,22 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent NON coché ne part jamais dans l'appel", () => {
     if (parCli.length < 2) return;
-    const argv = argvCablageMcp([parCli[0]!.key], AGENT_TARGETS, "/tmp/app");
+    const argv = argvMcpWiring([parCli[0]!.key], AGENT_TARGETS, "/tmp/app");
     assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.key);
   });
 
   it("des agents choisis + app installée ET construite → on câble", () => {
     assert.deepEqual(
-      planCablageMcp({ choisis: 1, installed: true, built: true }),
+      mcpWiringPlan({ chosen: 1, installed: true, built: true }),
       { propose: true },
     );
   });
 
   it("aucun agent choisi → rien n'est écrit, ici comme hors terminal", () => {
-    const plan = planCablageMcp({ choisis: 0, installed: true, built: true });
+    const plan = mcpWiringPlan({ chosen: 0, installed: true, built: true });
     assert.isFalse(plan.propose);
     assert.include(
-      plan.propose === false ? plan.motif : "",
+      plan.propose === false ? plan.pattern : "",
       "aucun agent",
       "le motif doit NOMMER la raison — un refus muet se lit comme une panne",
     );
@@ -6723,12 +6719,12 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       { installed: false, built: false },
       { installed: true, built: false },
     ]) {
-      const plan = planCablageMcp({ choisis: 1, ...etat });
+      const plan = mcpWiringPlan({ chosen: 1, ...etat });
       assert.isFalse(
         plan.propose,
         `attendu refusé pour ${JSON.stringify(etat)}`,
       );
-      assert.include(plan.propose === false ? plan.motif : "", "kernel");
+      assert.include(plan.propose === false ? plan.pattern : "", "kernel");
     }
   });
 });
@@ -6866,18 +6862,18 @@ describe("create sans type — le menu propose, la commande doit DEMANDER", () =
   const FAUTE = "type requis : app | module (reçu : ap)";
 
   it("aucun type + terminal → on demande, au lieu de rendre l'usage", () => {
-    assert.isTrue(doitDemanderLeType(RIEN, { isTTY: true, yes: false }));
+    assert.isTrue(shouldAskForType(RIEN, { isTTY: true, yes: false }));
   });
 
   it("hors terminal → l'usage, car personne ne peut répondre", () => {
-    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: false, yes: false }));
+    assert.isFalse(shouldAskForType(RIEN, { isTTY: false, yes: false }));
   });
 
   it("--yes dit « ne me demande rien » — il est respecté", () => {
-    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: true, yes: true }));
+    assert.isFalse(shouldAskForType(RIEN, { isTTY: true, yes: true }));
   });
 
   it("un type FAUTIF se corrige, il ne se remplace pas par une question", () => {
-    assert.isFalse(doitDemanderLeType(FAUTE, { isTTY: true, yes: false }));
+    assert.isFalse(shouldAskForType(FAUTE, { isTTY: true, yes: false }));
   });
 });

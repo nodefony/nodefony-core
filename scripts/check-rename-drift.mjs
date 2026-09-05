@@ -65,18 +65,27 @@ const nameOfEntry = (entry) =>
 // — et les propriétés d'objet qui le portent — changer partout ailleurs. Un
 // contrôle qui ne regarderait que la table du fichier accuserait ces
 // changements-là d'être hors plan.
-const globalPlan = new Map();
-for (const table of Object.values(plan)) {
+// Une entrée « nom@ligne » vise UNE déclaration : le même nom peut donc partir
+// vers deux cibles (une variable locale et un paramètre homonymes). Seule une
+// entrée SANS ligne engage TOUTES les déclarations du nom — c'est elle, et elle
+// seule, qui promet que rien ne reste.
+const globalPlan = [];
+const totalRenames = new Map();
+for (const [file, table] of Object.entries(plan)) {
   for (const [entry, newName] of Object.entries(table)) {
     const from = nameOfEntry(entry);
-    const known = globalPlan.get(from);
-    if (known !== undefined && known !== newName) {
-      console.log(
-        `✗ plan ambigu — « ${from} » visé à la fois par « ${known} » et « ${newName} »`,
-      );
-      process.exit(2);
+    const pinned = entry !== from;
+    if (!pinned) {
+      const known = totalRenames.get(from);
+      if (known !== undefined && known !== newName) {
+        console.log(
+          `✗ plan ambigu — « ${from} » visé à la fois par « ${known} » et « ${newName} »`,
+        );
+        process.exit(2);
+      }
+      totalRenames.set(from, newName);
     }
-    globalPlan.set(from, newName);
+    globalPlan.push({ from, to: newName, pinned, file });
   }
 }
 
@@ -88,29 +97,49 @@ for (const [relFile, table] of Object.entries(plan)) {
   const after = fs.readFileSync(relFile, "utf8");
 
   /** Combien de DÉCLARATIONS portent chaque nom. */
+  /**
+   * Combien de liaisons portent chaque nom.
+   *
+   * Un raccourci de propriété (`{ famille }`) porte le nom comme une
+   * déclaration : les compter ensemble rend le solde insensible au va-et-vient
+   * entre les deux formes — TypeScript expanse le raccourci en renommant,
+   * `oxlint --fix` le resimplifie ensuite.
+   */
   const tally = (text) => {
     const { named, shorthands } = declarations(text, relFile);
     const counts = new Map();
-    const short = new Map();
-    for (const name of named) counts.set(name, (counts.get(name) ?? 0) + 1);
-    for (const name of shorthands) short.set(name, (short.get(name) ?? 0) + 1);
-    return { counts, short };
+    for (const name of [...named, ...shorthands]) {
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return counts;
   };
-  const { counts: countsBefore, short: shortBefore } = tally(before);
-  const { counts: countsAfter, short: shortAfter } = tally(after);
+  const countsBefore = tally(before);
+  const countsAfter = tally(after);
 
   const nameOf = nameOfEntry;
   /** Ce que le plan promet de faire gagner à chaque nom cible. */
   const promised = new Map();
   const asked = new Set(Object.keys(table).map(nameOf));
-  for (const [from, newName] of globalPlan) {
+  const seen = new Set();
+  for (const { from, to: newName, pinned, file } of globalPlan) {
+    // Une entrée ciblée par sa ligne ne concerne QUE le fichier qui la porte.
+    if (pinned && file !== relFile) continue;
+    if (pinned) {
+      // Une déclaration ciblée par sa ligne : elle retire un porteur au nom de
+      // départ et en donne un au nom d'arrivée, sans rien promettre d'autre.
+      promised.set(newName, (promised.get(newName) ?? 0) + 1);
+      promised.set(from, (promised.get(from) ?? 0) - 1);
+      continue;
+    }
+    if (seen.has(from)) continue;
+    seen.add(from);
     const moved = countsBefore.get(from) ?? 0;
     if (moved === 0) {
       // Un nom demandé POUR ce fichier et introuvable est une faute de plan ;
       // un nom venu d'un autre fichier du lot n'a rien à faire ici.
       if (asked.has(from)) {
         console.log(
-          `✗ ${relFile} — « ${from} » : aucune déclaration de ce nom avant`,
+          `✗ ${relFile} — « ${from} » : aucune liaison de ce nom avant`,
         );
         drift += 1;
       }
@@ -119,16 +148,11 @@ for (const [relFile, table] of Object.entries(plan)) {
     const left = countsAfter.get(from) ?? 0;
     if (left > 0) {
       console.log(
-        `✗ ${relFile} — « ${from} » : ${left} déclaration(s) NON renommée(s)`,
+        `✗ ${relFile} — « ${from} » : ${left} liaison(s) NON renommée(s)`,
       );
       drift += 1;
     }
-    // Chaque raccourci devenu propriété ajoute une déclaration au nom d'ARRIVÉE.
-    const expanded = (shortBefore.get(from) ?? 0) - (shortAfter.get(from) ?? 0);
-    promised.set(
-      newName,
-      (promised.get(newName) ?? 0) + moved - left + expanded,
-    );
+    promised.set(newName, (promised.get(newName) ?? 0) + moved - left);
   }
 
   for (const [target, gain] of promised) {
@@ -136,7 +160,7 @@ for (const [relFile, table] of Object.entries(plan)) {
       (countsAfter.get(target) ?? 0) - (countsBefore.get(target) ?? 0);
     if (actual !== gain) {
       console.log(
-        `✗ ${relFile} — « ${target} » : ${actual} déclaration(s) de plus, le plan en promettait ${gain}` +
+        `✗ ${relFile} — « ${target} » : ${actual} liaison(s) de plus, le plan en promettait ${gain}` +
           " — un autre symbole a reçu ce nom, ou l'a perdu",
       );
       drift += 1;
@@ -144,13 +168,13 @@ for (const [relFile, table] of Object.entries(plan)) {
   }
 
   // Un nom qui disparaît sans être une source du plan est un symbole écrasé.
-  const sources = new Set(globalPlan.keys());
-  const targets = new Set(globalPlan.values());
+  const sources = new Set(globalPlan.map((e) => e.from));
+  const targets = new Set(globalPlan.map((e) => e.to));
   for (const [name, n] of countsBefore) {
     const now = countsAfter.get(name) ?? 0;
     if (now < n && !sources.has(name) && !targets.has(name)) {
       console.log(
-        `✗ ${relFile} — « ${name} » : ${n} → ${now} déclaration(s), HORS PLAN`,
+        `✗ ${relFile} — « ${name} » : ${n} → ${now} liaison(s), HORS PLAN`,
       );
       drift += 1;
     }

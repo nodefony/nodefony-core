@@ -276,12 +276,12 @@ const APP_SPEC: IScaffoldTypeSpec = {
           label: "Un autre agent, conforme aux standards ouverts",
           hint: "AGENTS.md + MCP déposés dans le projet, aucune CLI lancée",
         },
-        ...AGENT_TARGETS.map((cible) => ({
-          value: cible.key,
-          label: cible.name,
+        ...AGENT_TARGETS.map((target) => ({
+          value: target.key,
+          label: target.name,
           hint:
-            cible.declaration === "cli"
-              ? `configuré par sa CLI (\`${cible.bin}\`)`
+            target.declaration === "cli"
+              ? `configuré par sa CLI (\`${target.bin}\`)`
               : `se sert des fichiers du projet`,
         })),
       ],

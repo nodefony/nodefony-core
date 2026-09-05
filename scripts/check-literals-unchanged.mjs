@@ -18,6 +18,20 @@ import ts from "typescript";
 const argv = process.argv.slice(2);
 const i = argv.indexOf("--base");
 const base = i === -1 ? "HEAD" : argv[i + 1];
+/**
+ * Fichiers dont une chaîne change SCIEMMENT.
+ *
+ * Le seul cas légitime : une chaîne qui contient du CODE — un worker passé à
+ * `node -e`, par exemple. Ses identifiants suivent la même règle de langue que
+ * le reste, mais aucun outil ne les voit. L'exception doit être NOMMÉE à
+ * l'appel, jamais déduite : c'est ce qui la rend visible en revue.
+ */
+const exceptions = new Set(
+  argv.reduce(
+    (acc, a, k) => (a === "--except" ? [...acc, argv[k + 1]] : acc),
+    [],
+  ),
+);
 
 const changed = execFileSync("git", ["diff", "--name-only", base], {
   encoding: "utf8",
@@ -48,6 +62,10 @@ const literals = (text, fileName) => {
 let drift = 0;
 for (const file of changed) {
   if (!fs.existsSync(file)) continue;
+  if (exceptions.has(file)) {
+    console.log(`⚠️ ${file} — chaînes NON contrôlées (exception demandée)`);
+    continue;
+  }
   let before;
   try {
     before = execFileSync("git", ["show", `${base}:${file}`], {

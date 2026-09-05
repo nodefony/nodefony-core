@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T19:15:13.684Z",
+  "generated": "2026-09-05T19:24:55.052Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -1381,24 +1381,24 @@
       "module": "@nodefony/core",
       "description": "Le code de sortie de `create`, décidé à part — parce qu'il se teste. Le défaut qu'il ferme : la commande affichait « npm run build a échoué » puis rendait **0**. L'application existait bien, c'est …"
     },
-    "doitDemanderLeType": {
-      "name": "doitDemanderLeType",
+    "shouldAskForType": {
+      "name": "shouldAskForType",
       "kind": "function",
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Un type manquant se DEMANDE-t-il, ou l'usage est-il la bonne réponse ? PURE. Trois conditions, et chacune dit quelque chose de différent : - l'erreur est bien « aucun type » — un type FAUTIF (`crea…"
     },
-    "planCablageMcp": {
-      "name": "planCablageMcp",
+    "mcpWiringPlan": {
+      "name": "mcpWiringPlan",
       "kind": "function",
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Décide si `create app` CÂBLE la porte MCP chez les agents choisis. PURE. Deux refus, deux raisons qui n'ont rien à voir : - **aucun agent choisi** — et c'est le DÉFAUT (la question de la spec part …"
     },
-    "argvCablageMcp": {
-      "name": "argvCablageMcp",
+    "argvMcpWiring": {
+      "name": "argvMcpWiring",
       "kind": "function",
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
@@ -6063,8 +6063,8 @@
       "module": "@nodefony/core",
       "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
     },
-    "poserPointeursAgents": {
-      "name": "poserPointeursAgents",
+    "writeAgentPointers": {
+      "name": "writeAgentPointers",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
@@ -29513,7 +29513,7 @@
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
-      "poserPointeursAgents": [
+      "writeAgentPointers": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "SysExit": [
@@ -35193,9 +35193,6 @@
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
-      ],
-      "argvCablageMcp": [
-        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "suspendSupervisor": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"

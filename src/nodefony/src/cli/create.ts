@@ -650,7 +650,7 @@ function runBuild(dest: string): boolean {
  * un ORM ? » — celui qui ÉCRIT la migration, et celui qui l'ANNONCE quand elle
  * n'a pas pu l'être. Écrit deux fois, il divergerait au premier renommage.
  */
-const PAQUET_ORM = "@nodefony/drizzle";
+const ORM_PACKAGE = "@nodefony/drizzle";
 
 /**
  * L'application générée DÉCLARE-t-elle un ORM SQL ?
@@ -668,7 +668,7 @@ function appDeclareUnOrm(dest: string): boolean {
     const pkg = JSON.parse(
       readFileSync(path.join(dest, "package.json"), "utf8"),
     ) as { dependencies?: Record<string, string> };
-    return pkg.dependencies?.[PAQUET_ORM] !== undefined;
+    return pkg.dependencies?.[ORM_PACKAGE] !== undefined;
   } catch {
     // Un manifeste illisible n'est pas une application sans ORM : c'est une
     // application cassée, que les gardes amont ont déjà signalée. Ne rien
@@ -720,10 +720,10 @@ function appDeclareUnOrm(dest: string): boolean {
  */
 function runInitialMigration(
   dest: string,
-): { ecrite: boolean; note: string } | null {
+): { written: boolean; note: string } | null {
   // Ici on va EXÉCUTER : c'est donc l'installation qu'on constate, pas la
   // déclaration. Le manifeste dit l'intention, `node_modules` dit le moyen.
-  if (!existsSync(path.join(dest, "node_modules", PAQUET_ORM))) {
+  if (!existsSync(path.join(dest, "node_modules", ORM_PACKAGE))) {
     // Pas d'ORM SQL dans cette application : il n'y a pas de migration à écrire.
     return null;
   }
@@ -772,13 +772,13 @@ function runInitialMigration(
       },
     );
     if (applique.status === 0) {
-      return { ecrite: true, note: "écrite et appliquée (migrations/)" };
+      return { written: true, note: "écrite et appliquée (migrations/)" };
     }
     // L'écriture, elle, a bien eu lieu : le dire, plutôt que de laisser croire
     // que rien n'a été fait. Le geste qui reste est nommé — une base
     // injoignable au moment de la création est un cas parfaitement normal.
     return {
-      ecrite: true,
+      written: true,
       note:
         "écrite (migrations/), NON appliquée — lance « nodefony orm:migrate » " +
         "quand ta base répond",
@@ -786,14 +786,14 @@ function runInitialMigration(
   }
   // Le motif court, pris sur ce que le processus a VRAIMENT dit : un message
   // inventé ici enverrait chercher la panne ailleurs.
-  const sortie = `${r.stdout ?? ""}${r.stderr ?? ""}`;
-  const motif = sortie.includes("ECONNREFUSED")
+  const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  const pattern = output.includes("ECONNREFUSED")
     ? "base injoignable"
     : `code ${String(r.status)}`;
   return {
-    ecrite: false,
+    written: false,
     note:
-      `NON écrite (${motif}) — lance « nodefony orm:generate --name init » ` +
+      `NON écrite (${pattern}) — lance « nodefony orm:generate --name init » ` +
       `puis « nodefony orm:migrate » quand ta base répond`,
   };
 }
@@ -845,14 +845,14 @@ function poseSkillPointers(dest: string): string {
  * - `--yes` n'a pas été demandé : il dit « ne me demande rien », et le
  *   respecter vaut mieux que de rendre service.
  *
- * @param erreur - le motif rendu par l'analyse de la ligne de commande.
+ * @param error - le motif rendu par l'analyse de la ligne de commande.
  * @param ctx - terminal disponible, et présence de `--yes`.
  */
-export function doitDemanderLeType(
-  erreur: string,
+export function shouldAskForType(
+  error: string,
   ctx: { isTTY: boolean; yes: boolean },
 ): boolean {
-  return erreur.includes("reçu : rien") && ctx.isTTY && !ctx.yes;
+  return error.includes("reçu : rien") && ctx.isTTY && !ctx.yes;
 }
 
 /**
@@ -881,18 +881,18 @@ function descriptionType(type: string): string {
  * @param ctx - nombre d'agents choisis, et état réel de l'app générée.
  * @returns la proposition, ou le motif du refus (affiché tel quel).
  */
-export function planCablageMcp(ctx: {
-  choisis: number;
+export function mcpWiringPlan(ctx: {
+  chosen: number;
   installed: boolean;
   built: boolean;
-}): { propose: true } | { propose: false; motif: string } {
-  if (ctx.choisis === 0) {
-    return { propose: false, motif: "aucun agent choisi" };
+}): { propose: true } | { propose: false; pattern: string } {
+  if (ctx.chosen === 0) {
+    return { propose: false, pattern: "aucun agent choisi" };
   }
   if (!ctx.installed || !ctx.built) {
     return {
       propose: false,
-      motif:
+      pattern:
         "agents choisis mais app ni installée ni construite — " +
         "l'émission du jeton démarre le kernel ; à rejouer : npx nodefony ai:mcp",
     };
@@ -917,20 +917,20 @@ export function planCablageMcp(ctx: {
  * app neuve naît avec sa porte fermée ; l'ouvrir sans authentification serait un
  * défaut par défaut.
  *
- * @param choisis - clés cochées par l'utilisateur.
- * @param detectes - agents présents sur ce poste (source unique `AGENT_TARGETS`).
+ * @param chosen - clés cochées par l'utilisateur.
+ * @param detected - agents présents sur ce poste (source unique `AGENT_TARGETS`).
  * @param dest - racine de l'app générée.
  * @returns l'argv à passer à `ai:mcp`, ou `null` quand aucun agent n'est choisi
  *   — coder seul est un choix, et rien ne doit alors être écrit.
  */
-export function argvCablageMcp(
-  choisis: readonly string[],
-  detectes: readonly IAgentTarget[],
+export function argvMcpWiring(
+  chosen: readonly string[],
+  detected: readonly IAgentTarget[],
   dest: string,
 ): string[] | null {
-  if (choisis.length === 0) return null;
-  const parCli = detectes
-    .filter((c) => c.declaration === "cli" && choisis.includes(c.key))
+  if (chosen.length === 0) return null;
+  const parCli = detected
+    .filter((c) => c.declaration === "cli" && chosen.includes(c.key))
     .map((c) => c.key);
   return [
     "ai:mcp",
@@ -1023,7 +1023,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // personne pour répondre.
   if (
     "error" in parsed &&
-    doitDemanderLeType(parsed.error, {
+    shouldAskForType(parsed.error, {
       isTTY: process.stdin.isTTY === true,
       yes: argv.includes("--yes"),
     })
@@ -1040,9 +1040,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // Le type se glisse À LA PLACE qu'il aurait occupée si l'utilisateur
     // l'avait tapé : après le mot `create`, avant tout le reste.
     const at = argv.indexOf("create");
-    const complet = [...argv];
-    complet.splice(at === -1 ? argv.length : at + 1, 0, type);
-    parsed = parseCreateArgv(complet);
+    const fullName = [...argv];
+    fullName.splice(at === -1 ? argv.length : at + 1, 0, type);
+    parsed = parseCreateArgv(fullName);
   }
   if ("error" in parsed) {
     return printUsageError(PAGE, parsed.error);
@@ -1224,19 +1224,19 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     //
     // Non bloquant, comme le reste de la post-génération : le code est écrit,
     // un réseau absent ne doit pas transformer une génération réussie en échec.
-    const depsAjoutees = result.depsAdded ?? [];
-    if (parsed.install && depsAjoutees.length > 0) {
-      const racine = findProjectRoot(process.cwd());
-      const pose = racine !== null && runInstall(racine);
+    const addedDeps = result.depsAdded ?? [];
+    if (parsed.install && addedDeps.length > 0) {
+      const root = findProjectRoot(process.cwd());
+      const pose = root !== null && runInstall(root);
       process.stdout.write(
         pose
-          ? `\n✔ dépendance(s) installée(s) : ${depsAjoutees.join(", ")}\n`
+          ? `\n✔ dépendance(s) installée(s) : ${addedDeps.join(", ")}\n`
           : `\n⚠ npm install a échoué — relance-le à la racine du projet ` +
-              `(${depsAjoutees.join(", ")} est déclaré mais absent de node_modules)\n`,
+              `(${addedDeps.join(", ")} est déclaré mais absent de node_modules)\n`,
       );
-    } else if (depsAjoutees.length > 0) {
+    } else if (addedDeps.length > 0) {
       process.stdout.write(
-        `\n⚠ ${depsAjoutees.join(", ")} ajouté(s) au package.json et NON installé(s) ` +
+        `\n⚠ ${addedDeps.join(", ")} ajouté(s) au package.json et NON installé(s) ` +
           `(--no-install) → lance \`npm install\`\n`,
       );
     }
@@ -1287,11 +1287,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // AVANT git : la migration entre dans le commit initial, comme le lockfile —
   // c'est un artefact de l'application, pas un produit de build. Elle suit le
   // build : la commande démarre l'application, qui charge `dist/`.
-  let migrationEcrite = false;
+  let migrationWritten = false;
   if (built) {
     const migration = runInitialMigration(result.dest);
     if (migration !== null) {
-      migrationEcrite = migration.ecrite;
+      migrationWritten = migration.written;
       process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
     }
   }
@@ -1308,25 +1308,25 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // endroit pour le terminal, Studio et `--answers-json`. Ce qui autorise
   // l'écriture chez un tiers n'est pas la présence d'un humain, c'est un choix
   // EXPLICITE : rien de coché ⇒ rien d'écrit, y compris hors terminal.
-  const choisis = Array.isArray(answers.agents)
+  const chosen = Array.isArray(answers.agents)
     ? (answers.agents as string[])
     : [];
-  const cablage = planCablageMcp({
-    choisis: choisis.length,
+  const wiring = mcpWiringPlan({
+    chosen: chosen.length,
     installed,
     built,
   });
-  let mcpNote = cablage.propose ? "" : cablage.motif;
-  if (cablage.propose) {
-    const appelMcp = argvCablageMcp(choisis, AGENT_TARGETS, result.dest);
-    if (appelMcp === null) {
+  let mcpNote = wiring.propose ? "" : wiring.pattern;
+  if (wiring.propose) {
+    const mcpCall = argvMcpWiring(chosen, AGENT_TARGETS, result.dest);
+    if (mcpCall === null) {
       mcpNote = "aucun agent choisi";
     } else {
       // ⭐ MÊME implémentation que `nodefony ai:mcp` — APPELÉE, jamais
       // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
       // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
       // code de sortie, et l'émission du jeton avec sa durée et sa portée.
-      await runAiMcpCommand(appelMcp);
+      await runAiMcpCommand(mcpCall);
     }
   }
   if (mcpNote !== "") {
@@ -1360,7 +1360,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // Après `infra:up` : la commande démarre l'application, donc ouvre la
       // connexion — sans base joignable elle meurt avant d'écrire quoi que ce
       // soit.
-      (!migrationEcrite && appDeclareUnOrm(result.dest)
+      (!migrationWritten && appDeclareUnOrm(result.dest)
         ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n`
         : "") +
       // La console d'administration n'existe QUE si le préset l'a installée, et

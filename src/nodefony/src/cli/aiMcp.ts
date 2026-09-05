@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
-import { poserPointeursAgents } from "./scaffold/engine";
+import { writeAgentPointers } from "./scaffold/engine";
 import { SysExit } from "./sysexits";
 import { chargePrompts } from "./prompts";
 import {
@@ -938,7 +938,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     // choisis ; celui-ci referme le seul trou que ce filtrage ouvrait.
     // Jamais lors d'un retrait : on ne pose pas un fichier en débranchant.
     if (!parsed.remove) {
-      const poses = poserPointeursAgents(
+      const poses = writeAgentPointers(
         projectRoot,
         targets.map((c) => c.key),
         path.basename(projectRoot),

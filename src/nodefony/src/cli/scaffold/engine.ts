@@ -665,17 +665,17 @@ function renderProjectAgents(
   // jamais l'`AGENTS.md` qu'on vient d'écrire (constaté au source de chacun, cf
   // `IAgentTarget.instructions`). Chaque pointeur n'est écrit que s'il MANQUE :
   // celui qu'un développeur a remplacé lui appartient.
-  const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
-  for (const { file: fichier, agents } of pointeursInstructions(data.agents)) {
-    const cible = path.join(projectRoot, fichier);
-    if (writer.exists(cible)) continue;
-    const pointer = eta.renderString(gabarit, {
+  const template = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
+  for (const { file, agents } of pointeursInstructions(data.agents)) {
+    const target = path.join(projectRoot, file);
+    if (writer.exists(target)) continue;
+    const pointer = eta.renderString(template, {
       ...(data as unknown as Record<string, unknown>),
-      pointeur: fichier,
+      pointeur: file,
       agents: agents.join(" et "),
     });
-    writer.write(cible, pointer);
-    written.push(fichier);
+    writer.write(target, pointer);
+    written.push(file);
   }
 }
 
@@ -693,40 +693,40 @@ function renderProjectAgents(
  * remplacé lui appartient.
  *
  * @param projectRoot - racine de l'application.
- * @param cles - clés des agents concernés.
+ * @param keys - clés des agents concernés.
  * @param appName - nom de l'application (rendu dans le gabarit).
  * @returns les fichiers réellement écrits, relatifs à la racine.
  */
-export function poserPointeursAgents(
+export function writeAgentPointers(
   projectRoot: string,
-  cles: readonly string[],
+  keys: readonly string[],
   appName: string,
 ): string[] {
-  const pointeurs = pointeursInstructions(cles);
+  const pointeurs = pointeursInstructions(keys);
   if (pointeurs.length === 0) {
     return [];
   }
   const tplDir = path.join(findPackageRoot(), "templates", "app", "agents");
-  const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
+  const template = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
   const eta = new Eta({ autoEscape: false });
-  const ecrits: string[] = [];
-  for (const { file: fichier, agents } of pointeurs) {
-    const cible = path.join(projectRoot, fichier);
-    if (existsSync(cible)) {
+  const written: string[] = [];
+  for (const { file, agents } of pointeurs) {
+    const target = path.join(projectRoot, file);
+    if (existsSync(target)) {
       continue;
     }
     writeFileSync(
-      cible,
-      eta.renderString(gabarit, {
+      target,
+      eta.renderString(template, {
         appName,
-        pointeur: fichier,
+        pointeur: file,
         agents: agents.join(" et "),
       }),
       "utf8",
     );
-    ecrits.push(fichier);
+    written.push(file);
   }
-  return ecrits;
+  return written;
 }
 
 /**
@@ -1114,13 +1114,13 @@ export function runScaffold(
   // au vidage ferait annoncer une forme que l'exécution ne produit pas — une
   // option dont le seul rôle est de dire ce qui va se passer ne peut pas mentir.
   const forme = formatScaffoldOutput(writer, result.dest);
-  const rendu =
+  const rendered =
     forme.pending > 0 ? { ...result, unformatted: forme.pending } : result;
   if (options.dryRun) {
-    return { ...rendu, changes: writer.changes() };
+    return { ...rendered, changes: writer.changes() };
   }
   writer.commit();
-  return rendu;
+  return rendered;
 }
 
 /** Résout la spec puis route vers le scaffold du type demandé. */
@@ -1392,7 +1392,7 @@ function dispatchScaffold(
   // l'utilisateur n'a pas demandé encombre SON dépôt (« j'ai demandé un agent
   // claude, je me retrouve avec un GEMINI.md »). Ceux qu'on câble plus tard
   // reçoivent leur pointeur à ce moment-là (`nodefony ai:mcp --agent <clé>`).
-  const agentsChoisis = Array.isArray(answers.agents)
+  const chosenAgents = Array.isArray(answers.agents)
     ? (answers.agents as string[])
     : [];
   renderProjectAgents(
@@ -1411,7 +1411,7 @@ function dispatchScaffold(
         path.join(dest, "deploy", "migrate-job.yaml"),
       ),
       modules: [],
-      agents: agentsChoisis,
+      agents: chosenAgents,
     },
     written,
     writer,
@@ -1596,15 +1596,15 @@ export function wireRoleHierarchy(
   // Déjà déclaré, où que ce soit dans la hiérarchie : rejouer la commande ne
   // doit rien ajouter — et un rôle couvert par une AUTRE branche que
   // `ROLE_ADMIN` est un choix de l'utilisateur, qu'on ne corrige pas.
-  const bloc = /roleHierarchy\s*:\s*\{/u.exec(source);
-  if (!bloc || bloc.index === undefined) {
+  const block = /roleHierarchy\s*:\s*\{/u.exec(source);
+  if (!block || block.index === undefined) {
     return manual;
   }
   // Accolade fermante APPARIÉE du bloc — un `indexOf("}")` couperait à la
   // première sous-structure.
   let depth = 0;
   let close = -1;
-  for (let i = bloc.index + bloc[0].length - 1; i < source.length; i++) {
+  for (let i = block.index + block[0].length - 1; i < source.length; i++) {
     const char = source[i];
     if (char === "{") {
       depth++;
@@ -1619,13 +1619,13 @@ export function wireRoleHierarchy(
   if (close === -1) {
     return manual;
   }
-  const corps = source.slice(bloc.index, close);
-  if (corps.includes(`"${role}"`)) {
+  const body = source.slice(block.index, close);
+  if (body.includes(`"${role}"`)) {
     return null;
   }
   // La ligne `ROLE_ADMIN: [...]`, DANS ce bloc seulement — le fichier peut
   // porter ce nom ailleurs (le semis de comptes le cite en commentaire).
-  const admin = /(ROLE_ADMIN\s*:\s*\[)([^\]]*)(\])/u.exec(corps);
+  const admin = /(ROLE_ADMIN\s*:\s*\[)([^\]]*)(\])/u.exec(body);
   if (!admin || admin.index === undefined) {
     return manual;
   }
@@ -1634,16 +1634,16 @@ export function wireRoleHierarchy(
   // plusieurs lignes — et une application qui déclare cinq rôles y arrive vite.
   // Sans ce trim, on écrirait `[…"ROLE_USER",, "ROLE_X"]` : un manifeste qui ne
   // compile plus, produit par la commande censée le câbler.
-  const dedans = (admin[2] ?? "").replace(/,\s*$/u, "");
-  const separateur = dedans.trim().length > 0 ? ", " : "";
-  const remplace = `${admin[1]}${dedans}${separateur}"${role}"${admin[3]}`;
-  const corpsPatche =
-    corps.slice(0, admin.index) +
-    remplace +
-    corps.slice(admin.index + admin[0].length);
+  const inner = (admin[2] ?? "").replace(/,\s*$/u, "");
+  const separator = inner.trim().length > 0 ? ", " : "";
+  const replacement = `${admin[1]}${inner}${separator}"${role}"${admin[3]}`;
+  const patchedBody =
+    body.slice(0, admin.index) +
+    replacement +
+    body.slice(admin.index + admin[0].length);
   writer.write(
     configPath,
-    source.slice(0, bloc.index) + corpsPatche + source.slice(close),
+    source.slice(0, block.index) + patchedBody + source.slice(close),
   );
   return null;
 }
@@ -2435,28 +2435,28 @@ function findTargetService(
   if (callables.length === 0) {
     return null;
   }
-  const noms = callables
+  const names = callables
     .map((s) => `${s.pascal} (clé « ${s.key} »)`)
     .join(", ");
   if (wanted !== undefined) {
-    const cherche = wanted.toLowerCase().replace(/service$/u, "");
-    const trouve = callables.find(
+    const needle = wanted.toLowerCase().replace(/service$/u, "");
+    const found = callables.find(
       (s) =>
-        s.pascal.toLowerCase().replace(/service$/u, "") === cherche ||
+        s.pascal.toLowerCase().replace(/service$/u, "") === needle ||
         s.key.toLowerCase() === wanted.toLowerCase(),
     );
-    if (trouve === undefined) {
+    if (found === undefined) {
       throw new Error(
         `--service ${wanted} : aucun service de ce nom dans ${targetDir} — ` +
-          `services appelables : ${noms}`,
+          `services appelables : ${names}`,
       );
     }
-    return trouve;
+    return found;
   }
   if (callables.length > 1) {
     throw new Error(
       `--service : ${callables.length} services appelables, précise lequel ` +
-        `(--service <Nom>) — ${noms}`,
+        `(--service <Nom>) — ${names}`,
     );
   }
   return callables[0];
@@ -3248,9 +3248,9 @@ function runEntityScaffold(
     //
     // Ces noms sont figés pour la version 1, et l'asymétrie décide : les
     // desserrer plus tard est additif, les resserrer serait une rupture.
-    const refuse = (option: string, valeur: string, impose: string): never => {
+    const refuse = (option: string, value: string, impose: string): never => {
       throw new Error(
-        `create entity ${pascal} : « ${option} ${valeur} » est refusé — ${impose}. ` +
+        `create entity ${pascal} : « ${option} ${value} » est refusé — ${impose}. ` +
           `Le framework écrit ces noms en dur dans ses requêtes (recherche par compte ` +
           `externe, listing) : une divergence ne lèverait pas, elle rendrait ` +
           `simplement des résultats vides.\n  → relancer sans « ${option} »`,
@@ -3688,19 +3688,19 @@ function runEntityScaffold(
   //
   // Quand la configuration ne dit rien, le mode sera résolu au démarrage depuis
   // l'environnement : on décrit alors les DEUX régimes, comme avant.
-  const modeEcrit = readConnectors(projectRoot, writer).find(
+  const writtenMode = readConnectors(projectRoot, writer).find(
     (c) => c.name === connector,
   )?.ddl;
-  const schemaFabriqueAuBoot = modeEcrit !== "none" && modeEcrit !== "migrate";
+  const schemaBuiltAtBoot = writtenMode !== "none" && writtenMode !== "migrate";
   const notes = [
     ...ormRuntimeNote,
     // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
     // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
     // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
-    schemaFabriqueAuBoot
+    schemaBuiltAtBoot
       ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
-      : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${modeEcrit}) — le démarrage ne la crée PAS`,
-    ...(schemaFabriqueAuBoot
+      : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
+    ...(schemaBuiltAtBoot
       ? [
           `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
           `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
@@ -3822,7 +3822,7 @@ export function findModuleClassAnchor(source: string): number | undefined {
  * @param className - nom exporté du descripteur.
  * @param importPath - chemin d'import, en `/`.
  * @param writer - écrivain du scaffold (respecte `--dry-run`).
- * @param dejaCableEstNormal - `true` quand RÉGÉNÉRER l'entité est le geste
+ * @param alreadyWiredIsNormal - `true` quand RÉGÉNÉRER l'entité est le geste
  *   attendu, et non un doublon. C'est le cas de l'utilisateur : son fichier
  *   PRESCRIT « relance la commande avec tes champs », et l'entité est déjà
  *   câblée depuis la naissance de l'application. Le refus reste entier pour
@@ -3836,11 +3836,11 @@ export function wireEntitiesDecorator(
   className: string,
   importPath: string,
   writer: ScaffoldWriter,
-  dejaCableEstNormal = false,
+  alreadyWiredIsNormal = false,
 ): void {
   const source = writer.read(indexPath);
   if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
-    if (dejaCableEstNormal) {
+    if (alreadyWiredIsNormal) {
       // Rien à faire : l'import et l'entrée du décorateur sont déjà là, et ce
       // sont les MÊMES — le fichier d'entité vient d'être réécrit sous le même
       // nom. Ajouter une seconde entrée ferait échouer le boot sur un doublon
