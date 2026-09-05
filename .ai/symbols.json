@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T08:25:00.503Z",
+  "generated": "2026-09-05T08:30:37.418Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 809,
-    "symbols": 3843,
+    "symbols": 3845,
     "classes": 383,
     "interfaces": 1047,
     "types": 439,
     "enums": 4,
-    "functions": 1587,
+    "functions": 1589,
     "constants": 383
   },
   "symbols": {
@@ -8231,6 +8231,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Confronte les sources au build, et la version de Node au plancher déclaré."
+    },
+    "checkFrameworkBuild": {
+      "name": "checkFrameworkBuild",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les paquets `@nodefony/*` LIÉS dont le build manque ou date d'avant les sources. Le runtime charge le `dist/` d'un paquet, jamais ses sources — exactement comme pour l'application. La différence es…"
     },
     "IProvidedService": {
       "name": "IProvidedService",

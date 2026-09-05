@@ -22,13 +22,25 @@
  * sens, et le dit dans son message.
  */
 import path from "node:path";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { duree } from "./report";
 import { isSkippedDir, isTestFile } from "./walk";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
 export interface IFreshnessFinding {
-  kind: "dist-stale" | "dist-missing" | "node-below-engines";
+  kind:
+    | "dist-stale"
+    | "dist-missing"
+    | "node-below-engines"
+    | "framework-stale"
+    | "framework-missing";
   /** Phrase actionnable : le constat, et le geste qui le répare. */
   message: string;
   /** Fichier qui porte le constat, relatif à la racine (si pertinent). */
@@ -185,4 +197,126 @@ export function checkFreshness(
   }
 
   return { findings, notComparable: plusRecente === 0 && !distStat };
+}
+
+/**
+ * Le préfixe des paquets du framework — un seul endroit, parce que la question
+ * « ce paquet est-il des nôtres ? » se pose ici et nulle part ailleurs.
+ */
+const PREFIXE_FRAMEWORK = "@nodefony/";
+
+/**
+ * Le paquet est-il LIÉ à un checkout local, plutôt qu'installé ?
+ *
+ * C'est toute la question de ce contrôle. Un paquet installé depuis npm arrive
+ * bâti : son `dist/` est dans le tarball, il n'y a rien à vérifier et crier
+ * dessus ferait ignorer le diagnostic par toute application du monde. Un paquet
+ * LIÉ, lui, est un dossier de travail dont le `dist/` ne se met à jour que si
+ * quelqu'un le bâtit — et c'est le régime du dépôt self-hosted comme d'une
+ * application liée pour le développement.
+ *
+ * Le lien se CONSTATE (`lstat`), il ne se déduit pas du manifeste : `npm link`,
+ * `file:` et un workspace npm produisent tous un lien symbolique, alors qu'ils
+ * s'écrivent différemment dans le `package.json` — et certains ne s'y écrivent
+ * pas du tout.
+ *
+ * @param chemin - le chemin du paquet sous `node_modules`.
+ * @returns `true` si c'est un lien vers un dossier de travail.
+ */
+function estLie(chemin: string): boolean {
+  try {
+    return lstatSync(chemin).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Les paquets `@nodefony/*` LIÉS dont le build manque ou date d'avant les sources.
+ *
+ * Le runtime charge le `dist/` d'un paquet, jamais ses sources — exactement
+ * comme pour l'application. La différence est le coût du symptôme : un paquet
+ * du framework périmé fait répondre 404 à une route pourtant écrite, ou lever
+ * « does not provide an export named … » au démarrage, sans que rien ne
+ * désigne la cause. C'est la panne la plus fréquente de ce framework, et la
+ * seule que `doctor` ne voyait pas — il ne regardait que le `dist/` de
+ * l'application.
+ *
+ * ⚠️ Ne regarde QUE les paquets liés (cf {@link estLie}), et n'accuse que dans
+ * le sens sûr : sources plus récentes que le build. Un cache peut restaurer un
+ * `dist/` daté du futur sans que son contenu corresponde ; l'inverse reste
+ * toujours vrai.
+ *
+ * @param projectRoot - racine de l'application (celle qui porte `node_modules`).
+ * @returns les paquets à rebâtir, avec le geste — vide quand tout est à jour,
+ *   qu'il n'y a pas de `node_modules`, ou que rien n'est lié.
+ */
+export function checkFrameworkBuild(projectRoot: string): IFreshnessFinding[] {
+  const scope = path.join(
+    projectRoot,
+    "node_modules",
+    PREFIXE_FRAMEWORK.slice(0, -1),
+  );
+  let noms: string[];
+  try {
+    noms = readdirSync(scope);
+  } catch {
+    // Ni `node_modules`, ni portée `@nodefony` : rien à dire. Une application
+    // qui n'a pas encore installé ses dépendances a d'autres contrôles qui la
+    // renseignent, et celui-ci n'a rien constaté.
+    return [];
+  }
+  const findings: IFreshnessFinding[] = [];
+  for (const nom of noms.sort()) {
+    const paquet = path.join(scope, nom);
+    if (!estLie(paquet)) continue;
+    const complet = `${PREFIXE_FRAMEWORK}${nom}`;
+    // Le lien est suivi une fois : tout ce qui suit porte sur le dossier de
+    // travail réel, jamais sur le lien lui-même (dont la date ne dit rien).
+    let reel: string;
+    try {
+      reel = realpathSync(paquet);
+    } catch {
+      continue;
+    }
+    const dist = statSync(path.join(reel, "dist", "index.js"), {
+      throwIfNoEntry: false,
+    });
+    let plusRecente = 0;
+    let porteuse = "";
+    for (const rel of SOURCES) {
+      const quand = newestUnder(reel, rel);
+      if (quand.mtime > plusRecente) {
+        plusRecente = quand.mtime;
+        porteuse = quand.file;
+      }
+    }
+    if (plusRecente === 0) continue; // aucune source : rien à comparer
+    if (!dist) {
+      findings.push({
+        kind: "framework-missing",
+        message:
+          `\`${complet}\` est LIÉ à un dossier de travail qui n'est pas ` +
+          "construit (`dist/index.js` absent) : le runtime charge le build, " +
+          "donc ce paquet n'apporte rien — routes en 404, exports " +
+          "introuvables au démarrage. → `npm run build` dans le dépôt du " +
+          "framework (bâtir l'application ne construit PAS ses paquets liés)",
+        file: path.join("node_modules", complet, "dist", "index.js"),
+      });
+      continue;
+    }
+    if (plusRecente > dist.mtimeMs) {
+      const ecart = duree((plusRecente - dist.mtimeMs) / 1000);
+      findings.push({
+        kind: "framework-stale",
+        message:
+          `\`${complet}\` est LIÉ, et ses sources ont changé APRÈS son build ` +
+          `(\`${porteuse}\` est plus récent de ${ecart} que son ` +
+          "`dist/index.js`) : c'est l'ANCIEN code du framework qui s'exécute. " +
+          "→ `npm run build` dans le dépôt du framework",
+        file: path.join("node_modules", complet, "dist", "index.js"),
+      });
+    }
+  }
+  return findings;
 }
