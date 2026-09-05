@@ -37,7 +37,11 @@ const changed = execFileSync("git", ["diff", "--name-only", base], {
   encoding: "utf8",
 })
   .split("\n")
-  .filter((f) => /\.(ts|tsx|mts|cts)$/.test(f));
+  // Le JavaScript est du PÉRIMÈTRE : des paquets entiers du dépôt sont livrés
+  // en `.mjs` (les sondes de `@nodefony/devkit`), et c'est là que ce contrôle
+  // vaut le plus — aucun compilateur n'y regarde. Se limiter au TypeScript
+  // rendait un vert qui ne portait sur rien. `createSourceFile` lit le JS.
+  .filter((f) => /\.(ts|tsx|mts|cts|js|mjs|cjs|jsx)$/.test(f));
 
 /** Toutes les chaînes du source, dans l'ordre — templates compris. */
 const literals = (text, fileName) => {
