@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/drizzle",
   "version": "10.0.0",
-  "description": "Nodefony Framework Module Drizzle ORM (adapter orm-core)",
+  "description": "Moteur SQL de Nodefony sur Drizzle ORM (SQLite, PostgreSQL, MySQL) : dépôts typés, migrations de schéma et adoption d'une base existante",
   "nodefony": {
     "storeKind": "durable",
     "stores": [
@@ -41,9 +41,15 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "typescript",
+    "orm",
     "drizzle",
-    "orm"
+    "sql",
+    "sqlite",
+    "postgresql",
+    "mysql",
+    "migrations",
+    "typescript",
+    "esm"
   ],
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -99,7 +105,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/drizzle#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   },

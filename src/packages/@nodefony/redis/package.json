@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/redis",
   "version": "10.0.0",
-  "description": "Nodefony Framework Module redis",
+  "description": "Connecteur Redis de Nodefony : dépôts clé-valeur, cache, sessions partagées et transport de diffusion entre instances",
   "nodefony": {
     "storeKind": "cache",
     "stores": [
@@ -35,7 +35,13 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "javascript"
+    "redis",
+    "cache",
+    "session",
+    "pubsub",
+    "key-value",
+    "typescript",
+    "esm"
   ],
   "dependencies": {
     "redis": "6.2.1",
@@ -79,7 +85,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/redis#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

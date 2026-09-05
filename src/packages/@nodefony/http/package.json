@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/http",
   "version": "10.0.0",
-  "description": "nodefony http",
+  "description": "Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs pour Nodefony : sessions, contextes de requête, certificats TLS",
   "author": "admin <admin@nodefony.com>",
   "main": "./dist/index.js",
   "type": "module",
@@ -27,8 +27,15 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "javascript",
-    "typescript"
+    "http",
+    "http2",
+    "websocket",
+    "https",
+    "tls",
+    "session",
+    "typescript",
+    "esm",
+    "nodejs"
   ],
   "repository": {
     "type": "git",
@@ -84,7 +91,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/http#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

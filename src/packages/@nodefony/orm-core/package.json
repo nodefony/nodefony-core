@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/orm-core",
   "version": "10.0.0",
-  "description": "Nodefony ORM Core — interfaces, registry & base classes for multi-ORM support",
+  "description": "Un contrat de dépôt de données pour Nodefony, plusieurs moteurs : interfaces, registre et classes de base pour le support multi-ORM",
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",
@@ -25,9 +25,12 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "typescript",
     "orm",
-    "multi-orm"
+    "repository",
+    "database",
+    "abstraction",
+    "typescript",
+    "esm"
   ],
   "peerDependencies": {
     "nodefony": "*"
@@ -60,7 +63,7 @@
     "access": "public"
   },
   "dependencies": {},
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/orm-core#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

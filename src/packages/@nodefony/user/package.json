@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/user",
   "version": "10.0.0",
-  "description": "Nodefony User Core — IUser contracts, base users, password encoders & UserService (ORM-agnostic, consommable sans @nodefony/security)",
+  "description": "Contrats utilisateur de Nodefony, indépendants de l'ORM : interface IUser, utilisateurs de base, encodeurs de mot de passe et UserService — consommable sans @nodefony/security",
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",
@@ -26,10 +26,13 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "typescript",
     "user",
-    "security",
-    "rbac"
+    "authentication",
+    "password",
+    "argon2",
+    "bcrypt",
+    "typescript",
+    "esm"
   ],
   "peerDependencies": {
     "@node-rs/argon2": "^2.0.2",
@@ -77,7 +80,7 @@
     "access": "public"
   },
   "dependencies": {},
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/user#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

@@ -160,6 +160,16 @@ export const FICHIERS_LICENCE = [
   "LICENCE.md",
 ];
 
+/**
+ * Longueur minimale d'une `description` de paquet publiable.
+ *
+ * Calibré sur le terrain : les six descriptions fautives du dépôt tenaient
+ * entre 13 et 34 caractères (« nodefony http », « Nodefony Framework Module
+ * Mongoose »), les correctes entre 56 et 165. Le seuil sépare « le nom du
+ * paquet répété » d'« une phrase qui dit ce qu'il fait ».
+ */
+export const LONGUEUR_MIN_DESCRIPTION = 40;
+
 export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
   const bloquants = [];
   const avertissements = [];
@@ -243,6 +253,38 @@ export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
           ` (attendu ${FICHIERS_LICENCE.join(" ou ")} dans ${p.location})` +
           ` — le tarball déclarerait « ${p.pkg.license ?? "?"} » sans en fournir les termes`,
       );
+    }
+
+    // ── Ce que npm et les moteurs INDEXENT ────────────────────────────────
+    //
+    // La page npm d'une version est FIGÉE : une description ratée ne se
+    // rattrape qu'en publiant une version de plus. C'est la seule métadonnée
+    // dont l'erreur est irrattrapable sans brûler un numéro — d'où le
+    // bloquant, alors que npm, lui, publierait sans broncher.
+    //
+    // Le seuil dit « une phrase », pas « deux mots » : « nodefony http » (13)
+    // et « Nodefony Framework » (18) ne disent pas ce que le paquet FAIT.
+    const description = (p.pkg.description ?? "").trim();
+    if (description.length < LONGUEUR_MIN_DESCRIPTION) {
+      bloquants.push(
+        `${p.nom} : description de ${description.length} caractère(s)` +
+          ` — « ${description || "∅"} » ne dit pas ce que le paquet fait` +
+          ` (minimum ${LONGUEUR_MIN_DESCRIPTION} ; la page npm d'une version est figée)`,
+      );
+    }
+
+    // Ni l'un ni l'autre n'empêche une publication — d'où l'avertissement.
+    if (!Array.isArray(p.pkg.keywords) || p.pkg.keywords.length === 0) {
+      avertissements.push(
+        `${p.nom} : \`keywords\` vide — le paquet ne remonte sur aucune recherche npm`,
+      );
+    } else if (p.pkg.keywords.includes("javascript")) {
+      avertissements.push(
+        `${p.nom} : mot-clé « javascript » sur un projet TypeScript strict`,
+      );
+    }
+    if (!p.pkg.homepage) {
+      avertissements.push(`${p.nom} : \`homepage\` absent`);
     }
 
     for (const s of ["prepack", "prepare", "prepublishOnly"]) {

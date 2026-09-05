@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/documentation",
   "version": "10.0.0",
-  "description": "Data plane de documentation transverse de Nodefony — index des docs co-localisées, résolution des variables dynamiques {{ }}, exposé en /nodefony/documentation/api/*",
+  "description": "Plan de données de documentation de Nodefony : index des pages co-localisées dans chaque module, résolution des variables dynamiques, exposition en lecture pour la console d'administration",
   "contributors": [],
   "main": "./dist/index.js",
   "type": "module",
@@ -27,7 +27,10 @@
   "keywords": [
     "nodefony",
     "documentation",
-    "markdown"
+    "markdown",
+    "docs",
+    "typescript",
+    "esm"
   ],
   "devDependencies": {
     "@nodefony/framework": "*",
@@ -68,7 +71,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/documentation#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

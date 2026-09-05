@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/mongoose",
   "version": "10.0.0",
-  "description": "Nodefony Framework Module Mongoose",
+  "description": "Moteur MongoDB de Nodefony sur Mongoose : dépôts typés conformes au contrat orm-core",
   "nodefony": {
     "storeKind": "durable",
     "stores": [
@@ -35,8 +35,12 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "javascript",
-    "mongoose"
+    "orm",
+    "mongoose",
+    "mongodb",
+    "nosql",
+    "typescript",
+    "esm"
   ],
   "dependencies": {
     "mongodb": "7.6.0",
@@ -83,7 +87,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/mongoose#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

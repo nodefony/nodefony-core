@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/security",
   "version": "10.0.0",
-  "description": "nodefony security",
+  "description": "Pare-feu applicatif par zones pour Nodefony : authentification, autorisation par rôles, protection CSRF, journal d'audit",
   "author": "admin <admin@nodefony.com>",
   "main": "./dist/index.js",
   "type": "module",
@@ -25,8 +25,15 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "javascript",
-    "typescript"
+    "security",
+    "firewall",
+    "authentication",
+    "authorization",
+    "rbac",
+    "csrf",
+    "jwt",
+    "typescript",
+    "esm"
   ],
   "repository": {
     "type": "git",
@@ -66,7 +73,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/security#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

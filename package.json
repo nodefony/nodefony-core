@@ -1,7 +1,7 @@
 {
   "name": "nodefony-core",
   "version": "10.0.0",
-  "description": "Core Nodefony Framework",
+  "description": "Dépôt de développement du framework Nodefony — le framework lui-même, ses paquets, et l'application qui l'éprouve en continu",
   "type": "module",
   "types": "dist/types/index.d.ts",
   "private": true,
@@ -11,8 +11,11 @@
   },
   "keywords": [
     "nodefony",
-    "node-js",
-    "javascript"
+    "framework",
+    "typescript",
+    "esm",
+    "nodejs",
+    "monorepo"
   ],
   "scripts": {
     "board:snapshot": "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",

@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/frontend",
   "version": "10.0.0",
-  "description": "Frontend builder Nodefony — Vite multi-framework (Vue/React/Svelte) intégré, successeur webpackService legacy",
+  "description": "Construction et rechargement à chaud des frontends de chaque module Nodefony — Vite intégré, multi-framework (React, Vue, Angular, Svelte)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
@@ -26,10 +26,13 @@
     "nodefony",
     "frontend",
     "vite",
+    "hmr",
     "react",
     "vue",
+    "angular",
     "svelte",
-    "typescript"
+    "typescript",
+    "esm"
   ],
   "peerDependencies": {
     "@nodefony/framework": "*",
@@ -66,7 +69,7 @@
     "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/@nodefony/frontend"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/frontend#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

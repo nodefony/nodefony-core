@@ -1,7 +1,7 @@
 {
   "name": "@nodefony/studio",
   "version": "10.0.0",
-  "description": "Studio — admin web Nodefony (successeur monitoring-bundle). Frontend React 19 + Mantine v9 + MobX via @nodefony/frontend.",
+  "description": "Console d'administration web de Nodefony : modules, routes, services, configuration effective, journaux et métriques en temps réel",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -25,12 +25,13 @@
   "private": false,
   "keywords": [
     "nodefony",
-    "studio",
     "admin",
+    "dashboard",
+    "monitoring",
     "react",
-    "mantine",
-    "mobx",
-    "vite"
+    "studio",
+    "typescript",
+    "esm"
   ],
   "peerDependencies": {
     "@nodefony/framework": "*",
@@ -92,7 +93,7 @@
     "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/@nodefony/studio"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/studio#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

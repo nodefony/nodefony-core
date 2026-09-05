@@ -19,6 +19,7 @@ import {
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
+  LONGUEUR_MIN_DESCRIPTION,
   FICHIERS_LICENCE,
   comparerVersions,
   detecterSuspects,
@@ -180,10 +181,64 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
       publishConfig: { access: "public" },
       files: ["dist"],
       license: "CECILL-B",
+      // Une description RÉELLE, pas un remplissage : le décor doit satisfaire
+      // le gate pour la même raison qu'un vrai paquet — sinon « conforme » ne
+      // veut plus rien dire.
+      description:
+        "Un paquet de démonstration qui décrit ce qu'il fait en une phrase",
+      keywords: ["demo", "typescript"],
+      homepage: "https://example.org/",
     },
   };
   const audit = (paquets, existe = () => true) =>
     auditerMetadonnees(paquets, { depotAttendu: BON, existe });
+
+  // ── Ce que npm INDEXE, et qu'une version publiée fige ────────────────────
+  it("REFUSE une description trop courte pour dire ce que le paquet fait", () => {
+    const { bloquants } = audit([
+      { ...ok, pkg: { ...ok.pkg, description: "nodefony http" } },
+    ]);
+    expect(bloquants).toHaveLength(1);
+    expect(bloquants[0]).toContain("13 caractère(s)");
+    expect(bloquants[0]).toContain("nodefony http");
+  });
+
+  it("REFUSE une description absente comme une description vide", () => {
+    const sans = { ...ok, pkg: { ...ok.pkg } };
+    delete sans.pkg.description;
+    expect(audit([sans]).bloquants).toHaveLength(1);
+    expect(
+      audit([{ ...ok, pkg: { ...ok.pkg, description: "   " } }]).bloquants,
+    ).toHaveLength(1);
+  });
+
+  it("compte la longueur APRÈS trim — des espaces ne font pas une phrase", () => {
+    const bourre = " ".repeat(60) + "http";
+    expect(bourre.length).toBeGreaterThan(LONGUEUR_MIN_DESCRIPTION);
+    expect(
+      audit([{ ...ok, pkg: { ...ok.pkg, description: bourre } }]).bloquants,
+    ).toHaveLength(1);
+  });
+
+  it("AVERTIT sans bloquer sur `javascript` et sur des mots-clés vides", () => {
+    const kwJs = audit([
+      { ...ok, pkg: { ...ok.pkg, keywords: ["nodefony", "javascript"] } },
+    ]);
+    expect(kwJs.bloquants).toHaveLength(0);
+    expect(kwJs.avertissements.join()).toContain("javascript");
+
+    const kwVides = audit([{ ...ok, pkg: { ...ok.pkg, keywords: [] } }]);
+    expect(kwVides.bloquants).toHaveLength(0);
+    expect(kwVides.avertissements.join()).toContain("keywords");
+  });
+
+  it("AVERTIT sans bloquer sur une `homepage` absente", () => {
+    const sans = { ...ok, pkg: { ...ok.pkg } };
+    delete sans.pkg.homepage;
+    const r = audit([sans]);
+    expect(r.bloquants).toHaveLength(0);
+    expect(r.avertissements.join()).toContain("homepage");
+  });
 
   it("laisse passer un paquet conforme", () => {
     expect(audit([ok]).bloquants).toEqual([]);

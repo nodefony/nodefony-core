@@ -2,7 +2,7 @@
   "name": "@nodefony/devkit",
   "version": "10.0.0",
   "type": "module",
-  "description": "Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent",
+  "description": "Outillage de développement d'une application Nodefony : carte de visite du projet et portes de découverte pour un agent de développement",
   "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
   "exports": {
@@ -53,12 +53,21 @@
     "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/@nodefony/devkit"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/devkit#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   },
   "publishConfig": {
     "access": "public"
   },
-  "license": "CECILL-B"
+  "license": "CECILL-B",
+  "keywords": [
+    "nodefony",
+    "devkit",
+    "developer-tools",
+    "agent",
+    "scaffolding",
+    "typescript",
+    "esm"
+  ]
 }

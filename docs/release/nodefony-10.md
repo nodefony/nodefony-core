@@ -552,7 +552,12 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 > R0.2 est le vrai livrable : sans lui, le trou se rejoue à la création du prochain paquet.
 
 **Fait.** Les dix-neuf `package.json` du périmètre portent `repository`, `homepage` et `bugs` vers
-`nodefony-core` ; les URL `tree/HEAD/<location>` répondent 200 (`HEAD`, pas `main`). `@nodefony/devkit`
+`nodefony-core`. **`homepage` a depuis été REPOINTÉE vers le site de documentation**
+(`https://nodefony.github.io/nodefony-core/`) : npm affiche déjà le README du paquet sur sa
+propre page, si bien qu'y renvoyer une seconde fois n'apportait rien, tandis que le chemin
+vers le code reste porté par `repository.directory` et le suivi par `bugs` — tous deux posés
+sur les quinze publiables. Le motif d'origine du `tree/HEAD` (survivre à un renommage de
+branche) vaut toujours pour `repository`, qui le conserve. `@nodefony/devkit`
 n'avait pas non plus `publishConfig.access` — il serait parti en privé. Le gate (R0.2) vit dans
 `scripts/release/release-core.mjs`, appelé par `pack-all.mjs` ET par `release.mjs` : le banc de
 release invoque le pack directement, et un gate posé chez un seul appelant ne garde que celui-là.
