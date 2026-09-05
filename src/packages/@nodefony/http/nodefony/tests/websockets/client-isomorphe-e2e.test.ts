@@ -461,7 +461,16 @@ describe("E2E isomorphe — ce qui casse : reconnexion, refus, pont", () => {
       });
       // …et tant qu'à recaler, éprouver la promesse NEUVE plutôt que la
       // contourner : hors production, le refus doit porter la phrase utile.
-      const horsProduction = process.env.NODE_ENV !== "production";
+      //
+      // 🔴 Le mode se lit sur le SERVEUR, jamais sur ce process-ci. Ce cas
+      // lisait `NODE_ENV`, c'est-à-dire l'horloge du lanceur de tests — or la
+      // forge démarre le serveur en production et lance la suite SANS ce mode.
+      // Le cas exigeait donc en production la phrase que la production retire
+      // exprès, et il tombait sur les TROIS plateformes à la fois. `NF_TEST_ENV`
+      // est posé par le `globalSetup` qui SONDE le serveur (`/livez`) : c'est le
+      // porteur qui existait déjà, ce cas était le seul à ne pas l'appeler.
+      const horsProduction =
+        (process.env.NF_TEST_ENV ?? "development") !== "production";
       if (horsProduction)
         expect(
           typeof refus[0]?.detail === "string" && refus[0].detail.length > 0,

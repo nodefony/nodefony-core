@@ -62,7 +62,31 @@ for (const name of readdirSync(SKILLS_DIR)) {
   skillTexts.set(name, text);
 }
 const allSkillText = [...skillTexts.values()].join("\n");
-const docsText = collectDocs("docs");
+/**
+ * La documentation du dépôt — la transverse ET celle qui vit DANS les modules.
+ *
+ * 🔴 Ne lire que `docs/` était un angle mort depuis l'ADR-0001 : la doc d'un
+ * module vit chez lui (`<module>/docs/*.md`), et un script cité par une de ces
+ * pages ressortait « cité nulle part ». Le gate accusait alors un script
+ * documenté — et c'est le pire refus qui soit, celui qui apprend à passer outre.
+ */
+const docsText =
+  collectDocs("docs") +
+  collectDocs("src/nodefony/docs") +
+  collectModuleDocs("src/packages/@nodefony") +
+  collectModuleDocs("src/modules");
+
+/** Les `docs/` de chaque module d'un dossier de modules. */
+function collectModuleDocs(root) {
+  if (!existsSync(root)) return "";
+  let acc = "";
+  for (const e of readdirSync(root)) {
+    const d = join(root, e, "docs");
+    if (existsSync(d) && statSync(d).isDirectory()) acc = collectDocs(d, acc);
+  }
+  return acc;
+}
+
 function collectDocs(dir, acc = "") {
   if (!existsSync(dir)) return acc;
   for (const e of readdirSync(dir)) {

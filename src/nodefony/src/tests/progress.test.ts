@@ -140,11 +140,27 @@ describe("formatDuration — lisible par un humain", () => {
   });
 });
 
+/**
+ * Un environnement où le braille s'affiche — sur TOUTE plateforme.
+ *
+ * 🔴 Sans lui, ces cas héritaient du terminal de la machine qui les joue. Le
+ * produit replie en ASCII quand l'environnement ne promet pas l'Unicode
+ * (`supportsUnicode`), ce qui est le comportement VOULU sous `cmd.exe` — et les
+ * cas, eux, littéralisaient `⠋` et `▰`. Ils tombaient donc sur les trois jobs
+ * Windows de la forge, en accusant un produit qui faisait exactement son
+ * travail. Un cas qui éprouve l'animation doit DIRE dans quel terminal il se
+ * place, jamais le supposer.
+ *
+ * `WT_SESSION` couvre Windows (Windows Terminal), `LANG` en UTF-8 couvre le
+ * reste — la capacité se constate sur l'environnement, pas sur la plateforme.
+ */
+const ENV_UNICODE = { WT_SESSION: "1", LANG: "en_US.UTF-8" };
+
 // ═══════════════════════════════════════════════════════════════════════════
 describe("Spinner — sur un terminal", () => {
   it("dessine dès le démarrage, sans attendre la première image", () => {
     const stream = fakeStream(true);
-    const spinner = new Spinner({ stream, animate: true });
+    const spinner = new Spinner({ stream, animate: true, env: ENV_UNICODE });
     spinner.start("Compilation");
     expect(stream.text).toContain("Compilation");
     expect(stream.text).toContain(BRAILLE_FRAMES[0]);
@@ -154,7 +170,12 @@ describe("Spinner — sur un terminal", () => {
   it("fait tourner les images au fil du temps", () => {
     vi.useFakeTimers();
     const stream = fakeStream(true);
-    const spinner = new Spinner({ stream, intervalMs: 80, animate: true });
+    const spinner = new Spinner({
+      stream,
+      intervalMs: 80,
+      animate: true,
+      env: ENV_UNICODE,
+    });
     spinner.start("Attente");
     vi.advanceTimersByTime(160);
     expect(stream.text).toContain(BRAILLE_FRAMES[1]);
@@ -320,7 +341,12 @@ describe("Cycle de vie — le minuteur ne survit pas, et ne retient rien", () =>
 describe("ProgressBar — la progression dont on connaît le total", () => {
   it("dessine barre, avancement et libellé", () => {
     const stream = fakeStream(true);
-    const bar = new ProgressBar({ stream, width: 4, animate: true });
+    const bar = new ProgressBar({
+      stream,
+      width: 4,
+      animate: true,
+      env: ENV_UNICODE,
+    });
     bar.start(4, "Bundles");
     bar.update(2);
     expect(stream.text).toContain("▰▰▱▱");
@@ -360,6 +386,7 @@ describe("ProgressBar — la progression dont on connaît le total", () => {
       spin: true,
       intervalMs: 80,
       animate: true,
+      env: ENV_UNICODE,
     });
     bar.start(10, "Étape lente");
     // Rien n'avance pendant ce temps : c'est exactement le cas où une barre
