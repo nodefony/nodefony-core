@@ -12,10 +12,10 @@ import {
   AGENT_TARGETS,
   chargePrompts,
   agentsPresents,
-  agentsDemandes,
+  requestedAgents,
   poseVariable,
-  porteDejaLaCle,
-  racineAgent,
+  alreadyHasKey,
+  agentRoot,
   type IAgentTarget,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
@@ -182,7 +182,7 @@ class SecurityToken extends Command {
    * dossier que l'agent ne lit pas, donc un 401 qui accuse le jeton.
    */
   #racineDe(cible: IAgentTarget): string {
-    return racineAgent(cible, { projectRoot: this.#root() });
+    return agentRoot(cible, { projectRoot: this.#root() });
   }
 
   /** Contenu du fichier d'une cible, "" s'il n'existe pas. */
@@ -549,7 +549,7 @@ class SecurityToken extends Command {
       // agent — le cherchait ailleurs et recevait un 401 qui accusait le jeton.
       // Et la duplication ne survivait pas à la première rotation : le fichier
       // refusait d'être touché quand les agents, eux, recevaient le neuf.
-      const demandes = agentsDemandes(opts.agent);
+      const demandes = requestedAgents(opts.agent);
       if (demandes instanceof Error) {
         this.log(demandes.message, "ERROR");
         process.exitCode = 1;
@@ -563,7 +563,7 @@ class SecurityToken extends Command {
         // renouveler un jeton redevient un questionnaire, et c'est le geste le
         // plus fréquent. L'état n'est pas mémorisé : il est lu là où il vit.
         const porteurs = presents.filter((c) =>
-          porteDejaLaCle(c.forme, this.#contenuDe(c), MCP_TOKEN_ENV),
+          alreadyHasKey(c.forme, this.#contenuDe(c), MCP_TOKEN_ENV),
         );
         const nouveaux = presents.filter((c) => !porteurs.includes(c));
         cibles = porteurs;

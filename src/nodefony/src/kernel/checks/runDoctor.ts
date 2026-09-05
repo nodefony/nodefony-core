@@ -341,7 +341,7 @@ export function usage(p: IPalette, width: number = usableWidth(80)): string {
   // Les familles sont DÉRIVÉES, jamais réécrites : une liste en dur ici
   // vieillirait au premier contrôle ajouté, et l'aide décrirait un outil qui
   // n'existe plus. C'est déjà arrivé sur le compteur du bilan.
-  // 🔴 Repliée sur les SÉPARATEURS, jamais sur les espaces : `replier` coupe
+  // 🔴 Repliée sur les SÉPARATEURS, jamais sur les espaces : `wrap` coupe
   // aux espaces, et « Surface ouverte » se retrouvait à cheval sur deux lignes,
   // où plus personne ne reconnaît le nom d'un contrôle.
   const families = wrapList(

@@ -676,7 +676,7 @@ function renderSummary(
     n: number,
     detail: string,
   ): ISummaryLine => {
-    // Même garde que `controlesSautes` : un état absent se DIT, il ne se rend
+    // Même garde que `skippedChecks` : un état absent se DIT, il ne se rend
     // pas en vert et ne fait pas lever le rapport.
     const exec = execution[family] ?? { ran: false, short: "état absent" };
     return exec.ran

@@ -54,7 +54,7 @@ export type {
 export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
-export { needsShell as besoinDeShell } from "./cli/execPortable";
+export { needsShell } from "./cli/execPortable";
 // Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.
@@ -629,10 +629,7 @@ export type {
 export { getScaffoldSpec } from "./cli/scaffold/spec";
 // Le câblage des agents choisis à la création : UNE construction d'appel, servie
 // au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
-export {
-  argvMcpWiring as argvCablageMcp,
-  mcpWiringPlan as planCablageMcp,
-} from "./cli/create";
+export { argvMcpWiring, mcpWiringPlan } from "./cli/create";
 export type {
   IScaffoldQuestion,
   IScaffoldTypeSpec,
@@ -844,16 +841,16 @@ export {
   AGENT_TARGETS,
   planAgentDeclaration,
   renderPlanShell,
-  agentRoot as racineAgent,
+  agentRoot,
   poseVariable,
-  alreadyHasKey as porteDejaLaCle,
-  requestedAgents as agentsDemandes,
+  alreadyHasKey,
+  requestedAgents,
   agentsPresents,
   MCP_TOKEN_ENV,
 } from "./cli/agentTargets";
 export type {
   IAgentTarget,
-  IDeclarationContext as IDeclarationContexte,
+  IDeclarationContext,
   IDeclarationPlan,
   VoieDeclaration,
 } from "./cli/agentTargets";
@@ -888,8 +885,8 @@ export type { IDoctorReport } from "./kernel/checks/runDoctor";
 export { buildCard, renderCard } from "./cli/cardReport";
 export {
   chargePrompts,
-  request as demande,
-  anchorEventLoop as ancreEventLoop,
+  request,
+  anchorEventLoop,
   type IPrompts,
 } from "./cli/prompts";
 export type {

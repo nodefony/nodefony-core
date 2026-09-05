@@ -1,7 +1,7 @@
 /**
  * `doctor` — le DOCUMENT qu'un humain lit, éprouvé ligne par ligne.
  *
- * Le rendu est une fonction pure (`rendreRapport`) : largeur, couleur et
+ * Le rendu est une fonction pure (`renderReport`) : largeur, couleur et
  * instant lui sont donnés, il rend des lignes. C'est ce qui permet de vérifier
  * ici ce qu'aucun test ne pouvait atteindre tant que le rapport s'écrivait au
  * fil de l'eau sur la sortie standard — la mise en page elle-même.

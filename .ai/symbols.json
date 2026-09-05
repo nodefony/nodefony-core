@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T19:28:32.977Z",
+  "generated": "2026-09-05T19:34:03.469Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -29577,7 +29577,8 @@
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "requestedAgents": [
-        "src/nodefony/src/cli/aiMcp.ts"
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "agentsPresents": [
         "src/nodefony/src/cli/aiMcp.ts",
@@ -29590,7 +29591,8 @@
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "agentRoot": [
-        "src/nodefony/src/cli/aiMcp.ts"
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "renderPlanShell": [
         "src/nodefony/src/cli/aiMcp.ts"
@@ -29656,7 +29658,8 @@
       "needsShell": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
-        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
@@ -34658,6 +34661,9 @@
       "poseVariable": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
+      "alreadyHasKey": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "ecrireSecretSync": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
@@ -35193,6 +35199,9 @@
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+      ],
+      "argvMcpWiring": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "suspendSupervisor": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"

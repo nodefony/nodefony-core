@@ -245,7 +245,7 @@ export interface ISkippedCheck {
  * dire la même chose : un bandeau qui annonce un échec que la commande ne
  * produit pas apprend à ne plus croire le bandeau.
  *
- * @param skipped - les contrôles sautés, tels que `controlesSautes` les rend
+ * @param skipped - les contrôles sautés, tels que `skippedChecks` les rend
  * @returns ceux qui pèsent sur le code de sortie en mode strict
  */
 export function preventedChecks(
