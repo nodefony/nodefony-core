@@ -178,6 +178,20 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
   écrit en identifiants français avant qu'on s'en aperçoive. Le MÉLANGE est pire que l'un ou
   l'autre — dans le même fichier, `checkPackageDeps` côtoyait `replier`, et plus rien ne disait
   quelle règle suivre au prochain ajout.
+  **Le gate qui la fait mordre** : `npm run check:lang`
+  (`scripts/check-identifier-language.mjs`) — il rend le fichier, la ligne et une traduction
+  proposée ; `npm run check:lang:test` l'éprouve, `npm run check:lang:bench` prouve son absence de
+  faux positif sur du code tiers. Une tolérance se DÉCLARE, avec sa raison, dans
+  `DEFAULT_EXCEPTIONS` (une exception que rien n'active est signalée : elle mentirait).
+  **Renommer en masse : jamais de regex** — `scripts/rename-identifiers.mjs` renomme par le
+  LanguageService TypeScript depuis un plan JSON `{ fichier: { ancien: nouveau } }`
+  (`ancien@512` vise la déclaration d'une ligne précise), puis
+  `scripts/check-rename-drift.mjs` confronte le résultat au plan liaison par liaison et
+  `scripts/check-literals-unchanged.mjs` prouve qu'aucune chaîne affichée n'a bougé. Ce que le
+  typecheck ne voit PAS, et qui se contrôle à la main après chaque lot : un `as ancienNom` laissé
+  dans un barrel (le renommage préserve le nom exporté par un ALIAS, et la rupture n'a alors pas
+  eu lieu), les consommateurs en `.mjs` et les scripts hors de tout `tsconfig`, une clé de données
+  désignée par chaîne, et la prose qui NOMME le symbole déplacé.
 - **0 `any`, 0 `@ts-ignore`** → `unknown` + narrowing. **ESM only** : `import`, jamais `require()`.
 - **Préfixe `node:`** obligatoire : `import fs from "node:fs"`.
 - **Named exports only** — pas de `default` (sauf legacy `export default Framework` déjà en place).

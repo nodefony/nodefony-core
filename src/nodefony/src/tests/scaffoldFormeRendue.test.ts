@@ -45,7 +45,7 @@ const REPO = path.resolve(__dirname, "..", "..", "..", "..");
  * 🔴 Vécu, et immédiatement : `node_modules/.bin/prettier` n'est pas exécutable
  * sous Windows, où npm n'y écrit qu'un `.cmd` et un `.ps1`. `execFileSync` y
  * échouait, et ce banc rendait cinq rouges qui ne disaient rien du scaffold.
- * C'est l'axiome que le dépôt a déjà payé dans son PRODUIT (`besoinDeShell`) et
+ * C'est l'axiome que le dépôt a déjà payé dans son PRODUIT (`needsShell`) et
  * que ce test venait de rejouer — la règle vaut pour toute ligne écrite, pas
  * seulement pour celle qu'un utilisateur exécute.
  *

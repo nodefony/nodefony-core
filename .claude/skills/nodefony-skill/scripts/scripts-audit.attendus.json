@@ -50,11 +50,14 @@
     ".claude/skills/nodefony-ticket/scripts/pose-lexique.mjs",
     ".claude/skills/nodefony-ticket/scripts/ticket-effort.mjs",
     ".claude/skills/nodefony-ticket/scripts/ticket-verify.mjs",
+    "scripts/check-literals-unchanged.mjs",
     "scripts/check-package-deps.mjs",
     "scripts/check-platform-channels.mjs",
+    "scripts/check-rename-drift.mjs",
     "scripts/generate-man.mjs",
     "scripts/realtime-coverage-map.mjs",
     "scripts/release/release-core.test.mjs",
+    "scripts/rename-identifiers.mjs",
     "scripts/safe-commit.sh"
   ]
 }

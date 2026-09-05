@@ -495,7 +495,7 @@ un runner où `npm ci` vient de réussir. C'est ainsi que le premier passage
 Windows du banc du code généré est tombé, à la première étape, pendant que linux
 et macOS étaient verts.
 
-La règle a **une seule** implémentation (`besoinDeShell`), appelée par les deux
+La règle a **une seule** implémentation (`needsShell`), appelée par les deux
 helpers d'exécution (`scripts/lib/isolation.mjs`, `scripts/verify-generated.mjs`). Elle est
 **pure** — plateforme et grammaire de chemins injectées — parce qu'une fonction
 qui lit `process.platform` ne s'éprouve que sur la plateforme qu'elle décrit,

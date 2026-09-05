@@ -91,7 +91,7 @@ symptôme : `nodefony create module` lance le `npm install` qui pose le lien de 
 le Kernel ne peut pas importer le module par son nom, et sous Windows `npm` est un `npm.cmd` que Node
 refuse d'exécuter sans shell (il répond `ENOENT`, qui se lit « npm n'est pas installé »). La règle
 existait — écrite la veille dans le BANC, jamais dans le PRODUIT : l'outil de mesure était portable
-pendant que le produit ne l'était pas. `besoinDeShell` est publiée par le cœur, le banc l'importe, et
+pendant que le produit ne l'était pas. `needsShell` est publiée par le cœur, le banc l'importe, et
 **11 sites** qui la redevinaient ou l'ignoraient sont fermés. `scaffold.yml` : **4/4 vert**.
 
 **L'intégration s'exécute désormais sur les TROIS systèmes** (`8f2321a7`) — c'est la seule tâche du

@@ -80,7 +80,7 @@
  * l'état ATTENDU : un banc qui n'a jamais mordu ne gate rien.
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { needsShell } from "./lib/exec-portable.mjs";
 import { garderDrapeaux } from "./lib/argv.mjs";
 import {
   chmodSync,
@@ -318,7 +318,7 @@ function eteindreApplication(app) {
   if (app === null) return;
   APP_A_ETEINDRE = null;
   spawnSync("npx", ["--no-install", "nodefony", "stop"], {
-    shell: besoinDeShell("npx"),
+    shell: needsShell("npx"),
     cwd: app,
     encoding: "utf8",
     env: APP_ENV,
@@ -4970,7 +4970,7 @@ export function reinitialiserDecor(app, runDir, id) {
   // hériterait des paquets qu'une autre a installés et pourrait en importer un
   // sans l'avoir déclaré — un vert qui ne tiendrait pas chez un utilisateur.
   spawnSync("npm", ["prune", "--no-audit", "--no-fund"], {
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
     cwd: app,
     encoding: "utf8",
     timeout: 5 * 60 * 1000,
@@ -6659,7 +6659,7 @@ function main() {
     // couvre les interruptions ; ceci couvre la fin normale, et le DIT.
     eteindreApplication(app);
     const restant = spawnSync("npx", ["--no-install", "nodefony", "status"], {
-      shell: besoinDeShell("npx"),
+      shell: needsShell("npx"),
       cwd: app,
       encoding: "utf8",
       env: APP_ENV,

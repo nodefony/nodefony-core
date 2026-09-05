@@ -105,7 +105,7 @@
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { garderDrapeaux } from "./lib/argv.mjs";
-import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { needsShell } from "./lib/exec-portable.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import {
   appendFileSync,
@@ -1354,7 +1354,7 @@ function appBin(app) {
 function bootApp(app, runDir) {
   console.log("\n• build de l'app…");
   const build = spawnSync("npm", ["run", "build"], {
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
     cwd: app,
     encoding: "utf8",
     timeout: 900_000,

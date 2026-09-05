@@ -117,11 +117,11 @@ const ECRIRE = drapeau("write");
 const HORS_LIGNE = drapeau("offline");
 
 // `npm` est `npm.cmd` sous Windows, et `execFile` ne résout pas les `.cmd` : la
-// règle vit dans le PRODUIT (`besoinDeShell`, publié par le cœur), et ce script
+// règle vit dans le PRODUIT (`needsShell`, publié par le cœur), et ce script
 // l'APPELLE plutôt que d'en recopier une variante qui dériverait.
-let besoinDeShell;
+let needsShell;
 try {
-  ({ besoinDeShell } = await import("nodefony"));
+  ({ needsShell } = await import("nodefony"));
 } catch {
   echouer(
     "impossible de charger `nodefony` — le cœur n'est pas bâti.\n" +
@@ -133,7 +133,7 @@ const npm = (args, opts = {}) =>
   spawnSync("npm", args, {
     cwd: ROOT,
     encoding: "utf8",
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
     ...opts,
   });
 /**
@@ -577,7 +577,7 @@ if (PACK) {
     const t = spawnSync("tar", ["-tzf", tgz], {
       cwd: cwdTar,
       encoding: "utf8",
-      shell: besoinDeShell("tar"),
+      shell: needsShell("tar"),
     });
     if (t.status !== 0) {
       // Une inspection qui n'a pas eu lieu ne doit JAMAIS se lire comme une

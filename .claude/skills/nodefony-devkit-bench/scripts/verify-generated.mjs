@@ -53,7 +53,7 @@ import {
   packTarballs,
 } from "./lib/isolation.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
-import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec } from "./lib/extrait-echec.mjs";
 
 /**
@@ -381,7 +381,7 @@ function run(cmd, args, cwd = APP, env = {}) {
     env: envDecor(PORTS, env),
     // `npm` sous Windows est un `.cmd` : sans shell, Node rend `ENOENT` — un
     // message qui accuse une installation absente. Cf `lib/exec-portable.mjs`.
-    shell: besoinDeShell(cmd),
+    shell: needsShell(cmd),
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
@@ -903,7 +903,7 @@ step(
         // — pas un message d'erreur — et la garde ci-dessous le traduisait en
         // « un motif d'exclusion écarte l'application », qui envoyait chercher
         // du côté de la configuration. Cf `lib/exec-portable.mjs`.
-        shell: besoinDeShell(bin),
+        shell: needsShell(bin),
       });
     const temoin = path.join(APP, "tests", "oxlint.selfcheck.ts");
     try {
@@ -1243,7 +1243,7 @@ step(
         encoding: "utf8",
         timeout: 600_000,
         env: envDecor(PORTS, {}),
-        shell: besoinDeShell(process.execPath),
+        shell: needsShell(process.execPath),
       },
     );
     const premier = `${essai.stdout ?? ""}${essai.stderr ?? ""}`;
@@ -1386,7 +1386,7 @@ export const UserEntity = defineEntity({
         encoding: "utf8",
         timeout: 600_000,
         env: envDecor(PORTS, {}),
-        shell: besoinDeShell(cmd),
+        shell: needsShell(cmd),
       });
 
     try {

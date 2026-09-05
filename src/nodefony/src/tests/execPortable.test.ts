@@ -12,7 +12,7 @@ import { needsShell } from "../cli/execPortable";
  * ne serait vérifiable que sur la plateforme qu'elle décrit — c'est-à-dire jamais,
  * sur les postes de ce projet, ce qui est précisément comment le défaut a vécu.
  */
-describe("besoinDeShell — la règle du shell Windows", () => {
+describe("needsShell — la règle du shell Windows", () => {
   const win = (cmd: string): boolean => needsShell(cmd, "win32", path.win32);
   const posix = (cmd: string): boolean => needsShell(cmd, "linux", path.posix);
 

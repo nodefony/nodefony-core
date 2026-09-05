@@ -28,7 +28,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { besoinDeShell } from "./exec-portable.mjs";
+import { needsShell } from "./exec-portable.mjs";
 
 const sh = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, {
@@ -37,7 +37,7 @@ const sh = (cmd, args, opts = {}) =>
     // Sous Windows, `npm` est un `.cmd` que Node refuse d'exécuter sans shell —
     // et il l'annonce par `ENOENT`, qui se lit « npm n'est pas installé ».
     // Règle et raison : `exec-portable.mjs`.
-    shell: besoinDeShell(cmd),
+    shell: needsShell(cmd),
     ...opts,
   });
 
