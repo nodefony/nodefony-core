@@ -179,6 +179,33 @@ export const DEFAULT_EXCEPTIONS = [
     identifier: "COMPRENDRE",
     reason: "même contrat de données que `LANCER` ci-dessus.",
   },
+  {
+    path: "src/nodefony/src/client/ClientKernel.ts",
+    identifier: "valeur",
+    reason:
+      "LIBELLÉ affiché : le tableau composé ici part dans `console.table` " +
+      "(`consoleDetails`), qui imprime le nom de la propriété en en-tête de " +
+      "colonne, à côté de clés de lignes qui restent françaises (`état`, " +
+      "`identité`, `temps réel`). L'angliciser seule rendrait la table à " +
+      "moitié traduite chez l'utilisateur.",
+  },
+  {
+    path: "src/nodefony/src/client/realtime/RealtimeClient.ts",
+    identifier: "valeur",
+    reason: "même table de console que `ClientKernel.ts` ci-dessus.",
+  },
+  {
+    path: "src/nodefony/src/client/realtime/RealtimeClient.ts",
+    identifier: "adresse",
+    reason:
+      "clé de LIGNE de la même table : elle s'affiche telle quelle, aux côtés " +
+      "d'`état`, `identité` et `actions`, que le dictionnaire ne voit pas.",
+  },
+  {
+    path: "src/nodefony/src/client/realtime/RealtimeClient.ts",
+    identifier: "canaux",
+    reason: "même clé de ligne affichée que `adresse` ci-dessus.",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

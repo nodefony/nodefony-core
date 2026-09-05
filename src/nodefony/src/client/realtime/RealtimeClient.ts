@@ -69,8 +69,8 @@ import type {
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
   announceRealtime,
-  aUnNoyau,
-  detailsConsole,
+  hasKernel,
+  consoleDetails,
   noteServerEnv,
 } from "../announce";
 import {
@@ -1042,7 +1042,7 @@ export class RealtimeClient<
     // Détail dans la console — SEULEMENT s'il n'y a pas de noyau : quand il y en
     // a un, c'est lui qui parle, il a plus à dire (état, identité, services).
     // C'est le moment juste : avant l'accueil, il n'y aurait rien à montrer.
-    if (this.opts.banner !== false && !aUnNoyau()) this.detailsSocket();
+    if (this.opts.banner !== false && !hasKernel()) this.detailsSocket();
     this.fireLocal(LOCAL_EVENTS.identity, this._identity);
   }
 
@@ -1056,7 +1056,7 @@ export class RealtimeClient<
    * fois par page, et jamais en production.
    */
   private detailsSocket(): void {
-    detailsConsole(
+    consoleDetails(
       {
         adresse: { valeur: this.url ?? "—" },
         état: { valeur: this.state },

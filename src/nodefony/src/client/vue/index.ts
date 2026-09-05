@@ -154,15 +154,15 @@ export interface NodefonyVueOptions {
  */
 export const nodefonyVue: Plugin<[NodefonyVueOptions]> = {
   install(app: App, options: NodefonyVueOptions): void {
-    const connexion = connectShared(options);
+    const connection = connectShared(options);
     // `markRaw` : le client est un objet à état, avec des `Map` internes et des
     // comparaisons d'identité. Enveloppé dans un proxy réactif, il perdrait ses
     // égalités de référence et paierait une interception par accès — pour une
     // réactivité dont il n'a aucun besoin, ses changements passant par `on*`.
-    app.provide(nodefonyClientKey, markRaw(connexion.socket));
+    app.provide(nodefonyClientKey, markRaw(connection.socket));
     // Idempotent, rejet avalé, et sans effet sur le cycle d'une socket fournie
     // — les trois règles vivent dans le socle, pas ici.
-    connexion.start();
+    connection.start();
   },
 };
 
@@ -196,10 +196,10 @@ export function useNodefony(): RealtimeClient {
  * Le remède tient en une ligne côté appelant — `effectScope()` — encore
  * faut-il savoir qu'il manque.
  */
-function exigerPortee(quoi: string): void {
+function requireScope(caller: string): void {
   if (!getCurrentScope()) {
     throw new Error(
-      `${quoi} doit être appelé dans un composant (setup) ou une portée ` +
+      `${caller} doit être appelé dans un composant (setup) ou une portée ` +
         "d'effet : hors de là, l'abonnement ne serait jamais libéré. " +
         "Envelopper l'appel dans effectScope().",
     );
@@ -214,25 +214,25 @@ function exigerPortee(quoi: string): void {
  * constante, une `ref`, ou dériver d'autres valeurs. C'est ce qui remplace, en
  * Vue, la liste de dépendances que React doit se faire passer à la main.
  */
-function observerReactif<S>(
-  quoi: string,
+function observeReactive<S>(
+  caller: string,
   source: MaybeRefOrGetter<S>,
-  brancher: (valeur: S) => Dispose,
+  wire: (value: S) => Dispose,
 ): void {
-  exigerPortee(quoi);
-  let liberer: Dispose | null = null;
-  const arreter = watch(
+  requireScope(caller);
+  let release: Dispose | null = null;
+  const stop = watch(
     () => toValue(source),
-    (valeur) => {
-      liberer?.();
-      liberer = brancher(valeur);
+    (value) => {
+      release?.();
+      release = wire(value);
     },
     { immediate: true },
   );
   onScopeDispose(() => {
-    arreter();
-    liberer?.();
-    liberer = null;
+    stop();
+    release?.();
+    release = null;
   });
 }
 
@@ -243,13 +243,13 @@ function observerReactif<S>(
  */
 export function useNodefonyState(): Readonly<Ref<RealtimeState>> {
   const client = useNodefony();
-  const etat = shallowRef<RealtimeState>(client.state);
-  observerReactif("useNodefonyState()", client, (socket) =>
-    observeState(socket, (valeur) => {
-      etat.value = valeur;
+  const state = shallowRef<RealtimeState>(client.state);
+  observeReactive("useNodefonyState()", client, (socket) =>
+    observeState(socket, (value) => {
+      state.value = value;
     }),
   );
-  return etat;
+  return state;
 }
 
 /**
@@ -262,13 +262,13 @@ export function useNodefonyState(): Readonly<Ref<RealtimeState>> {
  */
 export function useNodefonyIdentity(): Readonly<Ref<RealtimeIdentity | null>> {
   const client = useNodefony();
-  const identite = shallowRef<RealtimeIdentity | null>(client.identity);
-  observerReactif("useNodefonyIdentity()", client, (socket) =>
-    observeIdentity(socket, (valeur) => {
-      identite.value = valeur;
+  const identity = shallowRef<RealtimeIdentity | null>(client.identity);
+  observeReactive("useNodefonyIdentity()", client, (socket) =>
+    observeIdentity(socket, (value) => {
+      identity.value = value;
     }),
   );
-  return identite;
+  return identity;
 }
 
 /**
@@ -284,8 +284,8 @@ export function useNodefonyChannel(
   onMessage: (payload: unknown) => void,
 ): void {
   const client = useNodefony();
-  observerReactif("useNodefonyChannel()", channel, (nom) =>
-    observeChannel(client, nom, onMessage),
+  observeReactive("useNodefonyChannel()", channel, (name) =>
+    observeChannel(client, name, onMessage),
   );
 }
 
@@ -298,11 +298,11 @@ export function useNodefonyChannelData<T = unknown>(
   channel: MaybeRefOrGetter<string>,
   initial: T | null = null,
 ): Readonly<Ref<T | null>> {
-  const donnee = shallowRef<T | null>(initial);
+  const data = shallowRef<T | null>(initial);
   useNodefonyChannel(channel, (payload) => {
-    donnee.value = payload as T;
+    data.value = payload as T;
   });
-  return donnee;
+  return data;
 }
 
 /** Réglages adaptatifs (la cadence désirée se passe à part, en argument). */
@@ -340,7 +340,7 @@ export function useNodefonyAdaptiveChannel(
   const client = useNodefony();
   const cadence = shallowRef<number>(toValue(desiredMs));
   const enabled = options.enabled !== false;
-  observerReactif(
+  observeReactive(
     "useNodefonyAdaptiveChannel()",
     () => adaptiveRebindKey(toValue(base), toValue(desiredMs), enabled),
     () => {
@@ -373,16 +373,16 @@ export function useNodefonyAdaptiveChannelData<T = unknown>(
   desiredMs: MaybeRefOrGetter<number>,
   options: AdaptiveChannelOptions = {},
 ): AdaptiveChannelData<T> {
-  const donnee = shallowRef<T | null>(null);
+  const data = shallowRef<T | null>(null);
   const intervalMs = useNodefonyAdaptiveChannel(
     base,
     (payload) => {
-      donnee.value = payload as T;
+      data.value = payload as T;
     },
     desiredMs,
     options,
   );
-  return { data: donnee, intervalMs };
+  return { data: data, intervalMs };
 }
 
 /**
@@ -403,9 +403,9 @@ export function useNodefonyChannelStats(
 ): Readonly<Ref<ChannelStatsSnapshot | null>> {
   const client = useNodefony();
   const stats = shallowRef<ChannelStatsSnapshot | null>(null);
-  observerReactif("useNodefonyChannelStats()", channel, (nom) =>
-    observeChannelStats(client, nom, (valeur) => {
-      stats.value = valeur;
+  observeReactive("useNodefonyChannelStats()", channel, (name) =>
+    observeChannelStats(client, name, (value) => {
+      stats.value = value;
     }),
   );
   return stats;
@@ -423,13 +423,13 @@ export function useNodefonyChannelStats(
  */
 export function useNodefonySnapshot(): Readonly<Ref<SocketSnapshot | null>> {
   const client = useNodefony();
-  const vue = shallowRef<SocketSnapshot | null>(null);
-  observerReactif("useNodefonySnapshot()", client, (socket) =>
-    observeSnapshot(socket, (valeur) => {
-      vue.value = valeur;
+  const snapshot = shallowRef<SocketSnapshot | null>(null);
+  observeReactive("useNodefonySnapshot()", client, (socket) =>
+    observeSnapshot(socket, (value) => {
+      snapshot.value = value;
     }),
   );
-  return vue;
+  return snapshot;
 }
 
 /** Réglages de {@link useNodefonySyslog}. */
@@ -452,8 +452,8 @@ export function useNodefonySyslog(
   options: MaybeRefOrGetter<UseSyslogOptions> = {},
 ): Readonly<Ref<unknown[]>> {
   const client = useNodefony();
-  const lignes = shallowRef<unknown[]>([]);
-  observerReactif(
+  const lines = shallowRef<unknown[]>([]);
+  observeReactive(
     "useNodefonySyslog()",
     // Les réglages sont résumés en clé : un objet littéral recréé à chaque
     // rendu rebrancherait l'abonnement sans qu'aucun réglage ait changé.
@@ -463,21 +463,21 @@ export function useNodefonySyslog(
     },
     () => {
       const o = toValue(options);
-      const reglages: ObserveSyslogOptions = {
+      const settings: ObserveSyslogOptions = {
         max: o.max,
         severities: o.severities,
         channel: o.channel,
       };
       return observeSyslog(
         client,
-        (entrees) => {
-          lignes.value = entrees;
+        (entries) => {
+          lines.value = entries;
         },
-        reglages,
+        settings,
       );
     },
   );
-  return lignes;
+  return lines;
 }
 
 /**
@@ -494,7 +494,7 @@ export function useNodefonyNotifications(
   onNotice: (notice: NodefonyNotice) => void,
 ): void {
   const client = useNodefony();
-  observerReactif("useNodefonyNotifications()", client, (socket) =>
+  observeReactive("useNodefonyNotifications()", client, (socket) =>
     observeNotices(socket, onNotice),
   );
 }
@@ -518,7 +518,7 @@ export function useNodefonyNoticeLog(
 ): Readonly<Ref<NodefonyNotice[]>> {
   const client = useNodefony();
   const notices = shallowRef<NodefonyNotice[]>([]);
-  observerReactif(
+  observeReactive(
     "useNodefonyNoticeLog()",
     () => {
       const o = toValue(options);
@@ -526,16 +526,16 @@ export function useNodefonyNoticeLog(
     },
     () => {
       const o = toValue(options);
-      const reglages: ObserveNoticeLogOptions = {
+      const settings: ObserveNoticeLogOptions = {
         max: o.max,
         sources: o.sources,
       };
       return observeNoticeLog(
         client,
-        (liste) => {
-          notices.value = liste;
+        (list) => {
+          notices.value = list;
         },
-        reglages,
+        settings,
       );
     },
   );

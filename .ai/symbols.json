@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T19:34:03.469Z",
+  "generated": "2026-09-05T20:02:56.693Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -2407,16 +2407,16 @@
       "module": "@nodefony/core",
       "description": "Annonce une socket qui vit NUE — aucune composition, aucun noyau. C'est le cas des vitrines du dépôt et de tout widget qui monte une socket et rien d'autre."
     },
-    "detailsConsole": {
-      "name": "detailsConsole",
+    "consoleDetails": {
+      "name": "consoleDetails",
       "kind": "function",
       "file": "src/nodefony/src/client/announce.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Détail du framework, dans un groupe REPLIÉ de la console : un tableau `clé → valeur` et les deux rappels qui font gagner du temps. **Un seul détail par page**, et le noyau gagne : quand il y en a u…"
     },
-    "aUnNoyau": {
-      "name": "aUnNoyau",
+    "hasKernel": {
+      "name": "hasKernel",
       "kind": "function",
       "file": "src/nodefony/src/client/announce.ts",
       "exported": true,
@@ -29876,7 +29876,7 @@
       "announceKernel": [
         "src/nodefony/src/client/ClientKernel.ts"
       ],
-      "detailsConsole": [
+      "consoleDetails": [
         "src/nodefony/src/client/ClientKernel.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
@@ -31500,7 +31500,7 @@
       "announceRealtime": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
-      "aUnNoyau": [
+      "hasKernel": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "noteServerEnv": [

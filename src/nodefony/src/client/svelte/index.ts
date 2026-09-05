@@ -144,7 +144,7 @@ export interface NodefonySvelteOptions {
 }
 
 /** La socket de la page, posée par {@link configureNodefony}. */
-let socketDeLaPage: RealtimeClient | null = null;
+let pageSocket: RealtimeClient | null = null;
 
 /**
  * Installe la politique temps réel de l'application — à appeler UNE fois, dans
@@ -169,11 +169,11 @@ let socketDeLaPage: RealtimeClient | null = null;
  * ```
  */
 export function configureNodefony(options: NodefonySvelteOptions): void {
-  const connexion = connectShared(options);
-  socketDeLaPage = connexion.socket;
+  const connection = connectShared(options);
+  pageSocket = connection.socket;
   // Idempotent, rejet avalé, et sans effet sur le cycle d'une socket fournie
   // — les trois règles vivent dans le socle, pas ici.
-  connexion.start();
+  connection.start();
 }
 
 /**
@@ -187,13 +187,13 @@ export function configureNodefony(options: NodefonySvelteOptions): void {
  *   hôte en production — mieux vaut une erreur au premier rendu.
  */
 export function nodefony(): RealtimeClient {
-  if (!socketDeLaPage) {
+  if (!pageSocket) {
     throw new Error(
       "nodefony() : configureNodefony() n'a pas été appelé — " +
         'configureNodefony({ url: "/api/live/realtime" }) dans main.ts, avant mount().',
     );
   }
-  return socketDeLaPage;
+  return pageSocket;
 }
 
 /**
@@ -206,7 +206,7 @@ export function nodefony(): RealtimeClient {
 export type Source<T> = T | (() => T);
 
 /** Lit une source, qu'elle soit constante ou fonction. */
-function lire<T>(source: Source<T>): T {
+function read<T>(source: Source<T>): T {
   return typeof source === "function" ? (source as () => T)() : source;
 }
 
@@ -220,21 +220,21 @@ function lire<T>(source: Source<T>): T {
  * dernier d'entre eux est détruit. C'est ce qui donne la libération sans une
  * ligne de `onDestroy` — et c'est aussi ce qui rend l'abonnement paresseux.
  */
-function valeurObservee<T>(
-  initiale: T,
-  brancher: (emettre: (valeur: T) => void) => Dispose,
+function observedValue<T>(
+  initial: T,
+  wire: (emit: (value: T) => void) => Dispose,
 ): Reactive<T> {
-  let valeur = initiale;
-  const souscrire = createSubscriber((update) =>
-    brancher((v) => {
-      valeur = v;
+  let value = initial;
+  const subscribe = createSubscriber((update) =>
+    wire((v) => {
+      value = v;
       update();
     }),
   );
   return {
     get current(): T {
-      souscrire();
-      return valeur;
+      subscribe();
+      return value;
     },
   };
 }
@@ -246,8 +246,8 @@ function valeurObservee<T>(
  */
 export function nodefonyState(): Reactive<RealtimeState> {
   const client = nodefony();
-  return valeurObservee<RealtimeState>(client.state, (emettre) =>
-    observeState(client, emettre),
+  return observedValue<RealtimeState>(client.state, (emit) =>
+    observeState(client, emit),
   );
 }
 
@@ -260,8 +260,8 @@ export function nodefonyState(): Reactive<RealtimeState> {
  */
 export function nodefonyIdentity(): Reactive<RealtimeIdentity | null> {
   const client = nodefony();
-  return valeurObservee<RealtimeIdentity | null>(client.identity, (emettre) =>
-    observeIdentity(client, emettre),
+  return observedValue<RealtimeIdentity | null>(client.identity, (emit) =>
+    observeIdentity(client, emit),
   );
 }
 
@@ -283,7 +283,7 @@ export function nodefonyChannel(
   channel: Source<string>,
   onMessage: (payload: unknown) => void,
 ): Dispose {
-  return observeChannel(nodefony(), lire(channel), onMessage);
+  return observeChannel(nodefony(), read(channel), onMessage);
 }
 
 /**
@@ -299,8 +299,8 @@ export function nodefonyChannelData<T = unknown>(
   initial: T | null = null,
 ): Reactive<T | null> {
   const client = nodefony();
-  return valeurObservee<T | null>(initial, (emettre) =>
-    observeChannel(client, lire(channel), (payload) => emettre(payload as T)),
+  return observedValue<T | null>(initial, (emit) =>
+    observeChannel(client, read(channel), (payload) => emit(payload as T)),
   );
 }
 
@@ -339,14 +339,14 @@ export function nodefonyAdaptiveChannel(
   desiredMs: Source<number>,
   options: AdaptiveChannelOptions & { onRate?: (ms: number) => void } = {},
 ): Dispose {
-  const { onRate, ...reste } = options;
+  const { onRate, ...rest } = options;
   const binding = nodefony().adaptiveChannel(
-    lire(base),
+    read(base),
     (...args: unknown[]) => onMessage(args[0]),
     {
-      ...reste,
-      intervalMs: lire(desiredMs),
-      enabled: reste.enabled !== false,
+      ...rest,
+      intervalMs: read(desiredMs),
+      enabled: rest.enabled !== false,
       onRate,
     },
   );
@@ -369,27 +369,27 @@ export function nodefonyAdaptiveChannelData<T = unknown>(
 ): AdaptiveChannelData<T> {
   const client = nodefony();
   const enabled = options.enabled !== false;
-  let poserCadence: ((ms: number) => void) | null = null;
-  const data = valeurObservee<T | null>(null, (emettre) => {
+  let setCadence: ((ms: number) => void) | null = null;
+  const data = observedValue<T | null>(null, (emit) => {
     // La clé est LUE ici pour que le branchement en dépende : ré-abonnement aux
     // mêmes instants que dans les trois autres fronts.
-    void adaptiveRebindKey(lire(base), lire(desiredMs), enabled);
+    void adaptiveRebindKey(read(base), read(desiredMs), enabled);
     const binding = client.adaptiveChannel(
-      lire(base),
-      (...args: unknown[]) => emettre(args[0] as T),
+      read(base),
+      (...args: unknown[]) => emit(args[0] as T),
       {
         ...options,
-        intervalMs: lire(desiredMs),
+        intervalMs: read(desiredMs),
         enabled,
-        onRate: (ms: number) => poserCadence?.(ms),
+        onRate: (ms: number) => setCadence?.(ms),
       },
     );
     return () => binding.dispose();
   });
-  const intervalMs = valeurObservee<number>(lire(desiredMs), (emettre) => {
-    poserCadence = emettre;
+  const intervalMs = observedValue<number>(read(desiredMs), (emit) => {
+    setCadence = emit;
     return () => {
-      poserCadence = null;
+      setCadence = null;
     };
   });
   return { data, intervalMs };
@@ -412,8 +412,8 @@ export function nodefonyChannelStats(
   channel: Source<string>,
 ): Reactive<ChannelStatsSnapshot | null> {
   const client = nodefony();
-  return valeurObservee<ChannelStatsSnapshot | null>(null, (emettre) =>
-    observeChannelStats(client, lire(channel), emettre),
+  return observedValue<ChannelStatsSnapshot | null>(null, (emit) =>
+    observeChannelStats(client, read(channel), emit),
   );
 }
 
@@ -428,8 +428,8 @@ export function nodefonyChannelStats(
  */
 export function nodefonySnapshot(): Reactive<SocketSnapshot | null> {
   const client = nodefony();
-  return valeurObservee<SocketSnapshot | null>(null, (emettre) =>
-    observeSnapshot(client, emettre),
+  return observedValue<SocketSnapshot | null>(null, (emit) =>
+    observeSnapshot(client, emit),
   );
 }
 
@@ -453,14 +453,14 @@ export function nodefonySyslog(
   options: Source<SyslogOptions> = {},
 ): Reactive<unknown[]> {
   const client = nodefony();
-  return valeurObservee<unknown[]>([], (emettre) => {
-    const o = lire(options);
-    const reglages: ObserveSyslogOptions = {
+  return observedValue<unknown[]>([], (emit) => {
+    const o = read(options);
+    const settings: ObserveSyslogOptions = {
       max: o.max,
       severities: o.severities,
       channel: o.channel,
     };
-    return observeSyslog(client, emettre, reglages);
+    return observeSyslog(client, emit, settings);
   });
 }
 
@@ -499,12 +499,12 @@ export function nodefonyNoticeLog(
   options: Source<NoticeLogOptions> = {},
 ): Reactive<NodefonyNotice[]> {
   const client = nodefony();
-  return valeurObservee<NodefonyNotice[]>([], (emettre) => {
-    const o = lire(options);
-    const reglages: ObserveNoticeLogOptions = {
+  return observedValue<NodefonyNotice[]>([], (emit) => {
+    const o = read(options);
+    const settings: ObserveNoticeLogOptions = {
       max: o.max,
       sources: o.sources,
     };
-    return observeNoticeLog(client, emettre, reglages);
+    return observeNoticeLog(client, emit, settings);
   });
 }

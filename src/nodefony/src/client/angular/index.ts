@@ -189,7 +189,7 @@ export function provideNodefony(
   // Résolue ICI, pas dans la fabrique : le refus d'une adresse absente doit
   // tomber là où l'erreur se lit (la composition des providers), pas au premier
   // rendu d'un composant. La règle du refus elle-même vit dans le socle.
-  const connexion = connectShared(options);
+  const connection = connectShared(options);
   return makeEnvironmentProviders([
     {
       provide: NODEFONY_CLIENT,
@@ -202,9 +202,9 @@ export function provideNodefony(
         inject(NgZone).runOutsideAngular(() => {
           // Idempotent, rejet avalé, et sans effet sur le cycle d'une socket
           // fournie — les trois règles vivent dans le socle, pas ici.
-          connexion.start();
+          connection.start();
         });
-        return connexion.socket;
+        return connection.socket;
       },
     },
   ]);
@@ -242,7 +242,7 @@ export function injectNodefony(): RealtimeClient {
 export type Source<T> = T | (() => T);
 
 /** Lit une source, qu'elle soit constante ou fonction. */
-function lire<T>(source: Source<T>): T {
+function read<T>(source: Source<T>): T {
   return typeof source === "function" ? (source as () => T)() : source;
 }
 
@@ -260,19 +260,19 @@ function lire<T>(source: Source<T>): T {
  *    entoure le branchement : ce que le socle lirait par ailleurs ne doit pas
  *    devenir une dépendance de l'effet.
  */
-function observerReactif<S>(
+function observeReactive<S>(
   source: Source<S>,
-  brancher: (valeur: S) => Dispose,
+  wire: (value: S) => Dispose,
 ): void {
   if (typeof source !== "function") {
-    const liberer = brancher(source);
-    inject(DestroyRef).onDestroy(liberer);
+    const release = wire(source);
+    inject(DestroyRef).onDestroy(release);
     return;
   }
   effect((onCleanup) => {
-    const valeur = lire(source);
-    const liberer = untracked(() => brancher(valeur));
-    onCleanup(liberer);
+    const value = read(source);
+    const release = untracked(() => wire(value));
+    onCleanup(release);
   });
 }
 
@@ -284,11 +284,11 @@ function observerReactif<S>(
 export function injectNodefonyState(): Signal<RealtimeState> {
   assertInInjectionContext(injectNodefonyState);
   const client = injectNodefony();
-  const etat = signal<RealtimeState>(client.state);
-  observerReactif(client, (socket) =>
-    observeState(socket, (valeur) => etat.set(valeur)),
+  const state = signal<RealtimeState>(client.state);
+  observeReactive(client, (socket) =>
+    observeState(socket, (value) => state.set(value)),
   );
-  return etat.asReadonly();
+  return state.asReadonly();
 }
 
 /**
@@ -302,11 +302,11 @@ export function injectNodefonyState(): Signal<RealtimeState> {
 export function injectNodefonyIdentity(): Signal<RealtimeIdentity | null> {
   assertInInjectionContext(injectNodefonyIdentity);
   const client = injectNodefony();
-  const identite = signal<RealtimeIdentity | null>(client.identity);
-  observerReactif(client, (socket) =>
-    observeIdentity(socket, (valeur) => identite.set(valeur)),
+  const identity = signal<RealtimeIdentity | null>(client.identity);
+  observeReactive(client, (socket) =>
+    observeIdentity(socket, (value) => identity.set(value)),
   );
-  return identite.asReadonly();
+  return identity.asReadonly();
 }
 
 /**
@@ -323,7 +323,7 @@ export function injectNodefonyChannel(
 ): void {
   assertInInjectionContext(injectNodefonyChannel);
   const client = injectNodefony();
-  observerReactif(channel, (nom) => observeChannel(client, nom, onMessage));
+  observeReactive(channel, (name) => observeChannel(client, name, onMessage));
 }
 
 /**
@@ -336,9 +336,9 @@ export function injectNodefonyChannelData<T = unknown>(
   initial: T | null = null,
 ): Signal<T | null> {
   assertInInjectionContext(injectNodefonyChannelData);
-  const donnee = signal<T | null>(initial);
-  injectNodefonyChannel(channel, (payload) => donnee.set(payload as T));
-  return donnee.asReadonly();
+  const data = signal<T | null>(initial);
+  injectNodefonyChannel(channel, (payload) => data.set(payload as T));
+  return data.asReadonly();
 }
 
 /** Réglages adaptatifs (la cadence désirée se passe à part, en argument). */
@@ -375,17 +375,17 @@ export function injectNodefonyAdaptiveChannel(
 ): Signal<number> {
   assertInInjectionContext(injectNodefonyAdaptiveChannel);
   const client = injectNodefony();
-  const cadence = signal<number>(lire(desiredMs));
+  const cadence = signal<number>(read(desiredMs));
   const enabled = options.enabled !== false;
-  observerReactif(
-    () => adaptiveRebindKey(lire(base), lire(desiredMs), enabled),
+  observeReactive(
+    () => adaptiveRebindKey(read(base), read(desiredMs), enabled),
     () => {
       const binding = client.adaptiveChannel(
-        lire(base),
+        read(base),
         (...args: unknown[]) => onMessage(args[0]),
         {
           ...options,
-          intervalMs: lire(desiredMs),
+          intervalMs: read(desiredMs),
           enabled,
           onRate: (ms: number) => cadence.set(ms),
         },
@@ -408,14 +408,14 @@ export function injectNodefonyAdaptiveChannelData<T = unknown>(
   options: AdaptiveChannelOptions = {},
 ): AdaptiveChannelData<T> {
   assertInInjectionContext(injectNodefonyAdaptiveChannelData);
-  const donnee = signal<T | null>(null);
+  const data = signal<T | null>(null);
   const intervalMs = injectNodefonyAdaptiveChannel(
     base,
-    (payload) => donnee.set(payload as T),
+    (payload) => data.set(payload as T),
     desiredMs,
     options,
   );
-  return { data: donnee.asReadonly(), intervalMs };
+  return { data: data.asReadonly(), intervalMs };
 }
 
 /**
@@ -438,8 +438,8 @@ export function injectNodefonyChannelStats(
   assertInInjectionContext(injectNodefonyChannelStats);
   const client = injectNodefony();
   const stats = signal<ChannelStatsSnapshot | null>(null);
-  observerReactif(channel, (nom) =>
-    observeChannelStats(client, nom, (valeur) => stats.set(valeur)),
+  observeReactive(channel, (name) =>
+    observeChannelStats(client, name, (value) => stats.set(value)),
   );
   return stats.asReadonly();
 }
@@ -456,11 +456,11 @@ export function injectNodefonyChannelStats(
 export function injectNodefonySnapshot(): Signal<SocketSnapshot | null> {
   assertInInjectionContext(injectNodefonySnapshot);
   const client = injectNodefony();
-  const vue = signal<SocketSnapshot | null>(null);
-  observerReactif(client, (socket) =>
-    observeSnapshot(socket, (valeur) => vue.set(valeur)),
+  const snapshot = signal<SocketSnapshot | null>(null);
+  observeReactive(client, (socket) =>
+    observeSnapshot(socket, (value) => snapshot.set(value)),
   );
-  return vue.asReadonly();
+  return snapshot.asReadonly();
 }
 
 /** Réglages de {@link injectNodefonySyslog}. */
@@ -484,28 +484,28 @@ export function injectNodefonySyslog(
 ): Signal<unknown[]> {
   assertInInjectionContext(injectNodefonySyslog);
   const client = injectNodefony();
-  const lignes = signal<unknown[]>([]);
-  const brancher = (): Dispose => {
-    const o = lire(options);
-    const reglages: ObserveSyslogOptions = {
+  const lines = signal<unknown[]>([]);
+  const wire = (): Dispose => {
+    const o = read(options);
+    const settings: ObserveSyslogOptions = {
       max: o.max,
       severities: o.severities,
       channel: o.channel,
     };
-    return observeSyslog(client, (entrees) => lignes.set(entrees), reglages);
+    return observeSyslog(client, (entries) => lines.set(entries), settings);
   };
-  observerReactif(
+  observeReactive(
     // Les réglages sont résumés en clé : un objet littéral recréé à chaque
     // lecture rebrancherait l'abonnement sans qu'aucun réglage ait changé.
     typeof options === "function"
       ? () => {
-          const o = lire(options);
+          const o = read(options);
           return `${o.channel ?? ""}|${o.max ?? ""}|${(o.severities ?? []).join(",")}`;
         }
       : "",
-    brancher,
+    wire,
   );
-  return lignes.asReadonly();
+  return lines.asReadonly();
 }
 
 /**
@@ -523,7 +523,7 @@ export function injectNodefonyNotifications(
 ): void {
   assertInInjectionContext(injectNodefonyNotifications);
   const client = injectNodefony();
-  observerReactif(client, (socket) => observeNotices(socket, onNotice));
+  observeReactive(client, (socket) => observeNotices(socket, onNotice));
 }
 
 /** Réglages de {@link injectNodefonyNoticeLog}. */
@@ -546,22 +546,22 @@ export function injectNodefonyNoticeLog(
   assertInInjectionContext(injectNodefonyNoticeLog);
   const client = injectNodefony();
   const notices = signal<NodefonyNotice[]>([]);
-  const brancher = (): Dispose => {
-    const o = lire(options);
-    const reglages: ObserveNoticeLogOptions = {
+  const wire = (): Dispose => {
+    const o = read(options);
+    const settings: ObserveNoticeLogOptions = {
       max: o.max,
       sources: o.sources,
     };
-    return observeNoticeLog(client, (liste) => notices.set(liste), reglages);
+    return observeNoticeLog(client, (list) => notices.set(list), settings);
   };
-  observerReactif(
+  observeReactive(
     typeof options === "function"
       ? () => {
-          const o = lire(options);
+          const o = read(options);
           return `${o.max ?? ""}|${(o.sources ?? []).join(",")}`;
         }
       : "",
-    brancher,
+    wire,
   );
   return notices.asReadonly();
 }
