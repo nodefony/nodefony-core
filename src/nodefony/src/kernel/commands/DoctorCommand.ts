@@ -5,6 +5,7 @@ import {
   collectDoctorReport,
   parseDoctorArgv,
   renderDoctorReport,
+  reporterProgression,
   runDoctorCommand,
 } from "../checks/runDoctor";
 import { collectLiveReport, liveNotRun } from "../checks/live";
@@ -89,7 +90,7 @@ class Check extends Command {
     );
     this.addOption(
       "--deep",
-      "LANCE ce que le projet déclare (typecheck, lint, test) et interroge npm",
+      "tout : lance typecheck/lint/test, interroge npm, et demande à l'application (implique --live)",
     );
     this.addOption(
       "--live",
@@ -149,6 +150,10 @@ class Check extends Command {
       parsed.cwd,
       parsed.targetEnv,
       parsed.deep,
+      // Sans ce reporter, l'étage profond travaille en SILENCE pendant des
+      // minutes et la commande paraît bloquée — la brique était écrite et
+      // éprouvée, la chaîne ne l'appelait pas.
+      reporterProgression(parsed.json),
     );
     const complet = attachLive(
       report,

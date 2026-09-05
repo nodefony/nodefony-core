@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T08:50:13.878Z",
+  "generated": "2026-09-05T09:11:44.908Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 810,
-    "symbols": 3854,
+    "symbols": 3858,
     "classes": 383,
-    "interfaces": 1049,
-    "types": 439,
+    "interfaces": 1050,
+    "types": 440,
     "enums": 4,
-    "functions": 1596,
+    "functions": 1598,
     "constants": 383
   },
   "symbols": {
@@ -8198,6 +8198,15 @@
       "module": "@nodefony/core",
       "description": "Exécute un endpoint du plan d'administration — **la porte unique**, sans HTTP. ⭐ **Une source, plusieurs portes.** Le data plane est un ensemble de fonctions `IAdminRequest → donnée` ; ce qui les e…"
     },
+    "IDeepProgress": {
+      "name": "IDeepProgress",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un étage profond ANNONCE pendant qu'il travaille. `--deep` lance des scripts qui prennent des minutes. Sans un mot, la commande paraît bloquée — et un utilisateur qui croit un outil bloqué l'…"
+    },
     "IVerifyStepResult": {
       "name": "IVerifyStepResult",
       "kind": "interface",
@@ -8215,6 +8224,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce que l'étage profond a pu établir — et ce qu'il n'a PAS pu."
+    },
+    "DeepReporter": {
+      "name": "DeepReporter",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qui reçoit les annonces — `undefined` quand personne n'écoute."
     },
     "declaredSteps": {
       "name": "declaredSteps",
@@ -9033,6 +9050,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nombre total de manquements d'un rapport — le verdict, en un endroit. Délègue à {@link countFindings} : le rendu compte par la même fonction, et le bilan chiffré ne peut donc plus contredire le som…"
+    },
+    "ligneProgression": {
+      "name": "ligneProgression",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La ligne d'annonce d'un évènement de l'étage profond, ou `null` s'il n'y a rien à dire. Fonction PURE, pour que ce qui s'affiche pendant une attente de plusieurs minutes s'éprouve sans attendre quo…"
+    },
+    "reporterProgression": {
+      "name": "reporterProgression",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runDoctor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le reporter à donner à l'étage profond — ou `undefined` quand personne ne lit. 🔴 **Deux décisions, et elles ne sont pas cosmétiques.** *Le canal* : la progression part sur la sortie d'ERREUR, jama…"
     },
     "runDoctorCommand": {
       "name": "runDoctorCommand",
@@ -31416,6 +31449,12 @@
       "runVerifySteps": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
+      "DeepReporter": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "IDeepProgress": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
       "IDeepResult": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
@@ -31509,6 +31548,9 @@
         "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "renderDoctorReport": [
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "reporterProgression": [
         "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "collectLiveReport": [

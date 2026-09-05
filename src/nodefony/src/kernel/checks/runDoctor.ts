@@ -28,7 +28,13 @@ import {
 import { checkFreshness, type IFreshnessResult } from "./freshness";
 import { checkSurface, type ISurfaceResult } from "./surface";
 import { checkGuards, VERIFY_STEPS, type IGuardResult } from "./guards";
-import { readOutdated, runVerifySteps, type IDeepResult } from "./deep";
+import {
+  readOutdated,
+  runVerifySteps,
+  type DeepReporter,
+  type IDeepProgress,
+  type IDeepResult,
+} from "./deep";
 import { liveNotRun, LIVE_FAMILIES, type ILiveResult } from "./live";
 import {
   defaultDevPorts,
@@ -372,7 +378,12 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
       .map((l) => `${l}\n`)
       .join("") +
     section("OPTIONS") +
-    opt("--json", "le même rapport, exploitable par un script") +
+    opt(
+      "--json",
+      "le même rapport, exploitable par un script — et AUCUNE progression, " +
+        "sur aucun canal : un harnais qui capture les deux flux (`2>&1`) " +
+        "recevrait sinon du décor au milieu de ses données",
+    ) +
     opt(
       "--strict",
       "un contrôle SAUTÉ fait échouer — armé tout seul quand la variable " +
@@ -390,8 +401,10 @@ export function usage(p: IPalette, largeur: number = largeurUtile(80)): string {
     opt("--no-live", "s'en tient aux fichiers, quoi qu'un script demande") +
     opt(
       "--deep",
-      "LANCE ce que le projet déclare — `typecheck`, `lint`, `test` — et " +
-        "interroge npm sur les paquets en retard (des dizaines de secondes)",
+      "tout : LANCE ce que le projet déclare (`typecheck`, `lint`, `test`), " +
+        "interroge npm sur les paquets en retard, et DEMANDE à l'application " +
+        "(implique `--live` ; `--no-live` le refuse). Des dizaines de secondes. " +
+        "N'annonce sa progression que hors `--json`",
     ) +
     opt(
       "--env <e>",
@@ -526,6 +539,10 @@ export function parseDoctorArgv(
   let strict: boolean | undefined;
   let live = false;
   let deep = false;
+  // `--no-live` doit pouvoir gagner contre l'implication de `--deep`, quel que
+  // soit l'ORDRE des drapeaux : un booléen `live` seul ne le permet pas, car
+  // `--no-live --deep` le rallumerait. On mémorise donc le REFUS, pas l'état.
+  let liveRefuse = false;
   let help = false;
   let targetEnv: string | null = null;
   for (let i = 0; i < rest.length; i++) {
@@ -546,8 +563,11 @@ export function parseDoctorArgv(
       live = true;
     } else if (word === "--no-live") {
       // Explicite, pour qu'un script puisse REFUSER le boot sans dépendre du
-      // défaut — le même raisonnement que `--no-strict`.
+      // défaut — le même raisonnement que `--no-strict`. Il gagne aussi contre
+      // l'implication de `--deep` : c'est la seule façon de demander « tout,
+      // sauf démarrer l'application ».
       live = false;
+      liveRefuse = true;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
     } else if (word === "--env") {
@@ -578,7 +598,13 @@ export function parseDoctorArgv(
     json,
     cwd,
     help,
-    live,
+    // 🔴 `--deep` IMPLIQUE `--live`. Le premier veut dire « dis-moi tout, je
+    // paie le temps » ; obliger à composer les deux force à connaître deux
+    // drapeaux et à deviner lequel apporte quoi. Le risque est nul : quand
+    // l'application ne démarre pas, l'étage 2 rend un CONSTAT lisible — jamais
+    // une exception qui emporterait le rapport statique, dont on a précisément
+    // besoin à ce moment-là.
+    live: live || (deep && !liveRefuse),
     deep,
     targetEnv,
     strict: resoudreStrict(strict, process.env),
@@ -652,6 +678,33 @@ export interface IDoctorReport {
    * `null` quand l'étage n'a pas été demandé : l'absence de résultat et un
    * résultat vide ne se confondent pas, et c'est l'état d'exécution qui le dit
    * au lecteur plutôt qu'un silence.
+   *
+   * ## Ce qu'un appelant de `--json` y trouve
+   *
+   * ```json
+   * "deep": {
+   *   "steps": [
+   *     { "step": "typecheck", "outcome": "passed", "ms": 809 },
+   *     { "step": "lint", "outcome": "failed", "ms": 784,
+   *       "detail": "src/a.ts:1:1: warning no-unused-vars" }
+   *   ],
+   *   "outdated": { "packages": [], "ahead": [], "counts": { "major": 0, … } },
+   *   "outdatedReason": ""
+   * }
+   * ```
+   *
+   * - `outcome` vaut `passed` · `failed` · `timeout` · `absent`. **`absent`
+   *   n'est pas un échec** : le script n'est pas déclaré par le projet, et
+   *   c'est la famille `guards` qui en répond. **`timeout` non plus n'est pas
+   *   un succès** : le script a été tué par la borne de temps, et le lire
+   *   comme un `passed` est l'erreur que ce champ existe pour empêcher.
+   * - `detail` porte la PREMIÈRE LIGNE UTILE de la sortie, l'annonce de npm
+   *   sautée. Absent quand le script s'est tu.
+   * - `outdated` vaut `null` quand le registre n'a pas répondu ; `outdatedReason`
+   *   dit alors pourquoi. Un registre muet n'est PAS un défaut de
+   *   l'application, et rien n'en est déduit.
+   * - En `--json`, **aucune progression n'est émise sur aucun canal** : stdout
+   *   ne porte que ce document, stderr reste vide.
    */
   deep: IDeepResult | null;
   /**
@@ -703,6 +756,7 @@ export async function collectDoctorReport(
   start: string,
   targetEnv: string | null = null,
   deepRequested = false,
+  report?: DeepReporter,
 ): Promise<IDoctorReport> {
   const projectRoot = findProjectRoot(start);
   const cwd = projectRoot ?? start;
@@ -712,8 +766,17 @@ export async function collectDoctorReport(
   const deep: IDeepResult | null =
     deepRequested && projectRoot
       ? (() => {
-          const steps = runVerifySteps(projectRoot, VERIFY_STEPS);
-          const { summary, reason } = readOutdated(projectRoot);
+          const steps = runVerifySteps(
+            projectRoot,
+            VERIFY_STEPS,
+            undefined,
+            report,
+          );
+          const { summary, reason } = readOutdated(
+            projectRoot,
+            undefined,
+            report,
+          );
           return { steps, outdated: summary, outdatedReason: reason };
         })()
       : null;
@@ -1005,6 +1068,73 @@ export function countCheckFindings(report: IDoctorReport): number {
   return countFindings(report);
 }
 
+/**
+ * La ligne d'annonce d'un évènement de l'étage profond, ou `null` s'il n'y a
+ * rien à dire.
+ *
+ * Fonction PURE, pour que ce qui s'affiche pendant une attente de plusieurs
+ * minutes s'éprouve sans attendre quoi que ce soit.
+ *
+ * @param e - l'évènement annoncé par l'étage profond.
+ * @param p - la palette (couleur ou non, selon le terminal).
+ * @returns la ligne à écrire, sans retour chariot, ou `null`.
+ */
+export function ligneProgression(e: IDeepProgress, p: IPalette): string | null {
+  const quoi = e.step === "outdated" ? "npm outdated" : `npm run ${e.step}`;
+  if (e.phase === "start") return p.discret(`  … ${quoi}`);
+  const secondes = e.ms === undefined ? "" : ` (${(e.ms / 1000).toFixed(1)} s)`;
+  switch (e.outcome) {
+    case "passed":
+    case "ok":
+      return `  ${p.ok("✓")} ${quoi}${p.discret(secondes)}`;
+    case "failed":
+      return `  ${p.echec("✗")} ${quoi}${p.discret(secondes)}`;
+    case "timeout":
+      return `  ${p.echec("⏱")} ${quoi}${p.discret(`${secondes} — interrompu`)}`;
+    case "unavailable":
+      return `  ${p.alerte("—")} ${quoi}${p.discret(`${secondes} — sans réponse`)}`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Le reporter à donner à l'étage profond — ou `undefined` quand personne ne lit.
+ *
+ * 🔴 **Deux décisions, et elles ne sont pas cosmétiques.**
+ *
+ * *Le canal* : la progression part sur la sortie d'ERREUR, jamais sur la sortie
+ * standard. Celle-ci porte le RAPPORT, que l'on redirige couramment vers un
+ * fichier (`nodefony doctor > diagnostic.txt`) ; une progression éphémère qui
+ * s'y glisserait salirait un document qu'on relit plus tard, et rendrait le
+ * `--json` inexploitable. C'est aussi la convention des outils qui annoncent
+ * leur travail — npm, cargo, docker écrivent tous leur progression sur stderr.
+ *
+ * *Le silence en `--json`* : rien n'est émis du tout, sur aucun canal. Un agent
+ * qui capture les deux flux (`2>&1`, ce que font la plupart des harnais) verrait
+ * sinon des lignes de décor tomber au milieu de son JSON. La règle est donc
+ * simple à documenter et sans exception : **`--json` n'émet aucune
+ * progression**.
+ *
+ * @param json - `true` si le rapport est demandé en JSON.
+ * @param ecrire - où écrire (injecté : une fonction qui touche `process.stderr`
+ *   en dur ne s'éprouve que par capture globale, donc mal).
+ * @returns le reporter, ou `undefined` s'il ne faut rien annoncer.
+ */
+export function reporterProgression(
+  json: boolean,
+  ecrire: (ligne: string) => void = (l) => process.stderr.write(`${l}\n`),
+): DeepReporter | undefined {
+  if (json) return undefined;
+  const p = creerPalette(
+    doitColorer(process.env, Boolean(process.stderr.isTTY)),
+  );
+  return (e) => {
+    const ligne = ligneProgression(e, p);
+    if (ligne !== null) ecrire(ligne);
+  };
+}
+
 export async function runDoctorCommand(argv: string[]): Promise<number> {
   const parsed = parseDoctorArgv(argv);
   if ("error" in parsed) {
@@ -1039,6 +1169,11 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     parsed.cwd,
     parsed.targetEnv,
     parsed.deep,
+    // Sans ce reporter, l'étage profond travaille en SILENCE pendant des
+    // minutes et la commande paraît bloquée. La brique était écrite et
+    // éprouvée ; c'est la CHAÎNE qui ne l'appelait pas — le défaut que ce
+    // dépôt a déjà payé deux fois, et qui ne se voit dans aucun test unitaire.
+    reporterProgression(parsed.json),
   );
   return renderDoctorReport(report, parsed, Date.now() - debut);
 }
@@ -1206,6 +1341,11 @@ export async function runDoctorWithoutLive(
     parsed.cwd,
     parsed.targetEnv,
     parsed.deep,
+    // Sans ce reporter, l'étage profond travaille en SILENCE pendant des
+    // minutes et la commande paraît bloquée. La brique était écrite et
+    // éprouvée ; c'est la CHAÎNE qui ne l'appelait pas — le défaut que ce
+    // dépôt a déjà payé deux fois, et qui ne se voit dans aucun test unitaire.
+    reporterProgression(parsed.json),
   );
   return renderDoctorReport(
     attachLive(report, liveNotRun(reason, unlock)),

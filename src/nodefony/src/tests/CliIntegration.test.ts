@@ -36,6 +36,48 @@ const REPO_ROOT = path.resolve(CORE_ROOT, "../.."); // racine repo (= app dev)
 const BIN = path.join(CORE_ROOT, "bin", "nodefony");
 const DIST = path.join(CORE_ROOT, "dist", "node", "index.js"); // entrée `import` (cf package.json exports)
 
+/**
+ * Les bilans de démarrage du DÉPÔT, préservés le temps de cette suite.
+ *
+ * 🔴 Ce fichier lance le vrai CLI avec `cwd = REPO_ROOT`, et certains de ses cas
+ * font ÉCHOUER un boot exprès (base injoignable). Le kernel fige alors son bilan
+ * dans le `var/` du dépôt — c'est-à-dire dans l'état que `nodefony doctor`
+ * présentera ensuite à l'utilisateur comme « le dernier démarrage de votre
+ * application ». Vécu : après une passe de tests, `doctor` annonçait un
+ * `nodefony inspect` en échec sur `base-absente.invalid`, en production, à
+ * quelqu'un qui venait de lancer `nodefony dev` sans le moindre problème.
+ *
+ * Le diagnostic disait vrai ; c'est le fait qu'il rapportait qui avait été
+ * fabriqué par la suite de tests. Un banc qui laisse une trace dans l'état
+ * observable du dépôt fait mentir l'outil sans qu'aucun test ne rougisse.
+ *
+ * On restaure donc l'état d'avant : le contenu quand le fichier existait, son
+ * ABSENCE quand il n'existait pas — les deux, sinon on remplace une pollution
+ * par une autre.
+ */
+const BILANS = [
+  path.join(REPO_ROOT, "var", "last-boot.json"),
+  path.join(REPO_ROOT, "var", "last-boot-console.json"),
+];
+const bilansAvant = new Map<string, string | null>();
+
+beforeAll(() => {
+  for (const f of BILANS) {
+    bilansAvant.set(f, fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null);
+  }
+});
+
+afterAll(() => {
+  for (const [f, contenu] of bilansAvant) {
+    if (contenu === null) {
+      if (fs.existsSync(f)) fs.rmSync(f);
+    } else {
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, contenu, "utf8");
+    }
+  }
+});
+
 const HTTP_PORT = 5151; // port http principal de l'app dev — sert au garde-fou EADDRINUSE
 const HTTPS_PORT = 5152; // port https/http2 (probe d'intégrité, cert auto-signé)
 const READY_RE = /Server Listen on/i; // marqueur readiness (server-static.ts)

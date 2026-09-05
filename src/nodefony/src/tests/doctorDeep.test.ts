@@ -12,6 +12,7 @@ import assert from "node:assert";
 import path from "node:path";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { parseDoctorArgv } from "../kernel/checks/runDoctor";
 import {
   declaredSteps,
   firstUsefulLine,
@@ -174,5 +175,42 @@ describe("doctor --deep — les paquets en retard", () => {
     assert.equal(summary?.packages[0]?.name, "@nodefony/http");
     // La sévérité vient de `classifySeverity`, pas d'une règle réécrite ici.
     assert.equal(summary?.packages[0]?.severity, "major");
+  });
+});
+
+describe("doctor --deep — ce qu'il IMPLIQUE", () => {
+  const lire = (argv: string[]): { live: boolean; deep: boolean } => {
+    const p = parseDoctorArgv(argv);
+    assert.ok(!("error" in p), `argv refusé : ${argv.join(" ")}`);
+    return { live: p.live, deep: p.deep };
+  };
+
+  it("`--deep` allume l'étage 2 tout seul — un seul drapeau pour « dis-moi tout »", () => {
+    assert.deepEqual(lire(["doctor", "--deep"]), { live: true, deep: true });
+  });
+
+  it("`--live` seul n'allume PAS l'étage 3 : il ne lance aucune commande", () => {
+    // L'implication ne vaut que dans un sens. `--live` demande à l'application ;
+    // il n'a jamais promis de lancer la suite de tests du projet.
+    assert.deepEqual(lire(["doctor", "--live"]), { live: true, deep: false });
+  });
+
+  it("🔴 `--no-live` gagne contre l'implication, DANS LES DEUX ORDRES", () => {
+    // Le piège d'un booléen simple : `--no-live --deep` rallumerait `live`,
+    // parce que l'implication s'appliquerait après le refus. C'est le REFUS
+    // qu'il faut mémoriser, pas l'état — et l'ordre des drapeaux sur une ligne
+    // de commande n'est pas quelque chose qu'on peut demander à l'utilisateur.
+    assert.deepEqual(lire(["doctor", "--deep", "--no-live"]), {
+      live: false,
+      deep: true,
+    });
+    assert.deepEqual(lire(["doctor", "--no-live", "--deep"]), {
+      live: false,
+      deep: true,
+    });
+  });
+
+  it("sans rien, aucun des deux étages coûteux ne s'allume", () => {
+    assert.deepEqual(lire(["doctor"]), { live: false, deep: false });
   });
 });
