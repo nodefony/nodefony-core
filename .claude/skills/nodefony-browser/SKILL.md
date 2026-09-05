@@ -57,7 +57,7 @@ jamais par un « module introuvable ».
 pilote), puis `chrome`, puis `msedge` — les deux derniers étant ceux DÉJÀ posés sur la machine
 (Edge est préinstallé sur tout Windows). `npx playwright install chromium` n'est nécessaire que si
 aucun ne répond, et il écrit dans un cache utilisateur partagé, pas dans `node_modules`. Le champ
-**`navigateur`** de la sortie dit lequel a servi : deux mesures faites par des moteurs différents ne
+**`browserName`** de la sortie dit lequel a servi : deux mesures faites par des moteurs différents ne
 se comparent pas. `NF_BROWSER_ENGINE` en impose un, sans repli.
 
 > ⚠️ **`NF_BROWSER_ENGINE`, pas `NF_BROWSER_CHANNEL`.** Ce dernier existe déjà et désigne le CANAL
@@ -147,21 +147,21 @@ Ce qu'il rend, et qu'une capture d'écran ne dit pas :
   "url": "https://host.docker.internal:5152/nodefony/supervision",
   "theme": "dark",
   "lang": "fr",
-  "titre": "Nodefony Studio",
+  "title": "Nodefony Studio",
   "scripts": ["https://host.docker.internal:5173/@vite/client", "…/main.tsx"],
-  "sondes": [
+  "probes": [
     {
       "label": "menu actif",
-      "texte": "Supervision",
-      "couleur": "rgb(255, 255, 255)",
-      "fond": "rgb(0, 87, 156)",
-      "contraste": 7.39,
-      "police": "16px",
+      "text": "Supervision",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(0, 87, 156)",
+      "contrast": 7.39,
+      "font": "16px",
       "wcag": "AAA",
-      "taille": "243×41"
+      "size": "243×41"
     }
   ],
-  "erreursConsole": [],
+  "consoleErrors": [],
   "capture": "tmp/browser/nodefony-supervision-….png"
 }
 ```

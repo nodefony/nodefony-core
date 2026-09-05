@@ -122,10 +122,12 @@ class McpController extends Controller {
    * @param header - la valeur brute de l'en-tête `Authorization`
    * @returns vrai si ce qui est présenté est resté un gabarit
    */
-  #gabaritNonSubstitue(header: string | undefined): boolean {
-    const lu = readBearerHeader(header);
+  #isUnsubstitutedTemplate(header: string | undefined): boolean {
+    const read = readBearerHeader(header);
     return (
-      lu.kind === "token" && lu.token.startsWith("${") && lu.token.endsWith("}")
+      read.kind === "token" &&
+      read.token.startsWith("${") &&
+      read.token.endsWith("}")
     );
   }
 
@@ -258,7 +260,7 @@ class McpController extends Controller {
           // est un serveur « failed » — alors que le même client, SANS en-tête,
           // aurait obtenu les outils publics. La cause n'est pas devinable de
           // l'extérieur : elle se DIT.
-          if (this.#gabaritNonSubstitue(authorization)) {
+          if (this.#isUnsubstitutedTemplate(authorization)) {
             this.log(
               "MCP — l'en-tête `Authorization` porte un GABARIT non substitué : " +
                 "la variable d'environnement du jeton n'est pas posée dans le " +

@@ -47,7 +47,7 @@ introuvable » nu.
 
 Les sondes essaient, dans l'ordre : le **`chromium`** du pilote, puis **`chrome`**, puis
 **`msedge`** — les deux derniers étant ceux DÉJÀ installés sur la machine. Sous Windows, Edge est
-préinstallé : rien à télécharger. Le champ **`navigateur`** de la sortie dit lequel a servi, parce
+préinstallé : rien à télécharger. Le champ **`browserName`** de la sortie dit lequel a servi, parce
 que deux mesures faites par des navigateurs différents ne se comparent pas.
 
 Si aucun ne répond, la sonde s'arrête (code 69) en donnant la commande — le téléchargement se fait
@@ -132,21 +132,21 @@ Le troisième argument est un **texte discriminant** attendu avant toute mesure 
   "url": "https://host.docker.internal:5152/tableau-de-bord",
   "theme": "light",
   "lang": "fr",
-  "titre": "Mon application",
+  "title": "Mon application",
   "scripts": ["/static/index-B7fK2p.js"],
-  "sondes": [
+  "probes": [
     {
       "label": "bouton principal",
-      "texte": "Enregistrer",
-      "couleur": "rgb(255, 255, 255)",
-      "fond": "rgb(0, 87, 156)",
-      "contraste": 7.39,
-      "police": "16px",
+      "text": "Enregistrer",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgb(0, 87, 156)",
+      "contrast": 7.39,
+      "font": "16px",
       "wcag": "AAA",
-      "taille": "243×41"
+      "size": "243×41"
     }
   ],
-  "erreursConsole": [],
+  "consoleErrors": [],
   "capture": "tmp/browser/tableau-de-bord-….png"
 }
 ```
@@ -295,7 +295,7 @@ premier.
     "agentic-browsing": 96
   },
   "failedAudits": { "total": 22, "examples": [] },
-  "rapportComplet": "tmp/browser/lighthouse-….json"
+  "fullReport": "tmp/browser/lighthouse-….json"
 }
 ```
 

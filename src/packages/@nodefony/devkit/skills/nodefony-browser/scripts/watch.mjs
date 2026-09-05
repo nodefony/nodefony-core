@@ -39,37 +39,37 @@ const uncaughtErrors = [];
 // qu'on ne lit, et une sortie de plusieurs mégaoctets serait illisible — donc
 // inexploitable pour décider. On garde les premières de chaque sens.
 page.on("websocket", (ws) => {
-  const rec = { url: ws.url(), ouvertA: at(), envoyees: [], recues: [] };
+  const rec = { url: ws.url(), openedAt: at(), sent: [], received: [] };
   sockets.push(rec);
   ws.on("framesent", (f) => {
-    if (rec.envoyees.length < MAX)
-      rec.envoyees.push({ a: at(), charge: String(f.payload).slice(0, 160) });
+    if (rec.sent.length < MAX)
+      rec.sent.push({ a: at(), payload: String(f.payload).slice(0, 160) });
   });
   ws.on("framereceived", (f) => {
-    if (rec.recues.length < MAX)
-      rec.recues.push({ a: at(), charge: String(f.payload).slice(0, 160) });
+    if (rec.received.length < MAX)
+      rec.received.push({ a: at(), payload: String(f.payload).slice(0, 160) });
   });
-  ws.on("close", () => (rec.fermeA = at()));
-  ws.on("socketerror", (e) => (rec.erreur = String(e)));
+  ws.on("close", () => (rec.closedAt = at()));
+  ws.on("socketerror", (e) => (rec.error = String(e)));
 });
 
 page.on("response", (r) => {
   if (r.status() >= 400)
     httpErrors.push({
       a: at(),
-      statut: r.status(),
+      status: r.status(),
       url: r.url().slice(0, 120),
     });
 });
 page.on("console", (m) => {
   if (m.type() === "error")
-    consoleErrors.push({ a: at(), texte: m.text().slice(0, 200) });
+    consoleErrors.push({ a: at(), text: m.text().slice(0, 200) });
 });
 // `pageerror` en plus de la console : une exception non capturée qui tue
 // l'application ne passe pas toujours par console.error.
 page.on("pageerror", (e) => {
   if (uncaughtErrors.length < 20)
-    uncaughtErrors.push({ a: at(), texte: String(e).slice(0, 200) });
+    uncaughtErrors.push({ a: at(), text: String(e).slice(0, 200) });
 });
 
 await goTo(page, ctx, PAGE, reuse);
@@ -104,19 +104,19 @@ console.log(
   JSON.stringify(
     {
       url: page.url(),
-      observePendantMs: at(),
+      observeForMs: at(),
       verdict,
       // Les totaux sont posés sur l'objet accumulé plutôt que recomposés par
       // étalement dans un `map` (règle `no-map-spread` : allocation inutile).
       sockets: sockets.map((s) =>
         Object.assign(s, {
-          totalEnvoyees: s.envoyees.length,
-          totalRecues: s.recues.length,
+          totalSent: s.sent.length,
+          totalReceived: s.received.length,
         }),
       ),
       httpErrors,
       consoleErrors,
-      erreursNonCapturees: uncaughtErrors,
+      uncaughtErrors,
     },
     null,
     2,

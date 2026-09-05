@@ -54,15 +54,15 @@ if (process.env.NF_BROWSER_ACTION_PARAMS) {
 
 const cfg = {
   endpoint: ENDPOINT,
-  canal: process.env.NF_BROWSER_CHANNEL ?? "",
+  channel: process.env.NF_BROWSER_CHANNEL ?? "",
   action: process.env.NF_BROWSER_ACTION ?? "",
   actionParams,
   api: process.env.NF_BROWSER_API ?? "",
-  attenteMs: Number(process.env.NF_BROWSER_SOCKET_WAIT ?? 4000),
+  waitMs: Number(process.env.NF_BROWSER_SOCKET_WAIT ?? 4000),
   pings: Math.max(1, Number(process.env.NF_BROWSER_PINGS ?? 5)),
   timeoutMs: 8000,
-  maxPoussees: 10,
-  troncature: 200,
+  maxPushes: 10,
+  truncate: 200,
 };
 
 /**
@@ -74,37 +74,37 @@ async function scenarioSocket(conf) {
   const t0 = performance.now();
   const a = () => Math.round(performance.now() - t0);
   const url = location.origin.replace(/^http/, "ws") + conf.endpoint;
-  const resultat = {
+  const result = {
     endpoint: url,
-    accueil: null,
-    abonnement: null,
-    latence: null,
+    welcome: null,
+    subscription: null,
+    latency: null,
     api: null,
-    reconnexion: null,
+    reconnection: null,
   };
-  let compteurId = 0;
-  const enAttente = new Map();
-  const poussees = [];
-  const refus = [];
-  const fermetures = [];
+  let idCounter = 0;
+  const pending = new Map();
+  const pushes = [];
+  const denials = [];
+  const closes = [];
 
   // Ouvre un socket et attend l'ACCUEIL — la première notification poussée par
   // le serveur (méthode `realtime:welcome`). C'est la carte du territoire :
   // canaux, actions, identité résolue. Tant qu'il n'est pas là, rien d'autre
   // n'a de sens.
-  const ouvrir = () =>
-    new Promise((resoudre, rejeter) => {
+  const openSocket = () =>
+    new Promise((resolve, reject) => {
       const ws = new WebSocket(url);
-      const garde = setTimeout(() => {
+      const guard = setTimeout(() => {
         try {
           ws.close();
         } catch {}
-        rejeter(
+        reject(
           new Error(`accueil jamais reçu en ${conf.timeoutMs} ms sur ${url}`),
         );
       }, conf.timeoutMs);
       ws.addEventListener("close", (ev) => {
-        fermetures.push({ a: a(), code: ev.code, raison: ev.reason });
+        closes.push({ a: a(), code: ev.code, reason: ev.reason });
       });
       ws.addEventListener("message", (ev) => {
         let frame;
@@ -114,15 +114,15 @@ async function scenarioSocket(conf) {
           return; // une frame illisible n'est pas à nous de la juger ici
         }
         if (frame.method === "realtime:welcome") {
-          clearTimeout(garde);
-          resoudre({ ws, accueil: frame.params ?? {} });
+          clearTimeout(guard);
+          resolve({ ws, welcome: frame.params ?? {} });
           return;
         }
         if (frame.method === "realtime:denied") {
           // Le refus d'une notification n'a pas de canal de réponse : le
           // serveur le rend OBSERVABLE par cette notification dédiée. Sans
           // elle, « zéro poussée » se lirait comme un canal silencieux.
-          refus.push({ a: a(), ...frame.params });
+          denials.push({ a: a(), ...frame.params });
           return;
         }
         if (frame.id != null && frame.method === undefined) {
@@ -132,21 +132,21 @@ async function scenarioSocket(conf) {
           // Une `Map` n'expose aucun prototype, donc l'exécution ne risquait
           // rien ; c'est l'analyse statique qui ne pouvait pas le savoir, et
           // une garde de type dit l'intention aussi bien qu'elle la prouve.
-          const attente =
-            typeof frame.id === "number" ? enAttente.get(frame.id) : undefined;
-          if (typeof attente === "function") {
-            enAttente.delete(frame.id);
-            attente(frame);
+          const waiter =
+            typeof frame.id === "number" ? pending.get(frame.id) : undefined;
+          if (typeof waiter === "function") {
+            pending.delete(frame.id);
+            waiter(frame);
           }
           return;
         }
         if (frame.method) {
-          poussees.push({
+          pushes.push({
             a: a(),
-            methode: frame.method,
-            charge: JSON.stringify(frame.params ?? null).slice(
+            method: frame.method,
+            payload: JSON.stringify(frame.params ?? null).slice(
               0,
-              conf.troncature,
+              conf.truncate,
             ),
           });
         }
@@ -155,66 +155,66 @@ async function scenarioSocket(conf) {
 
   // Une REQUÊTE corrélée : `id` attribué, réponse attendue, latence mesurée.
   // L'expiration rend un verdict local — aucun octet de plus sur le fil.
-  const requete = (ws, methode, params, delaiMs) =>
-    new Promise((resoudre) => {
-      const id = ++compteurId;
-      const depart = performance.now();
+  const request = (ws, method, params, deadlineMs) =>
+    new Promise((resolve) => {
+      const id = ++idCounter;
+      const start = performance.now();
       // Une seule sortie, quel que soit le vainqueur de la course entre la
       // réponse et l'expiration : `clearTimeout` suffirait à l'exécution, mais
       // un verrou explicite dit l'intention à qui relit — et à l'analyseur.
-      let rendu = false;
-      const finir = (valeur) => {
-        if (rendu) return;
-        rendu = true;
-        resoudre({ ...valeur, ms: Math.round(performance.now() - depart) });
+      let settled = false;
+      const settle = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve({ ...value, ms: Math.round(performance.now() - start) });
       };
-      const garde = setTimeout(() => {
-        enAttente.delete(id);
-        finir({ expiree: true });
-      }, delaiMs);
-      enAttente.set(id, (frame) => {
-        clearTimeout(garde);
-        finir({ frame });
+      const guard = setTimeout(() => {
+        pending.delete(id);
+        settle({ timedOut: true });
+      }, deadlineMs);
+      pending.set(id, (frame) => {
+        clearTimeout(guard);
+        settle({ frame });
       });
-      const frame = { jsonrpc: "2.0", id, method: methode };
+      const frame = { jsonrpc: "2.0", id, method };
       if (params !== null && params !== undefined) frame.params = params;
       ws.send(JSON.stringify(frame));
     });
 
-  const { ws, accueil } = await ouvrir();
-  resultat.accueil = {
-    recuApresMs: a(),
-    protocole: accueil.protocol ?? null,
-    canaux: accueil.channels ?? [],
-    methodes: accueil.methods ?? [],
-    identite: accueil.identity ?? null,
+  const { ws, welcome } = await openSocket();
+  result.welcome = {
+    receivedAfterMs: a(),
+    protocol: welcome.protocol ?? null,
+    channels: welcome.channels ?? [],
+    methods: welcome.methods ?? [],
+    identity: welcome.identity ?? null,
   };
 
   // ── Abonnement — notification SANS id : avec un id elle serait classée
   // requête, ne trouverait aucun handler, et récolterait un -32601. ──────────
-  const canal = conf.canal || (accueil.channels ?? [])[0] || null;
-  if (canal) {
+  const channel = conf.channel || (welcome.channels ?? [])[0] || null;
+  if (channel) {
     ws.send(
       JSON.stringify({
         jsonrpc: "2.0",
         method: "subscribe",
-        params: { channel: canal },
+        params: { channel },
       }),
     );
-    await new Promise((r) => setTimeout(r, conf.attenteMs));
-    const recues = poussees.filter((p) => p.methode === canal);
-    const refusCanal = refus.find((r2) => r2.channel === canal) ?? null;
-    resultat.abonnement = {
-      canal,
-      fenetreMs: conf.attenteMs,
-      total: recues.length,
-      poussees: recues.slice(0, conf.maxPoussees),
-      refus: refusCanal,
+    await new Promise((r) => setTimeout(r, conf.waitMs));
+    const received = pushes.filter((p) => p.method === channel);
+    const channelDenial = denials.find((r2) => r2.channel === channel) ?? null;
+    result.subscription = {
+      channel,
+      windowMs: conf.waitMs,
+      total: received.length,
+      pushes: received.slice(0, conf.maxPushes),
+      denial: channelDenial,
       // « SILENCIEUX » n'est pas « cassé » : un canal d'événements ne pousse
       // que quand il se passe quelque chose. Le refus, lui, est un verdict.
-      verdict: refusCanal
+      verdict: channelDenial
         ? "REFUSÉ"
-        : recues.length > 0
+        : received.length > 0
           ? "OK"
           : "SILENCIEUX — aucune poussée dans la fenêtre, pas forcément une panne",
     };
@@ -222,55 +222,55 @@ async function scenarioSocket(conf) {
       JSON.stringify({
         jsonrpc: "2.0",
         method: "unsubscribe",
-        params: { channel: canal },
+        params: { channel },
       }),
     );
   } else {
-    resultat.abonnement = {
+    result.subscription = {
       verdict: "AUCUN CANAL — rien d'annoncé par l'accueil, rien de demandé",
     };
   }
 
   // ── Latence — sur une méthode CORRÉLÉE uniquement. La notification `ping`
   // du battement de cœur est un no-op serveur : aucun pong n'en revient. ─────
-  const methodeLatence = conf.action || (conf.api ? "api.request" : "");
-  const paramsLatence = conf.action
+  const latencyMethod = conf.action || (conf.api ? "api.request" : "");
+  const latencyParams = conf.action
     ? conf.actionParams
     : conf.api
       ? { path: conf.api }
       : null;
-  if (methodeLatence) {
-    const mesuresMs = [];
-    let expirees = 0;
-    let derniereErreur = null;
+  if (latencyMethod) {
+    const measuresMs = [];
+    let timeouts = 0;
+    let lastError = null;
     for (let i = 0; i < conf.pings; i++) {
-      const rep = await requete(
+      const rep = await request(
         ws,
-        methodeLatence,
-        paramsLatence,
+        latencyMethod,
+        latencyParams,
         conf.timeoutMs,
       );
-      mesuresMs.push(rep.ms);
-      if (rep.expiree) expirees += 1;
-      else if (rep.frame.error) derniereErreur = rep.frame.error;
+      measuresMs.push(rep.ms);
+      if (rep.timedOut) timeouts += 1;
+      else if (rep.frame.error) lastError = rep.frame.error;
     }
-    resultat.latence = {
-      methode: methodeLatence,
-      mesuresMs,
-      expirees,
-      erreur: derniereErreur,
+    result.latency = {
+      method: latencyMethod,
+      measuresMs,
+      timeouts,
+      error: lastError,
       // Une erreur corrélée reste un aller-retour COMPLET : la latence est
       // mesurée, mais le verdict la nomme — un RTT sur -32601 ne valide pas
       // l'action, seulement le fil.
       verdict:
-        expirees > 0
+        timeouts > 0
           ? "EXPIRATIONS"
-          : derniereErreur
-            ? `RÉPOND EN ERREUR ${derniereErreur.code} — ${String(derniereErreur.message).slice(0, 80)}`
+          : lastError
+            ? `RÉPOND EN ERREUR ${lastError.code} — ${String(lastError.message).slice(0, 80)}`
             : "OK",
     };
   } else {
-    resultat.latence = {
+    result.latency = {
       verdict:
         "NON MESURÉE — aucune méthode corrélée fournie (NF_BROWSER_ACTION ou NF_BROWSER_API)",
     };
@@ -278,24 +278,24 @@ async function scenarioSocket(conf) {
 
   // ── Pont API — la même route qu'en HTTP, rejouée sur le socket ─────────────
   if (conf.api) {
-    const rep = await requete(
+    const rep = await request(
       ws,
       "api.request",
       { path: conf.api },
       conf.timeoutMs,
     );
-    resultat.api = rep.expiree
-      ? { chemin: conf.api, verdict: "EXPIRÉE" }
+    result.api = rep.timedOut
+      ? { path: conf.api, verdict: "EXPIRÉE" }
       : {
-          chemin: conf.api,
+          path: conf.api,
           ms: rep.ms,
           verdict: rep.frame.error
             ? `ERREUR ${rep.frame.error.code} — ${String(rep.frame.error.message).slice(0, 80)}`
             : "OK",
           meta: rep.frame.meta ?? null,
-          extrait: JSON.stringify(
+          excerpt: JSON.stringify(
             rep.frame.result ?? rep.frame.error ?? null,
-          ).slice(0, conf.troncature),
+          ).slice(0, conf.truncate),
         };
   }
 
@@ -303,36 +303,36 @@ async function scenarioSocket(conf) {
   // L'identité est résolue au HANDSHAKE, jamais dans les frames : si elle
   // survit à la reconnexion, c'est que le cookie de session la porte — la
   // preuve qui compte pour une application qui reconnecte en production.
-  const fermeA = a();
+  const closedAt = a();
   ws.close(1000, "reconnexion volontaire");
   try {
-    const seconde = await ouvrir();
-    const avant = resultat.accueil.identite;
-    const apres = seconde.accueil.identity ?? null;
-    resultat.reconnexion = {
-      fermeA,
-      rouverteApresMs: a() - fermeA,
-      memeIdentite:
-        (avant?.userIdentifier ?? null) === (apres?.userIdentifier ?? null),
+    const second = await openSocket();
+    const before = result.welcome.identity;
+    const after = second.welcome.identity ?? null;
+    result.reconnection = {
+      closedAt,
+      reopenedAfterMs: a() - closedAt,
+      sameIdentity:
+        (before?.userIdentifier ?? null) === (after?.userIdentifier ?? null),
       verdict: "OK",
     };
-    seconde.ws.close(1000, "fin de scénario");
+    second.ws.close(1000, "fin de scénario");
   } catch (e) {
-    resultat.reconnexion = {
-      fermeA,
+    result.reconnection = {
+      closedAt,
       verdict: `ÉCHEC — ${String(e && e.message ? e.message : e).slice(0, 140)}`,
     };
   }
-  resultat.fermetures = fermetures;
-  return resultat;
+  result.closes = closes;
+  return result;
 }
 
 const { browser, ctx, page, reuse } = await open();
 await goTo(page, ctx, process.env.NF_BROWSER_PAGE ?? "/", reuse);
 
-let resultat;
+let result;
 try {
-  resultat = await page.evaluate(scenarioSocket, cfg);
+  result = await page.evaluate(scenarioSocket, cfg);
 } catch (e) {
   // L'accueil qui ne vient jamais est LE symptôme à diagnostiquer en premier :
   // endpoint faux, page non authentifiée, ou Origin refusé par le serveur.
@@ -346,9 +346,9 @@ try {
 
 // La médiane se calcule ici, avec la fonction que les tests éprouvent — la
 // moyenne serait déplacée par un seul aller-retour aberrant.
-if (Array.isArray(resultat.latence?.mesuresMs)) {
-  resultat.latence.medianeMs = median(resultat.latence.mesuresMs);
+if (Array.isArray(result.latency?.measuresMs)) {
+  result.latency.medianMs = median(result.latency.measuresMs);
 }
 
-console.log(JSON.stringify(resultat, null, 2));
+console.log(JSON.stringify(result, null, 2));
 await browser.close();

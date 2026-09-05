@@ -35,7 +35,7 @@
       "description": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"le thème sombre casse quelque chose ?\", \"quelles requêtes fait la page ?\", \"le temps réel arrive-t-il à l'écran ?\", \"teste le websocket\", \"quelle latence sur le socket ?\", \"la page déborde-t-elle sur mobile ?\".",
       "cost": {
         "bodyLines": 416,
-        "approxTokens": 6742
+        "approxTokens": 6741
       },
       "requires": [],
       "resources": {

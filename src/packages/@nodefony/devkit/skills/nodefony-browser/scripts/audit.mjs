@@ -31,11 +31,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { BASE, LOGIN, PASSWORD, SORTIE, USER } from "./lib/browser.mjs";
+import { BASE, LOGIN, PASSWORD, OUTPUT, USER } from "./lib/browser.mjs";
 import { summarizeLighthouse } from "./lib/probes.mjs";
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
-const SEUIL = Number(process.env.NF_BROWSER_SEUIL_AUDIT ?? 90) / 100;
+const THRESHOLD = Number(process.env.NF_BROWSER_SEUIL_AUDIT ?? 90) / 100;
 const FORMFACTOR = (process.env.NF_BROWSER_FORMFACTOR ?? "desktop").trim();
 if (FORMFACTOR !== "desktop" && FORMFACTOR !== "mobile") {
   console.error(
@@ -44,13 +44,13 @@ if (FORMFACTOR !== "desktop" && FORMFACTOR !== "mobile") {
   process.exit(64); // EX_USAGE
 }
 
-const outils = {};
-for (const nom of ["lighthouse", "playwright"]) {
+const tools = {};
+for (const name of ["lighthouse", "playwright"]) {
   try {
-    outils[nom] = await import(nom);
+    tools[name] = await import(name);
   } catch {
     console.error(
-      `${nom} est absent — cet audit ne peut pas avoir lieu sans lui.\n\n` +
+      `${name} est absent — cet audit ne peut pas avoir lieu sans lui.\n\n` +
         `  npm i -D lighthouse playwright && npx playwright install chromium\n\n` +
         "Les deux sont des pairs OPTIONNELS : seuls ceux qui auditent une page\n" +
         "les installent, personne ne les paie sans les vouloir.",
@@ -58,8 +58,8 @@ for (const nom of ["lighthouse", "playwright"]) {
     process.exit(69); // EX_UNAVAILABLE
   }
 }
-const lighthouse = outils.lighthouse.default;
-const { chromium } = outils.playwright;
+const lighthouse = tools.lighthouse.default;
+const { chromium } = tools.playwright;
 
 /**
  * Un port libre, demandé au système plutôt que choisi au hasard.
@@ -70,7 +70,7 @@ const { chromium } = outils.playwright;
  *
  * @returns {Promise<number>} un port que rien n'écoute au moment du rendu.
  */
-function portLibre() {
+function freePort() {
   return new Promise((resolve, reject) => {
     const srv = createServer();
     srv.on("error", reject);
@@ -81,11 +81,11 @@ function portLibre() {
   });
 }
 
-const port = await portLibre();
+const port = await freePort();
 // Profil PERSISTANT : c'est lui qui porte la session entre notre connexion et
 // l'onglet que Lighthouse ouvrira. Jetable — il vit le temps de l'audit.
-const profil = mkdtempSync(path.join(tmpdir(), "nf-audit-"));
-const ctx = await chromium.launchPersistentContext(profil, {
+const profile = mkdtempSync(path.join(tmpdir(), "nf-audit-"));
+const ctx = await chromium.launchPersistentContext(profile, {
   channel: "chromium",
   ignoreHTTPSErrors: true,
   args: [`--remote-debugging-port=${port}`, "--no-sandbox"],
@@ -118,13 +118,13 @@ try {
     });
   }
 
-  const cible = `${BASE}${PAGE}`;
+  const target = `${BASE}${PAGE}`;
   const categories = (process.env.NF_BROWSER_CATEGORIES ?? "")
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean);
 
-  const runnerResult = await lighthouse(cible, {
+  const runnerResult = await lighthouse(target, {
     port,
     output: "json",
     logLevel: "error",
@@ -151,15 +151,15 @@ try {
 
   // Le rapport COMPLET est conservé : le résumé sert à décider, l'original à
   // vérifier — et à comparer dans le temps.
-  mkdirSync(SORTIE, { recursive: true });
+  mkdirSync(OUTPUT, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/gu, "-").slice(0, 19);
   const slug = PAGE.replace(/\//gu, "-").replace(/^-/u, "") || "racine";
-  const complet = path.join(SORTIE, `lighthouse-${slug}-${stamp}.json`);
-  writeFileSync(complet, JSON.stringify(lhr), "utf8");
+  const fullPath = path.join(OUTPUT, `lighthouse-${slug}-${stamp}.json`);
+  writeFileSync(fullPath, JSON.stringify(lhr), "utf8");
 
   console.log(
     JSON.stringify(
-      { ...summarizeLighthouse(lhr, SEUIL), rapportComplet: complet },
+      { ...summarizeLighthouse(lhr, THRESHOLD), fullReport: fullPath },
       null,
       2,
     ),
