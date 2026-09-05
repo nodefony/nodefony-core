@@ -77,7 +77,7 @@ export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
 const MCP_TEXT_MAX_CHARS = 32_000;
 
 /** Ce qu'on garde d'une valeur dans une vue d'ensemble : la surface. */
-const SCALAIRE_MAX_CHARS = 120;
+const SCALAR_MAX_CHARS = 120;
 
 /**
  * La SURFACE d'un objet — ses champs scalaires courts, sans sa profondeur.
@@ -90,29 +90,29 @@ const SCALAIRE_MAX_CHARS = 120;
  * question portant sur la 100ᵉ recevrait une réponse fausse, et l'agent n'aurait
  * aucun moyen de le savoir.
  */
-function surfaceDe(value: unknown): unknown {
+function surfaceOf(value: unknown): unknown {
   if (value === null || typeof value !== "object") {
     return value;
   }
   if (Array.isArray(value)) {
     return `[${value.length}]`;
   }
-  const garde: Record<string, unknown> = {};
-  for (const [cle, v] of Object.entries(value)) {
+  const kept: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(value)) {
     if (v === null || typeof v === "number" || typeof v === "boolean") {
-      garde[cle] = v;
-    } else if (typeof v === "string" && v.length <= SCALAIRE_MAX_CHARS) {
-      garde[cle] = v;
+      kept[key] = v;
+    } else if (typeof v === "string" && v.length <= SCALAR_MAX_CHARS) {
+      kept[key] = v;
     } else if (Array.isArray(v) && v.every((e) => typeof e === "string")) {
       // Un tableau de mots courts EST de la surface (`methods: ["GET"]`) ; on
       // ne le garde que s'il ne se met pas à peser.
-      const rendu = v.join(",");
-      if (rendu.length <= SCALAIRE_MAX_CHARS) {
-        garde[cle] = v;
+      const rendered = v.join(",");
+      if (rendered.length <= SCALAR_MAX_CHARS) {
+        kept[key] = v;
       }
     }
   }
-  return garde;
+  return kept;
 }
 
 /**
@@ -137,43 +137,43 @@ function surfaceDe(value: unknown): unknown {
  * un geste qui n'existe pas. Elle désigne ce qui EST utilisable — `count`, exact
  * et portant sur la liste entière.
  */
-function resumer(value: unknown, taille: number): string {
+function summarize(value: unknown, size: number): string {
   if (Array.isArray(value)) {
-    const items = value.map(surfaceDe);
-    let rendu = JSON.stringify(
+    const items = value.map(surfaceOf);
+    let rendered = JSON.stringify(
       {
         count: value.length,
         note:
           `count = ${value.length} : c'est le nombre EXACT, il porte sur la liste entière. ` +
-          `Les entrées ci-dessous sont ramenées à leur surface (${taille} caractères au complet) — ` +
+          `Les entrées ci-dessous sont ramenées à leur surface (${size} caractères au complet) — ` +
           `demande le détail d'une entrée précise plutôt que la liste entière`,
         items,
       },
       null,
       2,
     );
-    if (rendu.length <= MCP_TEXT_MAX_CHARS) {
-      return rendu;
+    if (rendered.length <= MCP_TEXT_MAX_CHARS) {
+      return rendered;
     }
     // La surface elle-même déborde : on borne, et le `count` reste EXACT — c'est
     // lui qui dit à l'agent qu'il ne voit pas tout.
-    let gardees = items.length;
-    while (gardees > 1 && rendu.length > MCP_TEXT_MAX_CHARS) {
-      gardees = Math.floor(gardees / 2);
-      rendu = JSON.stringify(
+    let keptCount = items.length;
+    while (keptCount > 1 && rendered.length > MCP_TEXT_MAX_CHARS) {
+      keptCount = Math.floor(keptCount / 2);
+      rendered = JSON.stringify(
         {
           count: value.length,
           note:
             `count = ${value.length} : c'est le nombre EXACT, il porte sur la liste entière. ` +
-            `Seules ${gardees} entrées sont montrées (la liste pèse ${taille} caractères) — ` +
+            `Seules ${keptCount} entrées sont montrées (la liste pèse ${size} caractères) — ` +
             `toute affirmation sur le NOMBRE se fonde sur count, jamais sur les entrées visibles.`,
-          items: items.slice(0, gardees),
+          items: items.slice(0, keptCount),
         },
         null,
         2,
       );
     }
-    return rendu;
+    return rendered;
   }
   const keys =
     value && typeof value === "object" ? Object.keys(value) : undefined;
@@ -181,7 +181,7 @@ function resumer(value: unknown, taille: number): string {
     {
       keys,
       note:
-        `réponse de ${taille} caractères, trop volumineuse pour être rendue entière — ` +
+        `réponse de ${size} caractères, trop volumineuse pour être rendue entière — ` +
         `demande une branche précise (par exemple le module qui t'intéresse)`,
     },
     null,
@@ -197,7 +197,7 @@ function resumer(value: unknown, taille: number): string {
  * n'échoue pas — elle rend un résultat vide que l'agent prend pour une réponse.
  *
  * **Un résultat est BORNÉ** ({@link MCP_TEXT_MAX_CHARS}) : au-delà, il rend un
- * résumé plutôt qu'un déversement (voir {@link resumer}). La garde vit ICI, et
+ * résumé plutôt qu'un déversement (voir {@link summarize}). La garde vit ICI, et
  * non dans les quatre outils intégrés, pour qu'un outil déclaré par une
  * application en hérite sans le savoir — c'est le genre de règle qu'on
  * n'applique jamais deux fois de la même façon si on la laisse à l'appelant.
@@ -213,13 +213,13 @@ export function mcpText(value: unknown, isError = false): IMcpToolResult {
     typeof value === "string" ? value : JSON.stringify(value, null, 2);
   // Un message d'erreur est déjà rédigé, et court : le résumer n'apporterait
   // rien et pourrait effacer la seule phrase que l'agent doit lire.
-  const texte =
+  const text =
     isError || rendered.length <= MCP_TEXT_MAX_CHARS
       ? rendered
-      : resumer(value, rendered.length);
+      : summarize(value, rendered.length);
   return isError
-    ? { content: [{ type: "text", text: texte }], isError: true }
-    : { content: [{ type: "text", text: texte }] };
+    ? { content: [{ type: "text", text: text }], isError: true }
+    : { content: [{ type: "text", text: text }] };
 }
 
 /**
@@ -243,17 +243,17 @@ const MCP_ERROR_BODY_MAX_CHARS = 4_000;
  * @param read - l'échec rendu par la lecture, corps du producteur inclus.
  * @returns le résultat d'outil, en erreur, borné en volume.
  */
-function mcpEchecAdmin(
+function mcpAdminFailure(
   read: Extract<InspectResult, { ok: false }>,
 ): IMcpToolResult {
   if (read.body === undefined || read.body === null) {
     return mcpText(read.message, true);
   }
-  const rendu = JSON.stringify(read.body, null, 2);
+  const rendered = JSON.stringify(read.body, null, 2);
   const body =
-    rendu.length <= MCP_ERROR_BODY_MAX_CHARS
-      ? rendu
-      : `${rendu.slice(0, MCP_ERROR_BODY_MAX_CHARS)}\n… body du refus tronqué (${rendu.length} caractères)`;
+    rendered.length <= MCP_ERROR_BODY_MAX_CHARS
+      ? rendered
+      : `${rendered.slice(0, MCP_ERROR_BODY_MAX_CHARS)}\n… body du refus tronqué (${rendered.length} caractères)`;
   return mcpText(`${read.message}\n\n${body}`, true);
 }
 
@@ -267,7 +267,7 @@ const DOC_ENVELOPE_CHARS = 4_000;
 /**
  * Une page de documentation, ou son PLAN quand elle est trop lourde.
  *
- * Le résumé générique ({@link resumer}) sait ramener une liste à son compte et un
+ * Le résumé générique ({@link summarize}) sait ramener une liste à son compte et un
  * objet à ses clés ; sur une page de 78 ko il rendrait
  * `keys: [slug, frontmatter, markdown]` et conseillerait « demande une branche
  * précise » — une phrase qui ne désigne aucun geste possible. Le plan, lui, se lit
@@ -351,30 +351,30 @@ const CATALOG_MAX_CHARS = 24_000;
  * @returns le catalogue rendu, écarts annoncés.
  */
 function renderAdminCatalog(view: IAdminCatalogView): string {
-  const ecarts: string[] = [];
+  const gaps: string[] = [];
   if (view.mutations > 0) {
-    ecarts.push(
+    gaps.push(
       `${view.mutations} mutations (POST/PATCH/DELETE — cette porte ne fait que LIRE)`,
     );
   }
   if (view.selfService > 0) {
-    ecarts.push(
+    gaps.push(
       `${view.selfService} self-service liés à une session (« me », « sessions/mine ») — cette porte n'a pas d'utilisateur connecté`,
     );
   }
   if (view.denied > 0) {
-    ecarts.push(`${view.denied} hors des droits de ce jeton`);
+    gaps.push(`${view.denied} hors des droits de ce jeton`);
   }
   if (view.filtered > 0) {
-    ecarts.push(`${view.filtered} hors du filtre demandé`);
+    gaps.push(`${view.filtered} hors du filtre demandé`);
   }
 
   const lines: string[] = [
     `${view.entries.length} lectures appelables — sur ${view.total} endpoints déclarés par cette application.`,
     `Appel : nodefony_admin_call { namespace, path, params?, query? } — recopier « path » TEL QUEL, variables comprises.`,
   ];
-  if (ecarts.length > 0) {
-    lines.push(`Non listés : ${ecarts.join(" · ")}.`);
+  if (gaps.length > 0) {
+    lines.push(`Non listés : ${gaps.join(" · ")}.`);
   }
 
   let namespace: string | null = null;
@@ -410,14 +410,14 @@ function renderAdminCatalog(view: IAdminCatalogView): string {
   if (view.entries.length === 0) {
     lines.push("", "(aucune entrée ne répond à cette demande)");
   }
-  const rendu = lines.join("\n");
-  if (rendu.length <= CATALOG_MAX_CHARS) return rendu;
+  const rendered = lines.join("\n");
+  if (rendered.length <= CATALOG_MAX_CHARS) return rendered;
   // Bornage ANNONCÉ, et le geste proposé existe vraiment — restreindre par
   // producteur ou par termes. Une troncature muette ferait conclure que le
   // reste du plan n'existe pas.
-  const coupe = rendu.slice(0, CATALOG_MAX_CHARS);
-  const propre = coupe.slice(0, coupe.lastIndexOf("\n"));
-  return `${propre}\n\n… catalogue tronqué (${rendu.length} caractères pour ${view.entries.length} entrées). Rappelle l'outil avec namespace: "<producteur>" ou q: "<termes>" pour voir le reste.`;
+  const cut = rendered.slice(0, CATALOG_MAX_CHARS);
+  const clean = cut.slice(0, cut.lastIndexOf("\n"));
+  return `${clean}\n\n… catalogue tronqué (${rendered.length} caractères pour ${view.entries.length} entrées). Rappelle l'outil avec namespace: "<producteur>" ou q: "<termes>" pour voir le reste.`;
 }
 
 /**
@@ -429,25 +429,25 @@ function renderAdminCatalog(view: IAdminCatalogView): string {
  * mondes — l'appelant en tire une conclusion fausse sans jamais voir d'erreur.
  *
  * @param value - ce que l'agent a passé.
- * @param champ - nom du champ, pour rédiger le refus.
+ * @param field - nom du champ, pour rédiger le refus.
  * @param arrays - accepter les listes de chaînes (vrai pour une query string).
  * @returns la table, ou le motif du refus.
  */
 function stringTable(
   value: unknown,
-  champ: string,
+  field: string,
   arrays: false,
 ): { ok: true; value: Record<string, string> } | { ok: false; why: string };
 function stringTable(
   value: unknown,
-  champ: string,
+  field: string,
   arrays: true,
 ):
   | { ok: true; value: Record<string, string | string[]> }
   | { ok: false; why: string };
 function stringTable(
   value: unknown,
-  champ: string,
+  field: string,
   arrays: boolean,
 ):
   | { ok: true; value: Record<string, string | string[]> }
@@ -456,7 +456,7 @@ function stringTable(
   if (typeof value !== "object" || Array.isArray(value)) {
     return {
       ok: false,
-      why: `« ${champ} » doit être un objet { clé: valeur }`,
+      why: `« ${field} » doit être un objet { clé: valeur }`,
     };
   }
   const table: Record<string, string | string[]> = {};
@@ -481,7 +481,7 @@ function stringTable(
     }
     return {
       ok: false,
-      why: `« ${champ}.${key} » n'est pas une valeur transportable — attendu du texte${arrays ? " ou une liste de textes" : ""}`,
+      why: `« ${field}.${key} » n'est pas une valeur transportable — attendu du texte${arrays ? " ou une liste de textes" : ""}`,
     };
   }
   return { ok: true, value: table };
@@ -601,7 +601,7 @@ export function builtinMcpTools(
           adminCallerFromMcp(caller),
           target,
         );
-        return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
+        return read.ok ? mcpText(read.data) : mcpAdminFailure(read);
       },
     },
 
@@ -730,7 +730,7 @@ export function builtinMcpTools(
             },
             admin,
           );
-          if (!read.ok) return mcpEchecAdmin(read);
+          if (!read.ok) return mcpAdminFailure(read);
           return mcpText(pageOrOutline(read.data, module, slug));
         }
         if (query !== "") {
@@ -738,7 +738,7 @@ export function builtinMcpTools(
           // toujours, seul le pont l'ignorait — un paramètre accepté puis jeté
           // rend une réponse qui a l'air d'avoir obéi, et c'est le pire des
           // deux mondes.
-          const limite =
+          const limit =
             typeof args.limit === "number" && Number.isFinite(args.limit)
               ? Math.trunc(args.limit)
               : null;
@@ -748,14 +748,14 @@ export function builtinMcpTools(
               namespace: "kernel",
               path: "docs/search",
               query:
-                limite !== null && limite > 0
-                  ? { q: query, limit: String(limite) }
+                limit !== null && limit > 0
+                  ? { q: query, limit: String(limit) }
                   : { q: query },
               label: `recherche « ${query} »`,
             },
             admin,
           );
-          return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
+          return read.ok ? mcpText(read.data) : mcpAdminFailure(read);
         }
         // Un module sans page nommée : son sommaire. Sans module : tout.
         const read =
@@ -779,7 +779,7 @@ export function builtinMcpTools(
                 },
                 admin,
               );
-        return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
+        return read.ok ? mcpText(read.data) : mcpAdminFailure(read);
       },
     },
 
@@ -869,11 +869,11 @@ export function builtinMcpTools(
           if (entries.length === 0) {
             // Un vide se DIT, avec ce qui existe : sans cela, il ressemble à
             // une réponse.
-            const paquets = [
+            const packages = [
               ...new Set(Object.values(graph.symbols).map((s) => s.module)),
             ].sort();
             return mcpText(
-              `aucun symbole pour « ${module} » — paquets présents dans le graphe : ${paquets.join(", ")}`,
+              `aucun symbole pour « ${module} » — paquets présents dans le graphe : ${packages.join(", ")}`,
               true,
             );
           }
@@ -881,11 +881,11 @@ export function builtinMcpTools(
         }
         // Résumé : combien, et dans quels paquets — la question qu'on se pose en
         // premier quand un symbole manque à l'appel.
-        const parPaquet: Record<string, number> = Object.create(null);
+        const perPackage: Record<string, number> = Object.create(null);
         for (const sym of entries) {
-          parPaquet[sym.module] = (parPaquet[sym.module] ?? 0) + 1;
+          perPackage[sym.module] = (perPackage[sym.module] ?? 0) + 1;
         }
-        return mcpText({ total: entries.length, parPaquet });
+        return mcpText({ total: entries.length, perPackage });
       },
     },
 
@@ -1010,12 +1010,12 @@ export function builtinMcpTools(
         // Une variable de chemin absente ne produit pas une erreur lisible : le
         // handler reçoit `undefined` et refuse pour une raison qui n'a plus
         // aucun rapport avec l'oubli. On la nomme ici, où on la voit encore.
-        const manquants = entry.params.filter(
+        const missing = entry.params.filter(
           (name) => typeof params.value[name] !== "string",
         );
-        if (manquants.length > 0) {
+        if (missing.length > 0) {
           return mcpText(
-            `« ${namespace}/${path} » attend ${manquants.length > 1 ? "les variables" : "la variable"} ${manquants.map((name) => `« ${name} »`).join(", ")} dans « params »`,
+            `« ${namespace}/${path} » attend ${missing.length > 1 ? "les variables" : "la variable"} ${missing.map((name) => `« ${name} »`).join(", ")} dans « params »`,
             true,
           );
         }
@@ -1032,7 +1032,7 @@ export function builtinMcpTools(
           },
           admin,
         );
-        return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
+        return read.ok ? mcpText(read.data) : mcpAdminFailure(read);
       },
     },
   };
@@ -1153,12 +1153,12 @@ function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
     // et un décor en pratique. Le seul test qui vaille est donc « porte-t-il
     // déjà ce que ces scopes ouvriraient ? » — non pour un anonyme d'une porte
     // protégée (`roles: []`), oui pour l'opérateur local.
-    const ouvert = needsScopes
+    const opened = needsScopes
       ? rolesFromScopes(tool.scopes as readonly string[])
       : [];
     if (
-      ouvert.length > 0 &&
-      ouvert.every((role) => caller.roles.includes(role))
+      opened.length > 0 &&
+      opened.every((role) => caller.roles.includes(role))
     ) {
       return null;
     }
@@ -1377,9 +1377,9 @@ export async function callMcpTool(
   if (!tool) {
     return null;
   }
-  const inconnus = argumentsInconnus(tool, args);
-  if (inconnus !== null) {
-    return mcpText(inconnus, true);
+  const refusal = unknownArguments(tool, args);
+  if (refusal !== null) {
+    return mcpText(refusal, true);
   }
   return tool.handler(args, caller);
 }
@@ -1403,7 +1403,7 @@ export async function callMcpTool(
  * @param args - ce que l'agent a passé.
  * @returns le message de refus, ou `null` si tout est déclaré.
  */
-function argumentsInconnus(
+function unknownArguments(
   tool: IMcpTool,
   args: Record<string, unknown>,
 ): string | null {
@@ -1412,19 +1412,19 @@ function argumentsInconnus(
     additionalProperties?: unknown;
   };
   if (schema?.additionalProperties === true) return null;
-  const declares = schema?.properties;
+  const declared = schema?.properties;
   // Pas de `properties` du tout = schéma non descriptif : on ne peut rien
   // affirmer, et refuser sur une absence serait deviner.
-  if (!declares || typeof declares !== "object") return null;
-  const intrus = Object.keys(args).filter(
-    (cle) => !Object.hasOwn(declares, cle),
+  if (!declared || typeof declared !== "object") return null;
+  const intruders = Object.keys(args).filter(
+    (key) => !Object.hasOwn(declared, key),
   );
-  if (intrus.length === 0) return null;
-  const connus = Object.keys(declares);
+  if (intruders.length === 0) return null;
+  const known = Object.keys(declared);
   return (
-    `« ${tool.name} » ne connaît pas ${intrus.map((c) => `« ${c} »`).join(", ")}. ` +
-    (connus.length > 0
-      ? `Arguments acceptés : ${connus.join(", ")}.`
+    `« ${tool.name} » ne connaît pas ${intruders.map((c) => `« ${c} »`).join(", ")}. ` +
+    (known.length > 0
+      ? `Arguments acceptés : ${known.join(", ")}.`
       : "Cet outil ne prend aucun argument.")
   );
 }

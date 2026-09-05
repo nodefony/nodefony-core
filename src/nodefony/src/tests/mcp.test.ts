@@ -1063,10 +1063,10 @@ describe("MCP — les outils de diagnostic", () => {
     expect(isError).toBeUndefined();
     const resume = JSON.parse(text) as {
       total: number;
-      parPaquet: Record<string, number>;
+      perPackage: Record<string, number>;
     };
     expect(resume.total).toBeGreaterThan(0);
-    expect(Object.keys(resume.parPaquet).length).toBeGreaterThan(0);
+    expect(Object.keys(resume.perPackage).length).toBeGreaterThan(0);
   });
 
   it("`symbols` nommé rend la définition et son ancrage", async () => {

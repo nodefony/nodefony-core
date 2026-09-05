@@ -169,12 +169,12 @@ function discoverInstructions(context: IMcpServerContext): string {
   // récités : une énumération écrite ici taisait `docs` deux sessions après sa
   // livraison — déclaré dans le code, absent de la phrase qui présente la
   // porte, et donc invisible pour l'agent qui la lit en premier.
-  const noms = context.tools.map((tool) => tool.name);
+  const names = context.tools.map((tool) => tool.name);
   const base =
     "Outils d'introspection d'une application Nodefony — ils répondent depuis " +
     "l'application qui TOURNE, pas depuis une lecture des sources. " +
-    (noms.length > 0
-      ? `Disponibles ici : ${noms.join(", ")}. Commence par la carte de visite si tu arrives sur cette application.`
+    (names.length > 0
+      ? `Disponibles ici : ${names.join(", ")}. Commence par la carte de visite si tu arrives sur cette application.`
       : "Aucun outil n'est servi à cet appelant.");
   const withheld = context.withheldCount ?? 0;
   if (withheld <= 0) {
@@ -321,8 +321,8 @@ export async function handleMcpMessage(
       : {}
   ) as Record<string, unknown>;
 
-  const refus = checkProtocolVersion(id, params, headers);
-  if (refus) return refus;
+  const refusal = checkProtocolVersion(id, params, headers);
+  if (refusal) return refusal;
 
   // L'ère du CLIENT décide de la forme de chaque résultat (cf `eraResult`).
   const modern = isModernRequest(params, headers);
