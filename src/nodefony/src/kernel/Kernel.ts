@@ -78,7 +78,7 @@ import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
-import { readListenerTags } from "./lifecycleTags";
+import { isUnboundedListener, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
 import type {
   IBootReport,
@@ -3334,10 +3334,18 @@ class Kernel extends Service implements IKernel {
     const warnMs = this.bootWarnMs();
     let fatalError: unknown = null;
     let hasFatal = false;
+    const bootTimeout = this.bootTimeoutMs();
     const result = await super.emitAsyncGuarded(
       event,
       {
-        timeoutMs: this.bootTimeoutMs(),
+        // 🔴 Décidé PAR écouteur, et pas une fois pour toutes : l'action d'une
+        // commande est câblée sur une phase du cycle de vie (`Command.setEvents`)
+        // alors qu'elle n'est pas un hook de boot — c'est le travail demandé. La
+        // borner faisait sortir le processus en **0 au milieu du travail** dès
+        // qu'une commande dépassait vingt secondes : `doctor --deep` s'arrêtait
+        // en plein `npm run test`, sans rapport et sans erreur.
+        timeoutMs: (listener) =>
+          isUnboundedListener(listener) ? 0 : bootTimeout,
         warnMs,
         onListenerError: (error: unknown, info: IGuardedListenerInfo) => {
           const { owner, critical, name } = readListenerTags(info.listener);

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-09-05T11:00:16.484Z",
+  "generated": "2026-09-05T11:27:46.115Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 811,
-    "symbols": 3888,
+    "symbols": 3890,
     "classes": 386,
     "interfaces": 1058,
     "types": 442,
     "enums": 4,
-    "functions": 1609,
+    "functions": 1611,
     "constants": 389
   },
   "symbols": {
@@ -3599,6 +3599,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Pose `owner` + `critical` sur une fonction listener, **en place**, et la renvoie."
+    },
+    "tagUnboundedListener": {
+      "name": "tagUnboundedListener",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/lifecycleTags.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Marque un listener comme n'étant PAS soumis à la borne de temps du boot. 🔴 Vécu, et c'est le pire mode de panne qui soit : l'action d'une commande est câblée comme un écouteur de cycle de vie (`Co…"
+    },
+    "isUnboundedListener": {
+      "name": "isUnboundedListener",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/lifecycleTags.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Dit si un listener a été marqué par {@link tagUnboundedListener}. **Déballe le wrapper `once`** pour la même raison que {@link readListenerTags} : les actions de commande sont câblées via `kernel.o…"
     },
     "readListenerTags": {
       "name": "readListenerTags",
@@ -30005,6 +30021,9 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
+      "tagUnboundedListener": [
+        "src/nodefony/src/command/Command.ts"
+      ],
       "ResolvedAppConfig": [
         "src/nodefony/src/config/defaults.ts",
         "src/nodefony/src/config/defineConfig.ts",
@@ -30385,6 +30404,9 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "TimeoutError": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isUnboundedListener": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readListenerTags": [
