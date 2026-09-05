@@ -3,6 +3,7 @@ import path from "node:path";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
+import { stripGlobalCliFlags } from "./globalFlags";
 import {
   buildCard,
   renderCard,
@@ -95,7 +96,7 @@ export function parseCardArgv(
   argv: string[],
 ): ICardRequest | { error: string } {
   const at = argv.findIndex((a) => a === "card" || a === "devkit:card");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   let json = false;
   let cwd = process.cwd();
   let help = false;

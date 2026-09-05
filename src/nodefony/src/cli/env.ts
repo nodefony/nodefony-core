@@ -8,6 +8,7 @@ import { findProjectRoot } from "./projectRoot";
 import { envFileOrder } from "../runtime/loadEnv";
 import { renderEnvExample } from "../config/envExample";
 import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
+import { stripGlobalCliFlags } from "./globalFlags";
 import {
   buildEnvReport,
   type IEnvFileInput,
@@ -56,7 +57,7 @@ interface IEnvRequest {
 /** Parse l'argv après le mot `env`. */
 export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
   const at = argv.indexOf("env");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   let json = false;
   let example = false;
   let check = false;

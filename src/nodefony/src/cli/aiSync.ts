@@ -11,6 +11,7 @@ import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { planSync, renderPlan, SKILLS_DIR } from "./aiSyncReport";
 import type { IAiSyncPlan, IDiscoveredSkill } from "./aiSyncReport";
+import { stripGlobalCliFlags } from "./globalFlags";
 
 /** La page d'aide — `nodefony ai:sync --help`, et le rappel après un refus. */
 const PAGE: IUsagePage = {
@@ -264,7 +265,9 @@ export function parseAiSyncArgv(
 ):
   | { cwd: string; json: boolean; dryRun: boolean; help: boolean }
   | { error: string } {
-  const args = argv.slice(2).filter((a) => a !== "ai:sync");
+  const args = stripGlobalCliFlags(
+    argv.slice(2).filter((a) => a !== "ai:sync"),
+  );
   let cwd = process.cwd();
   let json = false;
   let dryRun = false;

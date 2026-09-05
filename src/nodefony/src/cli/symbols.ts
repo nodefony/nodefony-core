@@ -3,6 +3,7 @@ import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
+import { stripGlobalCliFlags } from "./globalFlags";
 
 /**
  * Le GRAPHE SYMBOLIQUE du framework — où le trouver, et comment l'interroger.
@@ -177,7 +178,7 @@ export function parseSymbolsArgv(
   argv: string[],
 ): ISymbolsRequest | { error: string } {
   const at = argv.indexOf("symbols");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   const req: ISymbolsRequest = {
     name: null,
     json: false,

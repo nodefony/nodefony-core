@@ -10,6 +10,7 @@ import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
+import { stripGlobalCliFlags } from "./globalFlags";
 import {
   GIT_HOOKS_DIR,
   planGitHooks,
@@ -87,7 +88,9 @@ export function parseGitHooksArgv(
 ):
   | { cwd: string; json: boolean; dryRun: boolean; help: boolean }
   | { error: string } {
-  const args = argv.slice(2).filter((a) => a !== "git:hooks");
+  const args = stripGlobalCliFlags(
+    argv.slice(2).filter((a) => a !== "git:hooks"),
+  );
   let cwd = process.cwd();
   let json = false;
   let dryRun = false;

@@ -60,6 +60,7 @@ import {
   type IExecution,
 } from "./report";
 import { rendreRapport } from "./renderReport";
+import { stripGlobalCliFlags } from "../../cli/globalFlags";
 
 /**
  * L'environnement que l'APPLICATION verrait, depuis ce poste.
@@ -534,7 +535,7 @@ export function parseDoctorArgv(
   argv: string[],
 ): ICheckRequest | { error: string } {
   const at = argv.findIndex((w) => w === "doctor");
-  const rest = at === -1 ? argv : argv.slice(at + 1);
+  const rest = stripGlobalCliFlags(at === -1 ? argv : argv.slice(at + 1));
   let json = false;
   let cwd = process.cwd();
   let strict: boolean | undefined;

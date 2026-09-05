@@ -33,6 +33,7 @@ import { AGENT_TARGETS, type IAgentTarget } from "./agentTargets";
 import { chargePrompts } from "./prompts";
 import { installGitHooks } from "./gitHooks";
 import { GIT_HOOKS_DIR } from "./gitHooksReport";
+import { stripGlobalCliFlags } from "./globalFlags";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -95,7 +96,10 @@ export function parseCreateArgv(
   argv: string[],
 ): ICreateRequest | { error: string } {
   const at = argv.indexOf("create");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  // Les options globales du CLI sont ABSORBÉES avant la lecture propre à la
+  // commande : l'aide les promet pour toutes, ce raccourci ne passe pas par
+  // commander, et les refuser dément l'aide de la ligne au-dessus.
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   const positionals: string[] = [];
   const answers: TScaffoldAnswers = {};
   let dir: string | undefined;
