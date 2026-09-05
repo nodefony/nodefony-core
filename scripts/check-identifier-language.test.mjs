@@ -32,6 +32,8 @@ import {
   scanRepo,
   splitIdentifier,
   stripProse,
+  stripShellProse,
+  extractShellIdentifiers,
 } from "./check-identifier-language.mjs";
 
 /** Les noms déclarés d'un source, dans l'ordre, sans les lignes. */
@@ -687,6 +689,113 @@ const filet = 1;
     const findings = analyzeSource(src);
     assert.equal(findings.length, 1);
     assert.equal(findings[0].occurrences, 2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("SHELL — un autre langage, donc un autre automate", () => {
+  it("stripShellProse blanchit les commentaires `#` en gardant les lignes", () => {
+    const out = stripShellProse("A=1 # contrôle sauté\nB=2\n");
+    assert.ok(!out.includes("contrôle"), "le commentaire doit être blanchi");
+    assert.ok(out.includes("A=1"), "le code doit rester");
+    assert.equal(out.split("\n").length, 3, "les lignes sont conservées");
+  });
+
+  it("PIÈGE : `#` collé à un mot n'ouvre PAS un commentaire (`${#tab[@]}`)", () => {
+    const out = stripShellProse("N=${#tab[@]}\nlargeur=1\n");
+    assert.ok(
+      out.includes("largeur=1"),
+      "la ligne suivante ne doit pas être avalée",
+    );
+  });
+
+  it("PIÈGE : un `\\` final ne prolonge PAS une chaîne forte (règle JS ≠ règle shell)", () => {
+    // En bash, `'…'` se ferme à la PREMIÈRE apostrophe suivante, même précédée
+    // d'un antislash : `\\` n'y échappe rien. Un automate qui applique la règle
+    // JavaScript croirait la chaîne encore ouverte et avalerait la suite.
+    const out = stripShellProse("A='texte\\'\nlargeur=1\n");
+    assert.ok(
+      out.includes("largeur=1"),
+      "la chaîne doit se fermer, la ligne suivante survivre",
+    );
+    assert.ok(!out.includes("texte"), "son contenu doit être blanchi");
+  });
+
+  it("blanchit un document en ligne entier, marqueur nu ou quoté", () => {
+    for (const open of ["<<EOF", "<<-EOF", "<<'EOF'", '<<"EOF"']) {
+      const out = stripShellProse(
+        `cat ${open}\ndu texte français : largeur\nEOF\nrendre=1\n`,
+      );
+      assert.ok(!out.includes("texte français"), open);
+      assert.ok(
+        out.includes("rendre=1"),
+        `${open} — le code après doit survivre`,
+      );
+    }
+  });
+
+  it("extrait fonctions, local/readonly/export, affectations nues et boucles", () => {
+    const src = [
+      "rendre_rapport() {",
+      "  local titre=1",
+      "  readonly LARGEUR=2",
+      "  export CHEMIN=3",
+      "}",
+      "function tracer_courbe {",
+      "  compteur=0",
+      "}",
+      "for fichier in *.txt; do :; done",
+    ].join("\n");
+    const names = extractShellIdentifiers(stripShellProse(src)).map(
+      (d) => d.name,
+    );
+    for (const expected of [
+      "rendre_rapport",
+      "titre",
+      "LARGEUR",
+      "CHEMIN",
+      "tracer_courbe",
+      "compteur",
+      "fichier",
+    ])
+      assert.ok(
+        names.includes(expected),
+        `${expected} manque : ${names.join(", ")}`,
+      );
+  });
+
+  it("PIÈGE : une comparaison `==` n'est pas une affectation", () => {
+    const names = extractShellIdentifiers(
+      stripShellProse('if [ "$a" == 1 ]; then :; fi\n'),
+    );
+    assert.deepEqual(names, []);
+  });
+
+  it("ne rend jamais un mot réservé du shell", () => {
+    const names = extractShellIdentifiers(
+      stripShellProse(
+        "for i in a; do echo x; done\nwhile true; do break; done\n",
+      ),
+    );
+    for (const kw of ["for", "do", "done", "while", "echo", "break", "true"])
+      assert.ok(!names.includes(kw), `${kw} ne doit pas sortir`);
+  });
+
+  it("analyzeSource route sur l'extension : `.sh` juge en shell", () => {
+    const src =
+      "#!/usr/bin/env bash\n# un commentaire français\nlargeur_utile=80\nrenderReport() { :; }\n";
+    const found = new Set(
+      analyzeSource(src, "probe.sh").map((f) => f.identifier),
+    );
+    assert.ok(found.has("largeur_utile"), "le français doit sortir");
+    assert.ok(!found.has("renderReport"), "l'anglais ne doit pas sortir");
+  });
+
+  it("le périmètre retient les scripts shell et EXEMPTE leurs tests", () => {
+    assert.ok(isProductionFile("bin/deploy.sh"));
+    assert.ok(isProductionFile("scripts/run.bash"));
+    assert.ok(!isProductionFile(".claude/hooks/guard-bash.test.sh"));
+    assert.ok(!isProductionFile("scripts/a.spec.sh"));
   });
 });
 

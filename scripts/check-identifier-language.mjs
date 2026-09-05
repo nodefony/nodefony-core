@@ -18,7 +18,9 @@
  * se répond avec un dictionnaire de mots DISCRIMINANTS, constitué à la main.
  *
  * Ce que le script fait, dans l'ordre :
- *  1. balaie les `.ts`/`.tsx` de PRODUCTION (les tests, `dist`, `node_modules`,
+ *  1. balaie les sources de PRODUCTION — TypeScript, JavaScript et shell : la
+ *     règle porte sur le CODE, pas sur un langage (les tests, `dist`,
+ *     `node_modules`,
  *     `templates` et `coverage` sont hors périmètre — les tests sont EXEMPTÉS
  *     pour leurs identifiants locaux, les gabarits portent des balises) ;
  *  2. BLANCHIT commentaires, chaînes et littéraux de gabarit — c'est là que le
@@ -850,6 +852,190 @@ export function extractDeclaredIdentifiers(stripped) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 4 bis. SHELL — un AUTRE langage, donc un autre automate.
+//
+// Bash n'est pas du JavaScript sans les types : ses commentaires s'ouvrent par
+// `#`, ses chaînes simples n'échappent RIEN, et une variable se déclare par une
+// affectation nue. Réutiliser l'automate TypeScript aurait rendu des verdicts
+// au hasard — d'où deux fonctions dédiées, volontairement PRUDENTES : ce qu'on
+// ne sait pas lire (documents en ligne) est blanchi plutôt que deviné. Un gate
+// qui rate un identifiant coûte un identifiant ; un gate qui en invente coûte
+// la confiance qu'on lui accorde.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Blanchit la prose d'un script shell en gardant les lignes et les colonnes.
+ *
+ * Traite les commentaires `#` (jamais ceux collés à un mot, qui font partie
+ * d'une expansion comme `${#tab[@]}`), les chaînes `'…'` — où RIEN ne
+ * s'échappe, contrairement à JavaScript — et `"…"`, où seul `\` échappe. Les
+ * documents en ligne (`<<EOF … EOF`) sont blanchis en entier : ils portent du
+ * texte, parfois plusieurs langues, et jamais de déclaration.
+ *
+ * @param source - texte du script
+ * @returns le même texte, prose remplacée par des espaces
+ */
+export function stripShellProse(source) {
+  const out = source.split("");
+  const n = source.length;
+  let i = 0;
+  let heredocTag = null;
+  let lineStart = 0;
+  while (i < n) {
+    const c = source[i];
+    if (c === "\n") {
+      // Fin de ligne : un document en ligne s'ouvre à la ligne SUIVANTE.
+      lineStart = i + 1;
+      i++;
+      if (heredocTag !== null) {
+        // Blanchit jusqu'au marqueur de fermeture, seul sur sa ligne.
+        while (i < n) {
+          let end = source.indexOf("\n", i);
+          if (end === -1) end = n;
+          if (source.slice(i, end).trim() === heredocTag) {
+            heredocTag = null;
+            i = end;
+            break;
+          }
+          for (let k = i; k < end; k++) out[k] = " ";
+          i = end + 1;
+          if (i >= n) break;
+        }
+      }
+      continue;
+    }
+    if (c === "#") {
+      // `#` ouvre un commentaire seulement en début de mot — `${#a}` et `a#b`
+      // n'en sont pas.
+      const prev = i > lineStart ? source[i - 1] : " ";
+      if (/\s/.test(prev) || i === lineStart) {
+        let end = source.indexOf("\n", i);
+        if (end === -1) end = n;
+        for (let k = i; k < end; k++) out[k] = " ";
+        i = end;
+        continue;
+      }
+      i++;
+      continue;
+    }
+    if (c === "'") {
+      // Chaîne forte : aucun échappement, elle court jusqu'à la prochaine `'`.
+      let end = source.indexOf("'", i + 1);
+      if (end === -1) end = n;
+      for (let k = i + 1; k < end && k < n; k++) out[k] = " ";
+      i = end + 1;
+      continue;
+    }
+    if (c === '"') {
+      let k = i + 1;
+      while (k < n && source[k] !== '"') {
+        if (source[k] === "\\") k++;
+        k++;
+      }
+      for (let j = i + 1; j < k && j < n; j++)
+        if (source[j] !== "\n") out[j] = " ";
+      i = k + 1;
+      continue;
+    }
+    if (c === "<" && source[i + 1] === "<") {
+      // `<<EOF`, `<<-EOF`, `<<'EOF'`, `<<"EOF"` — le marqueur est le mot suivant.
+      const m = /^<<-?\s*(['"]?)([A-Za-z_][\w]*)\1/.exec(source.slice(i));
+      if (m) {
+        heredocTag = m[2];
+        i += m[0].length;
+        continue;
+      }
+    }
+    i++;
+  }
+  return out.join("");
+}
+
+/** Déclarations shell reconnues, chacune capturant le nom en groupe 1. */
+const SHELL_DECLARATIONS = [
+  // `nom() {` — la fonction, forme POSIX.
+  /(?:^|[;&|]\s*)\s*([A-Za-z_]\w*)\s*\(\s*\)/gm,
+  // `function nom` — forme ksh/bash.
+  /(?:^|[;&|]\s*)\s*function\s+([A-Za-z_]\w*)/gm,
+  // `local x=`, `readonly X=`, `export X=`, `declare -a X=`, `typeset X=`.
+  /(?:^|[;&|]\s*)\s*(?:local|readonly|export|declare|typeset)\s+(?:-\w+\s+)*([A-Za-z_]\w*)\s*=/gm,
+  // Affectation nue en tête d'instruction — jamais une comparaison (`==`).
+  /(?:^|[;&|]\s*)\s*([A-Za-z_]\w*)=(?!=)/gm,
+  // `for x in …`, `select x in …` — la variable de boucle est déclarée là.
+  /(?:^|[;&|]\s*)\s*(?:for|select)\s+([A-Za-z_]\w*)\s+in\b/gm,
+  // `read -r a b c` — chaque nom lu est une variable déclarée.
+  /(?:^|[;&|]\s*)\s*read\s+((?:-\w+\s+)*[A-Za-z_][\w\s]*)$/gm,
+];
+
+/** Mots réservés du shell, jamais des identifiants de l'auteur. */
+const SHELL_KEYWORDS = new Set([
+  "if",
+  "then",
+  "else",
+  "elif",
+  "fi",
+  "for",
+  "while",
+  "until",
+  "do",
+  "done",
+  "case",
+  "esac",
+  "in",
+  "function",
+  "select",
+  "time",
+  "coproc",
+  "return",
+  "break",
+  "continue",
+  "local",
+  "readonly",
+  "export",
+  "declare",
+  "typeset",
+  "echo",
+  "read",
+  "set",
+  "unset",
+  "shift",
+  "exit",
+  "eval",
+  "exec",
+  "trap",
+  "true",
+  "false",
+  "test",
+  "cd",
+  "printf",
+  "source",
+]);
+
+/**
+ * Extrait les identifiants DÉCLARÉS d'un script shell blanchi.
+ *
+ * @param stripped - sortie de {@link stripShellProse}
+ * @returns `[{ name, line }]`, dans l'ordre de rencontre
+ */
+export function extractShellIdentifiers(stripped) {
+  const index = lineIndexer(stripped);
+  const found = [];
+  for (const pattern of SHELL_DECLARATIONS) {
+    pattern.lastIndex = 0;
+    let m;
+    while ((m = pattern.exec(stripped)) !== null) {
+      // `read -r a b c` capture plusieurs noms d'un coup ; les autres, un seul.
+      for (const raw of m[1].split(/\s+/)) {
+        if (raw.startsWith("-") || raw === "") continue;
+        if (SHELL_KEYWORDS.has(raw)) continue;
+        found.push({ name: raw, line: index(m.index) });
+      }
+    }
+  }
+  return found.sort((a, b) => a.line - b.line);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 5. FICHIERS — périmètre de production, chemins normalisés AVANT de filtrer.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -876,7 +1062,7 @@ const EXCLUDED_SEGMENTS = new Set([
  * déclarations valent tels quels : JavaScript est TypeScript sans les types,
  * les motifs propres aux types ne trouvent simplement rien.
  */
-const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/;
+const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?|sh|bash)$/;
 
 /**
  * Fichiers de test, hors périmètre quelle que soit leur extension.
@@ -884,12 +1070,13 @@ const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/;
  * Les tests sont EXEMPTÉS par la règle pour leurs identifiants locaux : ils ne
  * partent pas sur npm et n'entrent dans aucun `.d.ts`.
  */
-const TEST_FILE = /\.(?:test|spec|selftest)\.(?:[cm]?[jt]sx?)$/;
+const TEST_FILE = /\.(?:test|spec|selftest)\.(?:[cm]?[jt]sx?|sh|bash)$/;
 
 /**
  * Dit si un chemin (relatif, en `/`) est un fichier de PRODUCTION à contrôler.
  *
- * Hors périmètre : tout segment `tests`/`__tests__`/`fixtures`/`dist`/
+ * Contrôlés : `.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.mjs` `.cjs` `.sh`
+ * `.bash`. Hors périmètre : tout segment `tests`/`__tests__`/`fixtures`/`dist`/
  * `node_modules`/`templates`/`coverage`, les `*.test.ts`, `*.spec.ts`,
  * `*.selftest.ts`, les `.d.ts` générés, et les configs `vitest.*`. Le segment
  * `test` au singulier reste DANS le périmètre : c'est le nom d'un module.
@@ -934,15 +1121,23 @@ function walk(root, entry, out) {
 /**
  * Analyse un source et rend ses constats, dédoublonnés par identifiant.
  *
- * @param source - texte TypeScript brut
+ * @param source - texte brut du fichier ; son LANGAGE est lu sur l'extension
+ *   de `file` (shell pour `.sh`/`.bash`, sinon TypeScript/JavaScript)
  * @param file - chemin relatif (en `/`) porté dans chaque constat
  * @returns `[{ file, line, identifier, occurrences, words, suggestion }]`
  */
 export function analyzeSource(source, file = "<memory>") {
-  const stripped = stripProse(source);
+  // Le LANGAGE se lit sur l'extension, et il décide des DEUX automates : un
+  // script shell blanchi par les règles de JavaScript rendrait des verdicts au
+  // hasard (`#` y ouvre un commentaire, `'…'` n'y échappe rien).
+  const shell = /\.(?:sh|bash)$/.test(file);
+  const stripped = shell ? stripShellProse(source) : stripProse(source);
   // nom → constat, ou `null` pour un identifiant jugé anglais (vu une fois).
   const seen = new Map();
-  for (const { name, line } of extractDeclaredIdentifiers(stripped)) {
+  const declarations = shell
+    ? extractShellIdentifiers(stripped)
+    : extractDeclaredIdentifiers(stripped);
+  for (const { name, line } of declarations) {
     const known = seen.get(name);
     if (known !== undefined) {
       if (known !== null) known.occurrences++;
@@ -1095,7 +1290,9 @@ Usage : node scripts/check-identifier-language.mjs [options] [chemins…]
   --help                cette aide
 
 Sortie : 0 si aucun identifiant ne sort, 1 sinon, 2 sur erreur d'usage.
-Hors périmètre : tests (*.test.ts, **/tests/**), dist, node_modules, templates, coverage.`;
+Contrôlés : .ts .tsx .mts .cts .js .jsx .mjs .cjs .sh .bash — la règle porte sur le CODE,
+pas sur un langage. Les scripts shell sont lus par leur propre automate.
+Hors périmètre : tests (*.test.*, **/tests/**), dist, node_modules, templates, coverage.`;
 
 if (
   process.argv[1] &&
