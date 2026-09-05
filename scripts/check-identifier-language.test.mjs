@@ -698,6 +698,13 @@ describe("isProductionFile — le périmètre", () => {
       "src/packages/@nodefony/studio/frontend/src/routes/Migrations.tsx",
       "src/modules/test/nodefony/controller/BenchOrmController.ts",
       "src/nodefony/src/testing/index.ts",
+      // JavaScript : même règle. Un `monterDecor` dans un `.mjs` d'outillage
+      // est aussi introuvable au `grep` anglais qu'un `rendreRapport` en `.ts`.
+      "src/x/script.mjs",
+      "scripts/check-site-links.mjs",
+      "src/x/legacy.js",
+      "src/x/config.cjs",
+      "src/x/widget.jsx",
     ])
       assert.ok(isProductionFile(p), p);
   });
@@ -719,7 +726,12 @@ describe("isProductionFile — le périmètre", () => {
       "src/packages/@nodefony/http/vitest.config.ts",
       "src/packages/@nodefony/http/vitest.load.config.ts",
       "src/x/readme.md",
-      "src/x/script.mjs",
+      // Tests, quelle que soit l'extension — la règle EXEMPTE leurs
+      // identifiants locaux, qui ne partent ni sur npm ni dans un `.d.ts`.
+      "scripts/gate.test.mjs",
+      "scripts/gate.spec.mjs",
+      "src/x/tests/helper.mjs",
+      "src/x/tools.test.js",
     ])
       assert.ok(!isProductionFile(p), p);
   });

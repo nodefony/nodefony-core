@@ -271,7 +271,6 @@ const FRENCH_WORDS = {
     "fusionner",
     "fusionne",
     "fusionnee",
-    "comparer",
     "comparaison",
     "detecter",
     "detecte",
@@ -1190,6 +1189,11 @@ const FRENCH_WORDS = {
 export const EXCLUDED_HOMOGRAPHS = [
   // Même mot, même sens, dans les deux langues.
   "content",
+  // `comparer` est un NOM anglais (« celui qui compare ») employé tel quel par
+  // mobx (`IEqualsComparer`) et rxjs, comme `IComparer` en .NET — relevé par le
+  // banc sur deux éditeurs indépendants. Sa racine `compare` était déjà exclue
+  // ici : c'est la forme infinitive qui avait glissé dans le dictionnaire.
+  "comparer",
   "page",
   "parent",
   "format",
@@ -1760,7 +1764,6 @@ const SUGGESTIONS = {
   filtre: "filter",
   trier: "sort",
   fusionner: "merge",
-  comparer: "compare",
   detecter: "detect",
   resoudre: "resolve",
   extraire: "extract",
@@ -2626,6 +2629,25 @@ const EXCLUDED_SEGMENTS = new Set([
 ]);
 
 /**
+ * Extensions contrôlées : TypeScript ET JavaScript.
+ *
+ * La règle du `CLAUDE.md` parle du CODE, pas d'un langage — un `monterDecor`
+ * dans un `.mjs` d'outillage est aussi introuvable au `grep` anglais qu'un
+ * `rendreRapport` dans un `.ts`. Le blanchiment de la prose et l'extraction des
+ * déclarations valent tels quels : JavaScript est TypeScript sans les types,
+ * les motifs propres aux types ne trouvent simplement rien.
+ */
+const SOURCE_EXTENSION = /\.(?:[cm]?[jt]sx?)$/;
+
+/**
+ * Fichiers de test, hors périmètre quelle que soit leur extension.
+ *
+ * Les tests sont EXEMPTÉS par la règle pour leurs identifiants locaux : ils ne
+ * partent pas sur npm et n'entrent dans aucun `.d.ts`.
+ */
+const TEST_FILE = /\.(?:test|spec|selftest)\.(?:[cm]?[jt]sx?)$/;
+
+/**
  * Dit si un chemin (relatif, en `/`) est un fichier de PRODUCTION à contrôler.
  *
  * Hors périmètre : tout segment `tests`/`__tests__`/`fixtures`/`dist`/
@@ -2638,9 +2660,9 @@ const EXCLUDED_SEGMENTS = new Set([
  */
 export function isProductionFile(relPath) {
   const p = relPath.replace(/\\/g, "/");
-  if (!/\.tsx?$/.test(p)) return false;
+  if (!SOURCE_EXTENSION.test(p)) return false;
   if (p.endsWith(".d.ts")) return false;
-  if (/\.(?:test|spec|selftest)\.tsx?$/.test(p)) return false;
+  if (TEST_FILE.test(p)) return false;
   const base = p.slice(p.lastIndexOf("/") + 1);
   if (base.startsWith("vitest.")) return false;
   for (const seg of p.split("/").slice(0, -1))
@@ -2876,5 +2898,11 @@ if (
   });
   if (json) console.log(JSON.stringify(result, null, 2));
   else console.log(formatReport(result));
-  process.exit(result.findings.length ? 1 : 0);
+  // 🔴 `process.exitCode`, JAMAIS `process.exit()` : vers un PIPE, `stdout` est
+  // asynchrone (tampon de 64 Ko) et `exit()` tue le processus avant le vidage —
+  // le rapport JSON arrivait TRONQUÉ, donc invalide, à `jq`. Vers un fichier
+  // l'écriture est synchrone : le défaut ne se montrait pas, et se déclenchait
+  // seulement au-delà du tampon. Poser le code laisse Node sortir de lui-même,
+  // une fois la sortie écrite.
+  process.exitCode = result.findings.length ? 1 : 0;
 }
