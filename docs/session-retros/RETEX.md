@@ -158,6 +158,9 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 09-05d] **Un gate peut avoir DEUX exigences, et satisfaire la première donne l'illusion d'avoir fini.** `scripts-audit` veut qu'un script soit cité par une page ET, s'il n'est lancé par aucun automate, qu'il soit ACQUITTÉ dans une liste. J'ai corrigé la première, vu « orphelins : 0 », et poussé — le gate sortait toujours en 1, la barrière de pré-poussée le disait, et c'est la forge qui l'aurait rattrapé. Lire le COMPTE qu'on vient d'améliorer ne remplace pas lire le CODE DE SORTIE.
+- [1× — 09-05d] **Un gate au périmètre trop étroit accuse ce qui est conforme.** Le même n'inventoriait la documentation que dans `docs/` racine, alors que depuis l'ADR-0001 la doc d'un module vit chez lui. Un script documenté dans `<module>/docs/` ressortait « cité nulle part ». Un gate qui refuse ce qui respecte la règle apprend à passer outre — et c'est la règle qu'on cesse d'appliquer, pas le gate.
+
 - [1× — 09-04] **Un geste repris LOIN de son constat perd son antécédent.** « À FAIRE ENSUITE » affichait « fournis-**le** par un défaut du framework » : le pronom désignait un service que la liste ne nommait nulle part. Et la glose qui l'aurait situé était supprimée dès que la phrase était trop longue — donc précisément quand elle servait. Signalé par le user sur le rendu réel. Règle : **tout texte repris hors de son contexte se redit en entier**, et une glose se replie, jamais ne disparaît.
 - [1× — 09-03b] **Le remède prescrit contre une troncature muette tronquait muettement à son tour — et j'ai rendu DEUX faux verdicts d'affilée.** Un skill du dépôt documente que `gh project item-list` omet des items sans le dire, et prescrit GraphQL. Je l'ai suivi : `projectV2.items(first:100)` sur un tableau de **146** items rend 100 nœuds, sans un mot. J'ai donc annoncé deux tickets « absents du tableau », puis « pas en cours » — ils y étaient et l'étaient. **Le compte se DEMANDE (`totalCount`), il ne se déduit jamais de la longueur de ce qu'on a reçu**, et une page reçue pleine est le signe qu'il en manque, pas qu'on a tout. Écrire le remède sans écrire son bord, c'est déplacer le piège d'un cran et le rendre plus crédible.
 
@@ -497,6 +500,9 @@
 
 ## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
 
+- [1× — 09-05d] **Et le symétrique, plus coûteux : ce qui ne ressemblait PAS à un délai en était un.** `doctor --deep` sortait en **0 au milieu de `npm run test`**, sans erreur — lu comme une sortie prématurée de la boucle d'évènements. C'était une BORNE DE TEMPS : l'action d'une commande est câblée comme un écouteur de cycle de vie, et le kernel borne chaque écouteur au délai de démarrage (20 s). Passé ce délai, la garde l'abandonne en fail-soft et le boot enchaîne sur `finishOrPark(0)`. Ce qui tranche en une commande : `--trace-exit` NOMME l'appelant de `process.exit`, et faire varier la borne (`NF_BOOT_TIMEOUT_MS=2000`) déplace le point de mort. Deux mesures, aucune lecture de code.
+- [1× — 09-05d] **Passer de `spawnSync` à `spawn` RÉVEILLE les minuteurs que le blocage éteignait.** Le défaut ci-dessus existait depuis toujours et ne pouvait pas se manifester : un appel synchrone gèle la boucle, donc aucun `setTimeout` de garde ne se déclenche. Rendre asynchrone — pour une raison sans rapport, faire tourner une animation — l'a armé. Toute conversion sync → async doit se demander QUELLES gardes dormaient.
+
 - **[1× — 09-02] Trois rouges consécutifs lus comme « permanent » — le quatrième était vert.** J'ai écrit dans un TICKET que la case macOS était « rouge en permanence », sur trois observations dont un relancement. La passe suivante a tout viré au vert. Un ticket est cru sans être relu : corrigé (titre compris) en relevé chiffré « 3 rouges / 1 vert », et son critère de fin ne repose plus sur un comptage de passes — un banc rouge une fois sur quatre passe deux fois de suite sans rien prouver.
 - **« La commande meurt toute seule » n'était pas un timeout — il n'en existait aucun sur ce
   chemin.** Une question est une promesse en attente ; Node ne compte pas les promesses, il compte
@@ -785,6 +791,8 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-05d] **Un test qui n'énonce pas son décor hérite de celui de la machine — et accuse le produit ailleurs.** `progress.test.ts` littéralisait `⠋` et `▰` ; le produit replie légitimement en ASCII quand l'environnement ne promet pas l'Unicode (`cmd.exe`). Vert sur trois plateformes, rouge sur les trois jobs Windows de la forge, en accusant un produit qui faisait exactement son travail. Un cas qui éprouve un rendu doit DIRE dans quel terminal il se place (env injecté), et la preuve se fait en injectant la grammaire : `supportsUnicode(ENV, "win32") === true`, `supportsUnicode({}, "win32") === false` — sans machine Windows.
 
 - [1× — 09-05c] **Le typecheck du cœur EXCLUT `src/tests` — il est resté MUET sur trois tests appelant une méthode supprimée.** En retirant `Service.spinlog()`, `npx tsgo --noEmit -p tsconfig.json` a répondu vert ; seule l'exécution de vitest a dénoncé les appels morts. Un typecheck qui ne lit pas les tests délivre un quitus sur ce qu'il n'a pas ouvert. Déjà instruit le 09-04 (« 6 contrôles verts pour rien »), non soldé, et resservi le jour même du retrait — un ticket a été ouvert.
 - [1× — 09-05c] **Un `$?` après un pipe mesure le DERNIER élément du pipe, pas la commande.** `node banc.mjs | head -60 ; echo $?` rendait 0 alors que le banc sortait en 1 et imprimait « DÉRÉGLÉ ». Le verdict d'un instrument se lit sans pipe, ou dans un fichier.
@@ -1259,6 +1267,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
 
 ## 🚪 Un fast-path standalone ne vaut QUE pour l'invocation directe
 
+- [1× — 09-05d] **L'aide PROMET, la commande REFUSE — et rien ne dit qui a raison.** `nodefony create app --interactive` répondait « option inconnue », alors que `nodefony --help` annonce `-i, --interactive` deux lignes plus haut. Cause : ces options sont posées sur commander pour tout le CLI, et SEPT commandes répondent par le raccourci autonome, qui lit `process.argv` lui-même — précisément pour répondre sans démarrer l'application. Aucune ne cassait ; toutes démentaient l'aide, sur la toute première commande qu'on tape en découvrant le framework. Le raccourci n'hérite de RIEN : ce que la couche court-circuitée offrait doit être réoffert explicitement, à UN endroit (`cli/globalFlags.ts`), sinon la huitième commande autonome rouvre le trou sans que personne le voie.
+
 - `card`, `check`, `env`, `symbols`, `ai:sync`, `ai:mcp`, `git:hooks` : lancées depuis le MENU, le
   kernel tourne déjà, elles passent par commander et **BOOTENT** — leur sortie arrivait sous dix à
   trente lignes de « MODULE ADD ». Même piège pour les capacités déclarées : `CliKernel.start()` les
@@ -1292,6 +1302,8 @@ r))` n'a aucune issue si la connexion se ferme : 60 s de « timed out » sans ca
   enlève se NOMME** dans la sortie. `[1× — 08-21e]`
 
 ## 🧵 Trois choses ne suivent PAS d'un process à l'autre — enchaîner se teste
+
+- [1× — 09-05d] **Un test lisait `NODE_ENV` de SON process pour savoir si le SERVEUR tourne en production.** Deux horloges : la forge démarre le serveur en production et lance la suite sans ce mode. Le cas exigeait donc, en production, la phrase que la production retire exprès — rouge sur les trois plateformes à la fois. Le porteur existait déjà (`NF_TEST_ENV`, posé par un `globalSetup` qui SONDE le serveur sur `/livez`) ; ce cas était le seul à ne pas l'appeler. Avant d'écrire une condition sur l'environnement dans un test d'intégration, chercher QUI porte déjà le mode de la cible.
 
 - Enchaîner une commande sur une autre (`spawnSync`) : l'ENVIRONNEMENT (un enfant ne reçoit que ce
   qu'on lui donne — et `NODE_ENV` si la cible n'existe qu'en dev), le RÉPERTOIRE (écrire dans le
@@ -2199,6 +2211,8 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Sept ancres fausses dans UNE grappe de quatre tickets** — dont une qui situait une garde à `orm-migrate-baseline.ts:118`, où vit une déclaration d'option, **171 lignes** avant sa cible ; et deux tickets frères qui désignaient la MÊME ligne (`orm-generate.ts:376`) pour deux refus différents — un seul pouvait avoir raison. Elles étaient toutes périmées pour la même raison : le travail décrit avait été FAIT entre-temps. Le contrôle qui tranche en une seconde : deux tickets ne pointent jamais la même ligne pour deux choses. Retirées plutôt que corrigées quand le fait avait disparu — une ancre juste sous une affirmation fausse est le pire des deux mondes.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 09-05d] **Un relevé délégué en `haiku` portait deux affirmations FAUSSES, plausibles toutes les deux.** Un `TODO P14.11` lu comme « fonctionnalité non implémentée » alors que c'est le numéro de phase du fichier, et une couverture attribuée à un fichier de test qui ne l'exerce pas. Le relevé restait utile — 29 fichiers cités sur 29 existaient bel et bien —, mais aucune de ses conclusions n'est entrée dans la page sans être remesurée par un automate. La délégation donne la MATIÈRE ; le verdict se reprend.
 
 - [1× — 09-01] **Il a rendu le COMPTE et pas les VERDICTS.** Dix affirmations d'un ticket confiées à `haiku` avec la consigne « verdict + citation + ancrage ACTUEL, pour CHACUNE » : le rapport annonce « 10 affirmations : 4 VRAI, 4 FAUX, 2 NON VÉRIFIABLE » — et ne donne le détail d'AUCUNE. À la place, un tableau de cinq autres emplacements, trouvés par la question bonus. Le compte est invérifiable et le travail utile absent. J'ai dû reprendre les dix à la main (six `rg`, deux minutes) — et six des dix étaient **déjà corrigées** par les tickets de la veille. Consigne à durcir : « rends une LIGNE PAR ITEM, numérotée comme l'énoncé ; un résumé chiffré sans le détail vaut zéro ».
 
