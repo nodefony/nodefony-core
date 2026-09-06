@@ -763,3 +763,135 @@ export function versionDeLaPageMan(page) {
   );
   return m ? m[1].replace(/\\-/g, "-").trim() : null;
 }
+
+/**
+ * Les paquets de l'ère « Bundle », et ce qui les remplace en 10.
+ *
+ * Cette table est la SOURCE de la dépréciation : `docs/release/nodefony-10.md`
+ * §7.3ter la commente, il ne la duplique pas. Une liste tenue à la main dans un
+ * document et une autre dans un script divergent en silence — chacune paraît
+ * juste à qui ne lit que l'une des deux.
+ *
+ * `successeur: null` n'est PAS un oubli : c'est une fin de vie assumée, dont le
+ * message doit le dire clairement plutôt que renvoyer vers rien.
+ */
+export const PAQUETS_HISTORIQUES = [
+  {
+    nom: "@nodefony/http-bundle",
+    successeur: "@nodefony/http",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/framework-bundle",
+    successeur: "@nodefony/framework",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/security-bundle",
+    successeur: "@nodefony/security",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/realtime-bundle",
+    successeur: "@nodefony/realtime",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/redis-bundle",
+    successeur: "@nodefony/redis",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/mongoose-bundle",
+    successeur: "@nodefony/mongoose",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/documentation-bundle",
+    successeur: "@nodefony/documentation",
+    nature: "renommage",
+  },
+  {
+    nom: "@nodefony/mongo-bundle",
+    successeur: "@nodefony/mongoose",
+    nature: "fusion",
+  },
+  {
+    nom: "@nodefony/passport-wrapper",
+    successeur: "@nodefony/security",
+    nature: "fusion",
+  },
+  {
+    nom: "@nodefony/sequelize-bundle",
+    successeur: "@nodefony/drizzle",
+    nature: "moteur",
+  },
+  {
+    nom: "@nodefony/unittests-bundle",
+    successeur: null,
+    nature: "fin-de-vie",
+    note: "les tests passent par vitest",
+  },
+  { nom: "@nodefony/mail-bundle", successeur: null, nature: "fin-de-vie" },
+  { nom: "@nodefony/elastic-bundle", successeur: null, nature: "fin-de-vie" },
+  {
+    nom: "@nodefony/monitoring-bundle",
+    successeur: null,
+    nature: "fin-de-vie",
+  },
+  {
+    nom: "@nodefony/demo-bundle",
+    successeur: null,
+    nature: "fin-de-vie",
+    note: "une application se crée par `nodefony create app`",
+  },
+  { nom: "@nodefony/stage", successeur: null, nature: "fin-de-vie" },
+];
+
+/**
+ * Les deux paquets qu'il ne faut JAMAIS déprécier, et pourquoi.
+ *
+ * Ils sont énumérés ICI plutôt que simplement absents de la table : une absence
+ * ne dit pas si elle est voulue, et la question se reposerait à chaque release.
+ */
+export const EXCLUS_DE_LA_DEPRECIATION = [
+  {
+    nom: "nodefony",
+    motif:
+      "même nom, nouvelle majeure — déprécier le paquet déprécierait AUSSI la 10",
+  },
+  {
+    nom: "nodefony-client",
+    motif:
+      "en production sur du télécom (SIP + médias), trajectoire propre — ce n'est pas un vestige",
+  },
+];
+
+/**
+ * Le message affiché à qui installe un paquet historique.
+ *
+ * Il NOMME où aller et ne promet aucune commande d'installation : le successeur
+ * peut n'exister qu'en préversion, où `npm i <successeur>` servirait la 7. Un
+ * message qui vieillit mal est pire qu'un message absent — il se lit comme une
+ * instruction.
+ *
+ * @param entree - une entrée de {@link PAQUETS_HISTORIQUES}
+ * @param depot - l'URL du dépôt à citer
+ * @returns le message, prêt pour `npm deprecate`
+ */
+export function messageDeDepreciation(entree, depot) {
+  const ou = `voir ${depot}`;
+  const suffixe = entree.note ? ` — ${entree.note}` : "";
+  switch (entree.nature) {
+    case "renommage":
+      return `Nodefony 10 : ce paquet devient ${entree.successeur} (${ou})${suffixe}`;
+    case "fusion":
+      return `Nodefony 10 : ce paquet est repris par ${entree.successeur} (${ou})${suffixe}`;
+    case "moteur":
+      return `Nodefony 10 : ce paquet est remplacé par ${entree.successeur}, qui change de moteur de base de données (${ou})${suffixe}`;
+    case "fin-de-vie":
+      return `Nodefony 10 : ce paquet n'a pas de successeur (${ou})${suffixe}`;
+    default:
+      throw new Error(`nature inconnue : ${entree.nature}`);
+  }
+}

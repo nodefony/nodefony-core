@@ -25,6 +25,8 @@
  *   npm run release -- --version 10.0.0 --from <ref> --write
  *   npm run release -- --version 10.0.0 --from <ref> --write --pack
  *   npm run release -- --version 10.0.0 --publish            # MANUEL
+ *   npm run release -- --deprecate                           # les paquets historiques
+ *   npm run release -- --deprecate --publish                 # …et les déprécier
  *
  * `--from` ne sert QU AUX trois premières : la publication saute le changelog,
  * qui a été écrit, relu et commité avant. Le passer là ne fait rien — et un
@@ -67,6 +69,7 @@ import {
   comparerVersions,
   detecterSuspects,
   fusionnerChangelog,
+  messageDeDepreciation,
   ordreTopologique,
   paquetsNonEstampilles,
   pairsTropLarges,
@@ -75,7 +78,9 @@ import {
   rendreChangelog,
   validerVersion,
   versionDeLaPageMan,
+  EXCLUS_DE_LA_DEPRECIATION,
   MAX_BUFFER_GIT,
+  PAQUETS_HISTORIQUES,
 } from "./release-core.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -157,6 +162,64 @@ const npm = (args, opts = {}) =>
     shell: needsShell("npm"),
     ...opts,
   });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// --deprecate — les paquets de l'ère « Bundle », APRÈS la publication
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴 C'est un geste SÉPARÉ, et il ne peut pas en être autrement. Le trusted
+// publishing ne couvre que `publish` : le jeton qu'il délivre vit quelques
+// minutes dans un exécuteur de la forge, auquel personne n'a accès. Aucune
+// session npm authentifiée n'existe donc sur le poste après une release, et
+// `npm deprecate` réclame la sienne, avec le code à deux facteurs.
+//
+// Le confondre avec la publication faisait croire que les dépréciations
+// partaient avec le lot. Elles ne partaient pas, et rien ne le disait.
+//
+// Ce mode n'a besoin NI de version, NI de tarballs : il court-circuite donc
+// tout le reste du fichier. Sans `--publish`, il ne touche pas au registre.
+if (drapeau("deprecate")) {
+  etape = "dépréciation";
+  const depot = `https://${DEPOT_ATTENDU.replace(/^https?:\/\//, "")}`;
+  dire(
+    `\n${PUBLIER ? "🔴 DÉPRÉCIATION RÉELLE" : "── RÉPÉTITION — le registre n'est PAS touché"} — ` +
+      `${PAQUETS_HISTORIQUES.length} paquets historiques\n`,
+  );
+  for (const e of EXCLUS_DE_LA_DEPRECIATION) {
+    dire(`  ⊘ ${e.nom} — JAMAIS : ${e.motif}`);
+  }
+  dire("");
+
+  const echecs = [];
+  for (const entree of PAQUETS_HISTORIQUES) {
+    const message = messageDeDepreciation(entree, depot);
+    if (!PUBLIER) {
+      dire(`  npm deprecate ${entree.nom} "${message}"`);
+      continue;
+    }
+    dire(`  → ${entree.nom}`);
+    // `stdio: inherit` : npm demande le code à deux facteurs sur le terminal.
+    const r = npm(["deprecate", entree.nom, message], { stdio: "inherit" });
+    // Un échec n'ARRÊTE PAS le lot, à l'inverse de la publication : une
+    // dépréciation est indépendante des autres et RÉVERSIBLE (message vide).
+    // S'arrêter au premier raté laisserait quinze paquets muets pour un seul
+    // qui résiste — et l'on ne saurait pas lesquels ont abouti.
+    if (r.status !== 0) echecs.push(entree.nom);
+  }
+
+  if (!PUBLIER) {
+    dire("\n  Appliquer : --deprecate --publish (npm demandera le code 2FA)");
+  } else if (echecs.length) {
+    echouer(
+      `dépréciation refusée sur ${echecs.length} paquet(s) : ${echecs.join(", ")}\n` +
+        "  Les autres ont abouti. Une dépréciation est réversible (message vide) :\n" +
+        "  reprendre ceux-là seuls, il n'y a rien à défaire.",
+    );
+  } else {
+    dire(`\n✓ dépréciation — ${PAQUETS_HISTORIQUES.length} paquets`);
+  }
+  process.exit(0);
+}
 /**
  * Une commande git, ARGUMENT PAR ARGUMENT — jamais une ligne de shell.
  *

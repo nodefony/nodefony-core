@@ -18,6 +18,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  EXCLUS_DE_LA_DEPRECIATION,
+  PAQUETS_HISTORIQUES,
+  messageDeDepreciation,
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
@@ -1112,5 +1115,64 @@ describe("GATE dépôt — aucun pair interne non borné chez les publiables", (
       "utf8",
     );
     expect(versionDeLaPageMan(page)).toBe(coeur.pkg.version);
+  });
+});
+
+describe("dépréciation des paquets historiques", () => {
+  const DEPOT = "https://github.com/nodefony/nodefony-core";
+  const RACINE = path.resolve(import.meta.dirname, "../..");
+
+  it("aucun paquet n'est à la fois déprécié et exclu — la table se contredirait", () => {
+    const exclus = new Set(EXCLUS_DE_LA_DEPRECIATION.map((e) => e.nom));
+    expect(PAQUETS_HISTORIQUES.filter((e) => exclus.has(e.nom))).toEqual([]);
+  });
+
+  it("PIÈGE — `nodefony` n'est JAMAIS dans la table : le déprécier déprécierait la 10", () => {
+    expect(PAQUETS_HISTORIQUES.map((e) => e.nom)).not.toContain("nodefony");
+    expect(PAQUETS_HISTORIQUES.map((e) => e.nom)).not.toContain(
+      "nodefony-client",
+    );
+  });
+
+  it("aucun doublon — npm deprecate écraserait le message précédent en silence", () => {
+    const noms = PAQUETS_HISTORIQUES.map((e) => e.nom);
+    expect(noms).toHaveLength(new Set(noms).size);
+  });
+
+  it("chaque message NOMME son successeur quand il y en a un", () => {
+    for (const e of PAQUETS_HISTORIQUES.filter((x) => x.successeur)) {
+      expect(messageDeDepreciation(e, DEPOT)).toContain(e.successeur);
+    }
+  });
+
+  it("PIÈGE — un message ne promet JAMAIS `npm install` : le successeur peut n'exister qu'en préversion", () => {
+    for (const e of PAQUETS_HISTORIQUES) {
+      const m = messageDeDepreciation(e, DEPOT);
+      expect(m).not.toMatch(/npm\s+(install|i)\b/);
+      expect(m).toContain(DEPOT);
+    }
+  });
+
+  it("une nature inconnue LÈVE plutôt que de rendre un message vague", () => {
+    expect(() =>
+      messageDeDepreciation({ nom: "x", nature: "inventée" }, DEPOT),
+    ).toThrow(/nature inconnue/);
+  });
+
+  it("le plan de release et la table du code nomment les MÊMES paquets", () => {
+    // Duplication rendue inévitable par la frontière doc/code : le plan doit
+    // rester lisible seul (nature, motif), le script doit rester exécutable
+    // seul. La règle du dépôt est alors de COMPARER les deux sorties — deux
+    // copies divergent en silence, chacune passant ses propres relectures.
+    const plan = readFileSync(
+      path.join(RACINE, "docs/release/nodefony-10.md"),
+      "utf8",
+    );
+    const section = plan.split("### 7.3ter")[1]?.split("\n### ")[0] ?? "";
+    const dansLePlan = new Set(
+      [...section.matchAll(/^\|\s*`([^`]+)`\s*\(/gm)].map((m) => m[1]),
+    );
+    const dansLeCode = new Set(PAQUETS_HISTORIQUES.map((e) => e.nom));
+    expect([...dansLePlan].sort()).toEqual([...dansLeCode].sort());
   });
 });

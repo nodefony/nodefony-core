@@ -404,9 +404,20 @@ authentification OIDC — ne pas s'en servir comme preuve que la chaîne fonctio
 ### 7.3ter Paquets historiques — déprécier APRÈS avoir publié
 
 Les paquets de l'ère « Bundle » restent installables et sans successeur annoncé. Ils se déprécient
-par `npm deprecate <paquet> "<message>"` — un message affiché à l'installation, **réversible**
-(message vide) et sans effet sur les installations existantes. `npm unpublish` est hors sujet
-(fenêtre de 72 h).
+par un message affiché à l'installation, **réversible** (message vide) et sans effet sur les
+installations existantes. `npm unpublish` est hors sujet (fenêtre de 72 h).
+
+**La chaîne le fait**, plutôt que seize commandes recopiées d'ici :
+
+```bash
+npm run release -- --deprecate              # ce qui serait fait, sans toucher au registre
+npm run release -- --deprecate --publish    # …et le faire (npm demande le code 2FA)
+```
+
+🔴 **La SOURCE est `PAQUETS_HISTORIQUES` dans `scripts/release/release-core.mjs`** — le tableau
+ci-dessous en est le commentaire, pas le second exemplaire. Une liste tenue à la main ici et une
+autre dans le script divergeraient en silence, chacune paraissant juste à qui ne lit que l'une des
+deux ; un test du dépôt compare les deux et refuse l'écart.
 
 🔴 **L'ordre n'est pas indifférent** : déprécier AVANT la publication renverrait les gens vers des
 paquets qui n'existent pas encore. Elle s'applique donc dès que les successeurs sont **EN LIGNE** —
