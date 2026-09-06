@@ -738,3 +738,28 @@ export function pairsTropLarges(paquets) {
   }
   return trop;
 }
+
+/**
+ * La version qu'ANNONCE une page de manuel roff, ou `null` si elle est illisible.
+ *
+ * `man/nodefony.1` est GÉNÉRÉE puis commitée, et elle embarque la version. Rien
+ * ne la régénérait à l'estampillage : elle a annoncé `nodefony 10.0.0` dans le
+ * tarball d'une `10.0.0-alpha.1`, et le gate de fraîcheur du cœur en est resté
+ * rouge sur les trois plateformes — un échec qui ne nommait pas la release.
+ *
+ * La ligne `.TH` porte la version échappée à la mode roff (`10.0.0\-alpha.1`) :
+ * le tiret y est protégé pour ne pas être pris pour une césure. On le retire
+ * pour comparer à une version semver.
+ *
+ * Rend `null` plutôt que de deviner : une page qu'on ne sait pas lire ne doit
+ * jamais se faire passer pour une page à jour.
+ *
+ * @param page - le contenu de la page de manuel
+ * @returns la version annoncée, ou `null`
+ */
+export function versionDeLaPageMan(page) {
+  const m = /^\.TH\s+\S+\s+\d+\s+"[^"]*"\s+"nodefony\s+([^"]+)"/m.exec(
+    page ?? "",
+  );
+  return m ? m[1].replace(/\\-/g, "-").trim() : null;
+}

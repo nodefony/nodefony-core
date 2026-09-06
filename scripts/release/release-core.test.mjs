@@ -14,6 +14,8 @@
  * sont eux qui font le travail.
  */
 import { execSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   MAX_BUFFER_GIT,
@@ -32,6 +34,7 @@ import {
   referencesFigees,
   rendreChangelog,
   validerVersion,
+  versionDeLaPageMan,
 } from "./release-core.mjs";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1011,5 +1014,103 @@ describe("pairsTropLarges — la garde qui REFUSE de republier le défaut", () =
       },
     ];
     expect(pairsTropLarges(paquets)).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("versionDeLaPageMan — un artefact GÉNÉRÉ qui embarque la version", () => {
+  // PIÈGE — vécu : `man/nodefony.1` est générée puis COMMITÉE, et l'estampillage
+  // ne la régénérait pas. Elle annonçait « nodefony 10.0.0 » alors que le lot
+  // partait en 10.0.0-alpha.1 — et elle est PARTIE ainsi dans le tarball. Le
+  // gate de fraîcheur du cœur était rouge sur les trois plateformes, sans
+  // rapport apparent avec la release.
+  it("lit la version, échappements roff compris", () => {
+    const page =
+      '.TH NODEFONY 1 "" "nodefony 10.0.0\\-alpha.1" "Nodefony Manual"\n.SH NAME\n';
+    expect(versionDeLaPageMan(page)).toBe("10.0.0-alpha.1");
+  });
+
+  it("lit une version stable", () => {
+    expect(
+      versionDeLaPageMan(
+        '.TH NODEFONY 1 "" "nodefony 10.0.0" "Nodefony Manual"',
+      ),
+    ).toBe("10.0.0");
+  });
+
+  // Rendre `null` plutôt que de deviner : une page dont on ne sait pas lire la
+  // version ne doit pas se faire passer pour une page à jour.
+  it("rend null sur une page qu'on ne sait pas lire", () => {
+    expect(versionDeLaPageMan(".SH NAME\nnodefony\n")).toBeNull();
+    expect(versionDeLaPageMan("")).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GATE DE DÉPÔT — les manifestes RÉELS, lus SUR LE DISQUE.
+//
+// Les blocs ci-dessus éprouvent le raisonnement ; celui-ci éprouve l'ÉTAT. Il y
+// a vingt-six workspaces : un paquet neuf, ou un manifeste édité à la main,
+// réintroduit `*` sans que personne le voie — et le défaut ne se manifeste
+// qu'après publication, chez celui qui installe.
+//
+// 🔴 Les manifestes se lisent SUR LE DISQUE, jamais par `npm query .workspace`.
+// Mesuré : `*` réintroduit dans `@nodefony/http/package.json`, prouvé par
+// `git diff`, et `npm query` continuait de rendre `^10.0.0-alpha.1` — il rend
+// l'arbre INSTALLÉ, pas les fichiers. Le gate passait au vert sur un dépôt
+// saboté : il mesurait autre chose que ce qu'il annonçait.
+describe("GATE dépôt — aucun pair interne non borné chez les publiables", () => {
+  const RACINE = path.resolve(import.meta.dirname, "../..");
+  const manifestes = JSON.parse(
+    readFileSync(path.join(RACINE, "package.json"), "utf8"),
+  )
+    .workspaces.flatMap((motif) =>
+      motif.endsWith("/*")
+        ? readdirSync(path.join(RACINE, motif.slice(0, -2)), {
+            withFileTypes: true,
+          })
+            .filter((e) => e.isDirectory())
+            .map((e) => path.join(motif.slice(0, -2), e.name))
+        : [motif],
+    )
+    .map((rel) => path.join(RACINE, rel, "package.json"))
+    .filter((f) => existsSync(f))
+    .map((f) => JSON.parse(readFileSync(f, "utf8")));
+
+  const publiables = manifestes
+    .filter((m) => !m.private)
+    .map((m) => ({ nom: m.name, pkg: m }));
+
+  it("le dépôt a bien les 15 publiables attendus", () => {
+    // Si ce compte change, c'est un paquet qui naît ou qui sort de la surface
+    // publiée — une décision, pas un détail : le test doit le dire.
+    expect(publiables.map((p) => p.nom).sort()).toHaveLength(15);
+  });
+
+  it("aucun pair interne en `*` — sinon npm sert `latest`, c'est-à-dire la 7.x", () => {
+    expect(pairsTropLarges(publiables)).toEqual([]);
+  });
+
+  it("les pairs internes sont bornés sur la version du lot", () => {
+    const version = publiables.find((p) => p.nom === "nodefony").pkg.version;
+    const noms = new Set(publiables.map((p) => p.nom));
+    const mauvais = [];
+    for (const p of publiables) {
+      for (const [dep, plage] of Object.entries(p.pkg.peerDependencies ?? {})) {
+        if (noms.has(dep) && plage !== `^${version}`) {
+          mauvais.push(`${p.nom} → ${dep}@${plage} (attendu ^${version})`);
+        }
+      }
+    }
+    expect(mauvais).toEqual([]);
+  });
+
+  it("la page de manuel PUBLIÉE annonce la version du cœur", () => {
+    const coeur = publiables.find((p) => p.nom === "nodefony");
+    const page = readFileSync(
+      path.join(RACINE, "src/nodefony/man/nodefony.1"),
+      "utf8",
+    );
+    expect(versionDeLaPageMan(page)).toBe(coeur.pkg.version);
   });
 });

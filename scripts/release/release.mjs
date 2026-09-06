@@ -74,10 +74,15 @@ import {
   referencesFigees,
   rendreChangelog,
   validerVersion,
+  versionDeLaPageMan,
   MAX_BUFFER_GIT,
 } from "./release-core.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
+
+// Publiée (`files` de `src/nodefony/package.json`) et posée par npm à
+// l'installation : ce n'est pas un artefact de développement.
+const CHEMIN_MAN = "src/nodefony/man/nodefony.1";
 
 // ── Étapes NOMMÉES : un échec doit dire lequel des maillons a lâché ─────────
 let etape = "démarrage";
@@ -486,6 +491,23 @@ if (tropLarges.length) {
   );
 }
 
+// La page de manuel est PUBLIÉE. Une passe qui n'écrit pas ne peut pas la
+// régénérer : elle refuse, plutôt que de mettre en ligne un artefact qui
+// annonce une autre version que le paquet qui le porte.
+if (PHASES.publier && !PHASES.estampiller) {
+  const posee = versionDeLaPageMan(
+    readFileSync(path.join(ROOT, CHEMIN_MAN), "utf8"),
+  );
+  if (posee !== VERSION) {
+    echouer(
+      `la page de manuel annonce « ${posee ?? "illisible"} », le lot part en ${VERSION}.\n` +
+        "  Elle est GÉNÉRÉE et publiée : c'est la préparation qui la régénère.\n" +
+        `       npm run release -- --version ${VERSION} --from <ref> --write`,
+    );
+  }
+  dire(`✓ page de manuel — annonce bien ${VERSION}`);
+}
+
 const figees = referencesFigees(paquets, VERSION);
 if (figees.length) {
   const liste = figees.map((r) => `      ${r}`).join("\n");
@@ -578,6 +600,29 @@ if (PHASES.estampiller) {
     if (contenu !== brut) writeFileSync(p.chemin, contenu);
   }
   dire(`✓ estampillage — ${aChanger.length} package.json à ${VERSION}`);
+
+  // ── Les artefacts GÉNÉRÉS qui embarquent la version ───────────────────────
+  // Un `package.json` n'est pas le seul endroit où la version est écrite. La
+  // page de manuel est générée, COMMITÉE, et publiée : elle a annoncé
+  // « nodefony 10.0.0 » dans le tarball d'une 10.0.0-alpha.1, parce que
+  // l'estampillage ne régénérait qu'elle. Le générateur refuse si le `dist` est
+  // plus vieux que les sources — et c'est un refus JUSTE : on ne publie pas
+  // depuis un dist périmé.
+  etape = "artefacts générés (page de manuel)";
+  const sortieMan = execFileSync("node", ["scripts/generate-man.mjs"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  const posee = versionDeLaPageMan(
+    readFileSync(path.join(ROOT, CHEMIN_MAN), "utf8"),
+  );
+  if (posee !== VERSION) {
+    echouer(
+      `la page de manuel annonce « ${posee ?? "?"} » après régénération, pas ${VERSION}.\n` +
+        `  Sortie du générateur :\n${sortieMan.trim().replace(/^/gm, "    ")}`,
+    );
+  }
+  dire(`✓ artefacts générés — page de manuel à ${VERSION}`);
   if (alignees.length) {
     dire(
       `✓ lockstep — ${alignees.length} référence(s) interne(s) alignée(s) :\n` +
