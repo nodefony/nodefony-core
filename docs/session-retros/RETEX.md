@@ -517,6 +517,14 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 09-06e] **« Mets des tableaux dans les descriptions de jalons » — j'ai failli le faire sans
+  vérifier que GitHub les rend.** Mesuré au navigateur piloté : **0 table, 0 image, 0 gras** dans le
+  DOM, sur la liste comme sur la page dédiée — la description est du texte BRUT. Deux minutes de
+  navigateur ont évité d'écrire un tableau que personne n'aurait jamais vu, puis de chercher
+  pourquoi. **Une capacité d'une plateforme tierce se CONSTATE**, exactement comme une capacité du
+  produit (axiome 4 du portage). Le constat est écrit dans le fichier généré, pour que personne ne
+  repaie l'essai.
+
 - [1× — 09-04] **Un drapeau de config déclaré, validé par Zod, stocké, affiché en badge — et lu par AUCUN code.** `stateless` promettait « la session est ignorée même si un cookie est présent » ; `git log -S` rend deux commits, celui qui l'assigne et celui qui l'affiche. Le contrôle qui tranche en dix secondes : **`git log -S'.<champ>'` — si aucun commit ne montre une BRANCHE, la promesse n'est tenue par rien.**
 - [1× — 09-04] **Le récit d'un gabarit peut être faux SÉPARÉMENT du code.** Le même fichier décrivait un « 401 intermittent en production » qu'aucun mécanisme ne produit — et ce texte a orienté un agent du banc vers la mauvaise solution. Corriger le code ne corrige pas le récit ; les deux se relisent.
 
@@ -2276,6 +2284,20 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 09-06e] **J'ai découpé un ticket en trois, le user l'a défait dans l'heure — et le test du
+  skill donnait la réponse avant que j'écrive.** « Les deux moitiés se font-elles dans la même
+  session, dans les mêmes fichiers ? » : mêmes fichiers (`README.md`, `AGENTS.md`), même patch, trois
+  moments. C'était UN ticket qui se REPORTE. J'avais lu le critère de découpage (« deux critères de
+  fin indépendants ») sans lire le critère INVERSE, écrit deux lignes plus bas.
+
+- [1× — 09-06e] **J'ai ouvert un ticket qui existait déjà** (#221 doublon de #66, « pool de connexions »),
+  après avoir passé dix minutes à en établir la preuve au terrain. Un `gh issue list --search pool`
+  coûtait deux secondes. Le skill le dit — « un ticket qui a peut-être déjà été fait se CONSTATE
+  avant d'être repris » — mais la règle y est écrite pour REPRENDRE un ticket, pas pour en OUVRIR
+  un ; je ne me suis pas senti concerné. **Chercher AVANT d'écrire, pas avant de prendre.** Le
+  rattrapage a été bon (fusionner dans le plus ancien, qui portait la mesure 696→294 req/s), mais
+  il a coûté le double.
+
 - [1× — 09-06d] **J'ai écrit `Dockerfile.tpl:97` sans ouvrir le fichier — c'était 82.** Dans le même
   ticket, j'avais affirmé qu'« une image Docker embarque `node_modules` en entier » : le commentaire
   du gabarit dit « les `node_modules` **élagués** », et le user l'a relevé avant moi. Même source
@@ -2436,6 +2458,12 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 09-05e] **Un renvoi mort ressemble à un renvoi vivant.** #19 disait « Dépend de : arbitrage #6 » — #6 est une demande de fusion Dependabot TypeScript. Le vrai arbitrage était #32, fermé depuis. Le ticket paraissait bloqué et ne l'était pas.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 09-06e] **Un agent a rendu « 2 fichiers » là où il y en a 3** (`frontend-build`, `-dev`, et
+  `-status` qu'il avait raté) — dans un rapport par ailleurs excellent, 16 verdicts justes sur 17.
+  Le recontrôle d'un `ls` a pris trois secondes. La règle du `CLAUDE.md` — « toute affirmation
+  d'inventaire se recontrôle avant d'entrer dans une synthèse » — a mordu ici ; **elle ne mord que
+  si on la joue sur les rapports QU'ON CROIT BONS**, pas seulement sur ceux qui sentent le faux.
 
 - [1× — 09-05d] **Un relevé délégué en `haiku` portait deux affirmations FAUSSES, plausibles toutes les deux.** Un `TODO P14.11` lu comme « fonctionnalité non implémentée » alors que c'est le numéro de phase du fichier, et une couverture attribuée à un fichier de test qui ne l'exerce pas. Le relevé restait utile — 29 fichiers cités sur 29 existaient bel et bien —, mais aucune de ses conclusions n'est entrée dans la page sans être remesurée par un automate. La délégation donne la MATIÈRE ; le verdict se reprend.
 

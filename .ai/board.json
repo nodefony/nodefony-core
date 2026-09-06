@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T12:56:18.821Z",
+  "generatedAt": "2026-09-06T13:04:38.124Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -248,7 +248,7 @@
       "title": "chore(release): publier la beta depuis la forge, pas à la main",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -1909,7 +1909,7 @@
       "title": "feat(studio): protéger toute la surface d'administration par un rôle",
       "url": "https://github.com/nodefony/nodefony-core/issues/33",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2310,7 +2310,7 @@
       "title": "feat(mongoose): compléter les stockages manquants côté MongoDB",
       "url": "https://github.com/nodefony/nodefony-core/issues/30",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 3,
