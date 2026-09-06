@@ -150,7 +150,7 @@ source: "docs/skills/index.md"
   { "icon": "🔧", "title": "identifiers", "href": "nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
-  { "icon": "🔧", "title": "test-session", "href": "nodefony-test-session.md",
+  { "icon": "🔧", "title": "test-campaign", "href": "nodefony-test-campaign.md",
     "desc": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
     "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
@@ -188,7 +188,7 @@ source: "docs/skills/index.md"
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
-| [`nodefony-test-session`](nodefony-test-session.md) | 1.0.0 | 131 | 1 | 0 | ✅ |
+| [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 164 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 582 | 4 | 13 | ✅ |
 
 ## 🔗 Pour aller plus loin

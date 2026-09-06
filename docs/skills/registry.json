@@ -5832,30 +5832,27 @@
       }
     },
     {
-      "name": "nodefony-test-session",
+      "name": "nodefony-test-campaign",
       "summary": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
       "family": "Autres",
       "version": "1.0.0",
       "keywords": [],
       "triggers": [
-        "session de test",
+        "campagne de test",
         "passe de test complète",
         "lance tous les tests",
         "tous les bancs",
-        "test:all",
         "on teste tout",
-        "avant la publication on teste quoi ?",
         "qu'est-ce qui n'a pas été testé ?",
         "ce rouge est-il une régression ?",
-        "un banc rouge sans changement de code",
         "tests verts en isolé rouges en suite",
         "combien de tests sont sautés",
-        "quels bancs restent à jouer"
+        "rapport de la campagne de test"
       ],
-      "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor exact de chacun, ce qu'un run vert ne prouve PAS, et l'arbre de décision qui instruit un rouge avant de l'imputer au code. À charger AVANT de lancer la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"session de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"test:all\", \"on teste tout\", \"avant la publication on teste quoi ?\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"un banc rouge sans changement de code\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"quels bancs restent à jouer\".",
+      "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
       "cost": {
-        "bodyLines": 131,
-        "approxTokens": 2565
+        "bodyLines": 164,
+        "approxTokens": 3239
       },
       "requires": [],
       "resources": {
@@ -5868,6 +5865,7 @@
       "related": [
         "nodefony-check-memory-health",
         "nodefony-devkit-bench",
+        "nodefony-html-report",
         "nodefony-load-test",
         "nodefony-multipod-bench",
         "nodefony-release"
@@ -5884,7 +5882,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "961",
+            "detail": "894",
             "advisory": false
           },
           {
@@ -5920,14 +5918,14 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "131",
+            "detail": "164",
             "advisory": true
           }
         ]
       },
       "links": {
-        "source": ".claude/skills/nodefony-test-session/SKILL.md",
-        "doc": "docs/skills/nodefony-test-session.md"
+        "source": ".claude/skills/nodefony-test-campaign/SKILL.md",
+        "doc": "docs/skills/nodefony-test-campaign.md"
       }
     },
     {

@@ -59,11 +59,11 @@ const CASES = [
     "nodefony-multipod-bench",
   ],
   // — passe de test complète
-  ["fais une passe de test complète du dépôt", "nodefony-test-session"],
-  ["qu'est-ce qui n'a pas été testé ?", "nodefony-test-session"],
+  ["fais une passe de test complète du dépôt", "nodefony-test-campaign"],
+  ["qu'est-ce qui n'a pas été testé ?", "nodefony-test-campaign"],
   [
     "ces tests sont verts en isolé et rouges en suite, régression ?",
-    "nodefony-test-session",
+    "nodefony-test-campaign",
   ],
   // — développement
   ["je vais coder dans le kernel", "nodefony-framework-dev"],

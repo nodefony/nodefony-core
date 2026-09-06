@@ -1,22 +1,21 @@
 ---
-name: nodefony-test-session
+name: nodefony-test-campaign
 metadata:
   version: 1.0.0
 description: >
   Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les
-  interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend
-  un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice
-  des étages, le décor exact de chacun, ce qu'un run vert ne prouve PAS, et l'arbre de décision
-  qui instruit un rouge avant de l'imputer au code. À charger AVANT de lancer la première
-  commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges
-  qui n'appartiennent à personne. Déclencheurs : "session de test", "passe de test complète",
-  "lance tous les tests", "tous les bancs", "test:all", "on teste tout", "avant la publication
-  on teste quoi ?", "qu'est-ce qui n'a pas été testé ?", "ce rouge est-il une régression ?",
-  "un banc rouge sans changement de code", "tests verts en isolé rouges en suite", "combien de
-  tests sont sautés", "quels bancs restent à jouer".
+  interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un
+  verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des
+  étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit
+  un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT
+  la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique
+  des rouges qui n'appartiennent à personne. Déclencheurs : "campagne de test", "passe de test
+  complète", "lance tous les tests", "tous les bancs", "on teste tout", "qu'est-ce qui n'a pas
+  été testé ?", "ce rouge est-il une régression ?", "tests verts en isolé rouges en suite",
+  "combien de tests sont sautés", "rapport de la campagne de test".
 ---
 
-# nodefony-test-session — la passe complète, et ce qu'elle ne prouve pas
+# nodefony-test-campaign — la passe complète, et ce qu'elle ne prouve pas
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
 > `git log`, l'avancement dans les tickets. **Aucun chiffre de mesure ici** — ils se périment et
@@ -36,6 +35,7 @@ lu d'office fait que personne n'ouvre jamais le skill qui portait le diagnostic.
 | Seuils mémoire et conduite si ça saute | `nodefony-check-memory-health`   |
 | Ce qu'un installeur npm reçoit         | `nodefony-release`               |
 | Lire un journal capturé en entier      | `@agent-nodefony-run-log-report` |
+| Rendre le rapport de la campagne       | `nodefony-html-report`           |
 
 ## La matrice — six étages, et l'ordre n'est pas négociable
 
@@ -140,6 +140,38 @@ de session**, et seulement lui :
    dans l'état où on les a trouvés.
 3. **Instruire chaque rouge restant** par l'arbre ci-dessus, et **ouvrir un ticket par famille** —
    un rouge d'instrument est un ticket d'instrument, jamais une ligne de plus dans un rapport.
+4. **RENDRE LE RAPPORT** (§ suivant) — sinon la passe se perd dans le défilement du terminal.
+
+## Le rapport — une campagne se LIT, elle ne se raconte pas
+
+Une passe complète produit des dizaines de verdicts et des mesures dans plusieurs unités. Restitué
+en prose, ce matériau ne se lit pas : un rapport de deux cents lignes en Markdown se fait approuver
+sans lecture, et les chiffres qui devaient faire DÉCIDER sont ceux qu'on saute. C'est la règle de
+livrable du dépôt — **HTML pour l'humain, Markdown pour la machine** — et une campagne tombe
+entièrement du côté humain : elle existe pour qu'on tranche.
+
+**Le rapport se GÉNÈRE, il ne s'écrit pas à la main** → skill **`nodefony-html-report`**
+(`lib/report.mjs` pour les tableaux triables et les calculateurs, `lib/echarts.mjs` pour les
+figures rendues côté serveur en SVG, sans un octet de JavaScript servi). Le charger AVANT de
+composer la page : il porte le choix de la figure, et une mesure mal représentée trompe plus
+sûrement qu'une mesure absente.
+
+Ce qu'une page de campagne doit porter, et que le terminal perd :
+
+| Ce qu'on rend                                                        | Pourquoi la page, et pas la prose                                                             |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Le verdict par étage, **avec ce qui n'a pas tourné à côté du total** | un « 11 701 ✔ » seul ment ; le compte des SAUTÉS doit être aussi visible que celui des passés |
+| Les rouges, **triés par cause instruite** et non par ordre d'arrivée | c'est la cause qui décide de l'action — saturation, décor, état partagé, instrument, produit  |
+| Les mesures dans leur **décor** (machine, charge, version, durée)    | un absolu sans son décor sera relu comme une promesse                                         |
+| Les **séries** — heap, RSS, débit fenêtre par fenêtre                | une pente se voit ; « +65 MB/h » se lit sans être compris, et un artefact y saute aux yeux    |
+| Ce que la passe **n'a pas éprouvé**                                  | c'est la moitié du verdict, et c'est ce qu'on oublie d'écrire                                 |
+
+> 🔴 **Les données sources s'EMBARQUENT dans la page** (`doc({ data })`). Une campagne se compare à
+> la précédente : sans ses données, un rapport est une image, pas une mesure — et la comparaison
+> qu'on voudra faire dans trois semaines demandera de tout rejouer.
+>
+> 🔴 **Le rapport est une PHOTO** → il s'écrit dans `tmp/`, jamais dans `docs/`, jamais commité.
+> Ce qui est versionné, c'est le ticket qu'il fait ouvrir.
 
 ## Références
 
