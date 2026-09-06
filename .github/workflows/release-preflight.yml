@@ -20,10 +20,12 @@
 #
 # ⚠️ Une seule chose qu'OIDC ne peut pas faire : la PREMIÈRE publication d'un
 # paquet. Le publieur de confiance se déclare dans les réglages d'un paquet qui
-# EXISTE déjà — et les treize paquets de Nodefony n'existent pas encore. Cette
-# première fois se fait donc À LA MAIN, depuis le poste du mainteneur, avec le
-# code 2FA interactif : c'est précisément ce pour quoi la 2FA est faite, et
-# aucun jeton n'a besoin d'exister.
+# EXISTE déjà. C'est pour cela que la première publication s'est faite À LA
+# MAIN, depuis le poste du mainteneur, avec le code 2FA interactif — c'est
+# précisément ce pour quoi la 2FA est faite, et aucun jeton n'a eu besoin
+# d'exister. Les quinze paquets étant désormais sur le registre, leurs publieurs
+# de confiance sont déclarables, et les publications suivantes n'ont plus à
+# passer par là.
 #
 # Ce que ce préflight vérifie, dans l'ordre de ce qui coûte cher à découvrir
 # tard :
@@ -48,7 +50,7 @@ on:
       workflow_publieur:
         description: "Nom du fichier de workflow qui publiera (à déclarer chez npm)"
         type: string
-        default: release-publish.yml
+        default: release.yml
   # Mensuel : une exigence de version monte, un réglage change, et on ne s'en
   # aperçoit que le jour de la release.
   schedule:
@@ -109,7 +111,7 @@ jobs:
       - name: Ce qu'il faut saisir sur npmjs.com
         shell: bash
         env:
-          PUBLIEUR: ${{ github.event.inputs.workflow_publieur || 'release-publish.yml' }}
+          PUBLIEUR: ${{ github.event.inputs.workflow_publieur || 'release.yml' }}
         run: |
           {
             echo "### Publieur de confiance — à déclarer sur chacun des paquets"
