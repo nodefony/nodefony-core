@@ -75,10 +75,8 @@ export interface ISchemaReader {
  * PostgreSQL n'y est pas, et ce n'est pas un oubli : il stocke la casse d'un
  * identifiant cité et la compare exactement.
  */
-const COLONNES_INSENSIBLES: ReadonlySet<SqlDialect> = new Set<SqlDialect>([
-  "sqlite",
-  "mysql",
-]);
+const CASE_INSENSITIVE_COLUMN_DIALECTS: ReadonlySet<SqlDialect> =
+  new Set<SqlDialect>(["sqlite", "mysql"]);
 
 /**
  * Compare deux noms de COLONNE selon la résolution du moteur.
@@ -100,7 +98,7 @@ export function sameColumnName(
   declared: string,
   actual: string,
 ): boolean {
-  return COLONNES_INSENSIBLES.has(dialect)
+  return CASE_INSENSITIVE_COLUMN_DIALECTS.has(dialect)
     ? declared.toLowerCase() === actual.toLowerCase()
     : declared === actual;
 }

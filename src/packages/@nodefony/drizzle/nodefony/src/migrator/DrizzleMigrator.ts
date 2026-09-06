@@ -189,10 +189,10 @@ export class DrizzleMigrator {
     // lieu de rendre son plan, et l'essai laissait derrière lui une table sur
     // une base jusque-là vierge, ce qui rend fausse la seule preuve simple
     // qu'on puisse en donner : que la base n'a pas bougé.
-    const essaiBlanc = options.dryRun === true;
+    const isDryRun = options.dryRun === true;
     try {
-      if (!essaiBlanc) {
-        await this.#prendreVerrou(driver);
+      if (!isDryRun) {
+        await this.#takeLock(driver);
         await ensureHistorySchema(driver);
       }
       const loaded = await loadSources(
@@ -202,7 +202,7 @@ export class DrizzleMigrator {
       // Sans la table, il n'y a pas d'historique — et il n'y a pas à la créer
       // pour le constater.
       const history =
-        essaiBlanc && !(await driver.tableExists(HISTORY_TABLE))
+        isDryRun && !(await driver.tableExists(HISTORY_TABLE))
           ? []
           : await readHistory(driver);
       const plan = await this.#computePlan(
@@ -212,7 +212,7 @@ export class DrizzleMigrator {
         loaded.absent,
       );
       this.#assertApplicable(plan, loaded.files, options);
-      if (essaiBlanc) {
+      if (isDryRun) {
         return { runId, applied: [] };
       }
       for (const file of plan.pending) {
@@ -262,7 +262,7 @@ export class DrizzleMigrator {
    * @param driver - pilote ouvert sur la base.
    * @throws MigrationVerdictError si le verrou n'est pas obtenu à temps.
    */
-  async #prendreVerrou(driver: IMigrationDriver): Promise<void> {
+  async #takeLock(driver: IMigrationDriver): Promise<void> {
     const timeoutMs = this.#options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS;
     try {
       await driver.lock(timeoutMs);
@@ -321,7 +321,7 @@ export class DrizzleMigrator {
     const runId = randomUUID();
     const adopted: IMigrationApplied[] = [];
     try {
-      await this.#prendreVerrou(driver);
+      await this.#takeLock(driver);
       await ensureHistorySchema(driver);
       const loaded = await loadSources(
         this.#options.sources,
@@ -342,7 +342,7 @@ export class DrizzleMigrator {
         // suit, sans que rien ne l'ait exécuté. C'est exactement l'état que la
         // garde d'ambiguïté existe pour empêcher : un historique complet, une
         // base qui ne porte pas les tables, et plus aucun geste offert.
-        const borne = upTo !== undefined && file.tag === upTo;
+        const isBoundary = upTo !== undefined && file.tag === upTo;
         if (!known.has(identity(file))) {
           const at = this.#now();
           await insertHistory(driver, {
@@ -359,7 +359,7 @@ export class DrizzleMigrator {
           });
           adopted.push({ source: file.source, tag: file.tag, executionMs: 0 });
         }
-        if (borne) {
+        if (isBoundary) {
           break;
         }
       }
@@ -399,12 +399,12 @@ export class DrizzleMigrator {
     if (options.source !== undefined) {
       this.#assertKnownSource(options.source);
     }
-    for (const cible of options.forget ?? []) {
-      this.#assertKnownSource(cible.source);
+    for (const target of options.forget ?? []) {
+      this.#assertKnownSource(target.source);
     }
     const driver = await openMigrationDriver(this.#options);
     try {
-      await this.#prendreVerrou(driver);
+      await this.#takeLock(driver);
       await ensureHistorySchema(driver);
       const forgotten =
         options.forget === undefined || options.forget.length === 0
@@ -541,7 +541,7 @@ export class DrizzleMigrator {
             failed: plan.failed.map((row) => `${row.source}/${row.tag}`),
             error: first.error ?? "interrompue avant la fin",
           },
-          actions: this.#gestesDeReprise(),
+          actions: this.#recoveryActions(),
         },
         `La migration « ${first.tag} » (source « ${first.source} ») a échoué ou ` +
           `n'a jamais fini. Inspecter la base, puis réparer avant de reprendre — ` +
@@ -752,7 +752,7 @@ export class DrizzleMigrator {
           success: false,
           error: truncate((e as Error).message),
         });
-        throw this.#echecApplication(file, e as Error, false);
+        throw this.#applyFailure(file, e as Error, false);
       }
       const executionMs = Math.round(performance.now() - began);
       await finishHistory(driver, {
@@ -776,8 +776,10 @@ export class DrizzleMigrator {
       // exists », annulation, et une erreur SQL nue sur une base pourtant
       // saine. Trois lignes rendent au moteur ce que son propre commentaire
       // revendiquait.
-      const dejaLa = await readHistory(driver);
-      if (dejaLa.some((r) => r.source === file.source && r.tag === file.tag)) {
+      const alreadyThere = await readHistory(driver);
+      if (
+        alreadyThere.some((r) => r.source === file.source && r.tag === file.tag)
+      ) {
         return {
           source: file.source,
           tag: file.tag,
@@ -807,7 +809,7 @@ export class DrizzleMigrator {
         success: false,
         error: truncate((e as Error).message),
       }).catch(() => undefined);
-      throw this.#echecApplication(file, e as Error, true);
+      throw this.#applyFailure(file, e as Error, true);
     }
   }
 
@@ -831,12 +833,12 @@ export class DrizzleMigrator {
    * @param transactionnel - le DDL de ce moteur est-il transactionnel ?
    * @returns le verdict à lever.
    */
-  #echecApplication(
+  #applyFailure(
     file: IMigrationFile,
     cause: Error,
     transactionnel: boolean,
   ): MigrationVerdictError {
-    const etat = transactionnel
+    const state = transactionnel
       ? `Cette migration a été ANNULÉE — le schéma de ce moteur entre ou n'entre pas, jamais à moitié. Les migrations appliquées AVANT elle, dans ce même passage, restent en place.`
       : `Ce moteur n'annule pas le schéma : cette migration peut être appliquée À MOITIÉ. Inspecter la base avant toute reprise — c'est pour cela que la reprise n'est pas automatique.`;
     return this.#verdict(
@@ -845,10 +847,10 @@ export class DrizzleMigrator {
         source: file.source,
         tag: file.tag,
         facts: { error: truncate(cause.message) },
-        actions: this.#gestesDeReprise(),
+        actions: this.#recoveryActions(),
       },
       `La migration « ${file.tag} » (source « ${file.source} ») a échoué : ` +
-        `${truncate(cause.message)}\n\n${etat}\n\n` +
+        `${truncate(cause.message)}\n\n${state}\n\n` +
         `Son échec est INSCRIT : le prochain passage refusera de reprendre tant ` +
         `que le marqueur n'aura pas été levé, après inspection.\n\n${REPRISE_SANS_DESTRUCTION}`,
     );
@@ -876,7 +878,7 @@ export class DrizzleMigrator {
    *
    * @returns les gestes, du plus direct au plus assumé.
    */
-  #gestesDeReprise(): IMigrationAction[] {
+  #recoveryActions(): IMigrationAction[] {
     return [
       {
         command: `nodefony orm:migrate:status --connector ${this.connector} --json`,
@@ -952,13 +954,15 @@ export class DrizzleMigrator {
     const tags = files.map((file) => file.tag);
     // La casse d'abord : un tag recopié depuis un tableau, un journal en
     // majuscules ou une complétion de terminal ne diffère souvent que par là.
-    const casse = tags.find((tag) => tag.toLowerCase() === upTo.toLowerCase());
-    const action = casse ?? tags[tags.length - 1];
+    const casedTag = tags.find(
+      (tag) => tag.toLowerCase() === upTo.toLowerCase(),
+    );
+    const action = casedTag ?? tags[tags.length - 1];
     throw this.#verdict(
       "NF_MIGRATE_UNKNOWN_TAG",
       {
         tag: upTo,
-        facts: { known: tags, ...(casse ? { caseMismatch: casse } : {}) },
+        facts: { known: tags, ...(casedTag ? { caseMismatch: casedTag } : {}) },
         actions: action
           ? [
               {
@@ -979,8 +983,8 @@ export class DrizzleMigrator {
               },
             ],
       },
-      casse
-        ? `Le tag « ${upTo} » n'existe pas, mais « ${casse} » oui : un tag de ` +
+      casedTag
+        ? `Le tag « ${upTo} » n'existe pas, mais « ${casedTag} » oui : un tag de ` +
             `migration est SENSIBLE à la casse. Sans ce refus, l'adoption ne ` +
             `se serait arrêtée nulle part et aurait déclaré à niveau TOUTES ` +
             `les migrations connues.`
@@ -1001,37 +1005,40 @@ export class DrizzleMigrator {
    * @throws MigrationVerdictError quand la source n'est pas déclarée.
    */
   #assertKnownSource(source: string): void {
-    const noms = this.#options.sources.map((s) => s.name);
-    if (noms.includes(source)) {
+    const names = this.#options.sources.map((s) => s.name);
+    if (names.includes(source)) {
       return;
     }
-    const casse = noms.find(
-      (nom) => nom.toLowerCase() === source.toLowerCase(),
+    const casedTag = names.find(
+      (name) => name.toLowerCase() === source.toLowerCase(),
     );
     throw this.#verdict(
       "NF_MIGRATE_UNKNOWN_SOURCE",
       {
         source,
-        facts: { known: noms, ...(casse ? { caseMismatch: casse } : {}) },
+        facts: {
+          known: names,
+          ...(casedTag ? { caseMismatch: casedTag } : {}),
+        },
         actions: [
           {
-            command: casse
-              ? `nodefony orm:migrate:repair --connector ${this.connector} --source ${casse}`
+            command: casedTag
+              ? `nodefony orm:migrate:repair --connector ${this.connector} --source ${casedTag}`
               : `nodefony orm:migrate:repair --connector ${this.connector}`,
-            args: casse
+            args: casedTag
               ? [
                   "orm:migrate:repair",
                   "--connector",
                   this.connector,
                   "--source",
-                  casse,
+                  casedTag,
                 ]
               : ["orm:migrate:repair", "--connector", this.connector],
           },
         ],
       },
-      casse
-        ? `La source « ${source} » n'est pas déclarée, mais « ${casse} » oui : ` +
+      casedTag
+        ? `La source « ${source} » n'est pas déclarée, mais « ${casedTag} » oui : ` +
             `un nom de source est SENSIBLE à la casse. Réparer sur un nom ` +
             `inconnu ne touche rien et rend pourtant « rien à réparer ».`
         : `La source « ${source} » n'est pas déclarée par cette application. ` +

@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runEnvCommand } from "../../cli/env";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
   // vaut que pour une invocation directe) : sa sortie serait noyée sous le
   // journal de cycle de vie.
@@ -41,7 +42,7 @@ class Env extends Command {
   constructor(cli: CliKernel) {
     super(
       "env",
-      "Variables d'environnement : cascade des .env, valeurs effectives et provenance",
+      "les variables d'environnement et leur provenance",
       cli as CliKernel,
       options,
     );
@@ -53,6 +54,10 @@ class Env extends Command {
     this.addOption(
       "--check",
       "Avec --example : vérifie sans écrire, sort en erreur si le fichier diverge",
+    );
+    this.addOption(
+      "--env <name>",
+      "Évalue les exigences sous CET environnement (ex. production), depuis ce poste",
     );
     this.addOption(
       "--cwd <path>",

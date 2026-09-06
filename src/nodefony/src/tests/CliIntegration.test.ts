@@ -36,6 +36,48 @@ const REPO_ROOT = path.resolve(CORE_ROOT, "../.."); // racine repo (= app dev)
 const BIN = path.join(CORE_ROOT, "bin", "nodefony");
 const DIST = path.join(CORE_ROOT, "dist", "node", "index.js"); // entrée `import` (cf package.json exports)
 
+/**
+ * Les bilans de démarrage du DÉPÔT, préservés le temps de cette suite.
+ *
+ * 🔴 Ce fichier lance le vrai CLI avec `cwd = REPO_ROOT`, et certains de ses cas
+ * font ÉCHOUER un boot exprès (base injoignable). Le kernel fige alors son bilan
+ * dans le `var/` du dépôt — c'est-à-dire dans l'état que `nodefony doctor`
+ * présentera ensuite à l'utilisateur comme « le dernier démarrage de votre
+ * application ». Vécu : après une passe de tests, `doctor` annonçait un
+ * `nodefony inspect` en échec sur `base-absente.invalid`, en production, à
+ * quelqu'un qui venait de lancer `nodefony dev` sans le moindre problème.
+ *
+ * Le diagnostic disait vrai ; c'est le fait qu'il rapportait qui avait été
+ * fabriqué par la suite de tests. Un banc qui laisse une trace dans l'état
+ * observable du dépôt fait mentir l'outil sans qu'aucun test ne rougisse.
+ *
+ * On restaure donc l'état d'avant : le contenu quand le fichier existait, son
+ * ABSENCE quand il n'existait pas — les deux, sinon on remplace une pollution
+ * par une autre.
+ */
+const BILANS = [
+  path.join(REPO_ROOT, "var", "last-boot.json"),
+  path.join(REPO_ROOT, "var", "last-boot-console.json"),
+];
+const bilansAvant = new Map<string, string | null>();
+
+beforeAll(() => {
+  for (const f of BILANS) {
+    bilansAvant.set(f, fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null);
+  }
+});
+
+afterAll(() => {
+  for (const [f, contenu] of bilansAvant) {
+    if (contenu === null) {
+      if (fs.existsSync(f)) fs.rmSync(f);
+    } else {
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, contenu, "utf8");
+    }
+  }
+});
+
 const HTTP_PORT = 5151; // port http principal de l'app dev — sert au garde-fou EADDRINUSE
 const HTTPS_PORT = 5152; // port https/http2 (probe d'intégrité, cert auto-signé)
 const READY_RE = /Server Listen on/i; // marqueur readiness (server-static.ts)
@@ -77,10 +119,11 @@ function runCli(
   args: string[],
   timeoutMs = CLI_TIMEOUT_MS,
   extraEnv?: Record<string, string>,
+  cwd: string = REPO_ROOT,
 ): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [BIN, ...args], {
-      cwd: REPO_ROOT,
+      cwd,
       env: { ...process.env, ...extraEnv },
     });
     let stdout = "";
@@ -293,6 +336,91 @@ describe.skipIf(!fs.existsSync(DIST))(
       const txt = r.stdout + r.stderr;
       for (const name of ["production", "cluster", "build", "development"]) {
         assert.ok(txt.includes(name), `--help doit lister "${name}"\n${txt}`);
+      }
+    });
+
+    // ─── L'aide est groupée par INTENTION, et rien n'y échappe ───────────────
+    // Une commande intégrée sans `helpGroup` tombe sous « AUTRES » : elle reste
+    // listée, mais dans le fourre-tout de fin de page, là où personne ne la
+    // cherche. L'invariant s'observe donc sur le PRODUIT, pas sur une table.
+    it("⭐ aucune commande intégrée ne tombe dans le fourre-tout de l'aide", async () => {
+      const r = await runCli(["--help"], CLI_TIMEOUT_MS, { NF_NO_COLOR: "1" });
+      assert.strictEqual(r.code, 0, r.stderr);
+      const txt = r.stdout + r.stderr;
+      assert.ok(
+        !/^\s{2}AUTRES\s/mu.test(txt),
+        `une intégrée a perdu son groupe d'intention\n${txt}`,
+      );
+      // …et les groupes attendus sont bien là, dans l'ordre de la journée.
+      const ordre = ["LANCER", "COMPRENDRE", "GÉNÉRER ET CONSTRUIRE"];
+      const positions = ordre.map((g) => txt.indexOf(`  ${g} `));
+      // `node:assert` strict ici (le fichier n'importe pas chai) : ses
+      // comparaisons se disent avec `ok`, et le message porte le diagnostic.
+      for (const [i, at] of positions.entries()) {
+        assert.ok(at >= 0, `groupe absent de l'aide : ${ordre[i]}`);
+        if (i > 0) {
+          assert.ok(
+            at > (positions[i - 1] ?? -1),
+            `groupes dans le désordre : ${ordre[i]} devrait suivre ${ordre[i - 1]}`,
+          );
+        }
+      }
+    });
+
+    // ─── Hors d'une APPLICATION — le moment où l'on découvre l'outil ─────────
+    // `Kernel.startBoot` ne LÈVE pas quand il n'y a rien à démarrer : il
+    // `terminate(1)`. Le repli greffé sur un rejet ne s'exécutait donc jamais,
+    // et `nodefony --help` répondait par un CRITIC et un code 1 à qui venait
+    // d'installer le paquet et cherchait `create app`.
+    it("⭐ `--help` hors d'un projet rend l'aide des intégrées, et sort en 0", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-help-hors-"));
+      try {
+        const r = await runCli(["--help"], CLI_TIMEOUT_MS, {}, dir);
+        assert.strictEqual(
+          r.code,
+          0,
+          `demander de l'aide n'est pas une erreur\n${r.stderr}`,
+        );
+        const txt = r.stdout + r.stderr;
+        for (const name of ["create", "development", "production", "doctor"]) {
+          assert.ok(txt.includes(name), `l'aide doit lister "${name}"\n${txt}`);
+        }
+        assert.ok(
+          /create app/.test(txt),
+          `l'aide doit dire par quoi commencer\n${txt}`,
+        );
+        assert.ok(!/CRITIC/.test(txt), `un help n'est pas un incident\n${txt}`);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("⭐ une application NON INSTALLÉE reçoit l'aide, et SON geste à elle", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-help-brut-"));
+      try {
+        fs.writeFileSync(
+          path.join(dir, "package.json"),
+          '{"name":"a","version":"1.0.0","main":"dist/index.js",' +
+            '"dependencies":{"nodefony":"^10.0.0"}}',
+        );
+        fs.writeFileSync(
+          path.join(dir, "nodefony.config.ts"),
+          "export default {};",
+        );
+        const r = await runCli(["--help"], CLI_TIMEOUT_MS, {}, dir);
+        assert.strictEqual(r.code, 0, r.stderr);
+        const txt = r.stdout + r.stderr;
+        assert.ok(txt.includes("development"), "l'aide est bien rendue");
+        assert.ok(
+          /npm install/.test(txt),
+          `qui A une application ne doit pas s'entendre dire d'en créer une\n${txt}`,
+        );
+        assert.ok(
+          !/create app/.test(txt),
+          `…et surtout pas le contraire de son geste\n${txt}`,
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
       }
     });
 
@@ -582,6 +710,33 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       assert.ok(
         !READY_RE.test(r.stdout + r.stderr),
         `une typo ne doit JAMAIS démarrer un serveur (fallback serveur legacy)\n${r.stdout}`,
+      );
+    });
+
+    // ─── `doctor --live` sur une app qui NE DÉMARRE PAS ───────────────────────
+    // La BRIQUE (`runDoctorWithoutLive`) est éprouvée à part ; ici la CHAÎNE —
+    // le binaire réel, un boot qui meurt pour de bon, et ce que l'utilisateur
+    // reçoit. C'est le cas POUR lequel `doctor` existe : tant qu'il n'était pas
+    // rattrapé, `--live` rendait 61 lignes de pile et aucun rapport, soit moins
+    // que `doctor` nu.
+    it("⭐ boot MORT → le rapport statique est rendu quand même, étage 2 expliqué", async () => {
+      const r = await runCli(["doctor", "--live"], CLI_TIMEOUT_MS, {
+        // Un hôte que le DNS ne résoudra jamais : le connecteur tombe à
+        // `onPreBoot`, donc bien avant `onPostReady` où l'étage 2 se branche.
+        NF_DATABASE_URL: "postgres://app:x@base-absente.invalid:5432/app",
+        NF_NO_COLOR: "1",
+      });
+      assert.ok(
+        /ÉTAT/.test(r.stdout),
+        `le rapport doit être rendu malgré le boot mort\n${r.stdout.slice(0, 600)}\n--- stderr ---\n${r.stderr.slice(0, 600)}`,
+      );
+      assert.ok(
+        /n'a pas démarré/.test(r.stdout),
+        `l'étage 2 doit DIRE pourquoi il n'a pas pu répondre\n${r.stdout.slice(-1500)}`,
+      );
+      assert.ok(
+        !READY_RE.test(r.stdout + r.stderr),
+        "un diagnostic ne monte aucun serveur",
       );
     });
 

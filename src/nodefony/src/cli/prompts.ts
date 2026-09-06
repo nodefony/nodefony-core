@@ -40,7 +40,7 @@
  *
  * @returns la fonction qui relâche l'ancre ; l'appeler deux fois est sans effet.
  */
-export function ancreEventLoop(): () => void {
+export function anchorEventLoop(): () => void {
   // ~12,4 jours : au-delà, Node ramène le délai à 1 ms et le timer se
   // déclencherait en boucle. La borne est celle d'un entier 32 bits signé.
   const timer = setInterval(() => {}, 2_147_483_647);
@@ -58,8 +58,8 @@ export function ancreEventLoop(): () => void {
  * @param interaction - ce qui pose la ou les questions.
  * @returns ce que l'interaction rend.
  */
-export async function demande<T>(interaction: () => Promise<T>): Promise<T> {
-  const relache = ancreEventLoop();
+export async function request<T>(interaction: () => Promise<T>): Promise<T> {
+  const relache = anchorEventLoop();
   try {
     return await interaction();
   } finally {
@@ -108,10 +108,10 @@ export async function chargePrompts(): Promise<
   // dans le menu.
   return {
     ...brut,
-    confirm: (config) => demande(() => brut.confirm(config)),
-    select: (config) => demande(() => brut.select(config)),
-    checkbox: (config) => demande(() => brut.checkbox(config)),
-    input: (config) => demande(() => brut.input(config)),
+    confirm: (config) => request(() => brut.confirm(config)),
+    select: (config) => request(() => brut.select(config)),
+    checkbox: (config) => request(() => brut.checkbox(config)),
+    input: (config) => request(() => brut.input(config)),
   };
 }
 
@@ -137,7 +137,7 @@ export async function ouvreReadline(
   close: () => void;
 }> {
   const readline = await import("node:readline/promises");
-  const relache = ancreEventLoop();
+  const relache = anchorEventLoop();
   const rl = readline.createInterface({ input, output });
   return {
     rl,

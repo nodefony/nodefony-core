@@ -40,7 +40,19 @@ const ICI = path.dirname(fileURLToPath(import.meta.url));
 function drapeauxAcceptes(fichier: string): Set<string> {
   const source = readFileSync(fichier, "utf8");
   const trouves = source.match(/===\s*"(--[a-z][a-z-]*)"/gu) ?? [];
-  return new Set(trouves.map((f) => f.slice(f.indexOf('"--') + 1, -1)));
+  const flags = new Set(trouves.map((f) => f.slice(f.indexOf('"--') + 1, -1)));
+  // `--help` est posé par commander sur CHAQUE commande : il est donc déjà à
+  // l'aide, au TAB et au manuel sans qu'aucune commande ait à le déclarer — et
+  // le déclarer serait d'ailleurs refusé (conflit avec l'option intégrée). Un
+  // parseur standalone doit le reconnaître pour ne pas répondre « option
+  // inconnue : --help » ; c'est un devoir, pas une option privée.
+  //
+  // Ce devoir est ÉPROUVÉ, et ailleurs : `standaloneHelp.test.ts` appelle
+  // chaque commande avec `--help` et regarde ce qui sort. Il a longtemps vécu
+  // ici en commentaire, et dix commandes le démentaient sans que rien ne
+  // tombe.
+  flags.delete("--help");
+  return flags;
 }
 
 /** Drapeaux qu'une commande commander PUBLIE (`addOption`). */
@@ -57,7 +69,7 @@ function drapeauxPublies(fichier: string): Set<string> {
 /**
  * Les paires (parseur standalone, commande commander).
  *
- * `check` est absent : son parseur vit dans `kernel/checks/runCheck.ts`, pas
+ * `check` est absent : son parseur vit dans `kernel/checks/runDoctor.ts`, pas
  * dans `cli/`. Il est ajouté ici parce que le défaut ne connaît pas les
  * dossiers.
  */
@@ -69,9 +81,9 @@ const PAIRES: ReadonlyArray<readonly [string, string, string]> = [
   ["git:hooks", "../cli/gitHooks.ts", "../kernel/commands/GitHooksCommand.ts"],
   ["symbols", "../cli/symbols.ts", "../kernel/commands/SymbolsCommand.ts"],
   [
-    "check",
-    "../kernel/checks/runCheck.ts",
-    "../kernel/commands/CheckCommand.ts",
+    "doctor",
+    "../kernel/checks/runDoctor.ts",
+    "../kernel/commands/DoctorCommand.ts",
   ],
 ];
 

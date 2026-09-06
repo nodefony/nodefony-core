@@ -142,7 +142,7 @@ export interface IResolutionRefusal {
  *
  * @returns le refus, avec le geste qui répare.
  */
-export function outilDeGenerationAbsent(): IResolutionRefusal {
+export function generationToolMissing(): IResolutionRefusal {
   return {
     code: "NF_GENERATE_TOOL_MISSING",
     summary:
@@ -231,13 +231,13 @@ export function describeResolutionRefusal(
 ): IResolutionRefusal {
   const premier = knownConnectors(config)[0] ?? "default";
   if (resolution.kind === "unknown") {
-    const liste =
+    const list =
       resolution.known.length > 0
         ? resolution.known.map((n) => `« ${n} »`).join(", ")
         : "aucun";
     return {
       code: "NF_MIGRATE_UNKNOWN_CONNECTOR",
-      summary: `Aucun connecteur ne s'appelle « ${wanted} ». Ceux que cette application déclare : ${liste}.`,
+      summary: `Aucun connecteur ne s'appelle « ${wanted} ». Ceux que cette application déclare : ${list}.`,
       meaning:
         "Le nom attendu est celui d'une clé de `connectors` dans la configuration, pas un nom de base ni un dialecte. Sans `--connector`, la commande travaille sur « default ».",
       nextActions: [

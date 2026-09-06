@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { resolveInfra } from "nodefony";
+import { resolveInfra, parseModuleConfig } from "nodefony";
 import { mongooseConfigSchema } from "./config";
 import type {
   IMongooseConfig,
@@ -61,7 +61,11 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
 export function defineMongooseConfig(
   config: IMongooseConfigInput = {},
 ): IMongooseConfig {
-  const parsed = mongooseConfigSchema.parse(config);
+  const parsed = parseModuleConfig(
+    mongooseConfigSchema,
+    config,
+    "@nodefony/mongoose",
+  );
   return Object.freeze(applyEnvOverrides(parsed));
 }
 

@@ -40,7 +40,7 @@ import { z } from "zod";
 // 4 n'applique PAS les sous-défauts via un `.default({})` plat — cf realtime).
 
 const reconnectStrategySchema = z
-  .object({
+  .strictObject({
     baseMs: z
       .number()
       .int()
@@ -77,7 +77,7 @@ const reconnectStrategySchema = z
   );
 
 const socketSchema = z
-  .object({
+  .strictObject({
     host: z
       .string()
       .min(1)
@@ -131,7 +131,7 @@ const socketSchema = z
 // de la fusion. Un `socketSchema.partial()` ré-appliquerait les `.default()` et
 // clobberait silencieusement le global (port 6379, etc.).
 const socketOverrideSchema = z
-  .object({
+  .strictObject({
     host: z.string().min(1).optional(),
     port: z.number().int().min(1).max(65_535).optional(),
     family: z.union([z.literal(0), z.literal(4), z.literal(6)]).optional(),
@@ -141,7 +141,7 @@ const socketOverrideSchema = z
   .describe("Surcharge socket par connexion (champs optionnels, sans défaut).");
 
 const connectionSchema = z
-  .object({
+  .strictObject({
     name: z
       .string()
       .min(1)
@@ -171,7 +171,7 @@ const connectionSchema = z
   .describe("Définition d'une connexion Redis nommée.");
 
 const globalOptionsSchema = z
-  .object({
+  .strictObject({
     socket: socketSchema.default(() => socketSchema.parse({})),
     username: z
       .string()
@@ -198,7 +198,7 @@ const globalOptionsSchema = z
   );
 
 export const redisConfigSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)

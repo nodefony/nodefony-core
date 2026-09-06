@@ -41,6 +41,8 @@ import {
   readFileSync,
   writeFileSync,
   copyFileSync,
+  statSync,
+  utimesSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -51,7 +53,8 @@ import {
   packTarballs,
 } from "./lib/isolation.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
-import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { needsShell } from "./lib/exec-portable.mjs";
+import { extraitEchec } from "./lib/extrait-echec.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -188,6 +191,8 @@ const APP = path.join(ROOT, "app");
  */
 const MODULE = "blog";
 const MODULE_PKG = `@app/${MODULE}`;
+/** Le nom de sa classe exportée — `blog` → `BlogModule`, la règle du générateur. */
+const PASCAL_MODULE = MODULE[0].toUpperCase() + MODULE.slice(1);
 
 /**
  * Le controller RÉSERVÉ à une habilitation, et le rôle qu'il exige.
@@ -376,16 +381,16 @@ function run(cmd, args, cwd = APP, env = {}) {
     env: envDecor(PORTS, env),
     // `npm` sous Windows est un `.cmd` : sans shell, Node rend `ENOENT` — un
     // message qui accuse une installation absente. Cf `lib/exec-portable.mjs`.
-    shell: besoinDeShell(cmd),
+    shell: needsShell(cmd),
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
-    // La sortie ENTIÈRE sur disque avant tout filtrage — le rapport ne garde que
-    // la fin, et la cause d'un échec n'est pas toujours là. Vécu : le lanceur du
-    // framework refusait la readiness en NOMMANT le module qui manquait, puis un
-    // moteur de test écrivait sa propre pile par-dessus ; les 1 500 derniers
-    // caractères ne portaient plus que la pile, et le diagnostic — produit,
-    // exact — n'atteignait aucun lecteur.
+    // La sortie ENTIÈRE sur disque avant tout filtrage — l'affichage, lui, ne
+    // peut pas tout porter. Vécu : le lanceur du framework refusait la readiness
+    // en NOMMANT le module qui manquait, puis un moteur de test écrivait sa
+    // propre pile par-dessus ; garder « la fin » ne montrait plus que la pile,
+    // et le diagnostic — produit, exact — n'atteignait aucun lecteur. C'est
+    // `extraitEchec` qui choisit maintenant quoi montrer : la cause d'abord.
     const journal = path.join(ROOT, "echec.log");
     try {
       writeFileSync(journal, `$ ${cmd} ${args.join(" ")}\n\n${out}\n`);
@@ -394,7 +399,7 @@ function run(cmd, args, cwd = APP, env = {}) {
     }
     throw new Error(
       `${cmd} ${args.join(" ")} → code ${res.status}` +
-        ` (sortie entière : ${journal})\n${out.slice(-1500)}`,
+        ` (sortie entière : ${journal})\n${extraitEchec(out)}`,
     );
   }
   return `${res.stdout ?? ""}`;
@@ -446,6 +451,19 @@ step(
         "--database",
         DATABASE,
         ...(LINKED ? ["--link"] : []),
+        // 🔴 En décor ISOLÉ, le scaffold ne doit PAS installer : ses dépendances
+        // `@nodefony/*` ne sont publiées nulle part (#175), son `npm install`
+        // part donc sur le registre et rend 404. C'est `installFromTarballs`,
+        // deux lignes plus bas, qui installe — depuis les tarballs, ce qui est
+        // tout l'objet de ce décor.
+        //
+        // Cet appel était là depuis toujours et ne se voyait pas : `create app`
+        // rendait 0 sur une installation ratée, le banc enchaînait, et la
+        // réécriture en `file:` réparait tout après coup. `103d688a` a rendu
+        // l'échec FATAL — il n'a rien cassé, il a montré que ce décor
+        // s'appuyait sur une tolérance. En `--link`, l'install du scaffold est
+        // légitime : les chemins `file:` visent le checkout, ils résolvent.
+        ...(LINKED ? [] : ["--no-install"]),
         "--yes",
       ],
       ROOT,
@@ -885,7 +903,7 @@ step(
         // — pas un message d'erreur — et la garde ci-dessous le traduisait en
         // « un motif d'exclusion écarte l'application », qui envoyait chercher
         // du côté de la configuration. Cf `lib/exec-portable.mjs`.
-        shell: besoinDeShell(bin),
+        shell: needsShell(bin),
       });
     const temoin = path.join(APP, "tests", "oxlint.selfcheck.ts");
     try {
@@ -897,14 +915,14 @@ step(
       if (preuve.status === 0 || !vu.includes("oxlint.selfcheck")) {
         throw new Error(
           `le lint ne LIT PAS l'application témoin (code ${preuve.status}) — ` +
-            `un motif d'exclusion l'écarte, et ce gate rendrait vert sans rien juger :\n${vu.slice(-800)}`,
+            `un motif d'exclusion l'écarte, et ce gate rendrait vert sans rien juger :\n${extraitEchec(vu, { budget: 800 })}`,
         );
       }
       // 2. Verdict réel, témoin retiré.
       const verdict = lance();
       if (verdict.status !== 0) {
         throw new Error(
-          `${`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`.trim().slice(-1500)}`,
+          extraitEchec(`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`),
         );
       }
     } finally {
@@ -934,6 +952,37 @@ step(
       );
     }
     writeFileSync(index, after, "utf8");
+
+    // 🔴 Décâblées ne suffit pas : `doctor` scanne les FICHIERS, pas le
+    // câblage. Il voyait donc deux entités PostgreSQL dans une application
+    // SQLite et les accusait — « la table ne sera jamais créée » —, ce qui
+    // faisait échouer l'étape unitaire qui appelle `nodefony doctor`. La forge
+    // est restée rouge une journée là-dessus.
+    //
+    // Le produit offre le mécanisme exact pour ce cas, et son message le dit :
+    // « le projet a DÉCLARÉ que cette divergence est voulue — un dépôt qui
+    // porte un banc multi-moteurs ne doit pas être condamné pour cela ». Le
+    // banc EST ce dépôt : il déclare, plutôt que d'être excusé en silence.
+    //
+    // 🔴 La clé est `nodefony.doctor`, celle que `readExceptions` LIT
+    // (`runDoctor.ts:141`). Elle s'appelait `nodefony.check` ; le retrait de
+    // l'alias de la commande l'a renommée dans le produit et dans le manifeste
+    // du dépôt, mais pas ici — et une exception posée sous un nom que personne
+    // ne lit ne se signale JAMAIS : elle laisse simplement le contrôle accuser.
+    const manifestePath = path.join(APP, "package.json");
+    const manifeste = JSON.parse(readFileSync(manifestePath, "utf8"));
+    manifeste.nodefony ??= {};
+    manifeste.nodefony.doctor ??= {};
+    // Écrits en `/` : c'est une clé qui VOYAGE, lue sur les trois systèmes.
+    manifeste.nodefony.doctor.entityDialect = [
+      "entity/PgAuthor.ts",
+      "entity/PgInvoice.ts",
+    ];
+    writeFileSync(
+      manifestePath,
+      `${JSON.stringify(manifeste, null, 2)}\n`,
+      "utf8",
+    );
   },
 );
 
@@ -963,6 +1012,131 @@ step(
   // « ma route répond 404 alors qu'elle existe ». Le banc la joue explicitement
   // pour que son absence se voie ici plutôt qu'en session.
   () => run("npm", ["run", "build"]),
+);
+
+step(
+  "le MODULE généré tient debout comme un PAQUET",
+  "Il compile, se teste, se consomme, et sa config REFUSE une faute de frappe.",
+  // Le module est un paquet npm complet — configuration validée, exports,
+  // types, documents pour agents, bundler. Chacune de ces pièces peut être
+  // fausse sans qu'aucune assertion de chaîne ne s'en aperçoive : c'est
+  // exactement par là qu'un défaut est déjà passé sur `create command`.
+  //
+  // ⚠️ Ce que cette étape ne prouve PAS, et qu'il faut savoir avant de la lire :
+  // le `include` du tsconfig d'une application ne contient pas `modules/**`,
+  // mais `create module` CHAÎNE les scripts de l'app vers ses workspaces
+  // (`ensureWorkspaces`, engine.ts) — le module est donc bien typechecké, testé
+  // et bâti par `npm run typecheck|test|build` de l'app. La lecture du seul
+  // tsconfig fait conclure à un trou qui n'existe pas ; c'est le chaînage npm
+  // qui décide. D'où le TÉMOIN FAUTIF ci-dessous : il constate que ce chaînage
+  // MORD, au lieu de le supposer d'après un fichier de configuration.
+  //
+  // Ce qui restait, lui, sans preuve : la frontière de paquet (les types du
+  // module se résolvent-ils depuis l'application ?) et le refus d'une clé de
+  // configuration mal orthographiée.
+  () => {
+    const dossier = path.join(APP, "modules", MODULE);
+
+    // 1. IL COMPILE — avec SON tsconfig, tests compris. La sonde se prouve
+    //    d'abord sur un témoin fautif : un typecheck qui ne lit rien rend vert.
+    const temoin = path.join(dossier, "nodefony", "temoin-du-banc.ts");
+    try {
+      writeFileSync(
+        temoin,
+        'const faux: number = "pas un nombre";\nexport default faux;\n',
+        "utf8",
+      );
+      let aTremble = false;
+      try {
+        run("npm", ["--workspace", MODULE_PKG, "run", "typecheck"]);
+      } catch {
+        aTremble = true;
+      }
+      if (!aTremble) {
+        throw new Error(
+          "le typecheck du module ne LIT PAS ses sources — un type faux le laisse vert, " +
+            "cette sonde ne prouverait rien (vérifier `include` de son tsconfig)",
+        );
+      }
+    } finally {
+      effaceDansApp(temoin);
+    }
+    run("npm", ["--workspace", MODULE_PKG, "run", "typecheck"]);
+
+    // 2. IL SE TESTE — le gabarit livre trois cas (import sans kernel, défauts,
+    //    refus d'une config invalide) et rien ne les lançait.
+    run("npm", ["--workspace", MODULE_PKG, "run", "test"]);
+
+    // 3. IL SE CONSOMME — ses types doivent se résoudre depuis l'APPLICATION,
+    //    pas seulement depuis son propre dossier. C'est la frontière de paquet
+    //    que le typecheck du module ne franchit jamais.
+    const consommateur = path.join(APP, "nodefony", "consommateur-du-banc.ts");
+    try {
+      writeFileSync(
+        consommateur,
+        `import ${PASCAL_MODULE}Module from "${MODULE_PKG}";\n` +
+          `export const _sonde: typeof ${PASCAL_MODULE}Module = ${PASCAL_MODULE}Module;\n`,
+        "utf8",
+      );
+      run("npm", ["run", "typecheck"]);
+    } finally {
+      effaceDansApp(consommateur);
+    }
+
+    // 4. SA CONFIG REFUSE UNE FAUTE DE FRAPPE — au DÉMARRAGE, pas en silence.
+    //    Zod retire par défaut les clés qu'il ne connaît pas : `use()` avec
+    //    `greting` produirait une application qui démarre en ignorant ce que
+    //    l'utilisateur a écrit, et le défaut n'éclate qu'à la lecture.
+    const manifeste = path.join(APP, "nodefony.config.ts");
+    const intact = readFileSync(manifeste, "utf8");
+    try {
+      // La forme écrite par `create module` est `use("<pkg>", {}),` — cf
+      // `engine.ts`. Viser une autre forme rendrait la sonde muette : d'où le
+      // refus explicite ci-dessous plutôt qu'un remplacement silencieux.
+      const fautif = intact.replace(
+        `use("${MODULE_PKG}", {})`,
+        `use("${MODULE_PKG}", { greting: "faute de frappe" } as never)`,
+      );
+      if (fautif === intact) {
+        throw new Error(
+          `impossible d'injecter une clé fautive dans le manifeste — ` +
+            `\`use("${MODULE_PKG}")\` ne s'y trouve pas sous la forme attendue`,
+        );
+      }
+      writeFileSync(manifeste, fautif, "utf8");
+      // Le refus peut tomber à DEUX moments, et les deux sont bons : `build`
+      // démarre un kernel (c'est ainsi qu'il rend le `dist/`), donc une erreur
+      // de configuration l'arrête avant même qu'on inspecte. N'attendre le refus
+      // que d'`inspect` faisait lire cette réussite comme un échec du banc.
+      let refus = null;
+      for (const geste of [
+        () => run("npm", ["run", "build"]),
+        () => run(process.execPath, [BIN, "inspect", "routes", "--json"]),
+      ]) {
+        try {
+          geste();
+        } catch (e) {
+          refus = e;
+          break;
+        }
+      }
+      if (!refus) {
+        throw new Error(
+          "une clé de config INCONNUE (`greting`) est acceptée en silence : " +
+            "l'application démarre en ignorant ce que l'utilisateur a écrit",
+        );
+      }
+      if (!/greting/u.test(String(refus.message))) {
+        throw new Error(
+          "l'application refuse, mais SANS nommer la clé fautive — le message " +
+            `n'aide pas à corriger : ${String(refus.message).slice(0, 300)}`,
+        );
+      }
+    } finally {
+      writeFileSync(manifeste, intact, "utf8");
+      run("npm", ["run", "build"]);
+    }
+  },
 );
 
 step(
@@ -1069,7 +1243,7 @@ step(
         encoding: "utf8",
         timeout: 600_000,
         env: envDecor(PORTS, {}),
-        shell: besoinDeShell(process.execPath),
+        shell: needsShell(process.execPath),
       },
     );
     const premier = `${essai.stdout ?? ""}${essai.stderr ?? ""}`;
@@ -1128,6 +1302,18 @@ step(
     const rendu = path.join(APP, "dist", "nodefony", "entity", "User.js");
     const sourceIntacte = readFileSync(entite, "utf8");
     const renduIntact = readFileSync(rendu, "utf8");
+    // 🔴 Les DATES aussi, pas seulement le contenu.
+    //
+    // Réécrire un fichier à l'identique lui donne un mtime NEUF. Cette étape
+    // rendait donc une source plus récente que son `dist` — et l'étape
+    // suivante, `nodefony check`, refusait l'application sur « Fraîcheur du
+    // build » : des sources ont changé après le dernier build. Un jour entier
+    // de forge rouge sur toutes les plateformes, pour un fichier dont pas un
+    // octet n'avait bougé. Tout ce qui raisonne sur la fraîcheur — ce
+    // contrôle, un build incrémental, un watcher — lit la DATE, jamais le
+    // contenu : restaurer un fichier, c'est restaurer sa date.
+    const datesSource = statSync(entite);
+    const datesRendu = statSync(rendu);
 
     // Grammaire du moteur de CETTE passe : une table Drizzle est écrite pour un
     // dialecte, et la lire dans un autre LÈVE (mesuré sur les six croisements).
@@ -1200,7 +1386,7 @@ export const UserEntity = defineEntity({
         encoding: "utf8",
         timeout: 600_000,
         env: envDecor(PORTS, {}),
-        shell: besoinDeShell(cmd),
+        shell: needsShell(cmd),
       });
 
     try {
@@ -1245,6 +1431,8 @@ export const UserEntity = defineEntity({
     } finally {
       writeFileSync(entite, sourceIntacte, "utf8");
       writeFileSync(rendu, renduIntact, "utf8");
+      utimesSync(entite, datesSource.atime, datesSource.mtime);
+      utimesSync(rendu, datesRendu.atime, datesRendu.mtime);
     }
   },
 );
@@ -1297,18 +1485,26 @@ step(
       // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le
       // boot peut aussi échouer APRÈS l'ouverture du port (hook de cycle de
       // vie), et c'est exactement le cas qu'on garde ici.
-      const res = execFileSync(
-        process.execPath,
-        [
-          "-e",
-          `fetch("http://127.0.0.1:${PORTS.NF_PORT}/api/posts")` +
-            `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
-            `{ console.error("status " + r.status); process.exit(1); } })` +
-            `.catch((e) => { console.error(String(e.message ?? e)); process.exit(1); })`,
-        ],
-        { encoding: "utf8", timeout: 30_000 },
-      );
-      void res;
+      // Deux routes, et la seconde n'est pas un doublon : `/api/posts` vient de
+      // l'APPLICATION, `/api/<module>` d'un MODULE — un paquet npm séparé, que
+      // le Kernel importe par son nom et dont les controllers sont montés par
+      // un autre chemin. Un module qui se charge sans monter ses routes rendait
+      // 404 sans que rien ne le signale : le boot est vert, l'inventaire des
+      // routes se lit hors serveur, et aucune étape ne le frappait EN VRAI.
+      for (const chemin of ["/api/posts", `/api/${MODULE}`]) {
+        const res = execFileSync(
+          process.execPath,
+          [
+            "-e",
+            `fetch("http://127.0.0.1:${PORTS.NF_PORT}${chemin}")` +
+              `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
+              `{ console.error("${chemin} → status " + r.status); process.exit(1); } })` +
+              `.catch((e) => { console.error("${chemin} → " + String(e.message ?? e)); process.exit(1); })`,
+          ],
+          { encoding: "utf8", timeout: 30_000 },
+        );
+        void res;
+      }
     } finally {
       // Toujours, même en échec : un serveur détaché qui survit au banc tient
       // les ports et fait échouer le run SUIVANT sur un symptôme sans rapport.
@@ -1399,7 +1595,15 @@ if (existsSync(ROOT)) {
 if (!failed && !keep) {
   rmSync(ROOT, { recursive: true, force: true });
 } else if (failed) {
-  process.stdout.write(`\n  décor CONSERVÉ pour investigation : ${APP}\n`);
+  // ⚠️ Sur une forge, cette machine est JETÉE à la fin du job : le chemin ne
+  // désigne alors rien, et il envoie le lecteur ouvrir un dossier qui n'existe
+  // plus. Ce qu'il lui reste est l'objet déposé — c'est cela qu'il faut nommer.
+  process.stdout.write(
+    process.env.CI
+      ? `\n  décor NON récupérable (machine de forge jetée) — la preuve est` +
+          ` dans l'objet déposé du job, pas dans ${APP}\n`
+      : `\n  décor CONSERVÉ pour investigation : ${APP}\n`,
+  );
 }
 process.stdout.write(
   failed

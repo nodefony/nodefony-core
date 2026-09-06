@@ -15,14 +15,14 @@
  *   node lib/exec-portable.selftest.mjs --prove
  */
 import path from "node:path";
-import { besoinDeShell } from "./exec-portable.mjs";
+import { needsShell } from "./exec-portable.mjs";
 
 const PROVE = process.argv.includes("--prove");
 
 /** La règle AMPUTÉE — ce qu'on écrivait avant, et qui rendait `ENOENT` sous Windows. */
 const debranchee = () => false;
 
-const regle = PROVE ? debranchee : besoinDeShell;
+const regle = PROVE ? debranchee : needsShell;
 
 const cas = [
   {

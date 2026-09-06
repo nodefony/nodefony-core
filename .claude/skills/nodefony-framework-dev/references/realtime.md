@@ -49,7 +49,7 @@ c.subscribe("dashboard:stats"); // ref-compté (réseau émis aux seules transit
 const off = c.on("dashboard:stats", (p) => {
   /* … */
 }); // off() pour se désabonner
-const data = await c.request<T>("method", params); // RPC requête/réponse
+const data = await c.request<"method", T>("method", params); // RPC requête/réponse
 // getters : state · subscribedChannels · framesReceived · frameLog (ring lazy : émis seulement si listener)
 ```
 
@@ -123,7 +123,7 @@ class MyRealtime extends RealtimeController {
   (`WsConnectionTransport`, garde `readyState===1`). **SSE supprimé** (mort + `flushHeaders` absent sur `Http2ServerResponse`
   → `code=000`) ; tout futur SSE écoute `rawRes.once("close")` (RESPONSE), pas `request` (fire trop tôt HTTP/2).
 
-**Côté client (lib, déjà là)** : `client.request<T>("kernel:ping")` (Promise id-matchée) ; helper réutilisable
+**Côté client (lib, déjà là)** : `client.request<"kernel:ping", T>("kernel:ping")` (Promise id-matchée) ; helper réutilisable
 `client.ping()` (RTT). Le générique vit dans `RealtimeClient`, pas le front.
 
 **Tests realtime (BÉTON, sans navigateur)** :

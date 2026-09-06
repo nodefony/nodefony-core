@@ -190,7 +190,24 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   effective = origine ; aucun → shell. Les suivants qui définissent la clé = `shadowed`.
 - Catalogue lu par import de `<projet>/dist/index.js` → `getEnvCatalog(mod.env)`. Pas de build →
   `null`, et le rapport le DIT (`catalogAvailable: false` + note) au lieu d'échouer.
-- Exit **78** (`EX_CONFIG`) si une variable requise manque. Requise = ni `default` ni `optional`.
+- Exit **78** (`EX_CONFIG`) si une variable requise manque. Requise = ni `default` ni `optional`,
+  **ou** `requiredIn: ["production"]` quand l'environnement évalué correspond.
+- `requiredIn` (`config/defineEnv.ts`) : exigence propre à un environnement. Règle UNIQUE
+  `isEnvVarRequired(meta, stages)` — trois lecteurs : le boot (`defineEnv` lève avant le parse
+  Zod, une `optional` passerait la validation par construction), `nodefony env`, `doctor`.
+  `resolveEnvStages(source)` rend les étiquettes : `NODE_ENV`, plus le déploiement
+  (`APP_ENV` > `NF_ENV`) s'il diffère → une preprod en `production` porte les deux.
+  `<VAR>_FILE` satisfait l'exigence (résolu AVANT le contrôle). Chaîne vide = absente.
+- `--env <e>` (sur `env` ET `doctor`) : évalue les exigences pour l'environnement VISÉ avec les
+  valeurs d'ICI. Les étiquettes sont REMPLACÉES, pas cumulées (sinon `--env production` exigerait
+  aussi les `requiredIn: ["development"]`). Rendu : `targetEnv` + `stages` dans le JSON, annoncé
+  en tête du rendu humain.
+- ⚠️ **La VALEUR d'une option ne doit jamais ressembler à une commande.** `detectEnvironmentFromArgv`
+  (`runtime/engineEnvironment.ts` — elle a quitté le bin, qui s'exécute à l'import et ne
+  s'éprouvait donc qu'en lisant son propre texte) ne lit que les mots AVANT la
+  première option : `doctor --env production` faisait sinon basculer TOUT le processus en
+  production — `.env.production` chargé, catalogue de l'app en échec à l'import, repli SILENCIEUX
+  sur un `dist` périmé (27 variables au lieu de 28).
 - `NF_` (variable d'app, déclarée dans `env.ts`) ≠ `NF__MODULE__CHEMIN` (surcharge directe d'une
   clé de module, rien à déclarer) ≠ `<VAR>_FILE` (secret monté). Les 3 sont rendus séparément.
 - Secrets : `pathLooksSecret` (`envOverride.ts`) — MÊME regex partout, jamais de valeur en clair.
@@ -262,3 +279,39 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 - `getEmoji(undefined)` → `random().emoji` (branche `else`); `getEmoji("name")` → `get("name")`
 - `addCommand(Ctor)` stocke `commands[cmd.name]` → le nom vient du constructeur Command, pas du Ctor
 - Alias Commander : `alias("al")` → la commande répond à `"al"` ET `"alias-cmd"`
+
+## progress.ts — attente et progression (Spinner, ProgressBar)
+
+`Spinner` (indéterminé) · `ProgressBar` (done/total, `spin: true` ajoute un
+tourniquet) · `LiveLine` (socle) · `renderBar()` PURE · `formatDuration()`.
+5 jeux d'images (`BRAILLE_FRAMES` défaut, `LINE_FRAMES` ASCII, `ARC_FRAMES`,
+`BLOCK_FRAMES`, `DOT_FRAMES`), 4 styles de barre (`BAR_STYLES`).
+
+**Jamais par le Syslog** — animation = 10 Pdu/s au ring + transports + backplane.
+Écrit DIRECTEMENT sur le flux (défaut `process.stdout` ; `doctor` passe `stderr`).
+
+`shouldAnimate(stream, env)` refuse : pas de TTY · `CI` · `TERM=dumb` ·
+`NF_NO_PROGRESS`. Hors animation, seule la ligne finale de `stop()` est écrite.
+
+`supportsUnicode(env, platform)` — capacité CONSTATÉE, jamais déduite de
+`process.platform` : repli `LINE_FRAMES` + `BAR_STYLES.ascii` sur un `cmd.exe` nu,
+braille conservé sur Windows Terminal / VS Code. Les 2 paramètres sont injectés
+→ le cas Windows s'éprouve depuis n'importe quelle machine.
+
+Curseur masqué pendant l'animation, restauré sur `exit`/`SIGINT`/`SIGTERM`
+(protocole `signal-exit` : agir seulement si notre écouteur est le SEUL, se
+retirer, puis `process.kill` — jamais `process.exit`). ⚠️ `SIGHUP` lève `ENOSYS`
+sous Windows : non écouté.
+
+`fitToWidth(line, columns)` tronque sans compter les séquences ANSI (sinon la
+ligne wrappe et `clearLine` n'en efface qu'une → traînée). Sortie synchronisée
+mode 2026 (anti-scintillement). Minuteur `unref()`.
+
+**Gotchas**
+
+- ⚠️ **`spawnSync` fige l'animation** : la boucle d'évènements est bloquée, aucun
+  `setInterval` ne se déclenche. Tout appelant doit attendre en ASYNCHRONE.
+- ⚠️ `renderBar(NaN, n)` rendait "" (`repeat(NaN)`), d'où `safeCount`.
+- ⚠️ Un test qui simule un terminal doit poser `animate: true` : sinon il lit
+  `process.env`, où la forge pose `CI` — vert en local, rouge en CI.
+- Une seule LIGNE : pas de rendu multi-lignes (laisserait des traînées).

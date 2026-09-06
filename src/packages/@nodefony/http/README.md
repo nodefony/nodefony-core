@@ -4,7 +4,7 @@ Module **central** de Nodefony : tous les serveurs (HTTP / HTTPS / HTTP2 / WS / 
 **contextes**. C'est le différenciateur du framework — HTTP et WebSocket partagent le même
 pipeline de contexte/controller.
 
-> Docs IA : [`CLAUDE.md`](./CLAUDE.md) · [`MEMORY.md`](./MEMORY.md) · [`docs/`](./docs).
+> Docs IA (dans le dépôt) : [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/http/CLAUDE.md) · [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/http/MEMORY.md) · [`docs/`](./docs).
 > Règle dure : ce module ne peut PAS importer `@nodefony/framework` (cycle) — accès au resolver
 > via `(context as any)?.resolver`.
 

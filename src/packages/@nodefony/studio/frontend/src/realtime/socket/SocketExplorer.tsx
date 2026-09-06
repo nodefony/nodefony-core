@@ -34,7 +34,7 @@ const GRAPH_ICON: Record<string, ReactNode> = {
   "fan-out": <IconArrowsSplit2 size={15} />,
   backplane: <IconCircuitResistor size={15} />,
   protocole: <IconBinaryTree2 size={15} />,
-  sondes: <IconActivityHeartbeat size={15} />,
+  probes: <IconActivityHeartbeat size={15} />,
   actions: <IconBolt size={15} />,
 };
 

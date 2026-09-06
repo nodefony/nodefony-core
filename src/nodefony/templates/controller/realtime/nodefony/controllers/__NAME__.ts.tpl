@@ -20,7 +20,7 @@ import type { ContextType } from "@nodefony/http";
  * même travail, mais TypeScript refuse un identifiant privé statique dans une
  * classe décorée : TS18036.)
  */
-let diffuser: RealtimePublish | null = null;
+let publishToChannel: RealtimePublish | null = null;
 
 /**
  * <%= it.nameClass %> — endpoint temps réel de la socket Nodefony (JSON-RPC
@@ -42,7 +42,7 @@ let diffuser: RealtimePublish | null = null;
  * socket.on("<%= it.channel %>:events", (msg) => console.log("reçu", msg));
  * await socket.connect();
  * socket.subscribe("<%= it.channel %>:events");        // flux serveur → client
- * socket.emit("<%= it.channel %>:dire", { texte: "bonjour" }); // client → TOUS
+ * socket.emit("<%= it.channel %>:say", { text: "bonjour" }); // client → TOUS
  * const pong = await socket.request("<%= it.channel %>:ping", {}); // RPC aller-retour
  * ```
  * (React : `NodefonyProvider` + hooks `nodefony/react` — `useNodefony()`,
@@ -111,7 +111,7 @@ let diffuser: RealtimePublish | null = null;
    * par pod, fan-out par le hub) — zéro coût quand personne n'écoute.
    *
    * Il ne produit RIEN tout seul : il retient de quoi diffuser, et c'est
-   * {@link dire} qui alimente. Un battement périodique — une trame par seconde et
+   * {@link say} qui alimente. Un battement périodique — une trame par seconde et
    * par client, pour ne rien dire — coûterait du réseau et du processeur en
    * permanence, et enseignerait l'inverse de ce que cette socket défend : une
    * socket qui se tait quand il ne se passe rien n'est pas endormie, elle est
@@ -122,9 +122,9 @@ let diffuser: RealtimePublish | null = null;
    */
   @RealtimeChannel("<%= it.channel %>:events")
   events(_channel: string, publish: RealtimePublish): () => void {
-    diffuser = publish;
+    publishToChannel = publish;
     return () => {
-      diffuser = null;
+      publishToChannel = null;
     };
   }
 
@@ -136,14 +136,14 @@ let diffuser: RealtimePublish | null = null;
    * garde que ce qu'on sait typer ; le reste est jeté sans réponse. Affiché comme
    * du TEXTE côté page (jamais injecté en HTML), ce salon est inoffensif.
    */
-  @RealtimeInbound("<%= it.channel %>:dire")
-  dire(params: unknown): void {
-    const p = params as { texte?: unknown } | null;
-    const texte =
-      typeof p?.texte === "string" ? p.texte.trim().slice(0, 140) : "";
-    if (!texte) return;
-    diffuser?.("<%= it.channel %>:events", {
-      texte,
+  @RealtimeInbound("<%= it.channel %>:say")
+  say(params: unknown): void {
+    const p = params as { text?: unknown } | null;
+    const text =
+      typeof p?.text === "string" ? p.text.trim().slice(0, 140) : "";
+    if (!text) return;
+    publishToChannel?.("<%= it.channel %>:events", {
+      text,
       ts: Date.now(),
       pid: process.pid,
     });

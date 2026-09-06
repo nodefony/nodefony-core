@@ -116,18 +116,21 @@ function _typeOnly(): void {
     ),
   );
 
-  // ── ⚠️ Garde-fou INOPÉRANT — TROU 3 (le seul encore ouvert) ──────────────
-  // `params: { wrong: true }` sur une RPC dont le contrat dit `in: void` DEVRAIT
-  // être refusé. La surcharge HISTORIQUE `request<T>(method: string, params?:
-  // unknown, timeoutMs?)` est un ATTRAPE-TOUT : quand la surcharge typée échoue,
-  // TS retombe dessus et accepte n'importe quoi. Un `@ts-expect-error` ici serait
-  // « unused » — d'où cette ligne nue.
+  // ── Garde-fou ACTIF — params hors contrat refusés (TROU 3 bouché) ────────
+  // `params: { wrong: true }` sur une RPC dont le contrat dit `in: void` est
+  // refusé. Il ne l'était pas tant qu'existait la surcharge ATTRAPE-TOUT
+  // `request<T>(method: string, params?: unknown, timeoutMs?)` : quand la
+  // surcharge typée échouait, TS retombait dessus et acceptait n'importe quoi.
   //
-  // Elle NE PEUT PAS être retirée sans breaking change : les deux formes se
-  // disputent le 1ᵉʳ générique (`<T>` = résultat / `<K>` = nom de méthode). Tout
-  // `request<MonType>("ma:methode")` du repo — `ping()`, Studio `nodefony:scaffold:run` —
-  // devrait devenir `request<"ma:methode", MonType>`. Décision produit en attente.
-  client.request("chat:ping", { wrong: true }); // devrait ❌
+  // Le retrait de cette surcharge est une RUPTURE d'API assumée en 10.0.0 : les
+  // deux formes se disputaient le 1ᵉʳ générique (`<T>` = résultat / `<K>` = nom
+  // de méthode), donc tout `request<MonType>("ma:methode")` s'écrit désormais
+  // `request<"ma:methode", MonType>`.
+  //
+  // ⚠️ Si le `@ts-expect-error` ci-dessous devient « unused », le garde-fou est
+  // de nouveau INOPÉRANT — ce test est la sentinelle du trou.
+  // @ts-expect-error — params hors contrat (`in: void`) : DOIT être refusé.
+  client.request("chat:ping", { wrong: true });
 
   // ── RÉTRO-COMPAT — client sans paramétrage (défauts permissifs) ────────
   rawClient.on("any-event", (...args) => {

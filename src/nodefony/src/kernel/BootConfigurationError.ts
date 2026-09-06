@@ -1,7 +1,7 @@
 /**
- * Erreur de **configuration** détectée pendant le boot — TOUJOURS fatale (dev
- * ET prod) pour un module critique, là où un échec de boot ordinaire n'est
- * fatal qu'en production (fail-soft dev).
+ * Erreur de **configuration** détectée pendant le boot — TOUJOURS fatale, dans
+ * TOUS les environnements et pour TOUT module, là où un échec de boot ordinaire
+ * n'est fatal qu'en production pour un module critique (fail-soft ailleurs).
  *
  * **Pourquoi cette classe existe** : le fail-soft de boot protège la DX (un
  * module optionnel cassé ne bloque pas le dev) — mais il devient un PIÈGE
@@ -22,8 +22,20 @@
  * );
  * ```
  *
- * Le tag `critical = false` d'un module reste respecté : un module déclaré
- * non-critique ne tue jamais le process, même sur une erreur de configuration.
+ * 🔴 **Le tag `critical = false` ne s'applique PAS ici**, et c'est délibéré. Les
+ * deux répondent à des questions différentes : `critical = false` dit « cette
+ * application peut tourner SANS ce module » — une affirmation sur sa
+ * DISPONIBILITÉ ; cette erreur dit « ce que l'utilisateur a écrit ne peut pas
+ * être honoré » — une affirmation sur son INTENTION. Les confondre faisait
+ * démarrer un module optionnel en IGNORANT sa configuration, avec pour seule
+ * trace un avertissement dans le journal.
+ *
+ * Ce que cela ne change pas : un module optionnel dont l'INFRA est absente
+ * (Redis éteint) ne lève pas cette erreur — il propage une `Error` ordinaire,
+ * qui reste fail-soft en développement. C'est ce qui rend l'arbitrage sûr, et
+ * c'est ce qu'il fallait vérifier avant de le rendre : au moment de la décision,
+ * dans les cinq modules `critical = false` du dépôt, la seule source de cette
+ * erreur était la validation de configuration ({@link parseModuleConfig}).
  */
 export class BootConfigurationError extends Error {
   override name = "BootConfigurationError";

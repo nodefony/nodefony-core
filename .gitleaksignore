@@ -1,0 +1,29 @@
+# Findings ACQUITTÉS un par un, par leur empreinte exacte
+# (`commit:fichier:règle:ligne`).
+#
+# 🔴 Pourquoi ce fichier plutôt qu'une règle dans `.gitleaks.toml` : une
+# empreinte ne désigne QU'UN finding, dans UN commit, à UNE ligne. Une exception
+# écrite dans la configuration, elle, vaut pour tout ce qui lui ressemblera
+# demain — c'est le geste qui aveugle un scanner sans qu'on s'en aperçoive.
+#
+# Chaque ligne se justifie, sinon elle n'a rien à faire ici.
+
+# Les deux TÉMOINS du gate lui-même, écrits en clair dans `secrets.yml` au
+# commit qui l'a introduit (`57cba4f7`). Le gate les a trouvés dès son premier
+# run — c'est la preuve qu'il mord —, et le commit suivant les COMPOSE à
+# l'exécution pour que le fichier n'en porte plus. L'historique, lui, ne se
+# réécrit pas : cette branche est publiée, et réécrire ferait plus de dégâts que
+# deux chaînes inventées. Ni l'une ni l'autre n'ouvre quoi que ce soit — le
+# jeton est fabriqué, la clé PEM est une ligne base64 tronquée qui ne charge
+# dans aucun outil.
+57cba4f7cf37ff4ec1595d7a89b28f6e4cb1315c:.github/workflows/secrets.yml:github-pat:81
+57cba4f7cf37ff4ec1595d7a89b28f6e4cb1315c:.github/workflows/secrets.yml:private-key:83
+
+# Le secret JETABLE du banc de publication (`smoke-docker.sh`), écrit en clair
+# au commit qui l'a introduit (`895e6757`). Ce n'était pas un secret : la
+# chaîne `0123456789abcdef…` était posée en variable d'environnement d'un
+# conteneur local détruit à la fin du run, elle n'ouvre rien et il n'y a donc
+# rien à faire tourner. Le commit suivant la TIRE (`openssl rand -hex 16`) pour
+# que l'arbre n'en porte plus. Même motif que les témoins ci-dessus :
+# l'historique d'une branche publiée ne se réécrit pas pour une valeur inventée.
+895e6757cfaf806b4c3ad8b592ab77c5e3d566ea:scripts/release/smoke-docker.sh:generic-api-key:31

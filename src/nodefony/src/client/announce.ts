@@ -47,10 +47,10 @@ interface NodefonyConsoleHandle {
  * banc à l'autre : le marqueur ci-dessous vit sur `globalThis`, où une page
  * neuve le retrouve absent et un banc peut le retirer.
  */
-let kernelVivant: { identity?: unknown } | null = null;
+let liveKernel: { identity?: unknown } | null = null;
 
 /** Le badge est-il déjà sorti sur cette page ? Posé même en production. */
-function dejaAnnonce(): boolean {
+function alreadyAnnounced(): boolean {
   return (globalThis as { __nfAnnounced__?: boolean }).__nfAnnounced__ === true;
 }
 
@@ -63,7 +63,7 @@ function dejaAnnonce(): boolean {
  * développement (banc, `--cluster`, image testée localement) se taisait alors
  * qu'on avait tout intérêt à la faire parler. Le serveur, lui, sait.
  */
-let envServeur: string | null = null;
+let serverEnv: string | null = null;
 
 /**
  * Le détail est-il sorti sur cette page ? Un seul par page, comme le badge — et
@@ -73,7 +73,7 @@ let envServeur: string | null = null;
  * badge : un module vit plus longtemps qu'une page dans un banc, et un état qui
  * ne se réarme pas fait passer les tests suivants pour des régressions.
  */
-function dejaDetaille(): boolean {
+function alreadyDetailed(): boolean {
   return (globalThis as { __nfDetailed__?: boolean }).__nfDetailed__ === true;
 }
 
@@ -88,7 +88,7 @@ function dejaDetaille(): boolean {
  * @param env - la valeur reçue dans `realtime:welcome`, ou `undefined`.
  */
 export function noteServerEnv(env: string | undefined): void {
-  if (env) envServeur = env;
+  if (env) serverEnv = env;
 }
 
 /**
@@ -96,7 +96,7 @@ export function noteServerEnv(env: string | undefined): void {
  * annonce un mode hors production.
  */
 export function isVerbose(): boolean {
-  return isDevBuild() || (envServeur !== null && envServeur !== "production");
+  return isDevBuild() || (serverEnv !== null && serverEnv !== "production");
 }
 
 /**
@@ -113,7 +113,7 @@ export function isDevBuild(): boolean {
 }
 
 /** Les sockets partagées, lues dans le registre de `RealtimeClient.shared()`. */
-function socketsPartagees(): RealtimeClient[] {
+function sharedSockets(): RealtimeClient[] {
   const g = globalThis as { __nfRealtime__?: Map<string, RealtimeClient> };
   return g.__nfRealtime__ ? [...g.__nfRealtime__.values()] : [];
 }
@@ -128,19 +128,19 @@ function poseHandle(): void {
   if (!isVerbose()) return;
   const handle: NodefonyConsoleHandle = {
     get kernel() {
-      return kernelVivant ?? undefined;
+      return liveKernel ?? undefined;
     },
     get socket() {
-      return socketsPartagees()[0];
+      return sharedSockets()[0];
     },
     sockets: () =>
-      socketsPartagees().map((s) => ({
+      sharedSockets().map((s) => ({
         url: s.url ?? "(adresse non résolue)",
         state: s.state,
       })),
     identity: () => {
-      if (kernelVivant) return (kernelVivant as { identity: unknown }).identity;
-      return socketsPartagees()[0]?.identity ?? null;
+      if (liveKernel) return (liveKernel as { identity: unknown }).identity;
+      return sharedSockets()[0]?.identity ?? null;
     },
   };
   (globalThis as { nodefony?: unknown }).nodefony = handle;
@@ -153,12 +153,12 @@ function poseHandle(): void {
  * partage. Une socket construite hors `shared()` échappe à ce constat ; le seul
  * effet est qu'un badge pourrait ressortir, jamais une fuite.
  */
-function libere(): void {
+function release(): void {
   const g = globalThis as { nodefony?: unknown; __nfAnnounced__?: boolean };
   delete g.nodefony;
   delete g.__nfAnnounced__;
   delete (globalThis as { __nfDetailed__?: boolean }).__nfDetailed__;
-  envServeur = null;
+  serverEnv = null;
 }
 
 /**
@@ -170,17 +170,17 @@ function libere(): void {
  * au démarrage ; dans une console de navigateur il se répète à chaque
  * rechargement et pousse hors de vue les messages de l'application.
  *
- * @param nom - ce qui suit « nodefony » ; le nom du noyau quand il y en a un.
+ * @param name - ce qui suit « nodefony » ; le nom du noyau quand il y en a un.
  */
-function badge(nom: string): void {
-  if (dejaAnnonce()) return;
+function badge(name: string): void {
+  if (alreadyAnnounced()) return;
   // Une console peut manquer (rendu côté serveur, test) : on n'annonce rien
   // plutôt que de jeter au démarrage.
   const c = globalThis.console;
   if (!c?.log) return;
   (globalThis as { __nfAnnounced__?: boolean }).__nfAnnounced__ = true;
   c.log(
-    `%c◆ nodefony%c${nom}%c`,
+    `%c◆ nodefony%c${name}%c`,
     "background:#0b1120;color:#5eead4;font-weight:700;padding:2px 6px;border-radius:3px 0 0 3px",
     "background:#1e293b;color:#e2e8f0;padding:2px 6px;border-radius:0 3px 3px 0",
     "",
@@ -193,7 +193,7 @@ function badge(nom: string): void {
  * générique de la socket qui sortirait le premier.
  *
  * @param kernel - le noyau, exposé tel quel en `nodefony.kernel`.
- * @param nom - son nom, affiché dans le badge.
+ * @param name - son nom, affiché dans le badge.
  * @param annoncer - `false` fait taire l'annonce ET le handle (app publiée qui
  *   ne veut rien dans sa console) ; `true` force le détail hors développement.
  * @returns le débranchement, à appeler à la mort du noyau — sans quoi un
@@ -201,17 +201,17 @@ function badge(nom: string): void {
  */
 export function announceKernel(
   kernel: { identity?: unknown },
-  nom: string,
+  name: string,
   annoncer?: boolean,
 ): () => void {
   if (annoncer === false) return () => undefined;
-  kernelVivant = kernel;
-  badge(nom);
+  liveKernel = kernel;
+  badge(name);
   poseHandle();
   return () => {
-    if (kernelVivant !== kernel) return;
-    kernelVivant = null;
-    if (socketsPartagees().length === 0) libere();
+    if (liveKernel !== kernel) return;
+    liveKernel = null;
+    if (sharedSockets().length === 0) release();
     else poseHandle();
   };
 }
@@ -229,7 +229,7 @@ export function announceRealtime(annoncer?: boolean): () => void {
   badge("client");
   poseHandle();
   return () => {
-    if (!kernelVivant && socketsPartagees().length === 0) libere();
+    if (!liveKernel && sharedSockets().length === 0) release();
   };
 }
 
@@ -246,29 +246,29 @@ export function announceRealtime(annoncer?: boolean): () => void {
  * pour qui débogue autre chose. `groupEnd` est atteint même si une lecture
  * jette — un groupe laissé ouvert avale tous les messages suivants.
  *
- * @param lignes - le tableau à rendre, `clé → { valeur }`, composé par
+ * @param rows - le tableau à rendre, `clé → { valeur }`, composé par
  *   l'appelant : lui seul sait ce qu'il a d'important à dire.
- * @param sujet - l'objet vivant à imprimer en dernier (noyau, ou socket).
- * @param titre - l'intitulé du groupe.
+ * @param subject - l'objet vivant à imprimer en dernier (noyau, ou socket).
+ * @param title - l'intitulé du groupe.
  * @returns `true` si le détail a été émis.
  */
-export function detailsConsole(
-  lignes: Record<string, { valeur: string }>,
-  sujet: unknown,
-  titre: string,
+export function consoleDetails(
+  rows: Record<string, { valeur: string }>,
+  subject: unknown,
+  title: string,
 ): boolean {
-  if (dejaDetaille() || !isVerbose()) return false;
+  if (alreadyDetailed() || !isVerbose()) return false;
   const c = globalThis.console;
   if (!c?.log || !c.groupCollapsed || !c.groupEnd) return false;
   (globalThis as { __nfDetailed__?: boolean }).__nfDetailed__ = true;
-  c.groupCollapsed(`%c${titre}`, "color:#94a3b8");
+  c.groupCollapsed(`%c${title}`, "color:#94a3b8");
   try {
     // `table` plutôt que des lignes : aligné, trié, dépliable — et natif.
-    if (c.table) c.table(lignes);
-    else for (const [k, v] of Object.entries(lignes)) c.log(k, v.valeur);
+    if (c.table) c.table(rows);
+    else for (const [k, v] of Object.entries(rows)) c.log(k, v.valeur);
     c.log(
       "%cconsole :%c nodefony.socket · nodefony.sockets() · nodefony.identity()" +
-        (kernelVivant ? " · nodefony.kernel" : ""),
+        (liveKernel ? " · nodefony.kernel" : ""),
       "color:#94a3b8",
       "color:#5eead4;font-family:monospace",
     );
@@ -280,7 +280,7 @@ export function detailsConsole(
       "color:#94a3b8",
       "color:#e2e8f0",
     );
-    c.log("%cobjet :%c", "color:#94a3b8", "", sujet);
+    c.log("%cobjet :%c", "color:#94a3b8", "", subject);
   } finally {
     c.groupEnd();
   }
@@ -288,6 +288,6 @@ export function detailsConsole(
 }
 
 /** Un noyau est-il vivant sur cette page ? La socket s'efface devant lui. */
-export function aUnNoyau(): boolean {
-  return kernelVivant !== null;
+export function hasKernel(): boolean {
+  return liveKernel !== null;
 }

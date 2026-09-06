@@ -447,6 +447,23 @@ jobs:
           if (fs.existsSync(journal)) fs.copyFileSync(journal, 'app-detached.log');
           "
 
+      # Le journal du SERVEUR DE BASE, et pas seulement celui du banc. Vécu sur
+      # ce job même : la cause d'un échec PostgreSQL tenait en une ligne côté
+      # serveur — un refus d'authentification — pendant que le banc ne pouvait
+      # rapporter qu'un « connexion impossible ». Elle n'a été trouvée qu'en
+      # dépliant ce journal à la main, dans une interface web, après coup.
+      # Les `services:` de GitHub sont des conteneurs : ils se lisent.
+      - name: Journal des serveurs de base (si échec)
+        if: failure()
+        shell: bash
+        run: |
+          for id in $(docker ps -aq); do
+            nom=$(docker inspect --format '{{.Name}}' "$id" | tr -d '/')
+            echo "===== $nom ($id) =====" >> services-db.log
+            docker logs --tail 400 "$id" >> services-db.log 2>&1 || true
+          done
+          echo "conteneurs relevés : $(docker ps -aq | wc -l)"
+
       - name: Journal et rapport (si échec)
         if: failure()
         uses: actions/upload-artifact@v7
@@ -457,6 +474,7 @@ jobs:
             verify-report.json
             echec-commande.log
             app-detached.log
+            services-db.log
           retention-days: 7
           if-no-files-found: ignore
 

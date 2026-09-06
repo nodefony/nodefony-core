@@ -18,7 +18,7 @@ import { Context } from "@nodefony/http";
  * ferait le même travail, mais TypeScript refuse un identifiant privé statique
  * dans une classe décorée : TS18036.)
  */
-let diffuser: RealtimePublish | null = null;
+let publishToChannel: RealtimePublish | null = null;
 
 /**
  * Le canal temps réel COMMUN aux quatre vitrines de front (React, Vue, Angular,
@@ -87,14 +87,14 @@ class LiveSalonController extends RealtimeController {
   /**
    * Le salon partagé — le canal que les quatre vitrines affichent. Le
    * fournisseur ne produit rien tout seul : il retient de quoi diffuser, et
-   * c'est {@link dire} qui alimente. Le nettoyage rendu coupe la diffusion au
+   * c'est {@link say} qui alimente. Le nettoyage rendu coupe la diffusion au
    * départ du dernier abonné.
    */
   @RealtimeChannel("live:salon")
   salon(_channel: string, publish: RealtimePublish): () => void {
-    diffuser = publish;
+    publishToChannel = publish;
     return () => {
-      diffuser = null;
+      publishToChannel = null;
     };
   }
 
@@ -106,15 +106,14 @@ class LiveSalonController extends RealtimeController {
    * texte est rendu comme du TEXTE par les quatre frameworks de vue (aucune
    * page n'injecte de HTML), c'est ce qui rend le salon inoffensif.
    */
-  @RealtimeInbound("live:dire")
-  dire(params: unknown): void {
-    const p = params as { texte?: unknown; front?: unknown } | null;
-    const texte =
-      typeof p?.texte === "string" ? p.texte.trim().slice(0, 140) : "";
-    if (!texte) return;
+  @RealtimeInbound("live:say")
+  say(params: unknown): void {
+    const p = params as { text?: unknown; front?: unknown } | null;
+    const text = typeof p?.text === "string" ? p.text.trim().slice(0, 140) : "";
+    if (!text) return;
     const front = typeof p?.front === "string" ? p.front.slice(0, 16) : "?";
-    diffuser?.("live:salon", {
-      texte,
+    publishToChannel?.("live:salon", {
+      text: text,
       front,
       ts: Date.now(),
       pid: process.pid,

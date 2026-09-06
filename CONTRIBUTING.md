@@ -66,7 +66,7 @@ le serveur, pas seulement dans les tests.
 Une seule commande fait autorité :
 
 ```bash
-npm run verify   # typecheck + lint + format + tests + `nodefony check`
+npm run verify   # typecheck + lint + format + tests + `nodefony doctor`
 ```
 
 C'est ce que la forge exécutera. Si elle passe chez vous, votre PR part sur de bonnes bases.

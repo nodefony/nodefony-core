@@ -65,22 +65,22 @@ export type IMigrationStatusResult =
  * Habille un refus en charge utile publiée — la MÊME que celle de `--json`.
  *
  * @param connector - connecteur demandé.
- * @param refus - ce qu'il y a à en dire.
+ * @param refusal - ce qu'il y a à en dire.
  * @returns la charge utile d'arrêt.
  */
 export function failureFrom(
   connector: string,
-  refus: IResolutionRefusal,
+  refusal: IResolutionRefusal,
 ): ICommandFailure {
   return {
     formatVersion: MIGRATION_FORMAT_VERSION,
     connector,
-    exitCode: refus.exitCode,
+    exitCode: refusal.exitCode,
     error: {
-      code: refus.code,
-      summary: refus.summary,
-      meaning: refus.meaning,
-      nextActions: refus.nextActions,
+      code: refusal.code,
+      summary: refusal.summary,
+      meaning: refusal.meaning,
+      nextActions: refusal.nextActions,
     },
   };
 }
@@ -187,7 +187,7 @@ function prepare(
  * @param e - ce qui a été levé.
  * @returns la charge utile d'arrêt.
  */
-function panne(connector: string, e: unknown): ICommandFailure {
+function failure(connector: string, e: unknown): ICommandFailure {
   if (e instanceof MigrationVerdictError) {
     return {
       formatVersion: MIGRATION_FORMAT_VERSION,
@@ -251,7 +251,7 @@ export async function migrationStatusFor(
       ),
     };
   } catch (e) {
-    return { ok: false, failure: panne(prepared.resolution.connector, e) };
+    return { ok: false, failure: failure(prepared.resolution.connector, e) };
   }
 }
 
@@ -296,7 +296,7 @@ export async function migrationPlanFor(
       },
     };
   } catch (e) {
-    return { ok: false, failure: panne(prepared.resolution.connector, e) };
+    return { ok: false, failure: failure(prepared.resolution.connector, e) };
   }
 }
 
@@ -364,6 +364,6 @@ export async function applyMigrationsFor(
       },
     };
   } catch (e) {
-    return { ok: false, failure: panne(prepared.resolution.connector, e) };
+    return { ok: false, failure: failure(prepared.resolution.connector, e) };
   }
 }

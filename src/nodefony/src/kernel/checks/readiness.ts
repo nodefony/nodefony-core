@@ -6,10 +6,13 @@
  * L'INSTALLATION et répond à une autre question, celle qu'on se pose quand rien
  * ne démarre : « qu'est-ce qui manque ICI, sur cette machine, maintenant ? ».
  *
- * Quatre manquements, tous constatés au moins une fois en session :
+ * Cinq manquements, tous constatés au moins une fois en session :
  *
  * - une **variable requise absente** — l'application refuse de démarrer, et le
- *   message natif arrive au milieu d'un journal de boot ;
+ *   message natif arrive au milieu d'un journal de boot ; requise ICI, ou
+ *   requise LÀ OÙ L'ON VA (`requiredIn`, cf `--env production`) ;
+ * - un **fichier `.env*.local` suivi par git** — il porte les secrets de la
+ *   machine, et l'historique les garde après suppression ;
  * - un **module du manifeste non installé** — `use("@acme/blog")` déclaré,
  *   paquet absent : le Kernel échoue à l'import, très loin de la cause ;
  * - une **dépendance déclarée non installée** — un `npm install` oublié après un
@@ -36,6 +39,7 @@ import { buildProjectEnvReport } from "../../cli/env";
 export interface IReadinessFinding {
   kind:
     | "env-required-missing"
+    | "env-file-tracked"
     | "module-not-installed"
     | "dep-not-installed"
     | "port-busy";
@@ -56,6 +60,14 @@ export interface IReadinessResult {
   catalogUnreadable: boolean;
   /** Ports effectivement sondés (vide si aucune sonde n'a été fournie). */
   portsProbed: number[];
+  /**
+   * Pourquoi le contrôle « fichier d'environnement suivi par git » n'a PAS eu
+   * lieu — `null` quand il a regardé.
+   *
+   * Sans dépôt git, l'absence de trouvaille ne prouve rien : c'est le cas
+   * qu'un outil de diagnostic doit ÉNONCER plutôt qu'afficher en vert.
+   */
+  trackedUnknown: string | null;
 }
 
 /**
@@ -78,8 +90,27 @@ export interface IPortProbe {
   ownedByUs: boolean;
 }
 
+/**
+ * Le VERDICT de git sur les fichiers d'environnement — injecté, jamais mesuré ici.
+ *
+ * Même raison que la sonde de ports : une capacité se CONSTATE et se transmet.
+ * Lancer `git` depuis la règle la rendrait inéprouvable sans dépôt, donc non
+ * testée sur la seule branche qui compte — celle où un secret est versionné.
+ */
+export interface ITrackedEnvProbe {
+  /**
+   * `false` si git n'a rien pu dire (pas un dépôt, binaire absent). Le contrôle
+   * est alors SAUTÉ — pas vert.
+   */
+  supported: boolean;
+  /** Fichiers d'environnement LOCAUX effectivement suivis, relatifs à la racine. */
+  tracked: readonly string[];
+  /** Ce qui a empêché de constater — présent seulement si `supported` est faux. */
+  reason?: string;
+}
+
 /** Retire les commentaires pour qu'un exemple commenté ne compte pas. */
-function sansCommentaires(source: string): string {
+function withoutComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//gu, "")
     .replace(/(^|[^:])\/\/.*$/gmu, "$1");
@@ -98,13 +129,13 @@ function sansCommentaires(source: string): string {
  * @returns les noms passés à `use("…")`, dédoublonnés, dans l'ordre de lecture.
  */
 export function declaredModules(source: string): string[] {
-  const noms = new Set<string>();
-  for (const [, nom] of sansCommentaires(source).matchAll(
+  const names = new Set<string>();
+  for (const [, name] of withoutComments(source).matchAll(
     /\buse\(\s*["'`]([^"'`]+)["'`]/gu,
   )) {
-    noms.add(nom);
+    names.add(name);
   }
-  return [...noms];
+  return [...names];
 }
 
 /**
@@ -134,22 +165,64 @@ function isModuleResolvable(projectRoot: string, name: string): boolean {
 export async function checkReadiness(input: {
   projectRoot: string;
   probe?: IPortProbe | null;
+  /**
+   * Environnement à ÉVALUER, s'il n'est pas celui d'ici (`doctor --env
+   * production`). Les valeurs restent celles de la machine.
+   */
+  targetEnv?: string | null;
+  /** Verdict de git sur les fichiers d'environnement, ou `null` pour ne pas regarder. */
+  tracked?: ITrackedEnvProbe | null;
 }): Promise<IReadinessResult> {
   const { projectRoot } = input;
+  const targetEnv = input.targetEnv ?? null;
   const findings: IReadinessFinding[] = [];
 
   // ─── 1. Variables d'environnement REQUISES ────────────────────────────────
   // Déléguée à la brique de `nodefony env` : une seconde définition de « quelle
   // valeur est effective » divergerait de la première sans que rien ne le dise.
-  const env = await buildProjectEnvReport(projectRoot, projectRoot);
+  const env = await buildProjectEnvReport(projectRoot, projectRoot, targetEnv);
   const catalogUnreadable = env.vars.length === 0;
   for (const v of env.vars.filter((x) => x.missing)) {
+    // Une variable requise ICI et une variable requise LÀ-BAS n'appellent pas
+    // le même geste : la première empêche de démarrer maintenant, la seconde
+    // attend le déploiement. Un message unique enverrait chercher une panne
+    // locale qui n'existe pas.
+    const elsewhere = targetEnv !== null;
     findings.push({
       kind: "env-required-missing",
-      message:
-        `la variable REQUISE ${v.name} n'a aucune valeur — l'application ne démarrera pas : ` +
-        `la poser dans .env (ou dans l'environnement du conteneur)`,
+      message: elsewhere
+        ? `la variable ${v.name} est REQUISE en ${targetEnv} et n'a aucune valeur ici — ` +
+          `le déploiement refusera de démarrer : la poser dans l'environnement ` +
+          `du conteneur (Secret k8s, vault), jamais en git`
+        : `la variable REQUISE ${v.name} n'a aucune valeur — l'application ne démarrera pas : ` +
+          `la poser dans .env (ou dans l'environnement du conteneur)`,
       file: ".env",
+    });
+  }
+
+  // ─── 1 bis. Un secret local SUIVI par git ─────────────────────────────────
+  // Les fichiers `.env*.local` portent les secrets de la machine — c'est la
+  // convention que le framework écrit lui-même dans `.env.example`. Versionné,
+  // un tel fichier met ses secrets dans l'historique, d'où ils ne partent plus :
+  // le retirer de l'index ne réécrit pas les commits déjà poussés.
+  const trackedUnknown =
+    input.tracked && !input.tracked.supported
+      ? (input.tracked.reason ?? "git n'a rien pu dire de ce dossier")
+      : input.tracked
+        ? null
+        : "aucun verdict git n'a été fourni à ce contrôle";
+  for (const file of input.tracked?.supported ? input.tracked.tracked : []) {
+    findings.push({
+      kind: "env-file-tracked",
+      // Le geste se sépare par la flèche — c'est la convention que le rendu
+      // lit pour le poser seul sur sa ligne et le reprendre dans « à faire
+      // ensuite ». Noyé dans la phrase, il ne se copie pas.
+      message:
+        `${file} est SUIVI par git — il porte les secrets de la machine, et ` +
+        `l'historique les garde même après suppression : tout secret déjà ` +
+        `poussé est COMPROMIS, il faut le faire tourner. Puis ajouter le ` +
+        `fichier à .gitignore. → git rm --cached ${file}`,
+      file,
     });
   }
 
@@ -162,8 +235,8 @@ export async function checkReadiness(input: {
     } catch {
       source = "";
     }
-    for (const nom of declaredModules(source)) {
-      if (isModuleResolvable(projectRoot, nom)) continue;
+    for (const name of declaredModules(source)) {
+      if (isModuleResolvable(projectRoot, name)) continue;
       findings.push({
         kind: "module-not-installed",
         // Ce message a dit le CONTRAIRE de ce que fait le framework, et c'est
@@ -173,11 +246,11 @@ export async function checkReadiness(input: {
         // « BOOT dégradé — 1 en échec ». C'est exactement le cas que `check` est
         // seul à savoir redire APRÈS coup — encore faut-il qu'il le décrive.
         message:
-          `le manifeste charge "${nom}" mais le paquet est INTROUVABLE ` +
+          `le manifeste charge "${name}" mais le paquet est INTROUVABLE ` +
           `(ni dans node_modules, ni dans modules/) — le boot ne s'arrêtera PAS : ` +
           `le module est écarté (fail-soft) et l'application démarre AMPUTÉE de ` +
           `ce qu'il apporte, sans erreur au point d'usage : ` +
-          `npm install ${nom}, ou retirer la ligne du manifeste`,
+          `npm install ${name}, ou retirer la ligne du manifeste`,
         file: "nodefony.config.ts",
       });
     }
@@ -200,14 +273,14 @@ export async function checkReadiness(input: {
     // paquet — ce serait cent lignes pour dire « npm install ».
     if (existsSync(path.join(projectRoot, "node_modules"))) {
       const declared = { ...pkg.dependencies, ...pkg.devDependencies };
-      for (const nom of Object.keys(declared)) {
+      for (const name of Object.keys(declared)) {
         // Une plage `file:`/`link:` non installée reste un défaut d'install,
         // mais le chemin de résolution est le même : présence du dossier.
-        if (existsSync(path.join(projectRoot, "node_modules", nom))) continue;
+        if (existsSync(path.join(projectRoot, "node_modules", name))) continue;
         findings.push({
           kind: "dep-not-installed",
           message:
-            `${nom} est déclaré dans package.json mais ABSENT de node_modules — ` +
+            `${name} est déclaré dans package.json mais ABSENT de node_modules — ` +
             `l'erreur au démarrage ne nommera que le premier import rencontré : npm install`,
           file: "package.json",
         });
@@ -229,5 +302,5 @@ export async function checkReadiness(input: {
     }
   }
 
-  return { findings, catalogUnreadable, portsProbed };
+  return { findings, catalogUnreadable, portsProbed, trackedUnknown };
 }

@@ -136,7 +136,7 @@ export class MongooseOrm extends Orm {
     }
     const connection = mongoose.createConnection(
       this.#uri,
-      this.#delaisSains(),
+      this.#healthyTimeouts(),
     );
     await connection.asPromise();
     this.#connection = connection;
@@ -378,24 +378,21 @@ export class MongooseOrm extends Orm {
    * intention : une URI qui porte `?serverSelectionTimeoutMS=20000` dit ce
    * qu'elle veut, et l'objet d'options primerait silencieusement sur elle.
    */
-  #delaisSains(): ConnectOptions {
-    const fournis = this.#options ?? {};
-    const dansUri = (cle: string): boolean =>
-      new RegExp(`[?&]${cle}=`, "iu").test(this.#uri);
-    const defauts: ConnectOptions = {};
+  #healthyTimeouts(): ConnectOptions {
+    const provided = this.#options ?? {};
+    const inUri = (key: string): boolean =>
+      new RegExp(`[?&]${key}=`, "iu").test(this.#uri);
+    const defaults: ConnectOptions = {};
     if (
-      fournis.serverSelectionTimeoutMS === undefined &&
-      !dansUri("serverSelectionTimeoutMS")
+      provided.serverSelectionTimeoutMS === undefined &&
+      !inUri("serverSelectionTimeoutMS")
     ) {
-      defauts.serverSelectionTimeoutMS = 5_000;
+      defaults.serverSelectionTimeoutMS = 5_000;
     }
-    if (
-      fournis.connectTimeoutMS === undefined &&
-      !dansUri("connectTimeoutMS")
-    ) {
-      defauts.connectTimeoutMS = 5_000;
+    if (provided.connectTimeoutMS === undefined && !inUri("connectTimeoutMS")) {
+      defaults.connectTimeoutMS = 5_000;
     }
-    return { ...defauts, ...fournis };
+    return { ...defaults, ...provided };
   }
 
   /**

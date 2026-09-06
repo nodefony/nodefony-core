@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runStopReport } from "../../service/dev/devStop";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onStart",
 };
@@ -21,7 +22,7 @@ class Stop extends Command {
   constructor(cli: CliKernel) {
     super(
       "stop",
-      "Arrête proprement les runtimes Nodefony actifs (dev, prod, cluster)",
+      "arrête les processus Nodefony de ce projet",
       cli as CliKernel,
       options,
     );

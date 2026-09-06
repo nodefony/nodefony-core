@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-28
+updated: 2026-09-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 ---
@@ -84,7 +84,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/bench.mjs` | Banc de charge F83 — latence de bout en bout d'un fan-out CROSS-POD. | — | — |
-| `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--format` `--port` `--workers` | `BOX` `NF_DATABASE_URL` `WORKERS` |
+| `scripts/db-outage-pod.mjs` | **Banc — une application Nodefony en PRODUCTION face à la chute de sa base.** | `--container` `--db` `--format` `--port` `--workers` | `BASE` `BOX` `NF_DATABASE_URL` `WORKERS` |
 | `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `CLE` `MODE` `NF_DATABASE_URL` `PORT` `URL_BASE` |
 | `scripts/db-readiness-pod.mjs` | **Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.** | `--container` `--db` `--format` `--port` | `BASE` `PORT` |
 | `scripts/forge.mjs` | — | — | — |
@@ -100,7 +100,7 @@ script, donc toujours à jour après régénération.
 
 ```bash
 node bench.mjs <portRécepteur> <portÉmetteur> <connexions> <rafales>
-node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]
+node db-outage-pod.mjs [--workers N] [--container NOM] [--port P] [--db NOM]
 node db-persistance-pod.mjs                          # sqlite fichier (local, sans docker)
 node db-readiness-pod.mjs [--container NOM] [--port P] [--db NOM]
 node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>

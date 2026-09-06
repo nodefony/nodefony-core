@@ -9,6 +9,7 @@ import {
 import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   // onPostReady (comme `development`/`production`) : l'UNIQUE Kernel boote complètement.
   // Décision master/worker prise dans onKernelStart (avant initServers). Plus de double-boot.
@@ -37,7 +38,7 @@ class Cluster extends Command {
   constructor(cli: CliKernel) {
     super(
       "cluster",
-      "Serveur en cluster : N workers isolés (cgroup-aware, respawn, arrêt gracieux)",
+      "démarre N workers isolés, relancés s'ils tombent",
       cli as CliKernel,
       options,
     );

@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runAiMcpCommand } from "../../cli/aiMcp";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "AGENTS ET OUTILLAGE",
   showBanner: false,
   kernelEvent: "onRegister",
   // 🔴 Le fast-path standalone ne s'applique QU'À une invocation directe :
@@ -38,7 +39,7 @@ class AiMcp extends Command {
   constructor(cli: CliKernel) {
     super(
       "ai:mcp",
-      "Déclare le serveur MCP de cette application à ton agent (.mcp.json)",
+      "déclare le serveur MCP de l'app à ton agent",
       cli as CliKernel,
       options,
     );

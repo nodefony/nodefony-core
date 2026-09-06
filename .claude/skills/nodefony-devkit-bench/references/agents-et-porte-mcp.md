@@ -112,7 +112,7 @@ l'enveloppe s'appelle `event`, pas `type` ; le tour d'agent est un `step_update`
    la variable posée, il envoie **le gabarit littéral sur le réseau** —
    `VU: ["Bearer ${NF_MCP_TOKEN}", …]`. L'authentifier exigerait donc d'écrire **la valeur du jeton
    en clair** dans `$HOME/.gemini/config/mcp_config.json`.
-   Or la table du cœur refuse cela **par principe** : `IDeclarationContexte` ne transporte que
+   Or la table du cœur refuse cela **par principe** : `IDeclarationContext` ne transporte que
    `tokenEnv` — « le NOM de la variable qui porte le jeton, jamais le jeton lui-même ». Le servir
    demanderait de faire remonter la valeur depuis l'émission jusqu'à `declarerChezAgents`, et
    d'assumer un secret en clair (foyer utilisateur, hors dépôt). **C'est une décision de produit, pas
@@ -323,7 +323,7 @@ CHOIX de l'agent (§ 2, « c'est le plus souvent : il n'a jamais eu la porte »)
 prendre par le piège qu'il documente.**
 
 La racine est une **règle en deux exemplaires** : « quels agents nommer à `ai:mcp` » vit dans le
-cœur (`argvCablageMcp` filtre `declaration === "cli"`, deux tests le gardent), et le banc en tenait
+cœur (`argvMcpWiring` filtre `declaration === "cli"`, deux tests le gardent), et le banc en tenait
 une copie fausse. Il nomme désormais TOUJOURS l'agent et laisse `ai:mcp` trancher. Le CONSTAT de
 déclaration, lui aussi enfermé dans `if (foyer)`, cherche maintenant dans le foyer jetable **ou**
 dans le projet — et dit lequel.

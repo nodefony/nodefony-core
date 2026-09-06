@@ -340,15 +340,15 @@ export function resolveConnector(
       };
     }
   }
-  const cible = migrateUrl ? parseDatabaseUrl(migrateUrl) : null;
-  const fromMigrateUrl = cible !== null;
+  const parsedUrl = migrateUrl ? parseDatabaseUrl(migrateUrl) : null;
+  const fromMigrateUrl = parsedUrl !== null;
   const target: IMigrationTarget = {
     dialect,
     filename:
       fromMigrateUrl && dialect === "sqlite"
-        ? sqliteFilenameFromUrl(cible.url)
+        ? sqliteFilenameFromUrl(parsedUrl.url)
         : base.filename,
-    url: fromMigrateUrl && dialect !== "sqlite" ? cible.url : base.url,
+    url: fromMigrateUrl && dialect !== "sqlite" ? parsedUrl.url : base.url,
   };
   return {
     kind: "ready",

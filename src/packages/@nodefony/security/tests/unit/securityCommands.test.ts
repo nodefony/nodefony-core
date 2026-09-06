@@ -190,7 +190,7 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
       "jwt.keystore",
     ]) {
       const bloc = new RegExp(
-        `"?${clef.replace(".", "\\.")}"?:\\s*\\{[^}]*protege:[^}]*sans:`,
+        `"?${clef.replace(".", "\\.")}"?:\\s*\\{[^}]*protected:[^}]*without:`,
         "u",
       );
       expect(bloc.test(source), `${clef} sans rôle ni conséquence`).toBe(true);

@@ -1,7 +1,8 @@
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { besoinDeShell } from "./execPortable";
+import { needsShell } from "./execPortable";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
@@ -32,6 +33,7 @@ import { AGENT_TARGETS, type IAgentTarget } from "./agentTargets";
 import { chargePrompts } from "./prompts";
 import { installGitHooks } from "./gitHooks";
 import { GIT_HOOKS_DIR } from "./gitHooksReport";
+import { stripGlobalCliFlags } from "./globalFlags";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -61,6 +63,8 @@ export const CREATE_TYPES = [
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
 export interface ICreateRequest {
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
   /** `undefined` seulement avec `--describe-json` (décrire TOUS les types). */
   type?: TCreateType;
   /** Réponses partielles issues des flags (le reste : interactif ou défauts). */
@@ -92,7 +96,10 @@ export function parseCreateArgv(
   argv: string[],
 ): ICreateRequest | { error: string } {
   const at = argv.indexOf("create");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  // Les options globales du CLI sont ABSORBÉES avant la lecture propre à la
+  // commande : l'aide les promet pour toutes, ce raccourci ne passe pas par
+  // commander, et les refuser dément l'aide de la ligne au-dessus.
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   const positionals: string[] = [];
   const answers: TScaffoldAnswers = {};
   let dir: string | undefined;
@@ -103,9 +110,14 @@ export function parseCreateArgv(
   let dryRun = false;
   let describeJson = false;
   let answersJson: string | undefined;
+  let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--force" || word === "-f") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      help = true;
+    } else if (word === "--force" || word === "-f") {
       force = true;
     } else if (word === "--yes" || word === "-y") {
       yes = true;
@@ -232,6 +244,12 @@ export function parseCreateArgv(
     }
   }
   const [type, name, ...extra] = positionals;
+  // `--help` court-circuite TOUTE validation : « nodefony create --help » doit
+  // rendre la page, pas « type requis ». On demande l'aide précisément parce
+  // qu'on ne sait pas encore quel type existe.
+  if (help) {
+    return { help, answers, force, yes, install, git, dryRun, describeJson };
+  }
   // Le type est obligatoire pour AGIR, facultatif pour se DÉCRIRE : un agent
   // qui découvre l'outil demande le catalogue entier avant de savoir quel type
   // il veut.
@@ -263,6 +281,7 @@ export function parseCreateArgv(
     answers.fields = extra.join(" ");
   }
   return {
+    help,
     type: type as TCreateType | undefined,
     answers,
     dir,
@@ -276,8 +295,7 @@ export function parseCreateArgv(
   };
 }
 
-const USAGE =
-  `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
+const PAR_TYPE =
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
   `               [--agents <liste|none>] — agents de dev à câbler (défaut : aucun)\n` +
   `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
@@ -311,6 +329,66 @@ const USAGE =
   `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +
   `    --answers-json <fichier|->       réponses en JSON (- = entrée standard) ; les flags l'emportent\n` +
   `    --dry-run                        le plan (fichiers créés + diff des réécritures), sans rien écrire\n`;
+
+/** La page d'aide — `nodefony create --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony create",
+  tagline:
+    "engendre du code conforme au framework : une application, un module, " +
+    "un controller, un service, un front, une entité, une commande",
+  synopsis: [
+    `nodefony create <${CREATE_TYPES.join("|")}> [nom] [options]`,
+    "nodefony create --describe-json",
+  ],
+  sections: [
+    {
+      title: "CE QUE CHAQUE TYPE ACCEPTE",
+      lines: PAR_TYPE.split("\n").filter((l) => l !== ""),
+    },
+  ],
+  options: [
+    { term: "--dir <chemin>", text: "dossier cible (défaut : ./<nom>)" },
+    { term: "-f, --force", text: "accepte un dossier cible non vide" },
+    {
+      term: "-y, --yes",
+      text: "prend les défauts de la spec (saute l'interactif)",
+    },
+    { term: "-n, --dry-run", text: "le plan, sans rien écrire" },
+    {
+      term: "--describe-json",
+      text:
+        "types, questions, valeurs permises et cibles du projet, en JSON — " +
+        "la porte MACHINE, pour un agent ou un script",
+    },
+    {
+      term: "--answers-json <f>",
+      text: "réponses en JSON (`-` = entrée standard) ; les drapeaux l'emportent",
+    },
+  ],
+  examples: [
+    {
+      term: "nodefony create app mon-app",
+      text: "une application neuve, hors de tout projet",
+    },
+    {
+      term: "nodefony create entity Post title:string content:text",
+      text: "une entité, son repository, son controller et ses tests",
+    },
+    {
+      term: "nodefony create --describe-json | jq .",
+      text: "ce que le générateur sait faire, pour un agent",
+    },
+  ],
+  exitCodes: [
+    {
+      term: "73",
+      text: "le dossier cible ne peut pas être créé (EX_CANTCREAT)",
+    },
+  ],
+  footer:
+    "Sans drapeau dans un terminal, elle passe en mode interactif : les " +
+    "questions de la spec, puis un récapitulatif avant d'écrire.",
+};
 
 /**
  * Décrit le scaffold en JSON — la porte MACHINE de `nodefony create`.
@@ -471,7 +549,7 @@ function runInstall(dest: string): boolean {
   const r = spawnSync("npm", ["install"], {
     cwd: dest,
     stdio: "inherit",
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
   });
   return r.status === 0;
 }
@@ -518,13 +596,36 @@ function runFormat(dest: string, files: string[]): void {
  * L'installation sautée (`--no-install`) ne compte pas comme un échec : rien
  * n'a été tenté, et la commande l'annonce dans ses prochaines étapes.
  *
- * @param installed - l'installation des dépendances a-t-elle eu lieu ?
- * @param built - `npm run build` a-t-il réussi ? (faux aussi s'il n'a pas tourné)
- * @returns `OK`, ou `SOFTWARE` si le build a été tenté et a échoué.
+ * 🔴 **Sautée et ratée sont deux états, pas un booléen.** Les deux étapes
+ * étaient rendues par `boolean`, où `false` disait à la fois « on ne l'a pas
+ * lancée » et « on l'a lancée et elle a échoué ». Une installation ratée
+ * tombait donc du bon côté : code 0. Or elle emporte TOUT ce qui la suit — le
+ * formatage, le build, la migration initiale — et l'utilisateur reçoit une
+ * application qui ne peut pas démarrer, sous un succès. Constaté sur le décor
+ * du banc de découvrabilité, dont l'application témoin n'avait jamais eu de
+ * `dist/` ni de `migrations/` : le manifeste pointait encore vers un registre
+ * où aucun paquet `@nodefony/*` n'est publié.
+ *
+ * @param install - l'installation des dépendances : sautée, réussie, échouée.
+ * @param build - `npm run build` : sauté (l'install n'a pas eu lieu), réussi,
+ *   échoué.
+ * @returns `OK`, ou `SOFTWARE` dès qu'une étape TENTÉE a échoué.
  */
-export function createExitCode(installed: boolean, built: boolean): SysExit {
-  return installed && !built ? SysExit.SOFTWARE : SysExit.OK;
+export function createExitCode(
+  install: CreateStepOutcome,
+  build: CreateStepOutcome,
+): SysExit {
+  return install === "failed" || build === "failed"
+    ? SysExit.SOFTWARE
+    : SysExit.OK;
 }
+
+/**
+ * Ce qu'une étape de post-génération a fait : rien, ou réussi, ou échoué.
+ *
+ * Trois états parce que deux ne suffisent pas — cf {@link createExitCode}.
+ */
+export type CreateStepOutcome = "skipped" | "succeeded" | "failed";
 
 /**
  * `npm run build` dans l'app générée — le runtime charge `dist/index.js`
@@ -537,7 +638,7 @@ function runBuild(dest: string): boolean {
   const r = spawnSync("npm", ["run", "build"], {
     cwd: dest,
     stdio: "inherit",
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
   });
   return r.status === 0;
 }
@@ -549,7 +650,7 @@ function runBuild(dest: string): boolean {
  * un ORM ? » — celui qui ÉCRIT la migration, et celui qui l'ANNONCE quand elle
  * n'a pas pu l'être. Écrit deux fois, il divergerait au premier renommage.
  */
-const PAQUET_ORM = "@nodefony/drizzle";
+const ORM_PACKAGE = "@nodefony/drizzle";
 
 /**
  * L'application générée DÉCLARE-t-elle un ORM SQL ?
@@ -567,7 +668,7 @@ function appDeclareUnOrm(dest: string): boolean {
     const pkg = JSON.parse(
       readFileSync(path.join(dest, "package.json"), "utf8"),
     ) as { dependencies?: Record<string, string> };
-    return pkg.dependencies?.[PAQUET_ORM] !== undefined;
+    return pkg.dependencies?.[ORM_PACKAGE] !== undefined;
   } catch {
     // Un manifeste illisible n'est pas une application sans ORM : c'est une
     // application cassée, que les gardes amont ont déjà signalée. Ne rien
@@ -595,6 +696,14 @@ function appDeclareUnOrm(dest: string): boolean {
  * à la création, et les champs que l'utilisateur a demandés. Une source unique,
  * celle qui écrira aussi les migrations suivantes.
  *
+ * ## Écrite, puis APPLIQUÉE
+ *
+ * Les deux, et dans la foulée : une application dont les fichiers de migration
+ * existent mais dont la base ne les a jamais vus est à mi-chemin, et c'est le
+ * pire des deux états. Son premier démarrage en développement dérive le schéma
+ * du code, les tables apparaissent sans historique, et tout ce qui interroge
+ * cet état ensuite accuse à juste titre — `doctor --live` en tête.
+ *
  * ## Quand elle ne peut pas être écrite
  *
  * La commande démarre l'application, et le démarrage OUVRE la connexion : sans
@@ -611,10 +720,10 @@ function appDeclareUnOrm(dest: string): boolean {
  */
 function runInitialMigration(
   dest: string,
-): { ecrite: boolean; note: string } | null {
+): { written: boolean; note: string } | null {
   // Ici on va EXÉCUTER : c'est donc l'installation qu'on constate, pas la
   // déclaration. Le manifeste dit l'intention, `node_modules` dit le moyen.
-  if (!existsSync(path.join(dest, "node_modules", PAQUET_ORM))) {
+  if (!existsSync(path.join(dest, "node_modules", ORM_PACKAGE))) {
     // Pas d'ORM SQL dans cette application : il n'y a pas de migration à écrire.
     return null;
   }
@@ -625,7 +734,7 @@ function runInitialMigration(
     {
       cwd: dest,
       encoding: "utf8",
-      shell: besoinDeShell("npm"),
+      shell: needsShell("npm"),
       // 🔴 Le décor MINIMAL sans lequel la commande se mord la queue. Elle
       // démarre l'application, et un démarrage en développement DÉRIVE le
       // schéma du code : la base se retrouve peuplée par la commande
@@ -639,18 +748,52 @@ function runInitialMigration(
     },
   );
   if (r.status === 0) {
-    return { ecrite: true, note: "écrite (migrations/)" };
+    // 🔴 ÉCRITE ne veut pas dire APPLIQUÉE, et l'application naissait à
+    // mi-chemin : ses fichiers de migration étaient là, sa base ne les avait
+    // jamais vus. Le premier démarrage en développement DÉRIVE alors le schéma
+    // du code — les tables apparaissent sans qu'aucune migration ne soit
+    // enregistrée —, et tout ce qui interroge cet état ensuite dit vrai en
+    // accusant : `doctor --live` rend « la base contient déjà des tables, mais
+    // aucune migration n'y est enregistrée », le boot loggue « no such table:
+    // User », et la forge du scaffold criait « 2 migrations à appliquer ».
+    //
+    // Un agent qui rencontre ça répare du vide. On applique donc, dans le même
+    // décor que l'écriture (`production` + `NF_STORE=memory`) : le mode `none`
+    // empêche le démarrage de fabriquer quoi que ce soit, et c'est bien la
+    // MIGRATION qui crée les tables.
+    const applique = spawnSync(
+      "npm",
+      ["exec", "--", "nodefony", "orm:migrate"],
+      {
+        cwd: dest,
+        encoding: "utf8",
+        shell: needsShell("npm"),
+        env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+      },
+    );
+    if (applique.status === 0) {
+      return { written: true, note: "écrite et appliquée (migrations/)" };
+    }
+    // L'écriture, elle, a bien eu lieu : le dire, plutôt que de laisser croire
+    // que rien n'a été fait. Le geste qui reste est nommé — une base
+    // injoignable au moment de la création est un cas parfaitement normal.
+    return {
+      written: true,
+      note:
+        "écrite (migrations/), NON appliquée — lance « nodefony orm:migrate » " +
+        "quand ta base répond",
+    };
   }
   // Le motif court, pris sur ce que le processus a VRAIMENT dit : un message
   // inventé ici enverrait chercher la panne ailleurs.
-  const sortie = `${r.stdout ?? ""}${r.stderr ?? ""}`;
-  const motif = sortie.includes("ECONNREFUSED")
+  const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  const pattern = output.includes("ECONNREFUSED")
     ? "base injoignable"
     : `code ${String(r.status)}`;
   return {
-    ecrite: false,
+    written: false,
     note:
-      `NON écrite (${motif}) — lance « nodefony orm:generate --name init » ` +
+      `NON écrite (${pattern}) — lance « nodefony orm:generate --name init » ` +
       `puis « nodefony orm:migrate » quand ta base répond`,
   };
 }
@@ -702,14 +845,14 @@ function poseSkillPointers(dest: string): string {
  * - `--yes` n'a pas été demandé : il dit « ne me demande rien », et le
  *   respecter vaut mieux que de rendre service.
  *
- * @param erreur - le motif rendu par l'analyse de la ligne de commande.
+ * @param error - le motif rendu par l'analyse de la ligne de commande.
  * @param ctx - terminal disponible, et présence de `--yes`.
  */
-export function doitDemanderLeType(
-  erreur: string,
+export function shouldAskForType(
+  error: string,
   ctx: { isTTY: boolean; yes: boolean },
 ): boolean {
-  return erreur.includes("reçu : rien") && ctx.isTTY && !ctx.yes;
+  return error.includes("reçu : rien") && ctx.isTTY && !ctx.yes;
 }
 
 /**
@@ -738,18 +881,18 @@ function descriptionType(type: string): string {
  * @param ctx - nombre d'agents choisis, et état réel de l'app générée.
  * @returns la proposition, ou le motif du refus (affiché tel quel).
  */
-export function planCablageMcp(ctx: {
-  choisis: number;
+export function mcpWiringPlan(ctx: {
+  chosen: number;
   installed: boolean;
   built: boolean;
-}): { propose: true } | { propose: false; motif: string } {
-  if (ctx.choisis === 0) {
-    return { propose: false, motif: "aucun agent choisi" };
+}): { propose: true } | { propose: false; pattern: string } {
+  if (ctx.chosen === 0) {
+    return { propose: false, pattern: "aucun agent choisi" };
   }
   if (!ctx.installed || !ctx.built) {
     return {
       propose: false,
-      motif:
+      pattern:
         "agents choisis mais app ni installée ni construite — " +
         "l'émission du jeton démarre le kernel ; à rejouer : npx nodefony ai:mcp",
     };
@@ -774,21 +917,21 @@ export function planCablageMcp(ctx: {
  * app neuve naît avec sa porte fermée ; l'ouvrir sans authentification serait un
  * défaut par défaut.
  *
- * @param choisis - clés cochées par l'utilisateur.
- * @param detectes - agents présents sur ce poste (source unique `AGENT_TARGETS`).
+ * @param chosen - clés cochées par l'utilisateur.
+ * @param detected - agents présents sur ce poste (source unique `AGENT_TARGETS`).
  * @param dest - racine de l'app générée.
  * @returns l'argv à passer à `ai:mcp`, ou `null` quand aucun agent n'est choisi
  *   — coder seul est un choix, et rien ne doit alors être écrit.
  */
-export function argvCablageMcp(
-  choisis: readonly string[],
-  detectes: readonly IAgentTarget[],
+export function argvMcpWiring(
+  chosen: readonly string[],
+  detected: readonly IAgentTarget[],
   dest: string,
 ): string[] | null {
-  if (choisis.length === 0) return null;
-  const parCli = detectes
-    .filter((c) => c.declaration === "cli" && choisis.includes(c.cle))
-    .map((c) => c.cle);
+  if (chosen.length === 0) return null;
+  const parCli = detected
+    .filter((c) => c.declaration === "cli" && chosen.includes(c.key))
+    .map((c) => c.key);
   return [
     "ai:mcp",
     "--cwd",
@@ -880,7 +1023,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // personne pour répondre.
   if (
     "error" in parsed &&
-    doitDemanderLeType(parsed.error, {
+    shouldAskForType(parsed.error, {
       isTTY: process.stdin.isTTY === true,
       yes: argv.includes("--yes"),
     })
@@ -897,13 +1040,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // Le type se glisse À LA PLACE qu'il aurait occupée si l'utilisateur
     // l'avait tapé : après le mot `create`, avant tout le reste.
     const at = argv.indexOf("create");
-    const complet = [...argv];
-    complet.splice(at === -1 ? argv.length : at + 1, 0, type);
-    parsed = parseCreateArgv(complet);
+    const fullName = [...argv];
+    fullName.splice(at === -1 ? argv.length : at + 1, 0, type);
+    parsed = parseCreateArgv(fullName);
   }
   if ("error" in parsed) {
-    process.stderr.write(`create: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   if (parsed.describeJson) {
     // Avant tout le reste : se décrire ne dépend d'aucune réponse, et doit
@@ -984,8 +1129,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     answers.link = false;
   }
   if (answers.name === undefined || answers.name === "") {
-    process.stderr.write(`create: nom requis\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, "nom requis");
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
   const dir =
@@ -1004,8 +1148,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.CANTCREAT;
     }
     if (message.includes("invalide")) {
-      process.stderr.write(USAGE);
-      return SysExit.USAGE;
+      return printUsageError(PAGE, message);
     }
     return SysExit.SOFTWARE;
   }
@@ -1081,19 +1224,19 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     //
     // Non bloquant, comme le reste de la post-génération : le code est écrit,
     // un réseau absent ne doit pas transformer une génération réussie en échec.
-    const depsAjoutees = result.depsAdded ?? [];
-    if (parsed.install && depsAjoutees.length > 0) {
-      const racine = findProjectRoot(process.cwd());
-      const pose = racine !== null && runInstall(racine);
+    const addedDeps = result.depsAdded ?? [];
+    if (parsed.install && addedDeps.length > 0) {
+      const root = findProjectRoot(process.cwd());
+      const pose = root !== null && runInstall(root);
       process.stdout.write(
         pose
-          ? `\n✔ dépendance(s) installée(s) : ${depsAjoutees.join(", ")}\n`
+          ? `\n✔ dépendance(s) installée(s) : ${addedDeps.join(", ")}\n`
           : `\n⚠ npm install a échoué — relance-le à la racine du projet ` +
-              `(${depsAjoutees.join(", ")} est déclaré mais absent de node_modules)\n`,
+              `(${addedDeps.join(", ")} est déclaré mais absent de node_modules)\n`,
       );
-    } else if (depsAjoutees.length > 0) {
+    } else if (addedDeps.length > 0) {
       process.stdout.write(
-        `\n⚠ ${depsAjoutees.join(", ")} ajouté(s) au package.json et NON installé(s) ` +
+        `\n⚠ ${addedDeps.join(", ")} ajouté(s) au package.json et NON installé(s) ` +
           `(--no-install) → lance \`npm install\`\n`,
       );
     }
@@ -1144,11 +1287,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // AVANT git : la migration entre dans le commit initial, comme le lockfile —
   // c'est un artefact de l'application, pas un produit de build. Elle suit le
   // build : la commande démarre l'application, qui charge `dist/`.
-  let migrationEcrite = false;
+  let migrationWritten = false;
   if (built) {
     const migration = runInitialMigration(result.dest);
     if (migration !== null) {
-      migrationEcrite = migration.ecrite;
+      migrationWritten = migration.written;
       process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
     }
   }
@@ -1165,25 +1308,25 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // endroit pour le terminal, Studio et `--answers-json`. Ce qui autorise
   // l'écriture chez un tiers n'est pas la présence d'un humain, c'est un choix
   // EXPLICITE : rien de coché ⇒ rien d'écrit, y compris hors terminal.
-  const choisis = Array.isArray(answers.agents)
+  const chosen = Array.isArray(answers.agents)
     ? (answers.agents as string[])
     : [];
-  const cablage = planCablageMcp({
-    choisis: choisis.length,
+  const wiring = mcpWiringPlan({
+    chosen: chosen.length,
     installed,
     built,
   });
-  let mcpNote = cablage.propose ? "" : cablage.motif;
-  if (cablage.propose) {
-    const appelMcp = argvCablageMcp(choisis, AGENT_TARGETS, result.dest);
-    if (appelMcp === null) {
+  let mcpNote = wiring.propose ? "" : wiring.pattern;
+  if (wiring.propose) {
+    const mcpCall = argvMcpWiring(chosen, AGENT_TARGETS, result.dest);
+    if (mcpCall === null) {
       mcpNote = "aucun agent choisi";
     } else {
       // ⭐ MÊME implémentation que `nodefony ai:mcp` — APPELÉE, jamais
       // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
       // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
       // code de sortie, et l'émission du jeton avec sa durée et sa portée.
-      await runAiMcpCommand(appelMcp);
+      await runAiMcpCommand(mcpCall);
     }
   }
   if (mcpNote !== "") {
@@ -1217,7 +1360,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // Après `infra:up` : la commande démarre l'application, donc ouvre la
       // connexion — sans base joignable elle meurt avant d'écrire quoi que ce
       // soit.
-      (!migrationEcrite && appDeclareUnOrm(result.dest)
+      (!migrationWritten && appDeclareUnOrm(result.dest)
         ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n`
         : "") +
       // La console d'administration n'existe QUE si le préset l'a installée, et
@@ -1238,5 +1381,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
   // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
   // ne peut distinguer une application prête d'une application à réparer.
-  return createExitCode(installed, built);
+  return createExitCode(
+    parsed.install ? (installed ? "succeeded" : "failed") : "skipped",
+    installed ? (built ? "succeeded" : "failed") : "skipped",
+  );
 }

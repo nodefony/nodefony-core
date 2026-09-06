@@ -34,14 +34,14 @@ Deux frames servent de repères :
 
 ## Les étapes du scénario, et comment lire chaque verdict
 
-### `accueil`
+### `welcome`
 
-`recuApresMs`, canaux, méthodes, identité. **S'il ne vient jamais** (code de retour 65), les trois
+`receivedAfterMs`, canaux, méthodes, identité. **S'il ne vient jamais** (code de retour 65), les trois
 suspects, dans l'ordre : le chemin du endpoint est faux ; la page n'est pas authentifiée (donner
 `NF_BROWSER_USER` + `NF_BROWSER_LOGIN`) ; l'`Origin` de la page est refusé par le serveur. Le
 réseau qui « passe » n'innocente aucun des trois.
 
-### `abonnement`
+### `subscription`
 
 S'abonne au canal de `NF_BROWSER_CHANNEL` — à défaut, au **premier canal annoncé par l'accueil** —
 puis écoute pendant `NF_BROWSER_SOCKET_WAIT` ms (défaut 4 000).
@@ -56,7 +56,7 @@ puis écoute pendant `NF_BROWSER_SOCKET_WAIT` ms (défaut 4 000).
 L'abonnement part **sans `id`** : c'est une notification. Envoyé avec un `id`, il serait classé
 requête, ne trouverait aucun handler, et récolterait un `-32601` — piège classique du protocole.
 
-### `latence`
+### `latency`
 
 Mesure `NF_BROWSER_PINGS` allers-retours (défaut 5) sur une méthode **corrélée** : l'action de
 `NF_BROWSER_ACTION` si elle est donnée, sinon le pont API si `NF_BROWSER_API` l'est. Rend chaque
@@ -66,7 +66,7 @@ mesure, les expirations, et la **médiane** — jamais la moyenne, qu'un seul al
 - **Sans méthode corrélée, pas de latence** : la notification `ping` du battement de cœur est un
   no-op serveur, aucun pong n'en revient. Verdict `NON MESURÉE`, jamais un zéro inventé.
 - **`RÉPOND EN ERREUR -32601`** : l'aller-retour est COMPLET — la latence mesure le fil, mais ne
-  valide pas l'action, qui n'existe pas sur cet endpoint. Lire `methodes` dans l'accueil avant
+  valide pas l'action, qui n'existe pas sur cet endpoint. Lire `methods` dans l'accueil avant
   d'appeler.
 
 ### `api`
@@ -76,7 +76,7 @@ porte le `result` de la route et, souvent, un champ frère `meta` (identifiant d
 la preuve que le plan de données passe bien par le WebSocket. Une erreur corrélée (`-32601` si le
 pont n'est pas exposé sur cet endpoint, erreur applicative sinon) est rendue telle quelle.
 
-### `reconnexion`
+### `reconnection`
 
 Ferme le socket (code 1000), en rouvre un, attend le nouvel accueil, et compare l'identité.
 `memeIdentite: true` prouve que l'identité est portée par la **session** (résolue au handshake,

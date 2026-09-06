@@ -16,11 +16,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
-  argvCablageMcp,
+  argvMcpWiring,
   createExitCode,
-  doitDemanderLeType,
+  shouldAskForType,
   parseCreateArgv,
-  planCablageMcp,
+  mcpWiringPlan,
   renderDryRun,
   runCreateCommand,
   type ICreateRequest,
@@ -33,6 +33,7 @@ import {
   resolveAnswers,
   linkLocalDeps,
   runScaffold,
+  type TScaffoldAnswers,
   getScaffoldContext,
   findModuleClassAnchor,
   filterProbe,
@@ -47,7 +48,11 @@ const argv = (...words: string[]): string[] => ["node", "nodefony", ...words];
 /** Rend le scaffold app dans un dossier de test avec réponses explicites. */
 const scaffold = (
   dir: string,
-  answers: Record<string, string | boolean>,
+  // `string[]` compris : la réponse `agents` est une LISTE (plusieurs agents se
+  // servent côte à côte). Le type du moteur (`TScaffoldAnswers`) le porte déjà ;
+  // ce helper le restreignait, et l'écart ne s'est vu qu'au typecheck du dépôt —
+  // vitest efface les types, un `npm test` vert n'en dit rien.
+  answers: TScaffoldAnswers,
   force = false,
 ) => runScaffold({ type: "app", answers, dir, force }, version);
 
@@ -148,6 +153,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("parse type/name + défauts (answers partielles vides)", () => {
       const req = parseCreateArgv(argv("create", "app", "mon-app"));
       assert.deepEqual(req, {
+        help: false,
         type: "app",
         answers: { name: "mon-app" },
         dir: undefined,
@@ -181,6 +187,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       assert.deepEqual(req, {
+        help: false,
         type: "app",
         answers: {
           name: "x",
@@ -238,17 +245,28 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // d'intégration, banc, agent qui enchaîne — ne peut distinguer une
       // application prête d'une application à réparer. C'est ce qui a laissé le
       // front d'une application générée ne pas se bâtir sans que rien ne tombe.
-      assert.equal(createExitCode(true, false), SysExit.SOFTWARE);
+      assert.equal(createExitCode("succeeded", "failed"), SysExit.SOFTWARE);
     });
 
     it("build réussi → OK", () => {
-      assert.equal(createExitCode(true, true), SysExit.OK);
+      assert.equal(createExitCode("succeeded", "succeeded"), SysExit.OK);
     });
 
     it("installation SAUTÉE → OK : rien n'a été tenté, et c'est dit", () => {
       // `--no-install` saute aussi le build. Rendre un échec ici punirait un
       // geste volontaire, que les prochaines étapes affichent déjà.
-      assert.equal(createExitCode(false, false), SysExit.OK);
+      assert.equal(createExitCode("skipped", "skipped"), SysExit.OK);
+    });
+
+    it("🔴 installation TENTÉE et ratée → SOFTWARE, pas OK", () => {
+      // Le défaut fermé : `installed` était un booléen, et `false` disait à la
+      // fois « sautée par --no-install » et « tentée et ratée ». Le second cas
+      // rendait donc 0 — alors que rien n'est installé, rien n'est construit,
+      // rien n'est formaté et la migration initiale n'est pas écrite :
+      // l'utilisateur reçoit une application qui ne peut pas démarrer, avec un
+      // succès affiché. Constaté sur le décor du banc de découvrabilité, dont
+      // l'application témoin n'a JAMAIS eu de `dist/`.
+      assert.equal(createExitCode("failed", "skipped"), SysExit.SOFTWARE);
     });
   });
 
@@ -336,11 +354,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // statique (répond sur une app cassée), `inspect` est runtime (ce qui est
       // VRAIMENT monté). Un agent les apprend ensemble, et n'en exposer qu'un
       // laisse croire que l'autre n'existe pas.
-      assert.property(pkg["scripts"], "check");
+      // Le script `check` a été RETIRÉ : il n'était qu'un alias de `doctor`,
+      // et son nom entrait en collision de sens avec `typecheck` et
+      // `format:check`, qui vérifient bel et bien quelque chose de précis.
+      assert.notProperty(pkg["scripts"], "check");
+      assert.property(pkg["scripts"], "doctor");
       assert.property(pkg["scripts"], "inspect");
       // `ai:sync` pose les skills livrés par les paquets. Sans cette ligne, le
       // verbe existe et personne ne l'apprend — le défaut mesuré au banc sur
-      // les commandes maison (`nodefony check` employé 5 fois sur 63).
+      // les commandes maison (`nodefony doctor` employé 5 fois sur 63).
       assert.property(pkg["scripts"], "ai:sync");
       // `clean` ne peut PAS s'appuyer sur `rimraf` : il n'est pas dans les
       // devDependencies du gabarit, et un script qui échoue au premier usage
@@ -362,7 +384,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // gate de forme de la CI générée tombait après coup, ailleurs.
         "format:check",
         "test",
-        "check",
+        // `doctor`, jamais « check » : l'alias a été retiré, et son nom entrait
+        // en collision de sens avec les deux gates ci-dessus, qui vérifient bel
+        // et bien quelque chose de précis. Un `verify` qui enchaîne
+        // `format:check` puis `check` ne dit à personne ce que le second fait.
+        "doctor",
       ]) {
         assert.include(
           pkg["scripts"]["verify"],
@@ -397,7 +423,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // distribuerait un battement enseignerait le polling inversé à chaque
       // application générée.
       assert.notInclude(live, "setInterval");
-      assert.include(live, '@RealtimeInbound("live:dire")');
+      assert.include(live, '@RealtimeInbound("live:say")');
       // Policy INLINE visible : l'ouverture d'une action est un choix ÉCRIT,
       // la protection par rôle est démontrée à côté.
       assert.include(
@@ -420,7 +446,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(e2e, 'from "nodefony/client"');
       assert.include(e2e, 'live.request("live:ping"');
       assert.include(e2e, 'live.subscribe("live:events")');
-      assert.include(e2e, 'live.emit("live:dire"');
+      assert.include(e2e, 'live.emit("live:say"');
     });
 
     it("secrets PAR-PROJET : .env.local porte 3 clés uniques, .gitignore les exclut", () => {
@@ -513,6 +539,52 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le refus doit être `false` — une approbation ferait EXÉCUTER node-gyp",
       );
     });
+
+    /**
+     * 🔴 L'APPLICATION déclare le pilote qu'elle ouvre — et lui seul.
+     *
+     * `@nodefony/drizzle` porte les trois en dépendance de pair OPTIONNELLE :
+     * la bibliothèque sait parler aux trois moteurs et n'en impose aucun. Mais
+     * « optionnel pour la bibliothèque » ne veut pas dire « optionnel pour
+     * l'app » : celle-ci ouvre une base, et une seule. Sans cette déclaration,
+     * npm n'avertit personne de l'absence et l'application meurt au premier
+     * accès.
+     *
+     * Avant, `better-sqlite3` était une dépendance DURE de l'adaptateur : une
+     * application PostgreSQL compilait un binaire natif qu'elle n'ouvrirait
+     * jamais. Ce que ces cas tiennent, c'est la symétrie — ce qui est vrai pour
+     * SQLite doit l'être pour les deux autres, et l'inverse aussi : le pilote
+     * NON choisi doit être ABSENT.
+     */
+    for (const [base, present, absents] of [
+      ["sqlite", "better-sqlite3", ["pg", "mysql2"]],
+      ["postgres", "pg", ["better-sqlite3", "mysql2"]],
+      ["mysql", "mysql2", ["better-sqlite3", "pg"]],
+    ] as [string, string, string[]][]) {
+      it(`preset complete / ${base} : l'app déclare \`${present}\`, et lui seul`, () => {
+        const dest = path.join(tmp, `pilote-${base}`);
+        scaffold(dest, {
+          name: `pilote${base}`,
+          preset: "complete",
+          frontend: "none",
+          database: base,
+        });
+        const pkg = readJson(path.join(dest, "package.json"));
+        const deps = (pkg["dependencies"] ?? {}) as Record<string, string>;
+        assert.property(
+          deps,
+          present,
+          `une application ${base} doit déclarer son pilote`,
+        );
+        for (const absent of absents) {
+          assert.notProperty(
+            deps,
+            absent,
+            `une application ${base} n'a aucune raison d'embarquer \`${absent}\``,
+          );
+        }
+      });
+    }
 
     it("preset minimal : aucune politique, le paquet n'est pas là", () => {
       const dest = path.join(tmp, "npm-deny-minimal");
@@ -825,6 +897,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       readFileSync(path.join(dest, "compose.yaml"), "utf8");
     const envOf = (dest: string) =>
       readFileSync(path.join(dest, ".env"), "utf8");
+
+    it("tout volume MONTÉ par un service est DÉCLARÉ en bas du fichier", () => {
+      // 🔴 Le défaut que ça ferme : monter `foo-data:/data` dans un service sans
+      // ajouter `foo-data:` au bloc `volumes:` final rend le compose INVALIDE —
+      // docker refuse de démarrer, sur un message qui parle du service et non de
+      // la déclaration manquante. Rien ne le voyait : les assertions cherchent
+      // des chaînes, et aucun test ne relie les deux endroits du fichier.
+      const dest = path.join(tmp, "volumes-compose");
+      scaffold(dest, {
+        name: "volumes",
+        preset: "complete",
+        frontend: "none",
+        database: "postgres",
+      });
+      const compose = composeOf(dest);
+      // Les volumes NOMMÉS montés par un service — un chemin d'hôte (`./x:/y`)
+      // n'a rien à déclarer, d'où l'exigence d'un premier caractère de nom.
+      const montes = new Set(
+        [...compose.matchAll(/^ {6}- ([A-Za-z][\w.-]*):\S/gmu)].map(
+          (m) => m[1],
+        ),
+      );
+      assert.isNotEmpty(
+        montes,
+        "aucun volume nommé trouvé — le motif ne mord plus, ce contrôle ne prouverait rien",
+      );
+      const bloc = compose.slice(compose.lastIndexOf("\nvolumes:"));
+      for (const nom of montes) {
+        assert.include(
+          bloc,
+          `${nom}:`,
+          `volume « ${nom} » monté par un service mais jamais déclaré — docker refusera de démarrer`,
+        );
+      }
+    });
 
     it("défaut sqlite : AUCUN service SQL, et l'URL reste commentée", () => {
       const dest = path.join(tmp, "solo");
@@ -1612,7 +1719,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(rapp, '<NodefonyProvider url="/api/live/realtime">');
       assert.include(rapp, "useNodefony()");
       assert.include(rapp, "useNodefonyState()");
-      assert.include(rapp, 'useNodefonyChannelData<Evenement>("live:events")');
+      assert.include(rapp, 'useNodefonyChannelData<LiveEvent>("live:events")');
       assert.include(rapp, 'live.request("live:ping"');
       assert.notInclude(rapp, "new WebSocket(");
       // Les deux concepts RETIRÉS ne doivent pas revenir par la bande : sans ces
@@ -1639,7 +1746,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(vmain, '.use(nodefonyVue, { url: "/api/live/realtime" })');
       assert.include(vapp, "useNodefony()");
       assert.include(vapp, "useNodefonyState()");
-      assert.include(vapp, 'useNodefonyChannelData<Evenement>("live:events")');
+      assert.include(vapp, 'useNodefonyChannelData<LiveEvent>("live:events")');
       assert.include(vapp, 'live.request("live:ping"');
       assert.notInclude(vapp, "new WebSocket(");
       // Les mêmes deux refus qu'en React, pour la même raison : sans eux, on
@@ -1675,7 +1782,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(aapp, "injectNodefonyState()");
       assert.include(
         aapp,
-        'injectNodefonyChannelData<Evenement>("live:events")',
+        'injectNodefonyChannelData<LiveEvent>("live:events")',
       );
       assert.include(aapp, '#live.request("live:ping"');
       assert.notInclude(aapp, "new WebSocket(");
@@ -1711,7 +1818,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(sapp2, "nodefony()");
       assert.include(sapp2, "nodefonyState()");
-      assert.include(sapp2, 'nodefonyChannelData<Evenement>("live:events")');
+      assert.include(sapp2, 'nodefonyChannelData<LiveEvent>("live:events")');
       assert.include(sapp2, 'live.request("live:ping"');
       assert.notInclude(sapp2, "new WebSocket(");
       assert.notInclude(sapp2, "RealtimeClient.shared(");
@@ -1806,7 +1913,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(sapp, "nodefony()");
-      assert.include(sapp, 'nodefonyChannelData<Evenement>("live:events")');
+      assert.include(sapp, 'nodefonyChannelData<LiveEvent>("live:events")');
       assert.include(sapp, "$state");
       assert.notInclude(sapp, "new WebSocket(");
       const sentry = readFileSync(
@@ -2010,9 +2117,32 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   });
 
   describe("AGENTS.md — l'app naît parlante pour un agent", () => {
+    it("aucun agent demandé ⇒ AGENTS.md seul, aucun fichier à un nom d'outil", () => {
+      // 🔴 Le défaut corrigé, rapporté tel quel : « j'ai demandé un agent
+      // claude, je me retrouve avec un GEMINI.md ». Poser chez quelqu'un le
+      // fichier d'un outil qu'il n'utilise pas encombre SON dépôt.
+      const dest = path.join(tmp, "agents-aucun");
+      scaffold(dest, { name: "aucun", preset: "minimal", frontend: "none" });
+      assert.isTrue(existsSync(path.join(dest, "AGENTS.md")));
+      for (const cible of AGENT_TARGETS.filter((c) => !c.instructions.natif)) {
+        assert.isFalse(
+          existsSync(path.join(dest, cible.instructions.file)),
+          `${cible.instructions.file} posé sans que ${cible.name} ait été demandé`,
+        );
+      }
+    });
+
     it("app : AGENTS.md (devise + générateurs + gates + zone notes) + CLAUDE.md pointeur", () => {
       const dest = path.join(tmp, "agents");
-      scaffold(dest, { name: "agents", preset: "complete", frontend: "none" });
+      // `agents: ["claude"]` — le pointeur d'un agent n'est posé QUE s'il a été
+      // demandé. Sans cette réponse, l'application naît avec son `AGENTS.md` et
+      // aucun fichier à un nom d'outil : c'est le cas éprouvé juste après.
+      scaffold(dest, {
+        name: "agents",
+        preset: "complete",
+        frontend: "none",
+        agents: ["claude"],
+      });
       const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
       // La devise ouvre le fichier — LA règle que l'agent doit retenir.
       assert.include(
@@ -3076,7 +3206,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "interfaces", "IInvoiceService.ts"),
         "utf8",
       );
-      assert.include(itf, "depuisBillingService(): Promise<unknown>;");
+      assert.include(itf, "fromBillingService(): Promise<unknown>;");
       assert.include(
         (r.notes ?? []).join("\n"),
         "BillingService est injecté par le CONSTRUCTEUR",
@@ -6093,7 +6223,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // frameworks front, qui sont ajoutés par le moteur et non par le
       // manifeste. L'union est volontairement LARGE : ce contrôle ne juge pas
       // qu'une saveur déclare la bonne dépendance (c'est le travail de
-      // `nodefony check` sur l'app rendue), il attrape le paquet que
+      // `nodefony doctor` sur l'app rendue), il attrape le paquet que
       // PERSONNE ne déclare nulle part.
       const declared = new Set<string>();
       for (const rel of [
@@ -6114,7 +6244,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
 
       // Ancré en début de ligne, comme la règle `undeclared-import` de
-      // `nodefony check` : un gabarit MONTRE des imports dans son TSDoc (le
+      // `nodefony doctor` : un gabarit MONTRE des imports dans son TSDoc (le
       // snippet client de `create controller --kind realtime`), et réclamer une
       // dépendance pour du texte d'exemple serait un faux positif.
       const IMPORTS =
@@ -6524,13 +6654,13 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
   );
 
   it("aucun agent coché → RIEN n'est écrit (pas même le .mcp.json)", () => {
-    assert.isNull(argvCablageMcp([], AGENT_TARGETS, "/tmp/app"));
+    assert.isNull(argvMcpWiring([], AGENT_TARGETS, "/tmp/app"));
   });
 
   it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
     assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
-    const cle = parCli[0]!.cle;
-    assert.deepEqual(argvCablageMcp([cle], AGENT_TARGETS, "/tmp/app"), [
+    const cle = parCli[0]!.key;
+    assert.deepEqual(argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app"), [
       "ai:mcp",
       "--cwd",
       "/tmp/app",
@@ -6546,11 +6676,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       1,
       "fixture : au moins un agent servi par fichier",
     );
-    const argv = argvCablageMcp(
-      [parFichier[0]!.cle],
-      AGENT_TARGETS,
-      "/tmp/app",
-    );
+    const argv = argvMcpWiring([parFichier[0]!.key], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
     assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
   });
@@ -6559,7 +6685,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     // Il ne correspond à aucun outil de la table : c'est le cas de l'agent
     // conforme qu'on ne pilote pas. `--agent none` dit « aucune CLI », pas
     // « rien faire » — le `.mcp.json` est écrit, et c'est lui que l'agent lit.
-    const argv = argvCablageMcp(["standard"], AGENT_TARGETS, "/tmp/app");
+    const argv = argvMcpWiring(["standard"], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
     assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
     assert.include(argv ?? [], "--auth");
@@ -6567,22 +6693,22 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent NON coché ne part jamais dans l'appel", () => {
     if (parCli.length < 2) return;
-    const argv = argvCablageMcp([parCli[0]!.cle], AGENT_TARGETS, "/tmp/app");
-    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.cle);
+    const argv = argvMcpWiring([parCli[0]!.key], AGENT_TARGETS, "/tmp/app");
+    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.key);
   });
 
   it("des agents choisis + app installée ET construite → on câble", () => {
     assert.deepEqual(
-      planCablageMcp({ choisis: 1, installed: true, built: true }),
+      mcpWiringPlan({ chosen: 1, installed: true, built: true }),
       { propose: true },
     );
   });
 
   it("aucun agent choisi → rien n'est écrit, ici comme hors terminal", () => {
-    const plan = planCablageMcp({ choisis: 0, installed: true, built: true });
+    const plan = mcpWiringPlan({ chosen: 0, installed: true, built: true });
     assert.isFalse(plan.propose);
     assert.include(
-      plan.propose === false ? plan.motif : "",
+      plan.propose === false ? plan.pattern : "",
       "aucun agent",
       "le motif doit NOMMER la raison — un refus muet se lit comme une panne",
     );
@@ -6593,49 +6719,75 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       { installed: false, built: false },
       { installed: true, built: false },
     ]) {
-      const plan = planCablageMcp({ choisis: 1, ...etat });
+      const plan = mcpWiringPlan({ chosen: 1, ...etat });
       assert.isFalse(
         plan.propose,
         `attendu refusé pour ${JSON.stringify(etat)}`,
       );
-      assert.include(plan.propose === false ? plan.motif : "", "kernel");
+      assert.include(plan.propose === false ? plan.pattern : "", "kernel");
     }
   });
 });
 
 describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => {
+  /** Toutes les clés — le cas « l'utilisateur les a tous choisis ». */
+  const TOUTES = AGENT_TARGETS.map((c) => c.key);
+
   it("un pointeur par agent qui ne lit PAS AGENTS.md, aucun pour ceux qui le lisent", () => {
     const attendus = new Set(
       AGENT_TARGETS.filter((c) => !c.instructions.natif).map(
-        (c) => c.instructions.fichier,
+        (c) => c.instructions.file,
       ),
     );
-    const rendus = new Set(pointeursInstructions().map((p) => p.fichier));
+    const rendus = new Set(pointeursInstructions(TOUTES).map((p) => p.file));
     assert.deepEqual([...rendus].sort(), [...attendus].sort());
     for (const cible of AGENT_TARGETS.filter((c) => c.instructions.natif)) {
       assert.notInclude(
         [...rendus],
-        cible.instructions.fichier,
-        `${cible.nom} lit AGENTS.md : rien à poser`,
+        cible.instructions.file,
+        `${cible.name} lit AGENTS.md : rien à poser`,
       );
     }
   });
 
   it("chaque agent est NOMMÉ dans son pointeur — deux agents d'un même fichier y figurent tous les deux", () => {
-    for (const { fichier, agents } of pointeursInstructions()) {
+    for (const { file: fichier, agents } of pointeursInstructions(TOUTES)) {
       assert.isNotEmpty(agents, `${fichier} : pointeur sans agent nommé`);
       const attendus = AGENT_TARGETS.filter(
-        (c) => !c.instructions.natif && c.instructions.fichier === fichier,
-      ).map((c) => c.nom);
+        (c) => !c.instructions.natif && c.instructions.file === fichier,
+      ).map((c) => c.name);
       assert.deepEqual([...agents].sort(), attendus.sort());
     }
+  });
+
+  it("seuls les agents CHOISIS reçoivent un pointeur", () => {
+    // 🔴 Le défaut, rapporté tel quel : « j'ai demandé un agent claude, je me
+    // retrouve avec un GEMINI.md ». La fonction rendait tous les pointeurs sans
+    // regarder ce qui avait été demandé.
+    const claude = AGENT_TARGETS.find((c) => c.key === "claude");
+    const gemini = AGENT_TARGETS.find((c) => c.key === "gemini");
+    assert.isDefined(claude, "l'agent `claude` a disparu du catalogue");
+    assert.isDefined(gemini, "l'agent `gemini` a disparu du catalogue");
+    const rendus = pointeursInstructions(["claude"]).map((p) => p.file);
+    assert.notInclude(
+      rendus,
+      gemini?.instructions.file,
+      "un agent NON demandé ne dépose rien dans le dépôt de l'utilisateur",
+    );
+    if (!claude?.instructions.natif) {
+      assert.include(rendus, claude?.instructions.file);
+    }
+  });
+
+  it("aucun agent choisi ⇒ aucun pointeur — coder seul est un choix", () => {
+    assert.isEmpty(pointeursInstructions([]));
   });
 
   it("chaque fait s'ancre dans le SOURCE de l'agent — jamais dans sa doc seule", () => {
     for (const cible of AGENT_TARGETS) {
       assert.isNotEmpty(
-        cible.instructions.preuve,
-        `${cible.nom} : le fichier d'instructions est affirmé sans preuve`,
+        cible.instructions.proof,
+        `${cible.name} : le fichier d'instructions est affirmé sans preuve`,
       );
     }
   });
@@ -6710,18 +6862,18 @@ describe("create sans type — le menu propose, la commande doit DEMANDER", () =
   const FAUTE = "type requis : app | module (reçu : ap)";
 
   it("aucun type + terminal → on demande, au lieu de rendre l'usage", () => {
-    assert.isTrue(doitDemanderLeType(RIEN, { isTTY: true, yes: false }));
+    assert.isTrue(shouldAskForType(RIEN, { isTTY: true, yes: false }));
   });
 
   it("hors terminal → l'usage, car personne ne peut répondre", () => {
-    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: false, yes: false }));
+    assert.isFalse(shouldAskForType(RIEN, { isTTY: false, yes: false }));
   });
 
   it("--yes dit « ne me demande rien » — il est respecté", () => {
-    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: true, yes: true }));
+    assert.isFalse(shouldAskForType(RIEN, { isTTY: true, yes: true }));
   });
 
   it("un type FAUTIF se corrige, il ne se remplace pas par une question", () => {
-    assert.isFalse(doitDemanderLeType(FAUTE, { isTTY: true, yes: false }));
+    assert.isFalse(shouldAskForType(FAUTE, { isTTY: true, yes: false }));
   });
 });

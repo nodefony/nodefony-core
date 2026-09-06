@@ -30,6 +30,7 @@ const ORM = "test-schema-reconcile";
 /** Colonnes réellement portées par la table, lues dans le catalogue. */
 async function colonnes(db: string, table: string): Promise<string[]> {
   const driver = new SqliteMigrationDriver(db);
+  await driver.connect();
   try {
     return await driver.columnsOf(table);
   } finally {
@@ -40,6 +41,7 @@ async function colonnes(db: string, table: string): Promise<string[]> {
 /** Index réellement posés sur la base. */
 async function index(db: string): Promise<string[]> {
   const driver = new SqliteMigrationDriver(db);
+  await driver.connect();
   try {
     const rows = await driver.query<{ name: string }>(
       `SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL`,
@@ -64,6 +66,7 @@ describe("Schéma dérivé — réconciliation avec une base préexistante", () 
    */
   const surBaseExistante = async (ddl: string): Promise<DrizzleOrm> => {
     const seed = new SqliteMigrationDriver(dbFile);
+    await seed.connect();
     await seed.exec(ddl);
     await seed.close();
     return connecter();

@@ -47,6 +47,17 @@ class SlowTransport implements IRedisBackplaneTransport {
     await Promise.resolve();
   }
 
+  /**
+   * Acquitte la publication la PLUS ANCIENNE encore en vol — sans cet
+   * acquittement partiel, la file retombe toujours à zéro d'un coup et
+   * l'hystérésis du retour à la normale n'est jamais franchie à moitié.
+   */
+  async settleOne(): Promise<void> {
+    this.pending.splice(0, 1).forEach((p) => p.resolve());
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
   /** Fait échouer toutes les publications en vol (Redis coupé en plein envoi). */
   async failAll(message = "redis gone"): Promise<void> {
     const inflight = this.pending.splice(0);
@@ -177,6 +188,92 @@ describe("Backplane — file d'envoi bornée (mémoire du pod)", () => {
     const infos = notices.filter((n) => n.severity === "INFO");
     expect(infos).to.have.lengthOf(1);
     expect(infos[0]?.message).to.include("10"); // combien ont été perdus
+  });
+
+  it("jette le message NOUVEAU, pas le plus ancien : ce qui est déjà remis au transport ne se reprend plus", () => {
+    const t = new SlowTransport();
+    const bp = new RedisBackplane(t, "pod-A", "ch", null, {
+      maxQueueBytes: 2000,
+    });
+
+    bp.publish("chat:room", `un:${KB}`); // file vide → admis
+    bp.publish("chat:room", `deux:${KB}`); // file < seuil → admis
+    bp.publish("chat:room", `trois:${KB}`); // file ≥ seuil → JETÉ
+
+    // Contrairement au drop WS (latest-wins sur une file qu'on POSSÈDE), ce qui
+    // est parti chez le client réseau ne peut plus être repris : la victime est
+    // donc forcément la publication NOUVELLE. Compter deux envois ne le prouve
+    // pas — il faut regarder LESQUELS.
+    expect(t.sent).to.have.lengthOf(2);
+    expect(t.sent[0], "la première admise part en premier").to.include("un:");
+    expect(t.sent[1], "la deuxième admise suit").to.include("deux:");
+    expect(
+      t.sent.join("|"),
+      "la troisième est la victime : jamais remise au transport",
+    ).to.not.include("trois:");
+  });
+
+  it("hystérésis : repasser sous le seuil ne suffit pas à annoncer le retour à la normale — il faut sa MOITIÉ", async () => {
+    const notices: { message: string; severity: string }[] = [];
+    const t = new SlowTransport();
+    const bp = new RedisBackplane(t, "pod-A", "ch", null, {
+      maxQueueBytes: 2000,
+      onNotice: (message, severity) => notices.push({ message, severity }),
+    });
+    // 1,2 Ko : deux charges dépassent le seuil, une seule reste au-dessus de sa
+    // moitié — c'est exactement la fenêtre où l'hystérésis se voit.
+    const CHARGE = "y".repeat(1200);
+
+    bp.publish("chat:room", CHARGE);
+    bp.publish("chat:room", CHARGE); // file au-dessus du seuil
+    bp.publish("chat:room", CHARGE); // JETÉ
+    expect(notices.filter((n) => n.severity === "WARNING")).to.have.lengthOf(1);
+
+    await t.settleOne(); // ~1,2 Ko en vol : SOUS le seuil, AU-DESSUS de sa moitié
+    expect(
+      notices.filter((n) => n.severity === "INFO"),
+      "annoncer la normale ici ferait osciller le journal à chaque acquittement en régime saturé",
+    ).to.have.lengthOf(0);
+
+    await t.settleAll(); // file vide → sous la moitié
+    const infos = notices.filter((n) => n.severity === "INFO");
+    expect(infos, "le retour à la normale s'annonce UNE fois").to.have.lengthOf(
+      1,
+    );
+    expect(infos[0]?.message, "avec le bilan des pertes de l'épisode").to.match(
+      /1 publication\(s\) perdue/,
+    );
+  });
+
+  it("la perte n'est PAS rendue à l'appelant — `publish` est fire-and-forget par contrat, elle se lit sur les compteurs", () => {
+    const notices: { message: string; severity: string }[] = [];
+    const t = new SlowTransport();
+    const bp = new RedisBackplane(t, "pod-A", "ch", null, {
+      maxQueueBytes: 2000,
+      onNotice: (message, severity) => notices.push({ message, severity }),
+    });
+
+    bp.publish("chat:room", KB);
+    bp.publish("chat:room", KB);
+    const rendu: void = bp.publish("chat:room", KB); // celle-ci est JETÉE
+
+    // Décision de conception assumée, pas un oubli : `IBackplane.publish` rend
+    // `void` (sémantique at-most-once du port, le client realtime
+    // re-synchronise). L'appelant ne PEUT donc pas distinguer une publication
+    // partie d'une publication jetée — et c'est pour cela que les deux voies
+    // ci-dessous existent : sans elles, la perte serait silencieuse.
+    expect(
+      rendu,
+      "aucune valeur de retour : l'émetteur n'apprend rien à l'appel",
+    ).to.equal(undefined);
+    expect(
+      bp.describe().queue?.droppedTotal,
+      "voie 1 — le compteur, exposé à la sonde et à Studio",
+    ).to.equal(1);
+    expect(
+      notices.filter((n) => n.severity === "WARNING"),
+      "voie 2 — l'annonce syslog, une par épisode",
+    ).to.have.lengthOf(1);
   });
 
   it("sans option, la file est bornée par défaut (une app non configurée est protégée)", () => {

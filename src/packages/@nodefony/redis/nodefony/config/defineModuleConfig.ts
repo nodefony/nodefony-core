@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { resolveInfra } from "nodefony";
+import { resolveInfra, parseModuleConfig } from "nodefony";
 import { redisConfigSchema } from "./config";
 import type {
   IRedisConfig,
@@ -105,7 +105,11 @@ function applyResilienceDefaults(
 export function defineRedisConfig(
   config: IRedisConfigInput = {},
 ): IRedisConfig {
-  const parsed = redisConfigSchema.parse(config);
+  const parsed = parseModuleConfig(
+    redisConfigSchema,
+    config,
+    "@nodefony/redis",
+  );
   applyResilienceDefaults(parsed, config);
   return Object.freeze(applyEnvOverrides(parsed));
 }

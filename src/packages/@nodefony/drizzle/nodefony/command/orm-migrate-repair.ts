@@ -3,6 +3,7 @@ import { renderStatus } from "../src/migrator/explain";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "BASE DE DONNÉES",
   showBanner: false,
   kernelEvent: "onPostReady",
 };
@@ -71,7 +72,7 @@ class OrmMigrateRepair extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:migrate:repair",
-      "Lève les marqueurs d'échec après inspection (ne modifie PAS la base)",
+      "lève un marqueur d'échec, sans toucher à la base",
       cli,
       options,
     );

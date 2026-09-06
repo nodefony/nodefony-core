@@ -1,12 +1,14 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { envFileOrder } from "../runtime/loadEnv";
 import { renderEnvExample } from "../config/envExample";
 import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
+import { stripGlobalCliFlags } from "./globalFlags";
 import {
   buildEnvReport,
   type IEnvFileInput,
@@ -42,19 +44,33 @@ interface IEnvRequest {
   check: boolean;
   /** Racine de recherche (défaut : le cwd). */
   cwd: string;
+  /**
+   * `--env <e>` : évaluer les exigences sous CET environnement plutôt que celui
+   * d'ici. Les valeurs restent celles de la machine — on ne simule pas un
+   * déploiement, on demande « qu'est-ce qui manquera là-bas ? ».
+   */
+  targetEnv: string | null;
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
 }
 
 /** Parse l'argv après le mot `env`. */
 export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
   const at = argv.indexOf("env");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   let json = false;
   let example = false;
   let check = false;
   let cwd = process.cwd();
+  let targetEnv: string | null = null;
+  let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--json" || word === "-j") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      help = true;
+    } else if (word === "--json" || word === "-j") {
       json = true;
     } else if (word === "--example") {
       example = true;
@@ -62,23 +78,95 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
       check = true;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
+    } else if (word === "--env") {
+      const value = rest[++i];
+      // Un `--env` sans valeur avalerait l'option suivante et évaluerait sous
+      // un environnement nommé « --json » : autant le refuser tout de suite.
+      if (value === undefined || value.startsWith("-")) {
+        return {
+          error: "--env attend un environnement (ex. --env production)",
+        };
+      }
+      targetEnv = value;
     } else {
       return { error: `option inconnue : ${word}` };
     }
   }
-  if (check && !example) {
+  // Le contrôle de cohérence ne vaut PAS contre `--help` : demander l'aide
+  // d'une commande dont on ne connaît pas encore les combinaisons valides ne
+  // doit jamais rendre un refus.
+  if (check && !example && !help) {
     return { error: "--check n'a de sens qu'avec --example" };
   }
-  return { json, example, check, cwd };
+  return { json, example, check, cwd, targetEnv, help };
 }
 
-const USAGE =
-  `usage : nodefony env [--json] [--cwd <path>]\n` +
-  `        nodefony env --example [--check] [--cwd <path>]\n` +
-  `  Montre la cascade des fichiers .env, les variables déclarées par l'app,\n` +
-  `  la valeur effective de chacune et SA PROVENANCE, puis ce qui est ignoré.\n` +
-  `  --example : dérive .env.example du catalogue env.ts (--check : vérifie\n` +
-  `  sans écrire, sort en erreur si le fichier diverge — pre-commit, CI).\n`;
+/** La page d'aide — `nodefony env --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony env",
+  tagline:
+    "la cascade des fichiers .env, la valeur effective de chaque variable, " +
+    "et d'où elle vient",
+  synopsis: [
+    "nodefony env [--json] [--env <e>] [--cwd <chemin>]",
+    "nodefony env --example [--check] [--cwd <chemin>]",
+  ],
+  sections: [
+    {
+      title: "CE QU'ELLE MONTRE",
+      paragraph:
+        "L'ordre dans lequel les fichiers .env sont lus, les variables que " +
+        "l'application DÉCLARE, la valeur retenue pour chacune et SA " +
+        "PROVENANCE — puis ce qui est présent dans l'environnement et que " +
+        "personne ne lit. Elle ne démarre pas l'application : on cherche une " +
+        "variable précisément quand celle-ci ne démarre PAS, et la faire " +
+        "booter la rendrait muette au seul moment où elle sert.",
+    },
+  ],
+  options: [
+    { term: "-j, --json", text: "la même réponse, exploitable par un script" },
+    {
+      term: "--env <e>",
+      text:
+        "évalue les exigences sous CET environnement (ex. production) depuis " +
+        "ce poste — les valeurs restent celles d'ici",
+    },
+    {
+      term: "--example",
+      text: "dérive .env.example du catalogue déclaré dans env.ts",
+    },
+    {
+      term: "--check",
+      text:
+        "avec --example : vérifie sans écrire, et sort en erreur si le " +
+        "fichier diverge (pre-commit, intégration continue)",
+    },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony env", text: "l'environnement d'ici, en entier" },
+    {
+      term: "nodefony env --env production",
+      text: "ce qui manquera là-bas, sans y aller",
+    },
+    {
+      term: "nodefony env --example --check",
+      text: "le .env.example est-il encore à jour ?",
+    },
+  ],
+  exitCodes: [
+    { term: "66", text: "aucune application ici (EX_NOINPUT)" },
+    {
+      term: "78",
+      text:
+        "une variable requise manque, ou .env.example diverge sous --check " +
+        "(EX_CONFIG)",
+    },
+  ],
+};
 
 /**
  * Lit les niveaux de fichiers de la cascade — l'ORDRE vient de `envFileOrder`,
@@ -157,6 +245,10 @@ function renderVar(v: IEnvVarReport): string {
   const origin = v.origin === null ? "" : `← ${v.origin}`;
   const flags: string[] = [];
   if (v.missing) flags.push("REQUISE ET ABSENTE");
+  // Dire OÙ elle est exigée, et pas seulement qu'elle l'est : sans ce mot, une
+  // variable absente sur un poste de développement se lit comme une panne
+  // locale, alors que c'est le déploiement visé qui la réclame.
+  if (v.requiredIn?.length) flags.push(`requise en ${v.requiredIn.join("/")}`);
   if (v.value === null && v.default !== undefined) {
     flags.push(`défaut ${JSON.stringify(v.default)}`);
   }
@@ -175,6 +267,12 @@ function render(report: IEnvReport, projectRoot: string | null): string {
   out.push(
     `\nEnvironnement — mode ${report.runtimeEnv}` +
       (report.appEnv ? ` · déploiement ${report.appEnv}` : "") +
+      // L'environnement ÉVALUÉ s'annonce en tête : un rapport qui exige des
+      // variables de production sans dire qu'il regarde la production ferait
+      // croire à une panne du poste.
+      (report.targetEnv
+        ? ` · exigences évaluées pour ${report.targetEnv}`
+        : "") +
       (projectRoot ? `\n${projectRoot}` : ""),
   );
   out.push(`\nCascade — du plus FORT au plus faible (le premier posé gagne)`);
@@ -248,7 +346,7 @@ function render(report: IEnvReport, projectRoot: string | null): string {
  * Compose le rapport d'environnement d'un projet — la MÊME donnée pour tous ses
  * lecteurs.
  *
- * Extraite de {@link runEnvCommand} pour que `nodefony check` puisse dire « il
+ * Extraite de {@link runEnvCommand} pour que `nodefony doctor` puisse dire « il
  * manque une variable REQUISE » sans réimplémenter la cascade : deux définitions
  * de « quelle valeur est effective » divergeraient, et chacune passerait ses
  * propres tests. Le second lecteur ne rend d'ailleurs pas le rapport, il n'en
@@ -263,6 +361,7 @@ function render(report: IEnvReport, projectRoot: string | null): string {
 export async function buildProjectEnvReport(
   projectRoot: string | null,
   cwd: string,
+  targetEnv: string | null = null,
 ): Promise<IEnvReport> {
   const runtimeEnv = process.env.NODE_ENV ?? "development";
   const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? null;
@@ -271,7 +370,13 @@ export async function buildProjectEnvReport(
   return buildEnvReport({
     runtimeEnv,
     appEnv,
+    targetEnv,
     processEnv: process.env,
+    // La CASCADE reste celle d'ici : viser un autre environnement ne fait pas
+    // lire des fichiers qui ne sont pas sur cette machine. Ce que la commande
+    // répond, c'est « avec ce que j'ai sous la main, qu'est-ce qui manquera
+    // là-bas ? » — et un `.env.production` présent localement compte, puisqu'il
+    // partira avec le dépôt.
     files: readLevels(root, runtimeEnv, appEnv),
     catalog: projectRoot ? await readCatalog(projectRoot) : null,
   });
@@ -368,8 +473,10 @@ export function applyEnvExample(
 export async function runEnvCommand(argv: string[]): Promise<number> {
   const parsed = parseEnvArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`env: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   const projectRoot = findProjectRoot(parsed.cwd);
 
@@ -409,7 +516,11 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
     );
     return SysExit.OK;
   }
-  const report = await buildProjectEnvReport(projectRoot, parsed.cwd);
+  const report = await buildProjectEnvReport(
+    projectRoot,
+    parsed.cwd,
+    parsed.targetEnv,
+  );
   if (projectRoot === null) {
     report.notes.push(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +

@@ -1,10 +1,14 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import BetterSqlite3 from "better-sqlite3";
+// `import type` UNIQUEMENT : le pilote SQLite est chargé en LAZY dans
+// `#connectSqlite`, au même titre que `pg` et `mysql2`. Un import de VALEUR ici
+// ferait de `better-sqlite3` — un binaire natif compilé par node-gyp — une
+// dépendance DURE de toute application, y compris une application PostgreSQL
+// qui ne l'ouvrira jamais.
+import type BetterSqlite3 from "better-sqlite3";
 import { is } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import {
   getTableConfig,
   SQLiteSyncDialect,
@@ -618,7 +622,7 @@ export class DrizzleOrm extends Orm {
     // 1) Connexion + DDL dérivé (schema-as-code) selon le dialecte.
     switch (this.#dialect) {
       case "sqlite":
-        this.#connectSqlite(entities);
+        await this.#connectSqlite(entities);
         break;
       case "postgres":
         await this.#connectPostgres(entities);
@@ -645,9 +649,44 @@ export class DrizzleOrm extends Orm {
     }
   }
 
-  /** Connexion SQLite (better-sqlite3, synchrone) + création des tables (dev/test). */
-  #connectSqlite(entities: IEntity[]): void {
-    const client = new BetterSqlite3(this.#filename);
+  /**
+   * Connexion SQLite + création des tables (dev/test).
+   *
+   * Le pilote est chargé en LAZY, même patron que `#connectPostgres` et
+   * `#connectMysql` : les trois dialectes sont symétriques, et une application
+   * n'embarque que celui qu'elle ouvre. `better-sqlite3` est un binaire natif
+   * compilé à l'installation — l'imposer à une application PostgreSQL coûtait
+   * un `node-gyp` et des mégaoctets pour rien.
+   *
+   * La méthode devient asynchrone pour cette seule raison ; le pilote, lui,
+   * reste synchrone une fois chargé (`client.exec`, `client.pragma`).
+   */
+  async #connectSqlite(entities: IEntity[]): Promise<void> {
+    let Sqlite: new (filename: string) => BetterSqlite3.Database;
+    let sqliteDrizzle: (client: BetterSqlite3.Database) => DrizzleDb;
+    try {
+      // Interop CJS/ESM : `better-sqlite3` expose son constructeur sur
+      // `default` (CJS) — la forme named n'existe pas, mais on lit les deux
+      // plutôt que de parier sur l'empaquetage d'une version.
+      const ns = (await import("better-sqlite3")) as unknown as {
+        default?: typeof Sqlite;
+      };
+      const resolved = ns.default ?? (ns as unknown as typeof Sqlite);
+      if (typeof resolved !== "function") {
+        throw new Error("`better-sqlite3` did not expose a constructor");
+      }
+      Sqlite = resolved;
+      sqliteDrizzle = (await import("drizzle-orm/better-sqlite3"))
+        .drizzle as unknown as (client: BetterSqlite3.Database) => DrizzleDb;
+    } catch (e) {
+      throw new Error(
+        `DrizzleOrm "${this.name}": the sqlite dialect needs the optional ` +
+          `driver \`better-sqlite3\` (run \`npm i better-sqlite3\`). ` +
+          `${(e as Error).message}`,
+        { cause: e },
+      );
+    }
+    const client = new Sqlite(this.#filename);
     // WAL : lectures concurrentes des écritures + meilleure durabilité — indispensable
     // dès qu'on assume sqlite en prod mono-nœud (défaut « sqlite partout », cf Rails 8).
     // `synchronous=NORMAL` = compromis sûr+rapide recommandé AVEC WAL. Sans objet sur
@@ -657,7 +696,7 @@ export class DrizzleOrm extends Orm {
       client.pragma("synchronous = NORMAL");
     }
     this.#client = client;
-    const db = drizzle(client);
+    const db = sqliteDrizzle(client);
     this.#db = db;
     // Connexion unique et synchrone : la transaction encadre le db du connecteur
     // lui-même (rien à emprunter) — mais elle attend son TOUR (cf #sqliteTxGate).
@@ -795,12 +834,12 @@ export class DrizzleOrm extends Orm {
         "INFO",
       );
     }
-    const reste: ISchemaComparison = {
+    const remaining: ISchemaComparison = {
       additive: [],
       blocking: comparison.blocking,
       missingTables: comparison.missingTables,
     };
-    this.#drift = hasGap(reste) ? reste : null;
+    this.#drift = hasGap(remaining) ? remaining : null;
     if (this.#drift) {
       this.log(this.#explainDrift(this.#drift), "CRITIC");
     }
@@ -813,28 +852,28 @@ export class DrizzleOrm extends Orm {
    * @returns le texte à journaliser, geste compris.
    */
   #explainDrift(drift: ISchemaComparison): string {
-    const lignes: string[] = [
+    const lines: string[] = [
       `La base du connecteur « ${this.name} » ne correspond pas au code, et ` +
         `l'écart ne se rattrape pas tout seul :`,
     ];
     for (const table of drift.missingTables) {
-      lignes.push(`  · table « ${table} » absente`);
+      lines.push(`  · table « ${table} » absente`);
     }
     for (const gap of drift.blocking) {
-      lignes.push(
+      lines.push(
         `  · colonne « ${gap.table}.${gap.column} » (${gap.type}) absente et ` +
           `OBLIGATOIRE — la poser exigerait d'inventer une valeur pour les ` +
           `lignes déjà présentes`,
       );
     }
-    lignes.push(
+    lines.push(
       `  Les index et les requêtes qui portent sur ces colonnes échoueront.`,
       `  En développement, le geste est : nodefony orm:reset --connector ${this.name}`,
       `  (il SUPPRIME et recrée la base — jamais hors développement).`,
       `  Sur une base qui porte des données, c'est une migration qu'il faut : ` +
         `nodefony orm:migrate:status --connector ${this.name}`,
     );
-    return lignes.join("\n");
+    return lines.join("\n");
   }
 
   /**
@@ -1040,7 +1079,7 @@ export class DrizzleOrm extends Orm {
       };
       cx.on("error", puitsTx);
       /** Rend la connexion, en retirant d'abord NOTRE puits. */
-      const rendre = (err?: unknown): void => {
+      const giveBack = (err?: unknown): void => {
         // Synchrone jusqu'au `release`, donc aucune fenêtre sans auditeur :
         // `_release` réattache celui du pool avant toute autre chose.
         cx.removeListener("error", puitsTx);
@@ -1054,7 +1093,7 @@ export class DrizzleOrm extends Orm {
       try {
         await cx.query("BEGIN");
       } catch (e) {
-        rendre(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
+        giveBack(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
         throw e;
       }
       return new DrizzleTransaction(pgDrizzle(cx) as DrizzleDb, {
@@ -1062,7 +1101,7 @@ export class DrizzleOrm extends Orm {
           await cx.query(sql);
         },
         quoteIdent: (name: string): string => `"${name}"`,
-        release: rendre,
+        release: giveBack,
       });
     };
     for (const entity of entities) {
@@ -1649,7 +1688,7 @@ export class DrizzleOrm extends Orm {
       if (!table) {
         continue;
       }
-      const nom =
+      const name =
         this.#dialect === "postgres"
           ? getPgTableConfig(table as PgTable).name
           : this.#dialect === "mysql"
@@ -1657,7 +1696,7 @@ export class DrizzleOrm extends Orm {
             : getTableConfig(table as SQLiteTable).name;
       out.push({
         entity: entity.name,
-        table: nom,
+        table: name,
         columns: this.describeEntity(entity.name),
       });
     }

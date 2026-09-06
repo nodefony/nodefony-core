@@ -13,11 +13,12 @@ import {
   planMenuAction,
 } from "../../cli/startMenu";
 import { readCliManifest } from "../../cli/completion";
-import { besoinDeShell } from "../../cli/execPortable";
+import { needsShell } from "../../cli/execPortable";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // L'en-tête du menu est UNE ligne sobre (posée par interaction) — pas
   // l'ascii-art : un menu se lit, il ne s'annonce pas.
   showBanner: false,
@@ -43,12 +44,7 @@ interface IRenderedChoice {
  */
 class Menu extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "menu",
-      "Menu interactif : les commandes utiles ici, expliquées",
-      cli,
-      options,
-    );
+    super("menu", "menu interactif : les commandes utiles ici", cli, options);
     //force interractive
     this.forceInteractiveMode();
   }
@@ -161,7 +157,53 @@ class Menu extends Command {
     const builtins = (this.cli as CliKernel).getBuiltinCommandNames();
     return manifest.commands
       .filter((c) => !builtins.has(c.name))
-      .map((c) => ({ name: c.name, description: c.description }));
+      .map((c) => {
+        const entry: IStartMenuModuleCommand = {
+          name: c.name,
+          description: c.description,
+        };
+        // Le groupe voyage dans le manifeste : c'est ce qui permet au menu de
+        // ranger une commande de module là où l'aide la range, sans avoir à
+        // booter pour le lui demander.
+        if (c.group) entry.group = c.group;
+        return entry;
+      });
+  }
+
+  /**
+   * Les commandes INTÉGRÉES, telles que commander les connaît à `onStart`.
+   *
+   * Elles portent leur groupe d'intention et le nombre d'arguments qu'elles
+   * exigent : le menu s'en sert pour proposer tout ce qui existe, sans liste
+   * blanche à tenir.
+   *
+   * @returns le relevé, vide si commander n'est pas encore prêt.
+   */
+  private builtinCommands(): {
+    name: string;
+    description: string;
+    group?: string;
+    requiredArgs?: number;
+  }[] {
+    return (this.cli?.commander?.commands ?? [])
+      .filter((c) => !c.name().startsWith("__") && c.name() !== "help")
+      .map((c) => {
+        const group = (c as { helpGroup?: () => unknown }).helpGroup?.();
+        const entry: {
+          name: string;
+          description: string;
+          group?: string;
+          requiredArgs?: number;
+        } = {
+          name: c.name(),
+          description: c.description() || "",
+          requiredArgs: (c.registeredArguments ?? []).filter(
+            (a) => (a as { required?: boolean }).required,
+          ).length,
+        };
+        if (typeof group === "string" && group) entry.group = group;
+        return entry;
+      });
   }
 
   /**
@@ -193,6 +235,7 @@ class Menu extends Command {
         return command ? command.description() : null;
       },
       moduleCommands: this.moduleCommandsFromManifest(),
+      builtinCommands: this.builtinCommands(),
       npmScripts: this.npmScriptsFromPackageJson(),
     });
     const version = this.kernel?.version ? ` v${this.kernel.version}` : "";
@@ -243,11 +286,11 @@ class Menu extends Command {
    * capacité ignorée, puis le syslog empilé au lieu d'être remplacé), et un
    * pseudo-terminal ne le prouve pas de façon fiable.
    *
-   * @param nom - nom de la commande choisie au menu
+   * @param name - nom de la commande choisie au menu
    */
-  appliquerCapacites(nom: string): void {
+  applyCapabilities(name: string): void {
     const cli = this.cli as CliKernel | undefined;
-    const cmd = cli?.getCommand(nom);
+    const cmd = cli?.getCommand(name);
     if (!cmd) return;
     cmd.forceInteractiveMode();
     if (cmd.quietBoot && cli) {
@@ -276,7 +319,7 @@ class Menu extends Command {
     if (plan.kind === "npm") {
       const r = spawnSync("npm", ["run", plan.script], {
         stdio: "inherit",
-        shell: besoinDeShell("npm"),
+        shell: needsShell("npm"),
       });
       this.terminate(r.status ?? 1);
       return this;
@@ -313,7 +356,7 @@ class Menu extends Command {
       // commande vient d'un CHOIX, elle doit pouvoir demander ce qui lui
       // manque. (`interaction()` par défaut rend ses arguments, désormais
       // étalés correctement vers `generate` — cf `Command.run`.)
-      this.appliquerCapacites(name as string);
+      this.applyCapabilities(name as string);
       await this.cli.runCommandAsync(name as string, args);
       return this;
     }
@@ -322,7 +365,7 @@ class Menu extends Command {
       // Choisie au menu, donc interactive : elle réclamera ce qu'il lui faut,
       // et son boot silencieux (si déclaré) prend effet ici — pas à `start()`,
       // où la commande demandée était `menu`.
-      this.appliquerCapacites(response);
+      this.applyCapabilities(response);
       if (this.kernel) {
         this.cli.clearCommand();
         if (response) {

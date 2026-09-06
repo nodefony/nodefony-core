@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runStatusReport } from "../../service/dev/devStatusReport";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onStart",
 };
@@ -21,7 +22,7 @@ class Status extends Command {
   constructor(cli: CliKernel) {
     super(
       "status",
-      "Montre les runtimes Nodefony actifs (superviseur, serveurs, Vite) et leurs ports",
+      "dit quels processus de ce projet tournent, et où",
       cli as CliKernel,
       options,
     );

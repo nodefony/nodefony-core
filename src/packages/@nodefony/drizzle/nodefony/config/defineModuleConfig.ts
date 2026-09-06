@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { resolveInfra, sqliteFilenameFromUrl } from "nodefony";
+import {
+  resolveInfra,
+  sqliteFilenameFromUrl,
+  parseModuleConfig,
+} from "nodefony";
 import { drizzleConfigSchema } from "./config";
 import type {
   IDrizzleConfig,
@@ -58,7 +62,11 @@ function applyEnvOverrides(config: IDrizzleConfig): IDrizzleConfig {
 export function defineDrizzleConfig(
   config: IDrizzleConfigInput = {},
 ): IDrizzleConfig {
-  const parsed = drizzleConfigSchema.parse(config);
+  const parsed = parseModuleConfig(
+    drizzleConfigSchema,
+    config,
+    "@nodefony/drizzle",
+  );
   return Object.freeze(applyEnvOverrides(parsed));
 }
 

@@ -56,7 +56,9 @@
  *                                                # re-juger un run existant (plusieurs = agrégés)
  *
  * DÉPISTAGE — 1 run sur tout, 3 runs sur ce qui a bougé (`lib/reference.mjs`) :
- *   … --depistage               # compare à `baseline.json` et NOMME ce qui exige 3 runs
+ *   … --depistage --analyze-only <run>
+ *                               # compare CE run à `baseline.json` et NOMME ce qui exige 3
+ *                               # runs — il ne joue aucun agent, la mesure lui est DONNÉE
  *   … --task 26 --runs 3        # les trois runs, dans un décor remis à zéro entre chaque
  *   … --enregistrer-reference   # fige CE run comme référence (fusion par tâche)
  *
@@ -78,7 +80,7 @@
  * l'état ATTENDU : un banc qui n'a jamais mordu ne gate rien.
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { besoinDeShell } from "./lib/exec-portable.mjs";
+import { needsShell } from "./lib/exec-portable.mjs";
 import { garderDrapeaux } from "./lib/argv.mjs";
 import {
   chmodSync,
@@ -316,7 +318,7 @@ function eteindreApplication(app) {
   if (app === null) return;
   APP_A_ETEINDRE = null;
   spawnSync("npx", ["--no-install", "nodefony", "stop"], {
-    shell: besoinDeShell("npx"),
+    shell: needsShell("npx"),
     cwd: app,
     encoding: "utf8",
     env: APP_ENV,
@@ -1111,11 +1113,15 @@ export const SONDES_QUALITE = [
   },
   {
     // Le produit porte DÉJÀ son vérificateur : l'agent qui écrit ce que
-    // `nodefony check` refuse (un `:id` à la mode d'un autre framework, par
+    // `nodefony doctor` refuse (un `:id` à la mode d'un autre framework, par
     // exemple) est en faute contre le framework lui-même, pas contre un goût.
+    //
+    // `doctor` et non « check » : l'alias a été retiré du produit, et le script
+    // `check` d'une application générée avec lui — un gate qui appelle un script
+    // absent échoue en nommant npm, jamais le manquement.
     kind: "gate",
-    name: "aucun manquement au vérificateur du framework (nodefony check)",
-    cmd: ["npm", "run", "check"],
+    name: "aucun manquement au vérificateur du framework (nodefony doctor)",
+    cmd: ["npm", "run", "doctor"],
   },
   {
     // `addedTs` — hors tests : dans une fixture, un `as any` est une commodité
@@ -4425,7 +4431,12 @@ function monterDecor(runDir, app) {
     "complete",
     "--frontend",
     "none",
-    ...(LINKED ? ["--link"] : []),
+    // Voir `bench-schema.mjs` : en décor isolé, le scaffold ne doit pas
+    // installer — ses deps `@nodefony/*` ne sont publiées nulle part (#175) et
+    // son `npm install` part sur le registre. `installFromTarballs`, juste
+    // dessous, installe depuis les tarballs. La règle était appliquée à UN banc
+    // sur trois ; c'était la définition d'une règle qui ne tient pas.
+    ...(LINKED ? ["--link"] : ["--no-install"]),
     "--yes",
   ]);
   if (LINKED) {
@@ -4437,6 +4448,27 @@ function monterDecor(runDir, app) {
       packTarballs(REPO, process.argv.includes("--repack")),
     );
   }
+  // 🔴 **Le décor doit CONSTRUIRE l'application, parce que `create app` n'a
+  // pas pu le faire ici.**
+  //
+  // `create app` enchaîne install → format → build → migration, chaque étape
+  // conditionnée par la précédente. Au moment où il tourne, le manifeste
+  // pointe encore vers le registre public — où AUCUN paquet `@nodefony/*`
+  // n'est publié : son `npm install` échoue, et les trois étapes suivantes
+  // sont sautées. Le décor réécrit ensuite le manifeste vers ses tarballs et
+  // installe lui-même, mais ne rejouait ni le build ni la migration.
+  //
+  // Conséquence mesurée : l'application témoin n'a JAMAIS eu de `dist/`. Un
+  // utilisateur, lui, en a un — donc le banc mesurait un agent placé devant
+  // une application que personne ne reçoit. Le trou est resté invisible tant
+  // que rien ne regardait le build ; le jour où `nodefony doctor` a appris à
+  // le voir, cinq tâches sont tombées en bloc pour un motif qui ne disait rien
+  // de l'agent.
+  //
+  // Ce build est donc une PIÈCE DU DÉCOR, pas une commodité : sans lui, le
+  // décor n'est pas celui de l'utilisateur.
+  console.log("• npm run build (l'app témoin naît construite)…");
+  sh("npm", ["run", "build"], { cwd: app });
   // 🔴 **Le commit MESURÉ est celui du PACK, jamais celui de la fin du run.**
   // Il était lu au moment d'écrire le rapport — c'est-à-dire des heures après,
   // sur un dépôt où l'on a continué de travailler. Constaté : un run empaqueté
@@ -4938,7 +4970,7 @@ export function reinitialiserDecor(app, runDir, id) {
   // hériterait des paquets qu'une autre a installés et pourrait en importer un
   // sans l'avoir déclaré — un vert qui ne tiendrait pas chez un utilisateur.
   spawnSync("npm", ["prune", "--no-audit", "--no-fund"], {
-    shell: besoinDeShell("npm"),
+    shell: needsShell("npm"),
     cwd: app,
     encoding: "utf8",
     timeout: 5 * 60 * 1000,
@@ -5225,14 +5257,34 @@ const BRUIT_EXECUTEUR =
   /^(?:npm (?:notice|warn|WARN)\b|>\s|\$\s|yarn run |pnpm )/u;
 
 export function expliquerEchec(stderr, stdout) {
-  for (const flux of [stderr ?? "", stdout ?? ""]) {
-    const lignes = flux.split("\n").filter((l) => l.trim().length > 0);
-    if (lignes.length === 0) continue;
-    const utile = lignes.find((l) => !BRUIT_EXECUTEUR.test(l.trim()));
-    const propre = (utile ?? lignes[0]).trim();
-    return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
+  const flux = [stderr ?? "", stdout ?? ""];
+  // 🔴 Le saut du bruit se fait sur LES DEUX flux avant de se rabattre sur
+  // l'un d'eux. La boucle rendait `lignes[0]` du PREMIER flux non vide : un
+  // `stderr` ne portant que `npm notice run <app> check` suffisait donc à
+  // renvoyer ce bruit et à ne JAMAIS lire `stdout`, où l'outil écrit son
+  // rapport. Mesuré : dix gates rouges sur une nuit entière, tous rendus comme
+  // « npm notice run bench-app@0.1.0 check » — sept heures de mesure sans une
+  // seule cause, et un diagnostic qui a dû remonter une application témoin à
+  // la main pour lire ce que le gate avait sous les yeux.
+  for (const f of flux) {
+    const utile = f
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !BRUIT_EXECUTEUR.test(l));
+    if (utile.length > 0) return borner(utile[0]);
+  }
+  // Rien que du bruit partout : on le rend quand même — un gate qui se tait et
+  // un gate qu'on n'a pas su lire ne se confondent pas.
+  for (const f of flux) {
+    const lignes = f.split("\n").filter((l) => l.trim().length > 0);
+    if (lignes.length > 0) return borner(lignes[0].trim());
   }
   return "";
+}
+
+/** Borne une explication : une trace entière rend le rapport illisible. */
+function borner(ligne) {
+  return ligne.length > 200 ? `${ligne.slice(0, 197)}…` : ligne;
 }
 
 function runGates(app, runDir, task) {
@@ -5302,6 +5354,81 @@ function runGates(app, runDir, task) {
     path.join(runDir, `task-${task.id}.gates.json`),
     JSON.stringify(results, null, 2),
   );
+  noterAvancement(runDir, task, results);
+}
+
+/**
+ * Le journal COURANT du run — réécrit après chaque tâche.
+ *
+ * 🔴 Un run de trois répétitions dure des heures, et son `report.json` n'est
+ * écrit qu'à la toute fin : pendant tout ce temps, savoir ce qui se passait
+ * exigeait de connaître le chemin du décor (affiché au montage, des milliers de
+ * lignes plus haut) puis d'ouvrir les `task-*.gates.json` un par un. Vécu :
+ * dix gates rouges lus au réveil, dont la cause a demandé de remonter une
+ * application témoin à la main.
+ *
+ * Ce fichier ne remplace pas le rapport final — il n'agrège rien et ne rend
+ * aucun verdict de tâche, qui n'a de sens qu'une fois les répétitions faites.
+ * Il répond à la seule question qu'on se pose pendant : où en est-on, et
+ * qu'est-ce qui est rouge, avec quelle cause.
+ *
+ * @param {string} runDir - le répertoire du run.
+ * @param {{id: number, name: string}} task - la tâche qui vient d'être jugée.
+ * @param {{name: string, pass: boolean, evidence: string, cause: string|null}[]} results
+ *   - les verdicts de ses gates.
+ */
+function noterAvancement(runDir, task, results) {
+  const p = path.join(runDir, "avancement.json");
+  let etat = { debut: new Date().toISOString(), taches: [] };
+  if (existsSync(p)) {
+    try {
+      etat = JSON.parse(readFileSync(p, "utf8"));
+    } catch {
+      // Un journal illisible ne doit pas tuer le run : on repart d'un neuf.
+    }
+  }
+  etat.taches.push({
+    id: task.id,
+    nom: task.name,
+    quand: new Date().toISOString(),
+    rouges: results
+      .filter((r) => !r.pass)
+      .map((r) => ({ gate: r.name, cause: r.cause, preuve: r.evidence })),
+  });
+  etat.dernier = new Date().toISOString();
+  writeFileSync(p, JSON.stringify(etat, null, 2));
+}
+
+/**
+ * Où en est le dernier run, et qu'est-ce qui est rouge — sans attendre la fin.
+ *
+ * Lit le journal courant du run le plus récent (ou de celui qu'on nomme) et le
+ * rend en clair. Aucun agent n'est lancé, rien n'est monté : c'est une lecture.
+ */
+export function rendreAvancement(runDir) {
+  const p = path.join(runDir, "avancement.json");
+  if (!existsSync(p)) {
+    console.log(
+      `aucun journal courant sous ${runDir} — run pas encore commencé`,
+    );
+    return 1;
+  }
+  const etat = JSON.parse(readFileSync(p, "utf8"));
+  const taches = etat.taches ?? [];
+  const rouges = taches.filter((t) => t.rouges.length > 0);
+  console.log(`\nrun : ${path.basename(runDir)}`);
+  console.log(
+    `  ${taches.length} tâche(s) jouée(s), dernière à ${etat.dernier}`,
+  );
+  console.log(`  ${rouges.length} avec au moins un gate rouge\n`);
+  for (const t of rouges) {
+    console.log(`  ❌ tâche ${t.id} — ${t.nom}`);
+    for (const r of t.rouges) {
+      console.log(`       ${r.gate}`);
+      console.log(`       cause=${r.cause ?? "—"} · ${r.preuve}`);
+    }
+  }
+  return 0;
 }
 
 /** Juge UNE tâche sur pièces : transcript + diff du commit de la tâche. */
@@ -6027,6 +6154,49 @@ function commitDuRun(runDir) {
 }
 
 /**
+ * Les runs qu'on peut donner à `--analyze-only`, du plus récent au plus ancien.
+ *
+ * Un run ne compte que s'il porte un rapport : un décor monté puis interrompu
+ * laisse un dossier qui a toutes les apparences d'une mesure et n'en est pas
+ * une. Le nom d'un run EST son horodatage, d'où le tri lexicographique.
+ *
+ * Le rapport se cherche à la RACINE du run, jamais dans ses `rep-*` : c'est là
+ * qu'il est écrit, y compris quand le run porte trois répétitions. Chercher
+ * dedans écartait en silence les runs à répétitions — c'est-à-dire exactement
+ * ceux qu'on veut comparer.
+ */
+/**
+ * Les runs qui portent un JOURNAL COURANT, du plus récent au plus ancien.
+ *
+ * Distinct de {@link runsComparables}, qui exige un rapport FINAL : ici on
+ * cherche précisément ce qu'un run pas encore terminé possède — c'est tout
+ * l'objet de `--status`. Le nom d'un run EST son horodatage, d'où le tri
+ * lexicographique.
+ */
+function runsEnJournal() {
+  if (!existsSync(RUN_ROOT)) return [];
+  return readdirSync(RUN_ROOT)
+    .filter((d) => existsSync(path.join(RUN_ROOT, d, "avancement.json")))
+    .sort()
+    .reverse()
+    .map((d) => path.join(RUN_ROOT, d));
+}
+
+function runsComparables(limite) {
+  if (!existsSync(RUN_ROOT)) return [];
+  return readdirSync(RUN_ROOT)
+    .filter((d) =>
+      ["report.json", "report-agrege.json"].some((f) =>
+        existsSync(path.join(RUN_ROOT, d, f)),
+      ),
+    )
+    .sort()
+    .reverse()
+    .slice(0, limite)
+    .map((d) => path.join(RUN_ROOT, d));
+}
+
+/**
  * Restitue le dépistage : ce qui n'a pas bougé, et ce qui exige trois runs.
  *
  * NOMME les tâches et rend la commande à copier — il ne relance rien. Un banc
@@ -6261,6 +6431,7 @@ function main() {
     "--link",
     "--repack",
     "--setup-only",
+    "--status",
   ];
   const usage = [
     "Banc de découvrabilité — un agent trouve-t-il l'outillage du framework ?",
@@ -6268,11 +6439,14 @@ function main() {
     "  node bench-discoverability.mjs                     tout le catalogue, 1 passe",
     "  node bench-discoverability.mjs --task 18           une tâche (ou « 18,22,33 »)",
     "  node bench-discoverability.mjs --task 26 --runs 3  trois passes, décor remis à zéro",
-    "  node bench-discoverability.mjs --depistage         compare à baseline.json, ne relance RIEN",
+    "  node bench-discoverability.mjs --depistage --analyze-only <run>",
+    "                                                     compare CE run à baseline.json, sans agent",
     "  node bench-discoverability.mjs --analyze-only <run>[,<run2>…]",
     "                                                     re-juge des runs déjà joués (aucun agent)",
     "      … --enregistrer-reference                      fige le résultat dans baseline.json",
     "  node bench-discoverability.mjs --purge [--confirmer]  libère les décors (garde les mesures)",
+    "",
+    "  node bench-discoverability.mjs --status [<run>]      où en est un run EN COURS, et ce qui est rouge",
     "",
     "  --setup-only  monte l'app témoin et s'arrête (aucune tâche jouée)",
     "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
@@ -6280,7 +6454,7 @@ function main() {
     "",
     "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP",
     "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
-    "          64 usage · 78 comparaison refusée (décor différent de la référence)",
+    "          64 usage · 78 refus (décor différent de la référence, ou dépistage sans run)",
   ].join("\n");
   garderDrapeaux({
     args,
@@ -6294,6 +6468,24 @@ function main() {
   // décor, et n'a pas à payer les gardes de démarrage du banc.
   if (args.includes("--purge")) {
     process.exit(purgerDecors(args.includes("--confirmer")));
+  }
+  // Lecture pure d'un run EN COURS : aucun agent, aucun décor, aucune garde de
+  // démarrage. C'est la réponse à « où en est-on ? » pendant les heures que
+  // dure un run — question à laquelle il fallait auparavant répondre en
+  // ouvrant les `task-*.gates.json` un par un, dans un dossier dont le chemin
+  // n'était affiché qu'au montage.
+  if (args.includes("--status")) {
+    const i = args.indexOf("--status");
+    const nomme = args[i + 1];
+    const cible =
+      nomme && !nomme.startsWith("--")
+        ? path.resolve(nomme)
+        : (runsEnJournal()[0] ?? null);
+    if (cible === null) {
+      console.log("aucun run trouvé");
+      process.exit(1);
+    }
+    process.exit(rendreAvancement(cible));
   }
   refuserLesAncresDeDiff();
   const valeurDe = (drapeau) => {
@@ -6321,6 +6513,44 @@ function main() {
   const runs = Math.max(1, Number(valeurDe("--runs") ?? 1) || 1);
   const depistage = args.includes("--depistage");
   const enregistrer = args.includes("--enregistrer-reference");
+
+  // Le dépistage compare un run DÉJÀ joué à la référence — il ne produit pas
+  // lui-même la mesure qu'il compare. Sans `--analyze-only`, l'exécution se
+  // poursuivait jusqu'au montage du décor et déroulait le catalogue ENTIER avec
+  // de vrais agents, pour ne comparer qu'ensuite le rapport du run qu'on venait
+  // de payer : des dizaines de minutes et de l'argent réel dépensés par un mode
+  // dont le texte promet, deux fois, qu'il ne relance rien.
+  //
+  // Le refus ne CHOISIT pas de run à sa place. « Le dernier » serait un choix
+  // implicite — un run partiel, un run d'un autre décor, un run de trois
+  // semaines — et le banc refuse déjà de comparer deux décors (sortie 78) parce
+  // qu'une comparaison fausse s'utilise tout de suite. Il fait donc ici ce que
+  // le mode fait partout ailleurs : il NOMME et rend la commande à copier.
+  if (depistage && !analyzeDirs) {
+    const dispos = runsComparables(5);
+    console.error(
+      "\n🛑 `--depistage` compare un run DÉJÀ joué : il lui faut `--analyze-only`.\n" +
+        "   Sans lui, ce mode déroulerait tout le catalogue avec de vrais agents\n" +
+        "   avant de comparer — la dépense doit être décidée, pas subie.\n",
+    );
+    const invocation = "node " + path.relative(REPO, INVOCATION);
+    if (dispos.length) {
+      console.error("   Runs comparables les plus récents :");
+      for (const d of dispos) console.error(`     ${d}`);
+      console.error(
+        `\n   ${invocation} --depistage --analyze-only ${dispos[0]}`,
+      );
+    } else {
+      console.error(
+        `   Aucun run comparable sous ${RUN_ROOT}.\n` +
+          `   En jouer un d'abord : ${invocation}`,
+      );
+    }
+    console.error(
+      `\n   Trois runs sur une tâche : ${invocation} --task <n> --runs 3`,
+    );
+    process.exit(78);
+  }
 
   // Re-juger un run PARTIEL sans lui redire quelles tâches il a jouées produit
   // un rapport faux avec l'aplomb d'un vrai : les tâches jamais déroulées n'ont
@@ -6429,7 +6659,7 @@ function main() {
     // couvre les interruptions ; ceci couvre la fin normale, et le DIT.
     eteindreApplication(app);
     const restant = spawnSync("npx", ["--no-install", "nodefony", "status"], {
-      shell: besoinDeShell("npx"),
+      shell: needsShell("npx"),
       cwd: app,
       encoding: "utf8",
       env: APP_ENV,

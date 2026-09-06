@@ -54,11 +54,15 @@ describe("frameworkConfigSchema (config Zod)", () => {
   });
 
   describe("racine stricte", () => {
-    it("clé inconnue au niveau racine → strippée (attrape les typos)", () => {
-      const c = frameworkConfigSchema.parse({
-        idempotensy: {}, // typo
-      } as Record<string, unknown>);
-      expect(c).to.not.have.property("idempotensy");
+    // 🔴 Ce cas certifiait l'inverse jusqu'à la 10.0.0 : la clé était RETIRÉE en
+    // silence, l'application démarrait sur le défaut, et personne n'apprenait la
+    // faute de frappe. Retirer n'est pas refuser.
+    it("clé inconnue au niveau racine → REFUSÉE, en la nommant", () => {
+      expect(() =>
+        frameworkConfigSchema.parse({
+          idempotensy: {}, // typo
+        } as Record<string, unknown>),
+      ).to.throw(/idempotensy/);
     });
   });
 

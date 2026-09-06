@@ -226,7 +226,7 @@ export async function joinChat(): Promise<void> {
   try {
     // REQUÊTE corrélée. Signature POSITIONNELLE : (méthode, params, délai en ms).
     // Un objet `{ timeoutMs }` en 3ᵉ position ne serait PAS lu comme un délai.
-    const page = await socket.request<ChatHistory>(
+    const page = await socket.request<"chat:history", ChatHistory>(
       "chat:history",
       { room: "room-42" },
       5000,

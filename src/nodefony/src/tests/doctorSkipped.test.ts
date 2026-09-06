@@ -1,0 +1,387 @@
+/**
+ * `doctor` — ce qu'il n'a PAS pu regarder, et pourquoi il doit le dire.
+ *
+ * Ce que ces tests protègent est plus important que n'importe quelle règle de
+ * diagnostic : **un contrôle sauté ne doit jamais se lire comme un contrôle
+ * réussi**. Hors d'une application, `readiness` et `freshness` n'ouvrent rien —
+ * et rendaient une liste de manquements vide, que le sommaire affichait en vert
+ * (« ✓ Prêt à démarrer — environnement, modules, ports »). Un outil de
+ * diagnostic silencieux sur son angle mort est pire qu'un outil absent : il
+ * délivre un quitus que personne n'a mérité.
+ *
+ * Les trois portes (terminal, `--json`, MCP) lisent le MÊME état d'exécution :
+ * un rapport humain qui tait ce que le JSON porte apprendrait à ne croire ni
+ * l'un ni l'autre.
+ */
+import { describe, it, beforeEach, afterEach } from "vitest";
+import { assert } from "chai";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import {
+  collectDoctorReport,
+  parseDoctorArgv,
+  resolveStrict,
+  runDoctorCommand,
+} from "../kernel/checks/runDoctor";
+import {
+  preventedChecks,
+  skippedChecks,
+  FAMILIES,
+  type DoctorFamily,
+  type IExecution,
+} from "../kernel/checks/report";
+import { liveNotRun, LIVE_FAMILIES } from "../kernel/checks/live";
+
+/** Un état d'exécution complet, à partir des seules familles qu'on veut poser. */
+const execution = (
+  sautees: Partial<Record<DoctorFamily, string>>,
+): Record<DoctorFamily, IExecution> => {
+  // Dérivé de FAMILLES, jamais réécrit : une liste en dur ici laissait les
+  // familles neuves hors du décor, et le rendu plantait sur `undefined.ran`.
+  const etat = {} as Record<DoctorFamily, IExecution>;
+  for (const f of FAMILIES) {
+    const raison = sautees[f];
+    etat[f] = raison ? { ran: false, reason: raison } : { ran: true };
+  }
+  return etat;
+};
+
+describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
+  it("🔴 hors d'une application, aucun contrôle d'état ne se déclare passé", async () => {
+    // LE cas qui a motivé tout ceci : un dossier vide affichait quatre lignes
+    // dont deux VERTES, pour des contrôles qui n'avaient rien ouvert.
+    const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-vide-"));
+    try {
+      const report = await collectDoctorReport(dir);
+
+      assert.isFalse(
+        report.execution.readiness.ran,
+        "`readiness` ne peut pas se déclarer passé hors d'une application",
+      );
+      assert.isFalse(report.execution.freshness.ran);
+      // Une liste vide, oui — mais accompagnée de l'aveu qu'elle ne prouve rien.
+      assert.deepEqual(report.readiness.findings, []);
+
+      const sautes = skippedChecks(report.execution);
+      assert.includeMembers(
+        sautes.map((s) => s.family),
+        ["readiness", "freshness"],
+      );
+      for (const saute of sautes) {
+        assert.isNotEmpty(saute.reason, `${saute.family} sans raison`);
+        assert.isNotEmpty(
+          saute.unlock ?? "",
+          `${saute.family} sans geste de déblocage — le lecteur sait qu'il ` +
+            `lui manque quelque chose sans savoir quoi faire`,
+        );
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("dans une application NON construite, le catalogue des variables est déclaré non lu", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-app-"));
+    try {
+      writeFileSync(
+        path.join(dir, "package.json"),
+        JSON.stringify({ name: "app-temoin", version: "1.0.0" }),
+      );
+      writeFileSync(
+        path.join(dir, "nodefony.config.ts"),
+        `export default defineConfig({ modules: [] });\n`,
+      );
+      mkdirSync(path.join(dir, "node_modules"), { recursive: true });
+
+      const report = await collectDoctorReport(dir);
+
+      // La famille, elle, a bien tourné : c'est SA sous-règle « variable
+      // requise » qui n'a rien pu lire, faute de `dist/`.
+      assert.isTrue(report.execution.readiness.ran);
+      assert.isFalse(
+        report.execution.envCatalog.ran,
+        "un catalogue illisible ne vaut pas quitus sur les variables requises",
+      );
+      const sautes = skippedChecks(report.execution);
+      const envCatalog = sautes.find((s) => s.family === "envCatalog");
+      assert.isDefined(envCatalog, "`envCatalog` doit être rapporté");
+      assert.include(envCatalog?.unlock ?? "", "build");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("une sous-règle n'est pas comptée DEUX fois quand sa famille entière est sautée", () => {
+    // `envCatalog` est une règle de `readiness`. Les annoncer tous les deux
+    // ferait compter deux angles morts là où il n'y en a qu'un — et le bilan
+    // chiffré ne collerait plus aux lignes affichées.
+    const sautes = skippedChecks(
+      execution({
+        readiness: "hors application",
+        envCatalog: "hors application",
+      }),
+    );
+    assert.deepEqual(
+      sautes.map((s) => s.family),
+      ["readiness"],
+    );
+  });
+
+  it("la même sous-règle EST rapportée quand sa famille a tourné", () => {
+    const sautes = skippedChecks(
+      execution({ envCatalog: "catalogue illisible" }),
+    );
+    assert.deepEqual(
+      sautes.map((s) => s.family),
+      ["envCatalog"],
+    );
+  });
+
+  it("un contrôle sauté sans raison ne rend pas une phrase vide", () => {
+    // Le rendu affiche `titre — reason` : une raison absente produirait un
+    // tiret suivi de rien, qu'on lit comme un défaut d'affichage plutôt que
+    // comme un contrôle manquant.
+    const sautes = skippedChecks({
+      ...execution({}),
+      freshness: { ran: false },
+    });
+    assert.lengthOf(sautes, 1);
+    assert.isNotEmpty(sautes[0]!.reason);
+  });
+
+  it("l'ordre de lecture est celui du rapport, pas celui de l'objet", () => {
+    // La fraîcheur d'abord : un build en retard rend faux tout ce qui suit.
+    const sautes = skippedChecks(
+      execution({ wiring: "a", freshness: "b", deps: "c" }),
+    );
+    assert.deepEqual(
+      sautes.map((s) => s.family),
+      ["freshness", "deps", "wiring"],
+    );
+  });
+});
+
+describe("doctor — un état d'exécution ABSENT n'est pas un état passé", () => {
+  it("🔴 une famille sans état est rapportée NON CONTRÔLÉE, et ne fait pas lever", () => {
+    // Le type l'interdit, mais un rapport peut venir d'ailleurs : un `--json`
+    // produit par une version qui ignorait cette famille, relu par une version
+    // qui la connaît. Un outil de diagnostic ne doit jamais lever — c'est
+    // précisément celui qu'on lance quand tout le reste est cassé.
+    const partiel = { ...execution({}) } as Record<DoctorFamily, IExecution>;
+    delete (partiel as Partial<Record<DoctorFamily, IExecution>>).migrations;
+    const sautes = skippedChecks(partiel);
+    assert.deepEqual(
+      sautes.map((s) => s.family),
+      ["migrations"],
+    );
+    assert.include(sautes[0]?.reason ?? "", "autre version");
+  });
+});
+
+describe("doctor — NON DEMANDÉ n'est pas EMPÊCHÉ", () => {
+  /**
+   * Le défaut que ces cas ferment a cassé l'intégration continue sur les trois
+   * plateformes : l'étage 2, jamais exécuté sans `--live`, était compté comme
+   * un contrôle empêché — donc condamné par `--strict`, que `CI` arme d'office.
+   * Toute chaîne qui lançait `doctor` échouait tant qu'elle n'ajoutait pas un
+   * démarrage complet à sa commande, y compris celle qui contrôle une
+   * application fraîchement générée.
+   */
+  it("🔴 l'étage 2 non demandé est RAPPORTÉ, mais ne condamne pas", () => {
+    const absent = liveNotRun(
+      "il faut démarrer l'application",
+      "`--live`",
+      true,
+    );
+    const sautes = skippedChecks({ ...execution({}), ...absent.execution });
+    // Rapporté : un contrôle non demandé n'est toujours pas un quitus.
+    // Le compte est DÉRIVÉ : l'écrire en dur le rendait faux à la première
+    // famille d'étage 2 ajoutée, et le test accusait alors la mauvaise chose.
+    assert.lengthOf(sautes, LIVE_FAMILIES.length);
+    // Mais il ne pèse pas : c'est la moitié qui manquait.
+    assert.lengthOf(preventedChecks(sautes), 0);
+  });
+
+  it("un étage 2 DEMANDÉ qui échoue reste un empêchement, lui", () => {
+    // Le boot a été demandé et n'a pas abouti : là, il manque vraiment quelque
+    // chose, et une chaîne automatisée doit le savoir.
+    const echoue = liveNotRun("le plan d'administration est absent");
+    const sautes = skippedChecks({ ...execution({}), ...echoue.execution });
+    assert.lengthOf(preventedChecks(sautes), LIVE_FAMILIES.length);
+  });
+
+  it("un contrôle STATIQUE sauté condamne toujours — la doctrine ne bouge pas", () => {
+    const sautes = skippedChecks({
+      ...execution({ deps: "aucun paquet" }),
+    });
+    assert.lengthOf(preventedChecks(sautes), 1);
+    assert.equal(preventedChecks(sautes)[0]?.family, "deps");
+  });
+});
+
+describe("doctor — sévérité d'un contrôle sauté", () => {
+  it("devant un humain, un contrôle sauté n'est PAS un manquement", () => {
+    // Faire échouer par défaut ferait de `doctor` un outil qu'on apprend à
+    // ignorer : hors application, aucun contrôle d'état ne peut tourner.
+    assert.isFalse(resolveStrict(undefined, {}));
+  });
+
+  it("dans une chaîne automatisée, personne ne lit la section — donc ça échoue", () => {
+    assert.isTrue(resolveStrict(undefined, { CI: "1" }));
+  });
+
+  it("🔴 le drapeau explicite gagne DANS LES DEUX SENS", () => {
+    // `--no-strict` existe pour qu'une absence VOULUE puisse s'énoncer, plutôt
+    // que de se contourner en désarmant la commande entière.
+    assert.isTrue(resolveStrict(true, {}));
+    assert.isFalse(resolveStrict(false, { CI: "1" }));
+  });
+
+  it("`--strict` et `--no-strict` sont acceptés par la ligne de commande", () => {
+    const strict = parseDoctorArgv(["doctor", "--strict"]);
+    assert.isTrue("strict" in strict && strict.strict);
+    const lache = parseDoctorArgv(["doctor", "--no-strict"]);
+    assert.isTrue("strict" in lache && !lache.strict);
+    // Une option inconnue reste un refus : un drapeau mal tapé lançait
+    // autrefois un run complet en silence.
+    assert.property(parseDoctorArgv(["doctor", "--stritc"]), "error");
+  });
+});
+
+/**
+ * 🔴 La doctrine ci-dessus était prouvée sur la BRIQUE (`resoudreStrict`), et
+ * sur elle seule. La CHAÎNE — `runDoctorCommand` lit l'environnement, arme le
+ * régime, rend un code — n'était éprouvée nulle part.
+ *
+ * Ce trou a coûté une intégration continue rouge sur trois plateformes : deux
+ * tests écrits AVANT cette doctrine appelaient la commande sans énoncer leur
+ * régime, héritaient du `CI` de la forge, et recevaient 1 là où ils attendaient
+ * 0. Verte en local (pas de `CI`), rouge partout ailleurs.
+ */
+describe("doctor — la doctrine du régime strict, de bout en bout", () => {
+  let dir = "";
+  let cwd = "";
+  let ciAvant: string | undefined;
+
+  beforeEach(() => {
+    // Un dossier NU : aucun `nodefony.config.ts` en remontant, donc les cinq
+    // familles sont sautées pour une seule cause. C'est le décor où le régime
+    // décide seul du code de sortie.
+    dir = mkdtempSync(path.join(tmpdir(), "nf-strict-"));
+    writeFileSync(path.join(dir, "package.json"), '{"name":"nu"}');
+    cwd = process.cwd();
+    ciAvant = process.env.CI;
+    process.chdir(dir);
+  });
+
+  afterEach(() => {
+    process.chdir(cwd);
+    if (ciAvant === undefined) delete process.env.CI;
+    else process.env.CI = ciAvant;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** Exécute la commande sans déverser son rapport dans la sortie des tests. */
+  const codeDe = async (argv: string[]): Promise<number> => {
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (() => true) as typeof process.stdout.write;
+    try {
+      return await runDoctorCommand(argv);
+    } finally {
+      process.stdout.write = write;
+    }
+  };
+
+  it("devant un humain, des contrôles sautés laissent le code à 0", async () => {
+    delete process.env.CI;
+    assert.equal(await codeDe([]), 0);
+  });
+
+  it("🔴 sous `CI`, les MÊMES contrôles sautés font échouer la commande", async () => {
+    process.env.CI = "1";
+    assert.equal(await codeDe([]), 1);
+  });
+
+  it("`--no-strict` rend le code à 0 même sous `CI` — l'absence VOULUE s'énonce", async () => {
+    process.env.CI = "1";
+    assert.equal(await codeDe(["--no-strict"]), 0);
+  });
+
+  it("`--strict` fait échouer même sans `CI`", async () => {
+    delete process.env.CI;
+    assert.equal(await codeDe(["--strict"]), 1);
+  });
+
+  it("🔴 l'étage 3 (`--deep`) non demandé ne condamne pas non plus", async () => {
+    // Le correctif de l'étage 2 s'est arrêté à `--live`. `verify` et `outdated`
+    // ont continué d'AFFICHER « non demandé » sans porter `onDemand` : le texte
+    // du rapport et le champ qui décide du code de sortie disaient le
+    // contraire. Effet mesuré en forge — `doctor` rendait « RIEN À SIGNALER »
+    // sur les quatre plateformes, et sortait en 1.
+    //
+    // Le décor doit être un PROJET : `findProjectRoot` exige `package.json` ET
+    // `nodefony.config.ts`. Sans les deux, les familles sortent « hors projet »
+    // — empêchées à bon droit — et le cas serait vert sans rien mesurer.
+    writeFileSync(path.join(dir, "nodefony.config.ts"), "export default {};");
+    const report = await collectDoctorReport(dir);
+
+    assert.isTrue(
+      report.execution.verify.onDemand,
+      "les gardes non LANCÉES sont non demandées, pas empêchées",
+    );
+    assert.isTrue(
+      report.execution.outdated.onDemand,
+      "le registre npm non interrogé est non demandé, pas empêché",
+    );
+    const empeches = preventedChecks(skippedChecks(report.execution)).map(
+      (c) => c.family,
+    );
+    assert.notInclude(empeches, "verify");
+    assert.notInclude(empeches, "outdated");
+  });
+
+  it("⭐ la COLLECTE pose elle-même « non demandé » sur l'étage 2", async () => {
+    // La brique (`liveNotRun`) était éprouvée, la CHAÎNE ne l'était pas — c'est
+    // par là que le défaut précédent était passé. Ici on vérifie que
+    // `collectDoctorReport`, qui ne boote jamais, marque bien l'étage 2 comme
+    // non DEMANDÉ, et les familles statiques comme empêchées.
+    const report = await collectDoctorReport(dir);
+    assert.isTrue(report.execution.migrations.onDemand);
+    assert.isTrue(report.execution.firewall.onDemand);
+    assert.isUndefined(report.execution.deps.onDemand);
+    assert.include(
+      report.execution.migrations.unlock ?? "",
+      "--live",
+      "le geste qui débloque doit être nommé",
+    );
+  });
+});
+
+describe("doctor — le rapport JSON porte TOUT ce qui pèse sur le verdict", () => {
+  it("🔴 `freshness` est dans le rapport, pas seulement dans le compte", async () => {
+    // Vécu : `--json` rendait 1 sans porter la moindre trace de ce qui l'avait
+    // causé — la famille était comptée dans le verdict et absente du flux.
+    const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-json-"));
+    try {
+      const report = await collectDoctorReport(dir);
+      assert.property(report, "freshness");
+      assert.property(report, "execution");
+      for (const famille of [
+        "freshness",
+        "readiness",
+        "envCatalog",
+        "deps",
+        "wiring",
+      ] as DoctorFamily[]) {
+        assert.property(
+          report.execution,
+          famille,
+          `l'état de \`${famille}\` doit voyager avec le rapport`,
+        );
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

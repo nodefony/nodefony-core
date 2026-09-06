@@ -215,7 +215,7 @@ class Test extends Module {
         inputSchema: { type: "object", properties: {} },
         scopes: ["test:secret"],
         handler: (_args, caller) =>
-          mcpText({ jamais: true, sujet: caller.subject ?? null }),
+          mcpText({ never: true, sujet: caller.subject ?? null }),
       },
     ];
   }

@@ -163,6 +163,13 @@ export async function launchTopology(
       lifetime: "longrunning",
       interactive: false,
     });
+    // Le master reprend la main sur SIGTERM/SIGINT — mais on ne les ARRACHE
+    // pas : on retire NOMMÉMENT ceux de ce CLI, et rien d'autre. Le gestionnaire
+    // qu'un module tiers a posé pour son propre arrêt propre reste branché ;
+    // l'effacer était une panne muette, visible seulement à l'arrêt en
+    // production. Les autres listeners du CLI (`warning`, rejets non traités)
+    // restent aussi : le master en a besoin comme n'importe quel process.
+    cli.releaseSignalListeners();
     startClusterMaster({ workers: topo.workers, log });
     await (cli.kernel as Kernel).park();
     return;

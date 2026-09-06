@@ -26,4 +26,14 @@ describe("<%= it.name %>", () => {
       define<%= it.pascal %>Config({ greeting: "" } as never),
     ).toThrow(/greeting/u);
   });
+
+  // Une faute de frappe n'est pas une valeur invalide : Zod retire par défaut
+  // les clés qu'il ne connaît PAS, si bien que l'application démarrerait en
+  // ignorant ce qui a été écrit. Le schéma est `strictObject` pour cette raison,
+  // et ce cas est ce qui l'empêche de redevenir un `object` au premier refactor.
+  it("refuse une clé INCONNUE plutôt que de l'ignorer", () => {
+    expect(() =>
+      define<%= it.pascal %>Config({ gretting: "faute de frappe" } as never),
+    ).toThrow(/gretting/u);
+  });
 });

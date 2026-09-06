@@ -40,7 +40,11 @@ const MODULE_ROOT = path.resolve(
   "..",
 );
 const REPO_ROOT = path.resolve(MODULE_ROOT, "..", "..", "..", "..");
-const APP = path.join(REPO_ROOT, "tmp", "orm-generate-banc");
+// Le suffixe de processus rend le décor réentrant : deux exécutions du même
+// banc ne partagent plus le dossier, donc ne se nettoient plus l'une l'autre.
+// Il reste sous `tmp/` du dépôt pour la raison dite plus haut — la résolution
+// de `drizzle-kit` remonte jusqu'aux `node_modules` du dépôt.
+const APP = path.join(REPO_ROOT, "tmp", `orm-generate-banc-${process.pid}`);
 const ENTITIES = path.join(APP, "nodefony", "entity");
 const OUT = path.join(APP, "migrations", "sqlite");
 

@@ -875,18 +875,18 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
    * tel que la liste déroulante l'écrit (« contient », « égal à ») — jamais la
    * clé technique, que l'utilisateur n'a jamais vue.
    */
-  const criteresActifs: string[] = [];
+  const activeFilters: string[] = [];
   if (globalFilter.trim().length > 0) {
-    criteresActifs.push(`recherche « ${globalFilter.trim()} »`);
+    activeFilters.push(`recherche « ${globalFilter.trim()} »`);
   }
   for (const f of columnFilters) {
     const col = columns.find((c) => c.key === f.id);
     const v = f.value as FilterValue | undefined;
     const ops = opsFor(col?.filterType);
     const opLabel = ops.find((o) => o.value === v?.op)?.label ?? v?.op ?? "";
-    const valeur = v?.value ?? "";
-    criteresActifs.push(
-      `${col?.header ?? f.id} ${opLabel}${valeur ? ` « ${valeur} »` : ""}`.trim(),
+    const shown = v?.value ?? "";
+    activeFilters.push(
+      `${col?.header ?? f.id} ${opLabel}${shown ? ` « ${shown} »` : ""}`.trim(),
     );
   }
   const reset = () => {
@@ -1219,7 +1219,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
                             Aucun résultat pour les critères actifs.
                           </Text>
                           <Text size="xs" c="dimmed">
-                            {criteresActifs.join(" · ")}
+                            {activeFilters.join(" · ")}
                           </Text>
                           <Button
                             size="xs"

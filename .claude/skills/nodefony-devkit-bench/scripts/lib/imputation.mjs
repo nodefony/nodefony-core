@@ -141,6 +141,13 @@ export const IMPUTATIONS = Object.freeze({
   // classer « décor » éteindrait l'instruction d'une vraie faille. À instruire
   // ne coûte qu'une ligne ; innocenter à tort coûte la mesure entière.
   "jeton-csrf-absent": INDETERMINE,
+  // Le témoin n'a pas été trouvé ET la ressource n'a pas pu être parcourue en
+  // entier. Tentant de la classer DÉCOR — le juge s'abstient, après tout — mais
+  // ce serait innocenter à tort : le parcours échoue aussi quand l'application
+  // rend une forme que le contrat de page ne prévoit pas (un objet sans
+  // `items`), et c'est alors un geste de l'agent. À instruire, jamais à
+  // blanchir d'office.
+  "recherche-non-concluante": INDETERMINE,
   "inspection-impossible": INDETERMINE,
   // Le compte de routes a été obtenu sur un kernel booté à FROID, faute de
   // porte ouverte : ce n'est pas l'application que l'agent a interrogée. Son

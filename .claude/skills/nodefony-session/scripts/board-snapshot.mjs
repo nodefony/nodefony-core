@@ -53,6 +53,11 @@ const MD_OUT = path.join(ROOT, ".ai", "BOARD.md");
 
 const PROJECT_NUMBER = "2";
 const PROJECT_OWNER = "nodefony";
+// Le dépôt, pour composer les badges d'avancement de shields.io. Ils
+// interrogent GitHub à la LECTURE de la page : ils ne se périment pas avec
+// cette empreinte, contrairement à tout le reste de ce fichier.
+const REPO_OWNER = "nodefony";
+const REPO_NAME = "nodefony-core";
 /** En deçà, on suspecte la source plutôt que le projet : voir garde n° 2. */
 const CHUTE_TOLEREE = 0.5;
 
@@ -85,7 +90,7 @@ function fetchLive() {
       "api",
       "repos/:owner/:repo/milestones",
       "--jq",
-      "[.[] | {title, open: .open_issues, closed: .closed_issues, dueOn: (.due_on // null)}]",
+      "[.[] | {number, title, open: .open_issues, closed: .closed_issues, dueOn: (.due_on // null)}]",
     ]),
   );
 
@@ -225,12 +230,30 @@ function renderMarkdown(live, generatedAt) {
     "",
     "## Jalons",
     "",
-    "| Jalon | Ouverts | Fermés | Échéance |",
-    "| --- | ---: | ---: | --- |",
-    ...live.milestones.map(
-      (m) =>
-        `| ${m.title} | ${m.open} | ${m.closed} | ${m.dueOn ? m.dueOn.slice(0, 10) : "—"} |`,
-    ),
+    "> Les badges viennent de shields.io et se mettent à jour **tout seuls** : ils",
+    "> interrogent GitHub au moment où la page est lue, ils ne sont pas une photo.",
+    "> Ils ne peuvent pas vivre dans la description d'un jalon — mesuré le 09-06 :",
+    "> GitHub y rend le texte BRUT, ni tableau, ni image, ni gras.",
+    "",
+    "| Jalon | Avancement | Fait | Reste | Échéance |",
+    "| --- | --- | ---: | ---: | --- |",
+    // Trié par ÉCHÉANCE puis par nom : le tableau doit raconter la SÉQUENCE
+    // (alpha → beta → 10.0.0 → suivantes), pas l'ordre de création côté API.
+    ...[...live.milestones]
+      .sort(
+        (a, b) =>
+          (a.dueOn ?? "9999-12-31").localeCompare(b.dueOn ?? "9999-12-31") ||
+          a.title.localeCompare(b.title, "en", { numeric: true }),
+      )
+      .map((m) => {
+        const total = m.open + m.closed;
+        const pct = total === 0 ? 0 : Math.round((m.closed / total) * 100);
+        // Barre en caractères pleins : lisible dans un terminal, où le badge ne
+        // s'affiche pas. Les deux disent la même chose, par deux canaux.
+        const barre = "█".repeat(Math.round(pct / 10)).padEnd(10, "░");
+        const badge = `![${m.title}](https://img.shields.io/github/milestones/progress-percent/${REPO_OWNER}/${REPO_NAME}/${m.number}?style=flat-square&label=)`;
+        return `| **${m.title}** | ${badge} \`${barre}\` ${pct}% | ${m.closed} | ${m.open} | ${m.dueOn ? m.dueOn.slice(0, 10) : "—"} |`;
+      }),
     "",
   ];
 

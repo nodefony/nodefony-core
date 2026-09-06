@@ -80,7 +80,7 @@ export const DIVERGENCE_MODES = ["report", "fail", "off"] as const;
 export type DivergenceMode = (typeof DIVERGENCE_MODES)[number];
 
 const connectorSchema = z
-  .object({
+  .strictObject({
     dialect: z
       .enum(SQL_DIALECTS)
       .default("sqlite")
@@ -134,7 +134,7 @@ const connectorSchema = z
   );
 
 export const drizzleConfigSchema = z
-  .object({
+  .strictObject({
     connectors: z
       .record(z.string(), connectorSchema)
       .default(() => ({ default: connectorSchema.parse({}) }))
@@ -145,7 +145,7 @@ export const drizzleConfigSchema = z
           "`entityRegistry` process-wide si les deux ORM cohabitent.",
       ),
     migrations: z
-      .object({
+      .strictObject({
         dir: z
           .string()
           .default("migrations")

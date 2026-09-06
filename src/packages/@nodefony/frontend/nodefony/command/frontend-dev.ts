@@ -2,6 +2,7 @@ import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import type FrontendService from "../service/FrontendService";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   kernelEvent: "onReady",
 };
@@ -14,7 +15,7 @@ const options: OptionsCommandInterface = {
  */
 class FrontendDev extends Command {
   constructor(cli: CliKernel) {
-    super("frontend:dev", "Start Vite dev server (manual)", cli, options);
+    super("frontend:dev", "démarre le serveur Vite à la main", cli, options);
   }
 
   override async generate(): Promise<this> {

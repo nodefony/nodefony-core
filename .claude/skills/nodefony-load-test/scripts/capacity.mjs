@@ -552,10 +552,28 @@ async function h2Bench() {
 }
 
 // ── run ────────────────────────────────────────────────────────────────────
-const login = await reqJson("/nodefony/security/api/auth/login", {
-  method: "POST",
-  payload: { username: USER, password: PASS },
-});
+
+// Le décor se CONSTATE avant de mesurer, et son absence se NOMME. Sans cette
+// garde, un serveur éteint faisait remonter un `ECONNREFUSED` brut depuis les
+// entrailles de `node:net` — une trace qui accuse le réseau là où il manque
+// simplement un serveur, et qui envoie chercher au mauvais endroit. Ses voisins
+// (`graceful-shutdown-e2e`) disent le geste ; celui-ci se taisait.
+let login;
+try {
+  login = await reqJson("/nodefony/security/api/auth/login", {
+    method: "POST",
+    payload: { username: USER, password: PASS },
+  });
+} catch (e) {
+  const reseau = ["ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ETIMEDOUT"];
+  if (!reseau.includes(e?.code)) throw e;
+  console.error(
+    `\n✘ aucun serveur Nodefony sur ${HOST}:${PTLS} (${e.code}) — ce banc en exige un.\n` +
+      `  le démarrer :  bash .claude/skills/nodefony-start-server/start.sh\n` +
+      `  autre cible :  NF_HOST=… NF_PORT_HTTPS=… NF_PORT=… node …/capacity.mjs\n`,
+  );
+  process.exit(1);
+}
 COOKIE = String(login.headers["set-cookie"]?.[0] ?? "").split(";")[0];
 const s0 = await stats();
 if (!s0?.pid)

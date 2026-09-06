@@ -182,7 +182,6 @@ après sa livraison, et contredisait le fichier qu'elle pointe.
 | 5   | NOTICE                    | Normal mais important    |
 | 6   | INFO                      | Informationnel           |
 | 7   | DEBUG                     | Debug                    |
-| -1  | SPINNER                   | Animation CLI (non RFC)  |
 
 ⚠️ **"CRITIC" pas "CRITICAL"** — c'est le nom dans `SysLogSeverity`.
 

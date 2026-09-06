@@ -24,70 +24,70 @@ la commande est lancée. Pour la liste RÉELLE, dans le projet courant :
 .B nodefony \-\-help
 .RE
 .SH COMMANDS
-.TP
-.B ai:mcp
-Déclare le serveur MCP de cette application à ton agent (.mcp.json)
-.TP
-.B ai:sync
-Pointeurs vers les skills d'agent des paquets installés (.agents/skills +
-miroir .claude/skills)
-.TP
-.B build, compile
-Compile modules puis application (turbo + rolldown) vers dist/
-.TP
-.B card, devkit:card
-Carte de visite de l'application : où aller, quoi lancer
-.TP
-.B check, doctor
-Diagnostic statique du projet : câblage, dépendances, bilan du dernier
-démarrage
-.TP
-.B cluster
-Serveur en cluster : N workers isolés (cgroup\-aware, respawn, arrêt
-gracieux)
-.TP
-.B completion
-Complétion shell : script à sourcer (bash | zsh | fish)
-.TP
-.B create
-Génère app, module, entité… (app | module | controller | service | front
-| entity | command)
+Les commandes sont rangées par INTENTION, dans l'ordre d'une journée de
+travail \- comme \fBnodefony \-\-help\fR. Un rangement alphabétique mettrait
+\fBai:mcp\fR avant \fBdevelopment\fR ; il ne répond à personne.
+.SS LANCER
 .TP
 .B development, dev
-Serveur de développement : rechargement auto du backend, HMR du front
-.TP
-.B env
-Variables d'environnement : cascade des .env, valeurs effectives et provenance
-.TP
-.B git:hooks
-Hooks git natifs (core.hooksPath) : typecheck+lint au commit, verify au push
-.TP
-.B inspect
-Inspecte l'état réel de l'app (routes, modules, services, config…) —
-sans serveur
-.TP
-.B install
-Installe les dépendances puis construit le projet
-.TP
-.B menu
-Menu interactif : les commandes utiles ici, expliquées
-.TP
-.B outdated
-Liste les dépendances du projet en retard, agrégées par paquet
+démarre en développement, rechargement automatique
 .TP
 .B production, prod, start
-Serveur de production : premier plan, cloud\-native (topologie via
-\-\-workers)
+démarre en production, au premier plan
+.TP
+.B cluster
+démarre N workers isolés, relancés s'ils tombent
 .TP
 .B status
-Montre les runtimes Nodefony actifs (superviseur, serveurs, Vite) et leurs
-ports
+dit quels processus de ce projet tournent, et où
 .TP
 .B stop
-Arrête proprement les runtimes Nodefony actifs (dev, prod, cluster)
+arrête les processus Nodefony de ce projet
+.SS COMPRENDRE
+.TP
+.B card, devkit:card
+carte de visite : où l'on est, quoi lancer
+.TP
+.B doctor
+ce qui ne va pas dans cette application
+.TP
+.B inspect
+l'état réel de l'app : routes, services, config
+.TP
+.B env
+les variables d'environnement et leur provenance
 .TP
 .B symbols
-Graphe symbolique : définition, description et parenté d'un symbole
+où un symbole est défini, et de qui il hérite
+.TP
+.B menu
+menu interactif : les commandes utiles ici
+.SS GÉNÉRER ET CONSTRUIRE
+.TP
+.B create
+engendre une application, un module, une entité…
+.TP
+.B build, compile
+compile les modules puis l'application vers dist/
+.TP
+.B install
+installe les dépendances puis construit le projet
+.TP
+.B outdated
+les dépendances en retard, groupées par paquet
+.SS AGENTS ET OUTILLAGE
+.TP
+.B ai:mcp
+déclare le serveur MCP de l'app à ton agent
+.TP
+.B ai:sync
+installe les skills d'agent des paquets présents
+.TP
+.B completion
+script de complétion du shell (bash | zsh | fish)
+.TP
+.B git:hooks
+pose les hooks git : contrôles au commit et au push
 .SH OPTIONS
 Options acceptées par toutes les commandes. Chaque commande porte en plus les
 siennes, que \fBnodefony \fI<commande>\fB \-\-help\fR détaille.
@@ -142,7 +142,7 @@ Démarre en développement, avec redémarrage à chaud.
 .B nodefony inspect routes
 Affiche les routes RÉELLEMENT montées, sans ouvrir de port.
 .TP
-.B nodefony check
+.B nodefony doctor
 Diagnostique le projet, même s'il ne démarre plus.
 .SH SEE ALSO
 La documentation complète vit dans le projet (\fBdocs/\fR) et dans la console

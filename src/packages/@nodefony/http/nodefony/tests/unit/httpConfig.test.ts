@@ -1,14 +1,16 @@
 /// <reference types="node" />
 import { expect } from "chai";
+import { BootConfigurationError } from "nodefony";
 import { httpConfigSchema } from "../../config/config.js";
 import {
   defineHttpConfig,
   httpConfigJsonSchema,
 } from "../../config/defineModuleConfig.js";
 
-// Config Zod de @nodefony/http : défauts, sous-défauts (piège Zod 4), strip des
-// sections strictes, passthrough des sections loose, retrait des clés mortes,
-// défauts dérivés du kernel par le builder, et métadonnées de champ.
+// Config Zod de @nodefony/http : défauts, sous-défauts (piège Zod 4), REFUS des
+// clés inconnues par les sections strictes, passthrough des sections loose,
+// retrait des clés mortes, défauts dérivés du kernel par le builder, et
+// métadonnées de champ.
 
 describe("@nodefony/http — httpConfigSchema (défauts)", () => {
   const c = httpConfigSchema.parse({});
@@ -130,20 +132,44 @@ describe("@nodefony/http — clés mortes retirées", () => {
   });
 });
 
-describe("@nodefony/http — strict (strip) vs loose (passthrough)", () => {
-  it("section stricte : strippe les clés inconnues (typo attrapée)", () => {
-    const c = httpConfigSchema.parse({
-      session: { name: "app", typoUnknown: 42 },
-    });
-    expect(c.session.name).to.equal("app");
-    expect((c.session as Record<string, unknown>).typoUnknown).to.equal(
-      undefined,
+describe("@nodefony/http — strict (refus) vs loose (passthrough)", () => {
+  // 🔴 Ces deux cas certifiaient l'inverse jusqu'à la 10.0.0 : la clé inconnue
+  // était RETIRÉE en silence et l'application démarrait sur le défaut. Retirer
+  // n'est pas refuser — celui qui écrivait `trustProxi` croyait avoir armé la
+  // confiance de proxy sans l'avoir armée.
+  it("section stricte : une clé inconnue est REFUSÉE, et le message la nomme", () => {
+    expect(() =>
+      httpConfigSchema.parse({ session: { name: "app", typoUnknown: 42 } }),
+    ).to.throw(/typoUnknown/);
+  });
+
+  it("racine stricte : `trustProxi` est REFUSÉ (le cas qui a motivé la rupture)", () => {
+    expect(() => httpConfigSchema.parse({ trustProxi: true })).to.throw(
+      /trustProxi/,
     );
   });
 
-  it("racine stricte : clé top-level inconnue strippée", () => {
-    const c = httpConfigSchema.parse({ wat: true }) as Record<string, unknown>;
-    expect(c.wat).to.equal(undefined);
+  it("racine stricte : toute clé top-level inconnue est refusée", () => {
+    expect(() => httpConfigSchema.parse({ wat: true })).to.throw(/wat/);
+  });
+
+  // Le TYPE de l'erreur compte autant que le refus : le kernel absorbe une
+  // `Error` ordinaire en développement (fail-soft) et n'interrompt le boot que
+  // sur une `BootConfigurationError`. Une clé refusée par un schéma mais levée
+  // en `Error` nue ne serait donc PAS vue par celui qui vient de l'écrire.
+  it("le refus est une BootConfigurationError, fatale même en développement", () => {
+    let caught: unknown;
+    try {
+      defineHttpConfig({ trustProxi: true } as never);
+    } catch (e) {
+      caught = e;
+    }
+    expect(
+      BootConfigurationError.is(caught),
+      "type de l'erreur levée",
+    ).to.equal(true);
+    expect((caught as Error).message).to.match(/@nodefony\/http/);
+    expect((caught as Error).message).to.match(/trustProxi/);
   });
 
   it("section loose : conserve une option lib non listée (http → node)", () => {

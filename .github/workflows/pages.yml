@@ -96,6 +96,13 @@ jobs:
       - name: Construire le dossier de performance
         run: node scripts/build-perf-site.mjs --out dist-site/performance
 
+      # Le verdict d'une CAMPAGNE DE TEST par version, sous `/qualite/`. Même
+      # contrat que la performance : le script ne teste rien, il rend des données
+      # commitées avec leur décor. Ce qu'il publie n'est donc pas « tout est
+      # vert » mais « voici ce qui a été éprouvé, et ce qui ne l'a pas été ».
+      - name: Construire le dossier de qualité
+        run: node scripts/build-qualite-site.mjs --out dist-site/qualite
+
       # Le site doit MONTRER quelque chose : une page vide se publierait en
       # silence. On exige la porte d'entrée, une page profonde et la page de
       # mesures courante — trois points qui tombent pour trois raisons distinctes.

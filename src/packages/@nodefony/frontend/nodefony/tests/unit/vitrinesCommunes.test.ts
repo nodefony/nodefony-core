@@ -190,7 +190,7 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
       expect(
         src,
         `${front} : le message envoyé doit porter le nom de sa vitrine`,
-      ).toContain('emit("live:dire", { texte: dit, front: FRONT })');
+      ).toContain('emit("live:say", { text: said, front: FRONT })');
       expect(src, `${front} : la même action par les deux portes`).toContain(
         `/${front}/api/data`,
       );

@@ -13,10 +13,10 @@ import {
   type FlowGraphEdge,
   type FlowGraphNode,
 } from "../../components/ui";
-import { mapSondesLive, useSocketLiveData } from "./useSocketLiveData";
+import { mapProbesLive, useSocketLiveData } from "./useSocketLiveData";
 
 /* ════════════════════════════════════════════════════════════════════════
- * SondesLiveGraph — schéma « Patron probe → health → canal → Studio ».
+ * ProbesLiveGraph — schéma « Patron probe → health → canal → Studio ».
  *
  * Les 5 pièces canoniques :
  *   1. I<X>Probe                     — sonde au plus près du code métier
@@ -124,7 +124,7 @@ const EDGES: FlowGraphEdge[] = [
 
 const LiveBranch = observer(({ height }: { height: number }) => {
   const snap = useSocketLiveData();
-  const liveNodeData = useMemo(() => mapSondesLive(snap), [snap]);
+  const liveNodeData = useMemo(() => mapProbesLive(snap), [snap]);
   return (
     <FlowGraph
       nodes={NODES}
@@ -137,16 +137,16 @@ const LiveBranch = observer(({ height }: { height: number }) => {
   );
 });
 
-export interface SondesLiveGraphProps {
+export interface ProbesLiveGraphProps {
   /** Active la sonde live (sinon : graphe statique, pas d'abonnement serveur). */
   live?: boolean;
   height?: number;
 }
 
-export function SondesLiveGraph({
+export function ProbesLiveGraph({
   live = false,
   height = 540,
-}: SondesLiveGraphProps) {
+}: ProbesLiveGraphProps) {
   if (live) return <LiveBranch height={height} />;
   return (
     <FlowGraph
@@ -159,4 +159,4 @@ export function SondesLiveGraph({
   );
 }
 
-export default SondesLiveGraph;
+export default ProbesLiveGraph;

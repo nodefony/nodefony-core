@@ -277,7 +277,9 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
 
   it("request client→serveur : `nodefony:kernel:ping` résolu par le handler serveur réel", async () => {
     const { client } = await connectPair();
-    const res = await client.request<{ pong: boolean }>("nodefony:kernel:ping");
+    const res = await client.request<"nodefony:kernel:ping", { pong: boolean }>(
+      "nodefony:kernel:ping",
+    );
     expect(res.pong).to.equal(true);
   });
 

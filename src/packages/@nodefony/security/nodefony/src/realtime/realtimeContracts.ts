@@ -110,8 +110,20 @@ export interface IRealtimeService {
     matcher: IRealtimeAuthenticatorMatcher,
     authenticator: IRealtimeAuthenticator,
   ): void;
-  /** Seam #1 — pose le verrou de frame (hot-path `beforeDispatch`). */
-  setFrameAuthorizer(authorizer: FrameAuthorizer | null): void;
+  /**
+   * Seam #1 — pose le verrou de frame (hot-path `beforeDispatch`).
+   *
+   * `options.silentProbe` porte la MÊME décision sans rapporter de refus : le
+   * `realtime:welcome` interroge N canaux à chaque connexion pour n'annoncer que
+   * ce qui est obtenable, et passer par le verrou y écrirait N refus au journal
+   * d'audit pour des demandes que personne n'a faites. Optionnel côté appelé :
+   * un module realtime d'une version antérieure l'ignore, et l'annonce reste
+   * alors ce qu'elle était — jamais une erreur.
+   */
+  setFrameAuthorizer(
+    authorizer: FrameAuthorizer | null,
+    options?: { readonly silentProbe?: FrameAuthorizer | null },
+  ): void;
   /**
    * Seam #1b — politique de canal **déclarée côté métier** (`@RealtimeChannel`),
    * agrégée par le hub. `null`/absent = aucune politique métier pour ce canal

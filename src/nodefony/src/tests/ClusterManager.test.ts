@@ -266,4 +266,63 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       expect(exits).to.deep.equal([0]); // un seul exit
     });
   });
+
+  /**
+   * 🔴 Le défaut que ces cas ferment, et pourquoi il était MUET.
+   *
+   * `installSignalHandlers` commençait par `process.removeAllListeners(sig)`.
+   * Un module tiers qui avait branché son propre arrêt propre sur `SIGTERM` ne
+   * recevait donc plus rien dès que l'application passait en cluster — son code
+   * était juste, ses tests passaient, et son nettoyage cessait simplement de
+   * s'exécuter, au moment le plus coûteux : l'arrêt, en production.
+   *
+   * Ces cas touchent le VRAI `process`. Ils reposent donc leur décor à la main,
+   * et le manager retire les siens : un listener oublié ici fuit dans toute la
+   * suite qui suit.
+   */
+  describe("signaux — on n'arrache que ce qu'on a posé", () => {
+    it("un gestionnaire TIERS survit à l'installation du cluster", () => {
+      const { mgr } = build({ workers: 1 });
+      let tiersAppele = 0;
+      const tiers = (): void => {
+        tiersAppele += 1;
+      };
+      process.on("SIGTERM", tiers);
+      try {
+        mgr.installSignalHandlers();
+        // Le signal est ÉMIS, pas envoyé : `process.emit` déclenche les
+        // listeners sans demander au système de tuer le process de test.
+        process.emit("SIGTERM");
+        expect(
+          tiersAppele,
+          "le gestionnaire tiers n'a pas été appelé — le cluster l'a arraché",
+        ).to.equal(1);
+      } finally {
+        mgr.removeSignalHandlers();
+        process.removeListener("SIGTERM", tiers);
+      }
+    });
+
+    it("le manager retire les SIENS, et rend leur compte", () => {
+      const { mgr } = build({ workers: 1 });
+      const avant = process.listenerCount("SIGTERM");
+      mgr.installSignalHandlers();
+      expect(process.listenerCount("SIGTERM")).to.equal(avant + 1);
+      expect(mgr.removeSignalHandlers()).to.equal(2); // SIGTERM + SIGINT
+      expect(process.listenerCount("SIGTERM")).to.equal(avant);
+      expect(mgr.removeSignalHandlers(), "idempotent").to.equal(0);
+    });
+
+    it("le signal reçu déclenche bien l'arrêt du master", () => {
+      const { exits, mgr } = build({ workers: 1 });
+      try {
+        mgr.installSignalHandlers();
+        process.emit("SIGTERM");
+        // Aucun worker vivant (pas de `start()`) → arrêt immédiat.
+        expect(exits).to.deep.equal([0]);
+      } finally {
+        mgr.removeSignalHandlers();
+      }
+    });
+  });
 });

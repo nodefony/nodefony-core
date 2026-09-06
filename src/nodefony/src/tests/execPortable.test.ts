@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 import { expect } from "chai";
 import path from "node:path";
-import { besoinDeShell } from "../cli/execPortable";
+import { needsShell } from "../cli/execPortable";
 
 /**
  * SPEC — « ce qui empêche Node de lancer la chose n'est pas OÙ elle est, c'est ce
@@ -12,10 +12,9 @@ import { besoinDeShell } from "../cli/execPortable";
  * ne serait vérifiable que sur la plateforme qu'elle décrit — c'est-à-dire jamais,
  * sur les postes de ce projet, ce qui est précisément comment le défaut a vécu.
  */
-describe("besoinDeShell — la règle du shell Windows", () => {
-  const win = (cmd: string): boolean => besoinDeShell(cmd, "win32", path.win32);
-  const posix = (cmd: string): boolean =>
-    besoinDeShell(cmd, "linux", path.posix);
+describe("needsShell — la règle du shell Windows", () => {
+  const win = (cmd: string): boolean => needsShell(cmd, "win32", path.win32);
+  const posix = (cmd: string): boolean => needsShell(cmd, "linux", path.posix);
 
   it("hors Windows, JAMAIS de shell — il rouvre l'interprétation des métacaractères", () => {
     for (const cmd of ["npm", "npx", "/usr/local/bin/oxlint", "node"]) {

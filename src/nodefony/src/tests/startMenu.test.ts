@@ -48,7 +48,7 @@ describe("startMenu — composition pure du menu interactif", () => {
       "cluster",
       "status",
       "stop",
-      "check",
+      "doctor",
       "inspect",
       "env",
       "card",
@@ -206,7 +206,7 @@ describe("startMenu — composition pure du menu interactif", () => {
     // s'ouvre à `onStart` ; les commandes de module ne sont posées dans
     // commander qu'à `onPreRegister` (dispatch différé). Un menu qui PROPOSE un
     // geste puis le refuse est pire que celui qui ne le proposait pas.
-    const builtins = new Set(["development", "inspect", "check"]);
+    const builtins = new Set(["development", "inspect", "doctor"]);
     const isBuiltin = (n: string) => builtins.has(n);
 
     assert.deepEqual(planMenuAction("http:network", isBuiltin), {
@@ -353,7 +353,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
     };
     const cli = {
       quietBoot: false,
-      getCommand: (n: string) => (n === "check" ? commande : undefined),
+      getCommand: (n: string) => (n === "doctor" ? commande : undefined),
       initSyslog: () => journal.push("syslog"),
     };
     return { cli, journal };
@@ -364,7 +364,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
       await import("../kernel/commands/MenuCommand");
     const cmd = Object.create(MenuCommand.prototype) as {
       cli: unknown;
-      appliquerCapacites: (n: string) => void;
+      applyCapabilities: (n: string) => void;
     };
     cmd.cli = cli;
     return cmd;
@@ -372,7 +372,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande qui déclare quietBoot fait taire le boot — ET rejoue le filtre", async () => {
     const { cli, journal } = fauxCli(true);
-    (await menuAvec(cli)).appliquerCapacites("check");
+    (await menuAvec(cli)).applyCapabilities("doctor");
     expect(cli.quietBoot).toBe(true);
     // Sans ce second appel, le filtre resterait celui calculé au démarrage du
     // menu, quand personne ne savait encore quelle commande serait choisie.
@@ -382,7 +382,7 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande qui ne le déclare pas ne fait taire personne", async () => {
     const { cli, journal } = fauxCli(false);
-    (await menuAvec(cli)).appliquerCapacites("check");
+    (await menuAvec(cli)).applyCapabilities("doctor");
     expect(cli.quietBoot).toBe(false);
     expect(journal).not.toContain("syslog");
     // Elle reste interactive : c'est un choix, pas une frappe.
@@ -391,8 +391,113 @@ describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
 
   it("une commande inconnue du CLI ne casse rien", async () => {
     const { cli, journal } = fauxCli(true);
-    (await menuAvec(cli)).appliquerCapacites("inexistante");
+    (await menuAvec(cli)).applyCapabilities("inexistante");
     expect(cli.quietBoot).toBe(false);
     expect(journal).toEqual([]);
+  });
+});
+
+/**
+ * 🔴 Le menu ne tient plus de LISTE BLANCHE.
+ *
+ * Il ne proposait que les commandes inscrites à la main dans son catalogue :
+ * une commande neuve n'y entrait jamais, et rien ne le signalait — le menu
+ * avait toujours l'air complet. Le catalogue ne décide plus de ce qui EXISTE,
+ * seulement de l'ordre de lecture et du conseil d'usage.
+ */
+describe("buildStartMenu — ce qui existe est proposé, sans l'y inscrire", () => {
+  const base = {
+    inProject: true,
+    describe: (n: string) => (n === "inconnue" ? null : `résumé de ${n}`),
+  };
+
+  it("⭐ une commande intégrée HORS catalogue apparaît sous son intention", () => {
+    const { items } = buildStartMenu({
+      ...base,
+      builtinCommands: [
+        {
+          name: "commande-neuve",
+          description: "ce qu'elle fait",
+          group: "COMPRENDRE",
+          requiredArgs: 0,
+        },
+      ],
+    });
+    const at = items.findIndex(
+      (i) => i.kind === "choice" && i.value === "commande-neuve",
+    );
+    assert.isAtLeast(at, 0, "la commande doit être proposée");
+    const separateurs = items
+      .slice(0, at)
+      .filter((i) => i.kind === "separator");
+    assert.equal(
+      separateurs.at(-1)?.label,
+      "Comprendre",
+      "…sous le groupe que son intention désigne",
+    );
+  });
+
+  it("🔴 une commande qui EXIGE un argument n'est pas proposée", () => {
+    // Le menu la lancerait sans argument : l'utilisateur recevrait une erreur
+    // d'usage là où il attendait un geste.
+    const { items } = buildStartMenu({
+      ...base,
+      builtinCommands: [
+        {
+          name: "exige-un-sujet",
+          description: "…",
+          group: "COMPRENDRE",
+          requiredArgs: 1,
+        },
+      ],
+    });
+    assert.isFalse(
+      items.some((i) => i.kind === "choice" && i.value === "exige-un-sujet"),
+    );
+  });
+
+  it("une commande déjà au catalogue n'est pas proposée DEUX fois", () => {
+    const { items } = buildStartMenu({
+      ...base,
+      builtinCommands: [
+        {
+          name: "development",
+          description: "…",
+          group: "LANCER",
+          requiredArgs: 0,
+        },
+      ],
+    });
+    const combien = items.filter(
+      (i) => i.kind === "choice" && i.value === "development",
+    ).length;
+    assert.equal(combien, 1);
+  });
+
+  it("les commandes de MODULE se rangent aussi par intention", () => {
+    const { items } = buildStartMenu({
+      ...base,
+      moduleCommands: [
+        {
+          name: "orm:migrate",
+          description: "applique les migrations",
+          group: "BASE DE DONNÉES",
+        },
+        { name: "truc:machin", description: "d'un module tiers" },
+      ],
+    });
+    const titres = items
+      .filter((i) => i.kind === "separator")
+      .map((i) => i.label);
+    assert.include(
+      titres,
+      "Base de données",
+      "l'intention déclarée est suivie",
+    );
+    assert.include(
+      titres,
+      "Commandes du projet",
+      "…et celle qui n'en déclare aucune garde le groupe générique",
+    );
   });
 });

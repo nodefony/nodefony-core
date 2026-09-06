@@ -24,10 +24,10 @@ import path from "node:path";
 import process from "node:process";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  ecrireSecret,
-  ecrireSecretSync,
-  lireSiPresent,
-  lireSiPresentSync,
+  writeSecret,
+  writeSecretSync,
+  readIfPresent,
+  readIfPresentSync,
   messageNonRestreint,
   MODE_SECRET,
   modeNonRestreint,
@@ -42,23 +42,23 @@ beforeEach(() => {
 
 describe("lireSiPresent — l'absence n'est pas une erreur, tout le reste en est une", () => {
   it("rend null sur un fichier absent, sans lever", () => {
-    expect(lireSiPresentSync(path.join(dir, "nexiste-pas"))).toBeNull();
+    expect(readIfPresentSync(path.join(dir, "nexiste-pas"))).toBeNull();
   });
 
   it("rend le contenu d'un fichier présent", () => {
     const f = path.join(dir, "a");
     writeFileSync(f, "valeur");
-    expect(lireSiPresentSync(f)).toBe("valeur");
+    expect(readIfPresentSync(f)).toBe("valeur");
   });
 
   it("🔴 PIÈGE : un RÉPERTOIRE n'est pas un fichier absent — l'erreur remonte", () => {
     // Confondre les deux ferait écraser un secret existant par un fichier neuf,
     // au motif qu'il « n'existait pas ». `existsSync` ne distingue rien de tel.
-    expect(() => lireSiPresentSync(dir)).toThrow();
+    expect(() => readIfPresentSync(dir)).toThrow();
   });
 
   it("forme asynchrone : même contrat", async () => {
-    await expect(lireSiPresent(path.join(dir, "absent"))).resolves.toBeNull();
+    await expect(readIfPresent(path.join(dir, "absent"))).resolves.toBeNull();
   });
 });
 
@@ -67,7 +67,7 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
     "🔴 crée le fichier en 0600, pas au masque par défaut",
     () => {
       const f = path.join(dir, "jeton");
-      ecrireSecretSync(f, "s3cr3t");
+      writeSecretSync(f, "s3cr3t");
       expect(readFileSync(f, "utf8")).toBe("s3cr3t");
       expect(statSync(f).mode & 0o777).toBe(MODE_SECRET);
     },
@@ -81,7 +81,7 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
       const f = path.join(dir, "deja-la");
       writeFileSync(f, "ancien", { mode: 0o644 });
       expect(statSync(f).mode & 0o777).toBe(0o644);
-      ecrireSecretSync(f, "nouveau");
+      writeSecretSync(f, "nouveau");
       expect(readFileSync(f, "utf8")).toBe("nouveau");
       expect(statSync(f).mode & 0o777).toBe(MODE_SECRET);
     },
@@ -89,13 +89,13 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
 
   it("crée les dossiers manquants", () => {
     const f = path.join(dir, "a", "b", "c", "jeton");
-    ecrireSecretSync(f, "x");
+    writeSecretSync(f, "x");
     expect(readFileSync(f, "utf8")).toBe("x");
   });
 
   it("ne laisse AUCUN fichier temporaire derrière lui", () => {
     const f = path.join(dir, "jeton");
-    ecrireSecretSync(f, "x");
+    writeSecretSync(f, "x");
     expect(readdirSync(dir).filter((n) => n.includes(".tmp"))).toEqual([]);
   });
 
@@ -112,7 +112,7 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
     mkdirSync(cible);
     writeFileSync(path.join(cible, "dedans"), "x");
 
-    expect(() => ecrireSecretSync(cible, "s3cr3t")).toThrow();
+    expect(() => writeSecretSync(cible, "s3cr3t")).toThrow();
     const restes = readdirSync(dir).filter((n) => n.includes(".tmp"));
     expect(restes, `temporaire ORPHELIN portant le secret : ${restes}`).toEqual(
       [],
@@ -124,13 +124,13 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
     mkdirSync(cible);
     writeFileSync(path.join(cible, "dedans"), "x");
 
-    await expect(ecrireSecret(cible, "s3cr3t")).rejects.toThrow();
+    await expect(writeSecret(cible, "s3cr3t")).rejects.toThrow();
     expect(readdirSync(dir).filter((n) => n.includes(".tmp"))).toEqual([]);
   });
 
   it.skipIf(!POSIX)("forme asynchrone : même mode", async () => {
     const f = path.join(dir, "async");
-    await ecrireSecret(f, "y");
+    await writeSecret(f, "y");
     expect(statSync(f).mode & 0o777).toBe(MODE_SECRET);
   });
 });
@@ -138,7 +138,7 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
 describe("modeNonRestreint — CONSTATER, jamais déduire de la plateforme", () => {
   it.skipIf(!POSIX)("rend undefined quand la restriction a pris", () => {
     const f = path.join(dir, "ok");
-    ecrireSecretSync(f, "x");
+    writeSecretSync(f, "x");
     expect(modeNonRestreint(f)).toBeUndefined();
   });
 
@@ -149,7 +149,7 @@ describe("modeNonRestreint — CONSTATER, jamais déduire de la plateforme", () 
       // nombre — c'est ce qui déclenche l'avertissement. Prétendre `undefined`
       // ferait passer pour restreint un fichier qui ne l'est pas.
       const f = path.join(dir, "ok");
-      ecrireSecretSync(f, "x");
+      writeSecretSync(f, "x");
       expect(typeof modeNonRestreint(f)).toBe("number");
     },
   );

@@ -3,6 +3,66 @@
 > **Mis à jour : 2026-08-20** (audit vérité — cf mémoire IA `core-dev/migration/AUDIT-verite-2026-08.md` ; passes précédentes : `AUDIT-verite-2026-06.md`).
 > **Retouche du 2026-09-01** : `P14.14` et `P14.16` cochées, chacune prouvée au CODE. Les 41 autres
 > cases non cochées gardent leur statut, **non vérifié** — c'est l'objet du ticket [#80](https://github.com/nodefony/nodefony-core/issues/80).
+>
+> ### ✅ Les 46 cases ont été CONFRONTÉES AU CODE le 2026-09-06 — et 40 disaient vrai
+>
+> Trois agents de lecture, en parallèle, sur les cases ⬜/🔶 de P3→P16 (P12 exclue : la couche IA
+> est portée en bloc par le jalon `12`). Verdict : **40 justes · 2 fausses · 3 à préciser · 1 non
+> vérifiable par lecture**.
+>
+> **C'est le contraire de ce qu'on craignait**, et c'est le résultat qui compte : la carte des
+> phases vieillit BEAUCOUP mieux que les notes de chantier — sur celles-ci, huit affirmations sur
+> dix étaient périmées (mesure du 27 août, cf [#80](https://github.com/nodefony/nodefony-core/issues/80)).
+> Ce qui était faux ici : la vue **Migrations** de la console (P10.9, livrée), et les six verbes
+> `orm:*` de P7.10. Ce qui manquait de précision : P10.10, P14.7, P10.11, P5.12, P13.8, 16.G.1 —
+> chacune porte désormais son ancre et ce qui reste VRAIMENT.
+>
+> ⚠️ **Ce que cette passe ne dit pas** : elle a lu du code, elle n'a rien exécuté. Une case peut
+> décrire un symbole qui existe et ne marche pas.
+>
+> ### 🔴 Une case non cochée n'est PAS un ticket — et 38 sur 40 n'en ont pas
+>
+> Croisé le 2026-09-06 : le fichier porte **40 cases** ⬜/🔶, dont **deux seulement citent un
+> ticket**. Ce n'est pas un oubli de pilotage, et il ne faut surtout pas ouvrir 38 tickets : les
+> orphelines se répartissent en quatre familles qui n'appellent pas le même geste — une phase
+> entière portée par un **jalon** (les 7 de P12 → jalon `12`), un **reste** de phase livrée qui doit
+> d'abord être confronté au code, un **travail réel** à ranger, et des cases **déjà couvertes** par
+> un ticket qui ne se nomme pas (P8.4 → [#228](https://github.com/nodefony/nodefony-core/issues/228),
+> P10.6 → [#33](https://github.com/nodefony/nodefony-core/issues/33)).
+>
+> **Ce tri est le ticket [#80](https://github.com/nodefony/nodefony-core/issues/80)**, qui porte le
+> détail des quatre familles et l'extraction reproductible. Sur les quatre cases déjà examinées ce
+> jour — P9.2, 16.G, 16.H.6, 16.F.3 — **les quatre étaient fausses**. Ne pas conclure qu'une tâche
+> reste à faire sur la seule foi d'une case.
+>
+> ### 🎯 Ce fichier TEND VERS SON ARCHIVE
+>
+> Il a été la carte d'un chantier de migration ; ce chantier se termine. **L'avancement du travail
+> vit désormais dans les tickets** — jalons `10.0.0` (la publication), `10.1` (**cloud-native et
+> problèmes importants**), `10.2` (évolutions fonctionnelles et confort), plus le backlog qui ne
+> promet aucune date. L'empreinte hors ligne est [`.ai/BOARD.md`](.ai/BOARD.md), **générée**.
+>
+> Ce qui reste ici, et qui n'a pas d'équivalent ailleurs : **la carte des phases** — ce qui a été
+> migré, ce qui ne l'est pas, et la décomposition vérifiée au code des phases encore ouvertes
+> (P12, P15, P16, P17). Un ticket dit ce qu'on va faire ; cette page dit **où en est le tout**.
+>
+> **Il reste TENU À JOUR jusqu'à son archivage** — un tableau de bord qu'on cesse de mettre à jour
+> ne devient pas neutre, il devient MENTEUR, et c'est pire que son absence. Les pourcentages sont
+> l'intérêt de cette page : ils disent d'un coup d'œil où en est le tout, ce qu'aucune liste de
+> tickets ne montre.
+>
+> **La règle de sortie** : dès qu'une phase se solde, elle se résume en une ligne et son détail part
+> dans `docs/archives/`. Quand toutes les phases ouvertes auront leurs tickets, ce fichier n'aura
+> plus de raison d'être — il ne se laissera pas mourir de vieillesse, il sera archivé d'un geste.
+> L'instrument qui l'audite (`nodefony-session`, `references/migration-audit.md`) le suivra : il
+> n'a de sens que tant qu'il y a une carte à confronter au code.
+>
+> ⚠️ **Les compteurs ci-dessous se MESURENT, ils ne se recopient pas.** Le comptage des phases a sa
+> recette (le `awk` sur la 1ʳᵉ cellule, dans `references/migration-audit.md` — compté à la main, on
+> compte les emoji n'importe où) ; les deux lignes `DOC` viennent de `build-docs-site.mjs --list`
+> passé à `doc-lint.mjs` et `anchor-check.mjs`. Un chiffre écrit sans sa commande vieillit sans
+> prévenir : les trois qui étaient ici — 437 ancres en dérive, 61/63 pages, 84 pages publiées —
+> étaient tous faux au moment de les relire.
 > Légende : ✅ Migré | 🔶 Partiel | ⬜ À faire | 🚫 Bloqué | ⏭️ Skip/Caduc
 >
 > **Règle de tenue (CONVENTION) :** statut en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`), **1 ligne courte**
@@ -91,7 +151,7 @@ symptôme : `nodefony create module` lance le `npm install` qui pose le lien de 
 le Kernel ne peut pas importer le module par son nom, et sous Windows `npm` est un `npm.cmd` que Node
 refuse d'exécuter sans shell (il répond `ENOENT`, qui se lit « npm n'est pas installé »). La règle
 existait — écrite la veille dans le BANC, jamais dans le PRODUIT : l'outil de mesure était portable
-pendant que le produit ne l'était pas. `besoinDeShell` est publiée par le cœur, le banc l'importe, et
+pendant que le produit ne l'était pas. `needsShell` est publiée par le cœur, le banc l'importe, et
 **11 sites** qui la redevinaient ou l'ignoraient sont fermés. `scaffold.yml` : **4/4 vert**.
 
 **L'intégration s'exécute désormais sur les TROIS systèmes** (`8f2321a7`) — c'est la seule tâche du
@@ -198,9 +258,11 @@ Console Logs Studio = panneau P10 de facto livré.
 > été scanné (`gitleaks`, 2 020 commits, 59 Mo) : **aucun secret**, 44 résultats tous expliqués
 > (35 = jetons d'exemple des RFC bundlées, 3 = vecteur de test RFC 6238, 1 = cert mkcert de dev).
 > Le **signalement privé GitHub est ACTIVÉ** (dépôt désormais PUBLIC — vérifié API 08-20,
-> `private-vulnerability-reporting: enabled`). 🔴 Reste **ouvert sur ce point, et il MONTE
-> maintenant que le dépôt est public** : brancher gitleaks en gate avec une allowlist (sinon les
-> 44 faux positifs le feront désactiver) — vérifié 08-20 : AUCUN workflow/hook gitleaks.
+> `private-vulnerability-reporting: enabled`). ✅ **`gitleaks` est branché en gate**
+> (`secrets.yml`, `57cba4f7`) : arbre ET historique, à chaque poussée, et le scanner se prouve
+> d'abord sur deux témoins plantés — une configuration qui ne charge pas rend « 0 secret » avec
+> le même aplomb qu'un dépôt propre. 50 trouvailles triées une par une, aucune exclusion en bloc
+> (`.gitleaks.toml`), **0 après tri**.
 > **(2)** ✅ **Vulnérabilités : 0** (`npm audit` re-prouvé 08-20, 0 alerte Dependabot — P9.4 ;
 > les « 166 » de la branche par défaut ont disparu avec l'alignement `main` ≡ `claude-ts`).
 > **(3)** **Provenance npm + 2FA** :
@@ -230,9 +292,9 @@ Console Logs Studio = panneau P10 de facto livré.
 | Renvois au code en dérive dans le corpus doc | 🟠 | [#49](https://github.com/nodefony/nodefony-core/issues/49) |
 | Option de tri mal formée = tri silencieusement ignoré | 🟠 | [#57](https://github.com/nodefony/nodefony-core/issues/57) |
 | Le corps des requêtes est injecté sans schéma | 🟠 | [#58](https://github.com/nodefony/nodefony-core/issues/58) — arbitrage |
-| Le cluster arrache les gestionnaires de signaux tiers | 🟠 | [#59](https://github.com/nodefony/nodefony-core/issues/59) |
+| Le cluster arrache les gestionnaires de signaux tiers | ✅ | [#59](https://github.com/nodefony/nodefony-core/issues/59) — `ee953505` : retrait NOMINATIF (`Cli.releaseSignalListeners`), un gestionnaire tiers survit |
 | Les noms de rôles sont écrits deux fois, front et back | 🟠 | [#60](https://github.com/nodefony/nodefony-core/issues/60) |
-| Une politique de canal ne mord pas sur un canal dynamique | 🔴 | [#61](https://github.com/nodefony/nodefony-core/issues/61) |
+| Une politique de canal ne mord pas sur un canal dynamique | ✅ | [#61](https://github.com/nodefony/nodefony-core/issues/61) — `1a2ecf45` : politique par MOTIF (`chat:room:*`), exact > spécifique, motif échappé et borné |
 | La sonde de disponibilité lit les ports de la config | 🟡 | [#62](https://github.com/nodefony/nodefony-core/issues/62) |
 | Bancs : décor non démarré, compte partagé, seuils absolus | 🟠 | [#63](https://github.com/nodefony/nodefony-core/issues/63) |
 | 45 s de construction à chaque démarrage du superviseur | 🟡 | [#64](https://github.com/nodefony/nodefony-core/issues/64) |
@@ -275,7 +337,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 > Les 9 constats, jamais instruits depuis juillet, ont été confrontés au code le 08-20 :
 >
 > - **5 CONFIRMÉS → montés au tableau des dettes ci-dessus** : `NF__HTTP__TRUSTPROXY=1` cassait le
->   boot (✅ soldé) · `ClusterManager` arrache les handlers tiers · table de routes `static` globale ·
+>   boot (✅ soldé) · `ClusterManager` arrachait les handlers tiers (✅ soldé, `ee953505`) · table de routes `static` globale ·
 >   `@Body()` injecte le payload brut sans validation de schéma (`routerDecorators.ts:1209` —
 >   **TRANCHÉ #58** : la validation vit dans le service, hooks `beforeCreate`/`beforeUpdate`
 >   d'`AbstractCrudService`, `await`és donc ouverts à l'asynchrone et communs à REST, socket et
@@ -324,21 +386,21 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ████████▌░  85%  13✅  3🔶  1⬜   ◀ (reste P5.0b batch/cron)
  P6  Security              █████████░  87%  29✅  3🔶  3⬜   cœur MVP + resource-server P6.9.x LIVRÉS ; reste P6.9d (serveur d'autorisation, APRÈS release), mTLS, rpId, authz B, logs auth
- P7  ORM drivers           ███████▏░░  72%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; S5 DDL prod : 10 sous-tickets fermés sous #17 (génération, applicateur, commandes, sonde de disponibilité, app générée, écran de la console) ; **adoption d'une base sans historique ✅** (`orm:migrate:baseline --from-database` ; impossible sur MariaDB — l'outil de lecture de schéma ne lit pas ses `CHECK (json_valid)` — et le refus le NOMME) ; **les commandes éprouvées sur un DÉMARRAGE réel et en intégration continue** (`NF_RUN_CLI_BOOT` posé dans le travail qui monte PostgreSQL et MariaDB — ces bancs ne tournaient jusque-là que sur un poste) ; **audit `fable` de la grappe passé** (cœur, commandes, tests) : la garde d'adoption INTERROGE la base au lieu de déduire, quatre refus ne rejouent plus leur propre refus, le verrou et l'échec SQL rendent enfin les codes qu'ils publiaient, et `repair --forget` donne une sortie à un historique qui ment ; **les refus des commandes sont prouvés sur le MONTAGE et non sur leurs briques** (#120 : adoption d'une base divergente, son exemption `--up-to`, description d'une table du framework — trois moteurs, démarrage réel) ; **le cycle d'ESSAI est nommé** — le refus d'une migration qui échoue dit comment itérer sans détruire, le succès dit comment vérifier que les données ont suivi, et une base d'essai dont l'historique n'est pas le nôtre est RECONNUE au lieu d'être imputée à la base ; **#17 FERMÉ** — la chaîne est livrée et prouvée par la forge (7 jobs/7, dont « une app générée migre une base PostgreSQL réelle », rouge depuis huit jours) ; deux défauts SILENCIEUX l'ont retenue jusqu'au bout, tous deux du sang de #124 — l'outil est fidèle à ce qu'il croit avoir lu, pas à la base : **#125** l'adoption écrivait un index composite inapplicable (une seule classe d'opérateur recopiée sur toutes les colonnes ; la base adoptée ne montre rien, c'est l'exemplaire SUIVANT qui tombe, et la migration s'arrêtant là aucune table suivante n'est créée) — la classe est désormais DEMANDÉE au moteur ; **#126** l'adoption était impossible sur MySQL Community (exclure une table qui porte un `CHECK` tue l'introspection, sortie d'erreur VIDE) — on lit tout et l'on retire après coup. **la grappe est SOLDÉE côté produit** : #118 fermé sur arbitrage (le produit ne pousse plus à détruire — 0 destruction sur 3 runs ; « l'agent écrit une bonne migration » n'est pas gouvernable par un ticket de produit et revient à #99), #122 le refus d'une entité qu'aucun fichier ne fournit est prouvé sur le MONTAGE — sans module de décor, la dérogation `NF_WITH_DEV_MODULES` du produit y suffisait, #123 le refus ne propose plus un second geste QUI NE PRODUIT RIEN (le critère est la COUVERTURE, qui se constate, jamais l'origine de la base, qui se devinerait faux pour toute production à jour), #121 la casse d'un nom rend le MÊME verdict que le moteur — et le banc a fait tomber la première version du correctif : `lower_case_table_names` vaut 0 sur MySQL 8.4, donc les tables y sont SENSIBLES, ce qui dépend de la MACHINE et non du dialecte ; il n'y a donc aucune règle synchrone pour les tables, elles se CONSTATENT. Restent #99 (banc IA), #127 #128 nés de l'instruction, #129 (catalogue des variables d'environnement) et #130 (une génération concurrente ne doit pas écrire une migration amputée) + P7.11 NoSQL
- P8  CLI + Monitoring      █████████░  90%   4✅  1🔶  0⬜   (doctor ✅ ; chaîne de publication ✅ P8.5 — R6 = DETTE ASSUMÉE, jouée AU MOMENT de publier)
- P9  Polish + clôture      ████████░░  75%   3✅  0🔶  1⬜   (P9.4 : 0 vulnérabilité, re-prouvé 08-20)
- P10 Studio (admin web)    ████████░░  84%  12✅  3🔶  1⬜   (P10.6 🔶 : ROLE_NODEFONY_ADMIN actif sur /studio/api/create/* seul)
+ P7  ORM drivers           ███████▏░░  72%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; S5 DDL prod : 10 sous-tickets fermés sous #17 (génération, applicateur, commandes, sonde de disponibilité, app générée, écran de la console) ; **adoption d'une base sans historique ✅** (`orm:migrate:baseline --from-database` ; impossible sur MariaDB — l'outil de lecture de schéma ne lit pas ses `CHECK (json_valid)` — et le refus le NOMME) ; **les commandes éprouvées sur un DÉMARRAGE réel et en intégration continue** (`NF_RUN_CLI_BOOT` posé dans le travail qui monte PostgreSQL et MariaDB — ces bancs ne tournaient jusque-là que sur un poste) ; **audit `fable` de la grappe passé** (cœur, commandes, tests) : la garde d'adoption INTERROGE la base au lieu de déduire, quatre refus ne rejouent plus leur propre refus, le verrou et l'échec SQL rendent enfin les codes qu'ils publiaient, et `repair --forget` donne une sortie à un historique qui ment ; **les refus des commandes sont prouvés sur le MONTAGE et non sur leurs briques** (#120 : adoption d'une base divergente, son exemption `--up-to`, description d'une table du framework — trois moteurs, démarrage réel) ; **le cycle d'ESSAI est nommé** — le refus d'une migration qui échoue dit comment itérer sans détruire, le succès dit comment vérifier que les données ont suivi, et une base d'essai dont l'historique n'est pas le nôtre est RECONNUE au lieu d'être imputée à la base ; **#17 FERMÉ** — la chaîne est livrée et prouvée par la forge (7 jobs/7, dont « une app générée migre une base PostgreSQL réelle », rouge depuis huit jours) ; deux défauts SILENCIEUX l'ont retenue jusqu'au bout, tous deux du sang de #124 — l'outil est fidèle à ce qu'il croit avoir lu, pas à la base : **#125** l'adoption écrivait un index composite inapplicable (une seule classe d'opérateur recopiée sur toutes les colonnes ; la base adoptée ne montre rien, c'est l'exemplaire SUIVANT qui tombe, et la migration s'arrêtant là aucune table suivante n'est créée) — la classe est désormais DEMANDÉE au moteur ; **#126** l'adoption était impossible sur MySQL Community (exclure une table qui porte un `CHECK` tue l'introspection, sortie d'erreur VIDE) — on lit tout et l'on retire après coup. **la grappe est SOLDÉE côté produit** : #118 fermé sur arbitrage (le produit ne pousse plus à détruire — 0 destruction sur 3 runs ; « l'agent écrit une bonne migration » n'est pas gouvernable par un ticket de produit et revient à #99), #122 le refus d'une entité qu'aucun fichier ne fournit est prouvé sur le MONTAGE — sans module de décor, la dérogation `NF_WITH_DEV_MODULES` du produit y suffisait, #123 le refus ne propose plus un second geste QUI NE PRODUIT RIEN (le critère est la COUVERTURE, qui se constate, jamais l'origine de la base, qui se devinerait faux pour toute production à jour), #121 la casse d'un nom rend le MÊME verdict que le moteur — et le banc a fait tomber la première version du correctif : `lower_case_table_names` vaut 0 sur MySQL 8.4, donc les tables y sont SENSIBLES, ce qui dépend de la MACHINE et non du dialecte ; il n'y a donc aucune règle synchrone pour les tables, elles se CONSTATENT. Restent #99 (banc IA), #127 #128 nés de l'instruction, #129 (catalogue des variables d'environnement) et #130 (une génération concurrente ne doit pas écrire une migration amputée) + **P7.11 NoSQL = [#30](https://github.com/nodefony/nodefony-core/issues/30)**, dans la 10.0.0
+ P8  CLI + Monitoring      █████████░  90%   4✅  1🔶  0⬜   (**doctor SOLDÉ** — grappe #178 fermée, ses 8 sous-tickets avec : dix familles de contrôles, chacune portant son état d'EXÉCUTION (un silence ne vaut plus quitus), rendu terminal en fonction PURE éprouvée de 48 à 120 colonnes, étage 2 qui DEMANDE à l'application démarrée (migrations, firewall, et ce que le gating de production fera disparaître), surface ouverte inventoriée, entités hors dialecte nommées, gardes du projet constatées armées — `6f3c6cda`/`eb42164b`/`e5f8975b` ; chaîne de publication ✅ P8.5 — R6 = DETTE ASSUMÉE, jouée AU MOMENT de publier)
+ P9  Polish + clôture      ██████████ 100%   4✅  0🔶  0⬜   ✅ SOLDÉE (P9.2 constaté 09-06 : les barrels manquants sont ceux de P12, différée · P9.4 : 0 vulnérabilité)
+ P10 Studio (admin web)    ████████▌░  87%  13✅  2🔶  1⬜   (P10.9 ✅ constaté 09-06 : la vue Migrations existe · P10.6 🔶 : ROLE_NODEFONY_ADMIN actif sur /studio/api/create/* seul)
  P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ BLOQUEUR MVP — lifecycle + scaffold ✅ ; orm:migrate ✅ (S5c soldé, #98 : cinq verbes × 3 dialectes, chaque réglage sur son couple) ; reste user:* métier
  P12 Couche IA agentic     █▍░░░░░░░░  14%   0✅  2🔶  5⬜   🧪 différé (llm réel non intégré ; protocole MCP AU CŒUR, module vide ; agent-guard vide)
  P13 Realtime distribué    ████████░░  77%  10✅  3🔶  2⬜   (reste Kafka 13.6a/b · décorateurs 13.8)
  P14 Frontend Vite + iso   █████████░  92%  16✅  1🔶  1⬜   (P14.18 ✅ origine par Host · svelte5 ✅ · solid retiré ; P14.14 CSP dynamique ✅ #135 · P14.16 syslog front→back ✅ #35)
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
- P16 Cloud-Native (10 axes)████▌░░░░░  45%  15✅  0🔶 18⬜   (33 sous-items vérifiés code 08-20 · 16.J /metrics repoussé)
+ P16 Cloud-Native (10 axes)██████░░░░  59%  19✅  0🔶 13⬜ ⏭️1  (33 sous-items · 16.G.2/G.3/G.4 fermés par les guides publiés · 16.H.6 : le banc existe · 16.F.3 CADUC · reste = THÈME du jalon 10.1)
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    ███████▎░░  74% 144✅ 24🔶 44⬜  (212 tâches · somme des lignes ci-dessus, recomptée le 2026-09-01 — la ligne annonçait 141/211 pour 142/212 réels)
+ GLOBAL                    ███████▋░░  77% 149✅ 23🔶 40⬜  (212 tâches · somme des lignes ci-dessus · recalé le 09-06 après confrontation des 46 cases au code)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   █████████▋  97%  61/63 pages aux 4 gates (rejoués 08-20) · 437 ancres en DÉRIVE (dette)
- DOC Site public           ██████████ 100%  84 pages PUBLIÉES sur GitHub Pages (f9aaf5de) · accueil + /docs/ + /performance/
+ DOC Corpus de référence   ██████████ 100%  97/97 pages aux 4 gates · 4 526 ancres : 4 148 justes, 378 à revoir, ZÉRO fichier introuvable, ZÉRO ligne hors bornes
+ DOC Site public           ██████████ 100%  97 pages PUBLIÉES · accueil + /docs/ + /performance/ · le périmètre se DEMANDE : `node scripts/build-docs-site.mjs --list`
  BANC devkit (référence)   █████████▍  94%  31/33 PASS unanimes (référence 247f6bce, 3 runs, décor `MCP eteint`) · référence RÉENREGISTRÉE le 09-02 après réparation de l'instrument : 3 rouges sur 6 accusaient l'agent à tort (matière aux sauts de ligne échappés, contexte d'ancrage d'une édition pris pour un geste, juge sans jeton anti-rejeu) · restent T33 et T34 à 2/3, instabilités d'AGENT (une passe sur trois détruit la base)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -434,7 +496,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 > `context.request` (`80eb2801`, alias de `queryPost`, `body` devient un nom d'action réservé) ; et
 > **6 paquets publient des types injoignables après `npm i`** (`exports["."].types` → `./index.ts`,
 > absent de `files`) — `frontend` réparé, les 5 autres verrouillés par un cycle de types
-> `http ↔ framework ↔ security → user → orm-core`, tracés par la gate `nodefony check` (`1a139b14`,
+> `http ↔ framework ↔ security → user → orm-core`, tracés par la gate `nodefony doctor` (`1a139b14`,
 > `a4cc8b72`).
 
 > Fondations **hors roadmap** (déjà migrées, Phases 0-4) : Build, Core/Kernel, DI, Syslog, Router, Controller, Types.
@@ -534,7 +596,7 @@ DI scopes (singleton/transient), lifecycle session.
 | ⬜ P5.0b | Service Cron/Worker (worker dédié) | décision : gardé, découplé serveur |
 | ⏭️ P5.7 | ~~Adapter Sequelize User~~ | **caduc (virage ORM : sequelize supprimé)** |
 | 🔶 P5.10 | Tests User cross-ORM | couvert **de facto** par 2 bancs miroirs même contrat `IUserRepository` (Drizzle 8 + Mongoose 8) ; banc paramétré unifié = optionnel |
-| 🔶 P5.12 | `Redis` SessionStorage | File + **Redis livrés** (TTL natif IoC) ; reste câblage prod |
+| 🔶 P5.12 | `Redis` SessionStorage | File + **Redis livrés** (TTL natif IoC) — `redis/nodefony/src/SessionStorage.ts`. Reste précisément : **l'enregistrement automatique au boot** quand `session.store` vaut `redis`. Confronté au code le 09-06. |
 
 ### P6 — Security (87 %) — ✅ cœur MVP LIVRÉ (bloqueur MVP LEVÉ) ; reste durcissement/niches HORS MVP
 
@@ -543,7 +605,7 @@ DI scopes (singleton/transient), lifecycle session.
 <!-- prettier-ignore -->
 | # | Tâche | Preuve / état (détail → git log + mémoires IA) |
 | --- | --- | --- |
-| 🔶 P6.8 | `authorization.ts` (3 niveaux) | J6 `4e336d50` : RoleVoter + `decide()` affirmative+DENY véto, voterRegistry ; reste niveau B (ACL fine par ressource) |
+| 🔶 P6.8 | `authorization.ts` (3 niveaux) | Niveau B partiellement porté par [#71](https://github.com/nodefony/nodefony-core/issues/71) (hiérarchie de rôles extensible, jalon `10.2`) — l'ACL fine par ressource reste sans ticket. J6 `4e336d50` : RoleVoter + `decide()` affirmative+DENY véto, voterRegistry ; reste niveau B (ACL fine par ressource) |
 | ⬜ P6.9d | **Serveur d'autorisation OAuth 2.1** (code flow + PKCE) | **NON FAIT — TRANCHÉ (décision user) : APRÈS la release 10.0.0.** Conséquence assumée : la 10.0.0 sort avec un MCP dont la sécurité est complète et prouvée, mais dont le jeton s'obtient **hors bande**. Le report déplace la charge sur la DOCUMENTATION (comment obtenir et poser le porteur). Nodefony ÉMET des jetons et publie de quoi les vérifier (RFC 8414 + JWKS), mais n'offre aucun **flux d'obtention** normatif : ni `authorization_endpoint`, ni `token_endpoint`. Conséquence CONSTATÉE sur un vrai client : le SDK MCP exige les deux champs et refuse la connexion — alors que le document est LÉGAL sans eux (RFC 8414 §2). **Ce n'est PAS un prérequis du MCP authentifié** : la spec impose le porteur, pas le moyen de l'obtenir. C'en est un pour un client qui doit obtenir son jeton SEUL. |
 | ⬜ P6.9b | `MTlsAuthenticator` | zones admin (niche, non démarré) |
 | 🔶 P6.10 | Logs auth + CSP stricte + headers | J5-A `SecurityHeaders` (CSP + Referrer + COOP/COEP/CORP + Permissions-Policy) ; reste logs auth dédiés |
@@ -562,7 +624,7 @@ DI scopes (singleton/transient), lifecycle session.
 | 🔶 P7.10 | ⭐ **Portabilité multi-dialecte (CRITIQUE RELEASE)** | **Slice 0 + S1→S4 ✅** (`5bcd2d7f`→`0ac019ef`, 06-26→07-08) : `connector.dialect` sqlite/postgres/mysql, repository **PK-portable**, **colKit** (spec logique → table du dialecte, G1) + **queryKit** (SQL natif routé : `json_each`/`@>` jsonb/`JSON_CONTAINS`, bindé), chemins sans-RETURNING mysql, idempotence `INSERT IGNORE`+vol, `mysqlJsonCompat` (LONGTEXT MariaDB). **LES 8 BRIQUES × 3 DIALECTES** — preuves : **drizzle 274/274** dont **banc de parité de contrat `IRepository` 14×3** + 41 e2e PG réel + 33 e2e MySQL 8.4 ET MariaDB 11.4 (gatés `NF_PG_URL`/`NF_MYSQL_URL`). Comparatif froid ✅ Drizzle CONFIRMÉ (`a370b5a1`, garde-fous G1-G3). **Reste : S5 DDL prod** — S5-0 (dettes de DDL) ✅ `81a9813c` · **S5-R (registre de disponibilité `/readyz`) ✅** ([#95](https://github.com/nodefony/nodefony-core/issues/95)) · **S5a (migrations du framework GÉNÉRÉES) ✅** `4d25742d`→`dfeb8a14` ([#96](https://github.com/nodefony/nodefony-core/issues/96)) : `0000_framework_init` × 3 dialectes versionné et publié, contrôle de dérive en CI, trois refus à la génération (destructeur / renommage / verrouillant), et un **banc de parité** qui prouve sur sqlite + PostgreSQL + MariaDB + MySQL Community qu'une base migrée est identique à une base à DDL dérivé · **S5b (APPLICATEUR `DrizzleMigrator`) ✅** `c4998acb` ([#97](https://github.com/nodefony/nodefony-core/issues/97)) : plan/validate/migrate/baseline/repair, table `nodefony_migrations(source,tag)` **auto-amorcée**, verrou natif d'identité GRAVÉE (`pg_advisory_lock` / `GET_LOCK` qualifié par `DATABASE()`) sur **connexion unique** — un pool rendrait un verrou de session inopérant —, empreinte `sha256:` normalisée CRLF→LF, sources en espace de noms OUVERT, verdicts `NF_MIGRATE_*` structurés ; **12 des 14 cas sqlite vus ROUGES** par débranchement, e2e verrou/échec sur PostgreSQL + MariaDB 11.4 + MySQL 8.4 — design ✅ VALIDÉ 07-10 (`orm-migrations-design-2026-07`, mémoire IA `core-dev/audits/` : drizzle-kit + applicateur MAISON `DrizzleMigrator`, table `nodefony_migrations(source,tag)`, lock natif, modes ddl auto/migrate/none), **S5c (commandes + config + sonde) 🔶 EN COURS** `5139f48e`→`3d2b6f48` ([#98](https://github.com/nodefony/nodefony-core/issues/98)) : les **cinq verbes** `orm:migrate`/`:status`/`:baseline`/`:repair` + `orm:reset`, config Zod (`ddl` par connecteur, `migrations.{dir,check,lockTimeoutMs,divergence}`) aux défauts résolus par environnement (`migrate` n'est JAMAIS un défaut), démarrage qui OBÉIT au mode et l'énonce, sonde `/readyz` retenue avec re-vérification périodique (`/livez` jamais touché), grille de codes FIGÉE 0/1/2, `formatVersion: 1` à cœur neutre, `--json` flux pur même en échec, et un **garde destructif** hors énoncé (refus d'un `DROP` de données hors développement ; au démarrage, sans drapeau pour le lever) ; 44 tests dont **8 vus ROUGES** par débranchement et 7 cas sur BOOT RÉEL. `94b3f1e2` a branché `schemaDiff.ts`, jusque-là CODE MORT : le démarrage en `auto` **rattrape** les colonnes qui acceptent le vide, **refuse** d'inventer les obligatoires, et l'ordre de connexion devient tables → rattrapage → index — parce qu'un `CREATE INDEX` sur une colonne absente TUAIT la connexion, ce que la conception ne pouvait pas voir. Le verdict `divergent` (la TROISIÈME source : historique complet, rien en attente, base pourtant fausse) ne se calcule que si les deux autres sources n'ont plus rien à dire, ignore ce qui est EN TROP, et ne bloque qu'à la demande. `08cc9f3f` livre la page `docs/migrations.md` (patron d'orchestrateur, droits du compte qui migre, expansion/contraction, pourquoi PAS de sauvegarde automatique) et corrige **7 documents** qui niaient encore les migrations — dont le gabarit figé dans chaque application créée. Le verdict **NOMME** désormais ce qui diverge (`d4b57b9e`, [#105](https://github.com/nodefony/nodefony-core/issues/105)) : `describeDivergence()` remplace le booléen et PRODUIT le verdict — un `divergent` sans détail est devenu impossible à construire ; la clé `divergence` vit au premier niveau (cœur neutre) et est ABSENTE, jamais vide, sur base conforme ; les gestes suivent l'environnement (`resetAllowed()`, source unique lue par `orm:reset` qui refuse ET par le rendu qui propose). Quatre débranchements vus mordre, dont un sur PostgreSQL réel. Et une base sans tables cesse d'être une panne (`44d137c3`, [#107](https://github.com/nodefony/nodefony-core/issues/107)) : le détecteur de #98 devient `schemaMismatchOf`, GRADUÉ (`certain` PG/MySQL, `probable` SQLite au message figé) — un seul détecteur, deux seuils, le corps d'erreur HTTP restant à `certain`. **S5c ✅ SOLDÉ** (`d9f0fe67`→`66805fc8`, #98 fermé) : les cinq verbes tournent sur un BOOT RÉEL sur les TROIS dialectes, et **chaque réglage est prouvé sur son couple** — le refus sans le drapeau, le travail avec (`migrate-reglages.test.ts`, 69 cas × 3 dialectes). Quatre faux positifs silencieux fermés, qu'aucun test n'exerçait : `--up-to` sur un tag inconnu adoptait TOUT l'historique en rendant 0 ; `--source` sur un nom inconnu rendait « rien à réparer » sans rien toucher ; un `.sql` annoncé par le journal mais absent remontait un `ENOENT` nu ; et **`NF_MIGRATE_DATABASE_URL` était JETÉE en silence sur un connecteur sqlite** — un travail de déploiement migrait alors une base locale éphémère et rendait le code du SUCCÈS, les pods démarrant ensuite sur une base jamais migrée. Deux pièges d'encodage payés par Windows au passage (marque d'ordre des octets comptée dans l'empreinte ; ligne à deux tirets DANS une chaîne littérale prise pour un commentaire), et la couleur des commandes rebranchée sur la règle du cœur (`NO_COLOR`/`FORCE_COLOR` étaient ignorés, donc aucune sortie colorée n'était capturable). **Non couvert, énoncé à la fermeture** : le refus « ce connecteur ne porte pas de migrations » contre un mongoose RÉEL (le dépôt ne charge pas le module), et la sonde de disponibilité DÉBRANCHÉE vue faire tomber un banc. Puis **S5d (écran)**. Détail-journal = `git log` + `project_orm_multidialect_chantier_kit` |
 | ⏭️ P7.8 | ~~`@nodefony/mikroorm`~~ | **abandonné** (jamais commencé, module absent) |
 | ⏭️ P7.9 | ~~Tests MikroORM~~ | caduc |
-| ⬜ P7.11 | 🔴 **FULL NoSQL — 3 stores mongoose + parité de contrat** | **Objectif tranché 07-23 : une app doit tourner SANS `@nodefony/drizzle`** — mongoose est un chemin durable, donc complet 8/8. Manquent `totp`, `audit`, `idempotency` : aujourd'hui `auto` se replie sur `memory` (secrets 2FA perdus au redémarrage, journal d'audit volatil). Détail → snapshot mémoire IA + git log. |
+| ⬜ P7.11 | 🔴 **FULL NoSQL — 3 stores mongoose + parité de contrat** | **Porté par [#30](https://github.com/nodefony/nodefony-core/issues/30)**, jalon `10.0.0` — c'est LUI qui dit le reste-à-faire, cette ligne ne fait que le situer dans la carte. **Objectif tranché 07-23 : une app doit tourner SANS `@nodefony/drizzle`** — mongoose est un chemin durable, donc complet 8/8. Manquent `totp`, `audit`, `idempotency` : aujourd'hui `auto` se replie sur `memory` (secrets 2FA perdus au redémarrage, journal d'audit volatil). |
 
 > ✅ **Gap intégration SQL COMBLÉ (S1-S4)** : e2e **PG réel** (41, gatés `NF_PG_URL`) + **MySQL/MariaDB réels**
 > (33, `NF_MYSQL_URL`) + boot serveur réel (users/session drizzle) + e2e PG cross-pod (Slice 0).
@@ -591,24 +653,24 @@ DI scopes (singleton/transient), lifecycle session.
 <!-- prettier-ignore -->
 | # | Tâche | État |
 | --- | --- | --- |
-| 🔶 P8.4 | `Metrics` runtime | via Studio (ticker stats → canal `nodefony:supervision`, `studio/nodefony/realtime/providers.ts`), pas service standalone ; `/metrics` Prometheus = 16.J repoussé |
+| 🔶 P8.4 | `Metrics` runtime | **Porté par [#228](https://github.com/nodefony/nodefony-core/issues/228)** (jalon `10.2`). via Studio (ticker stats → canal `nodefony:supervision`, `studio/nodefony/realtime/providers.ts`), pas service standalone ; `/metrics` Prometheus = 16.J repoussé |
 
-### P9 — Polish + clôture (75 %)
+### P9 — Polish + clôture (100 %) — ✅ SOLDÉE
 
 <!-- prettier-ignore -->
 | # | Tâche | État |
 | --- | --- | --- |
-| ⬜ P9.2 | Barrels `index.ts` | résiduel |
+| ✅ P9.2 | Barrels `index.ts` | **CONSTATÉ le 2026-09-06**, pas déduit. Tout module LIVRÉ porte son barrel : les seuls `index.ts` manquants sont ceux des modules `agent`, `agent-guard`, `llm`, `mcp`, `memory`, `rag`, `vector` — **la couche IA de P12, différée et vide par construction** — plus des gabarits (`templates/`) et des artefacts de couverture (`.coverage/`), qui ne sont pas du code. Le cœur `src/nodefony` n'a pas d'`index.ts` racine et n'en a pas besoin : son entrée est `src/index.ts`, et `exports["."]` pointe le `dist` bâti depuis là. |
 
 ### P10 — Studio admin web (84 %)
 
 <!-- prettier-ignore -->
 | # | Tâche | État |
 | --- | --- | --- |
-| 🔶 P10.6 | Auth admin (`ROLE_NODEFONY_ADMIN`) | rôle actif sur `/studio/api/create/*` (`@IsGranted`, `StudioCreateController.ts`) ; reste : le généraliser à toute la surface `/nodefony` (vérif audit 08-06) |
-| 🔶 P10.9 | Vues firewall/logs/databases/migrate | Logs ✅ (WS) + Databases ✅ + Firewall ✅ (cf P6.15) ; reste migrate (S5d, gelé) |
-| 🔶 P10.10 | Vues services/profiling | incrémental (~~pm2~~ retiré C6) |
-| ⬜ P10.11 | Tests intégration studio | 0 test studio (vérif 06-28) — back couvert e2e via security |
+| 🔶 P10.6 | Auth admin (`ROLE_NODEFONY_ADMIN`) | **Porté par [#33](https://github.com/nodefony/nodefony-core/issues/33)** (jalon `10.0.0`). rôle actif sur `/studio/api/create/*` (`@IsGranted`, `StudioCreateController.ts`) ; reste : le généraliser à toute la surface `/nodefony` (vérif audit 08-06) |
+| ✅ P10.9 | Vues firewall/logs/databases/migrate | Logs ✅ (WS) + Databases ✅ + Firewall ✅ (cf P6.15) + **Migrations ✅** — la case annonçait « reste migrate (S5d, gelé) », c'était FAUX : `studio/frontend/src/routes/Migrations.tsx` existe et porte le cycle complet (état, verdict, applicabilité, application). Confronté au code le 09-06. |
+| 🔶 P10.10 | Vues services/profiling | **Profiling ✅** (`studio/frontend/src/routes/logs/ProfilingTab.tsx`) · **Services = ébauche** (`studio/frontend/src/routes/stubs.tsx`). Le reste n'est donc pas « incrémental » comme l'annonçait cette case : c'est UNE vue à écrire, l'autre est livrée. Confronté au code le 09-06. |
+| ⬜ P10.11 | Tests intégration studio | **13 fichiers de test unitaires existent** — l'annonce « 0 test studio » (06-28) est périmée. Ce qui manque reste vrai : **aucun test de bout en bout**. Le back est couvert e2e via security. Confronté au code le 09-06. |
 
 ### P11 — CLI par module (50 %)
 
@@ -621,7 +683,10 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P11.4 | Commandes `orm:migrate/…` | **LIVRÉ** — six verbes : `orm:generate` (`712c4286`, écrit les migrations de l'APPLICATION : découverte des entités, module à ré-exports plats, drizzle-kit piloté, trois refus nommés, `--custom`), `orm:migrate`/`:status`/`:baseline`/`:repair` et `orm:reset`. Applicateur MAISON `DrizzleMigrator` (~~délégation aux CLI ORM natifs~~ REJETÉE : migrator drizzle prouvé insuffisant au code). Conception : `orm-migrations-design-2026-07` (mémoire IA `core-dev/audits/`). Page utilisateur : `src/packages/@nodefony/drizzle/docs/migrations.md`. Reste l'écran Studio (#100) |
 | ⬜ P11.5 | Commandes `logs:tail/filter` + bridge Studio | LB.3b |
 
-### P12 — Couche IA agentic (14 %) — 🧪 différé (dernière phase de la roadmap, cf skill `nodefony-roadmap`)
+### P12 — Couche IA agentic (14 %) — 🎯 **JALON 12 (MAJEURE STABLE)** · cf skill `nodefony-roadmap`
+
+> **Rangée le 2026-09-06 dans le jalon `12`.** C'est un étage au-dessus de la plateforme : il
+> suppose le socle stable, et il n'est pas sur le chemin de la 10.
 
 > Section créée à l'audit 08-20 : le bandeau comptait P12 sans qu'aucune section n'existe.
 > État VÉRIFIÉ au code (sources hors dist ; règle « ne pas auditer/supprimer sans demande »).
@@ -650,7 +715,7 @@ DI scopes (singleton/transient), lifecycle session.
 | 🔶 P13.2 | `@nodefony/redis` refactor | fondation conventions faite ; **cloison des clés par application** `e43530ae`+`2820a219` (`keyNamespace` — sessions, jetons, WebAuthn, idempotence) ; 110 tests |
 | ⬜ P13.6a | `KafkaBackplane` (driver seul) | 4 briques réutilisées telles quelles ; seam transport injectable, 0 dep ajoutée |
 | ⬜ P13.6b | Module `@nodefony/kafka` | connexions + config + santé ; **attend un 2ᵉ consommateur** (bus events métier / P12 agents) |
-| 🔶 P13.8 | Décorateurs `@RealtimeAction`/`@RealtimeChannel` | 3 décorateurs livrés ; reste pattern RegExp |
+| 🔶 P13.8 | Décorateurs `@RealtimeAction`/`@RealtimeChannel` | 3 décorateurs livrés (`@RealtimeAction`, `@RealtimeChannel`, `@RealtimeInbound` — `realtimeDecorators.ts`) ; reste le motif d'expression régulière, la v1 ne faisant qu'une correspondance EXACTE (`realtimeDecorators.ts:172`). Confronté au code le 09-06. |
 
 > **Dettes backplane multi-pod / multi-app** (détail : [`@nodefony/realtime` — configuration](src/packages/@nodefony/realtime/docs/configuration.md)) :
 >
@@ -677,12 +742,15 @@ DI scopes (singleton/transient), lifecycle session.
 <!-- prettier-ignore -->
 | # | Tâche | État |
 | --- | --- | --- |
-| 🔶 P14.7 | CLI `frontend:create/build/dev` | commands existent (bug CLI) ; skill scaffold ✓ |
-| ⬜ P14.12 | Plugin Vite Nodefony (alias + env) | zéro config dev |
+| 🔶 P14.7 | CLI `frontend:create/build/dev` | **`frontend:build`, `frontend:dev` et `frontend:status` livrés** (`frontend/nodefony/command/`) ; **`frontend:create` n'existe pas** — le scaffold passe par `nodefony create module --frontend <fw>`. Reste : trancher si `frontend:create` doit exister, ou retirer ce nom de la case. Confronté au code le 09-06. |
+| ⬜ P14.12 | Plugin Vite Nodefony (alias + env) | Voisin de [#131](https://github.com/nodefony/nodefony-core/issues/131) (composer les plugins Vite en un seul endroit, jalon `10.2`) — à trancher : même chantier, ou ticket propre. zéro config dev |
 | ✅ P14.14 | API CSP origines dynamiques | la CSP du rechargement à chaud est déclarée au firewall AVANT le spawn de Vite, sur toute la plage de ports, puis rétrécie au port réel — [#135](https://github.com/nodefony/nodefony-core/issues/135) ; preuve `src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts` (9 cas) |
 | ✅ P14.16 | Syslog isomorphe (logs front → back) | canal montant livré bout en bout — [#35](https://github.com/nodefony/nodefony-core/issues/35) : émetteur `src/nodefony/src/client/syslog/uplink.ts`, réception `src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts`, preuve e2e `.../tests/integration/syslogUplink.e2e.test.ts` |
 
-### P15 — Mediasoup + SIP/Asterisk (0 %)
+### P15 — Mediasoup + SIP/Asterisk (0 %) — 🎯 **JALON 11 (MAJEURE STABLE)**
+
+> **Rangé le 2026-09-06 dans le jalon `11`**, avec P17 multi-tenant : deux extensions de
+> PLATEFORME, additives, qui ne sont sur le chemin ni de la 10 ni l'une de l'autre.
 
 > ⚠️ `src/modules/mediasoup` = **banc test ORM** (schémas Drizzle), **PAS** l'implé P15. Le pont télécom vocal n'est pas commencé.
 
@@ -692,7 +760,14 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 ### P16 — Cloud-Native (45 %) — décomposition VÉRIFIÉE au code (audit 08-20)
 
 > Comptage par SOUS-ITEM (plan `project_cloud_native_plan` + axes H/I/J ajoutés depuis) : chaque
-> ✅/⬜ ci-dessous a été confronté au code le 08-20 — **15✅ 18⬜ = 33 sous-items, 45 %**.
+> ✅/⬜ ci-dessous a été confronté au code le 08-20 — **18✅ 15⬜ = 33 sous-items, 55 %** après le
+> recalage de 16.G (trois de ses quatre sous-items sont couverts par des pages PUBLIÉES).
+>
+> 🎯 **Cette décomposition est la matière du jalon `10.1`**, dont le thème est cloud-native et
+> problèmes importants. Les sous-items encore ⬜ qui n'ont pas de ticket en sont les candidats —
+> par ordre de ce qu'un exploitant subit : **16.C secrets** (4 items, 0 occurrence), **16.A.2**
+> (`onPreShutdown`/`onDrain`), **16.G.1** (page publique des variables), **16.H.6** (banc backplane
+> cross-pod), **16.A.4** (avertissement PID 1 sans `tini`), **16.J** (`/metrics`, repoussé).
 > L'axe 16.A affiché « ✅ » jusqu'ici ne l'était que pour A.1 : A.2/A.3/A.4 n'existent pas (0 occurrence).
 
 <!-- prettier-ignore -->
@@ -703,15 +778,20 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 | 16.C Secrets | ⬜ C.1 `ISecretProvider` · ⬜ C.2 `SecretManager` · ⬜ C.3 hook boot · ⬜ C.4 migration des secrets — 0 occurrence des symboles (vérifié 08-20) ; dépend P6, design au kit |
 | 16.D Docker | ⬜ D.1 `Dockerfile.dev` · ✅ D.2 Dockerfile PROD multi-stage (gabarit `create app` : HEALTHCHECK `/readyz`, USER node, node PID 1 — prouvé sur app générée depuis le tarball) · ✅ D.3 compose (`docker/docker-compose.yml`) · ✅ D.4 profils (postgres/mongo/redis/kafka/tools/loki/opensearch/proxy/browser) · ✅ D.5 réseau bridge + alias DNS |
 | 16.E Skills/Tooling | ⬜ E.1 `docker-debug` · ⬜ E.2 `infra-up` · ⬜ E.3 détection conteneur dans start-server — absents de `.claude/skills/` |
-| 16.F Cleanup PM2 | ✅ F.1 code retiré (0 occurrence `pm2Service`/`Pm2Command`/`NF_MODE_START==="PM2"`) · ✅ F.2 dep npm retirée · ⬜ F.3 doc migration PM2→systemd/docker |
-| 16.G Docs DevOps | ⬜ G.1 env-vars · ⬜ G.2 health-endpoints · ⬜ G.3 quickstart-docker · ⬜ G.4 quickstart-k8s — seul `docs/guides/docker-cloud-native.md` existe (partiel) |
-| 16.H Scaling multi-process | ✅ H.1 topologie `workers` · ✅ H.2 `cluster -w N` (`ClusterManager`, cgroup-aware) · ✅ H.3 sonde/worker · ✅ H.4 Studio cluster · ⬜ H.6 banc backplane cross-pod k8s (l'anti-écho `resolveBackplaneOriginId` = `(NF_POD_NAME ?? hostname):pid` EST livré, `originId.ts:24`) |
+| 16.F Cleanup PM2 | ✅ F.1 code retiré (0 occurrence `pm2Service`/`Pm2Command`/`NF_MODE_START==="PM2"`) · ✅ F.2 dep npm retirée · ⏭️ F.3 doc migration PM2→systemd/docker — **CADUC** ([#230](https://github.com/nodefony/nodefony-core/issues/230), constaté 09-06) : les trois questions d'un exploitant qui migre ont déjà leurs réponses dans `docs/guides/docker-cloud-native.md` (topologie `cluster --workers N`, cycle de vie délégué à l'orchestrateur, journaux sur la sortie standard) ; et qui est encore sous PM2 est en **Nodefony 7, donc en JavaScript** — son sujet est un guide 7→10, pas une page systemd |
+| 16.G Docs DevOps | 🔶 G.1 env-vars — **~8 variables** documentées de façon CONTEXTUELLE (`persistence.md:47-49`, `kubernetes.md:43-45`) contre **63** dans `.ai/ENV.md`, généré et hors du site : ce qui manque n'est pas de la doc, c'est une RÉFÉRENCE ([#227](https://github.com/nodefony/nodefony-core/issues/227)) · ✅ G.2 health-endpoints (`http/docs/servers.md` § Probes de santé : les deux sondes, `setReadiness`, et pourquoi `livez` reste à 200 pendant le drain) · ✅ G.3 quickstart-docker (`docs/guides/docker-cloud-native.md` + `docs/guides/reverse-proxy.md`, qui porte la recette proxy et le générateur) · ✅ G.4 quickstart-k8s (`docs/guides/kubernetes.md` : Deployment, Secret, ConfigMap, Service, Ingress, Job de migration, HPA) |
+| 16.H Scaling multi-process | ✅ H.1 topologie `workers` · ✅ H.2 `cluster -w N` (`ClusterManager`, cgroup-aware) · ✅ H.3 sonde/worker · ✅ H.4 Studio cluster · ✅ H.6 banc backplane cross-pod — le banc EXISTE et tourne (skill `nodefony-multipod-bench` : plusieurs apps sur un Redis partagé, fan-out cross-pod, cloisonnement, injection ; anti-écho `resolveBackplaneOriginId` livré, `originId.ts:24`). ⚠️ **hors preuve** : le même banc sur un cluster Kubernetes RÉEL — le décor est docker, pas un ordonnanceur |
 | 16.I Liveness/Readiness | ✅ route PUBLIQUE graduée `/nodefony/kernel/api/livez` (`95bb221f`, zone `nodefony-liveness`, pattern Actuator) |
 | 16.J Métriques | ⬜ `/metrics` Prometheus (0 occurrence — repoussé, décidé 06-15 ; données déjà dispo `dashboard:stats`) |
 
 ---
 
-### P17 — Multi-tenant / SaaS (0 %) — ⏸️ POST cloud-native (P16) + POST release 10.0.0
+### P17 — Multi-tenant / SaaS (0 %) — 🎯 **JALON 11 (MAJEURE STABLE)** · POST cloud-native (P16)
+
+> **Rangé le 2026-09-06 dans le jalon `11`**, avec P15. Le motif : c'est une couche **additive** sur
+> des fondations déjà saines (ALS, Repository, firewall central, `withTransaction` comme patron de
+> `withTenant`) — elle ne dépend pas de la couche IA, et la placer en `12` la mettrait derrière un
+> chantier qui n'a pas commencé.
 
 > Séquencement **acté 2026-06-19** : chantier ouvert APRÈS P16 ET APRÈS la release 10.0.0. Audit terrain complet + modèle + plan : mémoire IA `project_multitenant_chantier_kit`.
 

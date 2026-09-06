@@ -163,6 +163,30 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
 
 ### TypeScript / ESM
 
+- **🔴 TOUT IDENTIFIANT DE PRODUCTION EST EN ANGLAIS — la prose reste en français.** Classe,
+  méthode, fonction, variable, type, interface, champ, constante, clé de config, nom de fichier →
+  **anglais**. TSDoc, commentaires `//`, titres de test (`it("…")`), messages affichés à
+  l'utilisateur → **français**. **Les TESTS sont exemptés pour leurs identifiants LOCAUX** (helpers,
+  décors, variables) : ils ne partent pas sur npm et n'entrent dans aucun `.d.ts` — l'argument qui
+  fonde la règle ne les concerne pas. Un symbole de production IMPORTÉ dans un test suit son nom :
+  le typecheck l'impose, ce n'est pas une décision.
+  Le code part sur npm, entre dans les `.d.ts`, s'affiche dans l'autocomplétion de gens qui ne
+  parlent pas français, et se cherche au `grep` par des agents entraînés sur de l'anglais —
+  `controlesSautes` ne se trouve pas en cherchant `skipped`.
+  ⚠️ Cette règle EXISTAIT depuis juillet, mais enterrée dans un audit de design que rien ne
+  recharge en session : elle n'a donc jamais mordu, et un module entier (`kernel/checks/`) s'est
+  écrit en identifiants français avant qu'on s'en aperçoive. Le MÉLANGE est pire que l'un ou
+  l'autre — dans le même fichier, `checkPackageDeps` côtoyait `replier`, et plus rien ne disait
+  quelle règle suivre au prochain ajout.
+  **Le gate qui la fait mordre** : `npm run check:lang`
+  (`scripts/check-identifier-language.mjs`) — il rend le fichier, la ligne et une traduction
+  proposée ; `npm run check:lang:test` l'éprouve, `npm run check:lang:bench` prouve son absence de
+  faux positif sur du code tiers. Une tolérance se DÉCLARE, avec sa raison, dans
+  `DEFAULT_EXCEPTIONS` (une exception que rien n'active est signalée : elle mentirait).
+  **Renommer en masse : jamais de regex, et jamais sans preuve** — outils, recette et les huit
+  choses qu'un typecheck vert ne dit PAS (un membre privé rendu public, un raccourci d'objet relié
+  à la mauvaise déclaration, un alias qui annule la rupture, les consommateurs hors de tout
+  `tsconfig`) → skill `nodefony-identifiers`, à charger AVANT d'écrire le premier plan.
 - **0 `any`, 0 `@ts-ignore`** → `unknown` + narrowing. **ESM only** : `import`, jamais `require()`.
 - **Préfixe `node:`** obligatoire : `import fs from "node:fs"`.
 - **Named exports only** — pas de `default` (sauf legacy `export default Framework` déjà en place).

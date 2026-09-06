@@ -42,7 +42,7 @@
  * un pipeline jetable.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { besoinDeShell } from "nodefony";
+import { needsShell } from "nodefony";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -270,7 +270,7 @@ function serverRunning(): boolean {
       stdio: "ignore",
       // `npx` est un `.cmd` sous Windows — sans shell, Node rend `ENOENT` et cette
       // sonde conclurait « aucun serveur » quel que soit l'état réel.
-      shell: besoinDeShell("npx"),
+      shell: needsShell("npx"),
     }).status === 0
   );
 }

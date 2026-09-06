@@ -111,6 +111,18 @@ fi
 > qu'on lit une empreinte, et de QUAND elle date : trois jours d'écart, c'est trois jours de
 > travail qu'elle ignore.
 
+**Puis CONTRÔLER le tableau avant de s'en servir.** Un ordre de travail restitué depuis un tableau
+incohérent envoie travailler au mauvais endroit — et l'incohérence ne crie pas : un ticket hors
+tableau est simplement absent de la liste qu'on vient de lire.
+
+```bash
+npm run ticket:lint    # 0 = le tableau se tient ; 1 = une erreur de pilotage à solder d'abord
+```
+
+Les erreurs se soldent **maintenant** (elles coûtent une commande), pas « plus tard » : c'est le
+seul moment où GitHub est joint et où l'on regarde le pilotage. Le détail des neuf contrôles vit
+dans le skill `nodefony-ticket` (§5) — le charger si un code est à interpréter.
+
 > 🔴 **Lire `.content.title`, JAMAIS `.title`.** Le champ `title` d'un item de tableau de bord est
 > une copie dérivée qui reste sur l'ancien libellé : mesuré, **38 items sur 38** portaient un titre
 > différent de leur issue. Restituer ce champ, c'est annoncer au user des tickets qu'il a fait
@@ -319,19 +331,43 @@ SEULEMENT :
    Pour chacun : un commit récent le cite-t-il ? (`git log --oneline --grep="#<n>" -3`). Sinon, le
    remettre à `Todo` — un statut qui ment est pire qu'un statut absent.
 
-5. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
-   vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
+5. **Contrôler le pilotage AVANT de le graver** — un ticket ouvert en séance a pu rester hors
+   tableau, un statut a pu monter tout seul, une estimation manque. L'empreinte du §5 bis
+   photographie ce qu'on lui donne : la prendre sur un tableau incohérent grave l'incohérence, et
+   c'est elle qu'on relira hors ligne.
 
    ```bash
-   npm run board:snapshot          # ou : node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+   npm run ticket:lint     # 0 = rien à solder ; 1 = corriger AVANT l'empreinte
    ```
 
-   Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le lire : un refus dit
-   soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
-   nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
+5 bis. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
+vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
+
+```bash
+npm run board:snapshot          # ou : node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
+```
+
+Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le lire : un refus dit
+soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
+nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
 
 6. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
 7. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
+
+8. **S'IL EST TARD, proposer le travail de NUIT — la machine dort moins que le user.**
+   Certaines mesures coûtent des heures d'agents et n'ont aucune raison d'être payées
+   en séance : elles ne demandent qu'une machine allumée. Le seul moment où l'on peut
+   les proposer, c'est ici — la session se ferme, et le user va se coucher.
+
+   **Le contrôle** : est-il après ~22 h locale (`date +%H`) ? Alors nommer, en UNE
+   phrase, ce qui pourrait tourner cette nuit, avec son coût et sa durée — et
+   attendre le OUI, jamais lancer d'office. Ce qui est en attente vit dans les
+   mémoires `project_*_night_runs.md` ; aujourd'hui : **les 3 runs d'unanimité du
+   banc devkit** avant la release ([[project_devkit_bench_night_runs]], ~46 $ / 8,7 h).
+
+   Un travail de nuit se lance **détaché** avec sa sortie CAPTURÉE EN ENTIER dans un
+   fichier — au réveil elle se lit par `@agent-nodefony-run-log-report`, jamais par un `tail`
+   qui efface les SKIPS sans le dire.
 
 > **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
 > coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex

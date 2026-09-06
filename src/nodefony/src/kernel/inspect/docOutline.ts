@@ -33,7 +33,7 @@ export interface IMarkdownSection {
 // mieux qu'une expression qui a l'air savante.
 const HEADING_RE = /^(#{1,6})[^\S\n](.*)$/;
 /** Les `#` de fermeture, forme ATX facultative : `## Titre ##`. */
-const HEADING_FERMETURE_RE = /[^\S\n]#+$/;
+const HEADING_CLOSING_RE = /[^\S\n]#+$/;
 /** Ouverture ou fermeture d'un bloc de code clôturé. */
 const FENCE_RE = /^\s*(?:```|~~~)/;
 
@@ -75,7 +75,7 @@ export function outlineMarkdown(markdown: string): IMarkdownSection[] {
     if (m) {
       sections.push({
         level: m[1].length,
-        title: m[2].trim().replace(HEADING_FERMETURE_RE, "").trim(),
+        title: m[2].trim().replace(HEADING_CLOSING_RE, "").trim(),
         line: i + 1,
         chars: 0,
       });

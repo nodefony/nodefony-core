@@ -228,6 +228,7 @@ spawnSync("node", [path.join(ROOT, "src/nodefony/bin/nodefony"), "stop"], {
 await sleep(500);
 
 // ── 2. serveur production AVEC --expose-gc (cf piège 1) ────────────────────
+const TTL_DEROGATION_MIN = Math.min(240, Math.ceil(MINUTES * 2) + 30);
 const logFd = openSync("/tmp/nf-soak.log", "w");
 const srv = spawn(
   "node",
@@ -240,7 +241,14 @@ const srv = spawn(
       NF_LOG_DRIVER: "null",
       NF_BENCH_ROUTE: "1",
       NF_WITH_DEV_MODULES: "1",
-      NF_WITH_DEV_MODULES_TTL_MIN: String(Math.ceil(MINUTES) + 30),
+      // 🔴 La dérogation aux modules `dev` est MINUTÉE et jamais désarmable : à
+      // son échéance, le runtime s'arrête TOUT SEUL. Une marge fixe de 30 min
+      // sur la durée DEMANDÉE ne suffit pas — une fenêtre de N secondes coûte
+      // bien plus que N secondes (sondes, rafales wrk, GC forcé). Mesuré : 90 min
+      // demandées ont pris 153 min de mur, la dérogation a expiré à 120, et le
+      // banc a rendu un « PLATEAU » qui n'était que la mort du serveur moyennée.
+      // La marge suit donc la durée, et se borne au plafond que la garde impose.
+      NF_WITH_DEV_MODULES_TTL_MIN: String(TTL_DEROGATION_MIN),
     },
     stdio: ["ignore", logFd, logFd],
     detached: true,
@@ -379,11 +387,25 @@ for (let w = 1; w <= WINDOWS; w++) {
 
   const { mem, erreur: erreurSonde } = await sonder();
   if (!mem) {
+    const ecouleMin = Math.round((Date.now() - t0) / 60000);
     console.error(
       `  fenêtre ${w}/${WINDOWS}: sonde mémoire muette après ${SONDE_ESSAIS} essais` +
-        ` — ${erreurSonde}. Arrêt à ${Math.round((Date.now() - t0) / 60000)} min` +
-        ` sur ${MINUTES} demandées.`,
+        ` — ${erreurSonde}. Arrêt à ${ecouleMin} min sur ${MINUTES} demandées.`,
     );
+    // Un serveur qui disparaît en cours de route ressemble à un crash, et un
+    // banc qui se tait là-dessus fait chercher une fuite là où il n'y en a pas :
+    // la dérogation aux modules `dev` est MINUTÉE, et à son échéance le runtime
+    // s'arrête proprement. Le journal du serveur ne peut pas l'attester ici —
+    // il est coupé pour ne pas fausser la mesure —, donc le banc le DÉDUIT de
+    // la seule chose qu'il connaisse : le temps écoulé face au TTL qu'il a posé.
+    if (ecouleMin >= TTL_DEROGATION_MIN) {
+      console.error(
+        `    ⚠ ÉCHÉANCE DE DÉROGATION probable — ${ecouleMin} min écoulées pour un` +
+          ` TTL posé à ${TTL_DEROGATION_MIN} min (NF_WITH_DEV_MODULES_TTL_MIN).` +
+          `\n      Le serveur ne s'est pas planté : il s'est arrêté comme la garde le prévoit.` +
+          `\n      Ce n'est PAS un défaut du produit, et les dernières fenêtres ne mesurent rien.`,
+      );
+    }
     break;
   }
   const s = {

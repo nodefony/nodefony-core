@@ -42,7 +42,7 @@ import { z } from "zod";
 // 4 n'applique PAS les sous-défauts via un `.default({})` plat — cf redis).
 
 const scanSchema = z
-  .object({
+  .strictObject({
     rootDir: z
       .string()
       .min(1)
@@ -84,7 +84,7 @@ const scanSchema = z
   .describe("Sources scannées pour construire l'index transverse de la doc.");
 
 const repoSchema = z
-  .object({
+  .strictObject({
     url: z
       .string()
       .min(1)
@@ -116,7 +116,7 @@ const repoSchema = z
   .describe("Identité du dépôt pour les liens d'édition des pages.");
 
 const cacheSchema = z
-  .object({
+  .strictObject({
     ttlMs: z
       .number()
       .int()
@@ -132,7 +132,7 @@ const cacheSchema = z
   .describe("Politique de cache de l'index (chemin froid admin, lazy).");
 
 export const documentationConfigSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)

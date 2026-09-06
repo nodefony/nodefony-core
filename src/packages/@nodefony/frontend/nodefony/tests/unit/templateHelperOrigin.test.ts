@@ -42,6 +42,7 @@ function supervisorWith(
     lastError: null,
     entries: [entry],
     https: true,
+    portRetries: 0,
     restartCount: 0,
     healthFailures: 0,
     ...status,

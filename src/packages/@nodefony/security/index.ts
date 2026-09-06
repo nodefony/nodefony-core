@@ -396,7 +396,10 @@ export {
 export type { IKeyDerivation } from "./nodefony/src/crypto/secretCipher";
 
 // ─── Config builder (type-safe + Zod) ────────────────────────────────────────
-export { defineSecurityConfig } from "./nodefony/config/defineModuleConfig";
+export {
+  defineSecurityConfig,
+  securityConfigJsonSchema,
+} from "./nodefony/config/defineModuleConfig";
 export type {
   ISecurityConfig,
   ISecurityConfigInput,

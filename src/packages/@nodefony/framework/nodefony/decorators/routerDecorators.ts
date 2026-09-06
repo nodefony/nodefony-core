@@ -475,16 +475,16 @@ function httpMethodDecorator(methods: HTTPMethod[]) {
       // `methods` accepte un tableau OU un scalaire (`RouteRequirements`) : un
       // étalement direct découperait la chaîne en LETTRES. On normalise donc
       // avant de fusionner — le compilateur a attrapé ce cas, pas la relecture.
-      const declares = options.requirements?.methods;
-      const ajouts: HTTPMethod[] =
-        declares === undefined
+      const declaredMethods = options.requirements?.methods;
+      const added: HTTPMethod[] =
+        declaredMethods === undefined
           ? []
-          : Array.isArray(declares)
-            ? declares
-            : [declares];
+          : Array.isArray(declaredMethods)
+            ? declaredMethods
+            : [declaredMethods];
       const fusion =
-        ajouts.length > 0
-          ? [...new Set<HTTPMethod>([...methods, ...ajouts])]
+        added.length > 0
+          ? [...new Set<HTTPMethod>([...methods, ...added])]
           : methods;
       return route(name, {
         ...options,

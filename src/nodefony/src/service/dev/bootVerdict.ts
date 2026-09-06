@@ -129,11 +129,11 @@ export async function waitBootVerdict(
  * @returns une ligne par module ignoré, `nom — motif`, sans doublon et dans l'ordre.
  */
 export function extractSkippedModules(journal: string): string[] {
-  const sansCouleurs = journal.replace(/\x1b\[[0-9;]*m/gu, "");
-  const motif =
+  const withoutColors = journal.replace(/\x1b\[[0-9;]*m/gu, "");
+  const pattern =
     /MODULE LOAD: échec non bloquant \(fail-soft\) de "([^"]+)" — (.*)$/gmu;
   const vus = new Set<string>();
-  for (const m of sansCouleurs.matchAll(motif)) {
+  for (const m of withoutColors.matchAll(pattern)) {
     vus.add(`${m[1]} — ${m[2].trim()}`);
   }
   return [...vus];

@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.6.0
+  version: 1.7.0
 description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "quels tickets parlent de ce que j'ai changé ?", "ce ticket est trop vague", "il manque le contexte pour le prendre".
 ---
 
@@ -278,6 +278,44 @@ dans son « Fini quand ».
 | **`Priorité`**      | `P0` bloque le reste ou chemin critique · `P1` doit sortir dans le jalon · `P2` décision · `P3` fin de cycle ou 10.1 |
 | **`Ordre`**         | encode les DÉPENDANCES, pas une préférence — c'est lui qui se trie                                                   |
 
+### 🔴 Ces règles ne mordent que parce qu'un AUTOMATE les relit
+
+Tout ce qui précède est de la prose, et **une règle en prose n'est appliquée que si quelqu'un y
+pense au bon moment.** Personne n'y pense en relisant un tableau de soixante-dix lignes. La preuve
+tient en deux numéros : **#82 puis #187**, à deux mois d'écart, ont reçu un jalon sans jamais être
+inscrits au tableau — aucun compteur ne les voyait, et rien ne l'a dit.
+
+```bash
+npm run ticket:lint                       # le tableau entier
+npm run ticket:lint -- --milestone 10.0.0 # un seul jalon
+npm run ticket:lint -- --json             # pour un autre outil
+```
+
+Neuf contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
+arbitrage sans bonne réponse mécanique :
+
+| Code                           | Ce qu'il attrape                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur (#82, #187)               |
+| `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                       |
+| `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                             |
+| `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                        |
+| `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle           |
+| `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire |
+| `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)  |
+| `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                  |
+| `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_    |
+
+Deux pièges que ce script a déjà payés, et qui valent pour tout automate de pilotage :
+
+- **`gh api graphql --paginate` concatène des objets JSON INDENTÉS** — ni `split("\n")` ni un
+  `JSON.parse` unique ne les découpent. `--slurp` agrège les pages en un tableau ; et le compte se
+  contrôle contre `totalCount`, jamais contre la longueur de ce qu'on a reçu.
+- **Un contrôle qui crie faux apprend à passer outre.** Deux verdicts ont dû être bornés dès le
+  premier run réel : `Dépend de : rien — mais à faire AVANT #175` lu comme une dépendance (c'est
+  l'inverse), et un `P0` précédé de ses PRÉREQUIS traité comme une contradiction (c'est le
+  fonctionnement normal de l'ordre).
+
 ### Un jalon promet une date — le backlog n'en promet aucune
 
 **Le critère : est-ce que je m'engage à le sortir dans la foulée ?** Si la réponse honnête est
@@ -500,6 +538,16 @@ ignore les bords rend des verdicts qu'on croit exhaustifs :
   passer par GraphQL** (`projectV2.items`, ou `issue.projectItems` pour un ticket précis) ;
   `item-list` reste acceptable pour un coup d'œil, jamais pour décider. Même famille que le champ
   `title` figé : ce client rend une vue à lui, pas l'état du tableau.
+- **🔴 Le remède GraphQL a SON propre bord : `items(first:100)` s'arrête à 100 SANS le dire.** Le
+  tableau compte aujourd'hui plus de cent items ; une requête écrite « en grand » rend donc une
+  liste tronquée qui a toutes les apparences d'un inventaire complet. Vécu deux fois de suite dans
+  la même session : #163 et #164 déclarés « absents du tableau », puis « pas en cours » — ils
+  étaient inscrits, et en cours. **Toute lecture de `projectV2.items` qui NOURRIT UNE DÉCISION se
+  pagine** (`--paginate` + `pageInfo{hasNextPage endCursor}` et `$endCursor` en variable), ou se
+  contrôle contre `items(first:1){totalCount}`. Interroger un ticket PRÉCIS n'a pas ce défaut :
+  `issue(number:N){projectItems}` rend l'état vrai, et c'est la voie quand on sait qui l'on cherche.
+  La leçon générale : un remède à une troncature muette peut tronquer muettement à son tour — le
+  compte se DEMANDE, il ne se déduit jamais de la longueur de ce qu'on a reçu.
 - **Un automate qui pose des lexiques doit borner sa zone de lecture au bloc « Le problème », citations exclues.** Vécu : détecter les termes sur le corps entier a posé sur un ticket de libellés de menu un lexique « surcharge par l'environnement, isomorphe, ADR » — des mots pris dans des **exemples de titres cités**. Un lexique hors sujet est pire que pas de lexique : il fait douter le lecteur d'avoir compris.
 
 ## Les scripts de ce skill
@@ -511,15 +559,16 @@ réécrire ; un écart estimé/constaté ne veut rien dire sans savoir ce qu'on 
 d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot` vit dans
 `nodefony-session` et est appelé par npm).
 
-| Script                                                       | Ce qu'il fait                                                                                          | Appelé par                        |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                       | `npm run ticket:open`             |
-| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                   | `.githooks/post-commit`           |
-| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte le champ `Jours` au temps réellement constaté                                                | à la main, au END de session      |
-| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                             | à la main, au END de session      |
-| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)       | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur) | à la main, avant `gh issue close` |
-| [`scripts/francise.mjs`](scripts/francise.mjs)               | repère les tournures à franciser dans un corps de ticket                                               | à la main                         |
-| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)       | insère le bloc **Lexique** des abréviations détectées                                                  | à la main                         |
+| Script                                                       | Ce qu'il fait                                                                                          | Appelé par                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                       | `npm run ticket:open`                      |
+| [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                   | `.githooks/post-commit`                    |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte le champ `Jours` au temps réellement constaté                                                | à la main, au END de session               |
+| [`scripts/board-lint.mjs`](scripts/board-lint.mjs)           | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit      | `npm run ticket:lint`, au RESUME et au END |
+| [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                             | à la main, au END de session               |
+| [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)       | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur) | à la main, avant `gh issue close`          |
+| [`scripts/francise.mjs`](scripts/francise.mjs)               | repère les tournures à franciser dans un corps de ticket                                               | à la main                                  |
+| [`scripts/pose-lexique.mjs`](scripts/pose-lexique.mjs)       | insère le bloc **Lexique** des abréviations détectées                                                  | à la main                                  |
 
 Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un sous-ticket) et
 `parseTargets` (les tickets qu'un message de commit cite) — sont éprouvées par

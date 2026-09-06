@@ -3,7 +3,11 @@ import {
   parseNfEnvOverrides,
   pathLooksSecret,
 } from "../config/envOverride";
-import type { NamedEnvVarMeta } from "../config/defineEnv";
+import {
+  isEnvVarRequired,
+  resolveEnvStages,
+  type NamedEnvVarMeta,
+} from "../config/defineEnv";
 import { isReservedEnv, reservedEnvRole } from "../config/reservedEnv";
 
 /**
@@ -42,8 +46,20 @@ export interface IEnvVarReport {
   kind: string;
   /** Déclarée par `env.ts` (catalogue `defineEnv`) ? */
   declared: boolean;
-  /** Doit être présente (pas de défaut, non optionnelle). */
+  /**
+   * Doit être présente DANS L'ENVIRONNEMENT ÉVALUÉ.
+   *
+   * Pas seulement « ni défaut ni `optional` » : une variable peut n'être requise
+   * qu'en production (`requiredIn`), et le rapport se lit alors sous l'angle de
+   * l'environnement visé — celui du poste par défaut, celui de `--env` sinon.
+   */
   required: boolean;
+  /**
+   * Les environnements où sa déclaration l'exige — vide si elle l'est partout
+   * ou nulle part. C'est ce qui permet de dire « requise en production » sans
+   * le déduire, à tort, du seul fait qu'elle manque ici.
+   */
+  requiredIn?: readonly string[];
   /** Nom sensible → la valeur n'est jamais rendue. */
   secret: boolean;
   description?: string;
@@ -77,6 +93,18 @@ export interface IEnvReport {
   runtimeEnv: string;
   /** Environnement de déploiement (`APP_ENV`/`NF_ENV`), s'il diffère. */
   appEnv: string | null;
+  /**
+   * L'environnement sous lequel les exigences sont ÉVALUÉES, quand ce n'est pas
+   * celui d'ici — ce que demande `--env production` depuis un poste de
+   * développement. `null` = le rapport parle de la machine courante.
+   */
+  targetEnv: string | null;
+  /**
+   * Les étiquettes effectivement confrontées à `requiredIn` (mode d'exécution,
+   * et environnement de déploiement s'il diffère). Rendues parce qu'un verdict
+   * d'exigence est incompréhensible sans savoir sur quoi il a porté.
+   */
+  stages: readonly string[];
   /** La cascade, du plus fort au plus faible. */
   levels: IEnvLevel[];
   /** Variables déclarées par l'application. */
@@ -180,9 +208,26 @@ export function buildEnvReport(input: {
   processEnv: Record<string, string | undefined>;
   files: IEnvFileInput[];
   catalog: readonly NamedEnvVarMeta[] | null;
+  /**
+   * Environnement à ÉVALUER, s'il n'est pas celui d'ici — ce que demande
+   * `nodefony doctor --env production` depuis un poste de développement. Les
+   * valeurs restent celles de la machine : on ne simule pas un déploiement, on
+   * confronte l'environnement PRÉSENT aux exigences de celui qu'on VISE.
+   */
+  targetEnv?: string | null;
 }): IEnvReport {
   const { runtimeEnv, processEnv, files, catalog } = input;
   const appEnv = input.appEnv ?? null;
+  const targetEnv = input.targetEnv ?? null;
+  // Viser un environnement REMPLACE les étiquettes d'ici : demander
+  // « production » depuis un poste ne doit pas continuer d'exiger ce qui n'est
+  // requis qu'en développement.
+  const stages = targetEnv
+    ? [targetEnv]
+    : resolveEnvStages({
+        NODE_ENV: runtimeEnv,
+        ...(appEnv ? { NF_ENV: appEnv } : {}),
+      });
 
   /**
    * Origine d'une clé : le premier fichier de la cascade qui la définit AVEC la
@@ -240,19 +285,25 @@ export function buildEnvReport(input: {
     const raw = processEnv[meta.name];
     const secret = pathLooksSecret([meta.name]);
     const origin = originOf(meta.name);
-    const required = !meta.optional && meta.default === undefined;
+    // La règle vient de `defineEnv` — celle que le BOOT applique. La réécrire
+    // ici ferait diverger le diagnostic de ce qui se passera réellement.
+    const required = isEnvVarRequired(meta, stages);
     return {
       name: meta.name,
       kind: meta.kind,
       declared: true,
       required,
+      ...(meta.requiredIn ? { requiredIn: meta.requiredIn } : {}),
       secret,
       ...(meta.description ? { description: meta.description } : {}),
       value: raw === undefined ? null : secret ? mask(raw) : raw,
       origin,
       ...(meta.default !== undefined ? { default: meta.default } : {}),
       ...(meta.values ? { values: meta.values } : {}),
-      missing: required && raw === undefined,
+      // Une chaîne VIDE ne satisfait pas une exigence : c'est ainsi que
+      // `defineEnv` la traite au boot, et un rapport qui la compterait comme
+      // présente annoncerait vert un démarrage qui échouera.
+      missing: required && (raw === undefined || raw === ""),
       shadowed: shadowsOf(meta.name, origin),
     };
   });
@@ -280,6 +331,8 @@ export function buildEnvReport(input: {
   return {
     runtimeEnv,
     appEnv,
+    targetEnv,
+    stages,
     levels,
     vars,
     overrides,

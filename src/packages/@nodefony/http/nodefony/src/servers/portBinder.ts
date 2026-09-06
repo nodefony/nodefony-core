@@ -128,6 +128,30 @@ function nextCandidate(from: number, reserved: readonly number[]): number {
 }
 
 /**
+ * Vrai si ce code d'erreur signifie « ce port-ci n'est pas prenable ».
+ *
+ * `EADDRINUSE` est le cas de tous les systèmes. Windows en ajoute un second, et
+ * il n'est pas anecdotique : Hyper-V, WSL et WinNAT **réservent des plages
+ * entières** de ports éphémères (`netsh interface ipv4 show excludedportrange`),
+ * qu'un `listen` refuse en **`EACCES`** — pas en `EADDRINUSE`. Une application
+ * qui glisse de port en port finit statistiquement dans l'une de ces plages et
+ * meurt là où linux et macOS auraient continué. C'est le PRODUIT que l'utilisateur
+ * Windows subit, pas une singularité de banc.
+ *
+ * La borne est le port privilégié : sous 1024, `EACCES` veut dire « pas les
+ * droits », et se replier en silence sur 81 quand l'exploitant demande 80 serait
+ * une dégradation muette — exactement ce que ce fichier refuse.
+ *
+ * @param code - code d'erreur rendu par `listen`.
+ * @param port - le port qui vient d'être refusé.
+ * @returns `true` s'il faut essayer le port suivant plutôt qu'échouer.
+ */
+function isPortUnavailable(code: string | undefined, port: number): boolean {
+  if (code === "EADDRINUSE") return true;
+  return code === "EACCES" && port >= 1024;
+}
+
+/**
  * Écoute sur `plan.desired`, ou sur le prochain port libre si `attempts > 0`.
  *
  * Aucun `error` permanent ne doit être attaché au serveur pendant l'appel : cette
@@ -136,8 +160,9 @@ function nextCandidate(from: number, reserved: readonly number[]): number {
  * verrait passer les `EADDRINUSE` de repli et croirait à une panne).
  *
  * @returns l'adresse obtenue + le port désiré si un décalage a eu lieu.
- * @throws l'erreur de `listen` : soit non-`EADDRINUSE` (ENOTFOUND, EACCES…), soit
- *   `EADDRINUSE` après épuisement des essais (le fallback n'est PAS infini).
+ * @throws l'erreur de `listen` : soit un code qui ne dit pas « ce port est pris »
+ *   (`ENOTFOUND`, `EACCES` sous 1024 — cf `isPortUnavailable`), soit un port
+ *   indisponible après épuisement des essais (le fallback n'est PAS infini).
  */
 export function bindWithFallback(
   server: Listenable,
@@ -153,7 +178,7 @@ export function bindWithFallback(
         server.removeListener("listening", onListening as never);
         // Port 0 = le noyau alloue : il ne peut pas être « déjà pris ».
         if (
-          error.code !== "EADDRINUSE" ||
+          !isPortUnavailable(error.code, candidate) ||
           plan.desired === 0 ||
           used >= plan.attempts
         ) {

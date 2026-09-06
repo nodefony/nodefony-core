@@ -20,20 +20,20 @@ import { DocHint } from "../components/ui";
  * peuvent pas se contredire.
  */
 export function Roadmap() {
-  const groupes = NAV_GROUPS.map((g) => ({
+  const groups = NAV_GROUPS.map((g) => ({
     id: g.id,
     label: g.label,
     icon: g.icon,
     items: g.items.filter((i) => i.wip),
   })).filter((g) => g.items.length > 0);
 
-  const total = groupes.reduce((n, g) => n + g.items.length, 0);
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
 
   return (
     <Stack gap="md">
       <PageHeader
         title="Feuille de route"
-        subtitle={`${total} écrans en préparation, dans ${groupes.length} domaines`}
+        subtitle={`${total} écrans en préparation, dans ${groups.length} domaines`}
       />
 
       <Group gap={6}>
@@ -57,13 +57,13 @@ export function Roadmap() {
         />
       </Group>
 
-      {groupes.map((g) => {
-        const Icone = g.icon;
+      {groups.map((g) => {
+        const Icon = g.icon;
         return (
           <Stack key={g.id} gap="xs">
             <Group gap={8}>
               <ThemeIcon variant="light" color="gray" size="sm" radius="sm">
-                <Icone size={14} stroke={1.6} />
+                <Icon size={14} stroke={1.6} />
               </ThemeIcon>
               <Text size="sm" fw={600} tt="uppercase" c="dimmed">
                 {g.label}

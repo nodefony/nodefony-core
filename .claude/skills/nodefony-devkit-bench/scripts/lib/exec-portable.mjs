@@ -2,7 +2,7 @@
  * Lancer un exécutable de l'écosystème npm, sur les trois systèmes — RENVOI.
  *
  * La règle elle-même a QUITTÉ ce fichier : elle vit désormais dans le framework
- * (`src/nodefony/src/cli/execPortable.ts`, publiée sous `besoinDeShell`), parce
+ * (`src/nodefony/src/cli/execPortable.ts`, publiée sous `needsShell`), parce
  * que ce n'est pas le banc qui la subit, c'est l'utilisateur. Écrite ici et
  * seulement ici, elle rendait l'outil de mesure portable pendant que le produit
  * ne l'était pas : `nodefony create module` n'exécutait pas son `npm install`
@@ -21,4 +21,4 @@
  * continue. Rien ne les éprouve encore sous Windows ; les brancher ne coûtait
  * rien, la règle étant désormais publiée et éprouvée par le framework.
  */
-export { besoinDeShell } from "nodefony";
+export { needsShell } from "nodefony";

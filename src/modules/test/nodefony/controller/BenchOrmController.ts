@@ -86,13 +86,13 @@ class BenchOrmController extends Controller {
   /** Comptes du décor — la preuve `cible valide` d'un banc AVANT de mesurer. */
   @Get("/status")
   async status() {
-    const [users, societes, factures, writes] = await Promise.all([
+    const [users, companies, invoices, writes] = await Promise.all([
       repo("llx_user").count(),
       repo("llx_societe").count(),
       repo("llx_facture").count(),
       repo("llx_facture").count({ ref: { $like: "BENCH-%" } }),
     ]);
-    return this.renderJson({ users, societes, factures, writes });
+    return this.renderJson({ users, companies, invoices, writes });
   }
 }
 

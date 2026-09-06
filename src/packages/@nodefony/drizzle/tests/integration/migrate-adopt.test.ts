@@ -109,8 +109,19 @@ interface ICible {
   entite(extra: string): string;
 }
 
+/**
+ * Le décor vit sous le `tmp/` du DÉPÔT — la remontée qui résout `drizzle-kit`
+ * doit trouver ses `node_modules`, et un dossier temporaire du système en est
+ * trop loin. Mais un chemin FIXE n'est pas réentrant : deux exécutions du même
+ * banc — un `npm test` complet et une vérification lancée à côté — écrivaient
+ * alors au même endroit, et la première qui nettoyait faisait échouer l'autre.
+ * Mesuré : `ENOTEMPTY: rmdir tmp/orm-adopt-sqlite` plus deux expirations de
+ * délai, aucune n'appartenant au code — le même banc relancé seul rend 765
+ * verts. Le numéro de processus est le plus petit discriminant qui tienne les
+ * deux contraintes, et `afterEach` le nettoie comme avant.
+ */
 const APP = (dialect: SqlDialect): string =>
-  path.join(REPO_ROOT, "tmp", `orm-adopt-${dialect}`);
+  path.join(REPO_ROOT, "tmp", `orm-adopt-${dialect}-${process.pid}`);
 
 const PG_URL = process.env.NF_PG_URL;
 const MYSQL_URL = process.env.NF_MYSQL_URL;

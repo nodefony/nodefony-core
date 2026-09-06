@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runGitHooksCommand } from "../../cli/gitHooks";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "AGENTS ET OUTILLAGE",
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
   // vaut que pour une invocation directe) : sa sortie serait noyée sous le
   // journal de cycle de vie.
@@ -31,7 +32,7 @@ class GitHooks extends Command {
   constructor(cli: CliKernel) {
     super(
       "git:hooks",
-      "Hooks git natifs (core.hooksPath) : typecheck+lint au commit, verify au push",
+      "pose les hooks git : contrôles au commit et au push",
       cli as CliKernel,
       options,
     );

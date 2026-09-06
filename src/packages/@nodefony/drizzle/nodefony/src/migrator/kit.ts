@@ -21,7 +21,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
-import { MigrationToolError, outilDeGenerationAbsent } from "./refusals";
+import { MigrationToolError, generationToolMissing } from "./refusals";
 
 /** Ce qu'une règle d'audit rend quand elle reconnaît une instruction. */
 export interface IAuditRule {
@@ -45,6 +45,12 @@ export interface IMigrationAudit {
 interface IAuditPattern extends IAuditRule {
   pattern: RegExp;
   dialects?: readonly SqlDialect[];
+  /**
+   * Reconnaissance qui a besoin de PLUS qu'un motif — corréler deux
+   * instructions, par exemple. Appelée seulement si `pattern` a mordu, ce qui
+   * garde le cas courant à une seule expression régulière.
+   */
+  detect?: (code: string) => boolean;
 }
 
 /**
@@ -84,7 +90,7 @@ export function resolveDrizzleKitBin(from: string): string {
       // fourre-tout des commandes de migration, qui explique toute exception
       // par une base injoignable — et publie deux explications qui se
       // contredisent.
-      throw new MigrationToolError(outilDeGenerationAbsent());
+      throw new MigrationToolError(generationToolMissing());
     }
     dir = parent;
   }
@@ -128,7 +134,7 @@ export function runGenerate({
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (result.status !== 0 || !generationHappened(output)) {
     if (isInteractivePromptFailure(output)) {
-      const rejouer =
+      const replay =
         regenerateCommand ?? `nodefony orm:generate --name ${name}`;
       throw new Error(
         `Un RENOMMAGE probable a été détecté sur ${label}, et il faut trancher.\n\n` +
@@ -138,7 +144,7 @@ export function runGenerate({
           `  sont PERDUES. Il pose donc la question, et il n'y a pas de terminal\n` +
           `  ici pour y répondre.\n\n` +
           `  Rejouer la commande dans un terminal interactif :\n` +
-          `    ${rejouer}\n\n` +
+          `    ${replay}\n\n` +
           `  ⚠️ Après avoir répondu « renamed », RELIRE le fichier produit : quand\n` +
           `  une colonne est renommée ET que son type change, l'outil n'écrit que\n` +
           `  le renommage et OUBLIE le changement de type (drizzle-orm#3826).`,
@@ -278,13 +284,23 @@ const DESTRUCTIVE_PATTERNS: readonly IAuditPattern[] = [
 ];
 
 /**
- * Instructions qui VERROUILLENT en production sans rien détruire.
+ * Ce qui ne détruit rien, mais doit être VU avant d'appliquer.
  *
- * Elles ne justifient pas un refus — elles doivent être VUES. Le scénario type,
- * largement documenté : un `ALTER TABLE` prend un verrou exclusif, se met en file
- * derrière une requête longue, et toutes les requêtes suivantes s'empilent
- * derrière lui ; le parc de connexions se vide en quelques dizaines de secondes,
- * et l'application rend des 503 alors que la migration, elle, n'a rien de lent.
+ * Deux natures, et elles ne justifient ni l'une ni l'autre un refus — le
+ * générateur ne lit pas la base, il ne peut donc pas trancher à la place de
+ * celui qui la connaît.
+ *
+ * **Ce qui VERROUILLE.** Le scénario type, largement documenté : un
+ * `ALTER TABLE` prend un verrou exclusif, se met en file derrière une requête
+ * longue, et toutes les requêtes suivantes s'empilent derrière lui ; le parc de
+ * connexions se vide en quelques dizaines de secondes, et l'application rend des
+ * 503 alors que la migration, elle, n'a rien de lent.
+ *
+ * **Ce qui ÉCHOUE sur une table peuplée.** L'inapplicabilité est une propriété
+ * du SQL écrit, pas de la donnée : une colonne obligatoire sans défaut, un index
+ * unique posé sur une colonne qu'on vient d'ajouter. Elle se voit donc sans se
+ * connecter — et ne pas la dire a déjà conduit un agent à supprimer une base
+ * pour sortir de l'impasse (tâche 33 du banc de découvrabilité).
  */
 const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
   {
@@ -306,6 +322,58 @@ const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
     todo:
       "ajouter d'abord une contrainte `CHECK … NOT VALID`, la valider à part, " +
       "puis poser le `NOT NULL`",
+  },
+  {
+    // Le générateur ne LIT pas la base : il ne peut pas savoir si la table
+    // porte des lignes, donc il ne peut pas refuser. Mais l'instruction, elle,
+    // est inapplicable sur toute table non vide — c'est une propriété du SQL
+    // écrit, pas de la donnée, et elle se voit sans se connecter.
+    id: "add-not-null-sans-defaut",
+    pattern:
+      /\bADD\s+(?:COLUMN\s+)?[`"']?\w+[`"']?[^;\n]*?\bNOT\s+NULL\b(?![^;\n]*\bDEFAULT\b)/i,
+    what:
+      "ajoute une colonne OBLIGATOIRE sans valeur par défaut : sur une table " +
+      "qui porte déjà des lignes, sqlite et PostgreSQL REFUSENT la migration, " +
+      "et MySQL/MariaDB la remplit de chaînes vides sans un avertissement",
+    todo:
+      "donner un défaut à la déclaration du champ (`role:string=membre`), ou " +
+      "le déclarer facultatif (`department:string?`) ; s'il faut les deux, " +
+      "c'est en trois temps — ajouter avec défaut, remplir (`--custom`), " +
+      "retirer le défaut",
+  },
+  {
+    // Le piège qui reste APRÈS avoir suivi le conseil ci-dessus : une valeur
+    // par défaut est la MÊME pour toutes les lignes, donc l'index unique posé
+    // dans la foulée échoue dès la deuxième. Les deux instructions sont justes
+    // séparément ; c'est leur enchaînement dans une seule migration qui ne peut
+    // réussir que sur une table vide.
+    id: "colonne-neuve-puis-index-unique",
+    pattern: /\bCREATE\s+UNIQUE\s+INDEX\b/i,
+    detect: (code) => {
+      const added = [
+        ...code.matchAll(/\bADD\s+(?:COLUMN\s+)?[`"']?(\w+)[`"']?/gi),
+      ].map((m) => (m[1] as string).toLowerCase());
+      if (added.length === 0) {
+        return false;
+      }
+      // La colonne visée par l'index, telle qu'écrite entre les parenthèses.
+      return [
+        ...code.matchAll(/\bCREATE\s+UNIQUE\s+INDEX\b[^;\n]*?\(([^)]*)\)/gi),
+      ].some((m) =>
+        (m[1] as string)
+          .split(",")
+          .map((c) => c.trim().replace(/[`"']/g, "").toLowerCase())
+          .some((c) => added.includes(c)),
+      );
+    },
+    what:
+      "ajoute une colonne ET pose son index UNIQUE dans la même migration : " +
+      "toutes les lignes déjà présentes reçoivent la même valeur, et l'index " +
+      "échoue sur la deuxième — cet enchaînement ne réussit que sur une table vide",
+    todo:
+      "séparer : ajouter la colonne sans contrainte d'unicité, remplir chaque " +
+      "ligne d'une valeur DISTINCTE (`nodefony orm:generate --custom`), puis " +
+      "poser l'index unique",
   },
 ];
 
@@ -334,6 +402,7 @@ export function auditMigrationSql(
     list
       .filter((rule) => !rule.dialects || rule.dialects.includes(dialect))
       .filter((rule) => rule.pattern.test(code))
+      .filter((rule) => rule.detect === undefined || rule.detect(code))
       .map(({ id, what, todo }) => ({ id, what, todo }));
   return {
     destructive: match(DESTRUCTIVE_PATTERNS),

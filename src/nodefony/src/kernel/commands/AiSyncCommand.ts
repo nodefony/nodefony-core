@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runAiSyncCommand } from "../../cli/aiSync";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "AGENTS ET OUTILLAGE",
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
   // vaut que pour une invocation directe) : sa sortie serait noyée sous le
   // journal de cycle de vie.
@@ -32,7 +33,7 @@ class AiSync extends Command {
   constructor(cli: CliKernel) {
     super(
       "ai:sync",
-      "Pointeurs vers les skills d'agent des paquets installés (.agents/skills + miroir .claude/skills)",
+      "installe les skills d'agent des paquets présents",
       cli as CliKernel,
       options,
     );

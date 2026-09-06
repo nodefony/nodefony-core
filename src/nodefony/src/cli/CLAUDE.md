@@ -47,7 +47,7 @@ class DevCommand extends Command {
   constructor(cli: CliKernel) {
     super(
       "development", // name
-      "Start Server in development Mode", // description
+      "démarre en développement, rechargement automatique", // cf § description
       cli,
       options,
     );
@@ -112,6 +112,9 @@ interface OptionsCommandInterface {
   runProfile?: IRunProfile; // profil DÉCLARATIF { servers, lifetime, interactive }
   // appliqué par resolveCommand ; les profils DYNAMIQUES (dev parent/enfant,
   // master/worker) restent posés par setRunProfile() dans onKernelStart
+  helpGroup?: string; // l'INTENTION sous laquelle l'aide et le menu la rangent
+  // valeurs : cf HELP_GROUPS (cli/helpReport.ts). Absent → la commande tombe
+  // sous son MODULE, ce qui reste vrai pour un module tiers.
 }
 ```
 
@@ -123,6 +126,25 @@ interface OptionsCommandInterface {
 - `"onBoot"` — services kernel créés. Ex : `http:certificates`.
 - `"onRegister"` (défaut) — modules enregistrés. Ex : `build`, `install`, `http:network`.
 - `"onStart"` — app chargée, aucun module. Pour l'ultra-light (menu `start`).
+
+### 🔴 La description d'une commande est un TITRE D'INDEX
+
+Elle a **trois lecteurs** qui la mettent tous en colonne : l'aide, le menu interactif et
+`man nodefony`. Une seule qui déborde replie la page entière — l'œil cesse de lire un index.
+
+| Règle                                      | Pourquoi                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| **≤ 53 caractères**                        | la place réelle à 80 colonnes (cf `descriptionWidth`, qui la DÉRIVE) |
+| **français, minuscule initiale**           | c'est une glose, pas une phrase ; l'interface est en français        |
+| dit ce que la commande **FAIT**            | le « quand » est porté par le titre du groupe et par l'ordre         |
+| **ne répète ni une option ni un argument** | `--admin`, `--write`, la liste des types : déjà rendus par ailleurs  |
+| aucun détail d'implémentation              | « turbo + rolldown », « cgroup-aware », « core.hooksPath »           |
+
+Ce qui ne tient pas là va dans le `--help` de la commande, jamais dans sa description.
+
+⚠️ **Le gate `tests/commandDescriptions.test.ts` ne couvre QUE les commandes du framework** :
+les vingt qu'apporte une application vivent hors du workspace `nodefony`, que le cœur ne peut pas
+lire. Pour elles, la règle ci-dessus est tout ce qui existe.
 
 ## Pattern d'usage CLI Nodefony
 
@@ -178,7 +200,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les bo
 | `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
 | `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
 | `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)         |
-| `Check`      | `doctor`      | `CheckCommand.ts`      | **standalone** — diagnostic STATIQUE (cf § check)             |
+| `Check`      | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)             |
 | `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
 | `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
 | `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)           |
@@ -295,12 +317,25 @@ déclarées — le disque fait foi, sinon un dépôt en espaces de travail rend 
 module »), pas des modules **chargés**. La ligne le mentionne et renvoie à
 `npx nodefony inspect modules`. Sort en 66 (`EX_NOINPUT`) hors projet.
 
-## `nodefony check` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
+## `nodefony doctor` / `doctor` — statique par défaut, `--live` DEMANDE à l'app
 
-`nodefony check [--json] [--cwd <path>]`, alias **`doctor`**. Ne lit que des fichiers
-(`package.json` + sources) — donc il fonctionne sur une application **qui ne démarre plus**, et
-c'est sa raison d'être. Fast-path `CliKernel.ts:230` : le faire booter coûterait un démarrage
-complet pour une réponse qui n'en dépend pas, et noierait le rapport sous le journal du Kernel.
+`nodefony doctor [--json] [--strict|--no-strict] [--live|--no-live] [--cwd <path>]`, alias
+**`check`**. Par défaut il ne lit que des fichiers (`package.json` + sources) — donc il fonctionne
+sur une application **qui ne démarre plus**, et c'est sa raison d'être. Fast-path dans
+`CliKernel.start()` : le faire booter coûterait un démarrage complet pour une réponse qui n'en
+dépend pas, et noierait le rapport sous le journal du Kernel.
+
+⚠️ **`--live` SORT du fast-path** — c'est tout son sujet. L'étage 2 interroge l'APPLICATION
+(`kernel/checks/live.ts`) : verdict des migrations (`orm/migrations`) et cohérence des zones
+(`security/firewall`, champ `configValid`), deux vérités qui ne sont dans AUCUN fichier. La
+commande boote donc, en `kernelEvent: "onPostReady"` — pas `onReady`, qui passerait avant
+l'écouteur qui peuple le plan d'administration — et **aucun port ne s'ouvre** (profil console).
+Rien n'y est recalculé : `summary` et `nextActions[0].command` du producteur sont rendus TELS
+QUELS, faute de quoi une seconde vérité divergerait de la console d'administration. Un producteur
+absent, une base sans migrations versionnées (501 `NF_MIGRATE_NO_MIGRATIONS`) ou un format
+inattendu ⇒ famille NON CONTRÔLÉE avec sa raison — jamais un quitus. L'étage 2 ne lève jamais :
+son échec devient un constat, et le rapport statique — celui dont on a besoin quand l'app va
+mal — sort quoi qu'il arrive.
 
 ⚠️ **La cible est l'APPLICATION, pas le dossier où l'on a tapé.** La commande remonte au premier
 dossier portant `nodefony.config.ts` (`findProjectRoot` — la MÊME définition de « où commence

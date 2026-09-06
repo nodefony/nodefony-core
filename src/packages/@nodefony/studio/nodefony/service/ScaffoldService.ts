@@ -12,8 +12,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   Service,
-  besoinDeShell,
-  argvCablageMcp,
+  needsShell,
+  argvMcpWiring,
   AGENT_TARGETS,
   runScaffold,
   listTargets,
@@ -691,7 +691,7 @@ class ScaffoldService extends Service {
     // l'app. Jamais pour une archive — le code part ailleurs, câbler les outils
     // de CE poste n'aurait aucun sens.
     if (type === "app") {
-      await this.#cablerAgents(job, stepCwd, answers);
+      await this.#wireAgents(job, stepCwd, answers);
     }
     if (type === "app") {
       this.#emit(job, "ok", `Application prête : ${stepCwd}`);
@@ -715,7 +715,7 @@ class ScaffoldService extends Service {
   /**
    * Câble la nouvelle application chez les agents que l'utilisateur a cochés.
    *
-   * ⭐ **La construction de l'appel n'est pas recopiée** : `argvCablageMcp` vit
+   * ⭐ **La construction de l'appel n'est pas recopiée** : `argvMcpWiring` vit
    * au cœur et sert le terminal comme cet écran — deux copies divergeraient au
    * premier drapeau ajouté, et personne ne le verrait avant qu'un agent ne
    * reçoive une déclaration différente selon la porte par laquelle on est
@@ -729,15 +729,15 @@ class ScaffoldService extends Service {
    * jeton : elle pose la déclaration, pas le secret. Le terminal de l'écran le
    * dit plutôt que de laisser découvrir un `401` plus tard.
    */
-  async #cablerAgents(
+  async #wireAgents(
     job: IJob,
     dest: string,
     answers: TScaffoldAnswers,
   ): Promise<void> {
-    const choisis = Array.isArray(answers.agents)
+    const chosen = Array.isArray(answers.agents)
       ? (answers.agents as string[])
       : [];
-    const argv = argvCablageMcp(choisis, AGENT_TARGETS, dest);
+    const argv = argvMcpWiring(chosen, AGENT_TARGETS, dest);
     if (argv === null) return;
     const ok = await this.#spawnNodefony(job, argv, dest);
     if (!ok) return;
@@ -765,7 +765,7 @@ class ScaffoldService extends Service {
         stdio: ["ignore", "pipe", "pipe"],
         // `npx` est un `.cmd` sous Windows : lancé nu, Node rend « ENOENT », qui
         // se lit « npx n'est pas installé ». Règle UNIQUE, portée par le core.
-        shell: besoinDeShell("npx"),
+        shell: needsShell("npx"),
       });
       job.child = child;
       const pipe = (
@@ -819,7 +819,7 @@ class ScaffoldService extends Service {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
-        shell: besoinDeShell("npm"),
+        shell: needsShell("npm"),
       });
       job.child = child;
 

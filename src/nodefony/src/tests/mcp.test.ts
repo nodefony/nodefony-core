@@ -1000,7 +1000,7 @@ describe("MCP — conformité de la révision 2026-07-28", () => {
 });
 
 describe("MCP — les outils de diagnostic", () => {
-  // ⚠️ Ce cas EXÉCUTE le diagnostic complet du dépôt (`collectCheckReport`
+  // ⚠️ Ce cas EXÉCUTE le diagnostic complet du dépôt (`collectDoctorReport`
   // balaie les sources réelles) : quelques secondes, et davantage sur une
   // machine partagée. Le timeout par défaut de vitest — 5 s — n'avait donc
   // jamais été CHOISI pour lui : il passait ici et tombait sur les six jobs de
@@ -1024,12 +1024,26 @@ describe("MCP — les outils de diagnostic", () => {
       const report = JSON.parse(text) as {
         verdict: string;
         total: number;
+        skipped: string[];
         root: string;
         scanned: number;
       };
       // Le verdict et son compte doivent être cohérents entre eux — c'est ce
       // qu'un agent lit en premier pour décider s'il continue.
-      expect(report.verdict).toBe(report.total === 0 ? "ok" : "manquements");
+      //
+      // ⚠️ TROIS valeurs, pas deux : « ok » ne se dit que si le compte est nul
+      // ET que tout a été regardé. Un rapport sans manquement dont des familles
+      // ont été SAUTÉES rend « ok-mais-incomplet » — le mot existe précisément
+      // pour qu'un agent ne conclue pas « la voie est libre » sur un contrôle
+      // qui n'a rien ouvert, et il ne se confond avec « ok » dans aucune
+      // comparaison de chaînes.
+      expect(report.verdict).toBe(
+        report.total > 0
+          ? "manquements"
+          : report.skipped.length > 0
+            ? "ok-mais-incomplet"
+            : "ok",
+      );
       expect(report.scanned).toBeGreaterThan(0);
       expect(report.root).toBeTypeOf("string");
     },
@@ -1049,10 +1063,10 @@ describe("MCP — les outils de diagnostic", () => {
     expect(isError).toBeUndefined();
     const resume = JSON.parse(text) as {
       total: number;
-      parPaquet: Record<string, number>;
+      perPackage: Record<string, number>;
     };
     expect(resume.total).toBeGreaterThan(0);
-    expect(Object.keys(resume.parPaquet).length).toBeGreaterThan(0);
+    expect(Object.keys(resume.perPackage).length).toBeGreaterThan(0);
   });
 
   it("`symbols` nommé rend la définition et son ancrage", async () => {

@@ -495,6 +495,14 @@ Les **invariants** qui doivent rester présents en permanence :
   unique des défauts) + `nodefony/config/defineModuleConfig.ts` (le COMMENT — builder pur).
   Tout module qui expose une config **augmente le registre** `NodefonyModuleConfig`, sinon une clé
   mal orthographiée compile puis est retirée par Zod **sans un mot**.
+- **Un schéma de config CHOISIT sa sévérité — `z.object` est INTERDIT** (gate :
+  `src/nodefony/src/tests/configStrictness.test.ts`). `z.strictObject` quand la section est
+  consommée par notre code — une clé inconnue interrompt le boot en la nommant ; `z.looseObject`
+  quand elle part telle quelle dans une lib tierce, dont on ne connaît pas les options. Le défaut
+  de Zod RETIRE la clé en silence : `use("@nodefony/http", { trustProxi: true })` démarrait sur le
+  défaut sans un mot. Et la validation passe par **`parseModuleConfig`** (cœur), jamais par un
+  `try`/`catch` recopié : il lève une `BootConfigurationError`, seule fatale en développement —
+  une `Error` nue est absorbée par le fail-soft, là précisément où la faute vient d'être écrite.
 - **Scaffold** : un module neuf naît conforme via `nodefony create module` / skill
   `nodefony-create-module` — ne pas recomposer le squelette à la main.
 - **1 RÈGLE = 1 implémentation.** Avant d'encoder une décision (garde, filet, scoping, seuil,
@@ -567,6 +575,42 @@ import fs from "node:fs";
 // Jamais require()
 // ESM uniquement — import, jamais require
 ```
+
+### 🔴 LE CODE S'ÉCRIT EN ANGLAIS — la prose en français
+
+**Tout IDENTIFIANT du code de PRODUCTION est en anglais** : nom de classe, de
+méthode, de fonction, de variable, de type, d'interface, de champ, de constante,
+de clé de configuration, de fichier. **Ce qu'un humain LIT reste en français** :
+TSDoc, commentaires, messages affichés à l'utilisateur, libellés d'interface,
+textes de test (`it("…")`), messages de commit, documentation.
+
+**Les TESTS sont exemptés pour leurs identifiants LOCAUX** (helpers, décors,
+variables) : ils ne partent pas sur npm, n'entrent dans aucun `.d.ts` et
+n'apparaissent dans l'autocomplétion de personne — l'argument qui fonde la règle
+ne les concerne pas. Un test qui IMPORTE un symbole de production suit
+évidemment son nom : le typecheck l'impose, ce n'est pas une décision.
+
+| Ce qu'on écrit                                  | Langue       |
+| ----------------------------------------------- | ------------ |
+| `function renderReport()`, `const width` (prod) | **anglais**  |
+| `interface IRenderOptions`, `type DoctorFamily` | **anglais**  |
+| Clés JSON, noms de fichiers, champs d'API       | **anglais**  |
+| TSDoc, `//`, `it("…")`, chaînes affichées       | **français** |
+| Variables et helpers LOCAUX d'un test           | libre        |
+
+**Pourquoi.** Le code est une surface PUBLIQUE : il part sur npm, entre dans les
+`.d.ts`, s'affiche dans l'autocomplétion de gens qui ne parlent pas français, et
+se cherche au `grep` par des agents entraînés sur de l'anglais. Un identifiant
+français y devient un mot que personne ne devine — `controlesSautes` ne se trouve
+pas en cherchant `skipped`. La prose, elle, ne voyage pas de la même façon : elle
+explique le POURQUOI à qui travaille ici, et le français y est plus précis pour
+l'auteur du framework.
+
+⚠️ Vécu (2026-09-04, `kernel/checks/`) : un module de PRODUCTION entier écrit
+avec des identifiants français — `rendreRapport`, `controlesSautes`, `largeurUtile`,
+`filet`, `accord` — a dû être renommé en bloc. Le mélange est pire que l'un ou
+l'autre : dans le même fichier, `checkPackageDeps` côtoyait `replier`, et plus
+rien ne disait quelle règle suivre au prochain ajout.
 
 ### Config de module — JAMAIS dérefencer le kernel à l'évaluation du module
 

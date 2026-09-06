@@ -2,6 +2,7 @@ import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import type FrontendService from "../service/FrontendService";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   kernelEvent: "onReady",
 };
@@ -14,7 +15,7 @@ const options: OptionsCommandInterface = {
  */
 class FrontendStatus extends Command {
   constructor(cli: CliKernel) {
-    super("frontend:status", "Show frontend supervisor status", cli, options);
+    super("frontend:status", "l'état du superviseur des fronts", cli, options);
     this.addOption("-j, --json", "output as JSON");
   }
 

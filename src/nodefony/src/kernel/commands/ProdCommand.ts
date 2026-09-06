@@ -9,6 +9,7 @@ import {
 import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: true,
   // onPostReady (comme `development`) : l'UNIQUE Kernel boote complètement (serveurs
   // inclus) puis cette commande conclut. La décision mono/cluster est prise plus tôt,
@@ -38,7 +39,7 @@ class Prod extends Command {
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Serveur de production : premier plan, cloud-native (topologie via --workers)",
+      "démarre en production, au premier plan",
       cli as CliKernel,
       options,
     );

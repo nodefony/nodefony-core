@@ -32,7 +32,7 @@ Où aller :
   …
 
 Quoi lancer :
-  npx nodefony check
+  npx nodefony doctor
       diagnostic STATIQUE : il répond même quand l'application ne démarre plus.
   …
 ```
@@ -203,11 +203,13 @@ c'est fermé par défaut, et c'est voulu. Détail et pièges :
 
 ## Les skills d'agent
 
-Le paquet livre quatre **skills** au format [Agent Skills](https://agentskills.io)
+Le paquet livre six **skills** au format [Agent Skills](https://agentskills.io)
 — la marche à suivre complète pour les tâches où un agent, sans eux, inventerait
 du code : créer une ressource REST, ajouter un service injectable, réserver une
-route à qui est habilité, ouvrir un canal temps réel. Ils sont lus par tout
-client conforme (Claude Code, Cursor, Copilot, VS Code, Codex, Goose…).
+route à qui est habilité, ouvrir un canal temps réel, faire évoluer le schéma
+d'une base sans la détruire, et voir puis MESURER un écran dans un navigateur
+piloté. Ils sont lus par tout client conforme (Claude Code, Cursor, Copilot,
+VS Code, Codex, Goose…).
 
 `nodefony create app` les met à disposition à la création. Après un
 `npm update`, une commande les remet à jour :
@@ -222,10 +224,11 @@ npx nodefony ai:sync            # --dry-run pour voir sans écrire, --json pour 
   = nodefony-add-crud              @nodefony/devkit
   = nodefony-add-realtime-channel  @nodefony/devkit
   = nodefony-add-service           @nodefony/devkit
+  = nodefony-browser               @nodefony/devkit
+  = nodefony-migrate-schema        @nodefony/devkit
   = nodefony-protect-route         @nodefony/devkit
-  = nodefony-browser            @nodefony/devkit
 
-  0 posé(s) · 0 mis à jour · 5 inchangé(s)
+  0 posé(s) · 0 mis à jour · 6 inchangé(s)
 ```
 
 **Le préfixe `nodefony-` vous laisse la place.** Ces pointeurs arrivent dans
@@ -276,7 +279,7 @@ Par l'environnement : `NF__DEVKIT__ENABLED=false`.
   recalculé à chaque lecture, jamais mis en cache — une carte en cache mentirait
   au premier module ajouté.
 - **Il ne crée rien.** Le scaffold (`nodefony create …`), le diagnostic
-  (`nodefony check`) et l'introspection (`nodefony inspect`) vivent dans le
+  (`nodefony doctor`) et l'introspection (`nodefony inspect`) vivent dans le
   cœur : ils doivent répondre sans qu'aucun module soit installé, et quand
   l'application est cassée.
 - **Il ne dépend d'aucun fournisseur de modèle.** Son intérêt est de servir

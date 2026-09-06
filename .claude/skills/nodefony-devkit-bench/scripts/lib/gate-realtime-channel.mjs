@@ -224,6 +224,64 @@ const ecouterCanal = (ws, framesDejaRecues, canal, fenetreMs) =>
     }, fenetreMs);
   });
 
+/**
+ * S'abonne à un canal et guette le REFUS que le serveur émet quand il n'aboutit
+ * pas — `realtime:denied`, convention du produit
+ * (`RealtimeController.startChannel`).
+ *
+ * Distinct de {@link ecouterCanal}, qui attend une PUBLICATION : un canal peut
+ * être parfaitement ouvert et ne rien émettre (c'est le cas du canal de
+ * démonstration livré par le gabarit, qui ne publie que sur `dire`). Confondre
+ * les deux fait conclure « fermé » sur un canal simplement silencieux — et
+ * imputer à l'agent un refus qui n'a jamais eu lieu.
+ *
+ * @param {WebSocket} ws - connexion déjà accueillie.
+ * @param {object[]} framesDejaRecues - trames déjà vues (un refus peut arriver
+ *   avant qu'on écoute, si le welcome et le denied se suivent de près).
+ * @param {string} canal - nom EXACT du canal mesuré.
+ * @param {number} fenetreMs - durée de guet avant de conclure « pas de refus ».
+ * @returns {Promise<string|null>} le motif du refus, ou `null` si aucun refus.
+ */
+const guetterRefus = (ws, framesDejaRecues, canal, fenetreMs) =>
+  new Promise((resolve) => {
+    const frames = [...framesDejaRecues];
+    const surMessage = (ev) => {
+      try {
+        frames.push(
+          JSON.parse(
+            typeof ev.data === "string" ? ev.data : ev.data.toString(),
+          ),
+        );
+      } catch {
+        /* trame illisible : ce n'est pas un refus */
+      }
+    };
+    ws.addEventListener("message", surMessage);
+    ws.send(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "subscribe",
+        params: { channel: canal },
+      }),
+    );
+    setTimeout(() => {
+      ws.removeEventListener("message", surMessage);
+      try {
+        ws.close();
+      } catch {
+        /* déjà fermée */
+      }
+      const refus = frames.find(
+        (f) =>
+          f &&
+          f.method === "realtime:denied" &&
+          f.params &&
+          f.params.channel === canal,
+      );
+      resolve(refus ? (refus.params.reason ?? "sans motif") : null);
+    }, fenetreMs);
+  });
+
 repondreArgsTemoin();
 await ensurePortFree();
 
@@ -347,19 +405,35 @@ if (resWitness.error) {
       `« ${CANAL_OPS_ALERTES} » a fermé la zone entière — la démo de l'application est morte avec.`,
   );
 }
-const witnessRecoit = await ecouterCanal(
+// 🔴 Le témoin se juge sur le REFUS, jamais sur une trame reçue.
+//
+// Deux faussetés avaient rendu la tâche 19 impossible. La première : ce canal
+// s'appelle `live:events` dans toute application générée, pas `live:ticker`.
+// La seconde : le juge attendait de lui une TRAME, sur la foi d'un « il publie
+// déjà 1×/s » que son propre gabarit contredit — « Il ne produit RIEN tout
+// seul : il retient de quoi diffuser, et c'est `dire` qui alimente. » Il
+// attendait donc une trame qui n'arrive jamais, et imputait ce silence à
+// l'agent, accusé d'une politique « bien plus large » qu'il n'avait pas posée.
+//
+// Le signal juste existe dans le produit : `realtime:denied`, émis à CHAQUE
+// abonnement qui n'aboutit pas (`RealtimeController.startChannel` — « un
+// abonnement qui n'aboutit pas se DIT, TOUJOURS », motifs `forbidden` /
+// `unknown` / `limit`). Un canal resté public ne le déclenche pas ; un canal
+// refermé par une politique trop large rend `forbidden`. C'est exactement la
+// question posée, et elle ne suppose aucune émission.
+const refusTemoin = await guetterRefus(
   resWitness.ws,
   resWitness.frames,
   CANAL_TEMOIN_PUBLIC,
-  FENETRE_RECEPTION_MS,
+  FENETRE_SILENCE_MS,
 );
-if (!witnessRecoit) {
+if (refusTemoin !== null) {
   exit(
     6,
-    `CAUSE=canal-temoin-ferme — un anonyme n'obtient plus AUCUNE trame « ${CANAL_TEMOIN_PUBLIC} » ` +
-      `sur ${CHEMIN_REALTIME_LIVE} en ${FENETRE_RECEPTION_MS} ms. Ce canal, posé par le décor SANS ` +
-      `politique et jamais mentionné à l'agent, publiait déjà 1×/s avant lui : une politique bien ` +
-      `plus large que le seul canal « ${CANAL_OPS_ALERTES} » l'a refermé au passage.`,
+    `CAUSE=canal-temoin-ferme — un anonyme se voit REFUSER « ${CANAL_TEMOIN_PUBLIC} » sur ` +
+      `${CHEMIN_REALTIME_LIVE} (realtime:denied, motif « ${refusTemoin} »). Ce canal, posé par le ` +
+      `décor SANS politique et jamais mentionné à l'agent, était public avant lui : une politique ` +
+      `bien plus large que le seul canal « ${CANAL_OPS_ALERTES} » l'a refermé au passage.`,
   );
 }
 

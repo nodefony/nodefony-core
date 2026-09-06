@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { ancreEventLoop, demande } from "../cli/prompts";
+import { anchorEventLoop, request } from "../cli/prompts";
 
 /**
  * Ce que cette suite prouve : une commande qui pose une question ne peut plus
@@ -35,7 +35,7 @@ describe("l'ancre d'event loop", () => {
     // Un handle non `unref()` compte comme travail en cours pour Node — c'est
     // exactement ce qui manquait pendant une question.
     const avant = process.getActiveResourcesInfo().length;
-    const relache = ancreEventLoop();
+    const relache = anchorEventLoop();
     expect(process.getActiveResourcesInfo().length).toBeGreaterThan(avant);
     relache();
     expect(process.getActiveResourcesInfo().length).toBe(avant);
@@ -46,7 +46,7 @@ describe("l'ancre d'event loop", () => {
     // qui meurt trop tôt contre une qui ne rend jamais la main.
     const avant = process.getActiveResourcesInfo().length;
     await expect(
-      demande(async () => {
+      request(async () => {
         throw new Error("interrompu");
       }),
     ).rejects.toThrow("interrompu");
@@ -54,7 +54,7 @@ describe("l'ancre d'event loop", () => {
   });
 
   it("rend ce que l'interaction rend", async () => {
-    expect(await demande(async () => "réponse")).toBe("réponse");
+    expect(await request(async () => "réponse")).toBe("réponse");
   });
 });
 

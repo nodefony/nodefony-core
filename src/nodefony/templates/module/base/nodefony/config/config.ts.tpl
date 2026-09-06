@@ -24,7 +24,16 @@ import { z } from "zod";
  * chaîne : chaque méthode zod clone, une `.default()` posée après `.meta()` perdrait
  * la métadonnée. Ces flags ressortent dans le JSON Schema lu par Studio.
  */
-export const <%= it.camel %>ConfigSchema = z.object({
+/**
+ * ⚠️ `strictObject`, et non `object` : une clé INCONNUE doit être REFUSÉE, pas
+ * retirée en silence. C'est le défaut par défaut de Zod, et il coûte cher —
+ * `use("<%= it.pkgName %>", { gretting: "…" })` produisait une application qui
+ * démarre en IGNORANT ce que l'utilisateur a écrit, sans un mot. Le typage du
+ * registre `NodefonyModuleConfig` attrape la faute de frappe à la COMPILATION ;
+ * ceci l'attrape au DÉMARRAGE, pour tout ce qui contourne le compilateur — une
+ * config chargée d'un fichier, un `as never`, un override d'environnement.
+ */
+export const <%= it.camel %>ConfigSchema = z.strictObject({
   /** Interrupteur du module — l'app peut le charger sans l'activer. */
   enabled: z
     .boolean()

@@ -4,6 +4,7 @@ import { runCardCommand } from "../../cli/card";
 import { version } from "../../../package.json";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
   // vaut que pour une invocation directe) : sa sortie serait noyée sous le
   // journal de cycle de vie.
@@ -41,7 +42,7 @@ class Card extends Command {
   constructor(cli: CliKernel) {
     super(
       "card",
-      "Carte de visite de l'application : où aller, quoi lancer",
+      "carte de visite : où l'on est, quoi lancer",
       cli as CliKernel,
       options,
     );

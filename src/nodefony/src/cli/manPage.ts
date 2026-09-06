@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
-import type { ICliManifest, ICliManifestCommand } from "./completion";
+import type { ICliManifest } from "./completion";
+import { groupCommands } from "./helpReport";
 
 /**
  * Page de manuel Unix (`man nodefony`), rendue depuis le manifest du CLI.
@@ -93,22 +94,22 @@ export function escapeRoff(text: string): string {
  * caractères pouvait en faire 90.
  */
 function wrap(line: string): string {
-  const poids = (s: string): number => Buffer.byteLength(s, "utf8");
-  if (line.startsWith(".") || poids(line) <= MAN_SOURCE_WIDTH) {
+  const byteLength = (s: string): number => Buffer.byteLength(s, "utf8");
+  if (line.startsWith(".") || byteLength(line) <= MAN_SOURCE_WIDTH) {
     return line;
   }
   const out: string[] = [];
-  let courante = "";
-  for (const mot of line.split(" ")) {
-    if (courante && poids(`${courante} ${mot}`) > MAN_SOURCE_WIDTH) {
-      out.push(courante);
-      courante = mot;
+  let current = "";
+  for (const word of line.split(" ")) {
+    if (current && byteLength(`${current} ${word}`) > MAN_SOURCE_WIDTH) {
+      out.push(current);
+      current = word;
     } else {
-      courante = courante ? `${courante} ${mot}` : mot;
+      current = current ? `${current} ${word}` : word;
     }
   }
-  if (courante) {
-    out.push(courante);
+  if (current) {
+    out.push(current);
   }
   return out.join("\n");
 }
@@ -116,12 +117,6 @@ function wrap(line: string): string {
 /** Une entrée de liste `.TP` : un terme en gras, sa description en dessous. */
 function tagged(term: string, description: string): string {
   return `.TP\n.B ${term}\n${escapeRoff(description) || "\\-"}`;
-}
-
-/** La ligne de titre d'une commande : son nom, puis ses alias entre virgules. */
-function commandTerm(cmd: ICliManifestCommand): string {
-  const noms = [cmd.name, ...(cmd.aliases ?? [])];
-  return noms.map((n) => escapeRoff(n)).join(", ");
 }
 
 /**
@@ -176,11 +171,34 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   out.push(".RE");
 
   out.push(".SH COMMANDS");
-  const commandes = [...manifest.commands].sort((a, b) =>
-    a.name.localeCompare(b.name, "en"),
+  out.push(
+    "Les commandes sont rangées par INTENTION, dans l'ordre d'une journée de " +
+      "travail \\- comme \\fBnodefony \\-\\-help\\fR. Un rangement " +
+      "alphabétique mettrait \\fBai:mcp\\fR avant \\fBdevelopment\\fR ; " +
+      "il ne répond à personne.",
   );
-  for (const cmd of commandes) {
-    out.push(tagged(commandTerm(cmd), cmd.description));
+  // 🔴 Le CLASSEMENT vient de `grouperCommandes`, jamais d'une copie locale.
+  // C'est la même fonction qui range `nodefony --help` : deux tables auraient
+  // divergé au premier groupe ajouté, et la page de manuel aurait décrit un
+  // rangement que le CLI n'applique plus. Le manifeste porte le groupe
+  // précisément pour que cette page, rendue hors de tout boot, puisse le lire.
+  for (const group of groupCommands(
+    manifest.commands.map((c) => ({
+      name: c.name,
+      aliases: c.aliases ?? [],
+      description: c.description,
+      ...(c.group === undefined ? {} : { group: c.group }),
+    })),
+  )) {
+    out.push(`.SS ${escapeRoff(group.title)}`);
+    for (const cmd of group.commands) {
+      out.push(
+        tagged(
+          [cmd.name, ...cmd.aliases].map((n) => escapeRoff(n)).join(", "),
+          cmd.description,
+        ),
+      );
+    }
   }
 
   if (manifest.globalOptions.length > 0) {
@@ -258,7 +276,7 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   );
   out.push(
     tagged(
-      "nodefony check",
+      "nodefony doctor",
       "Diagnostique le projet, même s'il ne démarre plus.",
     ),
   );

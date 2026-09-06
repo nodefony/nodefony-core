@@ -7,11 +7,15 @@ import path from "node:path";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
 import { Nodefony } from "../Nodefony";
-import { DEFAULT_ENGINE_ENVIRONMENT } from "../runtime/engineEnvironment";
+import {
+  DEFAULT_ENGINE_ENVIRONMENT,
+  engineModeOf,
+} from "../runtime/engineEnvironment";
 import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
+import type Pdu from "../syslog/Pdu";
 import Syslog, { NULL_LOG_SINK } from "../syslog/Syslog";
 import { FileSink } from "../syslog/sinks/FileSink";
 import {
@@ -35,7 +39,12 @@ import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
 import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
-import { writeLastBoot, type ILastBoot } from "./checks/lastBoot";
+import { gateModuleManifest } from "./moduleGating";
+import {
+  writeLastBoot,
+  type ILastBoot,
+  type LastBootProfile,
+} from "./checks/lastBoot";
 //import Fetch from "../service/fetchService";
 // Type SEUL (`this.get<HttpKernel>(…)`) : le cœur ne dépend pas de `@nodefony/http`
 // à l'exécution — l'inverse serait un cycle, http déclarant `nodefony`.
@@ -47,10 +56,7 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
 } from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
-import type {
-  IModuleManifest,
-  IModuleManifestEntry,
-} from "../types/IModuleManifest";
+import type { IModuleManifest } from "../types/IModuleManifest";
 import {
   isConfigDescriptor,
   readAppEnvOverrideReport,
@@ -72,7 +78,7 @@ import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
-import { readListenerTags } from "./lifecycleTags";
+import { isUnboundedListener, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
 import type {
   IBootReport,
@@ -381,6 +387,17 @@ export interface ModuleConstructor {
 type trunkType = "javascript" | "typescript" | null;
 
 /**
+ * Combien de messages CRITIC un bilan de démarrage retient.
+ *
+ * Trois : au-delà, ce sont presque toujours des conséquences du premier, et un
+ * bilan qu'on ne lit pas ne vaut pas mieux qu'un bilan muet.
+ */
+const MAX_BOOT_CRITICALS = 3;
+
+/** Longueur d'un message retenu — au-delà, la ligne déborde tout rendu. */
+const MAX_BOOT_CRITICAL_LENGTH = 200;
+
+/**
  * Orchestrateur central de Nodefony — gère le boot, les modules, le DI Container racine,
  * et expose les events lifecycle auxquels services/modules se branchent.
  *
@@ -559,7 +576,11 @@ class Kernel extends Service implements IKernel {
    * true (après, le ring syslog mélange boot et runtime). `null` = boot en cours
    * → {@link getBootReport} compte à la volée.
    */
-  private bootLogCounts: { warnings: number; errors: number } | null = null;
+  private bootLogCounts: {
+    warnings: number;
+    errors: number;
+    criticals: string[] | null;
+  } | null = null;
   /**
    * Serveurs réellement en écoute, figés à `onPostReady`. `null` tant que le boot
    * n'a pas atteint cette phase ; `[]` si profil serveur mais rien n'écoute (cas
@@ -699,11 +720,36 @@ class Kernel extends Service implements IKernel {
     return {
       status,
       timestamp: new Date().toISOString(),
+      profile: this.lastBootProfile(),
+      command: this.command?.name,
       environment: this.environment ?? "unknown",
       pid: process.pid,
       node: process.version,
       phase: this.lastReachedPhase(),
     };
+  }
+
+  /**
+   * QUI démarre — la distinction qui empêche `doctor` de désigner le mauvais
+   * coupable.
+   *
+   * Un `nodefony inspect` ou un `orm:migrate` boote en console et échoue
+   * souvent pour une raison qui ne concerne pas le serveur : un environnement
+   * absent du terminal où l'on tape. Sans ce champ, son bilan s'écrivait
+   * par-dessus celui du serveur, et le diagnostic envoyait chercher là où il
+   * n'y a rien.
+   *
+   * `cluster` est distingué de `server` parce que le maître ne sert AUCUNE
+   * requête lui-même : ses workers le font. Le critère se CONSTATE — la
+   * commande `cluster` dans le process primaire ; un worker forké, lui, porte
+   * `cluster.isWorker` et sert bien des requêtes, donc c'est un `server`.
+   *
+   * @returns le profil de ce démarrage.
+   */
+  private lastBootProfile(): LastBootProfile {
+    if (!this.runProfile?.servers) return "console";
+    if (this.command?.name === "cluster" && cluster.isPrimary) return "cluster";
+    return "server";
   }
 
   /**
@@ -724,6 +770,9 @@ class Kernel extends Service implements IKernel {
     entry.modulesLoaded = report.modulesLoaded;
     entry.warnings = report.warnings;
     entry.errors = report.errors;
+    // Un compte seul ne diagnostique rien : un firewall invalide au boot pose
+    // son erreur, loggue CRITIC, et laisse le boot continuer.
+    entry.criticals = report.criticals ?? undefined;
     entry.remediation = report.remediation ?? undefined;
     if (report.modulesSkipped.length) {
       entry.bricksSkipped = report.modulesSkipped.map((f) => ({
@@ -774,6 +823,10 @@ class Kernel extends Service implements IKernel {
         phase: f.phase,
       }));
     }
+    // Ce qui a crié AVANT l'abandon : le message fatal ne dit pas toujours la
+    // cause première, et c'est presque toujours elle qu'on cherche.
+    const { criticals } = this.countBootLogIssues();
+    if (criticals) entry.criticals = criticals;
     writeLastBoot(this.path, entry);
   }
 
@@ -1266,11 +1319,11 @@ class Kernel extends Service implements IKernel {
     // sortait en 0 : ni un script, ni un `&&`, ni une CI ne voyaient l'échec.
     // Un seul de ces neuf points prenait la précaution ; huit l'oubliaient.
     // La règle vit ici, au point de passage commun.
-    const echec =
+    const failure =
       typeof process.exitCode === "number" && process.exitCode !== 0
         ? process.exitCode
         : null;
-    return this.terminate(echec ?? code);
+    return this.terminate(failure ?? code);
   }
 
   override clean() {
@@ -1381,10 +1434,6 @@ class Kernel extends Service implements IKernel {
     name: string;
     config?: Record<string, unknown>;
   }[] {
-    const manifest = this.options.modules;
-    if (!Array.isArray(manifest)) {
-      return [];
-    }
     // Gating `policy:"dev"` sur le MODE RUNTIME (NODE_ENV-aware) — un conteneur
     // staging (NODE_ENV=production) droppe bien les modules dev. Le gating fin par
     // environnement de déploiement passe par `when(config)` (axe appEnvironment).
@@ -1396,46 +1445,34 @@ class Kernel extends Service implements IKernel {
     // le WARNING par module ci-dessous) ; sans effet hors production.
     const devModulesForced =
       isProd && process.env[FORCE_DEV_MODULES_ENV] === "1";
+    // 🔴 La DÉCISION vit dans `gateModuleManifest`, pas ici : `nodefony doctor
+    // --env production` la rejoue à froid pour dire ce qui disparaîtra là-bas.
+    // Deux copies de la règle divergeraient, et le diagnostic cesserait de
+    // décrire le boot qu'il prétend prédire.
+    const outcome = gateModuleManifest(this.options.modules, {
+      isProduction: isProd,
+      forceDevModules: devModulesForced,
+      config: this.options,
+    });
     // Reset (défensif si rappelée) : les skips motivés sont re-collectés à chaque
     // résolution — sinon un double appel dupliquerait les entrées du bilan.
     this.modulesGated = null;
-    const result: { name: string; config?: Record<string, unknown> }[] = [];
-    for (const item of manifest) {
-      const entry: IModuleManifestEntry =
-        typeof item === "string" ? { name: item } : item;
-      if (!entry?.name) {
-        continue;
-      }
-      if (entry.policy === "dev" && isProd) {
-        if (devModulesForced) {
-          // Dérogation DEMANDÉE : on charge, on le CRIE, et on arme l'auto-arrêt.
-          // Un module de banc dans un runtime de production est une surface
-          // offerte — que personne ne doit découvrir en lisant les routes.
-          this.log(
-            `module "${entry.name}" (policy "dev") chargé en PRODUCTION sur ` +
-              `${FORCE_DEV_MODULES_ENV}=1 — dérogation explicite, à ne jamais poser sur un déploiement réel`,
-            "WARNING",
-            "KERNEL",
-          );
-          this.armDevModulesSelfStop();
-        } else {
-          this.recordModuleGated(
-            entry.name,
-            `policy "dev" — runtime production`,
-          );
-          continue;
-        }
-      }
-      if (typeof entry.when === "function" && !entry.when(this.options)) {
-        this.recordModuleGated(
-          entry.name,
-          "condition when(config) non remplie",
-        );
-        continue;
-      }
-      result.push({ name: entry.name, config: entry.config });
+    for (const gated of outcome.gated) {
+      this.recordModuleGated(gated.module, gated.reason);
     }
-    return result;
+    for (const name of outcome.derogated) {
+      // Dérogation DEMANDÉE : on charge, on le CRIE, et on arme l'auto-arrêt.
+      // Un module de banc dans un runtime de production est une surface
+      // offerte — que personne ne doit découvrir en lisant les routes.
+      this.log(
+        `module "${name}" (policy "dev") chargé en PRODUCTION sur ` +
+          `${FORCE_DEV_MODULES_ENV}=1 — dérogation explicite, à ne jamais poser sur un déploiement réel`,
+        "WARNING",
+        "KERNEL",
+      );
+      this.armDevModulesSelfStop();
+    }
+    return outcome.entries;
   }
 
   /**
@@ -1661,13 +1698,13 @@ class Kernel extends Service implements IKernel {
         // Journaliser la valeur RÉELLEMENT posée, jamais la devinette : un
         // journal qui affiche autre chose que ce que porte la config est le
         // genre de piste qu'on suit une heure.
-        const posee = readResolvedPath(
+        const appliedValue = readResolvedPath(
           mod.options as Record<string, unknown>,
           ov.path,
         );
         const shown = pathLooksSecret(ov.path)
           ? "«***»"
-          : JSON.stringify(posee);
+          : JSON.stringify(appliedValue);
         this.log(
           `Override env: ${mod.name}.${ov.path.join(".")} = ${shown}`,
           "INFO",
@@ -2450,9 +2487,9 @@ class Kernel extends Service implements IKernel {
       fromCommand ||
       this.environment ||
       DEFAULT_ENGINE_ENVIRONMENT;
-    return raw === "dev" || raw === "development"
-      ? "development"
-      : "production";
+    // La règle du collapse vit dans `engineEnvironment` : `doctor --env` la
+    // REJOUE pour prédire un déploiement, et deux copies divergeraient.
+    return engineModeOf(raw);
   }
 
   setEnv(environment?: EnvironmentType) {
@@ -2682,11 +2719,36 @@ class Kernel extends Service implements IKernel {
     //
     // Une erreur de CONFIGURATION reste fatale : elle ne se répare pas en
     // attendant, et un exemplaire qui l'attendrait attendrait pour toujours.
-    const retenuPar = this.#readinessHold();
+    //
+    // 🔴 LA LIGNE PASSE ENTRE UNE FAUTE DE CONFIG ET UNE PANNE D'INFRA — pas
+    // entre développement et production. Une panne d'infra (Redis éteint, base
+    // injoignable) est TRANSITOIRE : elle se répare en démarrant le service, pas
+    // en éditant du code. Elle arrive ici en `Error` ordinaire, et reste donc
+    // fail-soft en développement : c'est la résilience qui rend le dev
+    // praticable, et elle est intacte. Une erreur de configuration, elle, ne se
+    // répare qu'en la corrigeant.
+    //
+    // 🔴 Et elle l'est INDÉPENDAMMENT du tag `critical`. Les deux répondent à des
+    // questions différentes, que ce calcul confondait : `critical = false` dit
+    // « cette application peut tourner SANS ce module » — une affirmation sur sa
+    // DISPONIBILITÉ ; une erreur de configuration dit « ce que l'utilisateur a
+    // écrit ne peut pas être honoré » — une affirmation sur son INTENTION. Un
+    // module optionnel mal configuré démarrait donc en ignorant ce qu'on lui
+    // avait demandé, avec pour seule trace un avertissement : exactement le
+    // silence que le refus des clés inconnues visait à supprimer.
+    //
+    // Ce que cela NE change PAS, et c'est ce qui rend l'arbitrage sûr : un module
+    // optionnel dont l'INFRA est absente (Redis éteint) ne lève pas cette
+    // erreur-là — il propage une `Error` ordinaire, qui reste fail-soft en
+    // développement. Vérifié au moment de la décision : dans les cinq modules
+    // `critical = false` du dépôt, la seule source de `BootConfigurationError`
+    // est la validation de config (`parseModuleConfig`).
+    const heldBy = this.#readinessHold();
     const fatal =
-      critical !== false &&
-      (configError ||
-        (this.environment === "production" && retenuPar === null));
+      configError ||
+      (critical !== false &&
+        this.environment === "production" &&
+        heldBy === null);
     const msg = error instanceof Error ? error.message : String(error);
     const tag = timedOut ? " [timeout]" : "";
     this.log(
@@ -2726,10 +2788,10 @@ class Kernel extends Service implements IKernel {
     // Le fail-soft dû à une RÉTENTION s'énonce, et il nomme qui retient : sans
     // cela, on lit un exemplaire « démarré » en production là où le même code
     // aurait crashé la veille, sans savoir pourquoi.
-    if (!fatal && retenuPar !== null) {
+    if (!fatal && heldBy !== null) {
       this.log(
         `boot lifecycle: l'échec de "${who}" n'interrompt PAS le boot — la mise ` +
-          `en service est retenue par ${retenuPar}. Cet exemplaire reste vivant ` +
+          `en service est retenue par ${heldBy}. Cet exemplaire reste vivant ` +
           `et ne reçoit aucun trafic (/readyz rend 503) ; il attend le geste qui ` +
           `lèvera la rétention.`,
         "WARNING",
@@ -2826,7 +2888,7 @@ class Kernel extends Service implements IKernel {
     const modulesSkipped = this.bootFailures ?? [];
     // Journal de boot : compte figé à `postReady` (après, le ring mélange boot et
     // runtime) ; à la volée tant que le boot est en cours.
-    const { warnings, errors } =
+    const { warnings, errors, criticals } =
       this.bootLogCounts ?? this.countBootLogIssues();
     const manifestEntries = Array.isArray(this.options.modules)
       ? this.options.modules.length
@@ -2839,6 +2901,7 @@ class Kernel extends Service implements IKernel {
       modulesGated: this.modulesGated ?? [],
       warnings,
       errors,
+      criticals,
       serversExpected,
       serversListening,
       // Échec 0-serveur jugé UNIQUEMENT une fois la mesure faite (`measured`) : avant, on
@@ -3052,9 +3115,16 @@ class Kernel extends Service implements IKernel {
    *
    * @returns compteurs `{ warnings, errors }`.
    */
-  private countBootLogIssues(): { warnings: number; errors: number } {
+  private countBootLogIssues(): {
+    warnings: number;
+    errors: number;
+    criticals: string[] | null;
+  } {
     let warnings = 0;
     let errors = 0;
+    // Lazy : la très grande majorité des boots n'a rien à mettre dedans, et un
+    // tableau alloué « au cas où » est exactement ce que ce dépôt interdit.
+    let criticals: string[] | null = null;
     const ring = this.syslog?.ringStack;
     if (ring) {
       for (const pdu of ring) {
@@ -3062,10 +3132,39 @@ class Kernel extends Service implements IKernel {
           warnings++;
         } else if (pdu.severity >= 0 && pdu.severity <= 3) {
           errors++;
+          // Un COMPTE ne diagnostique rien. On garde les premiers messages —
+          // les suivants sont presque toujours la conséquence du premier, et
+          // un bilan illisible ne se lit pas plus qu'un bilan muet.
+          if (criticals === null) criticals = [];
+          if (criticals.length < MAX_BOOT_CRITICALS) {
+            criticals.push(this.condenseBootMessage(pdu));
+          }
         }
       }
     }
-    return { warnings, errors };
+    return { warnings, errors, criticals };
+  }
+
+  /**
+   * Une entrée de journal ramenée à ce qui tient dans un bilan.
+   *
+   * Le message brut porte parfois une pile entière : la première ligne dit ce
+   * qui s'est passé, le reste appartient au journal. Le module émetteur est
+   * conservé — c'est lui qui répond à « QUI a crié ? », la question qu'un
+   * compte seul laissait entière.
+   *
+   * @param pdu - l'entrée du journal.
+   * @returns une ligne, bornée.
+   */
+  private condenseBootMessage(pdu: Pdu): string {
+    const brut = String(pdu.payload ?? "");
+    const premiere = (brut.split("\n")[0] ?? "").trim();
+    const message =
+      premiere.length > MAX_BOOT_CRITICAL_LENGTH
+        ? `${premiere.slice(0, MAX_BOOT_CRITICAL_LENGTH - 1)}…`
+        : premiere;
+    const qui = pdu.moduleName ? `${String(pdu.moduleName)} : ` : "";
+    return `${qui}${message}`;
   }
 
   /**
@@ -3260,10 +3359,18 @@ class Kernel extends Service implements IKernel {
     const warnMs = this.bootWarnMs();
     let fatalError: unknown = null;
     let hasFatal = false;
+    const bootTimeout = this.bootTimeoutMs();
     const result = await super.emitAsyncGuarded(
       event,
       {
-        timeoutMs: this.bootTimeoutMs(),
+        // 🔴 Décidé PAR écouteur, et pas une fois pour toutes : l'action d'une
+        // commande est câblée sur une phase du cycle de vie (`Command.setEvents`)
+        // alors qu'elle n'est pas un hook de boot — c'est le travail demandé. La
+        // borner faisait sortir le processus en **0 au milieu du travail** dès
+        // qu'une commande dépassait vingt secondes : `doctor --deep` s'arrêtait
+        // en plein `npm run test`, sans rapport et sans erreur.
+        timeoutMs: (listener) =>
+          isUnboundedListener(listener) ? 0 : bootTimeout,
         warnMs,
         onListenerError: (error: unknown, info: IGuardedListenerInfo) => {
           const { owner, critical, name } = readListenerTags(info.listener);

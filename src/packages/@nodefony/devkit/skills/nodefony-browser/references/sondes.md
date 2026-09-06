@@ -20,19 +20,19 @@ identifiant sans chemin de connexion) ; 65 : le texte attendu n'est jamais appar
 | --- | --- |
 | `url` | La page RÉELLEMENT ouverte — à comparer à celle demandée (redirection de connexion, 404 SPA). |
 | `theme` / `lang` | `color-scheme` **calculé** (ce que le moteur applique) et attribut `lang` de la racine. |
-| `titre` | `document.title`. |
+| `title` | `document.title`. |
 | `scripts` | Les scripts RÉELLEMENT servis — pour vérifier qu'on observe bien le bundle qu'on vient de bâtir. |
-| `sondes` | Les sondes de style (voir ci-dessous). |
+| `probes` | Les sondes de style (voir ci-dessous). |
 | `violationsCSP` | Les violations de Content-Security-Policy vues PAR la page — le réseau montre l'absence, jamais la raison. |
-| `erreursConsole` | Les `console.error` émis pendant la mesure. |
-| `erreursNonCapturees` | Les exceptions non capturées (`pageerror`) — elles ne passent pas toutes par la console. |
+| `consoleErrors` | Les `console.error` émis pendant la mesure. |
+| `uncaughtErrors` | Les exceptions non capturées (`pageerror`) — elles ne passent pas toutes par la console. |
 | `capture` | Le PNG horodaté déposé dans le volume monté. |
 
 Les erreurs de console et les violations CSP **ne pèsent pas** dans le verdict global : un parcours
 de connexion produit des `401` légitimes, et les trancher ici les ferait passer pour des pannes.
 C'est au lecteur de juger — la sonde fournit, elle ne condamne pas ce qu'elle ne peut pas qualifier.
 
-## Les sondes de style (`sondes`) — le contraste CALCULÉ
+## Les sondes de style (`probes`) — le contraste CALCULÉ
 
 Un sélecteur par élément (`NF_BROWSER_PROBES=libellé=sélecteur,…`) ; pour chacun : texte, couleur,
 fond effectif, rapport de contraste, police, verdict WCAG, taille rendue.
@@ -60,13 +60,13 @@ le moteur qu'embarque Lighthouse pour son volet accessibilité.
 <!-- prettier-ignore -->
 | Champ | Ce qu'il dit |
 | --- | --- |
-| `manquements` | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur) |
-| `plusGraves` | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `constat` calculé (contraste mesuré, rôle attendu) |
-| `autresCibles` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence |
-| `aVerifier` | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts |
-| `conformes` | Les règles passées, pour situer le reste |
+| `failures` | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur) |
+| `worst` | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `reason` calculé (contraste mesuré, rôle attendu) |
+| `otherTargets` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence |
+| `toReview` | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts |
+| `passed` | Les règles passées, pour situer le reste |
 
-- **`aVerifier` n'est pas un manquement** et ne déclenche pas l'alerte. Le confondre ferait crier la
+- **`toReview` n'est pas un manquement** et ne déclenche pas l'alerte. Le confondre ferait crier la
   sonde sur des pages saines, et on cesserait de la lire.
 - **Cinq cibles par règle, pas une.** Une même règle couvre des défauts à des endroits différents,
   qui ne se corrigent pas d'un seul geste ; n'en montrer qu'un fait croire le travail fini.
@@ -80,32 +80,32 @@ le moteur qu'embarque Lighthouse pour son volet accessibilité.
 
 ## `a11y` — ce qu'un lecteur d'écran ou un clavier rencontrent
 
-| Champ                   | Question à laquelle il répond                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `langue`                | La racine annonce-t-elle sa langue (sans elle, la synthèse vocale lit avec le mauvais accent) ?                             |
-| `titres`                | Un seul `h1` ? Des sauts de niveau (`h2→h4`) qui cassent la table des matières ?                                            |
-| `imagesSansAlternative` | Des images sans attribut `alt` — muettes pour un lecteur d'écran.                                                           |
-| `champsSansEtiquette`   | Des champs sans étiquette (label, `aria-label`, `aria-labelledby`, `title`).                                                |
-| `controlesSansNom`      | Boutons et liens sans nom accessible — le bouton-icône muet, le cas réel.                                                   |
-| `ciblesTropPetites`     | Cibles interactives < 24×24 px ; les liens DANS le texte sont exemptés, comme dans le critère.                              |
-| `tabindexPositifs`      | Un `tabindex` positif impose un ordre de focus manuel qui diverge du DOM — l'anti-pattern du parcours clavier.              |
-| `focusablesVisibles`    | L'ampleur du parcours clavier de la page.                                                                                   |
-| `arbre`                 | L'arbre d'accessibilité (rôles + noms), tel que le calcule le navigateur — tronqué : il dit la STRUCTURE, pas l'inventaire. |
+| Champ                    | Question à laquelle il répond                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `lang`                   | La racine annonce-t-elle sa langue (sans elle, la synthèse vocale lit avec le mauvais accent) ?                             |
+| `headings`               | Un seul `h1` ? Des sauts de niveau (`h2→h4`) qui cassent la table des matières ?                                            |
+| `imagesWithoutAlt`       | Des images sans attribut `alt` — muettes pour un lecteur d'écran.                                                           |
+| `fieldsWithoutLabel`     | Des champs sans étiquette (label, `aria-label`, `aria-labelledby`, `title`).                                                |
+| `controlsWithoutName`    | Boutons et liens sans nom accessible — le bouton-icône muet, le cas réel.                                                   |
+| `targetsTooSmall`        | Cibles interactives < 24×24 px ; les liens DANS le texte sont exemptés, comme dans le critère.                              |
+| `positiveTabIndexValues` | Un `tabindex` positif impose un ordre de focus manuel qui diverge du DOM — l'anti-pattern du parcours clavier.              |
+| `visibleFocusables`      | L'ampleur du parcours clavier de la page.                                                                                   |
+| `tree`                   | L'arbre d'accessibilité (rôles + noms), tel que le calcule le navigateur — tronqué : il dit la STRUCTURE, pas l'inventaire. |
 
 **Quand elle se trompe** : le nom accessible est calculé de façon SIMPLIFIÉE (l'algorithme complet
 de la norme fait plus) — un composant qui pose son nom par un mécanisme exotique peut être compté
-« sans nom » à tort ; vérifier dans `arbre`, qui lui applique le calcul complet du navigateur.
+« sans nom » à tort ; vérifier dans `tree`, qui lui applique le calcul complet du navigateur.
 Et une sonde automatique ne couvre qu'une fraction de l'accessibilité : elle attrape le mesurable
 (étiquettes, tailles, structure), jamais le sens — l'ordre logique d'un formulaire ou la pertinence
 d'un `alt` restent un jugement humain.
 
 ## `rendu` — la page tient-elle dans son viewport, ses polices sont-elles là
 
-- `debordementHorizontal` : la page dépasse-t-elle la largeur de la fenêtre (le défilement
+- `horizontalOverflow` : la page dépasse-t-elle la largeur de la fenêtre (le défilement
   horizontal accidentel). C'est LUI qui porte le verdict.
-- `elementsHorsViewport` : une **information**, pas un verdict — carrousels, tiroirs et textes
+- `elementsOutsideViewport` : une **information**, pas un verdict — carrousels, tiroirs et textes
   destinés aux lecteurs d'écran sortent du viewport légitimement.
-- `polices` : ce que `document.fonts` a RÉELLEMENT chargé (statut par famille + graisse). Une
+- `fonts` : ce que `document.fonts` a RÉELLEMENT chargé (statut par famille + graisse). Une
   police en échec bascule le verdict — le texte s'affiche alors dans une police de repli, et toutes
   les mesures de taille en héritent.
 
@@ -124,13 +124,13 @@ ressources **lourdes** (> `NF_BROWSER_SEUIL_LOURD`, défaut 512 000 octets) et *
   requêtes et des mégaoctets non minifiés : c'est le DÉCOR du mode dev, pas une régression. Les
   seuils jugent une application SERVIE — comparer dev et prod n'a pas de sens.
 - Les tailles viennent du transfert réel quand le navigateur les donne, de `content-length` sinon ;
-  `octetsInconnus` compte ce qui n'a pu être pesé — un total avec beaucoup d'inconnus minore.
+  `unknownBytes` compte ce qui n'a pu être pesé — un total avec beaucoup d'inconnus minore.
 - La collecte s'arrête à la mesure : ce que la page télécharge APRÈS (interaction, différé) n'est
   pas vu — c'est le travail de `watch.mjs`.
 
 ## `perf` — temps de rendu et stabilité visuelle
 
-`ttfbMs`, `domContentLoadedMs`, `chargeCompleteMs`, `fcpMs`, `lcpMs`, `cls`, `tachesLongues` —
+`ttfbMs`, `domContentLoadedMs`, `loadCompleteMs`, `fcpMs`, `lcpMs`, `cls`, `longTasks` —
 verdict sur les seuils « bons » des Web Vitals : LCP ≤ 2 500 ms, CLS ≤ 0,1.
 
 **Quand elle se trompe** :

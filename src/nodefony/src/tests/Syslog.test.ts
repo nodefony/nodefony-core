@@ -953,12 +953,13 @@ describe("NODEFONY SYSLOG", () => {
   });
 
   describe("PDU SEVERITY NUMERIC", () => {
-    it("Pdu severity -1 numeric (SPINNER)", () =>
+    it("PIÈGE : une sévérité numérique HORS échelle est refusée", () =>
       new Promise<void>((done) => {
-        const pdu = new Pdu("spin", -1);
-        assert.strict.equal(pdu.severity, -1);
-        assert.strict.equal(pdu.severityName, "SPINNER");
-        assert.strict.equal(pdu.status, "NOTDEFINED");
+        // `-1` portait l'extension `SPINNER`, retirée : aucun code de
+        // production ne l'émettait, et les indicateurs d'attente du framework
+        // écrivent directement sur le terminal (`cli/progress.ts`). La valeur
+        // redevient donc ce qu'elle est pour la RFC 5424 : hors échelle.
+        assert.throws(() => new Pdu("spin", -1));
         done();
       }));
 
@@ -1656,37 +1657,6 @@ describe("NODEFONY SYSLOG", () => {
       }));
   });
 
-  // ─── rawLog SPINNER ──────────────────────────────────────────────────────────
-
-  describe("rawLog — SPINNER (-1)", () => {
-    it("SPINNER → \\r prefix + stdout (pas stderr)", () =>
-      new Promise<void>((done) => {
-        const chunks: string[] = [];
-        const origOut = process.stdout.write.bind(process.stdout);
-        process.stdout.write = (chunk: unknown) => {
-          chunks.push(String(chunk));
-          return true;
-        };
-        let errWritten = false;
-        const origErr = process.stderr.write.bind(process.stderr);
-        process.stderr.write = () => {
-          errWritten = true;
-          return true;
-        };
-        const pdu = new Pdu("loading…", -1);
-        Syslog.rawLog(pdu);
-        process.stdout.write = origOut;
-        process.stderr.write = origErr;
-        assert.ok(!errWritten, "SPINNER ne doit pas écrire sur stderr");
-        assert.ok(
-          chunks.some((c) => c.startsWith("\r")),
-          "doit commencer par \\r",
-        );
-        assert.ok(chunks.some((c) => c.includes("loading…")));
-        done();
-      }));
-  });
-
   // ─── HttpTransport — timeout ─────────────────────────────────────────────────
 
   describe("HttpTransport — timeout", () => {
@@ -1712,7 +1682,7 @@ describe("NODEFONY SYSLOG", () => {
 });
 
 describe("Syslog — compteurs erreurs (sonde par worker)", () => {
-  it("errorTotal/criticTotal bump sur ERROR..EMERGENCY, ignore INFO et SPINNER", () => {
+  it("errorTotal/criticTotal bump sur ERROR..EMERGENCY, ignore INFO", () => {
     const s = new Syslog({ moduleName: "TEST", rateLimit: false });
     assert.strictEqual(s.errorTotal, 0);
     assert.strictEqual(s.criticTotal, 0);
@@ -1723,7 +1693,6 @@ describe("Syslog — compteurs erreurs (sonde par worker)", () => {
     s.log("crit", "CRITIC"); // 2 → error + critic
     s.log("alert", "ALERT"); // 1 → error + critic
     s.log("emerg", "EMERGENCY"); // 0 → error + critic
-    s.log("spin", "SPINNER"); // -1 → ignoré (guard sev >= 0)
     assert.strictEqual(s.errorTotal, 4, "ERROR+CRITIC+ALERT+EMERGENCY");
     assert.strictEqual(s.criticTotal, 3, "CRITIC+ALERT+EMERGENCY");
     s.clean();
@@ -1910,7 +1879,10 @@ describe("SYSLOG — severity entry gate (T2)", () => {
     assert.strictEqual(sl.log(infoPdu).status, "ACCEPTED");
   });
 
-  it("SPINNER (-1) passe toujours le gate", () => {
+  it("une sévérité INCONNUE (-1) passe le gate — c'est `createPDU` qui refuse", () => {
+    // Le gate ne doit pas transformer une erreur d'usage en silence : il laisse
+    // passer, et la création du Pdu lève. Sans quoi une sévérité mal écrite
+    // disparaîtrait sans un mot, ce qui est le pire des deux comportements.
     const sl = new Syslog({ moduleName: "T2" });
     sl.setSeverityThreshold("INFO");
     assert.strictEqual(sl.severityEnabled(-1), true);
@@ -2233,7 +2205,7 @@ describe("SYSLOG — per-module debug override (runtime, hot)", () => {
     assert.strictEqual(
       Syslog.severityFromInput(-1),
       null,
-      "SPINNER n'est pas un niveau de debug d'entrée",
+      "hors échelle basse : -1 n'est pas un niveau",
     );
     assert.strictEqual(Syslog.severityFromInput("99"), null);
   });
@@ -2304,8 +2276,11 @@ describe("SEVERITY_NAMES — le vocabulaire des sévérités", () => {
     });
   });
 
-  it("couvre TOUTE l'échelle 0→7, sans `SPINNER` (extension CLI)", () => {
+  it("couvre TOUTE l'échelle 0→7, et rien d'autre", () => {
     expect(SEVERITY_NAMES.length).to.equal(8);
+    // Garde de non-retour : l'extension `SPINNER` a été retirée du cœur, les
+    // indicateurs d'attente vivant dans `cli/progress.ts`. Qu'elle ne
+    // revienne pas par une table.
     expect(SEVERITY_NAMES).to.not.include("SPINNER");
     // `CRITIC`, jamais `CRITICAL` — le nom de l'enum fait foi.
     expect(SEVERITY_NAMES[2]).to.equal("CRITIC");

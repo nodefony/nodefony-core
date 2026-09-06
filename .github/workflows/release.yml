@@ -133,6 +133,12 @@ jobs:
   publier:
     name: Publication npm (lockstep, ${{ github.ref_name }})
     needs: epreuve
+    # Le canal est calculé ICI et nulle part ailleurs : l'image le consomme au
+    # lieu de le recalculer. Deux dérivations du même fait divergeraient en
+    # silence — chacune passant ses propres contrôles.
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      canal: ${{ steps.v.outputs.canal }}
     runs-on:
       ubuntu-latest # runner HÉBERGÉ obligatoire : l'OIDC n'est pas
       # délivré aux runners auto-hébergés.
@@ -365,13 +371,24 @@ jobs:
       - name: Construire et pousser
         env:
           VERSION: ${{ github.ref_name }}
+          CANAL: ${{ needs.publier.outputs.canal }}
         run: |
           set -euo pipefail
           cd /tmp/image/demo
           V="${VERSION#v}"
-          docker build -t "nodefony/nodefony:${V}" -t "nodefony/nodefony:latest" .
+          docker build -t "nodefony/nodefony:${V}" .
           docker push "nodefony/nodefony:${V}"
-          docker push "nodefony/nodefony:latest"
+
+          # L'ÉTIQUETTE MOBILE se dérive du canal, exactement comme le dist-tag
+          # npm : `latest` n'appartient qu'aux versions finales. Poussé sans
+          # condition, il servirait une préversion à tout `docker pull
+          # nodefony/nodefony` — le pendant exact du défaut déjà corrigé côté
+          # npm, et qu'aucune erreur ne signale : l'image se télécharge très
+          # bien, elle n'est simplement pas celle qu'on croit.
+          MOBILE="${CANAL:-latest}"
+          docker tag "nodefony/nodefony:${V}" "nodefony/nodefony:${MOBILE}"
+          docker push "nodefony/nodefony:${MOBILE}"
+          echo "::notice::image poussée — ${V} et ${MOBILE}"
 
   # ═════════════════════════════════════════════════════════════════════════
   # 5. ANNONCE — la release GitHub, à partir du changelog RELU

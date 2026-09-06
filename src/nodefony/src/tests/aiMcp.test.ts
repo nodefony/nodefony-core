@@ -14,8 +14,8 @@ import {
 import {
   parseAiMcpArgv,
   planTokenChaining,
-  etatDuJeton,
-  renderEtatJeton,
+  tokenState,
+  renderTokenState,
 } from "../cli/aiMcp";
 import { litVariable } from "../cli/agentTargets";
 
@@ -174,7 +174,7 @@ describe("ai:mcp — la porte visée est UNE", () => {
   it("l'URL déclarée à l'agent est la ROUTE, jamais l'origine nue", () => {
     const url = buildMcpUrl("http://localhost:5151", "/nodefony/mcp");
     expect(url).toBe("http://localhost:5151/nodefony/mcp");
-    const gemini = AGENT_TARGETS.find((c) => c.cle === "gemini");
+    const gemini = AGENT_TARGETS.find((c) => c.key === "gemini");
     if (!gemini) throw new Error("gemini absent de la table");
     const plan = planAgentDeclaration(gemini, {
       url,
@@ -386,37 +386,37 @@ describe("ai:mcp — l'état d'un jeton se CONSTATE, il ne se devine pas", () =>
     // Le jeton part dans un en-tête STATIQUE que rien ne rafraîchit. Expiré, il
     // rend un 401 qui accuse la configuration, l'audience ou le serveur —
     // jamais l'échéance. Une ligne de constat remplace une enquête.
-    const etat = etatDuJeton(jeton({ exp: 1000, scope: "admin:read" }), 4600);
-    expect(etat?.restantSecondes).to.equal(-3600);
-    expect(renderEtatJeton(etat)).to.contain("EXPIRÉ");
-    expect(renderEtatJeton(etat)).to.contain("401");
+    const etat = tokenState(jeton({ exp: 1000, scope: "admin:read" }), 4600);
+    expect(etat?.remainingSeconds).to.equal(-3600);
+    expect(renderTokenState(etat)).to.contain("EXPIRÉ");
+    expect(renderTokenState(etat)).to.contain("401");
   });
 
   it("dit ce que le jeton AUTORISE — le rôle se voit avant de s'étonner", () => {
-    const etat = etatDuJeton(
+    const etat = tokenState(
       jeton({ exp: 100_000, scope: "admin:read admin:write" }),
       1_000,
     );
     expect(etat?.scopes).to.deep.equal(["admin:read", "admin:write"]);
-    expect(renderEtatJeton(etat)).to.contain("admin:read admin:write");
+    expect(renderTokenState(etat)).to.contain("admin:read admin:write");
   });
 
   it("rend la durée restante en jours quand elle se compte en jours", () => {
-    const etat = etatDuJeton(jeton({ exp: 7 * 24 * 3600, scope: "" }), 0);
-    expect(renderEtatJeton(etat)).to.contain("7 jours");
+    const etat = tokenState(jeton({ exp: 7 * 24 * 3600, scope: "" }), 0);
+    expect(renderTokenState(etat)).to.contain("7 jours");
   });
 
   it("ne PRÉTEND rien d'un contenu illisible", () => {
     // Se taire vaut mieux qu'affirmer : un jeton qu'on ne sait pas décrire
     // n'est pas un jeton absent.
-    expect(etatDuJeton("pas-un-jwt", 0)).to.equal(null);
-    expect(etatDuJeton("x.!!!.y", 0)).to.equal(null);
-    expect(renderEtatJeton(null)).to.contain("aucun jeton");
+    expect(tokenState("pas-un-jwt", 0)).to.equal(null);
+    expect(tokenState("x.!!!.y", 0)).to.equal(null);
+    expect(renderTokenState(null)).to.contain("aucun jeton");
   });
 
   it("🔴 ne divulgue JAMAIS le jeton lui-même", () => {
     const secret = jeton({ exp: 100_000, scope: "admin:read" });
-    const rendu = renderEtatJeton(etatDuJeton(secret, 0));
+    const rendu = renderTokenState(tokenState(secret, 0));
     expect(rendu).to.not.contain(secret);
     expect(rendu).to.not.contain(secret.split(".")[1]);
   });

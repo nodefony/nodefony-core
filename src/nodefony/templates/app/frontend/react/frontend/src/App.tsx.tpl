@@ -62,8 +62,8 @@ const FEATURES = [
 ];
 
 <% if (it.complete) { %>/** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
-interface Evenement {
-  texte: string;
+interface LiveEvent {
+  text: string;
   ts: number;
   pid: number;
 }
@@ -77,7 +77,7 @@ function LiveCard() {
   // La socket du Provider — même instance que celle des hooks ci-dessous.
   const live = useNodefony();
   const state = useNodefonyState();
-  const dernier = useNodefonyChannelData<Evenement>("live:events");
+  const last = useNodefonyChannelData<LiveEvent>("live:events");
   const [pong, setPong] = useState<string | null>(null);
   const ping = async () => {
     const t0 = performance.now();
@@ -87,9 +87,9 @@ function LiveCard() {
   // Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir
   // un second onglet et cliquer suffit à le voir. C'est ce partage qui fait
   // l'intérêt d'une socket — pas un battement qui parlerait pour ne rien dire.
-  const dire = () =>
-    live.emit("live:dire", {
-      texte: `bonjour de la page (${Date.now() % 1000})`,
+  const say = () =>
+    live.emit("live:say", {
+      text: `bonjour de la page (${Date.now() % 1000})`,
     });
   return (
     <div className="nf-card">
@@ -103,15 +103,15 @@ function LiveCard() {
       </p>
       <p>
         état : <strong>{state}</strong>
-        {dernier && (
+        {last && (
           <>
             {" "}
-            · reçu <strong>{dernier.texte}</strong> (pid {dernier.pid})
+            · reçu <strong>{last.text}</strong> (pid {last.pid})
           </>
         )}
       </p>
       <button onClick={ping}>RPC live:ping</button>{" "}
-      <button onClick={dire}>envoyer sur le canal</button>
+      <button onClick={say}>envoyer sur le canal</button>
       {pong && <span className="nf-dim"> {pong}</span>}
     </div>
   );

@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
-import { besoinDeShell } from "../../cli/execPortable";
+import { needsShell } from "../../cli/execPortable";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "GÉNÉRER ET CONSTRUIRE",
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -18,7 +19,7 @@ class Build extends Command {
   constructor(cli: CliKernel) {
     super(
       "build",
-      "Compile modules puis application (turbo + rolldown) vers dist/",
+      "compile les modules puis l'application vers dist/",
       cli as CliKernel,
       options,
     );
@@ -40,7 +41,7 @@ class Build extends Command {
       const p = spawn("npx", turboArgs, {
         cwd: process.cwd(),
         stdio: "inherit",
-        shell: besoinDeShell("npx"),
+        shell: needsShell("npx"),
       });
       p.once("exit", (c) => res(c ?? 1));
       p.once("error", () => res(1));

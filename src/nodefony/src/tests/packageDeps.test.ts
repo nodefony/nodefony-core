@@ -141,7 +141,7 @@ describe("checkPackageDeps — un frère du dépôt doit être ORDONNÉ", () => 
    * verdict « non déclaré » pour tomber dans « déclaré en peerDependencies
    * SEULE » — un message doublement trompeur, puisque la racine n'a aucune
    * peerDependency, et qu'il prescrit exactement ce que le commentaire dit de ne
-   * pas exiger. Vécu : `nodefony check` rendait 9 manquements sur ce dépôt.
+   * pas exiger. Vécu : `nodefony doctor` rendait 9 manquements sur ce dépôt.
    *
    * Le fond : le champ `workspaces` ORDONNE. C'est par lui que npm installe et
    * relie ses membres, et que turbo construit le graphe — c'est même la seule

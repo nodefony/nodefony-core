@@ -14,9 +14,13 @@ import {
 /**
  * Banc du repli de port.
  *
- * Ce fichier ne simule RIEN du réseau : il ouvre de vrais sockets et occupe de
- * vrais ports. Un mock de `listen` prouverait seulement que le mock fait ce que
- * je crois — or tout le sujet est le comportement du noyau (`EADDRINUSE`).
+ * Ce fichier ouvre de VRAIS sockets et occupe de vrais ports : un mock de
+ * `listen` prouverait seulement que le mock fait ce que je crois, or tout le
+ * sujet est le comportement du noyau (`EADDRINUSE`).
+ *
+ * La seule exception est nommée et justifiée sur place (`refusing`) : `EACCES`
+ * sur un port éphémère n'existe QUE sous Windows, et ce qui peut être faux
+ * depuis macOS n'est pas le noyau — c'est la décision prise face à un code.
  */
 
 const HOST = "127.0.0.1";
@@ -199,6 +203,72 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     expect(res.shiftedFrom).to.equal(p1);
   });
 
+  /**
+   * Serveur qui refuse les N premiers `listen` avec le code donné, puis accepte.
+   *
+   * Seul endroit du fichier qui ne passe pas par un vrai socket, et c'est
+   * assumé : `EACCES` sur un port éphémère n'existe QUE sous Windows, où
+   * Hyper-V/WSL réservent des plages entières. Ce qu'on éprouve ici n'est pas le
+   * noyau — c'est la DÉCISION de `bindWithFallback` face à un code d'erreur, la
+   * seule chose qui puisse être fausse depuis macOS ou linux.
+   */
+  function refusing(code: string, times: number): Listenable {
+    let left = times;
+    const handlers = new Map<string, (...a: never[]) => void>();
+    let bound = 0;
+    return {
+      listen(port: number): void {
+        bound = port;
+        queueMicrotask(() => {
+          if (left > 0) {
+            left -= 1;
+            const err = new Error(`listen ${code}`) as NodeJS.ErrnoException;
+            err.code = code;
+            handlers.get("error")?.(err as never);
+          } else handlers.get("listening")?.();
+        });
+      },
+      address: () => ({ address: HOST, family: "IPv4", port: bound }),
+      once(event: string, listener: (...a: never[]) => void) {
+        handlers.set(event, listener);
+        return this;
+      },
+      removeListener(event: string) {
+        handlers.delete(event);
+        return this;
+      },
+    };
+  }
+
+  it("enjambe un EACCES sur port éphémère — les plages réservées de Windows", async () => {
+    // Hyper-V/WSL réservent des plages entières : `listen` y rend EACCES, pas
+    // EADDRINUSE. Sans ce cas, une app Windows qui glisse meurt sur la première.
+    const res = await bindWithFallback(refusing("EACCES", 2), HOST, {
+      desired: 40000,
+      reserved: [],
+      attempts: 10,
+    });
+    expect(res.address.port).to.equal(40002);
+    expect(res.shiftedFrom).to.equal(40000);
+  });
+
+  it("un EACCES sous 1024 REJETTE : c'est un refus de privilège, pas un port pris", async () => {
+    let code: string | undefined;
+    try {
+      await bindWithFallback(refusing("EACCES", 1), HOST, {
+        desired: 80,
+        reserved: [],
+        attempts: 10,
+      });
+      expect.fail(
+        "glisser de 80 à 81 en silence serait une dégradation muette",
+      );
+    } catch (e) {
+      code = (e as NodeJS.ErrnoException).code;
+    }
+    expect(code).to.equal("EACCES");
+  });
+
   it("`attempts: 0` (STRICT) : port pris ⇒ EADDRINUSE, jamais de glissement", async () => {
     const taken = await occupy(0);
 
@@ -221,6 +291,8 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   it("essais ÉPUISÉS : rejette (le repli n'est pas infini)", async () => {
     const base = await occupy(0);
     // Occupe la fenêtre entière que le binder va explorer : base, base+1, base+2.
+    // Les `catch` ne sont pas décoratifs : un port de la fenêtre peut être
+    // INDISPONIBLE sans que nous l'ayons pris — c'est ce que la suite mesure.
     await occupy(base + 1).catch(() => undefined);
     await occupy(base + 2).catch(() => undefined);
 
@@ -230,13 +302,23 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
       await bindWithFallback(srv as unknown as Listenable, HOST, {
         desired: base,
         reserved: [],
-        attempts: 2, // base, +1, +2 → tous pris
+        attempts: 2, // base, +1, +2 → tous indisponibles
       });
       expect.fail("aurait dû rejeter après épuisement des essais");
     } catch (e) {
       code = (e as NodeJS.ErrnoException).code;
     }
-    expect(code).to.equal("EADDRINUSE");
+    // ⚠️ DEUX codes, et ce n'est pas un relâchement : ce test prouve que le
+    // repli s'ARRÊTE, pas quelle erreur système le noyau a choisie. Un port
+    // peut être indisponible sans être « occupé » — Windows réserve des plages
+    // entières (WinNAT/Hyper-V) et y répond `EACCES`. Vécu en intégration
+    // continue : vert sur les trois plateformes pendant des semaines, puis
+    // rouge sur Windows le jour où le port éphémère tiré est tombé dans une
+    // plage exclue. La cause n'est pas déduite de `process.platform` — elle est
+    // CONSTATÉE dans le code que le noyau rend.
+    expect(code).to.be.oneOf(["EADDRINUSE", "EACCES"]);
+    // Le fait qui compte vraiment, et qui ne dépend d'aucune plateforme.
+    expect(srv.listening).to.equal(false);
   });
 
   it("port 0 : le noyau alloue — aucun repli n'a de sens, et aucun n'est tenté", async () => {

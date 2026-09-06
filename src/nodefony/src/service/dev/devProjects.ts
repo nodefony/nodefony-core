@@ -143,28 +143,28 @@ export function formatProjectTable(
 ): string[] {
   if (projects.length === 0) return [];
   const rows = projects.map((p) => ({
-    nom: `${p.name}${p.nameSource === "dossier" ? "~" : ""}${p.current ? " ▸" : ""}`,
+    name: `${p.name}${p.nameSource === "dossier" ? "~" : ""}${p.current ? " ▸" : ""}`,
     proc: String(p.procs.length),
     ports: p.ports.length > 0 ? p.ports.join(" ") : "—",
     root: p.root,
   }));
-  const w = (key: "nom" | "proc" | "ports", head: string): number =>
+  const w = (key: "name" | "proc" | "ports", head: string): number =>
     Math.max(head.length, ...rows.map((r) => r[key].length));
-  const wNom = w("nom", "NOM");
+  const wName = w("name", "NOM");
   const wProc = w("proc", "PROC");
   const wPorts = w("ports", "PORTS");
   const line = (
-    nom: string,
+    name: string,
     proc: string,
     ports: string,
     root: string,
   ): string =>
-    `  ${nom.padEnd(wNom)}  ${proc.padEnd(wProc)}  ${ports.padEnd(wPorts)}  ${root}`;
+    `  ${name.padEnd(wName)}  ${proc.padEnd(wProc)}  ${ports.padEnd(wPorts)}  ${root}`;
   const lines = [
     "",
     "  Projets Nodefony sur ce poste",
     line("NOM", "PROC", "PORTS", "RACINE"),
-    ...rows.map((r) => line(r.nom, r.proc, r.ports, r.root)),
+    ...rows.map((r) => line(r.name, r.proc, r.ports, r.root)),
   ];
   if (projects.some((p) => p.current)) lines.push("  ▸ projet courant");
   if (projects.some((p) => p.nameSource === "dossier"))
@@ -214,7 +214,7 @@ export function resolveProjectTarget(
    * `\` est un séparateur et `C:\…` est absolu, deux faits qu'un test macOS ne
    * rencontre jamais par lui-même.
    */
-  grammaire: Pick<
+  grammar: Pick<
     typeof path,
     "isAbsolute" | "sep" | "resolve" | "basename"
   > = path,
@@ -222,15 +222,11 @@ export function resolveProjectTarget(
   // Un `/` reste reconnu même sous Windows : les développeurs l'y tapent, et
   // `path.win32` le normalise sans broncher.
   const looksLikePath =
-    grammaire.isAbsolute(arg) ||
-    arg.includes("/") ||
-    arg.includes(grammaire.sep);
+    grammar.isAbsolute(arg) || arg.includes("/") || arg.includes(grammar.sep);
   const matches = looksLikePath
-    ? projects.filter(
-        (p) => grammaire.resolve(p.root) === grammaire.resolve(arg),
-      )
+    ? projects.filter((p) => grammar.resolve(p.root) === grammar.resolve(arg))
     : projects.filter(
-        (p) => p.name === arg || grammaire.basename(p.root) === arg,
+        (p) => p.name === arg || grammar.basename(p.root) === arg,
       );
 
   if (matches.length === 1) return { ok: true, project: matches[0] };

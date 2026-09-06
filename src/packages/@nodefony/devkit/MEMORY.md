@@ -188,7 +188,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   la seule exécution réelle de ce code sous **Windows** et macOS : le banc
   fonctionnel, lui, mesure toujours du Linux puisqu'il passe par le conteneur.
 - **Un état d'authentification appartient à un COMPTE** — le fichier porte
-  l'identifiant (`nomEtatAuth`, `lib/probes.mjs`). Un nom unique le faisait
+  l'identifiant (`authStateName`, `lib/probes.mjs`). Un nom unique le faisait
   reprendre quel que soit l'utilisateur demandé : on réclamait une mesure sous un
   compte de moindre privilège et l'on obtenait celle de l'administrateur, sans un
   mot — un canal pourtant refusé s'ouvrait. Mesuré, puis gardé par les deux

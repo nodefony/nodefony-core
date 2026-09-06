@@ -21,11 +21,14 @@ import path from "node:path";
 import {
   writeLastBoot,
   readLastBoot,
+  readLastBoots,
   formatAge,
   LAST_BOOT_FILE,
+  LAST_BOOT_CONSOLE_FILE,
+  lastBootFileFor,
   type ILastBoot,
 } from "../kernel/checks/lastBoot";
-import { runCheckCommand } from "../kernel/checks/runCheck";
+import { runDoctorCommand } from "../kernel/checks/runDoctor";
 
 const ok = (over: Partial<ILastBoot> = {}): ILastBoot => ({
   status: "ok",
@@ -45,11 +48,27 @@ const failed = (over: Partial<ILastBoot> = {}): ILastBoot =>
   });
 
 /** Capture la sortie standard : `check` ÉCRIT son rapport, il ne le retourne pas. */
+/**
+ * ⚠️ La LARGEUR est posée, elle n'est PAS héritée du terminal.
+ *
+ * `runDoctorCommand` lit `process.stdout.columns` : sans cette pose, chaque
+ * machine rend un document différent, et une assertion `include` sur une phrase
+ * devient un tirage au sort. Vécu — « SANS aucun serveur en écoute » passait sur
+ * un terminal large et tombait en intégration continue, où la phrase est REPLIÉE
+ * en deux lignes : au-delà de 72 colonnes elle tient, en deçà elle se coupe.
+ *
+ * 100 plutôt que 80 : au-dessus de la borne haute du rendu (96), donc la même
+ * mise en page quelle que soit l'évolution de cette borne.
+ */
+const LARGEUR_DE_TEST = 100;
+
 async function capture(
   run: () => number | Promise<number>,
 ): Promise<{ out: string; code: number }> {
   const chunks: string[] = [];
   const write = process.stdout.write.bind(process.stdout);
+  const colonnes = process.stdout.columns;
+  process.stdout.columns = LARGEUR_DE_TEST;
   process.stdout.write = ((s: string) => {
     chunks.push(String(s));
     return true;
@@ -58,6 +77,7 @@ async function capture(
     return { code: await run(), out: chunks.join("") };
   } finally {
     process.stdout.write = write;
+    process.stdout.columns = colonnes;
   }
 }
 
@@ -160,7 +180,13 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           },
         }),
       );
-      const { out, code } = await capture(() => runCheckCommand([]));
+      // `--no-strict` est ÉNONCÉ : sans lui, ce test hérite de `CI` (posé sur
+      // toute forge), qui arme `--strict` et fait rendre 1 pour les contrôles
+      // SAUTÉS de ce décor hors application — un code qui ne dit alors plus
+      // rien du bilan de démarrage, seul objet de cette assertion.
+      const { out, code } = await capture(() =>
+        runDoctorCommand(["--no-strict"]),
+      );
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "onBoot");
       assert.include(out, "Cannot find package 'redis'");
@@ -180,7 +206,9 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           warnings: 3,
         }),
       );
-      const { out, code } = await capture(() => runCheckCommand([]));
+      const { out, code } = await capture(() =>
+        runDoctorCommand(["--no-strict"]),
+      );
       assert.include(out, "abouti mais il MANQUE des briques");
       assert.include(out, "redis");
       assert.include(out, "ECONNREFUSED");
@@ -190,7 +218,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
 
     it("un profil serveur qui finit SANS serveur est nommé", async () => {
       writeLastBoot(dir, ok({ healthy: false }));
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.include(out, "SANS aucun serveur en écoute");
     });
 
@@ -207,8 +235,11 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           ],
         }),
       );
-      const { out } = await capture(() => runCheckCommand([]));
-      assert.include(out, "écartée(s) VOLONTAIREMENT");
+      const { out } = await capture(() => runDoctorCommand([]));
+      // « écartées exprès » : la nuance qui évite de chercher une panne là où
+      // le gating a fait son travail. Les parenthèses de repli « (s) » ont
+      // disparu du rendu — un rapport lu par quelqu'un accorde ses pluriels.
+      assert.include(out, "écartées exprès");
       assert.include(out, "studio");
     });
 
@@ -220,7 +251,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           remediation: "npm run clean && npm run build",
         }),
       );
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.include(out, "npm run clean && npm run build");
     });
 
@@ -229,25 +260,105 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         dir,
         ok({ healthy: true, warnings: 2, modulesLoaded: ["http"] }),
       );
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.notInclude(out, "MANQUE des briques");
       assert.notInclude(out, "a ÉCHOUÉ");
     });
 
     it("aucun bilan du tout : silence", async () => {
-      const { out } = await capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runDoctorCommand([]));
       assert.notInclude(out, "dernier démarrage");
     });
 
     it("`--json` porte le bilan, pour un agent qui le lit au `jq`", async () => {
       writeLastBoot(dir, failed());
-      const { out } = await capture(() => runCheckCommand(["--json"]));
-      const parsed = JSON.parse(out) as { lastBoot: ILastBoot | null };
-      assert.equal(parsed.lastBoot?.status, "failed");
+      const { out } = await capture(() => runDoctorCommand(["--json"]));
+      // Un TABLEAU : serveur et console ont chacun leur bilan, et le premier
+      // ne doit plus être écrasé par un `nodefony inspect` lancé pour le lire.
+      const parsed = JSON.parse(out) as { lastBoots: ILastBoot[] };
+      assert.lengthOf(parsed.lastBoots, 1);
+      assert.equal(parsed.lastBoots[0]?.status, "failed");
       assert.equal(
-        parsed.lastBoot?.error?.message,
+        parsed.lastBoots[0]?.error?.message,
         "Cannot find package 'redis'",
       );
+    });
+
+    describe("QUI a démarré — le bilan ne désigne plus le mauvais coupable", () => {
+      it("🔴 un démarrage CONSOLE n'écrase PAS le bilan du serveur", () => {
+        // LE défaut : un `nodefony inspect` lancé POUR diagnostiquer une panne de
+        // serveur écrasait la preuve qu'il venait chercher. Le profil décide du
+        // fichier — c'est la seule forme qui rend l'écrasement impossible.
+        writeLastBoot(
+          dir,
+          failed({
+            profile: "server",
+            command: "development",
+            error: { name: "nodefonyError", message: "le serveur est mort" },
+          }),
+        );
+        writeLastBoot(
+          dir,
+          failed({
+            profile: "console",
+            command: "inspect",
+            error: { name: "nodefonyError", message: "pas de NF_DATABASE_URL" },
+          }),
+        );
+
+        const serveur = readLastBoot(dir);
+        assert.equal(
+          serveur?.error?.message,
+          "le serveur est mort",
+          "le bilan du serveur a été écrasé par une commande console",
+        );
+        assert.isTrue(existsSync(path.join(dir, LAST_BOOT_CONSOLE_FILE)));
+
+        // Les deux sont lisibles, serveur d'ABORD : celui qui lance `doctor` sur
+        // une application qui ne répond plus cherche le serveur.
+        const tous = readLastBoots(dir);
+        assert.deepEqual(
+          tous.map((b) => b.profile),
+          ["server", "console"],
+        );
+      });
+
+      it("un bilan SANS profil (écrit avant ce champ) reste celui du serveur", () => {
+        // Compatibilité : le fichier historique n'a pas de `profile`, et il
+        // décrivait bien un serveur. Le classer ailleurs le rendrait invisible.
+        assert.equal(lastBootFileFor(undefined), LAST_BOOT_FILE);
+        assert.equal(lastBootFileFor("server"), LAST_BOOT_FILE);
+        assert.equal(lastBootFileFor("cluster"), LAST_BOOT_FILE);
+        assert.equal(lastBootFileFor("console"), LAST_BOOT_CONSOLE_FILE);
+      });
+
+      it("le rapport NOMME la commande et son profil", async () => {
+        writeLastBoot(
+          dir,
+          failed({ profile: "console", command: "orm:migrate" }),
+        );
+        const { out } = await capture(() => runDoctorCommand([]));
+        assert.include(out, "nodefony orm:migrate");
+        assert.include(out, "console");
+      });
+
+      it("🔴 les messages CRITIC sont DITS, pas seulement comptés", async () => {
+        // `errors: 1` sans un mot était le cas le plus frustrant du bilan : un
+        // firewall qui se déclare invalide au boot loggue CRITIC et laisse le
+        // boot continuer. Le lecteur savait qu'il s'était passé quelque chose.
+        writeLastBoot(
+          dir,
+          ok({
+            errors: 1,
+            criticals: [
+              "security : zone `admin` invalide, aucun pare-feu posé",
+            ],
+          }),
+        );
+        const { out } = await capture(() => runDoctorCommand([]));
+        assert.include(out, "zone");
+        assert.include(out, "aucun pare-feu posé");
+      });
     });
   });
 
@@ -271,7 +382,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
 
     it("⭐ lancé dans `modules/blog`, il trouve le bilan de l'app", async () => {
       writeLastBoot(dir, failed());
-      const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", sub]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "Cannot find package 'redis'");
     });
@@ -279,21 +390,27 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     it("il DIT sur quoi il a porté quand ce n'est pas là où on a tapé", async () => {
       // Sans cette ligne, un rapport vide se lit « mon module va bien » alors
       // qu'il parle de l'application entière — et inversement.
-      const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
-      assert.include(out, "application :");
+      //
+      // On vérifie l'INTENTION, pas une formulation : l'en-tête doit nommer la
+      // racine réellement auscultée ET le dossier d'où l'on a tapé. Assertion
+      // sur les deux chemins — un libellé se réécrit, un chemin absent est un
+      // vrai défaut.
+      const { out } = await capture(() => runDoctorCommand(["--cwd", sub]));
+      assert.include(out, dir);
       assert.include(out, "lancé depuis");
+      assert.include(out, sub);
     });
 
     it("`--json` porte la racine retenue", async () => {
       const { out } = await capture(() =>
-        runCheckCommand(["check", "--cwd", sub, "--json"]),
+        runDoctorCommand(["doctor", "--cwd", sub, "--json"]),
       );
       const parsed = JSON.parse(out) as { root: string };
       assert.equal(path.resolve(parsed.root), path.resolve(dir));
     });
 
     it("depuis la racine, aucune annonce — il n'y a rien à signaler", async () => {
-      const { out } = await capture(() => runCheckCommand(["--cwd", dir]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", dir]));
       assert.notInclude(out, "lancé depuis");
     });
 
@@ -305,7 +422,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         return true;
       }) as typeof process.stderr.write;
       try {
-        assert.equal(await runCheckCommand(["check", "--jsno"]), 64);
+        assert.equal(await runDoctorCommand(["doctor", "--jsno"]), 64);
       } finally {
         process.stderr.write = write;
       }
@@ -318,7 +435,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       // Ce dépôt-ci comme n'importe quel dossier de travail : le repli n'est
       // pas un cas dégradé, c'est un usage.
       writeLastBoot(dir, failed());
-      const { out } = await capture(() => runCheckCommand(["--cwd", dir]));
+      const { out } = await capture(() => runDoctorCommand(["--cwd", dir]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.notInclude(out, "lancé depuis");
     });

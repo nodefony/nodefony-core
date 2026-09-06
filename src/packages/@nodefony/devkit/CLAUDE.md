@@ -86,7 +86,7 @@ devkit/
   est exclu : elle survit à la production, pas lui. Rôle déclaré sans
   vérificateur = `503` + `CRITIC`, jamais une porte qui laisse passer.
 - **Un outil MCP n'invente rien** : il appelle la brique qui répond déjà à une
-  autre porte (`readAdminSubject`, `collectCheckReport`, `readSymbolsGraph`,
+  autre porte (`readAdminSubject`, `collectDoctorReport`, `readSymbolsGraph`,
   `buildCard` — toutes exportées par `nodefony`). Ajouter un outil qui
   recalculerait sa réponse le ferait diverger de la commande du même nom.
 - **Ce module ne porte NI scaffold NI diagnostic** — `create`, `check` et

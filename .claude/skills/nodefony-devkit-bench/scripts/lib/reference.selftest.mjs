@@ -39,6 +39,8 @@ const {
   comparerDecor,
   depister,
   deriveTours,
+  empreinteTache,
+  fichiersDuVerdict,
   fusionnerReference,
   medianeTours,
   NON_JUGEABLE,
@@ -369,6 +371,21 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
       vers: "if (false) {",
     },
     {
+      // L'état exact d'AVANT ce correctif : l'empreinte ignorait le code des
+      // juges. Trois juges corrigés et un mort cinq jours n'avaient invalidé
+      // aucune référence.
+      regle: "le CODE du juge entre dans l'empreinte",
+      de: "    sondes,\n    juges,\n",
+      vers: "    sondes,\n",
+    },
+    {
+      // Sans la coupe au repère `.claude/`, l'empreinte porte la racine de la
+      // machine — et un dépôt cloné ailleurs voit toutes ses tâches « réécrites ».
+      regle: "l'empreinte ne dépend pas de la racine du dépôt",
+      de: '.replace(/(?:[A-Za-z]:)?\\/[^\\s"\'`]*?(\\.claude\\/)/gu, "<repo>/$1")',
+      vers: "",
+    },
+    {
       regle: "refus de décor",
       de: "return { compatible: ecarts.length === 0, ecarts };",
       vers: "return { compatible: true, ecarts };",
@@ -447,6 +464,108 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
       : `━━ ${muets} règle(s) NON PROUVÉE(S)`,
   );
   process.exit(defauts || muets ? 1 : 0);
+}
+
+// ─── 8. L'EMPREINTE couvre ce qui rend le verdict, et ne dépend pas de la machine
+// 🔴 Elle ne couvrait que l'énoncé, le `prepare` et les NOMS des sondes. Corriger
+// un juge n'invalidait donc rien : trois juges qui punissaient une protection
+// légitime ont été corrigés, un quatrième était mort cinq jours, et pas une
+// référence n'a bougé — on opposait des verdicts rendus par un juge disparu.
+console.log("\n• empreinte — le CODE du juge en fait partie");
+{
+  const { existsSync, mkdirSync, rmSync } = await import("node:fs");
+  const ICI = path.dirname(fileURLToPath(import.meta.url));
+  // Un juge à NOUS, dans le dossier où l'empreinte va le chercher. Créer un
+  // fichier plutôt que muter un juge réel : un selftest ne touche pas au produit.
+  const NOM = `tmp-juge-selftest-${process.pid}.mjs`;
+  const CHEMIN = path.join(ICI, NOM);
+  const tache = {
+    prompt: "énoncé figé",
+    prepare: "npm run build",
+    probes: [
+      {
+        kind: "gate",
+        name: "un fait quelconque",
+        cmd: ["sh", "-c", `node ${CHEMIN}; exit $?`],
+      },
+    ],
+  };
+  try {
+    writeFileSync(CHEMIN, "export const SEUIL = 1;\n");
+    const avant = empreinteTache(tache);
+
+    if (!fichiersDuVerdict(tache).includes(NOM))
+      echec(`le juge ${NOM} n'est pas reconnu comme fichier du verdict`);
+
+    // Le geste exact que l'énoncé demande : toucher UNE ligne du juge.
+    writeFileSync(CHEMIN, "export const SEUIL = 2;\n");
+    const apres = empreinteTache(tache);
+    if (apres === avant)
+      echec(
+        "toucher le code du juge ne change PAS l'empreinte — la référence " +
+          "continuerait d'opposer des verdicts d'un juge qui n'existe plus",
+      );
+
+    // Un COMMENTAIRE seul compte aussi : refuser à tort coûte un run nommé,
+    // comparer à tort coûte la mesure entière et ne se voit pas.
+    writeFileSync(CHEMIN, "// note\nexport const SEUIL = 2;\n");
+    if (empreinteTache(tache) === apres)
+      echec("un commentaire ajouté au juge laisse l'empreinte inchangée");
+
+    // Mais une simple REMISE EN FORME ne doit rien invalider : sinon un passage
+    // du formateur ferait repayer toutes les tâches.
+    writeFileSync(CHEMIN, "// note\n\n\nexport const SEUIL   =   2;\n");
+    if (empreinteTache(tache) !== empreinteTache(tache))
+      echec("l'empreinte n'est pas déterministe");
+
+    // Restauration : l'empreinte doit REVENIR. Une empreinte qui ne revient pas
+    // dépendrait d'autre chose que du contenu.
+    writeFileSync(CHEMIN, "export const SEUIL = 1;\n");
+    if (empreinteTache(tache) !== avant)
+      echec("l'empreinte ne revient pas quand le juge est restauré");
+  } finally {
+    if (existsSync(CHEMIN)) rmSync(CHEMIN, { force: true });
+  }
+
+  // Une référence est VERSIONNÉE : elle doit valoir pour qui la relit ailleurs.
+  // Mesuré avant correction : la même tâche rendait deux empreintes selon la
+  // racine du dépôt, et le dépistage aurait annoncé « tâche réécrite » sur un
+  // dépôt simplement cloné sous un autre chemin.
+  const mk = (prefixe) => ({
+    prompt: "énoncé figé",
+    prepare: `node ${prefixe} && npm run build`,
+    probes: [{ name: "a" }],
+  });
+  const racines = [
+    "/Users/qui/repo/.claude/skills/s/scripts/lib/prep.mjs",
+    "/home/runner/work/repo/repo/.claude/skills/s/scripts/lib/prep.mjs",
+    "D:\\a\\repo\\.claude\\skills\\s\\scripts\\lib\\prep.mjs",
+  ].map((r) => empreinteTache(mk(r)));
+  if (new Set(racines).size !== 1)
+    echec(
+      `l'empreinte dépend de la racine du dépôt : ${racines.join(" ≠ ")} — ` +
+        "une référence versionnée doit valoir sur les trois plateformes",
+    );
+
+  // Et le SOURCE d'une sonde de lecture compte : deux `observe` différents sous
+  // le même nom jugeaient la même chose aux yeux de l'empreinte.
+  const avecObserve = (fn) => ({
+    prompt: "énoncé figé",
+    probes: [{ name: "identique", observe: fn }],
+  });
+  if (
+    empreinteTache(avecObserve(() => true)) ===
+    empreinteTache(avecObserve(() => false))
+  )
+    echec(
+      "deux `observe` différents sous le même nom rendent la même empreinte",
+    );
+
+  if (defauts === 0)
+    console.log(
+      "  ✓ juge touché → empreinte changée · restauré → revenue · " +
+        "3 racines → 1 empreinte · `observe` distingué",
+    );
 }
 
 process.exit(defauts ? 1 : 0);

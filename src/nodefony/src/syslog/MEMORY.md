@@ -19,7 +19,7 @@
 - `uid: number` — auto-incrémenté (module-global `guid`)
 - `payload: Pci` (`unknown`) — le message brut
 - `typePayload: string | null` — résultat de `fastTypeOf` (string/number/array/Error/Date/…)
-- `severity: number` — valeur numérique (0–7, -1=SPINNER)
+- `severity: number` — valeur numérique (0–7)
 - `severityName: keyof SysLogSeverity` — reverse lookup O(1) via `severityNameMap`
 - `timeStamp: number` — `Date.now()` par défaut (ms epoch)
 - `moduleName: string` — origine du log
@@ -51,23 +51,23 @@ déclaration dériverait, et un écran qui ne reconnaît plus l'origine ne se pl
 **Sévérités** (`SysLogSeverity` enum)
 
 ```
-EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7  SPINNER=-1
+EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7
 ```
 
-**Attention** : c'est `CRITIC` pas `CRITICAL`. `SPINNER=-1` (animation CLI, non bufferisé).
+**Attention** : c'est `CRITIC` pas `CRITICAL`. L'échelle s'arrête à 7 — une attente de terminal n'est pas un niveau de journal, elle vit dans `cli/progress.ts`.
 
 **`translateSeverity(severity)`**
 
 - string `"INFO"` → enum lookup `SysLogSeverity["INFO"] = 6`
 - number `6` → `sysLogSeverity[6] = 6` (array validation 0–7)
-- number `-1` → cas spécial SPINNER → retourne `-1` directement
+- number hors 0–7 → `Not a valid nodefony syslog severity` (aucun cas spécial)
 - number invalide (ex: 99) → throw `Not a valid nodefony syslog severity`
 
 **Gotchas**
 
 - `pdu.severity` est le number, `pdu.severityName` est la string — ne pas confondre
 - `severityNameMap` : Map précalculée `number → keyName` (O(1)) — utilisée dans le constructeur
-- `sysLogSeverity` array : validator 0–7, index ≠ valeur pour SPINNER (index 8 = valeur -1)
+- `sysLogSeverity` array : validator 0–7, l'index EST la valeur
 
 ---
 
@@ -154,7 +154,7 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
 - Bufférisé = coalesce les writes d'un même tick en 1 `write()` via `setImmediate` (+ cap 64 KB) ;
   flush sur `process.on("exit"/"beforeExit")`.
 - **stderr (sévérité ≤ 3) TOUJOURS immédiat** (+ flush stdout d'abord → ordre causal `2>&1`).
-- **SPINNER (-1) jamais bufférisé** (`_writeStdoutNow`, animation `\r`).
+- Attente/progression de terminal : `cli/progress.ts` (`Spinner`, `ProgressBar`) — écrit DIRECTEMENT sur le flux, jamais par le Syslog (une animation ferait dix Pdu/s au ring, aux transports et au backplane).
 - **Isomorphe** : `setImmediate`/`process` via `globalThis` → navigateur = pas de scheduler ⇒ `_resolveBufferOn()=false` ⇒ jamais bufférisé (retombe sur `console.*`).
 - ⚠️ **Perf** : sur un sink **local rapide (fichier)** le gain RPS est ~nul (writes cheap) — mesuré
   Bench : logging ON≈OFF≈bufférisé (~3550 RPS @C=20). Le bénéfice réel = sink **lent/backpressuré**

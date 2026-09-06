@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-31
+updated: 2026-09-05
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -71,7 +71,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 270 |
 | `references/patterns.md` | Patterns d'écran front (Nodefony) — framework-agnostique | 168 |
-| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 571 |
+| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 577 |
 
 _(+ 11 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 

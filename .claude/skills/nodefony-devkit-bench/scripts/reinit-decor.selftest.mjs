@@ -25,14 +25,92 @@ import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { reinitialiserDecor } from "./bench-discoverability.mjs";
 
-const runDir = path.resolve(process.argv[2] ?? "");
+/**
+ * Monte un décor JETABLE quand aucun run n'est donné.
+ *
+ * 🔴 Sans ce mode, ce contrôle n'était lancé par RIEN : le lot l'écartait faute
+ * de `<runDir>`, aucun script npm ni étage de forge ne le nommait, et il fallait
+ * penser à le taper. Un contrôle que personne ne lance ne garde rien — et
+ * celui-ci garde exactement ce qui casse sans bruit : une tâche jugée sur la
+ * saleté de la précédente.
+ *
+ * Ce qu'il faut au mécanisme, et rien de plus : un dépôt git, un commit
+ * « état initial », et les motifs d'exclusion. Pas d'application Nodefony —
+ * `reinitialiserDecor` ne fait que `npm run stop` (sans effet ici), un
+ * `read-tree` et un `git clean`.
+ *
+ * ⚠️ Le `.gitignore` est COPIÉ du gabarit du produit, jamais réécrit de tête :
+ * c'est lui qui décide de ce que `git clean -e /node_modules` épargne, donc
+ * c'est lui que le contrôle éprouve. Un motif inventé ici rendrait un vert sur
+ * une règle qui n'est pas celle que l'utilisateur reçoit.
+ *
+ * @returns {string} le runDir monté.
+ */
+function monterDecorJetable() {
+  const racineDepot = path.dirname(
+    path.dirname(
+      path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url)))),
+    ),
+  );
+  const gabarit = path.join(
+    racineDepot,
+    "src",
+    "nodefony",
+    "templates",
+    "app",
+    "base",
+    "gitignore.tpl",
+  );
+  if (!existsSync(gabarit)) {
+    console.error(
+      `décor jetable impossible : le gabarit ${gabarit} est introuvable.\n` +
+        "Ce contrôle refuse d'inventer les motifs d'exclusion qu'il doit éprouver.",
+    );
+    process.exit(2);
+  }
+  const dir = mkdtempSync(path.join(os.tmpdir(), "reinit-decor-"));
+  const a = path.join(dir, "app");
+  mkdirSync(path.join(a, "nodefony"), { recursive: true });
+  writeFileSync(path.join(a, ".gitignore"), readFileSync(gabarit, "utf8"));
+  writeFileSync(
+    path.join(a, "package.json"),
+    `${JSON.stringify({ name: "decor-jetable", private: true, scripts: {} }, null, 2)}\n`,
+  );
+  writeFileSync(path.join(a, "nodefony", "Kernel.ts"), "export const k = 1;\n");
+  // Le secret : c'est la moitié que la remise à zéro risque le plus d'emporter.
+  writeFileSync(path.join(a, ".env.local"), "NF_SECRET=jetable\n");
+  const g = (...args) =>
+    execFileSync("git", ["-C", a, ...args], { encoding: "utf8" });
+  g("init", "-q");
+  g("add", "-A");
+  g(
+    "-c",
+    "user.name=bench",
+    "-c",
+    "user.email=bench@local",
+    "commit",
+    "-qm",
+    "décor jetable — état initial",
+  );
+  return dir;
+}
+
+const donne = process.argv[2] !== undefined && process.argv[2] !== "";
+const jetable = donne ? null : monterDecorJetable();
+if (jetable) {
+  console.log(`  · décor JETABLE monté (aucun run donné) : ${jetable}`);
+}
+const runDir = path.resolve(donne ? process.argv[2] : jetable);
 const app = path.join(runDir, "app");
 if (!existsSync(path.join(app, ".git"))) {
   console.error(`décor inutilisable : ${app} n'est pas un dépôt git`);
@@ -185,6 +263,7 @@ if (avant.length !== salissures.length) {
   for (const s of salissures.filter((x) => !x.survit())) {
     console.error(`      ${s.nom}`);
   }
+  if (jetable) rmSync(jetable, { recursive: true, force: true });
   process.exit(2);
 }
 console.log(`  · ${avant.length} salissures posées et constatées`);
@@ -216,6 +295,9 @@ if (!historiqueIntact) {
 }
 
 rmSync(manifeste, { force: true });
+// Un décor JETABLE se jette — mais seulement lui : celui qu'on nous a DONNÉ
+// appartient à l'opérateur, et le contrôle le laisse remis à zéro, pas effacé.
+if (jetable) rmSync(jetable, { recursive: true, force: true });
 const defauts =
   residus.length + (secretRendu ? 0 : 1) + (historiqueIntact ? 0 : 1);
 console.log(

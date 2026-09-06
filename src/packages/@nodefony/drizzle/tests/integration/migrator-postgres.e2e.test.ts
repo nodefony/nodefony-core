@@ -106,20 +106,29 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
   });
 
   it("pose la table d'historique dans le schéma du `search_path`, jamais dans `public`", async () => {
-    await migrator().migrate();
     const admin = await openMigrationDriver({
       dialect: "postgres",
       url: PG_URL as string,
     });
-    try {
+    // Les schémas qui portent DÉJÀ une table homonyme. La base est mutualisée :
+    // un banc ou une application de développement a pu en laisser une dans
+    // `public`, et ce test n'a pas à en juger — il mesure ce que CE migrate
+    // ajoute, pas l'état d'un exercice voisin.
+    const schemasPortantHistorique = async (): Promise<string[]> => {
       const rows = await admin.query<{ table_schema: string }>(
         `SELECT table_schema FROM information_schema.tables WHERE table_name = ?`,
         [HISTORY_TABLE],
       );
-      // Une seule, et dans NOTRE schéma : un nom qualifié en dur aurait exclu à
-      // vie l'isolation par schéma sur une base mutualisée.
+      return rows.map((r) => r.table_schema).sort();
+    };
+    try {
+      const avant = await schemasPortantHistorique();
+      await migrator().migrate();
+      const apres = await schemasPortantHistorique();
+      // Un seul schéma ajouté, et c'est NOTRE schéma : un nom qualifié en dur
+      // aurait exclu à vie l'isolation par schéma sur une base mutualisée.
       assert.deepEqual(
-        rows.map((r) => r.table_schema),
+        apres.filter((s) => !avant.includes(s)),
         [SCHEMA],
       );
     } finally {

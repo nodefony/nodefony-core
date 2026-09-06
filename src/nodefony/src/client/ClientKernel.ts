@@ -24,7 +24,7 @@
 import Service from "../Service";
 import type Syslog from "../syslog/Syslog";
 import { RealtimeClient } from "./realtime/RealtimeClient";
-import { announceKernel, detailsConsole, isVerbose } from "./announce";
+import { announceKernel, consoleDetails, isVerbose } from "./announce";
 import type {
   ClientIdentity,
   ClientKernelEvent,
@@ -191,7 +191,7 @@ export class ClientKernel implements IClientKernel {
     // `import.meta.env.DEV` ne pouvait pas voir.
     if (this.#options.banner !== true && !isVerbose()) return;
     const socket = this.get("realtime");
-    const lignes: Record<string, { valeur: string }> = {
+    const rows: Record<string, { valeur: string }> = {
       état: { valeur: this.state },
       identité: { valeur: this.identity ? this.identity.key : "anonyme" },
       "temps réel": {
@@ -199,12 +199,12 @@ export class ClientKernel implements IClientKernel {
       },
       socket: { valeur: socket ? socket.state : "—" },
     };
-    for (const nom of this.#services ? Object.keys(this.#services) : [])
-      lignes[`service · ${nom}`] = { valeur: "composé" };
+    for (const name of this.#services ? Object.keys(this.#services) : [])
+      rows[`service · ${name}`] = { valeur: "composé" };
     // Le groupe, le tableau et les rappels vivent dans `announce.ts` : une
     // vitrine sans noyau obtient EXACTEMENT la même présentation, et une seule
     // implémentation la porte.
-    detailsConsole(lignes, this, "noyau client — détail et raccourcis");
+    consoleDetails(rows, this, "noyau client — détail et raccourcis");
   }
 
   /**

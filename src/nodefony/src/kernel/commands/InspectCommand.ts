@@ -8,6 +8,8 @@ import {
   type InspectFailure,
 } from "../inspect/adminSubjects";
 import { localOperatorCaller } from "../adminPlane/adminCaller";
+import { renderTable, type TableRow } from "../../cli/tableReport";
+import { shouldColorize, usableWidth } from "../checks/report";
 
 /**
  * `kernelEvent: "onPostReady"` — et pas `onReady`, malgré les apparences.
@@ -22,6 +24,7 @@ import { localOperatorCaller } from "../adminPlane/adminCaller";
  * défaut) est respecté par `Kernel.initServers`.
  */
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
   // un état et le rend. Appliqué par le CLI à la commande demandée SEULE.
   quietBoot: true,
@@ -85,7 +88,7 @@ class Inspect extends Command {
   constructor(cli: CliKernel) {
     super(
       "inspect",
-      "Inspecte l'état réel de l'app (routes, modules, services, config…) — sans serveur",
+      "l'état réel de l'app : routes, services, config",
       cli as CliKernel,
       options,
     );
@@ -93,10 +96,14 @@ class Inspect extends Command {
     // qu'elle existe (« missing required argument 'sujet' »). Réclamé en TTY par
     // `askArgument`, qui propose la LISTE des sujets — on ne demande pas de
     // deviner un mot dans une énumération qu'on connaît.
+    // `.choices(...)` DÉRIVÉ du registre, jamais recopié : il sert deux fois —
+    // l'aide rend les sujets en sous-ligne sous la commande, et la complétion
+    // shell les propose au TAB. Une liste écrite à la main divergerait au
+    // premier sujet ajouté.
     this.addArgument(
       "[sujet]",
       `sujet : ${Object.keys(INSPECT_SUBJECTS).join(" | ")}`,
-    );
+    ).choices(Object.keys(INSPECT_SUBJECTS));
     this.addArgument("[cible]", "paramètre du sujet (ex : le nom d'un module)");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
 
@@ -151,8 +158,8 @@ class Inspect extends Command {
       // tourne sur la machine de celui qui la lance, qui possède déjà le
       // processus et ses journaux. Les portes distantes (MCP) ne la publient
       // pas — un message d'exception porte ce que le code avait sous la main.
-      const pourquoi = read.cause ? ` — ${read.cause}` : "";
-      this.log(`${read.message}${pourquoi}${hint}`, "ERROR");
+      const why = read.cause ? ` — ${read.cause}` : "";
+      this.log(`${read.message}${why}${hint}`, "ERROR");
       // Le producteur joint souvent DE QUOI corriger l'appel (les valeurs
       // acceptées, le plan d'une page). Le taire laisse deviner ; le rendre
       // coûte une ligne.
@@ -169,7 +176,7 @@ class Inspect extends Command {
       // Même doctrine que le journal — la sortie EST le résultat, le reste
       // RACONTE. Sans cette ligne, deux mesures du même sujet dans deux modes
       // se contredisent sans que rien ne dise pourquoi.
-      process.stderr.write(`environnement : ${this.environnement()}\n`);
+      process.stderr.write(`environnement : ${this.currentEnvironment()}\n`);
       process.stdout.write(`${JSON.stringify(read.data, null, 2)}\n`);
     } else {
       this.renderHuman(subject, read.data);
@@ -194,7 +201,7 @@ class Inspect extends Command {
    *
    * @returns le nom de l'environnement, ou `"inconnu"`
    */
-  private environnement(): string {
+  private currentEnvironment(): string {
     return this.kernel?.environment ?? "inconnu";
   }
 
@@ -213,14 +220,24 @@ class Inspect extends Command {
         // route » en production, alors qu'il y en a en développement, est la
         // réponse qui trompe le plus.
         process.stdout.write(
-          `${subject} : aucun (environnement : ${this.environnement()})\n`,
+          `${subject} : aucun (environnement : ${this.currentEnvironment()})\n`,
         );
         return;
       }
-      // `console.table` respecte la sortie standard et aligne seul.
-      console.table(payload);
+      // 🔴 PAS `console.table` : il rend toutes les colonnes à leur largeur
+      // naturelle, avec un index et des guillemets — mesuré ici, des lignes de
+      // 900 colonnes pour `inspect routes`. Un tableau plus large que l'écran
+      // n'est plus un tableau : le terminal le replie, et l'alignement qui
+      // justifiait la forme disparaît. Le rendu est donc BORNÉ, et bascule en
+      // fiches quand même la compression ne suffit pas.
+      const out = process.stdout;
+      const lines = renderTable(payload as TableRow[], {
+        width: usableWidth(out.columns),
+        color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
+      });
+      out.write(`${lines.join("\n")}\n\n`);
       process.stdout.write(
-        `${payload.length} ${subject} (environnement : ${this.environnement()})\n`,
+        `${payload.length} ${subject} (environnement : ${this.currentEnvironment()})\n`,
       );
       return;
     }

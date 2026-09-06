@@ -4,6 +4,7 @@ import Kernel from "../Kernel";
 import BootReporter from "../../service/dev/BootReporter";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onPostReady",
 };
@@ -42,7 +43,7 @@ class Dev extends Command {
   constructor(cli: CliKernel) {
     super(
       "development",
-      "Serveur de développement : rechargement auto du backend, HMR du front",
+      "démarre en développement, rechargement automatique",
       cli as CliKernel,
       options,
     );

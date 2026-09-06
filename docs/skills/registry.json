@@ -2,9 +2,9 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-02",
-  "count": 25,
-  "conformant": 25,
+  "generatedAt": "2026-09-06",
+  "count": 27,
+  "conformant": 27,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -35,7 +35,7 @@
       "description": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"le thème sombre casse quelque chose ?\", \"quelles requêtes fait la page ?\", \"le temps réel arrive-t-il à l'écran ?\", \"teste le websocket\", \"quelle latence sur le socket ?\", \"la page déborde-t-elle sur mobile ?\".",
       "cost": {
         "bodyLines": 416,
-        "approxTokens": 6742
+        "approxTokens": 6741
       },
       "requires": [],
       "resources": {
@@ -599,8 +599,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 675,
-        "approxTokens": 11475
+        "bodyLines": 739,
+        "approxTokens": 12544
       },
       "requires": [
         "serveur UP",
@@ -832,6 +832,10 @@
               },
               {
                 "flag": "--short",
+                "help": ""
+              },
+              {
+                "flag": "--status",
                 "help": ""
               },
               {
@@ -1511,6 +1515,10 @@
                 "help": ""
               },
               {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
                 "flag": "--no-tests",
                 "help": ""
               },
@@ -1551,6 +1559,10 @@
                 "help": ""
               },
               {
+                "flag": "--workspace",
+                "help": ""
+              },
+              {
                 "flag": "--yes",
                 "help": ""
               }
@@ -1586,6 +1598,10 @@
               },
               {
                 "name": "MODULE_PKG",
+                "help": ""
+              },
+              {
+                "name": "PASCAL_MODULE",
                 "help": ""
               },
               {
@@ -1695,7 +1711,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "675",
+            "detail": "739",
             "advisory": true
           }
         ]
@@ -1978,8 +1994,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 358,
-        "approxTokens": 7733
+        "bodyLines": 382,
+        "approxTokens": 8255
       },
       "requires": [],
       "resources": {
@@ -2004,6 +2020,7 @@
         "nodefony-create-frontend-module",
         "nodefony-create-module",
         "nodefony-frontend-dev",
+        "nodefony-identifiers",
         "nodefony-inspect",
         "nodefony-load-test",
         "nodefony-rfc",
@@ -2061,7 +2078,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "358",
+            "detail": "382",
             "advisory": true
           }
         ]
@@ -2465,6 +2482,279 @@
       "links": {
         "source": ".claude/skills/nodefony-html-report/SKILL.md",
         "doc": "docs/skills/nodefony-html-report.md"
+      }
+    },
+    {
+      "name": "nodefony-identifiers",
+      "summary": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni aucune chaîne affichée bougé.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "renommer un symbole partout",
+        "renommer en masse",
+        "écrire le code en anglais",
+        "des identifiants sont en français",
+        "ce nom de variable est en français",
+        "quels identifiants restent à traduire",
+        "ce renommage a-t-il tout attrapé ?",
+        "prouver qu'un renommage est complet",
+        "un membre privé est devenu public"
+      ],
+      "description": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni aucune chaîne affichée bougé. Porte ce qu'un typecheck vert ne dit PAS : un membre privé rendu public, un raccourci d'objet relié à la mauvaise déclaration, un alias qui annule la rupture, les consommateurs qu'aucun tsconfig ne voit. À charger AVANT de lancer le gate ou d'écrire un plan : les outils rendent un compte rassurant sans le protocole. Déclencheurs : \"renommer un symbole partout\", \"renommer en masse\", \"écrire le code en anglais\", \"des identifiants sont en français\", \"ce nom de variable est en français\", \"quels identifiants restent à traduire\", \"ce renommage a-t-il tout attrapé ?\", \"prouver qu'un renommage est complet\", \"un membre privé est devenu public\".",
+      "cost": {
+        "bodyLines": 204,
+        "approxTokens": 3987
+      },
+      "requires": [
+        "redis"
+      ],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/bench-identifier-language.mjs",
+            "purpose": "Banc — éprouve le gate de langue sur du corpus RÉEL, pas sur des cas choisis.",
+            "usage": [
+              "node scripts/bench-identifier-language.mjs",
+              "node scripts/bench-identifier-language.mjs --limit 4000 --json"
+            ],
+            "options": [
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--sample",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "HELP",
+                "help": ""
+              }
+            ],
+            "output": "taux de faux positifs par paquet, sensibilité, échantillon terrain ;",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/check-identifier-language.mjs",
+            "purpose": "Gate — les IDENTIFIANTS du code de production s'écrivent en anglais.",
+            "usage": [
+              "node scripts/check-identifier-language.mjs [chemins…]",
+              "node scripts/check-identifier-language.mjs --json",
+              "node scripts/check-identifier-language.mjs --exceptions mes-exceptions.json"
+            ],
+            "options": [
+              {
+                "flag": "--depth",
+                "help": ""
+              },
+              {
+                "flag": "--exceptions",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "HELP",
+                "help": ""
+              },
+              {
+                "name": "IDENT",
+                "help": ""
+              },
+              {
+                "name": "MODIFIERS",
+                "help": ""
+              }
+            ],
+            "output": "`fichier:ligne  identifiant  ← mot(s) français  → suggestion` ;",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/check-identifier-language.test.mjs",
+            "purpose": "Suite du gate de langue des identifiants — écrite pour le faire ÉCHOUER,",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/check-literals-unchanged.mjs",
+            "purpose": "Vérifie qu'un renommage n'a touché AUCUNE chaîne de caractères.",
+            "usage": [
+              "Usage : node .claude/skills/nodefony-identifiers/scripts/check-literals-unchanged.mjs [--base HEAD]"
+            ],
+            "options": [
+              {
+                "flag": "--base",
+                "help": ""
+              },
+              {
+                "flag": "--except",
+                "help": ""
+              },
+              {
+                "flag": "--name-only",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/check-rename-drift.mjs",
+            "purpose": "Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a",
+            "usage": [
+              "node .claude/skills/nodefony-identifiers/scripts/check-rename-drift.mjs --plan tmp/plan.json [--base HEAD]"
+            ],
+            "options": [
+              {
+                "flag": "--base",
+                "help": ""
+              },
+              {
+                "flag": "--fix",
+                "help": ""
+              },
+              {
+                "flag": "--plan",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/rename-identifiers.mjs",
+            "purpose": "Renomme des identifiants par le LanguageService TypeScript — jamais par regex.",
+            "usage": [
+              "node .claude/skills/nodefony-identifiers/scripts/rename-identifiers.mjs --project src/nodefony/tsconfig.json \\"
+            ],
+            "options": [
+              {
+                "flag": "--dry",
+                "help": ""
+              },
+              {
+                "flag": "--plan",
+                "help": ""
+              },
+              {
+                "flag": "--project",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/rename-identifiers.test.mjs",
+            "purpose": "Auto-contrôle de `rename-identifiers.mjs`.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--plan",
+                "help": ""
+              },
+              {
+                "flag": "--project",
+                "help": ""
+              },
+              {
+                "flag": "--test",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-framework-dev",
+        "nodefony-inspect"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "965",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "204",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-identifiers/SKILL.md",
+        "doc": "docs/skills/nodefony-identifiers.md"
       }
     },
     {
@@ -3195,6 +3485,14 @@
             ],
             "options": [
               {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
                 "flag": "--workers",
                 "help": ""
               }
@@ -3640,6 +3938,10 @@
               },
               {
                 "name": "TRANCHE",
+                "help": ""
+              },
+              {
+                "name": "TTL_DEROGATION_MIN",
                 "help": ""
               },
               {
@@ -4145,11 +4447,15 @@
             "path": "scripts/db-outage-pod.mjs",
             "purpose": "**Banc — une application Nodefony en PRODUCTION face à la chute de sa base.**",
             "usage": [
-              "node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]"
+              "node db-outage-pod.mjs [--workers N] [--container NOM] [--port P] [--db NOM]"
             ],
             "options": [
               {
                 "flag": "--container",
+                "help": ""
+              },
+              {
+                "flag": "--db",
                 "help": ""
               },
               {
@@ -4166,6 +4472,10 @@
               }
             ],
             "env": [
+              {
+                "name": "BASE",
+                "help": ""
+              },
               {
                 "name": "BOX",
                 "help": ""
@@ -4889,8 +5199,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 556,
-        "approxTokens": 6805
+        "bodyLines": 592,
+        "approxTokens": 7308
       },
       "requires": [],
       "resources": {
@@ -4929,6 +5239,14 @@
               },
               {
                 "name": "QUERY",
+                "help": ""
+              },
+              {
+                "name": "REPO_NAME",
+                "help": ""
+              },
+              {
+                "name": "REPO_OWNER",
                 "help": ""
               }
             ],
@@ -5001,7 +5319,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "556",
+            "detail": "592",
             "advisory": true
           }
         ]
@@ -5038,8 +5356,8 @@
       ],
       "description": "Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité absorbée sans ses déclencheurs devient introuvable. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"fusionner deux skills\", \"retirer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\".",
       "cost": {
-        "bodyLines": 276,
-        "approxTokens": 4293
+        "bodyLines": 298,
+        "approxTokens": 4650
       },
       "requires": [
         "docker",
@@ -5063,7 +5381,12 @@
                 "help": "sort en échec dès qu'un script est orphelin ou qu'un renvoi est mort"
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "ACQUITTES_PATH",
+                "help": ""
+              }
+            ],
             "output": "un classement de chaque script : bien placé, à déplacer, orphelin, ou renvoi mort",
             "selfDocumented": true
           },
@@ -5170,7 +5493,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "276",
+            "detail": "298",
             "advisory": true
           }
         ]
@@ -5525,10 +5848,107 @@
       }
     },
     {
+      "name": "nodefony-test-campaign",
+      "summary": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "campagne de test",
+        "passe de test complète",
+        "lance tous les tests",
+        "tous les bancs",
+        "on teste tout",
+        "qu'est-ce qui n'a pas été testé ?",
+        "ce rouge est-il une régression ?",
+        "tests verts en isolé rouges en suite",
+        "combien de tests sont sautés",
+        "rapport de la campagne de test"
+      ],
+      "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
+      "cost": {
+        "bodyLines": 187,
+        "approxTokens": 3617
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "pieges-de-session.md"
+        ],
+        "referenceFilesTotal": 1,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-check-memory-health",
+        "nodefony-devkit-bench",
+        "nodefony-html-report",
+        "nodefony-load-test",
+        "nodefony-multipod-bench",
+        "nodefony-release"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "894",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "187",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-test-campaign/SKILL.md",
+        "doc": "docs/skills/nodefony-test-campaign.md"
+      }
+    },
+    {
       "name": "nodefony-ticket",
       "summary": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées.",
       "family": "Autres",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "keywords": [
         "fichier:ligne"
       ],
@@ -5552,10 +5972,12 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"fais-en des tickets\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"quels tickets parlent de ce que j'ai changé ?\", \"ce ticket est trop vague\", \"il manque le contexte pour le prendre\".",
       "cost": {
-        "bodyLines": 533,
-        "approxTokens": 9714
+        "bodyLines": 582,
+        "approxTokens": 10741
       },
-      "requires": [],
+      "requires": [
+        "redis"
+      ],
       "resources": {
         "references": [
           "conventional-commits.md",
@@ -5565,6 +5987,106 @@
         ],
         "referenceFilesTotal": 4,
         "scripts": [
+          {
+            "path": "scripts/board-lint.mjs",
+            "purpose": "Confronte le TABLEAU DE BORD à ses propres règles de pilotage.",
+            "usage": [
+              "node .claude/skills/nodefony-ticket/scripts/board-lint.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--add-label",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
+                "flag": "--milestone",
+                "help": ""
+              },
+              {
+                "flag": "--owner",
+                "help": ""
+              },
+              {
+                "flag": "--paginate",
+                "help": ""
+              },
+              {
+                "flag": "--slurp",
+                "help": ""
+              },
+              {
+                "flag": "--state",
+                "help": ""
+              },
+              {
+                "flag": "--url",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "JOURS_EN_COURS",
+                "help": ""
+              },
+              {
+                "name": "OWNER",
+                "help": ""
+              },
+              {
+                "name": "PROJECT",
+                "help": ""
+              },
+              {
+                "name": "QUERY_ITEMS",
+                "help": ""
+              },
+              {
+                "name": "REPO",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/board-lint.test.mjs",
+            "purpose": "",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--grep",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/commit-kind.mjs",
+            "purpose": "Ce qu'un commit PROUVE au sujet des tickets qu'il cite.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
           {
             "path": "scripts/francise.mjs",
             "purpose": "Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français.",
@@ -5995,7 +6517,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "533",
+            "detail": "582",
             "advisory": true
           }
         ]

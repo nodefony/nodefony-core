@@ -8,6 +8,7 @@ import {
 } from "../src/proxy/generateProxyConfig";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "FRONT ET RÉSEAU",
   showBanner: false,
   // `onReady` : cross-wiring inter-modules terminé → les montages statiques
   // natifs `/<module>/` (server-static.mountModulePublics, posés à onReady) sont
@@ -32,7 +33,7 @@ class ProxyGenerate extends Command {
   constructor(cli: CliKernel) {
     super(
       "proxy:generate",
-      "Generate a reverse-proxy config (nginx|haproxy) from introspection",
+      "engendre une configuration nginx ou haproxy",
       cli,
       options,
     );

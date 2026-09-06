@@ -215,11 +215,27 @@ mais **tel qu'un installeur le reçoit**.
 > plancher `engines` (Node 24, la version que pose la CI générée pour
 > l'application de l'utilisateur), plus une variante haute sur ubuntu. Le lancer
 > à la main sert à la boucle courte et au diagnostic, plus à obtenir le verdict :
-> il arrive à chaque poussée. En échec, le job remonte le journal complet et le
-> `report.json` en artefact — le décor, lui, ne l'est pas (~300 Mo), et le
-> rapport suffit à savoir quelle étape est tombée. **Ce que ce job n'éprouve
-> pas** est nommé dans [`docs/guides/integration-continue.md`](../../../docs/guides/integration-continue.md)
+> il arrive à chaque poussée. **Ce que ce job n'éprouve pas** est nommé dans
+> [`docs/guides/integration-continue.md`](../../../docs/guides/integration-continue.md)
 > § 6 : le front d'une application générée, et les dialectes autres que SQLite.
+
+> **Un job rouge doit se diagnostiquer SANS remonter le décor** — il pèse
+> ~300 Mo et la machine qui l'a produit est jetée à la fin du job. Ce qui part
+> en objet déposé (`if: failure()`) : le journal du banc, `report.json`,
+> `echec.log` (la sortie ENTIÈRE de la commande tombée), le journal du serveur
+> détaché de l'application témoin, l'état de son manifeste — et, sur les
+> moteurs serveur, le **journal des conteneurs de base**. Ce dernier n'est pas
+> un supplément : la cause d'un échec PostgreSQL tenait en une ligne côté
+> serveur, que le banc ne pouvait pas voir depuis son client.
+>
+> Et l'extrait affiché dans le journal du job n'est plus « la fin de la
+> sortie ». Une commande qui échoue derrière une barre de progression noyait sa
+> propre cause : les derniers caractères ne portaient que
+> `[⣷] 0 views fetching`. `scripts/lib/extrait-echec.mjs` déplie les réécritures de
+> ligne, retire l'ANSI, garde les lignes qui NOMMENT l'échec **en plus** de la
+> queue, et DIT combien de lignes il écarte — un extrait muet se lit comme une
+> sortie complète. Son auto-contrôle rejoue l'ancienne règle sur les sorties
+> réelles qui ont produit le défaut.
 
 > **Le décor de ce banc est ISOLÉ, et ce n'est pas un détail d'exécution.**
 > Longtemps il vivait sous le dépôt, paquets liés au checkout — la résolution de
@@ -245,7 +261,8 @@ Les étapes, dans l'ordre, et ce que chacune protège :
    énumération avec défaut, entier avec défaut, index simple et composite,
    unicité composite, tailles de colonne, relation), dont deux émises pour
    PostgreSQL ;
-4. **module** — `create module` : workspace npm, manifeste, entité déposée dedans ;
+4. **module** — `create module` : workspace npm, manifeste, entité déposée
+   dedans (ce qu'il tient comme PAQUET est jugé plus loin, après le build) ;
 5. **compilation** — l'étape qui manquait : un type faux ne se voit pas dans une
    assertion de chaîne ;
 6. **le code des `AGENTS.md` compile** — les expressions citées dans les
@@ -265,16 +282,25 @@ Les étapes, dans l'ordre, et ce que chacune protège :
    visée, sinon la jointure est refusée par le moteur ;
 10. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
     invisible du serveur (cause n°1 des « ma route répond 404 ») ;
-11. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
+11. **le module généré tient debout comme un PAQUET** — il compile avec SON
+    tsconfig (témoin fautif d'abord : un typecheck qui ne lit rien rend vert),
+    ses tests passent, ses types se résolvent depuis l'APPLICATION, et une clé
+    de configuration mal orthographiée est REFUSÉE. Ce dernier point a trouvé un
+    défaut de produit : le gabarit levait une `Error` ordinaire, absorbée par le
+    fail-soft du kernel — `use("@app/blog", { gretting: … })` laissait
+    l'application démarrer en IGNORANT ce qui avait été écrit ;
+12. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
     lue ;
-12. **tests générés** — couche donnée ;
-13. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
+13. **tests générés** — couche donnée ;
+14. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
     PATCH, 204 puis 404 ; et, pour la liste, les deux faces de chaque
     capacité : le **refus** (tri hors allowlist, paramètre inconnu, valeur mal
     formée) **et l'effet** (le tri ordonne, le filtre filtre) — voir l'encadré
     ci-dessous, un `ORDER BY` mort passait les refus sans broncher ;
-14. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
-15. **inspection** — l'application se laisse lire sans ouvrir de port.
+15. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce,
+    et sert DEUX routes : celle de l'application et celle d'un MODULE — un module
+    qui se charge sans monter ses routes rendait 404 sans un mot ;
+16. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;
@@ -287,7 +313,7 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 > réclamé avant de générer. **Reste `front`, non couvert** (il tirerait un
 > écosystème Vite complet dans le décor).
 >
-> **Et l'étape 9 juge la SORTIE, pas le code de retour** : le gabarit journalise
+> **Et l'étape 12 juge la SORTIE, pas le code de retour** : le gabarit journalise
 > « service non enregistré » puis rend la main NORMALEMENT. Vérifié en
 > débranchant `@services([…])` — la commande sort **0** sans écrire une ligne de
 > JSON. Un banc qui aurait lu le code de retour aurait été vert sur une
@@ -335,9 +361,8 @@ main.
 ```bash
 # TOUS les contrôles internes du banc, en UNE commande — avant de conclure quoi que ce soit
 node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs --prove
-# Les deux qui exigent un décor, donc hors du lot et à lancer à la main :
-node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
-node .claude/skills/nodefony-devkit-bench/scripts/jeton-mcp.selftest.mjs   # la porte reste-t-elle ouverte tout le run ?
+# La remise à zéro du décor sur un run RÉEL — le lot la joue sinon sur un décor jetable :
+node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -358,6 +383,18 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --ta
 > en les appelant avec un drapeau bidon EN PREMIER, ce qui fait sortir la garde
 > avant que rien ne soit monté. Il a trouvé `--etage` le jour où il est né.
 
+> **Plus aucun contrôle n'est hors du lot.** Deux l'étaient, chacun avec son
+> motif écrit — l'un « exige le chemin d'un run déjà consommé », l'autre « exige
+> une application démarrée et une porte MCP ouverte ». Nommer un trou n'est pas
+> le fermer : ni script npm, ni forge, ni le lot ne les appelaient, et ils
+> gardaient précisément ce qui casse sans bruit (la remise à zéro entre deux
+> tâches, la validité du jeton pendant tout un run). Le premier monte désormais
+> un décor JETABLE quand on ne lui donne pas de run — son `.gitignore` est COPIÉ
+> du gabarit du produit, jamais réécrit de tête, puisque c'est lui que le
+> contrôle éprouve. Le second n'exigeait RIEN : relu, il ne fait aucun appel
+> réseau et rend 10/10 en une seconde. **Une exclusion écrite une fois n'est
+> jamais relue ; elle survit à ce qui la justifiait.**
+>
 > 🔴 **Un contrôle que personne ne lance ne garde rien.** Ces sondes étaient
 > écrites, justes, et énumérées ici une par une — donc jamais exécutées :
 > personne ne tape autant de commandes avant de conclure. Ce que ça a coûté, en
@@ -458,7 +495,7 @@ un runner où `npm ci` vient de réussir. C'est ainsi que le premier passage
 Windows du banc du code généré est tombé, à la première étape, pendant que linux
 et macOS étaient verts.
 
-La règle a **une seule** implémentation (`besoinDeShell`), appelée par les deux
+La règle a **une seule** implémentation (`needsShell`), appelée par les deux
 helpers d'exécution (`scripts/lib/isolation.mjs`, `scripts/verify-generated.mjs`). Elle est
 **pure** — plateforme et grammaire de chemins injectées — parce qu'une fonction
 qui lit `process.platform` ne s'éprouve que sur la plateforme qu'elle décrit,
@@ -520,15 +557,25 @@ n'est ni l'un ni l'autre — c'est de comparer un run large à une **référence
 
 ```bash
 B=.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
-node $B --depistage                      # compare à baseline.json, NOMME ce qui exige 3 runs
+node $B                                  # 1º le run large — c'est LUI qui coûte, et on le décide
+node $B --depistage --analyze-only <run> # 2º le compare à baseline.json : gratuit, aucun agent
 node $B --task 26 --runs 3               # les 3 runs, décor remis à zéro entre chaque
 node $B --task 26 --runs 3 --enregistrer-reference   # fige le résultat dans la référence
 node $B --analyze-only <run1>,<run2>,<run3>          # agréger des runs déjà joués
 ```
 
+**Le dépistage ne produit pas la mesure qu'il compare — elle lui est DONNÉE.**
+`--depistage` sans `--analyze-only` refuse en **78** et nomme les runs
+comparables : il déroulerait sinon le catalogue entier avec de vrais agents
+avant de comparer le rapport du run qu'il vient de payer. Et il ne choisit pas
+de run à ta place — « le dernier » serait un run partiel, ou d'un autre décor,
+c'est-à-dire la comparaison fausse que la règle 3 ci-dessous existe pour
+refuser.
+
 Sorties : **0** rien n'a bougé · **3** des tâches attendent trois runs · **78**
-refus. Un FAIL _conforme à la référence_ ne sort pas 1 : le mode répond
-« qu'est-ce qui a bougé ? », pas « tout est-il vert ? ».
+refus (décor incompatible, référence absente, ou dépistage sans run). Un FAIL
+_conforme à la référence_ ne sort pas 1 : le mode répond « qu'est-ce qui a
+bougé ? », pas « tout est-il vert ? ».
 
 La référence (`baseline.json`, versionnée à la racine du skill) porte le modèle,
 le décor, l'agent, et par tâche le verdict, le nombre de runs et les runs
@@ -561,13 +608,30 @@ commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
    comparaison refusée, puis rejouée au `jq` par l'opérateur — qui a lu trois
    « chutes » qu'aucun changement n'expliquait. Refaire soi-même le calcul que
    la garde interdit, c'est reproduire exactement l'erreur qu'elle empêche.
+   3bis. **Le CODE qui rend le verdict est une variable de la mesure, au même
+   titre que le décor.** L'empreinte d'une tâche couvre l'énoncé, le `prepare`,
+   les noms des sondes — et désormais le **source de chaque `observe`** et le
+   **contenu de chaque juge** que la tâche nomme. Sans cela, corriger un juge
+   n'invalidait rien : trois juges qui punissaient une protection légitime ont
+   été corrigés, un quatrième était mort depuis cinq jours, et pas une référence
+   n'a bougé — on opposait des verdicts d'aujourd'hui à des verdicts rendus par
+   un juge qui n'existe plus, sous l'étiquette « conforme à la référence ».
+   Toucher une ligne d'un `gate-*.mjs` fait donc **refuser** la comparaison sur
+   ses tâches, en les NOMMANT : on sait quoi rejouer plutôt que tout redemander.
+   Un commentaire compte aussi — refuser à tort coûte un run nommé, comparer à
+   tort coûte la mesure entière et ne se voit pas ; seule la remise en forme
+   (espaces) est absorbée. L'empreinte est **indépendante de la machine** :
+   les tâches composent leurs chemins de juge en absolu, et sans normalisation
+   un dépôt cloné ailleurs voyait toutes ses tâches « réécrites ».
+
 4. **Un rouge NON OPPOSABLE écarte le run** — une gate rejouée sur l'app
    d'aujourd'hui (run antérieur aux gates figées) ne juge pas la tâche. Le banc
    le DISAIT déjà dans son texte, sans en tirer la conséquence : le rouge était
    compté, et il a fabriqué un FAIL de référence sur une tâche qui passait.
 
 Le mode **ne relance rien** : il nomme les tâches et rend la commande à copier.
-Un banc qui décide seul de rejouer dépense sans qu'on l'ait voulu.
+Un banc qui décide seul de rejouer dépense sans qu'on l'ait voulu — c'est ce que
+la garde ci-dessus fait tenir, plutôt que de le promettre.
 
 > 🔴 **Ne pas repayer des runs pour reconfirmer un verdict déjà instable.** Une
 > tâche que la référence donne à « 2/3 » le restera : la rejouer remesure le même

@@ -68,6 +68,40 @@ describe("completion — buildCliManifest (built-ins réels)", () => {
   });
 });
 
+describe("completion — un flag qui attend une VALEUR", () => {
+  it("🔴 après `--env`, la complétion propose la valeur, PAS les autres options", () => {
+    // Vécu : le TAB rendait `--json --strict …` juste après `--env`, ce qui
+    // laissait croire qu'aucun argument n'était requis — et l'on validait une
+    // ligne de commande incomplète.
+    const m = makeManifest();
+    const out = computeCompletions(m, ["doctor", "--env", ""]);
+    assert.ok(out.includes("production"), "production attendu");
+    assert.ok(!out.includes("--json"), "aucune option ne doit être proposée");
+  });
+
+  it("un environnement LIBRE reste possible — ce sont des suggestions", () => {
+    // La liste proposée couvre les cas courants ; elle ne CONTRAINT rien, et
+    // c'est pourquoi ce ne sont pas des `choices()` de commander.
+    const m = makeManifest();
+    const doctor = m.commands.find((c) => c.name === "doctor");
+    assert.ok(doctor?.optionValues?.["--env"]?.includes("preprod"));
+  });
+
+  it("une valeur LIBRE rend le TAB muet — c'est déjà une réponse", () => {
+    const m = makeManifest();
+    // `--cwd <path>` attend une valeur qu'aucune liste ne peut deviner : ne
+    // rien proposer DIT qu'une valeur est attendue, là où proposer les autres
+    // options disait le contraire.
+    assert.deepStrictEqual(computeCompletions(m, ["doctor", "--cwd", ""]), []);
+  });
+
+  it("un DRAPEAU sans valeur ne mange pas le mot suivant", () => {
+    const m = makeManifest();
+    const out = computeCompletions(m, ["doctor", "--json", ""]);
+    assert.ok(out.includes("--strict"), "les options doivent revenir");
+  });
+});
+
 describe("completion — computeCompletions (protocole dernier mot = frappe)", () => {
   it("aucun mot validé → toutes les commandes + alias", () => {
     const m = makeManifest();

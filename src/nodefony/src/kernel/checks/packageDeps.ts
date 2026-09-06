@@ -14,12 +14,13 @@
  *     fichier absent du champ `files` donne un paquet sans aucun type après
  *     installation. Le dépôt d'origine ne le voit pas : la source y est.
  *
- * Cette logique est partagée par la commande `nodefony check` et par la garde
+ * Cette logique est partagée par la commande `nodefony doctor` et par la garde
  * de pré-commit du dépôt du framework — une seule implémentation, sinon les
  * deux divergent (c'est exactement la faute qu'on cherche ici).
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { collectSources } from "./walk";
 
 /** Un manquement relevé sur un paquet. */
 export interface IPackageFinding {
@@ -182,33 +183,9 @@ function collectPackages(roots: string[]): IScannedPackage[] {
  * réclamer une dépendance pour un fichier que le consommateur ne reçoit jamais.
  */
 function shippedSources(dir: string): string[] {
-  const found: string[] = [];
-  const walk = (d: string): void => {
-    let entries;
-    try {
-      entries = readdirSync(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (
-        e.name === "node_modules" ||
-        e.name === "dist" ||
-        e.name === "tests" ||
-        e.name.startsWith(".")
-      ) {
-        continue;
-      }
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) {
-        walk(p);
-      } else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
-        found.push(p);
-      }
-    }
-  };
-  walk(dir);
-  return found;
+  // Le marcheur et sa règle d'exclusion sont COMMUNS (`walk.ts`) : ce qu'un
+  // contrôle saute ne peut pas dépendre du contrôle.
+  return collectSources(dir, { extensions: [".ts", ".tsx"] });
 }
 
 /**

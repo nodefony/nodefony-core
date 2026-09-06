@@ -226,6 +226,32 @@ Dist embarqué (subpaths released, IA/média exclus) ≈ **6-7 Mo** (petit ; **s
 > l'OIDC, le dépannage) : [`docs/guides/publier-une-release.md`](../guides/publier-une-release.md).
 > Cette page-ci reste le PLAN : quoi publier, les décisions et leur pourquoi, ce qui reste à faire.
 
+### 7.0 La 10.0.0 n'est PAS la première publication — une beta la précède (#175)
+
+Ce plan a longtemps supposé que la chaîne s'exécuterait pour la première fois le jour J. Trois
+faits, constatés au registre, disent que ce serait le pire moment pour l'apprendre :
+
+1. **Aucun des treize paquets `@nodefony/*` n'existe sur npm** (vérifié un par un ; seul
+   `nodefony` est là, en 7.0.2). Ils sont tous à créer.
+2. **Le trusted publishing se configure sur un paquet qui EXISTE** — on lie un paquet à un dépôt
+   et un workflow. La première publication de chacun ne peut donc pas venir de la forge : elle
+   part d'un jeton, à la main. C'est structurel, pas un choix.
+3. **`npm publish` de quatorze paquets n'est pas une transaction.** Cassée au huitième, la version
+   est à moitié publiée — et une version publiée est BRÛLÉE.
+
+D'où l'ordre retenu : **`10.0.0-beta.1` sous le dist-tag `beta`**, qui crée les paquets, établit le
+scope, permet d'armer le trusted publishing, et éprouve la seule chose qu'aucun banc ne touche —
+**la résolution inter-paquets depuis le REGISTRE**. Les bancs installent depuis des tarballs, ce qui
+résout par chemin de fichier ; ce chemin-là n'est jamais pris.
+
+Un numéro de préversion ne coûte rien (`beta.2`, `beta.3`) ; `10.0.0` ne se reprend pas. Et
+`npm install nodefony` continue de servir 7.0.2 : personne ne reçoit la beta sans la nommer.
+
+**Rien à écrire pour cela** : `release.mjs` porte déjà `--npm-tag`, REFUSE une préversion sans
+dist-tag (`:180`) comme une version stable sous un autre tag que `latest` (`:187`), publie avec
+`--access public` explicite (`:650`), et calcule l'ordre de publication depuis les dépendances
+(`release-core.mjs:100`). Le mode existe ; il n'a jamais été lancé.
+
 **Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
 mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie que `start.sh`/`run.sh`).
 
@@ -334,13 +360,36 @@ vérifié dans la doc). Les 13 paquets neufs ne peuvent donc pas naître par OID
 
 **Ordre retenu** :
 
-1. publier les 13 neufs + `nodefony@10` **à la main**, depuis le poste du mainteneur, avec le code
-   2FA interactif — c'est ce pour quoi la 2FA est faite, et **aucun jeton n'a besoin d'exister** ;
+0. **remonter la branche de développement dans la branche par DÉFAUT, et publier depuis elle.**
+   Le lien « repository » d'un paquet npm ouvre la branche par DÉFAUT du dépôt, pas celle où l'on
+   travaille : c'est elle que lit celui qui arrive de npmjs.com. Une branche par défaut en retard
+   lui fait donc lire un accueil qui NIE la publication qu'il vient d'installer, sans le
+   `CHANGELOG.md` de la version. La remontée n'arbitre rien — le contenu de `main` est un ancêtre
+   de `claude-ts` (`git diff claude-ts...main` vide), les commits qu'elle porte en propre sont ses
+   propres fusions. Contrôle : `git rev-list --count main..claude-ts` rend `0` avant le
+   `--publish`, et `release.mjs` retrouve alors son défaut de branche — plus de `--branch` à
+   passer, donc plus de garde à faire taire.
+1. publier les 14 neufs — les 13 scopés ET `create-nodefony` — plus `nodefony@10`,
+   **à la main**, depuis le poste du mainteneur, avec le code 2FA interactif —
+   c'est ce pour quoi la 2FA est faite, et **aucun jeton n'a besoin d'exister** ;
    le script d'assemblage fait tout le reste (versions, ordre, pack), seul le `publish` est manuel ;
-2. déclarer un publieur de confiance sur **chacun des 14** — même dépôt, même **nom de fichier** de
+2. déclarer un publieur de confiance sur **chacun des 15** — `create-nodefony` COMPRIS,
+   il est publiable et absent du registre — même dépôt, même **nom de fichier** de
    workflow (saisi seul, extension incluse, **sensible à la casse** : première cause d'`ENEEDAUTH`
    citée par la doc) ; un seul publieur par paquet ;
 3. `Settings → Publishing access → Require two-factor authentication and disallow tokens`.
+4. **basculer l'accueil — il affirme un ÉTAT de publication, à TROIS endroits.** `README.md`
+   (§ Démarrage, puis le bloc « État ») et `AGENTS.md` (§ État — le premier que lira un agent
+   web). Aucune de ces affirmations ne se met à jour toute seule, et l'accueil du jour de
+   l'annonce ne se rattrape pas : ceux qui viennent ce jour-là ne reviennent pas. Deux règles
+   valent aux trois crans — **la commande publiée nomme toujours son dist-tag** tant que `latest`
+   n'est pas la 10 (une forme nue servirait `nodefony@7.0.2`, sans rapport avec ce que la page
+   décrit), et le `git clone` n'est jamais supprimé, seulement requalifié « contribuer au
+   framework ». Contrôle :
+   `rg -n "pas encore publi|non publiée|aucun paquet .10" README.md AGENTS.md` ne rend rien.
+   À l'**alpha**, cette bascule est légitimement VIDE — aucune promesse publique n'est faite ;
+   c'est un constat à poser, pas une étape à sauter. Ticket porteur : **#47**, qui se REPORTE
+   d'un cran au suivant au lieu de se fermer.
 
 Contraintes à respecter : npm CLI **≥ 11.5.1**, Node **≥ 22.14.0**, runners **hébergés** GitHub
 (pas de self-hosted), `permissions: id-token: write` dans le workflow.
@@ -360,26 +409,29 @@ par `npm deprecate <paquet> "<message>"` — un message affiché à l'installati
 (fenêtre de 72 h).
 
 🔴 **L'ordre n'est pas indifférent** : déprécier AVANT la publication renverrait les gens vers des
-paquets qui n'existent pas encore. Cette table s'applique **une fois la 10 en ligne**.
+paquets qui n'existent pas encore. Elle s'applique donc dès que les successeurs sont **EN LIGNE** —
+c'est-à-dire dès l'**alpha** (#220), qui les fait naître, et dans la même session npm authentifiée
+que le `publish` : `npm deprecate` réclame la même double authentification. Le message NOMME le
+successeur et le dépôt sans promettre de commande d'installation, donc il reste vrai en préversion.
 
-| Historique (dernière version)           | Successeur en 10          | Nature                           |
-| --------------------------------------- | ------------------------- | -------------------------------- |
-| `@nodefony/http-bundle` (7.0.2)         | `@nodefony/http`          | renommage                        |
-| `@nodefony/framework-bundle` (7.0.2)    | `@nodefony/framework`     | renommage                        |
-| `@nodefony/security-bundle` (7.0.2)     | `@nodefony/security`      | renommage                        |
-| `@nodefony/realtime-bundle` (7.0.2)     | `@nodefony/realtime`      | renommage                        |
-| `@nodefony/redis-bundle` (7.0.2)        | `@nodefony/redis`         | renommage                        |
-| `@nodefony/mongoose-bundle` (7.0.2)     | `@nodefony/mongoose`      | renommage                        |
-| `@nodefony/mongo-bundle` (6.8.1)        | `@nodefony/mongoose`      | fusion                           |
-| `@nodefony/documentation-bundle` (6.12) | `@nodefony/documentation` | renommage                        |
-| `@nodefony/sequelize-bundle` (7.0.2)    | `@nodefony/drizzle`       | **changement de moteur**         |
-| `@nodefony/unittests-bundle` (7.0.2)    | — (vitest)                | fin de vie                       |
-| `@nodefony/mail-bundle` (7.0.2)         | **à trancher**            | aucun module mail en 10          |
-| `@nodefony/elastic-bundle` (7.0.2)      | **à trancher**            | aucun équivalent publié          |
-| `@nodefony/monitoring-bundle` (7.0.2)   | **à trancher**            | `@nodefony/studio` ? à décider   |
-| `@nodefony/demo-bundle` (4.3.1)         | — (`create app`)          | fin de vie                       |
-| `@nodefony/stage` (0.2.4)               | **à trancher**            | —                                |
-| `@nodefony/passport-wrapper` (4.0.0)    | **à trancher**            | `@nodefony/security` ? à décider |
+| Historique (dernière version)           | Successeur en 10          | Nature                                                              |
+| --------------------------------------- | ------------------------- | ------------------------------------------------------------------- |
+| `@nodefony/http-bundle` (7.0.2)         | `@nodefony/http`          | renommage                                                           |
+| `@nodefony/framework-bundle` (7.0.2)    | `@nodefony/framework`     | renommage                                                           |
+| `@nodefony/security-bundle` (7.0.2)     | `@nodefony/security`      | renommage                                                           |
+| `@nodefony/realtime-bundle` (7.0.2)     | `@nodefony/realtime`      | renommage                                                           |
+| `@nodefony/redis-bundle` (7.0.2)        | `@nodefony/redis`         | renommage                                                           |
+| `@nodefony/mongoose-bundle` (7.0.2)     | `@nodefony/mongoose`      | renommage                                                           |
+| `@nodefony/mongo-bundle` (6.8.1)        | `@nodefony/mongoose`      | fusion                                                              |
+| `@nodefony/documentation-bundle` (6.12) | `@nodefony/documentation` | renommage                                                           |
+| `@nodefony/sequelize-bundle` (7.0.2)    | `@nodefony/drizzle`       | **changement de moteur**                                            |
+| `@nodefony/unittests-bundle` (7.0.2)    | — (vitest)                | fin de vie                                                          |
+| `@nodefony/mail-bundle` (7.0.2)         | — (fin de vie)            | aucun module mail en 10                                             |
+| `@nodefony/elastic-bundle` (7.0.2)      | — (fin de vie)            | aucun équivalent publié                                             |
+| `@nodefony/monitoring-bundle` (7.0.2)   | — (fin de vie)            | Studio administre le framework, il ne supervise pas une application |
+| `@nodefony/demo-bundle` (4.3.1)         | — (`create app`)          | fin de vie                                                          |
+| `@nodefony/stage` (0.2.4)               | — (fin de vie)            | —                                                                   |
+| `@nodefony/passport-wrapper` (4.0.0)    | `@nodefony/security`      | le firewall de la 10 porte l'authentification                       |
 
 **Deux exclusions, à ne pas déprécier** :
 
@@ -387,6 +439,10 @@ paquets qui n'existent pas encore. Cette table s'applique **une fois la 10 en li
   vestige ; il a sa propre trajectoire (P15).
 - **`nodefony` (7.0.2)** — même nom, nouvelle majeure : c'est `10.0.0` qui le remplace, npm s'en
   charge. Déprécier le paquet déprécierait aussi la 10.
+
+**Une dépréciation est RÉVERSIBLE** (message vide) — c'est ce qui a permis de trancher les cinq
+cas restants plutôt que de les laisser ouverts : ne pas déprécier ne garde aucune porte, le paquet
+continue de s'installer en silence. Le jour où un successeur existe, le message se réécrit.
 
 Un message de dépréciation dit **où aller**, pas seulement que c'est fini. Pour un renommage :
 `npm deprecate @nodefony/http-bundle "Nodefony 10 : ce paquet devient @nodefony/http (voir https://github.com/nodefony/nodefony-core)"`.
@@ -526,7 +582,12 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 > R0.2 est le vrai livrable : sans lui, le trou se rejoue à la création du prochain paquet.
 
 **Fait.** Les dix-neuf `package.json` du périmètre portent `repository`, `homepage` et `bugs` vers
-`nodefony-core` ; les URL `tree/HEAD/<location>` répondent 200 (`HEAD`, pas `main`). `@nodefony/devkit`
+`nodefony-core`. **`homepage` a depuis été REPOINTÉE vers le site de documentation**
+(`https://nodefony.github.io/nodefony-core/`) : npm affiche déjà le README du paquet sur sa
+propre page, si bien qu'y renvoyer une seconde fois n'apportait rien, tandis que le chemin
+vers le code reste porté par `repository.directory` et le suivi par `bugs` — tous deux posés
+sur les quinze publiables. Le motif d'origine du `tree/HEAD` (survivre à un renommage de
+branche) vaut toujours pour `repository`, qui le conserve. `@nodefony/devkit`
 n'avait pas non plus `publishConfig.access` — il serait parti en privé. Le gate (R0.2) vit dans
 `scripts/release/release-core.mjs`, appelé par `pack-all.mjs` ET par `release.mjs` : le banc de
 release invoque le pack directement, et un gate posé chez un seul appelant ne garde que celui-là.

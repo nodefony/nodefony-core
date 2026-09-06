@@ -12,22 +12,23 @@ import {
   AGENT_TARGETS,
   chargePrompts,
   agentsPresents,
-  agentsDemandes,
+  requestedAgents,
   poseVariable,
-  porteDejaLaCle,
-  racineAgent,
+  alreadyHasKey,
+  agentRoot,
   type IAgentTarget,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
 import type TokenService from "../service/tokenService";
 import {
-  ecrireSecretSync,
-  lireSiPresentSync,
+  writeSecretSync,
+  readIfPresentSync,
   messageNonRestreint,
   modeNonRestreint,
 } from "../src/token/secretFile";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   // Services prêts, AUCUN serveur en écoute : cette commande SIGNE un jeton,
   // elle n'en demande pas un à une porte HTTP. C'est ce qui la rend utilisable
@@ -108,7 +109,7 @@ class SecurityToken extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:token",
-      `Émet un jeton d'accès pour la porte MCP (--write : le pose chez tes agents)`,
+      `émet un jeton d'accès pour la porte MCP`,
       cli,
       options,
     );
@@ -180,15 +181,15 @@ class SecurityToken extends Command {
    * deux copies aurait bougé — et le symptôme aurait été un jeton posé dans un
    * dossier que l'agent ne lit pas, donc un 401 qui accuse le jeton.
    */
-  #racineDe(cible: IAgentTarget): string {
-    return racineAgent(cible, { projectRoot: this.#root() });
+  #rootOf(target: IAgentTarget): string {
+    return agentRoot(target, { projectRoot: this.#root() });
   }
 
   /** Contenu du fichier d'une cible, "" s'il n'existe pas. */
-  #contenuDe(cible: IAgentTarget): string {
+  #contentOf(target: IAgentTarget): string {
     try {
-      const abs = path.resolve(this.#racineDe(cible), cible.fichier);
-      return lireSiPresentSync(abs) ?? "";
+      const abs = path.resolve(this.#rootOf(target), target.file);
+      return readIfPresentSync(abs) ?? "";
     } catch {
       return "";
     }
@@ -205,7 +206,7 @@ class SecurityToken extends Command {
     // que si le projet était DÉJÀ configuré pour lui — donc jamais servi la
     // première fois. Deux implémentations d'une même règle divergent, et c'est
     // toujours celle qu'on relit le moins qui garde le défaut.
-    return agentsPresents({ projectRoot: this.#root(), existe: existsSync });
+    return agentsPresents({ projectRoot: this.#root(), exists: existsSync });
   }
 
   /**
@@ -216,40 +217,40 @@ class SecurityToken extends Command {
    * fichier SUIVI par git — un jeton commité est un jeton publié, et c'est la
    * seule faute de cette commande qui serait irrattrapable.
    *
-   * @param jeton - le jeton à poser
+   * @param token - le jeton à poser
    * @param w - la sortie où rendre compte
-   * @param cibles - agents à servir (déjà filtrés par le choix de l'appelant)
+   * @param targets - agents à servir (déjà filtrés par le choix de l'appelant)
    * @returns le nombre d'agents effectivement servis
    */
-  #poseChezAgents(
-    jeton: string,
+  #writeForAgents(
+    token: string,
     w: (t: string) => void,
-    cibles: readonly IAgentTarget[],
+    targets: readonly IAgentTarget[],
   ): number {
     let servis = 0;
-    for (const cible of cibles) {
-      const racine = this.#racineDe(cible);
+    for (const target of targets) {
+      const root = this.#rootOf(target);
       // La garde git ne vaut que pour le projet : le dossier de l'utilisateur
       // n'est pas versionné, et `git ls-files` y répondrait sur un autre dépôt.
-      if (cible.portee === "projet" && this.#tracked(cible.fichier)) {
+      if (target.scope === "projet" && this.#tracked(target.file)) {
         w(
-          `${YELLOW}⚠ ${cible.fichier} est SUIVI par git — rien n'est écrit.${RESET}\n` +
+          `${YELLOW}⚠ ${target.file} est SUIVI par git — rien n'est écrit.${RESET}\n` +
             `${DIM}  Un jeton commité est un jeton publié.${RESET}\n\n`,
         );
         continue;
       }
-      const abs = path.resolve(racine, cible.fichier);
+      const abs = path.resolve(root, target.file);
       // Lire d'abord, traiter l'absence ensuite : `existsSync` puis `read` teste
       // un état qui peut changer avant l'usage — et l'on écrit ici un SECRET.
       const pose = poseVariable(
-        cible.forme,
-        lireSiPresentSync(abs) ?? "",
+        target.forme,
+        readIfPresentSync(abs) ?? "",
         MCP_TOKEN_ENV,
-        jeton,
+        token,
       );
       if (pose instanceof Error) {
         w(
-          `${YELLOW}⚠ ${cible.fichier} : ${pose.message} — rien n'est écrit.${RESET}\n\n`,
+          `${YELLOW}⚠ ${target.file} : ${pose.message} — rien n'est écrit.${RESET}\n\n`,
         );
         continue;
       }
@@ -257,10 +258,10 @@ class SecurityToken extends Command {
         // 🔴 Ce fichier porte un JETON. Écrit au masque par défaut, il serait
         // lisible par tout compte de la machine — et rien ne le signalerait.
         // Même écriture que la clé privée du keystore : 0600, atomique.
-        ecrireSecretSync(abs, pose);
+        writeSecretSync(abs, pose);
       } catch (error) {
         w(
-          `${YELLOW}⚠ ${cible.fichier} : écriture impossible — ${(error as Error).message}${RESET}\n\n`,
+          `${YELLOW}⚠ ${target.file} : écriture impossible — ${(error as Error).message}${RESET}\n\n`,
         );
         continue;
       }
@@ -268,25 +269,25 @@ class SecurityToken extends Command {
       // FAT/exFAT ou NFS sans mapping). On le CONSTATE plutôt que de le déduire
       // de la plateforme — et s'il n'a pas pris, on le dit à celui qui vient de
       // déposer un secret, au moment où il peut encore agir.
-      const modeObtenu = modeNonRestreint(abs);
-      if (typeof modeObtenu === "number") {
-        w(`${YELLOW}⚠ ${messageNonRestreint(abs, modeObtenu)}${RESET}\n`);
+      const resolvedMode = modeNonRestreint(abs);
+      if (typeof resolvedMode === "number") {
+        w(`${YELLOW}⚠ ${messageNonRestreint(abs, resolvedMode)}${RESET}\n`);
       }
       w(
-        `${GREEN}✓ ${MCP_TOKEN_ENV} posé pour ${cible.nom}${RESET} ` +
+        `${GREEN}✓ ${MCP_TOKEN_ENV} posé pour ${target.name}${RESET} ` +
           // Le chemin AFFICHÉ est celui qu'on a réellement écrit : rendre
           // « .env » pour un fichier qui vit dans le dossier de l'utilisateur
           // le ferait confondre avec celui du projet, et chercher au mauvais
           // endroit le jour où quelque chose cloche.
-          `${DIM}(${cible.portee === "projet" ? cible.fichier : abs})${RESET}\n` +
+          `${DIM}(${target.scope === "projet" ? target.file : abs})${RESET}\n` +
           `${DIM}  RELANCE-le : il lit sa configuration au démarrage.${RESET}\n`,
       );
       // Le fichier n'est pas suivi AUJOURD'HUI — mais rien n'empêche un
       // `git add -A` de l'emporter demain. Un jeton commité est un jeton
       // publié : la seule faute de cette commande qui serait irrattrapable.
-      if (cible.portee === "projet" && !this.#gitIgnored(cible.fichier)) {
+      if (target.scope === "projet" && !this.#gitIgnored(target.file)) {
         w(
-          `${YELLOW}  ⚠ ${cible.fichier} n'est PAS couvert par .gitignore — ` +
+          `${YELLOW}  ⚠ ${target.file} n'est PAS couvert par .gitignore — ` +
             `un « git add -A » l'emporterait.${RESET}\n`,
         );
       }
@@ -329,7 +330,7 @@ class SecurityToken extends Command {
    * deux `kid` distincts pour la même application, et un troisième après un
    * redémarrage.
    */
-  #cleEphemere(): boolean {
+  #ephemeralKey(): boolean {
     const modules = this.kernel?.modules as
       Record<string, { options?: Record<string, unknown> }> | undefined;
     const jwt = (
@@ -412,9 +413,9 @@ class SecurityToken extends Command {
     // Ce défaut n'accorde rien de plus : `TokenService` retire les scopes
     // d'administration qu'un porteur non administrateur ne peut pas obtenir.
     // La sortie ci-dessous affiche ce qui a été RÉELLEMENT accordé.
-    const scopesDemandes = (opts.scope ?? "").split(/\s+/u).filter(Boolean);
+    const requestedScopes = (opts.scope ?? "").split(/\s+/u).filter(Boolean);
     const scopes =
-      scopesDemandes.length > 0 ? scopesDemandes : [ADMIN_SCOPE_READ];
+      requestedScopes.length > 0 ? requestedScopes : [ADMIN_SCOPE_READ];
     // Une durée EXPLICITE, bornée. Le défaut de configuration (15 min) est
     // taillé pour un jeton d'API qu'un client rafraîchit ; l'en-tête statique
     // d'un agent, lui, n'est renouvelé par personne — le porteur revient toutes
@@ -427,9 +428,9 @@ class SecurityToken extends Command {
       process.exitCode = 1;
       return this;
     }
-    let emis;
+    let issued;
     try {
-      emis = await tokens.issueTokens(user, scopes, resource, ttlS);
+      issued = await tokens.issueTokens(user, scopes, resource, ttlS);
     } catch (e) {
       // `invalid_target` en clair. L'émetteur refuse une audience qu'il ne sert
       // pas, et il a RAISON de ne rien dire de plus (énumérer les audiences
@@ -485,17 +486,17 @@ class SecurityToken extends Command {
       }
       throw e;
     }
-    const jeton = emis.access_token;
+    const token = issued.access_token;
     // 🔴 Ce qui est RENDU, ce sont les scopes ACCORDÉS, jamais ceux demandés :
     // l'émetteur retire ceux que ce porteur ne peut pas obtenir (RFC 6749 §3.3
     // l'y autorise à condition de le dire). Afficher la demande ferait croire à
     // un pouvoir que le jeton n'a pas, et le refus arriverait plus tard, ailleurs.
-    const accordes = (emis.scope ?? "").split(/\s+/u).filter(Boolean);
+    const accordes = (issued.scope ?? "").split(/\s+/u).filter(Boolean);
     const nonAccordes = scopes.filter((s) => !accordes.includes(s));
 
     if (opts.json) {
       process.stdout.write(
-        `${JSON.stringify({ access_token: jeton, resource, scopes: accordes, requested: scopes, expires_in: emis.expires_in }, null, 2)}\n`,
+        `${JSON.stringify({ access_token: token, resource, scopes: accordes, requested: scopes, expires_in: issued.expires_in }, null, 2)}\n`,
       );
       return this;
     }
@@ -505,15 +506,15 @@ class SecurityToken extends Command {
     };
     // Sans `--write` mais en terminal : proposer de poser la valeur plutôt que
     // de laisser copier un jeton de 400 caractères à la main.
-    let ecrire = opts.write === true;
-    if (!ecrire && process.stdin.isTTY && !opts.json) {
+    let write = opts.write === true;
+    if (!write && process.stdin.isTTY && !opts.json) {
       await this.loadPrompts();
-      ecrire = await this.prompts.confirm({
+      write = await this.prompts.confirm({
         message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
         default: true,
       });
     }
-    if (this.#cleEphemere()) {
+    if (this.#ephemeralKey()) {
       // Avant le jeton, pas après : on ne laisse pas copier une valeur dont on
       // sait qu'elle sera refusée.
       w(
@@ -526,7 +527,7 @@ class SecurityToken extends Command {
           `    ou, en production, keySetJson depuis l'environnement.${RESET}\n`,
       );
     }
-    const minutes = Math.round((emis.expires_in ?? 0) / 60);
+    const minutes = Math.round((issued.expires_in ?? 0) / 60);
     w(
       `\n${BOLD}🔑 Jeton d'accès${RESET} ${DIM}— compte ${identifier}, audience ${resource}${RESET}\n` +
         `${DIM}   valable ${minutes} min${accordes.length ? `, scopes : ${accordes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,
@@ -539,7 +540,7 @@ class SecurityToken extends Command {
       );
     }
 
-    if (ecrire) {
+    if (write) {
       // 🔴 Le jeton ne va PLUS dans `.env.local`, et c'est un retrait motivé :
       // AUCUN code de l'application ne lit `NF_MCP_TOKEN`. C'est cohérent — une
       // application est ici le serveur de RESSOURCE : elle vérifie les jetons
@@ -548,69 +549,65 @@ class SecurityToken extends Command {
       // agent — le cherchait ailleurs et recevait un 401 qui accusait le jeton.
       // Et la duplication ne survivait pas à la première rotation : le fichier
       // refusait d'être touché quand les agents, eux, recevaient le neuf.
-      const demandes = agentsDemandes(opts.agent);
-      if (demandes instanceof Error) {
-        this.log(demandes.message, "ERROR");
+      const requested = requestedAgents(opts.agent);
+      if (requested instanceof Error) {
+        this.log(requested.message, "ERROR");
         process.exitCode = 1;
         return this;
       }
-      let cibles = demandes ?? [];
-      if (demandes === undefined) {
+      let targets = requested ?? [];
+      if (requested === undefined) {
         const presents = this.#agentsPresents();
         // ⭐ ROTATION : un agent qui PORTE déjà la clé a été câblé un jour. Le
         // relancer doit la mettre à jour SANS reposer la question — sinon
         // renouveler un jeton redevient un questionnaire, et c'est le geste le
         // plus fréquent. L'état n'est pas mémorisé : il est lu là où il vit.
         const porteurs = presents.filter((c) =>
-          porteDejaLaCle(c.forme, this.#contenuDe(c), MCP_TOKEN_ENV),
+          alreadyHasKey(c.forme, this.#contentOf(c), MCP_TOKEN_ENV),
         );
-        const nouveaux = presents.filter((c) => !porteurs.includes(c));
-        cibles = porteurs;
-        if (
-          porteurs.length === 0 &&
-          nouveaux.length > 0 &&
-          process.stdin.isTTY
-        ) {
+        const added = presents.filter((c) => !porteurs.includes(c));
+        targets = porteurs;
+        if (porteurs.length === 0 && added.length > 0 && process.stdin.isTTY) {
           // PREMIÈRE fois : écrire dans la configuration d'un autre outil est un
           // geste qui se voit et se refuse, donc on propose.
           // Par la porte du cœur : les questions en sortent ancrées sur l'event
           // loop (cf `cli/prompts.ts`). Un import direct recrée le défaut.
           const { checkbox } = await chargePrompts();
-          const choisis = (await checkbox({
+          const chosen = (await checkbox({
             message: "Poser le jeton chez quels agents ?",
-            choices: nouveaux.map((c) => ({
-              name: `${c.nom} — ${c.portee === "projet" ? c.fichier : `$${c.home}/${c.fichier}`}`,
-              value: c.cle,
+            choices: added.map((c) => ({
+              name: `${c.name} — ${c.scope === "projet" ? c.file : `$${c.home}/${c.file}`}`,
+              value: c.key,
               checked: true,
             })),
           })) as string[];
-          cibles = nouveaux.filter((c) => choisis.includes(c.cle));
+          targets = added.filter((c) => chosen.includes(c.key));
         } else if (porteurs.length === 0) {
           // Hors terminal : servir ce qui est détecté, sinon la commande ne
           // ferait rien du tout dans un script.
-          cibles = nouveaux;
-        } else if (nouveaux.length > 0) {
+          targets = added;
+        } else if (added.length > 0) {
           // Des agents sont là mais n'ont jamais été câblés : le DIRE, sans
           // décider à leur place — la rotation ne doit pas élargir le périmètre.
           w(
-            `${DIM}  ${nouveaux.map((c) => c.nom).join(", ")} ` +
-              `${nouveaux.length > 1 ? "sont présents" : "est présent"} mais ne porte` +
-              `${nouveaux.length > 1 ? "nt" : ""} pas encore le jeton — ` +
-              `ajoute --agent ${nouveaux.map((c) => c.cle).join(",")}.${RESET}\n\n`,
+            `${DIM}  ${added.map((c) => c.name).join(", ")} ` +
+              `${added.length > 1 ? "sont présents" : "est présent"} mais ne porte` +
+              `${added.length > 1 ? "nt" : ""} pas encore le jeton — ` +
+              `ajoute --agent ${added.map((c) => c.key).join(",")}.${RESET}\n\n`,
           );
         }
       }
-      const servis = this.#poseChezAgents(jeton, w, cibles);
+      const servis = this.#writeForAgents(token, w, targets);
       if (servis === 0) {
         w(
           `${YELLOW}⚠ aucun agent reconnu dans ce projet — rien n'est écrit.${RESET}\n` +
             `${DIM}  Les agents connus rangent leur configuration ici :${RESET}\n` +
             AGENT_TARGETS.map(
               (c) =>
-                `${DIM}    ${c.nom} : ${c.portee === "projet" ? c.fichier : `$${c.home ?? "HOME"}/${c.fichier}`}${RESET}\n`,
+                `${DIM}    ${c.name} : ${c.scope === "projet" ? c.file : `$${c.home ?? "HOME"}/${c.file}`}${RESET}\n`,
             ).join("") +
             `\n  Le geste qui vaut pour TOUS — dans le shell d'où tu lances l'agent :\n\n` +
-            `  ${BOLD}export ${MCP_TOKEN_ENV}=${jeton}${RESET}\n\n`,
+            `  ${BOLD}export ${MCP_TOKEN_ENV}=${token}${RESET}\n\n`,
         );
       }
       w(
@@ -624,7 +621,7 @@ class SecurityToken extends Command {
       return this;
     }
 
-    w(`  export ${MCP_TOKEN_ENV}=${jeton}\n\n`);
+    w(`  export ${MCP_TOKEN_ENV}=${token}\n\n`);
     w(
       `${DIM}  --write pose la valeur chez les agents présents · nodefony ai:mcp --auth câble .mcp.json${RESET}\n\n`,
     );

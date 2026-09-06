@@ -96,7 +96,7 @@ export interface ILogSink {
 
 // Sink par défaut : stdout/stderr direct (isomorphe — navigateur : console.* +
 // ANSI strip). = comportement HISTORIQUE EXACT → 0 régression quand non configuré.
-// Utilisé hors buffer, par le flush, et par le SPINNER (animation `\r`).
+// Utilisé hors buffer et par le flush.
 const _stdoutSink: ILogSink = {
   name: "stdout",
   writeOut(s: string): void {
@@ -128,7 +128,7 @@ let _sink: ILogSink = _stdoutSink;
 // false → 0 surcoût (un test booléen par ligne, le sink écrit normalement).
 let _sinkMuted = false;
 
-// Écriture immédiate (hors buffer / flush / SPINNER) — route vers le driver actif.
+// Écriture immédiate (hors buffer / flush) — route vers le driver actif.
 const _writeStdoutNow = (s: string): void => {
   if (!_sinkMuted) _sink.writeOut(s);
 };
@@ -637,7 +637,7 @@ class Syslog extends Event implements ISyslog {
   /**
    * Cumul monotone des logs de classe ERREUR (sévérité 0–3 : ERROR/CRITIC/ALERT/EMERGENCY)
    * acceptés depuis la construction. Compteur entier O(1) bumpé dans le seul point de passage
-   * {@link pushStack} (0 alloc, hors SPINNER `-1`) → sonde « erreurs par worker » de la santé
+   * {@link pushStack} (0 alloc) → sonde « erreurs par worker » de la santé
    * pod (cf `IInstanceErrorHealth`). Débit dérivé côté lecteur (delta `errorTotal`/ts).
    */
   public errorTotal: number;
@@ -676,8 +676,10 @@ class Syslog extends Event implements ISyslog {
    * grave) est court-circuité AVANT toute allocation. Posé par {@link init}
    * (production sans debug → 6 = DEBUG gaté), **re-résoluble à chaud** via
    * {@link setSeverityThreshold} (vision « audit à chaud » : élever la
-   * verbosité prod sur une fenêtre bornée sans redémarrer). SPINNER (-1)
-   * passe toujours. Compteur {@link gated} pour l'introspection.
+   * verbosité prod sur une fenêtre bornée sans redémarrer). Une sévérité
+   * INCONNUE (`-1`) passe toujours — c'est `createPDU` qui la refuse, et le
+   * gate ne doit pas transformer une erreur d'usage en silence. Compteur
+   * {@link gated} pour l'introspection.
    */
   private _severityThreshold: number | null = null;
   /** Pdu singleton retourné par un log gaté (contrat `log(): Pdu`, 1 alloc lazy). */
@@ -1135,7 +1137,7 @@ class Syslog extends Event implements ISyslog {
   pushStack(pdu: Pdu): number {
     if (this._ringEnabled) this._ring.push(pdu);
     this.valid++;
-    // Sonde « erreurs par worker » : 2 incréments entiers gardés (hors SPINNER `-1`).
+    // Sonde « erreurs par worker » : 2 incréments entiers gardés.
     // 0–3 = ERROR/CRITIC/ALERT/EMERGENCY ; 0–2 = sous-ensemble CRITIQUE. 0 alloc, hot path.
     const sev = pdu.severity;
     if (sev >= 0 && sev <= 3) {
@@ -1168,8 +1170,8 @@ class Syslog extends Event implements ISyslog {
   ): Pdu {
     // T2 — gate d'ENTRÉE par sévérité (résolu au boot, re-résoluble à chaud) :
     // sous le seuil → AUCUN Pdu créé, RIEN au ring/transports/listeners.
-    // SPINNER (-1) et sévérité inconnue (-1 → createPDU jettera comme avant)
-    // passent toujours. Coût hot path : 1 test null + 1 lookup map.
+    // Une sévérité INCONNUE (`-1`) passe toujours : `createPDU` la refuse
+    // ensuite, comme avant. Coût hot path : 1 test null + 1 lookup map.
     if (this._severityThreshold !== null) {
       const sev =
         payload instanceof Pdu
@@ -1604,12 +1606,6 @@ class Syslog extends Event implements ISyslog {
       return pdu;
     }
     const message = pdu.payload;
-    if (pdu.severity === -1) {
-      _writeStdoutNow("[0G");
-      _writeStdoutNow(`${green(pdu.msgid)} : ${String(message)}`);
-      _writeStdoutNow("[90m[0m");
-      return pdu;
-    }
     const wrap = Syslog.wrapper(pdu);
     // Préfixe pid seulement si fourni — en dev mono-process il est vide et un
     // espace seul polluait le début de chaque ligne.
@@ -1621,12 +1617,6 @@ class Syslog extends Event implements ISyslog {
   // process.stdout/stderr direct — single write(), no console overhead
   static rawLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) return pdu;
-    if (pdu.severity === -1) {
-      _writeStdoutNow(
-        `\r${green(pdu.msgid)} : ${String(pdu.payload)}\x1b[90m\x1b[0m`,
-      );
-      return pdu;
-    }
     const write = pdu.severity <= 3 ? writeErr : writeOut;
     const { text } = Syslog.wrapper(pdu);
     const msg =

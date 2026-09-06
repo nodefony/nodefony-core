@@ -1,0 +1,421 @@
+/**
+ * Étage 3 de `doctor` — ce que le projet DÉCLARE, réellement exécuté.
+ *
+ * Les autres étages lisent : des fichiers, des manifestes, l'application
+ * démarrée. Celui-ci LANCE — les scripts que l'application déclare déjà
+ * (`typecheck`, `lint`, `test`) et l'interrogation du registre npm.
+ *
+ * ## Pourquoi ce n'est pas le comportement par défaut
+ *
+ * `doctor` rend son verdict en moins d'une seconde, et c'est ce qui le rend
+ * lançable en boucle courte, avant chaque commit, dans un job de forge. Lancer
+ * une suite de tests et une requête réseau le ferait passer à des dizaines de
+ * secondes — et un diagnostic qui coûte une minute cesse d'être lancé. Le dépôt
+ * en a la preuve : un lot d'auto-contrôles écrit, juste, et resté un mois sans
+ * que personne ne l'exécute, parce qu'il fallait taper huit commandes.
+ *
+ * D'où `--deep` : deux publics, deux régimes. La boucle courte veut un verdict
+ * immédiat ; celui qui prépare un déploiement veut tout.
+ *
+ * ## Ce que cet étage n'invente pas
+ *
+ * Il n'implémente AUCUN contrôle en propre. Il appelle les scripts du projet et
+ * rend leur verdict — une seule implémentation par règle, celle que le projet a
+ * déjà écrite. Redéfinir ici « ce que typecheck devrait vérifier » créerait une
+ * seconde vérité qui divergerait de la première au premier ajout.
+ *
+ * @module
+ */
+import path from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { aggregateOutdated, type IOutdatedSummary } from "../../cli/outdated";
+import type { NpmOutdatedReport } from "../../cli/outdated";
+
+/**
+ * Le temps au-delà duquel on cesse d'attendre un script, en millisecondes.
+ *
+ * 🔴 Vécu, et cher : `npm audit` ne rendait pas d'erreur — il PENDAIT cinq
+ * minutes par essai et tuait le job de forge. Une commande qui n'a pas de borne
+ * de temps n'échoue pas, elle immobilise ; et l'opérateur conclut que l'outil
+ * est cassé, jamais que le réseau ne répond pas.
+ */
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+/**
+ * Bornes PAR ÉTAPE — une suite de tests n'est pas un `typecheck`.
+ *
+ * 🔴 Vécu sur ce dépôt même : une borne unique de deux minutes condamnait
+ * d'office la suite de tout projet sérieux. Ici 3 699 tests : `--deep` rendait
+ * TOUJOURS « ⏱ npm run test — interrompu », c'est-à-dire un rouge qui ne disait
+ * rien du projet et tout de l'instrument. Un outil de diagnostic qui accuse le
+ * mesuré pour un défaut de sa propre mesure est pire qu'un outil absent : on
+ * apprend à ignorer ce qu'il dit.
+ *
+ * Les valeurs sont des ORDRES DE GRANDEUR, pas des promesses : ce qui compte
+ * est qu'elles soient distinctes, et qu'un dépassement ne se lise pas comme un
+ * échec du projet (cf `outcome: "timeout"`, classé EMPÊCHÉ).
+ */
+const STEP_TIMEOUTS: Readonly<Record<string, number>> = {
+  // Compilation et style : rapides, et un dépassement est vraiment suspect.
+  lint: 120_000,
+  format: 120_000,
+  "format:check": 120_000,
+  typecheck: 300_000,
+  build: 600_000,
+  // Les suites de tests. Un dépôt de framework en porte des milliers ; la
+  // borne existe pour attraper un blocage, pas pour arbitrer une durée.
+  test: 1_800_000,
+  "test:unit": 1_800_000,
+  "test:integration": 1_800_000,
+  verify: 1_800_000,
+};
+
+/** La borne à appliquer à une étape, à défaut la borne générale. */
+export function timeoutForStep(step: string): number {
+  return STEP_TIMEOUTS[step] ?? DEFAULT_TIMEOUT_MS;
+}
+
+/** Le temps accordé au registre npm — plus court : c'est du réseau, pas du calcul. */
+const NETWORK_TIMEOUT_MS = 30_000;
+
+/**
+ * Ce qu'un étage profond ANNONCE pendant qu'il travaille.
+ *
+ * `--deep` lance des scripts qui prennent des minutes. Sans un mot, la commande
+ * paraît bloquée — et un utilisateur qui croit un outil bloqué l'interrompt,
+ * puis cesse de s'en servir. L'annonce n'est donc pas un confort : c'est ce qui
+ * rend l'étage utilisable.
+ *
+ * Deux évènements par script, `start` puis `done` : le premier dit CE QUI est
+ * en cours (la seule information utile pendant l'attente), le second ce qu'il a
+ * donné et en combien de temps.
+ */
+export interface IDeepProgress {
+  /** Le nom du script, ou `outdated` pour l'interrogation du registre. */
+  step: string;
+  phase: "start" | "done";
+  /** Renseignés sur `done` seulement. */
+  outcome?: IVerifyStepResult["outcome"] | "ok" | "unavailable";
+  ms?: number;
+}
+
+/** Ce qui reçoit les annonces — `undefined` quand personne n'écoute. */
+export type DeepReporter = (event: IDeepProgress) => void;
+
+/** Le verdict d'un script déclaré par le projet, une fois lancé. */
+export interface IVerifyStepResult {
+  /** Le nom du script, tel qu'il figure dans `scripts` du manifeste. */
+  step: string;
+  /**
+   * Ce qui s'est passé.
+   *
+   * `absent` n'est PAS un échec de cet étage : c'est le contrôle « les gardes
+   * du projet sont-elles armées ? » qui en répond, et le dire deux fois ferait
+   * compter un manquement pour deux.
+   */
+  outcome: "passed" | "failed" | "absent" | "timeout";
+  /** La première ligne utile de la sortie, quand il a échoué. */
+  detail?: string;
+  /** Durée d'exécution, en millisecondes. */
+  ms: number;
+}
+
+/** Ce que l'étage profond a pu établir — et ce qu'il n'a PAS pu. */
+export interface IDeepResult {
+  steps: IVerifyStepResult[];
+  /** Le résumé des paquets en retard, ou `null` si le registre n'a pas répondu. */
+  outdated: IOutdatedSummary | null;
+  /** Pourquoi le registre n'a rien dit — vide quand il a répondu. */
+  outdatedReason: string;
+}
+
+/**
+ * Les scripts que le manifeste déclare, parmi ceux qu'on sait lancer.
+ *
+ * On ne lance QUE ce que le projet déclare : inventer une commande qu'il n'a
+ * pas (`npx tsc`, par exemple) reviendrait à juger une application sur un
+ * outillage qu'elle n'a pas choisi.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param steps - les noms de scripts à chercher, dans l'ordre d'exécution.
+ * @returns les noms présents, et ceux qui manquent.
+ */
+export function declaredSteps(
+  projectRoot: string,
+  steps: readonly string[],
+): { present: string[]; missing: string[] } {
+  const manifeste = path.join(projectRoot, "package.json");
+  if (!existsSync(manifeste)) return { present: [], missing: [...steps] };
+  let scripts: Record<string, unknown> = {};
+  try {
+    const pkg = JSON.parse(readFileSync(manifeste, "utf8")) as {
+      scripts?: Record<string, unknown>;
+    };
+    scripts = pkg.scripts ?? {};
+  } catch {
+    // Un manifeste illisible est un problème que d'autres contrôles nomment ;
+    // ici on constate seulement qu'on n'a rien à lancer.
+    return { present: [], missing: [...steps] };
+  }
+  const present: string[] = [];
+  const missing: string[] = [];
+  for (const s of steps) {
+    if (typeof scripts[s] === "string") present.push(s);
+    else missing.push(s);
+  }
+  return { present, missing };
+}
+
+/**
+ * La première ligne qui NOMME l'échec, en sautant l'annonce de l'exécuteur.
+ *
+ * 🔴 Un script lancé par `npm run` reçoit d'abord `npm notice run <app> <nom>`.
+ * Retenir cette ligne explique l'échec par le nom du script, jamais par la
+ * cause — et le rapport devient inutile sans qu'on s'en aperçoive : il a
+ * l'apparence d'une explication. Le bruit est donc sauté sur les DEUX flux
+ * avant de se rabattre sur l'un d'eux.
+ *
+ * @param stderr - canal d'erreur du script.
+ * @param stdout - sa sortie standard.
+ * @returns la ligne utile, bornée, ou une chaîne vide s'il s'est tu.
+ */
+export function firstUsefulLine(stderr: string, stdout: string): string {
+  const bruit =
+    /^(?:npm (?:notice|warn|WARN|ERR!)\b|>\s|\$\s|yarn run |pnpm )/u;
+  const streams = [stderr, stdout];
+  for (const f of streams) {
+    const useful = f
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !bruit.test(l));
+    if (useful.length > 0) return clamp(useful[0] as string);
+  }
+  for (const f of streams) {
+    const lines = f.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length > 0) return clamp((lines[0] as string).trim());
+  }
+  return "";
+}
+
+/** Borne une explication : une trace entière rend le rapport illisible. */
+function clamp(line: string): string {
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
+}
+
+/**
+ * Lance les scripts déclarés, dans l'ordre, et rend leur verdict.
+ *
+ * L'ordre compte : `typecheck` avant `test`, parce qu'un type faux fait échouer
+ * la suite pour une raison qui n'a rien à voir avec elle, et qu'on veut lire la
+ * cause d'abord.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param steps - les scripts à lancer, dans l'ordre.
+ * @param run - l'exécuteur, injecté pour que la logique s'éprouve sans lancer
+ *   quoi que ce soit : une fonction qui appelle `spawnSync` en dur ne se teste
+ *   que sur la machine qui l'exécute, c'est-à-dire nulle part.
+ * @returns un verdict par script demandé.
+ */
+export async function runVerifySteps(
+  projectRoot: string,
+  steps: readonly string[],
+  run: (step: string) => IStepRun | Promise<IStepRun> = (step) =>
+    runNpmScript(projectRoot, step),
+  report?: DeepReporter,
+): Promise<IVerifyStepResult[]> {
+  const { present } = declaredSteps(projectRoot, steps);
+  const results: IVerifyStepResult[] = [];
+  for (const step of steps) {
+    if (!present.includes(step)) {
+      // Un script absent n'est pas ANNONCÉ : rien n'a été lancé, et prévenir
+      // qu'on ne lance pas quelque chose ajoute du bruit à une attente.
+      results.push({ step, outcome: "absent", ms: 0 });
+      continue;
+    }
+    report?.({ step, phase: "start" });
+    const r = await run(step);
+    if (r.status === null) {
+      report?.({ step, phase: "done", outcome: "timeout", ms: r.ms });
+      results.push({
+        step,
+        outcome: "timeout",
+        ms: r.ms,
+        detail:
+          `interrompu après ${Math.round(r.ms / 1000)} s — la borne de CE contrôle ` +
+          `(${Math.round(timeoutForStep(step) / 1000)} s) était trop courte, ce qui ne dit rien du projet. ` +
+          `Relance l'étape seule : npm run ${step}`,
+      });
+      continue;
+    }
+    report?.({
+      step,
+      phase: "done",
+      outcome: r.status === 0 ? "passed" : "failed",
+      ms: r.ms,
+    });
+    results.push(
+      r.status === 0
+        ? { step, outcome: "passed", ms: r.ms }
+        : {
+            step,
+            outcome: "failed",
+            ms: r.ms,
+            detail: firstUsefulLine(r.stderr, r.stdout),
+          },
+    );
+  }
+  return results;
+}
+
+/** Ce que rend l'exécution d'un script : son verdict brut, avant jugement. */
+export interface IStepRun {
+  status: number | null;
+  stderr: string;
+  stdout: string;
+  ms: number;
+}
+
+/**
+ * Lance un script npm du projet, borné dans le temps — de façon ASYNCHRONE.
+ *
+ * 🔴 **`spawnSync` est ce qui empêchait toute animation, et rien ne le disait.**
+ * Un appel synchrone bloque la boucle d'évènements de Node : aucun `setInterval`
+ * ne s'y déclenche. Le tourniquet de `--deep` peignait donc sa PREMIÈRE image
+ * puis restait figé pendant les trente-huit secondes du `typecheck` — le point
+ * fixe exact qu'il était censé remplacer.
+ *
+ * Le défaut ne pouvait pas se voir en éprouvant le tourniquet : celui-ci est
+ * juste, et ses vingt-sept cas passent. Il ne se voyait qu'en regardant la
+ * CHAÎNE tourner dans un vrai terminal. C'est le motif « la brique éprouvée, la
+ * chaîne jamais », et il coûte à chaque fois le même prix.
+ *
+ * @param projectRoot - la racine de l'application.
+ * @param step - le script npm à lancer.
+ * @returns son code de sortie (`null` = tué par la borne), ses flux et sa durée.
+ */
+function runNpmScript(projectRoot: string, step: string): Promise<IStepRun> {
+  const timeout = timeoutForStep(step);
+  const startedAt = Date.now();
+  return new Promise<IStepRun>((resolve) => {
+    const child = spawn("npm", ["run", step], {
+      cwd: projectRoot,
+      timeout,
+      // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse
+      // d'exécuter sans shell depuis le correctif de CVE-2024-27980 — et il
+      // rend `ENOENT`, qui se lit « npm n'est pas installé » sur une machine
+      // où il l'est.
+      shell: process.platform === "win32",
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (c: string) => (stdout += c));
+    child.stderr?.on("data", (c: string) => (stderr += c));
+    const done = (status: number | null): void =>
+      resolve({ status, stderr, stdout, ms: Date.now() - startedAt });
+    // `npm` introuvable, droits refusés : un échec de LANCEMENT n'est pas un
+    // échec du script, mais il doit rendre la main plutôt que pendre.
+    child.on("error", (e: Error) => {
+      stderr += `${e.message}\n`;
+      done(1);
+    });
+    child.on("close", (code, signal) => {
+      // `signal` posé = tué par la borne de temps, pas terminé : rendre `null`,
+      // et ne JAMAIS le confondre avec 0, qui ferait passer un dépassement
+      // pour un succès.
+      done(signal ? null : (code ?? 1));
+    });
+  });
+}
+
+/**
+ * Le résumé des paquets en retard, via la MÊME agrégation que `nodefony outdated`.
+ *
+ * `aggregateOutdated` est appelée, jamais recopiée : elle porte le classement
+ * par sévérité (majeure / mineure / correctif) et le regroupement par paquet.
+ * Une seconde implémentation ici divergerait au premier ajustement, et les deux
+ * passeraient leurs propres tests.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param run - l'exécuteur, injecté pour l'épreuve.
+ * @returns le résumé, ou la raison de son absence.
+ */
+export async function readOutdated(
+  projectRoot: string,
+  run: () => IOutdatedRun | Promise<IOutdatedRun> = () =>
+    runNpmOutdated(projectRoot),
+  report?: DeepReporter,
+): Promise<{ summary: IOutdatedSummary | null; reason: string }> {
+  const debut = Date.now();
+  report?.({ step: "outdated", phase: "start" });
+  const r = await run();
+  const annoncer = (outcome: "ok" | "unavailable"): void =>
+    report?.({
+      step: "outdated",
+      phase: "done",
+      outcome,
+      ms: Date.now() - debut,
+    });
+  if (r.failed) {
+    annoncer("unavailable");
+    return {
+      summary: null,
+      reason:
+        "le registre npm n'a pas répondu dans le temps imparti — ce n'est " +
+        "pas un défaut de l'application, et rien n'en est déduit",
+    };
+  }
+  // `npm outdated` sort en 1 quand il TROUVE des paquets en retard : son code
+  // de sortie n'est donc pas un verdict, seulement un compte. Ne pas le lire
+  // comme un échec est ce qui distingue « rien à signaler » de « rien lu ».
+  if (r.stdout.trim().length === 0) {
+    annoncer("ok");
+    return { summary: aggregateOutdated({}), reason: "" };
+  }
+  try {
+    const summary = aggregateOutdated(
+      JSON.parse(r.stdout) as NpmOutdatedReport,
+    );
+    annoncer("ok");
+    return { summary, reason: "" };
+  } catch {
+    annoncer("unavailable");
+    return {
+      summary: null,
+      reason: "la réponse du registre npm n'était pas lisible",
+    };
+  }
+}
+
+/** Ce que rend l'interrogation du registre. */
+export interface IOutdatedRun {
+  stdout: string;
+  failed: boolean;
+}
+
+/**
+ * Interroge le registre, borné — le réseau ne se laisse pas attendre.
+ *
+ * Asynchrone pour la MÊME raison que {@link runNpmScript} : un `spawnSync` fige
+ * la boucle d'évènements, donc l'animation de l'attente. Corriger un seul des
+ * deux appels aurait laissé le tourniquet immobile pendant les trente secondes
+ * de cette étape-ci — une moitié de correctif qu'on aurait crue entière.
+ */
+function runNpmOutdated(projectRoot: string): Promise<IOutdatedRun> {
+  return new Promise<IOutdatedRun>((resolve) => {
+    const child = spawn("npm", ["outdated", "--json"], {
+      cwd: projectRoot,
+      timeout: NETWORK_TIMEOUT_MS,
+      shell: process.platform === "win32",
+    });
+    let stdout = "";
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (c: string) => (stdout += c));
+    child.on("error", () => resolve({ stdout: "", failed: true }));
+    child.on("close", (_code, signal) =>
+      resolve({ stdout, failed: Boolean(signal) }),
+    );
+  });
+}

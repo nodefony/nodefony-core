@@ -29,7 +29,7 @@
  * `@env` NF_BROWSER_FULLPAGE 1 = capture la page ENTIÈRE (défaut : la fenêtre)
  * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`)
  * `@env` NF_BROWSER_WIDTHS largeurs de la famille responsive (défaut 360,768,1280)
- * `@env` NF_BROWSER_SEUIL_LOURD octets au-delà desquels une ressource est « lourde » (défaut 512000)
+ * `@env` NF_BROWSER_SEUIL_LOURD bytes au-delà desquels une ressource est « lourde » (défaut 512000)
  * `@env` NF_BROWSER_SEUIL_LENT millisecondes au-delà desquelles une réponse est « lente » (défaut 1000)
  * `@requires` conteneur du profil `browser` démarré · serveur joignable depuis le conteneur
  * `@output` un objet JSON sur stdout + une capture PNG horodatée dans /output
@@ -38,15 +38,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import * as decor from "./lib/browser.mjs";
-import { open, goTo, LOGIN, SORTIE } from "./lib/browser.mjs";
+import { open, goTo, LOGIN, OUTPUT } from "./lib/browser.mjs";
 import { sourceWcag } from "./lib/wcag.mjs";
 import {
-  FAMILLES,
+  FAMILIES,
   parseActions,
   parseFamilies,
   parseProbes,
   parseWidths,
-  resumeAxe,
+  summarizeAxe,
   verdictGlobal,
 } from "./lib/probes.mjs";
 
@@ -88,20 +88,20 @@ const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
  */
 const ACTIONS = parseActions(process.env.NF_BROWSER_ACTIONS);
 
-const { retenues, inconnues } = parseFamilies(process.env.NF_BROWSER_FAMILIES);
-if (inconnues.length > 0) {
+const { kept, unknown } = parseFamilies(process.env.NF_BROWSER_FAMILIES);
+if (unknown.length > 0) {
   // Refuser, jamais ignorer : une famille fautée en silence ferait croire
   // qu'on a mesuré ce qu'on n'a pas mesuré.
   console.error(
-    `Famille(s) de sondes inconnue(s) : ${inconnues.join(", ")}\n` +
+    `Famille(s) de sondes inconnue(s) : ${unknown.join(", ")}\n` +
       `Familles disponibles (ou « toutes ») :\n` +
-      Object.entries(FAMILLES)
-        .map(([nom, description]) => `  ${nom} — ${description}`)
+      Object.entries(FAMILIES)
+        .map(([name, description]) => `  ${name} — ${description}`)
         .join("\n"),
   );
   process.exit(64); // EX_USAGE
 }
-const actives = new Set(retenues);
+const active = new Set(kept);
 
 /**
  * Sondes de style par défaut — surchargées par NF_BROWSER_PROBES.
@@ -112,12 +112,12 @@ const actives = new Set(retenues);
  * fait l'inverse — elle mesure une IMPLÉMENTATION et doit viser la classe.
  * Le défaut vise des éléments que TOUTE page possède.
  */
-const { sondes: PROBES, rejetees } = parseProbes(
+const { probes: PROBES, rejected } = parseProbes(
   process.env.NF_BROWSER_PROBES ?? "titre principal=h1,corps de page=body",
 );
-if (rejetees.length > 0) {
+if (rejected.length > 0) {
   console.error(
-    `Sonde(s) ignorée(s), forme attendue « libellé=sélecteur » : ${rejetees.join(" · ")}`,
+    `Sonde(s) ignorée(s), forme attendue « libellé=sélecteur » : ${rejected.join(" · ")}`,
   );
 }
 
@@ -132,11 +132,11 @@ if (rejetees.length > 0) {
  * @throws Si aucune des trois voies n'aboutit — dire l'indisponibilité vaut
  *   toujours mieux que rendre un verdict sans avoir mesuré.
  */
-async function sourceAxe() {
+async function axeSource() {
   const explicite = process.env.NF_BROWSER_AXE;
   if (explicite) return readFileSync(explicite, "utf8");
-  const voisin = new URL("./axe.min.js", import.meta.url);
-  if (existsSync(voisin)) return readFileSync(voisin, "utf8");
+  const sibling = new URL("./axe.min.js", import.meta.url);
+  if (existsSync(sibling)) return readFileSync(sibling, "utf8");
   const { default: axe } = await import("axe-core");
   return axe.source;
 }
@@ -146,17 +146,16 @@ const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const { browser, ctx, page, reuse } = await open();
 
 // ── Collecteurs — posés AVANT toute navigation ──────────────────────────────
-const erreursConsole = [];
-const erreursNonCapturees = [];
+const consoleErrors = [];
+const uncaughtErrors = [];
 page.on("console", (m) => {
-  if (m.type() === "error" && erreursConsole.length < 30)
-    erreursConsole.push(m.text().slice(0, 300));
+  if (m.type() === "error" && consoleErrors.length < 30)
+    consoleErrors.push(m.text().slice(0, 300));
 });
 // `pageerror` et non seulement `console` : une exception non capturée qui tue
 // l'application ne passe pas toujours par console.error.
 page.on("pageerror", (e) => {
-  if (erreursNonCapturees.length < 20)
-    erreursNonCapturees.push(String(e).slice(0, 300));
+  if (uncaughtErrors.length < 20) uncaughtErrors.push(String(e).slice(0, 300));
 });
 
 // Les violations CSP ne sont visibles QUE depuis la page : le réseau montre la
@@ -168,20 +167,20 @@ await page.addInitScript(() => {
     if (window.__nfCsp.length < 20)
       window.__nfCsp.push({
         directive: e.violatedDirective,
-        bloque: String(e.blockedURI ?? "").slice(0, 140),
+        blocked: String(e.blockedURI ?? "").slice(0, 140),
         source: String(e.sourceFile ?? "").slice(0, 140),
-        ligne: e.lineNumber,
+        line: e.lineNumber,
       });
   });
 });
 
-if (actives.has("perf")) {
+if (active.has("perf")) {
   // LCP et CLS n'existent qu'en OBSERVANT pendant le chargement : les lire
   // après coup rend null. `buffered: true` rattrape ce qui s'est produit entre
   // l'injection et l'observation ; le try par type, car un navigateur qui
   // ignore un type d'entrée lève — et tuerait les deux autres mesures.
   await page.addInitScript(() => {
-    window.__nfPerf = { lcpMs: null, cls: 0, tachesLongues: 0 };
+    window.__nfPerf = { lcpMs: null, cls: 0, longTasks: 0 };
     try {
       new PerformanceObserver((l) => {
         const e = l.getEntries().pop();
@@ -196,32 +195,32 @@ if (actives.has("perf")) {
     } catch {}
     try {
       new PerformanceObserver((l) => {
-        window.__nfPerf.tachesLongues += l.getEntries().length;
+        window.__nfPerf.longTasks += l.getEntries().length;
       }).observe({ type: "longtask", buffered: true });
     } catch {}
   });
 }
 
-const requetesFinies = [];
-const echecsReseau = [];
-if (actives.has("reseau")) {
+const finishedRequests = [];
+const networkFailures = [];
+if (active.has("reseau")) {
   page.on("requestfinished", (rq) => {
-    if (requetesFinies.length < 300) requetesFinies.push(rq);
+    if (finishedRequests.length < 300) finishedRequests.push(rq);
   });
   page.on("requestfailed", (rq) => {
-    if (echecsReseau.length < 40)
-      echecsReseau.push({
+    if (networkFailures.length < 40)
+      networkFailures.push({
         url: rq.url().slice(0, 140),
         type: rq.resourceType(),
-        erreur: rq.failure()?.errorText ?? "?",
+        error: rq.failure()?.errorText ?? "?",
       });
   });
   page.on("response", (r) => {
-    if (r.status() >= 400 && echecsReseau.length < 40)
-      echecsReseau.push({
+    if (r.status() >= 400 && networkFailures.length < 40)
+      networkFailures.push({
         url: r.url().slice(0, 140),
         type: r.request().resourceType(),
-        statut: r.status(),
+        status: r.status(),
       });
   });
 }
@@ -255,51 +254,51 @@ if (EXPECT) {
 // toute mesure. Une action qui ne trouve pas sa cible ARRÊTE la sonde : la
 // mesure qui suivrait porterait sur un écran qu'on n'a pas ouvert, et rien ne
 // le dirait.
-for (const { verbe, cible, valeur } of ACTIONS) {
-  if (verbe === "defiler") {
-    const pixels = Number.parseInt(cible, 10);
+for (const { verb, target, value } of ACTIONS) {
+  if (verb === "defiler") {
+    const pixels = Number.parseInt(target, 10);
     if (!Number.isFinite(pixels)) {
-      console.error(`defiler attend un nombre de pixels, reçu « ${cible} »`);
+      console.error(`defiler attend un nombre de pixels, reçu « ${target} »`);
       await browser.close();
       process.exit(64); // EX_USAGE
     }
     // Le conteneur qui défile RÉELLEMENT, pas la fenêtre : sur une console à
     // barre latérale fixe, `window.scrollBy` ne bouge rien du tout.
     await page.evaluate((dy) => {
-      const defilant = [...document.querySelectorAll("*")].find(
+      const scrollable = [...document.querySelectorAll("*")].find(
         (el) => el.scrollHeight > el.clientHeight + 40 && el.clientHeight > 200,
       );
-      (defilant ?? window).scrollBy(0, dy);
+      (scrollable ?? window).scrollBy(0, dy);
     }, pixels);
     continue;
   }
   // Le premier candidat VISIBLE, pas le premier du DOM : un libellé apparaît
   // souvent d'abord dans un menu replié ou un gabarit caché, et agir là ne fait
   // rien tout en passant pour un succès.
-  const candidats = page.getByText(cible, { exact: false });
+  const candidates = page.getByText(target, { exact: false });
   let locator = null;
-  const total = await candidats.count();
+  const total = await candidates.count();
   for (let i = 0; i < total; i += 1) {
-    const c = candidats.nth(i);
+    const c = candidates.nth(i);
     if (await c.isVisible().catch(() => false)) {
       locator = c;
       break;
     }
   }
-  locator ??= page.locator(cible).first();
+  locator ??= page.locator(target).first();
   try {
     await locator.waitFor({ timeout: 15000 });
-    if (verbe === "clic") await locator.click();
-    else if (verbe === "double") await locator.dblclick();
-    else if (verbe === "droit") await locator.click({ button: "right" });
-    else if (verbe === "survol") await locator.hover();
-    else if (verbe === "saisir") await locator.fill(valeur);
-    else if (verbe === "touche") await locator.press(valeur || "Enter");
-    else if (verbe === "voir") await locator.scrollIntoViewIfNeeded();
+    if (verb === "clic") await locator.click();
+    else if (verb === "double") await locator.dblclick();
+    else if (verb === "droit") await locator.click({ button: "right" });
+    else if (verb === "survol") await locator.hover();
+    else if (verb === "saisir") await locator.fill(value);
+    else if (verb === "touche") await locator.press(value || "Enter");
+    else if (verb === "voir") await locator.scrollIntoViewIfNeeded();
     // `attendre` : le `waitFor` ci-dessus EST l'action.
   } catch {
     console.error(
-      `Action « ${verbe}:${cible} » impossible\n` +
+      `Action « ${verb}:${target} » impossible\n` +
         `Page réellement ouverte : ${page.url()}\n` +
         "→ le libellé a changé, l'élément n'est pas encore rendu, ou il faut " +
         "agir sur autre chose avant lui (NF_BROWSER_ACTIONS accepte une séquence, séparée par « | »).",
@@ -319,16 +318,16 @@ for (const { verbe, cible, valeur } of ACTIONS) {
  * Décrit un élément en une ligne courte — pour des exemples lisibles, jamais
  * un dump de DOM.
  */
-function decrireElement(el) {
+function describeElement(el) {
   const t = el.tagName.toLowerCase();
   const id = el.id ? `#${el.id}` : "";
   const cls = !id && el.classList.length ? `.${el.classList[0]}` : "";
-  const texte = (el.textContent ?? "").trim().slice(0, 30);
-  return `${t}${id}${cls}${texte ? ` « ${texte} »` : ""}`.slice(0, 90);
+  const text = (el.textContent ?? "").trim().slice(0, 30);
+  return `${t}${id}${cls}${text ? ` « ${text} »` : ""}`.slice(0, 90);
 }
 
 /** Un élément participe-t-il au rendu — filtre commun des sondes. */
-function estVisible(el) {
+function isVisible(el) {
   const r = el.getBoundingClientRect();
   if (r.width === 0 && r.height === 0) return false;
   const cs = getComputedStyle(el);
@@ -351,48 +350,52 @@ function estVisible(el) {
  * @param {Element} el - l'élément dont on cherche le fond perçu.
  * @returns {string} une couleur `rgb()` opaque, telle qu'elle est PERÇUE.
  */
-function fondEffectif(el) {
-  const couches = [];
-  let socle = null;
+function effectiveBackground(el) {
+  const layers = [];
+  let opaqueLayer = null;
   for (let n = el; n; n = n.parentElement) {
     const bg = getComputedStyle(n).backgroundColor;
     if (!bg || /transparent/.test(bg)) continue;
-    const { a } = parseCouleur(bg);
+    const { a } = parseColor(bg);
     if (a === 0) continue;
     if (a >= 1) {
-      socle = bg;
+      opaqueLayer = bg;
       break;
     }
-    couches.push(bg);
+    layers.push(bg);
   }
   // Faute de couche opaque rencontrée, le fond de la page fait socle — et à
   // défaut le blanc, qui est ce qu'un navigateur peint sous un document nu.
-  if (socle === null) {
-    const racine = getComputedStyle(document.documentElement).backgroundColor;
-    socle =
-      racine && parseCouleur(racine).a >= 1 ? racine : "rgb(255, 255, 255)";
+  if (opaqueLayer === null) {
+    const rootBackground = getComputedStyle(
+      document.documentElement,
+    ).backgroundColor;
+    opaqueLayer =
+      rootBackground && parseColor(rootBackground).a >= 1
+        ? rootBackground
+        : "rgb(255, 255, 255)";
   }
   // De la plus basse à la plus haute : chacune se compose sur le résultat
   // précédent, jamais sur le socle seul.
-  let perçu = socle;
-  for (let i = couches.length - 1; i >= 0; i--)
-    perçu = composer(couches[i], perçu);
-  return perçu;
+  let perceived = opaqueLayer;
+  for (let i = layers.length - 1; i >= 0; i--)
+    perceived = compose(layers[i], perceived);
+  return perceived;
 }
 
 /**
  * Famille a11y — ce qu'un lecteur d'écran ou un clavier rencontrent VRAIMENT.
  * Chaque règle rend un compte et 3 exemples, jamais la liste entière.
  */
-function sondeA11y() {
-  const bloc = (liste) => ({
-    total: liste.length,
-    exemples: liste.slice(0, 3).map(decrireElement),
+function probeA11y() {
+  const block = (list) => ({
+    total: list.length,
+    examples: list.slice(0, 3).map(describeElement),
   });
   // Nom accessible SIMPLIFIÉ (aria-label → aria-labelledby → texte → title →
   // alt d'une image fille). L'algorithme complet de la norme fait plus ; le
   // simplifié suffit à attraper un bouton-icône muet — le cas réel.
-  const nomAccessible = (el) => {
+  const accessibleName = (el) => {
     const aria = el.getAttribute("aria-label");
     if (aria && aria.trim()) return aria.trim();
     const refs = el.getAttribute("aria-labelledby");
@@ -404,21 +407,21 @@ function sondeA11y() {
         .trim();
       if (t) return t;
     }
-    const texte = (el.textContent ?? "").trim();
-    if (texte) return texte;
+    const text = (el.textContent ?? "").trim();
+    if (text) return text;
     if (el.getAttribute("title")) return el.getAttribute("title");
     const img = el.querySelector("img[alt]");
     if (img && img.getAttribute("alt")?.trim())
       return img.getAttribute("alt").trim();
     return "";
   };
-  const sansAlt = [...document.querySelectorAll("img")]
-    .filter(estVisible)
+  const withoutAlt = [...document.querySelectorAll("img")]
+    .filter(isVisible)
     .filter((i) => !i.hasAttribute("alt"));
-  const sansEtiquette = [
+  const withoutLabel = [
     ...document.querySelectorAll("input:not([type=hidden]), select, textarea"),
   ]
-    .filter(estVisible)
+    .filter(isVisible)
     .filter((c) => {
       if (
         c.getAttribute("aria-label") ||
@@ -430,85 +433,85 @@ function sondeA11y() {
         return false;
       return !c.closest("label");
     });
-  const sansNom = [
+  const withoutName = [
     ...document.querySelectorAll("button, a[href], [role=button]"),
   ]
-    .filter(estVisible)
-    .filter((c) => !nomAccessible(c));
+    .filter(isVisible)
+    .filter((c) => !accessibleName(c));
   // Hiérarchie des titres : les niveaux dans l'ordre du document, et les sauts
   // (h2→h4) qui cassent la table des matières d'un lecteur d'écran.
-  const titres = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")]
-    .filter(estVisible)
+  const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")]
+    .filter(isVisible)
     .map((h) => Number(h.tagName[1]));
-  const sauts = [];
-  for (let i = 1; i < titres.length; i++)
-    if (titres[i] > titres[i - 1] + 1)
-      sauts.push(`h${titres[i - 1]}→h${titres[i]}`);
-  const h1 = titres.filter((n) => n === 1).length;
+  const skips = [];
+  for (let i = 1; i < headings.length; i++)
+    if (headings[i] > headings[i - 1] + 1)
+      skips.push(`h${headings[i - 1]}→h${headings[i]}`);
+  const h1 = headings.filter((n) => n === 1).length;
   // Cibles < 24×24 (WCAG 2.5.8). Les liens DANS le texte (display inline) sont
   // exemptés par le critère lui-même — les compter noierait le signal.
-  const interactifs = [
+  const interactive = [
     ...document.querySelectorAll(
       "button, a[href], input:not([type=hidden]), select, textarea, [role=button]",
     ),
-  ].filter(estVisible);
-  const petites = [];
-  for (const el of interactifs) {
+  ].filter(isVisible);
+  const small = [];
+  for (const el of interactive) {
     if (el.tagName === "A" && getComputedStyle(el).display === "inline")
       continue;
     const r = el.getBoundingClientRect();
     if (r.width < 24 || r.height < 24)
-      petites.push({
-        element: decrireElement(el),
-        taille: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      small.push({
+        element: describeElement(el),
+        size: `${Math.round(r.width)}×${Math.round(r.height)}`,
       });
-    if (petites.length >= 40) break;
+    if (small.length >= 40) break;
   }
   // Un tabindex POSITIF impose un ordre de focus manuel qui diverge du DOM —
   // l'anti-pattern classique d'un parcours clavier incompréhensible.
-  const tabPositifs = [...document.querySelectorAll("[tabindex]")].filter(
-    (el) => Number(el.getAttribute("tabindex")) > 0,
-  );
-  const langue = document.documentElement.lang || null;
-  const alertes =
-    sansAlt.length +
-    sansEtiquette.length +
-    sansNom.length +
-    petites.length +
-    tabPositifs.length +
-    sauts.length +
+  const positiveTabIndexes = [
+    ...document.querySelectorAll("[tabindex]"),
+  ].filter((el) => Number(el.getAttribute("tabindex")) > 0);
+  const lang = document.documentElement.lang || null;
+  const alerts =
+    withoutAlt.length +
+    withoutLabel.length +
+    withoutName.length +
+    small.length +
+    positiveTabIndexes.length +
+    skips.length +
     (h1 === 1 ? 0 : 1) +
-    (langue ? 0 : 1);
+    (lang ? 0 : 1);
   return {
-    verdict: alertes === 0 ? "OK" : "ALERTE",
-    langue,
-    titres: { h1, ordre: titres.join(","), sauts },
-    imagesSansAlternative: bloc(sansAlt),
-    champsSansEtiquette: bloc(sansEtiquette),
-    controlesSansNom: bloc(sansNom),
-    ciblesTropPetites: {
-      total: petites.length,
-      seuil: "24×24",
+    verdict: alerts === 0 ? "OK" : "ALERTE",
+    lang,
+    headings: { h1, order: headings.join(","), skips },
+    imagesWithoutAlt: block(withoutAlt),
+    fieldsWithoutLabel: block(withoutLabel),
+    controlsWithoutName: block(withoutName),
+    targetsTooSmall: {
+      total: small.length,
+      threshold: "24×24",
       // Regroupées par FAMILLE, pas listées une à une. Trente-six cibles trop
       // petites, c'est presque toujours un composant réutilisé trente-six fois :
       // trois exemples bruts font croire à trente-six corrections, quand il n'y
       // en a qu'une. Le compte par famille dit ce qu'il faut corriger, et
       // combien d'écrans en profiteront.
-      familles: Object.entries(
-        petites.reduce((acc, p) => {
+      families: Object.entries(
+        small.reduce((acc, p) => {
           // Le texte distingue deux boutons du même composant : on l'enlève.
-          const cle = `${p.element.replace(/ «[\s\S]*$/, "")} ${p.taille}`;
-          acc[cle] = (acc[cle] ?? 0) + 1;
+          const key = `${p.element.replace(/ «[\s\S]*$/, "")} ${p.size}`;
+          acc[key] = (acc[key] ?? 0) + 1;
           return acc;
         }, Object.create(null)),
       )
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([quoi, n]) => ({ quoi, occurrences: n })),
-      exemples: petites.slice(0, 3),
+        .map(([what, n]) => ({ what, occurrences: n })),
+      examples: small.slice(0, 3),
     },
-    tabindexPositifs: bloc(tabPositifs),
-    focusablesVisibles: interactifs.length,
+    positiveTabIndexValues: block(positiveTabIndexes),
+    visibleFocusables: interactive.length,
   };
 }
 
@@ -517,67 +520,67 @@ function sondeA11y() {
  * VRAIMENT arrivées. Les éléments hors viewport sont une INFO, pas le verdict :
  * carrousels et textes pour lecteurs d'écran en produisent légitimement.
  */
-function sondeRendu() {
+function probeRendering() {
   const doc = document.scrollingElement ?? document.documentElement;
-  const depassementPx = Math.max(0, doc.scrollWidth - window.innerWidth);
-  const horsViewport = [];
-  let totalHors = 0;
+  const overflowPx = Math.max(0, doc.scrollWidth - window.innerWidth);
+  const outsideViewport = [];
+  let totalOutside = 0;
   for (const el of document.querySelectorAll("body *")) {
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.right > window.innerWidth + 1) {
-      totalHors += 1;
-      if (horsViewport.length < 3) horsViewport.push(decrireElement(el));
-      if (totalHors >= 200) break;
+      totalOutside += 1;
+      if (outsideViewport.length < 3) outsideViewport.push(describeElement(el));
+      if (totalOutside >= 200) break;
     }
   }
-  const familles = {};
-  let policesEnEchec = 0;
+  const families = {};
+  let failedFonts = 0;
   for (const f of document.fonts) {
-    familles[`${f.family} ${f.weight}`] = f.status;
-    if (f.status === "error") policesEnEchec += 1;
+    families[`${f.family} ${f.weight}`] = f.status;
+    if (f.status === "error") failedFonts += 1;
   }
   return {
-    verdict: depassementPx > 0 || policesEnEchec > 0 ? "ALERTE" : "OK",
-    debordementHorizontal: { present: depassementPx > 0, depassementPx },
-    elementsHorsViewport: { total: totalHors, exemples: horsViewport },
-    polices: {
-      statut: document.fonts.status,
-      enEchec: policesEnEchec,
-      familles,
+    verdict: overflowPx > 0 || failedFonts > 0 ? "ALERTE" : "OK",
+    horizontalOverflow: { present: overflowPx > 0, overflowPx },
+    elementsOutsideViewport: { total: totalOutside, examples: outsideViewport },
+    fonts: {
+      status: document.fonts.status,
+      failed: failedFonts,
+      families,
     },
   };
 }
 
 /** Famille stockage, volet page — tailles et clés, JAMAIS les valeurs. */
-function sondeStockageWeb() {
+function probeWebStorage() {
   // Les valeurs ne sortent pas : un jeton de session imprimé dans un JSON de
   // sonde finit dans un terminal, un log de CI, un rapport — il a fuité.
-  const inventaire = (magasin) => {
-    const cles = [];
-    let octets = 0;
-    for (let i = 0; i < magasin.length; i++) {
-      const cle = magasin.key(i);
+  const inventory = (store) => {
+    const keys = [];
+    let bytes = 0;
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
       // ×2 : les chaînes JavaScript comptent en unités UTF-16.
-      const taille = (magasin.getItem(cle) ?? "").length * 2;
-      octets += taille;
-      cles.push({ cle, octets: taille });
+      const size = (store.getItem(key) ?? "").length * 2;
+      bytes += size;
+      keys.push({ key, bytes: size });
     }
-    cles.sort((a, b) => b.octets - a.octets);
-    return { cles: cles.length, octets, plusGrosses: cles.slice(0, 5) };
+    keys.sort((a, b) => b.bytes - a.bytes);
+    return { keys: keys.length, bytes, largest: keys.slice(0, 5) };
   };
   return {
-    localStorage: inventaire(window.localStorage),
-    sessionStorage: inventaire(window.sessionStorage),
+    localStorage: inventory(window.localStorage),
+    sessionStorage: inventory(window.sessionStorage),
   };
 }
 
 /** Famille perf — lit ce que les observateurs injectés AVANT navigation ont vu. */
-function lirePerf() {
-  const arrondi = (v) => (v == null || Number.isNaN(v) ? null : Math.round(v));
+function readPerf() {
+  const round = (v) => (v == null || Number.isNaN(v) ? null : Math.round(v));
   const nav = performance.getEntriesByType("navigation")[0];
   const fcp = performance.getEntriesByName("first-contentful-paint")[0];
   const p = window.__nfPerf ?? {};
-  const lcpMs = arrondi(p.lcpMs);
+  const lcpMs = round(p.lcpMs);
   const cls =
     typeof p.cls === "number" ? Math.round(p.cls * 1000) / 1000 : null;
   return {
@@ -587,14 +590,14 @@ function lirePerf() {
       (lcpMs != null && lcpMs > 2500) || (cls != null && cls > 0.1)
         ? "ALERTE"
         : "OK",
-    ttfbMs: nav ? arrondi(nav.responseStart) : null,
-    domContentLoadedMs: nav ? arrondi(nav.domContentLoadedEventEnd) : null,
-    chargeCompleteMs: nav ? arrondi(nav.loadEventEnd) : null,
-    fcpMs: fcp ? arrondi(fcp.startTime) : null,
+    ttfbMs: nav ? round(nav.responseStart) : null,
+    domContentLoadedMs: nav ? round(nav.domContentLoadedEventEnd) : null,
+    loadCompleteMs: nav ? round(nav.loadEventEnd) : null,
+    fcpMs: fcp ? round(fcp.startTime) : null,
     lcpMs,
     cls,
-    tachesLongues: typeof p.tachesLongues === "number" ? p.tachesLongues : null,
-    seuils: { lcpBonMs: 2500, clsBon: 0.1 },
+    longTasks: typeof p.longTasks === "number" ? p.longTasks : null,
+    thresholds: { lcpGoodMs: 2500, clsGood: 0.1 },
   };
 }
 
@@ -603,9 +606,9 @@ function lirePerf() {
  * Async : les polices se constatent après `document.fonts.ready` (borné — une
  * police qui ne finit jamais ne doit pas suspendre la sonde).
  */
-async function mesurePage(args) {
+async function measurePage(args) {
   const root = document.documentElement;
-  if (args.familles.includes("rendu")) {
+  if (args.families.includes("rendu")) {
     await Promise.race([
       document.fonts.ready,
       new Promise((r) => setTimeout(r, 2000)),
@@ -618,38 +621,38 @@ async function mesurePage(args) {
     // du CSS nu. Autre marquage → le sonder soi-même (NF_BROWSER_PROBES).
     theme: getComputedStyle(root).colorScheme || (root.dataset.theme ?? "?"),
     lang: root.lang,
-    titre: document.title,
+    title: document.title,
     // Les scripts RÉELLEMENT servis — c'est ce qui permet de vérifier que le
     // bundle observé est bien celui qu'on vient de bâtir.
     scripts: [...document.querySelectorAll("script[src]")].map((s) =>
       s.getAttribute("src"),
     ),
-    sondes: args.probes.map(({ label, sel }) => {
+    probes: args.probes.map(({ label, sel }) => {
       const el = document.querySelector(sel);
-      if (!el) return { label, absent: true, selecteur: sel };
+      if (!el) return { label, absent: true, selector: sel };
       const cs = getComputedStyle(el);
-      const fond = fondEffectif(el);
+      const background = effectiveBackground(el);
       const r = el.getBoundingClientRect();
-      const contraste = contrastRatio(composer(cs.color, fond), fond);
+      const contrast = contrastRatio(compose(cs.color, background), background);
       const px = parseFloat(cs.fontSize);
-      const gras = Number(cs.fontWeight) >= 700;
+      const bold = Number(cs.fontWeight) >= 700;
       return {
         label,
-        texte: (el.textContent ?? "").trim().slice(0, 40),
-        couleur: cs.color,
-        fond,
-        contraste,
-        police: `${cs.fontSize}${gras ? " gras" : ""}`,
-        wcag: verdictWcag(contraste, px, gras),
-        taille: `${Math.round(r.width)}×${Math.round(r.height)}`,
+        text: (el.textContent ?? "").trim().slice(0, 40),
+        color: cs.color,
+        background,
+        contrast,
+        font: `${cs.fontSize}${bold ? " gras" : ""}`,
+        wcag: verdictWcag(contrast, px, bold),
+        size: `${Math.round(r.width)}×${Math.round(r.height)}`,
       };
     }),
     violationsCSP: window.__nfCsp ?? [],
   };
-  if (args.familles.includes("a11y")) base.a11y = sondeA11y();
-  if (args.familles.includes("rendu")) base.rendu = sondeRendu();
-  if (args.familles.includes("stockage")) base.stockageWeb = sondeStockageWeb();
-  if (args.familles.includes("perf")) base.perf = lirePerf();
+  if (args.families.includes("a11y")) base.a11y = probeA11y();
+  if (args.families.includes("rendu")) base.rendu = probeRendering();
+  if (args.families.includes("stockage")) base.stockageWeb = probeWebStorage();
+  if (args.families.includes("perf")) base.perf = readPerf();
   return base;
 }
 
@@ -658,15 +661,15 @@ async function mesurePage(args) {
 // CSP de l'application refuserait à bon droit) : c'est le pilote qui évalue.
 const expression = `((args) => {
 ${sourceWcag()}
-${decrireElement}
-${estVisible}
-${fondEffectif}
-${sondeA11y}
-${sondeRendu}
-${sondeStockageWeb}
-${lirePerf}
-return (${mesurePage})(args);
-})(${JSON.stringify({ probes: PROBES, familles: [...actives] })})`;
+${describeElement}
+${isVisible}
+${effectiveBackground}
+${probeA11y}
+${probeRendering}
+${probeWebStorage}
+${readPerf}
+return (${measurePage})(args);
+})(${JSON.stringify({ probes: PROBES, families: [...active] })})`;
 
 const measured = await page.evaluate(expression);
 
@@ -683,10 +686,10 @@ const measured = await page.evaluate(expression);
 // Il est ÉVALUÉ par le pilote, jamais ajouté en `<script>` : la politique de
 // sécurité de contenu d'une application sérieuse refuserait l'injection — et
 // elle aurait raison.
-if (actives.has("axe")) {
+if (active.has("axe")) {
   try {
-    const codeAxe = await sourceAxe();
-    const rapport = await page.evaluate(async (source) => {
+    const axeCode = await axeSource();
+    const report = await page.evaluate(async (source) => {
       // eslint-disable-next-line no-new-func -- évalué par le pilote, hors CSP
       new Function(source)();
       return await window.axe.run(document, {
@@ -695,113 +698,113 @@ if (actives.has("axe")) {
         // complet gonfle la sortie sans rien apprendre.
         elementRef: false,
       });
-    }, codeAxe);
-    measured.axe = resumeAxe(rapport);
+    }, axeCode);
+    measured.axe = summarizeAxe(report);
   } catch (e) {
     // Dire l'indisponibilité, ne JAMAIS rendre un verdict OK sans avoir mesuré.
     measured.axe = {
       verdict: "INDISPONIBLE",
-      raison: String(e).slice(0, 200),
-      remede:
+      reason: String(e).slice(0, 200),
+      remedy:
         "Copier axe.min.js à côté des sondes (docker cp node_modules/axe-core/axe.min.js <conteneur>:/app/see-screen/axe.min.js), ou donner son chemin dans NF_BROWSER_AXE.",
     };
   }
 }
 
 // ── Arbre d'accessibilité — la voie Playwright, hors page ───────────────────
-if (actives.has("a11y") && measured.a11y) {
+if (active.has("a11y") && measured.a11y) {
   try {
     // L'arbre ARIA tel que Playwright le calcule : ce que perçoit une
     // technologie d'assistance, rôles et noms compris. Tronqué : il dit la
     // STRUCTURE, pas l'inventaire.
     const yaml = await page.locator("body").ariaSnapshot();
-    const lignes = yaml.split("\n");
-    measured.a11y.arbre = {
-      lignes: lignes.slice(0, 80),
-      totalLignes: lignes.length,
-      tronque: lignes.length > 80,
+    const lines = yaml.split("\n");
+    measured.a11y.tree = {
+      lines: lines.slice(0, 80),
+      totalLines: lines.length,
+      truncated: lines.length > 80,
     };
   } catch (e) {
-    measured.a11y.arbre = { indisponible: String(e).slice(0, 140) };
+    measured.a11y.tree = { unavailable: String(e).slice(0, 140) };
   }
 }
 
 // ── Famille réseau — bilan des collecteurs ──────────────────────────────────
-if (actives.has("reseau")) {
-  const seuilLourd = Number(process.env.NF_BROWSER_SEUIL_LOURD ?? 512000);
-  const seuilLent = Number(process.env.NF_BROWSER_SEUIL_LENT ?? 1000);
+if (active.has("reseau")) {
+  const heavyThreshold = Number(process.env.NF_BROWSER_SEUIL_LOURD ?? 512000);
+  const slowThreshold = Number(process.env.NF_BROWSER_SEUIL_LENT ?? 1000);
   const items = await Promise.all(
-    requetesFinies.map(async (rq) => {
-      let octets = null;
+    finishedRequests.map(async (rq) => {
+      let bytes = null;
       try {
         // `sizes()` rend la taille RÉELLEMENT transférée ; l'en-tête
         // content-length manque sur les réponses en flux.
-        octets = (await rq.sizes()).responseBodySize;
+        bytes = (await rq.sizes()).responseBodySize;
       } catch {
         const r = await rq.response().catch(() => null);
-        const brut = r ? Number(r.headers()["content-length"]) : NaN;
-        octets = Number.isFinite(brut) ? brut : null;
+        const raw = r ? Number(r.headers()["content-length"]) : NaN;
+        bytes = Number.isFinite(raw) ? raw : null;
       }
       const t = rq.timing();
       const ms =
         t && typeof t.responseEnd === "number" && t.responseEnd >= 0
           ? Math.round(t.responseEnd)
           : null;
-      return { url: rq.url(), type: rq.resourceType(), octets, ms };
+      return { url: rq.url(), type: rq.resourceType(), bytes, ms };
     }),
   );
-  const parType = {};
-  let totalOctets = 0;
-  let octetsInconnus = 0;
+  const byType = {};
+  let totalBytes = 0;
+  let unknownBytes = 0;
   for (const i of items) {
-    parType[i.type] = (parType[i.type] ?? 0) + 1;
-    if (i.octets != null && i.octets >= 0) totalOctets += i.octets;
-    else octetsInconnus += 1;
+    byType[i.type] = (byType[i.type] ?? 0) + 1;
+    if (i.bytes != null && i.bytes >= 0) totalBytes += i.bytes;
+    else unknownBytes += 1;
   }
-  const compacte = (i) => ({
+  const compact = (i) => ({
     url: i.url.slice(0, 140),
     type: i.type,
-    octets: i.octets,
+    bytes: i.bytes,
     ms: i.ms,
   });
-  const lourdes = items
-    .filter((i) => (i.octets ?? 0) > seuilLourd)
-    .sort((a, b) => (b.octets ?? 0) - (a.octets ?? 0))
+  const heavy = items
+    .filter((i) => (i.bytes ?? 0) > heavyThreshold)
+    .sort((a, b) => (b.bytes ?? 0) - (a.bytes ?? 0))
     .slice(0, 10)
-    .map(compacte);
-  const lentes = items
-    .filter((i) => (i.ms ?? 0) > seuilLent)
+    .map(compact);
+  const slow = items
+    .filter((i) => (i.ms ?? 0) > slowThreshold)
     .sort((a, b) => (b.ms ?? 0) - (a.ms ?? 0))
     .slice(0, 10)
-    .map(compacte);
+    .map(compact);
   measured.reseau = {
-    verdict: echecsReseau.length > 0 || lourdes.length > 0 ? "ALERTE" : "OK",
+    verdict: networkFailures.length > 0 || heavy.length > 0 ? "ALERTE" : "OK",
     total: items.length,
-    parType,
-    totalOctets,
-    octetsInconnus,
-    echecs: echecsReseau,
-    lourdes: { seuilOctets: seuilLourd, ressources: lourdes },
-    lentes: { seuilMs: seuilLent, ressources: lentes },
+    byType,
+    totalBytes,
+    unknownBytes,
+    failures: networkFailures,
+    heavy: { bytesThreshold: heavyThreshold, resources: heavy },
+    slow: { msThreshold: slowThreshold, resources: slow },
   };
 }
 
 // ── Famille stockage — volet cookies, lu hors page ──────────────────────────
-if (actives.has("stockage")) {
+if (active.has("stockage")) {
   const cookies = await ctx.cookies();
-  const surHttps = page.url().startsWith("https");
-  const nonSecurises = cookies.filter((c) => !c.secure).length;
+  const overHttps = page.url().startsWith("https");
+  const insecure = cookies.filter((c) => !c.secure).length;
   measured.stockage = {
     // Un cookie sans Secure sur une origine https voyagera aussi en clair.
-    verdict: surHttps && nonSecurises > 0 ? "ALERTE" : "OK",
+    verdict: overHttps && insecure > 0 ? "ALERTE" : "OK",
     cookies: cookies.map((c) => ({
-      nom: c.name,
-      domaine: c.domain,
-      chemin: c.path,
+      name: c.name,
+      domain: c.domain,
+      path: c.path,
       secure: c.secure,
       httpOnly: c.httpOnly,
       sameSite: c.sameSite,
-      expire:
+      expired:
         c.expires === -1 ? "session" : new Date(c.expires * 1000).toISOString(),
     })),
     ...measured.stockageWeb,
@@ -811,7 +814,7 @@ if (actives.has("stockage")) {
 
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────
 const slug = PAGE.replace(/\//g, "-").replace(/^-/, "") || "racine";
-const shot = path.join(SORTIE, `${slug}-${stamp}.png`);
+const shot = path.join(OUTPUT, `${slug}-${stamp}.png`);
 // `NF_BROWSER_FULLPAGE=1` : la page ENTIÈRE, pas la fenêtre. Un formulaire long
 // (ou une page qu'on vient de déplier) a l'essentiel SOUS la ligne de flottaison
 // — la capture par défaut laisse alors conclure « ce n'est pas là ».
@@ -820,56 +823,56 @@ await page.screenshot({
   fullPage: process.env.NF_BROWSER_FULLPAGE === "1",
 });
 
-if (actives.has("responsive")) {
-  const { largeurs, invalides } = parseWidths(
+if (active.has("responsive")) {
+  const { widths, invalidWidths: invalid } = parseWidths(
     process.env.NF_BROWSER_WIDTHS ?? "360,768,1280",
   );
-  if (invalides.length > 0)
+  if (invalid.length > 0)
     console.error(
-      `Largeur(s) ignorée(s) (entier entre 240 et 4000) : ${invalides.join(", ")}`,
+      `Largeur(s) ignorée(s) (entier entre 240 et 4000) : ${invalid.join(", ")}`,
     );
-  const parLargeur = [];
-  for (const largeur of largeurs) {
-    await page.setViewportSize({ width: largeur, height: 900 });
+  const byWidth = [];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
     // Laisser les media queries et le reflow se produire — mesurer dans la
     // même frame que le resize rend l'ANCIENNE géométrie.
     await page.waitForTimeout(300);
     const r = await page.evaluate(() => {
       const doc = document.scrollingElement ?? document.documentElement;
-      const depassementPx = Math.max(0, doc.scrollWidth - window.innerWidth);
-      let debordants = 0;
-      const exemples = [];
-      if (depassementPx > 0) {
+      const overflowPx = Math.max(0, doc.scrollWidth - window.innerWidth);
+      let overflowing = 0;
+      const examples = [];
+      if (overflowPx > 0) {
         for (const el of document.querySelectorAll("body *")) {
           const rect = el.getBoundingClientRect();
           if (rect.width > 0 && rect.right > window.innerWidth + 1) {
-            debordants += 1;
-            if (exemples.length < 3) {
+            overflowing += 1;
+            if (examples.length < 3) {
               const id = el.id ? `#${el.id}` : "";
               const cls =
                 !id && el.classList.length ? `.${el.classList[0]}` : "";
-              exemples.push(`${el.tagName.toLowerCase()}${id}${cls}`);
+              examples.push(`${el.tagName.toLowerCase()}${id}${cls}`);
             }
-            if (debordants >= 200) break;
+            if (overflowing >= 200) break;
           }
         }
       }
-      return { depassementPx, elementsDebordants: debordants, exemples };
+      return { overflowPx, overflowingElements: overflowing, examples };
     });
-    parLargeur.push({
-      largeur,
+    byWidth.push({
+      width,
       ...r,
-      verdict: r.depassementPx > 0 ? "ALERTE" : "OK",
+      verdict: r.overflowPx > 0 ? "ALERTE" : "OK",
     });
   }
   measured.responsive = {
-    verdict: verdictGlobal(parLargeur.map((l) => l.verdict)),
-    parLargeur,
+    verdict: verdictGlobal(byWidth.map((l) => l.verdict)),
+    byWidth,
   };
 }
 
 // ── Sortie ──────────────────────────────────────────────────────────────────
-const verdicts = [...actives]
+const verdicts = [...active]
   .map((f) => measured[f]?.verdict)
   .filter((v) => typeof v === "string");
 console.log(
@@ -878,17 +881,17 @@ console.log(
       url: page.url(),
       // Le navigateur qui a produit ces chiffres — un Chrome de système et le
       // Chromium du pilote n'ont pas la même version.
-      navigateur: decor.navigateurUtilise,
+      browserName: decor.browserUsed,
       ...measured,
-      erreursConsole,
-      erreursNonCapturees,
+      consoleErrors,
+      uncaughtErrors,
       // Le chemin RENDU est celui où l'appelant trouvera l'image. Dans un
       // conteneur, `/output` est un volume monté et ne veut rien dire au
       // dehors : on le retraduit en son point de montage habituel. En local,
       // le chemin est déjà le bon.
       capture:
-        SORTIE === "/output" ? shot.replace("/output", "tmp/browser") : shot,
-      // Le verdict agrège les FAMILLES actives — les erreurs de console et les
+        OUTPUT === "/output" ? shot.replace("/output", "tmp/browser") : shot,
+      // Le verdict agrège les FAMILLES active — les erreurs de console et les
       // violations CSP restent des données : un parcours de connexion produit
       // des 401 légitimes, et trancher ici les ferait passer pour des pannes.
       ...(verdicts.length > 0 ? { verdict: verdictGlobal(verdicts) } : {}),

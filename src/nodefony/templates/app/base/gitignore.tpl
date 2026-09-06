@@ -4,6 +4,11 @@ var/
 public/dist/
 *.log
 
+# vitest ≥ 5 : racine unique de ses artefacts (pièces jointes, blobs, rapports
+# json/junit/html). Elle apparaît dès le premier `npm test` — sans cette ligne,
+# une application fraîche naît avec un dossier non suivi que rien n'explique.
+.vitest/
+
 # Artefacts jetables — captures d'écran, journaux de console et arbres produits
 # par le navigateur du compose (`--profile browser`). Ce sont des PHOTOS d'un
 # instant : elles se refont, elles ne se versionnent pas.
@@ -15,6 +20,14 @@ tmp/
 # Les clés de chiffrement générées à la création de l'app vivent dans
 # .env.local — ne JAMAIS les committer (rotation : nodefony security:secrets).
 *.local
+
+# Clés PRIVÉES. Le certificat public (`cert.pem`, `fullchain.pem`) peut se
+# committer ; la clé qui va avec, jamais — un dépôt public la publie
+# définitivement, et la retirer d'un commit ne la retire d'aucun clone.
+# Régénérer : `npx nodefony http:certificates`.
+*.key
+privkey*.pem
+*-key.pem
 
 # Secrets posés chez les agents de développement (nodefony security:token --write).
 # 🔴 `.gemini/.env` porte un JETON PORTEUR : la déclaration de la porte MCP,

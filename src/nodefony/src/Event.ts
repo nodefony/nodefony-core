@@ -63,8 +63,16 @@ export interface IGuardedEmitError {
  * échec ».
  */
 export interface IGuardedEmitOptions {
-  /** Timeout par listener (ms). `0` / absent = pas de timeout (0 timer alloué). */
-  timeoutMs?: number;
+  /**
+   * Timeout par listener (ms). `0` / absent = pas de timeout (0 timer alloué).
+   *
+   * Une FONCTION permet de décider listener par listener — la mécanique ne juge
+   * toujours rien, elle DEMANDE. C'est ce qui permet à un appelant d'exempter un
+   * écouteur qui n'est pas de la même nature que les autres (cf
+   * `Kernel.fireLifecycle` : l'action d'une commande n'est pas un hook de boot),
+   * sans que cette garde ait à connaître la notion de commande.
+   */
+  timeoutMs?: number | ((listener: object, index: number) => number);
   /** Seuil d'alerte de lenteur par listener (ms). `0` / absent = 0 mesure (0 `Date.now`). */
   warnMs?: number;
   /**
@@ -274,11 +282,15 @@ class Event extends EventEmitter {
       return { results, errors, stopped: false };
     }
     const handlers = this.rawListeners(eventName);
-    const timeoutMs = options.timeoutMs ?? 0;
+    const timeoutOption = options.timeoutMs ?? 0;
+    const perListener = typeof timeoutOption === "function";
     const warnMs = options.warnMs ?? 0;
     const measure = warnMs > 0;
     for (let index = 0; index < handlers.length; index += 1) {
       const handler = handlers[index] as Listener;
+      const timeoutMs = perListener
+        ? timeoutOption(handler as unknown as object, index)
+        : timeoutOption;
       const startedAt = measure ? Date.now() : 0;
       let timedOut = false;
       try {

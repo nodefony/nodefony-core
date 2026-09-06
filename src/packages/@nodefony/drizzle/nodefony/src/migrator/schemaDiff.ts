@@ -87,11 +87,11 @@ export function summarizeGap(c: ISchemaComparison): string {
   if (c.missingTables.length > 0) {
     bouts.push(`table(s) absente(s) : ${c.missingTables.join(", ")}`);
   }
-  const colonnes = [...c.blocking, ...c.additive].map(
+  const columns = [...c.blocking, ...c.additive].map(
     (g) => `${g.table}.${g.column}`,
   );
-  if (colonnes.length > 0) {
-    bouts.push(`colonne(s) absente(s) : ${colonnes.join(", ")}`);
+  if (columns.length > 0) {
+    bouts.push(`colonne(s) absente(s) : ${columns.join(", ")}`);
   }
   return bouts.join(" · ");
 }
@@ -126,9 +126,9 @@ export async function compareSchema(
   const additive: ISchemaGap[] = [];
   const blocking: ISchemaGap[] = [];
   const missingTables: string[] = [];
-  for (const attendue of expected) {
-    if (!(await reader.tableExists(attendue.table))) {
-      missingTables.push(attendue.table);
+  for (const expectedTable of expected) {
+    if (!(await reader.tableExists(expectedTable.table))) {
+      missingTables.push(expectedTable.table);
       continue;
     }
     // 🔴 La casse se tranche par la règle du LECTEUR, donc du moteur — jamais
@@ -136,13 +136,17 @@ export async function compareSchema(
     // que le moteur ne pardonne pas : un `SELECT "createdAt"` sur une colonne
     // `createdat` échoue, et le pod démarrait quand même. La question posée aux
     // TABLES, elle, part au catalogue (`tableExists`) — cf `sameColumnName`.
-    const reelles = await reader.columnsOf(attendue.table);
-    for (const col of attendue.columns) {
-      if (reelles.some((reelle) => reader.sameColumnName(col.name, reelle))) {
+    const actualColumns = await reader.columnsOf(expectedTable.table);
+    for (const col of expectedTable.columns) {
+      if (
+        actualColumns.some((actualColumn) =>
+          reader.sameColumnName(col.name, actualColumn),
+        )
+      ) {
         continue;
       }
       const gap: ISchemaGap = {
-        table: attendue.table,
+        table: expectedTable.table,
         column: col.name,
         type: col.type,
         nullable: col.nullable,

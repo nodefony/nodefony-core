@@ -288,6 +288,7 @@ class FrontendService extends Service implements IFrontendService {
         https: !!this.cfg.https,
         restartCount: 0,
         healthFailures: 0,
+        portRetries: 0,
         lastError: null,
         entries: this.entries,
       };
@@ -768,15 +769,15 @@ class FrontendService extends Service implements IFrontendService {
       skipped: [],
       failures: [],
     };
-    const nodeEnvAvant = process.env.NODE_ENV;
+    const nodeEnvBefore = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     try {
       return await this.#buildEntries(vite, result, opts);
     } finally {
       // `delete` et non `= undefined` : une variable d'environnement posée à la
       // chaîne « undefined » est LUE comme une valeur par tout ce qui la teste.
-      if (nodeEnvAvant === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = nodeEnvAvant;
+      if (nodeEnvBefore === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = nodeEnvBefore;
     }
   }
 

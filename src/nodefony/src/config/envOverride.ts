@@ -118,8 +118,8 @@ export function parseNfEnvOverrides(env: NodeJS.ProcessEnv): NfEnvOverride[] {
  * même intention écrite autrement ; les refuser obligerait l'utilisateur à
  * deviner laquelle des trois formes son framework accepte.
  */
-const BOOLEENS_VRAIS = new Set(["true", "1", "yes", "on"]);
-const BOOLEENS_FAUX = new Set(["false", "0", "no", "off"]);
+const BOOLEANS_TRUE = new Set(["true", "1", "yes", "on"]);
+const BOOLEANS_FALSE = new Set(["false", "0", "no", "off"]);
 
 /**
  * La valeur d'environnement convertie vers le type de ce qu'elle REMPLACE.
@@ -151,8 +151,8 @@ const BOOLEENS_FAUX = new Set(["false", "0", "no", "off"]);
 export function coerceEnvValueLike(raw: string, existing: unknown): unknown {
   const v = raw.trim().toLowerCase();
   if (typeof existing === "boolean") {
-    if (BOOLEENS_VRAIS.has(v)) return true;
-    if (BOOLEENS_FAUX.has(v)) return false;
+    if (BOOLEANS_TRUE.has(v)) return true;
+    if (BOOLEANS_FALSE.has(v)) return false;
     // Ni l'un ni l'autre : la clé accepte donc autre chose qu'un booléen
     // (`trustProxy` prend aussi une CIDR). On ne tranche pas à sa place.
     return coerceEnvValue(raw);
@@ -259,9 +259,9 @@ export function coerceEnvValueForType(raw: string, type: string): unknown {
     return t;
   }
   if (type === "boolean") {
-    const bas = t.toLowerCase();
-    if (BOOLEENS_VRAIS.has(bas)) return true;
-    if (BOOLEENS_FAUX.has(bas)) return false;
+    const lowered = t.toLowerCase();
+    if (BOOLEANS_TRUE.has(lowered)) return true;
+    if (BOOLEANS_FALSE.has(lowered)) return false;
     return t;
   }
   if (type === "number" || type === "integer") {
@@ -326,12 +326,12 @@ export function applyResolvedPath(
     }
     node = next as Record<string, unknown>;
   }
-  const feuille = path[path.length - 1];
-  const leaf = resolveKey(node, feuille);
+  const leafKey = path[path.length - 1];
+  const leaf = resolveKey(node, leafKey);
   if (leaf === null) {
     if (declaredType === null) return false;
     // Rien à imiter : c'est le SCHÉMA qui dit le type, pas la valeur d'à côté.
-    node[feuille] =
+    node[leafKey] =
       raw === undefined ? value : coerceEnvValueForType(raw, declaredType);
     return true;
   }
@@ -533,11 +533,11 @@ export function resolveFailureHint(
 ): string {
   const diag = diagnoseResolveFailure(target, path);
   if (!diag) return "";
-  const declarees = declaredKeysAtPath(schema, path.slice(0, diag.index));
-  const disponibles = [...new Set([...diag.available, ...declarees])].sort();
-  if (disponibles.length === 0) return "";
-  const suggestion = closestMatch(diag.segment, disponibles);
-  const keys = disponibles.join(", ");
+  const declaredKeys = declaredKeysAtPath(schema, path.slice(0, diag.index));
+  const available = [...new Set([...diag.available, ...declaredKeys])].sort();
+  if (available.length === 0) return "";
+  const suggestion = closestMatch(diag.segment, available);
+  const keys = available.join(", ");
   return suggestion
     ? ` — segment "${diag.segment}" inconnu, vouliez-vous dire « ${suggestion} » ? (clés: ${keys})`
     : ` — segment "${diag.segment}" inconnu (clés disponibles: ${keys})`;

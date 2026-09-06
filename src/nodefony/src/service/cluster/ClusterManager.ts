@@ -145,6 +145,14 @@ export class ClusterManager {
     return this.#live.size;
   }
 
+  /**
+   * Les gestionnaires de signaux POSÉS PAR CE MANAGER, avec leur signal.
+   *
+   * Garder la référence est ce qui permet de retirer les siens sans toucher à
+   * ceux des autres — la raison d'être de {@link removeSignalHandlers}.
+   */
+  #signalHandlers: Array<[NodeJS.Signals, () => void]> = [];
+
   /** `true` une fois `shutdown()` enclenché (plus aucun respawn). */
   get shuttingDown(): boolean {
     return this.#shuttingDown;
@@ -262,15 +270,45 @@ export class ClusterManager {
   /**
    * Branche SIGTERM/SIGINT du process MASTER sur {@link shutdown}.
    *
-   * Le master prend la main sur ces signaux : `Cli.handleSignals` les mapperait sinon
-   * vers un `terminate()` immédiat (process.exit) qui tuerait le master AVANT que les
-   * workers aient drainé. À n'appeler que dans le vrai process master.
+   * Le master prend la main sur ces signaux : `Cli.handleSignals` les mapperait
+   * sinon vers un `terminate()` immédiat (process.exit) qui tuerait le master
+   * AVANT que les workers aient drainé. À n'appeler que dans le vrai process
+   * master.
+   *
+   * 🔴 **On n'arrache que ce qu'on a posé soi-même.** Cette méthode commençait
+   * par `process.removeAllListeners(sig)` — ce qui effaçait AUSSI le
+   * gestionnaire qu'un module tiers avait branché sur `SIGTERM` pour son propre
+   * arrêt propre. Ce module ne recevait plus rien, et rien ne le lui disait :
+   * son code était juste, ses tests passaient, et son nettoyage cessait de
+   * s'exécuter le jour où l'application passait en cluster. Le gestionnaire du
+   * CLI, lui, se retire NOMMÉMENT — c'est le lanceur qui le fait
+   * (`Cli.releaseSignalListeners`), parce que lui seul sait de quelle instance
+   * il s'agit.
    */
   installSignalHandlers(): void {
     for (const sig of ["SIGTERM", "SIGINT"] as NodeJS.Signals[]) {
-      process.removeAllListeners(sig);
-      process.on(sig, () => this.shutdown(sig));
+      const handler = (): void => this.shutdown(sig);
+      this.#signalHandlers.push([sig, handler]);
+      process.on(sig, handler);
     }
+  }
+
+  /**
+   * Retire les gestionnaires que {@link installSignalHandlers} a posés.
+   *
+   * Symétrique, et pour la même raison qu'il ne faut pas arracher ceux des
+   * autres : un master qui s'arrête laisse sinon deux listeners sur un process
+   * qui peut lui survivre (tests, outils qui enchaînent des commandes).
+   *
+   * @returns le nombre de gestionnaires retirés.
+   */
+  removeSignalHandlers(): number {
+    const n = this.#signalHandlers.length;
+    for (const [sig, handler] of this.#signalHandlers) {
+      process.removeListener(sig, handler);
+    }
+    this.#signalHandlers = [];
+    return n;
   }
 }
 

@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { COMPLETION_SHELLS, runCompletionCommand } from "../../cli/completion";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "AGENTS ET OUTILLAGE",
   showBanner: false,
   kernelEvent: "onStart",
 };
@@ -21,7 +22,7 @@ class Completion extends Command {
   constructor(cli: CliKernel) {
     super(
       "completion",
-      `Complétion shell : script à sourcer (${COMPLETION_SHELLS.join(" | ")})`,
+      `script de complétion du shell (${COMPLETION_SHELLS.join(" | ")})`,
       cli,
       options,
     );

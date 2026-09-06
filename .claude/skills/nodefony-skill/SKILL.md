@@ -192,15 +192,37 @@ Il porte **quatre mesures**, à relancer après toute retouche de description :
 
 ```bash
 node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs           # rapport
-node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict  # échoue sur orphelin ou renvoi mort
+node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict  # échoue sur orphelin, renvoi mort ou écart d'acquittement
 ```
 
-Il classe les 76 scripts du dépôt selon le critère du §2 : **dépend d'un protocole → sa place est
+Il classe les scripts du dépôt selon le critère du §2 : **dépend d'un protocole → sa place est
 dans un skill** ; déterministe et câblé au `package.json` → il reste à la racine. Il signale aussi
 les scripts que **personne ne cite** (morts, ou simplement non documentés) et les renvois vers un
 fichier absent. Trois faux positifs ont été corrigés avant de lui faire confiance : `.js` capturé
 dans `.json`, renvois croisés entre skills déclarés morts faute d'être cherchés ailleurs, et
 « mentionne docker » confondu avec « lance docker ».
+
+> 🔴 **Être NOMMÉ dans une page n'est pas être EXÉCUTÉ.** Le contrôle a longtemps
+> compté une phrase de documentation comme un appel : il annonçait « 0 orphelin »
+> pendant qu'une vingtaine d'auto-contrôles, énumérés un par un dans leur page de
+> skill, n'étaient lancés par rien — dont celui qui savait nommer quinze causes
+> qu'aucun juge ne classait. Un script n'est « lancé » que par un **automate** :
+> un script npm, un étage de forge, ou un autre **source** qui le nomme (le
+> nommer dans un `.mjs`, c'est s'en servir ; le nommer dans un `.md`, c'est en
+> parler). Les autres sortent en **`📄 documenté, jamais lancé`** — un état, pas
+> une faute : un banc de charge se tape à la main, et c'est très bien.
+>
+> Ce qui serait une faute, c'est qu'un script NEUF y entre sans qu'on le
+> remarque. La liste versionnée `scripts-audit.attendus.json` fige l'état connu,
+> et `--strict` ne mord que sur l'**écart** : une entrée non acquittée, ou un
+> acquittement devenu faux parce que le script est désormais câblé. Un gate qui
+> rouge en permanence ne garde plus rien — celui-ci ne rouge que sur un
+> changement. **Câbler un script, c'est le RETIRER de la liste** ; le laisser
+> ferait échouer la passe.
+>
+> Le critère « invocation adjacente » a été essayé et écarté : il accusait 39
+> juges parfaitement vivants, dont le chemin est assemblé dans une constante et
+> remis à un lanceur dix lignes plus loin.
 
 > Ce banc mesure la surface **lexicale**, pas le jugement du modèle : un cas vert ne garantit pas
 > l'invocation, mais un cas **rouge** est un vrai défaut — aucun mot de la demande ne rejoint la

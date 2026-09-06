@@ -43,15 +43,14 @@
  */
 
 import type {
-  ActionNames,
-  ActionParams,
-  ActionResult,
   ActionsMap,
   DefaultActionsMap,
   DefaultEventsMap,
   EventNames,
   EventPayload,
   EventsMap,
+  ContractParams,
+  ContractResult,
 } from "./RealtimeEventMap";
 
 /** Handler d'un canal pub/sub — reçoit le `params` de la notification (ou `(method, params)` sur `"*"`). */
@@ -165,11 +164,9 @@ export interface IRealtimeSocket<
   /** RPC corrélé — `Promise` résolue avec le `result` (rejette sur `error`/timeout). */
   request<K extends string, T = unknown>(
     method: K,
-    params?: K extends ActionNames<Actions>
-      ? ActionParams<Actions, K>
-      : unknown,
+    params?: ContractParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
+  ): Promise<ContractResult<Actions, K, T>>;
 
   /**
    * Vue par-canal — voir {@link IRealtimeChannel}. Fine liaison sur les primitives

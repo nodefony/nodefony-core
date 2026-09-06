@@ -1,7 +1,7 @@
 # @nodefony/drizzle
 
 Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
-[`@nodefony/orm-core`](../orm-core). driver concret du socle multi-ORM (avec
+[`@nodefony/orm-core`](https://www.npmjs.com/package/@nodefony/orm-core). driver concret du socle multi-ORM (avec
 `@nodefony/mongoose`), **type-safe-first**.
 
 > Driver de référence : `better-sqlite3` (tests, embarqué). Pour Postgres/MySQL,

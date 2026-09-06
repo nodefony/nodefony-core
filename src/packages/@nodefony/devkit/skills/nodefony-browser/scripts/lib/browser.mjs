@@ -19,9 +19,9 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import {
-  defautsDecor,
-  nomEtatAuth,
-  ordreNavigateurs,
+  environmentDefaults,
+  authStateName,
+  browserOrder,
   parseColorScheme,
   parseStorage,
 } from "./probes.mjs";
@@ -60,19 +60,19 @@ try {
  * quand on y est enfermé, et la sonde mesurerait alors une connexion refusée
  * en croyant que l'application est en panne.
  */
-const DANS_CONTENEUR = existsSync("/.dockerenv");
-const { base: baseDecor, out: OUT } = defautsDecor({
-  dansConteneur: DANS_CONTENEUR,
+const IN_CONTAINER = existsSync("/.dockerenv");
+const { base: baseUrl, out: OUT } = environmentDefaults({
+  inContainer: IN_CONTAINER,
   base: process.env.NF_BROWSER_BASE,
   out: process.env.NF_BROWSER_OUT,
 });
 
 /** Où atterrissent captures et état d'authentification. */
-export const SORTIE = OUT;
-export const BASE = baseDecor;
+export const OUTPUT = OUT;
+export const BASE = baseUrl;
 
-/** Les navigateurs à essayer, dans l'ordre — voir `ordreNavigateurs`. */
-const NAVIGATEURS = ordreNavigateurs(process.env.NF_BROWSER_ENGINE);
+/** Les navigateurs à essayer, dans l'ordre — voir `browserOrder`. */
+const BROWSERS = browserOrder(process.env.NF_BROWSER_ENGINE);
 
 /**
  * Le navigateur RÉELLEMENT utilisé, renseigné à l'ouverture.
@@ -81,7 +81,7 @@ const NAVIGATEURS = ordreNavigateurs(process.env.NF_BROWSER_ENGINE);
  * système et le Chromium du pilote ne sont pas la même version, et deux
  * chiffres de rendu comparés sans savoir cela ne comparent rien.
  */
-export let navigateurUtilise = null;
+export let browserUsed = null;
 export const USER = process.env.NF_BROWSER_USER ?? "";
 export const PASSWORD = process.env.NF_BROWSER_PASSWORD ?? "";
 
@@ -111,12 +111,12 @@ if (USER && !LOGIN) {
  * Sans lui, chaque inspection rejoue le parcours de connexion — quelques
  * secondes perdues et une occasion d'échec de plus à chaque exécution.
  *
- * Son nom porte l'IDENTIFIANT (cf {@link nomEtatAuth}) : un état est la session
+ * Son nom porte l'IDENTIFIANT (cf {@link authStateName}) : un état est la session
  * de quelqu'un, et le réutiliser pour un autre compte fait mesurer une identité
  * qu'on n'a pas demandée. Effet de bord bienvenu — deux comptes gardent chacun
  * leur session, donc aucun des deux ne se reconnecte à cause de l'autre.
  */
-const STATE = path.join(OUT, nomEtatAuth(process.env.NF_BROWSER_USER));
+const STATE = path.join(OUT, authStateName(process.env.NF_BROWSER_USER));
 // Créé AVANT la première écriture : en local, le dossier n'existe pas encore,
 // et l'échec ne surviendrait qu'à la sauvegarde — après la connexion, donc
 // après avoir fait croire que tout allait bien.
@@ -138,22 +138,22 @@ mkdirSync(OUT, { recursive: true });
  * Un défaut qui n'existe que dans un thème est invisible tant qu'on ne peut pas
  * demander l'autre : c'est ce qui a fait passer un menu à 1,63:1 sous le radar.
  */
-const { schema: COLOR_SCHEME, invalide: schemaInvalide } = parseColorScheme(
+const { schema: COLOR_SCHEME, invalid: invalidScheme } = parseColorScheme(
   process.env.NF_BROWSER_COLOR_SCHEME,
 );
-if (schemaInvalide) {
+if (invalidScheme) {
   console.error(
-    `NF_BROWSER_COLOR_SCHEME inconnu : « ${schemaInvalide} ».\n` +
+    `NF_BROWSER_COLOR_SCHEME inconnu : « ${invalidScheme} ».\n` +
       "Valeurs acceptées (celles de la média query standard) : light, dark, no-preference.",
   );
   process.exit(64); // EX_USAGE
 }
-const { entrees: STORAGE, rejetees: storageRejetees } = parseStorage(
+const { entries: STORAGE, rejected: storageRejected } = parseStorage(
   process.env.NF_BROWSER_STORAGE,
 );
-if (storageRejetees.length > 0) {
+if (storageRejected.length > 0) {
   console.error(
-    `NF_BROWSER_STORAGE — entrée(s) malformée(s) ignorable(s) en silence, donc REFUSÉE(S) : ${storageRejetees.join(", ")}\n` +
+    `NF_BROWSER_STORAGE — entrée(s) malformée(s) ignorable(s) en silence, donc REFUSÉE(S) : ${storageRejected.join(", ")}\n` +
       "Forme attendue : clé=valeur, séparées par des virgules.",
   );
   process.exit(64); // EX_USAGE
@@ -176,23 +176,23 @@ export async function open() {
   // L'ordre essaie d'abord celui que le pilote installe, puis ceux DÉJÀ posés
   // sur la machine : la plupart des postes n'ont alors rien à télécharger.
   let browser = null;
-  const echecs = [];
-  for (const canal of NAVIGATEURS) {
+  const failures = [];
+  for (const channel of BROWSERS) {
     try {
       browser = await chromium.launch({
-        channel: canal,
+        channel: channel,
         args: ["--no-sandbox"],
       });
-      navigateurUtilise = canal;
+      browserUsed = channel;
       break;
     } catch (e) {
-      echecs.push(`  ${canal} — ${String(e).split("\n")[0].slice(0, 120)}`);
+      failures.push(`  ${channel} — ${String(e).split("\n")[0].slice(0, 120)}`);
     }
   }
   if (!browser) {
     console.error(
-      `Aucun navigateur utilisable parmi : ${NAVIGATEURS.join(", ")}.\n\n` +
-        `${echecs.join("\n")}\n\n` +
+      `Aucun navigateur utilisable parmi : ${BROWSERS.join(", ")}.\n\n` +
+        `${failures.join("\n")}\n\n` +
         "Installer celui du pilote (une fois par machine, partagé par tous tes projets) :\n\n" +
         "  npx playwright install chromium\n\n" +
         "Ou viser un navigateur déjà présent : NF_BROWSER_ENGINE=chrome (ou msedge).",
@@ -229,10 +229,10 @@ export async function open() {
     // Cela l'emporte volontairement sur un état d'authentification réutilisé
     // qui porterait l'ancienne valeur : ce que la ligne de commande demande
     // prime sur ce qu'une session précédente avait laissé.
-    await ctx.addInitScript((entrees) => {
+    await ctx.addInitScript((entries) => {
       try {
-        for (const { cle, valeur } of entrees)
-          localStorage.setItem(cle, valeur);
+        for (const { cle: key, valeur: value } of entries)
+          localStorage.setItem(key, value);
       } catch {
         // Stockage refusé (mode privé, origine opaque) : la sonde continue —
         // le thème sera celui par défaut, et la mesure le DIRA (champ `theme`).
@@ -281,10 +281,10 @@ export async function signIn(page, ctx) {
   try {
     await id.or(pw).first().waitFor({ timeout: 15000 });
   } catch {
-    const titre = await page.title().catch(() => "");
+    const title = await page.title().catch(() => "");
     console.error(
       `Aucun champ de connexion trouvé sur ${BASE}${LOGIN}\n` +
-        `  page réellement ouverte : ${page.url()}${titre ? ` (« ${titre} »)` : ""}\n\n` +
+        `  page réellement ouverte : ${page.url()}${title ? ` (« ${title} »)` : ""}\n\n` +
         "Deux causes, à vérifier dans cet ordre :\n" +
         "  1. ce chemin n'est pas ton écran de connexion — une route absente rend\n" +
         "     une page d'erreur, où la sonde attendrait indéfiniment ;\n" +
@@ -316,12 +316,12 @@ export async function signIn(page, ctx) {
  *
  * @param page - la page à piloter.
  * @param ctx - son contexte.
- * @param chemin - le chemin à ouvrir, relatif à l'origine.
+ * @param pathname - le chemin à ouvrir, relatif à l'origine.
  * @param reuse - un état d'authentification a-t-il été repris au lancement.
  */
-export async function goTo(page, ctx, chemin, reuse) {
+export async function goTo(page, ctx, pathname, reuse) {
   if (USER && !reuse) await signIn(page, ctx);
-  await page.goto(`${BASE}${chemin}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}${pathname}`, { waitUntil: "domcontentloaded" });
   if (USER && reuse) {
     // 🔴 L'URL au `domcontentloaded` MENT sur une application à rendu client :
     // le serveur répond 200 sur toutes les routes, et c'est le code de la
@@ -332,13 +332,13 @@ export async function goTo(page, ctx, chemin, reuse) {
     // détour le temps d'avoir lieu ; la fenêtre couvre aussi la redirection
     // serveur (déjà sur le formulaire ⇒ résolue immédiatement), et ne se paie
     // que sur une session REPRISE — jamais après une connexion fraîche.
-    const detourne = await page
+    const redirected = await page
       .waitForURL((u) => u.pathname.endsWith(LOGIN), { timeout: 3000 })
       .then(
         () => true,
         () => false,
       );
-    if (detourne) {
+    if (redirected) {
       // Repartir d'un contexte VIERGE avant de rejouer le parcours — cookies
       // ET stockage web. Les cookies : le jeton anti-CSRF est lié à la session
       // morte, la garder fait refuser la soumission et accuser le mot de
@@ -351,7 +351,7 @@ export async function goTo(page, ctx, chemin, reuse) {
         sessionStorage.clear();
       });
       await signIn(page, ctx);
-      await page.goto(`${BASE}${chemin}`, { waitUntil: "domcontentloaded" });
+      await page.goto(`${BASE}${pathname}`, { waitUntil: "domcontentloaded" });
     }
   }
 }

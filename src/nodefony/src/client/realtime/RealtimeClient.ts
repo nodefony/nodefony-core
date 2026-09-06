@@ -63,12 +63,14 @@ import type {
   IRealtimeWelcome,
   RealtimeIdentity,
   TypedRpcActionHandler,
+  ContractParams,
+  ContractResult,
 } from "../../realtime/RealtimeEventMap";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
   announceRealtime,
-  aUnNoyau,
-  detailsConsole,
+  hasKernel,
+  consoleDetails,
   noteServerEnv,
 } from "../announce";
 import {
@@ -728,35 +730,38 @@ export class RealtimeClient<
     path: `/${string}`,
     timeoutMs?: number,
   ): Promise<T>;
-  /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */
+  /**
+   * Request/response JSON-RPC 2.0 — `Promise` résolue avec le `result`.
+   *
+   * Le 1ᵉʳ générique est le **nom de la méthode**, le 2ᵉ le type du résultat :
+   * ```ts
+   * const r = await socket.request<"nodefony:kernel:ping", { pong: boolean }>(
+   *   "nodefony:kernel:ping",
+   * );
+   * ```
+   * Quand `method` appartient au contrat `Actions`, `params` ET le résultat en
+   * sont déduits — un payload hors contrat est REFUSÉ à la compilation.
+   *
+   * ⚠️ **Rupture 10.0.0** : la forme `request<MonType>("ma:methode")` (`<T>` =
+   * résultat) n'existe plus. Elle était un attrape-tout qui rendait inopérant le
+   * contrôle des `params`. La réécrire en `request<"ma:methode", MonType>`.
+   */
   async request<K extends string, T = unknown>(
     method: K,
-    params?: K extends ActionNames<Actions>
-      ? ActionParams<Actions, K>
-      : unknown,
+    params?: ContractParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
+  ): Promise<ContractResult<Actions, K, T>>;
   /**
-   * Forme HISTORIQUE `request<T>(method, params?)` — `T` est le type du RÉSULTAT.
-   *
-   * ⚠️ Cette surcharge est aussi un ATTRAPE-TOUT : quand la surcharge typée
-   * ci-dessus échoue (params mal formés sur une action du contrat), TS retombe
-   * ici et accepte n'importe quel payload. Le garde-fou « params conformes au
-   * contrat » est donc INOPÉRANT tant qu'elle existe (prouvé dans
-   * `tests/RealtimeClient.types.test.ts`).
-   *
-   * Elle est CONSERVÉE sciemment : la retirer est un *breaking change* d'API
-   * publique, pas un correctif. Les deux formes se disputent le 1ᵉʳ paramètre
-   * générique (`<T>` = résultat ici, `<K>` = nom de méthode au-dessus) : tout
-   * appel `request<MonType>("ma:methode")` — dont `ping()` et le Studio
-   * (`request<IScaffoldJobState>("nodefony:scaffold:run", …)`) — devrait être réécrit en
-   * `request<"ma:methode", MonType>`. À trancher hors session de dette.
+   * Contrat {@link IRealtimePeer} rendu EXPLICITE — `method` et `params` sont
+   * tous deux bornés par le contrat `Actions`. Sans elle, la liste de surcharges
+   * (qui type `params` par un conditionnel non résolu) n'est pas assignable à la
+   * signature du peer et TS2416 tombe.
    */
-  async request<T = unknown>(
-    method: string,
-    params?: unknown,
+  async request<K extends ActionNames<Actions>>(
+    method: K,
+    params?: ActionParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<T>;
+  ): Promise<ActionResult<Actions, K>>;
   async request<T = unknown>(
     method: string,
     params?: unknown,
@@ -877,11 +882,15 @@ export class RealtimeClient<
         ? performance.now()
         : Date.now();
     const t0 = now();
-    const res = await this.request<KernelPingResult>(
-      PLATFORM_METHODS.ping,
-      undefined,
-      timeoutMs,
-    );
+    // `request()` rend un type CONDITIONNEL sur `Actions`, paramètre de classe
+    // non résolu ici — donc inexploitable depuis l'intérieur de la classe. D'où
+    // le cast, sur un contrat que le serveur garantit (`nodefony:kernel:ping`).
+    // Passer par `request()` et non par le moteur est délibéré : c'est le point
+    // d'extension que les tests et les décors substituent.
+    const res = (await this.request<
+      typeof PLATFORM_METHODS.ping,
+      KernelPingResult
+    >(PLATFORM_METHODS.ping, undefined, timeoutMs)) as KernelPingResult;
     return { ...res, rtt: Math.round(now() - t0) };
   }
 
@@ -1033,7 +1042,7 @@ export class RealtimeClient<
     // Détail dans la console — SEULEMENT s'il n'y a pas de noyau : quand il y en
     // a un, c'est lui qui parle, il a plus à dire (état, identité, services).
     // C'est le moment juste : avant l'accueil, il n'y aurait rien à montrer.
-    if (this.opts.banner !== false && !aUnNoyau()) this.detailsSocket();
+    if (this.opts.banner !== false && !hasKernel()) this.detailsSocket();
     this.fireLocal(LOCAL_EVENTS.identity, this._identity);
   }
 
@@ -1047,7 +1056,7 @@ export class RealtimeClient<
    * fois par page, et jamais en production.
    */
   private detailsSocket(): void {
-    detailsConsole(
+    consoleDetails(
       {
         adresse: { valeur: this.url ?? "—" },
         état: { valeur: this.state },
@@ -1071,7 +1080,11 @@ export class RealtimeClient<
    * payload partiel (motif par défaut `forbidden`). Cold path (refus rare).
    */
   private ingestDenied(params: unknown): void {
-    const p = params as { channel?: unknown; reason?: unknown } | null;
+    const p = params as {
+      channel?: unknown;
+      reason?: unknown;
+      detail?: unknown;
+    } | null;
     const channel = typeof p?.channel === "string" ? p.channel : "";
     // Motif NORMALISÉ sur le contrat : un serveur plus récent (ou un pont mal
     // écrit) qui inventerait un motif ne doit pas faire tomber l'écran dans un
@@ -1080,7 +1093,19 @@ export class RealtimeClient<
     const brut = p?.reason;
     const reason: IRealtimeDenied["reason"] =
       brut === "unknown" || brut === "limit" ? brut : "forbidden";
-    const denied: IRealtimeDenied = { channel, reason };
+    // Le DÉTAIL est repris tel quel quand le serveur en pose un — il n'existe
+    // qu'hors production (`deniedDetail`, côté serveur), et il porte ce qu'il
+    // faut regarder là où `reason`, générique par construction, ne dit rien.
+    // Il n'est pas normalisé comme `reason` : ce n'est pas une valeur du
+    // protocole que du code lit, c'est une phrase qu'un humain lit. Filtré sur
+    // le TYPE seulement — une frame hostile ne doit pas glisser un objet là où
+    // l'écran attend du texte.
+    const detail = typeof p?.detail === "string" ? p.detail : undefined;
+    const denied: IRealtimeDenied = {
+      channel,
+      reason,
+      ...(detail === undefined ? {} : { detail }),
+    };
     this.fireNotice(deniedToNotice(denied));
     this.fireLocal(LOCAL_EVENTS.denied, denied);
   }

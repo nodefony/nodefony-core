@@ -1,11 +1,13 @@
 // @nodefony/core — barrel ESM
-// import { Kernel, Service, Container, Syslog, ... } from "@nodefony/core"
+// import { Kernel, Service, Container, Syslog, ... } from "nodefony"
+// (le workspace se nomme `@nodefony/core`, le paquet publié se nomme `nodefony`)
 
 // ─── Framework ────────────────────────────────────────────────────────────────
 export { Nodefony } from "./Nodefony";
 export { default as Kernel } from "./kernel/Kernel";
 export { default as Module } from "./kernel/Module";
 export { BootConfigurationError } from "./kernel/BootConfigurationError";
+export { parseModuleConfig } from "./kernel/moduleConfig";
 export { default as CliKernel } from "./kernel/CliKernel";
 export { default as Service } from "./Service";
 export { default as Container } from "./Container";
@@ -20,10 +22,40 @@ export { default as Cli } from "./Cli";
 export { default as clc } from "./colors";
 export type { ColorFn, Clc } from "./colors";
 export { SysExit } from "./cli/sysexits";
+// Attente et progression au terminal — publiées parce qu'une application qui
+// écrit une commande CLI en a le MÊME besoin que le framework, et qu'une
+// seconde implémentation divergerait dès le premier réglage. Doc :
+// `src/nodefony/docs/progression.md`.
+export {
+  Spinner,
+  ProgressBar,
+  LiveLine,
+  renderBar,
+  formatDuration,
+  supportsUnicode,
+  shouldAnimate,
+  fitToWidth,
+  BAR_STYLES,
+  BRAILLE_FRAMES,
+  LINE_FRAMES,
+  ARC_FRAMES,
+  BLOCK_FRAMES,
+  DOT_FRAMES,
+} from "./cli/progress";
+export type {
+  IBarStyle,
+  ILiveLineOptions,
+  IProgressBarOptions,
+  IProgressState,
+  IRenderBarOptions,
+  ISpinnerOptions,
+  ProgressRenderer,
+  SpinnerRenderer,
+} from "./cli/progress";
 export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
-export { besoinDeShell } from "./cli/execPortable";
+export { needsShell } from "./cli/execPortable";
 // Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.
@@ -165,6 +197,9 @@ export type {
   ActionNames,
   ActionParams,
   ActionResult,
+  ContractActionNames,
+  ContractParams,
+  ContractResult,
   TypedRpcActionHandler,
   RealtimeIdentity,
   IRealtimeWelcome,
@@ -595,7 +630,7 @@ export type {
 export { getScaffoldSpec } from "./cli/scaffold/spec";
 // Le câblage des agents choisis à la création : UNE construction d'appel, servie
 // au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
-export { argvCablageMcp, planCablageMcp } from "./cli/create";
+export { argvMcpWiring, mcpWiringPlan } from "./cli/create";
 export type {
   IScaffoldQuestion,
   IScaffoldTypeSpec,
@@ -807,16 +842,16 @@ export {
   AGENT_TARGETS,
   planAgentDeclaration,
   renderPlanShell,
-  racineAgent,
+  agentRoot,
   poseVariable,
-  porteDejaLaCle,
-  agentsDemandes,
+  alreadyHasKey,
+  requestedAgents,
   agentsPresents,
   MCP_TOKEN_ENV,
 } from "./cli/agentTargets";
 export type {
   IAgentTarget,
-  IDeclarationContexte,
+  IDeclarationContext,
   IDeclarationPlan,
   VoieDeclaration,
 } from "./cli/agentTargets";
@@ -843,16 +878,16 @@ export { runGitHooksCommand, installGitHooks } from "./cli/gitHooks";
 // Diagnostic statique — la COLLECTE, séparée de son rendu, pour que la commande
 // `check` et le serveur MCP du devkit rendent le même document.
 export {
-  collectCheckReport,
+  collectDoctorReport,
   countCheckFindings,
-} from "./kernel/checks/runCheck";
-export type { ICheckReport } from "./kernel/checks/runCheck";
+} from "./kernel/checks/runDoctor";
+export type { IDoctorReport } from "./kernel/checks/runDoctor";
 
 export { buildCard, renderCard } from "./cli/cardReport";
 export {
   chargePrompts,
-  demande,
-  ancreEventLoop,
+  request,
+  anchorEventLoop,
   type IPrompts,
 } from "./cli/prompts";
 export type {

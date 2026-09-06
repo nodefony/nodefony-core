@@ -57,10 +57,10 @@ Service(name, container?, notificationsCenter?, options?)
 
 - `log(pci, severity?, msgid?, msg?)` → `Pdu`
 - `pdu.severity` = numérique (enum `SysLogSeverity`), `pdu.severityName` = string
-- Severités : `EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7) SPINNER(-1)`
+- Severités : `EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7)`
 - Attention : c'est "CRITIC" pas "CRITICAL"
-- `spinlog(msg)` = `log(msg, "SPINNER")`
 - `logger(pci)` = `console.debug` | `trace(pci)` = `console.trace`
+- Attente/progression terminal : `cli/progress.ts` (`Spinner`, `ProgressBar`, `renderBar`) — écrit DIRECTEMENT sur le flux, JAMAIS par le Syslog
 - Fallback si `syslog null` : `new Pdu(pci, severity, this.name, msgid, msg)` — moduleName = nom du service
 
 **Container delegation**
@@ -242,7 +242,7 @@ rien à redéclarer.
 | --- | --- | --- |
 | `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue |
 | `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
-| `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
+| `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectDoctorReport`, `lookupSymbol`, `getCard`) |
 | `declareMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`. **Non servable tel quel** : contient les réservés |
 | `collectMcpTools(opts)` | `src/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
 | `mcpDeclaredScopes(opts)` | `src/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
@@ -311,6 +311,61 @@ rien à redéclarer.
   dernière norme et injoignable par tout le monde.
 - ⚠️ `check` scanne le dépôt réel (~4 s) : tout test qui l'exerce doit porter un
   `timeout` explicite — le défaut vitest de 5 s tombait en CI et passait en local.
+
+---
+
+## `nodefony doctor` (`src/kernel/checks/`) — statique par défaut, `--live` DEMANDE
+
+Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
+
+| Fichier           | Rôle                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runCheck.ts`     | COLLECTE (`collectDoctorReport`) + ligne de commande + `renderDoctorReport` (rendu + code) + `attachLive`. Ne met rien en forme.                                          |
+| `report.ts`       | Primitives PURES : `IExecution`, `DoctorFamily`, `TITRES`, `FAMILLES`, `COUNTED_FAMILIES`, `countFindings`, `controlesSautes`, `preventedChecks`, palette, repli, accord. |
+| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                                     |
+| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                                                 |
+
+- **Un contrôle rend DEUX choses** : ses `findings`, et son `execution` (`{ran, reason, short, unlock}`).
+  Une liste vide ne vaut quitus que si `ran` est vrai — c'est la moitié du
+  diagnostic que « 0 manquement » ne dit pas. Familles : `freshness`,
+  `readiness`, `envCatalog` (sous-règle de `readiness`), `deps`, `wiring`,
+  `migrations` et `firewall` (étage 2).
+- `envCatalog` NE se rapporte PAS quand `readiness` est déjà sauté (`controlesSautes`
+  dédoublonne) : sinon le bilan chiffré ne colle plus aux lignes affichées.
+- **Le rendu produit le document ENTIER avant d'écrire** : c'est ce qui permet
+  d'aligner sur le plus long titre, de regrouper les sautés par raison
+  (`grouperParRaison`) et de faire tenir le bilan sur une ligne — ou de l'empiler.
+- **Couleur = `doitColorer(env, isTTY)`** (`NO_COLOR` gagne, puis `FORCE_COLOR`,
+  sinon TTY). `clc` émet TOUJOURS (`validateStream: false`) : c'est ici que la
+  porte se ferme, pas dans `colors.ts`.
+- `--strict` (ou `CI` posé) fait échouer sur un contrôle SAUTÉ ; `--no-strict`
+  énonce une absence voulue. Sans lui : 0 par défaut, un sauté n'est pas un manquement.
+- **`--live` = étage 2** : `CliKernel` laisse alors la commande BOOTER
+  (`kernelEvent: "onPostReady"`, aucun port — `Kernel.initServers` respecte le
+  profil console). `live.ts` appelle `callAdminEndpoint` sur `orm/migrations` et
+  `security/firewall`, et rend `summary` + `nextActions[0].command` TELS QUELS.
+  Rien n'est recalculé : le core ne peut de toute façon importer ni l'ORM ni la
+  sécurité, et une seconde vérité divergerait. `attachLive` REMPLACE les deux
+  entrées d'`execution` (les ajouter à côté afficherait deux états pour un
+  contrôle). Un producteur absent, un 501 `NF_MIGRATE_NO_MIGRATIONS` (base sans
+  migrations versionnées) ou un format inattendu ⇒ `ran: false` avec sa raison —
+  jamais un quitus. `readLive()` ne lève JAMAIS : le rapport statique est
+  justement celui dont on a besoin quand l'app va mal.
+- **NON DEMANDÉ ≠ EMPÊCHÉ** (`IExecution.onDemand`) : l'étage 2 sauté faute de
+  `--live` est RAPPORTÉ (ce n'est pas un quitus) mais ne pèse pas sur le code de
+  sortie ; un `--live` demandé qui échoue, si. `preventedChecks` rend la
+  distinction en UN endroit — code de sortie ET bandeau du rendu. Sans elle,
+  `--strict` (armé d'office par `CI`) faisait échouer `doctor` dans toute chaîne
+  automatisée, application générée comprise.
+- **UN SEUL compte** : `countFindings` (`report.ts`) sert le code de sortie, le
+  bilan chiffré et MCP ; `nombreDeControlesPasses` itère `COUNTED_FAMILIES`.
+  Les deux avaient été écrits en dur ailleurs et ont divergé au premier ajout —
+  le sommaire montrait deux échecs quand le bilan en annonçait un.
+- **3 portes, 1 rapport** : CLI (fast-path `CliKernel`), `--json`, MCP
+  (`nodefony_check` → verdict `ok` | `ok-mais-incomplet` | `manquements`).
+- ⚠️ `--help` est reconnu PAR LE PARSEUR (commander ne voit jamais la commande,
+  le fast-path la prend avant). Le gate `standaloneOptions.test.ts` l'exclut de
+  la comparaison parseur ↔ `addOption` : commander le publie d'office.
 
 ---
 

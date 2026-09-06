@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { runSymbolsCommand } from "../../cli/symbols";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "COMPRENDRE",
   // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
   // vaut que pour une invocation directe) : sa sortie serait noyée sous le
   // journal de cycle de vie.
@@ -34,7 +35,7 @@ class Symbols extends Command {
   constructor(cli: CliKernel) {
     super(
       "symbols",
-      "Graphe symbolique : définition, description et parenté d'un symbole",
+      "où un symbole est défini, et de qui il hérite",
       cli as CliKernel,
       options,
     );

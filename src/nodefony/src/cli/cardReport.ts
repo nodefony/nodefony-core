@@ -33,11 +33,11 @@ export interface ICardAppInfo {
  */
 export interface ICardDoor {
   /** Ce que la porte ouvre, en quelques mots. */
-  titre: string;
+  title: string;
   /** URL servie, ou chemin de fichier relatif à la racine de l'application. */
-  ou: string;
+  where: string;
   /** Pourquoi y aller — la raison, pas la description. */
-  pourquoi: string;
+  why: string;
 }
 
 /**
@@ -48,9 +48,9 @@ export interface ICardDoor {
  */
 export interface ICardVerb {
   /** Commande complète, prête à coller dans un terminal. */
-  commande: string;
+  command: string;
   /** Ce qu'elle répond. */
-  pourquoi: string;
+  why: string;
 }
 
 /**
@@ -74,9 +74,9 @@ export interface ICard {
   /** Ce que `modules` décrit réellement. */
   source: CardSource;
   /** Où aller, par valeur décroissante. */
-  portes: ICardDoor[];
+  doors: ICardDoor[];
   /** Quoi lancer, par valeur décroissante. */
-  verbes: ICardVerb[];
+  verbs: ICardVerb[];
 }
 
 /**
@@ -117,61 +117,54 @@ export function buildCard(input: ICardInput): ICard {
   const modules = [...input.modules].sort();
   const has = (name: string): boolean => modules.includes(name);
 
-  const portes: ICardDoor[] = [
+  const doors: ICardDoor[] = [
     {
-      titre: "Les instructions de cette application",
-      ou: "AGENTS.md",
-      pourquoi:
-        "générateurs disponibles, table tâche → fichier, gates à passer. À lire AVANT d'écrire du code.",
+      title: "Les instructions de cette application",
+      where: "AGENTS.md",
+      why: "générateurs disponibles, table tâche → fichier, gates à passer. À lire AVANT d'écrire du code.",
     },
     {
-      titre: "Le catalogue des briques",
-      ou: "node_modules/nodefony/docs/catalogue.md",
-      pourquoi:
-        "quel module prendre pour quel besoin, et quand ne PAS le prendre.",
+      title: "Le catalogue des briques",
+      where: "node_modules/nodefony/docs/catalogue.md",
+      why: "quel module prendre pour quel besoin, et quand ne PAS le prendre.",
     },
     {
-      titre: "La documentation des modules installés",
-      ou: "node_modules/@nodefony/*/docs/",
-      pourquoi:
-        "elle est versionnée AVEC le code installé : elle ne peut pas décrire une autre version que la tienne.",
+      title: "La documentation des modules installés",
+      where: "node_modules/@nodefony/*/docs/",
+      why: "elle est versionnée AVEC le code installé : elle ne peut pas décrire une autre version que la tienne.",
     },
   ];
   if (has("studio")) {
-    portes.push({
-      titre: "La console d'administration",
-      ou: "/nodefony",
-      pourquoi:
-        "l'application en marche : routes montées, services, config résolue, sessions, journaux.",
+    doors.push({
+      title: "La console d'administration",
+      where: "/nodefony",
+      why: "l'application en marche : routes montées, services, config résolue, sessions, journaux.",
     });
   }
   if (has("documentation")) {
-    portes.push({
-      titre: "L'index de documentation, en JSON",
-      ou: "/nodefony/documentation/api/tree",
-      pourquoi: "la même documentation, lisible par un programme.",
+    doors.push({
+      title: "L'index de documentation, en JSON",
+      where: "/nodefony/documentation/api/tree",
+      why: "la même documentation, lisible par un programme.",
     });
   }
 
-  const verbes: ICardVerb[] = [
+  const verbs: ICardVerb[] = [
     {
-      commande: "npx nodefony check",
-      pourquoi:
-        "diagnostic STATIQUE : il ne lit que des fichiers, donc il répond même quand l'application ne démarre plus.",
+      command: "npx nodefony doctor",
+      why: "diagnostic STATIQUE : il ne lit que des fichiers, donc il répond même quand l'application ne démarre plus.",
     },
     {
-      commande: "npx nodefony inspect routes --json",
-      pourquoi:
-        "ce qui est VRAIMENT monté, quand le code laisse croire autre chose. Sujets : routes, modules, services, config, stores, entities, graph.",
+      command: "npx nodefony inspect routes --json",
+      why: "ce qui est VRAIMENT monté, quand le code laisse croire autre chose. Sujets : routes, modules, services, config, stores, entities, graph.",
     },
     {
-      commande: "npx nodefony create entity Produit nom:string prix:float",
-      pourquoi:
-        "l'entité, son service CRUD, son controller REST et ses tests. N'écris jamais à la main ce qu'un générateur produit.",
+      command: "npx nodefony create entity Produit nom:string prix:float",
+      why: "l'entité, son service CRUD, son controller REST et ses tests. N'écris jamais à la main ce qu'un générateur produit.",
     },
     {
-      commande: "npm test",
-      pourquoi: "le premier diagnostic — avant de lire quoi que ce soit.",
+      command: "npm test",
+      why: "le premier diagnostic — avant de lire quoi que ce soit.",
     },
   ];
 
@@ -184,8 +177,8 @@ export function buildCard(input: ICardInput): ICard {
     nodefony: { version: input.nodefonyVersion },
     modules,
     source: input.source ?? "runtime",
-    portes,
-    verbes,
+    doors: doors,
+    verbs: verbs,
   };
 }
 
@@ -206,7 +199,7 @@ export function buildCard(input: ICardInput): ICard {
  */
 export function renderCard(card: ICard): string {
   const froid = card.source === "static";
-  const lignes = [
+  const lines = [
     `${card.app.name} ${card.app.version} — ${card.app.environment} (nodefony ${card.nodefony.version})`,
     "",
     froid
@@ -216,11 +209,11 @@ export function renderCard(card: ICard): string {
       : `Modules chargés (${card.modules.length}) : ${card.modules.join(", ")}`,
     "",
     "Où aller :",
-    ...card.portes.map((p) => `  ${p.ou}\n      ${p.titre} — ${p.pourquoi}`),
+    ...card.doors.map((p) => `  ${p.where}\n      ${p.title} — ${p.why}`),
     "",
     "Quoi lancer :",
-    ...card.verbes.map((v) => `  ${v.commande}\n      ${v.pourquoi}`),
+    ...card.verbs.map((v) => `  ${v.command}\n      ${v.why}`),
     "",
   ];
-  return lignes.join("\n");
+  return lines.join("\n");
 }

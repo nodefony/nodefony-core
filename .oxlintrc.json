@@ -170,6 +170,10 @@
     ],
     "typescript/no-explicit-any": "warn",
     "typescript/ban-ts-comment": "warn",
+    // Le projet est ESM STRICT (`import`, jamais `require`) : la règle a
+    // trouvé son unique transgression le jour de son activation, dans un
+    // test — c'est exactement ce qu'une garde doit faire.
+    "typescript/no-require-imports": "warn",
     "no-console": "off",
     "no-eval": "error",
     "no-new-func": "error",

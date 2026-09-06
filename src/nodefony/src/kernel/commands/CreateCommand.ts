@@ -3,6 +3,7 @@ import CliKernel from "../CliKernel";
 import { CREATE_TYPES, runCreateCommand } from "../../cli/create";
 
 const options: OptionsCommandInterface = {
+  helpGroup: "GÉNÉRER ET CONSTRUIRE",
   showBanner: false,
   kernelEvent: "onStart",
 };
@@ -20,7 +21,7 @@ class Create extends Command {
   constructor(cli: CliKernel) {
     super(
       "create",
-      `Génère app, module, entité… (${CREATE_TYPES.join(" | ")})`,
+      "engendre une application, un module, une entité…",
       cli,
       options,
     );

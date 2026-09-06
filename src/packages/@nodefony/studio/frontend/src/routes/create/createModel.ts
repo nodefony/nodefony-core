@@ -510,9 +510,9 @@ export function formatAnswer(
   if (q.type === "list") {
     // Le récap dit ce qui SERA fait : une liste vide n'est pas « le défaut »,
     // c'est un choix — « aucun » — et il doit se lire comme tel.
-    const valeurs = Array.isArray(value) ? value : [];
-    if (valeurs.length === 0) return "aucun";
-    return valeurs
+    const values = Array.isArray(value) ? value : [];
+    if (values.length === 0) return "aucun";
+    return values
       .map((v) => q.choices?.find((c) => c.value === v)?.label ?? v)
       .join(", ");
   }

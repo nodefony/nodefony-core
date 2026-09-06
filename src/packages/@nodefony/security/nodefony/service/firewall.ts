@@ -359,6 +359,22 @@ class Firewall extends Service implements IFirewall {
             reason,
           }),
       }),
+      {
+        // La MÊME fabrique, les MÊMES arguments — seul le rapporteur d'audit
+        // tombe. La règle n'est donc écrite qu'une fois ; ce qui diffère, c'est
+        // la TRACE, pas la décision. Un test compare les deux verdicts canal par
+        // canal (`realtimeWelcomeChannels`), parce que deux closures voisines
+        // finissent toujours par diverger si rien ne les confronte.
+        //
+        // Elle sert au `realtime:welcome`, qui interroge tous les canaux à
+        // chaque connexion : passer par le verrou y écrirait autant de refus au
+        // journal d'audit pour des demandes que personne n'a faites, et un
+        // journal inondé de non-évènements cesse d'être lu.
+        silentProbe: buildFrameAuthorizer(this, {
+          channelResolver: realtime,
+          systemRules,
+        }),
+      },
     );
     // Canal live du journal d'audit (P6.14 lot 4) — enregistré comme canal
     // SYSTÈME sur le hub : servable par TOUT endpoint (pas seulement Studio),

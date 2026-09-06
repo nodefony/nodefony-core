@@ -9,9 +9,8 @@ import {
   type DefaultActionsMap,
   type EventNames,
   type EventPayload,
-  type ActionNames,
-  type ActionParams,
-  type ActionResult,
+  type ContractParams,
+  type ContractResult,
 } from "nodefony";
 import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
 
@@ -132,17 +131,15 @@ export class ServerRealtimeSocket<
    */
   request<K extends string, T = unknown>(
     _method: K,
-    _params?: K extends ActionNames<Actions>
-      ? ActionParams<Actions, K>
-      : unknown,
+    _params?: ContractParams<Actions, K>,
     _timeoutMs?: number,
-  ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T> {
+  ): Promise<ContractResult<Actions, K, T>> {
     return Promise.reject(
       new Error(
         "ServerRealtimeSocket.request: pas de pair unique côté hub (multi-clients). " +
           "Pour un RPC serveur→client 1-1, utiliser RealtimeController.requestClient.",
       ),
-    ) as Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
+    ) as Promise<ContractResult<Actions, K, T>>;
   }
 
   /** Vue par-canal ({@link IRealtimeChannel}) — fine liaison sur les primitives. */

@@ -213,12 +213,26 @@ export const CHEMIN_REALTIME_LIVE = "/api/live/realtime";
 
 /**
  * Le canal témoin « ne pas affaiblir », GRATUIT : posé par le décor
- * (`LiveController.ts`, `@RealtimeChannel("live:ticker")` SANS politique — donc
- * PUBLIC par construction), il publie déjà 1×/s avant que l'agent n'existe.
+ * (`LiveController.ts`, `@RealtimeChannel("live:events")` SANS politique — donc
+ * PUBLIC par construction), il existe dès la création de l'application.
  *
- * Il doit RESTER lisible par un anonyme après le travail de l'agent. S'il
- * s'est fermé, une politique bien plus large que le seul canal de l'énoncé a
- * été posée (toute la zone `^/api` resserrée, par exemple) — et la démo de
+ * Il doit RESTER annoncé à un anonyme après le travail de l'agent. S'il a
+ * disparu, une politique bien plus large que le seul canal de l'énoncé a été
+ * posée (toute la zone `^/api` resserrée, par exemple) — et la démo de
  * l'application est morte avec.
+ *
+ * 🔴 **Deux faussetés ont vécu ici, et ensemble elles rendaient la tâche 19
+ * IMPOSSIBLE.** Ce nom valait `"live:ticker"` — un canal qui n'existe dans
+ * AUCUNE application générée ; le gabarit déclare `live:events`. Et le juge
+ * attendait de lui une TRAME, sur la foi d'un « il publie déjà 1×/s » que le
+ * gabarit contredit explicitement : « Il ne produit RIEN tout seul : il retient
+ * de quoi diffuser, et c'est `dire` qui alimente. Un battement périodique […]
+ * coûterait du réseau et du processeur en permanence. » Le juge attendait donc
+ * une trame qui n'arrive jamais, sur un canal qui n'existe pas — et imputait
+ * l'absence à l'agent, en le disant coupable d'une politique « bien plus
+ * large » qu'il n'avait pas posée. Mesuré : sur trois répétitions, un agent
+ * ayant écrit très exactement le geste demandé
+ * (`@RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })`, sans toucher au
+ * firewall) a été recalé deux fois.
  */
-export const CANAL_TEMOIN_PUBLIC = "live:ticker";
+export const CANAL_TEMOIN_PUBLIC = "live:events";

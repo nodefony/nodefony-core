@@ -102,6 +102,8 @@
     ],
     "typescript/no-explicit-any": "warn",
     "typescript/ban-ts-comment": "warn",
+    // ESM strict : une application Nodefony n'écrit jamais `require`.
+    "typescript/no-require-imports": "warn",
     "no-eval": "error",
     "no-new-func": "error",
     "no-await-in-loop": "off",

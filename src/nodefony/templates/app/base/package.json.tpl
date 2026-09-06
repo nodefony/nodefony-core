@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=24.0.0"
   },
-<% if (it.complete) { %>  "allowScripts": {
+<% if (it.complete && it.dialect === "sqlite") { %>  "allowScripts": {
     "better-sqlite3": false
   },
 <% } %>  "scripts": {
@@ -23,8 +23,8 @@
     "coverage": "vitest run --coverage",
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run check",
-    "check": "nodefony check",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run doctor",
+    "doctor": "nodefony doctor",
     "inspect": "nodefony inspect",
     "ai:sync": "nodefony ai:sync",
     "see:setup": "npm i -D playwright axe-core",
@@ -46,7 +46,10 @@
 <% if (it.complete) { %>    "@nodefony/orm-core": "^<%= it.nodefonyVersion %>",
     "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",
     "drizzle-orm": "<%= it.pkg["drizzle-orm"] %>",
-    "@nodefony/user": "^<%= it.nodefonyVersion %>",
+<% if (it.dialect === "postgres") { %>    "pg": "<%= it.pkg["pg"] %>",
+<% } else if (it.dialect === "mysql") { %>    "mysql2": "<%= it.pkg["mysql2"] %>",
+<% } else { %>    "better-sqlite3": "<%= it.pkg["better-sqlite3"] %>",
+<% } %>    "@nodefony/user": "^<%= it.nodefonyVersion %>",
     "@node-rs/argon2": "<%= it.pkg["@node-rs/argon2"] %>",
     "@nodefony/realtime": "^<%= it.nodefonyVersion %>",
     "@nodefony/security": "^<%= it.nodefonyVersion %>",

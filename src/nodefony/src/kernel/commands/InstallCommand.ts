@@ -2,6 +2,7 @@ import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 
 const optionsCommand: OptionsCommandInterface = {
+  helpGroup: "GÉNÉRER ET CONSTRUIRE",
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -10,7 +11,7 @@ class Install extends Command {
   constructor(cli: CliKernel) {
     super(
       "install",
-      "Installe les dépendances puis construit le projet",
+      "installe les dépendances puis construit le projet",
       cli as CliKernel,
       optionsCommand,
     );

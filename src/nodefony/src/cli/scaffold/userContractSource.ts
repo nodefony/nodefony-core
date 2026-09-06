@@ -98,8 +98,8 @@ export function userTableName(appRoot: string): string {
         "générer.\n  → l'ajouter : npm install @nodefony/user",
     );
   }
-  const nom = module.USER_TABLE_NAME;
-  if (typeof nom !== "string" || nom.length === 0) {
+  const name = module.USER_TABLE_NAME;
+  if (typeof name !== "string" || name.length === 0) {
     throw new Error(
       "create entity User : « @nodefony/user » n'expose pas le nom de la table " +
         "des utilisateurs (`USER_TABLE_NAME`) — version trop ancienne. Le deviner " +
@@ -107,7 +107,7 @@ export function userTableName(appRoot: string): string {
         "  → mettre le module à jour",
     );
   }
-  return nom;
+  return name;
 }
 
 /**

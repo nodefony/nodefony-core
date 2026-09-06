@@ -62,23 +62,17 @@ class Redis extends Module<IRedisConfig> {
    * 2026-05-28).
    */
   override async onKernelRegister(): Promise<this> {
-    let validated: IRedisConfig;
-    try {
-      // `this.options` est FLAT : le Kernel deep-merge la config de `use("@nodefony/redis", …)`
-      // directement dans les options du module (Kernel.ts) — PAS sous une clé `.redis`. Lire
-      // `this.options.redis` ignorait silencieusement toute config app (cf audit config ORM 2026-06).
-      validated = defineRedisConfig((this.options as IRedisConfigInput) ?? {});
-    } catch (e) {
-      const issues =
-        e instanceof Error && "issues" in e && Array.isArray(e.issues)
-          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
-              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-              .join(" · ")
-          : (e as Error).message;
-      throw new Error(`[@nodefony/redis] Invalid config: ${issues}`, {
-        cause: e,
-      });
-    }
+    // `this.options` est FLAT : le Kernel deep-merge la config de `use("@nodefony/redis", …)`
+    // directement dans les options du module (Kernel.ts) — PAS sous une clé `.redis`. Lire
+    // `this.options.redis` ignorait silencieusement toute config app (cf audit config ORM 2026-06).
+    // Aucun `try`/`catch` : `parseModuleConfig` (cœur) lève déjà une
+    // `BootConfigurationError` nommant le module et la clé fautive. Le bloc qui
+    // se trouvait ici la RE-EMBALLAIT en `Error` ordinaire, que le kernel absorbe
+    // en développement (fail-soft) — le refus disparaissait précisément là où la
+    // faute vient d'être écrite.
+    const validated: IRedisConfig = defineRedisConfig(
+      (this.options as IRedisConfigInput) ?? {},
+    );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RedisService la lit sur son module (`this.module.config`).
     this.options = validated;

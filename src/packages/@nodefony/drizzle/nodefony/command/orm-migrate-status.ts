@@ -10,6 +10,7 @@ import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
  * Aucun serveur n'écoute pour autant : le profil console est respecté.
  */
 const options: OptionsCommandInterface = {
+  helpGroup: "BASE DE DONNÉES",
   showBanner: false,
   kernelEvent: "onPostReady",
 };
@@ -49,7 +50,7 @@ class OrmMigrateStatus extends OrmMigrateCommand {
   constructor(cli: CliKernel) {
     super(
       "orm:migrate:status",
-      "Affiche l'état des migrations d'un connecteur (lecture seule ; code de sortie 0 à jour, 1 action requise, 2 panne)",
+      "l'état des migrations d'un connecteur, sans écrire",
       cli,
       options,
     );

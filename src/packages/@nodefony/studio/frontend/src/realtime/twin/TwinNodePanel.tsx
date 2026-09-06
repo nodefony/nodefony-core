@@ -359,7 +359,7 @@ const BP_DOC = "v1.0";
  */
 const DOC_CONFIGURATION =
   "/nodefony/documentation?doc=mod~realtime~configuration";
-const DOC_SECURITE = "/nodefony/documentation?doc=mod~realtime~securite";
+const DOC_SECURITY = "/nodefony/documentation?doc=mod~realtime~securite";
 
 /** Libellé + fiche d'aide d'une ligne du panneau (la clé de `KeyValue`). */
 function LabelWithHint({ label, hint }: { label: string; hint: ReactNode }) {
@@ -381,15 +381,15 @@ function BpRealtimePanel({
   const bp = norm?.instances[0]?.backplane;
   const rejets = norm?.totals?.ingressRejectedTotal ?? 0;
   const driver = bp?.driver ?? (cluster ? "ipc" : "loopback");
-  const canal = bp?.channel;
+  const channel = bp?.channel;
   // Le scellement ne se pose que sur un transport PARTAGÉ : en mono-process ou
   // en IPC (maître ↔ ses propres workers), aucun tiers ne peut écrire sur le bus.
-  const busPartage = bp?.crossPod === true;
-  const scelle = bp?.sealed === true;
+  const sharedBus = bp?.crossPod === true;
+  const sealed = bp?.sealed === true;
   // File d'envoi : seuls les transports réseau en ont une (acquittement
   // asynchrone). Absente en mono-processus et sur le lien maître ↔ workers.
   const file = bp?.queue;
-  const perdues = file?.droppedTotal ?? 0;
+  const lost = file?.droppedTotal ?? 0;
 
   return (
     <Stack gap="sm">
@@ -436,7 +436,7 @@ function BpRealtimePanel({
                   title="Jusqu'où porte le relais"
                   version={BP_DOC}
                   summary={
-                    busPartage
+                    sharedBus
                       ? "Oui : le relais franchit les frontières de machine — d'autres hôtes reçoivent ce qui est publié ici."
                       : "Non : le relais ne sort pas de cette machine (un seul processus, ou des workers locaux)."
                   }
@@ -456,9 +456,9 @@ function BpRealtimePanel({
               }
             />
           }
-          v={busPartage ? "oui" : "non"}
+          v={sharedBus ? "oui" : "non"}
         />
-        {canal ? (
+        {channel ? (
           <KeyValue
             k={
               <LabelWithHint
@@ -467,7 +467,7 @@ function BpRealtimePanel({
                   <DocHint
                     title="Sur quel bus ce processus est branché"
                     version={BP_DOC}
-                    summary={`Le transport publie et écoute sur « ${canal} ». Tout ce qui passe par ce nom est reçu par tous les processus qui l'écoutent, et par eux seuls.`}
+                    summary={`Le transport publie et écoute sur « ${channel} ». Tout ce qui passe par ce nom est reçu par tous les processus qui l'écoutent, et par eux seuls.`}
                     sections={[
                       {
                         label: "À quoi ça sert de le voir",
@@ -485,24 +485,24 @@ function BpRealtimePanel({
                       },
                       {
                         label: "Ce que le bus ne défend pas",
-                        href: DOC_SECURITE,
+                        href: DOC_SECURITY,
                       },
                     ]}
                   />
                 }
               />
             }
-            v={canal}
+            v={channel}
             mono
           />
         ) : null}
-        {busPartage ? (
+        {sharedBus ? (
           <KeyValue
             k={
               <LabelWithHint
                 label="Messages scellés"
                 hint={
-                  scelle ? (
+                  sealed ? (
                     <DocHint
                       title="Les messages portent une signature"
                       version={BP_DOC}
@@ -518,7 +518,7 @@ function BpRealtimePanel({
                         },
                       ]}
                       links={[
-                        { label: "Sécurité du temps réel", href: DOC_SECURITE },
+                        { label: "Sécurité du temps réel", href: DOC_SECURITY },
                         {
                           label: "Poser le secret",
                           href: DOC_CONFIGURATION,
@@ -544,7 +544,7 @@ function BpRealtimePanel({
                 }
               />
             }
-            v={scelle ? "oui" : "NON — bus ouvert"}
+            v={sealed ? "oui" : "NON — bus ouvert"}
           />
         ) : null}
         <KeyValue
@@ -575,7 +575,7 @@ function BpRealtimePanel({
                     },
                   ]}
                   links={[
-                    { label: "Sécurité du temps réel", href: DOC_SECURITE },
+                    { label: "Sécurité du temps réel", href: DOC_SECURITY },
                   ]}
                 />
               }
@@ -589,7 +589,7 @@ function BpRealtimePanel({
               <LabelWithHint
                 label="File d'envoi vers le bus"
                 hint={
-                  perdues === 0 ? (
+                  lost === 0 ? (
                     <DocHint
                       title="Ce qui attend d'être remis au bus"
                       version={BP_DOC}
@@ -615,7 +615,7 @@ function BpRealtimePanel({
                   ) : (
                     <WarnHint
                       title="Le bus n'a pas suivi — des messages ont été abandonnés"
-                      summary={`${perdues} publication(s) n'ont pas été remises aux autres processus : la file avait atteint son plafond de ${fmtBytes(file.maxBytes)}.`}
+                      summary={`${lost} publication(s) n'ont pas été remises aux autres processus : la file avait atteint son plafond de ${fmtBytes(file.maxBytes)}.`}
                       sections={[
                         {
                           label: "Ce que ça veut dire",
@@ -632,9 +632,9 @@ function BpRealtimePanel({
               />
             }
             v={
-              perdues === 0
+              lost === 0
                 ? `${fmtBytes(file.bytes)} en attente`
-                : `${fmt(perdues)} abandonnée(s)`
+                : `${fmt(lost)} abandonnée(s)`
             }
           />
         ) : null}

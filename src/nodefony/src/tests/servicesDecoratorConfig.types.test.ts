@@ -19,7 +19,7 @@
  *  - `interface IXConfig { … }`  ← la convention documentée
  *  - `type XConfig = { … }`      ← ce qui marchait déjà par chance
  *
- * Couvert par `npm run typecheck` (`tsgo -p tsconfig.tests.json`).
+ * Couvert par `npm run typecheck` — et par `tsgo --noEmit` seul, qui couvre les tests.
  */
 
 import { describe, it } from "vitest";
@@ -78,7 +78,7 @@ void PlainModule;
 
 describe("@services() et la config typée d'un module", () => {
   it("accepte une interface de config aussi bien qu'un alias (compile-only)", () => {
-    // La preuve est faite par `tsgo -p tsconfig.tests.json`. Ce cas existe pour
+    // La preuve est faite par le typecheck du cœur, tests compris. Ce cas existe pour
     // que la sentinelle apparaisse dans le rapport vitest.
   });
 });

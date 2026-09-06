@@ -17,6 +17,7 @@ import Builder from "./Builder";
 import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 import type { IRunProfile } from "../kernel/Kernel";
+import { tagUnboundedListener } from "../kernel/lifecycleTags";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
   showBanner?: boolean;
@@ -54,6 +55,22 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * restent, et `-d/--debug` rétablit tout.
    */
   quietBoot?: boolean;
+  /**
+   * Le groupe d'INTENTION sous lequel l'aide range cette commande.
+   *
+   * 🔴 Déclaré par la commande elle-même, jamais déduit de son propriétaire.
+   * L'aide groupait par ORIGINE du code (« Commands: », « Module drizzle »),
+   * seul axe qu'un programme sache dériver seul — et le seul que personne ne
+   * cherche : on ne demande pas « qu'offre le module http ? », on demande
+   * comment lancer, ce qui cloche, comment faire évoluer. Une table tenue à
+   * part par le CLI aurait le défaut inverse : elle ne connaît pas les
+   * commandes des modules, qui n'existent pas encore quand elle s'écrit.
+   *
+   * Les valeurs vivent dans `HELP_GROUPS` (`cli/helpReport.ts`) : un groupe
+   * inconnu n'est pas une erreur — la commande tombe sous le module qui la
+   * porte, ce qui reste vrai pour un module tiers.
+   */
+  helpGroup?: string;
 }
 
 export type CommandArgs = any[];
@@ -70,6 +87,15 @@ const defaultCommandOptions: OptionsCommandInterface = {
  * @class
  * @extends Service
  */
+
+/**
+ * Les valeurs SUGGÉRÉES d'une option, pour la complétion du shell.
+ *
+ * Un registre à part plutôt qu'un champ posé sur l'objet de commander : ce sont
+ * ses objets, et les muter ferait dépendre le produit d'un détail non
+ * documenté. `WeakMap` parce qu'une option morte ne doit rien retenir.
+ */
+export const OPTION_SUGGESTIONS = new WeakMap<Option, readonly string[]>();
 
 class Command extends Service {
   public cli: Cli | CliKernel;
@@ -217,9 +243,17 @@ class Command extends Service {
           this.onKernelTerminate.bind(this, ...args),
         );
       }
+      // 🔴 MARQUÉE non bornée : l'action est le TRAVAIL demandé, pas un hook de
+      // boot. `Kernel.fireLifecycle` borne chaque écouteur par le délai de
+      // démarrage (20 s en développement) pour qu'un module figé ne gèle pas le
+      // boot — appliqué ici, ce garde abandonnait la commande en fail-soft, le
+      // kernel enchaînait sur `finishOrPark(0)` et le processus sortait en **0
+      // au milieu du travail**, sans un mot. Une construction, une migration,
+      // une suite de tests ou une question posée à l'utilisateur dépassent
+      // couramment cette borne sans rien avoir d'anormal.
       this.kernel.once(
         this.kernelEvent as string,
-        this.action.bind(this, ...args),
+        tagUnboundedListener(this.action.bind(this, ...args)),
       );
     }
   }
@@ -271,14 +305,14 @@ class Command extends Service {
    * suspendu sur une question que personne ne lit, jusqu'au timeout du job.
    * L'échec reste un échec — mais il montre la ligne exacte à taper.
    *
-   * @param valeur - ce que la ligne de commande a fourni (souvent `undefined`)
+   * @param value - ce que la ligne de commande a fourni (souvent `undefined`)
    * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
    *               est INJECTABLE pour que la règle s'éprouve sans terminal
    * @returns la valeur, taillée
    * @throws Si l'argument manque et qu'aucun terminal ne peut le demander
    */
   public async askArgument(
-    valeur: string | undefined,
+    value: string | undefined,
     spec: {
       name: string;
       message: string;
@@ -286,22 +320,22 @@ class Command extends Service {
       isTTY?: boolean;
     },
   ): Promise<string> {
-    const donnee = typeof valeur === "string" ? valeur.trim() : "";
-    if (donnee.length > 0) return donnee;
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (trimmed.length > 0) return trimmed;
 
-    const interactifPossible = spec.isTTY ?? Boolean(process.stdin.isTTY);
-    if (!interactifPossible) {
-      const exemple = spec.choices?.length
+    const canPrompt = spec.isTTY ?? Boolean(process.stdin.isTTY);
+    if (!canPrompt) {
+      const example = spec.choices?.length
         ? `<${spec.choices.join("|")}>`
         : `<${spec.name}>`;
       throw new Error(
         `${spec.name} est requis — aucun terminal pour le demander : ` +
-          `nodefony ${this.name} ${exemple}`,
+          `nodefony ${this.name} ${example}`,
       );
     }
 
     await this.loadPrompts();
-    const reponse = spec.choices?.length
+    const answer = spec.choices?.length
       ? await this.prompts.select({
           message: spec.message,
           choices: spec.choices.map((c) => ({ name: c, value: c })),
@@ -311,7 +345,7 @@ class Command extends Service {
           validate: (v: string) =>
             v.trim().length > 0 || `${spec.name} est requis`,
         });
-    return String(reponse).trim();
+    return String(answer).trim();
   }
 
   /**
@@ -398,6 +432,12 @@ class Command extends Service {
     if (description) {
       cmd.description(description);
     }
+    // Le groupe voyage avec la commande, DANS commander : c'est le seul endroit
+    // que le rendu de l'aide sait interroger pour les intégrées comme pour
+    // celles des modules — ces dernières ne sont pas dans `cli.commands`.
+    if (this.options?.helpGroup) {
+      cmd.helpGroup(this.options.helpGroup);
+    }
     this.program.addCommand(cmd);
     return cmd;
   }
@@ -474,9 +514,18 @@ class Command extends Service {
    * @returns {Option} Instance de la classe Option.
    * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
-  addOption(flags: string, description?: string | undefined): Option {
+  addOption(
+    flags: string,
+    description?: string | undefined,
+    suggestions?: readonly string[],
+  ): Option {
     if (this.command) {
       const opt = new Option(flags, description);
+      // 🔴 Des SUGGESTIONS, pas des `choices()` : `Option.choices()` VALIDE, et
+      // une option dont les valeurs sont ouvertes par nature (un environnement
+      // de déploiement est une chaîne libre) deviendrait inutilisable là où
+      // elle sert. Ce registre n'est consulté que par la complétion.
+      if (suggestions?.length) OPTION_SUGGESTIONS.set(opt, suggestions);
       this.command.addOption(opt);
       return opt;
     }

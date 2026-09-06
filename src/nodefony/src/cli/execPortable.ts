@@ -48,16 +48,16 @@ import path from "node:path";
  * sur la plateforme qu'elle décrit — c'est-à-dire jamais, sur les postes de ce
  * projet. Injectées, les deux branches se vérifient partout.
  *
- * @param commande - ce qu'on s'apprête à lancer.
+ * @param command - ce qu'on s'apprête à lancer.
  * @param plateforme - le système, injectable pour l'épreuve.
- * @param grammaire - `path.win32` ou `path.posix`, idem.
+ * @param grammar - `path.win32` ou `path.posix`, idem.
  * @returns la valeur à donner à l'option `shell` de `spawn`/`spawnSync`.
  */
-export function besoinDeShell(
-  commande: string,
+export function needsShell(
+  command: string,
   plateforme: NodeJS.Platform = process.platform,
-  grammaire: Pick<typeof path, "isAbsolute"> = path,
+  grammar: Pick<typeof path, "isAbsolute"> = path,
 ): boolean {
   if (plateforme !== "win32") return false;
-  return !grammaire.isAbsolute(commande) || /\.(cmd|bat)$/iu.test(commande);
+  return !grammar.isAbsolute(command) || /\.(cmd|bat)$/iu.test(command);
 }

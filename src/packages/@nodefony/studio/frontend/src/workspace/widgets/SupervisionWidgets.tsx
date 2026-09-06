@@ -159,7 +159,7 @@ function useErrWindow(
 }
 
 /** Sonde « Connecteurs » (nodefony:orm:health) — montée seulement quand le temps réel est ON. */
-function ConnSonde({
+function ConnProbe({
   onData,
 }: {
   onData: (c: { up: number; total: number }) => void;
@@ -427,7 +427,7 @@ function SupervisionHealthBody({
 
   return (
     <Group wrap="nowrap" align="flex-start" gap="xl">
-      {ctx.live ? <ConnSonde onData={onConn} /> : null}
+      {ctx.live ? <ConnProbe onData={onConn} /> : null}
       <ScoreRing r={r} />
       <Stack gap={8} style={{ flex: 1, minWidth: 0 }}>
         <Group gap="xs" wrap="wrap">

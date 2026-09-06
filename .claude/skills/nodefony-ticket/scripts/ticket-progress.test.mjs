@@ -50,6 +50,25 @@ describe("tickets mis en cours par un message de commit", () => {
     expect(parseTargets("chore: ménage")).to.deep.equal([]);
   });
 
+  // PIÈGE : un commit de PILOTAGE (retex de session, recalage du tableau) cite des
+  // dizaines de tickets sans en faire avancer un seul. Sans cette exclusion, le
+  // retex de fin de session remet « en cours » tout ce qu'il énumère — vécu sur
+  // #188, monté par le commit `docs(session)` qui le mentionnait dans son corps.
+  // `board-lint.mjs` refuse déjà ces commits comme preuve de travail : les deux
+  // scripts lisent la MÊME règle (`isPilotageCommit`), sinon elle diverge.
+  it("IGNORE les tickets cités par un commit de pilotage", () => {
+    for (const sujet of [
+      "docs(session): retex 09-04e — leçons",
+      "chore(pilotage): recaler le tableau de bord",
+      "docs(claude): consigner la règle",
+    ]) {
+      expect(
+        parseTargets(`${sujet}\n\nReste #183, #184 et #188.`),
+        sujet,
+      ).to.deep.equal([]);
+    }
+  });
+
   // PIÈGE : le corps d'un commit cite volontiers des ancres et des tailles.
   // `#` non suivi de chiffres, ou un dièse collé à un mot, ne sont pas des tickets.
   it("ne prend pas un dièse qui n'introduit pas un numéro", () => {

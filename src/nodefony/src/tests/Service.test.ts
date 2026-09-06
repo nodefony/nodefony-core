@@ -645,12 +645,6 @@ describe("Service — log", () => {
     assert.strictEqual(pdu.msgid, "log-test");
   });
 
-  it("spinlog() retourne un Pdu SPINNER", () => {
-    const pdu = service.spinlog("loading...");
-    assert(pdu);
-    assert.strictEqual(pdu.severityName, "SPINNER");
-  });
-
   it("logger() appelle console.debug", () => {
     let called = false;
     const orig = console.debug;

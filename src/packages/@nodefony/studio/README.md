@@ -7,7 +7,7 @@ santé runtime, cluster, ORM, realtime.
 Frontend **React 19 + Mantine v9 + MobX**, servi par `@nodefony/frontend` (Vite). Application admin embarquée : le paquet ne publie pas de types, il n'est pas destiné à être
 consommé comme librairie.
 
-> Docs IA : [`CLAUDE.md`](./CLAUDE.md) · [`MEMORY.md`](./MEMORY.md) · [`docs/`](./docs).
+> Docs IA (dans le dépôt) : [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/studio/CLAUDE.md) · [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/studio/MEMORY.md) · [`docs/`](./docs).
 > **Développement frontend** : invoquer d'abord le skill `nodefony-studio-dev` (UI kit, hooks
 > temps réel `nodefony/react`, recette route/data plane, gate `npm run typecheck`).
 

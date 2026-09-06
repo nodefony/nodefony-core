@@ -1069,6 +1069,58 @@ describe("Module — readOverrideModuleConfig() — override complet + log", () 
     );
   });
 
+  // 🔴 Le cas qui a fait tomber le boot du dépôt entier. Une clé `module-<nom>`
+  // est un ORDRE adressé à un autre module, pas une donnée du porteur : tant que
+  // les schémas RETIRAIENT les clés inconnues, le résidu passait inaperçu. Dès
+  // qu'un schéma les REFUSE, un résidu interrompt le boot du porteur — et aucune
+  // suite unitaire ne pouvait le voir, puisque aucune ne compose la config comme
+  // le Kernel la compose.
+  it("la clé d'override est CONSOMMÉE : retirée des options du porteur", () => {
+    const kernel = makeKernelReal();
+    const cible = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
+    kernel.modules["http"] = cible;
+
+    const porteur = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 8080 },
+      propreAuPorteur: 1,
+    });
+
+    porteur.readOverrideModuleConfig();
+
+    assert.strictEqual(
+      (cible.options as Record<string, unknown>).port,
+      8080,
+      "l'override doit avoir été appliqué à la cible",
+    );
+    assert.ok(
+      !("Module-http" in (porteur.options as Record<string, unknown>)),
+      "la clé consommée ne doit plus figurer dans les options du porteur",
+    );
+    assert.strictEqual(
+      (porteur.options as Record<string, unknown>).propreAuPorteur,
+      1,
+      "les clés qui appartiennent VRAIMENT au porteur sont intactes",
+    );
+  });
+
+  it("une clé d'override vers un module ABSENT est retirée elle aussi", () => {
+    const kernel = makeKernelReal();
+    // Configuration morte : elle vient d'être signalée par un log. La laisser
+    // ferait en plus tomber le boot du porteur, pour rien.
+    const porteur = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-ghost": { x: 1 },
+    });
+
+    captureLogs(porteur, () => porteur.readOverrideModuleConfig());
+
+    assert.ok(
+      !("Module-ghost" in (porteur.options as Record<string, unknown>)),
+      "une cible introuvable ne justifie pas de garder un résidu",
+    );
+  });
+
   it("WARNING log — continue sans throw (autres clés traitées)", () => {
     const kernel = makeKernelReal();
     const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {

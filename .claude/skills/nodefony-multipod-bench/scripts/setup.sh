@@ -57,14 +57,14 @@ for APP in "${APPS[@]}"; do
        --controller realtime --no-service --no-install --yes >/dev/null)
   fi
   # Le controller du banc remplace celui du scaffold (canal diffusable + routes
-  # de pilotage). Source unique : reference/controller.md.
-  python3 - "$SKILL_DIR/reference/controller.md" \
+  # de pilotage). Source unique : references/controller.md.
+  python3 - "$SKILL_DIR/references/controller.md" \
             "$APP_DIR/modules/chat/nodefony/controllers/ChatController.ts" <<'PY'
 import re, sys, pathlib
 doc, cible = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 bloc = re.search(r"```ts\n(.*?)```", doc.read_text(), re.S)
 if not bloc:
-    sys.exit("controller introuvable dans reference/controller.md")
+    sys.exit("controller introuvable dans references/controller.md")
 cible.write_text(bloc.group(1))
 PY
 
@@ -100,8 +100,13 @@ PY
   (cd "$APP_DIR" && npm install >/dev/null 2>&1 && npm run build >/dev/null 2>&1)
 done
 
-# Les scripts de mesure, à côté des applications.
+# Les scripts de mesure, à côté des applications. `lib/` et `mempeak.sh` en
+# font partie : les bancs de base (`db-*-pod.mjs`) importent `./lib/pod.mjs`,
+# et sans eux ils tombent en ERR_MODULE_NOT_FOUND une fois le décor monté.
 cp "$HERE"/*.mjs "$BENCH_DIR/"
+cp "$HERE"/mempeak.sh "$BENCH_DIR/"
+mkdir -p "$BENCH_DIR/lib"
+cp "$HERE"/lib/*.mjs "$BENCH_DIR/lib/"
 
 cat <<EOF
 

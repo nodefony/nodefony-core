@@ -12,9 +12,9 @@ import { chargerModule, commeObjet, fonctionDe } from "./browser-outils";
  * définition ici déposerait un état que plus personne ne lit — un test de
  * reprise vert qui n'aurait rien repris.
  */
-const nomEtatAuth = fonctionDe<(identifiant: string) => string>(
+const authStateName = fonctionDe<(identifiant: string) => string>(
   await chargerModule("../skills/nodefony-browser/scripts/lib/probes.mjs"),
-  "nomEtatAuth",
+  "authStateName",
 );
 
 /**
@@ -218,7 +218,7 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
  * Dépose un état d'authentification ARBITRAIRE dans le volume du conteneur,
  * SOUS LE NOM que la sonde ira lire pour l'utilisateur visé.
  *
- * Le nom est dérivé de l'identifiant (`nomEtatAuth`) : le poser en dur ici
+ * Le nom est dérivé de l'identifiant (`authStateName`) : le poser en dur ici
  * ferait déposer un état que plus personne ne lit, et les deux tests de reprise
  * passeraient au vert sans avoir rien éprouvé. On appelle donc la MÊME fonction
  * que le script — une seconde définition dériverait le jour où l'autre change.
@@ -227,7 +227,7 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
  * @param identifiant - le compte pour lequel la sonde le cherchera.
  */
 function poserEtat(contenu: string, identifiant: string = USER): void {
-  const nom = nomEtatAuth(identifiant);
+  const nom = authStateName(identifiant);
   const dossier = mkdtempSync(path.join(tmpdir(), "nf-browser-test-"));
   const fichier = path.join(dossier, nom);
   writeFileSync(fichier, contenu);
@@ -250,7 +250,7 @@ function poserEtat(contenu: string, identifiant: string = USER): void {
 function relireEtat(identifiant: string = USER): string {
   const res = spawnSync(
     "docker",
-    ["exec", CONTENEUR, "cat", `/output/${nomEtatAuth(identifiant)}`],
+    ["exec", CONTENEUR, "cat", `/output/${authStateName(identifiant)}`],
     { encoding: "utf8", timeout: 20000 },
   );
   return res.stdout ?? "";
@@ -280,10 +280,10 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     expect(r.code, r.stderr).toBe(0);
     const d = sortieJson(r);
     expect(String(d["url"])).toContain(BASE_CONTENEUR);
-    expect(Array.isArray(d["sondes"])).toBe(true);
+    expect(Array.isArray(d["probes"])).toBe(true);
     expect(String(d["capture"])).toMatch(/\.png$/u);
     expect(typeof d["theme"]).toBe("string");
-    expect(Array.isArray(d["erreursNonCapturees"])).toBe(true);
+    expect(Array.isArray(d["uncaughtErrors"])).toBe(true);
   }, 180000);
 
   it("inspect.mjs — toutes les familles sur la page protégée", () => {
@@ -311,9 +311,9 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     const stockage = commeObjet(d["stockage"], "stockage");
     expect(Array.isArray(stockage["cookies"])).toBe(true);
     const responsive = commeObjet(d["responsive"], "responsive");
-    expect(Array.isArray(responsive["parLargeur"])).toBe(true);
+    expect(Array.isArray(responsive["byWidth"])).toBe(true);
     const a11y = commeObjet(d["a11y"], "a11y");
-    expect(commeObjet(a11y["arbre"], "arbre")["lignes"]).toBeDefined();
+    expect(commeObjet(a11y["tree"], "tree")["lines"]).toBeDefined();
     expect(["OK", "ALERTE"]).toContain(String(d["verdict"]));
   }, 180000);
 
@@ -405,28 +405,28 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     });
     expect(r.code, r.stderr).toBe(0);
     const d = sortieJson(r);
-    const accueil = commeObjet(d["accueil"], "accueil");
-    expect(accueil["canaux"]).toContain(CANAL);
-    const identite = commeObjet(accueil["identite"], "identite");
+    const accueil = commeObjet(d["welcome"], "welcome");
+    expect(accueil["channels"]).toContain(CANAL);
+    const identite = commeObjet(accueil["identity"], "identity");
     expect(identite["authenticated"]).toBe(true);
-    const abonnement = commeObjet(d["abonnement"], "abonnement");
+    const abonnement = commeObjet(d["subscription"], "subscription");
     expect(abonnement["verdict"]).toBe("OK");
     expect(Number(abonnement["total"])).toBeGreaterThan(0);
     // La latence exige une méthode CORRÉLÉE — une action déclarée par le
     // contrôleur, ou le pont API. Sans l'une ni l'autre il n'y a rien à
     // mesurer, et exiger un chiffre reviendrait à en inventer un.
-    const latence = commeObjet(d["latence"], "latence");
+    const latence = commeObjet(d["latency"], "latency");
     if (ACTION || CHEMIN_API) {
       expect(latence["verdict"]).toBe("OK");
-      expect(Number(latence["medianeMs"])).toBeGreaterThan(0);
+      expect(Number(latence["medianMs"])).toBeGreaterThan(0);
     }
     if (CHEMIN_API) {
       const api = commeObjet(d["api"], "api");
       expect(api["verdict"]).toBe("OK");
     }
-    const reconnexion = commeObjet(d["reconnexion"], "reconnexion");
+    const reconnexion = commeObjet(d["reconnection"], "reconnection");
     expect(reconnexion["verdict"]).toBe("OK");
-    expect(reconnexion["memeIdentite"]).toBe(true);
+    expect(reconnexion["sameIdentity"]).toBe(true);
   }, 180000);
 
   it.skipIf(CANAL_REFUSE === "")(
@@ -457,17 +457,17 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
       expect(refuse.code, refuse.stderr).toBe(0);
       const d = sortieJson(refuse);
       const identite = commeObjet(
-        commeObjet(d["accueil"], "accueil")["identite"],
+        commeObjet(d["welcome"], "welcome")["identity"],
         "identite",
       );
       // Le compte de moindre privilège est bien AUTHENTIFIÉ : le refus qui suit
       // porte donc sur le canal, pas sur un handshake anonyme.
       expect(identite["authenticated"]).toBe(true);
       expect(identite["userIdentifier"]).toBe(USER_REFUSE);
-      const abonnement = commeObjet(d["abonnement"], "abonnement");
+      const abonnement = commeObjet(d["subscription"], "subscription");
       expect(abonnement["verdict"]).toBe("REFUSÉ");
       expect(Number(abonnement["total"])).toBe(0);
-      const motif = commeObjet(abonnement["refus"], "refus");
+      const motif = commeObjet(abonnement["denial"], "denial");
       expect(motif["channel"]).toBe(CANAL_REFUSE);
       // Le motif est GÉNÉRIQUE par doctrine (aucun oracle d'autorisation) : on
       // exige qu'il soit nommé, jamais qu'il détaille le droit manquant.
@@ -481,12 +481,12 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
       });
       expect(autorise.code, autorise.stderr).toBe(0);
       const permis = commeObjet(
-        sortieJson(autorise)["abonnement"],
+        sortieJson(autorise)["subscription"],
         "abonnement",
       );
       // `SILENCIEUX` reste acceptable ici — un canal d'événements ne pousse que
       // quand il se passe quelque chose. Ce qui ne l'est pas, c'est un refus.
-      expect(permis["refus"]).toBeNull();
+      expect(permis["denial"]).toBeNull();
       expect(permis["verdict"]).not.toBe("REFUSÉ");
     },
     300000,

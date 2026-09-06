@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
+import { stripGlobalCliFlags } from "./globalFlags";
 
 /**
  * Le GRAPHE SYMBOLIQUE du framework — où le trouver, et comment l'interroger.
@@ -118,12 +120,53 @@ interface ISymbolsRequest {
   /** Filtre par paquet (`--module @nodefony/http`). */
   module: string | null;
   cwd: string;
+  /** `true` si l'on veut seulement la page d'aide. */
+  help: boolean;
 }
 
-const USAGE =
-  `usage : nodefony symbols [<Symbole>] [--module <@nodefony/x>] [--json] [--cwd <path>]\n` +
-  `  Interroge le graphe symbolique du framework — définition, description,\n` +
-  `  parenté. Ne boote rien.\n`;
+/** La page d'aide — `nodefony symbols --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony symbols",
+  tagline:
+    "interroge le graphe symbolique : où un symbole est défini, ce qu'il " +
+    "fait, et de qui il hérite",
+  synopsis: ["nodefony symbols [<Symbole>] [options]"],
+  sections: [
+    {
+      title: "CE QU'ELLE LIT",
+      paragraph:
+        "Un fichier JSON — le graphe engendré par le dépôt — et rien d'autre. " +
+        "Sans nom de symbole, elle rend un résumé du graphe. Elle ne DÉMARRE " +
+        "pas l'application : elle répond donc quand celle-ci ne démarre plus, " +
+        "le moment où l'on cherche justement ce que fait une classe.",
+    },
+  ],
+  options: [
+    { term: "-j, --json", text: "la même réponse, exploitable par un script" },
+    { term: "-m, --module <nom>", text: "n'afficher qu'un paquet" },
+    {
+      term: "--cwd <chemin>",
+      text: "point de départ (la racine de l'app est résolue en remontant)",
+    },
+  ],
+  examples: [
+    { term: "nodefony symbols", text: "ce que contient le graphe" },
+    {
+      term: "nodefony symbols Kernel",
+      text: "où Kernel est défini, et sa parenté",
+    },
+    {
+      term: "nodefony symbols -m @nodefony/http",
+      text: "les symboles d'un seul paquet",
+    },
+  ],
+  exitCodes: [
+    {
+      term: "66",
+      text: "aucun graphe ici — le dépôt ne l'a pas engendré (EX_NOINPUT)",
+    },
+  ],
+};
 
 /**
  * Parse l'argv après le mot `symbols`.
@@ -135,16 +178,21 @@ export function parseSymbolsArgv(
   argv: string[],
 ): ISymbolsRequest | { error: string } {
   const at = argv.indexOf("symbols");
-  const rest = at === -1 ? [] : argv.slice(at + 1);
+  const rest = stripGlobalCliFlags(at === -1 ? [] : argv.slice(at + 1));
   const req: ISymbolsRequest = {
     name: null,
     json: false,
     module: null,
     cwd: process.cwd(),
+    help: false,
   };
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--json" || word === "-j") {
+    if (word === "--help" || word === "-h") {
+      // Une commande qui répond « option inconnue : --help » apprend au
+      // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
+      req.help = true;
+    } else if (word === "--json" || word === "-j") {
       req.json = true;
     } else if (word === "--module" || word === "-m") {
       req.module = rest[++i] ?? null;
@@ -163,16 +211,16 @@ export function parseSymbolsArgv(
 
 /** Rend un symbole pour un lecteur humain — une ligne d'identité, puis la parenté. */
 function renderSymbol(sym: ISymbolEntry): string {
-  const lignes = [
+  const lines = [
     `${sym.name} — ${sym.kind} (${sym.module})`,
     `  ${sym.file}${sym.line ? `:${sym.line}` : ""}`,
   ];
-  if (sym.description) lignes.push(`  ${sym.description}`);
-  if (sym.extends) lignes.push(`  étend      : ${sym.extends}`);
+  if (sym.description) lines.push(`  ${sym.description}`);
+  if (sym.extends) lines.push(`  étend      : ${sym.extends}`);
   if (sym.implements?.length) {
-    lignes.push(`  implémente : ${sym.implements.join(", ")}`);
+    lines.push(`  implémente : ${sym.implements.join(", ")}`);
   }
-  return `${lignes.join("\n")}\n`;
+  return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -189,8 +237,10 @@ function renderSymbol(sym: ISymbolEntry): string {
 export function runSymbolsCommand(argv: string[]): number {
   const parsed = parseSymbolsArgv(argv);
   if ("error" in parsed) {
-    process.stderr.write(`symbols: ${parsed.error}\n${USAGE}`);
-    return SysExit.USAGE;
+    return printUsageError(PAGE, parsed.error);
+  }
+  if (parsed.help) {
+    return printUsage(PAGE);
   }
   const file = resolveSymbolsFile(parsed.cwd);
   const graph = readSymbolsGraph(parsed.cwd);
@@ -238,14 +288,14 @@ export function runSymbolsCommand(argv: string[]): number {
 
   // Résumé : d'où vient le graphe (la question qu'on se pose en premier quand un
   // symbole manque), et ce qu'il couvre.
-  const parPaquet = new Map<string, number>();
+  const byPackage = new Map<string, number>();
   for (const sym of entries) {
-    parPaquet.set(sym.module, (parPaquet.get(sym.module) ?? 0) + 1);
+    byPackage.set(sym.module, (byPackage.get(sym.module) ?? 0) + 1);
   }
   process.stdout.write(`graphe : ${file}\n`);
   if (graph.generated) process.stdout.write(`généré : ${graph.generated}\n`);
   process.stdout.write(`${entries.length} symboles exportés\n\n`);
-  for (const [mod, n] of [...parPaquet].sort((a, b) => b[1] - a[1])) {
+  for (const [mod, n] of [...byPackage].sort((a, b) => b[1] - a[1])) {
     process.stdout.write(`  ${String(n).padStart(5)}  ${mod}\n`);
   }
   process.stdout.write(

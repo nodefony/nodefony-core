@@ -32,7 +32,7 @@ import { z } from "zod";
  *   • Studio (à chaud)   : chaque section porte `enabled` → activable/désactivable.
  */
 
-const encoderSchema = z.object({
+const encoderSchema = z.strictObject({
   type: z
     .enum(["argon2id", "bcrypt"])
     .default("argon2id")
@@ -72,7 +72,7 @@ const encoderSchema = z.object({
     .describe("bcrypt : coût (10–15). Ignoré par argon2id."),
 });
 
-const areaSchema = z.object({
+const areaSchema = z.strictObject({
   pattern: z.string().describe("Pattern d'URL (RegExp) capturé par la zone."),
   security: z
     .boolean()
@@ -121,7 +121,7 @@ const areaSchema = z.object({
 });
 
 const corsSchema = z
-  .object({
+  .strictObject({
     enabled: z.boolean().default(true).describe("Active la gestion CORS."),
     origins: z
       .array(z.string())
@@ -153,7 +153,7 @@ const corsSchema = z
   });
 
 const csrfSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -198,7 +198,7 @@ const csrfSchema = z
   );
 
 const headersSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -319,7 +319,7 @@ const headersSchema = z
 // → 429 + `Retry-After` (RFC 6585). Le verrouillage ADMINISTRATIF reste
 // `IUser.isLocked()` (décision humaine, pas automatique).
 const rateLimitSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -358,7 +358,7 @@ const rateLimitSchema = z
   .describe("Throttling de login (backoff progressif NIST).");
 
 const jwtSchema = z
-  .object({
+  .strictObject({
     enabled: z.boolean().default(true),
     alg: z.enum(["EdDSA", "RS256"]).default("EdDSA"),
     accessTtlS: z
@@ -394,7 +394,7 @@ const jwtSchema = z
         "Émetteur (claim `iss`, RFC 7519). Omis = `\"nodefony\"` — suffisant tant que l'app émet ET vérifie ses propres jetons, mais PAS publiable (RFC 8414 §2 exige une URL https) : sans valeur explicite, aucune découverte n'est offerte. Ne se DEVINE pas — derrière un relais, `Host`/`X-Forwarded-*` viennent du client. STABLE : gravé dans chaque jeton déjà émis, le changer les invalide.",
       ),
     keystore: z
-      .object({
+      .strictObject({
         keySetJson: z
           .string()
           .optional()
@@ -418,7 +418,7 @@ const jwtSchema = z
   );
 
 const tokenStoreSchema = z
-  .object({
+  .strictObject({
     store: z
       .string()
       .default("auto")
@@ -453,7 +453,7 @@ const tokenStoreSchema = z
   );
 
 const passkeysSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -529,7 +529,7 @@ const passkeysSchema = z
   .describe("Passkeys (WebAuthn L3 / FIDO2) — synced par défaut.");
 
 const totpSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -615,7 +615,7 @@ const remoteJwtAlgSchema = z.enum([
   "Ed25519",
 ]);
 
-const trustedIssuerSchema = z.object({
+const trustedIssuerSchema = z.strictObject({
   issuer: z
     .string()
     .min(1)
@@ -656,7 +656,7 @@ const trustedIssuerSchema = z.object({
 });
 
 const resourceServerSchema = z
-  .object({
+  .strictObject({
     issuers: z
       .array(trustedIssuerSchema)
       .default([])
@@ -714,7 +714,7 @@ const resourceServerSchema = z
   );
 
 const tokenExchangeSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(false)
@@ -725,7 +725,7 @@ const tokenExchangeSchema = z
   .describe("Token Exchange (RFC 8693) — délégation agents/services.");
 
 const apiKeysSchema = z
-  .object({
+  .strictObject({
     enabled: z.boolean().default(true),
     prefix: z
       .string()
@@ -775,7 +775,7 @@ const apiKeysSchema = z
   );
 
 const webhooksSchema = z
-  .object({
+  .strictObject({
     enabled: z.boolean().default(true),
     signAlg: z
       .enum(["sha256"])
@@ -875,7 +875,7 @@ const webhooksSchema = z
   .describe("Webhooks sortants signés (Standard Webhooks).");
 
 const auditSchema = z
-  .object({
+  .strictObject({
     enabled: z.boolean().default(true),
     store: z
       .string()
@@ -908,7 +908,7 @@ const auditSchema = z
   .describe("Journal d'audit sécurité (login, accès refusé, clés, webhooks).");
 
 const studioSchema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(false)
@@ -946,7 +946,7 @@ const studioSchema = z
 // secrets (clientId/clientSecret) sont fournis par l'app depuis son `env.ts` —
 // JAMAIS loggés (le service ne journalise que les NOMS de fournisseurs).
 const oauthProviderSchema = z
-  .object({
+  .strictObject({
     clientId: z
       .string()
       .min(1)
@@ -999,7 +999,7 @@ const oauthProviderSchema = z
 // quand le fournisseur le supporte) + state anti-CSRF + iss anti-mix-up (RFC 9207).
 // Le login social produit une SESSION BFF (pas de token exposé au navigateur).
 const oauth2Schema = z
-  .object({
+  .strictObject({
     enabled: z
       .boolean()
       .default(true)
@@ -1045,7 +1045,7 @@ const oauth2Schema = z
  * cet axe. Étend OU surcharge les défauts système (placée AVANT eux à l'évaluation).
  */
 const realtimeChannelRuleSchema = z
-  .object({
+  .strictObject({
     pattern: z
       .string()
       .describe(
@@ -1068,7 +1068,7 @@ const realtimeChannelRuleSchema = z
   })
   .describe("Politique d'autorisation d'un namespace de canaux WS.");
 
-export const securityConfigSchema = z.object({
+export const securityConfigSchema = z.strictObject({
   // Défaut NON VIDE : un encodeur `default` argon2id (OWASP/RFC 9106). Le pont
   // config.encoders (firewall.#provisionSharedServices) pose `passwordEncoder` au
   // container UNIQUEMENT à partir de ces specs — un défaut `{}` laissait l'auth

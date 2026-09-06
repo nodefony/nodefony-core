@@ -2,12 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import path from "node:path";
 import {
   AGENT_TARGETS,
-  agentsDemandes,
+  requestedAgents,
   agentsPresents,
   planAgentDeclaration,
   poseVariable,
-  porteDejaLaCle,
-  racineAgent,
+  alreadyHasKey,
+  agentRoot,
   renderPlanShell,
   type IAgentTarget,
 } from "../cli/agentTargets";
@@ -16,7 +16,7 @@ import { renderDeclarations } from "../cli/aiMcp";
 
 /** La cible d'une clé, ou l'échec du test — plus lisible qu'un `!` partout. */
 const cible = (cle: string): IAgentTarget => {
-  const t = AGENT_TARGETS.find((c) => c.cle === cle);
+  const t = AGENT_TARGETS.find((c) => c.key === cle);
   if (!t) throw new Error(`agent « ${cle} » absent de la table`);
   return t;
 };
@@ -83,29 +83,32 @@ describe("agents — poser le jeton chez un agent, sans rien casser", () => {
  */
 describe("agents --agent — choisir qui est servi", () => {
   it("sans option, ne décide rien : l'appelant proposera ce qu'il détecte", () => {
-    expect(agentsDemandes(undefined)).to.equal(undefined);
+    expect(requestedAgents(undefined)).to.equal(undefined);
   });
 
   it("« none » n'écrit nulle part, « all » vise tout le monde", () => {
-    expect(agentsDemandes("none")).to.deep.equal([]);
-    const tous = agentsDemandes("all");
+    expect(requestedAgents("none")).to.deep.equal([]);
+    const tous = requestedAgents("all");
     expect(Array.isArray(tous) && tous.length).to.be.greaterThan(1);
   });
 
   it("accepte une liste, séparée par virgules ou espaces, sans se soucier de la casse", () => {
     // Le retour est volontairement `readonly` : la table des agents est une
     // constante du module, pas un tableau que l'appelant pourrait remanier.
-    const cles = (v: ReturnType<typeof agentsDemandes>): string[] =>
-      Array.isArray(v) ? v.map((c) => c.cle) : [];
-    expect(cles(agentsDemandes("Claude, CODEX"))).to.deep.equal([
+    const cles = (v: ReturnType<typeof requestedAgents>): string[] =>
+      Array.isArray(v) ? v.map((c) => c.key) : [];
+    expect(cles(requestedAgents("Claude, CODEX"))).to.deep.equal([
       "claude",
       "codex",
     ]);
-    expect(cles(agentsDemandes("vibe codex"))).to.deep.equal(["vibe", "codex"]);
+    expect(cles(requestedAgents("vibe codex"))).to.deep.equal([
+      "vibe",
+      "codex",
+    ]);
   });
 
   it("🔴 REFUSE une clé inconnue en nommant celles qui existent", () => {
-    const verdict = agentsDemandes("claude,cursor");
+    const verdict = requestedAgents("claude,cursor");
     expect(verdict).to.be.instanceOf(Error);
     // Le message doit servir à corriger, pas seulement à constater.
     expect((verdict as Error).message).to.contain("cursor");
@@ -121,26 +124,26 @@ describe("agents --agent — choisir qui est servi", () => {
  */
 describe("agents — reconnaître un agent DÉJÀ câblé", () => {
   it("dotenv : voit la clé posée, ignore une clé voisine", () => {
-    expect(porteDejaLaCle("dotenv", "NF_MCP_TOKEN=abc\n", "NF_MCP_TOKEN")).to.be
+    expect(alreadyHasKey("dotenv", "NF_MCP_TOKEN=abc\n", "NF_MCP_TOKEN")).to.be
       .true;
     // « NF_MCP_TOKEN_OLD » ne doit pas passer pour la clé cherchée.
-    expect(porteDejaLaCle("dotenv", "NF_MCP_TOKEN_OLD=abc\n", "NF_MCP_TOKEN"))
-      .to.be.false;
-    expect(porteDejaLaCle("dotenv", "AUTRE=1\n", "NF_MCP_TOKEN")).to.be.false;
+    expect(alreadyHasKey("dotenv", "NF_MCP_TOKEN_OLD=abc\n", "NF_MCP_TOKEN")).to
+      .be.false;
+    expect(alreadyHasKey("dotenv", "AUTRE=1\n", "NF_MCP_TOKEN")).to.be.false;
   });
 
   it("json : voit la clé sous `env`, et pas ailleurs", () => {
     expect(
-      porteDejaLaCle(
+      alreadyHasKey(
         "json-env",
         '{"env":{"NF_MCP_TOKEN":"abc"}}',
         "NF_MCP_TOKEN",
       ),
     ).to.be.true;
     // Une clé à la racine n'est pas une variable d'environnement.
-    expect(porteDejaLaCle("json-env", '{"NF_MCP_TOKEN":"abc"}', "NF_MCP_TOKEN"))
+    expect(alreadyHasKey("json-env", '{"NF_MCP_TOKEN":"abc"}', "NF_MCP_TOKEN"))
       .to.be.false;
-    expect(porteDejaLaCle("json-env", '{"env":{"AUTRE":"x"}}', "NF_MCP_TOKEN"))
+    expect(alreadyHasKey("json-env", '{"env":{"AUTRE":"x"}}', "NF_MCP_TOKEN"))
       .to.be.false;
   });
 
@@ -149,13 +152,13 @@ describe("agents — reconnaître un agent DÉJÀ câblé", () => {
     // silence sur un agent qui n'a jamais reçu de jeton — et le porteur
     // chercherait la faute ailleurs.
     expect(
-      porteDejaLaCle("json-env", '{"env":{"NF_MCP_TOKEN":""}}', "NF_MCP_TOKEN"),
+      alreadyHasKey("json-env", '{"env":{"NF_MCP_TOKEN":""}}', "NF_MCP_TOKEN"),
     ).to.be.false;
   });
 
   it("fichier absent ou illisible : jamais câblé", () => {
-    expect(porteDejaLaCle("dotenv", "", "NF_MCP_TOKEN")).to.be.false;
-    expect(porteDejaLaCle("json-env", "{ pas du json", "NF_MCP_TOKEN")).to.be
+    expect(alreadyHasKey("dotenv", "", "NF_MCP_TOKEN")).to.be.false;
+    expect(alreadyHasKey("json-env", "{ pas du json", "NF_MCP_TOKEN")).to.be
       .false;
   });
 });
@@ -198,12 +201,12 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
     for (const agent of AGENT_TARGETS) {
       const plan = planAgentDeclaration(agent, ctx);
       const rendu = JSON.stringify(plan);
-      expect(rendu, agent.cle).to.not.contain(JETON);
+      expect(rendu, agent.key).to.not.contain(JETON);
       if (plan.voie === "cli") {
         // La variable est nommée — sous sa forme littérale `${VAR}` (Gemini,
         // qui la résout à la lecture) ou par son nom nu (Vibe, Codex, qui
         // prennent le NOM). Dans les deux cas, jamais la valeur.
-        expect(plan.argv.join(" "), agent.cle).to.contain(MCP_TOKEN_ENV);
+        expect(plan.argv.join(" "), agent.key).to.contain(MCP_TOKEN_ENV);
       }
     }
   });
@@ -224,9 +227,9 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
     for (const agent of AGENT_TARGETS) {
       const plan = planAgentDeclaration(agent, ctx, true);
       if (plan.voie !== "cli") continue;
-      expect(plan.argv, agent.cle).to.contain("remove");
-      expect(plan.argv, agent.cle).to.contain(MCP_SERVER_KEY);
-      expect(plan.argv.join(" "), agent.cle).to.not.contain(ctx.url);
+      expect(plan.argv, agent.key).to.contain("remove");
+      expect(plan.argv, agent.key).to.contain(MCP_SERVER_KEY);
+      expect(plan.argv.join(" "), agent.key).to.not.contain(ctx.url);
     }
   });
 
@@ -245,10 +248,10 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
     // l'agent ne serait jamais déclaré sans que rien ne le dise.
     for (const agent of AGENT_TARGETS) {
       if (agent.declaration !== "cli") continue;
-      expect(agent.bin, agent.cle).to.be.a("string");
-      expect(agent.argvAjout, agent.cle).to.be.a("function");
-      expect(agent.argvRetrait, agent.cle).to.be.a("function");
-      expect(planAgentDeclaration(agent, ctx).voie, agent.cle).to.equal("cli");
+      expect(agent.bin, agent.key).to.be.a("string");
+      expect(agent.argvAdd, agent.key).to.be.a("function");
+      expect(agent.argvRemove, agent.key).to.be.a("function");
+      expect(planAgentDeclaration(agent, ctx).voie, agent.key).to.equal("cli");
     }
   });
 });
@@ -263,9 +266,9 @@ describe("agents — où vit la configuration d'un agent", () => {
   const home = path.join(path.sep, "maison", "cci");
 
   it("portée projet : la racine du PROJET, jamais le dossier de l'utilisateur", () => {
-    expect(
-      racineAgent(cible("claude"), { projectRoot, home, env: {} }),
-    ).to.equal(projectRoot);
+    expect(agentRoot(cible("claude"), { projectRoot, home, env: {} })).to.equal(
+      projectRoot,
+    );
   });
 
   it("portée utilisateur : le dossier maison + le marqueur de l'agent", () => {
@@ -276,9 +279,9 @@ describe("agents — où vit la configuration d'un agent", () => {
     // (`D:\maison\cci\.codex`). Un attendu composé au `join` depuis une racine
     // sans lecteur échoue là-bas — pour la mauvaise raison, puisque le code est
     // juste. L'assertion doit subir la MÊME normalisation que ce qu'elle juge.
-    expect(
-      racineAgent(cible("codex"), { projectRoot, home, env: {} }),
-    ).to.equal(path.resolve(home, ".codex"));
+    expect(agentRoot(cible("codex"), { projectRoot, home, env: {} })).to.equal(
+      path.resolve(home, ".codex"),
+    );
   });
 
   it("🔴 la variable de l'agent l'emporte sur le dossier maison", () => {
@@ -287,7 +290,7 @@ describe("agents — où vit la configuration d'un agent", () => {
     // symptôme serait un 401, qui accuserait le jeton.
     const ailleurs = path.join(path.sep, "ailleurs", "codex");
     expect(
-      racineAgent(cible("codex"), {
+      agentRoot(cible("codex"), {
         projectRoot,
         home,
         env: { CODEX_HOME: ailleurs },
@@ -320,8 +323,8 @@ describe("agents — DÉTECTER un agent sans exiger qu'il soit déjà câblé", 
       projectRoot,
       home,
       env: {},
-      existe: disque(path.join(home, ".gemini")),
-    }).map((c) => c.cle);
+      exists: disque(path.join(home, ".gemini")),
+    }).map((c) => c.key);
     expect(cles).to.include("gemini");
   });
 
@@ -330,8 +333,8 @@ describe("agents — DÉTECTER un agent sans exiger qu'il soit déjà câblé", 
       projectRoot,
       home,
       env: {},
-      existe: disque(path.join(projectRoot, ".claude")),
-    }).map((c) => c.cle);
+      exists: disque(path.join(projectRoot, ".claude")),
+    }).map((c) => c.key);
     expect(cles).to.include("claude");
   });
 
@@ -339,7 +342,7 @@ describe("agents — DÉTECTER un agent sans exiger qu'il soit déjà câblé", 
     // Sans lui, « tout proposer » serait trivialement vert : la détection doit
     // encore distinguer un poste où l'agent sert d'un poste où il est absent.
     expect(
-      agentsPresents({ projectRoot, home, env: {}, existe: () => false }),
+      agentsPresents({ projectRoot, home, env: {}, exists: () => false }),
     ).to.have.lengthOf(0);
   });
 });
@@ -365,11 +368,12 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
       },
     }));
     vi.resetModules();
-    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const { declareToAgents: declarerChezAgents } =
+      await import("../cli/aiMcp");
     const racine = path.join(path.sep, "projets", "mon-app");
     await declarerChezAgents([cible("gemini")], {
       url: "http://localhost:5151/nodefony/mcp",
-      retirer: false,
+      remove: false,
       projectRoot: racine,
     });
     expect(appels.length).toBeGreaterThan(0);
@@ -389,13 +393,14 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
       }),
     }));
     vi.resetModules();
-    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const { declareToAgents: declarerChezAgents } =
+      await import("../cli/aiMcp");
     const [r] = await declarerChezAgents([cible("gemini")], {
       url: "http://localhost:5151/nodefony/mcp",
-      retirer: true,
+      remove: true,
       projectRoot: path.join(path.sep, "projets", "mon-app"),
     });
-    expect(r?.etat).toBe("sans-effet");
+    expect(r?.state).toBe("sans-effet");
     vi.doUnmock("node:child_process");
     vi.resetModules();
   });
@@ -408,19 +413,20 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
       }),
     }));
     vi.resetModules();
-    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const { declareToAgents: declarerChezAgents } =
+      await import("../cli/aiMcp");
     const [r] = await declarerChezAgents([cible("codex")], {
       url: "http://localhost:5151/nodefony/mcp",
-      retirer: false,
+      remove: false,
       projectRoot: path.join(path.sep, "projets", "mon-app"),
     });
-    expect(r?.etat).toBe("cli-absente");
-    expect(r?.commande).toContain("codex mcp add");
+    expect(r?.state).toBe("cli-absente");
+    expect(r?.command).toContain("codex mcp add");
     vi.doUnmock("node:child_process");
     vi.resetModules();
   });
 
-  // 🔴 La portée d'une déclaration MCP n'est PAS `cible.portee` : celui-ci dit
+  // 🔴 La portée d'une déclaration MCP n'est PAS `target.scope` : celui-ci dit
   // où l'agent tient ses VARIABLES. Vibe et Codex n'ont pas d'option de portée,
   // mais obéissent à une variable qui déplace leur dossier — c'est elle qui
   // porte le geste, et c'est donc elle qu'il faut éprouver. Sans ce test, la
@@ -439,14 +445,15 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
       },
     }));
     vi.resetModules();
-    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const { declareToAgents: declarerChezAgents } =
+      await import("../cli/aiMcp");
     const racine = path.join(path.sep, "projets", "mon-app");
     const [r] = await declarerChezAgents([cible("codex")], {
       url: "http://localhost:5151/nodefony/mcp",
-      retirer: false,
+      remove: false,
       projectRoot: racine,
     });
-    expect(r?.enProjet).toBe(true);
+    expect(r?.inProject).toBe(true);
     // TOUS les appels, pas seulement celui qui écrit : lu ailleurs qu'écrit, le
     // constat parlerait du foyer et vaudrait faux dans les deux sens.
     expect(vus.length).toBeGreaterThan(0);
@@ -470,15 +477,16 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
       },
     }));
     vi.resetModules();
-    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const { declareToAgents: declarerChezAgents } =
+      await import("../cli/aiMcp");
     const racine = path.join(path.sep, "projets", "mon-app");
     const [r] = await declarerChezAgents([cible("codex")], {
       url: "http://localhost:5151/nodefony/mcp",
-      retirer: false,
+      remove: false,
       projectRoot: racine,
       global: true,
     });
-    expect(r?.enProjet).toBe(false);
+    expect(r?.inProject).toBe(false);
     for (const env of vus) {
       expect(env.CODEX_HOME).not.toBe(path.join(racine, ".codex"));
     }

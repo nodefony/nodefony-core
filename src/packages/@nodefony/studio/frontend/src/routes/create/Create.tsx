@@ -324,14 +324,14 @@ export function Create() {
       const payload: TAnswers = isApp
         ? { ...answers, root: rootId ?? "", subPath }
         : answers;
-      const state = await conn.request<IScaffoldJobState>(
-        PLATFORM_METHODS.scaffoldRun,
-        {
-          type: typeSpec.type,
-          answers: payload,
-          steps,
-        },
-      );
+      const state = await conn.request<
+        typeof PLATFORM_METHODS.scaffoldRun,
+        IScaffoldJobState
+      >(PLATFORM_METHODS.scaffoldRun, {
+        type: typeSpec.type,
+        answers: payload,
+        steps,
+      });
       const { lines: snapLines, ...meta } = state;
       const window_ = snapLines.slice(-MAX_TERMINAL_LINES);
       lastSeqRef.current = window_.length
@@ -356,12 +356,10 @@ export function Create() {
     if (!job) return;
     setCancelling(true);
     try {
-      await conn.request<IScaffoldCancelResult>(
-        PLATFORM_METHODS.scaffoldCancel,
-        {
-          id: job.id,
-        },
-      );
+      await conn.request<
+        typeof PLATFORM_METHODS.scaffoldCancel,
+        IScaffoldCancelResult
+      >(PLATFORM_METHODS.scaffoldCancel, { id: job.id });
     } catch (e) {
       notifications.notify("error", describeScaffoldError(e), {
         title: "Arrêt impossible",

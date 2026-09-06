@@ -15,5 +15,5 @@ export interface I<%= it.pascal %>Service {
 <% if (it.inject) { %>
 
   /** Délègue à `<%= it.inject.pascal %>`, injecté par le constructeur. */
-  depuis<%= it.inject.pascal %>(): Promise<unknown>;
+  from<%= it.inject.pascal %>(): Promise<unknown>;
 <% } %>}

@@ -141,14 +141,21 @@ export default defineConfig<typeof env>((ctx) => ({
        * un NAVIGATEUR. `machine`, plus bas, montre l'autre cas : un appelant
        * qui ne stocke pas de cookie ne doit RIEN recevoir qu'il faille stocker.
        *
-       * ⚠️ `stateless: false` (le défaut) NE FAIT PAS ÉCHOUER l'essai — et c'est
-       * le piège. Depuis un navigateur, ou avec un `curl -c`, tout marche : le
-       * cookie posé à la première requête est renvoyé aux suivantes. Le vrai
-       * client, lui, ne stocke rien ; il repart ANONYME à chaque appel, et le
-       * symptôme arrive en production sous la forme d'un 401 intermittent que
-       * rien dans le code ne montre. Ajouter `"session"` à côté de `"apikey"`
-       * produit exactement le même défaut, en plus discret encore : la clé
-       * ouvre, et l'application ouvre une session par-dessus pour personne.
+       * ⚠️ `stateless: false` (le défaut) sur une zone de service NE FAIT PAS
+       * ÉCHOUER l'essai — et c'est le piège. Depuis un navigateur, ou avec un
+       * `curl -c`, le cookie posé est renvoyé aux appels suivants et tout
+       * marche ; le vrai client, lui, ne stocke rien. Ce qu'il en coûte n'est
+       * pas un refus mais un REGISTRE : chaque appel porteur d'un cookie
+       * inconnu fait reprendre, puis réécrire une session serveur — et
+       * renvoyer un `Set-Cookie` — pour un appelant qui ne la relira jamais.
+       *
+       * `stateless: true` ferme cela : la zone n'ouvre ni ne reprend de
+       * session, le cookie entrant est ignoré, et l'identité tient tout
+       * entière dans la preuve portée par la requête. Corollaire, appliqué au
+       * DÉMARRAGE : lister `"session"` dans une zone stateless est une
+       * contradiction, et l'application REFUSE de démarrer en nommant la zone.
+       * Une zone sert un navigateur (session) ou un porteur de preuve (clé,
+       * jeton) — jamais les deux sous le même drapeau.
        */
       /**
        * ⚠️ Un `pattern` couvre un PRÉFIXE, pas les routes qu'on a en tête —

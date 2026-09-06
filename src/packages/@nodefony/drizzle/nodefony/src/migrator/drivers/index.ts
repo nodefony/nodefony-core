@@ -53,7 +53,9 @@ export async function openMigrationDriver(
             "Pour une base éphémère, passer explicitement « :memory: ».",
         );
       }
-      return new SqliteMigrationDriver(target.filename);
+      const driver = new SqliteMigrationDriver(target.filename);
+      await driver.connect();
+      return driver;
     }
     case "postgres": {
       if (!target.url) {

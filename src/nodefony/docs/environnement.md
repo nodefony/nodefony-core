@@ -192,6 +192,45 @@ configuration via `ctx.env`.
 Une variable **requise** est celle qui n'a ni défaut ni `optional: true`. `nodefony env` les
 nomme, et sort en erreur si l'une manque.
 
+### Requise LÀ-BAS seulement — `requiredIn`
+
+Certaines variables ne sont indispensables qu'en production. Les déclarer `optional` est vrai
+sur le poste du développeur et faux là où ça compte ; les déclarer requises empêcherait de
+démarrer en local. `requiredIn` nomme les environnements où l'absence devient une faute :
+
+```typescript
+NF_CSRF_SECRET: envString({
+  optional: true,
+  requiredIn: ["production"],
+  description: "Secret des jetons anti-CSRF — partagé entre process en cluster.",
+}),
+```
+
+Le cas qui fonde cette règle n'est pas un secret laissé en dur, c'est l'inverse : **un secret
+absent est engendré à la volée**. Rien ne va mal au premier démarrage — c'est au deuxième
+exemplaire que les jetons émis par l'un se font refuser par l'autre, sans une ligne dans les
+journaux.
+
+Les noms sont libres : ils se comparent aux **étiquettes** de l'environnement courant, à savoir
+le mode d'exécution (`NODE_ENV`) et l'environnement de déploiement (`NF_ENV`, ou l'alias de
+plateforme `APP_ENV`) quand il en diffère. Une préproduction qui tourne en `production` porte
+donc les deux, et `requiredIn: ["preprod"]` y mord.
+
+Trois lecteurs appliquent la MÊME règle
+([`isEnvVarRequired`](../src/config/defineEnv.ts)) : le démarrage refuse de partir, `nodefony
+env` marque la variable, et `nodefony doctor` la nomme avant qu'on déploie.
+
+### Demander ce qui manquera ailleurs — `--env`
+
+`nodefony doctor --env production` et `nodefony env --env production` évaluent les exigences
+pour l'environnement **visé**, avec les valeurs présentes **ici** : on ne simule pas un
+déploiement, on demande ce qui manquera là-bas. Le rapport l'annonce en tête, et sort en erreur
+si une variable requise à destination n'a aucune valeur.
+
+`doctor` signale aussi un fichier `.env*.local` **suivi par git** — l'historique garde les
+secrets même après suppression. Sans dépôt git, il ne conclut pas : il énonce le contrôle comme
+non fait.
+
 ## Secrets : `<VARIABLE>_FILE`
 
 Un secret monté par Docker ou Kubernetes est un **fichier**, pas une valeur. Toute variable

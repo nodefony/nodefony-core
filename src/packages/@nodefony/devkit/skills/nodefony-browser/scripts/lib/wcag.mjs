@@ -19,35 +19,35 @@
  * expression régulière donne une couleur presque noire là où il y a du bleu —
  * un contraste faux, et des échecs inventés qui noient les vrais.
  *
- * @param {string} couleur - couleur telle que rendue par `getComputedStyle`.
+ * @param {string} color - couleur telle que rendue par `getComputedStyle`.
  * @returns {{ r: number, g: number, b: number, a: number }} canaux 0–255 et
  *   alpha 0–1 ; noir opaque si la notation est illisible.
  */
-export function parseCouleur(couleur) {
-  const s = String(couleur).trim();
-  const nombres = s.match(/-?\d*\.?\d+(?:e-?\d+)?%?/gi);
-  if (!nombres || nombres.length < 3) return { r: 0, g: 0, b: 0, a: 1 };
+export function parseColor(color) {
+  const s = String(color).trim();
+  const numbers = s.match(/-?\d*\.?\d+(?:e-?\d+)?%?/gi);
+  if (!numbers || numbers.length < 3) return { r: 0, g: 0, b: 0, a: 1 };
   // `color(srgb …)` et `color(display-p3 …)` : canaux en 0–1. Le pourcentage
   // est explicite dans les deux familles et se ramène toujours à 0–1.
-  const moderne = /^color\(/i.test(s);
-  const canal = (v) => {
+  const modern = /^color\(/i.test(s);
+  const channel = (v) => {
     if (v.endsWith("%")) return (parseFloat(v) / 100) * 255;
     const n = parseFloat(v);
-    return moderne ? n * 255 : n;
+    return modern ? n * 255 : n;
   };
-  const [r, g, b] = nombres.slice(0, 3).map(canal);
-  const brutAlpha = nombres[3];
+  const [r, g, b] = numbers.slice(0, 3).map(channel);
+  const rawAlpha = numbers[3];
   const a =
-    brutAlpha === undefined
+    rawAlpha === undefined
       ? 1
-      : brutAlpha.endsWith("%")
-        ? parseFloat(brutAlpha) / 100
-        : parseFloat(brutAlpha);
-  const borne = (n) => Math.min(255, Math.max(0, n));
+      : rawAlpha.endsWith("%")
+        ? parseFloat(rawAlpha) / 100
+        : parseFloat(rawAlpha);
+  const clamp = (n) => Math.min(255, Math.max(0, n));
   return {
-    r: borne(r),
-    g: borne(g),
-    b: borne(b),
+    r: clamp(r),
+    g: clamp(g),
+    b: clamp(b),
     a: Number.isFinite(a) ? Math.min(1, Math.max(0, a)) : 1,
   };
 }
@@ -59,17 +59,17 @@ export function parseCouleur(couleur) {
  * calculé contre le voile SEUL — c'est-à-dire contre une couleur que
  * personne ne voit. C'est ainsi qu'un aplat pâle passe pour très sombre.
  *
- * @param {string} dessus - la couche du dessus (éventuellement transparente).
- * @param {string} dessous - ce qu'il y a derrière (supposé opaque).
+ * @param {string} over - la couche du dessus (éventuellement transparente).
+ * @param {string} under - ce qu'il y a derrière (supposé opaque).
  * @returns {string} une couleur `rgb()` opaque, telle qu'elle est PERÇUE.
  */
-export function composer(dessus, dessous) {
-  const h = parseCouleur(dessus);
+export function compose(over, under) {
+  const h = parseColor(over);
   if (h.a >= 1)
     return `rgb(${Math.round(h.r)}, ${Math.round(h.g)}, ${Math.round(h.b)})`;
-  const b = parseCouleur(dessous);
-  const melange = (x, y) => Math.round(x * h.a + y * (1 - h.a));
-  return `rgb(${melange(h.r, b.r)}, ${melange(h.g, b.g)}, ${melange(h.b, b.b)})`;
+  const b = parseColor(under);
+  const blend = (x, y) => Math.round(x * h.a + y * (1 - h.a));
+  return `rgb(${blend(h.r, b.r)}, ${blend(h.g, b.g)}, ${blend(h.b, b.b)})`;
 }
 
 /**
@@ -79,11 +79,11 @@ export function composer(dessus, dessous) {
  * composée sur son fond AVANT (`composer`), sans quoi la luminance décrit une
  * couleur que l'œil ne rencontre jamais.
  *
- * @param {string} couleur - couleur telle que rendue par `getComputedStyle`.
+ * @param {string} color - couleur telle que rendue par `getComputedStyle`.
  * @returns {number} luminance entre 0 (noir) et 1 (blanc).
  */
-export function srgbLuminance(couleur) {
-  const { r, g, b } = parseCouleur(couleur);
+export function srgbLuminance(color) {
+  const { r, g, b } = parseColor(color);
   const [lr, lg, lb] = [r, g, b].map((v) => {
     const s = v / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
@@ -111,11 +111,11 @@ export function contrastRatio(a, b) {
  * hasard entre 3:1 et 4,5:1 — c'est-à-dire ne rien conclure.
  *
  * @param {number} px - taille de police calculée, en pixels.
- * @param {boolean} gras - graisse calculée ≥ 700.
+ * @param {boolean} bold - graisse calculée ≥ 700.
  * @returns {boolean} vrai si les seuils « texte large » s'appliquent.
  */
-export function estTexteLarge(px, gras) {
-  return px >= 24 || (gras === true && px >= 18.66);
+export function isLargeText(px, bold) {
+  return px >= 24 || (bold === true && px >= 18.66);
 }
 
 /**
@@ -123,13 +123,13 @@ export function estTexteLarge(px, gras) {
  *
  * @param {number} ratio - rapport de contraste mesuré.
  * @param {number} px - taille de police calculée, en pixels.
- * @param {boolean} gras - graisse calculée ≥ 700.
+ * @param {boolean} bold - graisse calculée ≥ 700.
  * @returns {"AAA"|"AA"|"ÉCHEC"} le niveau atteint.
  */
-export function verdictWcag(ratio, px, gras) {
-  const large = estTexteLarge(px, gras);
-  if (ratio >= (large ? 4.5 : 7)) return "AAA";
-  if (ratio >= (large ? 3 : 4.5)) return "AA";
+export function verdictWcag(ratio, px, bold) {
+  const isLarge = isLargeText(px, bold);
+  if (ratio >= (isLarge ? 4.5 : 7)) return "AAA";
+  if (ratio >= (isLarge ? 3 : 4.5)) return "AA";
   return "ÉCHEC";
 }
 
@@ -141,11 +141,11 @@ export function verdictWcag(ratio, px, gras) {
  */
 export function sourceWcag() {
   return [
-    parseCouleur,
-    composer,
+    parseColor,
+    compose,
     srgbLuminance,
     contrastRatio,
-    estTexteLarge,
+    isLargeText,
     verdictWcag,
   ]
     .map(String)

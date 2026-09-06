@@ -112,10 +112,10 @@ function resolvePrettier(from: string): string | null {
  * à chaque fois — environ 200 ms × 40 fichiers pour une application neuve.
  */
 const WORKER = `
-let entrees = "";
-process.stdin.on("data", (c) => (entrees += c));
+let input = "";
+process.stdin.on("data", (c) => (input += c));
 process.stdin.on("end", async () => {
-  const { url, fichiers } = JSON.parse(entrees);
+  const { url, files } = JSON.parse(input);
   let prettier;
   try {
     prettier = await import(url);
@@ -128,23 +128,23 @@ process.stdin.on("end", async () => {
     process.stdout.write("{}");
     return;
   }
-  const sortie = {};
-  for (const f of fichiers) {
+  const output = {};
+  for (const f of files) {
     try {
       // Un fichier qui n'était PAS conforme avant ne se voit pas reformater :
       // c'est le style du projet, pas le nôtre.
       if (f.previous !== null && f.previous !== undefined) {
-        const avant = await format(f.previous, { filepath: f.path });
-        if (avant !== f.previous) continue;
+        const before = await format(f.previous, { filepath: f.path });
+        if (before !== f.previous) continue;
       }
-      const apres = await format(f.content, { filepath: f.path });
-      if (apres !== f.content) sortie[f.path] = apres;
+      const after = await format(f.content, { filepath: f.path });
+      if (after !== f.content) output[f.path] = after;
     } catch {
       // Un fichier que prettier refuse reste tel quel — jamais une génération
       // perdue pour une question de forme.
     }
   }
-  process.stdout.write(JSON.stringify(sortie));
+  process.stdout.write(JSON.stringify(output));
 });
 `;
 
@@ -174,30 +174,30 @@ export function formatFilesOnDisk(
   files: string[],
   dest: string,
 ): IFormatOutcome {
-  const candidats = files.filter(
+  const candidates = files.filter(
     (f) => FORMATABLES.has(path.extname(f)) && existsSync(f),
   );
-  if (candidats.length === 0) {
+  if (candidates.length === 0) {
     return { formatted: 0, pending: 0 };
   }
   const url = resolvePrettier(dest);
   if (!url) {
-    return { formatted: 0, pending: candidats.length };
+    return { formatted: 0, pending: candidates.length };
   }
   // `previous: null` : ces fichiers viennent d'être générés, ils sont à nous.
   // La garde « ne pas reformater ce qui ne suivait pas prettier » protège le
   // code de l'utilisateur ; ici il n'y en a pas.
-  const fichiers = candidats.map((f) => ({
+  const payload = candidates.map((f) => ({
     path: f,
     content: readFileSync(f, "utf8"),
     previous: null,
   }));
-  const formate = lancerWorker(url, fichiers);
-  if (!formate) {
-    return { formatted: 0, pending: candidats.length };
+  const results = startWorker(url, payload);
+  if (!results) {
+    return { formatted: 0, pending: candidates.length };
   }
   let formatted = 0;
-  for (const [file, content] of Object.entries(formate)) {
+  for (const [file, content] of Object.entries(results)) {
     writeFileSync(file, content);
     formatted += 1;
   }
@@ -208,12 +208,12 @@ export function formatFilesOnDisk(
  * Lance le worker et rend ce qu'il a changé, ou `null` si rien n'est
  * exploitable. Un seul endroit à corriger pour les deux portes.
  */
-function lancerWorker(
+function startWorker(
   url: string,
-  fichiers: { path: string; content: string; previous: string | null }[],
+  files: { path: string; content: string; previous: string | null }[],
 ): Record<string, string> | null {
   const run = spawnSync(process.execPath, ["-e", WORKER], {
-    input: JSON.stringify({ url, fichiers }),
+    input: JSON.stringify({ url, files }),
     encoding: "utf8",
     // Une application complète tient largement dedans ; au-delà, on écrit sans
     // mise en forme plutôt que de faire tomber la génération.
@@ -243,31 +243,31 @@ export function formatScaffoldOutput(
   writer: ScaffoldWriter,
   dest: string,
 ): IFormatOutcome {
-  const candidats = writer
+  const candidates = writer
     .changes()
     .filter((c) => FORMATABLES.has(path.extname(c.path)));
-  if (candidats.length === 0) {
+  if (candidates.length === 0) {
     return { formatted: 0, pending: 0 };
   }
 
   const url = resolvePrettier(dest);
   if (!url) {
-    return { formatted: 0, pending: candidats.length };
+    return { formatted: 0, pending: candidates.length };
   }
 
-  const fichiers = candidats.map((c) => ({
+  const files = candidates.map((c) => ({
     path: c.path,
     content: c.content,
     previous: c.kind === "overwrite" ? (c.previous ?? null) : null,
   }));
 
-  const formate = lancerWorker(url, fichiers);
-  if (!formate) {
-    return { formatted: 0, pending: candidats.length };
+  const results = startWorker(url, files);
+  if (!results) {
+    return { formatted: 0, pending: candidates.length };
   }
 
   let formatted = 0;
-  for (const [file, content] of Object.entries(formate)) {
+  for (const [file, content] of Object.entries(results)) {
     writer.write(file, content);
     formatted += 1;
   }

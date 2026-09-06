@@ -161,29 +161,29 @@ version du framework installée dans ce projet.
  * inchangé, et `ai:sync` deviendrait une commande qu'on hésite à lancer.
  *
  * @param decouverts - les skills livrés par les paquets installés.
- * @param existants - ce que le dossier de découverte porte déjà : nom → contenu.
+ * @param existing - ce que le dossier de découverte porte déjà : nom → contenu.
  * @returns le plan, trié par nom pour que deux exécutions se comparent.
  */
 export function planSync(
   decouverts: IDiscoveredSkill[],
-  existants: Record<string, string>,
+  existing: Record<string, string>,
 ): IAiSyncPlan {
   const skills: IPlannedSkill[] = [];
-  const livres = new Set<string>();
+  const delivered = new Set<string>();
 
   for (const skill of [...decouverts].sort((a, b) =>
     a.name.localeCompare(b.name),
   )) {
-    livres.add(skill.name);
+    delivered.add(skill.name);
     const content = renderPointer(skill);
-    const actuel = existants[skill.name];
+    const current = existing[skill.name];
     skills.push({
       name: skill.name,
       packageName: skill.packageName,
       action:
-        actuel === undefined
+        current === undefined
           ? "pose"
-          : actuel === content
+          : current === content
             ? "inchange"
             : "remplace",
       target: `${SKILLS_DIR}/${skill.name}/SKILL.md`,
@@ -197,8 +197,8 @@ export function planSync(
   // NOMME sans le supprimer — l'utilisateur peut en avoir écrit un à la main
   // sous le même nom, et effacer le travail de quelqu'un n'est jamais le rôle
   // d'une commande de synchronisation.
-  const orphelins = Object.keys(existants)
-    .filter((name) => !livres.has(name))
+  const orphelins = Object.keys(existing)
+    .filter((name) => !delivered.has(name))
     .sort();
 
   // `preserves` est rempli à l'ÉCRITURE (elle seule voit le disque du miroir) ;
@@ -214,33 +214,33 @@ export function planSync(
  * @returns le texte à écrire sur la sortie standard.
  */
 export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
-  const lignes: string[] = [];
+  const lines: string[] = [];
   const poses = plan.skills.filter((s) => s.action === "pose");
-  const remplaces = plan.skills.filter((s) => s.action === "remplace");
+  const replaced = plan.skills.filter((s) => s.action === "remplace");
   const inchanges = plan.skills.filter((s) => s.action === "inchange");
 
-  lignes.push(
+  lines.push(
     `\n  Skills d'agent — ${plan.directory} (miroir Claude Code : ${CLAUDE_SKILLS_DIR})\n`,
   );
 
   if (plan.skills.length === 0) {
-    lignes.push(
+    lines.push(
       `  Aucun skill trouvé dans les paquets installés.\n\n` +
         `  Les skills sont livrés par les paquets Nodefony (dossier skills/).\n` +
         `  Si tu attendais ceux du devkit :\n` +
         `    npm install --save-dev @nodefony/devkit\n`,
     );
-    return lignes.join("");
+    return lines.join("");
   }
 
   for (const s of plan.skills) {
     const marque =
       s.action === "pose" ? "+" : s.action === "remplace" ? "~" : "=";
-    lignes.push(`  ${marque} ${s.name.padEnd(24)} ${s.packageName}\n`);
+    lines.push(`  ${marque} ${s.name.padEnd(24)} ${s.packageName}\n`);
   }
 
   for (const name of plan.orphelins) {
-    lignes.push(
+    lines.push(
       `  ? ${name.padEnd(24)} plus livré par aucun paquet — à supprimer à la main\n`,
     );
   }
@@ -248,14 +248,14 @@ export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
   // 🔴 Ce qui a été PRÉSERVÉ se dit, et se dit fort : sans cette ligne,
   // l'utilisateur croit le skill synchronisé alors qu'il ne l'est pas — et
   // c'est le seul cas où la commande n'a délibérément pas fait son travail.
-  for (const cible of plan.preserves) {
-    lignes.push(
-      `  ! ${cible} existe déjà et n'est PAS un pointeur — conservé tel quel\n`,
+  for (const target of plan.preserves) {
+    lines.push(
+      `  ! ${target} existe déjà et n'est PAS un pointeur — conservé tel quel\n`,
     );
   }
 
-  lignes.push(
-    `\n  ${poses.length} posé(s) · ${remplaces.length} mis à jour · ` +
+  lines.push(
+    `\n  ${poses.length} posé(s) · ${replaced.length} mis à jour · ` +
       `${inchanges.length} inchangé(s)` +
       (plan.orphelins.length > 0
         ? ` · ${plan.orphelins.length} orphelin(s)`
@@ -267,13 +267,13 @@ export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
   );
 
   if (!applique) {
-    lignes.push(`\n  Rien n'a été écrit (--dry-run).\n`);
-  } else if (poses.length > 0 || remplaces.length > 0) {
-    lignes.push(
+    lines.push(`\n  Rien n'a été écrit (--dry-run).\n`);
+  } else if (poses.length > 0 || replaced.length > 0) {
+    lines.push(
       `\n  Ces fichiers sont faits pour être COMMITÉS : ton équipe et ton\n` +
         `  intégration continue disposeront des mêmes skills.\n`,
     );
   }
 
-  return lignes.join("");
+  return lines.join("");
 }

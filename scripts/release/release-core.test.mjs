@@ -19,12 +19,14 @@ import {
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
+  LONGUEUR_MIN_DESCRIPTION,
   FICHIERS_LICENCE,
   comparerVersions,
   detecterSuspects,
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  alignerReferencesInternes,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -180,10 +182,64 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
       publishConfig: { access: "public" },
       files: ["dist"],
       license: "CECILL-B",
+      // Une description RÉELLE, pas un remplissage : le décor doit satisfaire
+      // le gate pour la même raison qu'un vrai paquet — sinon « conforme » ne
+      // veut plus rien dire.
+      description:
+        "Un paquet de démonstration qui décrit ce qu'il fait en une phrase",
+      keywords: ["demo", "typescript"],
+      homepage: "https://example.org/",
     },
   };
   const audit = (paquets, existe = () => true) =>
     auditerMetadonnees(paquets, { depotAttendu: BON, existe });
+
+  // ── Ce que npm INDEXE, et qu'une version publiée fige ────────────────────
+  it("REFUSE une description trop courte pour dire ce que le paquet fait", () => {
+    const { bloquants } = audit([
+      { ...ok, pkg: { ...ok.pkg, description: "nodefony http" } },
+    ]);
+    expect(bloquants).toHaveLength(1);
+    expect(bloquants[0]).toContain("13 caractère(s)");
+    expect(bloquants[0]).toContain("nodefony http");
+  });
+
+  it("REFUSE une description absente comme une description vide", () => {
+    const sans = { ...ok, pkg: { ...ok.pkg } };
+    delete sans.pkg.description;
+    expect(audit([sans]).bloquants).toHaveLength(1);
+    expect(
+      audit([{ ...ok, pkg: { ...ok.pkg, description: "   " } }]).bloquants,
+    ).toHaveLength(1);
+  });
+
+  it("compte la longueur APRÈS trim — des espaces ne font pas une phrase", () => {
+    const bourre = " ".repeat(60) + "http";
+    expect(bourre.length).toBeGreaterThan(LONGUEUR_MIN_DESCRIPTION);
+    expect(
+      audit([{ ...ok, pkg: { ...ok.pkg, description: bourre } }]).bloquants,
+    ).toHaveLength(1);
+  });
+
+  it("AVERTIT sans bloquer sur `javascript` et sur des mots-clés vides", () => {
+    const kwJs = audit([
+      { ...ok, pkg: { ...ok.pkg, keywords: ["nodefony", "javascript"] } },
+    ]);
+    expect(kwJs.bloquants).toHaveLength(0);
+    expect(kwJs.avertissements.join()).toContain("javascript");
+
+    const kwVides = audit([{ ...ok, pkg: { ...ok.pkg, keywords: [] } }]);
+    expect(kwVides.bloquants).toHaveLength(0);
+    expect(kwVides.avertissements.join()).toContain("keywords");
+  });
+
+  it("AVERTIT sans bloquer sur une `homepage` absente", () => {
+    const sans = { ...ok, pkg: { ...ok.pkg } };
+    delete sans.pkg.homepage;
+    const r = audit([sans]);
+    expect(r.bloquants).toHaveLength(0);
+    expect(r.avertissements.join()).toContain("homepage");
+  });
 
   it("laisse passer un paquet conforme", () => {
     expect(audit([ok]).bloquants).toEqual([]);
@@ -354,6 +410,80 @@ describe("referencesFigees — le lockstep dépareillé", () => {
         "10.0.0",
       ),
     ).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("alignerReferencesInternes — le lockstep, APPLIQUÉ", () => {
+  const noms = new Set(["nodefony", "@nodefony/http"]);
+
+  it("réécrit une référence interne épinglée sur la version publiée", () => {
+    const brut = JSON.stringify(
+      { name: "create-nodefony", dependencies: { nodefony: "10.0.0" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(JSON.parse(r.contenu).dependencies.nodefony).toBe("10.0.0-alpha.1");
+    expect(r.alignees).toEqual(["nodefony@10.0.0 → 10.0.0-alpha.1"]);
+    expect(r.introuvables).toEqual([]);
+  });
+
+  it("laisse l'étoile intacte — c'est la convention du dépôt, pas un oubli", () => {
+    const brut = JSON.stringify(
+      { name: "@nodefony/framework", peerDependencies: { nodefony: "*" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(r.contenu).toBe(brut);
+    expect(r.alignees).toEqual([]);
+  });
+
+  it("ne touche AUCUNE dépendance externe, même portant la version publiée", () => {
+    const brut = JSON.stringify(
+      { name: "x", dependencies: { react: "10.0.0", zod: "^3.0.0" } },
+      null,
+      2,
+    );
+    expect(
+      alignerReferencesInternes(brut, noms, "10.0.0-alpha.1").contenu,
+    ).toBe(brut);
+  });
+
+  it("ne reformate pas le fichier — ce diff est ce que l'auteur relit", () => {
+    const brut =
+      '{\n  "name": "create-nodefony",\n  "zzz": 1,\n  "dependencies": { "nodefony": "10.0.0" }\n}\n';
+    const { contenu } = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(contenu).toBe(
+      '{\n  "name": "create-nodefony",\n  "zzz": 1,\n  "dependencies": { "nodefony": "10.0.0-alpha.1" }\n}\n',
+    );
+  });
+
+  it("aligne aussi une référence déclarée dans DEUX champs à la fois", () => {
+    const brut = JSON.stringify(
+      {
+        dependencies: { "@nodefony/http": "9.0.0" },
+        peerDependencies: { "@nodefony/http": "9.0.0" },
+      },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    const pkg = JSON.parse(r.contenu);
+    expect(pkg.dependencies["@nodefony/http"]).toBe("10.0.0-alpha.1");
+    expect(pkg.peerDependencies["@nodefony/http"]).toBe("10.0.0-alpha.1");
+  });
+
+  it("SIGNALE la plage qu'il n'a pas su retrouver dans le TEXTE, au lieu de la taire", () => {
+    // Le manifeste parsé et son texte peuvent diverger (échappement unicode).
+    // Un remplacement muet publierait la référence d'origine — donc un paquet
+    // qui pointe une version absente du registre.
+    const brut = '{"dependencies":{"\\u006eodefony":"10.0.0"}}';
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(r.contenu).toBe(brut);
+    expect(r.alignees).toEqual([]);
+    expect(r.introuvables).toEqual(["nodefony@10.0.0"]);
   });
 });
 

@@ -251,6 +251,12 @@ class RealtimeService extends Service {
    * depuis les zones `realtime: true`. L'authorizer lit le token déjà résolu au
    * handshake (0 lecture base par frame). Délégué à `RealtimeHub.setFrameAuthorizer`.
    *
+   * `options.silentProbe` porte la MÊME décision sans rapporter de refus : elle
+   * répond « ce visiteur pourrait-il s'abonner ici ? » pour l'annonce des canaux
+   * du `realtime:welcome`, qui interroge N canaux par connexion sans que
+   * personne n'ait rien demandé. Elle se pose par CE MÊME appel pour qu'aucun
+   * câblage ne puisse poser l'un sans l'autre.
+   *
    * @example
    * ```ts
    * // @nodefony/security au boot :
@@ -260,8 +266,11 @@ class RealtimeService extends Service {
    * });
    * ```
    */
-  setFrameAuthorizer(authorizer: FrameAuthorizer | null): void {
-    this.getHub().setFrameAuthorizer(authorizer);
+  setFrameAuthorizer(
+    authorizer: FrameAuthorizer | null,
+    options?: { readonly silentProbe?: FrameAuthorizer | null },
+  ): void {
+    this.getHub().setFrameAuthorizer(authorizer, options);
   }
 
   /**

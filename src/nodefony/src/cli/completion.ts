@@ -10,6 +10,8 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { SysExit } from "./sysexits";
+import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
+import { OPTION_SUGGESTIONS } from "../command/Command";
 import type { Command as CommanderCommand } from "commander";
 
 /**
@@ -42,6 +44,25 @@ export interface ICliManifestCommand {
    * manifests cache antérieurs → traité comme libre (compat lecture).
    */
   args?: string[][];
+  /**
+   * Le groupe d'INTENTION déclaré par la commande (cf `HELP_GROUPS`).
+   *
+   * Porté par le manifeste parce que ses deux autres lecteurs en ont besoin
+   * et ne peuvent pas le retrouver : le menu interactif s'ouvre à `onStart`,
+   * trop tôt pour connaître les commandes de module, et la page de manuel se
+   * rend hors de tout boot. Sans lui, les deux rangeaient tout un pan du CLI
+   * dans un fourre-tout, là où l'aide le classe.
+   */
+  group?: string;
+  /**
+   * Les flags qui attendent une VALEUR, avec ce qu'on peut proposer.
+   *
+   * Un tableau vide dit « une valeur est attendue, mais je ne sais pas
+   * laquelle » — et c'est déjà l'essentiel : sans cela, le TAB proposait les
+   * AUTRES options juste après `--env`, ce qui laissait croire qu'aucun
+   * argument n'était requis. Absent des manifests antérieurs (compat lecture).
+   */
+  optionValues?: Record<string, string[]>;
 }
 
 /** Manifest de complétion (cache par projet). */
@@ -69,6 +90,31 @@ export function extractFlags(flags: string): string[] {
 }
 
 /**
+ * Les flags d'une commande qui attendent une valeur, et ce qu'on peut proposer.
+ *
+ * Deux sources, dans cet ordre : les `choices()` déclarés à commander (qui
+ * VALIDENT, donc font autorité) et le registre des suggestions du produit (qui
+ * ne valide rien, pour les options dont les valeurs sont ouvertes).
+ *
+ * @param cmd - la commande, telle que commander la porte.
+ * @returns un tableau de valeurs par flag ; vide = valeur libre.
+ */
+function optionValuesOf(cmd: CommanderCommand): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const o of cmd.options ?? []) {
+    // Un drapeau ne prend pas de valeur : le proposer en attendrait une, et le
+    // TAB deviendrait muet là où il devait proposer les autres options.
+    if (!o.required && !o.optional) continue;
+    const values = [
+      ...(o.argChoices ?? []),
+      ...(OPTION_SUGGESTIONS.get(o) ?? []),
+    ];
+    for (const flag of extractFlags(o.flags)) out[flag] = values;
+  }
+  return out;
+}
+
+/**
  * Construit le manifest depuis l'état COURANT de commander — appelé après que les
  * modules ont posé leurs commandes (`onPreRegister`) pour un manifest complet, ou
  * avec les seuls built-ins pour le fallback sans boot.
@@ -91,6 +137,13 @@ export function buildCliManifest(
       // `.choices()` d'un argument positionnel → candidats au TAB (vécu :
       // `nodefony create <TAB>` ne proposait jamais `app`).
       args: (cmd.registeredArguments ?? []).map((a) => a.argChoices ?? []),
+      optionValues: optionValuesOf(cmd),
+      ...(typeof (cmd as { helpGroup?: () => unknown }).helpGroup?.() ===
+      "string"
+        ? {
+            group: (cmd as { helpGroup: () => string }).helpGroup(),
+          }
+        : {}),
     });
   }
   return {
@@ -143,7 +196,7 @@ export async function writeCliManifest(
   // Le PID du nom sert ici une seconde fois : il dit si le propriétaire vit
   // encore. On n'efface QUE les morts — arracher le temporaire d'un process
   // vivant lui volerait son écriture en cours.
-  nettoyerTemporairesOrphelins(file);
+  cleanOrphanTempFiles(file);
 
   const tmp = `${file}.${process.pid}.tmp`;
   try {
@@ -170,16 +223,13 @@ export async function writeCliManifest(
  *
  * @param file - chemin du manifest ; ses temporaires en dérivent
  */
-function nettoyerTemporairesOrphelins(file: string): void {
+function cleanOrphanTempFiles(file: string): void {
   try {
-    const dossier = path.dirname(file);
+    const folder = path.dirname(file);
     const base = `${path.basename(file)}.`;
-    for (const entree of readdirSync(dossier)) {
-      if (!entree.startsWith(base) || !entree.endsWith(".tmp")) continue;
-      const pid = Number.parseInt(
-        entree.slice(base.length, -".tmp".length),
-        10,
-      );
+    for (const input of readdirSync(folder)) {
+      if (!input.startsWith(base) || !input.endsWith(".tmp")) continue;
+      const pid = Number.parseInt(input.slice(base.length, -".tmp".length), 10);
       if (!Number.isInteger(pid) || pid <= 0) continue;
       if (pid === process.pid) continue;
       try {
@@ -190,7 +240,7 @@ function nettoyerTemporairesOrphelins(file: string): void {
         // Mort (ESRCH) — ou hors de notre portée (EPERM), auquel cas il vit et
         // `rmSync` échouera sans conséquence.
       }
-      rmSync(path.join(dossier, entree), { force: true });
+      rmSync(path.join(folder, input), { force: true });
     }
   } catch {
     // Le balayage est un confort : son échec ne doit jamais coûter le manifest.
@@ -242,6 +292,12 @@ export function computeCompletions(
         if (j > 0 && after[j - 1].startsWith("-")) continue;
         pos++;
       }
+      // 🔴 Le dernier mot VALIDÉ est un flag qui attend une valeur : c'est elle
+      // qu'on complète, pas une autre option. Proposer les options ici faisait
+      // croire que `--env` se suffisait à lui-même.
+      const last = validated[validated.length - 1] ?? "";
+      const expected = cmd.optionValues?.[last];
+      if (expected) return expected;
       const choices = cmd.args?.[pos] ?? [];
       return [...choices, ...cmd.options, ...manifest.globalOptions];
     }
@@ -252,6 +308,45 @@ export function computeCompletions(
 /** Shells supportés par `nodefony completion <shell>`. */
 export const COMPLETION_SHELLS = ["bash", "zsh", "fish"] as const;
 export type CompletionShell = (typeof COMPLETION_SHELLS)[number];
+
+/** La page d'aide — `nodefony completion --help`, et le rappel après un refus. */
+const PAGE: IUsagePage = {
+  command: "nodefony completion",
+  tagline:
+    "le script de complétion à sourcer, ou son installation dans le fichier " +
+    "de démarrage du shell",
+  synopsis: [
+    `nodefony completion [${COMPLETION_SHELLS.join("|")}]`,
+    `nodefony completion install|uninstall [${COMPLETION_SHELLS.join("|")}]`,
+  ],
+  sections: [
+    {
+      title: "CE QU'ELLE FAIT",
+      paragraph:
+        "Sans action, elle IMPRIME le script — à rediriger soi-même. Avec " +
+        "`install`, elle l'écrit et pose un bloc marqué, idempotent, dans le " +
+        "fichier de démarrage du shell ; `uninstall` le retire. Le script est " +
+        "STABLE : il délègue tout au binaire, donc les commandes qu'un module " +
+        "ajoute apparaissent sans jamais le régénérer. Sans shell nommé, " +
+        "celui de l'environnement est détecté.",
+    },
+  ],
+  options: [],
+  examples: [
+    {
+      term: "nodefony completion zsh",
+      text: "imprime le script — à rediriger où le shell le lira",
+    },
+    {
+      term: "nodefony completion install",
+      text: "l'installe pour le shell détecté",
+    },
+    {
+      term: "nodefony completion uninstall bash",
+      text: "retire le bloc posé dans le fichier de démarrage",
+    },
+  ],
+};
 
 /**
  * Rend le script de complétion à sourcer pour un shell. Le script est STABLE (il
@@ -462,6 +557,17 @@ function reloadHint(shell: CompletionShell): string {
  * @returns exit code (`EX_OK`, ou `EX_USAGE` si shell inconnu et indétectable).
  */
 export function runCompletionCommand(argv: string[]): number {
+  // 🔴 Le drapeau se lit AVANT tout : cette commande FILTRAIT les options pour
+  // ne garder que les positionnels, si bien que `nodefony completion --help`
+  // imprimait le script du shell détecté. Un lecteur qui cherchait la
+  // documentation obtenait sept cents lignes de shell.
+  const at = argv.indexOf("completion");
+  if (
+    at !== -1 &&
+    argv.slice(at + 1).some((a) => a === "--help" || a === "-h")
+  ) {
+    return printUsage(PAGE);
+  }
   const positionals = argv.slice(2).filter((a) => !a.startsWith("-"));
   // positionals[0] = "completion" ; ensuite [action] [shell] ou [shell].
   const action =
@@ -477,11 +583,12 @@ export function runCompletionCommand(argv: string[]): number {
     !shell ||
     (arg && !(COMPLETION_SHELLS as readonly string[]).includes(arg))
   ) {
-    writeSync(
-      2,
-      `usage: nodefony completion [install|uninstall] <${COMPLETION_SHELLS.join("|")}>\n`,
+    return printUsageError(
+      PAGE,
+      arg
+        ? `shell inconnu : ${arg}`
+        : "shell indétectable — nommez-le (ex. nodefony completion zsh)",
     );
-    return SysExit.USAGE;
   }
   const home = os.homedir();
   if (action === "install") {

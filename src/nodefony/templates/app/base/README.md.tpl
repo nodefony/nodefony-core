@@ -40,7 +40,7 @@ Puis :
 <% } %><% if (it.complete) { %>- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
 - **ORM + persistance** — Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique
 - **Firewall + audit** — chaque requête traverse le pipeline sécurité (logs `audit`)
-- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:events` (alimenté par `live:dire`, jamais par une horloge) + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
+- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:events` (alimenté par `live:say`, jamais par une horloge) + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
 - **Redis (opt-in)** — `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus
 <% } %>- **Probes cloud-native** — `curl http://127.0.0.1:5151/livez` (liveness k8s)
 
@@ -139,7 +139,7 @@ arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
 
 ```bash
 npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
-npm run check        # cohérence du projet : config, modules déclarés, wiring
+npm run doctor        # cohérence du projet : config, modules déclarés, wiring
 npm run lint         # oxlint — garde-fous en warn, non-intrusif
 npm run format       # prettier — le style, c'est lui qui décide
 ```
@@ -224,6 +224,25 @@ docker stop -t 20 <container>   # SIGTERM → drain → exit 0
 > par défaut) : `docker stop` n'attend que 10 s sans `-t`, et k8s 30 s. En
 > dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
 > sans erreur ni trace, à chaque déploiement.
+
+#### Si tu PUBLIES cette image
+
+L'image emporte `node_modules` élagué : la **publier** — sur un registre public,
+ou en la livrant à un tiers — te rend distributeur du code de tes dépendances.
+MIT, BSD, ISC et Apache-2.0 demandent alors que leur texte et leur copyright
+accompagnent le code. C'est déjà le cas matériellement : chaque paquet porte son
+propre fichier de licence dans `node_modules`, et l'image les emporte avec lui.
+
+Ce qui manque, c'est l'inventaire — npm le produit sans rien installer :
+
+```bash
+npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
+```
+
+> Un **déploiement interne** (ton propre registre, ton cluster) n'est pas une
+> distribution : ces obligations ne s'y appliquent pas. Et un inventaire écrit à
+> la main serait faux dès le premier `npm install` — c'est pourquoi il se
+> régénère plutôt qu'il ne se commite.
 
 <% if (it.db) { %>### Migrations de schéma
 

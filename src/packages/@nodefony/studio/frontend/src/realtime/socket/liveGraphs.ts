@@ -89,7 +89,7 @@ export const LIVE_GRAPH_CATALOG: readonly LiveGraphEntry[] = [
     name: "sondes",
     label: "Sondes",
     component: lazy(() =>
-      import("./SondesLiveGraph").then((m) => ({ default: m.SondesLiveGraph })),
+      import("./ProbesLiveGraph").then((m) => ({ default: m.ProbesLiveGraph })),
     ),
   },
 ] as const;

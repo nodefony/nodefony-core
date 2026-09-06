@@ -5,7 +5,7 @@ Couche de sécurité de Nodefony.
 Firewall par zones, authentication (pattern `IAuthenticator`), autorisation (rôles + voters),
 CORS, CSRF, en-têtes de sécurité, JWT, clés API, WebAuthn/passkeys, OAuth2 social, 2FA TOTP,
 webhooks signés, audit persistant. **Modèle d'identité hybride**, **Zero Trust** par défaut.
-Consomme [`@nodefony/user`](../user).
+Consomme [`@nodefony/user`](https://www.npmjs.com/package/@nodefony/user).
 
 > **Statut** : cœur livré — firewall + zones, session serveur (NIST), JWT (`jose`), WebAuthn,
 > OAuth2 social, CSRF/CORS/en-têtes natifs, clés API/PAT, 2FA TOTP, webhooks, audit persistant,
@@ -73,7 +73,7 @@ export default defineConfig((ctx) => ({
 
 Toutes les sections (`cors`, `csrf`, `headers`, `rateLimit`, `jwt`, `apiKeys`, `webhooks`,
 `audit`, `studio`…) ont des **défauts sûrs** et sont **désactivables** via `enabled`.
-Voir [`nodefony/config/config.ts`](./nodefony/config/config.ts) — chaque option y est
+Voir [`nodefony/config/config.ts`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/security/nodefony/config/config.ts) — chaque option y est
 documentée (explication + défaut + reco).
 
 ### Sections

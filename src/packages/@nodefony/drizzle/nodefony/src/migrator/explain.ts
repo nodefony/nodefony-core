@@ -398,9 +398,9 @@ function groupSources(plan: IMigrationPlan): IMigrationSourceReport[] {
     });
     // Une dérive porte sur une migration DÉJÀ appliquée : sa ligne existe, on
     // la requalifie au lieu d'en ajouter une seconde qui la contredirait.
-    const deja = entry.entries.find((e) => e.tag === d.tag);
-    if (deja) {
-      deja.status = "drifted";
+    const already = entry.entries.find((e) => e.tag === d.tag);
+    if (already) {
+      already.status = "drifted";
     } else {
       entry.entries.push({ tag: d.tag, status: "drifted" });
     }
@@ -564,30 +564,38 @@ function namesEverything(d: ISchemaComparison): boolean {
  */
 function nameGaps(d: ISchemaComparison): string {
   const parts: string[] = [];
-  const borne = (noms: string[], un: string, plusieurs: string): void => {
-    if (noms.length === 0) {
+  const pushBounded = (
+    names: string[],
+    singular: string,
+    plural: string,
+  ): void => {
+    if (names.length === 0) {
       return;
     }
-    const reste =
-      noms.length > SUMMARY_GAPS
-        ? `, et ${noms.length - SUMMARY_GAPS} de plus`
+    const remainder =
+      names.length > SUMMARY_GAPS
+        ? `, et ${names.length - SUMMARY_GAPS} de plus`
         : "";
     parts.push(
-      `${noms.length > 1 ? plusieurs : un} ${noms.slice(0, SUMMARY_GAPS).join(", ")}${reste}`,
+      `${names.length > 1 ? plural : singular} ${names.slice(0, SUMMARY_GAPS).join(", ")}${remainder}`,
     );
   };
   const col = (g: ISchemaGap): string => `« ${g.table}.${g.column} »`;
-  borne(
+  pushBounded(
     d.missingTables.map((t) => `« ${t} »`),
     "table absente :",
     "tables absentes :",
   );
-  borne(
+  pushBounded(
     d.blocking.map(col),
     "colonne manquante et OBLIGATOIRE :",
     "colonnes manquantes et OBLIGATOIRES :",
   );
-  borne(d.additive.map(col), "colonne manquante :", "colonnes manquantes :");
+  pushBounded(
+    d.additive.map(col),
+    "colonne manquante :",
+    "colonnes manquantes :",
+  );
   return parts.join(" ; ");
 }
 
@@ -603,12 +611,12 @@ function summaryOf(
       return `Le connecteur « ${c} » est à jour : tout ce qui est enregistré a été appliqué, et les fichiers n'ont pas bougé depuis.`;
     case "pending": {
       const n = plan.pending.length;
-      const noms = plan.pending
+      const names = plan.pending
         .slice(0, 3)
         .map((f) => `${f.source}/${f.tag}`)
         .join(", ");
-      const reste = n > 3 ? `, et ${n - 3} de plus` : "";
-      return `Le connecteur « ${c} » a ${n} migration${n > 1 ? "s" : ""} à appliquer : ${noms}${reste}.`;
+      const remainder = n > 3 ? `, et ${n - 3} de plus` : "";
+      return `Le connecteur « ${c} » a ${n} migration${n > 1 ? "s" : ""} à appliquer : ${names}${remainder}.`;
     }
     case "drift": {
       const parts: string[] = [];
@@ -628,11 +636,11 @@ function summaryOf(
     }
     case "failed": {
       const f = plan.failed[0] as IAppliedMigration;
-      const quand = f.startedAt
+      const when = f.startedAt
         ? new Date(f.startedAt).toISOString()
         : "à une date inconnue";
-      const pourquoi = f.error ? ` (erreur : ${f.error})` : "";
-      return `Le connecteur « ${c} » porte ${plan.failed.length} migration${plan.failed.length > 1 ? "s" : ""} qui n'a pas abouti : « ${f.source}/${f.tag} », commencée le ${quand}${pourquoi}.`;
+      const why = f.error ? ` (erreur : ${f.error})` : "";
+      return `Le connecteur « ${c} » porte ${plan.failed.length} migration${plan.failed.length > 1 ? "s" : ""} qui n'a pas abouti : « ${f.source}/${f.tag} », commencée le ${when}${why}.`;
     }
     case "adopt":
       return `La base du connecteur « ${c} » contient déjà des tables, mais aucune migration n'y est enregistrée. Nodefony ne devine pas : appliquer les migrations sur une base déjà peuplée écraserait peut-être une base qui n'est pas la bonne.`;
@@ -642,11 +650,11 @@ function summaryOf(
       // chercher au mauvais endroit coûte une heure : une TABLE d'entité
       // absente veut dire que sa migration n'a jamais été écrite ou appliquée,
       // pas que quelqu'un a touché à la base.
-      const pourquoi =
+      const why =
         divergence && divergence.missingTables.length > 0
           ? `L'application ne peut PAS servir ces entités : leur migration n'a jamais été générée, commitée ou appliquée.`
           : `Quelqu'un a modifié la base directement, ou un correctif d'urgence n'a pas été reporté.`;
-      return `Le connecteur « ${c} » a son historique complet et rien en attente, et la base ne correspond pourtant pas au schéma déclaré dans le code${quoi}. ${pourquoi}`;
+      return `Le connecteur « ${c} » a son historique complet et rien en attente, et la base ne correspond pourtant pas au schéma déclaré dans le code${quoi}. ${why}`;
     }
   }
 }
@@ -903,7 +911,7 @@ const DIVERGENCE_LINES = 10;
  * @returns le bloc, prêt à concaténer.
  */
 function renderDivergence(d: ISchemaComparison, style: IStyle): string {
-  const lignes: string[] = [
+  const lines: string[] = [
     ...d.missingTables.map((t) => `${"table".padEnd(9)} ${t}`),
     ...d.blocking.map(
       (g: ISchemaGap) =>
@@ -917,11 +925,11 @@ function renderDivergence(d: ISchemaComparison, style: IStyle): string {
     ),
   ];
   let out = `\n  ${style.bold("Ce qui manque dans la base :")}\n`;
-  for (const l of lignes.slice(0, DIVERGENCE_LINES)) {
+  for (const l of lines.slice(0, DIVERGENCE_LINES)) {
     out += `    ${l}\n`;
   }
-  if (lignes.length > DIVERGENCE_LINES) {
-    out += `    ${style.dim(`… et ${lignes.length - DIVERGENCE_LINES} autre(s) — la liste entière est dans « --json », sous « divergence »`)}\n`;
+  if (lines.length > DIVERGENCE_LINES) {
+    out += `    ${style.dim(`… et ${lines.length - DIVERGENCE_LINES} autre(s) — la liste entière est dans « --json », sous « divergence »`)}\n`;
   }
   return out;
 }

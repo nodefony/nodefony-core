@@ -1,7 +1,8 @@
 {
   "name": "@nodefony/realtime",
-  "version": "10.0.0",
-  "description": "Couche realtime serveur Nodefony — hub WebSocket fan-out, protocole JSON-RPC 2.0, backplane cluster (loopback / cluster IPC / redis) ouvert aux drivers applicatifs.",
+  "version": "10.0.0-alpha.1",
+  "description": "Couche temps réel serveur de Nodefony : canaux, appels bidirectionnels JSON-RPC 2.0, contre-pression, et diffusion entre plusieurs instances (boucle locale, IPC de grappe, Redis)",
+  "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
@@ -29,12 +30,14 @@
   },
   "keywords": [
     "nodefony",
-    "typescript",
     "realtime",
     "websocket",
     "json-rpc",
-    "pub-sub",
-    "cluster"
+    "pubsub",
+    "cluster",
+    "backpressure",
+    "typescript",
+    "esm"
   ],
   "peerDependencies": {
     "@nodefony/framework": "*",
@@ -54,6 +57,9 @@
     "vitest": "5.0.0"
   },
   "private": false,
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "license": "CECILL-B",
   "dependencies": {
     "tslib": "2.8.1"
@@ -70,7 +76,7 @@
     "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/@nodefony/realtime"
   },
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/packages/@nodefony/realtime#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

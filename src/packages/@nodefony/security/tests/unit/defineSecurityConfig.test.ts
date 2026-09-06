@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { BootConfigurationError } from "nodefony";
 import {
   defineSecurityConfig,
   securityConfigJsonSchema,
@@ -121,17 +122,27 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
 });
 
 describe("defineSecurityConfig — validation au boot", () => {
-  it("refuse deux zones partageant le même pattern (ambiguïté de match)", () => {
-    assert.throws(
-      () =>
-        defineSecurityConfig({
-          areas: {
-            a: { pattern: "^/api" },
-            b: { pattern: "^/api" },
-          },
-        }),
-      /partagent le pattern/,
+  it("refuse deux zones partageant le même motif (ambiguïté de match)", () => {
+    let caught: unknown;
+    try {
+      defineSecurityConfig({
+        areas: {
+          a: { pattern: "^/api" },
+          b: { pattern: "^/api" },
+        },
+      });
+    } catch (e) {
+      caught = e;
+    }
+    // Le TYPE compte autant que le refus : une `Error` ordinaire est absorbée
+    // par le fail-soft du kernel en développement, et l'ambiguïté de zone
+    // passerait inaperçue là où elle vient d'être écrite.
+    assert.ok(
+      BootConfigurationError.is(caught),
+      `attendu BootConfigurationError, reçu ${(caught as Error)?.name}`,
     );
+    assert.match((caught as Error).message, /partagent le motif/);
+    assert.match((caught as Error).message, /@nodefony\/security/);
   });
 
   it("refuse un mode de zone inconnu", () => {

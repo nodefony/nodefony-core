@@ -48,6 +48,7 @@ import {
   type RealtimeChannelFactory,
 } from "../../decorators/realtimeDecorators";
 import { welcomeEnv } from "./welcomeEnv";
+import { deniedDetail } from "./deniedDetail";
 
 /**
  * Statut HTTP-équivalent d'une erreur survenue pendant une invocation du pont.
@@ -467,7 +468,22 @@ export abstract class RealtimeController<
         if (channel !== undefined) {
           // Type de PROTOCOLE isomorphe (core) : un seul contrat, garanti par le
           // compilateur des deux bouts (serveur émet ⇄ client `ingestDenied`).
-          const denied: IRealtimeDenied = { channel, reason: "forbidden" };
+          const denied: IRealtimeDenied = {
+            channel,
+            reason: "forbidden",
+            // Le motif reste générique — c'est lui qui interdit l'oracle. Le
+            // détail, lui, ne franchit pas la production (`deniedDetail`) : en
+            // développement il évite de chercher pendant une heure une panne de
+            // transport là où une politique a simplement fait son travail.
+            ...deniedDetail(
+              this.kernel?.environment,
+              `le verrou de frame a refusé l'accès à « ${channel} » pour cette ` +
+                `identité : vérifie les rôles ou scopes exigés par le canal ` +
+                `(décorateur \`@RealtimeChannel(nom, { roles })\` ou clé ` +
+                `\`realtimeChannels\` de la configuration de sécurité), et ceux ` +
+                `que porte le jeton — le \`realtime:welcome\` te les rend`,
+            ),
+          };
           auditedPeer.notify("realtime:denied", denied);
         }
       };
@@ -637,11 +653,27 @@ export abstract class RealtimeController<
       this.log("WS realtime client disconnected — cleanup done", "INFO");
     });
 
-    // `realtime:welcome` annonce canaux + actions découvrables (décorateurs + override).
+    // `realtime:welcome` annonce canaux + actions découvrables (décorateurs +
+    // override) — mais SEULEMENT ceux que CE visiteur pourrait obtenir.
+    //
+    // 🔴 Le produit refuse déjà de dire POURQUOI un canal est refusé
+    // (`RealtimeDeniedReason` est générique par construction, pour ne pas
+    // devenir un oracle). Annoncer la liste entière à un anonyme donnait la
+    // carte en gardant la serrure : le nom exact des canaux sensibles était
+    // servi gratuitement, à la première frame, sans authentification.
+    //
+    // Le filtre appelle le MÊME verrou que `subscribe` (`probeChannel` → la
+    // sonde muette posée par `@nodefony/security`), jamais une seconde
+    // implémentation de la règle : deux copies divergeraient au premier canal
+    // ajouté, et chacune passerait ses propres tests. Sans sécurité chargée,
+    // aucune sonde n'est posée et rien n'est retiré.
+    //
+    // Coût : une fois par CONNEXION, jamais par frame — un appel de sonde par
+    // canal déclaré, sur un chemin déjà occupé par un handshake WebSocket.
     const announcedChannels = [
       ...(this._decoratedChannels ? Object.keys(this._decoratedChannels) : []),
       ...this.realtimeChannels(),
-    ];
+    ].filter((channel) => hub.probeChannel(channel, peer));
     // L'identité est lue sur le `token` NEUTRE (`IRealtimeToken`) déjà résolu au
     // handshake (authenticator P6 ou `ANONYMOUS_REALTIME_TOKEN`) — 0 dépendance
     // security, 0 re-lecture base. Le client la consomme pour savoir QUI il est
@@ -718,7 +750,16 @@ export abstract class RealtimeController<
       // abonné). `realtime:denied` = convention existante ; motif `limit` (une borne
       // de ressource n'est pas un secret, ≠ oracle d'autorisation). Log DEBUG et NON
       // WARNING : un log par subscribe refusé sous flood serait un amplificateur.
-      const denied: IRealtimeDenied = { channel, reason: "limit" };
+      const denied: IRealtimeDenied = {
+        channel,
+        reason: "limit",
+        ...deniedDetail(
+          this.kernel?.environment,
+          `plafond de ${cap} canaux par connexion atteint : désabonne-toi d'un ` +
+            `canal avant d'en ouvrir un autre, ou relève ` +
+            `\`maxChannelsPerConnection\` dans la configuration realtime`,
+        ),
+      };
       state.peer.notify("realtime:denied", denied);
       this.log(
         `WS subscribe refusé (cap ${cap} canaux/connexion atteint) → ${channel}`,
@@ -775,7 +816,7 @@ export abstract class RealtimeController<
     // attendrait des données qui ne viendront jamais : un écran vide sans cause
     // visible, indiscernable d'un canal calme. Deux causes, deux motifs, et
     // aucune n'a le droit de rester muette.
-    const plancher = getRealtimeHub().isClosedBySystemFloor(channel);
+    const floor = getRealtimeHub().isClosedBySystemFloor(channel);
     // Plancher système : décision d'AUTORISATION → motif générique, comme partout
     // (le détail de la politique ne s'offre pas à qui essuie un refus). Sinon, le
     // hub n'a trouvé personne pour PRODUIRE ce canal : nom mal orthographié ou
@@ -783,13 +824,24 @@ export abstract class RealtimeController<
     // amont par le verrou de frame, donc rendu `forbidden` qu'il existe ou non.
     const denied: IRealtimeDenied = {
       channel,
-      reason: plancher ? "forbidden" : "unknown",
+      reason: floor ? "forbidden" : "unknown",
+      ...deniedDetail(
+        this.kernel?.environment,
+        floor
+          ? `« ${channel} » appartient au namespace de plateforme, dont le ` +
+              `plancher est CLOS tant qu'aucun module de sécurité n'est chargé — ` +
+              `ce n'est pas ton identité qui est en cause`
+          : `aucun producteur pour « ${channel} » sur ce pod : vérifie ` +
+              `l'orthographe du canal, puis qu'un \`@RealtimeChannel("${channel}")\` ` +
+              `est bien déclaré dans un controller CHARGÉ (le runtime lit \`dist/\`, ` +
+              `pas les sources)`,
+      ),
     };
     state.peer.notify("realtime:denied", denied);
     // DEBUG et non WARNING : un log par subscribe refusé sous flood serait un
     // amplificateur (même raison qu'au plafond de canaux).
     this.log(
-      plancher
+      floor
         ? `WS subscribe refusé (canal de plateforme, aucun module de sécurité) → ${channel}`
         : `WS subscribe refusé (aucun producteur pour ce canal) → ${channel}`,
       "DEBUG",

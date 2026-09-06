@@ -1,7 +1,7 @@
 {
   "name": "nodefony",
-  "version": "10.0.0",
-  "description": "Nodefony Framework",
+  "version": "10.0.0-alpha.1",
+  "description": "Noyau du framework Nodefony : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur",
   "type": "module",
   "exports": {
     ".": {
@@ -70,8 +70,13 @@
   ],
   "keywords": [
     "nodefony",
-    "node-js",
-    "javascript"
+    "framework",
+    "typescript",
+    "esm",
+    "dependency-injection",
+    "nodejs",
+    "backend",
+    "fullstack"
   ],
   "scripts": {
     "nodefony": "node ./bin/nodefony",
@@ -79,7 +84,7 @@
     "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
-    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.tests.json && tsgo --noEmit -p tsconfigClient.json",
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.src.json && tsgo --noEmit -p tsconfigClient.json",
     "start": "node ./bin/nodefony",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -179,7 +184,7 @@
     ".ai",
     "man"
   ],
-  "homepage": "https://github.com/nodefony/nodefony-core/tree/HEAD/src/nodefony#readme",
+  "homepage": "https://nodefony.github.io/nodefony-core/",
   "bugs": {
     "url": "https://github.com/nodefony/nodefony-core/issues"
   }

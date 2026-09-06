@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {
   touchesExistingRows,
-  verifierLesDonnees,
+  checkDataAdvice,
 } from "../../nodefony/src/migrator/destructive";
 
 /**
@@ -68,8 +68,8 @@ describe("après une migration réussie — vérifier sans détruire", () => {
     });
   });
 
-  describe("verifierLesDonnees — le moyen, pas une invitation à effacer", () => {
-    const phrase = verifierLesDonnees("default");
+  describe("checkDataAdvice — le moyen, pas une invitation à effacer", () => {
+    const phrase = checkDataAdvice("default");
 
     it("écarte explicitement la base vide — c'est le geste qu'un agent invente", () => {
       assert.match(phrase, /ne repars pas d'une base\s+vide/);
@@ -96,10 +96,7 @@ describe("après une migration réussie — vérifier sans détruire", () => {
 
     it("cible le connecteur demandé, et le tait quand c'est le défaut", () => {
       assert.ok(!phrase.includes("--connector"));
-      assert.match(
-        verifierLesDonnees("facturation"),
-        /--connector facturation/,
-      );
+      assert.match(checkDataAdvice("facturation"), /--connector facturation/);
     });
   });
 });

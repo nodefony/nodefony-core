@@ -18,7 +18,7 @@ class BatchTest extends Command {
   constructor(cli: CliKernel) {
     super(
       "test:batch",
-      "Batch one-shot job (CONSOLE, no server)",
+      "tâche ponctuelle en console, sans serveur",
       cli,
       options,
     );

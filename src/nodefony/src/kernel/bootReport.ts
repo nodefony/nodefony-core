@@ -89,6 +89,14 @@ export interface IBootReport {
   warnings: number;
   /** Logs `ERROR` et pire (`CRITIC`/`ALERT`/`EMERGENCY`) émis pendant le boot. */
   errors: number;
+  /**
+   * Les PREMIERS de ces messages, condensés — `null` quand il n'y en a aucun.
+   *
+   * `errors: 1` sans un mot était le cas le plus frustrant du bilan : le
+   * lecteur savait qu'il s'était passé quelque chose, pas quoi. Alloué
+   * seulement s'il y a matière.
+   */
+  criticals: string[] | null;
   /** `true` si le profil d'exécution attendait des serveurs réseau. */
   serversExpected: boolean;
   /** Serveurs réellement en écoute. */

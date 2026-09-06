@@ -1,7 +1,7 @@
 # CI de <%= it.appName %> — générée par `nodefony create app` (GitLab).
 #
 # Même filet que le workflow GitHub, même doctrine : `verify` (typecheck +
-# lint + tests + `nodefony check`) puis la suite e2e qui démarre l'application
+# lint + tests + `nodefony doctor`) puis la suite e2e qui démarre l'application
 # POUR DE VRAI et l'interroge en HTTP. Le fichier est inerte hors GitLab —
 # les deux forges sont servies, le dépôt choisit en poussant.
 
@@ -36,7 +36,7 @@ verify:
     MYSQL_DATABASE: <%= it.appName %>
 <% } %><% } %>  script:
     - npm ci --cache .npm --prefer-offline
-    # typecheck + lint + tests + `nodefony check` — l'ordre du script.
+    # typecheck + lint + tests + `nodefony doctor` — l'ordre du script.
     - npm run verify
     # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
     - npm run test:e2e

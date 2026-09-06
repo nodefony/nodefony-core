@@ -386,7 +386,7 @@ et il fait foi le jour où les deux divergent.
     machine: {
       pattern: "^/api/machine",
       authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
-      stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais
+      stateless: true, // false ⇒ un registre de sessions pour un client qui ne le relit pas
     },
     ```
 
@@ -417,11 +417,14 @@ et il fait foi le jour où les deux divergent.
 
     ⚠️ `stateless: false` (le défaut) **ne fait pas échouer l'essai**, et c'est
     tout le piège : depuis un navigateur ou un `curl -c`, le cookie posé revient
-    aux requêtes suivantes et tout semble marcher. Le vrai client ne stocke
-    rien : il repart **anonyme** à chaque appel, et le défaut n'apparaît qu'en
-    production, en 401 intermittents. Ajouter `"session"` à côté de `"apikey"`
-    produit le même défaut, en plus discret. Règle : un appelant qui ne stocke
-    pas de cookie ne doit rien recevoir qu'il faille stocker.
+    aux requêtes suivantes et tout semble marcher. Ce que ça coûte n'est pas un
+    refus mais un **registre** — chaque appel portant un cookie inconnu fait
+    reprendre puis réécrire une session serveur, et renvoyer un `Set-Cookie`,
+    pour un appelant qui ne la relira jamais. `stateless: true` ferme cela : la
+    zone n'ouvre ni ne reprend de session, et le cookie entrant est ignoré.
+    Lister `"session"` dans une zone stateless est une contradiction, et
+    l'application **refuse de démarrer** en nommant la zone. Règle : un appelant
+    qui ne stocke pas de cookie ne doit rien recevoir qu'il faille stocker.
     Les clés s'émettent par `POST /nodefony/security/api/keys`.
 
   - Un droit **métier** qui ne se réduit pas à un rôle (« l'auteur peut éditer
@@ -498,8 +501,8 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **La route existe dans le code et répond 404** — le runtime charge `dist/`, pas tes sources → `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date
 - **Ta route NEUVE répond 404, et le `dist/` est à jour** — elle n'est pas montée où tu crois : le chemin réel est le PRÉFIXE de son controller suivi du `path` de la route — une action `path: "/widget"` posée dans un controller `@controller("/api")` répond sur `/api/widget` → `npx nodefony inspect routes --json` donne le chemin MONTÉ ; si l'URL demandée ne doit pas porter le préfixe, la route va dans un controller qui n'en a pas
 - **TOUT répond 404, même les routes du gabarit** — un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris → `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer
-- **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
-- **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
+- **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run doctor` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
+- **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run doctor` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
 - **Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
 - **Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur
 - **Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
@@ -534,7 +537,7 @@ milieu, et tu passes l'heure suivante sur des 404 fantômes.
 ## Gates — vérifier avant de dire « fait »
 
 ```bash
-npm run verify        # ⬅ LA commande. typecheck + lint + tests + check, dans cet ordre
+npm run verify        # ⬅ LA commande. typecheck + lint + tests + doctor, dans cet ordre
 ```
 
 **Une seule à retenir, et c'est délibéré.** Les quatre gates ci-dessous existent
@@ -549,11 +552,27 @@ type-check pas**, ton code peut être bâti, servi, et ne pas compiler.
 npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
 npm run lint          # style et pièges
 npm test              # unitaires, rapides, zéro serveur
-npm run check         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
+npm run doctor        # diagnostic : câblage, install, + BILAN du dernier démarrage
 npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : c'est le gate LENT
 ```
 
-**`check` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
+### `doctor` — le premier réflexe quand quelque chose ne va pas
+
+**Avant de chercher, demande.** `npx nodefony doctor` (ou `npm run doctor`) est
+la commande de diagnostic : elle répond depuis n'importe quel sous-dossier, elle
+n'exécute RIEN de ton application, et `--json` la rend exploitable par un script.
+`check` en est un alias historique — le nom à retenir est `doctor`.
+
+Ce qu'elle t'épargne : une demi-heure à chercher pourquoi une route répond 404,
+pourquoi un service est introuvable, ou pourquoi l'app « marche » sans faire ce
+qu'on lui demande. Elle ne devine pas — elle LIT, et elle nomme le geste.
+
+```bash
+npx nodefony doctor           # sortie lisible ; sort en erreur s'il manque quelque chose
+npx nodefony doctor --json    # même chose, pour un script ou un agent
+```
+
+**`doctor` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
 exécuter — donc il répond sur une app qui ne se lance plus :
 
 - une **variable REQUISE** sans valeur ;
@@ -561,15 +580,22 @@ exécuter — donc il répond sur une app qui ne se lance plus :
 - une dépendance déclarée **absente de `node_modules`** ;
 - un **port déjà tenu** par un autre programme (le tien ne compte pas).
 
-**`check` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
+Il nomme aussi une **classe écrite que rien ne déclare** — une entité hors de
+`@entities([…])`, un controller hors de `@controllers([…])`. Elle compile, les
+tests qui l'importent passent, et la panne n'arrive qu'au démarrage suivant :
+une table jamais créée, une route qui répond 404 sans que rien ne l'explique.
+C'est le mode d'échec de la COPIE, celui qu'on fait en recopiant le voisin au
+lieu d'appeler le générateur.
+
+**`doctor` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
 seule façon de l'apprendre après coup : l'app écrit son bilan dans
 `var/last-boot.json` à chaque boot. Deux cas que tu ne peux pas voir autrement :
 
-- **elle ne démarre plus** — `check` n'exécute rien, donc il répond quand même,
+- **elle ne démarre plus** — `doctor` n'exécute rien, donc il répond quand même,
   et il nomme la phase atteinte et la cause ;
 - **elle démarre mais AMPUTÉE** — c'est le cas piégeux : tout a l'air sain, et
   une brique manque (base injoignable, module écarté par sa `policy`). Le
-  journal l'a dit une fois, au terminal de celui qui a lancé. `check` te le
+  journal l'a dit une fois, au terminal de celui qui a lancé. `doctor` te le
   redit, avec la RAISON de chaque brique absente.
 
 Sur une app saine il n'en parle pas. S'il en parle, lis avant de coder.

@@ -2,7 +2,6 @@ import path from "node:path";
 
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
-import { logColor } from "../syslog/logColor";
 import { SysExit } from "../cli/sysexits";
 import { toImportSpecifier } from "./resolveModuleEntry";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
@@ -20,7 +19,7 @@ import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outdated from "./commands/OutdatedCommand";
 import Status from "./commands/StatusCommand";
-import Check from "./commands/CheckCommand";
+import Check from "./commands/DoctorCommand";
 import Inspect from "./commands/InspectCommand";
 import Stop from "./commands/StopCommand";
 import AiSync from "./commands/AiSyncCommand";
@@ -44,7 +43,18 @@ import {
 import Completion from "./commands/CompletionCommand";
 import Create from "./commands/CreateCommand";
 import { runCreateCommand } from "../cli/create";
-import { runCheckCommand } from "./checks/runCheck";
+import { shouldColorize, usableWidth } from "./checks/report";
+import {
+  renderHelp,
+  type IHelpCommand,
+  type IHelpOption,
+} from "../cli/helpReport";
+import {
+  isDoctorCommand,
+  runDoctorCommand,
+  runDoctorWithoutLive,
+  wantsLiveDoctor,
+} from "./checks/runDoctor";
 import Env from "./commands/EnvCommand";
 import { runEnvCommand } from "../cli/env";
 import Card from "./commands/CardCommand";
@@ -235,12 +245,20 @@ class CliKernel extends Cli {
     // coûtait un démarrage complet pour une réponse qui n'en dépend pas, noyait
     // le rapport sous le journal du Kernel, et le rendait inutilisable sur une
     // application qui justement ne démarre plus.
-    // `doctor` est l'ALIAS de `check` (cf `CheckCommand`) : il doit prendre le
+    // `check` est l'ALIAS de `doctor` (cf `DoctorCommand`) : il doit prendre le
     // même fast-path, sinon commander ne le voit pas parmi les built-ins avant
     // le chargement des modules et il partirait en dispatch différé — donc en
     // boot, précisément ce que ce raccourci évite.
-    if (requested === "check" || requested === "doctor") {
-      return process.exit(await runCheckCommand(process.argv));
+    // ⚠️ `--live` SORT du fast-path, et c'est tout son sujet : l'étage 2
+    // demande à l'APPLICATION (migrations, cohérence des zones), donc il faut
+    // qu'elle ait démarré. Le raccourci reste la voie par défaut — celle qui
+    // répond quand rien ne démarre —, et le boot ne se paie que s'il est
+    // explicitement demandé.
+    if (
+      isDoctorCommand(requested) &&
+      !wantsLiveDoctor(requested, process.argv)
+    ) {
+      return process.exit(await runDoctorCommand(process.argv));
     }
 
     // ─── `env` : la cascade des `.env` + les variables déclarées — même famille ─
@@ -350,7 +368,11 @@ class CliKernel extends Cli {
           this.quietBoot = true;
         }
         this.commander.exitOverride();
-        this.commander.name(this.name);
+        // Le nom du PROGRAMME, pas celui du service : `this.name` vaut
+        // « NODEFONY » parce que le syslog s'en sert comme identifiant de
+        // message. Le donner à commander faisait afficher « Usage: NODEFONY »,
+        // et la faute se propageait à l'aide de chaque sous-commande.
+        this.commander.name("nodefony");
         this.commander.showHelpAfterError(false);
         this.commander.showSuggestionAfterError(true);
         this.commander.configureHelp({
@@ -410,10 +432,14 @@ class CliKernel extends Cli {
           return this.dispatchModuleCommand(requested);
         }
 
+        // Distingue un argv REFUSÉ d'un boot qui MEURT : les deux arrivent dans
+        // le même `catch`, et `doctor --live` ne doit rattraper que le second.
+        let booting = false;
         return this.commander
           ?.parseAsync()
           .then(async () => {
             if (!this.kernel) throw new Error(`Kernel not found`);
+            booting = true;
             return (this.kernel as Kernel).start();
           })
           .catch(async (e: unknown) => {
@@ -435,6 +461,25 @@ class CliKernel extends Cli {
             // ne pas re-logger une stack brute par-dessus le diagnostic clair ; le
             // code de sortie est celui porté par l'erreur (EX_CONFIG) sinon 1.
             const err = e as { presented?: boolean; exitCode?: number };
+
+            // ─── `doctor --live` : le boot est mort, le RAPPORT reste dû ─────
+            // C'est le cas pour lequel l'outil existe. Sans ce chemin, celui
+            // qui tape `--live` parce que « ça ne démarre plus » obtenait une
+            // pile brute et RIEN d'autre — donc moins qu'avec `doctor` nu. Le
+            // bilan de l'abandon est déjà écrit (`Kernel.start` le fige avant
+            // de relancer), l'étage 1 le lira ; l'étage 2 devient un état
+            // d'exécution lisible plutôt qu'une absence.
+            if (booting && wantsLiveDoctor(requested, process.argv)) {
+              const cause =
+                e instanceof Error ? e.message : String(e ?? "cause inconnue");
+              const reportCode = await runDoctorWithoutLive(
+                process.argv,
+                `l'application n'a pas démarré — ${cause}`,
+                "corrige la cause ci-dessus, puis relance `nodefony doctor --live`",
+              );
+              return this.kernel?.terminate(reportCode) as Promise<Kernel>;
+            }
+
             if (!err.presented) {
               this.log(e, "ERROR");
             }
@@ -652,10 +697,21 @@ class CliKernel extends Cli {
    *
    * @returns le Kernel (terminé après affichage du help).
    */
-  private dispatchGlobalHelp(): Promise<Kernel> {
+  private async dispatchGlobalHelp(): Promise<Kernel> {
     const kernel = this.kernel as Kernel;
     // Help global → boot silencieux (aucun log de cycle de vie ne pollue le help).
     this.quietBoot = true;
+
+    // ─── Rien à booter ICI : on décide AVANT, jamais dans un `catch` ─────────
+    // `Kernel.startBoot` ne LÈVE pas quand il n'y a pas d'application : il
+    // `terminate(1)` (hors TTY) ou ouvre le menu. Un repli greffé sur un rejet
+    // ne pouvait donc jamais s'exécuter — et `nodefony --help` hors d'un projet
+    // rendait un CRITIC et code 1, exactement là où quelqu'un découvre l'outil
+    // et cherche `create app`.
+    if ((await kernel.isTrunk()) === null) {
+      return this.renderStandaloneHelp(kernel);
+    }
+
     let shown = false;
     const render = async (): Promise<void> => {
       if (!shown) {
@@ -669,10 +725,7 @@ class CliKernel extends Cli {
         // fichier) restait amputé chez qui n'avait jamais démarré l'application.
         // Best-effort, jamais bloquant : un help ne doit pas dépendre du disque.
         await this.writeCompletionManifest().catch(() => {});
-        this.printHelpHeader();
-        this.assignHelpGroups();
-        this.showHelp(false, undefined);
-        this.printHelpFooter();
+        this.writeHelp();
       }
       await this.kernel?.terminate(SysExit.OK);
     };
@@ -686,92 +739,150 @@ class CliKernel extends Cli {
   }
 
   /**
-   * En-tête brandé du help global (1ʳᵉ ligne, pas de ligne vide en tête — norme
-   * sortie CLI). Couleur gatée par `logColor` (isTTY + NO_COLOR/FORCE_COLOR).
+   * L'aide des commandes INTÉGRÉES, sans démarrer quoi que ce soit.
+   *
+   * Le repli de {@link dispatchGlobalHelp} quand il n'y a pas d'application à
+   * interroger : hors de tout projet, ou dans une application qui n'est pas
+   * encore installée ni construite. Les commandes de module manqueront —
+   * personne ne peut les connaître sans charger les modules — et c'est dit.
+   *
+   * Sort en **0** : demander de l'aide n'est pas une erreur, et un code 1
+   * casse un `nodefony --help | less` autant qu'un script d'installation.
+   *
+   * @param kernel - le kernel, terminé après l'affichage.
+   * @returns le kernel.
    */
-  private printHelpHeader(): void {
-    // `shownVersion` et non `version` : ce fichier importe déjà `version` du
-    // `package.json` (utilisée par `--version` et le manifeste CLI). Un `version`
-    // local ici masquerait cet import — et l'en-tête tire sa valeur de commander,
-    // pas du paquet.
+  private async renderStandaloneHelp(kernel: Kernel): Promise<Kernel> {
+    // La raison, puis le geste : un utilisateur qui découvre l'outil vient
+    // d'installer le paquet et n'a rien d'autre à taper que la ligne suivante.
+    // Une application présente mais non installée reçoit SON geste à elle —
+    // `diagnoseUnbootableProject` les distingue déjà, et lui dire « crée une
+    // application » alors qu'il en a une serait le renvoyer au mauvais endroit.
+    const hint = kernel.diagnoseUnbootableProject();
+    this.writeHelp(
+      hint
+        ? { note: hint.split("\n").join(" ") }
+        : {
+            note:
+              "hors d'une application Nodefony : seules les commandes " +
+              "intégrées sont listées.",
+            noteAction: "nodefony create app <nom>",
+          },
+    );
+    // `quiet` : rien n'a démarré, donc rien ne se termine du point de vue de
+    // l'utilisateur. Le kernel n'ayant pas booté, son journal n'a jamais été
+    // muselé par `quietBoot` — sans ce drapeau, un « terminate : 0 » venait
+    // s'écrire au pied d'une aide qu'on lit ou qu'on redirige.
+    return (await kernel.terminate(SysExit.OK, true)) as Kernel;
+  }
+
+  /**
+   * Les commandes qui répondent en JSON — la seule chose qu'un agent cherche
+   * d'abord, et que rien n'affichait.
+   *
+   * Écrite ici plutôt que dérivée d'un `--json` cherché dans les options : la
+   * moitié des commandes en portent un pour un usage local (un fragment, un
+   * fichier), et les lister toutes noierait celles qui rendent un DOCUMENT
+   * exploitable. La liste est courte et se relit d'un coup d'œil.
+   */
+  private static readonly JSON_COMMANDS: readonly string[] = [
+    "doctor --json",
+    "inspect <sujet> --json",
+    "env --json",
+    "card --json",
+  ];
+
+  /**
+   * Compose le modèle d'aide depuis commander, et l'écrit.
+   *
+   * 🔴 Le modèle se lit sur COMMANDER, jamais sur `cli.commands` : les
+   * commandes de module ne sont pas dans ce registre (elles s'enregistrent
+   * directement dans commander depuis `Module`), et c'est ce trou qui faisait
+   * déjà perdre des commandes au menu. Le groupe voyage donc avec la commande,
+   * posé par son constructeur (`OptionsCommandInterface.helpGroup`).
+   *
+   * @param extra - une note de situation, quand l'aide est rendue hors d'une
+   *   application ou dans une application non installée.
+   */
+  private writeHelp(extra?: { note?: string; noteAction?: string }): void {
+    const c = this.commander;
     let shownVersion = "";
     try {
-      const v: unknown = this.commander?.version();
+      const v: unknown = c?.version();
       if (typeof v === "string") shownVersion = v;
     } catch {
       /* commander sans version — ignore */
     }
-    const tag = shownVersion
-      ? ` ${logColor.blackBright(`v${shownVersion}`)}`
-      : "";
-    console.log(
-      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}   ` +
-        `${logColor.blackBright("framework fullstack Node.js — HTTP · WS · ORM · IA")}\n`,
-    );
-  }
 
-  /**
-   * Affecte un groupe d'aide (`helpGroup`) à chaque commande pour un help
-   * sectionné (Commander 15) : built-ins par catégorie statique ; commandes de
-   * module regroupées sous leur module propriétaire (résolu via `module.commands`).
-   */
-  private assignHelpGroups(): void {
-    const c = this.commander;
-    if (!c) {
-      return;
-    }
-    const builtin: Record<string, string> = {
-      development: "Serveur",
-      production: "Serveur",
-      cluster: "Serveur",
-      build: "Build & frontend",
-      start: "Console / jobs",
-      install: "Projet",
-      outdated: "Projet",
-      completion: "Projet",
-      create: "Projet",
-      check: "Projet",
-    };
-    // commande → module propriétaire (chaque Module garde ses commandes).
+    // Le module PROPRIÉTAIRE d'une commande : il ne sert qu'à ranger celles qui
+    // ne déclarent aucun groupe d'intention — un module tiers, dont personne
+    // ici ne peut deviner l'intention.
     const owner: Record<string, string> = {};
     const modules = this.kernel?.getModules?.() ?? {};
     for (const name in modules) {
       const cmds = (modules[name] as { commands?: Record<string, unknown> })
         .commands;
-      if (cmds) {
-        for (const cn in cmds) {
-          owner[cn] = name;
-        }
-      }
+      for (const cn in cmds ?? {}) owner[cn] = name;
     }
-    for (const cmd of c.commands) {
-      const n = cmd.name();
-      const group = builtin[n] ?? (owner[n] ? `Module ${owner[n]}` : undefined);
-      const hg = (cmd as { helpGroup?: (h: string) => unknown }).helpGroup;
-      if (group && typeof hg === "function") {
-        hg.call(cmd, group);
-      }
-    }
-  }
 
-  /**
-   * Pied du help global : modules chargés (introspection — tous, y compris ceux
-   * sans commande) + lien docs. Se termine par un seul `\n` (norme sortie CLI).
-   */
-  private printHelpFooter(): void {
-    const modules = Object.keys(this.kernel?.getModules?.() ?? {}).filter(
-      (m) => m !== "app",
+    const commands: IHelpCommand[] = (c?.commands ?? [])
+      // `help` est la commande que commander ajoute lui-même : elle fait double
+      // emploi avec `--help`, qu'on est en train de lire.
+      .filter((cmd) => cmd.name() !== "help")
+      .map((cmd) => {
+        const group = (
+          cmd as { helpGroup?: (h?: string) => unknown }
+        ).helpGroup?.();
+        // Ce que la commande ACCEPTE : dérivé des `choices()` de son premier
+        // argument, jamais recopié — une liste réécrite ici divergerait au
+        // premier sujet ajouté.
+        const arg = cmd.registeredArguments?.[0] as
+          { name(): string; argChoices?: string[] } | undefined;
+        const values = arg?.argChoices ?? [];
+        const entry: IHelpCommand = {
+          name: cmd.name(),
+          aliases: cmd.aliases?.() ?? [],
+          description: cmd.description() || "",
+        };
+        if (typeof group === "string" && group) entry.group = group;
+        const module = owner[cmd.name()];
+        if (module) entry.module = module;
+        if (values.length) {
+          entry.accepts = { label: arg?.name() ?? "valeurs", values };
+        }
+        return entry;
+      });
+
+    const globalOptions: IHelpOption[] = (c?.options ?? [])
+      .map((o) => ({ flags: o.flags, description: o.description }))
+      // `-h, --help` est posé par commander lui-même et n'apparaît pas dans
+      // `options` : l'omettre ferait disparaître de l'aide le drapeau qu'on
+      // vient de taper.
+      .concat([{ flags: "-h, --help", description: "affiche cette aide" }])
+      .sort((a, b) => a.flags.localeCompare(b.flags));
+
+    const loaded = Object.keys(modules).filter((m) => m !== "app");
+    const out = process.stdout;
+    const lines = renderHelp(
+      {
+        version: shownVersion,
+        commands,
+        globalOptions,
+        ...(loaded.length ? { modules: loaded } : {}),
+        jsonCommands: CliKernel.JSON_COMMANDS,
+        ...(extra?.note ? { note: extra.note } : {}),
+        ...(extra?.noteAction ? { noteAction: extra.noteAction } : {}),
+      },
+      {
+        width: usableWidth(out.columns),
+        // UNE seule porte de couleur pour toute la page. Il y en avait deux
+        // (`logColor` pour l'en-tête, commander pour le corps), donc deux
+        // lectures de `NO_COLOR` — et un `NF_NO_TTY` respecté d'un côté
+        // seulement, ce dont les tests d'intégration dépendent.
+        color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
+      },
     );
-    if (modules.length) {
-      console.log(
-        `\n  ${logColor.cyanBold(`Modules chargés (${modules.length})`)}`,
-      );
-      console.log(`  ${logColor.blackBright(modules.join(" · "))}`);
-    }
-    console.log(
-      `\n  ${logColor.blackBright("Docs :")} github.com/nodefony/nodefony-core` +
-        `   ${logColor.blackBright("·")}   nodefony <cmd> -h\n`,
-    );
+    out.write(`${lines.join("\n")}\n`);
   }
 
   /**
