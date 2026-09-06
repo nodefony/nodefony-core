@@ -102,6 +102,8 @@ Ce qui compte quand ça tourne pour de vrai.
 [
   { "icon": "🐳", "title": "Docker & cloud-native", "href": "guides/docker-cloud-native.md",
     "desc": "Un process = un conteneur, scaling délégué à l'orchestrateur." },
+  { "icon": "🛡️", "title": "Reverse-proxy", "href": "guides/reverse-proxy.md",
+    "desc": "nginx, HAProxy, Traefik — et la configuration qui se dérive de l'app au lieu de dériver." },
   { "icon": "🗝️", "title": "Stockage de session", "href": "guides/session-storage.md",
     "desc": "Le choix qui décide de ton scaling horizontal." },
   { "icon": "🛠️", "title": "Studio", "href": "../src/packages/@nodefony/studio/docs/index.md",

@@ -490,6 +490,17 @@
   "request-context": {
     "globs": ["src/nodefony/src/tests/RequestContext.test.ts"]
   },
+  "reverse-proxy-guide": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/generateProxyConfig.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/trustProxy.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/forwarded.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/forwardedWiring.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/reverse-proxy.test.ts"
+    ]
+  },
   "routing": {
     "unit": [
       "src/packages/@nodefony/framework/nodefony/tests/unit/Route.test.ts",
