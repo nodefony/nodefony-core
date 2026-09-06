@@ -135,6 +135,29 @@ obstacle.
 légitime, mais il faut redescendre le statut à la clôture — un statut qui ment est pire qu'un
 statut absent.
 
+### Un serveur qui disparaît en cours de mesure, et qu'on prend pour un crash
+
+**Symptôme** — un banc long s'arrête au milieu ; la sonde devient muette, le débit s'effondre sur
+la dernière fenêtre, et la mémoire semble « redescendre » — un PLATEAU apparaît dans le verdict.
+**Cause** — les modules de développement chargés en production le sont par une dérogation
+**MINUTÉE et jamais désarmable** : à son échéance, le runtime s'arrête proprement. Rien n'est
+cassé. Et le banc a moyenné la chute dans sa régression, donc son verdict décrit une mort, pas
+une courbe.
+**Geste** — comparer la durée ÉCOULÉE au TTL posé avant toute autre hypothèse. Régler le TTL sur
+la durée RÉELLE et non demandée : une fenêtre de N secondes coûte bien plus que N secondes
+(sondes, rafales, GC forcé) — mesuré, 90 minutes demandées en ont pris 153.
+**Et le journal ne le dira pas** : un banc de mesure coupe souvent la journalisation du serveur
+pour ne pas fausser le chiffre. Ce qu'on coupe pour mesurer, on le coupe aussi pour diagnostiquer.
+
+### Clôturer la session pendant qu'une mesure tourne
+
+**Symptôme** — un banc annonce « DÉCOR NON TENU : la charge machine est montée à N ».
+**Cause** — les commits, leurs crochets (formatage, lint, contrôles de skills), un `push`, une
+génération d'empreinte : tout cela travaille pendant la mesure.
+**Geste** — une mesure longue se lance **en dernier**, après la clôture, ou l'on ne fait
+strictement rien pendant. Un décor partagé ne dégrade pas la mesure : **il en change l'objet**.
+Vécu en écrivant ce fichier même.
+
 ## 5. Les bons signes, qu'on prend pour des échecs
 
 Trois comportements ressemblent à des pannes et sont exactement ce qu'on veut :

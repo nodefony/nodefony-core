@@ -68,7 +68,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/pieges-de-session.md` | Les pièges d'une passe complète — symptôme, cause, geste | 149 |
+| `references/pieges-de-session.md` | Les pièges d'une passe complète — symptôme, cause, geste | 172 |
 
 
 ## Conformité au standard Agent Skills
