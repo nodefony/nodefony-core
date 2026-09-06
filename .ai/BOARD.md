@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-05 22:18** (UTC).
+> Empreinte prise le **2026-09-06 00:47** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,27 +16,24 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 39 | 120 | 2026-11-15 |
+| 10.0.0 | 36 | 124 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#187 — refactor(core)!: écrire tous les identifiants du framework en anglais**
+**#175 — chore(release): publier une beta avant la 10.0.0**
 
-Ordre 4.5 · P1 — figé à la création · 2 j · jalon 10.0.0
+Ordre 5 · P0 — bloque le reste · 1 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 39 ouverts
+## Jalon 10.0.0 — 36 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 4.5 | P1 — figé à la création | 2 | #187 | refactor(core)!: écrire tous les identifiants du framework en anglais |
-| 4.54 | P1 — figé à la création | 1 | #210 | refactor(devkit): écrire en anglais les identifiants des scripts du navigateur piloté |
-| 4.55 | P1 — figé à la création | 0.5 | #212 | feat(build): étendre le contrôle de langue aux gabarits de génération |
-| 4.56 | P1 — figé à la création | 0.5 | #211 | refactor(packages): écrire en anglais les identifiants des modules restants |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
 | 9.4 | P2 — décision | 0.5 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
+| 9.45 | P2 — décision | 0.5 | #214 | fix(http): glisser de port si une autre app l'écoute déjà |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 11 | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |

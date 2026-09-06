@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T22:18:19.160Z",
+  "generatedAt": "2026-09-06T00:47:03.504Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,9 +10,9 @@
       "title": "10.1"
     },
     {
-      "closed": 120,
+      "closed": 124,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 39,
+      "open": 36,
       "title": "10.0.0"
     }
   ],
@@ -965,11 +965,11 @@
       "number": 187,
       "title": "refactor(core)!: écrire tous les identifiants du framework en anglais",
       "url": "https://github.com/nodefony/nodefony-core/issues/187",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
-      "jours": 2,
+      "jours": 0.5,
       "ordre": 4.5,
       "labels": []
     },
@@ -1022,8 +1022,8 @@
       "number": 210,
       "title": "refactor(devkit): écrire en anglais les identifiants des scripts du navigateur piloté",
       "url": "https://github.com/nodefony/nodefony-core/issues/210",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1037,8 +1037,8 @@
       "number": 212,
       "title": "feat(build): étendre le contrôle de langue aux gabarits de génération",
       "url": "https://github.com/nodefony/nodefony-core/issues/212",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1052,8 +1052,8 @@
       "number": 211,
       "title": "refactor(packages): écrire en anglais les identifiants des modules restants",
       "url": "https://github.com/nodefony/nodefony-core/issues/211",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1552,6 +1552,20 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 214,
+      "title": "fix(http): glisser de port si une autre app l'écoute déjà",
+      "url": "https://github.com/nodefony/nodefony-core/issues/214",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.45,
       "labels": [
         "10.0.0"
       ]

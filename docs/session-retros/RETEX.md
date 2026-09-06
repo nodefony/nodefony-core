@@ -51,6 +51,19 @@
 
 ## 🧭 Un identifiant écrit dans la MAUVAISE LANGUE fabrique un faux verdict
 
+- [1× — 09-06b] **Un outil de renommage PRÉSERVE les contrats qu'il ne comprend pas, et laisse
+  l'arbre à moitié traduit.** `findRenameLocations` déplie un raccourci pour ne pas casser la forme
+  d'un objet : `{ dansConteneur }` devient `{ dansConteneur: inContainer }` — la clé d'ENTRÉE reste
+  française, l'appelant continue de la passer, et rien ne le dit. Même mécanique sur les clés de
+  sortie. Le contrôle de dérive VALIDE, puisque la transformation demandée a bien eu lieu.
+  **Après un lot, relire les objets littéraux du diff, pas seulement le compte de symboles** — et
+  se rappeler qu'un contrat de données n'est pas un symbole.
+- [1× — 09-06b] **Un renommage juste peut être une erreur : la clé qui sert AUSSI d'en-tête.**
+  `security:user:list` compose UN objet pour `console.table` et pour `--json` ; ses clés sont les
+  colonnes affichées. `identifiant` → `login` a rendu une table à moitié traduite, à côté de
+  `rôles` et `verrouillé` que leurs ACCENTS dérobaient au dictionnaire. Renommage fait, puis
+  DÉFAIT, et l'exception déclarée avec son motif. **Le signe qui alerte : des clés voisines
+  accentuées, ou un `console.table` en aval.**
 - [1× — 09-06] **Un renommage peut CHANGER LE COMPORTEMENT sous un typecheck vert, et le contrôle
   de dérive le valide.** Deux fois dans le même lot. (1) Le span de rename d'un membre privé PORTE
   le croisillon : `#prendreVerrou` est devenu `takeLock`, membre **public** — compile, passe les
@@ -437,6 +450,15 @@
 
 ## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
 
+- [1× — 09-06b] **Deux serveurs peuvent écouter le MÊME port sans qu'aucun ne lève.** Le dépôt se
+  lie à `127.0.0.1:5151`, une application générée à `*:5151` — sur macOS et les BSD ce sont deux
+  liaisons distinctes, le noyau accepte, et c'est la plus SPÉCIFIQUE qui reçoit le trafic local.
+  Conséquences en chaîne : la politique de glissement de port ne se déclenche jamais (elle attend
+  un `EADDRINUSE` qui ne vient pas), l'app annonce `READY`, publie ses ports dans son état
+  d'exécution, et ses tests e2e interrogent le serveur du VOISIN — 3 échecs sur 15, tous en 404.
+  Le détecteur VOYAIT le conflit et l'annonçait (« cette app prendra les premiers ports libres ») :
+  elle ne les prenait pas. **Un port libre ne se déduit pas d'un `listen` qui réussit** ; `lsof`
+  montre l'adresse, et c'est elle qui tranche. Ticket #214.
 - [1× — 09-04] **Un repli greffé sur un `catch` ne s'exécute que si quelque chose LÈVE.** Le TSDoc promettait « l'utilisateur a toujours un help » ; le code attendait un rejet de `kernel.start()`, or `Kernel.startBoot` ne lève pas — il `terminate(1)`. Le repli était mort depuis toujours, et personne ne pouvait le voir en lisant la fonction qui le pose. **Se demander non pas « ai-je un repli ? » mais « par quel chemin exact y arrive-t-on ? ».**
 - [1× — 09-02] **Mon propre décor manuel a écarté un run du banc.** Pour éprouver un juge neuf, j'avais monté une application témoin à la main sur les ports DÉDIÉS du banc, puis lancé le banc sans vérifier que le port était rendu — un `nodefony stop` avait été exécuté depuis un `cwd` réinitialisé, donc ailleurs. La garde d'instrument a fait exactement son travail : `CAUSE=port-deja-tenu`, verdict NON rendu, run écarté comme cause de DÉCOR plutôt qu'imputé à l'agent. Le coût est un run d'agent (73 tours, 0,77 $) payé pour rien. **Éprouver un juge à la main se fait sur d'AUTRES ports que ceux du banc, ou le port se constate libre avant de lancer** — `lsof -ti :<port>`, pas un `stop` dont on suppose l'effet.
 
@@ -890,6 +912,12 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- [1× — 09-06b] **Un contrôle limité à une EXTENSION rend un vert qui ne porte sur rien.**
+  `check-literals-unchanged` ne regardait que `.ts/.tsx/.mts/.cts`. Sur un lot de sept `.mjs` —
+  précisément là où il n'y a aucun compilateur derrière — il a annoncé « ✅ 1 fichier, aucune
+  chaîne modifiée » : le seul fichier TypeScript du lot. **La couverture d'un instrument se lit sur
+  le NOMBRE de fichiers qu'il annonce, jamais sur son verdict.** Un « ✅ 1 fichier » sur un lot de
+  huit est un aveu, pas un succès.
 - [1× — 09-06] **Déplacer un script qui balaie le dépôt le rend MUET, pas cassé.** Deux outils
   trouvaient la racine par `path.resolve(dirname(import.meta.url), "..")` — vrai tant qu'ils
   vivaient dans `scripts/`. Portés dans un skill (quatre niveaux plus bas), ils auraient balayé le
@@ -1937,6 +1965,17 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
 
+- [1× — 09-06b] **Un banc SAUTÉ faute de son décor est un gate muet — et il gardait six clés.**
+  `browser-fonctionnel.test.ts` exige un conteneur ; sans lui, `describe.skipIf` le saute et la
+  suite affiche « 2 skipped » qu'on lit comme un détail. Démarré, il est tombé sur **4 tests** :
+  six clés du rapport y étaient nommées par CHAÎNE (`d["sondes"]`, `a11y["arbre"]["lignes"]`),
+  invisibles au compilateur comme au contrôle de dérive. **Avant de conclure un lot, monter le
+  décor des bancs sautés plutôt que de compter leurs skips.**
+- [1× — 09-06b] **Un lazy jamais déclenché ne produit AUCUNE erreur — donc l'absence d'erreur ne
+  prouve rien.** Après avoir renommé un fichier chargé par `import()` dynamique, la page se montait
+  « sans erreur de console » : elle l'aurait fait avec un module introuvable qu'on n'ouvre pas.
+  **La preuve est d'attendre un TEXTE du composant lui-même** — ici « Agrégateur pur », qui n'existe
+  que dans le fichier renommé.
 - [1× — 09-06] **Un outil de chantier câblé au `package.json` promet une automatisation qu'il n'a
   pas.** Six outils du chantier de langue vivaient à la racine avec quatre scripts npm — et
   AUCUN n'était lancé par un automate, ni forge ni hook. Le critère qui a servi à trancher :
