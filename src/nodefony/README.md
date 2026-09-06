@@ -71,8 +71,11 @@ Elle intègre trois responsabilités dans une seule classe de base :
 ### Installation
 
 ```bash
-npm install nodefony
+npm install nodefony@alpha
 ```
+
+> Le dist-tag est OBLIGATOIRE tant que la série 10 est en préversion : `latest`
+> sert encore la 7.0.2, dont l'API est incompatible avec ce qui suit.
 
 ### Usage minimal
 
