@@ -651,6 +651,14 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-06i] **Le seul chemin éprouvé était celui qui masquait le défaut.** Les paquets
+  déclaraient leurs pairs internes en `*` — plage qui accepte tout, donc npm sert `latest`,
+  c'est-à-dire la 7.0.2 d'une autre ère. Mesuré APRÈS publication : `npm i @nodefony/http@10.0.0-alpha.1`
+  dans un dossier vide installait `nodefony@7.0.2` et quatorze `*-bundle@7.0.2`. Rien ne pouvait le
+  voir : l'épreuve d'installation vierge passe par une APPLICATION GÉNÉRÉE, qui épingle le cœur et
+  contraint donc le pair. La deuxième porte — installer un paquet scopé SEUL — n'était éprouvée
+  nulle part, et c'est celle d'un utilisateur qui découvre le framework par un de ses modules.
+
 - [1× — 09-06h] **La page la plus vue du projet n'avait jamais été regardée COMME une page.**
   `src/nodefony/README.md` devient `npmjs.com/package/nodefony` : elle s'ouvrait sur « Exports
   ESM » puis sur la classe `Service`, sous un titre `NODEFONY CORE` — un nom de paquet qui
@@ -852,6 +860,13 @@
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
+- [1× — 09-06i] **Un `package.json` n'est pas le seul endroit où la version est écrite.**
+  `man/nodefony.1` est GÉNÉRÉE, commitée et publiée ; l'estampillage de version ne la régénérait
+  pas. Elle a annoncé « nodefony 10.0.0 » dans le tarball d'une `10.0.0-alpha.1`, et le gate de
+  fraîcheur du cœur en est resté ROUGE sur les trois plateformes — sous un intitulé qui ne nommait
+  pas la release, donc personne ne faisait le lien. **Estampiller une version, c'est régénérer TOUT
+  ce qui la porte** : la question à poser est « quels artefacts committés embarquent ce nombre ? ».
+
 - [1× — 09-02] **Le décor du banc n'avait pas l'artefact que ma prémisse supposait.** J'avais écrit « applique la migration initiale » en m'appuyant sur un ticket qui affirme qu'une application naît avec la sienne. C'est vrai — mais seulement quand `create app` a pu installer ET bâtir, et le banc, lui, installe APRÈS (tarballs) : `migrations/` était VIDE. Sans le montage réel du décor, la tâche aurait été jugée sur une table qui n'existe pas. **Une prémisse qui repose sur un artefact produit par une AUTRE commande se constate dans le décor, jamais dans le ticket qui l'annonce.**
 
 - [1× — 09-01] **Un artefact qui CHANGE de producteur casse en silence tous les décors qui le supposaient livré.** La table `User` a quitté les migrations du framework pour celles de l'application. Trois décors reposaient sur l'hypothèse inverse, et aucun ne l'énonçait : le banc d'adoption vidait le dossier de migrations du dépôt (9 cas rouges par dialecte, tous sur « table absente : User ») ; le décor MySQL dérivait ses tables à nettoyer des seules migrations du PAQUET, donc ne nettoyait plus `User`, qui survivait d'un cas à l'autre ; un troisième amputait `User` en la croyant livrée (`no such table`). **Déplacer la propriété d'un artefact, c'est devoir relire tout ce qui le CONSOMME** — et un décor consomme sans le dire.
@@ -953,6 +968,14 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-06i] **Mon gate de dépôt a menti DEUX fois avant de mordre, pour deux raisons
+  différentes.** (1) Il lisait `npm query .workspace`, qui rend l'arbre INSTALLÉ et non les
+  fichiers : `*` réintroduit sur le disque, prouvé par `git diff`, et la commande rendait toujours
+  `^10.0.0-alpha.1`. (2) Réécrit sur le disque, il restait vert — mon sabotage remplaçait la
+  PREMIÈRE occurrence du motif, or `devDependencies` précède `peerDependencies` dans le fichier :
+  je sabotais un champ que le gate ne regarde pas. Deux instruments faux d'affilée sur la même
+  vérification. **Un débranchement se prouve sur le CHAMP exact, pas sur le fichier.**
 
 - [1× — 09-06f] **Le `tsconfig.json` d'un paquet EXCLUT ses tests — le typecheck était vert sans
   avoir ouvert le fichier.** `tsgo --noEmit -p tsconfig.json` dans `@nodefony/drizzle` sort 0 sur un
@@ -1348,6 +1371,12 @@
 - [1× — 09-01] **Un chemin SECONDAIRE produit un artefact différent du chemin normal, et j'ai failli en tirer un défaut.** `orm:migrate:baseline --from-database` relit la base et renomme l'index (`User_identifier_key` au lieu de `User_identifier_unique`) ; j'ai conclu à une divergence du gabarit. Le chemin normal (`orm:generate` sur base vierge) produisait le nom exact, sur les trois moteurs. **Avant d'imputer un écart au produit, vérifier qu'on l'a mesuré par le chemin que l'utilisateur emprunte.**
 
 ## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
+
+- [1× — 09-06i] **`npm publish` noie la demande du code à deux facteurs sous 800 lignes de
+  `notice`** — le contenu intégral du tarball, par paquet, quinze fois. La seule chose que
+  l'opérateur DOIT voir arrive après le mur. `--loglevel=warn` : ce que contient chaque archive
+  vient d'être inspecté à l'étape précédente, qui refuse sur contenu suspect. **Une sortie qui
+  attend une action humaine se juge sur ce qu'elle rend VISIBLE, pas sur ce qu'elle contient.**
 
 - [1× — 09-06] **Un port peut être indisponible SANS être « déjà pris » — et seulement sous
   Windows.** Le repli de port ne retentait que sur `EADDRINUSE`. Or Hyper-V, WSL et WinNAT
@@ -2553,6 +2582,14 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 08-31] **Un sous-agent `haiku` a brûlé 84 k tokens et 40 tours pour ne RIEN rendre** (limite de tours atteinte, rapport vide) sur 16 affirmations à confronter au code — que cinq `rg` groupés ont tranchées ensuite en trois minutes. Le déclencheur « ≥ 6 affirmations » était rempli, et il a quand même coûté plus que faire soi-même : ces 16 items étaient des motifs EXACTS (`rg -n 'NF_X' fichier`), donc du ressort de la QUESTION ZÉRO — un automate rend la réponse, exhaustivement et gratuitement. Le seuil ne suffit pas : avant de déléguer, se demander si un motif répond. Si oui, l'écrire soi-même.
 
 ## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- [1× — 09-06i] **`--publish` ne publiait rien, et sortait en 0.** La passe de release sortait
+  en « répétition » dès que `--write` manquait, AVANT le bloc de publication — alors que le fichier
+  posait la règle inverse en toutes lettres, vingt lignes plus haut : « publier n'implique pas
+  écrire ». Sur la seule commande du dépôt qui ne se rattrape pas, « rien n'a été publié » se
+  lisait exactement comme « tout est publié ». Le user a lancé la commande deux fois avant qu'on
+  regarde le registre. **Une condition de MODE ne se relit pas, elle s'éprouve** : la règle est
+  partie dans le cœur pur, où six tests la tiennent.
 
 - [1× — 09-05h] **L'outil dont le but était de ROMPRE une API l'a laissée intacte.**
   `ts.findRenameLocations` préserve le nom exporté en ajoutant un alias : le barrel publiait

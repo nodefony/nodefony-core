@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T21:19:40.386Z",
+  "generatedAt": "2026-09-06T22:27:06.930Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "12.0.0"
     },
     {
-      "closed": 0,
+      "closed": 1,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 2,
@@ -102,8 +102,8 @@
       "number": 220,
       "title": "chore(release): publier une alpha manuelle pour créer les paquets npm",
       "url": "https://github.com/nodefony/nodefony-core/issues/220",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -122,6 +122,20 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.1,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 256,
+      "title": "chore(release): publier une 10.0.0-alpha.2 qui n'installe plus la version 7",
+      "url": "https://github.com/nodefony/nodefony-core/issues/256",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 1.2,
       "labels": [
         "10.0.0-alpha"
       ]
