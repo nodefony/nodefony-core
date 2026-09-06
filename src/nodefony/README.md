@@ -19,7 +19,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 > **Ce paquet est le CŒUR du framework** — noyau, injection de dépendances, modules, journalisation,
 > interface en ligne de commande. Il s'installe rarement seul : une application le reçoit par
-> `npm create nodefony`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,
+> `npm create nodefony@alpha`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,
 > `@nodefony/security`…) le déclarent en dépendance de pair.
 
 ```bash
