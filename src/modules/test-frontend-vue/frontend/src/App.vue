@@ -234,11 +234,7 @@ onUnmounted(() => {
             </p>
           </div>
         </span>
-        <button
-          class="bascule"
-          :aria-pressed="barVisible"
-          @click="toggleBar"
-        >
+        <button class="bascule" :aria-pressed="barVisible" @click="toggleBar">
           Barre de debug
         </button>
       </div>
