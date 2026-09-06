@@ -24,7 +24,12 @@
  *   npm run release -- --version 10.0.0 --from <ref>            # répétition
  *   npm run release -- --version 10.0.0 --from <ref> --write
  *   npm run release -- --version 10.0.0 --from <ref> --write --pack
- *   npm run release -- --version 10.0.0 --from <ref> --publish  # MANUEL
+ *   npm run release -- --version 10.0.0 --publish            # MANUEL
+ *
+ * `--from` ne sert QU AUX trois premières : la publication saute le changelog,
+ * qui a été écrit, relu et commité avant. Le passer là ne fait rien — et un
+ * drapeau qui ne fait rien se recopie sans être compris, sur la seule commande
+ * du lot qui ne se rattrape pas.
  *
  * Options : --branch <nom> · --repo <hôte/org/dépôt> · --npm-tag <tag>
  *           --offline (n'interroge pas le registre — une collision passerait)

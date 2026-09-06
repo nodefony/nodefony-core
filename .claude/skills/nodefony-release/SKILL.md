@@ -37,7 +37,7 @@ derrière les commandes npm qui font autorité :
 | Commande | Ce qu'elle lance | Rôle |
 | --- | --- | --- |
 | `npm run release -- --version <v> --from <ref>` | `scripts/release/release.mjs` | PRÉPARE et REFUSE. Sans drapeau, ne touche aucun fichier |
-| `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, 99 tests |
+| `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, éprouvé sans publier |
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 
@@ -202,13 +202,11 @@ Sur `studio`, l'URL de l'asset n'est jamais écrite à la main : elle est extrai
 Une URL littérale deviendrait fausse au premier changement de nommage, et le test accuserait le
 tarball pour un motif sans rapport.
 
-**Ce que `front` NE couvre PAS, et le script le dit à voix haute** : la seconde issue d'un front non
-construit — « Vite absent → ERREUR nommée » — est **inatteignable**. Le plugin Vite est une
-devDependency, il SATISFAIT la dépendance de pair optionnelle de `@nodefony/frontend`, donc
-`npm prune --omit=dev` le garde et tire Vite avec lui ; refaire l'arbre n'y change rien, le
-`package-lock.json` l'a figé (mesuré : 161 Mo dans les deux cas). Conséquence à porter au produit :
-la garde de `setupProd` contre la page blanche muette ne peut pas servir tant que Vite voyage dans
-l'image. Le remède est en amont, dans la façon dont `@nodefony/frontend` déclare Vite.
+Le scénario couvre les DEUX issues d'un front non construit : reconstruction annoncée quand la
+chaîne d'outils est là (b1), et erreur NOMMÉE quand elle ne l'est pas, l'API restant vivante (b2).
+La seconde a longtemps été inatteignable — Vite voyageait dans l'image de production via une
+dépendance de pair optionnelle que `npm prune --omit=dev` conservait. Lire le verdict du script
+plutôt que cette page : c'est lui qui dit ce qui a été exercé.
 
 ### Podman — compatible, sauf une perte SILENCIEUSE
 
