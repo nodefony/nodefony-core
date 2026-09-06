@@ -368,6 +368,18 @@
       "src/nodefony/src/tests/resolveModuleEntry.test.ts"
     ]
   },
+  "kubernetes-guide": {
+    "unit": [
+      "src/nodefony/src/tests/Cli.test.ts",
+      "src/nodefony/src/tests/ClusterManager.test.ts",
+      "src/nodefony/src/tests/ClusterProbeAggregator.test.ts",
+      "src/nodefony/src/tests/ClusterRelay.test.ts"
+    ],
+    "integration": [
+      "src/nodefony/src/tests/CliIntegration.test.ts",
+      "src/nodefony/src/tests/detachedStart.test.ts"
+    ]
+  },
   "mongoose": {
     "globs": ["src/packages/@nodefony/mongoose/tests/**/*.test.ts"]
   },

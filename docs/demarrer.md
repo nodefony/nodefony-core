@@ -104,6 +104,8 @@ Ce qui compte quand ça tourne pour de vrai.
     "desc": "Un process = un conteneur, scaling délégué à l'orchestrateur." },
   { "icon": "🛡️", "title": "Reverse-proxy", "href": "guides/reverse-proxy.md",
     "desc": "nginx, HAProxy, Traefik — et la configuration qui se dérive de l'app au lieu de dériver." },
+  { "icon": "☸️", "title": "Kubernetes", "href": "guides/kubernetes.md",
+    "desc": "Les manifests, l'identité du pod, et les migrations qui passent avant les exemplaires." },
   { "icon": "🗝️", "title": "Stockage de session", "href": "guides/session-storage.md",
     "desc": "Le choix qui décide de ton scaling horizontal." },
   { "icon": "🛠️", "title": "Studio", "href": "../src/packages/@nodefony/studio/docs/index.md",
