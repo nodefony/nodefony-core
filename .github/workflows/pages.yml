@@ -156,6 +156,19 @@ jobs:
   deploy:
     name: Déployer sur Pages
     needs: build
+    # 🔴 LE SITE EN LIGNE DÉCRIT CE QUI EST PUBLIÉ — donc `main`, jamais `dev`.
+    # Sur `dev`, tout ce qui précède tourne quand même : le site est BÂTI et ses
+    # gardes mordent (site non vide, recherche servie, aucun lien interne cassé).
+    # Seule la mise en ligne est retenue — un lecteur qui arrive de npmjs.com
+    # trouverait sinon une documentation décrivant du code qu'il ne peut pas
+    # installer, exactement le défaut que #257 a corrigé dans les README.
+    #
+    # ⚠️ Cette règle vit ICI, dans le produit, et pas seulement dans la politique
+    # de branches de l'environnement `github-pages` : ce réglage est invisible
+    # depuis le dépôt, il a nommé `claude-ts` jusqu'à sa suppression, et il n'a
+    # rien dit pendant tout ce temps parce que les deux branches étaient
+    # identiques. Un garde qu'on ne lit pas dans le code n'en est pas un.
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
