@@ -69,6 +69,7 @@ import {
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  pairsTropLarges,
   phasesDeLaPasse,
   referencesFigees,
   rendreChangelog,
@@ -456,6 +457,35 @@ if (!(PUBLIER && !ECRIRE)) {
 // RÉPÉTITION — le mode par DÉFAUT
 // ═══════════════════════════════════════════════════════════════════════════
 const aChanger = paquets.filter((p) => p.pkg.version !== VERSION);
+
+// ── Un pair interne non borné sert le PASSÉ ─────────────────────────────────
+// `*` accepte tout, donc npm prend `latest`. Mesuré sur l'alpha.1 : dans un
+// dossier vide, `npm i @nodefony/http@10.0.0-alpha.1` installait
+// `nodefony@7.0.2` et quatorze `*-bundle@7.0.2`. Invisible de tout le dépôt —
+// une app générée épingle le cœur, ce qui contraint le pair, et l'épreuve
+// d'installation vierge ne passe que par là. La préparation ALIGNE
+// (étape « estampillage ») ; une passe qui n'écrit pas REFUSE, puisqu'elle
+// publierait les manifestes tels qu'ils sont.
+const tropLarges = pairsTropLarges(paquets);
+if (tropLarges.length) {
+  const liste = tropLarges.map((r) => `      ${r}`).join("\n");
+  if (PHASES.publier && !PHASES.estampiller) {
+    echouer(
+      `${tropLarges.length} pair(s) interne(s) sans borne :\n` +
+        liste +
+        "\n\n  Publier ainsi met en ligne un paquet qui, installé seul, tire la version\n" +
+        "  `latest` du cœur — une autre majeure, en silence, chez l'utilisateur.\n" +
+        "  C'est la préparation qui borne, et son diff se relit avant le tag :\n" +
+        `       npm run release -- --version ${VERSION} --from <ref> --write`,
+    );
+  }
+  alerter(
+    `${tropLarges.length} pair(s) interne(s) sans borne :\n` +
+      liste +
+      `\n    L'estampillage les passera à \`^${VERSION}\`.`,
+  );
+}
+
 const figees = referencesFigees(paquets, VERSION);
 if (figees.length) {
   const liste = figees.map((r) => `      ${r}`).join("\n");

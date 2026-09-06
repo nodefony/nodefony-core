@@ -27,6 +27,7 @@ import {
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  pairsTropLarges,
   alignerReferencesInternes,
   referencesFigees,
   rendreChangelog,
@@ -430,15 +431,20 @@ describe("alignerReferencesInternes — le lockstep, APPLIQUÉ", () => {
     expect(r.introuvables).toEqual([]);
   });
 
-  it("laisse l'étoile intacte — c'est la convention du dépôt, pas un oubli", () => {
+  // L'étoile ÉTAIT la convention du dépôt, et ce test l'exigeait. Le registre a
+  // tranché : `*` accepte tout, donc npm sert `latest` — la 7.0.2. Un pair
+  // interne se borne désormais.
+  it("borne l'étoile d'un pair interne sur ^version", () => {
     const brut = JSON.stringify(
       { name: "@nodefony/framework", peerDependencies: { nodefony: "*" } },
       null,
       2,
     );
     const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
-    expect(r.contenu).toBe(brut);
-    expect(r.alignees).toEqual([]);
+    expect(JSON.parse(r.contenu).peerDependencies.nodefony).toBe(
+      "^10.0.0-alpha.1",
+    );
+    expect(r.alignees).toEqual(["nodefony@* → ^10.0.0-alpha.1"]);
   });
 
   it("ne touche AUCUNE dépendance externe, même portant la version publiée", () => {
@@ -916,5 +922,94 @@ describe("phasesDeLaPasse — ce que la passe fait vraiment", () => {
     expect(p.estampiller).toBe(true);
     expect(p.publier).toBe(true);
     expect(p.empaqueter).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("pairs internes — la plage `*` installe le PASSÉ", () => {
+  // PIÈGE — mesuré sur l'alpha.1 publiée : dans un dossier vide,
+  // `npm i @nodefony/http@10.0.0-alpha.1` installait `nodefony@7.0.2` et
+  // quatorze `*-bundle@7.0.2`, parce que `*` accepte tout et que npm prend
+  // alors `latest`. Aucun test ne pouvait le voir : une app générée épingle le
+  // cœur, ce qui contraint le pair, et l'épreuve d'installation vierge ne passe
+  // que par là.
+  it("aligne un pair interne en `*` sur ^version", () => {
+    const brut = JSON.stringify(
+      { name: "@nodefony/http", peerDependencies: { nodefony: "*" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, ["nodefony"], "10.0.0-alpha.2");
+    expect(JSON.parse(r.contenu).peerDependencies.nodefony).toBe(
+      "^10.0.0-alpha.2",
+    );
+    expect(r.alignees).toContain("nodefony@* → ^10.0.0-alpha.2");
+  });
+
+  // Une DÉPENDANCE réelle reste verrouillée par le lockstep : c'est ce qui a
+  // évité l'`ETARGET` de la porte d'entrée.
+  it("garde la version EXACTE pour une dependency interne", () => {
+    const brut = JSON.stringify(
+      { name: "create-nodefony", dependencies: { nodefony: "10.0.0" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, ["nodefony"], "10.0.0-alpha.2");
+    expect(JSON.parse(r.contenu).dependencies.nodefony).toBe("10.0.0-alpha.2");
+  });
+
+  it("ne touche pas un pair EXTERNE en `*`", () => {
+    const brut = JSON.stringify(
+      { name: "@nodefony/http", peerDependencies: { zod: "*" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, ["nodefony"], "10.0.0-alpha.2");
+    expect(JSON.parse(r.contenu).peerDependencies.zod).toBe("*");
+    expect(r.alignees).toEqual([]);
+  });
+
+  it("est idempotent — un pair déjà en ^version ne bouge pas", () => {
+    const brut = JSON.stringify(
+      {
+        name: "@nodefony/http",
+        peerDependencies: { nodefony: "^10.0.0-alpha.2" },
+      },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, ["nodefony"], "10.0.0-alpha.2");
+    expect(r.alignees).toEqual([]);
+    expect(r.contenu).toBe(brut);
+  });
+});
+
+describe("pairsTropLarges — la garde qui REFUSE de republier le défaut", () => {
+  it("nomme un pair interne resté en `*`", () => {
+    const paquets = [
+      { nom: "nodefony", pkg: {} },
+      { nom: "@nodefony/http", pkg: { peerDependencies: { nodefony: "*" } } },
+    ];
+    expect(pairsTropLarges(paquets)).toEqual([
+      "@nodefony/http → nodefony@* (peerDependencies)",
+    ]);
+  });
+
+  it("laisse passer un pair EXTERNE en `*` — on ne possède pas sa cadence", () => {
+    const paquets = [
+      { nom: "@nodefony/http", pkg: { peerDependencies: { zod: "*" } } },
+    ];
+    expect(pairsTropLarges(paquets)).toEqual([]);
+  });
+
+  it("laisse passer un pair interne borné", () => {
+    const paquets = [
+      { nom: "nodefony", pkg: {} },
+      {
+        nom: "@nodefony/http",
+        pkg: { peerDependencies: { nodefony: "^10.0.0-alpha.2" } },
+      },
+    ];
+    expect(pairsTropLarges(paquets)).toEqual([]);
   });
 });

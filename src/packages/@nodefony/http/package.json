@@ -75,7 +75,7 @@
     "@types/xml2js": "0.4.14",
     "@vitest/coverage-v8": "5.0.0",
     "chai": "6.2.2",
-    "nodefony": "*",
+    "nodefony": "^10.0.0-alpha.1",
     "rimraf": "6.1.3",
     "tsx": "4.23.13",
     "vitest": "5.0.0"
@@ -84,7 +84,7 @@
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {
-    "nodefony": "*",
+    "nodefony": "^10.0.0-alpha.1",
     "zod": "^4.4.3"
   },
   "files": [

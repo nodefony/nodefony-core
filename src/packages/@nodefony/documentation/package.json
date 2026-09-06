@@ -36,18 +36,18 @@
     "esm"
   ],
   "devDependencies": {
-    "@nodefony/framework": "*",
-    "@nodefony/http": "*",
+    "@nodefony/framework": "^10.0.0-alpha.1",
+    "@nodefony/http": "^10.0.0-alpha.1",
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "5.0.0",
-    "nodefony": "*",
+    "nodefony": "^10.0.0-alpha.1",
     "rimraf": "6.1.3",
     "vitest": "5.0.0"
   },
   "peerDependencies": {
-    "@nodefony/framework": "*",
-    "@nodefony/http": "*",
-    "nodefony": "*",
+    "@nodefony/framework": "^10.0.0-alpha.1",
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.1",
     "zod": "^4.4.3"
   },
   "repository": {

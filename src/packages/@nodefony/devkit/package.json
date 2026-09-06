@@ -25,17 +25,17 @@
     "coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@nodefony/framework": "*",
-    "@nodefony/http": "*",
-    "nodefony": "*",
+    "@nodefony/framework": "^10.0.0-alpha.1",
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.1",
     "zod": "^4.4.3",
     "playwright": "^1.50.0",
     "lighthouse": "^13.0.0"
   },
   "devDependencies": {
-    "@nodefony/framework": "*",
-    "@nodefony/http": "*",
-    "nodefony": "*"
+    "@nodefony/framework": "^10.0.0-alpha.1",
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.1"
   },
   "dependencies": {
     "axe-core": "4.13.0",

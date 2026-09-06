@@ -36,11 +36,11 @@
     "esm"
   ],
   "peerDependencies": {
-    "nodefony": "*"
+    "nodefony": "^10.0.0-alpha.1"
   },
   "devDependencies": {
     "@types/node": "26.4.1",
-    "nodefony": "*",
+    "nodefony": "^10.0.0-alpha.1",
     "rimraf": "6.1.3",
     "vitest": "5.0.0"
   },

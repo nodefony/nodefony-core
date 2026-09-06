@@ -52,22 +52,22 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@nodefony/http": "*",
-    "@nodefony/orm-core": "*",
-    "@nodefony/security": "*",
-    "@nodefony/user": "*",
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "@nodefony/orm-core": "^10.0.0-alpha.1",
+    "@nodefony/security": "^10.0.0-alpha.1",
+    "@nodefony/user": "^10.0.0-alpha.1",
     "@types/node": "26.4.1",
     "mongodb-memory-server": "11.2.0",
-    "nodefony": "*",
+    "nodefony": "^10.0.0-alpha.1",
     "rimraf": "6.1.3",
     "vitest": "5.0.0"
   },
   "peerDependencies": {
-    "@nodefony/http": "*",
-    "@nodefony/orm-core": "*",
-    "@nodefony/security": "*",
-    "@nodefony/user": "*",
-    "nodefony": "*"
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "@nodefony/orm-core": "^10.0.0-alpha.1",
+    "@nodefony/security": "^10.0.0-alpha.1",
+    "@nodefony/user": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.1"
   },
   "repository": {
     "type": "git",

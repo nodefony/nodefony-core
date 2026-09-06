@@ -325,8 +325,23 @@ export const CHAMPS_DEPENDANCES = ["dependencies", "peerDependencies"];
  * (l'épreuve d'installation vierge substitue des tarballs locaux, elle ne
  * résout jamais depuis le registre).
  *
- * L'étoile, elle, n'est pas un oubli : c'est la convention du dépôt pour les
- * dépendances de pair, et elle est laissée telle quelle.
+ * ## Pourquoi l'étoile ne peut plus rester
+ *
+ * `*` était la convention du dépôt pour les dépendances de pair. Confrontée au
+ * registre, elle produit l'inverse de ce qu'elle promet : `*` accepte TOUT,
+ * donc npm prend `latest`. Mesuré sur l'alpha.1 publiée, dans un dossier vide,
+ * `npm i @nodefony/http@10.0.0-alpha.1` installait `nodefony@7.0.2` et quatorze
+ * `*-bundle@7.0.2` — un framework d'une autre ère, en silence. Rien ne pouvait
+ * le voir ici : une application générée épingle le cœur, ce qui contraint le
+ * pair, et l'épreuve d'installation vierge ne passe que par là.
+ *
+ * D'où la distinction, qui n'est pas cosmétique :
+ *
+ * - une **dépendance** interne est verrouillée par le lockstep → version EXACTE ;
+ * - un **pair** interne exprime une compatibilité → `^version`, qui refuse la
+ *   7.x, accepte les préversions suivantes du même tuple puis les 10.x stables.
+ *
+ * Un pair EXTERNE en `*` n'est pas touché : on ne possède pas sa cadence.
  *
  * La réécriture est TEXTUELLE et ciblée, jamais un `JSON.stringify` global :
  * celui-ci réordonnerait les clés et gonflerait le diff jusqu'à le rendre
@@ -347,13 +362,15 @@ export function alignerReferencesInternes(brut, noms, version) {
   let contenu = brut;
 
   for (const champ of CHAMPS_DEPENDANCES) {
+    // Un pair exprime une COMPATIBILITÉ, une dépendance une version du lot.
+    const cible = champ === "peerDependencies" ? `^${version}` : version;
     for (const [dep, plage] of Object.entries(pkg[champ] ?? {})) {
-      if (!internes.has(dep) || plage === "*" || plage === version) continue;
+      if (!internes.has(dep) || plage === cible) continue;
       const motif = new RegExp(
         `("${echapperRegex(dep)}"\\s*:\\s*")${echapperRegex(plage)}(")`,
         "g",
       );
-      const remplace = contenu.replace(motif, `$1${version}$2`);
+      const remplace = contenu.replace(motif, `$1${cible}$2`);
       if (remplace === contenu) {
         if (!introuvables.includes(`${dep}@${plage}`)) {
           introuvables.push(`${dep}@${plage}`);
@@ -361,7 +378,7 @@ export function alignerReferencesInternes(brut, noms, version) {
         continue;
       }
       contenu = remplace;
-      const trace = `${dep}@${plage} → ${version}`;
+      const trace = `${dep}@${plage} → ${cible}`;
       if (!alignees.includes(trace)) alignees.push(trace);
     }
   }
@@ -694,4 +711,30 @@ export function phasesDeLaPasse({
     empaqueter,
     publier,
   };
+}
+
+/**
+ * Pairs INTERNES dont la plage n'est bornée par rien.
+ *
+ * `*` accepte tout, donc npm sert `latest` — c'est-à-dire, pour ce dépôt, la
+ * 7.0.2 d'une autre ère. La garde existe parce que la convention est revenue
+ * une fois : une règle retirée du code mais absente des gardes se réécrit toute
+ * seule au paquet suivant, et personne ne le voit avant le registre.
+ *
+ * Les pairs EXTERNES sont laissés : leur cadence ne nous appartient pas.
+ *
+ * @param paquets - les publiables, `{ nom, pkg }`
+ * @returns les pairs internes non bornés, nommés `paquet → dep@plage (champ)`
+ */
+export function pairsTropLarges(paquets) {
+  const noms = new Set(paquets.map((p) => p.nom));
+  const trop = [];
+  for (const p of paquets) {
+    for (const [dep, plage] of Object.entries(p.pkg.peerDependencies ?? {})) {
+      if (noms.has(dep) && (plage === "*" || plage === "x")) {
+        trop.push(`${p.nom} → ${dep}@${plage} (peerDependencies)`);
+      }
+    }
+  }
+  return trop;
 }

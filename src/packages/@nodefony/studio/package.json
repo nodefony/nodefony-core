@@ -38,11 +38,11 @@
     "esm"
   ],
   "peerDependencies": {
-    "@nodefony/framework": "*",
-    "@nodefony/frontend": "*",
-    "@nodefony/http": "*",
-    "@nodefony/realtime": "*",
-    "nodefony": "*"
+    "@nodefony/framework": "^10.0.0-alpha.1",
+    "@nodefony/frontend": "^10.0.0-alpha.1",
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "@nodefony/realtime": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.1"
   },
   "devDependencies": {
     "@mantine/core": "9.6.0",
@@ -51,10 +51,10 @@
     "@mantine/hooks": "9.6.0",
     "@mantine/modals": "9.6.0",
     "@mantine/notifications": "9.6.0",
-    "@nodefony/framework": "*",
-    "@nodefony/frontend": "*",
-    "@nodefony/http": "*",
-    "@nodefony/realtime": "*",
+    "@nodefony/framework": "^10.0.0-alpha.1",
+    "@nodefony/frontend": "^10.0.0-alpha.1",
+    "@nodefony/http": "^10.0.0-alpha.1",
+    "@nodefony/realtime": "^10.0.0-alpha.1",
     "@simplewebauthn/browser": "14.0.0",
     "@tabler/icons-react": "3.46.0",
     "@tanstack/react-table": "9.2.4",
@@ -71,7 +71,7 @@
     "mermaid": "^11.17.2",
     "mobx": "^7.0.3",
     "mobx-react-lite": "^5.0.3",
-    "nodefony": "*",
+    "nodefony": "^10.0.0-alpha.1",
     "qrcode.react": "4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
