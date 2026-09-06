@@ -164,10 +164,10 @@ jobs:
     # installer, exactement le défaut que #257 a corrigé dans les README.
     #
     # ⚠️ Cette règle vit ICI, dans le produit, et pas seulement dans la politique
-    # de branches de l'environnement `github-pages` : ce réglage est invisible
-    # depuis le dépôt, il a nommé `claude-ts` jusqu'à sa suppression, et il n'a
-    # rien dit pendant tout ce temps parce que les deux branches étaient
-    # identiques. Un garde qu'on ne lit pas dans le code n'en est pas un.
+    # de branches de l'environnement `github-pages`. Ce réglage-là est invisible
+    # depuis le dépôt : il a nommé pendant des mois une branche de travail qui
+    # n'existe plus, sans que rien ne le signale, parce qu'elle était alignée sur
+    # `main`. Un garde qu'on ne lit pas dans le code n'en est pas un.
     if: github.event_name == 'release' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
