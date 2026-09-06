@@ -360,6 +360,15 @@ vérifié dans la doc). Les 13 paquets neufs ne peuvent donc pas naître par OID
 
 **Ordre retenu** :
 
+0. **remonter la branche de développement dans la branche par DÉFAUT, et publier depuis elle.**
+   Le lien « repository » d'un paquet npm ouvre la branche par DÉFAUT du dépôt, pas celle où l'on
+   travaille : c'est elle que lit celui qui arrive de npmjs.com. Une branche par défaut en retard
+   lui fait donc lire un accueil qui NIE la publication qu'il vient d'installer, sans le
+   `CHANGELOG.md` de la version. La remontée n'arbitre rien — le contenu de `main` est un ancêtre
+   de `claude-ts` (`git diff claude-ts...main` vide), les commits qu'elle porte en propre sont ses
+   propres fusions. Contrôle : `git rev-list --count main..claude-ts` rend `0` avant le
+   `--publish`, et `release.mjs` retrouve alors son défaut de branche — plus de `--branch` à
+   passer, donc plus de garde à faire taire.
 1. publier les 14 neufs — les 13 scopés ET `create-nodefony` — plus `nodefony@10`,
    **à la main**, depuis le poste du mainteneur, avec le code 2FA interactif —
    c'est ce pour quoi la 2FA est faite, et **aucun jeton n'a besoin d'exister** ;
