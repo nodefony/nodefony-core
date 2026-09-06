@@ -1,170 +1,124 @@
 # AGENTS.md — nodefony-core
 
-Instructions destinées aux agents de codage travaillant sur ce dépôt, au format
-[AGENTS.md](https://agents.md). Elles sont **agnostiques du fournisseur** : aucun
-nom de modèle, aucun outil propriétaire. Un agent disposant d'instructions
-spécifiques à son éditeur les lit en plus de ce fichier, jamais à la place.
+Carte d'entrée du dépôt, au format [AGENTS.md](https://agents.md), pour un agent de
+codage qui arrive ici sans contexte. Elle **pointe**, elle ne recopie pas : chaque
+ligne dit où trouver la vérité, jamais ce qu'elle contient.
 
-Ce que ce fichier couvre : **comment déléguer du travail à d'autres agents sans
-détruire ni gaspiller**. Le reste — architecture, conventions de code, commandes —
-vit dans `CLAUDE.md` et dans les fichiers de module.
+Nodefony est un framework Node.js fullstack en TypeScript strict, ESM uniquement, où
+HTTP et WebSocket partagent la même route, la même session et le même pare-feu.
 
 ---
 
-## 1. Avant de choisir un agent, chercher l'automate
+## État
 
-La première question n'est pas « quel agent ? » mais **« faut-il un agent ? »**.
+|                        |                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Version**            | `10.0.0` (`package.json`)                                                                                                            |
+| **Publication npm**    | **aucun paquet `10.x` n'est en ligne.** Le registre sert encore `nodefony@7.0.2` (JavaScript) et les `@nodefony/*-bundle` de l'ère 7 |
+| **Branche par défaut** | `main`                                                                                                                               |
+| **Branche de travail** | `claude-ts` — **c'est là que vit le code courant** ; `main` reçoit par remontées, et peut avoir plusieurs semaines de retard         |
+| **Tests**              | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                      |
+| **Licence**            | CeCILL-B — projet libre, développé bénévolement par une seule personne                                                               |
 
-Un outil déterministe — recherche de motif, requête sur du JSON, historique de
-version, linter, scanner de vulnérabilités, graphe symbolique du dépôt — est
-**gratuit, exhaustif et reproductible**. Un modèle survole, n'offre aucune
-garantie de couverture, et sur les tâches à seuil (compter exactement, mesurer une
-entropie) il est à la fois plus cher **et** moins fiable.
-
-> L'automate produit, le modèle juge.
-
-Exemple vécu : « quel agent pour relire 2 700 fichiers à la recherche de secrets ? »
-— aucun. Un scanner dédié le fait en secondes ; l'agent ne sert qu'à trier les
-quarante résultats qu'il rend.
+> ⚠️ **Lire `claude-ts`, pas `main`**, pour toute question sur le code actuel. Le
+> constater plutôt que le croire : `git rev-list --count origin/main..origin/claude-ts`.
 
 ---
 
-## 2. Deux déclencheurs de délégation
+## Carte du dépôt
 
-Déléguer quand **l'un des deux** est vrai :
+Le dépôt est **self-hosted** : la racine se comporte comme une application utilisateur
+qui consomme le framework, ce qui permet de l'éprouver en marchant.
 
-- **Volume** — lire beaucoup pour rendre peu : inventaire, audit, recherche
-  transverse. Le gain n'est pas la parallélisation, c'est que les fichiers lus
-  **n'entrent jamais** dans le contexte principal ; seule la conclusion revient.
-- **Nature** — toute liste d'affirmations à confronter au code. Signe distinctif :
-  chaque élément a un **verdict binaire et une preuve**, aucun jugement n'est
-  requis. « Ces corrections sont-elles en place ? », « ces références de
-  `fichier:ligne` sont-elles encore justes ? », « ces clés de configuration
-  sont-elles lues quelque part ? ».
+| Chemin                          | Ce qu'on y trouve                                                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/nodefony/`                 | le cœur — `Kernel`, conteneur d'injection, services, journalisation, CLI                                                |
+| `src/packages/@nodefony/`       | les 20 paquets du framework — `http`, `framework`, `security`, `frontend`, `studio`, `orm-core`, `drizzle`, `realtime`… |
+| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony <app>`                                                                         |
+| `src/modules/`                  | les modules d'épreuve montés par l'application racine (`test`, quatre bancs de frontends, `mediasoup`)                  |
+| `scripts/`                      | les automates du dépôt — contrôles, bancs, chaîne de publication (`scripts/release/`)                                   |
+| `docs/`                         | la documentation humaine : guides, décisions d'architecture (`adr/`), performance, `index.md`                           |
+| `.ai/`                          | ce qui est **généré** pour les agents — jamais édité à la main                                                          |
+| `.claude/skills/`               | les procédures outillées du dépôt (publication, tickets, bancs, documentation)                                          |
 
-**Plancher : deux vérifications indépendantes du même type suffisent.** En
-dessous, faire soi-même.
-
-**Ne pas déléguer** : l'édition de code au milieu d'une session (voir §5), et tout
-ce qu'un automate rend directement.
-
----
-
-## 3. Choisir le type d'agent AVANT le modèle
-
-Deux axes indépendants, tous deux facteurs de coût :
-
-| Axe        | Question                | Règle                                     |
-| ---------- | ----------------------- | ----------------------------------------- |
-| **Type**   | Que peut-il faire ?     | Le plus **restreint** qui fait le travail |
-| **Modèle** | Avec quelle puissance ? | Le plus **léger** qui le fait bien        |
-
-Sur le type : un agent en **lecture seule** ne peut pas casser le dépôt — c'est la
-moitié de sa valeur. Il couvre tout inventaire et toute confrontation au code. Un
-agent **capable d'écrire ou d'exécuter** n'est justifié que si la lecture ne suffit
-pas ; chaque délégation de ce genre est un risque d'écrasement et de corruption.
-
-Sur le modèle, le test qui tranche en une seconde : **la tâche a-t-elle une bonne
-réponse vérifiable ?** Compter, extraire, confronter, lancer une commande et lire
-son verdict, appliquer un patron connu — oui, donc le modèle le plus léger.
-Choisir, pondérer, rédiger pour un humain, décider ce qui mérite d'exister — non,
-donc plus haut.
-
-Monter en gamme est la décision **qui se motive**, et la justification doit nommer
-ce que le modèle léger échouerait à faire. Si cette phrase ne vient pas, le modèle
-léger suffisait.
-
-Les deux erreurs ne coûtent pas pareil. **Trop faible** : la réponse revient
-plausible et fausse, on la croit, et on paie deux fois — le travail raté, puis le
-travail refait. **Trop fort** : on paie plusieurs fois le prix pour énumérer des
-fichiers, sans qu'une ligne du résultat change.
+Quinze de ces paquets sont publiables ; les autres portent `private: true`. La liste
+ne se devine pas, elle se demande : `npm query .workspace`.
 
 ---
 
-## 4. Un agent n'est pas gratuit non plus
+## Six commandes
 
-Il faut l'énoncer, attendre, puis **vérifier ce qu'il affirme**. Trois cas où
-déléguer coûte plus que faire :
+```bash
+npm install            # Node ≥ 24 requis
+npm run build          # compile les workspaces modifiés (cache turbo)
+npm run dev            # reconstruit le cœur à chaud (rolldown --watch)
+npm test               # construit, puis lance TOUTES les suites du dépôt
+npm run typecheck      # TypeScript strict, zéro erreur attendue
+npm run test:all       # TOUT : conteneurs, build, unité, intégration — et le rapport
+```
 
-1. **Un automate rend la réponse** (§1) — deux secondes, exhaustif, rien à
-   recontrôler.
-2. **La réponse tient en une commande dont on lit la sortie** — l'écrire pour
-   quelqu'un d'autre prend plus longtemps que la lancer.
-3. **La tâche est sur le chemin critique** et conditionne le geste suivant : la
-   latence se paie en attente pure.
+Pour lancer le serveur de développement, c'est `npx nodefony development` — pas
+`npm run dev`, qui ne fait que reconstruire. Pour une boucle courte sur un module :
+`cd src/packages/@nodefony/<m> && npx vitest run`.
 
-Le bon usage est l'inverse du troisième : **ce qui peut avancer pendant qu'on
-travaille ailleurs**.
-
----
-
-## 5. Règles de sûreté — les trois qui ont déjà coûté
-
-### 5.1 Aucun agent délégué ne touche à l'index de version
-
-À écrire **en toutes lettres dans chaque instruction de délégation** : pas de
-restauration, pas de remise, pas de réinitialisation, pas de validation, pas de
-publication.
-
-Le motif n'est pas la prudence, c'est un vol de travail constaté : un agent chargé
-de mesurer un état de référence a « nettoyé » l'arbre et emporté une heure de code
-non validé. La perte ne se voit pas au moment où elle se produit — elle apparaît
-plus tard, sous la forme d'un test qui échoue sur une fonction devenue
-introuvable. L'agent ne voit pas le travail en cours ; il voit un arbre sale à
-ranger.
-
-Corollaires : **valider avant de déléguer** quand l'arbre n'est pas propre ;
-donner à l'agent un autre moyen d'annuler (réinstaller une version, réécrire le
-fichier) ; ne jamais éditer les fichiers qu'un agent en vol touche.
-
-### 5.2 Un verdict vérifiable ne rend pas le geste mécanique
-
-« Retirer les imports inutilisés » a un verdict binaire par occurrence. Un modèle
-léger l'a pourtant exécuté en coupant des listes d'imports en plein milieu,
-produisant des fichiers qui ne compilaient plus.
-
-Éditer du code est une opération **structurelle** sur un arbre syntaxique que le
-modèle ne parse pas : il édite par correspondance de texte. Donc **déléguer le
-diagnostic, garder l'édition** — ou n'accepter l'édition déléguée que là où un
-automate la porte (correction automatique d'un linter, transformation
-programmatique), avec compilation **et** tests derrière.
-
-### 5.3 L'agent propose, l'appelant applique
-
-Il ignore les décisions prises dans la session en cours ; le laisser éditer produit
-des correctifs qui contredisent le fil. Lui demander « fichier → section → texte
-exact → preuve », et trancher soi-même.
-
-Et **vérifier avant de répercuter** : un agent peut affirmer l'existence d'un
-fichier qui n'existe pas. Toute affirmation d'inventaire se recontrôle avant
-d'entrer dans une synthèse.
+`npm run test:all` démarre l'infrastructure manquante, pose les variables à votre
+place et **dit ce qu'il n'a PAS testé**. Après un `git pull` ou un changement d'API
+publique : `npm run clean && npm run build`, sinon un `dist/` périmé produit des
+erreurs qui n'ont aucun rapport avec le code lu.
 
 ---
 
-## 6. Rédiger une instruction de délégation
+## Où vit la vérité
 
-Ce qui distingue un agent utile d'un agent coûteux tient surtout à l'énoncé.
-Aucun modèle ne rattrape un périmètre flou.
+Un fichier écrit à la main vieillit ; un fichier généré ne le peut pas. La colonne de
+droite dit à quelle **question** chacun répond.
 
-- **Le périmètre en chemins exacts.** Un périmètre approximatif envoie chercher au
-  mauvais endroit.
-- **Les faits déjà établis**, pour qu'il ne les recollecte pas.
-- **Les interdits**, dont ceux du §5.
-- **La vérification obligatoire avant de rendre**, avec les chiffres attendus
-  (« la compilation doit rester à N sur N », « la suite doit rester à M tests »).
-  Toute baisse est une régression que l'agent a introduite.
-- **L'autorisation explicite de s'arrêter** : « si tu ne peux pas y arriver sans
-  casser l'un de ces contrôles, arrête-toi et explique ». Un agent sans porte de
-  sortie invente une solution.
-- **Ce qu'il n'a pas pu vérifier**, exigé dans le rendu. C'est souvent
-  l'information la plus utile du rapport.
+| Fichier                                      | La question                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [`docs/index.md`](docs/index.md)             | par où entrer dans la documentation ?                                                     |
+| [`MIGRATION_STATUS.md`](MIGRATION_STATUS.md) | quelles phases du chantier sont faites, laquelle est en cours ?                           |
+| [`.ai/BOARD.md`](.ai/BOARD.md)               | _(généré)_ quels tickets sont ouverts, dans quel ordre ?                                  |
+| [`.ai/ENV.md`](.ai/ENV.md)                   | _(généré)_ quelle variable pose ce décor — et **que se passe-t-il si elle est absente ?** |
+| [`.ai/symbols.json`](.ai/symbols.json)       | _(généré)_ qui étend, implémente ou importe ce symbole ? Où est-il défini ?               |
+| [`docs/lexique.md`](docs/lexique.md)         | que veut dire ce terme dans ce dépôt ?                                                    |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)         | comment proposer un changement ?                                                          |
+| [`SECURITY.md`](SECURITY.md)                 | comment signaler une faille — jamais en ticket public                                     |
+
+> 🔴 **Sur ce dépôt, un décor absent ne lève presque jamais : il fait sauter un banc, et
+> un banc sauté compte comme vert.** Avant de conclure « les tests passent », lire ce
+> que la suite déclare ne pas avoir exercé. La source unique des variables et des
+> conteneurs est `vitest.gates.ts`, à la racine.
 
 ---
 
-## 7. Ce qui ne se délègue jamais
+## Lire ce dépôt sans HTML
 
-- La décision de publier, de supprimer des fichiers, ou de modifier la structure
-  du dépôt.
-- L'arbitrage entre deux conceptions défendables.
-- La qualification d'un échec de test : suspecter son propre travail avant de
-  déclarer un problème « pré-existant ».
+Les pages d'un hébergeur de code coûtent cher à charger et rendent mal en texte. Tout
+fichier se lit brut :
+
+```
+https://raw.githubusercontent.com/nodefony/nodefony-core/claude-ts/<chemin>
+```
+
+Exemple : `…/claude-ts/docs/index.md`. Remplacer `claude-ts` par `main` donne l'état
+publié, pas l'état courant (voir **État** ci-dessus).
+
+---
+
+## Conventions non négociables
+
+Elles sont **vérifiées par des contrôles**, pas seulement écrites : TypeScript strict
+sans `any` ni `@ts-ignore` · ESM uniquement, `import` jamais `require()` · préfixe
+`node:` sur les modules natifs · **identifiants du code en anglais, prose et messages
+en français** · toute variable d'environnement lue par le framework se préfixe `NF_`
+· messages de validation au format _Conventional Commits_.
+
+Le détail par domaine vit dans le `CLAUDE.md` de chaque module, et les gates dans
+`scripts/check-*.mjs`.
+
+---
+
+## Déléguer du travail à un autre agent
+
+Les règles de coût, de choix de modèle et de sûreté — dont celles qui ont déjà coûté
+du travail perdu — vivent dans [`docs/ia/delegation.md`](docs/ia/delegation.md).

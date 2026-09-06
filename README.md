@@ -17,6 +17,17 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 ---
 
+> **Pourquoi pas NestJS ?** Même modèle — injection, décorateurs, modules — avec une différence de
+> structure : le WebSocket est un transport de la même route, de la même session et du même
+> pare-feu, pas une passerelle à côté. Et l'application se décrit à un agent — générateurs
+> pilotables, catalogue, `AGENTS.md` dérivé du projet — au lieu d'être devinée.
+
+**État** — version `10.0.0` · **non publiée sur npm** : le registre sert encore `nodefony@7.0.2`
+(JavaScript) · branche par défaut `main`, développement sur `claude-ts` · ~7 700 tests quand toute
+l'infrastructure répond (`npm run test:all`).
+
+---
+
 Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
 directement sur les modules natifs de la plateforme — `node:http`, `node:http2`, WebSocket. Il
 apporte un noyau à injection de dépendances, un système de modules, un pare-feu applicatif, une
@@ -293,7 +304,7 @@ l'orchestrateur, et les journaux partent sur la sortie standard.
   [la page dédiée](https://nodefony.github.io/nodefony-core/performance/latest/)
 - [Décisions d'architecture](docs/adr/) — les choix structurants et leur pourquoi
 - [Signaler une faille](SECURITY.md) — canal privé, jamais en ticket public
-- Contribuer : ouvrez une discussion avant toute contribution substantielle. Le dépôt impose les
+- Contribuer : ouvrez une issue avant toute contribution substantielle. Le dépôt impose les
   _Conventional Commits_ et un `npm run typecheck` complet avant chaque envoi.
 
 ## État du projet
