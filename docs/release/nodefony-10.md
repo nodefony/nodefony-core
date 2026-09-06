@@ -360,13 +360,27 @@ vérifié dans la doc). Les 13 paquets neufs ne peuvent donc pas naître par OID
 
 **Ordre retenu** :
 
-1. publier les 13 neufs + `nodefony@10` **à la main**, depuis le poste du mainteneur, avec le code
-   2FA interactif — c'est ce pour quoi la 2FA est faite, et **aucun jeton n'a besoin d'exister** ;
+1. publier les 14 neufs — les 13 scopés ET `create-nodefony` — plus `nodefony@10`,
+   **à la main**, depuis le poste du mainteneur, avec le code 2FA interactif —
+   c'est ce pour quoi la 2FA est faite, et **aucun jeton n'a besoin d'exister** ;
    le script d'assemblage fait tout le reste (versions, ordre, pack), seul le `publish` est manuel ;
-2. déclarer un publieur de confiance sur **chacun des 14** — même dépôt, même **nom de fichier** de
+2. déclarer un publieur de confiance sur **chacun des 15** — `create-nodefony` COMPRIS,
+   il est publiable et absent du registre — même dépôt, même **nom de fichier** de
    workflow (saisi seul, extension incluse, **sensible à la casse** : première cause d'`ENEEDAUTH`
    citée par la doc) ; un seul publieur par paquet ;
 3. `Settings → Publishing access → Require two-factor authentication and disallow tokens`.
+4. **basculer l'accueil — il affirme un ÉTAT de publication, à TROIS endroits.** `README.md`
+   (§ Démarrage, puis le bloc « État ») et `AGENTS.md` (§ État — le premier que lira un agent
+   web). Aucune de ces affirmations ne se met à jour toute seule, et l'accueil du jour de
+   l'annonce ne se rattrape pas : ceux qui viennent ce jour-là ne reviennent pas. Deux règles
+   valent aux trois crans — **la commande publiée nomme toujours son dist-tag** tant que `latest`
+   n'est pas la 10 (une forme nue servirait `nodefony@7.0.2`, sans rapport avec ce que la page
+   décrit), et le `git clone` n'est jamais supprimé, seulement requalifié « contribuer au
+   framework ». Contrôle :
+   `rg -n "pas encore publi|non publiée|aucun paquet .10" README.md AGENTS.md` ne rend rien.
+   À l'**alpha**, cette bascule est légitimement VIDE — aucune promesse publique n'est faite ;
+   c'est un constat à poser, pas une étape à sauter. Ticket porteur : **#47**, qui se REPORTE
+   d'un cran au suivant au lieu de se fermer.
 
 Contraintes à respecter : npm CLI **≥ 11.5.1**, Node **≥ 22.14.0**, runners **hébergés** GitHub
 (pas de self-hosted), `permissions: id-token: write` dans le workflow.
