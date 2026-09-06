@@ -410,9 +410,16 @@ par `npm deprecate <paquet> "<message>"` — un message affiché à l'installati
 
 🔴 **L'ordre n'est pas indifférent** : déprécier AVANT la publication renverrait les gens vers des
 paquets qui n'existent pas encore. Elle s'applique donc dès que les successeurs sont **EN LIGNE** —
-c'est-à-dire dès l'**alpha** (#220), qui les fait naître, et dans la même session npm authentifiée
-que le `publish` : `npm deprecate` réclame la même double authentification. Le message NOMME le
-successeur et le dépôt sans promettre de commande d'installation, donc il reste vrai en préversion.
+c'est-à-dire dès la première préversion, qui les fait naître. Le message NOMME le successeur et le
+dépôt sans promettre de commande d'installation, donc il reste vrai en préversion.
+
+🔴 **C'est un geste MANUEL et SÉPARÉ, depuis le poste du mainteneur.** Il l'est devenu quand la
+publication est passée par la forge : le trusted publishing ne couvre que `publish`, et le jeton
+qu'il délivre vit quelques minutes dans un exécuteur auquel personne n'a accès. Aucune session npm
+authentifiée n'existe donc plus sur le poste après une release — `npm deprecate` réclame sa propre
+authentification, avec le code à deux facteurs. Le confondre avec la session de publication, comme
+le faisait la version précédente de ce plan, fait croire que les dépréciations partent toutes
+seules avec le lot : elles ne partent pas, et rien ne le signale.
 
 | Historique (dernière version)           | Successeur en 10          | Nature                                                              |
 | --------------------------------------- | ------------------------- | ------------------------------------------------------------------- |
