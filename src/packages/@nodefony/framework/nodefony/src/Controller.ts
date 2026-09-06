@@ -337,7 +337,7 @@ class Controller extends Service implements IController {
    * @param data - le corps HTML sur le point d'être envoyé.
    * @returns rien — cette sonde n'échoue jamais et ne change aucune réponse.
    */
-  #avertirScriptSansNonce(data: unknown): void {
+  #warnScriptWithoutNonce(data: unknown): void {
     const kernel = this.context?.kernel;
     if (
       kernel?.environment !== "development" &&
@@ -380,7 +380,7 @@ class Controller extends Service implements IController {
     status?: string | number,
     headers?: Record<string, string | number>,
   ) {
-    this.#avertirScriptSansNonce(data);
+    this.#warnScriptWithoutNonce(data);
     return (this.context as HttpContext)?.render(
       data,
       encoding,
@@ -431,7 +431,7 @@ class Controller extends Service implements IController {
         this.context?.phaseEnd("render");
       }
       this.setContextHtml();
-      this.#avertirScriptSansNonce(data);
+      this.#warnScriptWithoutNonce(data);
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       this.log(e, "ERROR");

@@ -95,8 +95,8 @@ class SecurityUserDelete extends Command {
     // l'administration de l'application devient inaccessible et le seul recours
     // est une écriture directe en base.
     if ((user.roles ?? []).includes(ADMIN_ROLE)) {
-      const restants = await users.countActiveAdmins(ADMIN_ROLE);
-      if (restants <= 1) {
+      const remaining = await users.countActiveAdmins(ADMIN_ROLE);
+      if (remaining <= 1) {
         this.log(
           `« ${identifier} » est le DERNIER administrateur actif — refus.\n` +
             `  Sans lui, plus personne n'administre cette application.\n` +
@@ -141,8 +141,8 @@ class SecurityUserDelete extends Command {
 
     // `delete` prend un CRITÈRE, pas un identifiant : viser par `id` évite de
     // supprimer plusieurs comptes si un jour deux partagent un identifiant.
-    const supprimes = await users.delete({ id: user.id });
-    if (supprimes === 0) {
+    const deleted = await users.delete({ id: user.id });
+    if (deleted === 0) {
       this.log(
         `aucune ligne supprimée pour « ${identifier} » — le compte a-t-il ` +
           `disparu entre-temps ?`,

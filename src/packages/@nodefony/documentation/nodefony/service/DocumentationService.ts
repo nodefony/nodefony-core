@@ -424,16 +424,16 @@ class DocumentationService extends Service {
     // `index` en fait partie : c'est l'accueil du corpus, et le retirer d'ici
     // faisait retomber le front sur le premier hub venu comme page par défaut.
     // C'est le RENDU qui évite de l'afficher deux fois, pas le contrat.
-    const racine = (rootGroups.get("racine") ?? []).filter((d) =>
+    const rootDocs = (rootGroups.get("racine") ?? []).filter((d) =>
       ROOT_PAGES.includes(d.relPath.replace(/\.md$/i, "")),
     );
-    const pourCommencer: IDocSection[] = racine.length
+    const gettingStarted: IDocSection[] = rootDocs.length
       ? [
           {
             id: "root-pour-commencer",
             label: ROOT_PAGES_LABEL,
             pages: ROOT_PAGES.map((n) =>
-              racine.find((d) => d.relPath.replace(/\.md$/i, "") === n),
+              rootDocs.find((d) => d.relPath.replace(/\.md$/i, "") === n),
             )
               .filter((d): d is ScannedDoc => Boolean(d))
               .map((d) => this.#toPageRef(d)),
@@ -473,7 +473,7 @@ class DocumentationService extends Service {
         pages: this.#orderPages(pages),
       }));
 
-    return [...pourCommencer, ...rootSections, ...moduleSections];
+    return [...gettingStarted, ...rootSections, ...moduleSections];
   }
 
   /**

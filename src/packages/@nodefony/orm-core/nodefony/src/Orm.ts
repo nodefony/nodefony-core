@@ -18,7 +18,7 @@ import { connectionMonitor } from "./ConnectionMonitor";
  * chaque construction, et un déploiement qui veut un battement plus serré
  * — ou aucun — n'a pas à toucher au code de l'application.
  */
-const HEARTBEAT_MS_PAR_DEFAUT = ((): number => {
+const HEARTBEAT_MS_DEFAULT = ((): number => {
   const brut = process.env.NF_ORM_HEARTBEAT_MS;
   if (brut === undefined) {
     return 30_000;
@@ -202,7 +202,7 @@ export abstract class Orm extends Service implements IOrm {
    * et il faudrait distinguer une erreur de connexion d'une contrainte violée.
    * Ici le coût est CONSTANT et connu d'avance : une requête légère par période.
    */
-  protected heartbeatMs = HEARTBEAT_MS_PAR_DEFAUT;
+  protected heartbeatMs = HEARTBEAT_MS_DEFAULT;
 
   /**
    * Délai au-delà duquel un battement sans réponse vaut une PERTE.
@@ -297,17 +297,17 @@ export abstract class Orm extends Service implements IOrm {
       return;
     }
     this.#beating = true;
-    let montre: ReturnType<typeof setTimeout> | null = null;
+    let watchdog: ReturnType<typeof setTimeout> | null = null;
     try {
       await Promise.race([
         (this as IOrm).ping?.() ?? Promise.resolve(),
         new Promise<never>((_, rejeter) => {
-          montre = setTimeout(() => {
+          watchdog = setTimeout(() => {
             rejeter(
               new Error(`aucune réponse en ${this.heartbeatTimeoutMs} ms`),
             );
           }, this.heartbeatTimeoutMs);
-          montre.unref?.();
+          watchdog.unref?.();
         }),
       ]);
       this.connectionRestored();
@@ -316,8 +316,8 @@ export abstract class Orm extends Service implements IOrm {
         `battement : ${e instanceof Error ? e.message : String(e)}`,
       );
     } finally {
-      if (montre !== null) {
-        clearTimeout(montre);
+      if (watchdog !== null) {
+        clearTimeout(watchdog);
       }
       this.#beating = false;
     }

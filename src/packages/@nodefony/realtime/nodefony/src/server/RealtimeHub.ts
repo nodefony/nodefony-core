@@ -322,7 +322,7 @@ export class RealtimeHub {
   #channelPolicyPatterns: Array<{
     source: string;
     re: RegExp;
-    poids: number;
+    weight: number;
     policy: IChannelPolicy;
   }> | null = null;
 
@@ -1169,19 +1169,19 @@ export class RealtimeHub {
     const re = new RegExp(`^${echappe.split("\\*").join(".*")}$`, "u");
     // Poids = longueur du LITTÉRAL, `*` retirés. Entre `chat:*` (5) et
     // `chat:room:*` (10), le second gagne : il en dit plus.
-    const poids = source.split("*").join("").length;
-    const liste = (this.#channelPolicyPatterns ??= []);
-    const deja = liste.findIndex((p) => p.source === source);
-    const entree = { source, re, poids, policy };
-    if (deja >= 0) {
+    const weight = source.split("*").join("").length;
+    const policies = (this.#channelPolicyPatterns ??= []);
+    const existing = policies.findIndex((p) => p.source === source);
+    const policyEntry = { source, re, weight: weight, policy };
+    if (existing >= 0) {
       // Idempotent, comme la voie exacte : deux controllers d'un même endpoint
       // déclarent le même motif.
-      liste[deja] = entree;
+      policies[existing] = policyEntry;
       return;
     }
-    const rang = liste.findIndex((p) => p.poids < poids);
-    if (rang < 0) liste.push(entree);
-    else liste.splice(rang, 0, entree);
+    const rang = policies.findIndex((p) => p.weight < weight);
+    if (rang < 0) policies.push(policyEntry);
+    else policies.splice(rang, 0, policyEntry);
   }
 
   /**
@@ -1195,10 +1195,10 @@ export class RealtimeHub {
     // Les motifs ne coûtent QUE s'il en existe : une application qui n'en
     // déclare aucun sort ici sans avoir rien parcouru. La liste est déjà triée
     // du plus spécifique au plus général — le premier qui matche est le bon.
-    const motifs = this.#channelPolicyPatterns;
-    if (motifs === null) return null;
-    for (let i = 0; i < motifs.length; i++) {
-      if (motifs[i]!.re.test(name)) return motifs[i]!.policy;
+    const patterns = this.#channelPolicyPatterns;
+    if (patterns === null) return null;
+    for (let i = 0; i < patterns.length; i++) {
+      if (patterns[i]!.re.test(name)) return patterns[i]!.policy;
     }
     return null;
   }

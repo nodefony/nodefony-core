@@ -23,7 +23,7 @@
 
   /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
   interface Message {
-    texte: string;
+    text: string;
     front: string;
     ts: number;
     pid: number;
@@ -63,14 +63,14 @@
 
   /** Les quatre vitrines, pour les comparer d'un clic. */
   const FRONTS = [
-    { nom: "React", href: "/react/app" },
-    { nom: "Vue", href: "/vue/app" },
-    { nom: "Angular", href: "/angular/app" },
-    { nom: "Svelte", href: "/svelte/app" },
+    { name: "React", href: "/react/app" },
+    { name: "Vue", href: "/vue/app" },
+    { name: "Angular", href: "/angular/app" },
+    { name: "Svelte", href: "/svelte/app" },
   ];
 
   /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
-  const ETATS: Record<string, string> = {
+  const STATES: Record<string, string> = {
     connected: "connecté",
     connecting: "connexion…",
     reconnecting: "reconnexion automatique…",
@@ -83,7 +83,7 @@
   const cliquer = (): void => {
     count += 1;
     // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-    live.emit("live:dire", { texte: `clic n°${count}`, front: FRONT });
+    live.emit("live:say", { text: `clic n°${count}`, front: FRONT });
   };
   let data = $state<ApiData | null>(null);
   let error = $state<string | null>(null);
@@ -96,28 +96,28 @@
   // Les valeurs se lisent `.current` ; `$derived` les rend au reste du fichier
   // sous le nom qu'il employait déjà. Rien à libérer : l'abonnement est rendu
   // quand plus aucun effet ne lit la valeur.
-  const etatVivant = nodefonyState();
-  const liveState = $derived(etatVivant.current);
+  const liveStateStore = nodefonyState();
+  const liveState = $derived(liveStateStore.current);
   let messages = $state<Message[]>([]);
-  let texte = $state("");
+  let text = $state("");
   let parHttp = $state<string | null>(null);
   let parSocket = $state<string | null>(null);
   const instantane = nodefonySnapshot();
   const vue = $derived(instantane.current);
-  let barreVisible = $state(debugbar()?.isVisible() ?? false);
+  let barVisible = $state(debugbar()?.isVisible() ?? false);
 
-  const basculerBarre = (): void => {
+  const toggleBar = (): void => {
     debugbar()?.toggle();
-    barreVisible = debugbar()?.isVisible() ?? false;
+    barVisible = debugbar()?.isVisible() ?? false;
   };
 
-  const envoyer = (): void => {
-    const dit = texte.trim();
-    if (!dit) return;
+  const send = (): void => {
+    const said = text.trim();
+    if (!said) return;
     // Une notification client → serveur : pas de réponse attendue, c'est le
     // serveur qui rediffuse à tous les abonnés du canal.
-    live.emit("live:dire", { texte: dit, front: FRONT });
-    texte = "";
+    live.emit("live:say", { text: said, front: FRONT });
+    text = "";
   };
 
   /** La MÊME action, appelée par les deux portes, chronométrée des deux côtés. */
@@ -132,17 +132,17 @@
   };
 
   /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
-  const derniereDe = (v: SocketSnapshot | null): string =>
+  const lastFrom = (v: SocketSnapshot | null): string =>
     v?.lastFrame.at
       ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
       : "—";
 
-  const duree = (v: string | null): string => v?.split("\n")[0] ?? "";
-  const corps = (v: string | null): string =>
+  const duration = (v: string | null): string => v?.split("\n")[0] ?? "";
+  const body = (v: string | null): string =>
     v?.split("\n").slice(1).join("\n") ?? "—";
   // Libérations des observateurs — rendues au démontage (le HMR remonte le composant).
 
-  const basculer = (): void => {
+  const toggle = (): void => {
     if (liveState === "connected") live.disconnect();
     else void live.connect();
   };
@@ -207,7 +207,7 @@
             class:dot--wait={liveState === "connecting" ||
               liveState === "reconnecting"}
           ></span>
-          {ETATS[liveState] ?? liveState}
+          {STATES[liveState] ?? liveState}
           <b>{vue?.frames ?? 0}</b> trames
         </span>
         <div class="sonde-detail" role="status">
@@ -215,13 +215,13 @@
             <dt>Adresse</dt>
             <dd>{vue?.url ?? "—"}</dd>
             <dt>État</dt>
-            <dd>{ETATS[liveState] ?? liveState}</dd>
+            <dd>{STATES[liveState] ?? liveState}</dd>
             <dt>Canaux</dt>
             <dd>{vue?.channels.join(", ") || "aucun"}</dd>
             <dt>Trames reçues</dt>
             <dd>{vue?.frames ?? 0}</dd>
             <dt>Dernière</dt>
-            <dd>{derniereDe(vue)}</dd>
+            <dd>{lastFrom(vue)}</dd>
           </dl>
           <p class="rien">
             Tout cela vient du client lui-même : afficher ce panneau ne provoque
@@ -231,8 +231,8 @@
       </span>
       <button
         class="bascule"
-        aria-pressed={barreVisible}
-        onclick={basculerBarre}
+        aria-pressed={barVisible}
+        onclick={toggleBar}
       >
         Barre de debug
       </button>
@@ -283,16 +283,16 @@
             class:dot--wait={liveState === "connecting" ||
               liveState === "reconnecting"}
           ></span>
-          {ETATS[liveState] ?? liveState}
+          {STATES[liveState] ?? liveState}
         </p>
         <p class="live-meta">
           {#if vue?.lastFrame.at}
-            dernière trame : {derniereDe(vue)}
+            dernière trame : {lastFrom(vue)}
           {:else}
             aucune trame — le serveur se tait tant qu'il n'a rien à dire
           {/if}
         </p>
-        <button class="btn btn--ghost" onclick={basculer}>
+        <button class="btn btn--ghost" onclick={toggle}>
           {liveState === "connected" ? "Couper la connexion" : "Rétablir"}
         </button>
       </div>
@@ -307,12 +307,12 @@
           </p>
           <div class="saisie">
             <input
-              bind:value={texte}
-              onkeydown={(e) => e.key === "Enter" && envoyer()}
+              bind:value={text}
+              onkeydown={(e) => e.key === "Enter" && send()}
               placeholder="Écrivez, puis Entrée…"
               aria-label="Message à diffuser"
             />
-            <button class="counter" onclick={envoyer}>Envoyer</button>
+            <button class="counter" onclick={send}>Envoyer</button>
           </div>
           <ul class="salon">
             {#if messages.length === 0}
@@ -321,7 +321,7 @@
               {#each messages as m, i (`${m.ts}-${i}`)}
                 <li>
                   <span class="qui">{m.front}</span>
-                  <span>{m.texte}</span>
+                  <span>{m.text}</span>
                   <span class="quand"
                     >{new Date(m.ts).toLocaleTimeString()}</span
                   >
@@ -343,12 +343,12 @@
           </button>
           <div class="deux" style="margin-top: 14px">
             <div>
-              <p class="voie">HTTP <em>{duree(parHttp)}</em></p>
-              <pre class="out">{corps(parHttp)}</pre>
+              <p class="voie">HTTP <em>{duration(parHttp)}</em></p>
+              <pre class="out">{body(parHttp)}</pre>
             </div>
             <div>
-              <p class="voie">Socket <em>{duree(parSocket)}</em></p>
-              <pre class="out">{corps(parSocket)}</pre>
+              <p class="voie">Socket <em>{duration(parSocket)}</em></p>
+              <pre class="out">{body(parSocket)}</pre>
             </div>
           </div>
         </div>

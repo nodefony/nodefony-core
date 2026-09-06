@@ -14,7 +14,7 @@ const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 /** Défaut volontairement BORNÉ — une liste se borne, toujours. */
-const LIMITE_DEFAUT = 50;
+const DEFAULT_LIMIT = 50;
 
 /**
  * `nodefony security:user:list` — qui a un compte dans cette application.
@@ -48,7 +48,7 @@ class SecurityUserList extends Command {
     this.addOption("-r, --role <role>", "n'affiche que les porteurs d'un rôle");
     this.addOption(
       "-l, --limit <n>",
-      `nombre maximum de comptes (défaut ${LIMITE_DEFAUT})`,
+      `nombre maximum de comptes (défaut ${DEFAULT_LIMIT})`,
     );
     this.addOption("-j, --json", "sortie JSON (scripts/CI)");
   }
@@ -73,7 +73,7 @@ class SecurityUserList extends Command {
 
     const limit = Number.parseInt(opts.limit ?? "", 10);
     const page = await users.listPage({
-      limit: Number.isInteger(limit) && limit > 0 ? limit : LIMITE_DEFAUT,
+      limit: Number.isInteger(limit) && limit > 0 ? limit : DEFAULT_LIMIT,
       ...(opts.query ? { q: opts.query } : {}),
       ...(opts.role ? { role: opts.role } : {}),
     });
@@ -82,7 +82,7 @@ class SecurityUserList extends Command {
     // du credential : il voit `password`. Rendre l'entité telle quelle — ou la
     // passer à `console.table` — publierait le hachage dans un terminal, un
     // journal de CI ou un copier-coller.
-    const lignes = page.items.map((u) => ({
+    const rows = page.items.map((u) => ({
       identifiant: u.identifier,
       rôles: (u.roles ?? []).join(", ") || "—",
       // `isActive()`/`isLocked()` sont des MÉTHODES du contrat `IUser` — pas
@@ -95,12 +95,12 @@ class SecurityUserList extends Command {
 
     if (opts.json) {
       process.stdout.write(
-        `${JSON.stringify({ items: lignes, hasNext: page.hasNext }, null, 2)}\n`,
+        `${JSON.stringify({ items: rows, hasNext: page.hasNext }, null, 2)}\n`,
       );
       return this;
     }
 
-    if (lignes.length === 0) {
+    if (rows.length === 0) {
       process.stdout.write(
         `aucun compte${opts.query || opts.role ? " pour ce filtre" : ""} — ` +
           `nodefony security:user:add <identifiant>\n`,
@@ -109,9 +109,9 @@ class SecurityUserList extends Command {
     }
 
     process.stdout.write(`\n${BOLD}👤 Comptes${RESET}\n`);
-    console.table(lignes);
+    console.table(rows);
     process.stdout.write(
-      `${lignes.length} compte(s)` +
+      `${rows.length} compte(s)` +
         (page.hasNext
           ? `${DIM} — page bornée, il y en a d'autres (--limit)${RESET}`
           : "") +

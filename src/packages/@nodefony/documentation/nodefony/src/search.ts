@@ -68,13 +68,13 @@ export function splitSearchTerms(query: string): string[] {
  */
 export function extractSearchText(markdown: string): string {
   const out: string[] = [];
-  let dansUnBloc = false;
+  let inABlock = false;
   for (const brute of markdown.split("\n")) {
     if (/^\s*```/.test(brute)) {
-      dansUnBloc = !dansUnBloc;
+      inABlock = !inABlock;
       continue;
     }
-    if (dansUnBloc) continue;
+    if (inABlock) continue;
     // Fil d'Ariane, images, HTML brut, commentaires : de la navigation ou de la
     // présentation, jamais du propos.
     if (/^\s*(📍|!\[|<!--|<[a-z])/.test(brute)) continue;
@@ -104,12 +104,12 @@ export function searchDocs(
   query: string,
   limit = 20,
 ): IDocSearchResult {
-  const plier = (text: string): string =>
+  const fold = (text: string): string =>
     text
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
-  const terms = [...new Set(plier(query).split(/\s+/).filter(Boolean))].filter(
+  const terms = [...new Set(fold(query).split(/\s+/).filter(Boolean))].filter(
     (t) => t.length > 1,
   );
   if (!terms.length) {
@@ -121,18 +121,18 @@ export function searchDocs(
 
   for (const doc of docs) {
     scanned += 1;
-    const foldedTitle = plier(`${doc.title} ${doc.navTitle} ${doc.slug}`);
+    const foldedTitle = fold(`${doc.title} ${doc.navTitle} ${doc.slug}`);
     const lines = doc.body.split("\n");
-    const foldedLines = lines.map(plier);
+    const foldedLines = lines.map(fold);
     const foldedBody = foldedLines.join("\n");
 
     // Une page ne compte que si elle porte TOUS les termes — sur son titre OU
     // son corps. Sinon « session redis » rendrait toutes les pages qui parlent
     // de sessions, et la recherche cesserait de discriminer.
-    const porteTout = terms.every(
+    const carriesAll = terms.every(
       (t) => foldedBody.includes(t) || foldedTitle.includes(t),
     );
-    if (!porteTout) continue;
+    if (!carriesAll) continue;
 
     let occurrences = 0;
     for (const t of terms) {
@@ -154,9 +154,9 @@ export function searchDocs(
       // (js/polynomial-redos). Le corpus est fourni par l'appelant, il n'est
       // pas borné avant ce point. Exiger un non-blanc en tête du groupe fixe
       // la frontière, à capture identique.
-      const titre = /^#{2,4}[ \t]+(\S.*)$/.exec(brute);
-      if (titre) {
-        section = titre[1]?.replace(/[*`_]/g, "").trim();
+      const heading = /^#{2,4}[ \t]+(\S.*)$/.exec(brute);
+      if (heading) {
+        section = heading[1]?.replace(/[*`_]/g, "").trim();
         continue;
       }
       // Le titre de niveau 1 est DÉJÀ affiché au-dessus du résultat : le rendre
@@ -167,9 +167,9 @@ export function searchDocs(
       // PROSE : les rendre comme extrait donnait « 📍 [Documentation](../../
       // index.md) › … » en guise de résumé.
       if (/^\s*(📍|!\[|\||<!--|```)/.test(brute)) continue;
-      const pliee = foldedLines[i] ?? "";
-      if (!terms.some((t) => pliee.includes(t))) continue;
-      const texte = brute
+      const folded = foldedLines[i] ?? "";
+      if (!terms.some((t) => folded.includes(t))) continue;
+      const lineText = brute
         // Un lien garde son TEXTE, jamais sa cible.
         //
         // Les DEUX classes excluent le crochet ouvrant, et il a fallu les deux :
@@ -190,16 +190,16 @@ export function searchDocs(
         .replace(/[*`_>]/g, "")
         .replace(/\s+/g, " ")
         .trim();
-      if (texte.length < 12) continue;
+      if (lineText.length < 12) continue;
       excerpts.push({
         ...(section ? { section } : {}),
-        text: texte.length > 220 ? `${texte.slice(0, 217)}…` : texte,
+        text: lineText.length > 220 ? `${lineText.slice(0, 217)}…` : lineText,
       });
     }
 
     // Un terme dans le titre pèse : c'est le signal le plus fort qu'une page
     // TRAITE le sujet plutôt qu'elle le mentionne.
-    const dansLeTitre = terms.filter((t) => foldedTitle.includes(t)).length;
+    const inTitle = terms.filter((t) => foldedTitle.includes(t)).length;
     hits.push({
       slug: doc.slug,
       title: doc.title,
@@ -207,7 +207,7 @@ export function searchDocs(
       sectionLabel: doc.sectionLabel,
       excerpts,
       occurrences,
-      score: dansLeTitre * 100 + occurrences,
+      score: inTitle * 100 + occurrences,
     });
   }
 

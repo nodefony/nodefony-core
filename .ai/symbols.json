@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T23:58:45.868Z",
+  "generated": "2026-09-06T00:30:02.381Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -15840,8 +15840,8 @@
       "module": "@nodefony/framework",
       "description": "Sérialisation défensive de config : borne la profondeur, neutralise les fonctions, casse les cycles, et **relativise les chemins absolus** (sécu : ne jamais exposer l'arborescence serveur). Les `op…"
     },
-    "candidatsPaquetNodefony": {
-      "name": "candidatsPaquetNodefony",
+    "nodefonyPackageCandidates": {
+      "name": "nodefonyPackageCandidates",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
       "exported": true,
@@ -25135,21 +25135,21 @@
       "extends": null,
       "description": "Réglages du vérificateur — au-delà de la liste des émetteurs."
     },
-    "lireSiPresent": {
-      "name": "lireSiPresent",
+    "readIfPresent": {
+      "name": "readIfPresent",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Le contenu du fichier, ou `null` s'il n'existe pas."
     },
-    "lireSiPresentSync": {
-      "name": "lireSiPresentSync",
+    "readIfPresentSync": {
+      "name": "readIfPresentSync",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Forme synchrone de {@link lireSiPresent}."
+      "description": "Forme synchrone de {@link readIfPresent}."
     },
     "modeNonRestreint": {
       "name": "modeNonRestreint",
@@ -25175,21 +25175,21 @@
       "module": "@nodefony/security",
       "description": "La phrase à journaliser quand la restriction n'a PAS pris. Elle nomme la cause probable et ce qui reste à faire : un avertissement qui dit seulement « mode inattendu » se lit comme du bruit et fini…"
     },
-    "ecrireSecret": {
-      "name": "ecrireSecret",
+    "writeSecret": {
+      "name": "writeSecret",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
       "exported": true,
       "module": "@nodefony/security",
       "description": "Écrit un secret : dossier créé, mode 0600, remplacement ATOMIQUE. Le mode est posé à la création du temporaire — et non après `rename` — pour qu'il n'existe à aucun instant un fichier au contenu se…"
     },
-    "ecrireSecretSync": {
-      "name": "ecrireSecretSync",
+    "writeSecretSync": {
+      "name": "writeSecretSync",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Forme synchrone de {@link ecrireSecret}."
+      "description": "Forme synchrone de {@link writeSecret}."
     },
     "MODE_SECRET": {
       "name": "MODE_SECRET",
@@ -34651,7 +34651,7 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
-      "lireSiPresentSync": [
+      "readIfPresentSync": [
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
@@ -34664,7 +34664,7 @@
       "alreadyHasKey": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
-      "ecrireSecretSync": [
+      "writeSecretSync": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "messageNonRestreint": [
@@ -35947,10 +35947,10 @@
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
-      "ecrireSecret": [
+      "writeSecret": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
-      "lireSiPresent": [
+      "readIfPresent": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "modeNonRestreintAsync": [

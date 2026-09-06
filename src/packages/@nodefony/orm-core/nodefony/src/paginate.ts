@@ -59,8 +59,8 @@ export async function paginate<T>(
   // Le critère est composé UNE fois, puis servi au `find` ET au `count` : deux
   // compositions divergentes rendraient un `total` qui ne décrit pas la page.
   let criteria = page.criteria;
-  const recherche = searchCriteria<T>(page.q, options.searchable ?? []);
-  if (recherche) {
+  const search = searchCriteria<T>(page.q, options.searchable ?? []);
+  if (search) {
     // `$and` n'existe pas dans la grammaire (volontairement : c'est le
     // comportement par défaut), donc deux `$or` au même niveau ne peuvent PAS
     // exprimer « (a ou b) ET (s1 ou s2) » — le second écraserait le premier et
@@ -76,7 +76,7 @@ export async function paginate<T>(
     }
     // `...criteria` sans repli : étaler `undefined` n'ajoute rien (la garde de
     // l'`$or` ci-dessus a déjà tranché le cas où il porte quelque chose).
-    criteria = { ...criteria, ...recherche } as PageQuery<T>["criteria"];
+    criteria = { ...criteria, ...search } as PageQuery<T>["criteria"];
   } else if (page.q?.trim()) {
     // Déclarer la capacité est le seul moyen de la rendre vraie : sans champ
     // cherchable, ce helper ne PEUT pas honorer `q`, et rendre la collection

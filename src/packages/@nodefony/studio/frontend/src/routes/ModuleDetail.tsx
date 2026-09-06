@@ -1592,7 +1592,7 @@ const TEST_GROUP_LABELS: Record<string, string> = {
   routing: "Routing",
   load: "Charge",
   memory: "Mémoire",
-  autre: "Autre",
+  other: "Autre",
 };
 
 /** Seuil couleur couverture : ≥80 teal, ≥50 jaune, sinon rouge. */

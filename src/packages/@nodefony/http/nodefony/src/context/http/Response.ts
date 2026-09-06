@@ -17,7 +17,7 @@ const ANSI_REGEX = new RegExp(
   "g",
 );
 
-const stripAinsi = function (val: string): string {
+const stripAnsi = function (val: string): string {
   return typeof val === "string" ? val.replace(ANSI_REGEX, "") : val;
 };
 
@@ -310,7 +310,7 @@ class HttpResponse {
     this.statusCode = (status as number) || this.statusCode;
     if (message) {
       // HTTP status messages must be printable US-ASCII only (RFC 7230 §3.1.2)
-      const ascii = stripAinsi(message)
+      const ascii = stripAnsi(message)
         .replace(/[^\x20-\x7E]/g, "")
         .trim();
       this.statusMessage =

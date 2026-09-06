@@ -408,13 +408,13 @@ function isHealthChannel(channel: string): boolean {
  * frame prouve que l'agrégateur tourne (l'endpoint HTTP appelle le MÊME
  * constructeur), leur activité fine reste portée par le `ticker`.
  */
-export function mapSondesLive(
+export function mapProbesLive(
   snap: SocketLiveSnapshot,
 ): Record<string, LiveNodeData> {
   const rt = snap.rt;
   const connected = snap.clientState === "connected";
   // Un seul parcours : compte des canaux santé + cumul de leurs publications.
-  let sondesCount = 0;
+  let probesCount = 0;
   let totalTicks = 0;
   const instances = rt?.instances;
   if (instances) {
@@ -423,19 +423,19 @@ export function mapSondesLive(
       for (let j = 0; j < list.length; j += 1) {
         const stat = list[j];
         if (!isHealthChannel(stat.channel)) continue;
-        sondesCount += 1;
+        probesCount += 1;
         totalTicks += stat.messages;
       }
     }
   }
-  const live = sondesCount > 0;
+  const live = probesCount > 0;
   const active = live && totalTicks > 0;
   return {
     // Pièce 1 — la sonde dans le service métier (signal indirect).
     probe: {
       status: live ? "ok" : "idle",
       pulse: active,
-      metrics: [{ label: "sondes actives", value: fmt(sondesCount) }],
+      metrics: [{ label: "sondes actives", value: fmt(probesCount) }],
     },
     // Pièce 2 — l'agrégateur pur (idem, signal porté par le ticker).
     health: {
@@ -455,7 +455,7 @@ export function mapSondesLive(
     channel: {
       status: live ? "ok" : "idle",
       pulse: active,
-      metrics: [{ label: "canaux *:health", value: fmt(sondesCount) }],
+      metrics: [{ label: "canaux *:health", value: fmt(probesCount) }],
     },
     // Pièce 5b — Studio (abonné).
     studio: {

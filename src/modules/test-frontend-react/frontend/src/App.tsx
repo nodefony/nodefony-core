@@ -30,7 +30,7 @@ interface ApiData {
 
 /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
 interface Message {
-  texte: string;
+  text: string;
   front: string;
   ts: number;
   pid: number;
@@ -70,20 +70,20 @@ const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
 
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [
-  { nom: "React", href: "/react/app" },
-  { nom: "Vue", href: "/vue/app" },
-  { nom: "Angular", href: "/angular/app" },
-  { nom: "Svelte", href: "/svelte/app" },
+  { name: "React", href: "/react/app" },
+  { name: "Vue", href: "/vue/app" },
+  { name: "Angular", href: "/angular/app" },
+  { name: "Svelte", href: "/svelte/app" },
 ];
 
 /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
-const derniereDe = (v: SocketSnapshot | null): string =>
+const lastFrom = (v: SocketSnapshot | null): string =>
   v?.lastFrame.at
     ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
     : "—";
 
 /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
-const ETATS: Record<string, string> = {
+const STATES: Record<string, string> = {
   connected: "connecté",
   connecting: "connexion…",
   reconnecting: "reconnexion automatique…",
@@ -130,7 +130,7 @@ function IncidentsSection() {
   const live = useNodefony();
   const state = useNodefonyState();
   const [journal] = useState(() => new Syslog({ moduleName: "vitrine-react" }));
-  const [dit, setDit] = useState<string | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
 
   useEffect(() => {
     // 1 · d'où vient le `requestId` quand il est su.
@@ -154,14 +154,16 @@ function IncidentsSection() {
    * bout en bout.
    */
   const provoquer = async () => {
-    const reponse = await fetch(`/${FRONT.toLowerCase()}/api/data`);
-    const requestId = reponse.headers.get("x-request-id") ?? undefined;
-    const json = (await reponse.json()) as { result?: Record<string, unknown> };
+    const response = await fetch(`/${FRONT.toLowerCase()}/api/data`);
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const json = (await response.json()) as {
+      result?: Record<string, unknown>;
+    };
     withRequestId(requestId, () => {
       try {
         // Une faute ordinaire : on lit un champ d'un objet qui n'existe pas.
-        const absent = (json.result as { absent?: { valeur: string } }).absent;
-        setDit(absent!.valeur);
+        const absent = (json.result as { absent?: { value: string } }).absent;
+        setSaid(absent!.value);
       } catch (e) {
         journal.log(
           e instanceof Error ? e.message : String(e),
@@ -169,7 +171,7 @@ function IncidentsSection() {
           "VITRINE",
           "clic sur « provoquer un incident »",
         );
-        setDit(
+        setSaid(
           requestId
             ? `Incident journalisé et poussé au serveur, corrélé à la requête ${requestId.slice(0, 8)}…`
             : "Incident journalisé et poussé au serveur (aucun requestId sur cette réponse).",
@@ -194,7 +196,7 @@ function IncidentsSection() {
           Provoquer un incident
         </button>
       </p>
-      {dit ? <p role="status">{dit}</p> : null}
+      {said ? <p role="status">{said}</p> : null}
       <p>
         <small>
           La remontée exige une session : le canal n'accepte pas les connexions
@@ -216,7 +218,7 @@ function LiveSection() {
   const live = useNodefony();
   const state = useNodefonyState();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [texte, setTexte] = useState("");
+  const [text, setText] = useState("");
   const [parHttp, setParHttp] = useState<string | null>(null);
   const [parSocket, setParSocket] = useState<string | null>(null);
   // Ce que le client sait de sa PROPRE socket — un seul contrat, partagé avec la
@@ -230,16 +232,16 @@ function LiveSection() {
     [],
   );
 
-  const connecte = state === "connected";
-  const attente = state === "connecting" || state === "reconnecting";
+  const connected = state === "connected";
+  const pending = state === "connecting" || state === "reconnecting";
 
-  const envoyer = () => {
-    const dit = texte.trim();
-    if (!dit) return;
+  const send = () => {
+    const said = text.trim();
+    if (!said) return;
     // Une notification client → serveur : pas de réponse attendue, c'est le
     // serveur qui rediffuse à tous les abonnés du canal.
-    live.emit("live:dire", { texte: dit, front: FRONT });
-    setTexte("");
+    live.emit("live:say", { text: said, front: FRONT });
+    setText("");
   };
 
   /** La MÊME action, appelée par les deux portes, chronométrée des deux côtés. */
@@ -273,21 +275,21 @@ function LiveSection() {
         <p className="live-state">
           <span
             className={
-              connecte ? "dot dot--on" : attente ? "dot dot--wait" : "dot"
+              connected ? "dot dot--on" : pending ? "dot dot--wait" : "dot"
             }
           />
-          {ETATS[state] ?? state}
+          {STATES[state] ?? state}
         </p>
         <p className="live-meta">
           {vue?.lastFrame.at
-            ? `dernière trame : ${derniereDe(vue)}`
+            ? `dernière trame : ${lastFrom(vue)}`
             : "aucune trame — le serveur se tait tant qu'il n'a rien à dire"}
         </p>
         <button
           className="btn btn--ghost"
-          onClick={() => (connecte ? live.disconnect() : void live.connect())}
+          onClick={() => (connected ? live.disconnect() : void live.connect())}
         >
-          {connecte ? "Couper la connexion" : "Rétablir"}
+          {connected ? "Couper la connexion" : "Rétablir"}
         </button>
       </div>
 
@@ -301,13 +303,13 @@ function LiveSection() {
           </p>
           <div className="saisie">
             <input
-              value={texte}
-              onChange={(e) => setTexte(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && envoyer()}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send()}
               placeholder="Écrivez, puis Entrée…"
               aria-label="Message à diffuser"
             />
-            <button className="counter" onClick={envoyer}>
+            <button className="counter" onClick={send}>
               Envoyer
             </button>
           </div>
@@ -318,7 +320,7 @@ function LiveSection() {
               messages.map((m, i) => (
                 <li key={`${m.ts}-${i}`}>
                   <span className="qui">{m.front}</span>
-                  <span>{m.texte}</span>
+                  <span>{m.text}</span>
                   <span className="quand">
                     {new Date(m.ts).toLocaleTimeString()}
                   </span>
@@ -391,11 +393,11 @@ const message = useNodefonyChannel("live:salon", (m) => …)`}</code>
  * combien il a livré. Elle ne coûte que deux appels au socle, les mêmes dans
  * les quatre vitrines : c'est précisément ce que l'extraction achète.
  */
-function OutilsBarre() {
+function ToolsBar() {
   const live = useNodefony();
   const state = useNodefonyState();
   const [vue, setVue] = useState<SocketSnapshot | null>(null);
-  const [barreVisible, setBarreVisible] = useState(
+  const [barVisible, setBarVisible] = useState(
     () => debugbar()?.isVisible() ?? false,
   );
 
@@ -403,18 +405,18 @@ function OutilsBarre() {
   // sur l'échantillonneur DÉJÀ en place (aucune horloge de plus, aucune trame).
   useEffect(() => observeSnapshot(live, setVue), [live]);
 
-  const connecte = state === "connected";
-  const attente = state === "connecting" || state === "reconnecting";
+  const connected = state === "connected";
+  const pending = state === "connecting" || state === "reconnecting";
   return (
     <div className="outils">
       <span className="sonde-hote" tabIndex={0}>
         <span className="sonde">
           <span
             className={
-              connecte ? "dot dot--on" : attente ? "dot dot--wait" : "dot"
+              connected ? "dot dot--on" : pending ? "dot dot--wait" : "dot"
             }
           />
-          {ETATS[state] ?? state}
+          {STATES[state] ?? state}
           <b>{vue?.frames ?? 0}</b> trames
         </span>
         <div className="sonde-detail" role="status">
@@ -422,13 +424,13 @@ function OutilsBarre() {
             <dt>Adresse</dt>
             <dd>{vue?.url ?? "—"}</dd>
             <dt>État</dt>
-            <dd>{ETATS[state] ?? state}</dd>
+            <dd>{STATES[state] ?? state}</dd>
             <dt>Canaux</dt>
             <dd>{vue?.channels.join(", ") || "aucun"}</dd>
             <dt>Trames reçues</dt>
             <dd>{vue?.frames ?? 0}</dd>
             <dt>Dernière</dt>
-            <dd>{derniereDe(vue)}</dd>
+            <dd>{lastFrom(vue)}</dd>
           </dl>
           <p className="rien">
             Tout cela vient du client lui-même : afficher ce panneau ne provoque
@@ -438,10 +440,10 @@ function OutilsBarre() {
       </span>
       <button
         className="bascule"
-        aria-pressed={barreVisible}
+        aria-pressed={barVisible}
         onClick={() => {
           debugbar()?.toggle();
-          setBarreVisible(debugbar()?.isVisible() ?? false);
+          setBarVisible(debugbar()?.isVisible() ?? false);
         }}
       >
         Barre de debug
@@ -463,7 +465,7 @@ function HmrCard() {
     const n = count + 1;
     setCount(n);
     // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-    live.emit("live:dire", { texte: `clic n°${n}`, front: FRONT });
+    live.emit("live:say", { text: `clic n°${n}`, front: FRONT });
   };
 
   return (
@@ -526,13 +528,13 @@ export function App() {
               <a
                 key={f.href}
                 href={f.href}
-                aria-current={f.nom === "React" ? "page" : undefined}
+                aria-current={f.name === "React" ? "page" : undefined}
               >
-                {f.nom}
+                {f.name}
               </a>
             ))}
           </nav>
-          <OutilsBarre />
+          <ToolsBar />
         </header>
 
         <main>

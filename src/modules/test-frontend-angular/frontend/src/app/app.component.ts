@@ -26,7 +26,7 @@ interface ApiData {
 
 /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
 interface Message {
-  texte: string;
+  text: string;
   front: string;
   ts: number;
   pid: number;
@@ -66,10 +66,10 @@ const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
 
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [
-  { nom: "React", href: "/react/app" },
-  { nom: "Vue", href: "/vue/app" },
-  { nom: "Angular", href: "/angular/app" },
-  { nom: "Svelte", href: "/svelte/app" },
+  { name: "React", href: "/react/app" },
+  { name: "Vue", href: "/vue/app" },
+  { name: "Angular", href: "/angular/app" },
+  { name: "Svelte", href: "/svelte/app" },
 ];
 
 @Component({
@@ -215,8 +215,8 @@ const FRONTS = [
               </p>
               <div class="saisie">
                 <input
-                  [value]="texte()"
-                  (input)="texte.set($any($event.target).value)"
+                  [value]="text()"
+                  (input)="text.set($any($event.target).value)"
                   (keydown.enter)="envoyer()"
                   placeholder="Écrivez, puis Entrée…"
                   aria-label="Message à diffuser"
@@ -230,7 +230,7 @@ const FRONTS = [
                   @for (m of messages(); track m.ts) {
                     <li>
                       <span class="qui">{{ m.front }}</span>
-                      <span>{{ m.texte }}</span>
+                      <span>{{ m.text }}</span>
                       <span class="quand">{{ heureDe(m.ts) }}</span>
                     </li>
                   }
@@ -348,13 +348,13 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly nodefony = injectNodefony();
   readonly liveState = injectNodefonyState();
   readonly messages = signal<Message[]>([]);
-  readonly texte = signal("");
+  readonly text = signal("");
   readonly parHttp = signal<string | null>(null);
   readonly parSocket = signal<string | null>(null);
   readonly vue = injectNodefonySnapshot();
-  readonly barreVisible = signal(debugbar()?.isVisible() ?? false);
+  readonly barVisible = signal(debugbar()?.isVisible() ?? false);
   /** L'extrait montré à l'écran — le code que CETTE page exécute vraiment. */
-  readonly extrait = `provideNodefony({ url: "/api/live/realtime" })  // main.ts
+  readonly excerpt = `provideNodefony({ url: "/api/live/realtime" })  // main.ts
 
 readonly liveState = injectNodefonyState()
 injectNodefonyChannel("live:salon", (m) => …)`;
@@ -369,7 +369,7 @@ injectNodefonyChannel("live:salon", (m) => …)`;
    */
   constructor() {
     injectNodefonyChannel("live:salon", (m) =>
-      this.messages.update((liste) => [...liste, m as Message].slice(-6)),
+      this.messages.update((list) => [...list, m as Message].slice(-6)),
     );
   }
 
@@ -389,8 +389,8 @@ injectNodefonyChannel("live:salon", (m) => …)`;
   increment(): void {
     this.count.update((c) => c + 1);
     // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-    this.nodefony.emit("live:dire", {
-      texte: `clic n°${this.count()}`,
+    this.nodefony.emit("live:say", {
+      text: `clic n°${this.count()}`,
       front: FRONT,
     });
   }
@@ -400,7 +400,7 @@ injectNodefonyChannel("live:salon", (m) => …)`;
   }
 
   /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
-  etatFr(): string {
+  stateLabel(): string {
     const fr: Record<string, string> = {
       connected: "connecté",
       connecting: "connexion…",
@@ -411,25 +411,25 @@ injectNodefonyChannel("live:salon", (m) => …)`;
     return fr[this.liveState()] ?? this.liveState();
   }
 
-  canaux(): string {
+  channels(): string {
     return this.vue()?.channels.join(", ") || "aucun";
   }
 
   /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
-  derniereDe(): string {
+  lastFrom(): string {
     const v = this.vue();
     return v?.lastFrame.at
       ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
       : "—";
   }
 
-  envoyer(): void {
-    const dit = this.texte().trim();
-    if (!dit) return;
+  send(): void {
+    const said = this.text().trim();
+    if (!said) return;
     // Une notification client → serveur : pas de réponse attendue, c'est le
     // serveur qui rediffuse à tous les abonnés du canal.
-    this.nodefony.emit("live:dire", { texte: dit, front: FRONT });
-    this.texte.set("");
+    this.nodefony.emit("live:say", { text: said, front: FRONT });
+    this.text.set("");
   }
 
   /** La MÊME action, appelée par les deux portes, chronométrée des deux côtés. */
@@ -447,24 +447,24 @@ injectNodefonyChannel("live:salon", (m) => …)`;
     );
   }
 
-  duree(v: string | null): string {
+  duration(v: string | null): string {
     return v?.split("\n")[0] ?? "";
   }
 
-  corps(v: string | null): string {
+  body(v: string | null): string {
     return v?.split("\n").slice(1).join("\n") ?? "—";
   }
 
-  heureDe(ts: number): string {
+  timeOf(ts: number): string {
     return new Date(ts).toLocaleTimeString();
   }
 
-  basculerBarre(): void {
+  toggleBar(): void {
     debugbar()?.toggle();
-    this.barreVisible.set(debugbar()?.isVisible() ?? false);
+    this.barVisible.set(debugbar()?.isVisible() ?? false);
   }
 
-  basculer(): void {
+  toggle(): void {
     if (this.liveState() === "connected") this.nodefony.disconnect();
     else void this.nodefony.connect();
   }

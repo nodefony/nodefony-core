@@ -23,7 +23,7 @@ interface ApiData {
 
 /** Un message du salon partagé : qui l'a écrit, depuis quelle vitrine. */
 interface Message {
-  texte: string;
+  text: string;
   front: string;
   ts: number;
   pid: number;
@@ -70,14 +70,14 @@ const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
 
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [
-  { nom: "React", href: "/react/app" },
-  { nom: "Vue", href: "/vue/app" },
-  { nom: "Angular", href: "/angular/app" },
-  { nom: "Svelte", href: "/svelte/app" },
+  { name: "React", href: "/react/app" },
+  { name: "Vue", href: "/vue/app" },
+  { name: "Angular", href: "/angular/app" },
+  { name: "Svelte", href: "/svelte/app" },
 ];
 
 /** L'état de la connexion, dit en français — un écran ne parle pas machine. */
-const ETATS: Record<string, string> = {
+const STATES: Record<string, string> = {
   connected: "connecté",
   connecting: "connexion…",
   reconnecting: "reconnexion automatique…",
@@ -90,8 +90,8 @@ const count = ref(0);
 const cliquer = (): void => {
   count.value += 1;
   // Le clic voyage : les autres vitrines l'apprennent par le serveur.
-  live.emit("live:dire", {
-    texte: `clic n°${count.value}`,
+  live.emit("live:say", {
+    text: `clic n°${count.value}`,
     front: FRONT,
   });
 };
@@ -111,23 +111,23 @@ const messages = ref<Message[]>([]);
 useNodefonyChannel("live:salon", (m) => {
   messages.value = [...messages.value, m as Message].slice(-6);
 });
-const texte = ref("");
+const text = ref("");
 const parHttp = ref<string | null>(null);
 const parSocket = ref<string | null>(null);
-const barreVisible = ref(debugbar()?.isVisible() ?? false);
+const barVisible = ref(debugbar()?.isVisible() ?? false);
 
-const basculerBarre = (): void => {
+const toggleBar = (): void => {
   debugbar()?.toggle();
-  barreVisible.value = debugbar()?.isVisible() ?? false;
+  barVisible.value = debugbar()?.isVisible() ?? false;
 };
 
-const envoyer = (): void => {
-  const dit = texte.value.trim();
-  if (!dit) return;
+const send = (): void => {
+  const said = text.value.trim();
+  if (!said) return;
   // Une notification client → serveur : pas de réponse attendue, c'est le
   // serveur qui rediffuse à tous les abonnés du canal.
-  live.emit("live:dire", { texte: dit, front: FRONT });
-  texte.value = "";
+  live.emit("live:say", { text: said, front: FRONT });
+  text.value = "";
 };
 
 /** La MÊME action, appelée par les deux portes, chronométrée des deux côtés. */
@@ -142,15 +142,15 @@ const comparer = async (): Promise<void> => {
 };
 
 /** La dernière trame, dite pour un humain — « — » tant qu'il n'y en a aucune. */
-const derniereDe = (v: SocketSnapshot | null): string =>
+const lastFrom = (v: SocketSnapshot | null): string =>
   v?.lastFrame.at
     ? `${v.lastFrame.method ?? "?"} à ${new Date(v.lastFrame.at).toLocaleTimeString()}`
     : "—";
 
-const duree = (v: string | null): string => v?.split("\n")[0] ?? "";
-const corps = (v: string | null): string =>
+const duration = (v: string | null): string => v?.split("\n")[0] ?? "";
+const body = (v: string | null): string =>
   v?.split("\n").slice(1).join("\n") ?? "—";
-const basculer = (): void => {
+const toggle = (): void => {
   if (liveState.value === "connected") live.disconnect();
   else void live.connect();
 };
@@ -210,7 +210,7 @@ onUnmounted(() => {
                   liveState === 'connecting' || liveState === 'reconnecting',
               }"
             />
-            {{ ETATS[liveState] ?? liveState }}
+            {{ STATES[liveState] ?? liveState }}
             <b>{{ vue?.frames ?? 0 }}</b> trames
           </span>
           <div class="sonde-detail" role="status">
@@ -218,7 +218,7 @@ onUnmounted(() => {
               <dt>Adresse</dt>
               <dd>{{ vue?.url ?? "—" }}</dd>
               <dt>État</dt>
-              <dd>{{ ETATS[liveState] ?? liveState }}</dd>
+              <dd>{{ STATES[liveState] ?? liveState }}</dd>
               <dt>Canaux</dt>
               <dd>
                 {{ vue?.channels.join(", ") || "aucun" }}
@@ -226,7 +226,7 @@ onUnmounted(() => {
               <dt>Trames reçues</dt>
               <dd>{{ vue?.frames ?? 0 }}</dd>
               <dt>Dernière</dt>
-              <dd>{{ derniereDe(vue) }}</dd>
+              <dd>{{ lastFrom(vue) }}</dd>
             </dl>
             <p class="rien">
               Tout cela vient du client lui-même : afficher ce panneau ne
@@ -236,8 +236,8 @@ onUnmounted(() => {
         </span>
         <button
           class="bascule"
-          :aria-pressed="barreVisible"
-          @click="basculerBarre"
+          :aria-pressed="barVisible"
+          @click="toggleBar"
         >
           Barre de debug
         </button>
@@ -298,17 +298,17 @@ onUnmounted(() => {
                   liveState === 'connecting' || liveState === 'reconnecting',
               }"
             />
-            {{ ETATS[liveState] ?? liveState }}
+            {{ STATES[liveState] ?? liveState }}
           </p>
           <p class="live-meta">
             <template v-if="vue?.lastFrame.at">
-              dernière trame : {{ derniereDe(vue) }}
+              dernière trame : {{ lastFrom(vue) }}
             </template>
             <template v-else>
               aucune trame — le serveur se tait tant qu'il n'a rien à dire
             </template>
           </p>
-          <button class="btn btn--ghost" @click="basculer">
+          <button class="btn btn--ghost" @click="toggle">
             {{ liveState === "connected" ? "Couper la connexion" : "Rétablir" }}
           </button>
         </div>
@@ -323,12 +323,12 @@ onUnmounted(() => {
             </p>
             <div class="saisie">
               <input
-                v-model="texte"
-                @keydown.enter="envoyer"
+                v-model="text"
+                @keydown.enter="send"
                 placeholder="Écrivez, puis Entrée…"
                 aria-label="Message à diffuser"
               />
-              <button class="counter" @click="envoyer">Envoyer</button>
+              <button class="counter" @click="send">Envoyer</button>
             </div>
             <ul class="salon">
               <li v-if="messages.length === 0" class="vide">
@@ -336,7 +336,7 @@ onUnmounted(() => {
               </li>
               <li v-for="(m, i) in messages" :key="`${m.ts}-${i}`">
                 <span class="qui">{{ m.front }}</span>
-                <span>{{ m.texte }}</span>
+                <span>{{ m.text }}</span>
                 <span class="quand">{{
                   new Date(m.ts).toLocaleTimeString()
                 }}</span>
@@ -357,15 +357,15 @@ onUnmounted(() => {
             <div class="deux" style="margin-top: 14px">
               <div>
                 <p class="voie">
-                  HTTP <em>{{ duree(parHttp) }}</em>
+                  HTTP <em>{{ duration(parHttp) }}</em>
                 </p>
-                <pre class="out">{{ corps(parHttp) }}</pre>
+                <pre class="out">{{ body(parHttp) }}</pre>
               </div>
               <div>
                 <p class="voie">
-                  Socket <em>{{ duree(parSocket) }}</em>
+                  Socket <em>{{ duration(parSocket) }}</em>
                 </p>
-                <pre class="out">{{ corps(parSocket) }}</pre>
+                <pre class="out">{{ body(parSocket) }}</pre>
               </div>
             </div>
           </div>

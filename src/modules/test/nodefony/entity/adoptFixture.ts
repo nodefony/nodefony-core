@@ -70,12 +70,12 @@ export const USURPED_FRAMEWORK_TABLE = "idempotency_key";
 export const ADOPT_FIXTURE_CONNECTOR = "default";
 
 /** Lecture de la consigne : le dialecte visé, et le champ ajouté ou non. */
-const consigne = (process.env.NF_ADOPT_FIXTURE ?? "").trim();
-const [dialecte, variante] = consigne.split("+");
-const avecSlug = variante === "slug";
-const usurpe = variante === "usurpe";
-const orphelin = variante === "orphelin";
-const paire = variante === "paire";
+const directive = (process.env.NF_ADOPT_FIXTURE ?? "").trim();
+const [dialect, variant] = directive.split("+");
+const withSlug = variant === "slug";
+const impersonates = variant === "usurpe";
+const orphan = variant === "orphelin";
+const paire = variant === "paire";
 
 /**
  * La table telle que l'application la déclare — ou `undefined` hors banc.
@@ -84,28 +84,28 @@ const paire = variante === "paire";
  * commun en Drizzle, et personne ici ne lit de colonne. Ce qui compte est que
  * la découverte reconnaisse un objet `Table`, ce qu'elle fait à l'exécution.
  */
-export const adoptFixtureTable: unknown = orphelin
+export const adoptFixtureTable: unknown = orphan
   ? undefined
-  : dialecte === "sqlite"
+  : dialect === "sqlite"
     ? sqliteTable(ADOPT_FIXTURE_TABLE, {
         id: sqliteText("id").primaryKey(),
         title: sqliteText("title").notNull(),
-        ...(avecSlug ? { slug: sqliteText("slug") } : {}),
+        ...(withSlug ? { slug: sqliteText("slug") } : {}),
       })
-    : dialecte === "postgres"
+    : dialect === "postgres"
       ? pgTable(ADOPT_FIXTURE_TABLE, {
           id: pgText("id").primaryKey(),
           title: pgText("title").notNull(),
-          ...(avecSlug ? { slug: pgText("slug") } : {}),
+          ...(withSlug ? { slug: pgText("slug") } : {}),
         })
-      : dialecte === "mysql"
+      : dialect === "mysql"
         ? mysqlTable(ADOPT_FIXTURE_TABLE, {
             // MySQL refuse une clé primaire sur un `text` sans longueur : le
             // décor est celui que le moteur PERMET, pas la transposition
             // littérale des deux autres.
             id: varchar("id", { length: 36 }).primaryKey(),
             title: mysqlText("title").notNull(),
-            ...(avecSlug ? { slug: mysqlText("slug") } : {}),
+            ...(withSlug ? { slug: mysqlText("slug") } : {}),
           })
         : undefined;
 
@@ -118,17 +118,17 @@ export const adoptFixtureTable: unknown = orphelin
  * génération doit reconnaître, avant même de regarder ses colonnes.
  */
 export const usurpedFixtureTable: unknown =
-  !usurpe || dialecte === undefined
+  !impersonates || dialect === undefined
     ? undefined
-    : dialecte === "sqlite"
+    : dialect === "sqlite"
       ? sqliteTable(USURPED_FRAMEWORK_TABLE, {
           key: sqliteText("key").primaryKey(),
         })
-      : dialecte === "postgres"
+      : dialect === "postgres"
         ? pgTable(USURPED_FRAMEWORK_TABLE, {
             key: pgText("key").primaryKey(),
           })
-        : dialecte === "mysql"
+        : dialect === "mysql"
           ? mysqlTable(USURPED_FRAMEWORK_TABLE, {
               key: varchar("key", { length: 190 }).primaryKey(),
             })
@@ -148,17 +148,17 @@ export const PAIRED_FIXTURE_TABLE = "adopt_cli_tag";
  */
 export const pairedFixtureTable: unknown = !paire
   ? undefined
-  : dialecte === "sqlite"
+  : dialect === "sqlite"
     ? sqliteTable(PAIRED_FIXTURE_TABLE, {
         id: sqliteText("id").primaryKey(),
         label: sqliteText("label"),
       })
-    : dialecte === "postgres"
+    : dialect === "postgres"
       ? pgTable(PAIRED_FIXTURE_TABLE, {
           id: pgText("id").primaryKey(),
           label: pgText("label"),
         })
-      : dialecte === "mysql"
+      : dialect === "mysql"
         ? mysqlTable(PAIRED_FIXTURE_TABLE, {
             id: varchar("id", { length: 36 }).primaryKey(),
             label: mysqlText("label"),
@@ -181,13 +181,13 @@ export const ORPHAN_FIXTURE_TABLE = "adopt_cli_orphan";
  *
  * Sa forme n'a aucune importance : seul son NOM entre au registre.
  */
-const orphelineTable: unknown = !orphelin
+const orphelineTable: unknown = !orphan
   ? undefined
-  : dialecte === "sqlite"
+  : dialect === "sqlite"
     ? sqliteTable(ORPHAN_FIXTURE_TABLE, { id: sqliteText("id").primaryKey() })
-    : dialecte === "postgres"
+    : dialect === "postgres"
       ? pgTable(ORPHAN_FIXTURE_TABLE, { id: pgText("id").primaryKey() })
-      : dialecte === "mysql"
+      : dialect === "mysql"
         ? mysqlTable(ORPHAN_FIXTURE_TABLE, {
             id: varchar("id", { length: 36 }).primaryKey(),
           })

@@ -72,21 +72,21 @@ function vendorOf(orm: unknown): string {
  *
  * @param request - requête admin (`?connector=`, défaut « default »).
  * @param capability - nom de la méthode optionnelle demandée à l'ORM.
- * @param absente - ce qu'on dit quand l'ORM ne la porte pas.
+ * @param missingMessage - ce qu'on dit quand l'ORM ne la porte pas.
  * @returns la réponse de l'ORM, ou une réponse d'administration explicite.
  */
 async function migrationCapability(
   request: IAdminRequest,
   capability: "migrationStatus" | "migrationPlan" | "applyMigrations",
-  absente: string,
+  missingMessage: string,
 ): Promise<unknown> {
   const connector = oneParam(request, "connector") ?? "default";
   if (!ormRegistry.has(connector)) {
-    const connus = ormRegistry.list().join(", ");
+    const known = ormRegistry.list().join(", ");
     return {
       status: 404,
       body: {
-        error: `aucun connecteur « ${connector} » — ceux que cette application déclare : ${connus || "aucun"}`,
+        error: `aucun connecteur « ${connector} » — ceux que cette application déclare : ${known || "aucun"}`,
       },
     };
   }
@@ -114,7 +114,7 @@ async function migrationCapability(
         error: {
           code: "NF_MIGRATE_NO_MIGRATIONS",
           summary: `Le connecteur « ${connector} » est porté par ${vendorOf(orm) || orm.name}, dont la base ne se met pas à jour par des migrations de schéma.`,
-          meaning: `${absente} Les migrations par fichiers versionnés sont une mécanique SQL ; les autres bases résorbent l'écart entre le code et le schéma autrement.`,
+          meaning: `${missingMessage} Les migrations par fichiers versionnés sont une mécanique SQL ; les autres bases résorbent l'écart entre le code et le schéma autrement.`,
           nextActions: [],
         },
       },

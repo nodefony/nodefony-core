@@ -244,6 +244,37 @@ export const DEFAULT_EXCEPTIONS = [
     identifier: "stockage",
     reason: "même clé d'allowlist que `rendu` ci-dessus.",
   },
+  {
+    path: "src/packages/@nodefony/studio/frontend/src/utils/health.ts",
+    identifier: "Erreurs",
+    reason:
+      "clé de DONNÉES appariée à son LIBELLÉ : la table des poids est indexée " +
+      "par le texte affiché sur l'écran de supervision, aux côtés de « Mémoire " +
+      "(heap) », « Temps réel » et « Saturation (ELU) ». Le code la relit par " +
+      'chaîne (`wOf("Erreurs")`) ; l\'angliciser seule rendrait la table à ' +
+      "moitié traduite chez l'utilisateur.",
+  },
+  {
+    path: "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
+    identifier: "Erreurs",
+    reason: "même table de poids que `health.ts` ci-dessus.",
+  },
+  {
+    path: "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+    identifier: "identifiant",
+    reason:
+      "EN-TÊTE de colonne : cet objet part dans `console.table`, qui imprime " +
+      "le nom de la propriété en tête de colonne, à côté de `rôles` et " +
+      "`verrouillé` — que le dictionnaire ne voit pas, leurs accents les " +
+      "protégeant. L'angliciser seule rendrait la table à moitié traduite chez " +
+      "l'utilisateur. Le même objet est le corps de `--json` : les deux sorties " +
+      "sont un seul contrat.",
+  },
+  {
+    path: "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+    identifier: "actif",
+    reason: "même en-tête de colonne que `identifiant` ci-dessus.",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

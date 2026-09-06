@@ -530,16 +530,16 @@ const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
  * @param name - clé courte (`redis`) ou nom de paquet (`@nodefony/redis`).
  * @returns les noms de paquets à tenter, du plus probable au moins probable.
  */
-export function candidatsPaquetNodefony(name: string): string[] {
+export function nodefonyPackageCandidates(name: string): string[] {
   if (!PACKAGE_NAME.test(name)) return [];
-  const dansLePerimetre = (pkg: string): boolean =>
+  const inScope = (pkg: string): boolean =>
     pkg === "nodefony" || pkg === CORE_PACKAGE || pkg.startsWith("@nodefony/");
   // Une clé DÉJÀ scopée ne se préfixe pas : `@nodefony/@nodefony/redis` ne
   // désigne rien, et l'essayer d'abord ne coûte qu'un accès disque inutile —
   // mais c'est le genre de candidat absurde qui finit par masquer un vrai
   // problème de résolution.
   const candidats = name.includes("/") ? [name] : [`@nodefony/${name}`, name];
-  return candidats.filter(dansLePerimetre);
+  return candidats.filter(inScope);
 }
 
 export function createKernelAdminApi(kernel: IKernel): IAdminApi {
@@ -571,7 +571,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // rendait les pages de `chrome-launcher`, c'est-à-dire qu'elle exposait
   // l'arbre de dépendances d'une application à qui interroge la porte.
   const resolvePackageDir = (name: string): string | null => {
-    for (const candidate of candidatsPaquetNodefony(name)) {
+    for (const candidate of nodefonyPackageCandidates(name)) {
       const dir = join(repoRoot, "node_modules", candidate);
       // Dans ce dépôt, c'est un lien vers le workspace ; chez un utilisateur,
       // le paquet dépaqueté. Les deux répondent au même chemin.

@@ -84,21 +84,21 @@ class SecurityUserAdd extends Command {
    * Un rôle inconnu du RBAC n'est pas une faute : il est simplement inerte.
    * On ne refuse donc rien, on PROPOSE ce qu'on sait.
    */
-  #rolesConnus(): string[] {
+  #knownRoles(): string[] {
     const modules = this.kernel?.modules as
       Record<string, { options?: Record<string, unknown> }> | undefined;
-    const hierarchie = (
+    const hierarchy = (
       modules?.security?.options as
         { roleHierarchy?: Record<string, string[]> } | undefined
     )?.roleHierarchy;
-    const tous = new Set<string>([ROLE_BASE]);
-    for (const [porteur, couverts] of Object.entries(hierarchie ?? {})) {
-      tous.add(porteur);
-      for (const c of couverts) tous.add(c);
+    const all = new Set<string>([ROLE_BASE]);
+    for (const [porteur, couverts] of Object.entries(hierarchy ?? {})) {
+      all.add(porteur);
+      for (const c of couverts) all.add(c);
     }
     // `ROLE_USER` d'abord (le défaut), puis l'ordre déclaré : le premier choix
     // proposé doit être celui qu'on prend neuf fois sur dix.
-    return [ROLE_BASE, ...[...tous].filter((r) => r !== ROLE_BASE).sort()];
+    return [ROLE_BASE, ...[...all].filter((r) => r !== ROLE_BASE).sort()];
   }
 
   // Argument positionnel déclaré → commander appelle (identifier, options, cmd).
@@ -184,15 +184,15 @@ class SecurityUserAdd extends Command {
       // depuis toujours, et rien ne la faisait connaître à qui n'avait pas lu
       // `--help`. Un compte créé sans rôle utile est un compte à refaire.
       await this.loadPrompts();
-      const choisis = (await this.prompts.checkbox({
+      const chosen = (await this.prompts.checkbox({
         message: `Rôles de « ${identifier} » :`,
-        choices: this.#rolesConnus().map((r) => ({
+        choices: this.#knownRoles().map((r) => ({
           name: r,
           value: r,
           checked: r === ROLE_BASE,
         })),
       })) as string[];
-      roles = choisis.length > 0 ? choisis : [ROLE_BASE];
+      roles = chosen.length > 0 ? chosen : [ROLE_BASE];
     } else {
       roles = [ROLE_BASE];
     }

@@ -52,19 +52,19 @@ export const MODE_SECRET = 0o600;
  *         droits n'est PAS un fichier absent, et le confondre ferait écraser un
  *         secret existant par un fichier neuf.
  */
-export async function lireSiPresent(fichier: string): Promise<string | null> {
+export async function readIfPresent(file: string): Promise<string | null> {
   try {
-    return await readFile(fichier, "utf8");
+    return await readFile(file, "utf8");
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw e;
   }
 }
 
-/** Forme synchrone de {@link lireSiPresent}. */
-export function lireSiPresentSync(fichier: string): string | null {
+/** Forme synchrone de {@link readIfPresent}. */
+export function readIfPresentSync(file: string): string | null {
   try {
-    return readFileSync(fichier, "utf8");
+    return readFileSync(file, "utf8");
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw e;
@@ -78,10 +78,10 @@ export function lireSiPresentSync(fichier: string): string | null {
  *          d'erreur normal parlera), sinon le mode effectif quand il diffère de
  *          0600 — et `undefined` quand tout va bien.
  */
-export function modeNonRestreint(fichier: string): number | null | undefined {
+export function modeNonRestreint(file: string): number | null | undefined {
   let mode: number;
   try {
-    mode = statSync(fichier).mode & 0o777;
+    mode = statSync(file).mode & 0o777;
   } catch {
     return null;
   }
@@ -90,11 +90,11 @@ export function modeNonRestreint(fichier: string): number | null | undefined {
 
 /** Forme asynchrone de {@link modeNonRestreint}. */
 export async function modeNonRestreintAsync(
-  fichier: string,
+  file: string,
 ): Promise<number | null | undefined> {
   let mode: number;
   try {
-    mode = ((await stat(fichier)).mode & 0o777) as number;
+    mode = ((await stat(file)).mode & 0o777) as number;
   } catch {
     return null;
   }
@@ -107,16 +107,16 @@ export async function modeNonRestreintAsync(
  * Elle nomme la cause probable et ce qui reste à faire : un avertissement qui
  * dit seulement « mode inattendu » se lit comme du bruit et finit ignoré.
  */
-export function messageNonRestreint(fichier: string, mode: number): string {
+export function messageNonRestreint(file: string, mode: number): string {
   return (
-    `${fichier} porte un SECRET mais n'est PAS restreint au seul propriétaire ` +
+    `${file} porte un SECRET mais n'est PAS restreint au seul propriétaire ` +
     `(mode ${mode.toString(8).padStart(4, "0")}, attendu 0600). Le système de ` +
     `fichiers n'applique pas les permissions POSIX (NTFS, FAT/exFAT, NFS sans ` +
     `mapping d'identité), ou le fichier a été déposé par un tiers. La ` +
     `confidentialité dépend alors des seuls droits du dossier — restreignez-les : ` +
     (process.platform === "win32"
-      ? `icacls "${fichier}" /inheritance:r /grant:r "%USERNAME%:R"`
-      : `chmod 600 "${fichier}"`) +
+      ? `icacls "${file}" /inheritance:r /grant:r "%USERNAME%:R"`
+      : `chmod 600 "${file}"`) +
     `.`
   );
 }
@@ -129,15 +129,15 @@ export function messageNonRestreint(fichier: string, mode: number): string {
  * défaut. `chmod` est ensuite réappliqué sur la cible : un `rename` par-dessus
  * un fichier EXISTANT conserve, sur certains systèmes, le mode de la cible.
  */
-export async function ecrireSecret(
-  fichier: string,
-  contenu: string,
+export async function writeSecret(
+  file: string,
+  content: string,
 ): Promise<void> {
-  await mkdir(path.dirname(fichier), { recursive: true });
-  const tmp = `${fichier}.${process.pid}.tmp`;
-  await writeFile(tmp, contenu, { mode: MODE_SECRET });
+  await mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  await writeFile(tmp, content, { mode: MODE_SECRET });
   try {
-    await rename(tmp, fichier);
+    await rename(tmp, file);
   } catch (e) {
     // 🔴 LE TEMPORAIRE PORTE LE SECRET. S'il survit à l'échec, il reste sur le
     // disque, en clair, et personne ne le nettoiera. Le cas n'est pas
@@ -149,13 +149,13 @@ export async function ecrireSecret(
   }
 }
 
-/** Forme synchrone de {@link ecrireSecret}. */
-export function ecrireSecretSync(fichier: string, contenu: string): void {
-  mkdirSync(path.dirname(fichier), { recursive: true });
-  const tmp = `${fichier}.${process.pid}.tmp`;
-  writeFileSync(tmp, contenu, { mode: MODE_SECRET });
+/** Forme synchrone de {@link writeSecret}. */
+export function writeSecretSync(file: string, content: string): void {
+  mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, content, { mode: MODE_SECRET });
   try {
-    renameSync(tmp, fichier);
+    renameSync(tmp, file);
   } catch (e) {
     // Voir `ecrireSecret` : le temporaire porte le secret, il ne survit pas à
     // un échec.
@@ -169,7 +169,7 @@ export function ecrireSecretSync(fichier: string, contenu: string): void {
   // Un `rename` sur une cible existante peut en garder le mode : on le réaffirme.
   // L'échec n'est pas fatal — `modeNonRestreint` le CONSTATERA et le dira.
   try {
-    chmodSync(fichier, MODE_SECRET);
+    chmodSync(file, MODE_SECRET);
   } catch {
     /* constaté ailleurs, jamais supposé */
   }

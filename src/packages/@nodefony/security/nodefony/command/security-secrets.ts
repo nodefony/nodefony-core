@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { lireSiPresentSync } from "../src/token/secretFile.js";
+import { readIfPresentSync } from "../src/token/secretFile.js";
 import path from "node:path";
 import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 
@@ -33,22 +33,25 @@ const KEYS = ["NF_TOTP_KEY", "NF_WEBHOOK_KEY", "NF_CSRF_SECRET"] as const;
  * La conséquence est écrite au présent et pour la PRODUCTION : c'est là qu'une
  * clé absente cesse d'être un avertissement de développement.
  */
-const ROLES: Record<string, { protege: string; sans: string }> = {
+const ROLES: Record<string, { protected: string; without: string }> = {
   NF_TOTP_KEY: {
-    protege: "chiffre le secret 2FA de chaque compte au repos (AES-256-GCM)",
-    sans: "2FA désactivé en production — un secret chiffré par une clé éphémère serait illisible au redémarrage",
+    protected: "chiffre le secret 2FA de chaque compte au repos (AES-256-GCM)",
+    without:
+      "2FA désactivé en production — un secret chiffré par une clé éphémère serait illisible au redémarrage",
   },
   NF_WEBHOOK_KEY: {
-    protege: "chiffre les secrets de signature des webhooks au repos",
-    sans: "webhooks désactivés en production (fail-safe, jamais de signature muette)",
+    protected: "chiffre les secrets de signature des webhooks au repos",
+    without:
+      "webhooks désactivés en production (fail-safe, jamais de signature muette)",
   },
   NF_CSRF_SECRET: {
-    protege: "signe les jetons anti-rejeu des mutations (`@CsrfProtect`)",
-    sans: "en cluster, le jeton émis par un pod est rejeté par les autres",
+    protected: "signe les jetons anti-rejeu des mutations (`@CsrfProtect`)",
+    without: "en cluster, le jeton émis par un pod est rejeté par les autres",
   },
   "jwt.keystore": {
-    protege: "signe les JWT (clé Ed25519, rotation gérée par le keystore)",
-    sans: "chaque process signe avec la sienne : un jeton émis par la CLI est refusé par le serveur",
+    protected: "signe les JWT (clé Ed25519, rotation gérée par le keystore)",
+    without:
+      "chaque process signe avec la sienne : un jeton émis par la CLI est refusé par le serveur",
   },
 };
 
@@ -110,7 +113,7 @@ class SecuritySecrets extends Command {
       // `lireSiPresentSync` plutôt qu'un `existsSync ? read : ""` de plus : le
       // paquet porte DÉJÀ cette règle, et deux copies d'une lecture tolérante
       // divergent — l'une distingue « absent » d'« illisible », l'autre non.
-      return lireSiPresentSync(path.resolve(this.#root(), file)) ?? "";
+      return readIfPresentSync(path.resolve(this.#root(), file)) ?? "";
     } catch {
       return "";
     }
@@ -162,14 +165,14 @@ class SecuritySecrets extends Command {
     // Ce que chaque secret PROTÈGE, avant de dire s'il est en place : « ✓ » sur
     // un nom qu'on ne comprend pas n'apprend rien, et c'est ce que la commande
     // affichait quand tout était câblé.
-    for (const [nom, role] of Object.entries(ROLES)) {
+    for (const [name, role] of Object.entries(ROLES)) {
       const pose =
-        nom === "jwt.keystore"
+        name === "jwt.keystore"
           ? /keystore\s*:/u.test(cfgTs)
-          : new RegExp(`^\\s*${nom}\\s*=`, "m").test(dotenv);
+          : new RegExp(`^\\s*${name}\\s*=`, "m").test(dotenv);
       w(
-        `  ${pose ? GREEN + "✓" : YELLOW + "○"}${RESET} ${BOLD}${nom.padEnd(16)}${RESET}${DIM}${role.protege}${RESET}\n` +
-          `    ${DIM}sans → ${role.sans}${RESET}\n`,
+        `  ${pose ? GREEN + "✓" : YELLOW + "○"}${RESET} ${BOLD}${name.padEnd(16)}${RESET}${DIM}${role.protected}${RESET}\n` +
+          `    ${DIM}sans → ${role.without}${RESET}\n`,
       );
     }
     // 🔴 Ce qui N'EST PAS un secret de cette application, et la question qui
@@ -178,14 +181,14 @@ class SecuritySecrets extends Command {
     // lit : c'est un JETON qu'elle ÉMET, que son porteur présente pour entrer.
     // Il ne vit donc pas ici mais chez l'agent qui le porte. Le taire
     // laisserait croire à un oubli.
-    const jetonEncoreLa = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
+    const tokenStillThere = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
     w(
       `\n${DIM}  · NF_MCP_TOKEN n'est PAS un secret de cette application, et n'a rien à\n` +
         `    faire dans cette liste : c'est un jeton qu'elle ÉMET, présenté par un\n` +
         `    agent pour entrer. Aucun code d'ici ne le lit. Il se pose chez l'agent\n` +
         `    qui le porte — nodefony security:token --write.${RESET}\n`,
     );
-    if (jetonEncoreLa) {
+    if (tokenStillThere) {
       // Une ligne héritée du temps où `--write` écrivait ici : un secret sans
       // lecteur, qui ne fait qu'attendre d'être commité par erreur.
       w(

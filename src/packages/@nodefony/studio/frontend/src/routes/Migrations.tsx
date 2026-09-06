@@ -104,7 +104,7 @@ const VERDICTS: Record<
  * 4,32:1 pour du 11 px gras — sous le seuil WCAG AA de 4,5:1, mesuré par
  * axe-core sur cet écran. La nuance foncée est ce qui fait passer le texte.
  */
-const STATUTS: Record<string, { color: MantineColor; label: string }> = {
+const STATUS_STYLES: Record<string, { color: MantineColor; label: string }> = {
   applied: { color: "teal.9", label: "appliquée" },
   pending: { color: "orange.9", label: "en attente" },
   failed: { color: "red.9", label: "échec" },
@@ -123,19 +123,19 @@ function dateOf(ms?: number): string {
 }
 
 /** Un fait d'identité : étiquette au-dessus, valeur en dessous. */
-function Fait({ label, valeur }: { label: string; valeur: string }) {
+function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
         {label}
       </Text>
-      <Code>{valeur}</Code>
+      <Code>{value}</Code>
     </div>
   );
 }
 
 /** Une commande, affichée telle qu'on doit la taper, avec sa copie. */
-function Commande({ command }: { command: string }) {
+function CommandLine({ command }: { command: string }) {
   return (
     <Group gap="xs" wrap="nowrap">
       <Code style={{ flex: 1, whiteSpace: "nowrap", overflowX: "auto" }}>
@@ -205,7 +205,7 @@ function SourceTable({ source }: { source: MigrationSource }) {
             </Table.Thead>
             <Table.Tbody>
               {entries.map((e) => {
-                const s = STATUTS[e.status] ?? {
+                const s = STATUS_STYLES[e.status] ?? {
                   color: "gray" as MantineColor,
                   label: e.status,
                 };
@@ -329,7 +329,7 @@ export const Migrations = observer(() => {
   const notifications = useNotifications();
   const [connector, setConnector] = useState<string | null>(null);
   const [plan, setPlan] = useState<MigrationPlan | null>(null);
-  const [chargementPlan, setChargementPlan] = useState(false);
+  const [planLoading, setPlanLoading] = useState(false);
   const [application, setApplication] = useState(false);
 
   // 🔴 L'environnement décide de l'EXISTENCE du bouton, pas de son état
@@ -353,20 +353,20 @@ export const Migrations = observer(() => {
   // sinon le premier. Jamais « le premier venu » en silence : le sélecteur
   // montre lequel est lu.
   const connectors = useMemo(() => orms.data ?? [], [orms.data]);
-  const courant = useMemo(() => {
+  const current = useMemo(() => {
     if (connector !== null) {
       return connector;
     }
-    const parDefaut = connectors.find((o) => o.default) ?? connectors[0];
-    return parDefaut?.name ?? "default";
+    const byDefault = connectors.find((o) => o.default) ?? connectors[0];
+    return byDefault?.name ?? "default";
   }, [connector, connectors]);
 
   const statusFetcher = useCallback(
     () =>
       store.api.getAbsolute<MigrationReply>(
-        `/nodefony/orm/api/migrations?connector=${encodeURIComponent(courant)}`,
+        `/nodefony/orm/api/migrations?connector=${encodeURIComponent(current)}`,
       ),
-    [store, courant],
+    [store, current],
   );
   const { data, loading, error, reload } = useResource(statusFetcher);
 
@@ -379,12 +379,12 @@ export const Migrations = observer(() => {
    * perd son « ce que ça veut dire » et ses gestes, que la ligne de commande
    * affiche pour le même code.
    */
-  const [refusApplication, setRefusApplication] =
-    useState<MigrationFailure | null>(null);
+  const [applyRefusal, setApplyRefusal] = useState<MigrationFailure | null>(
+    null,
+  );
 
   const empechement =
-    refusApplication ??
-    (data !== null && isMigrationFailure(data) ? data : null);
+    applyRefusal ?? (data !== null && isMigrationFailure(data) ? data : null);
   const status = data !== null && !isMigrationFailure(data) ? data : null;
   const verdict = status
     ? (VERDICTS[status.verdict] ?? {
@@ -395,7 +395,7 @@ export const Migrations = observer(() => {
     : null;
   const VerdictIcon = verdict?.icon ?? IconArrowsExchange;
 
-  const enAttente = (status?.sources ?? []).reduce((n, s) => n + s.pending, 0);
+  const pending = (status?.sources ?? []).reduce((n, s) => n + s.pending, 0);
 
   /**
    * Le geste d'application est-il seulement PERMIS ?
@@ -411,11 +411,11 @@ export const Migrations = observer(() => {
   const applicable = status?.verdict === "pending";
 
   /** Charge ce qui S'APPLIQUERAIT, et ouvre la confirmation dessus. */
-  const ouvrirConfirmation = useCallback(async () => {
-    setChargementPlan(true);
+  const openConfirmation = useCallback(async () => {
+    setPlanLoading(true);
     try {
       const reply = await store.api.getAbsolute<MigrationPlanReply>(
-        `/nodefony/orm/api/migrations/plan?connector=${encodeURIComponent(courant)}`,
+        `/nodefony/orm/api/migrations/plan?connector=${encodeURIComponent(current)}`,
       );
       if (isMigrationFailure(reply)) {
         notifications.notify("error", reply.error.summary, {
@@ -432,16 +432,16 @@ export const Migrations = observer(() => {
         { source: "api" },
       );
     } finally {
-      setChargementPlan(false);
+      setPlanLoading(false);
     }
-  }, [store, courant, notifications]);
+  }, [store, current, notifications]);
 
   /** Applique — après confirmation, et seulement en développement. */
-  const appliquer = useCallback(async () => {
+  const apply = useCallback(async () => {
     setApplication(true);
     try {
       const reply = await store.api.postAbsolute<MigrationApplyReply>(
-        `/nodefony/orm/api/migrations/apply?connector=${encodeURIComponent(courant)}`,
+        `/nodefony/orm/api/migrations/apply?connector=${encodeURIComponent(current)}`,
         {},
       );
       if (isMigrationFailure(reply)) {
@@ -453,7 +453,7 @@ export const Migrations = observer(() => {
         // affiche pour le même refus. L'empêchement est donc porté par le bloc
         // qui sait les rendre, et l'état est resynchronisé — sinon l'écran
         // reste sur un verdict d'avant, périmé à l'appui.
-        setRefusApplication(reply);
+        setApplyRefusal(reply);
         setPlan(null);
         notifications.notify("error", reply.error.summary, {
           title: reply.error.code,
@@ -478,7 +478,7 @@ export const Migrations = observer(() => {
     } finally {
       setApplication(false);
     }
-  }, [store, courant, notifications, reload]);
+  }, [store, current, notifications, reload]);
 
   return (
     <PageLayout
@@ -498,21 +498,21 @@ export const Migrations = observer(() => {
                 ? `${o.name} (${o.connection.driver})`
                 : o.name,
             }))}
-            value={courant}
+            value={current}
             onChange={setConnector}
             placeholder="Connecteur"
             aria-label="Connecteur observé"
             w={240}
             allowDeselect={false}
           />
-          {enDeveloppement && applicable && enAttente > 0 && (
+          {enDeveloppement && applicable && pending > 0 && (
             <Button
               color="orange"
               leftSection={<IconPlayerPlay size={16} />}
-              loading={chargementPlan}
-              onClick={() => void ouvrirConfirmation()}
+              loading={planLoading}
+              onClick={() => void openConfirmation()}
             >
-              Appliquer ({enAttente})
+              Appliquer ({pending})
             </Button>
           )}
           <Button
@@ -561,7 +561,7 @@ export const Migrations = observer(() => {
                       À faire
                     </Text>
                     {empechement.error.nextActions.map((a) => (
-                      <Commande key={a.command} command={a.command} />
+                      <CommandLine key={a.command} command={a.command} />
                     ))}
                   </Stack>
                 )}
@@ -617,18 +617,18 @@ export const Migrations = observer(() => {
                     « Connecteur default Dialecte sqlite … » — et l'œil ne sait
                     plus ce qui est étiquette et ce qui est valeur. */}
                 <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="lg">
-                  <Fait label="Connecteur" valeur={status.connector} />
-                  <Fait
+                  <Fact label="Connecteur" value={status.connector} />
+                  <Fact
                     label="Dialecte"
-                    valeur={status.driver.dialect ?? status.driver.kind}
+                    value={status.driver.dialect ?? status.driver.kind}
                   />
-                  <Fait
+                  <Fact
                     label="Mode de schéma"
-                    valeur={status.driver.ddl ?? "—"}
+                    value={status.driver.ddl ?? "—"}
                   />
-                  <Fait
+                  <Fact
                     label="Table d'historique"
-                    valeur={status.driver.historyTable ?? "—"}
+                    value={status.driver.historyTable ?? "—"}
                   />
                 </SimpleGrid>
               </Card>
@@ -646,7 +646,7 @@ export const Migrations = observer(() => {
                   </Group>
                   <Stack gap="xs">
                     {status.nextActions.map((a) => (
-                      <Commande key={a.command} command={a.command} />
+                      <CommandLine key={a.command} command={a.command} />
                     ))}
                   </Stack>
                 </Card>
@@ -708,7 +708,7 @@ export const Migrations = observer(() => {
                     <IconPlayerPlay size={16} />
                   )
                 }
-                onClick={() => void appliquer()}
+                onClick={() => void apply()}
               >
                 Appliquer {plan.pending.length} migration(s)
               </Button>

@@ -691,7 +691,7 @@ class ScaffoldService extends Service {
     // l'app. Jamais pour une archive — le code part ailleurs, câbler les outils
     // de CE poste n'aurait aucun sens.
     if (type === "app") {
-      await this.#cablerAgents(job, stepCwd, answers);
+      await this.#wireAgents(job, stepCwd, answers);
     }
     if (type === "app") {
       this.#emit(job, "ok", `Application prête : ${stepCwd}`);
@@ -729,15 +729,15 @@ class ScaffoldService extends Service {
    * jeton : elle pose la déclaration, pas le secret. Le terminal de l'écran le
    * dit plutôt que de laisser découvrir un `401` plus tard.
    */
-  async #cablerAgents(
+  async #wireAgents(
     job: IJob,
     dest: string,
     answers: TScaffoldAnswers,
   ): Promise<void> {
-    const choisis = Array.isArray(answers.agents)
+    const chosen = Array.isArray(answers.agents)
       ? (answers.agents as string[])
       : [];
-    const argv = argvMcpWiring(choisis, AGENT_TARGETS, dest);
+    const argv = argvMcpWiring(chosen, AGENT_TARGETS, dest);
     if (argv === null) return;
     const ok = await this.#spawnNodefony(job, argv, dest);
     if (!ok) return;

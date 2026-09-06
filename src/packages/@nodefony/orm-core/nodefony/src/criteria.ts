@@ -216,9 +216,9 @@ export function searchCriteria<T>(
   q: string | undefined,
   fields: ReadonlyArray<keyof T & string>,
 ): Record<string, unknown> | null {
-  const terme = q?.trim();
-  if (!terme || fields.length === 0) return null;
-  const motif = `${escapeLikeTerm(terme)}%`;
-  if (fields.length === 1) return { [fields[0]]: { $like: motif } };
-  return { $or: fields.map((f) => ({ [f]: { $like: motif } })) };
+  const term = q?.trim();
+  if (!term || fields.length === 0) return null;
+  const likePattern = `${escapeLikeTerm(term)}%`;
+  if (fields.length === 1) return { [fields[0]]: { $like: likePattern } };
+  return { $or: fields.map((f) => ({ [f]: { $like: likePattern } })) };
 }

@@ -493,28 +493,35 @@ export async function searchModuleDocs(
       // sessions : la page était la bonne, ses extraits ne le montraient pas,
       // et un lecteur qui juge sur les extraits passait son chemin. Une ligne
       // qui porte les DEUX termes vaut mieux que trois qui n'en portent qu'un.
-      const candidats: { ligne: number; couverture: number; terme: string }[] =
-        [];
+      const candidates: {
+        lineNumber: number;
+        coverage: number;
+        matchedTerm: string;
+      }[] = [];
       for (let i = 0; i < lines.length; i += 1) {
-        const portes = terms.filter((t) => foldedLines[i].includes(t));
-        if (portes.length === 0) continue;
-        candidats.push({
-          ligne: i,
-          couverture: portes.length,
-          terme: portes[0],
+        const carried = terms.filter((t) => foldedLines[i].includes(t));
+        if (carried.length === 0) continue;
+        candidates.push({
+          lineNumber: i,
+          coverage: carried.length,
+          matchedTerm: carried[0],
         });
       }
-      candidats.sort(
-        (a, b) => b.couverture - a.couverture || a.ligne - b.ligne,
+      candidates.sort(
+        (a, b) => b.coverage - a.coverage || a.lineNumber - b.lineNumber,
       );
-      const matches: DocSearchMatch[] = candidats
+      const matches: DocSearchMatch[] = candidates
         .slice(0, perDoc)
         // Remis dans l'ordre du document : trois extraits qui remontent le
         // texte à rebours se lisent mal, et rien ne le justifie.
-        .sort((a, b) => a.ligne - b.ligne)
+        .sort((a, b) => a.lineNumber - b.lineNumber)
         .map((c) => ({
-          line: c.ligne + 1,
-          text: snippet(lines[c.ligne], foldedLines[c.ligne], c.terme),
+          line: c.lineNumber + 1,
+          text: snippet(
+            lines[c.lineNumber],
+            foldedLines[c.lineNumber],
+            c.matchedTerm,
+          ),
         }));
 
       hits.push({
@@ -529,20 +536,20 @@ export async function searchModuleDocs(
   }
 
   hits.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
-  const rendus = hits.slice(0, limit);
+  const returned = hits.slice(0, limit);
   return {
     terms,
     scanned,
     matched: hits.length,
-    hits: rendus,
-    ...(hits.length > rendus.length
+    hits: returned,
+    ...(hits.length > returned.length
       ? {
           // ⚠️ Dire la borne EFFECTIVE, jamais « par défaut » : la borne peut
           // avoir été DEMANDÉE par l'appelant, et lui présenter son propre
           // choix comme un défaut du produit l'envoie chercher un réglage
           // ailleurs. Une phrase d'aide qui se trompe coûte plus qu'une absence
           // de phrase.
-          note: `${hits.length} documents portent ces termes, ${rendus.length} sont rendus (borne « limit » = ${limit}). Précise les termes, ou rappelle avec limit plus grand.`,
+          note: `${hits.length} documents portent ces termes, ${returned.length} sont rendus (borne « limit » = ${limit}). Précise les termes, ou rappelle avec limit plus grand.`,
         }
       : {}),
   };

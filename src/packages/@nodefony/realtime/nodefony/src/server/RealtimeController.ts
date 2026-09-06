@@ -816,7 +816,7 @@ export abstract class RealtimeController<
     // attendrait des données qui ne viendront jamais : un écran vide sans cause
     // visible, indiscernable d'un canal calme. Deux causes, deux motifs, et
     // aucune n'a le droit de rester muette.
-    const plancher = getRealtimeHub().isClosedBySystemFloor(channel);
+    const floor = getRealtimeHub().isClosedBySystemFloor(channel);
     // Plancher système : décision d'AUTORISATION → motif générique, comme partout
     // (le détail de la politique ne s'offre pas à qui essuie un refus). Sinon, le
     // hub n'a trouvé personne pour PRODUIRE ce canal : nom mal orthographié ou
@@ -824,10 +824,10 @@ export abstract class RealtimeController<
     // amont par le verrou de frame, donc rendu `forbidden` qu'il existe ou non.
     const denied: IRealtimeDenied = {
       channel,
-      reason: plancher ? "forbidden" : "unknown",
+      reason: floor ? "forbidden" : "unknown",
       ...deniedDetail(
         this.kernel?.environment,
-        plancher
+        floor
           ? `« ${channel} » appartient au namespace de plateforme, dont le ` +
               `plancher est CLOS tant qu'aucun module de sécurité n'est chargé — ` +
               `ce n'est pas ton identité qui est en cause`
@@ -841,7 +841,7 @@ export abstract class RealtimeController<
     // DEBUG et non WARNING : un log par subscribe refusé sous flood serait un
     // amplificateur (même raison qu'au plafond de canaux).
     this.log(
-      plancher
+      floor
         ? `WS subscribe refusé (canal de plateforme, aucun module de sécurité) → ${channel}`
         : `WS subscribe refusé (aucun producteur pour ce canal) → ${channel}`,
       "DEBUG",

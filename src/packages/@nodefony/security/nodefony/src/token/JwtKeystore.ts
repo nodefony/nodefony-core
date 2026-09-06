@@ -6,8 +6,8 @@ import type {
   IJwtSigningKey,
 } from "../../contracts/IJwtKeystore";
 import {
-  ecrireSecret,
-  lireSiPresent,
+  writeSecret,
+  readIfPresent,
   messageNonRestreint,
   modeNonRestreintAsync,
 } from "./secretFile";
@@ -216,12 +216,12 @@ export class JwtKeystore implements IJwtKeystore {
 
   /** Lit un fichier ; `null` si absent (ENOENT), relance toute autre erreur. */
   async #readFile(file: string): Promise<string | null> {
-    return lireSiPresent(file);
+    return readIfPresent(file);
   }
 
   /** Écriture atomique (tmp + rename) en mode 600 — pas de fichier partiel lu. */
   async #writeAtomic(file: string, data: string): Promise<void> {
-    await ecrireSecret(file, data);
+    await writeSecret(file, data);
     this.#log(
       `JWT keystore: clé Ed25519 générée et persistée (${file}).`,
       "INFO",

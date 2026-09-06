@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { candidatsPaquetNodefony } from "../../src/KernelAdminApi.js";
+import { nodefonyPackageCandidates } from "../../src/KernelAdminApi.js";
 
 /**
  * Ce que cette suite prouve : la porte de documentation résout une clé de
@@ -18,7 +18,9 @@ describe("résolution d'un paquet Nodefony depuis une clé de module", () => {
     // Et l'homonyme tiers n'est pas seulement SECOND : il est écarté. Le
     // périmètre le veut, et c'est plus sûr — servir la documentation d'une
     // dépendance quelconque n'a jamais été le sujet.
-    expect(candidatsPaquetNodefony("redis")).to.deep.equal(["@nodefony/redis"]);
+    expect(nodefonyPackageCandidates("redis")).to.deep.equal([
+      "@nodefony/redis",
+    ]);
   });
 
   it("🔴 une dépendance HORS du framework n'est jamais servie", () => {
@@ -26,21 +28,21 @@ describe("résolution d'un paquet Nodefony depuis une clé de module", () => {
     // gardes distinctes qu'on confond. Sans la seconde, la porte rendait les
     // pages de `chrome-launcher` : l'arbre de dépendances d'une application
     // exposé à qui interroge la porte.
-    expect(candidatsPaquetNodefony("chrome-launcher")).to.deep.equal([
+    expect(nodefonyPackageCandidates("chrome-launcher")).to.deep.equal([
       "@nodefony/chrome-launcher",
     ]);
-    expect(candidatsPaquetNodefony("express")).to.not.include("express");
+    expect(nodefonyPackageCandidates("express")).to.not.include("express");
   });
 
   it("le socle passe sous son nom npm ET sous son nom logique", () => {
     // Héritage du dépôt JS : le core se nomme `nodefony` sur npm quand le reste
     // de la pile porte le scope.
-    expect(candidatsPaquetNodefony("nodefony")).to.include("nodefony");
-    expect(candidatsPaquetNodefony("core")).to.deep.equal(["@nodefony/core"]);
+    expect(nodefonyPackageCandidates("nodefony")).to.include("nodefony");
+    expect(nodefonyPackageCandidates("core")).to.deep.equal(["@nodefony/core"]);
   });
 
   it("une clé DÉJÀ scopée ne se double pas", () => {
-    expect(candidatsPaquetNodefony("@nodefony/redis")).to.deep.equal([
+    expect(nodefonyPackageCandidates("@nodefony/redis")).to.deep.equal([
       "@nodefony/redis",
     ]);
   });
@@ -53,7 +55,7 @@ describe("résolution d'un paquet Nodefony depuis une clé de module", () => {
       "",
       "UPPER",
     ]) {
-      expect(candidatsPaquetNodefony(hostile), hostile).to.deep.equal([]);
+      expect(nodefonyPackageCandidates(hostile), hostile).to.deep.equal([]);
     }
   });
 });

@@ -1161,14 +1161,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // un silence ferait chercher longtemps pourquoi `context.session` est nul.
     if (context.security?.stateless === true) {
       if (intent) {
-        const nom = context.security.name;
+        const name = context.security.name;
         if (this.#statelessIntentVues === null) {
           this.#statelessIntentVues = new Set();
         }
-        if (!this.#statelessIntentVues.has(nom)) {
-          this.#statelessIntentVues.add(nom);
+        if (!this.#statelessIntentVues.has(name)) {
+          this.#statelessIntentVues.add(name);
           this.log(
-            `Zone "${nom}" is stateless: the session requested by this route is ` +
+            `Zone "${name}" is stateless: the session requested by this route is ` +
               `IGNORED (no session opened, no cookie sent). Drop \`stateless: true\` ` +
               `on the area, or stop requiring a session on its routes.`,
             "WARNING",
