@@ -3,6 +3,30 @@
 > **Mis à jour : 2026-08-20** (audit vérité — cf mémoire IA `core-dev/migration/AUDIT-verite-2026-08.md` ; passes précédentes : `AUDIT-verite-2026-06.md`).
 > **Retouche du 2026-09-01** : `P14.14` et `P14.16` cochées, chacune prouvée au CODE. Les 41 autres
 > cases non cochées gardent leur statut, **non vérifié** — c'est l'objet du ticket [#80](https://github.com/nodefony/nodefony-core/issues/80).
+>
+> ### 🎯 Ce fichier TEND VERS SON ARCHIVE
+>
+> Il a été la carte d'un chantier de migration ; ce chantier se termine. **L'avancement du travail
+> vit désormais dans les tickets** — jalons `10.0.0` (la publication), `10.1` (**cloud-native et
+> problèmes importants**), `10.2` (évolutions fonctionnelles et confort), plus le backlog qui ne
+> promet aucune date. L'empreinte hors ligne est [`.ai/BOARD.md`](.ai/BOARD.md), **générée**.
+>
+> Ce qui reste ici, et qui n'a pas d'équivalent ailleurs : **la carte des phases** — ce qui a été
+> migré, ce qui ne l'est pas, et la décomposition vérifiée au code des phases encore ouvertes
+> (P12, P15, P16, P17). Un ticket dit ce qu'on va faire ; cette page dit **où en est le tout**.
+>
+> **La règle de sortie** : dès qu'une phase se solde, elle se résume en une ligne et son détail part
+> dans `docs/archives/`. Quand toutes les phases ouvertes auront leurs tickets, ce fichier n'aura
+> plus de raison d'être — il ne se laissera pas mourir de vieillesse, il sera archivé d'un geste.
+> L'instrument qui l'audite (`nodefony-session`, `references/migration-audit.md`) le suivra : il
+> n'a de sens que tant qu'il y a une carte à confronter au code.
+>
+> ⚠️ **Les compteurs ci-dessous se MESURENT, ils ne se recopient pas.** Le comptage des phases a sa
+> recette (le `awk` sur la 1ʳᵉ cellule, dans `references/migration-audit.md` — compté à la main, on
+> compte les emoji n'importe où) ; les deux lignes `DOC` viennent de `build-docs-site.mjs --list`
+> passé à `doc-lint.mjs` et `anchor-check.mjs`. Un chiffre écrit sans sa commande vieillit sans
+> prévenir : les trois qui étaient ici — 437 ancres en dérive, 61/63 pages, 84 pages publiées —
+> étaient tous faux au moment de les relire.
 > Légende : ✅ Migré | 🔶 Partiel | ⬜ À faire | 🚫 Bloqué | ⏭️ Skip/Caduc
 >
 > **Règle de tenue (CONVENTION) :** statut en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`), **1 ligne courte**
@@ -335,12 +359,12 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
  P13 Realtime distribué    ████████░░  77%  10✅  3🔶  2⬜   (reste Kafka 13.6a/b · décorateurs 13.8)
  P14 Frontend Vite + iso   █████████░  92%  16✅  1🔶  1⬜   (P14.18 ✅ origine par Host · svelte5 ✅ · solid retiré ; P14.14 CSP dynamique ✅ #135 · P14.16 syslog front→back ✅ #35)
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
- P16 Cloud-Native (10 axes)████▌░░░░░  45%  15✅  0🔶 18⬜   (33 sous-items vérifiés code 08-20 · 16.J /metrics repoussé)
+ P16 Cloud-Native (10 axes)█████▌░░░░  55%  18✅  0🔶 15⬜   (33 sous-items · 16.G.2/G.3/G.4 fermés par les guides publiés · 16.J /metrics repoussé · le reste est le THÈME du jalon 10.1)
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    ███████▎░░  74% 144✅ 24🔶 44⬜  (212 tâches · somme des lignes ci-dessus, recomptée le 2026-09-01 — la ligne annonçait 141/211 pour 142/212 réels)
+ GLOBAL                    ███████▌░░  75% 147✅ 24🔶 41⬜  (212 tâches · somme des lignes ci-dessus · recalé au recomptage de 16.G)
 ────────────────────────────────────────────────────────────────────────
- DOC Corpus de référence   █████████▋  97%  61/63 pages aux 4 gates (rejoués 08-20) · 437 ancres en DÉRIVE (dette)
- DOC Site public           ██████████ 100%  84 pages PUBLIÉES sur GitHub Pages (f9aaf5de) · accueil + /docs/ + /performance/
+ DOC Corpus de référence   ██████████ 100%  97/97 pages aux 4 gates · 4 526 ancres : 4 148 justes, 378 à revoir, ZÉRO fichier introuvable, ZÉRO ligne hors bornes
+ DOC Site public           ██████████ 100%  97 pages PUBLIÉES · accueil + /docs/ + /performance/ · le périmètre se DEMANDE : `node scripts/build-docs-site.mjs --list`
  BANC devkit (référence)   █████████▍  94%  31/33 PASS unanimes (référence 247f6bce, 3 runs, décor `MCP eteint`) · référence RÉENREGISTRÉE le 09-02 après réparation de l'instrument : 3 rouges sur 6 accusaient l'agent à tort (matière aux sauts de ligne échappés, contexte d'ancrage d'une édition pris pour un geste, juge sans jeton anti-rejeu) · restent T33 et T34 à 2/3, instabilités d'AGENT (une passe sur trois détruit la base)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -694,7 +718,14 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 ### P16 — Cloud-Native (45 %) — décomposition VÉRIFIÉE au code (audit 08-20)
 
 > Comptage par SOUS-ITEM (plan `project_cloud_native_plan` + axes H/I/J ajoutés depuis) : chaque
-> ✅/⬜ ci-dessous a été confronté au code le 08-20 — **15✅ 18⬜ = 33 sous-items, 45 %**.
+> ✅/⬜ ci-dessous a été confronté au code le 08-20 — **18✅ 15⬜ = 33 sous-items, 55 %** après le
+> recalage de 16.G (trois de ses quatre sous-items sont couverts par des pages PUBLIÉES).
+>
+> 🎯 **Cette décomposition est la matière du jalon `10.1`**, dont le thème est cloud-native et
+> problèmes importants. Les sous-items encore ⬜ qui n'ont pas de ticket en sont les candidats —
+> par ordre de ce qu'un exploitant subit : **16.C secrets** (4 items, 0 occurrence), **16.A.2**
+> (`onPreShutdown`/`onDrain`), **16.G.1** (page publique des variables), **16.H.6** (banc backplane
+> cross-pod), **16.A.4** (avertissement PID 1 sans `tini`), **16.J** (`/metrics`, repoussé).
 > L'axe 16.A affiché « ✅ » jusqu'ici ne l'était que pour A.1 : A.2/A.3/A.4 n'existent pas (0 occurrence).
 
 <!-- prettier-ignore -->
@@ -706,7 +737,7 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 | 16.D Docker | ⬜ D.1 `Dockerfile.dev` · ✅ D.2 Dockerfile PROD multi-stage (gabarit `create app` : HEALTHCHECK `/readyz`, USER node, node PID 1 — prouvé sur app générée depuis le tarball) · ✅ D.3 compose (`docker/docker-compose.yml`) · ✅ D.4 profils (postgres/mongo/redis/kafka/tools/loki/opensearch/proxy/browser) · ✅ D.5 réseau bridge + alias DNS |
 | 16.E Skills/Tooling | ⬜ E.1 `docker-debug` · ⬜ E.2 `infra-up` · ⬜ E.3 détection conteneur dans start-server — absents de `.claude/skills/` |
 | 16.F Cleanup PM2 | ✅ F.1 code retiré (0 occurrence `pm2Service`/`Pm2Command`/`NF_MODE_START==="PM2"`) · ✅ F.2 dep npm retirée · ⬜ F.3 doc migration PM2→systemd/docker |
-| 16.G Docs DevOps | ⬜ G.1 env-vars · ⬜ G.2 health-endpoints · ⬜ G.3 quickstart-docker · ⬜ G.4 quickstart-k8s — seul `docs/guides/docker-cloud-native.md` existe (partiel) |
+| 16.G Docs DevOps | ⬜ G.1 env-vars (aucune page PUBLIQUE ; `.ai/ENV.md` est généré et hors du site) · ✅ G.2 health-endpoints (`http/docs/servers.md` § Probes de santé : les deux sondes, `setReadiness`, et pourquoi `livez` reste à 200 pendant le drain) · ✅ G.3 quickstart-docker (`docs/guides/docker-cloud-native.md` + `docs/guides/reverse-proxy.md`, qui porte la recette proxy et le générateur) · ✅ G.4 quickstart-k8s (`docs/guides/kubernetes.md` : Deployment, Secret, ConfigMap, Service, Ingress, Job de migration, HPA) |
 | 16.H Scaling multi-process | ✅ H.1 topologie `workers` · ✅ H.2 `cluster -w N` (`ClusterManager`, cgroup-aware) · ✅ H.3 sonde/worker · ✅ H.4 Studio cluster · ⬜ H.6 banc backplane cross-pod k8s (l'anti-écho `resolveBackplaneOriginId` = `(NF_POD_NAME ?? hostname):pid` EST livré, `originId.ts:24`) |
 | 16.I Liveness/Readiness | ✅ route PUBLIQUE graduée `/nodefony/kernel/api/livez` (`95bb221f`, zone `nodefony-liveness`, pattern Actuator) |
 | 16.J Métriques | ⬜ `/metrics` Prometheus (0 occurrence — repoussé, décidé 06-15 ; données déjà dispo `dashboard:stats`) |
