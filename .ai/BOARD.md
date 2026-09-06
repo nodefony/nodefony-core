@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-06 03:06** (UTC).
+> Empreinte prise le **2026-09-06 08:26** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,7 +16,7 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 37 | 124 | 2026-11-15 |
+| 10.0.0 | 37 | 125 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -39,7 +39,12 @@ Ordre 4 · P1 — figé à la création · 2.5 j · jalon 10.0.0
 | 4.5 | P1 — figé à la création | 0.5 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 4.6 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 4.8 | P1 — figé à la création | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
-| 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
+| 5 | P1 — figé à la création | 8 | #53 | docs: remettre la documentation à niveau avant la version 10 |
+| 5.1 | P1 — figé à la création | 0.5 | #24 | docs(security): expliquer comment obtenir un jeton |
+| 5.2 | P1 — figé à la création | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
+| 5.3 | P1 — figé à la création | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
+| 5.4 | P1 — figé à la création | 0.5 | #47 | docs(release): préparer la page d'accueil du jour de la publication |
+| 6 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
 | 9.4 | P2 — décision | 0.5 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
 | 9.45 | P2 — décision | 0.5 | #214 | fix(http): glisser de port si une autre app l'écoute déjà |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
@@ -61,21 +66,17 @@ Ordre 4 · P1 — figé à la création · 2.5 j · jalon 10.0.0
 | 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
-| 40 | P1 — figé à la création | 8 | #53 | docs: remettre la documentation à niveau avant la version 10 |
-| 45 | P3 — fin de cycle | 0.5 | #24 | docs(security): expliquer comment obtenir un jeton |
-| 46 | P3 — fin de cycle | 0.5 | #47 | docs(release): préparer la page d'accueil du jour de la publication |
-| 47 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
-| 48 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
 | 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
-## Backlog — aucune date promise · 3 ouverts
+## Backlog — aucune date promise · 4 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 | 141 | P3 — fin de cycle | 1 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |
 | 142 | P3 — fin de cycle | 1 | #217 | fix(bench): réparer trois bancs de charge hors service |
+| 143 | P2 — décision | 1 | #218 | test(http): caractériser la hausse du RSS d'un pod sous charge |
 
 ## Jalon 10.1 — 27 ouverts
 

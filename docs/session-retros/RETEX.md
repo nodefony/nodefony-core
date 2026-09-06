@@ -634,6 +634,12 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-06d] **Trois paquets publiables portaient un auteur INVENTÉ, et aucun manifeste pris seul
+  ne le montrait.** `@nodefony/framework`, `@nodefony/http` et `@nodefony/security` déclaraient
+  `admin <admin@nodefony.com>` ; quatre autres n'avaient aucun champ. Chaque fichier est plausible
+  isolément — c'est la mise en TABLEAU des quinze qui fait sauter les deux formes concurrentes.
+  **Un champ de surface publiée se contrôle en COLONNE, jamais fichier par fichier.**
+
 - [1× — 09-05f] **Le même bloc `try`/`catch` recopié ONZE fois avait divergé sur les deux points
   qui comptent** : le TYPE de l'erreur levée et la LANGUE du message. Dix modules levaient une
   `Error` nue — que le kernel absorbe en développement — pendant que le gabarit du module GÉNÉRÉ,
@@ -911,6 +917,18 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-06d] **`npm sbom` NE REND PAS les dépendances de pair — mon relevé était vert et
+  aveugle.** Le gate de licences annonçait 143 paquets quand un comptage à la main en donnait 490.
+  L'écart n'était pas du bruit : `pg`, `mysql2`, `better-sqlite3`, `zod`, `react` et `vue`
+  manquaient — c'est-à-dire exactement ce que le framework IMPOSE à l'utilisateur. Un inventaire
+  produit par l'outil OFFICIEL n'est pas exhaustif par nature. **La couverture se RECOUPE contre un
+  second comptage** ; sans ce recoupement, la garde partait aveugle sur ce qui compte le plus.
+- [1× — 09-06d] **Un contrôle joué UNE FOIS est un vert qui cesse de mesurer.** J'allais valider
+  « les dépendances d'une application générée sont propres » sur une app témoin — une photo, fausse
+  au premier ajout au gabarit. Remplacé par un invariant gardé (chaque dépendance de production du
+  gabarit doit être couverte par le relevé), qui tombe le jour où quelqu'un en ajoute une.
+  **Mesurer un ÉTAT et garder un INVARIANT ne coûtent pas le même prix plus tard.**
 
 - [1× — 09-06b] **Un contrôle limité à une EXTENSION rend un vert qui ne porte sur rien.**
   `check-literals-unchanged` ne regardait que `.ts/.tsx/.mts/.cts`. Sur un lot de sept `.mjs` —
@@ -2258,6 +2276,12 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
+- [1× — 09-06d] **J'ai écrit `Dockerfile.tpl:97` sans ouvrir le fichier — c'était 82.** Dans le même
+  ticket, j'avais affirmé qu'« une image Docker embarque `node_modules` en entier » : le commentaire
+  du gabarit dit « les `node_modules` **élagués** », et le user l'a relevé avant moi. Même source
+  pour les deux fautes — **avoir raisonné sur ce que je croyais savoir du fichier au lieu de
+  l'ouvrir**, dans un ticket qui sera cru sans être relu.
+
 - [2× — 09-05g] **Le même chiffre, deux fois faux, et il avait été GRAVÉ dans un ticket.**
   #187 annonçait « 164 identifiants » (le `rg` fait main), une mémoire de session disait « 791 » ;
   `npm run check:lang` — l'instrument à dictionnaire, éprouvé par un banc, qui existait DÉJÀ et que
@@ -2592,6 +2616,13 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 🎪 Le DÉCOR d'un banc est un état PARTAGÉ — et il accuse le produit à sa place
+
+- [1× — 09-06d] **`npm sbom` refuse d'inventorier une application liée au framework (`--link`) — et
+  c'est le DÉCOR, pas l'application.** `ESBOMPROBLEMS` sur deux paquets « invalid » venus de
+  `lighthouse`, plus une dizaine d'« extraneous » remontant dans le `node_modules` du monorepo. Lu
+  vite, cela accuse l'app générée. **Un refus de mesurer se NOMME dans l'outil** : sortie 2
+  (distincte du 1 d'un verdict négatif) et le cas connu cité — sinon le prochain cherchera le défaut
+  dans le produit.
 
 - [1× — 09-05e] **Deux bancs ORM composaient leur décor sur un chemin FIXE du dépôt** (`tmp/orm-adopt-<dialecte>`). Deux exécutions simultanées — un `npm test` complet et une vérification lancée à côté — écrivaient au même endroit : `ENOTEMPTY` plus deux expirations de délai, aucune n'appartenant au code. Le décor ne pouvait pas déménager sous `os.tmpdir()` (la résolution de `drizzle-kit` remonte aux `node_modules` du dépôt) : il reste sous `tmp/`, discriminé par le numéro de processus. Preuve : deux runs EN PARALLÈLE, chemin fixe → A=1 et B=1 ; chemin discriminé → A=0 et B=0.
 - [1× — 09-05e] **J'ai pollué la mesure du user** en lançant le même banc pendant le sien, puis en le tuant en plein vol. Trois rouges qui lui ont été présentés comme les siens. Avant de lancer une suite, demander si une autre tourne — un décor partagé ne se voit pas dans la sortie.

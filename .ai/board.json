@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T03:06:56.464Z",
+  "generatedAt": "2026-09-06T08:26:57.472Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -10,7 +10,7 @@
       "title": "10.1"
     },
     {
-      "closed": 124,
+      "closed": 125,
       "dueOn": "2026-11-15T00:00:00Z",
       "open": 37,
       "title": "10.0.0"
@@ -1207,6 +1207,35 @@
       ]
     },
     {
+      "number": 219,
+      "title": "build(release): contrôler les licences avant de publier",
+      "url": "https://github.com/nodefony/nodefony-core/issues/219",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.9,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
+      ]
+    },
+    {
+      "number": 53,
+      "title": "docs: remettre la documentation à niveau avant la version 10",
+      "url": "https://github.com/nodefony/nodefony-core/issues/53",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 8,
+      "ordre": 5,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 54,
       "title": "feat(client): simplifier la socket cliente pour un débutant",
       "url": "https://github.com/nodefony/nodefony-core/issues/54",
@@ -1221,18 +1250,18 @@
       ]
     },
     {
-      "number": 175,
-      "title": "chore(release): publier une beta avant la 10.0.0",
-      "url": "https://github.com/nodefony/nodefony-core/issues/175",
+      "number": 24,
+      "title": "docs(security): expliquer comment obtenir un jeton",
+      "url": "https://github.com/nodefony/nodefony-core/issues/24",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
-      "priorite": "P0 — bloque le reste",
-      "jours": 1,
-      "ordre": 5,
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.1,
       "labels": [
         "10.0.0",
-        "irrattrapable"
+        "rattrapable"
       ]
     },
     {
@@ -1264,6 +1293,20 @@
       ]
     },
     {
+      "number": 51,
+      "title": "docs(guides): écrire les recettes d'exploitation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/51",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 5.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 34,
       "title": "feat(client): implémenter le noyau applicatif côté navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/34",
@@ -1273,6 +1316,34 @@
       "priorite": "P1 — figé à la création",
       "jours": 5,
       "ordre": 5.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 50,
+      "title": "docs(tutoriels): écrire la partie 2, jusqu'au déploiement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/50",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 5,
+      "ordre": 5.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 47,
+      "title": "docs(release): préparer la page d'accueil du jour de la publication",
+      "url": "https://github.com/nodefony/nodefony-core/issues/47",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.4,
       "labels": [
         "10.0.0"
       ]
@@ -1345,6 +1416,21 @@
       "ordre": 6,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 175,
+      "title": "chore(release): publier une beta avant la 10.0.0",
+      "url": "https://github.com/nodefony/nodefony-core/issues/175",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 6,
+      "labels": [
+        "10.0.0",
+        "irrattrapable"
       ]
     },
     {
@@ -2155,77 +2241,6 @@
       ]
     },
     {
-      "number": 53,
-      "title": "docs: remettre la documentation à niveau avant la version 10",
-      "url": "https://github.com/nodefony/nodefony-core/issues/53",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 8,
-      "ordre": 40,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 24,
-      "title": "docs(security): expliquer comment obtenir un jeton",
-      "url": "https://github.com/nodefony/nodefony-core/issues/24",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 0.5,
-      "ordre": 45,
-      "labels": [
-        "10.0.0",
-        "rattrapable"
-      ]
-    },
-    {
-      "number": 47,
-      "title": "docs(release): préparer la page d'accueil du jour de la publication",
-      "url": "https://github.com/nodefony/nodefony-core/issues/47",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 0.5,
-      "ordre": 46,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 50,
-      "title": "docs(tutoriels): écrire la partie 2, jusqu'au déploiement",
-      "url": "https://github.com/nodefony/nodefony-core/issues/50",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 5,
-      "ordre": 47,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 51,
-      "title": "docs(guides): écrire les recettes d'exploitation",
-      "url": "https://github.com/nodefony/nodefony-core/issues/51",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 2,
-      "ordre": 48,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
       "number": 30,
       "title": "feat(mongoose): compléter les stockages manquants côté MongoDB",
       "url": "https://github.com/nodefony/nodefony-core/issues/30",
@@ -2797,6 +2812,20 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 142,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 218,
+      "title": "test(http): caractériser la hausse du RSS d'un pod sous charge",
+      "url": "https://github.com/nodefony/nodefony-core/issues/218",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 143,
       "labels": [
         "backlog"
       ]
