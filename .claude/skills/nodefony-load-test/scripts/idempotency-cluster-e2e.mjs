@@ -14,14 +14,26 @@
 // touché par K l'exécute). Avec `redis` → exactement 1. C'est la dédup cross-pod façon Stripe.
 //
 // Prérequis :
-//   1. docker compose -f docker/docker-compose.yml up -d redis   (password "nodefony-dev")
-//   2. cluster booté AVEC le store redis + la route de démo disponible + un compte authentifié.
-//      Le cluster tourne en `production` (front prod, pas de Vite) : le module test (dev-only) doit
-//      être rendu chargeable pour le banc (gate temporaire `when: NF_IDEMPOTENCY_STORE==="redis"` sur
-//      `use("@nodefony/test")`), et l'admin est seedé via NF_ADMIN_PASSWORD :
-//      NF_IDEMPOTENCY_STORE=redis NF_REDIS_PASSWORD=nodefony-dev NF_ADMIN_PASSWORD=secret NF_USER_STORE=memory \
-//        node node_modules/nodefony/bin/nodefony cluster --workers 2
+//   1. docker compose -f docker/docker-compose.yml up -d redis   (mot de passe "nodefony-dev")
+//   2. un CLUSTER de 2 workers — pas le serveur de développement, qui est mono-process :
+//      l'étape 1 exige ≥ 2 pids servants et échoue sinon en disant « 1 worker(s) servent ».
+//      Il tourne en `production` (front prod, pas de Vite), donc le module `test` — qui porte
+//      les routes de démo et vit en `policy: "dev"` — n'y est pas chargé : c'est la dérogation
+//      `NF_WITH_DEV_MODULES` qui le rend disponible, et elle est MINUTÉE (30 min par défaut,
+//      plafond 4 h). L'admin est semé par NF_ADMIN_PASSWORD.
+//
+//      NF_IDEMPOTENCY_STORE=redis NF_REDIS_URL='redis://:nodefony-dev@127.0.0.1:6379' \
+//        NF_ADMIN_PASSWORD=secret NF_USER_STORE=memory \
+//        NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=60 \
+//        node node_modules/nodefony/bin/nodefony cluster --workers 2 --detach --wait 120
 //      (vérifier le log : 2× `Idempotency store → "redis" (distributed)`)
+//
+//      🔴 C'est bien `NF_REDIS_URL` qu'il faut, PAS `NF_REDIS_PASSWORD` : le module Redis est
+//      chargé sous condition `when: () => !!ctx.infra.cache` (`nodefony.config.ts`), et cette
+//      capacité se résout depuis l'URL. Avec le seul mot de passe, le module n'est pas chargé,
+//      le cœur refuse un store distribué absent, et le cluster part en BOUCLE de redémarrage
+//      sur « idempotency.store="redis" failed to initialize: the @nodefony/redis module is not
+//      loaded ». Le message est juste ; c'est la ligne de commande qui était périmée.
 // Lancement (racine repo) :
 //   node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
 import https from "node:https";

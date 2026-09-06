@@ -58,6 +58,13 @@ const CASES = [
     "teste le fan-out cross-pod sur le bus redis partagé",
     "nodefony-multipod-bench",
   ],
+  // — passe de test complète
+  ["fais une passe de test complète du dépôt", "nodefony-test-session"],
+  ["qu'est-ce qui n'a pas été testé ?", "nodefony-test-session"],
+  [
+    "ces tests sont verts en isolé et rouges en suite, régression ?",
+    "nodefony-test-session",
+  ],
   // — développement
   ["je vais coder dans le kernel", "nodefony-framework-dev"],
   ["créer un service injectable", "nodefony-framework-dev"],

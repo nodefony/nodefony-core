@@ -8,14 +8,23 @@
  *
  * Usage :
  *   node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
- *                                 [--vite-url ws://127.0.0.1:5173]
+ *                                 [--vite-url wss://127.0.0.1:5173]
  *                                 [--iterations 10]
  *                                 [--gap-ms 1500]
+ *
+ * Le serveur de développement sert Vite en TLS (certificat auto-signé) et
+ * attribue UN PORT PAR MODULE front. Le trouver dans le journal du serveur :
+ *   grep -aoE 'vite \[[a-z-]+\] ready on [0-9.]+:[0-9]+' /tmp/nodefony-server.log
  *
  * Output JSON sur stdout : { iterations, p50, p95, p99, samples: [...] }
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
+// Le `WebSocket` global de Node (undici) n'offre AUCUN moyen d'accepter un
+// certificat auto-signé : contre le Vite du dépôt, il échoue sur un `ws error`
+// vide qui ne nomme pas la cause. Le paquet `ws` — celui de tous les autres
+// bancs — prend `rejectUnauthorized`.
+import WebSocket from "ws";
 
 const args = parseArgs(process.argv.slice(2));
 const filePath = args.file;
@@ -23,7 +32,7 @@ if (!filePath) {
   process.stderr.write("missing --file <abs path>\n");
   process.exit(2);
 }
-const viteUrl = args["vite-url"] ?? "ws://127.0.0.1:5173";
+const viteUrl = args["vite-url"] ?? "wss://127.0.0.1:5173";
 const iterations = parseInt(args.iterations ?? "10", 10);
 const gapMs = parseInt(args["gap-ms"] ?? "1500", 10);
 
@@ -42,13 +51,23 @@ function parseArgs(argv) {
 }
 
 async function openViteWs() {
-  // Vite HMR subprotocol "vite-hmr"
-  const ws = new WebSocket(viteUrl, "vite-hmr");
+  // Vite HMR subprotocol "vite-hmr" — certificat auto-signé du serveur de dev.
+  const ws = new WebSocket(viteUrl, "vite-hmr", { rejectUnauthorized: false });
   await new Promise((resolve, reject) => {
     ws.addEventListener("open", () => resolve(), { once: true });
     ws.addEventListener(
       "error",
-      (e) => reject(new Error(`ws error: ${e.message ?? "unknown"}`)),
+      (e) => {
+        const cause = e.message || e.error?.message || "connexion refusée";
+        reject(
+          new Error(
+            `impossible d'ouvrir le canal HMR sur ${viteUrl} — ${cause}\n` +
+              `  Vite tourne-t-il ? Les ports sont attribués PAR MODULE front :\n` +
+              `  grep -aoE 'vite \\[[a-z-]+\\] ready on [0-9.]+:[0-9]+' /tmp/nodefony-server.log\n` +
+              `  puis : --vite-url wss://127.0.0.1:<port>`,
+          ),
+        );
+      },
       { once: true },
     );
   });

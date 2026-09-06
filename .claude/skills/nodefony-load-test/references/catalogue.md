@@ -139,19 +139,38 @@ chacun, jamais le même :
 | `webhooks-dataplane-e2e` | `NF__SECURITY__WEBHOOKS__DENYPRIVATEIPS=true` (anti-SSRF strict) — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
 
 **B. Autonomes** (forkent leur propre serveur → 0 serveur dev requis, mais `npm run build` d'abord) :
-`cluster-*`, `idempotency-postgres`, `config-env-override`, `graceful-shutdown`.
+`cluster-*`, `idempotency-postgres`, `config-env-override`, `boot-bench`, `boot-profile`, `soak`.
 
-> ⚠️ `idempotency-cluster` **n'est PAS autonome** malgré son nom : il interroge le serveur de
-> développement et tombe en `ECONNREFUSED` sur 5152 sans lui — constaté en l'exécutant. Sa place
-> est en **classe C**. Le classement d'un banc se vérifie en le LANÇANT : lu dans ce tableau, il
-> a fait échouer un lot entier qui n'avait pourtant rien de faux à dire.
+> 🔴 **Un classement ne se lit pas, il se LANCE.** Ce tableau a menti sur quatre bancs, chaque fois
+> dans le même sens : un banc rangé « autonome » qui exige en fait un décor. Le coût n'est pas
+> l'échec — c'est qu'il se lit comme un rouge du framework et fait ouvrir une enquête. Avant
+> d'ajouter une ligne ici, jouer le banc dans la classe où on le range.
 
 **C. Serveur dev standard** (décor par défaut) : `totp-mfa`, `totp-mfa-attack`,
-`users-admin-factors`, `idempotency-userland` (+ `REDIS_URL`), `debug-runtime`.
+`users-admin-factors`, `idempotency-userland` (+ `NF_REDIS_URL`), `debug-runtime`, `capacity`,
+`graceful-shutdown`, et les bancs de mesure de la famille 1 (`http-load`, `ws-*`, `hub-load`,
+`supervision-stress`, `log-sink-contention`, `aimd-demo`, `route-scan-cost`, `db-backend-cost`).
 
-> ⚠️ **Ne jamais lancer B (destructeurs `graceful-shutdown` / `cluster-*`) dans le même lot que C** :
-> ils tuent ou prennent les ports du serveur dev → les bancs C suivants tombent en `ECONNREFUSED`
-> (faux « KO »). Isoler les destructeurs, ou relancer le serveur après.
+> ⚠️ `graceful-shutdown` est en C, PAS en B : il exige un serveur DÉJÀ booté (il le dit —
+> « Aucun runtime Nodefony publié […] booter le serveur d'abord »), et le TUE en fin de course.
+> C'est un banc de classe C **destructeur** : dernier de son lot, serveur relancé après.
+>
+> ⚠️ `capacity` exige lui aussi un serveur, et ne le dit PAS : sans serveur il rend une trace
+> `ECONNREFUSED` brute, là où ses voisins nomment le geste manquant.
+
+**D. Décor PROPRE** — ni le serveur dev, ni l'autonomie ne suffisent :
+
+<!-- prettier-ignore -->
+| Banc | Son décor, et pourquoi |
+| --- | --- |
+| `idempotency-cluster-e2e` | un **cluster de 2 workers**, pas le serveur dev : il exige ≥ 2 pids servants. `NF_IDEMPOTENCY_STORE=redis NF_REDIS_URL=… NF_ADMIN_PASSWORD=secret NF_USER_STORE=memory NF_WITH_DEV_MODULES=1 nodefony cluster --workers 2 --detach --wait 120`. ⚠️ L'entête du script prescrit `NF_REDIS_PASSWORD` : la configuration charge le module Redis sur `NF_REDIS_URL` (`nodefony.config.ts`, `when: () => !!ctx.infra.cache`) — sans elle, le cluster part en **boucle de redémarrage** sur « the @nodefony/redis module is not loaded ». |
+| `scaffold-ws-probe`, `app-download-probe` | un **cookie de session** en premier argument, qu'aucune autre ligne ne mentionne. ⚠️ Les deux sont **PÉRIMÉS** : ils appellent une méthode `scaffold:run` qui n'existe plus (la génération passe par un controller HTTP et le canal `nodefony:scaffold:job@<id>`) — voir #217. |
+| `micro/micro-route-scan` | la table de routes de l'app : `npx nodefony inspect routes --json > tmp/routes-inspect.json`. Il le dit en sortant. |
+| `poc-hmr-perf` | le port Vite du module visé **en `wss://`** — son défaut `ws://127.0.0.1:5173` ne se connecte plus (Vite sert en TLS auto-signé, ports attribués par module). Voir #217. |
+
+> ⚠️ **Ne jamais lancer les destructeurs (`graceful-shutdown`, `cluster-*`) dans le même lot que
+> les autres bancs C** : ils tuent ou prennent les ports du serveur dev → les suivants tombent en
+> `ECONNREFUSED` (faux « KO »). Isoler les destructeurs, ou relancer le serveur après.
 
 ## Variables communes
 

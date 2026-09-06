@@ -2,9 +2,9 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-05",
-  "count": 26,
-  "conformant": 26,
+  "generatedAt": "2026-09-06",
+  "count": 27,
+  "conformant": 27,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -3485,6 +3485,14 @@
             ],
             "options": [
               {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
                 "flag": "--workers",
                 "help": ""
               }
@@ -5817,6 +5825,105 @@
       "links": {
         "source": ".claude/skills/nodefony-tail-error-logs/SKILL.md",
         "doc": "docs/skills/nodefony-tail-error-logs.md"
+      }
+    },
+    {
+      "name": "nodefony-test-session",
+      "summary": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "session de test",
+        "passe de test complète",
+        "lance tous les tests",
+        "tous les bancs",
+        "test:all",
+        "on teste tout",
+        "avant la publication on teste quoi ?",
+        "qu'est-ce qui n'a pas été testé ?",
+        "ce rouge est-il une régression ?",
+        "un banc rouge sans changement de code",
+        "tests verts en isolé rouges en suite",
+        "combien de tests sont sautés",
+        "quels bancs restent à jouer"
+      ],
+      "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor exact de chacun, ce qu'un run vert ne prouve PAS, et l'arbre de décision qui instruit un rouge avant de l'imputer au code. À charger AVANT de lancer la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"session de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"test:all\", \"on teste tout\", \"avant la publication on teste quoi ?\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"un banc rouge sans changement de code\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"quels bancs restent à jouer\".",
+      "cost": {
+        "bodyLines": 131,
+        "approxTokens": 2565
+      },
+      "requires": [],
+      "resources": {
+        "references": [
+          "pieges-de-session.md"
+        ],
+        "referenceFilesTotal": 1,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-check-memory-health",
+        "nodefony-devkit-bench",
+        "nodefony-load-test",
+        "nodefony-multipod-bench",
+        "nodefony-release"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "961",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "131",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-test-session/SKILL.md",
+        "doc": "docs/skills/nodefony-test-session.md"
       }
     },
     {
