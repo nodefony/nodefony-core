@@ -44,7 +44,6 @@
     ".claude/skills/nodefony-multipod-bench/scripts/forge.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/latency.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/listen.mjs",
-    ".claude/skills/nodefony-multipod-bench/scripts/mempeak.sh",
     ".claude/skills/nodefony-multipod-bench/scripts/pubcost.mjs",
     ".claude/skills/nodefony-multipod-bench/scripts/setup.sh",
     ".claude/skills/nodefony-release/scripts/compare-exports.mjs",
