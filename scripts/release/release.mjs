@@ -714,8 +714,22 @@ if (PHASES.publier) {
   const publies = [];
   for (const nom of ordre) {
     dire(`  → npm publish ${tarballs[nom]}`);
+    // `--loglevel=warn` : `npm publish` énumère sinon TOUT le contenu du tarball
+    // en `notice` — 800 lignes pour le seul cœur. Multiplié par quinze, la
+    // demande du code à deux facteurs se noie dans un mur que personne ne lit,
+    // et l'opérateur ne voit plus ce qu'on attend de lui. Rien n'est perdu : ce
+    // que contient chaque tarball vient d'être inspecté à l'étape « inspection
+    // des tarballs », qui REFUSE de publier sur un contenu suspect. Le prompt
+    // du code, lui, n'est pas un journal : il passe par le terminal.
     const r = npm(
-      ["publish", tarballs[nom], "--access", "public", ...tagArgs],
+      [
+        "publish",
+        tarballs[nom],
+        "--access",
+        "public",
+        "--loglevel=warn",
+        ...tagArgs,
+      ],
       {
         cwd,
         stdio: "inherit",
