@@ -139,6 +139,29 @@ Nodefony échoue **bruyamment** sur la dégradation, et **doucement** sur la dis
 
 Le principe : toute dégradation est **visible**, jamais subie en silence.
 
+## Exploiter — ce qu'on sauvegarde, et ce qu'on peut perdre
+
+Le framework ne sauvegarde rien lui-même : il déclare **où** chaque chose vit, et c'est cette carte
+qui dit quoi protéger.
+
+| Ce qui vit là                                                                             | Perdre ce backend, ça veut dire                                            | À sauvegarder |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------- |
+| **La base** (`NF_DATABASE_URL`) — entités, jetons, passkeys, audit, webhooks, idempotence | tout ce qui n'est pas rejouable                                            | **oui**       |
+| **Redis** (`NF_REDIS_URL`) — sessions, cache, bus temps réel                              | les utilisateurs sont déconnectés, le cache se reconstruit, le bus reprend | non           |
+
+Deux conséquences pratiques :
+
+- **Redis est remplaçable, la base ne l'est pas.** Redémarrer Redis déconnecte, ne corrompt pas.
+  C'est ce qui autorise à l'exploiter sans persistance sur disque — mais alors, un redémarrage
+  déconnecte **tout le monde en même temps**, ce qui n'est pas la même chose qu'un pod qui tombe.
+- **Un `store` explicite déplace ce que cette carte dit.** Épingler les jetons sur Redis
+  (ci-dessous) les rend volatils : c'est un choix, il doit être su de celui qui écrit la politique
+  de sauvegarde.
+
+La sauvegarde elle-même est celle de votre serveur — `pg_dump`, `mysqldump`, `mongodump` — et n'a
+rien de spécifique au framework. Ce qui est spécifique, c'est **de savoir ce qui compte**, et c'est
+la table ci-dessus.
+
 ## Forcer un store (exception d'expert)
 
 L'`auto` couvre l'immense majorité des cas. Pour épingler une brique à un backend précis, donnez un
