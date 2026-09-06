@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/security",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Pare-feu applicatif par zones pour Nodefony : authentification, autorisation par rôles, protection CSRF, journal d'audit",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",

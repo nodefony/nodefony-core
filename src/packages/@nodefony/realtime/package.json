@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/realtime",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Couche temps réel serveur de Nodefony : canaux, appels bidirectionnels JSON-RPC 2.0, contre-pression, et diffusion entre plusieurs instances (boucle locale, IPC de grappe, Redis)",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",

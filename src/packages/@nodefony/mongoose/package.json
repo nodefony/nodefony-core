@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/mongoose",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Moteur MongoDB de Nodefony sur Mongoose : dépôts typés conformes au contrat orm-core",
   "nodefony": {
     "storeKind": "durable",

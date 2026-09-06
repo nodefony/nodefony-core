@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/devkit",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "type": "module",
   "description": "Outillage de développement d'une application Nodefony : carte de visite du projet et portes de découverte pour un agent de développement",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",

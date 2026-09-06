@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/http",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs pour Nodefony : sessions, contextes de requête, certificats TLS",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",

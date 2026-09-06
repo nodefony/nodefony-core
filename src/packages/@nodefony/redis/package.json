@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/redis",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Connecteur Redis de Nodefony : dépôts clé-valeur, cache, sessions partagées et transport de diffusion entre instances",
   "nodefony": {
     "storeKind": "cache",

@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/documentation",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Plan de données de documentation de Nodefony : index des pages co-localisées dans chaque module, résolution des variables dynamiques, exposition en lecture pour la console d'administration",
   "contributors": [],
   "main": "./dist/index.js",

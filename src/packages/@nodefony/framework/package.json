@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/framework",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Le modèle de programmation Nodefony : routeur, contrôleurs, décorateurs et vues — HTTP et WebSocket dans le même contexte",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",

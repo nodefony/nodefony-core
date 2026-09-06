@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/orm-core",
-  "version": "10.0.0",
+  "version": "10.0.0-alpha.1",
   "description": "Un contrat de dépôt de données pour Nodefony, plusieurs moteurs : interfaces, registre et classes de base pour le support multi-ORM",
   "contributors": [],
   "type": "module",
