@@ -24,6 +24,9 @@
     "prepack": "npm run build"
   },
   "private": false,
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "keywords": [
     "nodefony",
     "admin",

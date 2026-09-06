@@ -10,7 +10,7 @@ le **contenu résolu** des pages.
 
 ## Ce qu'il indexe
 
-Conformément à [ADR-0001](../../../../docs/adr/0001-docs-modules-emplacement-hybride.md) (emplacement
+Conformément à [ADR-0001](https://github.com/nodefony/nodefony-core/blob/claude-ts/docs/adr/0001-docs-modules-emplacement-hybride.md) (emplacement
 hybride), la doc vit à deux endroits, et les deux sont scannés :
 
 1. **`docs/` racine** — la doc transverse, qui n'appartient à aucun module (guides, ADR, audits, releases).

@@ -39,6 +39,9 @@
     "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json"
   },
   "private": false,
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "keywords": [
     "nodefony",
     "orm",

@@ -1,5 +1,6 @@
 // @nodefony/core — barrel ESM
-// import { Kernel, Service, Container, Syslog, ... } from "@nodefony/core"
+// import { Kernel, Service, Container, Syslog, ... } from "nodefony"
+// (le workspace se nomme `@nodefony/core`, le paquet publié se nomme `nodefony`)
 
 // ─── Framework ────────────────────────────────────────────────────────────────
 export { Nodefony } from "./Nodefony";

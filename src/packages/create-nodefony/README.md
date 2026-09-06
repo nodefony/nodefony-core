@@ -4,8 +4,12 @@ Créer une application [Nodefony](https://github.com/nodefony/nodefony-core) san
 globalement.
 
 ```bash
-npm create nodefony@latest mon-app
+npm create nodefony@alpha mon-app
 ```
+
+> **Le suffixe `@alpha` n'est pas optionnel** tant que Nodefony 10 est en préversion : sans lui,
+> npm sert l'étiquette `latest`, qui pointe encore la lignée 7 en JavaScript — sans rapport avec ce
+> que cette page décrit.
 
 Puis :
 
@@ -21,14 +25,14 @@ Rien, ou presque — et c'est voulu. Il **délègue** à `nodefony create app`, 
 lui passant vos arguments tels quels. Il n'existe donc qu'UN générateur : celui du framework.
 
 ```bash
-npm create nodefony mon-app -- --preset minimal --frontend react --database postgres
+npm create nodefony@alpha mon-app -- --preset minimal --frontend react --database postgres
 ```
 
 Toutes les options de `nodefony create app` sont acceptées (`--preset`, `--frontend`, `--database`,
 `--agents`, `--no-install`, `--no-git`, `--dry-run`…). La liste complète :
 
 ```bash
-npm create nodefony -- --help
+npm create nodefony@alpha -- --help
 ```
 
 ## Pourquoi passer par là plutôt que `npm i -g nodefony`

@@ -71,13 +71,13 @@ Elle intègre trois responsabilités dans une seule classe de base :
 ### Installation
 
 ```bash
-npm install @nodefony/core
+npm install nodefony
 ```
 
 ### Usage minimal
 
 ```typescript
-import Service from "@nodefony/core";
+import { Service } from "nodefony";
 
 const svc = new Service("myService");
 svc.log("Hello Nodefony", "INFO");
@@ -106,8 +106,7 @@ new Service(
 ### Extension (pattern typique)
 
 ```typescript
-import Service from "@nodefony/core";
-import Container from "@nodefony/core/Container";
+import { Service, Container } from "nodefony";
 
 class MyService extends Service {
   constructor(container: Container) {
@@ -278,7 +277,7 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 
 ## Syslog / Pdu
 
-Voir [`src/syslog/`](src/syslog/) — logger structuré RFC 5424 avec ring buffer O(1).
+Voir [`src/syslog/`](https://github.com/nodefony/nodefony-core/tree/claude-ts/src/nodefony/src/syslog) — logger structuré RFC 5424 avec ring buffer O(1).
 
 ---
 

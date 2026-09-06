@@ -4,7 +4,7 @@ Couche **Router / Controller / décorateurs** de Nodefony. S'appuie sur `@nodefo
 (serveurs + contextes) et expose le modèle de programmation applicatif : un controller
 sert **HTTP et WebSocket dans le même contexte**, nativement.
 
-> Docs IA : [`CLAUDE.md`](./CLAUDE.md) (instructions session) · [`MEMORY.md`](./MEMORY.md)
+> Docs IA (dans le dépôt) : [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/framework/CLAUDE.md) (instructions session) · [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/framework/MEMORY.md)
 > (internals concis) · [`docs/`](./docs) (concepts). `@nodefony/http` ne peut PAS importer
 > ce module (dépendance circulaire) — l'accès se fait via `(context as any)?.resolver`.
 

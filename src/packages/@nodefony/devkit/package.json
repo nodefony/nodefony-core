@@ -70,5 +70,8 @@
     "scaffolding",
     "typescript",
     "esm"
-  ]
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }

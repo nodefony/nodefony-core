@@ -53,12 +53,16 @@ export default {
 
 ### Variables d'environnement
 
-| Variable            | Effet                                     |
-| ------------------- | ----------------------------------------- |
-| `REDIS_URL`         | URL complète `redis[s]://…` (prioritaire) |
-| `NF_REDIS_HOST`     | hôte du serveur                           |
-| `NF_REDIS_PORT`     | port (validé)                             |
-| `NF_REDIS_PASSWORD` | mot de passe (jamais committé)            |
+| Variable            | Effet                                                    |
+| ------------------- | -------------------------------------------------------- |
+| `NF_REDIS_URL`      | URL complète `redis[s]://…` — **la forme qui l'emporte** |
+| `REDIS_URL`         | même effet, alias posé par les hébergeurs — lu en SECOND |
+| `NF_REDIS_HOST`     | hôte du serveur                                          |
+| `NF_REDIS_PORT`     | port (validé)                                            |
+| `NF_REDIS_PASSWORD` | mot de passe (jamais committé)                           |
+
+Si les deux URL sont posées, **`NF_REDIS_URL` gagne** : c'est votre réglage, il passe
+devant celui que la plateforme d'hébergement a injecté.
 
 ### Connexions par défaut
 
