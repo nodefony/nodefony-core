@@ -40,6 +40,7 @@ derrière les commandes npm qui font autorité :
 | `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, éprouvé sans publier |
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
+| `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
 
 Ce skill donne la méthode À UN AGENT : quoi lancer, ce que chaque refus signifie, où chercher
 quand ça casse. Ce n'est pas la documentation du projet — celle-ci vit dans
@@ -244,6 +245,13 @@ par un sous-shell.
   Le `exports.types` vers la source ressemble à une paresse ; c'est l'anti-course de build.
 - **`npm whoami` ne reflète JAMAIS une authentification OIDC** — ne pas s'en servir comme preuve
   que la chaîne de publication fonctionne.
+- **Ce que la forge publie n'hérite d'aucune session npm.** Le trusted publishing ne couvre que
+  `publish` ; tout le reste — `deprecate`, `dist-tag`, `access` — réclame sa propre authentification
+  depuis le poste, avec le code à deux facteurs. Un plan qui les range « dans la même session que le
+  publish » fait croire qu'ils partent avec le lot.
+- **Le tag ne se pousse pas avec le commit.** Une poussée de branche réveille toute l'intégration
+  continue ; la publication attend alors derrière les bancs. Le script le dit à la fin de
+  `--write` — le suivre plutôt que d'enchaîner les deux poussées.
 
 ## 6. Gate
 
