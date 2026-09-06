@@ -264,7 +264,7 @@ Console Logs Studio = panneau P10 de facto livré.
 > le même aplomb qu'un dépôt propre. 50 trouvailles triées une par une, aucune exclusion en bloc
 > (`.gitleaks.toml`), **0 après tri**.
 > **(2)** ✅ **Vulnérabilités : 0** (`npm audit` re-prouvé 08-20, 0 alerte Dependabot — P9.4 ;
-> les « 166 » de la branche par défaut ont disparu avec l'alignement `main` ≡ `claude-ts`).
+> les « 166 » de la branche par défaut ont disparu avec l'alignement de `main` sur la branche de travail).
 > **(3)** **Provenance npm + 2FA** :
 > pour un projet solo, le risque n°1 n'est pas la faille trouvée, c'est le **compte de publication
 > compromis** ou une dépendance qui l'est. **(4)** Passe **red-team sur la surface PUBLIÉE**

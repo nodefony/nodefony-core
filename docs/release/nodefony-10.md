@@ -365,8 +365,8 @@ vérifié dans la doc). Les 13 paquets neufs ne peuvent donc pas naître par OID
    travaille : c'est elle que lit celui qui arrive de npmjs.com. Une branche par défaut en retard
    lui fait donc lire un accueil qui NIE la publication qu'il vient d'installer, sans le
    `CHANGELOG.md` de la version. La remontée n'arbitre rien — le contenu de `main` est un ancêtre
-   de `claude-ts` (`git diff claude-ts...main` vide), les commits qu'elle porte en propre sont ses
-   propres fusions. Contrôle : `git rev-list --count main..claude-ts` rend `0` avant le
+   de `dev` (`git diff dev...main` vide), les commits qu'elle porte en propre sont ses
+   propres fusions. Contrôle : `git rev-list --count main..dev` rend `0` avant le
    `--publish`, et `release.mjs` retrouve alors son défaut de branche — plus de `--branch` à
    passer, donc plus de garde à faire taire.
 1. publier les 14 neufs — les 13 scopés ET `create-nodefony` — plus `nodefony@10`,

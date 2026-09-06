@@ -73,7 +73,7 @@ export default defineConfig((ctx) => ({
 
 Toutes les sections (`cors`, `csrf`, `headers`, `rateLimit`, `jwt`, `apiKeys`, `webhooks`,
 `audit`, `studio`…) ont des **défauts sûrs** et sont **désactivables** via `enabled`.
-Voir [`nodefony/config/config.ts`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/security/nodefony/config/config.ts) — chaque option y est
+Voir [`nodefony/config/config.ts`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/security/nodefony/config/config.ts) — chaque option y est
 documentée (explication + défaut + reco).
 
 ### Sections

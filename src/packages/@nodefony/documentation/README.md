@@ -10,7 +10,7 @@ le **contenu résolu** des pages.
 
 ## Ce qu'il indexe
 
-Conformément à [ADR-0001](https://github.com/nodefony/nodefony-core/blob/claude-ts/docs/adr/0001-docs-modules-emplacement-hybride.md) (emplacement
+Conformément à [ADR-0001](https://github.com/nodefony/nodefony-core/blob/main/docs/adr/0001-docs-modules-emplacement-hybride.md) (emplacement
 hybride), la doc vit à deux endroits, et les deux sont scannés :
 
 1. **`docs/` racine** — la doc transverse, qui n'appartient à aucun module (guides, ADR, audits, releases).
@@ -91,7 +91,7 @@ Contenu d'une page : markdown sans frontmatter, variables `{{ }}` résolues, lie
   "status": "stable",
   "updated": "2026-05-31",
   "source": "src/packages/@nodefony/http/docs/index.md",
-  "sourceUrl": "https://github.com/nodefony/nodefony-core/edit/claude-ts/…",
+  "sourceUrl": "https://github.com/nodefony/nodefony-core/edit/main/…",
   "markdown": "# …",
 }
 ```

@@ -1,6 +1,6 @@
 # KERNEL_REFACTOR_PLAN.md
 
-> Branche : `claude-ts`. Corrections P1/P2 déjà appliquées (session 2026-05-14).
+> Corrections P1/P2 déjà appliquées (session 2026-05-14).
 > Ce document liste les améliorations P3/P4 à traiter dans des sessions futures.
 
 ---

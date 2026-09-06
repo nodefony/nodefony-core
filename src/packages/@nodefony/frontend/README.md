@@ -2,7 +2,7 @@
 
 Builder frontend Nodefony — supervise [Vite](https://vite.dev/) dans un process séparé pour transpiler les frontends de tes modules (React 19, Vue 3, Angular, vanilla TS).
 
-> Audience : développeur Nodefony qui ajoute son **premier frontend** à un module existant. Tu connais déjà `Module`, `Service`, `Controller`. Si non, lis d'abord le [CLAUDE.md racine](https://github.com/nodefony/nodefony-core/blob/claude-ts/CLAUDE.md).
+> Audience : développeur Nodefony qui ajoute son **premier frontend** à un module existant. Tu connais déjà `Module`, `Service`, `Controller`. Si non, lis d'abord le [CLAUDE.md racine](https://github.com/nodefony/nodefony-core/blob/main/CLAUDE.md).
 
 ---
 
@@ -335,4 +335,4 @@ Browser → 5173 (Vite) pour les assets + HMR WSS
 Browser → 5173 pour /api/... → Vite proxifie vers Nodefony (5151/5152)
 ```
 
-Détails internes (dans le dépôt) : voir [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/frontend/CLAUDE.md) et [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/claude-ts/src/packages/@nodefony/frontend/MEMORY.md).
+Détails internes (dans le dépôt) : voir [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/frontend/CLAUDE.md) et [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/frontend/MEMORY.md).

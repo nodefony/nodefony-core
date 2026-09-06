@@ -209,7 +209,7 @@ Règles communes (A **et** B) :
 - **TOUJOURS afficher le graphe à barres** (variante A) — même en mode tableau parfait, mettre le graphe AVANT le tableau détaillé (le user veut le visuel).
 - Toujours finir par la ligne **TOTAL** (compteurs + reste sessions + reste `~h / ~j`).
 - **TOUJOURS terminer par un encadré « ➡️ PROCHAINE ÉTAPE »** (voir gabarit ci-dessous) — c'est la conclusion la plus utile.
-- Annotations : `legacy en place`, `cassé claude-ts`, `précurseur`, `◀ session courante`.
+- Annotations : `legacy en place`, `cassé`, `précurseur`, `◀ session courante`.
 
 #### Encadré « PROCHAINE ÉTAPE » (obligatoire en fin de synthèse)
 

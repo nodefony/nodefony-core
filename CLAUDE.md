@@ -417,7 +417,7 @@ Framework Node.js fullstack open source — migration vers TypeScript.
 Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 
 **Repo** : https://github.com/nodefony/nodefony-core
-**Branche principale** : `claude-ts` (branches de travail : `refactor/*` mergées dans `claude-ts`)
+**Branches** : `main` porte la dernière publication (elle n'avance qu'aux releases) · `dev` porte le développement (branches `refactor/*` fusionnées dedans)
 **Repo JS référence** : `../nodefony` (cloné localement)
 
 **Nature** : Repo de développement "Self-Hosted" du framework Nodefony.

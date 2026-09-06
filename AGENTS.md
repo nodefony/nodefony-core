@@ -15,13 +15,13 @@ HTTP et WebSocket partagent la même route, la même session et le même pare-fe
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **Version**            | `10.0.0` (`package.json`)                                                                                                            |
 | **Publication npm**    | **aucun paquet `10.x` n'est en ligne.** Le registre sert encore `nodefony@7.0.2` (JavaScript) et les `@nodefony/*-bundle` de l'ère 7 |
-| **Branche par défaut** | `main`                                                                                                                               |
-| **Branche de travail** | `claude-ts` — **c'est là que vit le code courant** ; `main` reçoit par remontées, et peut avoir plusieurs semaines de retard         |
+| **Branche par défaut** | `main` — elle porte la **dernière publication** et n'avance qu'aux releases                                                          |
+| **Branche de travail** | `dev` — **c'est là que vit le code courant** ; `main` ne le reçoit qu'à la publication suivante                                      |
 | **Tests**              | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                      |
 | **Licence**            | CeCILL-B — projet libre, développé bénévolement par une seule personne                                                               |
 
-> ⚠️ **Lire `claude-ts`, pas `main`**, pour toute question sur le code actuel. Le
-> constater plutôt que le croire : `git rev-list --count origin/main..origin/claude-ts`.
+> ⚠️ **Lire `dev`, pas `main`**, pour toute question sur le code actuel. Le
+> constater plutôt que le croire : `git rev-list --count origin/main..origin/dev`.
 
 ---
 
@@ -97,11 +97,11 @@ Les pages d'un hébergeur de code coûtent cher à charger et rendent mal en tex
 fichier se lit brut :
 
 ```
-https://raw.githubusercontent.com/nodefony/nodefony-core/claude-ts/<chemin>
+https://raw.githubusercontent.com/nodefony/nodefony-core/dev/<chemin>
 ```
 
-Exemple : `…/claude-ts/docs/index.md`. Remplacer `claude-ts` par `main` donne l'état
-publié, pas l'état courant (voir **État** ci-dessus).
+Exemple : `…/dev/docs/index.md`. Remplacer `dev` par `main` donne l'état publié, pas
+l'état courant (voir **État** ci-dessus).
 
 ---
 

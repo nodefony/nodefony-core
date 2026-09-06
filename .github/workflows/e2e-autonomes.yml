@@ -41,7 +41,7 @@ name: Preuves e2e autonomes
 
 on:
   push:
-    branches: ["main", "claude-ts"]
+    branches: ["main", "dev"]
     paths:
       - "src/nodefony/**"
       - "src/packages/@nodefony/http/**"
@@ -59,7 +59,7 @@ on:
       - ".claude/skills/nodefony-load-test/scripts/**"
       - ".github/workflows/e2e-autonomes.yml"
   pull_request:
-    branches: ["main", "claude-ts"]
+    branches: ["main", "dev"]
     paths:
       - "src/nodefony/**"
       - "src/packages/@nodefony/http/**"

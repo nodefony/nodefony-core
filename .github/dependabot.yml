@@ -23,13 +23,12 @@ updates:
     directory: "/"
 
     # ⚠️ La branche de TRAVAIL, pas la branche par défaut du dépôt. Sans cette
-    # ligne, Dependabot ouvre ses PR contre `main` — qui n'est ici qu'une
-    # branche de RELEASE, alimentée par fusion de `claude-ts` et distancée de
-    # plusieurs centaines de commits. Vécu : quatre PR proposant des montées
-    # DÉJÀ faites sur `claude-ts` (figlet, better-sqlite3, @tabler/icons-react,
-    # @angular/build, rolldown), donc du bruit hebdomadaire pur, et le robot
-    # aveugle à l'état réel des dépendances.
-    target-branch: "claude-ts"
+    # ligne, Dependabot ouvre ses PR contre `main` — qui ne porte que la
+    # dernière PUBLICATION et n'avance qu'aux releases. Vécu : quatre PR
+    # proposant des montées DÉJÀ faites sur la branche de travail (figlet,
+    # better-sqlite3, @tabler/icons-react, @angular/build, rolldown), donc du
+    # bruit hebdomadaire pur, et le robot aveugle à l'état réel des dépendances.
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -48,13 +47,12 @@ updates:
     directory: "/"
 
     # ⚠️ La branche de TRAVAIL, pas la branche par défaut du dépôt. Sans cette
-    # ligne, Dependabot ouvre ses PR contre `main` — qui n'est ici qu'une
-    # branche de RELEASE, alimentée par fusion de `claude-ts` et distancée de
-    # plusieurs centaines de commits. Vécu : quatre PR proposant des montées
-    # DÉJÀ faites sur `claude-ts` (figlet, better-sqlite3, @tabler/icons-react,
-    # @angular/build, rolldown), donc du bruit hebdomadaire pur, et le robot
-    # aveugle à l'état réel des dépendances.
-    target-branch: "claude-ts"
+    # ligne, Dependabot ouvre ses PR contre `main` — qui ne porte que la
+    # dernière PUBLICATION et n'avance qu'aux releases. Vécu : quatre PR
+    # proposant des montées DÉJÀ faites sur la branche de travail (figlet,
+    # better-sqlite3, @tabler/icons-react, @angular/build, rolldown), donc du
+    # bruit hebdomadaire pur, et le robot aveugle à l'état réel des dépendances.
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"

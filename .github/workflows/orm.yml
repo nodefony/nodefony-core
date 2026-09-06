@@ -35,7 +35,7 @@ name: Bancs sur infrastructure réelle
 
 on:
   push:
-    branches: ["main", "claude-ts"]
+    branches: ["main", "dev"]
     paths:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
@@ -62,7 +62,7 @@ on:
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
   pull_request:
-    branches: ["main", "claude-ts"]
+    branches: ["main", "dev"]
     paths:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"

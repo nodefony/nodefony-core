@@ -1,6 +1,6 @@
 # INJECTION_PLAN.md — Plan d'amélioration du système DI
 
-> État actuel : `injector.ts` + `kernelDecorator.ts` — branche `claude-ts`.
+> État actuel : `injector.ts` + `kernelDecorator.ts`.
 > Ce document est un plan de travail pour les sessions futures.
 
 ---

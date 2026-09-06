@@ -205,7 +205,7 @@ npx nodefony <module>:<action>   # commande de module (ex. http:routes:list) —
 - **Lifecycle** : ctor `addCommand` → `onKernelStart()` (pré-boot : env/type/packageManager) → `kernel.start()`
   → `generate(opts, cmd)` (⚠️ Commander passe l'instance `Cmd` en **dernier** arg). `setEvents()` idempotent (guard `eventsRegistered`).
 - **Module CLI** : `module.addCommand(Ctor)` (nécessite `kernel.cli != null`). Namespace `<module>:<action>`
-  (`security:user:add`, `orm:migrate`). ⚠️ **Commandes de module cassées sur claude-ts** (bug pré-existant,
+  (`security:user:add`, `orm:migrate`). ⚠️ **Commandes de module cassées** (bug pré-existant,
   mémoire `project_cli_commands_broken_claude_ts`) → brancher dans une branche dédiée, Phase 11 non finalisée (0 test d'intégration).
 - Helpers `Cli` : `niceBytes` (`1024`→`"1.0 KB"`), timers (`startTimer`/`stopTimer`), `setProcessTitle`, banner.
   Réf : `src/nodefony/src/{cli,command,kernel}/{CLAUDE,MEMORY}.md`.

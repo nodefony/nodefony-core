@@ -25,7 +25,7 @@ on:
     types: [published]
   # Un correctif de page part en ligne sans attendre la prochaine release.
   push:
-    branches: [main, claude-ts]
+    branches: [main, dev]
     paths:
       - "docs/**"
       - "src/nodefony/docs/**"

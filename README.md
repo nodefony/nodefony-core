@@ -23,7 +23,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > pilotables, catalogue, `AGENTS.md` dérivé du projet — au lieu d'être devinée.
 
 **État** — version `10.0.0` · **non publiée sur npm** : le registre sert encore `nodefony@7.0.2`
-(JavaScript) · branche par défaut `main`, développement sur `claude-ts` · ~7 700 tests quand toute
+(JavaScript) · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
 l'infrastructure répond (`npm run test:all`).
 
 ---

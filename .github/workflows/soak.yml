@@ -57,7 +57,7 @@ on:
     # mobilisés trente minutes pour une montée de dépendance qui n'a rien à voir
     # avec la mémoire. Constaté dès le premier jour (`typescript-majeur`, où
     # `npm ci` échoue d'ailleurs en ERESOLVE avant même de mesurer).
-    branches: ["main", "claude-ts"]
+    branches: ["main", "dev"]
     paths:
       - ".github/workflows/soak.yml"
       - ".claude/skills/nodefony-load-test/scripts/soak.mjs"

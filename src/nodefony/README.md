@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/claude-ts/docs/assets/nodefony-logo.png" alt="Nodefony" height="96">
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/nodefony-logo.png" alt="Nodefony" height="96">
 
 # Nodefony
 
@@ -8,7 +8,7 @@
 
 _Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
 
-[![Licence CeCILL-B](https://img.shields.io/badge/licence-CeCILL--B-blue.svg?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/claude-ts/LICENSE.txt)
+[![Licence CeCILL-B](https://img.shields.io/badge/licence-CeCILL--B-blue.svg?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt)
 [![Node ≥ 24](https://img.shields.io/badge/Node.js-%E2%89%A5%2024-green?style=flat-square)](https://nodejs.org/)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://nodejs.org/api/esm.html)
@@ -121,7 +121,7 @@ frontend optionnel (React, Vue, Angular, Svelte), `Dockerfile`, et un `AGENTS.md
 
 - **Documentation** — <https://nodefony.github.io/nodefony-core/>
 - **Dépôt et suivi** — <https://github.com/nodefony/nodefony-core>
-- **Journal des versions** — <https://github.com/nodefony/nodefony-core/blob/claude-ts/CHANGELOG.md>
+- **Journal des versions** — <https://github.com/nodefony/nodefony-core/blob/main/CHANGELOG.md>
 
 ---
 
@@ -397,4 +397,4 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 
 ## Syslog / Pdu
 
-Voir [`src/syslog/`](https://github.com/nodefony/nodefony-core/tree/claude-ts/src/nodefony/src/syslog) — logger structuré RFC 5424 avec ring buffer O(1).
+Voir [`src/syslog/`](https://github.com/nodefony/nodefony-core/tree/main/src/nodefony/src/syslog) — logger structuré RFC 5424 avec ring buffer O(1).
