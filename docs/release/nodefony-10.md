@@ -386,26 +386,29 @@ par `npm deprecate <paquet> "<message>"` — un message affiché à l'installati
 (fenêtre de 72 h).
 
 🔴 **L'ordre n'est pas indifférent** : déprécier AVANT la publication renverrait les gens vers des
-paquets qui n'existent pas encore. Cette table s'applique **une fois la 10 en ligne**.
+paquets qui n'existent pas encore. Elle s'applique donc dès que les successeurs sont **EN LIGNE** —
+c'est-à-dire dès l'**alpha** (#220), qui les fait naître, et dans la même session npm authentifiée
+que le `publish` : `npm deprecate` réclame la même double authentification. Le message NOMME le
+successeur et le dépôt sans promettre de commande d'installation, donc il reste vrai en préversion.
 
-| Historique (dernière version)           | Successeur en 10          | Nature                           |
-| --------------------------------------- | ------------------------- | -------------------------------- |
-| `@nodefony/http-bundle` (7.0.2)         | `@nodefony/http`          | renommage                        |
-| `@nodefony/framework-bundle` (7.0.2)    | `@nodefony/framework`     | renommage                        |
-| `@nodefony/security-bundle` (7.0.2)     | `@nodefony/security`      | renommage                        |
-| `@nodefony/realtime-bundle` (7.0.2)     | `@nodefony/realtime`      | renommage                        |
-| `@nodefony/redis-bundle` (7.0.2)        | `@nodefony/redis`         | renommage                        |
-| `@nodefony/mongoose-bundle` (7.0.2)     | `@nodefony/mongoose`      | renommage                        |
-| `@nodefony/mongo-bundle` (6.8.1)        | `@nodefony/mongoose`      | fusion                           |
-| `@nodefony/documentation-bundle` (6.12) | `@nodefony/documentation` | renommage                        |
-| `@nodefony/sequelize-bundle` (7.0.2)    | `@nodefony/drizzle`       | **changement de moteur**         |
-| `@nodefony/unittests-bundle` (7.0.2)    | — (vitest)                | fin de vie                       |
-| `@nodefony/mail-bundle` (7.0.2)         | **à trancher**            | aucun module mail en 10          |
-| `@nodefony/elastic-bundle` (7.0.2)      | **à trancher**            | aucun équivalent publié          |
-| `@nodefony/monitoring-bundle` (7.0.2)   | **à trancher**            | `@nodefony/studio` ? à décider   |
-| `@nodefony/demo-bundle` (4.3.1)         | — (`create app`)          | fin de vie                       |
-| `@nodefony/stage` (0.2.4)               | **à trancher**            | —                                |
-| `@nodefony/passport-wrapper` (4.0.0)    | **à trancher**            | `@nodefony/security` ? à décider |
+| Historique (dernière version)           | Successeur en 10          | Nature                                                              |
+| --------------------------------------- | ------------------------- | ------------------------------------------------------------------- |
+| `@nodefony/http-bundle` (7.0.2)         | `@nodefony/http`          | renommage                                                           |
+| `@nodefony/framework-bundle` (7.0.2)    | `@nodefony/framework`     | renommage                                                           |
+| `@nodefony/security-bundle` (7.0.2)     | `@nodefony/security`      | renommage                                                           |
+| `@nodefony/realtime-bundle` (7.0.2)     | `@nodefony/realtime`      | renommage                                                           |
+| `@nodefony/redis-bundle` (7.0.2)        | `@nodefony/redis`         | renommage                                                           |
+| `@nodefony/mongoose-bundle` (7.0.2)     | `@nodefony/mongoose`      | renommage                                                           |
+| `@nodefony/mongo-bundle` (6.8.1)        | `@nodefony/mongoose`      | fusion                                                              |
+| `@nodefony/documentation-bundle` (6.12) | `@nodefony/documentation` | renommage                                                           |
+| `@nodefony/sequelize-bundle` (7.0.2)    | `@nodefony/drizzle`       | **changement de moteur**                                            |
+| `@nodefony/unittests-bundle` (7.0.2)    | — (vitest)                | fin de vie                                                          |
+| `@nodefony/mail-bundle` (7.0.2)         | — (fin de vie)            | aucun module mail en 10                                             |
+| `@nodefony/elastic-bundle` (7.0.2)      | — (fin de vie)            | aucun équivalent publié                                             |
+| `@nodefony/monitoring-bundle` (7.0.2)   | — (fin de vie)            | Studio administre le framework, il ne supervise pas une application |
+| `@nodefony/demo-bundle` (4.3.1)         | — (`create app`)          | fin de vie                                                          |
+| `@nodefony/stage` (0.2.4)               | — (fin de vie)            | —                                                                   |
+| `@nodefony/passport-wrapper` (4.0.0)    | `@nodefony/security`      | le firewall de la 10 porte l'authentification                       |
 
 **Deux exclusions, à ne pas déprécier** :
 
@@ -413,6 +416,10 @@ paquets qui n'existent pas encore. Cette table s'applique **une fois la 10 en li
   vestige ; il a sa propre trajectoire (P15).
 - **`nodefony` (7.0.2)** — même nom, nouvelle majeure : c'est `10.0.0` qui le remplace, npm s'en
   charge. Déprécier le paquet déprécierait aussi la 10.
+
+**Une dépréciation est RÉVERSIBLE** (message vide) — c'est ce qui a permis de trancher les cinq
+cas restants plutôt que de les laisser ouverts : ne pas déprécier ne garde aucune porte, le paquet
+continue de s'installer en silence. Le jour où un successeur existe, le message se réécrit.
 
 Un message de dépréciation dit **où aller**, pas seulement que c'est fini. Pour un renommage :
 `npm deprecate @nodefony/http-bundle "Nodefony 10 : ce paquet devient @nodefony/http (voir https://github.com/nodefony/nodefony-core)"`.
