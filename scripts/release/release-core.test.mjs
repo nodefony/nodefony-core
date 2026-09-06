@@ -23,6 +23,7 @@ import {
   FICHIERS_LICENCE,
   comparerVersions,
   detecterSuspects,
+  phasesDeLaPasse,
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
@@ -859,5 +860,61 @@ describe("MAX_BUFFER_GIT — le plafond confronté au journal RÉEL", () => {
     // fait de tenir aujourd'hui, laisse le temps de relever le plafond avant
     // qu'une publication ne tombe dessus.
     expect(journalComplet() * 4).toBeLessThan(MAX_BUFFER_GIT);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("phasesDeLaPasse — ce que la passe fait vraiment", () => {
+  it("sans drapeau : répétition seule, aucune écriture", () => {
+    expect(phasesDeLaPasse({})).toEqual({
+      repetition: true,
+      estampiller: false,
+      changelog: false,
+      empaqueter: false,
+      publier: false,
+    });
+  });
+
+  it("--write : estampille et écrit le changelog, ne publie pas", () => {
+    const p = phasesDeLaPasse({ ecrire: true });
+    expect(p.repetition).toBe(false);
+    expect(p.estampiller).toBe(true);
+    expect(p.changelog).toBe(true);
+    expect(p.publier).toBe(false);
+  });
+
+  // PIÈGE — le défaut qui a rendu `--publish` INERTE : la passe sortait en
+  // répétition dès que `--write` manquait, avec un code de sortie 0. Sur la
+  // seule commande irréversible du dépôt, « rien n'a été publié » se lisait
+  // exactement comme « tout est publié ».
+  it("--publish SEUL publie — publier n'implique pas écrire", () => {
+    const p = phasesDeLaPasse({ publier: true });
+    expect(p.repetition).toBe(false);
+    expect(p.publier).toBe(true);
+    expect(p.empaqueter).toBe(true);
+  });
+
+  // Ce que la publication ne doit JAMAIS faire : ce qui part doit être
+  // exactement ce qui a été commité et relu.
+  it("--publish SEUL n'écrit RIEN — ni version, ni changelog", () => {
+    const p = phasesDeLaPasse({ publier: true });
+    expect(p.estampiller).toBe(false);
+    expect(p.changelog).toBe(false);
+  });
+
+  // Le message de la répétition propose `--pack` seul : il doit empaqueter.
+  it("--pack SEUL empaquette sans écrire ni publier", () => {
+    const p = phasesDeLaPasse({ pack: true });
+    expect(p.repetition).toBe(false);
+    expect(p.empaqueter).toBe(true);
+    expect(p.estampiller).toBe(false);
+    expect(p.publier).toBe(false);
+  });
+
+  it("--write --publish : estampille ET publie", () => {
+    const p = phasesDeLaPasse({ ecrire: true, publier: true });
+    expect(p.estampiller).toBe(true);
+    expect(p.publier).toBe(true);
+    expect(p.empaqueter).toBe(true);
   });
 });

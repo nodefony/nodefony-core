@@ -662,3 +662,36 @@ export function detecterSuspects(fichiers) {
   const GIT = /(^|\/)\.git\//;
   return fichiers.filter((f) => SUSPECT.test(f) || GIT.test(f));
 }
+
+/**
+ * Ce que la passe fait vraiment, à partir des seuls drapeaux.
+ *
+ * 🔴 PUBLIER N'IMPLIQUE PAS ÉCRIRE. Préparer et publier sont deux gestes, à
+ * deux moments : la préparation écrit (versions, changelog) et se relit ; la
+ * publication part d'un TAG et ne doit RIEN écrire — ce qui part doit être
+ * exactement ce qui a été commité et relu.
+ *
+ * La règle vit ICI, pure, parce qu'elle s'est déjà trompée en restant inline :
+ * une sortie « répétition » gardée par le seul `!ecrire` rendait `--publish`
+ * INERTE — et sortait en 0. Sur la seule commande du dépôt qui ne se rattrape
+ * pas, « rien n'a été publié » se lisait comme « tout est publié ». Une
+ * condition de mode ne se relit pas ; elle s'éprouve.
+ *
+ * @param options - drapeaux de la ligne de commande
+ * @returns les phases à exécuter
+ */
+export function phasesDeLaPasse({
+  ecrire = false,
+  publier = false,
+  pack = false,
+} = {}) {
+  const empaqueter = pack || publier;
+  return {
+    // La répétition n'est le mode par défaut que si RIEN d'autre n'est demandé.
+    repetition: !ecrire && !empaqueter,
+    estampiller: ecrire,
+    changelog: ecrire,
+    empaqueter,
+    publier,
+  };
+}

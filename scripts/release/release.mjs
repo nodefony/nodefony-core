@@ -69,6 +69,7 @@ import {
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  phasesDeLaPasse,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -109,7 +110,6 @@ const TAG_NPM = arg("npm-tag");
 const BRANCHE_ATTENDUE = arg("branch", "main");
 const DEPOT_ATTENDU = arg("repo", "github.com/nodefony/nodefony-core");
 const PUBLIER = drapeau("publish");
-const PACK = drapeau("pack") || PUBLIER;
 // 🔴 PUBLIER N'IMPLIQUE PAS ÉCRIRE, et c'est la charnière de tout ce fichier.
 //
 // Préparer et publier sont deux gestes, à deux moments, sur deux machines.
@@ -121,6 +121,15 @@ const PACK = drapeau("pack") || PUBLIER;
 // section déjà présente — un rouge sans aucun rapport avec la publication.
 const ECRIRE = drapeau("write");
 const HORS_LIGNE = drapeau("offline");
+
+// Les modes ne se déduisent pas au fil du fichier : la règle est PURE et
+// éprouvée (`phasesDeLaPasse`). Une condition de mode écrite inline avait déjà
+// rendu `--publish` inerte, en sortant 0.
+const PHASES = phasesDeLaPasse({
+  ecrire: ECRIRE,
+  publier: PUBLIER,
+  pack: drapeau("pack"),
+});
 
 // `npm` est `npm.cmd` sous Windows, et `execFile` ne résout pas les `.cmd` : la
 // règle vit dans le PRODUIT (`needsShell`, publié par le cœur), et ce script
@@ -476,7 +485,7 @@ if (figees.length) {
   );
 }
 
-if (!ECRIRE) {
+if (PHASES.repetition) {
   dire(
     "\n── RÉPÉTITION — aucun fichier touché ──\n" +
       `  ${aChanger.length} paquet(s) passeraient à ${VERSION}` +
@@ -498,71 +507,78 @@ if (!ECRIRE) {
   process.exit(0);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-etape = "estampillage";
-// ═══════════════════════════════════════════════════════════════════════════
-// Le balayage porte sur TOUS les paquets, pas sur les seuls `aChanger` : un
-// paquet peut déjà porter la version et référencer un frère sur une autre.
-const nomsInternes = new Set(paquets.map((p) => p.nom));
-const alignees = [];
-for (const p of paquets) {
-  const brut = readFileSync(p.chemin, "utf8");
-  let contenu = brut;
+// Ces deux étapes ÉCRIVENT. La publication n'y entre JAMAIS : ce qui part doit
+// être exactement ce qui a été commité et relu, jamais un fichier réécrit par
+// la passe qui publie.
+if (PHASES.estampiller) {
+  // ═══════════════════════════════════════════════════════════════════════════
+  etape = "estampillage";
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Le balayage porte sur TOUS les paquets, pas sur les seuls `aChanger` : un
+  // paquet peut déjà porter la version et référencer un frère sur une autre.
+  const nomsInternes = new Set(paquets.map((p) => p.nom));
+  const alignees = [];
+  for (const p of paquets) {
+    const brut = readFileSync(p.chemin, "utf8");
+    let contenu = brut;
 
-  if (p.pkg.version !== VERSION) {
-    // Réécriture ciblée du seul champ `version`, sans reformater le fichier : un
-    // `JSON.stringify` global réordonnerait les clés et gonflerait le diff jusqu'à
-    // le rendre irrelisible — or ce diff est exactement ce que l'auteur relit.
-    contenu = contenu.replace(
-      /^(\s*"version"\s*:\s*")[^"]+(")/m,
-      `$1${VERSION}$2`,
+    if (p.pkg.version !== VERSION) {
+      // Réécriture ciblée du seul champ `version`, sans reformater le fichier : un
+      // `JSON.stringify` global réordonnerait les clés et gonflerait le diff jusqu'à
+      // le rendre irrelisible — or ce diff est exactement ce que l'auteur relit.
+      contenu = contenu.replace(
+        /^(\s*"version"\s*:\s*")[^"]+(")/m,
+        `$1${VERSION}$2`,
+      );
+      if (contenu === brut) echouer(`${p.nom} : champ "version" introuvable`);
+    }
+
+    const lockstep = alignerReferencesInternes(contenu, nomsInternes, VERSION);
+    if (lockstep.introuvables.length) {
+      // Un remplacement muet publierait la référence d'origine : le manifeste et
+      // son texte ont divergé, et seule une lecture humaine peut trancher.
+      echouer(
+        `${p.nom} : référence(s) interne(s) introuvable(s) dans le texte du manifeste :\n` +
+          lockstep.introuvables.map((r) => `    • ${r}`).join("\n"),
+      );
+    }
+    contenu = lockstep.contenu;
+    for (const trace of lockstep.alignees) alignees.push(`${p.nom} → ${trace}`);
+
+    if (contenu !== brut) writeFileSync(p.chemin, contenu);
+  }
+  dire(`✓ estampillage — ${aChanger.length} package.json à ${VERSION}`);
+  if (alignees.length) {
+    dire(
+      `✓ lockstep — ${alignees.length} référence(s) interne(s) alignée(s) :\n` +
+        alignees.map((r) => `    ${r}`).join("\n"),
     );
-    if (contenu === brut) echouer(`${p.nom} : champ "version" introuvable`);
   }
-
-  const lockstep = alignerReferencesInternes(contenu, nomsInternes, VERSION);
-  if (lockstep.introuvables.length) {
-    // Un remplacement muet publierait la référence d'origine : le manifeste et
-    // son texte ont divergé, et seule une lecture humaine peut trancher.
-    echouer(
-      `${p.nom} : référence(s) interne(s) introuvable(s) dans le texte du manifeste :\n` +
-        lockstep.introuvables.map((r) => `    • ${r}`).join("\n"),
-    );
-  }
-  contenu = lockstep.contenu;
-  for (const trace of lockstep.alignees) alignees.push(`${p.nom} → ${trace}`);
-
-  if (contenu !== brut) writeFileSync(p.chemin, contenu);
-}
-dire(`✓ estampillage — ${aChanger.length} package.json à ${VERSION}`);
-if (alignees.length) {
-  dire(
-    `✓ lockstep — ${alignees.length} référence(s) interne(s) alignée(s) :\n` +
-      alignees.map((r) => `    ${r}`).join("\n"),
-  );
 }
 
-etape = "écriture du changelog";
-const cheminChangelog = path.join(ROOT, "CHANGELOG.md");
-// Lire DIRECTEMENT : `existsSync` puis `readFileSync` teste un état qui peut
-// changer entre les deux appels, et confond « absent » avec « illisible ». Un
-// CHANGELOG.md devenu illisible pour cause de droits doit lever, jamais passer
-// pour vide — sinon la release en écrirait un neuf par-dessus l'ancien.
-// Règle et implémentation de référence : `lireSiPresentSync` de
-// `@nodefony/security` (nodefony/src/token/secretFile.ts) — inatteignable
-// depuis un script du dépôt, qui ne compile pas les paquets.
-const ancienChangelog = (() => {
-  try {
-    return readFileSync(cheminChangelog, "utf8");
-  } catch (e) {
-    if (e.code === "ENOENT") return "";
-    throw e;
-  }
-})();
-const fusion = fusionnerChangelog(ancienChangelog, section, VERSION);
-if (fusion.erreur) echouer(fusion.erreur);
-writeFileSync(cheminChangelog, fusion.contenu);
-dire("✓ changelog écrit — CHANGELOG.md (brouillon à relire)");
+if (PHASES.changelog) {
+  etape = "écriture du changelog";
+  const cheminChangelog = path.join(ROOT, "CHANGELOG.md");
+  // Lire DIRECTEMENT : `existsSync` puis `readFileSync` teste un état qui peut
+  // changer entre les deux appels, et confond « absent » avec « illisible ». Un
+  // CHANGELOG.md devenu illisible pour cause de droits doit lever, jamais passer
+  // pour vide — sinon la release en écrirait un neuf par-dessus l'ancien.
+  // Règle et implémentation de référence : `lireSiPresentSync` de
+  // `@nodefony/security` (nodefony/src/token/secretFile.ts) — inatteignable
+  // depuis un script du dépôt, qui ne compile pas les paquets.
+  const ancienChangelog = (() => {
+    try {
+      return readFileSync(cheminChangelog, "utf8");
+    } catch (e) {
+      if (e.code === "ENOENT") return "";
+      throw e;
+    }
+  })();
+  const fusion = fusionnerChangelog(ancienChangelog, section, VERSION);
+  if (fusion.erreur) echouer(fusion.erreur);
+  writeFileSync(cheminChangelog, fusion.contenu);
+  dire("✓ changelog écrit — CHANGELOG.md (brouillon à relire)");
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Un budget de bundle est une promesse faite à l'utilisateur, pas une métrique
@@ -577,7 +593,7 @@ etape = "budgets bundle client (ADR-0007 D10)";
     "src/nodefony/dist/client/client/index.js",
   );
   if (!existsSync(barrelClient)) {
-    if (PACK) {
+    if (PHASES.empaqueter) {
       echouer(
         "dist client absent — les budgets portent sur ce que npm publie.\n" +
           "  → npm run build",
@@ -599,7 +615,7 @@ etape = "budgets bundle client (ADR-0007 D10)";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-if (PACK) {
+if (PHASES.empaqueter) {
   etape = "pack — tarballs";
   try {
     execFileSync("node", ["scripts/release/pack-all.mjs"], {
@@ -657,7 +673,7 @@ if (PACK) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-if (PUBLIER) {
+if (PHASES.publier) {
   const tarballs = JSON.parse(
     readFileSync(path.join(ROOT, "release/tarballs/manifest.json"), "utf8"),
   );
