@@ -75,21 +75,22 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 
-| Brique                              | Ce qu'elle résout                             | Tu en as besoin quand…                           |
-| ----------------------------------- | --------------------------------------------- | ------------------------------------------------ |
-| [Firewall](firewall.md)             | qui passe, qui est bloqué, sur quelles routes | toujours — c'est la fondation                    |
-| [Authenticators](authenticators.md) | prouver l'identité de l'appelant              | tu as autre chose que du public                  |
-| [Autorisation](authorization.md)    | rôles, scopes, voters métier                  | tous tes utilisateurs n'ont pas les mêmes droits |
-| [Jetons](tokens.md)                 | émission, keystore, rotation, révocation      | API sans état, ou révocation immédiate           |
-| [Clés d'API](api-keys.md)           | accès machine révocable (PAT opaque)          | un script/CI/partenaire appelle ton API          |
-| [CSRF](csrf.md)                     | requête authentifiée forgée par un site tiers | tu sers un front avec cookie de session          |
-| [CORS](cors.md)                     | lecture cross-origine de tes réponses         | ton front est sur un autre domaine               |
-| [En-têtes](headers.md)              | CSP, HSTS, COOP/COEP, Referrer-Policy         | tu sers du HTML à un navigateur                  |
-| [OAuth2](oauth2.md)                 | login social + provisionnement d'identité     | « se connecter avec … »                          |
-| [WebAuthn](webauthn.md)             | passkeys, connexion résistante au phishing    | tu veux supprimer les mots de passe              |
-| [TOTP](totp.md)                     | second facteur temporel + step-up             | 2FA, ou re-preuve avant une action sensible      |
-| [Webhooks](webhooks.md)             | notifier un tiers, signé et sans SSRF         | un système externe doit réagir à tes événements  |
-| [Journal d'audit](audit.md)         | tracer les événements de sécurité             | conformité, investigation, supervision           |
+| Brique                                  | Ce qu'elle résout                             | Tu en as besoin quand…                           |
+| --------------------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| [Firewall](firewall.md)                 | qui passe, qui est bloqué, sur quelles routes | toujours — c'est la fondation                    |
+| [Authenticators](authenticators.md)     | prouver l'identité de l'appelant              | tu as autre chose que du public                  |
+| [Autorisation](authorization.md)        | rôles, scopes, voters métier                  | tous tes utilisateurs n'ont pas les mêmes droits |
+| [Jetons](tokens.md)                     | émission, keystore, rotation, révocation      | API sans état, ou révocation immédiate           |
+| [Clés d'API](api-keys.md)               | accès machine révocable (PAT opaque)          | un script/CI/partenaire appelle ton API          |
+| [Obtenir un jeton](obtenir-un-jeton.md) | émettre un porteur en ligne de commande       | un agent MCP ou un script doit appeler ton app   |
+| [CSRF](csrf.md)                         | requête authentifiée forgée par un site tiers | tu sers un front avec cookie de session          |
+| [CORS](cors.md)                         | lecture cross-origine de tes réponses         | ton front est sur un autre domaine               |
+| [En-têtes](headers.md)                  | CSP, HSTS, COOP/COEP, Referrer-Policy         | tu sers du HTML à un navigateur                  |
+| [OAuth2](oauth2.md)                     | login social + provisionnement d'identité     | « se connecter avec … »                          |
+| [WebAuthn](webauthn.md)                 | passkeys, connexion résistante au phishing    | tu veux supprimer les mots de passe              |
+| [TOTP](totp.md)                         | second facteur temporel + step-up             | 2FA, ou re-preuve avant une action sensible      |
+| [Webhooks](webhooks.md)                 | notifier un tiers, signé et sans SSRF         | un système externe doit réagir à tes événements  |
+| [Journal d'audit](audit.md)             | tracer les événements de sécurité             | conformité, investigation, supervision           |
 
 ```nodefony-cards
 [
@@ -105,6 +106,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
   { "icon": "🎫", "title": "tokens", "href": "tokens.md",
     "desc": "L'identité matérialisée : émission, keystore, rotation, révocation — et le choix structurant du framework, session opaque côté serveur pour le web, JWT pour les API.",
     "meta": "et pourquoi ce n'est pas « full stateless »" },
+  { "icon": "🔑", "title": "obtenir un jeton", "href": "obtenir-un-jeton.md",
+    "desc": "L'autre voie d'émission : l'application signe elle-même un porteur en ligne de commande, sans serveur en marche ni mot de passe — c'est ce dont un client MCP ou un script d'exploitation a besoin.",
+    "meta": "le refus le plus fréquent : l'audience n'est pas déclarée" },
   { "icon": "📓", "title": "audit", "href": "audit.md",
     "desc": "La mémoire de ce qui s'est passé : qui s'est connecté, quel accès a été refusé, quelle clé a été révoquée. Conçu pour ne pas peser sur le chemin chaud de la requête.",
     "meta": "alimente aussi les webhooks" }

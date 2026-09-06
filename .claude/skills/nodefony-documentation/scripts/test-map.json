@@ -399,6 +399,11 @@
       "src/packages/@nodefony/http/nodefony/tests/http/traceparent.test.ts"
     ]
   },
+  "obtenir-un-jeton": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/securityCommands.test.ts"
+    ]
+  },
   "orm-core": {
     "globs": ["src/packages/@nodefony/orm-core/tests/**/*.test.ts"]
   },
