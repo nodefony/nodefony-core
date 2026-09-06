@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-06 22:37** (UTC).
+> Empreinte prise le **2026-09-06 23:29** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███░░░░░░░` 25% | 1 | 3 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████░░░░░` 50% | 2 | 2 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 2 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `████████░░` 82% | 133 | 30 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 2 | 21 | — |
@@ -30,18 +30,17 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#257 — chore(depot): renommer la branche de travail en dev, main portant la dernière publication**
+**#256 — chore(release): publier une 10.0.0-alpha.2 qui n'installe plus la version 7**
 
-Ordre 1.1 · P0 — bloque le reste · 0.5 j · jalon 10.0.0-alpha
+Ordre 1.2 · P0 — bloque le reste · 0.5 j · jalon 10.0.0-alpha
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-alpha — 3 ouverts
+## Jalon 10.0.0-alpha — 2 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 1.1 | P0 — bloque le reste | 0.5 | #257 | chore(depot): renommer la branche de travail en dev, main portant la dernière publication |
 | 1.2 | P0 — bloque le reste | 0.5 | #256 | chore(release): publier une 10.0.0-alpha.2 qui n'installe plus la version 7 |
 | 1.3 | P1 — figé à la création | 0.5 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 

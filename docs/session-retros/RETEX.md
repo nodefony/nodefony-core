@@ -1307,6 +1307,18 @@
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
+- [1× — 09-07] **L'outil dont le seul rôle est de DICTER les champs à recopier en donnait un faux.**
+  `release-preflight.yml` obtient le jeton d'identité OIDC et écrit le tableau « Ce qu'il faut saisir
+  sur npmjs.com » ; son défaut annonçait `release-publish.yml` — un fichier qui n'existe pas, le flux
+  qui publie s'appelant `release.yml`. La faute n'était pas rattrapable là où elle se serait produite :
+  npm FIXE les champs d'un publieur de confiance à sa création (« cannot be changed later »), et il y
+  en a quinze à déclarer. Le comble : `release.yml` s'ouvre sur « LE NOM DE CE FICHIER EST UN
+  IDENTIFIANT […] sensible à la casse » — la règle était écrite, et l'outil chargé de la transmettre
+  disait autre chose. **Un défaut PAR DÉFAUT ne se voit pas** : il faut déjà connaître la bonne
+  réponse pour remarquer que l'outil ment, or on consulte cet outil précisément parce qu'on ne la
+  connaît pas. Corollaire : une valeur irréversible qu'un outil dicte se DÉRIVE du dépôt (le nom du
+  fichier existe, on peut le lire), elle ne se code pas en dur dans un défaut.
+
 - [1× — 09-05] **Un geste PRESCRIT se constate applicable avant d'être proposé.** `doctor --live` prescrivait `git checkout -- migrations/` sur une dérive d'empreinte : le fichier incriminé ne vivait pas dans `migrations/` (il est livré par un paquet) et n'était pas modifié localement — le geste ne pouvait RIEN faire, et le user l'a exécuté pour rien. Même famille, même jour : « retire `policy: "dev"` de devkit », geste dont l'application aurait embarqué l'outillage de développement en production. **Un outil qui ne peut pas savoir si son geste s'applique doit INFORMER, pas prescrire.**
 
 - [1× — 09-05] **Un état NORMAL rangé dans la catégorie « anormal » condamne l'outil, pas l'application.** Trois fois le même motif : un module `policy: "dev"` qui disparaît en production (sa raison d'être) rendu en `✗` ; « aucune entité Drizzle » compté comme contrôle EMPÊCHÉ, donc échec en forge ; le verdict sain comparé à un mot inexistant. Sur les **23** états « non exécuté » du produit, **un seul** ne pesait pas sur le code de sortie. La règle qui manquait : _le contrôle a-t-il REGARDÉ et trouvé qu'il n'y avait rien, ou n'a-t-il pas pu regarder ?_
@@ -2055,6 +2067,17 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 09-07] **Un garde qui vit dans un RÉGLAGE D'INTERFACE est invisible depuis le dépôt — et il
+  peut nommer une chose morte pendant des mois sans que rien ne le dise.** Le job de déploiement du
+  site n'avait AUCUNE condition de branche : ce qui le retenait était la politique de branches de
+  l'environnement `github-pages`, qui n'autorisait que la branche par défaut et la branche de
+  travail. Les deux étant alignées, le réglage ne se manifestait jamais — jusqu'à ce que la branche
+  de travail soit renommée : la première poussée sur la nouvelle a rendu un rouge dont la cause
+  n'était écrite dans aucun fichier du dépôt. **Le contrôle : quand un flux ne casse pas alors qu'il
+  le devrait, chercher ce qui le retient AILLEURS que dans son fichier** — environnements, règles de
+  protection, réglages de l'hébergeur. La règle a été portée dans le flux, où elle se lit ; le
+  réglage reste derrière, en second verrou, mais il n'est plus le seul à savoir.
 
 - [1× — 09-06h] **Un défaut BLOQUANT réduit à un avertissement ne garde rien non plus.** Le script
   de publication DÉTECTAIT que `create-nodefony` épinglait `nodefony@10.0.0` à la veille d'une
