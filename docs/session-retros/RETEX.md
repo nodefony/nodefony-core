@@ -517,6 +517,8 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 09-06g] **Le README d'un paquet est sa page npm, FIGÉE pour la version publiée** — et personne ne le contrôlait. Passe manuelle la veille de l'alpha sur les 15 README publiables : **8 affirmations fausses, 14 liens morts**, dont `npm install @nodefony/core` (E404) et deux imports par DÉFAUT sur la page du paquet principal, où le cœur n'exporte que du nommé. Le « Usage minimal » échouait à sa première ligne. Un README n'est pas de la documentation interne qu'on corrigera : c'est une **surface publiée**, au même titre qu'`exports`, et elle ne se rattrape qu'en republiant.
+
 - [1× — 09-06e] **« Mets des tableaux dans les descriptions de jalons » — j'ai failli le faire sans
   vérifier que GitHub les rend.** Mesuré au navigateur piloté : **0 table, 0 image, 0 gras** dans le
   DOM, sur la liste comme sur la page dédiée — la description est du texte BRUT. Deux minutes de
@@ -736,6 +738,10 @@
   de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- [1× — 09-06g] **Vérifier qu'une chose EXISTE ne vérifie pas ce que le texte en AFFIRME.** Deux fois dans la même passe : `REDIS_URL` marquée VRAI parce que la variable existe — le README la disait « prioritaire » alors que `infra.ts:136` lit `NF_REDIS_URL` d'abord ; et `securityConfigJsonSchema` marquée VRAI en citant la ligne d'**import interne** du module, qui ne prouve aucun **export** (l'import documenté échouait). La question posée est toujours « le texte dit-il vrai ? », jamais « le symbole est-il là ? ».
+
+- [1× — 09-06g] **Mon propre automate exhaustif avait un bord, et il rendait un faux positif.** Un script croisant les `import { … } from "@nodefony/…"` des README avec `.ai/symbols.json` a déclaré `IMcpTool` introuvable : le graphe **ne porte pas les réexports de types**. L'exhaustivité d'un automate porte sur SON index, pas sur le monde — un verdict d'automate se recontrôle comme un verdict de modèle. Le bord est consigné dans #255 pour que le gate ne le reproduise pas.
 
 - [1× — 09-04] **« Non demandé » et « empêché » n'étaient qu'une seule catégorie, et le mode strict condamnait les deux.** L'étage 2 de `doctor` ne tourne que sur `--live` ; compté comme un contrôle qu'on n'a pas PU faire, il faisait échouer la commande sous `CI` — donc dans toute chaîne automatisée, y compris celle qui contrôle une application fraîchement générée, tant qu'elle n'ajoutait pas un démarrage complet. **Une abstention VOULUE et un empêchement se ressemblent dans le rapport et s'opposent dans le verdict.** Les deux restent affichés (ni l'un ni l'autre n'est un quitus) ; seul le second pèse.
 
@@ -2473,6 +2479,10 @@ change**`) doit être échappé AVANT que ses espaces deviennent souples, sinon 
 - [1× — 09-05e] **Un renvoi mort ressemble à un renvoi vivant.** #19 disait « Dépend de : arbitrage #6 » — #6 est une demande de fusion Dependabot TypeScript. Le vrai arbitrage était #32, fermé depuis. Le ticket paraissait bloqué et ne l'était pas.
 
 ## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- [1× — 09-06g] **Il ÉCHANTILLONNE quand on lui demande d'être rigoureux ; il BALAIE quand on lui dit quelles UNITÉS énumérer.** Trois lots de README confiés à `haiku` avec « rends un verdict pour CHAQUE affirmation vérifiable » : le lot données/sécu a rendu **17 affirmations pour 798 lignes** — `security` (182 l.) en a produit 2. Relancé avec « traite CHAQUE bloc de code, CHAQUE ligne de tableau, CHAQUE commande, CHAQUE valeur par défaut annoncée », il a rendu **26 affirmations sur le seul README de 106 lignes**, preuves ancrées dans le schéma Zod. La consigne qui mord n'est pas un adjectif de qualité, c'est **la liste des unités à parcourir**. Et la **preuve circulaire** est revenue une fois de plus (une variable d'environnement « prouvée » par le tableau du README qui l'annonce) — même mécanisme qu'en 09-01 : quand la source facile répond, le modèle ne va pas chercher la coûteuse.
+
+- [1× — 09-06g] **Une TROISIÈME relance dégrade au lieu d'améliorer.** Le même agent, repris deux fois, a fini par annoncer qu'il « synthétiserait pour respecter le budget », s'est arrêté après 2 des 5 fichiers restants, et a cité un `CLAUDE.md` comme preuve — explicitement interdit dans sa propre consigne. Les trois derniers ont été faits à la main en moins de temps que la relance. **Deux passes maximum : si la seconde ne rend pas ce qu'on attend, reprendre le travail, pas l'agent.**
 
 - [1× — 09-06e] **Un agent a rendu « 2 fichiers » là où il y en a 3** (`frontend-build`, `-dev`, et
   `-status` qu'il avait raté) — dans un rapport par ailleurs excellent, 16 verdicts justes sur 17.

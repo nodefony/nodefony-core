@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-06 14:24** (UTC).
+> Empreinte prise le **2026-09-06 14:59** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 2 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 2 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `████████░░` 82% | 133 | 30 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 2 | 21 | — |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -44,10 +44,11 @@ Ordre 1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 1 | P1 — figé à la création | 0.5 | #220 | chore(release): publier une alpha manuelle pour créer les paquets npm |
 | 1.1 | P1 — figé à la création | 0.5 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 
-## Jalon 10.0.0-beta — 1 ouverts
+## Jalon 10.0.0-beta — 2 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
+| 1.5 | P1 — figé à la création | 0.5 | #255 | test(release): contrôler les README publiés avant chaque publication |
 | 2 | P0 — bloque le reste | 1 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
 
 ## Jalon 10.0.0 — 30 ouverts

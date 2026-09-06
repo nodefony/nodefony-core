@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T14:24:06.738Z",
+  "generatedAt": "2026-09-06T14:59:22.386Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 0,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 1,
+      "open": 2,
       "title": "10.0.0-beta"
     },
     {
@@ -139,6 +139,20 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 255,
+      "title": "test(release): contrôler les README publiés avant chaque publication",
+      "url": "https://github.com/nodefony/nodefony-core/issues/255",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.5,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
