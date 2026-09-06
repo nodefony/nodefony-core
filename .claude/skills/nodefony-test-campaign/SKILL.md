@@ -169,9 +169,32 @@ Ce qu'une page de campagne doit porter, et que le terminal perd :
 > 🔴 **Les données sources s'EMBARQUENT dans la page** (`doc({ data })`). Une campagne se compare à
 > la précédente : sans ses données, un rapport est une image, pas une mesure — et la comparaison
 > qu'on voudra faire dans trois semaines demandera de tout rejouer.
->
-> 🔴 **Le rapport est une PHOTO** → il s'écrit dans `tmp/`, jamais dans `docs/`, jamais commité.
-> Ce qui est versionné, c'est le ticket qu'il fait ouvrir.
+
+### Une campagne de RELEASE est un livrable, pas une photo
+
+La règle « le rapport va dans `tmp/` » vaut pour une mesure d'exploration. **La campagne qui précède
+une publication, elle, se garde** : c'est le verdict attaché à une version, et il doit rester
+consultable quand quelqu'un demandera, dans six mois, ce qui avait été éprouvé pour la 10.0.0.
+
+Le dépôt a déjà ce patron pour la performance et le devkit, et la campagne s'y aligne :
+
+| Ce qu'on garde                 | Où                                                         |
+| ------------------------------ | ---------------------------------------------------------- |
+| Les **données** de la campagne | `docs/qualite/data/<version>.json` — commitées             |
+| Le **rendeur**                 | `scripts/build-qualite-site.mjs` — du code, versionné      |
+| La **page**                    | publiée sous `/qualite/` par `.github/workflows/pages.yml` |
+
+Le rendeur ne teste rien et ne mesure rien : il rend des données prises à la main, décor compris.
+C'est ce qui le rend déterministe et rejouable, et ce qui attache un chiffre à SA version,
+définitivement. La convention de ces fichiers vit dans
+[`docs/qualite/data/README.md`](../../../docs/qualite/data/README.md).
+
+> 🔴 **Ne jamais SOMMER les étages.** Ils se recouvrent — l'étage à interrupteurs ouverts rejoue le
+> socle entier. Une somme compterait trois fois la même suite et publierait un total gonflé : le
+> mensonge le plus facile à mettre dans un rapport de qualité, et le plus dur à rattraper une fois
+> cité. Rendre le passage le plus large, et le NOMMER.
+
+> 🔴 Une mesure d'exploration, elle, reste une PHOTO → `tmp/`, jamais commitée.
 
 ## Références
 

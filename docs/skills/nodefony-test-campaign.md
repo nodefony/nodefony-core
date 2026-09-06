@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-test-campaign/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Autres |
-| Corps | 164 lignes |
-| Coût d'activation | ~3 239 tokens (le corps est chargé à l'invocation) |
+| Corps | 187 lignes |
+| Coût d'activation | ~3 617 tokens (le corps est chargé à l'invocation) |
 | Description | 894 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -89,7 +89,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 164 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 187 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
