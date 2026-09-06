@@ -1,8 +1,134 @@
-# NODEFONY CORE
+<div align="center">
 
-[![nodefony-core](https://github.com/nodefony/nodefony-core/actions/workflows/node.js.yml/badge.svg)](https://github.com/nodefony/nodefony-core/actions/workflows/node.js.yml)
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/claude-ts/docs/assets/nodefony-logo.png" alt="Nodefony" height="96">
+
+# Nodefony
+
+**Le framework Node.js fullstack : temps réel natif, développement agentic-ready, sur un socle TypeScript isomorphe.**
+
+_Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
+
+[![Licence CeCILL-B](https://img.shields.io/badge/licence-CeCILL--B-blue.svg?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/claude-ts/LICENSE.txt)
+[![Node ≥ 24](https://img.shields.io/badge/Node.js-%E2%89%A5%2024-green?style=flat-square)](https://nodejs.org/)
+[![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://www.typescriptlang.org/)
+[![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://nodejs.org/api/esm.html)
+
+</div>
 
 ---
+
+> **Ce paquet est le CŒUR du framework** — noyau, injection de dépendances, modules, journalisation,
+> interface en ligne de commande. Il s'installe rarement seul : une application le reçoit par
+> `npm create nodefony`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,
+> `@nodefony/security`…) le déclarent en dépendance de pair.
+
+```bash
+npm install nodefony@alpha
+```
+
+> Le dist-tag est OBLIGATOIRE tant que la série 10 est en préversion : `latest` sert encore la
+> `7.0.2`, écrite en JavaScript, dont l'API n'a aucun rapport avec ce qui suit.
+
+## Ce que c'est
+
+Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
+directement sur les modules natifs de la plateforme — `node:http`, `node:http2`, WebSocket. Il
+apporte un noyau à injection de dépendances, un système de modules, un pare-feu applicatif, une
+persistance portable, une console d'administration et la construction des frontends.
+
+Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout.** C'est un transport
+de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
+HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
+
+Le socle est **isomorphe** : le même paquet s'importe côté serveur et côté navigateur. Le client
+temps réel, les règles d'autorisation et les types d'une ressource sont écrits une fois et
+s'exécutent là où ils servent — une règle corrigée l'est des deux côtés.
+
+Nodefony est publié depuis **2017** en JavaScript et a mûri jusqu'à sa version 7. La série 10 est
+une **réécriture complète en TypeScript** : même projet, mêmes concepts, repensés pour ce que
+Node.js et TypeScript sont devenus.
+
+## Une action, deux transports
+
+Même classe, même session, mêmes règles d'accès — seul le transport déclaré change :
+
+```typescript
+import {
+  route,
+  controller,
+  Controller,
+  CurrentUser,
+} from "@nodefony/framework";
+import type { ContextType } from "@nodefony/http";
+
+@controller("/api/blog")
+class BlogController extends Controller {
+  constructor(context: ContextType) {
+    super("blog", context);
+  }
+
+  @route("blog-index", { path: "", method: "GET" })
+  async index(@CurrentUser() user?: { identifier?: string }) {
+    return this.renderJson({
+      hello: "blog",
+      who: user?.identifier ?? "anonyme",
+    });
+  }
+
+  @route("blog-echo", {
+    path: "/echo",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async echo(message: string | Buffer | null) {
+    if (!message) return this.renderJson({ handshake: true });
+    return this.renderJson({ echo: message.toString() });
+  }
+}
+```
+
+La pseudo-méthode `WEBSOCKET` est traitée comme un verbe HTTP ordinaire : **une seule table de
+routes** pour les deux transports, et la même bulle `AsyncLocalStorage` du handshake à la fermeture.
+Une règle d'autorisation protège donc l'action quel que soit le transport, et la session ouverte en
+HTTP est celle que voit la socket.
+
+## Démarrer
+
+```bash
+npm create nodefony@alpha mon-app
+```
+
+Puis, dans le dossier créé : `npm run dev`.
+
+Le générateur produit une application complète — configuration validée, base de données au choix,
+frontend optionnel (React, Vue, Angular, Svelte), `Dockerfile`, et un `AGENTS.md` dérivé du projet.
+
+## Les paquets de la série 10
+
+| Paquet                                                             | Rôle                                                        |
+| ------------------------------------------------------------------ | ----------------------------------------------------------- |
+| **`nodefony`**                                                     | ce paquet — noyau, DI, modules, journalisation, CLI         |
+| `@nodefony/http`                                                   | serveurs HTTP/1.1, HTTP/2 et WebSocket, contextes, sessions |
+| `@nodefony/framework`                                              | routeur, contrôleurs, décorateurs de route                  |
+| `@nodefony/security`                                               | pare-feu applicatif, authentification, autorisation         |
+| `@nodefony/orm-core` · `@nodefony/drizzle` · `@nodefony/mongoose`  | persistance portable                                        |
+| `@nodefony/user`                                                   | entité et service utilisateur                               |
+| `@nodefony/realtime`                                               | canaux temps réel, diffusion multi-instances                |
+| `@nodefony/frontend`                                               | pilotage de Vite, rechargement à chaud, construction        |
+| `@nodefony/studio`                                                 | console d'administration                                    |
+| `@nodefony/documentation` · `@nodefony/devkit` · `@nodefony/redis` | documentation, outillage agent, cache et bus                |
+
+## Aller plus loin
+
+- **Documentation** — <https://nodefony.github.io/nodefony-core/>
+- **Dépôt et suivi** — <https://github.com/nodefony/nodefony-core>
+- **Journal des versions** — <https://github.com/nodefony/nodefony-core/blob/claude-ts/CHANGELOG.md>
+
+---
+
+# API du cœur
+
+Ce qui suit documente le paquet `nodefony` lui-même. Pour écrire une application — contrôleurs,
+routes, sécurité —, se reporter à la documentation ci-dessus.
 
 ## Exports ESM
 
@@ -67,15 +193,6 @@ Elle intègre trois responsabilités dans une seule classe de base :
 - **DI Container** — accès et injection de dépendances
 - **EventEmitter** — système de notifications (délégation vers un `Event` interne)
 - **Logging structuré** — via `Syslog` / `Pdu`
-
-### Installation
-
-```bash
-npm install nodefony@alpha
-```
-
-> Le dist-tag est OBLIGATOIRE tant que la série 10 est en préversion : `latest`
-> sert encore la 7.0.2, dont l'API est incompatible avec ce qui suit.
 
 ### Usage minimal
 
@@ -281,11 +398,3 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 ## Syslog / Pdu
 
 Voir [`src/syslog/`](https://github.com/nodefony/nodefony-core/tree/claude-ts/src/nodefony/src/syslog) — logger structuré RFC 5424 avec ring buffer O(1).
-
----
-
-## Tests
-
-```bash
-npm run test
-```
