@@ -56,6 +56,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import {
+  alignerReferencesInternes,
   analyserCommits,
   auditerMetadonnees,
   comparerVersions,
@@ -443,11 +444,30 @@ if (!(PUBLIER && !ECRIRE)) {
 const aChanger = paquets.filter((p) => p.pkg.version !== VERSION);
 const figees = referencesFigees(paquets, VERSION);
 if (figees.length) {
+  const liste = figees.map((r) => `      ${r}`).join("\n");
+  // Une référence interne épinglée sur une AUTRE version publie une dépendance
+  // ABSENTE du registre : l'installation casse chez le premier utilisateur, et
+  // la version est brûlée. L'épreuve d'installation vierge ne peut pas le voir
+  // — elle substitue des tarballs locaux, elle ne résout jamais le registre.
+  // Donc : la préparation ALIGNE (étape « estampillage »), et la publication
+  // qui n'écrit pas REFUSE, puisqu'elle publierait le manifeste tel qu'il est.
+  if (PUBLIER && !ECRIRE) {
+    echouer(
+      `${figees.length} référence(s) interne(s) figée(s) sur une AUTRE version :\n` +
+        liste +
+        "\n\n  Publier ainsi mettrait en ligne un paquet dont la dépendance n'existe\n" +
+        "  pas sur le registre — `ETARGET` chez qui installe, et la version brûlée.\n" +
+        "  C'est la préparation qui aligne, et son diff se relit avant le tag :\n" +
+        `       npm run release -- --version ${VERSION} --from <ref> --write`,
+    );
+  }
   alerter(
     `${figees.length} référence(s) interne(s) figée(s) sur une AUTRE version :\n` +
-      figees.map((r) => `      ${r}`).join("\n") +
-      "\n    Le lockstep les veut alignées. Ce script ne les touche pas de lui-même :\n" +
-      "    la convention du dépôt est `*`, et la changer est une décision.",
+      liste +
+      `\n    Le lockstep les veut alignées` +
+      (ECRIRE
+        ? " — l'estampillage s'en charge."
+        : ` : \`--write\` les passera à ${VERSION}.`),
   );
 }
 
@@ -476,19 +496,46 @@ if (!ECRIRE) {
 // ═══════════════════════════════════════════════════════════════════════════
 etape = "estampillage";
 // ═══════════════════════════════════════════════════════════════════════════
-for (const p of aChanger) {
+// Le balayage porte sur TOUS les paquets, pas sur les seuls `aChanger` : un
+// paquet peut déjà porter la version et référencer un frère sur une autre.
+const nomsInternes = new Set(paquets.map((p) => p.nom));
+const alignees = [];
+for (const p of paquets) {
   const brut = readFileSync(p.chemin, "utf8");
-  // Réécriture ciblée du seul champ `version`, sans reformater le fichier : un
-  // `JSON.stringify` global réordonnerait les clés et gonflerait le diff jusqu'à
-  // le rendre irrelisible — or ce diff est exactement ce que l'auteur relit.
-  const remplace = brut.replace(
-    /^(\s*"version"\s*:\s*")[^"]+(")/m,
-    `$1${VERSION}$2`,
-  );
-  if (remplace === brut) echouer(`${p.nom} : champ "version" introuvable`);
-  writeFileSync(p.chemin, remplace);
+  let contenu = brut;
+
+  if (p.pkg.version !== VERSION) {
+    // Réécriture ciblée du seul champ `version`, sans reformater le fichier : un
+    // `JSON.stringify` global réordonnerait les clés et gonflerait le diff jusqu'à
+    // le rendre irrelisible — or ce diff est exactement ce que l'auteur relit.
+    contenu = contenu.replace(
+      /^(\s*"version"\s*:\s*")[^"]+(")/m,
+      `$1${VERSION}$2`,
+    );
+    if (contenu === brut) echouer(`${p.nom} : champ "version" introuvable`);
+  }
+
+  const lockstep = alignerReferencesInternes(contenu, nomsInternes, VERSION);
+  if (lockstep.introuvables.length) {
+    // Un remplacement muet publierait la référence d'origine : le manifeste et
+    // son texte ont divergé, et seule une lecture humaine peut trancher.
+    echouer(
+      `${p.nom} : référence(s) interne(s) introuvable(s) dans le texte du manifeste :\n` +
+        lockstep.introuvables.map((r) => `    • ${r}`).join("\n"),
+    );
+  }
+  contenu = lockstep.contenu;
+  for (const trace of lockstep.alignees) alignees.push(`${p.nom} → ${trace}`);
+
+  if (contenu !== brut) writeFileSync(p.chemin, contenu);
 }
 dire(`✓ estampillage — ${aChanger.length} package.json à ${VERSION}`);
+if (alignees.length) {
+  dire(
+    `✓ lockstep — ${alignees.length} référence(s) interne(s) alignée(s) :\n` +
+      alignees.map((r) => `    ${r}`).join("\n"),
+  );
+}
 
 etape = "écriture du changelog";
 const cheminChangelog = path.join(ROOT, "CHANGELOG.md");

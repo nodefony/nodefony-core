@@ -302,6 +302,79 @@ export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
 }
 
 /**
+ * Les champs qu'un INSTALLEUR résout — donc les seuls où une référence interne
+ * désalignée atteint l'utilisateur.
+ *
+ * Partagé par la détection (`referencesFigees`) et par la correction
+ * (`alignerReferencesInternes`) : deux périmètres qui divergeraient laisseraient
+ * passer exactement ce que le premier prétend voir.
+ */
+export const CHAMPS_DEPENDANCES = ["dependencies", "peerDependencies"];
+
+/**
+ * Aligne sur la version publiée les références internes ÉPINGLÉES d'un manifeste.
+ *
+ * ## Pourquoi la correction ne peut pas rester un avertissement
+ *
+ * En lockstep, un paquet qui épingle un frère sur une AUTRE version publie une
+ * dépendance absente du registre : l'installation échoue en `ETARGET` chez le
+ * premier utilisateur, et la version est brûlée. Le cas vécu est le pire
+ * possible — `create-nodefony` épinglait `nodefony@10.0.0` à la veille d'une
+ * `10.0.0-alpha.1` : la PORTE D'ENTRÉE du framework (`npm create nodefony`),
+ * cassée pour tout le monde, sans qu'aucun test du dépôt ne puisse le voir
+ * (l'épreuve d'installation vierge substitue des tarballs locaux, elle ne
+ * résout jamais depuis le registre).
+ *
+ * L'étoile, elle, n'est pas un oubli : c'est la convention du dépôt pour les
+ * dépendances de pair, et elle est laissée telle quelle.
+ *
+ * La réécriture est TEXTUELLE et ciblée, jamais un `JSON.stringify` global :
+ * celui-ci réordonnerait les clés et gonflerait le diff jusqu'à le rendre
+ * illisible — or ce diff est exactement ce que l'auteur relit avant de taguer.
+ *
+ * @param brut - le texte du `package.json`, tel qu'il est sur le disque
+ * @param noms - les noms des paquets du lot (tout le reste est externe)
+ * @param version - la version publiée par ce lot
+ * @returns le contenu réécrit, les références alignées, et celles dont la
+ *   plage n'a PAS été retrouvée dans le texte — un remplacement muet
+ *   publierait la référence d'origine, donc il se dit.
+ */
+export function alignerReferencesInternes(brut, noms, version) {
+  const internes = noms instanceof Set ? noms : new Set(noms);
+  const pkg = JSON.parse(brut);
+  const alignees = [];
+  const introuvables = [];
+  let contenu = brut;
+
+  for (const champ of CHAMPS_DEPENDANCES) {
+    for (const [dep, plage] of Object.entries(pkg[champ] ?? {})) {
+      if (!internes.has(dep) || plage === "*" || plage === version) continue;
+      const motif = new RegExp(
+        `("${echapperRegex(dep)}"\\s*:\\s*")${echapperRegex(plage)}(")`,
+        "g",
+      );
+      const remplace = contenu.replace(motif, `$1${version}$2`);
+      if (remplace === contenu) {
+        if (!introuvables.includes(`${dep}@${plage}`)) {
+          introuvables.push(`${dep}@${plage}`);
+        }
+        continue;
+      }
+      contenu = remplace;
+      const trace = `${dep}@${plage} → ${version}`;
+      if (!alignees.includes(trace)) alignees.push(trace);
+    }
+  }
+
+  return { contenu, alignees, introuvables };
+}
+
+/** Neutralise les métacaractères d'un littéral inséré dans une expression. */
+function echapperRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
  * Références internes figées sur une autre version que celle publiée.
  *
  * La convention du dépôt est `*`. Si elle change un jour, publier un lot dont
@@ -312,7 +385,7 @@ export function referencesFigees(paquets, version) {
   const noms = new Set(paquets.map((p) => p.nom));
   const figees = [];
   for (const p of paquets) {
-    for (const champ of ["dependencies", "peerDependencies"]) {
+    for (const champ of CHAMPS_DEPENDANCES) {
       for (const [dep, plage] of Object.entries(p.pkg[champ] ?? {})) {
         if (noms.has(dep) && plage !== "*" && !plage.includes(version)) {
           figees.push(`${p.nom} → ${dep}@${plage} (${champ})`);

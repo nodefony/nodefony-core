@@ -26,6 +26,7 @@ import {
   fusionnerChangelog,
   ordreTopologique,
   paquetsNonEstampilles,
+  alignerReferencesInternes,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -409,6 +410,80 @@ describe("referencesFigees — le lockstep dépareillé", () => {
         "10.0.0",
       ),
     ).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("alignerReferencesInternes — le lockstep, APPLIQUÉ", () => {
+  const noms = new Set(["nodefony", "@nodefony/http"]);
+
+  it("réécrit une référence interne épinglée sur la version publiée", () => {
+    const brut = JSON.stringify(
+      { name: "create-nodefony", dependencies: { nodefony: "10.0.0" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(JSON.parse(r.contenu).dependencies.nodefony).toBe("10.0.0-alpha.1");
+    expect(r.alignees).toEqual(["nodefony@10.0.0 → 10.0.0-alpha.1"]);
+    expect(r.introuvables).toEqual([]);
+  });
+
+  it("laisse l'étoile intacte — c'est la convention du dépôt, pas un oubli", () => {
+    const brut = JSON.stringify(
+      { name: "@nodefony/framework", peerDependencies: { nodefony: "*" } },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(r.contenu).toBe(brut);
+    expect(r.alignees).toEqual([]);
+  });
+
+  it("ne touche AUCUNE dépendance externe, même portant la version publiée", () => {
+    const brut = JSON.stringify(
+      { name: "x", dependencies: { react: "10.0.0", zod: "^3.0.0" } },
+      null,
+      2,
+    );
+    expect(
+      alignerReferencesInternes(brut, noms, "10.0.0-alpha.1").contenu,
+    ).toBe(brut);
+  });
+
+  it("ne reformate pas le fichier — ce diff est ce que l'auteur relit", () => {
+    const brut =
+      '{\n  "name": "create-nodefony",\n  "zzz": 1,\n  "dependencies": { "nodefony": "10.0.0" }\n}\n';
+    const { contenu } = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(contenu).toBe(
+      '{\n  "name": "create-nodefony",\n  "zzz": 1,\n  "dependencies": { "nodefony": "10.0.0-alpha.1" }\n}\n',
+    );
+  });
+
+  it("aligne aussi une référence déclarée dans DEUX champs à la fois", () => {
+    const brut = JSON.stringify(
+      {
+        dependencies: { "@nodefony/http": "9.0.0" },
+        peerDependencies: { "@nodefony/http": "9.0.0" },
+      },
+      null,
+      2,
+    );
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    const pkg = JSON.parse(r.contenu);
+    expect(pkg.dependencies["@nodefony/http"]).toBe("10.0.0-alpha.1");
+    expect(pkg.peerDependencies["@nodefony/http"]).toBe("10.0.0-alpha.1");
+  });
+
+  it("SIGNALE la plage qu'il n'a pas su retrouver dans le TEXTE, au lieu de la taire", () => {
+    // Le manifeste parsé et son texte peuvent diverger (échappement unicode).
+    // Un remplacement muet publierait la référence d'origine — donc un paquet
+    // qui pointe une version absente du registre.
+    const brut = '{"dependencies":{"\\u006eodefony":"10.0.0"}}';
+    const r = alignerReferencesInternes(brut, noms, "10.0.0-alpha.1");
+    expect(r.contenu).toBe(brut);
+    expect(r.alignees).toEqual([]);
+    expect(r.introuvables).toEqual(["nodefony@10.0.0"]);
   });
 });
 
