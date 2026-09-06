@@ -898,13 +898,19 @@ dire(
     "  1. RELIRE le brouillon de CHANGELOG.md et le réécrire pour un lecteur\n" +
     `  2. relire le diff (${aChanger.length} package.json + CHANGELOG.md), puis :\n` +
     `       git commit -am "chore(release): ${VERSION}"\n` +
-    "  3. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
-    `       git tag v${VERSION} && git push origin ${branche} --tags\n` +
+    "  3. pousser le COMMIT SEUL, et attendre que la forge se calme :\n" +
+    `       git push origin ${branche}\n` +
+    "     Une poussée de branche réveille toute l'intégration continue (bancs de\n" +
+    "     charge compris) ; le tag arrivé en même temps met la PUBLICATION dans la\n" +
+    "     file, derrière elle. Mesuré : quinze minutes d'attente sur un geste que\n" +
+    "     l'on surveille — et l'on surveille mal ce qui ne démarre pas.\n" +
+    "  4. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
+    `       git tag v${VERSION} && git push origin v${VERSION}\n` +
     (PUBLIER
-      ? `  4. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
+      ? `  5. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
         "     même dépôt, même NOM DE FICHIER de workflow, extension comprise — tous les\n" +
         "     champs sont sensibles à la casse, et npm ne valide RIEN à l'enregistrement :\n" +
         "     une erreur ne se voit qu'à la publication suivante.\n" +
-        "  5. Settings → Publishing access → exiger la 2FA et interdire les jetons.\n"
+        "  6. Settings → Publishing access → exiger la 2FA et interdire les jetons.\n"
       : ""),
 );
