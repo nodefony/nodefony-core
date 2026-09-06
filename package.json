@@ -27,6 +27,7 @@
     "build:packages": "turbo run build --filter=./src/packages/**",
     "certificates": "bash bin/generateCertificates.sh",
     "check:filenames": "node scripts/check-portable-filenames.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
     "check:nul": "node scripts/check-no-nul-bytes.mjs",
     "clean": "turbo run clean && rimraf dist",
     "coverage": "tsx scripts/coverage-all.ts",

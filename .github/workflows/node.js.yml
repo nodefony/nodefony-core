@@ -206,6 +206,25 @@ jobs:
           npm run externals:check
           npm run test:pilotage
 
+      # Licences — Nodefony se distribue sous CeCILL-B, permissive de type BSD.
+      # Une dépendance copyleft fort (GPL, AGPL, SSPL) entrée TRANSITIVEMENT par
+      # une mise à jour mineure ne se signale nulle part : npm installe, les
+      # tests passent, la publication part. Et le fait, publié, est passé — une
+      # version suivante retire la dépendance, jamais les installations faites
+      # entre-temps.
+      #
+      # L'étape est ICI, dans la passe de tous les jours, et non dans un
+      # workflow de publication : un gate qui ne mord qu'au moment de publier
+      # arrive des semaines après l'entrée de la dépendance dans le verrou, quand
+      # la retirer coûte un chantier. Il n'a pas besoin du build — il lit
+      # l'arbre résolu par `npm ci`.
+      #
+      # Une seule plateforme suffit : une licence ne dépend pas du système.
+      - name: Gate — licences des dépendances de production
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: npm run check:licenses
+
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #
       # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant

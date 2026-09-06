@@ -225,6 +225,25 @@ docker stop -t 20 <container>   # SIGTERM → drain → exit 0
 > dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
 > sans erreur ni trace, à chaque déploiement.
 
+#### Si tu PUBLIES cette image
+
+L'image emporte `node_modules` élagué : la **publier** — sur un registre public,
+ou en la livrant à un tiers — te rend distributeur du code de tes dépendances.
+MIT, BSD, ISC et Apache-2.0 demandent alors que leur texte et leur copyright
+accompagnent le code. C'est déjà le cas matériellement : chaque paquet porte son
+propre fichier de licence dans `node_modules`, et l'image les emporte avec lui.
+
+Ce qui manque, c'est l'inventaire — npm le produit sans rien installer :
+
+```bash
+npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
+```
+
+> Un **déploiement interne** (ton propre registre, ton cluster) n'est pas une
+> distribution : ces obligations ne s'y appliquent pas. Et un inventaire écrit à
+> la main serait faux dès le premier `npm install` — c'est pourquoi il se
+> régénère plutôt qu'il ne se commite.
+
 <% if (it.db) { %>### Migrations de schéma
 
 En développement, la base **suit le code** : les tables naissent au démarrage et
