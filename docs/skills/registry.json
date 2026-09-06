@@ -4447,11 +4447,15 @@
             "path": "scripts/db-outage-pod.mjs",
             "purpose": "**Banc — une application Nodefony en PRODUCTION face à la chute de sa base.**",
             "usage": [
-              "node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]"
+              "node db-outage-pod.mjs [--workers N] [--container NOM] [--port P] [--db NOM]"
             ],
             "options": [
               {
                 "flag": "--container",
+                "help": ""
+              },
+              {
+                "flag": "--db",
                 "help": ""
               },
               {
@@ -4468,6 +4472,10 @@
               }
             ],
             "env": [
+              {
+                "name": "BASE",
+                "help": ""
+              },
               {
                 "name": "BOX",
                 "help": ""

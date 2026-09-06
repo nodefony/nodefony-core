@@ -17,13 +17,16 @@
  * qu'un signal de non-disponibilité.
  *
  * Usage :
- *   node db-outage-pod.mjs [--workers N] [--container NOM] [--port P]
+ *   node db-outage-pod.mjs [--workers N] [--container NOM] [--port P] [--db NOM]
  *
  *   --workers N   nombre de pods (défaut 1). Au-delà de 1, le banc démarre un
  *                 CLUSTER : la coupure doit être vue par TOUS les pods, et
  *                 aucun ne doit mourir.
  *   --container   conteneur de base à couper (défaut nodefony-postgres).
  *   --port        port HTTP du premier pod (défaut 5251 — hors du dev).
+ *   --db          base du décor (défaut nf_bench_outage) — RECRÉÉE à chaque run.
+ *                 Jamais la base de travail : le banc y laisserait son historique
+ *                 de migrations. `NF_DATABASE_URL` reste prioritaire.
  *
  * Prérequis : `npm run build`, et la base joignable.
  */
@@ -44,9 +47,19 @@ import {
 const WORKERS = Number.parseInt(arg("workers", "1"), 10);
 const BOX = arg("container", "nodefony-postgres");
 const PORT0 = Number.parseInt(arg("port", "5251"), 10);
+// Une base À LUI, jamais celle de travail : `orm:migrate` pose son historique
+// dans le premier schéma du `search_path`, donc dans `public`. Migrer la base
+// partagée y laisse un `public.nodefony_migrations` qui survit au banc, que plus
+// personne ne rattache à son producteur, et qui fait rougir les suites d'un
+// autre paquet. Même patron que `db-readiness-pod.mjs`.
+const BASE = arg("db", "nf_bench_outage");
 const URL_BASE =
   process.env.NF_DATABASE_URL ??
-  "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony";
+  `postgres://nodefony:nodefony-dev@127.0.0.1:5432/${BASE}`;
+
+/** Joue du SQL dans le conteneur — rend la sortie brute, `ERR:…` si le serveur refuse. */
+const psql = (sql, db = BASE) =>
+  docker("exec", BOX, "psql", "-U", "nodefony", "-d", db, "-tAc", sql);
 
 /** Démarre un pod de ce banc — le socle porte le geste, ce banc porte le décor. */
 const leverPod = (index) =>
@@ -82,6 +95,15 @@ try {
   // Le décor AVANT les pods : en production personne ne fabrique le schéma, et
   // un pod dont le schéma est en retard retient sa mise en service — à raison.
   // Migrer ici, c'est jouer le déploiement que ce banc prétend éprouver.
+  // Une base VIERGE : le décor d'un premier déploiement, et la garantie que ce
+  // banc ne dépend pas — ni ne laisse de traces — dans la base de travail.
+  console.log(`Décor neuf — base « ${BASE} »`);
+  psql(`DROP DATABASE IF EXISTS ${BASE}`, "postgres");
+  const creation = psql(`CREATE DATABASE ${BASE} OWNER nodefony`, "postgres");
+  if (creation.startsWith("ERR:")) {
+    abandonner(`la base « ${BASE} » n'a pas pu être créée`, creation);
+  }
+
   console.log("Migration de la base");
   const migration = migrerBase({ url: URL_BASE });
   if (!migration.ok) {
