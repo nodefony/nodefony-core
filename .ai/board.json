@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T13:04:38.124Z",
+  "generatedAt": "2026-09-06T14:24:06.738Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,7 +46,7 @@
       "title": "10.0.0-beta"
     },
     {
-      "closed": 131,
+      "closed": 133,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
       "open": 30,
@@ -1270,6 +1270,34 @@
       "labels": [
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 253,
+      "title": "test(drizzle): borner au schéma le contrôle de la table d'historique",
+      "url": "https://github.com/nodefony/nodefony-core/issues/253",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 254,
+      "title": "test(bench): donner au banc de coupure sa propre base",
+      "url": "https://github.com/nodefony/nodefony-core/issues/254",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.75,
+      "labels": [
+        "10.0.0"
       ]
     },
     {

@@ -642,6 +642,13 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-06f] **Un `sed` de débranchement a touché QUATRE sites, et la restauration n'en a rétabli
+  qu'un.** `s|url: schemaUrl(),|url: PG_URL as string,|` visait la fabrique de l'applicateur ; le
+  même motif vivait aussi dans trois ouvertures administratives du même fichier. Rebranché à
+  l'aveugle, deux tests sont devenus rouges pour une raison sans rapport avec ce que je mesurais.
+  **Un débranchement se DÉFAIT en lisant `git diff`, jamais en rejouant le remplacement inverse** :
+  le diff dit combien de sites ont bougé, le compte de tests ne le dit pas.
+
 - [1× — 09-06d] **Trois paquets publiables portaient un auteur INVENTÉ, et aucun manifeste pris seul
   ne le montrait.** `@nodefony/framework`, `@nodefony/http` et `@nodefony/security` déclaraient
   `admin <admin@nodefony.com>` ; quatre autres n'avaient aucun champ. Chaque fichier est plausible
@@ -925,6 +932,14 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 09-06f] **Le `tsconfig.json` d'un paquet EXCLUT ses tests — le typecheck était vert sans
+  avoir ouvert le fichier.** `tsgo --noEmit -p tsconfig.json` dans `@nodefony/drizzle` sort 0 sur un
+  test que rien n'a lu : `"exclude": ["node_modules", "dist", "tests"]`. C'est `tsconfig.tests.json`
+  qui couvre `tests/**`, et lui seul. Le CLAUDE.md nommait déjà ce piège pour le cœur ; il vaut
+  paquet par paquet, et le geste spontané (`-p tsconfig.json`) tombe du mauvais côté à chaque fois.
+  **Avant de croire un typecheck, lire l'`include`/`exclude` du projet qu'on vient d'invoquer** —
+  la question n'est pas « est-ce vert ? » mais « qu'a-t-il lu ? ».
 
 - [1× — 09-06d] **`npm sbom` NE REND PAS les dépendances de pair — mon relevé était vert et
   aveugle.** Le gate de licences annonçait 143 paquets quand un comptage à la main en donnait 490.
@@ -2644,6 +2659,22 @@ risqué>` : la garde du dépôt a refusé la commande ENTIÈRE avant exécution,
   jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
 
 ## 🎪 Le DÉCOR d'un banc est un état PARTAGÉ — et il accuse le produit à sa place
+
+- [1× — 09-06f] **Un banc a laissé une table dans la base de TRAVAIL, et c'est une suite d'un AUTRE
+  paquet qui en est morte.** `db-outage-pod.mjs` migrait son application dans `postgres://…/nodefony`
+  — la base partagée — sans `search_path` : `orm:migrate` pose son historique dans le premier schéma
+  du chemin, donc `public`. Le test drizzle `migrator-postgres.e2e` interrogeait
+  `information_schema` sur TOUTE la base et rougissait depuis, en accusant le migrateur. Deux
+  défauts se répondaient : un banc qui salit un état partagé, un test qui mesure plus large que ce
+  qu'il possède. **Le geste qui a tranché** : un déclencheur d'événement DDL PostgreSQL armé
+  pendant une passe complète — 140 créations capturées, **zéro dans `public`** — a innocenté la
+  suite entière en un run, là où essayer les paquets un par un aurait pris l'après-midi. Un piège
+  posé DANS le serveur nomme le producteur ; le chercher dans le code ne fait que le supposer.
+- [1× — 09-06f] **Mon débranchement était pollué par son propre décor.** Pour prouver qu'un test
+  mordait, j'avais posé à la main une table homonyme à trois colonnes : le test est tombé sur
+  `column "hash" does not exist`, un rouge parfaitement réel qui ne prouvait rien de ce que je
+  voulais montrer. Un débranchement se lit comme une mesure — il faut vérifier que c'est bien
+  l'assertion visée qui a mordu, et pas le décor qu'on vient d'improviser.
 
 - [1× — 09-06d] **`npm sbom` refuse d'inventorier une application liée au framework (`--link`) — et
   c'est le DÉCOR, pas l'application.** `ESBOMPROBLEMS` sur deux paquets « invalid » venus de
