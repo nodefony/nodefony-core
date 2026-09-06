@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/drizzle",
-  "version": "10.0.0-alpha.1",
+  "version": "10.0.0-alpha.2",
   "description": "Moteur SQL de Nodefony sur Drizzle ORM (SQLite, PostgreSQL, MySQL) : dépôts typés, migrations de schéma et adoption d'une base existante",
   "nodefony": {
     "storeKind": "durable",
@@ -60,30 +60,30 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.1",
-    "@nodefony/http": "^10.0.0-alpha.1",
-    "@nodefony/orm-core": "^10.0.0-alpha.1",
-    "@nodefony/security": "^10.0.0-alpha.1",
-    "@nodefony/user": "^10.0.0-alpha.1",
+    "@nodefony/framework": "^10.0.0-alpha.2",
+    "@nodefony/http": "^10.0.0-alpha.2",
+    "@nodefony/orm-core": "^10.0.0-alpha.2",
+    "@nodefony/security": "^10.0.0-alpha.2",
+    "@nodefony/user": "^10.0.0-alpha.2",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.4.1",
     "@types/pg": "8.23.1",
     "better-sqlite3": "13.0.3",
     "drizzle-kit": "0.31.10",
     "mysql2": "3.24.3",
-    "nodefony": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.2",
     "pg": "8.23.0",
     "rimraf": "6.1.3"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.1",
-    "@nodefony/http": "^10.0.0-alpha.1",
-    "@nodefony/orm-core": "^10.0.0-alpha.1",
-    "@nodefony/security": "^10.0.0-alpha.1",
-    "@nodefony/user": "^10.0.0-alpha.1",
+    "@nodefony/framework": "^10.0.0-alpha.2",
+    "@nodefony/http": "^10.0.0-alpha.2",
+    "@nodefony/orm-core": "^10.0.0-alpha.2",
+    "@nodefony/security": "^10.0.0-alpha.2",
+    "@nodefony/user": "^10.0.0-alpha.2",
     "better-sqlite3": "^13.0.0",
     "mysql2": "^3.24.0",
-    "nodefony": "^10.0.0-alpha.1",
+    "nodefony": "^10.0.0-alpha.2",
     "pg": "^8.23.0"
   },
   "repository": {

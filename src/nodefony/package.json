@@ -1,6 +1,6 @@
 {
   "name": "nodefony",
-  "version": "10.0.0-alpha.1",
+  "version": "10.0.0-alpha.2",
   "description": "Noyau du framework Nodefony : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur",
   "type": "module",
   "exports": {

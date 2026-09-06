@@ -8,6 +8,17 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.2 - 2026-09-07
+
+Cette préversion corrige l'installation de l'alpha.1 : un paquet scopé pris seul y
+tirait la `7.0.2`. Elle se sert toujours sous le dist-tag `alpha` — `latest` reste la
+`7.0.2`, dont l'API est sans rapport.
+
+### Fixed
+
+- **installation:** borner les dépendances de pair internes sur la version publiée — un paquet scopé installé seul tirait `nodefony@7.0.2` (a363d36e)
+- **cli:** aligner sur la version publiée la page de manuel embarquée, qui annonçait `10.0.0` (f9d28f6d)
+
 ## 10.0.0-alpha.1 - 2026-09-06
 
 Première publication de la série 10, réécrite en TypeScript et distribuée en quinze
