@@ -517,6 +517,13 @@
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
+- [1× — 09-06h] **Un drapeau INOPÉRANT recopié depuis un ticket, sur la seule commande qui ne se
+  rattrape pas.** `--from <ref>` figure dans le bloc « Le geste » de #220 et sur la ligne d'aide du
+  `--publish` — or la publication SAUTE l'étape changelog, seule consommatrice de cette borne. Je
+  l'ai recopié trois fois sans le vérifier ; c'est le user qui a demandé « ça fait quoi ? ». Un
+  drapeau qui ne fait rien ne produit aucune erreur : il se transmet de ticket en ticket et donne
+  l'illusion qu'on a compris la commande. Corrigé dans l'aide du script.
+
 - [1× — 09-06g] **Le README d'un paquet est sa page npm, FIGÉE pour la version publiée** — et personne ne le contrôlait. Passe manuelle la veille de l'alpha sur les 15 README publiables : **8 affirmations fausses, 14 liens morts**, dont `npm install @nodefony/core` (E404) et deux imports par DÉFAUT sur la page du paquet principal, où le cœur n'exporte que du nommé. Le « Usage minimal » échouait à sa première ligne. Un README n'est pas de la documentation interne qu'on corrigera : c'est une **surface publiée**, au même titre qu'`exports`, et elle ne se rattrape qu'en republiant.
 
 - [1× — 09-06e] **« Mets des tableaux dans les descriptions de jalons » — j'ai failli le faire sans
@@ -643,6 +650,14 @@
 - [1× — 09-03] La garde anti-ReDoS de `bearerToken` mesurait un ratio de temps entre deux TAILLES (800 k → 1,6 M) : ×3,5 sur macOS, ×3,0 sur ubuntu, ×4 sous couverture, pour un motif inchangé — 4ᵉ flake, et les trois remèdes précédents avaient GROSSI l'entrée « pour sortir du bruit », jusqu'à ce que 1,6 Mo et 3,2 Mo ne tiennent plus dans le même cache. Ce qui ressemblait à une courbe quadratique était la hiérarchie mémoire. Remède : un TÉMOIN (l'ancien motif) sur la même entrée, au même instant — un écart ×1 000 qu'aucun bruit ne comble.
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
+
+- [1× — 09-06h] **La page la plus vue du projet n'avait jamais été regardée COMME une page.**
+  `src/nodefony/README.md` devient `npmjs.com/package/nodefony` : elle s'ouvrait sur « Exports
+  ESM » puis sur la classe `Service`, sous un titre `NODEFONY CORE` — un nom de paquet qui
+  n'existe pas. Prise isolément elle est une doc d'API correcte ; c'est en la COMPARANT à l'accueil
+  du dépôt, 340 lignes de vitrine qui ne partent dans aucun tarball, que le défaut saute. Aucun gate
+  ne compare ces deux entrées, et le user l'a vu d'un `ls -l`. Corollaire non traité : les deux
+  portent désormais ~40 lignes de positionnement DUPLIQUÉES, qui divergeront.
 
 - [1× — 09-06f] **Un `sed` de débranchement a touché QUATRE sites, et la restauration n'en a rétabli
   qu'un.** `s|url: schemaUrl(),|url: PG_URL as string,|` visait la fabrique de l'applicateur ; le
@@ -2011,6 +2026,23 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- [1× — 09-06h] **Un défaut BLOQUANT réduit à un avertissement ne garde rien non plus.** Le script
+  de publication DÉTECTAIT que `create-nodefony` épinglait `nodefony@10.0.0` à la veille d'une
+  `10.0.0-alpha.1` — et n'en faisait qu'un ⚠️, en concluant « la changer est une décision ».
+  C'était `ETARGET` chez le premier utilisateur de `npm create nodefony`, la porte d'entrée du
+  framework, et quinze versions brûlées. Le gate voyait juste ; c'est son NIVEAU qui était faux.
+  Corrigé au produit : la préparation ALIGNE, la publication qui n'écrit pas REFUSE. La question à
+  poser devant tout avertissement d'un outil irréversible : **que se passe-t-il si on passe outre ?**
+  Si la réponse est « c'est cassé et on ne peut pas revenir », ce n'était jamais un avertissement.
+
+- [1× — 09-06h] **Faire taire une garde d'un drapeau sans interroger ce qu'elle protège.** Le script
+  refusait la branche `claude-ts` ; j'ai passé `--branch claude-ts`, que son propre message
+  suggère. Personne ne savait pourquoi le défaut était `main` — ni le plan, ni le ticket, ni le
+  skill, et le code portait `arg("branch", "main")` sans une ligne d'argumentation. Ce qu'elle
+  protégeait, trouvé en cherchant : le lien « repository » d'un paquet npm ouvre la branche par
+  DÉFAUT, alors à −195 commits, où l'accueil NIE la publication qu'on vient d'installer. Un drapeau
+  de contournement proposé par l'outil lui-même n'est pas une autorisation de ne pas comprendre.
 
 - [1× — 09-06b] **Un banc SAUTÉ faute de son décor est un gate muet — et il gardait six clés.**
   `browser-fonctionnel.test.ts` exige un conteneur ; sans lui, `describe.skipIf` le saute et la
