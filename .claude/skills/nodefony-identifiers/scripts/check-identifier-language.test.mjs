@@ -328,6 +328,12 @@ describe("judgeIdentifier — les cas vrais des deux côtés", () => {
       "onSuccess",
       "IJsonRpcSuccess",
       "successRedirect",
+      // HOMOGRAPHE : `limiter` est un NOM anglais courant — « rate limiter »
+      // est le terme consacré, et le gate criait sur `rateLimiter`. Le mot est
+      // donc sorti du dictionnaire ; `limite` et `limitee`, eux, y restent.
+      "rateLimiter",
+      "RateLimiter",
+      "connectionLimiter",
       "linterCategories",
       "gitBranches",
       "cssClasses",

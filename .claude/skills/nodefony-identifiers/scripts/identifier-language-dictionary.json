@@ -234,7 +234,6 @@
       "borner",
       "borne",
       "bornee",
-      "limiter",
       "limite",
       "limitee",
       "depasser",
@@ -1348,7 +1347,8 @@
     "svelte",
     "vite",
     "zod",
-    "eta"
+    "eta",
+    "limiter"
   ],
   "englishInflections": [
     "classes",
@@ -1642,7 +1642,6 @@
     "couper": "cut",
     "borner": "bound",
     "borne": "bound",
-    "limiter": "limit",
     "depasser": "exceed",
     "echouer": "fail",
     "reussir": "succeed",
