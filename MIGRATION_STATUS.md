@@ -605,7 +605,7 @@ DI scopes (singleton/transient), lifecycle session.
 <!-- prettier-ignore -->
 | # | Tâche | Preuve / état (détail → git log + mémoires IA) |
 | --- | --- | --- |
-| 🔶 P6.8 | `authorization.ts` (3 niveaux) | J6 `4e336d50` : RoleVoter + `decide()` affirmative+DENY véto, voterRegistry ; reste niveau B (ACL fine par ressource) |
+| 🔶 P6.8 | `authorization.ts` (3 niveaux) | Niveau B partiellement porté par [#71](https://github.com/nodefony/nodefony-core/issues/71) (hiérarchie de rôles extensible, jalon `10.2`) — l'ACL fine par ressource reste sans ticket. J6 `4e336d50` : RoleVoter + `decide()` affirmative+DENY véto, voterRegistry ; reste niveau B (ACL fine par ressource) |
 | ⬜ P6.9d | **Serveur d'autorisation OAuth 2.1** (code flow + PKCE) | **NON FAIT — TRANCHÉ (décision user) : APRÈS la release 10.0.0.** Conséquence assumée : la 10.0.0 sort avec un MCP dont la sécurité est complète et prouvée, mais dont le jeton s'obtient **hors bande**. Le report déplace la charge sur la DOCUMENTATION (comment obtenir et poser le porteur). Nodefony ÉMET des jetons et publie de quoi les vérifier (RFC 8414 + JWKS), mais n'offre aucun **flux d'obtention** normatif : ni `authorization_endpoint`, ni `token_endpoint`. Conséquence CONSTATÉE sur un vrai client : le SDK MCP exige les deux champs et refuse la connexion — alors que le document est LÉGAL sans eux (RFC 8414 §2). **Ce n'est PAS un prérequis du MCP authentifié** : la spec impose le porteur, pas le moyen de l'obtenir. C'en est un pour un client qui doit obtenir son jeton SEUL. |
 | ⬜ P6.9b | `MTlsAuthenticator` | zones admin (niche, non démarré) |
 | 🔶 P6.10 | Logs auth + CSP stricte + headers | J5-A `SecurityHeaders` (CSP + Referrer + COOP/COEP/CORP + Permissions-Policy) ; reste logs auth dédiés |
@@ -653,7 +653,7 @@ DI scopes (singleton/transient), lifecycle session.
 <!-- prettier-ignore -->
 | # | Tâche | État |
 | --- | --- | --- |
-| 🔶 P8.4 | `Metrics` runtime | via Studio (ticker stats → canal `nodefony:supervision`, `studio/nodefony/realtime/providers.ts`), pas service standalone ; `/metrics` Prometheus = 16.J repoussé |
+| 🔶 P8.4 | `Metrics` runtime | **Porté par [#228](https://github.com/nodefony/nodefony-core/issues/228)** (jalon `10.2`). via Studio (ticker stats → canal `nodefony:supervision`, `studio/nodefony/realtime/providers.ts`), pas service standalone ; `/metrics` Prometheus = 16.J repoussé |
 
 ### P9 — Polish + clôture (100 %) — ✅ SOLDÉE
 
@@ -667,7 +667,7 @@ DI scopes (singleton/transient), lifecycle session.
 <!-- prettier-ignore -->
 | # | Tâche | État |
 | --- | --- | --- |
-| 🔶 P10.6 | Auth admin (`ROLE_NODEFONY_ADMIN`) | rôle actif sur `/studio/api/create/*` (`@IsGranted`, `StudioCreateController.ts`) ; reste : le généraliser à toute la surface `/nodefony` (vérif audit 08-06) |
+| 🔶 P10.6 | Auth admin (`ROLE_NODEFONY_ADMIN`) | **Porté par [#33](https://github.com/nodefony/nodefony-core/issues/33)** (jalon `10.0.0`). rôle actif sur `/studio/api/create/*` (`@IsGranted`, `StudioCreateController.ts`) ; reste : le généraliser à toute la surface `/nodefony` (vérif audit 08-06) |
 | ✅ P10.9 | Vues firewall/logs/databases/migrate | Logs ✅ (WS) + Databases ✅ + Firewall ✅ (cf P6.15) + **Migrations ✅** — la case annonçait « reste migrate (S5d, gelé) », c'était FAUX : `studio/frontend/src/routes/Migrations.tsx` existe et porte le cycle complet (état, verdict, applicabilité, application). Confronté au code le 09-06. |
 | 🔶 P10.10 | Vues services/profiling | **Profiling ✅** (`studio/frontend/src/routes/logs/ProfilingTab.tsx`) · **Services = ébauche** (`studio/frontend/src/routes/stubs.tsx`). Le reste n'est donc pas « incrémental » comme l'annonçait cette case : c'est UNE vue à écrire, l'autre est livrée. Confronté au code le 09-06. |
 | ⬜ P10.11 | Tests intégration studio | **13 fichiers de test unitaires existent** — l'annonce « 0 test studio » (06-28) est périmée. Ce qui manque reste vrai : **aucun test de bout en bout**. Le back est couvert e2e via security. Confronté au code le 09-06. |
@@ -743,7 +743,7 @@ DI scopes (singleton/transient), lifecycle session.
 | # | Tâche | État |
 | --- | --- | --- |
 | 🔶 P14.7 | CLI `frontend:create/build/dev` | **`frontend:build`, `frontend:dev` et `frontend:status` livrés** (`frontend/nodefony/command/`) ; **`frontend:create` n'existe pas** — le scaffold passe par `nodefony create module --frontend <fw>`. Reste : trancher si `frontend:create` doit exister, ou retirer ce nom de la case. Confronté au code le 09-06. |
-| ⬜ P14.12 | Plugin Vite Nodefony (alias + env) | zéro config dev |
+| ⬜ P14.12 | Plugin Vite Nodefony (alias + env) | Voisin de [#131](https://github.com/nodefony/nodefony-core/issues/131) (composer les plugins Vite en un seul endroit, jalon `10.2`) — à trancher : même chantier, ou ticket propre. zéro config dev |
 | ✅ P14.14 | API CSP origines dynamiques | la CSP du rechargement à chaud est déclarée au firewall AVANT le spawn de Vite, sur toute la plage de ports, puis rétrécie au port réel — [#135](https://github.com/nodefony/nodefony-core/issues/135) ; preuve `src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts` (9 cas) |
 | ✅ P14.16 | Syslog isomorphe (logs front → back) | canal montant livré bout en bout — [#35](https://github.com/nodefony/nodefony-core/issues/35) : émetteur `src/nodefony/src/client/syslog/uplink.ts`, réception `src/packages/@nodefony/realtime/nodefony/src/server/syslogUplink.ts`, preuve e2e `.../tests/integration/syslogUplink.e2e.test.ts` |
 

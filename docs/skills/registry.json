@@ -5232,6 +5232,14 @@
               {
                 "name": "QUERY",
                 "help": ""
+              },
+              {
+                "name": "REPO_NAME",
+                "help": ""
+              },
+              {
+                "name": "REPO_OWNER",
+                "help": ""
               }
             ],
             "output": ".ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main",

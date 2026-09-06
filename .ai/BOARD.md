@@ -6,22 +6,27 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-06 12:34** (UTC).
+> Empreinte prise le **2026-09-06 12:56** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
 
 ## Jalons
 
-| Jalon | Ouverts | Fermés | Échéance |
-| --- | ---: | ---: | --- |
-| 10.1 | 19 | 2 | — |
-| 10.2 | 18 | 1 | — |
-| 11 | 0 | 0 | — |
-| 12 | 0 | 0 | — |
-| 10.0.0-alpha | 2 | 0 | 2026-09-19 |
-| 10.0.0-beta | 1 | 0 | 2026-10-14 |
-| 10.0.0 | 30 | 131 | 2026-11-15 |
+> Les badges viennent de shields.io et se mettent à jour **tout seuls** : ils
+> interrogent GitHub au moment où la page est lue, ils ne sont pas une photo.
+> Ils ne peuvent pas vivre dans la description d'un jalon — mesuré le 09-06 :
+> GitHub y rend le texte BRUT, ni tableau, ni image, ni gras.
+
+| Jalon | Avancement | Fait | Reste | Échéance |
+| --- | --- | ---: | ---: | --- |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 2 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | 2026-10-14 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `████████░░` 81% | 131 | 30 | 2026-11-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 2 | 21 | — |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
+| **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
+| **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -86,7 +91,7 @@ Ordre 1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | --- | --- | ---: | --- | --- |
 | 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.1 — 19 ouverts
+## Jalon 10.1.0 — 21 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -109,8 +114,10 @@ Ordre 1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 145 | P1 — figé à la création | 0.5 | #226 | feat(kernel): avertir quand l'arrêt gracieux ne pourra pas se faire |
 | 146 | P2 — décision | 0.5 | #227 | docs(site): publier la liste des variables d'environnement |
 | 150 | P2 — décision | 1 | #218 | test(http): caractériser la hausse du RSS d'un pod sous charge |
+| 154 | P1 — figé à la création | 0.5 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
+| 155 | P1 — figé à la création | 1 | #235 | feat(security): journaliser les evenements d'authentification |
 
-## Jalon 10.2 — 18 ouverts
+## Jalon 10.2.0 — 27 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -132,4 +139,34 @@ Ordre 1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 142 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 147 | P2 — décision | 1 | #228 | feat(observabilite): exposer les métriques au format Prometheus |
 | 148 | P3 — fin de cycle | 0.5 | #229 | feat(scaffold): livrer un Dockerfile de développement |
+| 151 | P2 — décision | 1 | #231 | feat(cli): interroger les journaux depuis un terminal |
+| 152 | P2 — décision | 2 | #232 | feat(cli): compléter les commandes de module et leur couverture |
+| 153 | P2 — décision | 2 | #233 | feat(kernel): faire tourner un travail batch et periodique sans serveur |
+| 156 | P2 — décision | 1.5 | #236 | feat(studio): livrer la vue Services et l'audit en direct |
+| 157 | P2 — décision | 1.5 | #237 | test(studio): eprouver la console d'administration de bout en bout |
+| 158 | P2 — décision | 2 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
+| 159 | P2 — décision | 1 | #239 | feat(realtime): declarer un canal parametre par un motif |
+| 160 | P2 — décision | 0.5 | #240 | chore(frontend): trancher si frontend:create doit exister |
+| 161 | P2 — décision | 0.5 | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
+
+## Jalon 11.0.0 — 3 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 162 | P3 — fin de cycle | 3 | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
+| 163 | P3 — fin de cycle | 3 | #243 | feat(realtime): servir le bus par Kafka pour la retention |
+| 164 | P2 — décision | 5 | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
+
+## Jalon 12.0.0 — 8 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 165 | P1 — figé à la création | 3 | #245 | chore(ia): refaire l'etat de l'art avant de coder la couche IA |
+| 166 | P1 — figé à la création | 1 | #246 | feat(llm): brancher un fournisseur de modele reel |
+| 167 | P2 — décision | 1 | #247 | feat(vector): eprouver le stockage de vecteurs en reel |
+| 168 | P2 — décision | 1 | #248 | feat(rag): eprouver la recherche augmentee de bout en bout |
+| 169 | P2 — décision | 1 | #249 | feat(memory): persister la memoire d'un agent |
+| 170 | P2 — décision | 1 | #250 | feat(agent): arreter le modele de boucle d'un agent |
+| 171 | P2 — décision | 1 | #251 | chore(mcp): trancher si le protocole descend du coeur en module |
+| 172 | P1 — figé à la création | 1 | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
 

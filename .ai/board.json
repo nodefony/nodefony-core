@@ -1,47 +1,54 @@
 {
-  "generatedAt": "2026-09-06T12:34:11.609Z",
+  "generatedAt": "2026-09-06T12:56:18.821Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
     {
       "closed": 2,
       "dueOn": null,
-      "open": 19,
-      "title": "10.1"
+      "number": 2,
+      "open": 21,
+      "title": "10.1.0"
     },
     {
       "closed": 1,
       "dueOn": null,
-      "open": 18,
-      "title": "10.2"
+      "number": 3,
+      "open": 27,
+      "title": "10.2.0"
     },
     {
       "closed": 0,
       "dueOn": null,
-      "open": 0,
-      "title": "11"
+      "number": 4,
+      "open": 3,
+      "title": "11.0.0"
     },
     {
       "closed": 0,
       "dueOn": null,
-      "open": 0,
-      "title": "12"
+      "number": 5,
+      "open": 8,
+      "title": "12.0.0"
     },
     {
       "closed": 0,
       "dueOn": "2026-09-19T00:00:00Z",
+      "number": 6,
       "open": 2,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 0,
       "dueOn": "2026-10-14T00:00:00Z",
+      "number": 7,
       "open": 1,
       "title": "10.0.0-beta"
     },
     {
       "closed": 131,
       "dueOn": "2026-11-15T00:00:00Z",
+      "number": 1,
       "open": 30,
       "title": "10.0.0"
     }
@@ -722,7 +729,7 @@
       "jours": 1,
       "ordre": 2.95,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2105,12 +2112,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/29",
       "state": "CLOSED",
       "status": "Done",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
       "ordre": 21,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2444,12 +2451,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/28",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 100,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2458,12 +2465,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/31",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 101,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2472,12 +2479,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/63",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 110,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2500,12 +2507,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/76",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 111,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2514,12 +2521,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/77",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 112,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2528,12 +2535,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/78",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 113,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2542,12 +2549,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/64",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 114,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2556,12 +2563,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/66",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 115,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2570,12 +2577,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/67",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 116,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2584,12 +2591,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/71",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 117,
       "labels": [
-        "10.1",
+        "10.1.0",
         "backlog"
       ]
     },
@@ -2599,12 +2606,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/79",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 118,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2613,12 +2620,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/69",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 119,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2627,12 +2634,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/72",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 120,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2641,12 +2648,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/73",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 121,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2655,12 +2662,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/75",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 122,
       "labels": [
-        "10.1",
+        "10.1.0",
         "arbitrage"
       ]
     },
@@ -2670,12 +2677,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/131",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 123,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2684,12 +2691,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/161",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 124,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2698,12 +2705,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/70",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 130,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2712,12 +2719,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/68",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 131,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2726,12 +2733,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/74",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 132,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2740,12 +2747,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/65",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 133,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2754,12 +2761,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/171",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 134,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2768,12 +2775,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/172",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 135,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2782,12 +2789,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/173",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 136,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2796,12 +2803,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/188",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 137,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2824,12 +2831,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/195",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 139,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2838,12 +2845,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/196",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 140,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2852,7 +2859,7 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/216",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 141,
@@ -2864,12 +2871,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/221",
       "state": "CLOSED",
       "status": "Done",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 141,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2878,7 +2885,7 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/50",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 5,
       "ordre": 142,
@@ -2892,7 +2899,7 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/217",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 142,
@@ -2904,12 +2911,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/224",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 143,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2918,12 +2925,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/225",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 144,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2932,12 +2939,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/226",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 145,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2946,12 +2953,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/227",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 146,
       "labels": [
-        "10.1"
+        "10.1.0"
       ]
     },
     {
@@ -2960,12 +2967,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/228",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 147,
       "labels": [
-        "10.2"
+        "10.2.0"
       ]
     },
     {
@@ -2974,12 +2981,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/229",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 148,
       "labels": [
-        "10.2"
+        "10.2.0"
       ]
     },
     {
@@ -2988,12 +2995,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/230",
       "state": "CLOSED",
       "status": "Done",
-      "milestone": "10.2",
+      "milestone": "10.2.0",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 149,
       "labels": [
-        "10.2"
+        "10.2.0"
       ]
     },
     {
@@ -3002,11 +3009,319 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/218",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.1",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 150,
       "labels": []
+    },
+    {
+      "number": 231,
+      "title": "feat(cli): interroger les journaux depuis un terminal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/231",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 151,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 232,
+      "title": "feat(cli): compléter les commandes de module et leur couverture",
+      "url": "https://github.com/nodefony/nodefony-core/issues/232",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 152,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 233,
+      "title": "feat(kernel): faire tourner un travail batch et periodique sans serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/233",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 153,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 234,
+      "title": "fix(session): enregistrer le stockage Redis au demarrage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/234",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 154,
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 235,
+      "title": "feat(security): journaliser les evenements d'authentification",
+      "url": "https://github.com/nodefony/nodefony-core/issues/235",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 155,
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 236,
+      "title": "feat(studio): livrer la vue Services et l'audit en direct",
+      "url": "https://github.com/nodefony/nodefony-core/issues/236",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1.5,
+      "ordre": 156,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 237,
+      "title": "test(studio): eprouver la console d'administration de bout en bout",
+      "url": "https://github.com/nodefony/nodefony-core/issues/237",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1.5,
+      "ordre": 157,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 238,
+      "title": "test(orm): prouver la parite de contrat entre Mongoose et Drizzle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/238",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 158,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 239,
+      "title": "feat(realtime): declarer un canal parametre par un motif",
+      "url": "https://github.com/nodefony/nodefony-core/issues/239",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 159,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 240,
+      "title": "chore(frontend): trancher si frontend:create doit exister",
+      "url": "https://github.com/nodefony/nodefony-core/issues/240",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 160,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 241,
+      "title": "fix(security): deriver le domaine des passkeys de l'hote valide",
+      "url": "https://github.com/nodefony/nodefony-core/issues/241",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 161,
+      "labels": [
+        "10.2.0"
+      ]
+    },
+    {
+      "number": 242,
+      "title": "feat(core): instruire le besoin de transports TCP, UDP et Unix",
+      "url": "https://github.com/nodefony/nodefony-core/issues/242",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 162,
+      "labels": [
+        "11.0.0"
+      ]
+    },
+    {
+      "number": 243,
+      "title": "feat(realtime): servir le bus par Kafka pour la retention",
+      "url": "https://github.com/nodefony/nodefony-core/issues/243",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 163,
+      "labels": [
+        "11.0.0"
+      ]
+    },
+    {
+      "number": 244,
+      "title": "feat(security): trancher le serveur d'autorisation et le mTLS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/244",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P2 — décision",
+      "jours": 5,
+      "ordre": 164,
+      "labels": [
+        "11.0.0"
+      ]
+    },
+    {
+      "number": 245,
+      "title": "chore(ia): refaire l'etat de l'art avant de coder la couche IA",
+      "url": "https://github.com/nodefony/nodefony-core/issues/245",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 165,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 246,
+      "title": "feat(llm): brancher un fournisseur de modele reel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/246",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 166,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 247,
+      "title": "feat(vector): eprouver le stockage de vecteurs en reel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/247",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 167,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 248,
+      "title": "feat(rag): eprouver la recherche augmentee de bout en bout",
+      "url": "https://github.com/nodefony/nodefony-core/issues/248",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 168,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 249,
+      "title": "feat(memory): persister la memoire d'un agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/249",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 169,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 250,
+      "title": "feat(agent): arreter le modele de boucle d'un agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/250",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 170,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 251,
+      "title": "chore(mcp): trancher si le protocole descend du coeur en module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/251",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 171,
+      "labels": [
+        "12.0.0"
+      ]
+    },
+    {
+      "number": 252,
+      "title": "feat(agent-guard): borner ce qu'un agent a le droit de faire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/252",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 172,
+      "labels": [
+        "12.0.0"
+      ]
     },
     {
       "number": 201,

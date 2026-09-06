@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-04
+updated: 2026-09-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -99,7 +99,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` |
+| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -108,7 +108,7 @@ script, donc toujours à jour après régénération.
 npm run board:snapshot
 ```
 
-**Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER` · `QUERY`
+**Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER` · `QUERY` · `REPO_NAME` · `REPO_OWNER`
 
 ### Détail des scripts auto-documentés
 
