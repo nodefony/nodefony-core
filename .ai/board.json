@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T00:47:03.504Z",
+  "generatedAt": "2026-09-06T03:06:56.464Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -12,7 +12,7 @@
     {
       "closed": 124,
       "dueOn": "2026-11-15T00:00:00Z",
-      "open": 36,
+      "open": 37,
       "title": "10.0.0"
     }
   ],
@@ -933,6 +933,20 @@
       ]
     },
     {
+      "number": 155,
+      "title": "docs(agents): rendre le dépôt lisible par un agent web",
+      "url": "https://github.com/nodefony/nodefony-core/issues/155",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2.5,
+      "ordre": 4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 156,
       "title": "chore(release): recaler description et mots-clés des paquets",
       "url": "https://github.com/nodefony/nodefony-core/issues/156",
@@ -942,6 +956,62 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 157,
+      "title": "docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/157",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.1,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 158,
+      "title": "docs(site): publier llms.txt, le plan du site et robots.txt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/158",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.2,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.3,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 160,
+      "title": "chore(github): poser les gabarits de ticket et de fusion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/160",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.4,
       "labels": [
         "10.0.0"
       ]
@@ -972,6 +1042,20 @@
       "jours": 0.5,
       "ordre": 4.5,
       "labels": []
+    },
+    {
+      "number": 215,
+      "title": "fix(build): réparer le contrôle de format du code généré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/215",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.5,
+      "labels": [
+        "10.0.0"
+      ]
     },
     {
       "number": 207,
@@ -1079,6 +1163,21 @@
       ]
     },
     {
+      "number": 104,
+      "title": "test(cli): un seul processus pour vérifier la forme du code généré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/104",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.6,
+      "labels": [
+        "10.0.0",
+        "rattrapable"
+      ]
+    },
+    {
       "number": 93,
       "title": "fix(mongoose): ne plus taire l'échec de création des index",
       "url": "https://github.com/nodefony/nodefony-core/issues/93",
@@ -1091,6 +1190,20 @@
       "labels": [
         "10.0.0",
         "rattrapable"
+      ]
+    },
+    {
+      "number": 20,
+      "title": "test(security): attaquer les paquets publiés avant leur sortie",
+      "url": "https://github.com/nodefony/nodefony-core/issues/20",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4.8,
+      "labels": [
+        "10.0.0"
       ]
     },
     {
@@ -1900,21 +2013,6 @@
       ]
     },
     {
-      "number": 104,
-      "title": "test(cli): un seul processus pour vérifier la forme du code généré",
-      "url": "https://github.com/nodefony/nodefony-core/issues/104",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 27,
-      "labels": [
-        "10.0.0",
-        "rattrapable"
-      ]
-    },
-    {
       "number": 154,
       "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
@@ -1968,20 +2066,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 30,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 20,
-      "title": "test(security): attaquer les paquets publiés avant leur sortie",
-      "url": "https://github.com/nodefony/nodefony-core/issues/20",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 2,
-      "ordre": 31,
       "labels": [
         "10.0.0"
       ]
@@ -2085,62 +2169,6 @@
       ]
     },
     {
-      "number": 155,
-      "title": "docs(agents): rendre le dépôt lisible par un agent web",
-      "url": "https://github.com/nodefony/nodefony-core/issues/155",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 2.5,
-      "ordre": 41,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 157,
-      "title": "docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt",
-      "url": "https://github.com/nodefony/nodefony-core/issues/157",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 42,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 158,
-      "title": "docs(site): publier llms.txt, le plan du site et robots.txt",
-      "url": "https://github.com/nodefony/nodefony-core/issues/158",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 43,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 159,
-      "title": "docs(api): publier une référence d'API générée par paquet",
-      "url": "https://github.com/nodefony/nodefony-core/issues/159",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 44,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
       "number": 24,
       "title": "docs(security): expliquer comment obtenir un jeton",
       "url": "https://github.com/nodefony/nodefony-core/issues/24",
@@ -2193,20 +2221,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 48,
-      "labels": [
-        "10.0.0"
-      ]
-    },
-    {
-      "number": 160,
-      "title": "chore(github): poser les gabarits de ticket et de fusion",
-      "url": "https://github.com/nodefony/nodefony-core/issues/160",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0",
-      "priorite": "P3 — fin de cycle",
-      "jours": 0.5,
-      "ordre": 49,
       "labels": [
         "10.0.0"
       ]
@@ -2757,6 +2771,34 @@
       "ordre": 140,
       "labels": [
         "10.1"
+      ]
+    },
+    {
+      "number": 216,
+      "title": "fix(bench): poser la base que trois bancs multi-pods exigent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/216",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 141,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 217,
+      "title": "fix(bench): réparer trois bancs de charge hors service",
+      "url": "https://github.com/nodefony/nodefony-core/issues/217",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 142,
+      "labels": [
+        "backlog"
       ]
     },
     {

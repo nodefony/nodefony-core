@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-06 00:47** (UTC).
+> Empreinte prise le **2026-09-06 03:06** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -16,21 +16,29 @@
 | Jalon | Ouverts | Fermés | Échéance |
 | --- | ---: | ---: | --- |
 | 10.1 | 27 | 1 | — |
-| 10.0.0 | 36 | 124 | 2026-11-15 |
+| 10.0.0 | 37 | 124 | 2026-11-15 |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#175 — chore(release): publier une beta avant la 10.0.0**
+**#155 — docs(agents): rendre le dépôt lisible par un agent web**
 
-Ordre 5 · P0 — bloque le reste · 1 j · jalon 10.0.0
+Ordre 4 · P1 — figé à la création · 2.5 j · jalon 10.0.0
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0 — 36 ouverts
+## Jalon 10.0.0 — 37 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
+| 4 | P1 — figé à la création | 2.5 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
+| 4.1 | P1 — figé à la création | 0.5 | #157 | docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt |
+| 4.2 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
+| 4.3 | P2 — décision | 1 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 4.4 | P1 — figé à la création | 0.5 | #160 | chore(github): poser les gabarits de ticket et de fusion |
+| 4.5 | P1 — figé à la création | 0.5 | #215 | fix(build): réparer le contrôle de format du code généré |
+| 4.6 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
+| 4.8 | P1 — figé à la création | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 5 | P0 — bloque le reste | 1 | #175 | chore(release): publier une beta avant la 10.0.0 |
 | 9.4 | P2 — décision | 0.5 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
 | 9.45 | P2 — décision | 0.5 | #214 | fix(http): glisser de port si une autre app l'écoute déjà |
@@ -49,30 +57,25 @@ Ordre 5 · P0 — bloque le reste · 1 j · jalon 10.0.0
 | 21 | P1 — figé à la création | 0.5 | #88 | docs(mail): documenter la configuration et le premier envoi |
 | 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
 | 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 27 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 28 | P1 — figé à la création | 0.5 | #154 | fix(frontend): stabiliser le décalage de port sur les agents macOS |
 | 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
-| 31 | P3 — fin de cycle | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 | 40 | P1 — figé à la création | 8 | #53 | docs: remettre la documentation à niveau avant la version 10 |
-| 41 | P1 — figé à la création | 2.5 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
-| 42 | P1 — figé à la création | 0.5 | #157 | docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt |
-| 43 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
-| 44 | P2 — décision | 1 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 45 | P3 — fin de cycle | 0.5 | #24 | docs(security): expliquer comment obtenir un jeton |
 | 46 | P3 — fin de cycle | 0.5 | #47 | docs(release): préparer la page d'accueil du jour de la publication |
 | 47 | P3 — fin de cycle | 5 | #50 | docs(tutoriels): écrire la partie 2, jusqu'au déploiement |
 | 48 | P3 — fin de cycle | 2 | #51 | docs(guides): écrire les recettes d'exploitation |
-| 49 | P3 — fin de cycle | 0.5 | #160 | chore(github): poser les gabarits de ticket et de fusion |
 | 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 | 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
 
-## Backlog — aucune date promise · 1 ouverts
+## Backlog — aucune date promise · 3 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
+| 141 | P3 — fin de cycle | 1 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |
+| 142 | P3 — fin de cycle | 1 | #217 | fix(bench): réparer trois bancs de charge hors service |
 
 ## Jalon 10.1 — 27 ouverts
 
