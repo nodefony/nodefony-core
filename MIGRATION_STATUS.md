@@ -4,6 +4,21 @@
 > **Retouche du 2026-09-01** : `P14.14` et `P14.16` cochées, chacune prouvée au CODE. Les 41 autres
 > cases non cochées gardent leur statut, **non vérifié** — c'est l'objet du ticket [#80](https://github.com/nodefony/nodefony-core/issues/80).
 >
+> ### 🔴 Une case non cochée n'est PAS un ticket — et 38 sur 40 n'en ont pas
+>
+> Croisé le 2026-09-06 : le fichier porte **40 cases** ⬜/🔶, dont **deux seulement citent un
+> ticket**. Ce n'est pas un oubli de pilotage, et il ne faut surtout pas ouvrir 38 tickets : les
+> orphelines se répartissent en quatre familles qui n'appellent pas le même geste — une phase
+> entière portée par un **jalon** (les 7 de P12 → jalon `12`), un **reste** de phase livrée qui doit
+> d'abord être confronté au code, un **travail réel** à ranger, et des cases **déjà couvertes** par
+> un ticket qui ne se nomme pas (P8.4 → [#228](https://github.com/nodefony/nodefony-core/issues/228),
+> P10.6 → [#33](https://github.com/nodefony/nodefony-core/issues/33)).
+>
+> **Ce tri est le ticket [#80](https://github.com/nodefony/nodefony-core/issues/80)**, qui porte le
+> détail des quatre familles et l'extraction reproductible. Sur les quatre cases déjà examinées ce
+> jour — P9.2, 16.G, 16.H.6, 16.F.3 — **les quatre étaient fausses**. Ne pas conclure qu'une tâche
+> reste à faire sur la seule foi d'une case.
+>
 > ### 🎯 Ce fichier TEND VERS SON ARCHIVE
 >
 > Il a été la carte d'un chantier de migration ; ce chantier se termine. **L'avancement du travail
@@ -364,7 +379,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
  P13 Realtime distribué    ████████░░  77%  10✅  3🔶  2⬜   (reste Kafka 13.6a/b · décorateurs 13.8)
  P14 Frontend Vite + iso   █████████░  92%  16✅  1🔶  1⬜   (P14.18 ✅ origine par Host · svelte5 ✅ · solid retiré ; P14.14 CSP dynamique ✅ #135 · P14.16 syslog front→back ✅ #35)
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
- P16 Cloud-Native (10 axes)█████▌░░░░  55%  18✅  0🔶 15⬜   (33 sous-items · 16.G.2/G.3/G.4 fermés par les guides publiés · 16.J /metrics repoussé · le reste est le THÈME du jalon 10.1)
+ P16 Cloud-Native (10 axes)██████░░░░  59%  19✅  0🔶 13⬜ ⏭️1  (33 sous-items · 16.G.2/G.3/G.4 fermés par les guides publiés · 16.H.6 : le banc existe · 16.F.3 CADUC · reste = THÈME du jalon 10.1)
 ────────────────────────────────────────────────────────────────────────
  GLOBAL                    ███████▌░░  76% 148✅ 24🔶 40⬜  (212 tâches · somme des lignes ci-dessus · recalé au recomptage de 16.G et de P9.2)
 ────────────────────────────────────────────────────────────────────────
@@ -747,7 +762,7 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 | 16.C Secrets | ⬜ C.1 `ISecretProvider` · ⬜ C.2 `SecretManager` · ⬜ C.3 hook boot · ⬜ C.4 migration des secrets — 0 occurrence des symboles (vérifié 08-20) ; dépend P6, design au kit |
 | 16.D Docker | ⬜ D.1 `Dockerfile.dev` · ✅ D.2 Dockerfile PROD multi-stage (gabarit `create app` : HEALTHCHECK `/readyz`, USER node, node PID 1 — prouvé sur app générée depuis le tarball) · ✅ D.3 compose (`docker/docker-compose.yml`) · ✅ D.4 profils (postgres/mongo/redis/kafka/tools/loki/opensearch/proxy/browser) · ✅ D.5 réseau bridge + alias DNS |
 | 16.E Skills/Tooling | ⬜ E.1 `docker-debug` · ⬜ E.2 `infra-up` · ⬜ E.3 détection conteneur dans start-server — absents de `.claude/skills/` |
-| 16.F Cleanup PM2 | ✅ F.1 code retiré (0 occurrence `pm2Service`/`Pm2Command`/`NF_MODE_START==="PM2"`) · ✅ F.2 dep npm retirée · ⬜ F.3 doc migration PM2→systemd/docker |
+| 16.F Cleanup PM2 | ✅ F.1 code retiré (0 occurrence `pm2Service`/`Pm2Command`/`NF_MODE_START==="PM2"`) · ✅ F.2 dep npm retirée · ⏭️ F.3 doc migration PM2→systemd/docker — **CADUC** ([#230](https://github.com/nodefony/nodefony-core/issues/230), constaté 09-06) : les trois questions d'un exploitant qui migre ont déjà leurs réponses dans `docs/guides/docker-cloud-native.md` (topologie `cluster --workers N`, cycle de vie délégué à l'orchestrateur, journaux sur la sortie standard) ; et qui est encore sous PM2 est en **Nodefony 7, donc en JavaScript** — son sujet est un guide 7→10, pas une page systemd |
 | 16.G Docs DevOps | ⬜ G.1 env-vars (aucune page PUBLIQUE ; `.ai/ENV.md` est généré et hors du site) · ✅ G.2 health-endpoints (`http/docs/servers.md` § Probes de santé : les deux sondes, `setReadiness`, et pourquoi `livez` reste à 200 pendant le drain) · ✅ G.3 quickstart-docker (`docs/guides/docker-cloud-native.md` + `docs/guides/reverse-proxy.md`, qui porte la recette proxy et le générateur) · ✅ G.4 quickstart-k8s (`docs/guides/kubernetes.md` : Deployment, Secret, ConfigMap, Service, Ingress, Job de migration, HPA) |
 | 16.H Scaling multi-process | ✅ H.1 topologie `workers` · ✅ H.2 `cluster -w N` (`ClusterManager`, cgroup-aware) · ✅ H.3 sonde/worker · ✅ H.4 Studio cluster · ✅ H.6 banc backplane cross-pod — le banc EXISTE et tourne (skill `nodefony-multipod-bench` : plusieurs apps sur un Redis partagé, fan-out cross-pod, cloisonnement, injection ; anti-écho `resolveBackplaneOriginId` livré, `originId.ts:24`). ⚠️ **hors preuve** : le même banc sur un cluster Kubernetes RÉEL — le décor est docker, pas un ordonnanceur |
 | 16.I Liveness/Readiness | ✅ route PUBLIQUE graduée `/nodefony/kernel/api/livez` (`95bb221f`, zone `nodefony-liveness`, pattern Actuator) |
