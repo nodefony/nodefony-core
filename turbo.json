@@ -67,6 +67,42 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"]
+    },
+
+    // Le CŒUR compile les SOURCES de cinq modules qu'il ne peut pas déclarer en
+    // dépendance : ils dépendent de lui (cycle inversé), et leur `exports["."].types`
+    // pointe `./index.ts` — l'anti-race de build qui évite un TS2307 chez les
+    // consommateurs. Sans les lignes ci-dessous, ces sources sont HORS des `inputs`
+    // du cœur : turbo sert alors `nodefony#build` DEPUIS LE CACHE quand seul un de
+    // ces modules a changé, et rend un VERT sur du code qu'il n'a jamais recompilé.
+    // Vécu : une erreur TS4114 dans `@nodefony/security` a passé le `pre-push`
+    // (21/21 « cached ») et emporté CINQ workflows en CI, où le cache est froid.
+    // Toute nouvelle entrée `exports["."].types` en `.ts` s'ajoute ICI.
+    "nodefony#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "bin/nodefony"],
+      "inputs": [
+        "index.ts",
+        "src/**",
+        "nodefony/**",
+        "rolldown.config.ts",
+        "vite.config.*",
+        "tsconfig*.json",
+        "package.json",
+        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/index.ts",
+        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/nodefony/**/*.ts"
+      ]
+    },
+    "nodefony#typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "index.ts",
+        "src/**",
+        "nodefony/**",
+        "tsconfig*.json",
+        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/index.ts",
+        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/nodefony/**/*.ts"
+      ]
     }
   }
 }
