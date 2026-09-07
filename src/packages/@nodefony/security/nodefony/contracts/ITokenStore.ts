@@ -113,7 +113,7 @@ export interface IAccessTokenRecord {
   hashAlg: string;
 
   // ── Provenance / contraintes (slots) ────────────────────────────────────────
-  /** Client OAuth émetteur (slot OAuth2/arctic) ; `null` = non-OAuth. */
+  /** Client OAuth émetteur (slot OAuth2) ; `null` = non-OAuth. */
   clientId: string | null;
   /** Confirmation sender-constrained : `jkt` (DPoP RFC 9449) / `x5t#S256` (mTLS RFC 8705) ; `null` = bearer simple. */
   cnf: string | null;

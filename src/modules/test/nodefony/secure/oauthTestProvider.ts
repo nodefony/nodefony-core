@@ -1,7 +1,6 @@
-import { registerOAuthProvider } from "@nodefony/security";
+import { registerOAuthProvider, OAuth2Tokens } from "@nodefony/security";
 import type { IOAuthProvider } from "@nodefony/security";
 import type { IOAuthProfile } from "@nodefony/user";
-import type { OAuth2Tokens } from "arctic";
 
 /**
  * Fournisseur OAuth de **TEST** (DEV uniquement — le module test est `policy:
@@ -10,7 +9,7 @@ import type { OAuth2Tokens } from "arctic";
  * sans dépendre d'un vrai fournisseur (Google/GitHub impossibles à automatiser).
  *
  * `usesPkce: true` exerce la branche PKCE (state + code_verifier en session).
- * `expectedIssuer: null` : pas de validation `iss` ici (déjà couverte par les
+ * `issuerPolicy: null` : pas de validation `iss` ici (déjà couverte par les
  * tests unitaires du service) → le banc n'a pas à fabriquer d'`iss`.
  *
  * Enregistré au **chargement du module** (import top-level dans `index.ts`), donc
@@ -29,7 +28,7 @@ const TEST_PROFILE: IOAuthProfile = {
 registerOAuthProvider("test-oidc", (): IOAuthProvider => {
   return {
     usesPkce: true,
-    expectedIssuer: null,
+    issuerPolicy: null,
     defaultScopes: ["openid", "email"],
     createAuthorizationURL: (state, codeVerifier, scopes) =>
       new URL(
@@ -39,7 +38,7 @@ registerOAuthProvider("test-oidc", (): IOAuthProvider => {
           `&scope=${encodeURIComponent(scopes.join(" "))}`,
       ),
     // Aucun appel réseau : "échange" symbolique (jetons factices) + profil fixe.
-    validateAuthorizationCode: () => Promise.resolve({} as OAuth2Tokens),
+    validateAuthorizationCode: () => Promise.resolve(new OAuth2Tokens({})),
     fetchProfile: () => Promise.resolve(TEST_PROFILE),
   };
 });

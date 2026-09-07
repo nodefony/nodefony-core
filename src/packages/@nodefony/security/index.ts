@@ -264,7 +264,10 @@ export type {
 
 // ─── OAuth2 social login (P6 J9) — fournisseurs + registre pluggable ─────────
 export type { IOAuthAuthorization } from "./nodefony/service/oauth2";
-export type { IOAuthProvider } from "./nodefony/contracts/IOAuthProvider";
+export type {
+  IOAuthProvider,
+  IIssuerPolicy,
+} from "./nodefony/contracts/IOAuthProvider";
 export {
   registerOAuthProvider,
   getOAuthProviderFactory,
@@ -274,6 +277,31 @@ export type {
   OAuthProviderFactory,
   IOAuthProviderContext,
 } from "./nodefony/src/oauth/oauthProviderRegistry";
+// Client OAuth 2.0 du module (remplace toute dépendance tierce) : un fournisseur
+// maison le réutilise tel quel, un fournisseur OIDC se décrit par son seul émetteur.
+export {
+  OAuth2Client,
+  OAuth2Tokens,
+  OAuth2RequestError,
+  generateState,
+  generateCodeVerifier,
+  createCodeChallenge,
+} from "./nodefony/src/oauth/oauth2Client";
+export type { IOAuth2ClientOptions } from "./nodefony/src/oauth/oauth2Client";
+export { discoverAuthorizationServer } from "./nodefony/src/oauth/metadata";
+export type {
+  IDiscoveredAuthorizationServer,
+  IDiscoveryOptions,
+} from "./nodefony/src/oauth/metadata";
+export {
+  createOidcProvider,
+  createDiscoveredOidcProvider,
+} from "./nodefony/src/oauth/providers/oidc";
+export type {
+  IOidcPkceClient,
+  IOidcProviderOptions,
+} from "./nodefony/src/oauth/providers/oidc";
+export { createGithubProvider } from "./nodefony/src/oauth/providers/github";
 
 // ─── Audit de sécurité (P6.14) — journal append-only + sink ──────────────────
 export { MemoryAuditStore } from "./nodefony/src/audit/MemoryAuditStore";

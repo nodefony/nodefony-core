@@ -23,7 +23,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-09-07
 source: "src/packages/@nodefony/security/docs/oauth2.md"
 ---
 
@@ -82,24 +82,24 @@ cookie de session opaque, révocable côté serveur.
 
 ## 📖 Lexique
 
-| Terme              | Sens                                                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------- |
-| OAuth 2.0          | Protocole de **délégation d'accès** (RFC 6749). Ici détourné pour prouver une identité.               |
-| OIDC               | _OpenID Connect_ : couche d'**identité** au-dessus d'OAuth ; ajoute l'**ID token** signé.             |
-| IdP                | _Identity Provider_ — le fournisseur qui authentifie (Google, GitHub, Keycloak…).                     |
-| Authorization Code | Le flux où le serveur échange un `code` à usage unique contre des jetons. Jamais côté client.         |
-| PKCE               | _Proof Key for Code Exchange_ (RFC 7636) : lie la demande et l'échange (anti-interception du `code`). |
-| `code_verifier`    | Le secret aléatoire gardé en session ; son empreinte (`code_challenge`) part avec la demande.         |
-| `state`            | Jeton anti-CSRF porté à l'aller et au retour, comparé côté serveur (RFC 9700).                        |
-| `iss`              | Émetteur renvoyé au callback ; doit correspondre à celui attendu (anti-mix-up, RFC 9207).             |
-| Mix-up             | Attaque où un `code` émis par un IdP est présenté au callback d'un **autre** IdP.                     |
-| ID token           | JWT signé par l'IdP portant les _claims_ d'identité (`sub`, `email`, `name`…).                        |
-| `sub`              | _Subject_ : identifiant **stable** du compte chez le fournisseur (jamais l'e-mail).                   |
-| Claim              | Une donnée d'identité attestée par l'IdP (couple clé/valeur dans l'ID token).                         |
-| BFF                | _Backend For Frontend_ : l'identité vit en **session serveur**, pas en jeton exposé au JS.            |
-| Shadow User        | La ligne **locale** créée à l'image du compte externe — c'est elle qui porte les rôles.               |
-| JIT                | _Just In Time_ : le Shadow User est créé **au premier login**, pas par un import préalable.           |
-| `arctic`           | La bibliothèque OAuth utilisée (~50 fournisseurs), chargée **paresseusement** au premier login.       |
+| Terme              | Sens                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| OAuth 2.0          | Protocole de **délégation d'accès** (RFC 6749). Ici détourné pour prouver une identité.                 |
+| OIDC               | _OpenID Connect_ : couche d'**identité** au-dessus d'OAuth ; ajoute l'**ID token** signé.               |
+| IdP                | _Identity Provider_ — le fournisseur qui authentifie (Google, GitHub, Keycloak…).                       |
+| Authorization Code | Le flux où le serveur échange un `code` à usage unique contre des jetons. Jamais côté client.           |
+| PKCE               | _Proof Key for Code Exchange_ (RFC 7636) : lie la demande et l'échange (anti-interception du `code`).   |
+| `code_verifier`    | Le secret aléatoire gardé en session ; son empreinte (`code_challenge`) part avec la demande.           |
+| `state`            | Jeton anti-CSRF porté à l'aller et au retour, comparé côté serveur (RFC 9700).                          |
+| `iss`              | Émetteur renvoyé au callback ; doit correspondre à celui attendu (anti-mix-up, RFC 9207).               |
+| Mix-up             | Attaque où un `code` émis par un IdP est présenté au callback d'un **autre** IdP.                       |
+| ID token           | JWT signé par l'IdP portant les _claims_ d'identité (`sub`, `email`, `name`…).                          |
+| `sub`              | _Subject_ : identifiant **stable** du compte chez le fournisseur (jamais l'e-mail).                     |
+| Claim              | Une donnée d'identité attestée par l'IdP (couple clé/valeur dans l'ID token).                           |
+| BFF                | _Backend For Frontend_ : l'identité vit en **session serveur**, pas en jeton exposé au JS.              |
+| Shadow User        | La ligne **locale** créée à l'image du compte externe — c'est elle qui porte les rôles.                 |
+| JIT                | _Just In Time_ : le Shadow User est créé **au premier login**, pas par un import préalable.             |
+| Découverte         | L'IdP publie ses points d'entrée (RFC 8414) : son seul émetteur suffit à le décrire, aucune URL en dur. |
 
 ## Qu'est-ce que c'est ? — et quelles failles ça ferme
 
@@ -143,9 +143,11 @@ et journalise l'événement
 d'audit. Il n'existe **aucun** authenticator `oauth2` dans la chaîne du firewall : après le retour,
 c'est l'authenticator `session` qui identifie chaque requête, comme après un mot de passe.
 
-**Coût nul quand on ne s'en sert pas.** `arctic` est importé **paresseusement** au premier login
-(`OAuth2Service.#ensureLib()`, `oauth2.ts:234`) — jamais au boot, jamais par requête. Les
-fournisseurs sont instanciés une fois puis mémoïsés (`oauth2.ts:191-220`). Les routes ne sont montées
+**Coût nul quand on ne s'en sert pas.** Aucune dépendance tierce : le client OAuth 2.0 est écrit
+dans le module (`oauth2Client.ts:207`), et `jose` — seul recours externe, pour lire les claims de
+l'ID token — est importé **paresseusement**. Les fournisseurs sont construits au premier login puis
+mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:190`) : c'est là, une seule fois par
+processus, que les points d'entrée d'un émetteur OIDC sont découverts. Les routes ne sont montées
 que si le service existe (`framework/index.ts:379`) : sans social login configuré, la surface HTTP
 est **404**, pas « désactivée ».
 
@@ -205,7 +207,7 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### Les routes sont FOURNIES — tu n'écris aucun controller
 
-`mountOAuth2Routes()` (`OAuth2Controller.ts:185`) monte trois routes sous
+`mountOAuth2Routes()` (`OAuth2Controller.ts:208`) monte trois routes sous
 `/nodefony/security/api/oauth2` (`OAuth2Controller.ts:187`), et **seulement si** le service `oauth2`
 est présent (`framework/index.ts:379`) :
 
@@ -224,7 +226,7 @@ Ton écran de login n'a donc qu'un lien à poser :
 ```
 
 > [!WARNING]
-> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:213`) — elles **sont** le mécanisme
+> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:236`) — elles **sont** le mécanisme
 > d'authentification : l'utilisateur est anonyme pendant tout l'aller-retour. Les protéger créerait
 > un interblocage (il faudrait être connecté pour pouvoir se connecter). La session anonyme ne porte
 > que `state`/`code_verifier`, et son ID est **régénéré** à la promotion.
@@ -272,7 +274,7 @@ mémoire, `OAuth2Controller.ts:105-108`), puis redirige en 302.
 
 ### Étape 2 — le retour, validé avant tout appel réseau
 
-`OAuth2Controller.callback()` (`OAuth2Controller.ts:113`) travaille dans cet ordre, et l'ordre est la
+`OAuth2Controller.callback()` (`OAuth2Controller.ts:132`) travaille dans cet ordre, et l'ordre est la
 défense :
 
 1. **lire l'état de session, puis l'invalider immédiatement** (`OAuth2Controller.ts:126-129`) — le
@@ -356,31 +358,86 @@ et la charge brute `raw`.
 
 Un fournisseur est un adaptateur qui implémente `IOAuthProvider` (`IOAuthProvider.ts:21`) : il masque
 les divergences (PKCE ou non, profil par ID token ou par appel d'API) derrière un contrat unique.
-Trois sont livrés, résolus par nom via le registre `oauthProviderRegistry.ts:45`.
+Quatre sont livrés, résolus par nom via le registre `oauthProviderRegistry.ts:50`.
 
 | Nom        | Famille          | PKCE | `iss` vérifié         | Profil lu depuis  | Scopes par défaut            |
 | ---------- | ---------------- | :--: | --------------------- | ----------------- | ---------------------------- |
 | `google`   | OIDC             |  ✅  | `accounts.google.com` | ID token (claims) | `openid`, `profile`, `email` |
 | `keycloak` | OIDC self-hosted |  ✅  | URL du realm (config) | ID token (claims) | `openid`, `profile`, `email` |
+| `oidc`     | OIDC générique   |  ✅  | émetteur (config)     | ID token (claims) | `openid`, `profile`, `email` |
 | `github`   | OAuth simple     |  ❌  | — (non émis)          | API REST `/user`  | `read:user`, `user:email`    |
 
 ### `google` — OIDC, le cas nominal
 
-Construit par le helper générique `createOidcProvider()` (`oidc.ts:48`) : PKCE systématique
-(`usesPkce: true`, `oidc.ts:56`), émetteur figé `https://accounts.google.com`
-(`oauthProviderRegistry.ts:74`). Le profil se lit dans l'**ID token** — claims standard `sub`,
-`email`, `email_verified`, `name` (`oidc.ts:72-89`). Un ID token sans `sub` est refusé : pas
-d'identifiant stable, pas d'identité (`oidc.ts:77-80`).
+Construit par le helper générique `createOidcProvider()` (`oidc.ts:103`) : PKCE systématique
+(`usesPkce: true`, `oidc.ts:111`), émetteur figé `https://accounts.google.com`
+(`oauthProviderRegistry.ts:80`). Ses points d'entrée ne sont **pas** écrits en dur : ils sont
+demandés à l'émetteur (RFC 8414, cf. « Découverte » plus bas). Le profil se lit dans l'**ID token** —
+claims standard `sub`, `email`, `email_verified`, `name` (`oidc.ts:134`), après les contrôles
+obligatoires d'OpenID Connect Core §3.1.3.7 : `iss`, `aud`, `exp`, et un `sub` non vide
+(`assertIdTokenClaims()`, `oidc.ts:132`). Pas d'identifiant stable, pas d'identité.
 
 ### `keycloak` — OIDC self-hosted, l'émetteur vient de ta config
 
-Même helper, mais l'**issuer** (URL du realm) sert à la fois à construire le client et à valider
-l'`iss` (`oauthProviderRegistry.ts:86-105`). Il est donc **obligatoire** : sans lui, la fabrique lève
-au premier login avec un message explicite (`oauthProviderRegistry.ts:89-93`).
+Même helper, mais l'**issuer** (URL du realm) sert à la fois à découvrir les points d'entrée et à
+valider l'`iss` (`oauthProviderRegistry.ts:85`). Il est donc **obligatoire** : sans lui, la fabrique
+lève au premier login avec un message explicite.
+
+### `oidc` — n'importe quel serveur OpenID Connect
+
+La même mécanique, sans nom de marque : l'entrée `oidc` (`oauthProviderRegistry.ts:89`) prend
+l'émetteur de sa configuration et n'a besoin de rien d'autre. C'est elle qui rend inutile une classe
+par fournisseur.
+
+### Le paramètre `iss` — une règle à TROIS états, pas deux
+
+La RFC 9207 ajoute un paramètre `iss` à la réponse d'autorisation, pour qu'un client branché sur
+plusieurs fournisseurs ne confonde pas leurs réponses. Mais elle ne l'impose pas à tous : son §2.4
+demande au client d'extraire `iss` **« if the parameter is present »**, et son §2.3 fait ANNONCER ce
+support par les métadonnées de l'émetteur (`authorization_response_iss_parameter_supported`).
+
+D'où trois cas, et non deux :
+
+| Le serveur l'annonce | `iss` reçu            | Verdict                                  |
+| :------------------: | --------------------- | ---------------------------------------- |
+|         oui          | absent                | **refus** — il a promis, il n'a pas tenu |
+|      oui ou non      | présent et discordant | **refus**                                |
+|         non          | absent                | on continue — le serveur est conforme    |
+
+Exiger `iss` d'un serveur qui n'a jamais promis de l'émettre reviendrait à refuser un serveur
+conforme (Microsoft Entra n'annonce pas ce support). Ce n'est pas un relâchement : la défense
+anti-mix-up **principale** est ailleurs — chaque fournisseur a son URL de redirection propre
+(`…/{provider}/callback`) et le flux vérifie que le fournisseur de retour est celui qui a démarré,
+ce que la RFC 9700 §4.4.2.2 donne comme la protection de référence. `iss` est la seconde ceinture.
+
+La politique est portée par le fournisseur (`issuerPolicy`, `IOAuthProvider.ts:61`) et remplie par
+la découverte ; elle vaut `null` pour un fournisseur non-OIDC, qui ne relève pas de cette défense.
+
+### Découverte des points d'entrée (RFC 8414)
+
+Aucune URL de fournisseur n'est écrite en dur — sauf GitHub, qui ne publie pas de métadonnées. Les
+points d'entrée sont demandés à l'émetteur, une seule fois par processus, au premier login.
+
+**Cette règle n'est pas réécrite ici** : la normalisation de l'émetteur, l'ordre normatif des URL
+bien connues (§3.1 : insertion oauth → insertion oidc → ajout oidc) et l'égalité stricte du §3.3
+vivent dans le cœur (`nodefony` → `src/oauth/authorizationServer.ts`), qui s'en sert aussi pour
+PUBLIER nos propres métadonnées. `metadata.ts` n'ajoute que le transport : requête bornée, sans
+redirection suivie, avec un délai d'attente (`discoverAuthorizationServer()`, `metadata.ts:126`).
+
+Deux refus valent d'être connus. Un document dont l'`issuer` diffère de celui demandé est rejeté
+**sans se rabattre** sur l'URL suivante — se rabattre masquerait un document hostile derrière un 404.
+Et un émetteur qui annonce ses méthodes PKCE sans y mettre `S256` est refusé : lui envoyer un défi
+donnerait l'illusion de PKCE.
+
+> [!NOTE]
+> **Microsoft Entra** : un locataire nommé (`…/{tenant-id}/v2.0`) se découvre normalement. Les
+> points d'entrée **`common`** et **`organizations`**, eux, publient un `issuer` contenant le
+> gabarit littéral `{tenantid}` — l'égalité du §3.3 le refuse, à raison. Le multi-locataire demande
+> donc un adaptateur dédié, pas le builtin.
 
 ### `github` — OAuth simple, l'archétype non-OIDC
 
-Pas de PKCE, pas d'ID token, pas d'`iss` (`usesPkce: false`, `expectedIssuer: null`,
+Pas de PKCE, pas d'ID token, pas d'`iss` (`usesPkce: false`, `issuerPolicy: null`,
 `github.ts:43-44`) : ici, la défense anti-CSRF repose **entièrement** sur le `state`. Le profil vient
 de l'API REST `/user` (`createGithubProvider()`, `github.ts:34`). Subtilité GitHub : l'e-mail
 primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et n'accepte
@@ -388,32 +445,36 @@ primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et
 
 ### Enregistrer le sien — sans éditer le cœur
 
-`arctic` couvre une cinquantaine de fournisseurs (Microsoft, Apple, Discord, Auth0, Okta…). Ajouter
-l'un d'eux — ou un IdP maison — se fait par `registerOAuthProvider()`
-(`oauthProviderRegistry.ts:51`), au chargement de ton module (avant le `onBoot` du service) :
+**Tout serveur OpenID Connect conforme est déjà supporté** — Auth0, Okta, Authentik, Entra
+mono-locataire… — sans une ligne de code propre. Le builtin `oidc` suffit quand il n'y en a qu'un ;
+pour en nommer plusieurs, `registerOAuthProvider()` (`oauthProviderRegistry.ts:56`) au chargement de
+ton module (avant le `onBoot` du service) :
 
 ```typescript ignore
-import { registerOAuthProvider } from "@nodefony/security";
+import {
+  registerOAuthProvider,
+  createDiscoveredOidcProvider,
+} from "@nodefony/security";
 
-// Tout fournisseur OIDC : nom + classe arctic + issuer. Rien d'autre à écrire.
+// Le nom sert de clé de configuration ET de `provider` du Shadow User ;
+// l'émetteur vient de la config (`oauth2.providers.microsoft.issuer`).
 registerOAuthProvider("microsoft", (ctx) =>
-  createOidcProvider({
-    name: "microsoft",
-    client: new ctx.arctic.MicrosoftEntraId(
-      tenantId,
-      ctx.clientId,
-      ctx.clientSecret,
-      ctx.redirectUri,
-    ),
-    issuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
-    decodeIdToken: ctx.arctic.decodeIdToken,
-  }),
+  createDiscoveredOidcProvider("microsoft", ctx),
 );
 ```
 
-La fabrique reçoit `IOAuthProviderContext` (`oauthProviderRegistry.ts:23`) : la lib `arctic` déjà
-chargée, plus les secrets issus de la config. Aucun import runtime d'`arctic` n'entre par ce chemin.
-Exemple réel et sans réseau dans le dépôt : `src/modules/test/nodefony/secure/oauthTestProvider.ts`.
+La fabrique reçoit `IOAuthProviderContext` (`oauthProviderRegistry.ts:24`) : les secrets et l'URL de
+callback issus de la config, rien d'autre. Elle peut être **asynchrone** — découvrir un émetteur est
+une opération de construction, faite une fois par processus.
+
+Un fournisseur qui n'est **pas** OIDC (pas de métadonnées, pas d'ID token) demande un adaptateur : le
+protocole vient de `OAuth2Client`, la fabrique ne fait que lire le profil. C'est une quarantaine de
+lignes — `github.ts` en est le modèle.
+
+Un fournisseur qui n'est pas OIDC (pas d'ID token, profil lu à son API) s'écrit comme GitHub
+(`createGithubProvider()`, `github.ts:40`) : `OAuth2Client` porte le protocole, la fabrique ne fait
+que le mapping du profil. Exemple sans réseau dans le dépôt :
+`src/modules/test/nodefony/secure/oauthTestProvider.ts`.
 
 ## ⚙️ Configuration
 
@@ -459,7 +520,7 @@ session, ni persistés. Le profil normalisé qui traverse le système n'en conti
   l'utilisateur plus tard (lire ses dépôts, envoyer un mail). Nodefony fait de l'**authentification**,
   pas de la **délégation d'accès**.
 - **Si tu as besoin de cette délégation** : le seul endroit où les jetons sont visibles est le
-  `fetchProfile()` de ton adaptateur (`IOAuthProvider.ts:63`) — c'est là que ton implémentation les
+  `fetchProfile()` de ton adaptateur (`IOAuthProvider.ts:90`) — c'est là que ton implémentation les
   capture et les persiste, sous ta responsabilité (chiffrement au repos, rotation, révocation).
 
 ### Ce que « révoquer » veut dire ici
@@ -481,24 +542,24 @@ ou détruire les sessions), pas chez le fournisseur.
 | -------------------------------------------------- | ------------------------------------------------------- | -------------------------------- |
 | Rejeu du retour (même `code`, même `state`)        | `state` consommé + session régénérée à la promotion     | `oauth2-attack.test.ts:89` (S5)  |
 | `state` valide présenté au callback d'un autre IdP | Fournisseur attendu conservé en session et comparé      | `oauth2-attack.test.ts:115` (S6) |
-| `iss` falsifié ou absent                           | Comparaison stricte à `expectedIssuer`                  | `oauth2Service.test.ts:168`      |
+| `iss` falsifié                                     | Comparaison stricte à l'émetteur de la politique        | `oauth2Service.test.ts:167`      |
 | Prise de compte par e-mail collidant un admin      | Aucune liaison auto : compte séparé, admin intact       | `oauth.attack.test.ts:71` (A1)   |
 | Élévation de privilège par re-login                | Rôles posés à la création, jamais réécrits              | `oauth.attack.test.ts:123` (A2)  |
 | Collision d'identifiants entre fournisseurs        | Clé = `provider` + `providerId`                         | `oauth.attack.test.ts:155` (A3)  |
 | Interception du `code`                             | PKCE : `code_verifier` exigé, refus si absent           | `oauthProviders.test.ts:67`      |
-| Création de compte non voulue                      | Provisioner absent (`provisionOAuthUser`) → fail-closed | `oauth2Service.test.ts:192`      |
+| Création de compte non voulue                      | Provisioner absent (`provisionOAuthUser`) → fail-closed | `oauth2Service.test.ts:52`       |
 
 ## 📜 Normes appliquées
 
 | Domaine                           | Norme                    | Ancrage                                                               |
 | --------------------------------- | ------------------------ | --------------------------------------------------------------------- |
-| Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:53`) |
-| PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:26`) · `oidc.ts:49-54`                 |
-| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:40`) · `oauth2Schema` (`config.ts:1001`)  |
-| Anti-mix-up (`iss`)               | RFC 9207                 | `expectedIssuer` (`IOAuthProvider.ts:34`) · `oauth2.ts:170-174`       |
+| Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:80`) |
+| PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:26`) · `oidc.ts:104-111`               |
+| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:56`) · `oauth2Schema` (`config.ts:1001`)  |
+| Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:61`) · `oauth2.ts:175-183`         |
 | Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:958`)                                       |
-| Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:72-89`)                     |
-| ID token consommé en code flow    | RFC 8725                 | `createOidcProvider()` (`oidc.ts:46`)                                 |
+| Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                   |
+| ID token consommé en code flow    | OIDC Core §3.1.3.7       | `assertIdTokenClaims()` (`oidc.ts:132`)                               |
 | Anti-fixation de session          | OWASP Session Management | `session.regenerateId()` au login (`authFlow.ts:388`)                 |
 
 Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en fragment d'URL) et
@@ -532,7 +593,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:958`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
 | Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)             | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
 | Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:126-129`)              | Refaire le flux depuis `authorize` — comportement attendu           |
-| `OAuth issuer mismatch`                           | `iss` reçu ≠ `expectedIssuer` (`oauth2.ts:170-174`)                           | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
+| `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:175-183`)                         | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
 | Keycloak : erreur dès le premier login            | `issuer` absent en config (`oauthProviderRegistry.ts:89-93`)                  | Renseigner l'URL du realm                                           |
 | « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:224-231`)                  | Implémenter `provisionOAuthUser()` sur le service `users`           |
 | Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:363`)             | Activer `allowSignup` ou lier le compte au préalable                |

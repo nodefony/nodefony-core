@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { Container } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser, IOAuthProfile } from "@nodefony/user";
-import type { OAuth2Tokens } from "arctic";
 import { OAuth2Service } from "../../nodefony/service/oauth2";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import type { IOAuthProvider } from "../../nodefony/contracts/IOAuthProvider";
 import { registerOAuthProvider } from "../../nodefony/src/oauth/oauthProviderRegistry";
+import { OAuth2Tokens } from "../../nodefony/src/oauth/oauth2Client";
 
 /**
  * OAuth2Service — orchestrateur du flux social login (sans HTTP ni réseau) :
@@ -14,21 +14,20 @@ import { registerOAuthProvider } from "../../nodefony/src/oauth/oauthProviderReg
  * provisioning via la capability `users`, fail-closed.
  *
  * Un fournisseur FACTICE déterministe est enregistré dans le registre (aucun
- * appel réseau) ; seuls `generateState`/`generateCodeVerifier` (purs) viennent
- * du vrai arctic.
+ * appel réseau) ; `generateState`/`generateCodeVerifier` sont les vrais, ils sont purs.
  */
 
 const ISSUER = "https://issuer.test";
 
 const fakeProvider: IOAuthProvider = {
   usesPkce: true,
-  expectedIssuer: ISSUER,
+  issuerPolicy: { issuer: ISSUER, requireIssParameter: true },
   defaultScopes: ["openid"],
   createAuthorizationURL: (state, codeVerifier, scopes) =>
     new URL(
       `https://idp/auth?state=${state}&cv=${codeVerifier}&s=${scopes.join(",")}`,
     ),
-  validateAuthorizationCode: () => Promise.resolve({} as OAuth2Tokens),
+  validateAuthorizationCode: () => Promise.resolve(new OAuth2Tokens({})),
   fetchProfile: (): Promise<IOAuthProfile> =>
     Promise.resolve({
       provider: "test-oidc",
@@ -180,11 +179,83 @@ describe("OAuth2Service — exchangeAndProvision (étape 2)", () => {
     );
   });
 
-  it("iss absent alors qu'attendu → rejet", async () => {
+  it("iss absent alors que le serveur l'ANNONCE → rejet (promesse non tenue)", async () => {
     const { svc, boot } = buildService(config, makeUsers());
     boot();
     await assert.rejects(
       () => svc.exchangeAndProvision("test-oidc", "code", "verifier", null),
+      AuthenticationError,
+    );
+  });
+
+  // RFC 9207 §2.4 : le client extrait `iss` « if the parameter is present ».
+  // Un serveur qui n'a jamais annoncé l'émettre — Microsoft Entra, entre autres —
+  // est CONFORME en ne l'envoyant pas : le refuser refuserait tous ses comptes.
+  it("iss absent d'un serveur qui ne l'annonce PAS → on continue", async () => {
+    const permissif: IOAuthProvider = {
+      ...fakeProvider,
+      issuerPolicy: { issuer: ISSUER, requireIssParameter: false },
+    };
+    registerOAuthProvider("test-oidc-permissif", () => permissif);
+    const permissiveConfig = {
+      ...(config as Record<string, unknown>),
+      oauth2: {
+        ...((config as Record<string, unknown>).oauth2 as Record<
+          string,
+          unknown
+        >),
+        providers: {
+          "test-oidc-permissif": {
+            clientId: "id",
+            clientSecret: "s",
+            redirectUri: "https://a/cb",
+          },
+        },
+      },
+    };
+    const { svc, boot } = buildService(permissiveConfig, makeUsers());
+    boot();
+    const { identifier } = await svc.exchangeAndProvision(
+      "test-oidc-permissif",
+      "code",
+      "verifier",
+      null,
+    );
+    assert.equal(identifier, "alice@test.io");
+  });
+
+  it("iss PRÉSENT et discordant → rejet, même chez un serveur permissif", async () => {
+    const permissif: IOAuthProvider = {
+      ...fakeProvider,
+      issuerPolicy: { issuer: ISSUER, requireIssParameter: false },
+    };
+    registerOAuthProvider("test-oidc-permissif2", () => permissif);
+    const permissiveConfig = {
+      ...(config as Record<string, unknown>),
+      oauth2: {
+        ...((config as Record<string, unknown>).oauth2 as Record<
+          string,
+          unknown
+        >),
+        providers: {
+          "test-oidc-permissif2": {
+            clientId: "id",
+            clientSecret: "s",
+            redirectUri: "https://a/cb",
+          },
+        },
+      },
+    };
+    const { svc, boot } = buildService(permissiveConfig, makeUsers());
+    boot();
+    await assert.rejects(
+      () =>
+        svc.exchangeAndProvision(
+          "test-oidc-permissif2",
+          "code",
+          "verifier",
+          "https://attaquant.test",
+        ),
       AuthenticationError,
     );
   });

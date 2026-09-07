@@ -1,4 +1,6 @@
-import type { OAuth2Tokens } from "arctic";
+import type { OAuth2Tokens } from "../oauth2Client";
+import { OAuth2Client } from "../oauth2Client";
+import { readJsonBounded } from "../httpJson";
 import type { IOAuthProfile } from "@nodefony/user";
 import type { IOAuthProvider } from "../../../contracts/IOAuthProvider";
 import type { IOAuthProviderContext } from "../oauthProviderRegistry";
@@ -6,6 +8,17 @@ import type { IOAuthProviderContext } from "../oauthProviderRegistry";
 /** Scopes minimaux : profil public + emails (l'email primaire peut être privé). */
 const DEFAULT_SCOPES = ["read:user", "user:email"];
 const API = "https://api.github.com";
+
+/** Une API muette ne doit pas retenir le callback jusqu'aux délais du runtime. */
+const API_TIMEOUT_MS = 10_000;
+
+/** Au-delà, ce n'est plus un profil : on refuse de lire. */
+const MAX_PROFILE_BYTES = 1024 * 1024;
+
+// GitHub ne publie aucun document de métadonnées (RFC 8414) : ses points d'entrée
+// sont fixes et documentés. Ce sont les seuls du module écrits en dur.
+const AUTHORIZATION_ENDPOINT = "https://github.com/login/oauth/authorize";
+const TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 
 // En-têtes API GitHub : Bearer + version d'API + User-Agent (exigé par GitHub).
 function ghHeaders(accessToken: string): Record<string, string> {
@@ -18,36 +31,44 @@ function ghHeaders(accessToken: string): Record<string, string> {
 }
 
 async function ghGet(url: string, accessToken: string): Promise<unknown> {
-  const res = await fetch(url, { headers: ghHeaders(accessToken) });
+  const res = await fetch(url, {
+    headers: ghHeaders(accessToken),
+    // Mêmes gardes que l'échange du code : ni redirection suivie, ni attente
+    // sans fin, ni corps sans borne.
+    redirect: "error",
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+  });
   if (!res.ok) {
     throw new Error(`GitHub API ${url} → ${res.status}`);
   }
-  return res.json();
+  return readJsonBounded(res, MAX_PROFILE_BYTES, `GitHub API ${url}`);
 }
 
 /**
  * Fournisseur **GitHub** (OAuth 2.0 simple, NON-OIDC). Pas de PKCE, pas d'ID
  * token : le profil est lu via l'API REST (`/user`), et l'email — souvent privé —
  * via `/user/emails` (scope `user:email`). GitHub n'émet pas de paramètre `iss`
- * (`expectedIssuer = null`) : la défense anti-CSRF repose sur le `state`.
+ * (`issuerPolicy = null`) : la défense anti-CSRF repose sur le `state`.
  */
 export function createGithubProvider(
   ctx: IOAuthProviderContext,
 ): IOAuthProvider {
-  const client = new ctx.arctic.GitHub(
-    ctx.clientId,
-    ctx.clientSecret,
-    ctx.redirectUri,
-  );
+  const client = new OAuth2Client({
+    authorizationEndpoint: AUTHORIZATION_ENDPOINT,
+    tokenEndpoint: TOKEN_ENDPOINT,
+    clientId: ctx.clientId,
+    clientSecret: ctx.clientSecret,
+    redirectUri: ctx.redirectUri,
+  });
   return {
     usesPkce: false,
-    expectedIssuer: null,
+    issuerPolicy: null,
     defaultScopes: DEFAULT_SCOPES,
     createAuthorizationURL(state, _codeVerifier, scopes) {
-      return client.createAuthorizationURL(state, scopes);
+      return client.createAuthorizationURL(state, null, scopes);
     },
     validateAuthorizationCode(code, _codeVerifier) {
-      return client.validateAuthorizationCode(code);
+      return client.validateAuthorizationCode(code, null);
     },
     async fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile> {
       const accessToken = tokens.accessToken();

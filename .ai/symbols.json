@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 812,
-    "symbols": 3900,
-    "classes": 385,
-    "interfaces": 1059,
-    "types": 445,
+    "files": 815,
+    "symbols": 3920,
+    "classes": 388,
+    "interfaces": 1064,
+    "types": 444,
     "enums": 4,
-    "functions": 1618,
+    "functions": 1631,
     "constants": 389
   },
   "symbols": {
@@ -14485,7 +14485,7 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null,
-      "description": "Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM (framework ne dépend ni de security ni d'arctic). Contrat structurel imposé par cast (`this.get<…>`), aucune liaison de bu…"
+      "description": "Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM (framework ne dépend pas de security). Contrat structurel imposé par cast (`this.get<…>`), aucune liaison de build."
     },
     "IOAuth2Session": {
       "name": "IOAuth2Session",
@@ -19649,6 +19649,15 @@
       "extends": null,
       "description": "Source du matériel cryptographique de signature des JWT. Découple la SIGNATURE de toute persistance concrète : la clé peut venir de l'environnement (prod cloud), d'un fichier (dev/VPS) ou être éphé…"
     },
+    "IIssuerPolicy": {
+      "name": "IIssuerPolicy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce qu'on exige du paramètre `iss` renvoyé par le serveur d'autorisation (RFC 9207)."
+    },
     "IOAuthProvider": {
       "name": "IOAuthProvider",
       "kind": "interface",
@@ -19656,7 +19665,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'une classe `arctic` — masque les divergences entre fournisseurs derrière un contrat stable consommé par `OAuth2Service` : - *…"
+      "description": "Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'un client OAuth 2.0 — masque les divergences entre fournisseurs derrière un contrat stable consommé par `OAuth2Service` : - *…"
     },
     "ISecuredArea": {
       "name": "ISecuredArea",
@@ -20133,7 +20142,7 @@
       "extends": "Service",
       "implements": [],
       "decorators": [],
-      "description": "**Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code* au-dessus d'`arctic`. Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit / ROPC), **PKCE S…"
+      "description": "**Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*. Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit / ROPC), **PKCE S256** quand le fourni…"
     },
     "IOAuthAuthorization": {
       "name": "IOAuthAuthorization",
@@ -24805,6 +24814,114 @@
       "module": "@nodefony/security",
       "description": "Valide qu'une URL sortante est sûre (anti-SSRF) : protocole autorisé, pas d'identifiants embarqués, hôte résolvable, et **toutes** les IP résolues publiques. Lève {@link SsrfError} (422) sinon."
     },
+    "readJsonBounded": {
+      "name": "readJsonBounded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/httpJson.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Lecture BORNÉE d'un corps JSON — la brique de transport commune aux trois appels sortants du social login (découverte, point de jeton, API d'un fournisseur non-OIDC). Elle existe parce qu'une borne…"
+    },
+    "readJsonObjectBounded": {
+      "name": "readJsonObjectBounded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/httpJson.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Comme {@link readJsonBounded}, mais exige un OBJET — la forme de toute réponse normalisée par une RFC (document de métadonnées, réponse d'un point de jeton)."
+    },
+    "IDiscoveredAuthorizationServer": {
+      "name": "IDiscoveredAuthorizationServer",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Points d'entrée retenus d'un serveur d'autorisation — le sous-ensemble dont le flux *Authorization Code* a besoin (RFC 8414 §2)."
+    },
+    "IDiscoveryOptions": {
+      "name": "IDiscoveryOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Réglages de la découverte — l'injection de `fetch` est la voie pour éprouver sans TLS."
+    },
+    "discoverAuthorizationServer": {
+      "name": "discoverAuthorizationServer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Interroge un serveur d'autorisation et rend ses points d'entrée. Les URL candidates sont celles du cœur (`issuerMetadataUrls`, ordre normatif RFC 8414 §3.1 : insertion oauth → insertion oidc → ajou…"
+    },
+    "OAuth2RequestError": {
+      "name": "OAuth2RequestError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Refus du serveur d'autorisation au point de jeton (RFC 6749 §5.2). Porte le code `error` normalisé — la seule partie de la réponse sûre à journaliser."
+    },
+    "OAuth2Tokens": {
+      "name": "OAuth2Tokens",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Jetons rendus par le point de jeton (RFC 6749 §5.1), enveloppés pour qu'un champ attendu mais absent lève une erreur NOMMÉE au lieu de propager un `undefined` jusqu'au décodage du profil."
+    },
+    "OAuth2Client": {
+      "name": "OAuth2Client",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Client d'un serveur d'autorisation donné : construit l'URL d'autorisation puis échange le code contre des jetons. Un exemplaire porte les endpoints DÉJÀ résolus — par découverte de métadonnées ({@l…"
+    },
+    "IOAuth2ClientOptions": {
+      "name": "IOAuth2ClientOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Points d'entrée d'un serveur d'autorisation et identité du client."
+    },
+    "generateState": {
+      "name": "generateState",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Tire un `state` anti-CSRF (RFC 6749 §10.12, RFC 9700 §4.7) — 256 bits issus du générateur cryptographique du système."
+    },
+    "generateCodeVerifier": {
+      "name": "generateCodeVerifier",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Tire un `code_verifier` PKCE (RFC 7636 §4.1) — 43 caractères de l'alphabet `unreserved`, porteurs de 256 bits d'entropie."
+    },
+    "createCodeChallenge": {
+      "name": "createCodeChallenge",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Calcule le `code_challenge` de la méthode **S256** (RFC 7636 §4.2) : `BASE64URL(SHA256(ASCII(code_verifier)))`."
+    },
     "IOAuthProviderContext": {
       "name": "IOAuthProviderContext",
       "kind": "interface",
@@ -26602,7 +26719,7 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": null,
-      "description": "Client `arctic` minimal d'un fournisseur **OIDC avec PKCE** — surface structurelle commune à `Google`, `MicrosoftEntraId`, `Auth0`, `Okta`, `KeyCloak`... (une instance arctic de ces classes est ass…"
+      "description": "Client d'un fournisseur **OIDC avec PKCE** — surface structurelle que {@link OAuth2Client} remplit, et qu'un test peut remplacer par un double sans réseau."
     },
     "IOidcProviderOptions": {
       "name": "IOidcProviderOptions",
@@ -26613,6 +26730,15 @@
       "extends": null,
       "description": "Paramètres d'un fournisseur OIDC générique."
     },
+    "IDiscoveredOidcOptions": {
+      "name": "IDiscoveredOidcOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "IDiscoveryOptions",
+      "description": "Réglages d'un fournisseur OIDC découvert."
+    },
     "createOidcProvider": {
       "name": "createOidcProvider",
       "kind": "function",
@@ -26620,6 +26746,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Fabrique un {@link IOAuthProvider} **générique OIDC** — couvre TOUT fournisseur OpenID Connect sans code spécifique : le profil se lit toujours pareil (claims standard `sub`/`email`/`email_verified…"
+    },
+    "createDiscoveredOidcProvider": {
+      "name": "createDiscoveredOidcProvider",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Construit un fournisseur OIDC **en demandant ses points d'entrée à l'émetteur** (RFC 8414 / OpenID Connect Discovery) — aucune URL n'est écrite en dur. C'est ce qui permet d'enregistrer n'importe q…"
     }
   },
   "relations": {
@@ -26698,7 +26832,8 @@
         "MigrationToolError",
         "MigrationLockTimeoutError",
         "MigrationVerdictError",
-        "FrontendError"
+        "FrontendError",
+        "OAuth2RequestError"
       ],
       "EventEmitter": [
         "Event"
@@ -27039,6 +27174,9 @@
       ],
       "Ws": [
         "IBackpressureSocket"
+      ],
+      "IDiscoveryOptions": [
+        "IDiscoveredOidcOptions"
       ]
     },
     "implementedBy": {
@@ -32518,6 +32656,12 @@
       "registerOAuthProvider": [
         "src/modules/test/nodefony/secure/oauthTestProvider.ts"
       ],
+      "OAuth2Tokens": [
+        "src/modules/test/nodefony/secure/oauthTestProvider.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
       "IOAuthProvider": [
         "src/modules/test/nodefony/secure/oauthTestProvider.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
@@ -34773,6 +34917,7 @@
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
         "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
       ],
       "IAccessPrincipal": [
@@ -35020,6 +35165,12 @@
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
       "listOAuthProviders": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
+      ],
+      "generateCodeVerifier": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
+      ],
+      "generateState": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
       "refusedAdminScopes": [
@@ -35942,7 +36093,19 @@
       "SsrfError": [
         "src/packages/@nodefony/security/nodefony/src/net/ssrfGuard.ts"
       ],
-      "createOidcProvider": [
+      "issuerMetadataUrls": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "validateIssuerMetadata": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "readJsonObjectBounded": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts"
+      ],
+      "createDiscoveredOidcProvider": [
         "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
       ],
       "createGithubProvider": [
@@ -35967,12 +36130,6 @@
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "extractScopes": [
-        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
-      ],
-      "issuerMetadataUrls": [
-        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
-      ],
-      "validateIssuerMetadata": [
         "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
       ],
       "TokenStatus": [
@@ -36127,8 +36284,22 @@
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
-      "IOAuthProviderContext": [
+      "OAuth2Client": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "readJsonBounded": [
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"
+      ],
+      "IOAuthProviderContext": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "discoverAuthorizationServer": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "IDiscoveryOptions": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ]
     }
   }

@@ -1,10 +1,38 @@
-import type { OAuth2Tokens } from "arctic";
+import type { OAuth2Tokens } from "../src/oauth/oauth2Client";
 import type { IOAuthProfile } from "@nodefony/user";
 
 /**
- * Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'une
- * classe `arctic` — masque les divergences entre fournisseurs derrière un contrat
- * stable consommé par `OAuth2Service` :
+ * Ce qu'on exige du paramètre `iss` renvoyé par le serveur d'autorisation
+ * (RFC 9207).
+ *
+ * @remarks La règle a **trois** états, pas deux — et c'est ce que le booléen
+ * seul ne pouvait pas dire. La RFC §2.4 impose au client d'extraire `iss`
+ * « **if the parameter is present** », et son §2.3 fait annoncer le support par
+ * les métadonnées de l'émetteur. Refuser une réponse sans `iss` d'un serveur qui
+ * n'a jamais promis de l'émettre revient donc à refuser un serveur CONFORME —
+ * Microsoft Entra en est un.
+ *
+ * La défense anti-mix-up ne repose d'ailleurs pas sur ce seul paramètre : chaque
+ * fournisseur a son URL de redirection propre (`…/{provider}/callback`) et le
+ * flux vérifie que le fournisseur de retour est celui qui a démarré, ce que la
+ * RFC 9700 §4.4.2.2 donne comme défense principale. `iss` est la seconde ceinture.
+ */
+export interface IIssuerPolicy {
+  /** Émetteur attendu, sous sa forme canonique. */
+  readonly issuer: string;
+  /**
+   * `true` si le serveur ANNONCE émettre `iss`
+   * (`authorization_response_iss_parameter_supported`) : son absence est alors
+   * une promesse non tenue, donc un refus. `false` : absent, on continue ;
+   * présent, il doit correspondre.
+   */
+  readonly requireIssParameter: boolean;
+}
+
+/**
+ * Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'un client
+ * OAuth 2.0 — masque les divergences entre fournisseurs derrière un contrat stable
+ * consommé par `OAuth2Service` :
  *
  * - **PKCE ou non** : Google attend `createAuthorizationURL(state, codeVerifier,
  *   scopes)` ; GitHub `createAuthorizationURL(state, scopes)` (pas de
@@ -14,9 +42,9 @@ import type { IOAuthProfile } from "@nodefony/user";
  *   l'API du fournisseur (GitHub `/user`). Le résultat est toujours normalisé en
  *   {@link IOAuthProfile}.
  *
- * @remarks `arctic` n'est référencé ici qu'en **type** (`import type`, effacé à la
- * compilation) — l'instance runtime est chargée paresseusement par le service et
- * injectée aux fabriques. Aucune dépendance runtime n'entre par ce contrat.
+ * @remarks Ce contrat n'introduit aucune dépendance : le client OAuth 2.0 sous-jacent
+ * est écrit dans le module même, et un fournisseur maison peut l'implémenter sans
+ * rien installer.
  */
 export interface IOAuthProvider {
   /**
@@ -26,12 +54,11 @@ export interface IOAuthProvider {
   readonly usesPkce: boolean;
 
   /**
-   * Identifiant d'émetteur attendu pour la défense anti-mix-up (RFC 9207), ou
-   * `null` si le fournisseur n'émet pas le paramètre `iss` (ex. GitHub, non-OIDC).
-   * Quand non-`null`, le service **rejette** une réponse dont l'`iss` diffère ou
-   * manque.
+   * Politique de vérification du paramètre `iss` (anti-mix-up, RFC 9207), ou
+   * `null` pour un fournisseur qui ne relève pas de cette défense (GitHub,
+   * non-OIDC).
    */
-  readonly expectedIssuer: string | null;
+  readonly issuerPolicy: IIssuerPolicy | null;
 
   /** Scopes appliqués quand la configuration n'en précise aucun. */
   readonly defaultScopes: string[];

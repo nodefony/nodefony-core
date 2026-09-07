@@ -100,7 +100,7 @@ Une route peut ajouter ses directives via `@Csp` (merge par `cspForExtra`).
 - Importer `@nodefony/http`/`@nodefony/framework` **runtime** (type-only OK) sauf via le pattern existant.
 - `any`, `@ts-ignore`, `require()`. Allouer dans le hot-path sans lazy.
 - Ajouter une dep runtime sans accord (zod validé). Modifier `rolldown.config.ts`/`tsconfig.json` sans accord.
-- Réintroduire la lib `helmet`, `passport*`, `csrf`, `jsonwebtoken` (supprimées). JWT = `jose` (S3), OAuth = `arctic` (S6).
+- Réintroduire la lib `helmet`, `passport*`, `csrf`, `jsonwebtoken`, `arctic` (supprimées). JWT = `jose` (S3), OAuth = client interne (`src/oauth/oauth2Client.ts` + découverte RFC 8414).
 
 ## Perf — RÈGLE ABSOLUE
 

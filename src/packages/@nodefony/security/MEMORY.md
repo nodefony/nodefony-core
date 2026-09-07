@@ -194,14 +194,42 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
 - Contrats : `IToken` (getUser/isAuthenticated/getRoles/getCredentials/**getScopes**/get-setAttribute),
   `IAuthenticator` (supports/createToken/authenticate/onSuccess/onFailure), `ISecuredArea`, `IFirewall`,
   `IAccessVoter` + `VoterVote` (GRANT/DENY/ABSTAIN).
-- **OAuth2 social login (J9)** — `OAuth2Service` (service "oauth2") : flux Authorization Code **BFF**
-  au-dessus d'**arctic v3.7.0** (`import()` LAZY au 1er login, cold path). `createAuthorization` (génère
-  state + code_verifier PKCE, URL) / `exchangeAndProvision` (valide **iss** RFC 9207 → `validateAuthorizationCode`
-  → `fetchProfile` → provisionne). `IOAuthProvider` = façade par fournisseur masquant la divergence arctic
-  (Google PKCE 3-args / GitHub 2-args) + **normalise le profil qu'arctic ne lit JAMAIS**. Registry pluggable
-  `registerOAuthProvider` — builtins **google/keycloak/github** : google+keycloak via **helper OIDC générique**
-  `createOidcProvider` (decode idToken ; Keycloak self-hosted = `issuer`=URL realm en config) ; github = mapping
-  custom non-OIDC (`/user`+`/user/emails`). Provisioning délégué au service `users` SI capability
+- **OAuth2 social login (J9)** — `OAuth2Service` (service "oauth2") : flux Authorization Code **BFF**,
+  **ZÉRO dépendance tierce**. Client interne `OAuth2Client` (`src/oauth/oauth2Client.ts`) : `generateState`
+  / `generateCodeVerifier` (32 o base64url = 43 car., RFC 7636 §4.1), `createCodeChallenge` S256,
+  `createAuthorizationURL`, `validateAuthorizationCode` (POST form, Basic RFC 6749 §2.3.1 percent-encodé
+  AVANT base64 ; secret vide ⇒ client public, `client_id` dans le corps ; `Accept: application/json` sinon
+  GitHub répond en form-urlencoded ; refus lu sur le champ `error` MÊME en HTTP 200 — cas GitHub).
+  `OAuth2Tokens` = enveloppe, un champ absent LÈVE en le nommant. Corps JSON lu BORNÉ **pendant** le flux
+  (`readJsonObjectBounded`, `src/oauth/httpJson.ts`) — une borne posée après `text()` ne protège rien ;
+  `redirect: "error"` sur les 3 appels sortants (un POST redirigé est rejoué en GET, et `Authorization`
+  porte le secret) ; `fetch` INJECTABLE (option) — c'est la voie pour éprouver sans réseau, jamais
+  remplacer le `fetch` du processus. `createAuthorization` (state + code_verifier + URL) /
+  `exchangeAndProvision` (valide **iss** RFC 9207 → `validateAuthorizationCode` → `fetchProfile` →
+  provisionne) ; fournisseur résolu en **single-flight** (la PROMESSE est mémoïsée, retirée si échec).
+  🔴 **`iss` (RFC 9207) = règle à TROIS états**, portée par `IOAuthProvider.issuerPolicy`
+  (`{issuer, requireIssParameter}` | `null`) : annoncé+absent ⇒ REFUS · présent+discordant ⇒ REFUS ·
+  non annoncé+absent ⇒ ON CONTINUE. §2.4 dit « if the parameter is present », §2.3 fait ANNONCER le
+  support (`authorization_response_iss_parameter_supported`, lu par la découverte) — exiger `iss`
+  d'un serveur qui ne l'a pas promis refuse un serveur CONFORME (Entra). La défense anti-mix-up
+  PRINCIPALE est ailleurs : redirectUri par fournisseur + contrôle du fournisseur de retour
+  (RFC 9700 §4.4.2.2) ; `iss` est la seconde ceinture. `null` pour un non-OIDC (github).
+  🔴 **Découverte RFC 8414 = `src/oauth/metadata.ts`, qui n'en réimplémente RIEN** : `canonicalIssuer`,
+  `issuerMetadataUrls` (3 URL, ordre NORMATIF §3.1 : insertion oauth → insertion oidc → ajout oidc) et
+  `validateIssuerMetadata` (égalité §3.3, sur les formes CANONIQUES des deux côtés) viennent de `nodefony`
+  — la même implémentation PUBLIE nos métadonnées et LIT celles d'autrui. metadata.ts n'ajoute que le
+  transport. `issuer` discordant ⇒ REFUS **sans repli** sur l'URL suivante ; émetteur `http` refusé
+  PARTOUT (injecter `fetch` pour tester, pas affaiblir la règle) ; `code_challenge_methods_supported`
+  sans `S256` ⇒ refus. Type rendu = `IDiscoveredAuthorizationServer` (à NE PAS confondre avec
+  `IAuthorizationServerMetadata` du cœur, qui décrit le document PUBLIÉ). Registry pluggable
+  `registerOAuthProvider` (fabrique **sync ou async** — découvrir = construire) — builtins
+  **google/keycloak/oidc/github** : les trois premiers via `createDiscoveredOidcProvider` (émetteur seul,
+  `decodeJwt` de `jose` LAZY — signature non vérifiée, canal TLS direct, OIDC Core §3.1.3.7 ; mais les
+  AUTRES exigences du même § sont contrôlées : `iss` ≡ émetteur, `aud` contient le `client_id`, `exp`
+  non périmé, `sub` non vide — `assertIdTokenClaims`). ⚠️ **Entra `common`/`organizations` ne se
+  découvre PAS** : son document publie `issuer` avec le gabarit littéral `{tenantid}`, que l'égalité
+  §3.3 refuse — mono-locataire OK, multi-locataire = adaptateur dédié. github =
+  endpoints en dur + mapping non-OIDC (`/user`+`/user/emails`). Provisioning délégué au service `users` SI capability
   `IOAuthUserProvisioner` (duck-type, **fail-closed** sinon). Le social login produit une **session BFF**, PAS
   d'authenticator firewall (calque WebAuthn login). Décision identité : [[project_oauth2_social_identity]].
 - Endpoints OAuth2 : `OAuth2Controller` (@nodefony/framework, dans `nodefony/controller/`) `/nodefony/security/
@@ -381,7 +409,7 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 
 - `areas: {}` (défaut) → firewall = no-op (perf max). Zone protégée + anonyme → 401.
 - `authenticators` = schéma OUVERT (`z.string()`) → plugins (apikey/ldap) sans éditer le core ; validés au runtime.
-- En-têtes = **natif** (pas helmet). JWT = jose **(J4 ✅, EdDSA)**, OAuth = arctic (S6), bcrypt = `@nodefony/user`.
+- En-têtes = **natif** (pas helmet). JWT = jose **(J4 ✅, EdDSA)**, OAuth = client interne (0 dep), bcrypt = `@nodefony/user`.
 - **CSRF GLOBAL** (J5) : appliqué à TOUTE requête mutante (zone ou non) — défense gratuite sur GET (court-circuit
   méthode). `csrf.{enabled, fetchMetadata, sameSite(cookie), checkOrigin, strictSameSite:false, trustedOrigins:[]}`.
   `strictSameSite` (≠ attribut cookie `sameSite`) : same-site → 403 si true (multi-tenant). `trustedOrigins` (≠

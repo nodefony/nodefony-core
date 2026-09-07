@@ -9,7 +9,6 @@ export default defineNodefonyRolldownConfig({
     "zod",
     "jose",
     "@simplewebauthn/server",
-    "arctic",
     "tslib",
   ],
 });

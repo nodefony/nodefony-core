@@ -995,7 +995,7 @@ const oauthProviderSchema = z
   })
   .describe("Fournisseur OAuth/OIDC (secrets via env).");
 
-// Social login OAuth 2.0 (arctic). Authorization Code + PKCE (S256, RFC 7636,
+// Social login OAuth 2.0. Authorization Code + PKCE (S256, RFC 7636,
 // quand le fournisseur le supporte) + state anti-CSRF + iss anti-mix-up (RFC 9207).
 // Le login social produit une SESSION BFF (pas de token exposé au navigateur).
 const oauth2Schema = z
@@ -1032,12 +1032,10 @@ const oauth2Schema = z
       .record(z.string(), oauthProviderSchema)
       .default({})
       .describe(
-        "Fournisseurs activés par nom (doit correspondre au registre : builtins google/keycloak/github ; +50 via arctic en enregistrant une fabrique).",
+        "Fournisseurs activés par nom (doit correspondre au registre : builtins google/keycloak/oidc/github ; tout autre serveur OpenID Connect en enregistrant une fabrique, décrit par son seul émetteur).",
       ),
   })
-  .describe(
-    "Social login OAuth 2.0 (arctic) — Authorization Code + PKCE, session BFF.",
-  );
+  .describe("Social login OAuth 2.0 — Authorization Code + PKCE, session BFF.");
 
 /**
  * Règle d'autorisation d'un **namespace de canaux WebSocket** (subscribe/inbound)

@@ -1,5 +1,4 @@
 import { Service, Module, Container, Event } from "nodefony";
-import type * as Arctic from "arctic";
 import type { IUser, IOAuthUserProvisioner } from "@nodefony/user";
 import {
   defineSecurityConfig,
@@ -12,10 +11,9 @@ import {
   getOAuthProviderFactory,
   listOAuthProviders,
 } from "../src/oauth/oauthProviderRegistry";
+import { generateCodeVerifier, generateState } from "../src/oauth/oauth2Client";
 
 const serviceName = "oauth2";
-
-type Lib = typeof Arctic;
 
 /** Données à porter en session entre `authorize` et `callback` (anti-replay). */
 export interface IOAuthAuthorization {
@@ -34,8 +32,7 @@ interface IResolvedProvider {
 }
 
 /**
- * **Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*
- * au-dessus d'`arctic`.
+ * **Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*.
  *
  * Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit /
  * ROPC), **PKCE S256** quand le fournisseur le supporte (RFC 7636), **state**
@@ -43,10 +40,11 @@ interface IResolvedProvider {
  * (le login produit une **session BFF**, gérée hors de ce service par le
  * controller + `AuthFlow`).
  *
- * `arctic` est **importé paresseusement** au premier login (cold path — jamais au
- * boot ni par requête), comme `@simplewebauthn`/`jose`. Au boot (si
- * `oauth2.enabled`) : seule la config est validée et les fournisseurs configurés
- * sont confrontés au registre (un nom inconnu = WARNING, pas fatal).
+ * Les fournisseurs sont construits **au premier login** (cold path — jamais au boot
+ * ni par requête) puis mémoïsés : c'est là que les points d'entrée d'un émetteur
+ * OIDC sont découverts, une seule fois par processus. Au boot (si `oauth2.enabled`)
+ * : seule la config est validée et les fournisseurs configurés sont confrontés au
+ * registre (un nom inconnu = WARNING, pas fatal).
  *
  * Le service ne touche **ni HTTP ni session** : il rend à l'appelant les éléments
  * (URL, state, verifier) que le controller persiste en session — testable sans
@@ -54,9 +52,11 @@ interface IResolvedProvider {
  */
 class OAuth2Service extends Service {
   #config: ISecurityConfig | null = null;
-  #lib: Lib | null = null;
   // Fournisseurs instanciés, mémoïsés au 1ᵉʳ usage (lazy — pas alloués au boot).
-  #providers: Map<string, IResolvedProvider> | null = null;
+  // C'est la PROMESSE qui est mémoïsée, pas son résultat : deux logins simultanés
+  // à froid ne doivent pas déclencher deux découvertes. Une résolution en échec
+  // est retirée, sinon une panne passagère de l'émetteur serait définitive.
+  #providers: Map<string, Promise<IResolvedProvider>> | null = null;
   #ready = false;
 
   constructor(public module: Module) {
@@ -138,10 +138,9 @@ class OAuth2Service extends Service {
    */
   async createAuthorization(provider: string): Promise<IOAuthAuthorization> {
     const resolved = await this.#resolveProvider(provider);
-    const lib = await this.#ensureLib();
-    const state = lib.generateState();
+    const state = generateState();
     const codeVerifier = resolved.provider.usesPkce
-      ? lib.generateCodeVerifier()
+      ? generateCodeVerifier()
       : null;
     const url = resolved.provider.createAuthorizationURL(
       state,
@@ -166,10 +165,17 @@ class OAuth2Service extends Service {
     returnedIss: string | null,
   ): Promise<{ identifier: string }> {
     const { provider: p } = await this.#resolveProvider(provider);
-    // Anti-mix-up (RFC 9207) : si le fournisseur émet `iss`, il DOIT correspondre.
-    if (p.expectedIssuer !== null) {
-      if (returnedIss === null || returnedIss !== p.expectedIssuer) {
+    // Anti-mix-up (RFC 9207) : un `iss` PRÉSENT doit toujours correspondre ; son
+    // ABSENCE n'est une faute que si le serveur avait annoncé l'émettre — refuser
+    // un serveur qui ne l'a jamais promis reviendrait à refuser un serveur
+    // conforme (§2.4 : « if the parameter is present »).
+    const policy = p.issuerPolicy;
+    if (policy !== null) {
+      if (returnedIss !== null && returnedIss !== policy.issuer) {
         throw new AuthenticationError("OAuth issuer mismatch");
+      }
+      if (returnedIss === null && policy.requireIssParameter) {
+        throw new AuthenticationError("OAuth issuer missing");
       }
     }
     const tokens = await p.validateAuthorizationCode(code, codeVerifier);
@@ -188,13 +194,20 @@ class OAuth2Service extends Service {
 
   // ── Internes ─────────────────────────────────────────────────────────────────
 
-  async #resolveProvider(name: string): Promise<IResolvedProvider> {
+  #resolveProvider(name: string): Promise<IResolvedProvider> {
     this.#ensureReady();
     this.#providers ??= new Map();
     const cached = this.#providers.get(name);
     if (cached) {
       return cached;
     }
+    const pending = this.#buildProvider(name);
+    this.#providers.set(name, pending);
+    pending.catch(() => this.#providers?.delete(name));
+    return pending;
+  }
+
+  async #buildProvider(name: string): Promise<IResolvedProvider> {
     const cfg = this.#config!.oauth2.providers[name];
     if (!cfg) {
       throw new AuthenticationError(`OAuth provider "${name}" non configuré`);
@@ -205,18 +218,14 @@ class OAuth2Service extends Service {
         `OAuth provider "${name}" inconnu du registre`,
       );
     }
-    const lib = await this.#ensureLib();
-    const provider = factory({
-      arctic: lib,
+    const provider = await factory({
       clientId: cfg.clientId,
       clientSecret: cfg.clientSecret,
       redirectUri: cfg.redirectUri,
       issuer: cfg.issuer,
     });
     const scopes = cfg.scopes.length > 0 ? cfg.scopes : provider.defaultScopes;
-    const resolved: IResolvedProvider = { provider, scopes };
-    this.#providers.set(name, resolved);
-    return resolved;
+    return { provider, scopes };
   }
 
   // Le provisioner = le service "users" S'IL implémente la capability (duck-typing,
@@ -229,10 +238,6 @@ class OAuth2Service extends Service {
       );
     }
     return users as IOAuthUserProvisioner;
-  }
-
-  async #ensureLib(): Promise<Lib> {
-    return (this.#lib ??= (await import("arctic")) as Lib);
   }
 
   #ensureReady(): void {

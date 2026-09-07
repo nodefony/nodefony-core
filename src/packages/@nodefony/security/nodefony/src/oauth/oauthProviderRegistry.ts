@@ -1,6 +1,5 @@
-import type * as Arctic from "arctic";
 import type { IOAuthProvider } from "../../contracts/IOAuthProvider";
-import { createOidcProvider } from "./providers/oidc";
+import { createDiscoveredOidcProvider } from "./providers/oidc";
 import { createGithubProvider } from "./providers/github";
 
 /**
@@ -9,38 +8,44 @@ import { createGithubProvider } from "./providers/github";
  * cœur à un fournisseur en dur.
  *
  * Convention-frère : `tokenStoreRegistry`, `authenticatorRegistry`,
- * `webAuthnCredentialStoreRegistry`. Les builtins (`google`, `github`) couvrent
- * les deux archétypes (OIDC+PKCE / OAuth simple) ; une application enregistre les
- * ~50 autres fournisseurs `arctic` (Microsoft, Apple, Discord...) ou un
- * fournisseur maison via {@link registerOAuthProvider}, sans éditer le core.
+ * `webAuthnCredentialStoreRegistry`.
  *
- * @remarks `arctic` n'est ici qu'un **type** : l'instance runtime, chargée
- * paresseusement par `OAuth2Service` au premier login, est passée à la fabrique
- * via {@link IOAuthProviderContext.arctic} — zéro import runtime statique.
+ * @remarks Aucun fournisseur n'a de code propre : un serveur OpenID Connect publie
+ * ses points d'entrée (RFC 8414 / OpenID Connect Discovery), donc son seul émetteur
+ * suffit à le décrire. Enregistrer Microsoft Entra, Auth0, Okta ou Authentik tient
+ * en une ligne dans l'application :
+ *
+ * ```ts
+ * registerOAuthProvider("azure", (ctx) => createDiscoveredOidcProvider("azure", ctx));
+ * ```
  */
 
-/** Contexte de construction d'un fournisseur (lib arctic chargée + secrets de config). */
+/** Contexte de construction d'un fournisseur (secrets et URL issus de la config). */
 export interface IOAuthProviderContext {
-  /** Module `arctic` chargé paresseusement (les classes de fournisseurs). */
-  readonly arctic: typeof Arctic;
   /** Identifiant client (config, issu de l'env de l'app). */
   readonly clientId: string;
-  /** Secret client (config) — jamais loggé. */
+  /** Secret client (config) — jamais loggé ; vide pour un client public. */
   readonly clientSecret: string;
   /** URL de callback exacte (RFC 9700). */
   readonly redirectUri: string;
   /**
-   * Émetteur/realm des fournisseurs OIDC self-hosted (Keycloak : URL du realm,
-   * ex. `https://kc.example/realms/app`) — `undefined` pour les fournisseurs à
-   * endpoints fixes (Google, GitHub).
+   * Émetteur du fournisseur OIDC (Keycloak : URL du realm, ex.
+   * `https://kc.example/realms/app`) — `undefined` pour les fournisseurs dont
+   * l'émetteur est connu d'avance (Google) ou qui n'en publient pas (GitHub).
    */
   readonly issuer?: string;
 }
 
-/** Fabrique d'un fournisseur OAuth pour un nom donné. */
+/**
+ * Fabrique d'un fournisseur OAuth pour un nom donné.
+ *
+ * @remarks Elle peut être **asynchrone** : découvrir les points d'entrée d'un
+ * émetteur est une opération de construction, faite une seule fois par processus
+ * (le service mémoïse le fournisseur résolu).
+ */
 export type OAuthProviderFactory = (
   ctx: IOAuthProviderContext,
-) => IOAuthProvider;
+) => IOAuthProvider | Promise<IOAuthProvider>;
 
 const factories = new Map<string, OAuthProviderFactory>();
 
@@ -68,40 +73,21 @@ export function listOAuthProviders(): string[] {
 }
 
 // ─── Builtins ─────────────────────────────────────────────────────────────────
-// OIDC (helper générique, zéro mapping spécifique) — Google (issuer fixe) +
-// Keycloak (issuer = URL du realm, fournie en config). Ajouter Microsoft/Auth0/
-// Okta = une entrée identique (nom + classe arctic + issuer).
+// Trois entrées seulement, et deux archétypes : OIDC par découverte (l'émetteur
+// dit tout) et OAuth simple (profil lu à l'API du fournisseur).
+const GOOGLE_ISSUER = "https://accounts.google.com";
+
 registerOAuthProvider("google", (ctx) =>
-  createOidcProvider({
-    name: "google",
-    client: new ctx.arctic.Google(
-      ctx.clientId,
-      ctx.clientSecret,
-      ctx.redirectUri,
-    ),
-    issuer: "https://accounts.google.com",
-    decodeIdToken: ctx.arctic.decodeIdToken,
-  }),
+  createDiscoveredOidcProvider("google", ctx, { issuer: GOOGLE_ISSUER }),
 );
-registerOAuthProvider("keycloak", (ctx) => {
-  // Keycloak est self-hosted : son émetteur (= URL du realm) sert À LA FOIS à
-  // construire le client (endpoints dérivés) et à valider l'`iss` (anti-mix-up).
-  if (!ctx.issuer) {
-    throw new Error(
-      'OAuth provider "keycloak" : config "issuer" requise (URL du realm, ex. https://kc.example/realms/app).',
-    );
-  }
-  return createOidcProvider({
-    name: "keycloak",
-    client: new ctx.arctic.KeyCloak(
-      ctx.issuer,
-      ctx.clientId,
-      ctx.clientSecret,
-      ctx.redirectUri,
-    ),
-    issuer: ctx.issuer,
-    decodeIdToken: ctx.arctic.decodeIdToken,
-  });
-});
+// Keycloak est self-hosted : son émetteur (= URL du realm) vient de la config et
+// sert À LA FOIS à découvrir les endpoints et à valider l'`iss` (anti-mix-up).
+registerOAuthProvider("keycloak", (ctx) =>
+  createDiscoveredOidcProvider("keycloak", ctx),
+);
+// Entrée générique : tout serveur OpenID Connect, décrit par son seul émetteur.
+registerOAuthProvider("oidc", (ctx) =>
+  createDiscoveredOidcProvider("oidc", ctx),
+);
 // OAuth simple (non-OIDC) : profil lu via l'API du fournisseur.
 registerOAuthProvider("github", createGithubProvider);

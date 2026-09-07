@@ -5,7 +5,7 @@ import Controller from "../src/Controller";
 
 /**
  * Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM
- * (framework ne dépend ni de security ni d'arctic). Contrat structurel imposé par
+ * (framework ne dépend pas de security). Contrat structurel imposé par
  * cast (`this.get<…>`), aucune liaison de build.
  */
 export interface IOAuth2Service {
@@ -103,7 +103,20 @@ class OAuth2Controller extends Controller {
     if (!svc.listProviders().includes(provider)) {
       return this.renderJson({ error: "Unknown provider" }, 404);
     }
-    const auth = await svc.createAuthorization(provider);
+    let auth: Awaited<ReturnType<IOAuth2Service["createAuthorization"]>>;
+    try {
+      auth = await svc.createAuthorization(provider);
+    } catch (error) {
+      // Les points d'entrée d'un fournisseur OIDC sont DÉCOUVERTS auprès de son
+      // émetteur : cette étape parle au réseau. Un émetteur muet ou incohérent est
+      // une indisponibilité AMONT (503) — jamais une erreur de ce serveur (500),
+      // et jamais une redirection muette vers la page de login.
+      this.log(
+        `oauth2 authorize "${provider}" : ${(error as Error).message}`,
+        "ERROR",
+      );
+      return this.renderJson({ error: "OAuth provider unavailable" }, 503);
+    }
     const session = await flow.ensureSession(this.context as ContextType);
     if (!session) {
       return this.renderJson({ error: "Session unavailable" }, 503);
@@ -164,8 +177,16 @@ class OAuth2Controller extends Controller {
         "oauth",
       );
       return this.redirect(success, 302);
-    } catch {
-      // iss invalide / échange refusé / provisioning impossible → échec uniforme.
+    } catch (error) {
+      // Le client reçoit un échec UNIFORME (aucune information sur la cause), mais
+      // l'exploitant doit pouvoir distinguer un `invalid_grant` d'un émetteur
+      // injoignable ou d'un provisioning refusé : sans cette trace, les trois cas
+      // se ressemblent — une 302 muette — et « retour systématique sur
+      // failureRedirect » n'a aucun instrument derrière lui.
+      this.log(
+        `oauth2 callback "${provider}" : ${(error as Error).message.slice(0, 200)}`,
+        "WARNING",
+      );
       return this.redirect(failure, 302);
     }
   }
