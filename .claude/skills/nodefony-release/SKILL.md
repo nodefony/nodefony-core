@@ -21,6 +21,12 @@ description: >
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
 > `git log`, l'avancement dans **les tickets** (jalon `10.0.0`, empreinte hors ligne `.ai/BOARD.md`)
 > et le périmètre dans `docs/release/nodefony-10.md`.
+>
+> 🔴 **Chaque release VERSE ici ce qu'elle a coûté à découvrir.** Une publication se joue quelques
+> fois par an : ce qu'on a dû aller lire dans `release.mjs`, dans le guide ou dans `git log` pour
+> savoir quoi taper sera intégralement reperdu d'ici la prochaine. Le test, en fin de publication :
+> **qu'ai-je cherché qui n'était pas écrit ?** — la réponse s'ajoute à la section concernée, en une
+> ou deux lignes, jamais en journal daté. Le skill doit converger vers « on l'ouvre, on exécute ».
 
 Le dépôt ne voit pas sa propre surface publiée. Les paquets du cœur pointent leurs types vers la
 **source** (`exports["."].types → ./index.ts`) pour éviter une course au build ; cette source est
@@ -78,6 +84,12 @@ jamais entre deux._
 c'est le tag `v10.*` poussé à la main qui déclenche la publication. Inverser les deux enlève à
 l'auteur le seul point où il relit ce qui sortira sous son nom.
 
+**Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les trois scénarios de smoke
+en matrice) → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
+Release GitHub — `--prerelease` déduit de semver — **et republie le site public** en appelant
+`pages.yml` sur `main`. Puis `bilan`, qui dit ce qui a été SAUTÉ. Compter une bonne dizaine de
+minutes avant le premier `publish` : le smoke bâtit des conteneurs.
+
 Le changelog est un **brouillon**, marqué comme tel dans le fichier. L'automate rassemble la
 matière — sans lui on oublie des changements ; l'humain écrit — sans lui on publie un mur que
 personne ne lit. _« Don't take the easy way out with full automation. This results in poor
@@ -107,6 +119,18 @@ demande d'écarter ce qui ne change rien pour celui qui met à jour. Le script l
 annonce** séparément des messages hors convention — confondre les deux enverrait chercher des
 commits mal écrits qui n'existent pas.
 
+**🔴 Le filtre par TYPE ne suffit pas : l'outillage interne du dépôt est commité en `feat`/`fix`.**
+Le script retient donc `feat(pilotage)`, `fix(devkit-bench)`, `feat(retex)`, `fix(build)`,
+`feat(release)` — des scripts, des bancs et des gates qui ne partent dans aucun tarball. Pour qui
+installe le paquet, ces entrées sont du bruit qui noie les vraies. **Le test, portée par portée :
+cette ligne décrit-elle quelque chose que l'utilisateur peut ATTEINDRE depuis `exports` ?** Sinon
+elle se coupe. Mesuré sur la `10.0.0-alpha.3` : 20 entrées rendues, **8 coupées**, 12 gardées.
+
+Deux cas limites qui se tranchent en ouvrant le commit, jamais sur son sujet : un **renommage
+d'identifiant** n'est une rupture que si le symbole est ré-exporté par l'`index.ts` (sinon il
+n'appartient pas à la surface couverte, et n'a même pas d'entrée) ; un **retrait de dépendance** est
+un `Removed` qui intéresse l'utilisateur, quel que soit le type du commit qui l'a fait.
+
 ### Pourquoi un mode `--publish` manuel, alors que la cible est l'OIDC
 
 Le publieur de confiance se déclare dans les réglages d'un paquet **qui existe déjà**, et npm n'a
@@ -120,11 +144,33 @@ moissonnait les jetons npm sur les exécuteurs d'intégration. Ordre complet et 
 ## 3. PRÉPARER — ce que `release.mjs` refuse, et ce que chaque refus évite
 
 ```bash
-npm run release -- --version 10.0.0 --from <ref>                  # RÉPÉTITION (défaut)
-npm run release -- --version 10.0.0 --from <ref> --write          # estampille + changelog
-npm run release -- --version 10.0.0 --from <ref> --write --pack   # + tarballs
-npm run release -- --version 10.0.0 --from <ref> --publish        # publication MANUELLE
+npm run release -- --version 10.0.0 --from <ref> --branch dev                  # RÉPÉTITION (défaut)
+npm run release -- --version 10.0.0 --from <ref> --branch dev --write          # estampille + changelog
+npm run release -- --version 10.0.0 --from <ref> --branch dev --write --pack   # + tarballs
+npm run release -- --version 10.0.0 --from <ref> --publish                     # publication MANUELLE
 ```
+
+### 🔴 `dev` prépare, `main` porte le tag — et `--branch dev` n'est PAS optionnel
+
+`BRANCHE_ATTENDUE` vaut **`main`** par défaut (`scripts/release/release.mjs:140`), alors que le
+développement vit sur `dev` depuis #257 : sans `--branch dev`, la préparation est refusée d'entrée.
+Et un tag de publication se pose sur **`main`**, nulle part ailleurs — c'est cette branche que
+décrivent le site public et les liens des README publiés.
+
+D'où la séquence de fin, que `--write` imprime lui-même et qu'il faut suivre **dans cet ordre** :
+
+```bash
+git commit -am "chore(release): <version>"
+git push origin dev          # 1. le commit AVANT le tag
+git push origin dev:main     # 2. avancer la branche de publication
+git fetch origin main:main   # 3. recaler le local — l'étape 2 n'avance que le DISTANT
+git tag v<version> <sha> && git push origin v<version>   # 4. le tag DÉCLENCHE la publication
+```
+
+L'étape 3 n'est pas du rangement : un `main` local resté en arrière fait ensuite mentir tout ce qui
+l'interroge. Et l'étape 2 avant l'étape 4 est une **contrainte dure** depuis que le job `annonce`
+republie le site : il refuse de le faire si `main` ne contient pas le tag (sinon la republication
+remettrait en ligne la documentation PRÉCÉDENTE, avec un run vert).
 
 Options : `--branch <nom>` · `--repo <hôte/org/dépôt>` · `--npm-tag <tag>` · `--offline`.
 `--help` rend le mode d'emploi complet. Le mode par défaut ne touche **aucun fichier**.
@@ -162,6 +208,11 @@ npm run release:smoke                          # les trois scénarios
 npm run release:smoke -- --scenario base       # un seul (docker build se paie en minutes)
 npm run release:pack                           # les tarballs seuls
 ```
+
+> **La forge le rejoue AVANT de publier** — `release.yml`, job `epreuve` (« Smoke — pack, install
+> VIERGE, conteneur, arrêt gracieux »), dont dépend le job `publier`. Le lancer en local avant de
+> taguer ne prouve donc rien de plus et coûte des minutes de `docker build` : le réserver au
+> DIAGNOSTIC, quand la forge a déjà rougi et qu'on veut le rejouer vite.
 
 `pack-all.mjs` empaquette chaque workspace non privé, **bascule temporairement** les
 `exports["."].types` qui pointent la source vers le `.d.ts` généré, puis restaure le
@@ -264,6 +315,11 @@ par un sous-shell.
   correspondre à plusieurs versions. Lire `doc["dist-tags"]` dessus rend `undefined` en silence :
   le mode a annoncé « rien à recaler » sur quatorze paquets qui l'étaient tous. La lecture vit dans
   le cœur (`lireVueNpm`), éprouvée sur la forme réelle.
+- **Chaque `git push` de ce dépôt rend ~300 à 500 Ko de sortie** : le hook `pre-push` bâtit les 26
+  workspaces. Rien à corriger côté hook — c'est ce qui garde le cache honnête —, mais toute poussée
+  se lance avec sa sortie REDIRIGÉE dans un fichier, dont on ne relit que le code de retour. Trois
+  poussées sont la routine d'une release : la sortie non redirigée, elle, se paie à chaque tour
+  suivant.
 - **Le tag ne se pousse pas avec le commit.** Une poussée de branche réveille toute l'intégration
   continue ; la publication attend alors derrière les bancs. Le script le dit à la fin de
   `--write` — le suivre plutôt que d'enchaîner les deux poussées.
