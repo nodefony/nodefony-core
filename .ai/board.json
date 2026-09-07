@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T10:51:19.115Z",
+  "generatedAt": "2026-09-07T12:25:41.452Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 3,
+      "closed": 4,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 2,
+      "open": 8,
       "title": "10.0.0-alpha"
     },
     {
@@ -116,8 +116,8 @@
       "number": 258,
       "title": "chore(release): appliquer les gestes npm qui exigent le code à deux facteurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/258",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -159,7 +159,7 @@
       "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
       "url": "https://github.com/nodefony/nodefony-core/issues/47",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -198,6 +198,49 @@
       ]
     },
     {
+      "number": 262,
+      "title": "fix(security): retirer arctic, le paquet OAuth déprécié",
+      "url": "https://github.com/nodefony/nodefony-core/issues/262",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 1.5,
+      "labels": [
+        "irrattrapable",
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 263,
+      "title": "fix(kernel): construire une application sans exiger sa base de données",
+      "url": "https://github.com/nodefony/nodefony-core/issues/263",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 1.6,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 266,
+      "title": "fix(orm): dire qu'un autre serveur occupe peut-être le port",
+      "url": "https://github.com/nodefony/nodefony-core/issues/266",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 1.65,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
       "number": 55,
       "title": "docs(release): recaler le plan de publication sur ce qui est livré",
       "url": "https://github.com/nodefony/nodefony-core/issues/55",
@@ -228,6 +271,20 @@
       ]
     },
     {
+      "number": 264,
+      "title": "fix(doctor): cesser de lire les commentaires comme du code",
+      "url": "https://github.com/nodefony/nodefony-core/issues/264",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.7,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 56,
       "title": "chore(pilotage): donner un ticket aux dettes qui n'en ont pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/56",
@@ -239,6 +296,34 @@
       "ordre": 1.8,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 265,
+      "title": "fix(doctor): reconnaître les entités que le générateur écrit",
+      "url": "https://github.com/nodefony/nodefony-core/issues/265",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.8,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 267,
+      "title": "feat(cli): montrer l'état de l'application à la fin de sa génération",
+      "url": "https://github.com/nodefony/nodefony-core/issues/267",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.85,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -254,6 +339,20 @@
       "labels": [
         "10.0.0",
         "arbitrage"
+      ]
+    },
+    {
+      "number": 261,
+      "title": "ci(release): publier la documentation quand une version sort",
+      "url": "https://github.com/nodefony/nodefony-core/issues/261",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.9,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {

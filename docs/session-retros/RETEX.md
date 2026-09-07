@@ -32,6 +32,22 @@
 
 > Gradué au CONSOLIDATE du 2026-09-07 — 6 frictions → **`feedback_destructive_needs_identity_scope`** : un refus doit nommer le GESTE de remplacement, pas le drapeau qui force. Ne PAS réécrire ici.
 
+## 📖 Ce qui est ÉCRIT ne protège que si on le relit AU MOMENT du geste
+
+- [1× — 09-07e] **Je suis tombé dans un piège que le skill du dépôt DOCUMENTE, à la ligne près.**
+  `items(first:100)` sur le tableau de bord tronque à 100 sans le dire ; le tableau en comptait 101,
+  et ma requête a rendu **1 ticket sur 7** avec toutes les apparences d'un inventaire complet. Le
+  skill `nodefony-ticket` porte ce piège en toutes lettres, avec son remède. Je l'avais chargé une
+  heure plus tôt — et je ne l'ai pas relu au moment d'écrire la requête. Un piège documenté ne
+  protège pas de l'avoir lu : il protège d'être relu quand on pose le geste qu'il vise.
+
+- [1× — 09-07e] **J'ai proposé trois remèdes AVANT d'avoir le message d'erreur.** `npm dist-tag`
+  échouait ; j'ai supposé une session absente, puis une clé mal enregistrée, puis envoyé chercher un
+  QR code qui n'existe pas dans cette configuration de compte. La cause tenait en une capture
+  d'écran que le user a fini par envoyer : sa 2FA était une clé de sécurité, qui ne produit AUCUN
+  code. Demander le message exact coûte un tour ; supposer en coûte trois, et fait chercher au
+  mauvais endroit — le symptôme est qu'on propose des remèdes qui s'excluent.
+
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
 - [1× — 09-05i] **`import()` d'un script pour « vérifier qu'il charge » l'EXÉCUTE.** Voulant
