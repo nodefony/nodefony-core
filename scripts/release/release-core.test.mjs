@@ -21,6 +21,7 @@ import {
   EXCLUS_DE_LA_DEPRECIATION,
   PAQUETS_HISTORIQUES,
   messageDeDepreciation,
+  refusDePublicationHorsBranche,
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
@@ -1174,5 +1175,43 @@ describe("dépréciation des paquets historiques", () => {
     );
     const dansLeCode = new Set(PAQUETS_HISTORIQUES.map((e) => e.nom));
     expect([...dansLePlan].sort()).toEqual([...dansLeCode].sort());
+  });
+});
+
+describe("branche de publication", () => {
+  it("laisse passer un commit qui appartient à la branche", () => {
+    expect(
+      refusDePublicationHorsBranche({
+        branche: "main",
+        brancheTrouvee: true,
+        contenue: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("REFUSE un tag posé hors de la branche de publication", () => {
+    const refus = refusDePublicationHorsBranche({
+      branche: "main",
+      brancheTrouvee: true,
+      contenue: false,
+    });
+    expect(refus).toMatch(/n'appartient PAS à « main »/);
+    // Le message doit NOMMER le geste : un refus qui laisse chercher se
+    // contourne, et c'est exactement ainsi que la garde de préparation avait
+    // été désarmée d'un `--branch dev`.
+    expect(refus).toMatch(/Fusionner dans main/);
+  });
+
+  it("PIÈGE — une branche INTROUVABLE refuse, elle ne se désarme pas", () => {
+    // Le cas de la forge : `actions/checkout` superficiel ne rapporte que le
+    // tag. Rendre `null` ici laisserait publier n'importe quoi dès que la
+    // référence manque — c'est-à-dire précisément là où l'on ne sait rien.
+    const refus = refusDePublicationHorsBranche({
+      branche: "main",
+      brancheTrouvee: false,
+      contenue: false,
+    });
+    expect(refus).toMatch(/introuvable/);
+    expect(refus).toMatch(/fetch-depth: 0/);
   });
 });

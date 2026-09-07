@@ -74,6 +74,7 @@ import {
   paquetsNonEstampilles,
   pairsTropLarges,
   phasesDeLaPasse,
+  refusDePublicationHorsBranche,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -119,6 +120,10 @@ const VERSION = arg("version");
 const DEPUIS = arg("from");
 const TAG_NPM = arg("npm-tag");
 const BRANCHE_ATTENDUE = arg("branch", "main");
+// La branche qui PORTE les publications. Distincte de `--branch`, qui dit d'où
+// l'on PRÉPARE : préparer depuis `dev` est normal, publier depuis `dev` ne l'est
+// pas. Les confondre laissait `--branch dev` désarmer les deux d'un coup.
+const BRANCHE_PUBLICATION = arg("publish-branch", "main");
 const DEPOT_ATTENDU = arg("repo", "github.com/nodefony/nodefony-core");
 const PUBLIER = drapeau("publish");
 // 🔴 PUBLIER N'IMPLIQUE PAS ÉCRIRE, et c'est la charnière de tout ce fichier.
@@ -297,6 +302,42 @@ if (branche !== BRANCHE_ATTENDUE && ECRIRE) {
   echouer(
     `branche « ${branche} », attendue « ${BRANCHE_ATTENDUE} ».\n` +
       `  Délibéré ? \`--branch ${branche}\`.`,
+  );
+}
+
+// À la PUBLICATION, la branche courante ne dit rien (HEAD détaché) : c'est
+// l'APPARTENANCE du commit publié à la branche de publication qui se constate.
+// Le verdict est calculé ici, la règle est ailleurs et pure.
+if (PUBLIER) {
+  const refExiste = (r) => {
+    try {
+      git("rev-parse", "--verify", "--quiet", r);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const ref = [
+    `refs/remotes/origin/${BRANCHE_PUBLICATION}`,
+    `refs/heads/${BRANCHE_PUBLICATION}`,
+  ].find(refExiste);
+  let contenue = false;
+  if (ref) {
+    try {
+      git("merge-base", "--is-ancestor", "HEAD", ref);
+      contenue = true;
+    } catch {
+      contenue = false;
+    }
+  }
+  const refus = refusDePublicationHorsBranche({
+    branche: BRANCHE_PUBLICATION,
+    brancheTrouvee: Boolean(ref),
+    contenue,
+  });
+  if (refus) echouer(refus);
+  dire(
+    `✓ branche de publication — le commit appartient à ${BRANCHE_PUBLICATION}`,
   );
 }
 
@@ -904,13 +945,17 @@ dire(
     "     charge compris) ; le tag arrivé en même temps met la PUBLICATION dans la\n" +
     "     file, derrière elle. Mesuré : quinze minutes d'attente sur un geste que\n" +
     "     l'on surveille — et l'on surveille mal ce qui ne démarre pas.\n" +
-    "  4. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
-    `       git tag v${VERSION} && git push origin v${VERSION}\n` +
+    `  4. faire avancer ${BRANCHE_PUBLICATION} — un tag de publication s'y pose, et nulle\n` +
+    "     part ailleurs : c'est cette branche que décrivent le site public et les liens\n" +
+    "     des README publiés.\n" +
+    `       git push origin ${branche}:${BRANCHE_PUBLICATION}\n` +
+    "  5. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
+    `       git tag v${VERSION} <commit de ${BRANCHE_PUBLICATION}> && git push origin v${VERSION}\n` +
     (PUBLIER
-      ? `  5. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
+      ? `  6. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
         "     même dépôt, même NOM DE FICHIER de workflow, extension comprise — tous les\n" +
         "     champs sont sensibles à la casse, et npm ne valide RIEN à l'enregistrement :\n" +
         "     une erreur ne se voit qu'à la publication suivante.\n" +
-        "  6. Settings → Publishing access → exiger la 2FA et interdire les jetons.\n"
+        "  7. Settings → Publishing access → exiger la 2FA et interdire les jetons.\n"
       : ""),
 );

@@ -895,3 +895,51 @@ export function messageDeDepreciation(entree, depot) {
       throw new Error(`nature inconnue : ${entree.nature}`);
   }
 }
+
+/**
+ * Refuse une publication dont le commit n'appartient pas à la branche de
+ * publication — ou rend `null` si tout est en ordre.
+ *
+ * 🔴 La branche de publication n'est pas une convention de rangement : c'est
+ * elle que décrivent le site public, les README publiés et les liens
+ * `/blob/<branche>/` que reçoit l'installeur. Publier depuis une autre branche
+ * met en ligne un code que rien de ce qui est publié ne décrit — et le défaut
+ * ne se voit qu'après, chez celui qui suit un lien.
+ *
+ * Le verdict est INJECTÉ plutôt que lu : à la publication, la forge travaille
+ * sur un HEAD détaché (checkout d'un tag), où `git branch --show-current` rend
+ * une chaîne vide. Seule l'APPARTENANCE du commit à la branche se constate — et
+ * une fonction pure la rend éprouvable sans fabriquer un dépôt.
+ *
+ * Une branche introuvable REFUSE, elle ne passe pas : une garde qui se désarme
+ * quand elle ne sait pas ne garde rien. Le message nomme alors le geste.
+ *
+ * @param branche - la branche qui porte les publications (`main`)
+ * @param brancheTrouvee - la référence existe-t-elle dans ce checkout ?
+ * @param contenue - le commit publié appartient-il à cette branche ?
+ * @returns le motif du refus, ou `null` si la publication peut se faire
+ */
+export function refusDePublicationHorsBranche({
+  branche,
+  brancheTrouvee,
+  contenue,
+}) {
+  if (!brancheTrouvee) {
+    return (
+      `la branche de publication « ${branche} » est introuvable dans ce checkout.\n` +
+      "  Impossible de vérifier que le tag est bien posé dessus — et l'on ne publie pas\n" +
+      "  sur une question ouverte. Dans la forge : `fetch-depth: 0` sur actions/checkout.\n" +
+      `  En local : git fetch origin ${branche}`
+    );
+  }
+  if (!contenue) {
+    return (
+      `le commit publié n'appartient PAS à « ${branche} ».\n` +
+      "  C'est cette branche que décrivent le site public, les README publiés et les\n" +
+      "  liens `/blob/` que reçoit l'installeur : publier d'ailleurs met en ligne un code\n" +
+      "  que rien de ce qui est publié ne décrit.\n" +
+      `  Fusionner dans ${branche}, PUIS poser le tag sur ${branche}.`
+    );
+  }
+  return null;
+}
