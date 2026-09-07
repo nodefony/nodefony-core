@@ -237,3 +237,80 @@ jobs:
             -H "Accept: application/vnd.oci.image.index.v1+json" \
             | tr -d '\r' | grep -i "^ratelimit" \
             || echo "aucun en-tête de quota (compte authentifié sans limite, ou registre silencieux)"
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # L'ACCÈS À LA VITRINE — deux permissions, et la seconde ne se DÉDUIT pas
+  # ═════════════════════════════════════════════════════════════════════════
+  # Ce contrôle manquait, sur un flux dont c'est précisément le rôle : le jour
+  # de la release, `vitrine` aurait échoué APRÈS la publication npm — donc après
+  # le seul geste irréversible du lot.
+  #
+  # « Contents » se lit dans `.permissions.push`. « Workflows » ne se lit NULLE
+  # PART : aucune API ne la rend. Or l'application générée contient
+  # `.github/workflows/ci.yml`, et sans cette permission GitHub refuse l'écriture
+  # — par git comme par l'API — avec un message qui ne nomme ni le secret ni la
+  # cause. Une capacité se CONSTATE : on écrit donc réellement un fichier sous
+  # `.github/workflows/`, sur une branche jetable supprimée aussitôt.
+  vitrine:
+    name: Vitrine — le jeton peut-il écrire, workflows compris ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Y a-t-il un jeton, et que lit-il ?
+        id: lecture
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning title=Aucun jeton vitrine::NF_VITRINE_TOKEN absent — le job « vitrine » de la release sera sauté, ou échouera s'il est armé."
+            echo "present=non" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "present=oui" >> "$GITHUB_OUTPUT"
+          if ! perms=$(gh api repos/nodefony/nodefony --jq '.permissions.push' 2>/dev/null); then
+            echo "::error title=Jeton refusé::Il ne peut même pas LIRE nodefony/nodefony — expiré, révoqué, ou son « Resource owner » n'est pas l'organisation."
+            exit 1
+          fi
+          echo "lecture authentifiée : ok · Contents en écriture (.permissions.push) = ${perms}"
+          if [ "${perms}" != "true" ]; then
+            echo "::error title=Contents en lecture seule::Le jeton ne peut pas écrire. Permission « Contents » = Read and write sur nodefony/nodefony."
+            exit 1
+          fi
+
+      # Le fichier sonde ne porte QUE `workflow_dispatch` : posé sur une branche
+      # jetable, il ne peut donc rien déclencher, même le temps de sa vie.
+      - name: Écrire réellement sous .github/workflows — la seule preuve qui vaille
+        if: steps.lecture.outputs.present == 'oui'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+          BRANCHE: preflight-vitrine-${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          base=$(gh api repos/nodefony/nodefony --jq '.default_branch')
+          sha=$(gh api "repos/nodefony/nodefony/branches/${base}" --jq '.commit.sha')
+          gh api repos/nodefony/nodefony/git/refs -f ref="refs/heads/${BRANCHE}" -f sha="${sha}" >/dev/null
+          echo "branche jetable créée depuis ${base}"
+          contenu=$(printf 'name: sonde\non:\n  workflow_dispatch:\njobs:\n  rien:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "true"\n' | base64 | tr -d '\n')
+          if gh api -X PUT "repos/nodefony/nodefony/contents/.github/workflows/preflight-probe.yml" \
+               -f message="chore: sonde de préflight" -f content="${contenu}" -f branch="${BRANCHE}" >/dev/null 2>&1; then
+            echo "✓ permission « Workflows » CONSTATÉE — le job vitrine pourra pousser l'application générée"
+          else
+            echo "::error title=Permission Workflows manquante::Contents suffit pour du code ordinaire, PAS pour .github/workflows/ci.yml que l'application générée contient. Ajouter « Workflows » = Read and write au jeton."
+            exit 1
+          fi
+
+      # Sans `always()`, un échec laisserait une branche derrière lui sur un
+      # dépôt public — et le contrôle suivant partirait d'un décor sale.
+      - name: Retirer la branche jetable
+        if: always() && steps.lecture.outputs.present == 'oui'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+          BRANCHE: preflight-vitrine-${{ github.run_id }}
+        run: |
+          gh api -X DELETE "repos/nodefony/nodefony/git/refs/heads/${BRANCHE}" >/dev/null 2>&1 \
+            && echo "branche jetable retirée" \
+            || echo "::warning title=Branche jetable restée::${BRANCHE} sur nodefony/nodefony — la retirer à la main."
