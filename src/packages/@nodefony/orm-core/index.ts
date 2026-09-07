@@ -85,6 +85,19 @@ export { queryFlowMonitor } from "./nodefony/src/QueryFlowMonitor";
 export { connectionMonitor } from "./nodefony/src/ConnectionMonitor";
 export { buildOrmLeanHealth } from "./nodefony/src/buildOrmLeanHealth";
 
+// Un échec de connexion se DIAGNOSTIQUE avant de se raconter : les deux adapters
+// posent la même question (« quelqu'un a-t-il répondu ? »), donc une seule
+// implémentation — sinon le même symptôme reçoit deux explications différentes.
+export {
+  diagnoseConnectionFailure,
+  parseConnectionTarget,
+} from "./nodefony/src/connectionDiagnosis";
+export type {
+  ConnectionVerdict,
+  IConnectionDiagnosis,
+  IConnectionTarget,
+} from "./nodefony/src/connectionDiagnosis";
+
 // ─── Câblage runtime d'un driver (factorise la dette C5 — appelé par chaque ORM) ─
 export {
   wireOrmAdminPlane,

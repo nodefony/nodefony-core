@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 815,
-    "symbols": 3922,
+    "files": 816,
+    "symbols": 3929,
     "classes": 388,
-    "interfaces": 1064,
-    "types": 444,
+    "interfaces": 1066,
+    "types": 445,
     "enums": 4,
-    "functions": 1632,
+    "functions": 1636,
     "constants": 390
   },
   "symbols": {
@@ -18330,6 +18330,48 @@
       "module": "@nodefony/orm-core",
       "description": "**Santé ORM lean per-instance** — somme process-wide de tous les connecteurs enregistrés, destinée à voyager dans le report de sonde cluster (« ORM par worker »). C'est la fonction branchée par le …"
     },
+    "IConnectionDiagnosis": {
+      "name": "IConnectionDiagnosis",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Diagnostic rendu à l'appelant, qui compose le message final."
+    },
+    "IConnectionTarget": {
+      "name": "IConnectionTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Adresse visée, telle qu'on peut la dire sans divulguer de secret."
+    },
+    "ConnectionVerdict": {
+      "name": "ConnectionVerdict",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Diagnostic d'un échec de connexion à une base — **ce qui a été CONSTATÉ**, jamais seulement ce qu'on en déduit. Le message d'échec énumérait trois causes (infrastructure déclarée, base démarrée, en…"
+    },
+    "parseConnectionTarget": {
+      "name": "parseConnectionTarget",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Extrait l'hôte et le port d'une URL de connexion, sans son secret."
+    },
+    "diagnoseConnectionFailure": {
+      "name": "diagnoseConnectionFailure",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Explique un échec de connexion en distinguant « personne n'écoute » de « quelqu'un a répondu et refuse »."
+    },
     "IConnectionMonitorCore": {
       "name": "IConnectionMonitorCore",
       "kind": "interface",
@@ -33339,6 +33381,14 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "resolveOrmFlowEnabled": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
+      "diagnoseConnectionFailure": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
+      "parseConnectionTarget": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],

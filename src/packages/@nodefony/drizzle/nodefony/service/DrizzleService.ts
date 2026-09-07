@@ -6,7 +6,12 @@ import {
   runNeedsExternalServices,
 } from "nodefony";
 import type { Container, Event, Kernel, Module } from "nodefony";
-import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
+import {
+  queryFlowMonitor,
+  resolveOrmFlowEnabled,
+  diagnoseConnectionFailure,
+  parseConnectionTarget,
+} from "@nodefony/orm-core";
 import { DrizzleOrm } from "../src/orm-core/index";
 import { defaultConnectorFilename } from "../src/connectorTarget";
 import { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
@@ -125,27 +130,19 @@ class DrizzleService extends Service {
     // du nom et de la criticité du module. Posé à la main, il n'aurait aucun tag
     // — donc « critique » par défaut, et un journal qui ne nomme personne.
     this.module.hookKernel("onBoot", async () => {
-      // Ce run a-t-il DÉCLARÉ avoir besoin de l'infrastructure ? Un `nodefony
-      // frontend:build` ou un `nodefony inspect routes` n'a aucune donnée à lire :
-      // exiger la base l'empêchait de s'exécuter avant que l'utilisateur n'ait pu
-      // la démarrer. Ce n'est PAS un « échec toléré » — une commande qui déclare
-      // le besoin échoue toujours, bruyamment, si la base est injoignable.
-      if (!runNeedsExternalServices(this.kernel)) {
-        this.log(
-          "connexions non ouvertes : ce run n'a pas déclaré `externalServices` " +
-            "(profil console). Une commande qui lit ou écrit des données le " +
-            "déclare via `runProfile` — cf CONSOLE_DATA_RUN_PROFILE.",
-          "DEBUG",
-        );
-        return;
-      }
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
       // NF_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
-      await this.connectAll().catch((e: Error) => {
-        this.log(e, "ERROR");
-        throw e;
-      });
+      // 🔴 C'est le HOOK qui décide, pas `connectAll`. Appelée explicitement,
+      // cette méthode est un ORDRE de connexion — la garder ferait échouer un
+      // appelant qui a justement demandé la connexion. Le profil d'exécution ne
+      // gouverne QUE ce que le boot fait de lui-même.
+      await this.connectAll(runNeedsExternalServices(this.kernel)).catch(
+        (e: Error) => {
+          this.log(e, "ERROR");
+          throw e;
+        },
+      );
     });
     this.kernel?.once("onTerminate", async () => {
       // Les minuteurs d'abord : un tour qui partirait pendant la fermeture
@@ -162,11 +159,18 @@ class DrizzleService extends Service {
     return this.module.config as IDrizzleConfig;
   }
 
-  /** Connecte tous les connecteurs déclarés en config (validée Zod). */
-  async connectAll(): Promise<void> {
+  /**
+   * Connecte tous les connecteurs déclarés en config (validée Zod).
+   *
+   * @param connect - `false` pour ENREGISTRER les ORM sans ouvrir de connexion.
+   *   Réservé au boot d'un run qui n'a pas déclaré `externalServices` : l'ORM
+   *   doit exister (c'est lui qui publie le plan d'administration) sans qu'un
+   *   socket ne s'ouvre. Le défaut `true` fait de l'appel direct un ordre.
+   */
+  async connectAll(connect = true): Promise<void> {
     const connectors = this.#config()?.connectors ?? {};
     for (const [name, cfg] of Object.entries(connectors)) {
-      await this.#connectOne(name, cfg);
+      await this.#connectOne(name, cfg, connect);
     }
   }
 
@@ -188,7 +192,11 @@ class DrizzleService extends Service {
   }
 
   /** Connecte un connecteur (crée le dossier de la base SQLite si nécessaire). */
-  async #connectOne(name: string, cfg: IDrizzleConnectorConfig): Promise<void> {
+  async #connectOne(
+    name: string,
+    cfg: IDrizzleConnectorConfig,
+    connect = true,
+  ): Promise<void> {
     const dialect = cfg.dialect ?? "sqlite";
     const ddl = resolveDdlMode(
       cfg.ddl,
@@ -251,6 +259,29 @@ class DrizzleService extends Service {
       },
     });
     const target = dialect === "sqlite" ? filename : redactUrl(cfg.url);
+    // 🔴 `externalServices` gouverne la CONNEXION, jamais l'EXISTENCE de l'ORM.
+    //
+    // Le distinguo n'est pas cosmétique : c'est l'ORM qui publie le plan
+    // d'administration (`migrationStatus`, `migrationPlan`, `applyMigrations`).
+    // Sauter sa création faisait donc disparaître le producteur, et
+    // `nodefony doctor --live` répondait « état des migrations introuvable
+    // (404) » là où il lisait « schéma et historique alignés ». Aucun test ne
+    // l'a vu : le plan d'administration n'a de consommateur qu'au boot complet.
+    //
+    // Un ORM enregistré mais non connecté dit la vérité sur lui-même
+    // (`isConnected()` est faux, et les stores le gardent déjà) ; un ORM absent
+    // fait mentir tout ce qui l'interroge.
+    if (!connect) {
+      this.#orms.set(name, orm);
+      this.log(
+        `Drizzle « ${name} » enregistré SANS connexion (${dialect}: ${target}) — ` +
+          `ce run n'a pas déclaré \`externalServices\`. Une commande qui lit ou ` +
+          `écrit des données le déclare via son \`runProfile\` ` +
+          `(CONSOLE_DATA_RUN_PROFILE).`,
+        "DEBUG",
+      );
+      return;
+    }
     try {
       await orm.connect();
     } catch (e) {
@@ -259,11 +290,25 @@ class DrizzleService extends Service {
       // durables mortes — session/users/tokens dépendent de cet ORM ; vécu :
       // login impossible avec la cause noyée dans un WARNING fail-soft).
       const cause = e instanceof Error ? e.message : String(e);
+      // 🔴 DIRE CE QU'ON A CONSTATÉ, PAS CE QU'ON EN DÉDUIT.
+      //
+      // L'ancien message énumérait trois causes — infra déclarée, base démarrée,
+      // entités portées — et aucune n'était la bonne quand un AUTRE serveur
+      // occupait le port : l'application se connectait au conteneur d'un autre
+      // projet, recevait « password authentication failed », et le message,
+      // EXACT, envoyait vérifier des identifiants qui étaient justes.
+      const diagnosis = diagnoseConnectionFailure(
+        e,
+        dialect === "sqlite"
+          ? { host: null, port: null }
+          : parseConnectionTarget(cfg.url),
+      );
       throw new BootConfigurationError(
         `Drizzle : le connecteur "${name}" (${dialect}: ${target}) n'a pas pu ` +
-          `se connecter — corriger la configuration (infra déclarée ` +
-          `NF_DATABASE_URL/connectors, base démarrée ?, entités portées sur ce ` +
-          `dialecte ?) ou la retirer. Cause : ${cause}`,
+          `se connecter — ${diagnosis.explanation} Si l'adresse est la bonne, ` +
+          `vérifier l'infrastructure déclarée (NF_DATABASE_URL / connectors) et ` +
+          `que les entités sont portées sur ce dialecte, ou retirer le ` +
+          `connecteur. Cause : ${cause}`,
         { cause: e },
       );
     }

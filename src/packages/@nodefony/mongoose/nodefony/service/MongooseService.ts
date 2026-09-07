@@ -2,7 +2,12 @@ import mongoose from "mongoose";
 import type { ConnectOptions } from "mongoose";
 import { Service, runNeedsExternalServices } from "nodefony";
 import type { Container, Event, Module } from "nodefony";
-import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
+import {
+  queryFlowMonitor,
+  resolveOrmFlowEnabled,
+  diagnoseConnectionFailure,
+  parseConnectionTarget,
+} from "@nodefony/orm-core";
 import { MongooseOrm } from "../src/orm-core/MongooseOrm";
 import type {
   IMongooseConfig,
@@ -42,26 +47,17 @@ class MongooseService extends Service {
     // promesse `static critical = false` du module ne couvrait PAS ce hook — une
     // base injoignable interrompait le boot en production, malgré elle.
     this.module.hookKernel("onBoot", async () => {
-      // Même règle que l'ORM SQL, posée au MÊME point d'appel : un run qui n'a
-      // pas déclaré `externalServices` n'ouvre aucune connexion. Deux lectures
-      // séparées de `runProfile` finiraient par diverger, et l'une des deux
-      // bases se connecterait encore là où l'autre a cessé.
-      if (!runNeedsExternalServices(this.kernel)) {
-        this.log(
-          "connexions non ouvertes : ce run n'a pas déclaré `externalServices` " +
-            "(profil console). Une commande qui lit ou écrit des données le " +
-            "déclare via `runProfile` — cf CONSOLE_DATA_RUN_PROFILE.",
-          "DEBUG",
-        );
-        return;
-      }
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
       // NF_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
-      await this.connectAll().catch((e: Error) => {
-        this.log(e, "ERROR");
-        throw e;
-      });
+      // Même règle que l'ORM SQL : c'est le HOOK qui décide. `connectAll`
+      // appelée explicitement reste un ORDRE de connexion.
+      await this.connectAll(runNeedsExternalServices(this.kernel)).catch(
+        (e: Error) => {
+          this.log(e, "ERROR");
+          throw e;
+        },
+      );
     });
     this.kernel?.once("onTerminate", async () => {
       await this.disconnectAll().catch(() => {
@@ -75,8 +71,14 @@ class MongooseService extends Service {
     return this.module.config as IMongooseConfig;
   }
 
-  /** Connecte tous les connecteurs déclarés en config (validée Zod). */
-  async connectAll(): Promise<void> {
+  /**
+   * Connecte tous les connecteurs déclarés en config (validée Zod).
+   *
+   * @param connect - `false` pour ENREGISTRER les ORM sans ouvrir de connexion
+   *   (boot d'un run qui n'a pas déclaré `externalServices`). Défaut `true` :
+   *   un appel direct est un ordre.
+   */
+  async connectAll(connect = true): Promise<void> {
     const config = this.#config();
     // Trace Mongoose des requêtes (dev) si demandé en config.
     if (config?.debug) {
@@ -84,7 +86,7 @@ class MongooseService extends Service {
     }
     const connectors = config?.connectors ?? {};
     for (const [name, cfg] of Object.entries(connectors)) {
-      await this.#connectOne(name, cfg);
+      await this.#connectOne(name, cfg, connect);
     }
   }
 
@@ -131,6 +133,7 @@ class MongooseService extends Service {
   async #connectOne(
     name: string,
     cfg: IMongooseConnectorConfig,
+    connect = true,
   ): Promise<void> {
     const uri = MongooseService.buildUri(cfg);
     const orm = new MongooseOrm(
@@ -138,7 +141,38 @@ class MongooseService extends Service {
       uri,
       MongooseService.buildConnectOptions(cfg),
     );
-    await orm.connect();
+    // Même règle que l'ORM SQL, au MÊME point : `externalServices` gouverne la
+    // CONNEXION, pas l'EXISTENCE. L'ORM est enregistré dans tous les cas — c'est
+    // lui qui porte les sondes du plan d'administration ; le faire disparaître
+    // rendrait « introuvable » ce qui est seulement « non connecté ».
+    if (!connect) {
+      this.#orms.set(name, orm);
+      this.log(
+        `Mongoose « ${name} » enregistré SANS connexion (${orm.safeTarget()}) — ` +
+          `ce run n'a pas déclaré \`externalServices\`.`,
+        "DEBUG",
+      );
+      return;
+    }
+    try {
+      await orm.connect();
+    } catch (e) {
+      // 🔴 DIRE CE QU'ON A CONSTATÉ. Un refus d'authentification prouve qu'un
+      // serveur a RÉPONDU — donc que le port est tenu, peut-être par une autre
+      // base que la sienne. L'erreur brute du driver ne pose jamais cette
+      // question ; c'est la même que se pose l'ORM SQL, d'où le même diagnostic.
+      // La criticité ne change pas : l'erreur est relancée telle quelle au hook.
+      const diagnosis = diagnoseConnectionFailure(
+        e,
+        parseConnectionTarget(uri),
+      );
+      const cause = e instanceof Error ? e.message : String(e);
+      throw new Error(
+        `Mongoose : le connecteur "${name}" (${orm.safeTarget()}) n'a pas pu se ` +
+          `connecter — ${diagnosis.explanation} Cause : ${cause}`,
+        { cause: e },
+      );
+    }
     this.#orms.set(name, orm);
     this.log(`Mongoose ORM "${name}" connected (${orm.safeTarget()})`, "INFO");
   }

@@ -17,12 +17,19 @@ import MongooseService from "../../nodefony/service/MongooseService";
  * le jour où l'axe gagnera une nuance.
  */
 
-/** Décor minimal : capture le hook `onBoot` et le profil que verra le service. */
+/**
+ * Décor minimal : capture le hook `onBoot` et le profil que verra le service.
+ *
+ * Le nom du connecteur est UNIQUE par cas — `ormRegistry` est un singleton de
+ * processus, et deux décors homonymes se refuseraient l'un l'autre.
+ */
+let compteur = 0;
 function decor(profil: IRunProfile): {
   boot: () => Promise<void>;
-  connexions: number;
+  orm: () => unknown;
 } {
   let hook: (() => Promise<void>) | null = null;
+  const connecteur = `banc-${++compteur}`;
   const container = new Container();
   const kernel = {
     runProfile: profil,
@@ -33,42 +40,92 @@ function decor(profil: IRunProfile): {
     container,
     kernel,
     options: {},
-    config: { connections: {} },
+    config: {
+      connectors: {
+        [connecteur]: {
+          uri: "mongodb://127.0.0.1:59999/absente",
+          options: { serverSelectionTimeoutMS: 400 },
+        },
+      },
+    },
     hookKernel: (event: string, cb: () => Promise<void>): unknown => {
       if (event === "onBoot") hook = cb;
       return module;
     },
   };
   const service = new MongooseService(module as unknown as Module);
-  const compteur = { n: 0 };
-  service.connectAll = async (): Promise<void> => {
-    compteur.n += 1;
-  };
   return {
     boot: async () => {
       assert.ok(hook, "le service n'a posé aucun hook onBoot");
       await (hook as unknown as () => Promise<void>)();
     },
-    get connexions() {
-      return compteur.n;
-    },
+    orm: () => service.getOrm(connecteur),
   };
 }
 
 describe("MongooseService — la connexion suit le profil d'exécution déclaré", () => {
-  it("profil console (rien de déclaré) → AUCUNE connexion au boot", async () => {
+  it("profil console : aucune connexion tentée — le port mort ne fait rien échouer", async () => {
     const d = decor({ ...CONSOLE_RUN_PROFILE });
+    // Si une connexion était tentée, ce boot lèverait : l'adresse est morte.
     await d.boot();
-    assert.equal(d.connexions, 0);
   });
 
-  it("profil qui DÉCLARE `externalServices` → la connexion a bien lieu", async () => {
-    const d = decor({ ...CONSOLE_DATA_RUN_PROFILE });
+  it("🔴 profil console : l'ORM EXISTE quand même — il porte les sondes du plan d'administration", async () => {
+    const d = decor({ ...CONSOLE_RUN_PROFILE });
     await d.boot();
-    assert.equal(
-      d.connexions,
-      1,
-      "débrancher la déclaration doit faire revenir la connexion — sinon le premier test ne prouve rien",
+    assert.ok(
+      d.orm(),
+      "un ORM absent rend « introuvable » ce qui est seulement « non connecté »",
+    );
+  });
+
+  it("profil qui DÉCLARE `externalServices` → la connexion est bien tentée", async () => {
+    const d = decor({ ...CONSOLE_DATA_RUN_PROFILE });
+    // L'adresse est morte : la tentative DOIT donc échouer. C'est ce qui prouve
+    // que le premier test ne passait pas pour une autre raison.
+    await assert.rejects(() => d.boot());
+  });
+});
+
+/**
+ * **Un échec de connexion dit ce qu'il a CONSTATÉ.**
+ *
+ * Mongoose laissait remonter l'erreur brute du driver : elle nomme un symptôme,
+ * jamais la question qui tranche (« quelqu'un a-t-il répondu ? »). L'ORM SQL a
+ * reçu le même correctif, par la MÊME fonction d'`orm-core` — deux
+ * implémentations parallèles diraient deux choses du même symptôme.
+ */
+describe("MongooseService — un échec de connexion nomme ce qu'il a constaté", () => {
+  it("port mort : dit que personne n'écoute, avec l'adresse et le code", async () => {
+    const container = new Container();
+    const kernel = {
+      runProfile: { ...CONSOLE_DATA_RUN_PROFILE },
+      once: () => {},
+    };
+    container.set("kernel", kernel);
+    const module = {
+      container,
+      kernel,
+      options: {},
+      config: {
+        connectors: {
+          default: {
+            uri: "mongodb://127.0.0.1:59999/absente",
+            options: { serverSelectionTimeoutMS: 400 },
+          },
+        },
+      },
+      hookKernel: (): unknown => module,
+    };
+    const service = new MongooseService(module as unknown as Module);
+    await assert.rejects(
+      () => service.connectAll(),
+      (e: Error) => {
+        assert.match(e.message, /Mongoose : le connecteur "default"/);
+        // Le fait constaté, pas la déduction.
+        assert.match(e.message, /127\.0\.0\.1:59999/);
+        return true;
+      },
     );
   });
 });
