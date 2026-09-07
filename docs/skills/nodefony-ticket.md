@@ -27,11 +27,11 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.7.0` |
 | Famille | Autres |
-| Corps | 624 lignes |
-| Coût d'activation | ~11 516 tokens (le corps est chargé à l'invocation) |
+| Corps | 608 lignes |
+| Coût d'activation | ~11 217 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 4 page(s) |
+| Ressources `references/` | 5 page(s) |
 | Scripts | 13 |
 | Conformité | ✅ conforme au standard |
 
@@ -77,6 +77,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/conventional-commits.md` | Conventional Commits 1.0.0 — la spec, hors ligne | 53 |
+| `references/dates.md` | Les dates du tableau de bord — poser, régler, recaler | 69 |
 | `references/economie.md` | Le ticket comme instrument d'économie — le détail | 149 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 76 |
 | `references/lexique.md` | Lexique des tickets — source unique | 124 |
@@ -96,7 +97,7 @@ script, donc toujours à jour après régénération.
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--comment` `--format` `--grep` `--name-only` `--reverse` `--since` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | `--format` `--grep` `--no-verify` `--reverse` | — |
-| `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a | `--format` `--grep` `--json` `--limit` `--since` `--state` | `OWNER` `REPO` |
+| `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
 | `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--assignee` `--backlog` `--body-file` `--cl` `--field-id` `--format` `--id` `--jours` `--label` `--milestone` `--number` `--ordre` `--owner` `--parent` `--priorite` `--project-id` `--repo` `--single-select-option-id` `--title` `--url` | `OWNER` `REPO` |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
 | `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
@@ -135,7 +136,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 624 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 608 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -167,14 +167,21 @@ négative — débrancher, constater que quelque chose tombe.
 Une estimation en **jours-homme** — `0,5 · 1 · 2 · 3 · 5` — jamais en points : l'auteur travaille
 seul et pense en jours.
 
-> ⚠️ **L'estimation est HAUTE d'un ordre de grandeur, et elle ne se corrige pas toute seule.**
-> Mesuré sur les tickets fermés : l'estimation vaut **plusieurs fois** le temps constaté entre le
-> premier et le dernier commit du ticket. **Le facteur se REMESURE, il ne se recopie pas** — il
-> valait ×8 sur les premiers lots, ×3,5 puis ×2,3 à mesure que les tickets se sont précisés. Un
-> chiffre gravé ici serait faux au lot suivant : c'est `ticket-effort.mjs` qui fait foi, pas cette
-> page. La cause n'est pas de la négligence — c'est que l'unité est calibrée sur
-> quelqu'un qui code à la main, alors que lire, chercher, éditer et vérifier tiennent en minutes.
-> Ce qui coûte aujourd'hui, c'est le **contexte à charger** et les **décisions à rendre**.
+> ⚠️ **L'estimation en jours ne prédit RIEN — c'est mesuré, pas supposé.** Sur 97 tickets fermés,
+> le travail constaté est de **une séance, quelle que soit la taille estimée** : 0,5 j → 1 séance ·
+> 1 j → 1 séance · 2 j → 1 séance. Une « séance » est une journée qui porte des commits citant le
+> ticket. Autrement dit, le champ `Jours` classe des tickets qui coûtent tous à peu près pareil.
+> La cause n'est pas de la négligence : l'unité est calibrée sur quelqu'un qui code à la main,
+> alors que lire, chercher, éditer et vérifier tiennent en minutes. Ce qui coûte aujourd'hui, c'est
+> le **contexte à charger** et les **décisions à rendre** — et ça ne dépend pas de la taille du diff.
+>
+> **Conséquence pratique, et elle est contre-intuitive : ce qui prédit le reste-à-faire, c'est le
+> NOMBRE de tickets ouverts, pas la somme de leurs jours.** 106 tickets ouverts ≈ 106 séances ;
+> les « 121 j » affichés ne veulent rien dire. Corollaire : **découper un ticket en trois le rend
+> trois fois plus cher**, parce que chacun paiera son chargement de contexte. Ne découper que
+> lorsque les morceaux se font dans des sessions différentes (§4).
+>
+> Le chiffre ne se recopie pas d'ici : `ticket-effort.mjs` fait foi, il se relance.
 >
 > Le coût de l'erreur n'est pas cosmétique : un ticket affiché « 3 j » se **reporte**, alors qu'il se
 > ferait dans la foulée — et le report fait repayer tout son contexte plus tard (§ « Quand le prendre »).
@@ -279,41 +286,18 @@ dans son « Fini quand ».
 | **`Ordre`**           | encode les DÉPENDANCES, pas une préférence — c'est lui qui se trie                                                   |
 | **`Début` / `Cible`** | une TRANCHE de calendrier, posée à la main sur ce qui est engagé — jamais dérivée de `Jours` (§ ci-dessous)          |
 
-### Les dates — ce qu'elles servent VRAIMENT : recaler l'estimation
+### Les dates — la frise, et surtout le RECALAGE
 
-La vue _Roadmap_ du tableau de bord n'affiche que les items porteurs d'une date. Elle sait en lire
-trois sortes ; deux suffisent ici :
+Deux champs `Date` (`Début` / `Cible`) posés à la main sur ce qui est ENGAGÉ, plus l'échéance des
+jalons : c'est ce qui remplit la vue _Roadmap_. Leur intérêt n'est pas la frise mais la mesure —
+l'écart entre le jour où l'on comptait faire un ticket et celui où il s'est fermé est la seule
+façon de savoir si c'est l'estimation qui était fausse ou l'ordre de travail.
 
-- **Le jalon** — réglage `Date fields → Milestone`, à faire dans l'interface web (la configuration
-  d'une vue n'est PAS pilotable : `updateProjectV2View` n'accepte que `visibleFieldIds`). Une barre
-  par jalon, zéro saisie. C'est le défaut, et il suffit tant qu'on ne pilote rien de fin.
-- **Les champs `Début` / `Cible`** — une tranche par ticket, donc la SÉQUENCE visible.
+> 🔴 **Ne JAMAIS dériver ces dates en cumulant `Jours`** : ce serait une frise qui a l'air d'une
+> mesure et qui est fausse d'un ordre de grandeur ([[feedback_board_days_are_not_calendar]]).
 
-**Ce qui rend la seconde voie payante n'est pas la jolie frise, c'est le RECALAGE.** Le champ
-`Jours` est mesuré HAUT d'un ordre de grandeur (cf l'avertissement du §2), et
-`ticket-effort.mjs` ne peut aujourd'hui comparer qu'à une fenêtre de commits — laquelle ignore
-l'exploration, les décisions et les essais abandonnés. Une date PRÉVUE, posée avant de commencer,
-donne l'autre moitié de la mesure : l'écart entre le jour où l'on comptait faire un ticket et
-celui où il s'est fermé. C'est ce qui permet de corriger le facteur au lot suivant au lieu de le
-recopier.
-
-> 🔴 **Ne JAMAIS dériver ces dates en cumulant `Jours`.** Ce serait fabriquer une frise qui a
-> l'air d'une mesure et qui est fausse d'un ordre de grandeur — mémoire
-> `feedback_board_days_are_not_calendar` : 123,5 « j » absorbés en 10 jours réels, ×12,4. La
-> méthode honnête est l'inverse : poser une tranche NEUTRE (un jour ouvré par ticket, dans
-> l'`Ordre`, à partir d'une date de départ que l'auteur donne), puis **constater** l'écart.
-
-**Ce que la pose révèle immédiatement, et qui vaut à elle seule le geste** : dérouler les tickets
-d'un jalon à raison d'un jour ouvré chacun, puis comparer la dernière tranche à l'échéance du
-jalon. Un débordement est un fait, pas un jugement — il dit combien de tickets le jalon porte de
-trop, ou de combien l'échéance est optimiste. Vécu : les 16 tickets de `10.0.0-alpha` déroulés
-depuis le 8 septembre finissent le 29, contre une échéance au 19 — huit jours ouvrés d'écart, avant
-même d'avoir estimé quoi que ce soit.
-
-**Ne dater que ce qui est ENGAGÉ.** Un jalon sans échéance n'a rien à faire sur une frise, et
-dater cent tickets qu'on ne prendra pas dans l'ordre prévu produit une carte qu'il faut maintenir
-et que personne ne croit. Le jalon porte déjà la promesse : les champs par ticket ne servent que
-là où l'on veut voir la séquence.
+Méthode de pose, réglage de la vue (non pilotable par l'API), et ce que la pose révèle
+immédiatement → **[`references/dates.md`](references/dates.md)**.
 
 ### 🔴 Ces règles ne mordent que parce qu'un AUTOMATE les relit
 
@@ -600,7 +584,7 @@ d'aucun de ceux-ci. Le câblage npm ne décide pas du placement (`board:snapshot
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
 | [`scripts/ticket-open.mjs`](scripts/ticket-open.mjs)         | ouvre un ticket avec ordre dérivé du parent et champs du tableau                                       | `npm run ticket:open`                      |
 | [`scripts/ticket-progress.mjs`](scripts/ticket-progress.mjs) | passe en `In Progress` les tickets qu'un commit cite sans les fermer                                   | `.githooks/post-commit`                    |
-| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte le champ `Jours` au temps réellement constaté                                                | à la main, au END de session               |
+| [`scripts/ticket-effort.mjs`](scripts/ticket-effort.mjs)     | confronte `Jours` au travail constaté — en SÉANCES, par tranche d'estimation, plus le délai            | à la main, au END de session               |
 | [`scripts/board-lint.mjs`](scripts/board-lint.mjs)           | confronte le TABLEAU DE BORD à ses propres règles — ce qui est absent, en double, ou se contredit      | `npm run ticket:lint`, au RESUME et au END |
 | [`scripts/ticket-verify.mjs`](scripts/ticket-verify.mjs)     | confronte les tickets ouverts au code, et dit lesquels un commit rend faux                             | à la main, au END de session               |
 | [`scripts/ticket-close.mjs`](scripts/ticket-close.mjs)       | compose le compte rendu de fermeture (commits + tests ; les deux blocs de jugement restent à l'auteur) | à la main, avant `gh issue close`          |

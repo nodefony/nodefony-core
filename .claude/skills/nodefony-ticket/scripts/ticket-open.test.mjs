@@ -93,3 +93,38 @@ describe("les scripts de pilotage ne lisent pas le tableau par `item-list`", asy
     });
   }
 });
+
+/**
+ * Le regroupement par taille d'estimation — la réponse à « le biais dépend-il de
+ * la complexité ? ». Fonction pure, donc éprouvable sans réseau.
+ */
+describe("parTranche — le travail constaté par taille estimée", async () => {
+  const { parTranche, mediane } = await import("./ticket-effort.mjs");
+
+  it("la médiane prend la MOYENNE des deux du milieu sur un effectif pair", () => {
+    // Prendre l'élément du dessus arrondirait en faveur de l'estimation qu'on juge.
+    expect(mediane([1, 2, 3, 10])).to.equal(2.5);
+    expect(mediane([])).to.equal(null);
+  });
+
+  it("groupe par estimation et rend la médiane des séances de chaque groupe", () => {
+    const t = parTranche([
+      { jours: 0.5, seances: 1 },
+      { jours: 0.5, seances: 1 },
+      { jours: 0.5, seances: 3 },
+      { jours: 2, seances: 1 },
+    ]);
+    expect(t).to.deep.equal([
+      { jours: 0.5, n: 3, seances: 1 },
+      { jours: 2, n: 1, seances: 1 },
+    ]);
+  });
+
+  it("les tranches sortent triées par taille croissante", () => {
+    const t = parTranche([
+      { jours: 3, seances: 2 },
+      { jours: 0.5, seances: 1 },
+    ]);
+    expect(t.map((x) => x.jours)).to.deep.equal([0.5, 3]);
+  });
+});
