@@ -842,10 +842,21 @@ run, lui, reste consultable sans le tag.
 
 ### 10.8 R6 — dépôts externes (gestes GitHub, hors dépôt)
 
-1. `nodefony/nodefony` : **branche `v7` + tag `v7.0.2` AVANT** d'écraser la branche par défaut —
-   19 ★ et des liens entrants pointent vers ce code (framework JS 7.0.2, dernier commit 2025-02-05).
-2. `nodefony-docker` **et** `docker-nodefony` : archiver les deux (D6).
-3. Image publiée sous `nodefony/nodefony`.
+1. ✅ **Le nom `nodefony/nodefony` porte désormais le dépôt le plus étoilé.** Les étoiles suivent le
+   dépôt, jamais le nom : c'est donc l'ancien `nodefony-starter` (93 ★, 9 forks — une application de
+   démarrage) qui a été amené sur ce nom, et le framework JavaScript qui s'est effacé sous
+   `nodefony/nodefony-v7` (19 ★). L'ancien nom `nodefony-starter` redirige.
+2. ✅ **Refuge posé** : `v7` créée sur `nodefony/nodefony` depuis `master` — la garde exécutable du
+   job `vitrine` la vérifie et passe. La vitrine ne touche que `main`, absente de ce dépôt :
+   `master`, `LTS` et `dev` restent intacts.
+3. ✅ **Un seul dépôt docker, pas deux** : `docker-nodefony` est l'ancien nom de `nodefony-docker`
+   (`id=82091257` pour les deux noms), archivé (D6).
+4. Image publiée sous `nodefony/nodefony` **sur Docker Hub** — dépôt distinct du dépôt GitHub
+   homonyme, et qui n'existe pas encore : il naîtra au premier push.
+   ⚠️ `nodefony/docker-nodefony` (541 pulls) garde un `latest` pointant une `7.0.0-beta.22` de
+   novembre 2023 — à recaler sur une version stable de l'ère 7, ou à retirer.
+5. Après le premier run `vitrine` réussi, basculer la branche par défaut sur `main`, sinon le dépôt
+   continue d'afficher l'application de l'ère 7 et le `push` aura pourtant réussi.
 
 ### 10.9 Périmètre et échéance — tranchés le 2026-08-27
 

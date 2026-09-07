@@ -272,11 +272,28 @@ jobs:
         with: { node-version: "26.x" }
 
       # 🔴 GARDE R6.1 — LA BRANCHE `v7` DOIT EXISTER AVANT TOUT ÉCRASEMENT.
-      # `nodefony/nodefony` porte aujourd'hui le framework JS 7.0.2 : 19 étoiles
-      # et des liens entrants pointent vers ce code. Écraser la branche par
-      # défaut sans l'avoir mis à l'abri le rendrait introuvable, et aucune
+      # `nodefony/nodefony` porte l'application de démarrage de l'ère 7 — 93
+      # étoiles, 9 bifurcations, et des liens entrants pointent vers ce code.
+      # L'écraser sans l'avoir mis à l'abri le rendrait introuvable, et aucune
       # étape ultérieure ne s'en apercevrait. Cet avertissement vivait dans un
       # document ; il vit désormais ICI, où il peut refuser.
+      #
+      # ⚠️ CE DÉPÔT A CHANGÉ D'IDENTITÉ. Il portait le framework JavaScript
+      # (19 ★), devenu `nodefony/nodefony-v7` ; il porte désormais l'ancien
+      # `nodefony-starter`, amené sur ce nom pour que le dépôt le plus étoilé de
+      # l'organisation soit celui qu'on devine. Les étoiles suivent le DÉPÔT,
+      # jamais le nom — c'est pourquoi c'est le starter qui a déménagé, et non
+      # l'inverse. La vitrine ne touche QUE `main`, absente de ce dépôt :
+      # `master`, `LTS` et `dev` restent intacts, et `v7` est le refuge que
+      # cette garde exige.
+      # 🔴 `NF_VITRINE_TOKEN` — DEUX permissions, pas une. « Contents » suffirait
+      # pour pousser du code, mais l'application générée contient
+      # `.github/workflows/ci.yml` (gabarit `templates/app/base/github/workflows/`,
+      # asserté par `create.test.ts`) : GitHub REFUSE alors le push d'un jeton
+      # sans « Workflows », avec un message qui ne parle ni du secret ni de ce
+      # workflow-ci. Jeton restreint (fine-grained) sur le seul dépôt
+      # `nodefony/nodefony` : Contents = Read and write, Workflows = Read and
+      # write. En jeton classique, l'équivalent est `repo` + `workflow`.
       - name: Refuser d'écraser un code qui n'a pas de refuge
         env:
           GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
@@ -284,8 +301,10 @@ jobs:
           set -euo pipefail
           if ! gh api repos/nodefony/nodefony/branches/v7 --silent 2>/dev/null; then
             echo "::error::La branche v7 n'existe pas sur nodefony/nodefony."
-            echo "::error::Elle porte le framework JS 7.0.2 (19 ★, liens entrants)."
-            echo "::error::La créer AVANT : git checkout -b v7 && git push origin v7 && git tag v7.0.2"
+            echo "::error::Ce dépôt porte l'application de démarrage de l'ère 7 (93 ★, 9 forks)."
+            echo "::error::La créer AVANT, depuis la branche par défaut :"
+            echo "::error::  SHA=\$(gh api repos/nodefony/nodefony/branches/master --jq .commit.sha)"
+            echo "::error::  gh api repos/nodefony/nodefony/git/refs -f ref=refs/heads/v7 -f sha=\$SHA"
             exit 1
           fi
           echo "✓ branche v7 présente — le code historique a un refuge"
