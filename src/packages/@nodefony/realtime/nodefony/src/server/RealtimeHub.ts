@@ -126,7 +126,7 @@ export const REVOCATION_REVALIDATE_MS = 30_000;
  * @param channel - le nom complet du canal
  * @returns le motif couvrant sa famille
  */
-export function familleDuCanal(channel: string): string {
+export function channelFamily(channel: string): string {
   const i = channel.lastIndexOf(":");
   return i === -1 ? "*" : `${channel.slice(0, i + 1)}*`;
 }
@@ -1261,7 +1261,7 @@ export class RealtimeHub {
         `pour d'autres canaux. Un canal dérivé (suffixe de cadence, forage, ` +
         `identifiant) n'hérite pas de la politique de son parent : un nom ` +
         `exact ne garde que lui-même. Déclarer un MOTIF pour garder la famille ` +
-        `— @RealtimeChannel("${familleDuCanal(channel)}", { … }) — ou ` +
+        `— @RealtimeChannel("${channelFamily(channel)}", { … }) — ou ` +
         `porter la vérification dans la fabrique elle-même.`,
     );
   }

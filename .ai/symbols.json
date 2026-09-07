@@ -24102,8 +24102,8 @@
       "module": "@nodefony/realtime",
       "description": "Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`). Appelée UNE fois, au 1ᵉʳ abonné. Renvoie son `dispose` (appelé au dernier désabonné) ou `null` si le canal est in…"
     },
-    "familleDuCanal": {
-      "name": "familleDuCanal",
+    "channelFamily": {
+      "name": "channelFamily",
       "kind": "function",
       "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
       "exported": true,
