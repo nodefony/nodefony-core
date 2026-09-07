@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-06",
+  "generatedAt": "2026-09-07",
   "count": 27,
   "conformant": 27,
   "skills": [
@@ -2503,8 +2503,8 @@
       ],
       "description": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni aucune chaîne affichée bougé. Porte ce qu'un typecheck vert ne dit PAS : un membre privé rendu public, un raccourci d'objet relié à la mauvaise déclaration, un alias qui annule la rupture, les consommateurs qu'aucun tsconfig ne voit. À charger AVANT de lancer le gate ou d'écrire un plan : les outils rendent un compte rassurant sans le protocole. Déclencheurs : \"renommer un symbole partout\", \"renommer en masse\", \"écrire le code en anglais\", \"des identifiants sont en français\", \"ce nom de variable est en français\", \"quels identifiants restent à traduire\", \"ce renommage a-t-il tout attrapé ?\", \"prouver qu'un renommage est complet\", \"un membre privé est devenu public\".",
       "cost": {
-        "bodyLines": 204,
-        "approxTokens": 3987
+        "bodyLines": 212,
+        "approxTokens": 4114
       },
       "requires": [
         "redis"
@@ -2747,7 +2747,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "204",
+            "detail": "212",
             "advisory": true
           }
         ]

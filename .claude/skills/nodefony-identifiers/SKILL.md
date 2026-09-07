@@ -43,6 +43,7 @@ au plan : `export function state(state: X)` compile parfaitement.
 ## 2. Constater — le gate de langue
 
 ```bash
+npm run check:lang                                 # LA commande du dépôt — c'est elle que la forge lance
 S=.claude/skills/nodefony-identifiers/scripts
 node $S/check-identifier-language.mjs              # le relevé : compte, fichier, ligne, traduction proposée
 node $S/check-identifier-language.mjs --json       # pour un autre outil
@@ -50,6 +51,13 @@ node $S/check-identifier-language.mjs src/nodefony # un périmètre seulement
 node --test $S/check-identifier-language.test.mjs  # ses 66 tests
 node $S/bench-identifier-language.mjs              # 0 faux positif sur ~80 000 identifiants tiers
 ```
+
+> 🔴 **Ce gate a vécu DÉBRANCHÉ.** Écrit et testé, il n'était lancé par rien —
+> ni script npm, ni workflow, ni hook — et la grappe de sept tickets a été
+> fermée sans lui. Quatre jours plus tard, un identifiant français partait dans
+> une version publiée. Il tourne désormais dans `node.js.yml`, qui joue SES
+> TESTS puis LUI : un contrôle dont la logique a dérivé rend un vert qui ne
+> mesure rien.
 
 Ce qu'il faut savoir avant de s'en servir :
 

@@ -308,6 +308,29 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
 
+      # Les identifiants du code de production s'écrivent en anglais — la prose
+      # en français. La règle vit dans CLAUDE.md et a coûté un chantier de sept
+      # tickets (#187, #207 à #212) pour solder 978 identifiants.
+      #
+      # 🔴 Le contrôle qui la tient EXISTAIT déjà, testé, et n'était lancé par
+      # RIEN — ni script npm, ni workflow, ni hook. Un gate écrit puis débranché
+      # ne mesure plus rien, et personne ne s'en aperçoit : c'est ainsi qu'un
+      # `familleDuCanal` est parti dans la 10.0.0-alpha.2, dans du code publié,
+      # quatre jours après la fermeture du chantier. Même motif que le gate des
+      # skills ci-dessus, qui a laissé le lint dériver jusqu'à 263 avertissements.
+      #
+      # Il ne lit que des fichiers : un seul système suffit.
+      - name: Gate — les identifiants du code sont en anglais
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        # Le test du gate AVANT le gate — un contrôle dont la logique a dérivé
+        # rend un vert qui ne mesure rien, et c'est le faux vert qui coûte cher.
+        # `shell:` explicite, comme au gate des dépendances avalées : sans lui,
+        # une commande qui tombe peut ne pas arrêter l'étape.
+        shell: bash
+        run: |
+          node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs
+          npm run check:lang
+
       # Le graphe symbolique, confronté à ce que sa propre génération produit.
       #
       # Le risque qu'il ferme, et qui a déjà coûté une publication : `.ai/symbols.json`

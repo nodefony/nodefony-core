@@ -9,7 +9,6 @@
     ".claude/skills/nodefony-html-report/scripts/echarts.selftest.mjs",
     ".claude/skills/nodefony-html-report/scripts/formats.selftest.mjs",
     ".claude/skills/nodefony-identifiers/scripts/bench-identifier-language.mjs",
-    ".claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs",
     ".claude/skills/nodefony-identifiers/scripts/check-literals-unchanged.mjs",
     ".claude/skills/nodefony-identifiers/scripts/check-rename-drift.mjs",
     ".claude/skills/nodefony-identifiers/scripts/rename-identifiers.test.mjs",
