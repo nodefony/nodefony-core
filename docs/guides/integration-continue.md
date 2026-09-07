@@ -108,7 +108,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `secrets.yml` | Aucun secret dans l'arbre | `gitleaks` sur l'arbre ET l'historique — le scanner se prouve d'abord sur un témoin planté | — |
 | `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`/`front`/`studio`) — manuel + hebdomadaire | conteneurs docker |
 | `release-preflight.yml` | OIDC · outils · jeton · docker | les ACCÈS de publication existent avant d'en avoir besoin (identité, versions minimales, quota) | — |
-| `pages.yml` | build · deploy | le site public (documentation + mesures) se rend depuis les sources versionnées | — |
+| `pages.yml` | build · deploy | le site public (accueil, documentation, mesures, qualité) se rend depuis les sources versionnées. Il tourne à chaque `push` touchant une page, et **sur appel de `release.yml`** — il n'a AUCUN déclencheur `release`, qui ne tirerait jamais (le `GITHUB_TOKEN` ne déclenche pas de workflow) ; le déploiement, lui, n'a lieu que depuis `main` | — |
 
 ### Le MODE du serveur est une dimension de la matrice, pas une propriété de branche
 

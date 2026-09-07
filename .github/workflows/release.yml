@@ -409,6 +409,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # créer la release
+      actions: write # relancer la publication du site
     steps:
       - uses: actions/checkout@v7
 
@@ -444,11 +445,45 @@ jobs:
           fi
           echo "✓ $(wc -l < /tmp/notes.md) lignes extraites"
 
+      # 🔴 UNE PRÉVERSION N'EST PAS « LATEST ». Sans `--prerelease`, GitHub marque
+      # la Release comme version courante du projet : le premier visiteur du
+      # dépôt voit une alpha présentée comme LA version, exactement ce que le
+      # dist-tag npm évite du côté du registre. Le test est celui de semver — une
+      # préversion, et elle seule, porte un tiret après le triplet
+      # (`10.0.0-alpha.3`). Comparaison littérale, jamais une expression
+      # régulière : les points d'une version sont des métacaractères.
       - name: Créer la release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ github.ref_name }}
-        run: gh release create "$VERSION" --title "$VERSION" --notes-file /tmp/notes.md
+        run: |
+          set -euo pipefail
+          canal=()
+          case "${VERSION#v}" in *-*) canal=(--prerelease) ;; esac
+          echo "canal : ${canal[*]:-version courante (latest)}"
+          gh release create "$VERSION" --title "$VERSION" \
+            --notes-file /tmp/notes.md "${canal[@]}"
+
+      # 🔴 LE SITE NE SE REPUBLIE PAS TOUT SEUL — et le croire a coûté cent runs
+      # muets. `pages.yml` a longtemps déclaré `on: release: published` ; ce
+      # déclencheur n'a jamais tiré, pour deux raisons indépendantes :
+      #   1. les événements produits par le `GITHUB_TOKEN` ne déclenchent aucun
+      #      workflow (protection anti-boucle, sans interrupteur) — SAUF
+      #      `workflow_dispatch` et `repository_dispatch`, exception documentée
+      #      dont ce pas se sert ;
+      #   2. l'environnement `github-pages` n'autorise le déploiement que depuis
+      #      `main` : un run porté par le TAG bâtirait le site puis se ferait
+      #      refuser au dernier pas.
+      # D'où cet appel EXPLICITE sur `main` — la branche qui porte ce qui vient
+      # d'être publié. Il échoue bruyamment s'il ne part pas : le site resté sur
+      # la version précédente est invisible autrement.
+      - name: Republier le site — la documentation suit la version sortie
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run pages.yml --ref main
+          echo "site : republication demandée depuis main"
 
   # ═════════════════════════════════════════════════════════════════════════
   # 6. BILAN — dire ce qui N'A PAS tourné ; un job sauté est silencieux

@@ -19,10 +19,25 @@
 # Prérequis, une seule fois : Settings → Pages → Source = « GitHub Actions ».
 name: Site — documentation et mesures
 
+#
+# 🔴 IL N'Y A PAS DE DÉCLENCHEUR `release`, ET C'EST DÉLIBÉRÉ. Il a existé, avec
+# le commentaire « le site reflète la version sortie » — il n'a JAMAIS tiré, cent
+# runs de suite, sans que rien ne le signale. Deux causes indépendantes, chacune
+# suffisante à elle seule :
+#   1. `release.yml` crée la Release avec le `GITHUB_TOKEN`, et les événements
+#      produits par ce jeton ne déclenchent aucun workflow — protection contre
+#      les boucles infinies, sans interrupteur ;
+#   2. l'environnement `github-pages` n'autorise le déploiement que depuis
+#      `main` : un run porté par le TAG bâtirait tout le site, puis se ferait
+#      refuser au dernier pas.
+# CE QUI LE REMPLACE : `release.yml`, job `annonce`, appelle ce flux
+# EXPLICITEMENT — `gh workflow run pages.yml --ref main` — juste après avoir créé
+# la Release. `workflow_dispatch` est l'EXCEPTION documentée à la règle du jeton
+# (« With the exception of `workflow_dispatch` and `repository_dispatch`, other
+# `GITHUB_TOKEN`-triggered events do not create workflow runs at all ») : c'est
+# ce qui rend le déclencheur ci-dessous fonctionnel là où `release` ne l'était
+# pas. Un appel se lit dans le fichier qui le fait ; un déclencheur muet, non.
 on:
-  # Une release publiée : le site reflète la version sortie.
-  release:
-    types: [published]
   # Un correctif de page part en ligne sans attendre la prochaine release.
   push:
     branches: [main, dev]
@@ -45,6 +60,8 @@ on:
       - ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
       - ".claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs"
       - ".github/workflows/pages.yml"
+  # Le point d'entrée de la republication : appelé par `release.yml` (voir
+  # ci-dessus), et disponible à la main quand le site doit repartir sans commit.
   workflow_dispatch:
 
 permissions:
@@ -168,7 +185,14 @@ jobs:
     # depuis le dépôt : il a nommé pendant des mois une branche de travail qui
     # n'existe plus, sans que rien ne le signale, parce qu'elle était alignée sur
     # `main`. Un garde qu'on ne lit pas dans le code n'en est pas un.
-    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    #
+    # ⚠️ Constaté sur le dépôt, et c'est le SECOND filet : l'environnement
+    # `github-pages` porte une politique de branche qui n'autorise que `main`.
+    # Un run porté par un tag ou par `dev` serait donc refusé ICI de toute façon
+    # — mais avec une erreur de plateforme, à la dernière étape, après avoir tout
+    # bâti. La condition ci-dessous fait tomber le cas plus tôt, et surtout elle
+    # se LIT dans le dépôt.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
