@@ -2,7 +2,7 @@
 name: nodefony-ticket
 metadata:
   version: 1.7.0
-description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau de bord, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps au lieu d'en coûter : chemins exacts, commandes prêtes, décor nommé, pièges connus, fausses pistes écartées. À charger AVANT d'ouvrir une issue ou d'en reformuler un lot. Déclencheurs : "crée un ticket", "ouvre une issue", "fais-en des tickets", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "quels tickets parlent de ce que j'ai changé ?", "ce ticket est trop vague", "il manque le contexte pour le prendre".
+description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée un ticket", "ouvre une issue", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "ce ticket est trop vague", "quels tickets parlent de ce que j'ai changé ?", "dater les tickets", "la roadmap du projet est vide", "recaler les estimations".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -268,15 +268,52 @@ dans son « Fini quand ».
 
 ## 5. Labels et champs du tableau de bord
 
-|                     |                                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Jalon**           | `10.0.0` (échéance) · `10.1` (suit par npm) · **aucun jalon** = le backlog, label `backlog`                          |
-| **`irrattrapable`** | une version suivante ne peut PAS le réparer — dépendance publiée, contrat gelé                                       |
-| **`rattrapable`**   | une 10.0.1 le répare — premier à glisser si la date se tend                                                          |
-| **`arbitrage`**     | une décision à rendre, pas du travail à faire                                                                        |
-| **`Jours`**         | l'estimation, en nombre                                                                                              |
-| **`Priorité`**      | `P0` bloque le reste ou chemin critique · `P1` doit sortir dans le jalon · `P2` décision · `P3` fin de cycle ou 10.1 |
-| **`Ordre`**         | encode les DÉPENDANCES, pas une préférence — c'est lui qui se trie                                                   |
+|                       |                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Jalon**             | `10.0.0` (échéance) · `10.1` (suit par npm) · **aucun jalon** = le backlog, label `backlog`                          |
+| **`irrattrapable`**   | une version suivante ne peut PAS le réparer — dépendance publiée, contrat gelé                                       |
+| **`rattrapable`**     | une 10.0.1 le répare — premier à glisser si la date se tend                                                          |
+| **`arbitrage`**       | une décision à rendre, pas du travail à faire                                                                        |
+| **`Jours`**           | l'estimation, en nombre                                                                                              |
+| **`Priorité`**        | `P0` bloque le reste ou chemin critique · `P1` doit sortir dans le jalon · `P2` décision · `P3` fin de cycle ou 10.1 |
+| **`Ordre`**           | encode les DÉPENDANCES, pas une préférence — c'est lui qui se trie                                                   |
+| **`Début` / `Cible`** | une TRANCHE de calendrier, posée à la main sur ce qui est engagé — jamais dérivée de `Jours` (§ ci-dessous)          |
+
+### Les dates — ce qu'elles servent VRAIMENT : recaler l'estimation
+
+La vue _Roadmap_ du tableau de bord n'affiche que les items porteurs d'une date. Elle sait en lire
+trois sortes ; deux suffisent ici :
+
+- **Le jalon** — réglage `Date fields → Milestone`, à faire dans l'interface web (la configuration
+  d'une vue n'est PAS pilotable : `updateProjectV2View` n'accepte que `visibleFieldIds`). Une barre
+  par jalon, zéro saisie. C'est le défaut, et il suffit tant qu'on ne pilote rien de fin.
+- **Les champs `Début` / `Cible`** — une tranche par ticket, donc la SÉQUENCE visible.
+
+**Ce qui rend la seconde voie payante n'est pas la jolie frise, c'est le RECALAGE.** Le champ
+`Jours` est mesuré HAUT d'un ordre de grandeur (cf l'avertissement du §2), et
+`ticket-effort.mjs` ne peut aujourd'hui comparer qu'à une fenêtre de commits — laquelle ignore
+l'exploration, les décisions et les essais abandonnés. Une date PRÉVUE, posée avant de commencer,
+donne l'autre moitié de la mesure : l'écart entre le jour où l'on comptait faire un ticket et
+celui où il s'est fermé. C'est ce qui permet de corriger le facteur au lot suivant au lieu de le
+recopier.
+
+> 🔴 **Ne JAMAIS dériver ces dates en cumulant `Jours`.** Ce serait fabriquer une frise qui a
+> l'air d'une mesure et qui est fausse d'un ordre de grandeur — mémoire
+> `feedback_board_days_are_not_calendar` : 123,5 « j » absorbés en 10 jours réels, ×12,4. La
+> méthode honnête est l'inverse : poser une tranche NEUTRE (un jour ouvré par ticket, dans
+> l'`Ordre`, à partir d'une date de départ que l'auteur donne), puis **constater** l'écart.
+
+**Ce que la pose révèle immédiatement, et qui vaut à elle seule le geste** : dérouler les tickets
+d'un jalon à raison d'un jour ouvré chacun, puis comparer la dernière tranche à l'échéance du
+jalon. Un débordement est un fait, pas un jugement — il dit combien de tickets le jalon porte de
+trop, ou de combien l'échéance est optimiste. Vécu : les 16 tickets de `10.0.0-alpha` déroulés
+depuis le 8 septembre finissent le 29, contre une échéance au 19 — huit jours ouvrés d'écart, avant
+même d'avoir estimé quoi que ce soit.
+
+**Ne dater que ce qui est ENGAGÉ.** Un jalon sans échéance n'a rien à faire sur une frise, et
+dater cent tickets qu'on ne prendra pas dans l'ordre prévu produit une carte qu'il faut maintenir
+et que personne ne croit. Le jalon porte déjà la promesse : les champs par ticket ne servent que
+là où l'on veut voir la séquence.
 
 ### 🔴 Ces règles ne mordent que parce qu'un AUTOMATE les relit
 
