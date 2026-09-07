@@ -144,36 +144,21 @@ moissonnait les jetons npm sur les exécuteurs d'intégration. Ordre complet et 
 ## 3. PRÉPARER — ce que `release.mjs` refuse, et ce que chaque refus évite
 
 ```bash
-npm run release -- --version 10.0.0 --from <ref> --branch dev                  # RÉPÉTITION (défaut)
-npm run release -- --version 10.0.0 --from <ref> --branch dev --write          # estampille + changelog
-npm run release -- --version 10.0.0 --from <ref> --branch dev --write --pack   # + tarballs
-npm run release -- --version 10.0.0 --from <ref> --publish                     # publication MANUELLE
+npm run release -- --version 10.0.0 --from <ref>                  # RÉPÉTITION (défaut)
+npm run release -- --version 10.0.0 --from <ref> --write          # estampille + changelog
+npm run release -- --version 10.0.0 --from <ref> --write --pack   # + tarballs
+npm run release -- --version 10.0.0 --from <ref> --publish        # publication MANUELLE
 ```
 
-### 🔴 `dev` prépare, `main` porte le tag — et `--branch dev` n'est PAS optionnel
+### Deux branches, et le produit dit laquelle — ne pas recopier sa séquence ici
 
-`BRANCHE_ATTENDUE` vaut **`main`** par défaut (`scripts/release/release.mjs:140`), alors que le
-développement vit sur `dev` depuis #257 : sans `--branch dev`, la préparation est refusée d'entrée.
-Et un tag de publication se pose sur **`main`**, nulle part ailleurs — c'est cette branche que
-décrivent le site public et les liens des README publiés.
+`--branch` dit d'où l'on PRÉPARE, `--publish-branch` quelle branche PORTE les publications
+(`release.mjs:141-144`) : préparer depuis `dev` est normal, publier depuis `dev` ne l'est pas. Se
+tromper n'est pas un risque — le refus **nomme le drapeau à ajouter** (`:487`), et `--write` imprime
+en clair la séquence de fin, tag compris.
 
-D'où la séquence de fin, que `--write` imprime lui-même et qu'il faut suivre **dans cet ordre** :
-
-```bash
-git commit -am "chore(release): <version>"
-git push origin dev          # 1. le commit AVANT le tag
-git push origin dev:main     # 2. avancer la branche de publication
-git fetch origin main:main   # 3. recaler le local — l'étape 2 n'avance que le DISTANT
-git tag v<version> <sha> && git push origin v<version>   # 4. le tag DÉCLENCHE la publication
-```
-
-L'étape 3 n'est pas du rangement : un `main` local resté en arrière fait ensuite mentir tout ce qui
-l'interroge. Et l'étape 2 avant l'étape 4 est une **contrainte dure** depuis que le job `annonce`
-republie le site : il refuse de le faire si `main` ne contient pas le tag (sinon la republication
-remettrait en ligne la documentation PRÉCÉDENTE, avec un run vert).
-
-Options : `--branch <nom>` · `--repo <hôte/org/dépôt>` · `--npm-tag <tag>` · `--offline`.
-`--help` rend le mode d'emploi complet. Le mode par défaut ne touche **aucun fichier**.
+**Donc : lire sa sortie, ne pas réciter une séquence apprise.** Une recette recopiée ici vieillirait
+sans bruit au prochain changement de branches — c'est exactement ce que #257 vient de faire.
 
 <!-- prettier-ignore -->
 | Garde | Ce qu'elle évite |
