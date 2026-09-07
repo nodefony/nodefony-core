@@ -34,6 +34,22 @@
 
 ## 📖 Ce qui est ÉCRIT ne protège que si on le relit AU MOMENT du geste
 
+- [1× — 09-07f] **J'ai redéclaré une règle que le `MEMORY.md` du module INTERDIT en toutes lettres.**
+  Écrit un module de découverte RFC 8414 dans `@nodefony/security` alors que `security/MEMORY.md:119`
+  dit « RFC 8414 vit au CŒUR — security l'IMPORTE, **ne le redéclare pas** ». J'avais ÉDITÉ ce
+  fichier une heure plus tôt, deux zones ciblées, sans lire le reste. Les deux copies divergeaient
+  déjà sur quatre points (ordre des URL, canonisation de l'émetteur, schéma toléré, redirections) —
+  et c'est un audit délégué qui l'a vu, pas moi. Éditer un fichier n'est pas le lire.
+- [1× — 09-07f] **Un script violait la règle écrite dans son PROPRE skill.** `ticket-open.mjs`
+  dérivait l'ordre d'un sous-ticket par `gh project item-list`, que le SKILL.md du même skill
+  interdit explicitement pour décider. Le remède n'est pas d'écrire la règle une troisième fois :
+  c'est le gate qui la relit (test qui refuse l'appel dans tous les scripts du dossier).
+- [1× — 09-07f] **Un outil disponible mais nommé NULLE PART n'est jamais employé.** Le serveur MCP
+  du dépôt : 0 occurrence dans `CLAUDE.md`, `AGENTS.md` et les skills `nodefony-inspect`/`-debug`,
+  contre 17 mentions de la commande équivalente — et 0 invocation, y compris pour des questions
+  auxquelles il répondait mieux (j'ai fait un `curl` sur le plan d'administration à la place). Même
+  mécanique que « un sous-agent n'ouvre jamais un skill de lui-même » : la disponibilité ne
+  déclenche rien, seule la mention à l'endroit où la règle vit le fait.
 - [1× — 09-07e] **Je suis tombé dans un piège que le skill du dépôt DOCUMENTE, à la ligne près.**
   `items(first:100)` sur le tableau de bord tronque à 100 sans le dire ; le tableau en comptait 101,
   et ma requête a rendu **1 ticket sur 7** avec toutes les apparences d'un inventaire complet. Le
@@ -223,6 +239,15 @@
 ## 🗄️ 🪟 Un message d’erreur qui n’énonce QU’UNE cause — GRADUÉ
 
 > Gradué au CONSOLIDATE du 2026-09-07 — 9 frictions → **`feedback_error_message_names_all_causes`**, mémoire neuve : dire ce qu’on a CONSTATÉ, pas ce qu’on en déduit. Ne PAS réécrire ici.
+
+## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
+
+- [1× — 09-07f] **`anchor-check` a classé « ce n'est pas un défaut » une ancre FAUSSE.** Son verdict
+  `INDÉCIS` — « littéral, ou symbole prouvé par une ancre voisine », avec la consigne de ne pas la
+  corriger — portait sur une ancre qui pointait une ligne interne au lieu de la classe annoncée.
+  Le même run laissait passer 3 ancres périmées qu'un audit a trouvées ensuite. Un gate qui ne sait
+  pas conclure doit le DIRE comme un trou à combler à la main, pas comme une absence de défaut :
+  la formulation rassurante est ce qui empêche de vérifier.
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
 

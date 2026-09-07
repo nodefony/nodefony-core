@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-07 12:25** (UTC).
+> Empreinte prise le **2026-09-07 13:54** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,10 +20,10 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███░░░░░░░` 33% | 4 | 8 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | 2026-10-14 |
-| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `████████░░` 82% | 134 | 30 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 2 | 21 | — |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██░░░░░░░░` 24% | 5 | 16 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 22 | 2026-10-14 |
+| **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 1 | 2026-11-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | — |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
@@ -37,31 +37,34 @@ Ordre 1.3 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-alpha — 8 ouverts
+## Jalon 10.0.0-alpha — 16 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 1.3 | P1 — figé à la création | 0.5 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
-| 1.5 | P0 — bloque le reste | 1 | #262 | fix(security): retirer arctic, le paquet OAuth déprécié |
 | 1.6 | P0 — bloque le reste | 1 | #263 | fix(kernel): construire une application sans exiger sa base de données |
-| 1.65 | P2 — décision | 0.5 | #266 | fix(orm): dire qu'un autre serveur occupe peut-être le port |
+| 1.65 | P1 — figé à la création | 0.5 | #266 | fix(orm): dire qu'un autre serveur occupe peut-être le port |
 | 1.7 | P1 — figé à la création | 0.5 | #264 | fix(doctor): cesser de lire les commentaires comme du code |
 | 1.8 | P1 — figé à la création | 0.5 | #265 | fix(doctor): reconnaître les entités que le générateur écrit |
 | 1.85 | P1 — figé à la création | 0.5 | #267 | feat(cli): montrer l'état de l'application à la fin de sa génération |
 | 1.9 | P1 — figé à la création | 0.5 | #261 | ci(release): publier la documentation quand une version sort |
+| 4.3 | P1 — figé à la création | 0.5 | #271 | feat(studio): afficher tout fournisseur de connexion configuré, pas seulement les marques connues |
+| 4.7 | P0 — bloque le reste | 1 | #273 | refactor(security)!: ouvrir les signatures du client OAuth avant qu'elles ne gèlent |
+| 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
+| 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
+| 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
+| 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
+| 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
+| 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
+| 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
-## Jalon 10.0.0-beta — 3 ouverts
+## Jalon 10.0.0-beta — 22 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 1.5 | P1 — figé à la création | 0.5 | #255 | test(release): contrôler les README publiés avant chaque publication |
 | 2 | P0 — bloque le reste | 1 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
 | 3 | P2 — décision | 0.5 | #259 | ci(release): publier l'image sur le registre de GitHub, sans aucun secret |
-
-## Jalon 10.0.0 — 30 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
 | 4 | P1 — figé à la création | 2 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
 | 4.2 | P1 — figé à la création | 0.5 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
 | 4.3 | P2 — décision | 1 | #159 | docs(api): publier une référence d'API générée par paquet |
@@ -69,14 +72,23 @@ Ordre 1.3 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 4.5 | P1 — figé à la création | 0.5 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 4.6 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 4.8 | P1 — figé à la création | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
+| 5 | P1 — figé à la création | 4 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
+| 5.1 | P0 — bloque le reste | 2 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
+| 5.2 | P1 — figé à la création | 1 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
+| 5.3 | P2 — décision | 0.5 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
 | 9.4 | P2 — décision | 0.5 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
 | 9.45 | P2 — décision | 0.5 | #214 | fix(http): glisser de port si une autre app l'écoute déjà |
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
-| 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 11 | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
-| 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
-| 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
-| 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
+| 28 | P1 — figé à la création | 0.5 | #154 | fix(frontend): stabiliser le décalage de port sur les agents macOS |
+| 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
+| 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
+| 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
+
+## Jalon 10.1.0 — 28 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
 | 15 | P1 — figé à la création | 5 | #83 | feat(notification): doter le framework de l'envoi de messages sortants |
 | 16 | P2 — décision | 1 | #89 | docs(notification): faire la veille des canaux de communication attendus |
 | 17 | P1 — figé à la création | 1 | #84 | feat(mail): créer le module et son service d'envoi |
@@ -84,25 +96,6 @@ Ordre 1.3 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 19 | P1 — figé à la création | 0.5 | #86 | feat(mail): envoyer un courriel en ligne de commande |
 | 20 | P1 — figé à la création | 1 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
 | 21 | P1 — figé à la création | 0.5 | #88 | docs(mail): documenter la configuration et le premier envoi |
-| 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
-| 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 28 | P1 — figé à la création | 0.5 | #154 | fix(frontend): stabiliser le décalage de port sur les agents macOS |
-| 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
-| 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
-| 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
-| 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
-
-## Backlog — aucune date promise · 1 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
-
-## Jalon 10.1.0 — 21 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
 | 100 | P3 — fin de cycle | 1 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 110 | P2 — décision | 1.5 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 113 | P3 — fin de cycle | 0.5 | #78 | test(core): remplacer les seuils absolus des tests de performance |
@@ -124,6 +117,18 @@ Ordre 1.3 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 150 | P2 — décision | 1 | #218 | test(http): caractériser la hausse du RSS d'un pod sous charge |
 | 154 | P1 — figé à la création | 0.5 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
 | 155 | P1 — figé à la création | 1 | #235 | feat(security): journaliser les evenements d'authentification |
+
+## Jalon 10.0.0 — 1 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
+
+## Backlog — aucune date promise · 1 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
 ## Jalon 10.2.0 — 27 ouverts
 

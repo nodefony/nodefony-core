@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T12:25:41.452Z",
+  "generatedAt": "2026-09-07T13:54:51.392Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 2,
       "dueOn": null,
       "number": 2,
-      "open": 21,
+      "open": 28,
       "title": "10.1.0"
     },
     {
@@ -32,24 +32,24 @@
       "title": "12.0.0"
     },
     {
-      "closed": 4,
+      "closed": 5,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 8,
+      "open": 16,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 0,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 3,
+      "open": 22,
       "title": "10.0.0-beta"
     },
     {
       "closed": 134,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 30,
+      "open": 1,
       "title": "10.0.0"
     }
   ],
@@ -201,8 +201,8 @@
       "number": 262,
       "title": "fix(security): retirer arctic, le paquet OAuth déprécié",
       "url": "https://github.com/nodefony/nodefony-core/issues/262",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -233,7 +233,7 @@
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0-alpha",
-      "priorite": "P2 — décision",
+      "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.65,
       "labels": [
@@ -1187,12 +1187,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/155",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -1229,12 +1229,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/158",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.2,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -1243,12 +1243,26 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/159",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.3,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 271,
+      "title": "feat(studio): afficher tout fournisseur de connexion configuré, pas seulement les marques connues",
+      "url": "https://github.com/nodefony/nodefony-core/issues/271",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.3,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -1257,12 +1271,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/160",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.4,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -1298,12 +1312,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/215",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.5,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -1417,13 +1431,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/104",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 4.6,
       "labels": [
-        "10.0.0",
-        "rattrapable"
+        "rattrapable",
+        "10.0.0-beta"
       ]
     },
     {
@@ -1470,6 +1484,21 @@
       ]
     },
     {
+      "number": 273,
+      "title": "refactor(security)!: ouvrir les signatures du client OAuth avant qu'elles ne gèlent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/273",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 4.7,
+      "labels": [
+        "irrattrapable",
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 254,
       "title": "test(bench): donner au banc de coupure sa propre base",
       "url": "https://github.com/nodefony/nodefony-core/issues/254",
@@ -1489,12 +1518,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/20",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4.8,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -1541,6 +1570,20 @@
       ]
     },
     {
+      "number": 268,
+      "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/268",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 4,
+      "ordre": 5,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 24,
       "title": "docs(security): expliquer comment obtenir un jeton",
       "url": "https://github.com/nodefony/nodefony-core/issues/24",
@@ -1567,6 +1610,20 @@
       "ordre": 5.1,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 269,
+      "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
+      "url": "https://github.com/nodefony/nodefony-core/issues/269",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 2,
+      "ordre": 5.1,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
@@ -1598,6 +1655,20 @@
       ]
     },
     {
+      "number": 270,
+      "title": "fix(security): refuser au démarrage une configuration de fournisseur incomplète",
+      "url": "https://github.com/nodefony/nodefony-core/issues/270",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.2,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 34,
       "title": "feat(client): implémenter le noyau applicatif côté navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/34",
@@ -1609,6 +1680,20 @@
       "ordre": 5.3,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 272,
+      "title": "docs(security): documenter le branchement d'un Keycloak, du realm au premier login",
+      "url": "https://github.com/nodefony/nodefony-core/issues/272",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.3,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
@@ -2023,12 +2108,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/213",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.4,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -2037,12 +2122,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/214",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.45,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -2065,12 +2150,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/176",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.5,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -2079,12 +2164,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/138",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 10,
       "labels": [
-        "10.0.0"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2093,12 +2178,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/139",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 11,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -2121,12 +2206,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/33",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 12,
       "labels": [
-        "10.0.0"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2164,13 +2249,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/60",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 13,
       "labels": [
-        "10.0.0",
-        "rattrapable"
+        "rattrapable",
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2179,12 +2264,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/21",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 14,
       "labels": [
-        "10.0.0"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2193,12 +2278,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/83",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 5,
       "ordre": 15,
       "labels": [
-        "10.0.0"
+        "10.1.0"
       ]
     },
     {
@@ -2222,12 +2307,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/89",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 16,
       "labels": [
-        "10.0.0",
+        "10.1.0",
         "arbitrage"
       ]
     },
@@ -2252,12 +2337,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/84",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 17,
       "labels": [
-        "10.0.0"
+        "10.1.0"
       ]
     },
     {
@@ -2281,12 +2366,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/85",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 18,
       "labels": [
-        "10.0.0"
+        "10.1.0"
       ]
     },
     {
@@ -2295,12 +2380,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/86",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 19,
       "labels": [
-        "10.0.0"
+        "10.1.0"
       ]
     },
     {
@@ -2309,12 +2394,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/87",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 20,
       "labels": [
-        "10.0.0"
+        "10.1.0"
       ]
     },
     {
@@ -2337,12 +2422,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/88",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 21,
       "labels": [
-        "10.0.0"
+        "10.1.0"
       ]
     },
     {
@@ -2351,13 +2436,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/23",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 22,
       "labels": [
-        "10.0.0",
-        "rattrapable"
+        "rattrapable",
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2366,12 +2451,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/99",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 26,
       "labels": [
-        "10.0.0"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2380,13 +2465,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 28,
       "labels": [
-        "10.0.0",
-        "rattrapable"
+        "rattrapable",
+        "10.0.0-beta"
       ]
     },
     {
@@ -2395,13 +2480,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/62",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 29,
       "labels": [
-        "10.0.0",
-        "rattrapable"
+        "rattrapable",
+        "10.0.0-beta"
       ]
     },
     {
@@ -2410,12 +2495,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/25",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 30,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -2466,12 +2551,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/80",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 32,
       "labels": [
-        "10.0.0"
+        "10.0.0-beta"
       ]
     },
     {
@@ -2522,12 +2607,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/30",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 55,
       "labels": [
-        "10.0.0"
+        "10.0.0-alpha"
       ]
     },
     {
