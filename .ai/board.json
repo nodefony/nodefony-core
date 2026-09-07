@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T14:29:37.705Z",
+  "generatedAt": "2026-09-07T16:24:56.304Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 5,
+      "closed": 7,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 16,
+      "open": 14,
       "title": "10.0.0-alpha"
     },
     {
@@ -216,8 +216,8 @@
       "number": 263,
       "title": "fix(kernel): construire une application sans exiger sa base de données",
       "url": "https://github.com/nodefony/nodefony-core/issues/263",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -230,8 +230,8 @@
       "number": 266,
       "title": "fix(orm): dire qu'un autre serveur occupe peut-être le port",
       "url": "https://github.com/nodefony/nodefony-core/issues/266",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

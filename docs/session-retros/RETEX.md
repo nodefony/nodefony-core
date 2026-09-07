@@ -108,6 +108,13 @@
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
+- [1× — 09-07g] **Une garde posée trop HAUT retire tout ce qui vivait sous elle.** « Ne pas
+  connecter » a été écrit à l'entrée du hook `onBoot` — donc l'ORM n'était plus créé, plus
+  enregistré, et son plan d'administration disparaissait avec lui. La règle visait UN geste
+  (ouvrir un socket) et en a supprimé trois. Corrigé en la descendant au seul point qui ouvre
+  vraiment la connexion. **Avant de poser un `return` de garde : énumérer ce que la portion
+  court-circuitée fait D'AUTRE — une condition ne se place pas là où elle se pense, mais là où
+  agit ce qu'elle refuse.**
 - [1× — 09-04c] **Renommer par expression régulière casse ce qui n'était pas visé — et le mot le plus
   anodin est le pire.** Pour passer `kernel/checks/` en anglais, j'ai mis `options` dans la table de
   renommage (une variable locale de test). Résultat : `this.options` réécrit dans TOUT `Kernel.ts`,
@@ -253,6 +260,13 @@
 
 ## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
 
+- [1× — 09-07g] **Le `pre-push` a rendu EXIT 0 sur l'erreur qui a emporté cinq workflows — il
+  n'avait rien recompilé.** `turbo run build && npm run typecheck` : « 21/21 cached ». Le cœur
+  compile les SOURCES de cinq modules dont `exports["."].types` pointe `./index.ts`, mais il ne
+  peut pas les déclarer en dépendance (elles dépendent de lui). Ces fichiers étaient donc HORS de
+  ses `inputs` turbo : le hash était calculé sur un périmètre incomplet, et le cache servi. En CI
+  le cache est froid, donc la faute n'apparaissait QUE là — après le push. **Un gate qui met en
+  cache doit hacher tout ce qu'il LIT, pas ce qu'il possède ; sinon son vert ne parle que de lui.**
 - [1× — 09-07f] **Mon instrument mesurait la mauvaise unité, et écartait les cas les plus nets.**
   `ticket-effort.mjs` rendait un « biais médian ×3,6 » sur 26 tickets : il comptait l'INTERVALLE
   entre premier et dernier commit (39 h pour deux séances distantes de deux jours), écartait les
@@ -301,6 +315,13 @@
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
+- [1× — 09-07g] **Mon test vérifiait mon INTENTION, pas sa conséquence — et le user a trouvé ce
+  qu'il ne voyait pas.** Ma garde `externalServices` sautait le hook de boot ; mon banc assertait
+  que `connectAll` n'était PAS appelé, c'est-à-dire exactement ce que je venais d'écrire. Vert. Or
+  le hook ne fait pas que connecter : il CRÉE l'ORM, qui publie le plan d'administration —
+  `doctor --live` est passé de « schéma et historique alignés » à « introuvable (404) ». Six mille
+  tests verts, zéro signal. **Un test écrit face à son propre diff décrit l'implémentation ; pour
+  qu'il décrive la RÈGLE, il faut nommer ce que le changement doit PRÉSERVER, pas ce qu'il fait.**
 - [1× — 09-07] **Le contrôle GRAVAIT le défaut comme résultat attendu.** Le cas de test de
   `expliquerEchec` donnait une sortie portant `✗ 1 PROBLÈME 4 angles morts` — la ligne qui NOMME
   le manquement — et son attendu écrit était `"nodefony doctor · bench-app 0.1.0"`, la bannière.
