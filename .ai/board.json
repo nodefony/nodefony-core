@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T16:24:56.304Z",
+  "generatedAt": "2026-09-07T18:26:00.096Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 7,
+      "closed": 11,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 14,
+      "open": 11,
       "title": "10.0.0-alpha"
     },
     {
@@ -169,6 +169,20 @@
       ]
     },
     {
+      "number": 274,
+      "title": "fix(gate): le contrôle de langue ne voit pas les identifiants des gabarits",
+      "url": "https://github.com/nodefony/nodefony-core/issues/274",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.4,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 41,
       "title": "fix(client): corriger le contrat du noyau client avant de le figer",
       "url": "https://github.com/nodefony/nodefony-core/issues/41",
@@ -274,8 +288,8 @@
       "number": 264,
       "title": "fix(doctor): cesser de lire les commentaires comme du code",
       "url": "https://github.com/nodefony/nodefony-core/issues/264",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -302,8 +316,8 @@
       "number": 265,
       "title": "fix(doctor): reconnaître les entités que le générateur écrit",
       "url": "https://github.com/nodefony/nodefony-core/issues/265",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -316,8 +330,8 @@
       "number": 267,
       "title": "feat(cli): montrer l'état de l'application à la fin de sa génération",
       "url": "https://github.com/nodefony/nodefony-core/issues/267",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1487,8 +1501,8 @@
       "number": 273,
       "title": "refactor(security)!: ouvrir les signatures du client OAuth avant qu'elles ne gèlent",
       "url": "https://github.com/nodefony/nodefony-core/issues/273",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,

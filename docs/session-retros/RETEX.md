@@ -34,6 +34,14 @@
 
 ## 📖 Ce qui est ÉCRIT ne protège que si on le relit AU MOMENT du geste
 
+- [1× — 09-07h] **J'ai conclu « pas de blocage » sur une mesure qui ne portait pas sur le cas
+  décrit — le user a dû le redire.** Il signalait `nodefony inspect config` SUSPENDUE ; j'ai mesuré
+  3,0 s et répondu « elle ne bloque pas, elle échoue ». Ma mesure était juste et hors sujet : je
+  tombais sur un refus IMMÉDIAT d'authentification, lui sur un serveur qui accepte le socket sans
+  répondre — cas où `pg-pool` attend SANS FIN (`connectionTimeoutMillis` à 0 par défaut). Vérifié
+  ensuite dans les deux sens : alpha.2 toujours bloquée à 60 s, code corrigé rendant la main en
+  13,8 s. **Quand le user REDIT la même chose, ce n'est pas qu'il n'a pas compris ma réponse : ma
+  réponse ne répondait pas à sa question.** Reproduire SON cas, pas un cas voisin.
 - [1× — 09-07f] **J'ai redéclaré une règle que le `MEMORY.md` du module INTERDIT en toutes lettres.**
   Écrit un module de découverte RFC 8414 dans `@nodefony/security` alors que `security/MEMORY.md:119`
   dit « RFC 8414 vit au CŒUR — security l'IMPORTE, **ne le redéclare pas** ». J'avais ÉDITÉ ce
@@ -260,6 +268,17 @@
 
 ## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
 
+- [1× — 09-07h] **QUATRE gardes rassuraient à tort dans la même journée, et c'est la même faute.**
+  `check:lang` rend vert sur un `DIALECTE` posé dans un gabarit qu'il LIT pourtant (vérifié en le
+  remettant) — l'identifiant est parti dans l'alpha.2 publiée. Le contrôle « Entités et dialecte »
+  du doctor était une garde MORTE : il ne reconnaissait qu'une forme d'entité que le gabarit
+  n'écrit plus, donc ne s'exerçait sur AUCUNE application générée, en affichant « aucune entité ».
+  « Fraîcheur du build » disait « sources et build alignés » sans jamais regarder le frontend, sur
+  une application dont `public/dist` était absent. Et `npx tsc --noEmit -p tsconfig.json` dans un
+  paquet rend **0** alors que trois écarts subsistent : ce tsconfig EXCLUT les tests, seul
+  `turbo run typecheck` les voit. **Le point commun : chacun rend un verdict VRAI sur un périmètre
+  qu'il ne dit pas.** Le geste qui les attrape tous : débrancher, et regarder si quelque chose
+  tombe — les quatre ont été trouvées comme ça, jamais en lisant leur sortie.
 - [1× — 09-07g] **Le `pre-push` a rendu EXIT 0 sur l'erreur qui a emporté cinq workflows — il
   n'avait rien recompilé.** `turbo run build && npm run typecheck` : « 21/21 cached ». Le cœur
   compile les SOURCES de cinq modules dont `exports["."].types` pointe `./index.ts`, mais il ne
@@ -315,6 +334,13 @@
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
+- [1× — 09-07h] **Mon banc appelait la fonction et pas le BRANCHEMENT — je l'ai vu en le
+  débranchant, pas en le relisant.** Six cas neufs sur `checkFrontendBuild`, tous verts ; j'ai
+  retiré son unique appel dans `checkFreshness` (le seul chemin qui alimente le rapport) et les six
+  sont restés verts. C'est le même défaut que la veille, une case plus loin : le premier banc
+  prouvait que la fonction est juste, aucun ne prouvait qu'elle SERT. Le remède tient en un test
+  qui passe par le producteur réel, et qui vérifie d'abord que le reste du rapport est vert —
+  sinon il pourrait rougir pour une autre raison et ne rien prouver.
 - [1× — 09-07g] **Mon test vérifiait mon INTENTION, pas sa conséquence — et le user a trouvé ce
   qu'il ne voyait pas.** Ma garde `externalServices` sautait le hook de boot ; mon banc assertait
   que `connectAll` n'était PAS appelé, c'est-à-dire exactement ce que je venais d'écrire. Vert. Or
