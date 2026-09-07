@@ -371,6 +371,90 @@ class App extends Module {}`,
     assert.strictEqual(r.scanned, 0);
     assert.strictEqual(r.findings.length, 0);
   });
+
+  /*
+   *   La garde EXPLIQUÉE ne s'accuse pas, la garde POSÉE s'accuse toujours.
+   *
+   *   Les deux cas dans le même test, et c'est délibéré : séparés, on ne
+   *   saurait pas si le silence du second vient du nettoyage ou d'un contrôle
+   *   qui a cessé de mordre. Le premier décor est celui du contrôleur que le
+   *   générateur écrit — il commente `@IsGranted` pour l'enseigner, sans
+   *   jamais l'employer, et faisait sortir `npm run verify` en 1 sur une
+   *   application qui venait de naître.
+   */
+  it("@IsGranted commenté n'accuse rien ; posé, il exige toujours sa brique", () => {
+    const manifesteSansSecurite = `use("@nodefony/framework", {});`;
+
+    const commente = make({
+      "nodefony/controllers/HelloController.ts": `
+/**
+ * Pour réserver cette route : pose @IsGranted("ROLE_USER") sur la méthode.
+ */
+export class HelloController extends Controller {
+  // décommente @IsGranted("ROLE_ADMIN") pour la fermer
+  hello() {}
+}`,
+      "index.ts": `import { HelloController } from "./nodefony/controllers/HelloController";
+@controllers([HelloController])
+class App extends Module {}`,
+      "nodefony.config.ts": manifesteSansSecurite,
+    });
+    const silence = checkWiring({
+      roots: [commente],
+      cwd: commente,
+      projectRoot: commente,
+    });
+    assert.strictEqual(
+      silence.findings.length,
+      0,
+      JSON.stringify(silence.findings),
+    );
+
+    const pose = make({
+      "nodefony/controllers/HelloController.ts": `
+export class HelloController extends Controller {
+  @IsGranted("ROLE_ADMIN")
+  hello() {}
+}`,
+      "index.ts": `import { HelloController } from "./nodefony/controllers/HelloController";
+@controllers([HelloController])
+class App extends Module {}`,
+      "nodefony.config.ts": manifesteSansSecurite,
+    });
+    const mord = checkWiring({
+      roots: [pose],
+      cwd: pose,
+      projectRoot: pose,
+    });
+    assert.strictEqual(mord.findings.length, 1, JSON.stringify(mord.findings));
+    assert.strictEqual(mord.findings[0].kind, "missing-brick");
+    assert.match(mord.findings[0].message, /@nodefony\/security/u);
+  });
+
+  /*
+   *   Une brique CITÉE en commentaire ne compte pas non plus comme déclarée —
+   *   le nettoyage vaut dans les deux sens. Sans lui, « décommente ceci pour
+   *   activer @nodefony/security » suffirait à faire taire la garde sur une
+   *   application qui ne charge rien.
+   */
+  it("une brique nommée dans un commentaire du manifeste ne vaut pas déclaration", () => {
+    const dir = make({
+      "nodefony/controllers/AdminController.ts": `
+export class AdminController extends Controller {
+  @IsGranted("ROLE_ADMIN")
+  index() {}
+}`,
+      "index.ts": `import { AdminController } from "./nodefony/controllers/AdminController";
+@controllers([AdminController])
+class App extends Module {}`,
+      "nodefony.config.ts": `
+// décommente pour activer : use("@nodefony/security", {})
+use("@nodefony/framework", {});`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
+    assert.strictEqual(r.findings[0].kind, "missing-brick");
+  });
 });
 
 /*

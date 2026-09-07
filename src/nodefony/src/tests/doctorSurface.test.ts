@@ -226,6 +226,60 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
     assert.lengthOf(r.findings, 0);
   });
 
+  /*
+   *   Le gabarit d'application n'importe PLUS `drizzle-orm/<moteur>` : il passe
+   *   par une fabrique du framework et déclare son moteur en constante. Le
+   *   contrôle qui ne reconnaissait que l'import direct était donc une garde
+   *   MORTE sur toute application fraîche — elle s'entendait répondre « aucune
+   *   entité Drizzle » alors que le générateur venait d'en écrire une.
+   *
+   *   Les deux formes dans le même banc, et le verdict des deux côtés : sans
+   *   le cas muet, on ne saurait pas si la nouvelle forme accuse tout ce
+   *   qu'elle touche.
+   */
+  it("🔴 le dialecte déclaré en VALEUR est reconnu — et confronté à la base", () => {
+    poser(
+      "nodefony/entity/User.ts",
+      `import { createUserTable, type SqlDialect } from "@nodefony/drizzle";
+       const DIALECT: SqlDialect = "postgres";
+       export const userTable = createUserTable(DIALECT);`,
+    );
+    const r = controler();
+    assert.equal(r.entitiesScanned, 1, "l'entité doit être COMPTÉE");
+    assert.lengthOf(r.findings, 1);
+    assert.equal(r.findings[0]?.kind, "entity-other-dialect");
+    assert.include(r.findings[0]?.message ?? "", "postgres");
+    assert.include(r.findings[0]?.message ?? "", "sqlite");
+  });
+
+  it("le même dialecte en valeur, accordé à la base, reste muet", () => {
+    poser(
+      "nodefony/entity/User.ts",
+      `import { createUserTable, type SqlDialect } from "@nodefony/drizzle";
+       const DIALECT: SqlDialect = "sqlite";
+       export const userTable = createUserTable(DIALECT);`,
+    );
+    const r = controler();
+    assert.equal(r.entitiesScanned, 1);
+    assert.lengthOf(r.findings, 0);
+  });
+
+  it("🔴 une ANNOTATION de paramètre n'est pas une déclaration de moteur", () => {
+    // Les entités du framework écrivent `dialect: SqlDialect = "sqlite"` comme
+    // valeur par défaut d'un paramètre. Les compter accuserait ces fichiers
+    // dès qu'un projet tourne sur un autre moteur — un faux positif que
+    // personne ne peut corriger, puisque le code n'est pas le sien.
+    poser(
+      "nodefony/entity/helpers.ts",
+      `export function makeTable(name: string, dialect: SqlDialect = "sqlite") {
+         return name + dialect;
+       }`,
+    );
+    const r = controler({ NF_DATABASE_URL: "postgres://app@base/app" });
+    assert.equal(r.entitiesScanned, 0);
+    assert.lengthOf(r.findings, 0);
+  });
+
   it("une entité MULTI-moteur ne lève rien — elle porte le bon aussi", () => {
     poser(
       "nodefony/entity/User.ts",

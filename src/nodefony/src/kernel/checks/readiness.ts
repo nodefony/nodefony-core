@@ -34,6 +34,7 @@
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { buildProjectEnvReport } from "../../cli/env";
+import { withoutComments } from "./sourceText";
 
 /** Un manquement qui empêche — ou empêchera — l'application de démarrer. */
 export interface IReadinessFinding {
@@ -107,13 +108,6 @@ export interface ITrackedEnvProbe {
   tracked: readonly string[];
   /** Ce qui a empêché de constater — présent seulement si `supported` est faux. */
   reason?: string;
-}
-
-/** Retire les commentaires pour qu'un exemple commenté ne compte pas. */
-function withoutComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//gu, "")
-    .replace(/(^|[^:])\/\/.*$/gmu, "$1");
 }
 
 /**

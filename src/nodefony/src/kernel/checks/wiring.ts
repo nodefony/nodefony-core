@@ -22,6 +22,7 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 import { collectSources } from "./walk";
+import { withoutComments } from "./sourceText";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
 export interface IWiringFinding {
@@ -253,19 +254,6 @@ const AREAS_BLOCK_RE = /\bareas\s*:\s*\{([\s\S]{0,4000}?)\n\s{0,10}\}/u;
 const AREA_PATTERN_RE = /\bpattern\s*:\s*["'`]([^"'`\n]+)["'`]/gu;
 
 /**
- * Les commentaires, ôtés AVANT toute analyse du manifeste.
- *
- * Sans quoi le contrôle mord sur le gabarit lui-même : le commentaire qui
- * apprend à ne PAS énumérer cite le contre-exemple
- * (`"^/api/account/(profile|invoices)"`), et toute application fraîche
- * commencerait par un avertissement portant sur du texte explicatif. Un
- * contrôle qui accuse sa propre documentation est un contrôle qu'on désactive.
- */
-function withoutComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/\/\/[^\n]*/gu, "");
-}
-
-/**
  * La part LITTÉRALE d'un pattern — ce qu'il couvre à coup sûr.
  *
  * `^/api/account/(profile|invoices)` → `/api/account`. On coupe au premier
@@ -425,8 +413,17 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     ? path.join(projectRoot, "nodefony.config.ts")
     : "";
   const manifeste = manifestePath ? read(manifestePath) : "";
+  // Le manifeste entre ici SANS ses commentaires, pour la raison inverse de
+  // celle des sources : une brique CITÉE dans un commentaire (« décommente
+  // ceci pour activer @nodefony/security ») passerait pour déclarée, et la
+  // garde des briques manquantes se tairait sur une application qui ne charge
+  // rien. Le `package.json` reste brut : c'est du JSON, et le nettoyer
+  // abîmerait ses valeurs sans rien retirer.
   const declared = projectRoot
-    ? [manifeste, read(path.join(projectRoot, "package.json"))].join("\n")
+    ? [
+        withoutComments(manifeste),
+        read(path.join(projectRoot, "package.json")),
+      ].join("\n")
     : "";
 
   // Les zones vivent au niveau du PROJET : le contrôle se fait une fois, hors de
@@ -455,9 +452,18 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     }
     // Le contenu de la cible est lu UNE fois : chaque symbole se cherche
     // ensuite en mémoire, sans relire l'arborescence par déclaration.
+    //
+    // Il est rangé SANS SES COMMENTAIRES, et c'est ici que ça se joue plutôt
+    // qu'au cas par cas : les onze lecteurs de cette fonction cherchent tous
+    // un USAGE — une garde posée, un hook déclaré, une entité définie, un
+    // symbole nommé ailleurs. Aucun ne veut de ce qu'un TSDoc EXPLIQUE. Le
+    // nettoyage écrit dans un seul contrôle laissait les dix autres accuser la
+    // documentation : le contrôleur du générateur, qui commente `@IsGranted`
+    // sans jamais l'employer, faisait sortir `npm run verify` en 1 sur une
+    // application qui venait de naître.
     const sources = new Map<string, string>();
     for (const file of wiringSources(root)) {
-      sources.set(file, read(file));
+      sources.set(file, withoutComments(read(file)));
     }
     const rel = (f: string): string => path.relative(cwd, f);
 
@@ -516,10 +522,8 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       }
 
       // La réponse ne se juge que dans un controller : ailleurs, `setHeader` ne
-      // dit rien. Le corps est relu SANS ses commentaires — un exemple mis en
-      // garde dans un TSDoc ne doit pas s'accuser lui-même.
+      // dit rien.
       if (EXTENDS_CONTROLLER_RE.test(content)) {
-        const code = withoutComments(content);
         const facades =
           `les façades : this.renderJson(obj) pour du JSON, ` +
           `this.setContextHtml() puis this.render(html) pour une page, ` +
@@ -542,7 +546,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
           ],
         ];
         for (const [pattern, quoi] of manquements) {
-          if (!pattern.test(code)) continue;
+          if (!pattern.test(content)) continue;
           findings.push({
             kind: "reponse-a-la-main",
             file: rel(file),
@@ -586,7 +590,8 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
             file: rel(file),
             message:
               `ce fichier déclare ${brick.what}, mais ${brick.packages.join(" ni ")} ` +
-              `n'est déclaré par l'application — le module ne sera pas chargé, et le code ` +
+              `n'est ${brick.packages.length > 1 ? "" : "pas "}déclaré par l'application — ` +
+              `le module ne sera pas chargé, et le code ` +
               `compilera sans jamais s'exécuter`,
           });
         }

@@ -26,6 +26,7 @@
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { collectSources } from "./walk";
+import { withoutComments } from "./sourceText";
 
 /** Ce qui rend une route ou une zone atteignable sans authentification. */
 export type OpeningKind =
@@ -102,6 +103,26 @@ export interface ISurfaceCheckOptions {
 
 /** Un import de table Drizzle : `drizzle-orm/pg-core` et ses frères. */
 const DRIZZLE_CORE_RE = /["']drizzle-orm\/(sqlite|pg|mysql)-core["']/gu;
+
+/**
+ * Le dialecte porté en VALEUR : `const DIALECT: SqlDialect = "postgres"`.
+ *
+ * 🔴 Sans cette seconde forme, le contrôle était une garde MORTE. Il ne
+ * reconnaissait une entité qu'à son import direct de `drizzle-orm/<moteur>`,
+ * or le gabarit d'application a cessé d'en écrire un : il passe par une
+ * fabrique du framework (`createUserTable(DIALECT)`) et déclare son moteur en
+ * constante. Une application fraîche s'entendait donc répondre « aucune entité
+ * Drizzle » alors que le générateur venait d'en écrire une, et le seul
+ * contrôle qui sait dire « cette entité est écrite pour un autre moteur que ta
+ * base » ne s'exerçait sur RIEN.
+ *
+ * La DÉCLARATION est exigée (`const`/`let`/`var`), et non la simple annotation :
+ * `dialect: SqlDialect = "sqlite"` est un paramètre par défaut, écrit dans les
+ * entités du framework lui-même — le compter accuserait ces fichiers dès qu'un
+ * projet tourne sur un autre moteur.
+ */
+const DIALECT_VALUE_RE =
+  /\b(?:const|let|var)\s+\w+\s*:\s*SqlDialect\s*=\s*["'`](sqlite|postgres|mysql)["'`]/gu;
 
 /** Le dialecte de Nodefony pour un segment d'import Drizzle. */
 const DIALECT_OF_IMPORT: Record<string, SqlDialectName> = {
@@ -185,19 +206,6 @@ export function coversEverything(pattern: string): boolean {
     return false;
   }
   return PROBE_PATHS.every((rawPath) => re.test(rawPath));
-}
-
-/**
- * Les commentaires, ôtés AVANT toute analyse.
- *
- * Sans quoi le contrôle mord sur la documentation : un commentaire qui apprend
- * à ne PAS ouvrir une zone cite forcément le contre-exemple, et toute
- * application fraîche commencerait par un avertissement portant sur du texte
- * explicatif. Un contrôle qui accuse sa propre documentation est un contrôle
- * qu'on désactive.
- */
-function withoutComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/\/\/[^\n]*/gu, "");
 }
 
 /**
@@ -472,11 +480,21 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
       // Le dialecte ne se contrôle que là où le producteur CHERCHE ses
       // entités : ailleurs, un import des trois moteurs est légitime.
       if (!file.includes(ENTITY_DIR)) continue;
+      // Deux façons d'écrire pour quel moteur on écrit, et les deux comptent :
+      // l'import direct (entité écrite à la main, ou par `create entity`) et
+      // le dialecte déclaré en valeur (gabarit d'application, qui passe par
+      // une fabrique du framework). N'en reconnaître qu'une déplace l'angle
+      // mort au lieu de le fermer.
       DRIZZLE_CORE_RE.lastIndex = 0;
       const imported = new Set<SqlDialectName>();
       let m: RegExpExecArray | null;
       while ((m = DRIZZLE_CORE_RE.exec(clean)) !== null) {
         const found = DIALECT_OF_IMPORT[m[1] ?? ""];
+        if (found) imported.add(found);
+      }
+      DIALECT_VALUE_RE.lastIndex = 0;
+      while ((m = DIALECT_VALUE_RE.exec(clean)) !== null) {
+        const found = m[1] as SqlDialectName | undefined;
         if (found) imported.add(found);
       }
       if (imported.size === 0) continue;

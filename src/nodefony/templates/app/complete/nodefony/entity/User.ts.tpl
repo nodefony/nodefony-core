@@ -42,7 +42,7 @@ import type { SqlDialect } from "@nodefony/drizzle";
  * Le moteur choisi à la création de cette application.
  *
  * Il est FIGÉ ici, comme dans toute entité générée : une table Drizzle est
- * écrite pour un dialecte: `sqliteTable` et `pgTable` n'ont ni les mêmes types
+ * écrite pour un dialecte : `sqliteTable` et `pgTable` n'ont ni les mêmes types
  * ni les mêmes options. Changer de moteur demande donc de changer cette ligne —
  * et d'écrire la migration correspondante, ce que `orm:generate` fait pour toi.
  *
@@ -50,7 +50,7 @@ import type { SqlDialect } from "@nodefony/drizzle";
  * `env.ts` en est le SEUL lecteur. Une seconde lecture ailleurs fait diverger la
  * configuration effective de ce que le catalogue déclare.)
  */
-const DIALECTE: SqlDialect = "<%= it.dialect %>";
+const DIALECT: SqlDialect = "<%= it.dialect %>";
 
 /**
  * La table, EXPORTÉE — et pas seulement passée au descripteur.
@@ -59,7 +59,7 @@ const DIALECTE: SqlDialect = "<%= it.dialect %>";
  * `nodefony/entity/` et y cherche les tables exportées. Une table seulement
  * passée en argument y serait invisible, et la migration s'écrirait SANS elle.
  */
-export const userTable = createUserTable(DIALECTE);
+export const userTable = createUserTable(DIALECT);
 
 export const UserEntity = defineEntity({
   name: "User",

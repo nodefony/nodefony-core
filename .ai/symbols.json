@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 816,
-    "symbols": 3929,
+    "files": 817,
+    "symbols": 3927,
     "classes": 388,
     "interfaces": 1066,
     "types": 445,
     "enums": 4,
-    "functions": 1636,
+    "functions": 1634,
     "constants": 390
   },
   "symbols": {
@@ -9409,6 +9409,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le rapport de `doctor` alors que l'application vient d'échouer à démarrer. 🔴 C'est le cas POUR lequel la commande existe. `--live` sort du fast-path et demande un boot : sans ce chemin, une a…"
+    },
+    "withoutComments": {
+      "name": "withoutComments",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le texte d'une source, tel que les contrôles de `doctor` doivent le lire. 🔴 Cette règle était écrite TROIS fois — `surface`, `readiness`, `wiring` — et elle avait déjà divergé : deux copies coupai…"
     },
     "IOpening": {
       "name": "IOpening",
@@ -31832,6 +31840,11 @@
       ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
+      ],
+      "withoutComments": [
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "pluralize": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
