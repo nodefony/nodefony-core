@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { PLATFORM_EVENTS, escapeRegExp } from "nodefony";
-import { originWithHostname } from "../remoteDev";
+import { isLoopbackHostname, originWithHostname } from "../remoteDev";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
 
@@ -191,9 +191,20 @@ ${tags}
     // Le service ne transmet `requestHost` que si la dérivation est permise
     // (origine non épinglée) et l'hôte de confiance ; un nom inexploitable
     // laisse `originWithHostname` renvoyer `null` → on garde l'origine résolue.
-    const baseUrl = requestHost
-      ? (originWithHostname(resolvedOrigin, requestHost) ?? resolvedOrigin)
-      : resolvedOrigin;
+    // 🔴 Un hôte de BOUCLE LOCALE se RECOMPOSE, il ne se substitue pas.
+    // `originWithHostname` remplace le nom en gardant scheme ET port de
+    // l'origine résolue — parfait quand celle-ci est locale
+    // (`https://127.0.0.1:5173` → `https://localhost:5173`), FAUX quand elle
+    // vient d'une plateforme : `https://nom-5173.app.github.dev` n'a pas de
+    // port explicite (443 implicite), et la substitution rendrait
+    // `https://localhost`, c'est-à-dire le port 443 d'une machine qui écoute
+    // sur 5173. Le port réel du spawn est dans `status` : on le lit là.
+    // Le `status` est la vérité du démarrage, jamais une donnée cliente.
+    const baseUrl = !requestHost
+      ? resolvedOrigin
+      : isLoopbackHostname(requestHost)
+        ? `${status.https ? "https" : "http"}://${requestHost}:${status.port}`
+        : (originWithHostname(resolvedOrigin, requestHost) ?? resolvedOrigin);
     // Multi-bundle (P14.6) : URL via `/@fs/<absolute>` plutôt que relative au
     // root Vite unique. Sans ça, deux consumers qui ont chacun `frontend/src/main.tsx`
     // produisent la même URL `${baseUrl}/src/main.tsx` et Vite résout contre le

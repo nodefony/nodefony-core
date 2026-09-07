@@ -86,6 +86,16 @@ const derivable = (svc: FrontendService, host?: string): string | undefined =>
     }
   ).derivableHost(host);
 
+/**
+ * Épingle l'origine comme le ferait `startDev`. La SOURCE compte : une config
+ * écrite gagne sur tout, une plateforme déduite cède devant la boucle locale.
+ * Les confondre — ce que faisait un unique booléen — servait l'origine publique
+ * d'un Codespace à un client arrivé par un tunnel local.
+ */
+const pinBy = (svc: FrontendService, source: "config" | "platform"): void => {
+  (svc as unknown as { originPinnedBy: string | null }).originPinnedBy = source;
+};
+
 describe("FrontendService — politique de dérivation par Host", () => {
   it("hôte de confiance → dérivation autorisée", () => {
     const svc = new FrontendService(
@@ -119,14 +129,50 @@ describe("FrontendService — politique de dérivation par Host", () => {
     expect(derivable(svc, "127.0.0.1")).to.be.undefined;
   });
 
-  it("origine ÉPINGLÉE (publicOrigin / plateforme détectée) → pas de dérivation", () => {
-    // Un réglage explicite de l'auteur gagne toujours sur une déduction :
-    // c'est l'ordre de priorité documenté (config > Host > plateforme).
+  it("origine épinglée par CONFIG → aucune dérivation, pas même en local", () => {
+    // Un réglage ÉCRIT par l'auteur est un ordre : il gagne sur tout, y
+    // compris sur la boucle locale. Sans cela, un frontal qui réécrit
+    // l'origine cesserait d'être servi dès qu'on ouvre la page depuis la
+    // machine elle-même — et le réglage n'aurait plus de sens.
     const svc = new FrontendService(
       fakeModule(httpKernelWith(["host.docker.internal"])),
     );
-    (svc as unknown as { originPinned: boolean }).originPinned = true;
+    pinBy(svc, "config");
     expect(derivable(svc, "host.docker.internal")).to.be.undefined;
+    expect(derivable(svc, "localhost")).to.be.undefined;
+    expect(derivable(svc, "127.0.0.1")).to.be.undefined;
+  });
+
+  it("plateforme DÉTECTÉE → un client de la boucle locale est servi en local", () => {
+    // Une plateforme se déduit d'une variable d'environnement, donc UNE FOIS
+    // au démarrage ; le chemin d'arrivée d'un client, lui, se constate à
+    // chaque requête. Un fait constaté prime sur une déduction.
+    //
+    // Le cas réel : VS Code Desktop connecté à un Codespace redirige les ports
+    // sur `localhost` — c'est sa configuration par défaut. Servir l'origine
+    // publique à ce client exigerait la session de la plateforme ; un client
+    // non humain (intégration continue, sonde, agent) ne l'a pas et n'obtient
+    // qu'une page blanche.
+    const svc = new FrontendService(
+      fakeModule(httpKernelWith(["host.docker.internal"])),
+    );
+    pinBy(svc, "platform");
+    for (const local of ["localhost", "127.0.0.1", "[::1]"]) {
+      expect(derivable(svc, local), local).to.equal(local);
+    }
+  });
+
+  it("plateforme DÉTECTÉE → un client venu d'ailleurs garde l'origine publique", () => {
+    // Le pendant du test précédent, et le vrai garde-fou : sans lui, on ne
+    // saurait pas si la règle DISCRIMINE ou si elle a simplement désarmé
+    // l'épinglage — ce qui casserait l'usage NORMAL d'un Codespace, où le
+    // navigateur arrive par l'URL publique de la plateforme.
+    const svc = new FrontendService(
+      fakeModule(httpKernelWith(["host.docker.internal"])),
+    );
+    pinBy(svc, "platform");
+    expect(derivable(svc, "host.docker.internal")).to.be.undefined;
+    expect(derivable(svc, "nodefony.com")).to.be.undefined;
   });
 
   it("aucun Host fourni (rendu hors requête) → pas de dérivation", () => {

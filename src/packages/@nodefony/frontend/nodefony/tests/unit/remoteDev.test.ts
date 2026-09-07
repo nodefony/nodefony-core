@@ -8,6 +8,7 @@ import {
   viteAllowedHostFromPattern,
   detectRemoteDev,
   originWithHostname,
+  isLoopbackHostname,
 } from "../../src/remoteDev.js";
 
 /**
@@ -248,6 +249,45 @@ describe("remoteDev — origine publique du dev server", () => {
         "",
       ]) {
         expect(originWithHostname(bad, "autre"), bad).to.be.null;
+      }
+    });
+  });
+  describe("isLoopbackHostname — le client vient-il de la machine qui sert ?", () => {
+    it("reconnaît les formes qui désignent la boucle locale", () => {
+      // Tout `127.0.0.0/8` compte (RFC 1122 § 3.2.1.3), pas seulement
+      // `127.0.0.1` : un forwarder peut présenter une autre adresse du bloc.
+      for (const h of [
+        "localhost",
+        "127.0.0.1",
+        "127.0.0.2",
+        "127.1.2.3",
+        "127.255.255.255",
+        "::1",
+        "[::1]",
+      ]) {
+        expect(isLoopbackHostname(h), h).to.equal(true);
+      }
+    });
+
+    it("refuse tout le reste — la liste est FERMÉE", () => {
+      // Ce test porte une garantie de SÉCURITÉ : le `Host` est une donnée
+      // cliente, et un « oui » ici autorise à servir une origine locale.
+      // Les trois derniers sont les tentatives qui ressemblent le plus à un
+      // loopback sans en être un.
+      for (const h of [
+        "example.com",
+        "192.168.1.1",
+        "10.0.0.1",
+        "0.0.0.0",
+        "::",
+        "mona-5173.app.github.dev",
+        "127.999.1.1", //  pas une adresse : octet hors bornes
+        "127.0.0.1.evil.com", //  suffixe greffé
+        "evil-127.0.0.1", //  préfixe greffé
+        "127.0.0.1:5173", //  port collé — un hôte NU est attendu
+        "",
+      ]) {
+        expect(isLoopbackHostname(h), h).to.equal(false);
       }
     });
   });

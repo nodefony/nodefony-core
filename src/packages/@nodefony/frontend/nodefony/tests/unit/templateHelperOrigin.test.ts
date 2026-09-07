@@ -152,6 +152,44 @@ describe("TemplateHelper — origine publique des tags dev (P14.17)", () => {
     );
   });
 
+  it("origine de PLATEFORME + client loopback : le port de Vite est RECOMPOSÉ", () => {
+    // Le piège qui rendait la correction fausse à un caractère près. L'origine
+    // d'un forwarder n'a pas de port explicite (443 implicite) : substituer
+    // seulement le nom rend `https://localhost` — le port 443 d'une machine
+    // qui écoute sur 5173, donc rien. Le port réel vient du `status`.
+    const helper = new TemplateHelper(
+      supervisorWith({ origin: "https://mona-5173.app.github.dev" }),
+      "development",
+    );
+    for (const local of ["localhost", "127.0.0.1", "127.0.0.2", "[::1]"]) {
+      const tags = helper.renderTags("studio", undefined, local);
+      expect(tags, local).to.include(
+        `src="https://${local}:5173/@vite/client"`,
+      );
+      // La preuve NÉGATIVE : sans le port, l'URL serait `https://localhost/`.
+      expect(tags, local).to.not.include(`https://${local}/`);
+      expect(tags, local).to.not.include("app.github.dev");
+    }
+  });
+
+  it("origine de PLATEFORME + client distant : l'origine publique est gardée", () => {
+    // Le pendant du test précédent — sans lui, on ne saurait pas si la
+    // recomposition discrimine ou si elle s'applique à tout le monde, ce qui
+    // casserait le cas d'usage NORMAL d'un Codespace (navigateur humain sur
+    // l'URL publique). Le rendu suit ici la politique du service, qui ne
+    // transmet pas d'hôte non dérivable : `renderTags` sans hôte.
+    const helper = new TemplateHelper(
+      supervisorWith({ origin: "https://mona-5173.app.github.dev" }),
+      "development",
+    );
+    const tags = helper.renderTags("studio");
+    expect(tags).to.include(
+      'src="https://mona-5173.app.github.dev/@vite/client"',
+    );
+    expect(tags).to.not.include("localhost");
+    expect(tags).to.not.include("app.github.dev:5173");
+  });
+
   it("un Host inexploitable laisse l'origine du superviseur (jamais d'URL bancale)", () => {
     const helper = new TemplateHelper(
       supervisorWith({ origin: "https://127.0.0.1:5173" }),

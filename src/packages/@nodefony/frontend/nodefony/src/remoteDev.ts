@@ -26,6 +26,14 @@
 export const PORT_PLACEHOLDER = "{port}";
 
 /**
+ * `127.0.0.0/8` avec des octets BORNÉS (0-255). Pas de quantificateur imbriqué
+ * ni d'alternance qui se chevauche : linéaire sur toute entrée, y compris
+ * forgée (le `Host` est une donnée cliente).
+ */
+const LOOPBACK_V4_RE =
+  /^127\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+
+/**
  * Template d'origine publique : `scheme://hostTemplate[:portTemplate]`, sans
  * chemin. `{port}` peut apparaître dans l'hôte (Codespaces/Gitpod : port encodé
  * dans le sous-domaine) OU en position de port (`host:{port}`).
@@ -69,6 +77,41 @@ export function browserReachableHost(listenHost: string): string {
     listenHost === ""
     ? "127.0.0.1"
     : listenHost;
+}
+
+/**
+ * Le client est-il arrivé par la BOUCLE LOCALE de la machine qui sert ?
+ *
+ * Ce n'est pas une commodité : c'est un fait vérifiable qui prime sur toute
+ * déduction faite au démarrage. Une plateforme de dev déporté se détecte par
+ * une variable d'environnement — donc UNE FOIS, au lancement du serveur — alors
+ * qu'un même serveur reçoit simultanément des clients arrivés par des chemins
+ * différents : l'origine publique de la plateforme, et un tunnel local (VS Code
+ * Desktop redirige les ports d'un Codespace sur `localhost`, c'est sa
+ * configuration par défaut).
+ *
+ * Servir l'origine publique à un client venu du tunnel a un coût réel : cette
+ * origine exige la session de la plateforme. Un navigateur humain la porte et
+ * ne voit rien ; une intégration continue, une sonde ou un agent ne l'ont pas,
+ * se font refuser, et obtiennent une page blanche que rien n'explique.
+ *
+ * La liste est FERMÉE, et c'est ce qui la rend sûre : le `Host` est une donnée
+ * cliente, et seuls ces noms désignent la machine locale de façon non
+ * ambiguë. `0.0.0.0`/`::` en sont exclus — ce sont des adresses d'écoute, pas
+ * des destinations (cf `browserReachableHost`).
+ *
+ * @param hostname - nom d'hôte NU, sans port (`[::1]` pour l'IPv6 canonique).
+ * @returns `true` si ce nom désigne la boucle locale.
+ */
+export function isLoopbackHostname(hostname: string): boolean {
+  if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") {
+    return true;
+  }
+  // Tout le /8 est de la boucle locale (RFC 1122 § 3.2.1.3), pas seulement
+  // `127.0.0.1` : un forwarder peut très bien présenter `127.0.0.2`. Les
+  // octets sont BORNÉS — `127.999.1.1` n'est pas une adresse, et un test
+  // d'autorisation ne doit rien accepter qui n'en soit pas une.
+  return LOOPBACK_V4_RE.test(hostname);
 }
 
 /** Un template d'origine est-il syntaxiquement valide ? (autorité unique) */

@@ -145,8 +145,14 @@ export const frontendConfigSchema = z
           "Vide (défaut, RECOMMANDÉ) = chaque page annonce l'origine par " +
           "laquelle le client est arrivé (`Host` de la requête, scheme et port " +
           "de Vite) : un poste et un navigateur en conteneur sont servis EN " +
-          "MÊME TEMPS par la même instance, sans configuration — et " +
-          "Codespaces/Gitpod restent détectés automatiquement. " +
+          "MÊME TEMPS par la même instance, sans configuration. " +
+          "Codespaces/Gitpod sont détectés automatiquement et fournissent " +
+          "alors l'origine par défaut — MAIS un client arrivé par la boucle " +
+          "locale (tunnel de port : VS Code Desktop le fait par défaut) reste " +
+          "servi en local, parce que l'origine publique d'une plateforme exige " +
+          "sa session, qu'une intégration continue ou une sonde n'a pas. " +
+          "Une origine écrite ICI, en revanche, gagne sur tout — c'est un " +
+          "réglage, pas une déduction. " +
           "L'hôte d'une origine épinglée est automatiquement autorisé par Vite " +
           "(`server.allowedHosts`) ; les hôtes suivis par la dérivation sont " +
           "ceux de `trustedHosts` de @nodefony/http (une seule liste à " +

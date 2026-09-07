@@ -40,6 +40,7 @@ import {
   allowedHostPatternForTemplate,
   viteAllowedHostFromPattern,
   isValidOriginTemplate,
+  isLoopbackHostname,
   PORT_PLACEHOLDER,
 } from "../src/remoteDev";
 
@@ -91,12 +92,23 @@ class FrontendService extends Service implements IFrontendService {
   /** Helper prod unique (lit les manifests) — `null` tant qu'on n'est pas en prod. */
   private prodHelper: TemplateHelper | null = null;
   /**
-   * L'origine publique est-elle ÉPINGLÉE par une décision explicite
-   * (`frontend.publicOrigin` en config, ou plateforme de dev déporté détectée) ?
-   * `true` → la dérivation par `Host` est désactivée : un réglage voulu gagne
-   * toujours sur une déduction (cf ordre de priorité, README du module).
+   * QUI a épinglé l'origine publique — la question n'est pas « est-elle
+   * épinglée » mais « par quoi », car les deux sources n'ont pas la même
+   * autorité :
+   *
+   *  - `"config"` — `frontend.publicOrigin` : une décision ÉCRITE par l'auteur.
+   *    Elle gagne sur tout, y compris sur le `Host` reçu : c'est le sens même
+   *    d'un réglage explicite, et le seul moyen de servir derrière un frontal
+   *    qui réécrit l'origine.
+   *  - `"platform"` — Codespaces/Gitpod déduits de l'environnement : une
+   *    DÉDUCTION, faite une fois au démarrage, sur une machine qui reçoit
+   *    simultanément des clients arrivés par des chemins différents. Elle ne
+   *    peut donc pas prévaloir sur un fait constaté à la requête — un client
+   *    venu de la boucle locale se sert en local (cf `derivableHost`).
+   *  - `null` — rien d'épinglé : chaque page annonce l'origine par laquelle son
+   *    client est arrivé.
    */
-  private originPinned = false;
+  private originPinnedBy: "config" | "platform" | null = null;
   /**
    * Ports que l'instance Vite de chaque famille PEUT prendre pour ce démarrage
    * (bloc de la famille, port-retry compris) — `null` tant que `startDev` n'a
@@ -331,11 +343,14 @@ class FrontendService extends Service implements IFrontendService {
     // P14.17 — origine PUBLIQUE : config explicite, sinon détection de la
     // plateforme de dev déporté (Codespaces/Gitpod), sinon dérivation locale
     // dans le superviseur. Toujours ANNONCÉ (jamais d'adaptation silencieuse).
-    const publicOriginTemplate = this.resolvePublicOriginTemplate();
-    // Une origine explicite (config/plateforme) ÉPINGLE le rendu : plus de
-    // dérivation par `Host`. Sans elle, chaque page annonce ses assets sur
-    // l'hôte par lequel le client est arrivé (poste ET conteneur servis).
-    this.originPinned = publicOriginTemplate !== undefined;
+    const pinned = this.resolvePublicOrigin();
+    const publicOriginTemplate = pinned?.template;
+    // Une origine explicite ÉPINGLE le rendu, mais on retient PAR QUOI : une
+    // config écrite gagne sur tout, une plateforme déduite cède devant un
+    // client venu de la boucle locale (cf `originPinnedBy`, `derivableHost`).
+    // Sans épinglage, chaque page annonce ses assets sur l'hôte par lequel son
+    // client est arrivé (poste ET conteneur servis en même temps).
+    this.originPinnedBy = pinned?.source ?? null;
     const allowedHosts = this.viteAllowedHosts(publicOriginTemplate);
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
@@ -487,14 +502,25 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   /**
-   * Template d'origine publique Vite (P14.17). Priorité : `frontend.publicOrigin`
-   * (config, validée — invalide = ERROR + ignorée, jamais un boot cassé) puis
-   * détection de plateforme (Codespaces/Gitpod — variables documentées de la
-   * plateforme, qu'on lit sans les posséder). `undefined` = dérivation locale.
+   * Template d'origine publique Vite (P14.17), AVEC sa provenance. Priorité :
+   * `frontend.publicOrigin` (config, validée — invalide = ERROR + ignorée,
+   * jamais un boot cassé) puis détection de plateforme (Codespaces/Gitpod —
+   * variables documentées de la plateforme, qu'on lit sans les posséder).
+   * `null` = dérivation locale.
+   *
+   * La provenance est rendue avec le template parce qu'elle CHANGE la suite :
+   * une config écrite est un ordre, une plateforme déduite est une supposition
+   * qui cède devant le `Host` reçu quand celui-ci désigne la boucle locale
+   * (cf `originPinnedBy`). Les confondre servait l'origine publique à un client
+   * venu d'un tunnel local, qui n'a pas la session de la plateforme.
+   *
    * Chaque adaptation est JOURNALISÉE : on doit pouvoir lire dans le boot
    * pourquoi les `<script>` pointent où ils pointent.
    */
-  private resolvePublicOriginTemplate(): string | undefined {
+  private resolvePublicOrigin(): {
+    template: string;
+    source: "config" | "platform";
+  } | null {
     const cfgOrigin = this.cfg.publicOrigin;
     if (cfgOrigin) {
       if (!isValidOriginTemplate(cfgOrigin)) {
@@ -503,21 +529,22 @@ class FrontendService extends Service implements IFrontendService {
             `scheme://host[:port|:{port}] sans chemin ; origine locale utilisée`,
           "ERROR",
         );
-        return undefined;
+        return null;
       }
       this.log(`origine publique Vite (config) : ${cfgOrigin}`, "INFO");
-      return cfgOrigin;
+      return { template: cfgOrigin, source: "config" };
     }
     const detected = detectRemoteDev(process.env);
     if (detected) {
       this.log(
         `dev déporté détecté (${detected.provider}) — origine publique Vite : ` +
-          detected.originTemplate,
+          `${detected.originTemplate} (un client arrivé par la boucle locale ` +
+          `reste servi en local)`,
         "INFO",
       );
-      return detected.originTemplate;
+      return { template: detected.originTemplate, source: "platform" };
     }
-    return undefined;
+    return null;
   }
 
   /**
@@ -927,7 +954,21 @@ class FrontendService extends Service implements IFrontendService {
    *   résolue au démarrage (comportement d'avant la dérivation).
    */
   private derivableHost(requestHost?: string): string | undefined {
-    if (!requestHost || this.originPinned) return undefined;
+    if (!requestHost) return undefined;
+    // Une config écrite est un ORDRE : elle gagne même sur la boucle locale,
+    // sinon un frontal qui réécrit l'origine cesserait d'être servi dès qu'on
+    // ouvre la page depuis la machine elle-même.
+    if (this.originPinnedBy === "config") return undefined;
+    // Une plateforme DÉDUITE, elle, cède devant un fait constaté : le client
+    // est arrivé par la boucle locale, donc il se sert en local. Lui renvoyer
+    // l'origine publique de la plateforme exigerait une session qu'un client
+    // non humain n'a pas (intégration continue, sonde, agent) — page blanche.
+    if (
+      this.originPinnedBy === "platform" &&
+      !isLoopbackHostname(requestHost)
+    ) {
+      return undefined;
+    }
     const httpKernel = this.container?.get?.("HttpKernel") as
       | {
           trustedHosts?: unknown;

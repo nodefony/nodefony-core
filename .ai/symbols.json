@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 818,
-    "symbols": 3939,
+    "symbols": 3940,
     "classes": 388,
     "interfaces": 1069,
     "types": 446,
     "enums": 4,
-    "functions": 1641,
+    "functions": 1642,
     "constants": 391
   },
   "symbols": {
@@ -16454,6 +16454,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Hôte utilisable par un NAVIGATEUR pour une adresse d'écoute donnée. `0.0.0.0`/`::` sont des adresses d'ÉCOUTE (toutes interfaces), pas des destinations : dérivées telles quelles dans une URL, elles…"
+    },
+    "isLoopbackHostname": {
+      "name": "isLoopbackHostname",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Le client est-il arrivé par la BOUCLE LOCALE de la machine qui sert ? Ce n'est pas une commodité : c'est un fait vérifiable qui prime sur toute déduction faite au démarrage. Une plateforme de dev d…"
     },
     "isValidOriginTemplate": {
       "name": "isValidOriginTemplate",
@@ -34361,6 +34369,10 @@
       ],
       "isValidOriginTemplate": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "isLoopbackHostname": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
       ],
       "PORT_PLACEHOLDER": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
