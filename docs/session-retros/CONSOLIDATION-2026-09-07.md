@@ -2,7 +2,7 @@
 date: 2026-09-07
 retex_couverts: 95 (2026-08-24 → 2026-09-07)
 sas_avant: 2902 lignes · 41 thèmes · ~475 frictions
-sas_apres: 1346 lignes
+sas_apres: 527 lignes · 17 thèmes vivants · 31 frictions · 0 au-dessus du seuil
 ---
 
 # Consolidation retex — 2026-09-07 — les 95 retex depuis le 24 août
@@ -43,13 +43,31 @@ leçon est dans le sas **ou** dans une mémoire, jamais dans les deux.
 - **`feedback_anchor_expires_silently`** — ligne, nom, **chiffre**, renvoi et preuve se périment
   sans rien dire ; une ancre plausible et fausse a l'air d'une preuve.
 
-## Ce qui reste dans le sas — 10 thèmes encore au-dessus du seuil
+## Seconde passe — les 15 thèmes restants, gradués aussi
 
-`🚪 porte` et `🪤 garde` étant sortis, restent notamment : **la doc qui affirme une automatisation
-inexistante (14)**, **un identifiant dans la mauvaise langue (14)**, **un test qui ne parle jamais
-au serveur (13)**, **mon propre `--dry-run` mentait (12)**, **une garde ne couvre jamais une autre
-question (10)**. Les graduer demande le même travail : lire le thème, trouver sa maison, verser,
-couper. À faire au prochain CONSOLIDATE — ou dès que l'un d'eux mord de nouveau.
+Le sas est **vidé de tout ce qui était mûr** : de 2902 lignes il passe à **527**, 31 frictions
+vivantes réparties sur 17 thèmes, et `npm run retex:seuil` rend « aucun thème au-dessus du seuil ».
+
+**Une seule mémoire neuve sur les quinze** — c'est le résultat le plus utile de la passe :
+
+| Thème (frictions)                                                                               | Destination                                            |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 🪟 un message d'erreur qui n'énonce QU'UNE cause (9)                                            | **`feedback_error_message_names_all_causes`** ⭐ neuve |
+| 🧭 identifiant dans la mauvaise langue — le RENOMMAGE (14)                                      | `feedback_code_rewrite_mechanical_traps`               |
+| 🧭 la doc affirme une automatisation inexistante (14) + 🚧 exiger sans regarder qui produit (7) | `feedback_capability_unreachable_is_absent`            |
+| 🧪 un test qui ne parle jamais au serveur (13) + 🏭 produit ≠ config (9)                        | `feedback_prove_on_received_artifact`                  |
+| 🎭 mon propre `--dry-run` mentait (12)                                                          | `feedback_suspect_instrument_and_own_diff`             |
+| 🧭 une garde ne couvre jamais une autre question (10)                                           | `feedback_prove_the_target_not_the_verdict`            |
+| 🎯 un port qui répond ne dit pas à qui (9) + 🎪 décor partagé (9)                               | `feedback_stale_decor_poisons_verdicts`                |
+| 🤝 un sous-agent renonce quand chercher devient pénible (9)                                     | `feedback_delegation_balance`                          |
+| 📖 une doc qui enseigne un geste dangereux (9)                                                  | `feedback_agent_example_over_prose`                    |
+| 🤖 un agent lit l'interdit et le transgresse (6)                                                | `feedback_destructive_needs_identity_scope`            |
+| 🔇 ce qu'on coupe pour mesurer (6)                                                              | `feedback_shell_false_diagnostics`                     |
+| ⏳ un symptôme qui ressemble à un délai (5)                                                     | `feedback_test_no_fixed_delay`                         |
+
+**Total des deux passes : 22 thèmes gradués, ~512 frictions, 4 mémoires neuves.** Dix-huit
+versements sur vingt-deux ont trouvé une maison existante — la leçon du CONSOLIDATE du 24 août
+(« ne pas ouvrir un thème neuf par réflexe ») se vérifie à 82 %.
 
 ## Plan d'action
 
@@ -70,8 +88,8 @@ couper. À faire au prochain CONSOLIDATE — ou dès que l'un d'eux mord de nouv
 
 ## Ce que cette consolidation n'a pas fait
 
-- Les **10 thèmes restants au-dessus du seuil** ne sont pas gradués (rendement décroissant sur une
-  seule passe ; le sas est repassé sous la barre du lisible, ce qui était l'urgence).
+- **Rien ne reste au-dessus du seuil** — les 15 thèmes annoncés en attente à la première passe ont
+  été gradués dans la seconde, à la demande du mainteneur.
 - Les **frictions obsolètes** (corrigées depuis dans le code ou un skill) n'ont pas été balayées :
   le nettoyage du §4 du mode CONSOLIDATE reste à faire.
 - Aucune **statistique de coût** (tool_use, €) — `references/consolidate-toolkit.md` non déroulé,
