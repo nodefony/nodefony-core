@@ -480,8 +480,26 @@ jobs:
       - name: Republier le site — la documentation suit la version sortie
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          # 🔴 LE SITE SE BÂTIT DEPUIS `main` — DONC `main` DOIT PORTER CE TAG.
+          # Sans ce contrôle, une republication lancée avant d'avoir avancé
+          # `main` remettrait en ligne la documentation PRÉCÉDENTE, et le run
+          # dirait « success » : un site périmé ne se voit pas. C'est le pire
+          # des verdicts — vert pour la mauvaise raison.
+          # `compare/main...<tag>` rend `behind` ou `identical` quand `main`
+          # contient le tag, `ahead` ou `diverged` sinon.
+          etat=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${VERSION}" --jq .status)
+          echo "main vs ${VERSION} : ${etat}"
+          case "$etat" in
+            behind|identical) ;;
+            *)
+              echo "::error::« main » ne porte pas ${VERSION} (${etat}) — le site publierait la version PRÉCÉDENTE."
+              echo "::error::Avancer « main » sur la branche de release, puis : gh workflow run pages.yml --ref main"
+              exit 1
+              ;;
+          esac
           gh workflow run pages.yml --ref main
           echo "site : republication demandée depuis main"
 
