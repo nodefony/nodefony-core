@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/realtime",
-  "version": "10.0.0-alpha.2",
+  "version": "10.0.0-alpha.3",
   "description": "Couche temps réel serveur de Nodefony : canaux, appels bidirectionnels JSON-RPC 2.0, contre-pression, et diffusion entre plusieurs instances (boucle locale, IPC de grappe, Redis)",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
@@ -40,18 +40,18 @@
     "esm"
   ],
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.2",
-    "@nodefony/http": "^10.0.0-alpha.2",
-    "nodefony": "^10.0.0-alpha.2",
+    "@nodefony/framework": "^10.0.0-alpha.3",
+    "@nodefony/http": "^10.0.0-alpha.3",
+    "nodefony": "^10.0.0-alpha.3",
     "reflect-metadata": "0.2.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.2",
-    "@nodefony/http": "^10.0.0-alpha.2",
+    "@nodefony/framework": "^10.0.0-alpha.3",
+    "@nodefony/http": "^10.0.0-alpha.3",
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "5.0.0",
-    "nodefony": "^10.0.0-alpha.2",
+    "nodefony": "^10.0.0-alpha.3",
     "reflect-metadata": "0.2.2",
     "rimraf": "6.1.3",
     "vitest": "5.0.0"

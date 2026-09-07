@@ -8,6 +8,30 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.3 - 2026-09-07
+
+### Changed
+
+- **security (breaking):** `OAuth2Client.createAuthorizationURL` et `validateAuthorizationCode` prennent un objet de requête au lieu d'arguments positionnels, et `clientAuthMethod` devient requise à la construction (a3d86639)
+- **security:** refuser au démarrage une clé du protocole OAuth placée dans `additionalParameters`, plutôt que l'émettre telle quelle (a3d86639)
+
+### Added
+
+- **cli:** afficher le diagnostic de l'application à la fin de sa génération (c6bcf875)
+- **security:** découvrir les points d'entrée d'un serveur d'autorisation par ses métadonnées publiées, RFC 8414 — `discoverAuthorizationServer` (740c6d19)
+
+### Removed
+
+- **security:** la dépendance `arctic` — la face cliente d'OAuth 2.0 est désormais écrite dans le framework (740c6d19)
+
+### Fixed
+
+- **cli:** générer une application sans exiger que sa base de données réponde (cf9b5ad4)
+- **orm:** rendre la main au bout de dix secondes quand un serveur de base accepte la connexion sans jamais répondre (3735307a)
+- **orm:** construire l'ORM même sans connexion, et nommer dans l'erreur ce qui occupe le port (0d9ff149)
+- **cli:** cesser de lire les commentaires comme du code dans le diagnostic, et y reconnaître les entités écrites par le générateur (a2677bd2)
+- **scaffold:** écrire en anglais les tests générés, qui ne font plus crier le linter (2e3c1ca1)
+
 ## 10.0.0-alpha.2 - 2026-09-07
 
 Cette préversion corrige l'installation de l'alpha.1 : un paquet scopé pris seul y

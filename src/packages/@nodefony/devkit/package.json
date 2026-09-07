@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/devkit",
-  "version": "10.0.0-alpha.2",
+  "version": "10.0.0-alpha.3",
   "type": "module",
   "description": "Outillage de développement d'une application Nodefony : carte de visite du projet et portes de découverte pour un agent de développement",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
@@ -25,17 +25,17 @@
     "coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.2",
-    "@nodefony/http": "^10.0.0-alpha.2",
-    "nodefony": "^10.0.0-alpha.2",
+    "@nodefony/framework": "^10.0.0-alpha.3",
+    "@nodefony/http": "^10.0.0-alpha.3",
+    "nodefony": "^10.0.0-alpha.3",
     "zod": "^4.4.3",
     "playwright": "^1.50.0",
     "lighthouse": "^13.0.0"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.2",
-    "@nodefony/http": "^10.0.0-alpha.2",
-    "nodefony": "^10.0.0-alpha.2"
+    "@nodefony/framework": "^10.0.0-alpha.3",
+    "@nodefony/http": "^10.0.0-alpha.3",
+    "nodefony": "^10.0.0-alpha.3"
   },
   "dependencies": {
     "axe-core": "4.13.0",
