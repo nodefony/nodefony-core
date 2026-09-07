@@ -1,4 +1,5 @@
 import type { IOAuthProvider } from "../../contracts/IOAuthProvider";
+import type { OAuth2ClientAuthMethod } from "./oauth2Client";
 import { createDiscoveredOidcProvider } from "./providers/oidc";
 import { createGithubProvider } from "./providers/github";
 
@@ -26,6 +27,17 @@ export interface IOAuthProviderContext {
   readonly clientId: string;
   /** Secret client (config) — jamais loggé ; vide pour un client public. */
   readonly clientSecret: string;
+  /**
+   * Comment le client s'authentifie au point de jeton, quand l'application le
+   * DÉCLARE ; `undefined` laisse le fournisseur poser son défaut.
+   *
+   * Elle remonte jusqu'ici parce qu'elle appartient au serveur d'autorisation,
+   * pas au code du fournisseur : un même Keycloak peut exiger `client_secret_post`
+   * là où un autre veut Basic, et ils l'annoncent dans leurs métadonnées. Sans ce
+   * champ, la forme serait ouverte dans le client et INATTEIGNABLE depuis une
+   * application — donc absente.
+   */
+  readonly clientAuthMethod?: OAuth2ClientAuthMethod;
   /** URL de callback exacte (RFC 9700). */
   readonly redirectUri: string;
   /**

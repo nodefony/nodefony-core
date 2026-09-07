@@ -197,8 +197,13 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
 - **OAuth2 social login (J9)** — `OAuth2Service` (service "oauth2") : flux Authorization Code **BFF**,
   **ZÉRO dépendance tierce**. Client interne `OAuth2Client` (`src/oauth/oauth2Client.ts`) : `generateState`
   / `generateCodeVerifier` (32 o base64url = 43 car., RFC 7636 §4.1), `createCodeChallenge` S256,
-  `createAuthorizationURL`, `validateAuthorizationCode` (POST form, Basic RFC 6749 §2.3.1 percent-encodé
-  AVANT base64 ; secret vide ⇒ client public, `client_id` dans le corps ; `Accept: application/json` sinon
+  `createAuthorizationURL(IAuthorizationRequest)`, `validateAuthorizationCode(ITokenRequest)` — les deux
+  prennent un OBJET, et `additionalParameters` y verse ce qui n'est pas encore livré (`resource` RFC 8707,
+  `nonce`) sans rupture ; une clé du protocole y est REFUSÉE en la nommant. `clientAuthMethod` REQUIS
+  (`client_secret_basic` | `client_secret_post` | `none`) — plus de déduction sur la vacuité du secret.
+  (POST form, Basic RFC 6749 §2.3.1 percent-encodé
+  AVANT base64 ; `none` ⇒ `client_id` seul dans le corps, `client_secret_post` ⇒ les deux ;
+  `Accept: application/json` sinon
   GitHub répond en form-urlencoded ; refus lu sur le champ `error` MÊME en HTTP 200 — cas GitHub).
   `OAuth2Tokens` = enveloppe, un champ absent LÈVE en le nommant. Corps JSON lu BORNÉ **pendant** le flux
   (`readJsonObjectBounded`, `src/oauth/httpJson.ts`) — une borne posée après `text()` ne protège rien ;

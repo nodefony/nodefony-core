@@ -10,6 +10,7 @@ import {
   listOAuthProviders,
 } from "../../nodefony/src/oauth/oauthProviderRegistry";
 import { OAuth2Tokens } from "../../nodefony/src/oauth/oauth2Client";
+import type { IOidcPkceClient } from "../../nodefony/src/oauth/providers/oidc";
 
 /**
  * Fournisseurs OAuth + registre. Le helper OIDC générique (Google/Keycloak/…)
@@ -41,16 +42,12 @@ describe("Registre de fournisseurs OAuth", () => {
 });
 
 describe("createOidcProvider (helper générique OIDC)", () => {
-  const client = {
-    createAuthorizationURL: (
-      state: string,
-      codeVerifier: string,
-      scopes: string[],
-    ) =>
+  const client: IOidcPkceClient = {
+    createAuthorizationURL: ({ state, codeVerifier, scopes }) =>
       new URL(
         `https://idp/auth?state=${state}&cv=${codeVerifier}&scope=${scopes.join("+")}`,
       ),
-    validateAuthorizationCode: (_code: string, _cv: string) =>
+    validateAuthorizationCode: () =>
       Promise.resolve(fakeTokens({ id_token: "jwt" })),
   };
   const CLIENT_ID = "cid";
@@ -81,7 +78,13 @@ describe("createOidcProvider (helper générique OIDC)", () => {
 
   it("PKCE obligatoire : code_verifier null → throw (RFC 7636)", () => {
     const p = make(() => ({ ...claimsBase, sub: "x" }));
-    assert.throws(() => p.createAuthorizationURL("st", null, ["openid"]));
+    assert.throws(() =>
+      p.createAuthorizationURL({
+        state: "st",
+        codeVerifier: null,
+        scopes: ["openid"],
+      }),
+    );
   });
 
   it("fetchProfile mappe les claims OIDC standard", async () => {
@@ -326,14 +329,21 @@ describe("createDiscoveredOidcProvider (fournisseur décrit par son seul émette
       requireIssParameter: false,
     });
 
-    const url = provider.createAuthorizationURL("st", VERIFIER, ["openid"]);
+    const url = provider.createAuthorizationURL({
+      state: "st",
+      codeVerifier: VERIFIER,
+      scopes: ["openid"],
+    });
     assert.equal(url.origin + url.pathname, `${ISSUER}/auth`);
     assert.equal(
       url.searchParams.get("code_challenge"),
       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     );
 
-    const tokens = await provider.validateAuthorizationCode("code", VERIFIER);
+    const tokens = await provider.validateAuthorizationCode({
+      code: "code",
+      codeVerifier: VERIFIER,
+    });
     const profile = await provider.fetchProfile(tokens);
     assert.equal(profile.provider, "google");
     assert.equal(profile.providerId, "g-108");

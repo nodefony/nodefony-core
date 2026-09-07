@@ -1,4 +1,8 @@
-import type { OAuth2Tokens } from "../src/oauth/oauth2Client";
+import type {
+  IAuthorizationRequest,
+  ITokenRequest,
+  OAuth2Tokens,
+} from "../src/oauth/oauth2Client";
 import type { IOAuthProfile } from "@nodefony/user";
 
 /**
@@ -66,21 +70,19 @@ export interface IOAuthProvider {
   /**
    * Construit l'URL d'autorisation (étape 1). `codeVerifier` est non-`null`
    * lorsque {@link usesPkce} ; les fournisseurs sans PKCE l'ignorent.
+   *
+   * @remarks La forme est un OBJET pour que les paramètres normalisés encore
+   * absents — `resource` (RFC 8707), `nonce`, `prompt`… — s'ajoutent plus tard
+   * sans rupture. Ce contrat est EXPORTÉ, donc gelé à la publication : une
+   * signature positionnelle y aurait figé l'impossibilité de les accueillir.
    */
-  createAuthorizationURL(
-    state: string,
-    codeVerifier: string | null,
-    scopes: string[],
-  ): URL;
+  createAuthorizationURL(request: IAuthorizationRequest): URL;
 
   /**
    * Échange le `code` d'autorisation contre des jetons (étape 2, canal serveur).
    * `codeVerifier` doit correspondre à celui de l'étape 1 si {@link usesPkce}.
    */
-  validateAuthorizationCode(
-    code: string,
-    codeVerifier: string | null,
-  ): Promise<OAuth2Tokens>;
+  validateAuthorizationCode(request: ITokenRequest): Promise<OAuth2Tokens>;
 
   /**
    * Récupère et **normalise** le profil de l'utilisateur à partir des jetons.

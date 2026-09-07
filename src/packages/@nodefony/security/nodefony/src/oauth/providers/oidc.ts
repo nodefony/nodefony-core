@@ -2,7 +2,12 @@ import type * as Jose from "jose";
 import type { IOAuthProfile } from "@nodefony/user";
 import type { IOAuthProvider } from "../../../contracts/IOAuthProvider";
 import type { IOAuthProviderContext } from "../oauthProviderRegistry";
-import { OAuth2Client, type OAuth2Tokens } from "../oauth2Client";
+import {
+  OAuth2Client,
+  type IAuthorizationRequest,
+  type ITokenRequest,
+  type OAuth2Tokens,
+} from "../oauth2Client";
 import {
   discoverAuthorizationServer,
   type IDiscoveryOptions,
@@ -14,15 +19,8 @@ import {
  * réseau.
  */
 export interface IOidcPkceClient {
-  createAuthorizationURL(
-    state: string,
-    codeVerifier: string,
-    scopes: string[],
-  ): URL;
-  validateAuthorizationCode(
-    code: string,
-    codeVerifier: string,
-  ): Promise<OAuth2Tokens>;
+  createAuthorizationURL(request: IAuthorizationRequest): URL;
+  validateAuthorizationCode(request: ITokenRequest): Promise<OAuth2Tokens>;
 }
 
 /** Paramètres d'un fournisseur OIDC générique. */
@@ -119,18 +117,19 @@ export function createOidcProvider(opts: IOidcProviderOptions): IOAuthProvider {
       requireIssParameter: opts.issParameterSupported === true,
     },
     defaultScopes: opts.defaultScopes ?? DEFAULT_OIDC_SCOPES,
-    createAuthorizationURL(state, codeVerifier, scopes) {
-      return opts.client.createAuthorizationURL(
-        state,
-        requireVerifier(codeVerifier),
-        scopes,
-      );
+    createAuthorizationURL(request) {
+      // Le supplément traverse tel quel : c'est par lui que `resource`, `nonce`
+      // ou `prompt` atteindront le serveur le jour où on les livrera.
+      return opts.client.createAuthorizationURL({
+        ...request,
+        codeVerifier: requireVerifier(request.codeVerifier),
+      });
     },
-    validateAuthorizationCode(code, codeVerifier) {
-      return opts.client.validateAuthorizationCode(
-        code,
-        requireVerifier(codeVerifier),
-      );
+    validateAuthorizationCode(request) {
+      return opts.client.validateAuthorizationCode({
+        ...request,
+        codeVerifier: requireVerifier(request.codeVerifier),
+      });
     },
     async fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile> {
       const claims = (await opts.decodeIdToken(tokens.idToken())) as Record<
@@ -205,6 +204,11 @@ export async function createDiscoveredOidcProvider(
       tokenEndpoint: metadata.tokenEndpoint,
       clientId: ctx.clientId,
       clientSecret: ctx.clientSecret,
+      // Le défaut de l'OpenID Provider quand il n'annonce rien
+      // (OpenID Connect Discovery §3, `token_endpoint_auth_methods_supported`
+      // vaut `["client_secret_basic"]` par omission). Une application qui sait
+      // que son serveur exige autre chose le déclare dans sa configuration.
+      clientAuthMethod: ctx.clientAuthMethod ?? "client_secret_basic",
       redirectUri: ctx.redirectUri,
       fetch: options.fetch,
       timeoutMs: options.timeoutMs,

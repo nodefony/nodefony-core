@@ -30,7 +30,7 @@ registerOAuthProvider("test-oidc", (): IOAuthProvider => {
     usesPkce: true,
     issuerPolicy: null,
     defaultScopes: ["openid", "email"],
-    createAuthorizationURL: (state, codeVerifier, scopes) =>
+    createAuthorizationURL: ({ state, codeVerifier, scopes }) =>
       new URL(
         `https://test-idp.local/authorize` +
           `?state=${encodeURIComponent(state)}` +

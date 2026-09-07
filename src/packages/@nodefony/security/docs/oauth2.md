@@ -291,7 +291,7 @@ défense :
 1. **anti-mix-up** — si le fournisseur annonce un émetteur attendu, l'`iss` reçu doit correspondre,
    et un `iss` **absent** est un rejet, pas une tolérance (`oauth2.ts:170-174`) ;
 2. **échange** du `code` sur le canal serveur, avec le `code_verifier`
-   (`validateAuthorizationCode`, `oauth2.ts:175`), puis lecture du profil (`fetchProfile`,
+   (`validateAuthorizationCode`, `oauth2.ts:181`), puis lecture du profil (`fetchProfile`,
    `oauth2.ts:176`) ;
 3. **provisionnement** du Shadow User avec la politique effective — rôles par défaut surchargeables
    **par fournisseur** (`oauth2.ts:180-181`), `allowSignup` global (`oauth2.ts:182-185`).
@@ -498,6 +498,7 @@ Par fournisseur (`oauthProviderSchema`, `config.ts:948`) :
 | `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
 | `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:958`). |
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
+| `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
 | `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:124-131`). |
 
@@ -509,7 +510,7 @@ et ses rôles pendant qu'un IdP de production pointe ailleurs.
 ### Les jetons du fournisseur ne sont pas conservés
 
 C'est un choix, et il a des conséquences à connaître. Les jetons obtenus à l'échange vivent dans la
-portée locale de l'échange (`validateAuthorizationCode` puis `fetchProfile`, `oauth2.ts:175-176`) :
+portée locale de l'échange (`validateAuthorizationCode` puis `fetchProfile`, `oauth2.ts:181-182`) :
 ils ne sont ni retournés, ni mis en
 session, ni persistés. Le profil normalisé qui traverse le système n'en contient aucun
 (`IOAuthUserProvisioner.ts:8-10`).
@@ -553,10 +554,10 @@ ou détruire les sessions), pas chez le fournisseur.
 
 | Domaine                           | Norme                    | Ancrage                                                               |
 | --------------------------------- | ------------------------ | --------------------------------------------------------------------- |
-| Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:80`) |
-| PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:26`) · `oidc.ts:104-111`               |
+| Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:85`) |
+| PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:58`) · `oidc.ts:104-111`               |
 | Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:56`) · `oauth2Schema` (`config.ts:1001`)  |
-| Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:61`) · `oauth2.ts:175-183`         |
+| Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:61`) · `oauth2.ts:170-181`         |
 | Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:958`)                                       |
 | Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                   |
 | ID token consommé en code flow    | OIDC Core §3.1.3.7       | `assertIdTokenClaims()` (`oidc.ts:132`)                               |
@@ -593,7 +594,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:958`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
 | Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)             | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
 | Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:126-129`)              | Refaire le flux depuis `authorize` — comportement attendu           |
-| `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:175-183`)                         | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
+| `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:170-181`)                         | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
 | Keycloak : erreur dès le premier login            | `issuer` absent en config (`oauthProviderRegistry.ts:89-93`)                  | Renseigner l'URL du realm                                           |
 | « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:224-231`)                  | Implémenter `provisionOAuthUser()` sur le service `users`           |
 | Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:363`)             | Activer `allowSignup` ou lier le compte au préalable                |

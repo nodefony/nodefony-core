@@ -58,17 +58,26 @@ export function createGithubProvider(
     tokenEndpoint: TOKEN_ENDPOINT,
     clientId: ctx.clientId,
     clientSecret: ctx.clientSecret,
+    // GitHub accepte Basic et le corps ; Basic est ce que la RFC 6749 §2.3.1
+    // demande de préférer, et c'est ce que ce fournisseur faisait déjà — le
+    // défaut est écrit, il n'est plus déduit d'une longueur de chaîne.
+    clientAuthMethod: ctx.clientAuthMethod ?? "client_secret_basic",
     redirectUri: ctx.redirectUri,
   });
   return {
     usesPkce: false,
     issuerPolicy: null,
     defaultScopes: DEFAULT_SCOPES,
-    createAuthorizationURL(state, _codeVerifier, scopes) {
-      return client.createAuthorizationURL(state, null, scopes);
+    createAuthorizationURL(request) {
+      // GitHub ne veut pas de PKCE : le secret de l'appelant est écarté ici, et
+      // nulle part ailleurs — le reste de la demande passe intact.
+      return client.createAuthorizationURL({ ...request, codeVerifier: null });
     },
-    validateAuthorizationCode(code, _codeVerifier) {
-      return client.validateAuthorizationCode(code, null);
+    validateAuthorizationCode(request) {
+      return client.validateAuthorizationCode({
+        ...request,
+        codeVerifier: null,
+      });
     },
     async fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile> {
       const accessToken = tokens.accessToken();

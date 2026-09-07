@@ -173,6 +173,114 @@ export class OAuth2Tokens {
   }
 }
 
+/**
+ * Comment le client s'authentifie au point de jeton (RFC 6749 §2.3, et le
+ * registre `token_endpoint_auth_method` d'OpenID Connect Discovery).
+ *
+ * 🔴 Elle se DÉCLARE, elle ne se déduit plus de la vacuité du secret. La
+ * convention implicite « secret non vide ⇒ Basic » avait deux défauts : elle ne
+ * pouvait pas exprimer `client_secret_post`, que certains serveurs exigent et
+ * annoncent dans leurs métadonnées (`token_endpoint_auth_methods_supported`,
+ * déjà découvert et lu par personne) ; et elle rendait un client public
+ * indiscernable d'un client dont le secret manque par erreur — deux situations
+ * qu'un serveur traite très différemment.
+ *
+ * L'union est ouverte par le bas : `private_key_jwt` (qu'Apple réclame)
+ * s'ajoutera ici sans toucher à la forme des appels.
+ */
+export type OAuth2ClientAuthMethod =
+  "client_secret_basic" | "client_secret_post" | "none";
+
+/**
+ * Les paramètres que le protocole POSE lui-même, et qu'un appelant ne peut donc
+ * pas fournir en supplément.
+ *
+ * Sans cette garde, `additionalParameters` deviendrait une porte pour réécrire
+ * `client_id` ou `redirect_uri` — c'est-à-dire pour faire émettre par ce client
+ * une requête qui ne le désigne plus. Le refus est explicite et nomme la clé :
+ * un paramètre silencieusement ignoré serait pire, l'appelant croirait l'avoir
+ * envoyé.
+ */
+const RESERVED_PARAMETERS = new Set([
+  "response_type",
+  "client_id",
+  "client_secret",
+  "redirect_uri",
+  "state",
+  "scope",
+  "code",
+  "code_verifier",
+  "code_challenge",
+  "code_challenge_method",
+  "grant_type",
+]);
+
+/**
+ * Verse des paramètres supplémentaires sans jamais recouvrir ceux du protocole.
+ *
+ * @param target - la collection en construction (requête ou corps).
+ * @param extra - ce que l'appelant ajoute, tel quel.
+ * @throws Error - une clé réservée au protocole a été fournie.
+ */
+function applyAdditionalParameters(
+  target: URLSearchParams,
+  extra: Readonly<Record<string, string>> | undefined,
+): void {
+  if (extra === undefined) return;
+  for (const [key, value] of Object.entries(extra)) {
+    if (RESERVED_PARAMETERS.has(key)) {
+      throw new Error(
+        `Paramètre « ${key} » réservé au protocole : il est posé par le client, ` +
+          `pas par l'appelant.`,
+      );
+    }
+    target.set(key, value);
+  }
+}
+
+/**
+ * Étape 1 — ce qu'on demande au point d'autorisation.
+ *
+ * La forme est un OBJET, et c'est tout l'enjeu : les paramètres normalisés qui
+ * manquent encore — `resource` (RFC 8707, exigé par le Model Context Protocol),
+ * `nonce`, `prompt`, `max_age`, `login_hint`, `access_type` — s'ajouteront en
+ * champs nommés sans toucher à un seul appelant. Une signature positionnelle
+ * aurait figé cette impossibilité à la publication de la 10.0.0.
+ */
+export interface IAuthorizationRequest {
+  /** Valeur anti-CSRF à retrouver au retour (RFC 6749 §10.12). */
+  readonly state: string;
+  /** Secret PKCE (RFC 7636), ou `null` pour un fournisseur qui n'en veut pas. */
+  readonly codeVerifier: string | null;
+  /** Portées demandées ; aucune n'est ajoutée d'office. */
+  readonly scopes: readonly string[];
+  /**
+   * Paramètres versés TELS QUELS dans la requête d'autorisation.
+   *
+   * Un champ dédié plutôt qu'une signature d'index sur tout l'objet : celle-ci
+   * accepterait `stat` pour `state` sans rien dire. Ici, ce qui est nommé est
+   * vérifié par le compilateur, et ce qui passe en supplément est déclaré comme
+   * tel.
+   */
+  readonly additionalParameters?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Étape 2 — ce qu'on présente au point de jeton.
+ *
+ * Même raison d'être qu'{@link IAuthorizationRequest} : `resource` doit être
+ * répété ici (RFC 8707 §2.2), et rien ne pouvait s'ajouter à une signature
+ * positionnelle.
+ */
+export interface ITokenRequest {
+  /** Code reçu sur l'URL de redirection (RFC 6749 §4.1.2). */
+  readonly code: string;
+  /** Secret PKCE de l'étape 1, ou `null`. */
+  readonly codeVerifier: string | null;
+  /** Paramètres versés TELS QUELS dans le corps de la requête de jeton. */
+  readonly additionalParameters?: Readonly<Record<string, string>>;
+}
+
 /** Points d'entrée d'un serveur d'autorisation et identité du client. */
 export interface IOAuth2ClientOptions {
   /** Point d'autorisation (RFC 6749 §3.1) — où l'utilisateur est redirigé. */
@@ -181,8 +289,16 @@ export interface IOAuth2ClientOptions {
   readonly tokenEndpoint: string;
   /** Identifiant client délivré par le fournisseur. */
   readonly clientId: string;
-  /** Secret client — vide pour un client public, qui s'authentifie alors par son seul `client_id`. */
+  /** Secret client — vide, et seulement vide, quand {@link clientAuthMethod} vaut `"none"`. */
   readonly clientSecret: string;
+  /**
+   * Comment ce client s'authentifie au point de jeton.
+   *
+   * REQUIS, et volontairement : c'est ce qui remplace la convention implicite
+   * « secret non vide ⇒ Basic ». Un fournisseur doit dire ce qu'il fait, pas le
+   * laisser déduire d'une longueur de chaîne.
+   */
+  readonly clientAuthMethod: OAuth2ClientAuthMethod;
   /** URL de redirection exacte, telle qu'enregistrée chez le fournisseur (RFC 9700 §4.1). */
   readonly redirectUri: string;
   /**
@@ -213,26 +329,29 @@ export class OAuth2Client {
    * Construit l'URL d'autorisation (RFC 6749 §4.1.1). Le `code_challenge` S256 est
    * ajouté dès qu'un `codeVerifier` est fourni.
    *
-   * @param state - valeur anti-CSRF à retrouver au retour.
-   * @param codeVerifier - secret PKCE, ou `null` pour un fournisseur sans PKCE.
-   * @param scopes - portées demandées ; aucune n'est ajoutée d'office.
+   * @param request - ce qu'on demande au point d'autorisation.
+   * @returns l'URL vers laquelle rediriger l'utilisateur.
+   * @throws Error - un paramètre supplémentaire empiète sur le protocole.
    */
-  createAuthorizationURL(
-    state: string,
-    codeVerifier: string | null,
-    scopes: string[],
-  ): URL {
+  createAuthorizationURL(request: IAuthorizationRequest): URL {
     const url = new URL(this.#options.authorizationEndpoint);
+    // Les suppléments AVANT les paramètres du protocole : la garde interdit
+    // déjà de recouvrir ceux-ci, et cet ordre rend l'invariant vrai même si un
+    // jour la garde change — ce que le client pose gagne, toujours.
+    applyAdditionalParameters(url.searchParams, request.additionalParameters);
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", this.#options.clientId);
     url.searchParams.set("redirect_uri", this.#options.redirectUri);
-    url.searchParams.set("state", state);
-    if (scopes.length > 0) {
-      url.searchParams.set("scope", scopes.join(" "));
+    url.searchParams.set("state", request.state);
+    if (request.scopes.length > 0) {
+      url.searchParams.set("scope", request.scopes.join(" "));
     }
-    if (codeVerifier !== null) {
+    if (request.codeVerifier !== null) {
       url.searchParams.set("code_challenge_method", "S256");
-      url.searchParams.set("code_challenge", createCodeChallenge(codeVerifier));
+      url.searchParams.set(
+        "code_challenge",
+        createCodeChallenge(request.codeVerifier),
+      );
     }
     return url;
   }
@@ -241,21 +360,21 @@ export class OAuth2Client {
    * Échange le code d'autorisation contre des jetons (RFC 6749 §4.1.3), de serveur
    * à serveur — le secret client ne quitte jamais ce canal.
    *
-   * @param code - code reçu sur l'URL de redirection.
-   * @param codeVerifier - secret PKCE de l'étape 1, ou `null`.
+   * @param request - ce qu'on présente au point de jeton.
    * @throws OAuth2RequestError - le serveur a refusé, en nommant la cause (RFC 6749 §5.2).
-   * @throws Error - réponse inintelligible, hors gabarit ou serveur injoignable.
+   * @throws Error - réponse inintelligible, hors gabarit, serveur injoignable, ou
+   *   paramètre supplémentaire empiétant sur le protocole.
    */
   async validateAuthorizationCode(
-    code: string,
-    codeVerifier: string | null,
+    request: ITokenRequest,
   ): Promise<OAuth2Tokens> {
     const body = new URLSearchParams();
+    applyAdditionalParameters(body, request.additionalParameters);
     body.set("grant_type", "authorization_code");
-    body.set("code", code);
+    body.set("code", request.code);
     body.set("redirect_uri", this.#options.redirectUri);
-    if (codeVerifier !== null) {
-      body.set("code_verifier", codeVerifier);
+    if (request.codeVerifier !== null) {
+      body.set("code_verifier", request.codeVerifier);
     }
     const headers: Record<string, string> = {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -263,13 +382,25 @@ export class OAuth2Client {
       Accept: "application/json",
       "User-Agent": "nodefony",
     };
-    if (this.#options.clientSecret.length > 0) {
-      headers.Authorization = `Basic ${this.#basicCredentials()}`;
-    } else {
-      // Client public : pas d'authentification, l'identité passe dans le corps
-      // (RFC 6749 §4.1.3). Elle ne s'y ajoute PAS quand Basic est employé — un
-      // serveur strict refuse alors les deux voies à la fois.
-      body.set("client_id", this.#options.clientId);
+    // Ce que le fournisseur a DÉCLARÉ, jamais ce qu'on devine de la longueur du
+    // secret. Les trois branches sont exclusives : un serveur strict refuse un
+    // client qui s'authentifie deux fois (RFC 6749 §2.3).
+    switch (this.#options.clientAuthMethod) {
+      case "client_secret_basic":
+        headers.Authorization = `Basic ${this.#basicCredentials()}`;
+        break;
+      case "client_secret_post":
+        // L'identité ET le secret dans le corps (RFC 6749 §2.3.1, second alinéa).
+        // La RFC la déconseille au profit de Basic, mais l'autorise, et des
+        // serveurs l'exigent — ils l'annoncent dans leurs métadonnées.
+        body.set("client_id", this.#options.clientId);
+        body.set("client_secret", this.#options.clientSecret);
+        break;
+      case "none":
+        // Client public : aucune authentification, l'identité seule (RFC 6749
+        // §4.1.3, et RFC 9700 §2.1 pour un client public sous PKCE).
+        body.set("client_id", this.#options.clientId);
+        break;
     }
 
     const call = this.#options.fetch ?? globalThis.fetch;

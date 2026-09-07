@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { OAuth2ClientAuthMethod } from "../../nodefony/src/oauth/oauth2Client";
 import {
   OAuth2Client,
   OAuth2RequestError,
@@ -19,6 +20,7 @@ const ENDPOINTS = {
   tokenEndpoint: "https://idp.test/token",
   clientId: "client id",
   clientSecret: "s3cr3t:+/",
+  clientAuthMethod: "client_secret_basic" as OAuth2ClientAuthMethod,
   redirectUri: "https://app.test/callback",
 };
 
@@ -94,10 +96,11 @@ describe("Entropie OAuth (state, PKCE)", () => {
 describe("OAuth2Client — URL d'autorisation", () => {
   it("porte les paramètres du code flow et le défi PKCE S256", () => {
     const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-    const url = pureClient().createAuthorizationURL("st-1", verifier, [
-      "openid",
-      "email",
-    ]);
+    const url = pureClient().createAuthorizationURL({
+      state: "st-1",
+      codeVerifier: verifier,
+      scopes: ["openid", "email"],
+    });
     assert.equal(url.origin + url.pathname, "https://idp.test/authorize");
     const p = url.searchParams;
     assert.equal(p.get("response_type"), "code");
@@ -113,15 +116,21 @@ describe("OAuth2Client — URL d'autorisation", () => {
   });
 
   it("sans PKCE : aucun défi n'est envoyé", () => {
-    const p = pureClient().createAuthorizationURL("st-1", null, [
-      "read:user",
-    ]).searchParams;
+    const p = pureClient().createAuthorizationURL({
+      state: "st-1",
+      codeVerifier: null,
+      scopes: ["read:user"],
+    }).searchParams;
     assert.equal(p.get("code_challenge"), null);
     assert.equal(p.get("code_challenge_method"), null);
   });
 
   it("aucune portée demandée → pas de paramètre scope (rien n'est ajouté d'office)", () => {
-    const p = pureClient().createAuthorizationURL("st", null, []).searchParams;
+    const p = pureClient().createAuthorizationURL({
+      state: "st",
+      codeVerifier: null,
+      scopes: [],
+    }).searchParams;
     assert.equal(p.get("scope"), null);
   });
 });
@@ -133,7 +142,10 @@ describe("OAuth2Client — échange du code", () => {
     const { client: c, calls } = client(
       json(200, { access_token: "at", token_type: "Bearer" }),
     );
-    await c.validateAuthorizationCode("the-code", VERIFIER);
+    await c.validateAuthorizationCode({
+      code: "the-code",
+      codeVerifier: VERIFIER,
+    });
     assert.equal(calls.length, 1);
     const { url, init } = calls[0]!;
     assert.equal(url, "https://idp.test/token");
@@ -164,8 +176,9 @@ describe("OAuth2Client — échange du code", () => {
   it("client public (secret vide) : pas de Basic, identité dans le corps", async () => {
     const { client: c, calls } = client(json(200, { access_token: "at" }), {
       clientSecret: "",
+      clientAuthMethod: "none",
     });
-    await c.validateAuthorizationCode("c", null);
+    await c.validateAuthorizationCode({ code: "c", codeVerifier: null });
     const { init } = calls[0]!;
     assert.equal(
       (init.headers as Record<string, string>).Authorization,
@@ -179,7 +192,7 @@ describe("OAuth2Client — échange du code", () => {
 
   it("sans PKCE : aucun code_verifier n'est posté", async () => {
     const { client: c, calls } = client(json(200, { access_token: "at" }));
-    await c.validateAuthorizationCode("c", null);
+    await c.validateAuthorizationCode({ code: "c", codeVerifier: null });
     assert.equal(
       new URLSearchParams(calls[0]!.init.body as string).get("code_verifier"),
       null,
@@ -195,10 +208,10 @@ describe("OAuth2Client — échange du code", () => {
     );
     await assert.rejects(
       () =>
-        c.validateAuthorizationCode(
-          "the-code",
-          "MAUVAIS-verifier-mais-de-longueur-reglementaire",
-        ),
+        c.validateAuthorizationCode({
+          code: "the-code",
+          codeVerifier: "MAUVAIS-verifier-mais-de-longueur-reglementaire",
+        }),
       (error: unknown) => {
         assert.ok(error instanceof OAuth2RequestError);
         assert.equal(error.code, "invalid_grant");
@@ -211,7 +224,7 @@ describe("OAuth2Client — échange du code", () => {
   it("refus annoncé en HTTP 200 (cas GitHub) → erreur quand même", async () => {
     const { client: c } = client(json(200, { error: "bad_verification_code" }));
     await assert.rejects(
-      () => c.validateAuthorizationCode("c", null),
+      () => c.validateAuthorizationCode({ code: "c", codeVerifier: null }),
       OAuth2RequestError,
     );
   });
@@ -221,7 +234,7 @@ describe("OAuth2Client — échange du code", () => {
       () => new Response("<html>maintenance</html>", { status: 200 }),
     );
     await assert.rejects(
-      () => c.validateAuthorizationCode("c", null),
+      () => c.validateAuthorizationCode({ code: "c", codeVerifier: null }),
       /illisible/,
     );
   });
@@ -235,7 +248,7 @@ describe("OAuth2Client — échange du code", () => {
         }),
     );
     await assert.rejects(
-      () => c.validateAuthorizationCode("c", null),
+      () => c.validateAuthorizationCode({ code: "c", codeVerifier: null }),
       /hors gabarit/,
     );
   });
@@ -243,7 +256,7 @@ describe("OAuth2Client — échange du code", () => {
   it("échec HTTP sans champ error → erreur portant le statut", async () => {
     const { client: c } = client(json(502, { whatever: true }));
     await assert.rejects(
-      () => c.validateAuthorizationCode("c", null),
+      () => c.validateAuthorizationCode({ code: "c", codeVerifier: null }),
       /HTTP 502/,
     );
   });
@@ -280,5 +293,84 @@ describe("OAuth2Tokens", () => {
 
   it("garde l'accès au corps brut (extensions du fournisseur)", () => {
     assert.equal(new OAuth2Tokens({ x_custom: 1 }).data.x_custom, 1);
+  });
+});
+
+/*
+ *   Ce que ce banc protège vraiment : la CAPACITÉ D'AJOUT.
+ *
+ *   Les deux méthodes prenaient leurs arguments par position, et ce contrat est
+ *   EXPORTÉ — donc gelé à la publication de la 10.0.0. Plusieurs paramètres
+ *   normalisés manquaient déjà, dont `resource` (RFC 8707), que le Model Context
+ *   Protocol EXIGE dans les deux requêtes. Ce banc ne livre aucun d'eux : il
+ *   éprouve qu'ils POURRONT être livrés sans toucher à un seul appelant, et que
+ *   ce supplément ne peut pas se retourner contre le protocole.
+ */
+describe("OAuth2Client — la forme accueille ce qui n'est pas encore livré", () => {
+  it("🔴 un paramètre supplémentaire atteint l'URL d'autorisation", () => {
+    const p = pureClient().createAuthorizationURL({
+      state: "st",
+      codeVerifier: null,
+      scopes: [],
+      // Ni `resource` ni `nonce` ne sont implémentés — et c'est le sujet :
+      // ils traversent sans que le client ait à les connaître.
+      additionalParameters: {
+        resource: "https://api.test/mcp",
+        nonce: "n-42",
+      },
+    }).searchParams;
+    assert.equal(p.get("resource"), "https://api.test/mcp");
+    assert.equal(p.get("nonce"), "n-42");
+    // Et ce que le protocole pose reste posé.
+    assert.equal(p.get("response_type"), "code");
+    assert.equal(p.get("client_id"), "client id");
+  });
+
+  it("🔴 un paramètre supplémentaire atteint le CORPS de la requête de jeton", async () => {
+    // RFC 8707 §2.2 : `resource` doit être répété à l'échange. Sans cette
+    // seconde traversée, la première ne servirait à rien.
+    const { client: c, calls } = client(json(200, { access_token: "at" }));
+    await c.validateAuthorizationCode({
+      code: "c",
+      codeVerifier: null,
+      additionalParameters: { resource: "https://api.test/mcp" },
+    });
+    const body = new URLSearchParams(calls[0]!.init.body as string);
+    assert.equal(body.get("resource"), "https://api.test/mcp");
+    assert.equal(body.get("grant_type"), "authorization_code");
+  });
+
+  it("🔴 un supplément NE PEUT PAS recouvrir un paramètre du protocole", () => {
+    // La porte d'extension ne doit pas devenir une porte pour faire émettre par
+    // ce client une requête qui ne le désigne plus. Le refus NOMME la clé :
+    // ignorer en silence serait pire, l'appelant croirait l'avoir envoyée.
+    assert.throws(
+      () =>
+        pureClient().createAuthorizationURL({
+          state: "st",
+          codeVerifier: null,
+          scopes: [],
+          additionalParameters: { client_id: "un-autre-client" },
+        }),
+      /client_id/,
+    );
+  });
+
+  it("🔴 `client_secret_post` met l'identité ET le secret dans le corps", async () => {
+    // La méthode que la convention « secret non vide ⇒ Basic » ne pouvait pas
+    // exprimer, et que des serveurs EXIGENT en l'annonçant dans leurs métadonnées.
+    const { client: c, calls } = client(json(200, { access_token: "at" }), {
+      clientAuthMethod: "client_secret_post",
+    });
+    await c.validateAuthorizationCode({ code: "c", codeVerifier: null });
+    const { init } = calls[0]!;
+    assert.equal(
+      (init.headers as Record<string, string>).Authorization,
+      undefined,
+      "Basic et le corps sont exclusifs — un serveur strict refuse les deux",
+    );
+    const body = new URLSearchParams(init.body as string);
+    assert.equal(body.get("client_id"), "client id");
+    assert.equal(body.get("client_secret"), "s3cr3t:+/");
   });
 });

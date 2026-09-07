@@ -142,11 +142,11 @@ class OAuth2Service extends Service {
     const codeVerifier = resolved.provider.usesPkce
       ? generateCodeVerifier()
       : null;
-    const url = resolved.provider.createAuthorizationURL(
+    const url = resolved.provider.createAuthorizationURL({
       state,
       codeVerifier,
-      resolved.scopes,
-    );
+      scopes: resolved.scopes,
+    });
     return { url: url.toString(), state, codeVerifier };
   }
 
@@ -178,7 +178,7 @@ class OAuth2Service extends Service {
         throw new AuthenticationError("OAuth issuer missing");
       }
     }
-    const tokens = await p.validateAuthorizationCode(code, codeVerifier);
+    const tokens = await p.validateAuthorizationCode({ code, codeVerifier });
     const profile = await p.fetchProfile(tokens);
     const cfg = this.#config!.oauth2;
     // Rôles par défaut : surcharge PAR FOURNISSEUR sinon valeur globale (posés à
@@ -221,6 +221,7 @@ class OAuth2Service extends Service {
     const provider = await factory({
       clientId: cfg.clientId,
       clientSecret: cfg.clientSecret,
+      clientAuthMethod: cfg.clientAuthMethod,
       redirectUri: cfg.redirectUri,
       issuer: cfg.issuer,
     });

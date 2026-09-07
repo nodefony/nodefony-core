@@ -23,7 +23,7 @@ const fakeProvider: IOAuthProvider = {
   usesPkce: true,
   issuerPolicy: { issuer: ISSUER, requireIssParameter: true },
   defaultScopes: ["openid"],
-  createAuthorizationURL: (state, codeVerifier, scopes) =>
+  createAuthorizationURL: ({ state, codeVerifier, scopes }) =>
     new URL(
       `https://idp/auth?state=${state}&cv=${codeVerifier}&s=${scopes.join(",")}`,
     ),

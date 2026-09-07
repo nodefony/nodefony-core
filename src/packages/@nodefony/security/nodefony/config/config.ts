@@ -955,6 +955,17 @@ const oauthProviderSchema = z
       .string()
       .min(1)
       .describe("Secret client OAuth — SECRET, fourni par env, jamais loggé."),
+    clientAuthMethod: z
+      .enum(["client_secret_basic", "client_secret_post"])
+      .optional()
+      .describe(
+        "Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). OMIS = " +
+          "`client_secret_basic`, ce que la RFC demande de préférer et ce que la " +
+          "plupart des serveurs annoncent par défaut. Poser `client_secret_post` " +
+          "quand le serveur l'EXIGE — il le publie dans ses métadonnées " +
+          "(`token_endpoint_auth_methods_supported`). La méthode `none` (client " +
+          "public) n'est pas offerte ici : ce schéma exige un secret non vide.",
+      ),
     redirectUri: z
       .string()
       .min(1)

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 818,
-    "symbols": 3935,
+    "symbols": 3939,
     "classes": 388,
-    "interfaces": 1067,
-    "types": 445,
+    "interfaces": 1069,
+    "types": 446,
     "enums": 4,
-    "functions": 1640,
+    "functions": 1641,
     "constants": 391
   },
   "symbols": {
@@ -24978,6 +24978,24 @@
       "decorators": [],
       "description": "Client d'un serveur d'autorisation donné : construit l'URL d'autorisation puis échange le code contre des jetons. Un exemplaire porte les endpoints DÉJÀ résolus — par découverte de métadonnées ({@l…"
     },
+    "IAuthorizationRequest": {
+      "name": "IAuthorizationRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Étape 1 — ce qu'on demande au point d'autorisation. La forme est un OBJET, et c'est tout l'enjeu : les paramètres normalisés qui manquent encore — `resource` (RFC 8707, exigé par le Model Context P…"
+    },
+    "ITokenRequest": {
+      "name": "ITokenRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Étape 2 — ce qu'on présente au point de jeton. Même raison d'être qu'{@link IAuthorizationRequest} : `resource` doit être répété ici (RFC 8707 §2.2), et rien ne pouvait s'ajouter à une signature po…"
+    },
     "IOAuth2ClientOptions": {
       "name": "IOAuth2ClientOptions",
       "kind": "interface",
@@ -24986,6 +25004,14 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Points d'entrée d'un serveur d'autorisation et identité du client."
+    },
+    "OAuth2ClientAuthMethod": {
+      "name": "OAuth2ClientAuthMethod",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Comment le client s'authentifie au point de jeton (RFC 6749 §2.3, et le registre `token_endpoint_auth_method` d'OpenID Connect Discovery). 🔴 Elle se DÉCLARE, elle ne se déduit plus de la vacuité d…"
     },
     "generateState": {
       "name": "generateState",
@@ -35026,6 +35052,14 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
+      "IAuthorizationRequest": [
+        "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
+      "ITokenRequest": [
+        "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
+      ],
       "TotpAlgorithm": [
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
@@ -36227,6 +36261,9 @@
       "readJsonObjectBounded": [
         "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
         "src/packages/@nodefony/security/nodefony/src/oauth/oauth2Client.ts"
+      ],
+      "OAuth2ClientAuthMethod": [
+        "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
       ],
       "createDiscoveredOidcProvider": [
         "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts"
