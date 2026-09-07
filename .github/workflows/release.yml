@@ -347,8 +347,22 @@ jobs:
           # elle, pas de build, donc pas de première migration — la vitrine
           # partirait avec une entité `User` que rien ne crée en production.
           # Ce job dépend de `publier` : les paquets sont sur le registre.
+          # 🔴 `--frontend react` N'EST PAS DÉCORATIF — sans lui, `frontend`
+          # prend son défaut `none` (`scaffold/spec.ts`) et la racine répond le
+          # JSON sobre de `HomeController`. Une vitrine qui ne montre rien est
+          # une vitrine ratée : constaté sur un Codespace de `nodefony/nodefony`,
+          # où `/` rendait `{"app":"nodefony",…}`. React parce que la console
+          # d'administration l'est déjà — une seule chaîne front dans l'image.
           node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app nodefony \
-            --preset complete --yes --no-git
+            --preset complete --frontend react --yes --no-git
+          # La page de démonstration doit EXISTER dans l'arbre poussé : le
+          # gabarit peut changer, le drapeau peut être perdu à une réécriture,
+          # et rien d'autre ne le verrait — la vitrine partirait muette pour
+          # toute une série de versions.
+          test -f nodefony/frontend/src/App.tsx || {
+            echo "::error::la vitrine n'a pas de page d'accueil : --frontend n'a rien produit"
+            exit 1
+          }
           # Le produit ANNONCE quand il n'a pas pu écrire la migration ; la
           # forge, elle, REFUSE — une vitrine que personne ne peut déployer est
           # pire qu'une vitrine absente, et rien d'autre ne le verrait.
