@@ -98,6 +98,13 @@ export type {
   IConnectionTarget,
 } from "./nodefony/src/connectionDiagnosis";
 
+// Et il se DIAGNOSTIQUE encore faut-il qu'il ait lieu : sans borne, un serveur
+// qui accepte sans répondre laisse la commande pendue, sans erreur à raconter.
+export {
+  CONNECT_TIMEOUT_MS,
+  withConnectDeadline,
+} from "./nodefony/src/connectDeadline";
+
 // ─── Câblage runtime d'un driver (factorise la dette C5 — appelé par chaque ORM) ─
 export {
   wireOrmAdminPlane,

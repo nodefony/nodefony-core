@@ -33,7 +33,13 @@ import type {
   Pool as MysqlPool,
   PoolConnection as MysqlPoolConnection,
 } from "mysql2/promise";
-import { Orm, entityRegistry } from "@nodefony/orm-core";
+import {
+  Orm,
+  entityRegistry,
+  parseConnectionTarget,
+  CONNECT_TIMEOUT_MS,
+  withConnectDeadline,
+} from "@nodefony/orm-core";
 import type {
   IOrmMigrationApplyReply,
   IOrmMigrationPlanReply,
@@ -215,6 +221,23 @@ function renderCheck(check: DDLCheck, dialect: SqlDialect): string | null {
  * Trappe SQL brut : {@link DrizzleOrm.getNativeConnection} expose le db Drizzle
  * (tag `sql`) pour les jointures arbitraires (ADR-0003 risque #1).
  */
+/**
+ * L'adresse visée, écrite pour un humain et SANS son secret.
+ *
+ * Une URL de connexion porte le mot de passe : la recopier telle quelle dans
+ * un message d'erreur le publie dans les journaux. `parseConnectionTarget` ne
+ * rend que l'hôte et le port — c'est tout ce dont on a besoin pour aller voir
+ * qui écoute.
+ *
+ * @param url - l'URL du connecteur, si elle existe.
+ * @returns `hôte:port`, ou une désignation neutre quand l'URL ne dit rien.
+ */
+function describeTarget(url?: string): string {
+  const { host, port } = parseConnectionTarget(url);
+  if (host && port !== null) return `${host}:${port}`;
+  return host ?? "configuré";
+}
+
 export class DrizzleOrm extends Orm {
   #client: BetterSqlite3.Database | null = null;
   /**
@@ -982,6 +1005,10 @@ export class DrizzleOrm extends Orm {
       connectionString?: string;
       keepAlive?: boolean;
       keepAliveInitialDelayMillis?: number;
+      /** Borne l'ATTENTE d'une connexion du pool — 0 chez `pg` veut dire « sans fin ». */
+      connectionTimeoutMillis?: number;
+      /** Borne l'attente d'une RÉPONSE : accepter la connexion n'est pas répondre. */
+      query_timeout?: number;
     }) => Pool;
     // `Pool | PoolClient` : le MÊME `drizzle` sert le pool (requêtes ordinaires)
     // et une connexion empruntée (transaction) — l'adapter node-postgres accepte
@@ -1014,10 +1041,17 @@ export class DrizzleOrm extends Orm {
     // émis, et la première requête à s'y aventurer attend son timeout TCP.
     // Le keepalive fait mourir ces sockets, donc émettre l'erreur, donc
     // constater la perte. Coût : un paquet toutes les 10 s par connexion.
+    // `connectionTimeoutMillis` : `pg-pool` le laisse à 0, ce qui veut dire
+    // ATTENDRE SANS FIN. Un serveur qui accepte le socket sans jamais répondre
+    // laissait alors la commande pendue — vécu sur `nodefony inspect config`,
+    // qui restait suspendu sans un mot. `query_timeout` borne le même risque
+    // une fois la connexion établie : accepter n'est pas répondre.
     const pool = new PoolCtor({
       connectionString: this.#url,
       keepAlive: true,
       keepAliveInitialDelayMillis: 10_000,
+      connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+      query_timeout: CONNECT_TIMEOUT_MS,
     });
     // AVANT le ping, pas après : le `SELECT 1` ci-dessous ouvre la PREMIÈRE
     // connexion, et c'est déjà une connexion qui peut tomber. Câbler ensuite
@@ -1028,7 +1062,14 @@ export class DrizzleOrm extends Orm {
     // silence et n'échouerait qu'à la première requête métier (session read)
     // — l'échec doit sortir AU BOOT (cf BootConfigurationError côté service).
     try {
-      await pool.query("SELECT 1");
+      // La borne est posée DEUX fois, et ce n'est pas une redondance : les
+      // options du driver couvrent ce que le driver contrôle, l'échéance
+      // couvre le reste — un `pg` qui n'appelle jamais son rappel laisserait
+      // l'attente pendue malgré ses propres réglages.
+      await withConnectDeadline(
+        pool.query("SELECT 1"),
+        `la réponse de postgres ${describeTarget(this.#url)}`,
+      );
     } catch (e) {
       this.#unwireAll(); // le ping a échoué : pas de listener orphelin
       await pool.end().catch(() => undefined); // pas de handle fuité
@@ -1278,11 +1319,14 @@ export class DrizzleOrm extends Orm {
       // `enableKeepAlive` — même raison qu'en postgres (socket zombie après
       // une coupure réseau silencieuse). `mysql2` l'expose au niveau de la
       // connexion, le pool le propage à chacune de celles qu'il crée.
+      // `connectTimeout` — même raison qu'en postgres : sans borne, un serveur
+      // qui accepte sans répondre suspend l'appelant indéfiniment.
       pool = createPool({
         uri: this.#url,
         timezone: "Z",
         enableKeepAlive: true,
         keepAliveInitialDelay: 10_000,
+        connectTimeout: CONNECT_TIMEOUT_MS,
       });
       // Câblé AVANT le ping — même raison qu'en postgres, et une de plus ici :
       // `mysql2` ne signale ses connexions qu'à leur CRÉATION. Une connexion
@@ -1296,9 +1340,14 @@ export class DrizzleOrm extends Orm {
         { cause: e },
       );
     }
-    // Ping RÉEL au connect (même raison que #connectPostgres : pool lazy).
+    // Ping RÉEL au connect (même raison que #connectPostgres : pool lazy), et
+    // borné pour la même raison — `connectTimeout` couvre l'établissement, pas
+    // le silence d'un serveur qui a pourtant accepté.
     try {
-      await pool.query("SELECT 1");
+      await withConnectDeadline(
+        pool.query("SELECT 1"),
+        `la réponse de mysql ${describeTarget(this.#url)}`,
+      );
     } catch (e) {
       this.#unwireAll();
       await pool.end().catch(() => undefined); // pas de handle fuité
