@@ -89,7 +89,6 @@ interface Relations {
 }
 
 interface SymbolsOutput {
-  generated: string;
   version: string;
   repoRoot: string;
   stats: {
@@ -525,29 +524,19 @@ function generate(): void {
     }
   }
 
-  // 🔴 La date du COMMIT, jamais l'heure courante.
+  // 🔴 AUCUN horodatage dans ce fichier — il est généré ET versionné.
   //
-  // Ce fichier est GÉNÉRÉ **et versionné**. Un horodatage d'exécution le rend
-  // différent à chaque régénération, sur un dépôt pourtant identique — et toute
-  // chaîne qui le régénère salit alors l'arbre de travail. Vécu : la
-  // publication de la `10.0.0-alpha.2` a été refusée par sa propre garde
-  // « arbre propre », sur ce seul champ, que personne ne lit.
+  // Une date d'exécution le rend différent à chaque régénération sur un dépôt
+  // pourtant identique : toute chaîne qui le régénère salit alors l'arbre, et
+  // la publication de la `10.0.0-alpha.2` a été refusée par sa propre garde
+  // « arbre propre » sur ce seul champ.
   //
-  // Dériver la date du commit rend le fichier REPRODUCTIBLE — deux
-  // régénérations sur le même commit donnent le même octet — sans rien perdre :
-  // la date décrit l'état qu'elle décrit vraiment. Repli sur l'heure courante
-  // hors dépôt git (arbre exporté, tarball).
-  let generated: string;
-  try {
-    generated = execSync("git log -1 --format=%cI", {
-      cwd: repoRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    if (!generated) throw new Error("sortie vide");
-  } catch {
-    generated = new Date().toISOString();
-  }
+  // La dériver du commit ne marche pas non plus, et l'essai valait la leçon :
+  // le hook `pre-commit` régénère AVANT que le commit existe — le fichier
+  // porterait la date du commit PRÉCÉDENT — quand la forge régénère APRÈS. Un
+  // artefact ne peut pas contenir l'identité du commit qui le contient.
+  //
+  // La date de génération vit donc où elle a toujours été juste : `git log`.
 
   // Build a name-indexed map for O(1) lookup.
   // Homonym policy: first wins by simple name; later collisions are stored
@@ -632,7 +621,6 @@ function generate(): void {
   }
 
   const stableOutput: SymbolsOutput = {
-    generated,
     version: "2.0.0",
     repoRoot: ".",
     stats: { ...stats },
@@ -641,7 +629,6 @@ function generate(): void {
   };
 
   const verboseOutput: SymbolsOutput = {
-    generated,
     version: "2.0.0",
     repoRoot: ".",
     stats,
