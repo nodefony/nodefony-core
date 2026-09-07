@@ -11,14 +11,14 @@ HTTP et WebSocket partagent la même route, la même session et le même pare-fe
 
 ## État
 
-|                        |                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **Version**            | `10.0.0` (`package.json`)                                                                                                            |
-| **Publication npm**    | **aucun paquet `10.x` n'est en ligne.** Le registre sert encore `nodefony@7.0.2` (JavaScript) et les `@nodefony/*-bundle` de l'ère 7 |
-| **Branche par défaut** | `main` — elle porte la **dernière publication** et n'avance qu'aux releases                                                          |
-| **Branche de travail** | `dev` — **c'est là que vit le code courant** ; `main` ne le reçoit qu'à la publication suivante                                      |
-| **Tests**              | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                      |
-| **Licence**            | CeCILL-B — projet libre, développé bénévolement par une seule personne                                                               |
+|                        |                                                                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Version**            | `10.0.0` (`package.json`)                                                                                                                                                                                     |
+| **Publication npm**    | **préversion `10.0.0-alpha.2`**, les quinze paquets, sous le canal `alpha` SEULEMENT — `npm install nodefony` sert toujours `nodefony@7.0.2` (JavaScript). Les `@nodefony/*-bundle` de l'ère 7 sont dépréciés |
+| **Branche par défaut** | `main` — elle porte la **dernière publication** et n'avance qu'aux releases                                                                                                                                   |
+| **Branche de travail** | `dev` — **c'est là que vit le code courant** ; `main` ne le reçoit qu'à la publication suivante                                                                                                               |
+| **Tests**              | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                                                                                               |
+| **Licence**            | CeCILL-B — projet libre, développé bénévolement par une seule personne                                                                                                                                        |
 
 > ⚠️ **Lire `dev`, pas `main`**, pour toute question sur le code actuel. Le
 > constater plutôt que le croire : `git rev-list --count origin/main..origin/dev`.

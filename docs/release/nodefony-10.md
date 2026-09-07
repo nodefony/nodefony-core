@@ -465,6 +465,26 @@ continue de s'installer en silence. Le jour où un successeur existe, le message
 Un message de dépréciation dit **où aller**, pas seulement que c'est fini. Pour un renommage :
 `npm deprecate @nodefony/http-bundle "Nodefony 10 : ce paquet devient @nodefony/http (voir https://github.com/nodefony/nodefony-core)"`.
 
+### 7.3quater L'accueil — basculer ce qu'il AFFIRME de la publication
+
+Trois endroits affirment un état de publication, et cet état change à chaque cran :
+
+| Fichier     | Où                                              |
+| ----------- | ----------------------------------------------- |
+| `README.md` | le bloc « État », puis la section « Démarrage » |
+| `AGENTS.md` | la ligne « Publication npm » de la table d'état |
+
+C'est la **première impression du jour de l'annonce**, et elle ne se rattrape pas : qui vient ce
+jour-là ne revient pas. Aucun automate ne surveille ces phrases — `release.mjs` les nomme donc dans
+son « RESTE À FAIRE », à l'étape 6, pour que l'oubli soit impossible plutôt que rare.
+
+Deux règles tant que `latest` n'est pas la version stable :
+
+- **la commande annoncée NOMME son canal** (`npm create nodefony@alpha`) — une forme nue sert
+  `nodefony@7.0.2`, une version JavaScript sans rapport avec ce que la page décrit ;
+- **le `git clone` ne se supprime jamais**, il se requalifie « contribuer au framework » : c'est la
+  seule voie pour travailler sur le framework lui-même.
+
 ### 7.4 Squelette (à titre indicatif)
 
 ```yaml

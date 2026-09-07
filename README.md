@@ -22,8 +22,9 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > pare-feu, pas une passerelle à côté. Et l'application se décrit à un agent — générateurs
 > pilotables, catalogue, `AGENTS.md` dérivé du projet — au lieu d'être devinée.
 
-**État** — version `10.0.0` · **non publiée sur npm** : le registre sert encore `nodefony@7.0.2`
-(JavaScript) · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
+**État** — version `10.0.0` · **préversion `10.0.0-alpha.2` en ligne**, sous le canal `alpha`
+uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le fera jusqu'à la
+sortie stable · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
 l'infrastructure répond (`npm run test:all`).
 
 ---
@@ -199,7 +200,8 @@ rejouable, et ses échecs sont publics. C'est cette place-là que le framework o
 
 ## Démarrage
 
-Les paquets `10.x` ne sont pas encore publiés sur npm ; le framework s'essaie depuis ce dépôt :
+Une préversion `10.0.0-alpha.2` est en ligne sous le canal `alpha` — sans garantie de stabilité ni
+de compatibilité entre deux alphas. La voie éprouvée reste ce dépôt :
 
 ```bash
 git clone https://github.com/nodefony/nodefony-core.git

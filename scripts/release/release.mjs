@@ -1191,11 +1191,21 @@ dire(
     "     retard fait ensuite mentir tout ce qui l'interroge.\n" +
     "  5. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
     `       git tag v${VERSION} <commit de ${BRANCHE_PUBLICATION}> && git push origin v${VERSION}\n` +
+    "  6. BASCULER l'accueil sur ce qui est désormais publié — TROIS endroits, et\n" +
+    "     aucun automate ne les surveille :\n" +
+    "       README.md  — le bloc « État », puis la section « Démarrage »\n" +
+    "       AGENTS.md  — la ligne « Publication npm » de la table d'état\n" +
+    "     C'est la première impression du jour de l'annonce, et elle ne se rattrape\n" +
+    "     pas. Deux règles, tant que `latest` n'est pas la version stable : la\n" +
+    "     commande annoncée NOMME son canal — une forme nue sert `nodefony@7.0.2`,\n" +
+    "     une version JavaScript sans rapport avec ce que la page décrit — et le\n" +
+    "     `git clone` ne se supprime jamais, il se requalifie « contribuer au\n" +
+    "     framework », seule voie pour travailler sur le framework lui-même.\n" +
     (PUBLIER
-      ? `  6. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
+      ? `  7. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
         "     même dépôt, même NOM DE FICHIER de workflow, extension comprise — tous les\n" +
         "     champs sont sensibles à la casse, et npm ne valide RIEN à l'enregistrement :\n" +
         "     une erreur ne se voit qu'à la publication suivante.\n" +
-        "  7. Settings → Publishing access → exiger la 2FA et interdire les jetons.\n"
+        "  8. Settings → Publishing access → exiger la 2FA et interdire les jetons.\n"
       : ""),
 );
