@@ -90,7 +90,7 @@ function formUrlencode(value: string): string {
  */
 export class OAuth2RequestError extends Error {
   /** Code normalisé (`invalid_grant`, `invalid_client`, ...) — RFC 6749 §5.2. */
-  readonly code: string;
+  override readonly code: string;
   /** Description lisible fournie par le serveur, ou `null`. */
   readonly description: string | null;
 
