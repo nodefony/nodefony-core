@@ -241,6 +241,19 @@
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
+- [1× — 09-07] **Le contrôle GRAVAIT le défaut comme résultat attendu.** Le cas de test de
+  `expliquerEchec` donnait une sortie portant `✗ 1 PROBLÈME 4 angles morts` — la ligne qui NOMME
+  le manquement — et son attendu écrit était `"nodefony doctor · bench-app 0.1.0"`, la bannière.
+  Le correctif précédent avait déplacé le défaut d’un cran (du bruit npm à la présentation de
+  l’outil) et le test avait figé le nouvel état comme correct. Dix rouges d’une nuit entière sans
+  cause exploitable. **Après un correctif, relire le TEST : il a peut-être appris le défaut.**
+- [1× — 09-07] **Ma preuve du correctif était VIDE, et son vert venait d’ailleurs.** Pour prouver
+  que la reconstruction du décor réparait le gate, j’ai lancé `--task 30 --runs 1` : vert. Or avec
+  UNE seule tâche la remise à zéro n’est jamais appelée — le `dist` venait du montage, mon code
+  n’avait pas tourné. Il a fallu `--runs 2` pour l’exercer. **Un vert ne prouve un correctif que
+  si le chemin corrigé a été EMPRUNTÉ** : le vérifier par une trace du code (ici la ligne
+  « application reconstruite »), jamais par le seul verdict.
+
 - [1× — 09-05c] **Un DÉCOR de test a fait accuser un fichier situé à l'autre bout du dépôt.** `scripts-audit.mjs` repère les scripts « jamais lancés » en cherchant leur NOM DE FICHIER dans les sources ; mon faux dépôt en mémoire contenait la chaîne `"src/mirror/schema.ts"`, et l'audit en a conclu qu'un `schema.ts` d'un skill était désormais lancé — acquittement « périmé », forge rouge. Un décor de test est du texte comme un autre pour un scanner : lui donner des noms que rien d'autre ne porte.
 - [1× — 09-05c] **Huit cas verts en local, rouges sous `CI=true`.** Le décor lisait le vrai `process.env`, et la règle neuve refusait d'animer en forge. Un décor qui interroge l'environnement doit le DÉCLARER (`animate: true`), sinon il éprouve la machine de son auteur. Contrôle qui a sauvé le push : rejouer la suite sous `CI=true` et `TERM=dumb` avant de commiter.
 

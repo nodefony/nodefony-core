@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T00:51:22.957Z",
+  "generatedAt": "2026-09-07T10:51:19.115Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,7 +46,7 @@
       "title": "10.0.0-beta"
     },
     {
-      "closed": 133,
+      "closed": 134,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
       "open": 30,
@@ -1346,6 +1346,20 @@
       "number": 253,
       "title": "test(drizzle): borner au schéma le contrôle de la table d'historique",
       "url": "https://github.com/nodefony/nodefony-core/issues/253",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.7,
+      "labels": [
+        "10.0.0"
+      ]
+    },
+    {
+      "number": 260,
+      "title": "fix(devkit-bench): nommer le manquement d'un contrôle rouge, pas sa bannière",
+      "url": "https://github.com/nodefony/nodefony-core/issues/260",
       "state": "CLOSED",
       "status": "Done",
       "milestone": "10.0.0",
