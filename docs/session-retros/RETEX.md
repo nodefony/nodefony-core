@@ -239,6 +239,15 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 09-07c] **Ma première correction était circulaire, et je l'ai crue prouvée par une empreinte.**
+  `.ai/symbols.json` est généré ET versionné, et portait l'heure d'exécution : toute chaîne qui le
+  régénère salissait l'arbre, ce qui a fait refuser la publication par sa propre garde « arbre
+  propre ». J'ai fait dériver la date du commit, mesuré deux régénérations d'affilée, obtenu le même
+  octet, conclu. **Le décor de ma preuve n'était pas celui du défaut** : le hook `pre-commit`
+  régénère AVANT que le commit existe, la forge APRÈS — un artefact ne peut pas contenir l'identité
+  du commit qui le contient. Ce que j'aurais dû mesurer : régénérer APRÈS un commit. Le champ a
+  fini retiré ; personne ne le lisait.
+
 - [1× — 09-05f] **La bonne ligne n'était pas celle que le tag traçait.** Le kernel faisait passer
   une erreur de CONFIGURATION derrière `critical = false` — si bien qu'un module optionnel mal
   configuré démarrait en IGNORANT ce qu'on lui avait demandé. Les deux répondent à des questions
@@ -651,6 +660,22 @@
 
 ## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
 
+- [1× — 09-07c] **Le défaut corrigé restait servi par l'entrée la plus naturelle.** La publication
+  de l'alpha.2 a bien avancé le dist-tag `alpha` sur les quinze paquets — mais npm pose `latest` à la
+  PREMIÈRE publication d'un paquet, quel que soit `--tag`, et ne le déplace plus. Les treize paquets
+  scopés ET `create-nodefony` sont donc restés sur `latest = 10.0.0-alpha.1`, la version défectueuse :
+  `npm create nodefony <app>`, la porte d'entrée du framework, installait encore le défaut que la
+  publication venait de fermer. **Un canal qui avance ne dit rien de celui qui ne bouge pas ; le
+  défaut vit dans l'écart entre les deux étiquettes.** La règle est asymétrique — on ne recale
+  `latest` que s'il pointe DÉJÀ une préversion, sinon on servirait une alpha à tout `npm i`.
+
+- [1× — 09-07c] **Ma liste écrite à la main a raté le paquet le plus important — que ma propre
+  fonction attrapait.** J'ai généré treize lignes de recalage par un `echo`, en groupant
+  `create-nodefony` avec `nodefony` sous « NE PAS TOUCHER » — alors que `latestsRestesEnArriere`,
+  écrite dix minutes plus tôt, l'aurait rangé du bon côté (son `latest` porte un tiret, donc une
+  préversion). **L'automate produit, le modèle juge** : dès que la règle EXISTE dans le code, la
+  produire à la main est un pas en arrière, pas un raccourci.
+
 - [1× — 09-06i] **Le seul chemin éprouvé était celui qui masquait le défaut.** Les paquets
   déclaraient leurs pairs internes en `*` — plage qui accepte tout, donc npm sert `latest`,
   c'est-à-dire la 7.0.2 d'une autre ère. Mesuré APRÈS publication : `npm i @nodefony/http@10.0.0-alpha.1`
@@ -761,6 +786,17 @@
   de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- [1× — 09-07c] **La garde existait, et c'est MOI qui l'ai désarmée — avec l'option prévue pour ça.**
+  `release.mjs` refuse de PRÉPARER hors de la branche attendue (défaut `main`) ; j'ai passé
+  `--branch dev` parce que je préparais depuis `dev`, ce qui est légitime. Mais le même drapeau
+  gouvernait implicitement la publication, et le tag `v10.0.0-alpha.2` s'est posé sur `dev` — la
+  branche que ni le site public, ni les README publiés, ni les liens `/blob/` ne décrivent. Le
+  commentaire du code NOMMAIT le trou (« à la publication, c'est le TAG qui fait foi, pas la
+  branche ») sans le fermer. **Préparer et publier sont deux questions ; un seul drapeau les
+  couvrait, donc le désarmer une fois les désarmait toutes les deux.** Repéré par le user, pas par
+  moi. Fermé : `--publish` constate l'APPARTENANCE du commit à la branche de publication — la
+  branche courante ne dit rien sur un HEAD détaché — et une branche introuvable REFUSE.
 
 - [1× — 09-06g] **Vérifier qu'une chose EXISTE ne vérifie pas ce que le texte en AFFIRME.** Deux fois dans la même passe : `REDIS_URL` marquée VRAI parce que la variable existe — le README la disait « prioritaire » alors que `infra.ts:136` lit `NF_REDIS_URL` d'abord ; et `securityConfigJsonSchema` marquée VRAI en citant la ligne d'**import interne** du module, qui ne prouve aucun **export** (l'import documenté échouait). La question posée est toujours « le texte dit-il vrai ? », jamais « le symbole est-il là ? ».
 

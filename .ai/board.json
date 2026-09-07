@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T23:29:52.286Z",
+  "generatedAt": "2026-09-07T00:51:22.957Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "12.0.0"
     },
     {
-      "closed": 2,
+      "closed": 3,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 2,
@@ -42,7 +42,7 @@
       "closed": 0,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 2,
+      "open": 3,
       "title": "10.0.0-beta"
     },
     {
@@ -113,6 +113,20 @@
       ]
     },
     {
+      "number": 258,
+      "title": "chore(release): appliquer les gestes npm qui exigent le code à deux facteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/258",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 257,
       "title": "chore(depot): renommer la branche de travail en dev, main portant la dernière publication",
       "url": "https://github.com/nodefony/nodefony-core/issues/257",
@@ -130,8 +144,8 @@
       "number": 256,
       "title": "chore(release): publier une 10.0.0-alpha.2 qui n'installe plus la version 7",
       "url": "https://github.com/nodefony/nodefony-core/issues/256",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -856,6 +870,20 @@
       "ordre": 3,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 259,
+      "title": "ci(release): publier l'image sur le registre de GitHub, sans aucun secret",
+      "url": "https://github.com/nodefony/nodefony-core/issues/259",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
