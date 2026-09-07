@@ -281,6 +281,13 @@ publishing ne couvre que `publish`. `npm login` d'abord (`npm whoami` répond `E
 puis `--otp <code>` sur la commande — sinon npm réclame le code une fois par paquet, soit une
 trentaine de saisies pour les deux lots.
 
+> ⚠️ **`--otp` attend un code d'application d'authentification, et une clé de sécurité n'en produit
+> aucun.** Sur npmjs.com, _Manage Two-Factor Authentication_ distingue les **security keys**
+> (WebAuthn — une clé porte un NOM, souvent numérique, qu'on prend pour un code) de l'**authenticator
+> app**, seule à rendre les six chiffres. Avec une clé seule, npm valide par le navigateur ; pour
+> traiter un lot de trente paquets sans autant d'allers-retours, ajouter une application
+> d'authentification à côté de la clé — les deux coexistent sur le même compte.
+
 ---
 
 ## Dépannage

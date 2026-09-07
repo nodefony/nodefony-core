@@ -250,7 +250,10 @@ par un sous-shell.
   `publish` ; tout le reste — `deprecate`, `dist-tag`, `access` — réclame sa propre authentification
   depuis le poste, avec le code à deux facteurs. Un plan qui les range « dans la même session que le
   publish » fait croire qu'ils partent avec le lot. Les deux modes qui les portent acceptent
-  `--otp <code>` : sans lui, npm réclame le code une fois PAR PAQUET.
+  `--otp <code>` : sans lui, npm réclame le code une fois PAR PAQUET. **Et `--otp` attend un code
+  d'application d'authentification** — une **security key** n'en produit aucun, npm valide alors par
+  le navigateur. Le nom qu'on donne à une clé est souvent numérique : il se prend pour un code, et
+  l'erreur qui suit ne parle ni de clé ni d'application.
 - **npm pose `latest` à la PREMIÈRE publication, quel que soit `--tag`, et ne le déplace plus.** Un
   paquet né en préversion sert sa toute première alpha à qui écrit `npm i <paquet>`. Le symptôme
   n'est pas une erreur : c'est `npm outdated` qui annonce les paquets « en retard » APRÈS une
