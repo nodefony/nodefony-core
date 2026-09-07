@@ -308,6 +308,26 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
 
+      # Le graphe symbolique, confronté à ce que sa propre génération produit.
+      #
+      # Le risque qu'il ferme, et qui a déjà coûté une publication : `.ai/symbols.json`
+      # est GÉNÉRÉ et VERSIONNÉ. S'il n'est pas reproductible — un horodatage, un ordre
+      # instable, un chemin absolu — alors toute chaîne qui le régénère salit l'arbre de
+      # travail. La publication de la `10.0.0-alpha.2` a été refusée par sa propre garde
+      # « arbre propre », sur un champ `generated` que personne ne lisait.
+      #
+      # Le contrôle rejoue la génération et refuse le moindre écart. Il attrape donc les
+      # deux défauts d'un coup : un fichier NON reproductible, et un fichier PÉRIMÉ que
+      # le hook local n'aurait pas régénéré.
+      - name: Gate — le graphe symbolique est reproductible ET à jour
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: |
+          npm run generate-symbols
+          if ! git diff --exit-code --stat .ai/symbols.json; then
+            echo "::error title=Graphe symbolique instable ou périmé::Régénérer `.ai/symbols.json` a produit un fichier DIFFÉRENT de celui qui est commité. Soit le générateur n'est pas reproductible (horodatage, ordre instable, chemin absolu — ce champ finira par faire échouer une publication sur la garde « arbre propre »), soit le fichier commité est périmé : `npm run generate-symbols` puis commiter."
+            exit 1
+          fi
+
       # Les migrations du framework, confrontées aux entités qui les ont
       # produites.
       #
