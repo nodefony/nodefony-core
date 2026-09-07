@@ -330,6 +330,28 @@ if (PUBLIER) {
       contenue = false;
     }
   }
+  // Un `main` LOCAL en retard sur le distant est le piège d'après : il naît du
+  // geste même qui fait avancer la branche de publication (`push dev:main`
+  // avance le DISTANT et laisse le local où il était), et il fait ensuite
+  // mentir tout ce qui l'interroge. On le DIT — sans refuser : la garde
+  // ci-dessous s'appuie sur la référence distante, qui, elle, est juste.
+  if (
+    refExiste(`refs/heads/${BRANCHE_PUBLICATION}`) &&
+    refExiste(`refs/remotes/origin/${BRANCHE_PUBLICATION}`)
+  ) {
+    const local = git("rev-parse", `refs/heads/${BRANCHE_PUBLICATION}`).trim();
+    const distant = git(
+      "rev-parse",
+      `refs/remotes/origin/${BRANCHE_PUBLICATION}`,
+    ).trim();
+    if (local !== distant) {
+      alerter(
+        `${BRANCHE_PUBLICATION} LOCAL (${local.slice(0, 8)}) diffère du distant (${distant.slice(0, 8)}).\n` +
+          `  git fetch origin && git branch -f ${BRANCHE_PUBLICATION} origin/${BRANCHE_PUBLICATION}`,
+      );
+    }
+  }
+
   const refus = refusDePublicationHorsBranche({
     branche: BRANCHE_PUBLICATION,
     brancheTrouvee: Boolean(ref),
@@ -949,6 +971,10 @@ dire(
     "     part ailleurs : c'est cette branche que décrivent le site public et les liens\n" +
     "     des README publiés.\n" +
     `       git push origin ${branche}:${BRANCHE_PUBLICATION}\n` +
+    `       git fetch origin && git branch -f ${BRANCHE_PUBLICATION} origin/${BRANCHE_PUBLICATION}\n` +
+    `     La seconde ligne n'est pas du rangement : pousser \`${branche}:${BRANCHE_PUBLICATION}\` avance\n` +
+    `     la branche DISTANTE et laisse la locale où elle était. Un \`${BRANCHE_PUBLICATION}\` local en\n` +
+    "     retard fait ensuite mentir tout ce qui l'interroge.\n" +
     "  5. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
     `       git tag v${VERSION} <commit de ${BRANCHE_PUBLICATION}> && git push origin v${VERSION}\n` +
     (PUBLIER
