@@ -972,3 +972,72 @@ export function latestsRestesEnArriere(etats, estPreversion) {
   }
   return aRecaler;
 }
+
+/**
+ * Trie les paquets avant un recalage de `latest` : ce qui est recalable, et ce
+ * qui ne l'est PAS parce que la version visée n'existe pas au registre.
+ *
+ * 🔴 La garde que cette fonction ajoute à {@link latestsRestesEnArriere} : le
+ * dépôt peut être EN AVANCE sur le registre — versions estampillées par
+ * `--write` mais pas encore publiées, ou paquet neuf jamais sorti. Recaler
+ * `latest` vers une version absente échoue paquet par paquet, au milieu d'un
+ * lot, avec un message de npm qui ne dit pas la cause. On le CONSTATE avant de
+ * toucher quoi que ce soit, et on le nomme.
+ *
+ * La décision de recalage elle-même n'est pas réécrite ici : elle est déléguée
+ * à {@link latestsRestesEnArriere}, seule porteuse de la règle asymétrique qui
+ * protège un `latest` stable.
+ *
+ * @param etats - un état par paquet : `{ nom, latest, publiee, versions }`,
+ *   où `versions` liste les versions connues du registre (absent = non vérifié)
+ * @param estPreversion - dit si une version porte une étiquette de préversion
+ * @returns `{ aRecaler, absentes }` — les recalages à faire, et les paquets
+ *   dont la version visée manque au registre
+ */
+export function trierPourRecalage(etats, estPreversion) {
+  const absentes = [];
+  const candidats = [];
+  for (const etat of etats) {
+    const { versions, nom, publiee } = etat;
+    if (Array.isArray(versions) && !versions.includes(publiee)) {
+      absentes.push({ nom, vers: publiee });
+      continue;
+    }
+    candidats.push(etat);
+  }
+  return {
+    aRecaler: latestsRestesEnArriere(candidats, estPreversion),
+    absentes,
+  };
+}
+
+/**
+ * Lit la sortie de `npm view <nom> dist-tags versions --json`.
+ *
+ * 🔴 Le piège, vécu : npm ENVELOPPE sa réponse dans un tableau dès que le
+ * spécificateur peut correspondre à plusieurs versions — ce qui est le cas d'un
+ * nom nu. Lire `doc["dist-tags"]` sur ce tableau rend `undefined` en silence,
+ * et le mode `--dist-tags` a annoncé « rien à recaler » sur quatorze paquets
+ * qui l'étaient tous. Une sortie muette ne dit jamais qu'elle est mal lue.
+ *
+ * `dist-tags` est un champ du document racine, identique dans chaque élément de
+ * l'enveloppe : le premier fait foi. Les listes de versions, elles, se
+ * concatènent sans dommage — on ne fait qu'y chercher une appartenance.
+ *
+ * @param brut - la sortie standard de npm, telle quelle
+ * @returns `{ latest, versions }`, ou `null` si la sortie est illisible
+ */
+export function lireVueNpm(brut) {
+  let doc;
+  try {
+    doc = JSON.parse(brut ?? "");
+  } catch {
+    return null;
+  }
+  const vues = [doc].flat().filter((v) => v && typeof v === "object");
+  if (vues.length === 0) return null;
+  return {
+    latest: vues[0]["dist-tags"]?.latest ?? null,
+    versions: vues.flatMap((v) => [v.versions ?? []].flat()),
+  };
+}

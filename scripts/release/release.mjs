@@ -27,6 +27,12 @@
  *   npm run release -- --version 10.0.0 --publish            # MANUEL
  *   npm run release -- --deprecate                           # les paquets historiques
  *   npm run release -- --deprecate --publish                 # …et les déprécier
+ *   npm run release -- --dist-tags                           # `latest` restés en arrière
+ *   npm run release -- --dist-tags --publish                 # …et les recaler
+ *
+ * `--otp <code>` accompagne `--deprecate --publish` et `--dist-tags --publish` :
+ * les seuls gestes que le trusted publishing ne couvre pas. Sans lui, npm
+ * réclame le code une fois par paquet.
  *
  * `--from` ne sert QU AUX trois premières : la publication saute le changelog,
  * qui a été écrit, relu et commité avant. Le passer là ne fait rien — et un
@@ -74,6 +80,8 @@ import {
   paquetsNonEstampilles,
   pairsTropLarges,
   latestsRestesEnArriere,
+  lireVueNpm,
+  trierPourRecalage,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
   referencesFigees,
@@ -106,6 +114,14 @@ const arg = (nom, def = null) => {
   return i >= 0 && v && !v.startsWith("--") ? v : def;
 };
 const drapeau = (nom) => process.argv.includes(`--${nom}`);
+
+// Le code à deux facteurs, pour les gestes que le trusted publishing ne couvre
+// pas (`deprecate`, `dist-tag`). Sans lui, npm le réclame sur le terminal — une
+// fois PAR PAQUET, soit trente saisies pour un lot. Un même code TOTP reste
+// valable une trentaine de secondes : il passe donc sur tout le lot, à
+// condition de ne pas traîner. Absent, le comportement interactif est conservé.
+const OTP = arg("otp");
+const avecOtp = (args) => (OTP ? [...args, `--otp=${OTP}`] : args);
 
 if (drapeau("help") || process.argv.length === 2) {
   dire(
@@ -169,6 +185,36 @@ const npm = (args, opts = {}) =>
     ...opts,
   });
 
+/**
+ * Les workspaces PUBLIABLES — `private` fait foi, jamais une liste écrite à la
+ * main, dont l'oubli serait silencieux : le paquet manquant ne sort pas, et
+ * personne ne le remarque avant qu'un utilisateur ne bute sur une dépendance
+ * introuvable.
+ *
+ * Une seule implémentation, deux appelants — la passe de préparation et le mode
+ * `--dist-tags`, qui court-circuite tout le reste du fichier et aurait sinon
+ * recopié le geste.
+ *
+ * @returns un descripteur par paquet : `{ nom, location, chemin, pkg }`
+ */
+const listerPubliables = () => {
+  const q = npm(["query", ".workspace", "--json"]);
+  if (q.status !== 0) echouer(`npm query a échoué :\n${q.stderr}`);
+  const liste = JSON.parse(q.stdout)
+    .filter((w) => !w.private)
+    .map((w) => {
+      const chemin = path.join(ROOT, w.location, "package.json");
+      return {
+        nom: w.name,
+        location: w.location,
+        chemin,
+        pkg: JSON.parse(readFileSync(chemin, "utf8")),
+      };
+    });
+  if (liste.length === 0) echouer("aucun workspace publiable.");
+  return liste;
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // --deprecate — les paquets de l'ère « Bundle », APRÈS la publication
 // ═══════════════════════════════════════════════════════════════════════════
@@ -205,7 +251,9 @@ if (drapeau("deprecate")) {
     }
     dire(`  → ${entree.nom}`);
     // `stdio: inherit` : npm demande le code à deux facteurs sur le terminal.
-    const r = npm(["deprecate", entree.nom, message], { stdio: "inherit" });
+    const r = npm(avecOtp(["deprecate", entree.nom, message]), {
+      stdio: "inherit",
+    });
     // Un échec n'ARRÊTE PAS le lot, à l'inverse de la publication : une
     // dépréciation est indépendante des autres et RÉVERSIBLE (message vide).
     // S'arrêter au premier raté laisserait quinze paquets muets pour un seul
@@ -224,6 +272,111 @@ if (drapeau("deprecate")) {
   } else {
     dire(`\n✓ dépréciation — ${PAQUETS_HISTORIQUES.length} paquets`);
   }
+  process.exit(0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// --dist-tags — le `latest` resté en arrière, APRÈS la publication
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴 Pourquoi ce mode existe SÉPARÉMENT de la passe de publication, qui fait
+// déjà ce constat : elle ne le fait qu'À CHAUD, pendant qu'un opérateur regarde
+// défiler la sortie. Le geste, lui, ne peut PAS partir de la forge — le trusted
+// publishing ne couvre que `publish` —, il attend donc le poste du mainteneur
+// et son code à deux facteurs. Entre les deux, l'écart reste en ligne et plus
+// rien ne le dit : `npm outdated` l'annonce alors comme quatorze paquets « en
+// retard », symptôme dont la cause est invisible. Un constat qui ne se rejoue
+// pas est un constat perdu.
+//
+// Comme `--deprecate`, ce mode n'a besoin NI de version, NI de tarballs : il
+// court-circuite tout le reste du fichier. Sans `--publish`, il ne touche pas
+// au registre.
+if (drapeau("dist-tags")) {
+  etape = "dist-tags";
+  dire(
+    `\n${PUBLIER ? "🔴 RECALAGE RÉEL" : "── RÉPÉTITION — le registre n'est PAS touché"}\n`,
+  );
+
+  const etats = [];
+  const illisibles = [];
+  for (const p of listerPubliables()) {
+    // Un seul appel par paquet — les deux champs à la fois. La LECTURE de sa
+    // sortie est un raisonnement à elle seule (npm enveloppe dans un tableau) :
+    // elle vit dans le cœur, éprouvée, plutôt qu'ici où elle a déjà menti.
+    const r = npm(["view", p.nom, "dist-tags", "versions", "--json"]);
+    const vue = r.status === 0 ? lireVueNpm(r.stdout) : null;
+    if (!vue) {
+      illisibles.push(p.nom);
+      continue;
+    }
+    etats.push({
+      nom: p.nom,
+      latest: vue.latest,
+      publiee: p.pkg.version,
+      versions: vue.versions,
+    });
+  }
+
+  const { aRecaler, absentes } = trierPourRecalage(etats, (v) =>
+    v.includes("-"),
+  );
+  const marqueDe = new Map([
+    ...aRecaler.map((r) => [r.nom, "← À RECALER"]),
+    ...absentes.map((r) => [r.nom, "⊘ version ABSENTE du registre"]),
+  ]);
+  for (const e of etats) {
+    dire(
+      `  ${e.nom.padEnd(26)} latest=${(e.latest ?? "—").padEnd(16)}` +
+        `dépôt=${e.publiee.padEnd(16)}${marqueDe.get(e.nom) ?? "·"}`,
+    );
+  }
+  for (const nom of illisibles) {
+    alerter(`${nom} — registre illisible ou paquet jamais publié`);
+  }
+  dire(
+    "\n  Un `latest` STABLE n'est jamais recalé : le déplacer vers une préversion\n" +
+      "  servirait une alpha à tout `npm i` de la terre. C'est ce qui protège `nodefony`.",
+  );
+
+  if (!aRecaler.length) {
+    dire("\n✓ dist-tags — rien à recaler");
+    process.exit(0);
+  }
+
+  if (!PUBLIER) {
+    dire(
+      `\n  ${aRecaler.length} paquet(s) à recaler. Appliquer, depuis le poste\n` +
+        "  (npm demandera le code 2FA) : --dist-tags --publish\n" +
+        "  Ou, un par un :\n" +
+        aRecaler
+          .map((r) => `    npm dist-tag add ${r.nom}@${r.vers} latest`)
+          .join("\n"),
+    );
+    process.exit(0);
+  }
+
+  const echecs = [];
+  for (const r of aRecaler) {
+    dire(`  → ${r.nom} : ${r.de} ⇒ ${r.vers}`);
+    // `stdio: inherit` : npm demande le code à deux facteurs sur le terminal.
+    const res = npm(
+      avecOtp(["dist-tag", "add", `${r.nom}@${r.vers}`, "latest"]),
+      { stdio: "inherit" },
+    );
+    // Un échec n'ARRÊTE PAS le lot, à l'inverse de la publication : un dist-tag
+    // est indépendant des autres et se repose autant de fois qu'on veut.
+    // S'arrêter au premier raté laisserait treize paquets périmés pour un seul
+    // qui résiste — et l'on ne saurait pas lesquels ont abouti.
+    if (res.status !== 0) echecs.push(r.nom);
+  }
+  if (echecs.length) {
+    echouer(
+      `recalage refusé sur ${echecs.length} paquet(s) : ${echecs.join(", ")}\n` +
+        "  Les autres ont abouti. Un dist-tag se repose : reprendre ceux-là seuls,\n" +
+        "  il n'y a rien à défaire.",
+    );
+  }
+  dire(`\n✓ dist-tags — ${aRecaler.length} paquets recalés`);
   process.exit(0);
 }
 /**
@@ -407,20 +560,7 @@ etape = "inventaire des paquets publiables";
 // ajouté, et son oubli est SILENCIEUX : le paquet manquant ne sort pas, et
 // personne ne le remarque avant qu'un utilisateur ne bute sur une dépendance
 // introuvable.
-const q = npm(["query", ".workspace", "--json"]);
-if (q.status !== 0) echouer(`npm query a échoué :\n${q.stderr}`);
-const paquets = JSON.parse(q.stdout)
-  .filter((w) => !w.private)
-  .map((w) => {
-    const chemin = path.join(ROOT, w.location, "package.json");
-    return {
-      nom: w.name,
-      location: w.location,
-      chemin,
-      pkg: JSON.parse(readFileSync(chemin, "utf8")),
-    };
-  });
-if (paquets.length === 0) echouer("aucun workspace publiable.");
+const paquets = listerPubliables();
 dire(`✓ inventaire — ${paquets.length} paquets publiables`);
 
 // ═══════════════════════════════════════════════════════════════════════════

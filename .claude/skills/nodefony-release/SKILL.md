@@ -41,6 +41,7 @@ derrière les commandes npm qui font autorité :
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
+| `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |
 
 Ce skill donne la méthode À UN AGENT : quoi lancer, ce que chaque refus signifie, où chercher
 quand ça casse. Ce n'est pas la documentation du projet — celle-ci vit dans
@@ -248,7 +249,18 @@ par un sous-shell.
 - **Ce que la forge publie n'hérite d'aucune session npm.** Le trusted publishing ne couvre que
   `publish` ; tout le reste — `deprecate`, `dist-tag`, `access` — réclame sa propre authentification
   depuis le poste, avec le code à deux facteurs. Un plan qui les range « dans la même session que le
-  publish » fait croire qu'ils partent avec le lot.
+  publish » fait croire qu'ils partent avec le lot. Les deux modes qui les portent acceptent
+  `--otp <code>` : sans lui, npm réclame le code une fois PAR PAQUET.
+- **npm pose `latest` à la PREMIÈRE publication, quel que soit `--tag`, et ne le déplace plus.** Un
+  paquet né en préversion sert sa toute première alpha à qui écrit `npm i <paquet>`. Le symptôme
+  n'est pas une erreur : c'est `npm outdated` qui annonce les paquets « en retard » APRÈS une
+  publication réussie. `--dist-tags` le constate et le corrige ; il ne touche JAMAIS un `latest`
+  stable. La passe de publication fait le même constat, mais **à chaud seulement** — un constat qui
+  ne se rejoue pas est un constat perdu, et c'est pourquoi le mode existe séparément.
+- **`npm view <nom> --json` ENVELOPPE sa réponse dans un tableau** dès que le spécificateur peut
+  correspondre à plusieurs versions. Lire `doc["dist-tags"]` dessus rend `undefined` en silence :
+  le mode a annoncé « rien à recaler » sur quatorze paquets qui l'étaient tous. La lecture vit dans
+  le cœur (`lireVueNpm`), éprouvée sur la forme réelle.
 - **Le tag ne se pousse pas avec le commit.** Une poussée de branche réveille toute l'intégration
   continue ; la publication attend alors derrière les bancs. Le script le dit à la fin de
   `--write` — le suivre plutôt que d'enchaîner les deux poussées.

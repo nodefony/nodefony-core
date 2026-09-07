@@ -20,6 +20,9 @@ import { describe, expect, it } from "vitest";
 import {
   EXCLUS_DE_LA_DEPRECIATION,
   PAQUETS_HISTORIQUES,
+  latestsRestesEnArriere,
+  lireVueNpm,
+  trierPourRecalage,
   messageDeDepreciation,
   refusDePublicationHorsBranche,
   MAX_BUFFER_GIT,
@@ -1213,5 +1216,167 @@ describe("branche de publication", () => {
     });
     expect(refus).toMatch(/introuvable/);
     expect(refus).toMatch(/fetch-depth: 0/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Le dist-tag `latest` — la règle asymétrique, et ce qu'elle protège
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// npm pose `latest` à la PREMIÈRE publication d'un paquet, quel que soit
+// `--tag`, et ne le déplace plus. Un paquet né en préversion sert donc sa toute
+// première alpha à qui écrit `npm i <paquet>` sans nommer de canal. Constaté
+// sur les quatorze paquets de la `10.0.0-alpha.2`.
+//
+// L'erreur SYMÉTRIQUE coûte infiniment plus cher : recaler un `latest` STABLE
+// servirait une préversion à tout `npm i` de la terre, et aucune fenêtre de
+// retrait ne rattrape des installations déjà parties.
+const estPreversion = (v) => v.includes("-");
+
+describe("latestsRestesEnArriere", () => {
+  it("recale un latest resté sur une préversion périmée", () => {
+    expect(
+      latestsRestesEnArriere(
+        [
+          {
+            nom: "@nodefony/http",
+            latest: "10.0.0-alpha.1",
+            publiee: "10.0.0-alpha.2",
+          },
+        ],
+        estPreversion,
+      ),
+    ).toEqual([
+      { nom: "@nodefony/http", de: "10.0.0-alpha.1", vers: "10.0.0-alpha.2" },
+    ]);
+  });
+
+  it("🔴 PIÈGE — un latest STABLE est INTOUCHABLE, même en retard", () => {
+    // Le cas réel : `nodefony` porte `latest = 7.0.2` pendant que la 10 sort en
+    // alpha. Une implémentation naïve — « latest ≠ version publiée, donc à
+    // recaler » — servirait la préversion à tous les installeurs de la 7.
+    expect(
+      latestsRestesEnArriere(
+        [{ nom: "nodefony", latest: "7.0.2", publiee: "10.0.0-alpha.2" }],
+        estPreversion,
+      ),
+    ).toEqual([]);
+  });
+
+  it("ne propose rien quand latest est déjà à jour, ou inconnu", () => {
+    expect(
+      latestsRestesEnArriere(
+        [
+          { nom: "a", latest: "10.0.0-alpha.2", publiee: "10.0.0-alpha.2" },
+          { nom: "b", latest: null, publiee: "10.0.0-alpha.2" },
+        ],
+        estPreversion,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("trierPourRecalage", () => {
+  it("écarte le paquet dont la version visée est ABSENTE du registre", () => {
+    // Le dépôt est estampillé en alpha.3 par `--write`, mais rien n'est publié :
+    // `npm dist-tag add …@10.0.0-alpha.3 latest` échouerait sur un message de npm
+    // qui ne nomme pas la cause. On le dit AVANT de toucher au registre.
+    const { aRecaler, absentes } = trierPourRecalage(
+      [
+        {
+          nom: "@nodefony/http",
+          latest: "10.0.0-alpha.1",
+          publiee: "10.0.0-alpha.3",
+          versions: ["10.0.0-alpha.1", "10.0.0-alpha.2"],
+        },
+      ],
+      estPreversion,
+    );
+    expect(aRecaler).toEqual([]);
+    expect(absentes).toEqual([
+      { nom: "@nodefony/http", vers: "10.0.0-alpha.3" },
+    ]);
+  });
+
+  it("🔴 PIÈGE — la garde d'absence ne DÉSARME pas la règle du latest stable", () => {
+    // Les deux règles se composent : une version bien présente au registre ne
+    // rend pas pour autant un `latest` stable recalable.
+    const { aRecaler, absentes } = trierPourRecalage(
+      [
+        {
+          nom: "nodefony",
+          latest: "7.0.2",
+          publiee: "10.0.0-alpha.2",
+          versions: ["7.0.2", "10.0.0-alpha.2"],
+        },
+      ],
+      estPreversion,
+    );
+    expect(aRecaler).toEqual([]);
+    expect(absentes).toEqual([]);
+  });
+
+  it("sans liste de versions, ne bloque rien — la garde ne s'invente pas un refus", () => {
+    const { aRecaler, absentes } = trierPourRecalage(
+      [
+        {
+          nom: "@nodefony/http",
+          latest: "10.0.0-alpha.1",
+          publiee: "10.0.0-alpha.2",
+        },
+      ],
+      estPreversion,
+    );
+    expect(aRecaler).toHaveLength(1);
+    expect(absentes).toEqual([]);
+  });
+});
+
+describe("lireVueNpm", () => {
+  it("🔴 PIÈGE — npm ENVELOPPE sa réponse dans un tableau", () => {
+    // Le faux vert vécu : lire `doc["dist-tags"]` sur cette forme rend
+    // `undefined`, et le mode a annoncé « rien à recaler » sur quatorze paquets
+    // qui l'étaient tous. C'est la forme RÉELLE d'un `npm view @nodefony/http
+    // dist-tags versions --json`, recopiée telle quelle.
+    expect(
+      lireVueNpm(
+        JSON.stringify([
+          {
+            "dist-tags": { alpha: "10.0.0-alpha.2", latest: "10.0.0-alpha.1" },
+            versions: ["10.0.0-alpha.1", "10.0.0-alpha.2"],
+          },
+        ]),
+      ),
+    ).toEqual({
+      latest: "10.0.0-alpha.1",
+      versions: ["10.0.0-alpha.1", "10.0.0-alpha.2"],
+    });
+  });
+
+  it("lit aussi la forme NUE, quand npm n'enveloppe pas", () => {
+    expect(
+      lireVueNpm(
+        JSON.stringify({
+          "dist-tags": { latest: "7.0.2" },
+          versions: ["7.0.2"],
+        }),
+      ),
+    ).toEqual({ latest: "7.0.2", versions: ["7.0.2"] });
+  });
+
+  it("une version UNIQUE arrive en chaîne, pas en tableau", () => {
+    expect(
+      lireVueNpm(
+        JSON.stringify({ "dist-tags": { latest: "1.0.0" }, versions: "1.0.0" }),
+      ).versions,
+    ).toEqual(["1.0.0"]);
+  });
+
+  it("une sortie illisible ou vide rend null — jamais un état inventé", () => {
+    // Rendre un objet aux champs nuls ferait passer le paquet pour « à jour ».
+    // `null` force l'appelant à le NOMMER comme illisible.
+    expect(lireVueNpm("")).toBeNull();
+    expect(lireVueNpm("pas du json")).toBeNull();
+    expect(lireVueNpm("[]")).toBeNull();
   });
 });

@@ -269,20 +269,32 @@ un mauvais changelog. La réécriture est le geste humain de la release, et le s
    effet sur les installations existantes. **Dans cet ordre** : déprécier avant d'avoir publié
    renverrait les gens vers des paquets qui n'existent pas encore. La table de correspondance vit
    au §7.3ter du [plan](../release/nodefony-10.md).
+4. **Recaler le dist-tag `latest`** — `npm run release -- --dist-tags`, puis `--dist-tags --publish`.
+   npm pose `latest` à la **première** publication d'un paquet, quel que soit `--tag`, et ne le
+   déplace plus : un paquet né en préversion sert donc éternellement sa toute première alpha à qui
+   écrit `npm i <paquet>` sans nommer de canal. Le mode ne recale **jamais** un `latest` stable —
+   c'est ce qui protège `nodefony@7.0.2`, dont un recalage servirait une préversion à la terre
+   entière.
+
+Les points 3 et 4 réclament tous deux le **code à deux facteurs**, depuis le poste : le trusted
+publishing ne couvre que `publish`. `npm login` d'abord (`npm whoami` répond `E401` sans session),
+puis `--otp <code>` sur la commande — sinon npm réclame le code une fois par paquet, soit une
+trentaine de saisies pour les deux lots.
 
 ---
 
 ## Dépannage
 
-| Symptôme                                    | Cause                                                                                                   |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `ENEEDAUTH` en CI                           | `id-token: write` manquant · npm < 11.5.1 · nom de workflow qui ne correspond pas · runner auto-hébergé |
-| Le pack refuse : `.ai/symbols.json` absent  | fichier **généré et gitignoré** → `npm run generate-symbols`                                            |
-| `CHANGELOG.md porte déjà une section « X »` | normal : la préparation ne réécrit pas ce qui a été relu. Éditer à la main.                             |
-| `N paquet(s) ne portent pas <version>`      | le tag a été posé avant le commit de release — refaire dans l'ordre                                     |
-| Le smoke échoue sur `docker build`          | lire l'étape **nommée** qui a lâché : un scaffold muet envoie chercher la panne dans les tarballs       |
-| `npm whoami` ne montre rien en CI           | attendu : il ne reflète **jamais** une authentification OIDC                                            |
-| Podman : `HEALTHCHECK` disparu de l'image   | Podman construit en OCI, qui ne porte pas cette directive → `podman build --format docker`              |
+| Symptôme                                                                       | Cause                                                                                                   |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `ENEEDAUTH` en CI                                                              | `id-token: write` manquant · npm < 11.5.1 · nom de workflow qui ne correspond pas · runner auto-hébergé |
+| Le pack refuse : `.ai/symbols.json` absent                                     | fichier **généré et gitignoré** → `npm run generate-symbols`                                            |
+| `CHANGELOG.md porte déjà une section « X »`                                    | normal : la préparation ne réécrit pas ce qui a été relu. Éditer à la main.                             |
+| `N paquet(s) ne portent pas <version>`                                         | le tag a été posé avant le commit de release — refaire dans l'ordre                                     |
+| Le smoke échoue sur `docker build`                                             | lire l'étape **nommée** qui a lâché : un scaffold muet envoie chercher la panne dans les tarballs       |
+| `npm whoami` ne montre rien en CI                                              | attendu : il ne reflète **jamais** une authentification OIDC                                            |
+| `npm outdated` annonce les paquets « en retard » après une publication réussie | le dist-tag `latest` est resté sur la préversion précédente → `npm run release -- --dist-tags`          |
+| Podman : `HEALTHCHECK` disparu de l'image                                      | Podman construit en OCI, qui ne porte pas cette directive → `podman build --format docker`              |
 
 ## 📖 Lexique
 
