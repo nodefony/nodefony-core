@@ -40,6 +40,11 @@
   fichier une heure plus tôt, deux zones ciblées, sans lire le reste. Les deux copies divergeaient
   déjà sur quatre points (ordre des URL, canonisation de l'émetteur, schéma toléré, redirections) —
   et c'est un audit délégué qui l'a vu, pas moi. Éditer un fichier n'est pas le lire.
+- [1× — 09-07f] **La même troncature vivait dans DEUX scripts, et je n'ai cherché que le premier.**
+  `items(first:100)` sur un tableau de 255 lignes : corrigé dans `ticket-open.mjs` le matin, laissé
+  dans `ticket-effort.mjs` jusqu'au soir — où il écartait 63 tickets sur 100 du calcul censé juger
+  les estimations. Corriger le cas vu n'est pas corriger la famille ; le geste manquant tient en un
+  `rg` sur le MOTIF, pas sur le fichier. Voir [[feedback_fix_the_family_not_the_instance]].
 - [1× — 09-07f] **Un script violait la règle écrite dans son PROPRE skill.** `ticket-open.mjs`
   dérivait l'ordre d'un sous-ticket par `gh project item-list`, que le SKILL.md du même skill
   interdit explicitement pour décider. Le remède n'est pas d'écrire la règle une troisième fois :
@@ -65,6 +70,12 @@
   mauvais endroit — le symptôme est qu'on propose des remèdes qui s'excluent.
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
+
+- [1× — 09-07f] **Repayé le jour même où je l'ai lu.** Un test qui importe `ticket-effort.mjs`
+  pour éprouver deux fonctions pures relançait tout le script : appels réseau, lecture de git,
+  affichage. Le voisin `ticket-open.mjs` portait pourtant déjà la garde
+  (`if (process.argv[1]?.endsWith(...))`). Une garde d'exécution n'est pas une précaution de style :
+  c'est ce qui rend un script IMPORTABLE, donc éprouvable.
 
 - [1× — 09-05i] **`import()` d'un script pour « vérifier qu'il charge » l'EXÉCUTE.** Voulant
   prouver que trois scripts du banc importaient encore, j'en ai démarré un vrai (banc de scaffold,
@@ -241,6 +252,14 @@
 > Gradué au CONSOLIDATE du 2026-09-07 — 9 frictions → **`feedback_error_message_names_all_causes`**, mémoire neuve : dire ce qu’on a CONSTATÉ, pas ce qu’on en déduit. Ne PAS réécrire ici.
 
 ## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
+
+- [1× — 09-07f] **Mon instrument mesurait la mauvaise unité, et écartait les cas les plus nets.**
+  `ticket-effort.mjs` rendait un « biais médian ×3,6 » sur 26 tickets : il comptait l'INTERVALLE
+  entre premier et dernier commit (39 h pour deux séances distantes de deux jours), écartait les
+  21 tickets clos par un commit unique — les plus nets — et lisait le tableau tronqué à 100 sur
+  255 lignes. Corrigé : 97 tickets mesurables, et le vrai constat apparaît, inverse du précédent —
+  **un ticket coûte UNE séance quelle que soit sa taille estimée**. Un instrument qui rend un
+  chiffre plausible n'invite personne à vérifier son unité.
 
 - [1× — 09-07f] **`anchor-check` a classé « ce n'est pas un défaut » une ancre FAUSSE.** Son verdict
   `INDÉCIS` — « littéral, ou symbole prouvé par une ancre voisine », avec la consigne de ne pas la
