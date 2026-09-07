@@ -189,7 +189,7 @@ source: "docs/skills/index.md"
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 187 | 1 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 582 | 4 | 13 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 587 | 4 | 13 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

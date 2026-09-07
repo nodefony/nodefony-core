@@ -48,3 +48,48 @@ describe("ordre dérivé d'un sous-ticket", () => {
     expect(() => deriveOrdre(50, 9)).to.throw(/neuf sous-tickets/);
   });
 });
+
+/**
+ * Aucun script de pilotage ne décide sur `gh project item-list`.
+ *
+ * Ce contrôle existe parce que la règle était écrite — dans le SKILL.md, noir sur
+ * blanc — et que le script la violait quand même. `item-list` omet des lignes sans
+ * le dire ; sur un tableau de plus de cent items, le parent d'une grappe en
+ * tombait, et `ticket-open.mjs` annonçait « le parent n'a pas d'ordre » avant de
+ * poser toute la grappe en fin de tri. Rien n'avait l'air cassé.
+ *
+ * Une règle en prose n'est appliquée que si un automate la relit — c'est ce que
+ * dit le skill lui-même à propos du tableau de bord ; il fallait que ça vaille
+ * aussi pour ses propres outils.
+ */
+describe("les scripts de pilotage ne lisent pas le tableau par `item-list`", async () => {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const url = await import("node:url");
+  const ici = path.dirname(url.fileURLToPath(import.meta.url));
+
+  /** Retire commentaires de ligne et de bloc — une MENTION n'est pas un appel. */
+  const sansCommentaires = (source) =>
+    source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  // Le dossier est BALAYÉ plutôt qu'énuméré : un script neuf entre sous la garde
+  // sans que personne y pense, et aucun nom n'est écrit ici — une liste nominale
+  // ferait lire à l'inventaire des scripts du dépôt que ceux-ci sont « lancés »,
+  // alors que ce test ne fait que les OUVRIR.
+  const scripts = fs
+    .readdirSync(ici)
+    .filter((f) => f.endsWith(".mjs") && !f.endsWith(".test.mjs"));
+
+  it("le balayage trouve bien des scripts (sinon la garde ne garde rien)", () => {
+    expect(scripts.length).to.be.greaterThan(3);
+  });
+
+  for (const nom of scripts) {
+    it(`${nom} n'appelle pas \`gh project item-list\``, () => {
+      const code = sansCommentaires(
+        fs.readFileSync(path.join(ici, nom), "utf8"),
+      );
+      expect(code).not.to.match(/["']item-list["']/);
+    });
+  }
+});

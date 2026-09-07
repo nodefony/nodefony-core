@@ -92,6 +92,58 @@ export function deriveOrdre(parentOrdre, rang) {
 
 /** Convention du dépôt (cf `ticket-progress.mjs`) : rien ne s'exécute à l'import,
  * pour que les fonctions pures ci-dessus soient éprouvables sans toucher GitHub. */
+/**
+ * Lit l'ordre d'UN ticket au tableau de bord.
+ *
+ * @remarks Passe par `issue(number:)` — la seule voie qui ne tronque pas. Lister
+ * le tableau pour y chercher une ligne rend un inventaire incomplet qu'on croit
+ * complet ; demander un ticket qu'on nomme rend son état vrai.
+ *
+ * @param numero - numéro de l'issue
+ * @returns l'ordre posé, ou `undefined` si l'item n'est pas inscrit ou sans ordre
+ */
+export function ordreDuTicket(numero) {
+  const out = sh("gh", [
+    "api",
+    "graphql",
+    "-f",
+    `query=query{repository(owner:"${OWNER}",name:"${REPO}"){issue(number:${Number(
+      numero,
+    )}){projectItems(first:10){nodes{fieldValues(first:30){nodes{... on ProjectV2ItemFieldNumberValue{number field{... on ProjectV2FieldCommon{name}}}}}}}}}}`,
+  ]);
+  const noeuds =
+    JSON.parse(out)?.data?.repository?.issue?.projectItems?.nodes ?? [];
+  for (const item of noeuds) {
+    for (const champ of item.fieldValues?.nodes ?? []) {
+      if (champ?.field?.name === "Ordre" && typeof champ.number === "number") {
+        return champ.number;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Compte les sous-tickets DÉJÀ rattachés à un parent.
+ *
+ * @remarks Le compte est DEMANDÉ (`totalCount`), jamais déduit de la longueur de
+ * ce qui a été reçu — une liste tronquée a exactement l'air d'une liste complète.
+ *
+ * @param numero - numéro de l'issue parente
+ * @returns le nombre d'enfants déjà rattachés
+ */
+export function nombreDeSousTickets(numero) {
+  const out = sh("gh", [
+    "api",
+    "graphql",
+    "-f",
+    `query=query{repository(owner:"${OWNER}",name:"${REPO}"){issue(number:${Number(
+      numero,
+    )}){subIssues(first:1){totalCount}}}}`,
+  ]);
+  return JSON.parse(out)?.data?.repository?.issue?.subIssues?.totalCount ?? 0;
+}
+
 if (process.argv[1] && process.argv[1].endsWith("ticket-open.mjs")) {
   const args = parseArgs(process.argv.slice(2));
   if (!args.title || !args.bodyFile) {
@@ -203,31 +255,17 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-open.mjs")) {
   // L'ORDRE — explicite, sinon dérivé du parent, sinon ANNONCÉ manquant.
   let ordre = args.ordre === undefined ? undefined : Number(args.ordre);
   if (ordre === undefined && args.parent) {
-    const items = JSON.parse(
-      sh("gh", [
-        "project",
-        "item-list",
-        String(PROJECT),
-        "--owner",
-        OWNER,
-        "--limit",
-        "200",
-        "--format",
-        "json",
-      ]),
-    ).items;
-    const numOf = (it) => it.content?.number;
-    const parentItem = items.find((it) => numOf(it) === Number(args.parent));
-    const parentOrdre = parentItem?.ordre;
-    // Les frères sont les enfants DÉJÀ inscrits : ceux dont l'ordre tombe dans le
-    // dixième du parent. On compte, on ne devine pas.
-    const rang = items.filter(
-      (it) =>
-        typeof it.ordre === "number" &&
-        numOf(it) !== Number(args.parent) &&
-        it.ordre > parentOrdre &&
-        it.ordre < parentOrdre + 1,
-    ).length;
+    // 🔴 Les deux lectures ci-dessous interrogent le TICKET, jamais la liste du
+    // tableau de bord. `gh project item-list` en omet sans le dire, et
+    // `projectV2.items(first:N)` tronque à N en silence : sur un tableau de plus
+    // de cent lignes, le parent en tombait — le script annonçait alors « le
+    // parent n'a pas d'ordre » et posait la grappe entière en fin de tri, sans
+    // qu'aucune erreur ne le signale. Interroger un ticket qu'on NOMME n'a pas
+    // ce bord.
+    const parentOrdre = ordreDuTicket(args.parent);
+    // Les frères sont les sous-tickets DÉJÀ rattachés — comptés à leur source,
+    // pas devinés d'après une plage d'ordres.
+    const rang = nombreDeSousTickets(args.parent);
     try {
       ordre = deriveOrdre(parentOrdre, rang);
     } catch (err) {

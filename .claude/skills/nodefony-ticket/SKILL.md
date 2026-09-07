@@ -575,7 +575,12 @@ Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un 
 [`scripts/ticket-open.test.mjs`](scripts/ticket-open.test.mjs) et
 [`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs) ; celles du compte rendu
 (`fichiersDeTest`, `composer`) par [`scripts/ticket-close.test.mjs`](scripts/ticket-close.test.mjs).
-Toutes sont lancées par `npm run test:pilotage`.
+Toutes sont lancées par `npm run test:pilotage`, qui porte aussi le **gate qui interdit à ces
+scripts de décider sur `gh project item-list`** — la règle du piège ci-dessous était écrite, et un
+script la violait quand même : sur un tableau de plus de cent items, le parent d'une grappe
+disparaissait de la liste, l'ordre n'était pas dérivé, et la grappe entière tombait en fin de tri
+sans qu'aucune erreur ne le dise. Une règle en prose n'est appliquée que si un automate la relit ;
+cela vaut pour les outils du pilotage comme pour les tickets qu'ils gèrent.
 
 ## Références (chargées à la demande)
 
