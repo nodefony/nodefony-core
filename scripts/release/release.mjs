@@ -73,6 +73,7 @@ import {
   ordreTopologique,
   paquetsNonEstampilles,
   pairsTropLarges,
+  latestsRestesEnArriere,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
   referencesFigees,
@@ -953,6 +954,45 @@ if (PHASES.publier) {
     publies.push(nom);
   }
   dire(`✓ publication — ${publies.length} paquets en ${VERSION}`);
+
+  // ── `latest` resté en arrière ────────────────────────────────────────────
+  // npm pose `latest` à la PREMIÈRE publication d'un paquet, quel que soit
+  // `--tag` — et ne le déplace plus ensuite. Un paquet né en préversion garde
+  // donc `latest` sur sa toute première alpha : `npm i <paquet>`, sans nommer
+  // de canal, sert le défaut que cette publication vient de corriger. Constaté
+  // sur les treize paquets scopés de la `10.0.0-alpha.2`.
+  //
+  // On le CONSTATE ici, à chaud, pendant que l'opérateur regarde — plus tard,
+  // personne ne va lire des dist-tags.
+  etape = "dist-tags";
+  const etats = [];
+  for (const nom of publies) {
+    const r = npm(["view", nom, "dist-tags", "--json"]);
+    if (r.status !== 0) continue;
+    try {
+      etats.push({
+        nom,
+        latest: JSON.parse(r.stdout ?? "{}").latest ?? null,
+        publiee: VERSION,
+      });
+    } catch {
+      /* un paquet illisible ne doit pas faire tomber le bilan */
+    }
+  }
+  const aRecaler = latestsRestesEnArriere(etats, (v) => v.includes("-"));
+  if (aRecaler.length) {
+    alerter(
+      `${aRecaler.length} paquet(s) servent encore une préversion PÉRIMÉE sous « latest » :\n` +
+        aRecaler
+          .map((r) => `    ${r.nom} : latest=${r.de} (publié ${r.vers})`)
+          .join("\n") +
+        "\n  `npm i <paquet>` sans canal sert donc l'ancienne. Recaler, depuis le poste\n" +
+        "  (le trusted publishing ne couvre que `publish`) :\n" +
+        aRecaler
+          .map((r) => `    npm dist-tag add ${r.nom}@${r.vers} latest`)
+          .join("\n"),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

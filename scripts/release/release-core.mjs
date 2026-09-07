@@ -943,3 +943,32 @@ export function refusDePublicationHorsBranche({
   }
   return null;
 }
+
+/**
+ * Les paquets dont le dist-tag `latest` est resté sur une préversion PÉRIMÉE.
+ *
+ * 🔴 Le piège qu'elle nomme, constaté sur la `10.0.0-alpha.2` : npm pose
+ * `latest` à la PREMIÈRE publication d'un paquet, quel que soit `--tag`. Les
+ * treize paquets nés en `alpha.1` ont donc gardé `latest = 10.0.0-alpha.1` —
+ * la version défectueuse — pendant que `alpha` avançait. `npm i @nodefony/http`
+ * sans nommer de canal servait encore le défaut que la publication corrigeait.
+ *
+ * La règle est asymétrique, et c'est ce qui la rend sûre : on ne déplace
+ * `latest` QUE s'il pointe déjà une préversion. S'il porte une version stable
+ * — `nodefony` en `7.0.2` — y toucher servirait une alpha à tout `npm i` de
+ * la terre, ce qu'aucune fenêtre de retrait ne rattrape.
+ *
+ * @param etats - un état par paquet : `{ nom, latest, publiee }`
+ * @param estPreversion - dit si une version porte une étiquette de préversion
+ * @returns les paquets à recaler, chacun avec le motif
+ */
+export function latestsRestesEnArriere(etats, estPreversion) {
+  const aRecaler = [];
+  for (const { nom, latest, publiee } of etats) {
+    if (!latest || latest === publiee) continue;
+    // `latest` stable : intouchable. C'est le cas qui protège `nodefony@7.0.2`.
+    if (!estPreversion(latest)) continue;
+    aRecaler.push({ nom, de: latest, vers: publiee });
+  }
+  return aRecaler;
+}
