@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import {
   EXCLUS_DE_LA_DEPRECIATION,
   PAQUETS_HISTORIQUES,
+  depreciationsAFaire,
   latestsRestesEnArriere,
   lireVueNpm,
   trierPourRecalage,
@@ -1378,5 +1379,43 @@ describe("lireVueNpm", () => {
     expect(lireVueNpm("")).toBeNull();
     expect(lireVueNpm("pas du json")).toBeNull();
     expect(lireVueNpm("[]")).toBeNull();
+  });
+});
+
+describe("depreciationsAFaire", () => {
+  const attendu = "Nodefony 10 : ce paquet devient @nodefony/http";
+
+  it("écarte ce qui porte DÉJÀ le bon message — c'est ce qui rend le mode rejouable", () => {
+    // Sans ce filtre, la répétition rejoue sa liste à l'aveugle et ne peut
+    // jamais dire « plus rien à faire » : l'opérateur qui la relance six mois
+    // plus tard ne sait pas s'il regarde du travail ou un souvenir.
+    expect(
+      depreciationsAFaire([
+        { nom: "@nodefony/http-bundle", message: attendu, attendu },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("nomme le paquet jamais déprécié", () => {
+    expect(
+      depreciationsAFaire([
+        { nom: "@nodefony/http-bundle", message: null, attendu },
+      ]),
+    ).toEqual([{ nom: "@nodefony/http-bundle", motif: "jamais dépréciée" }]);
+  });
+
+  it("🔴 PIÈGE — un message PÉRIMÉ n'est pas une dépréciation en place", () => {
+    // Le cas qu'une simple présence/absence rate : le paquet EST déprécié, mais
+    // vers un successeur qui a été renommé depuis. L'utilisateur est envoyé
+    // vers un paquet qui n'existe pas, et rien ne le signale.
+    expect(
+      depreciationsAFaire([
+        {
+          nom: "@nodefony/http-bundle",
+          message: "Nodefony 9 : voir @nodefony/http-old",
+          attendu,
+        },
+      ]),
+    ).toEqual([{ nom: "@nodefony/http-bundle", motif: "message PÉRIMÉ" }]);
   });
 });

@@ -79,6 +79,7 @@ import {
   ordreTopologique,
   paquetsNonEstampilles,
   pairsTropLarges,
+  depreciationsAFaire,
   latestsRestesEnArriere,
   lireVueNpm,
   trierPourRecalage,
@@ -242,8 +243,39 @@ if (drapeau("deprecate")) {
   }
   dire("");
 
+  // On CONSTATE avant d'agir. Une liste rejouée à l'aveugle ne peut jamais dire
+  // « il n'y a plus rien à faire » — et c'est cette phrase qui rend le mode
+  // utile six mois plus tard. Registre illisible : on retombe sur « tout
+  // faire », car rejouer une dépréciation est sans effet de bord, quand en
+  // sauter une laisse un vestige muet.
+  const etatsDep = PAQUETS_HISTORIQUES.map((entree) => {
+    const attendu = messageDeDepreciation(entree, depot);
+    const r = npm(["view", entree.nom, "deprecated", "--json"]);
+    let message = null;
+    if (r.status === 0) {
+      try {
+        message = [JSON.parse(r.stdout || "null")].flat()[0] ?? null;
+      } catch {
+        message = null;
+      }
+    }
+    return { nom: entree.nom, message, attendu };
+  });
+  const restantes = new Set(depreciationsAFaire(etatsDep).map((r) => r.nom));
+  for (const r of depreciationsAFaire(etatsDep)) {
+    alerter(`${r.nom} — ${r.motif}`);
+  }
+  if (restantes.size === 0) {
+    dire(
+      `\n✓ dépréciation — les ${PAQUETS_HISTORIQUES.length} paquets portent déjà leur message`,
+    );
+    process.exit(0);
+  }
+  dire(`\n  ${restantes.size} sur ${PAQUETS_HISTORIQUES.length} à traiter :\n`);
+
   const echecs = [];
   for (const entree of PAQUETS_HISTORIQUES) {
+    if (!restantes.has(entree.nom)) continue;
     const message = messageDeDepreciation(entree, depot);
     if (!PUBLIER) {
       dire(`  npm deprecate ${entree.nom} "${message}"`);
@@ -270,7 +302,7 @@ if (drapeau("deprecate")) {
         "  reprendre ceux-là seuls, il n'y a rien à défaire.",
     );
   } else {
-    dire(`\n✓ dépréciation — ${PAQUETS_HISTORIQUES.length} paquets`);
+    dire(`\n✓ dépréciation — ${restantes.size} paquets`);
   }
   process.exit(0);
 }

@@ -1041,3 +1041,31 @@ export function lireVueNpm(brut) {
     versions: vues.flatMap((v) => [v.versions ?? []].flat()),
   };
 }
+
+/**
+ * Les paquets dont la dépréciation reste à poser — ou dont le message a changé.
+ *
+ * 🔴 Ce que ça évite : un mode de répétition qui rejoue sa liste à l'aveugle ne
+ * CONSTATE rien. Il ne peut donc jamais dire « il n'y a plus rien à faire », et
+ * l'opérateur qui le relance six mois plus tard ne sait pas s'il regarde un
+ * travail à faire ou un travail déjà fait. C'est le même défaut que le dist-tag
+ * laissé sans constat rejouable : le geste existait, la mesure non.
+ *
+ * Le constat porte sur la version `latest` du paquet — celle que reçoit qui
+ * écrit `npm install <paquet>`, donc celle dont l'avertissement compte. Une
+ * dépréciation posée sans borne de version les couvre toutes ; rejouer le geste
+ * est sans effet de bord, ce qui rend un faux « à faire » anodin et un faux
+ * « rien à faire » seul dangereux.
+ *
+ * @param etats - un état par paquet : `{ nom, message, attendu }`, où `message`
+ *   est ce que porte le registre (`null` si le paquet n'est pas déprécié)
+ * @returns les paquets à traiter, chacun avec le motif
+ */
+export function depreciationsAFaire(etats) {
+  return etats
+    .filter(({ message, attendu }) => message !== attendu)
+    .map(({ nom, message }) => ({
+      nom,
+      motif: message ? "message PÉRIMÉ" : "jamais dépréciée",
+    }));
+}
