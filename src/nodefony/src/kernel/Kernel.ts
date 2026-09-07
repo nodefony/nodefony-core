@@ -316,6 +316,8 @@ export type RunLifetime = "oneshot" | "longrunning";
  * - `servers` — monte des serveurs réseau HTTP/WS.
  * - `lifetime` — voir {@link RunLifetime}.
  * - `interactive` — a besoin d'un TTY (REPL, menu). Consommé au câblage REPL (différé).
+ * - `externalServices` — ouvre des connexions SORTANTES vers l'infrastructure de
+ *   l'application (base de données, cache, courtier). Voir ci-dessous.
  *
  * Note : le démarrage réel des serveurs reste piloté par `kernelEvent` + la présence du
  * `HttpKernel`. En revanche `lifetime` est désormais EFFECTIF : à la fin d'un run sans
@@ -326,6 +328,25 @@ export interface IRunProfile {
   servers: boolean;
   lifetime: RunLifetime;
   interactive: boolean;
+  /**
+   * Ce run a-t-il besoin de l'infrastructure de l'application ?
+   *
+   * `servers` dit si le run ouvre des PORTS ; celui-ci dit s'il ouvre des
+   * CONNEXIONS — base de données, cache, courtier de messages. Les deux sont
+   * orthogonaux : construire un frontend n'a besoin ni de l'un ni de l'autre,
+   * `orm:migrate` a besoin du second sans le premier.
+   *
+   * **Le besoin se DÉCLARE, il ne se déduit pas**, et le défaut est `false` :
+   * un run qui ne dit rien n'ouvre aucune connexion. Sans cet axe, tout ce qui
+   * boote le kernel exigeait la base — `npm create nodefony` échouait en code 70
+   * sur son propre `npm run build`, avant même que l'utilisateur n'ait pu
+   * démarrer l'infrastructure que le scaffold lui conseille deux lignes plus bas.
+   *
+   * Ce n'est PAS un interrupteur « tolérer une base absente » : une commande qui
+   * déclare le besoin échoue toujours, bruyamment, si l'infrastructure manque.
+   * La question posée n'est pas « est-ce fatal ? » mais « ce run en a-t-il besoin ? ».
+   */
+  externalServices: boolean;
 }
 
 /** Profil par défaut — équivaut à l'ancien `type = "CONSOLE"` (one-shot, sans serveur). */
@@ -333,7 +354,41 @@ export const CONSOLE_RUN_PROFILE: Readonly<IRunProfile> = Object.freeze({
   servers: false,
   lifetime: "oneshot" as RunLifetime,
   interactive: false,
+  externalServices: false,
 });
+
+/**
+ * Profil d'une commande console qui a besoin de l'infrastructure — `orm:migrate`,
+ * `security:user:add`, tout ce qui LIT ou ÉCRIT des données.
+ *
+ * Existe pour que le besoin s'écrive en un mot au lieu d'un littéral recopié :
+ * une commande qui redonne les quatre axes à la main finit par en figer un qui
+ * changera ailleurs.
+ */
+export const CONSOLE_DATA_RUN_PROFILE: Readonly<IRunProfile> = Object.freeze({
+  ...CONSOLE_RUN_PROFILE,
+  externalServices: true,
+});
+
+/**
+ * Ce run a-t-il DÉCLARÉ avoir besoin de l'infrastructure de l'application ?
+ *
+ * Point d'appel UNIQUE de la question : les services qui ouvrent une connexion
+ * au boot (ORM SQL, ORM document) la posent tous ici plutôt que de relire
+ * `runProfile` chacun à sa façon — deux lectures divergeraient le jour où
+ * l'axe gagnerait une nuance, et l'une des deux bases se connecterait encore.
+ *
+ * Répond `false` quand le profil n'est pas encore posé : avant que le run ne se
+ * soit déclaré, personne ne peut affirmer qu'il a besoin d'une connexion.
+ *
+ * @param kernel - le kernel courant, ou `null` hors kernel.
+ * @returns `true` si le run a déclaré `externalServices`.
+ */
+export function runNeedsExternalServices(
+  kernel: { runProfile?: IRunProfile | null } | null | undefined,
+): boolean {
+  return kernel?.runProfile?.externalServices === true;
+}
 
 interface AppEnvironmentType {
   environment: EnvironmentType | string;

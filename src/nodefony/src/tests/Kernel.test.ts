@@ -3,6 +3,7 @@ import cluster from "node:cluster";
 import os from "node:os";
 import path from "node:path";
 import Kernel, {
+  CONSOLE_RUN_PROFILE,
   Events,
   TypeKernelOptions,
   FilterInterface,
@@ -245,16 +246,16 @@ describe("Kernel — isConsole", () => {
 
   it("runProfile.servers = false → true", () => {
     const k = mkKernel();
-    k.runProfile = { servers: false, lifetime: "oneshot", interactive: false };
+    k.runProfile = { ...CONSOLE_RUN_PROFILE };
     assert.strictEqual(k.isConsole(), true);
   });
 
   it("runProfile.servers = true → false", () => {
     const k = mkKernel();
     k.runProfile = {
+      ...CONSOLE_RUN_PROFILE,
       servers: true,
-      lifetime: "longrunning",
-      interactive: false,
+      lifetime: "longrunning" as const,
     };
     assert.strictEqual(k.isConsole(), false);
   });
@@ -266,7 +267,7 @@ describe("Kernel — isConsole", () => {
 describe("Kernel — initServers respecte le profil d'exécution", () => {
   it("profil console (servers:false) → aucun serveur, même avec un HttpKernel", async () => {
     const k = mkKernel();
-    k.runProfile = { servers: false, lifetime: "oneshot", interactive: false };
+    k.runProfile = { ...CONSOLE_RUN_PROFILE };
     let asked = false;
     // Un HttpKernel présent dans le conteneur ne doit PAS suffire à démarrer.
     (k as unknown as { get: (name: string) => unknown }).get = (name) => {
@@ -294,9 +295,9 @@ describe("Kernel — initServers respecte le profil d'exécution", () => {
   it("profil serveur (servers:true) → délègue bien au HttpKernel", async () => {
     const k = mkKernel();
     k.runProfile = {
+      ...CONSOLE_RUN_PROFILE,
       servers: true,
-      lifetime: "longrunning",
-      interactive: false,
+      lifetime: "longrunning" as const,
     };
     const started: unknown[] = [{ port: 5151 }];
     (k as unknown as { get: (name: string) => unknown }).get = (name) =>

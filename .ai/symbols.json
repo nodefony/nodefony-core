@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 815,
-    "symbols": 3920,
+    "symbols": 3922,
     "classes": 388,
     "interfaces": 1064,
     "types": 444,
     "enums": 4,
-    "functions": 1631,
-    "constants": 389
+    "functions": 1632,
+    "constants": 390
   },
   "symbols": {
     "Cli": {
@@ -3551,6 +3551,14 @@
       "module": "@nodefony/core",
       "description": "Durée de vie effective d'un runtime en dérogation — fonction PURE."
     },
+    "runNeedsExternalServices": {
+      "name": "runNeedsExternalServices",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce run a-t-il DÉCLARÉ avoir besoin de l'infrastructure de l'application ? Point d'appel UNIQUE de la question : les services qui ouvrent une connexion au boot (ORM SQL, ORM document) la posent tous…"
+    },
     "FORCE_DEV_MODULES_ENV": {
       "name": "FORCE_DEV_MODULES_ENV",
       "kind": "const",
@@ -3597,6 +3605,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Profil par défaut — équivaut à l'ancien `type = \"CONSOLE\"` (one-shot, sans serveur)."
+    },
+    "CONSOLE_DATA_RUN_PROFILE": {
+      "name": "CONSOLE_DATA_RUN_PROFILE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Profil d'une commande console qui a besoin de l'infrastructure — `orm:migrate`, `security:user:add`, tout ce qui LIT ou ÉCRIT des données. Existe pour que le besoin s'écrive en un mot au lieu d'un …"
     },
     "IListenerTags": {
       "name": "IListenerTags",
@@ -32884,6 +32900,13 @@
       "IDocSearchHit": [
         "src/packages/@nodefony/documentation/nodefony/src/search.ts"
       ],
+      "CONSOLE_DATA_RUN_PROFILE": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
+      ],
       "DrizzleMigrator": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -33302,6 +33325,10 @@
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
+      ],
+      "runNeedsExternalServices": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",

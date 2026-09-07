@@ -16,6 +16,8 @@ interface IRunProfile {
   servers: boolean;
   lifetime: RunLifetime;
   interactive: boolean;
+  /** Ce run ouvre-t-il des connexions vers l'infrastructure (base, cache, courtier) ? */
+  externalServices: boolean;
 }
 type EventsType = Record<string, number>;
 // Redéfini depuis Kernel.ts (trunkType)

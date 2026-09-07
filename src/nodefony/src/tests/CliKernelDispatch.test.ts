@@ -7,6 +7,7 @@
 
 import assert from "node:assert";
 import CliKernel from "../kernel/CliKernel";
+import { CONSOLE_RUN_PROFILE } from "../kernel/Kernel";
 import Command from "../command/Command";
 import Build from "../kernel/commands/BuildCommand";
 import Dev from "../kernel/commands/DevCommand";
@@ -112,11 +113,7 @@ describe("CliKernel — dispatch built-in vs module", () => {
       return {
         command: null as unknown,
         commandArgs: [] as unknown[],
-        runProfile: {
-          servers: false,
-          lifetime: "oneshot",
-          interactive: false,
-        },
+        runProfile: { ...CONSOLE_RUN_PROFILE },
         onceCalls: [] as string[],
         once(event: string) {
           this.onceCalls.push(event);
@@ -158,9 +155,9 @@ describe("CliKernel — dispatch built-in vs module", () => {
           super("mod:serve", "", c, {
             kernelEvent: "onPostReady",
             runProfile: {
+              ...CONSOLE_RUN_PROFILE,
               servers: true,
-              lifetime: "longrunning",
-              interactive: false,
+              lifetime: "longrunning" as const,
             },
           });
         }

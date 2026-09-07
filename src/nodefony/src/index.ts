@@ -559,6 +559,17 @@ export type {
   TypeKernelOptions,
 } from "./kernel/Kernel";
 
+// Profil d'exécution d'un run : la commande DÉCLARE ce dont elle a besoin
+// (serveurs, durée de vie, TTY, infrastructure). Exporté parce qu'une commande
+// de module tiers doit pouvoir le déclarer — sans ces valeurs, elle recopierait
+// un littéral qui figerait un axe le jour où il en naît un cinquième.
+export type { IRunProfile, RunLifetime } from "./kernel/Kernel";
+export {
+  CONSOLE_RUN_PROFILE,
+  CONSOLE_DATA_RUN_PROFILE,
+  runNeedsExternalServices,
+} from "./kernel/Kernel";
+
 export type {
   IBootReport,
   IBootFailure,

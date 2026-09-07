@@ -1,5 +1,6 @@
 import {
   Command,
+  CONSOLE_DATA_RUN_PROFILE,
   resolveColorEnabled,
   type CliKernel,
   type Kernel,
@@ -84,6 +85,21 @@ export interface IMigrateSharedOptions {
  * différence entre un outil qu'on sait utiliser et un outil qu'on subit.
  */
 export abstract class OrmMigrateCommand extends Command {
+  /**
+   * Toutes les commandes `orm:*` parlent à la base — c'est leur définition.
+   *
+   * Déclaré ICI et pas dans le littéral d'options de chacune : la déclaration
+   * appartient à la FAMILLE, et une famille qui se déclare six fois finit par
+   * oublier la septième — l'oubli serait alors muet (la commande démarrerait
+   * sans connexion et ne trouverait pas de quoi migrer). Posé après `super()`,
+   * qui a déjà lu `options.runProfile` : une commande qui veut un profil autre
+   * peut donc encore le passer dans ses options, et il gagne.
+   */
+  constructor(...args: ConstructorParameters<typeof Command>) {
+    super(...args);
+    this.runProfile ??= { ...CONSOLE_DATA_RUN_PROFILE };
+  }
+
   /**
    * Faut-il colorer la sortie ?
    *

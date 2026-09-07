@@ -8,6 +8,8 @@ interface IRunProfile {
   servers: boolean;
   lifetime: RunLifetime;
   interactive: boolean;
+  /** Ce run ouvre-t-il des connexions vers l'infrastructure (base, cache, courtier) ? */
+  externalServices: boolean;
 }
 
 export interface ICliKernel {

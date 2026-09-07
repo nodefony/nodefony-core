@@ -1,4 +1,5 @@
 import {
+  CONSOLE_DATA_RUN_PROFILE,
   OptionsCommandInterface,
   CliKernel,
   Command,
@@ -7,6 +8,8 @@ import {
 import type { UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
+  // Cette commande LIT ou ÉCRIT des comptes : il lui faut la base.
+  runProfile: CONSOLE_DATA_RUN_PROFILE,
   helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   // `onPostReady` : `fireLifecycle("onReady")` attend TOUS ses listeners — dont

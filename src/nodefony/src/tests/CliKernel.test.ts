@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import CliKernel from "../kernel/CliKernel";
-import Kernel from "../kernel/Kernel";
+import Kernel, { CONSOLE_RUN_PROFILE } from "../kernel/Kernel";
 import Command from "../command/Command";
 import Syslog from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
@@ -124,44 +124,36 @@ describe("CliKernel — setRunProfile()", () => {
 
   it("profil serveur → runProfile.servers = true", () => {
     cli.setRunProfile({
+      ...CONSOLE_RUN_PROFILE,
       servers: true,
-      lifetime: "longrunning",
-      interactive: false,
+      lifetime: "longrunning" as const,
     });
     assert.strictEqual(cli.runProfile.servers, true);
     assert.strictEqual(cli.runProfile.lifetime, "longrunning");
   });
 
   it("profil console → runProfile.servers = false", () => {
-    cli.setRunProfile({
-      servers: false,
-      lifetime: "oneshot",
-      interactive: false,
-    });
+    cli.setRunProfile({ ...CONSOLE_RUN_PROFILE });
     assert.strictEqual(cli.runProfile.servers, false);
   });
 
   it("retourne le profil appliqué", () => {
     const p = {
+      ...CONSOLE_RUN_PROFILE,
       servers: true,
       lifetime: "longrunning" as const,
-      interactive: false,
     };
     const result = cli.setRunProfile(p);
     assert.deepStrictEqual(result, p);
   });
 
   it("setRunProfile modifie this.runProfile", () => {
-    cli.setRunProfile({
-      servers: false,
-      lifetime: "oneshot",
-      interactive: false,
-    });
+    cli.setRunProfile({ ...CONSOLE_RUN_PROFILE });
     assert.strictEqual(cli.runProfile.servers, false);
     cli.setRunProfile({
+      ...CONSOLE_RUN_PROFILE,
       servers: true,
-      lifetime: "longrunning",
-      interactive: false,
+      lifetime: "longrunning" as const,
     });
     assert.strictEqual(cli.runProfile.servers, true);
   });
@@ -685,16 +677,12 @@ describe("CliKernel — edge cases", () => {
 
   it("setRunProfile → cli.runProfile reflète le changement", () => {
     const cli = makeCliKernel();
-    cli.setRunProfile({
-      servers: false,
-      lifetime: "oneshot",
-      interactive: false,
-    });
+    cli.setRunProfile({ ...CONSOLE_RUN_PROFILE });
     assert.strictEqual(cli.runProfile.servers, false);
     cli.setRunProfile({
+      ...CONSOLE_RUN_PROFILE,
       servers: true,
-      lifetime: "longrunning",
-      interactive: false,
+      lifetime: "longrunning" as const,
     });
     assert.strictEqual(cli.runProfile.servers, true);
   });

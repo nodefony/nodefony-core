@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Service, BootConfigurationError } from "nodefony";
+import {
+  Service,
+  BootConfigurationError,
+  runNeedsExternalServices,
+} from "nodefony";
 import type { Container, Event, Kernel, Module } from "nodefony";
 import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../src/orm-core/index";
@@ -121,6 +125,20 @@ class DrizzleService extends Service {
     // du nom et de la criticité du module. Posé à la main, il n'aurait aucun tag
     // — donc « critique » par défaut, et un journal qui ne nomme personne.
     this.module.hookKernel("onBoot", async () => {
+      // Ce run a-t-il DÉCLARÉ avoir besoin de l'infrastructure ? Un `nodefony
+      // frontend:build` ou un `nodefony inspect routes` n'a aucune donnée à lire :
+      // exiger la base l'empêchait de s'exécuter avant que l'utilisateur n'ait pu
+      // la démarrer. Ce n'est PAS un « échec toléré » — une commande qui déclare
+      // le besoin échoue toujours, bruyamment, si la base est injoignable.
+      if (!runNeedsExternalServices(this.kernel)) {
+        this.log(
+          "connexions non ouvertes : ce run n'a pas déclaré `externalServices` " +
+            "(profil console). Une commande qui lit ou écrit des données le " +
+            "déclare via `runProfile` — cf CONSOLE_DATA_RUN_PROFILE.",
+          "DEBUG",
+        );
+        return;
+      }
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
       // NF_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));

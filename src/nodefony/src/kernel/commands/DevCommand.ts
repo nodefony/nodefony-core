@@ -109,6 +109,8 @@ class Dev extends Command {
         servers: true,
         lifetime: "longrunning",
         interactive: false,
+        // Le serveur applicatif sert des requêtes : il lui faut l'infrastructure.
+        externalServices: true,
       });
       return;
     }
@@ -122,6 +124,10 @@ class Dev extends Command {
       servers: false,
       lifetime: "longrunning",
       interactive: false,
+      // Le superviseur SURVEILLE des fichiers ; il ne sert aucune requête et ne
+      // lit aucune donnée. Une connexion de plus ici, c'en est une par
+      // redémarrage d'un développeur, pour rien.
+      externalServices: false,
     });
     // DevSupervisor (→ chokidar) chargé à la demande : seul le superviseur parent du
     // mode dev en a besoin — le boot prod/enfant ne paie pas le watcher au chargement.

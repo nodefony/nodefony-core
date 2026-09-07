@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import {
+  CONSOLE_DATA_RUN_PROFILE,
   OptionsCommandInterface,
   CliKernel,
   Command,
@@ -28,6 +29,8 @@ import {
 } from "../src/token/secretFile";
 
 const options: OptionsCommandInterface = {
+  // Cette commande LIT ou ÉCRIT des comptes : il lui faut la base.
+  runProfile: CONSOLE_DATA_RUN_PROFILE,
   helpGroup: "COMPTES ET SECRETS",
   showBanner: false,
   // Services prêts, AUCUN serveur en écoute : cette commande SIGNE un jeton,

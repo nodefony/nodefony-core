@@ -162,6 +162,10 @@ export async function launchTopology(
       servers: false,
       lifetime: "longrunning",
       interactive: false,
+      // Le master n'a pas de Kernel HTTP : il supervise et relaie l'IPC. Aucune
+      // requête ne l'atteint, donc aucune connexion d'infrastructure — sinon
+      // chaque pod paierait une connexion que personne n'utilise.
+      externalServices: false,
     });
     // Le master reprend la main sur SIGTERM/SIGINT — mais on ne les ARRACHE
     // pas : on retire NOMMÉMENT ceux de ce CLI, et rien d'autre. Le gestionnaire
@@ -190,5 +194,7 @@ export async function launchTopology(
     servers: true,
     lifetime: "longrunning",
     interactive: false,
+    // Ce Kernel sert les requêtes : il lui faut l'infrastructure.
+    externalServices: true,
   });
 }

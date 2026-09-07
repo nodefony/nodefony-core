@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import type { ConnectOptions } from "mongoose";
-import { Service } from "nodefony";
+import { Service, runNeedsExternalServices } from "nodefony";
 import type { Container, Event, Module } from "nodefony";
 import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
 import { MongooseOrm } from "../src/orm-core/MongooseOrm";
@@ -42,6 +42,19 @@ class MongooseService extends Service {
     // promesse `static critical = false` du module ne couvrait PAS ce hook — une
     // base injoignable interrompait le boot en production, malgré elle.
     this.module.hookKernel("onBoot", async () => {
+      // Même règle que l'ORM SQL, posée au MÊME point d'appel : un run qui n'a
+      // pas déclaré `externalServices` n'ouvre aucune connexion. Deux lectures
+      // séparées de `runProfile` finiraient par diverger, et l'une des deux
+      // bases se connecterait encore là où l'autre a cessé.
+      if (!runNeedsExternalServices(this.kernel)) {
+        this.log(
+          "connexions non ouvertes : ce run n'a pas déclaré `externalServices` " +
+            "(profil console). Une commande qui lit ou écrit des données le " +
+            "déclare via `runProfile` — cf CONSOLE_DATA_RUN_PROFILE.",
+          "DEBUG",
+        );
+        return;
+      }
       // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
       // NF_ORM_FLOW. Calcul factorisé en orm-core (C5).
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
