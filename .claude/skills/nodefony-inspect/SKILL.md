@@ -3,17 +3,16 @@ name: nodefony-inspect
 metadata:
   version: 1.0.0
 description: >
-  Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui
-  étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la
-  commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées,
-  services enregistrés, config effective et provenance de chaque valeur) — mêmes valeurs que la
-  console d'administration, sans ouvrir de port, ici comme dans une app. Donne aussi le diff propre.
-  Ne crée rien (scaffolder → `nodefony-create-module`).
+  Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui
+  étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande
+  `nodefony inspect` pour l'état RÉEL d'une application (routes montées, services, config effective
+  et provenance de chaque valeur), et le serveur MCP de Nodefony quand la session y est branchée —
+  mêmes réponses par outils, sans boot, si l'application tourne. Donne aussi le diff propre.
   Déclencheurs : "qui étend cette classe ?", "qui implémente cette interface ?", "qui utilise ce
   symbole ?", "où est défini X ?", "trouver les consommateurs", "analyse d'impact avant refactor",
-  "quels paramètres prend cette méthode ?", "inspecter un module existant", "montre la config de ce
+  "quels paramètres prend cette méthode ?", "montre la config de ce
   module", "quelles routes expose ce module", "ce service est-il enregistré ?", "qu'est-ce que j'ai
-  modifié ?", "diff rapide", "graphe symbolique", "symbols.json".
+  modifié ?", "diff rapide", "graphe symbolique", "interroge l'application qui tourne", "demande au serveur MCP", "carte de visite de l'application".
 ---
 
 # nodefony-inspect — interroger le dépôt sans le lire
@@ -219,6 +218,34 @@ Quelques questions fréquentes, et la voie la plus courte :
 > **Deux verbes, deux moments** : `nodefony check` est le diagnostic STATIQUE (il marche sur une
 > application cassée), `nodefony inspect` interroge une application qui démarre. Si `inspect`
 > échoue, la question suivante est pour `check`.
+
+### 🔴 La TROISIÈME voie — le serveur MCP, quand il est branché
+
+Les mêmes réponses arrivent par des **outils** plutôt que par une commande, quand la session est
+connectée au serveur MCP de Nodefony : `nodefony_card` (l'identité de l'application et où aller
+ensuite — à appeler EN ARRIVANT sur une application inconnue), `nodefony_inspect` (les sujets
+ci-dessus), `nodefony_check`, `nodefony_symbols`, `nodefony_docs`.
+
+**À préférer à la commande quand un serveur tourne déjà** : la réponse vient du processus en
+marche, sans payer un boot console, et sans avoir à connaître l'URL d'un endpoint d'administration.
+
+Trois choses à savoir avant de s'y fier :
+
+- **Il faut une application qui TOURNE.** Serveur arrêté, le MCP ne répond rien : la commande, elle,
+  démarre son propre boot console. C'est le seul cas où la commande gagne franchement.
+- **Un appelant anonyme est REFUSÉ sur ce qui expose des secrets** — `inspect module <nom>` rend
+  `403 ROLE_NODEFONY_ADMIN`, et les outils du pont d'administration
+  (`nodefony_admin_list` / `nodefony_admin_call`, qui vont bien au-delà de ces sujets : journaux,
+  self-service, tout le plan) exigent le scope `admin:read`. Ce n'est pas une panne, et rien ne
+  sert de deviner : le document de ressource protégée (RFC 9728) nomme les scopes, et le refus dit
+  où le lire. C'est au JETON de les porter.
+- **Vérifier que la connexion est vivante avant de conclure** : un serveur MCP injoignable se
+  signale au démarrage de la session, et ses outils sont alors simplement absents.
+
+> ⚠️ **Ce paragraphe existe parce que sans lui le MCP n'est JAMAIS appelé.** Mesuré sur ce dépôt :
+> `nodefony inspect` était nommé dix-sept fois dans les instructions relues en session, le MCP zéro
+> — et il n'a servi aucune fois, y compris pour des questions auxquelles il répondait mieux. La
+> disponibilité d'un outil ne déclenche rien ; seule sa mention à l'endroit où la règle vit le fait.
 
 ## 6. Diff propre — ce que j'ai changé
 
