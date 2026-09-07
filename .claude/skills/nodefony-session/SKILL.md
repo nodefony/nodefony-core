@@ -285,7 +285,12 @@ SEULEMENT :
    déjà gradué en `feedback_*` (juste pointer si utile).
 
    > 🔴 **AVANT d'écrire, LISTER les thèmes existants — et verser dessous.**
-   > `grep '^## ' docs/session-retros/RETEX.md`
+   > `npm run retex:seuil -- --all` — les thèmes vivants et leur compte, plus ceux qui ont
+   > atteint le seuil de graduation. **Le lancer À CHAQUE END** : le seuil ne vivait que dans
+   > cette page, donc nulle part — mesuré au CONSOLIDATE du 2026-09-07, **95 retex pour
+   > 2 mémoires créées**, un sas gonflé à 2902 lignes et sept thèmes mûrs depuis des semaines,
+   > dont un à 47 frictions. S'il annonce des thèmes mûrs, le dire au user : graduer est un
+   > travail de CONSOLIDATE, pas de END, mais il ne se programme que s'il se voit.
    > **Ouvrir un thème neuf est le dernier recours, pas le geste par défaut.** Mesuré au
    > CONSOLIDATE du 2026-08-24 : **55 thèmes créés en quatre jours**, si bien que quatre familles
    > évidentes (le décor d'un banc, la sonde qui mesure autre chose, le code de sortie, le gabarit
