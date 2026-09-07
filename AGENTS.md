@@ -34,7 +34,7 @@ qui consomme le framework, ce qui permet de l'éprouver en marchant.
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `src/nodefony/`                 | le cœur — `Kernel`, conteneur d'injection, services, journalisation, CLI                                                |
 | `src/packages/@nodefony/`       | les 20 paquets du framework — `http`, `framework`, `security`, `frontend`, `studio`, `orm-core`, `drizzle`, `realtime`… |
-| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony <app>`                                                                         |
+| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony@alpha <app>`                                                                   |
 | `src/modules/`                  | les modules d'épreuve montés par l'application racine (`test`, quatre bancs de frontends, `mediasoup`)                  |
 | `scripts/`                      | les automates du dépôt — contrôles, bancs, chaîne de publication (`scripts/release/`)                                   |
 | `docs/`                         | la documentation humaine : guides, décisions d'architecture (`adr/`), performance, `index.md`                           |

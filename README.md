@@ -201,7 +201,22 @@ rejouable, et ses échecs sont publics. C'est cette place-là que le framework o
 ## Démarrage
 
 Une préversion `10.0.0-alpha.2` est en ligne sous le canal `alpha` — sans garantie de stabilité ni
-de compatibilité entre deux alphas. La voie éprouvée reste ce dépôt :
+de compatibilité entre deux alphas. Elle s'installe en nommant ce canal :
+
+```bash
+npm create nodefony@alpha mon-app
+cd mon-app
+npm run dev
+```
+
+Le canal se nomme tant que la 10 n'est pas stable : c'est lui qui garantit de recevoir la
+préversion, et non la `7.0.2` que `npm install nodefony` sert encore — la version JavaScript
+d'avant, sans rapport avec ce que cette page décrit.
+
+L'application répond sur `http://127.0.0.1:5151` — ou le premier port libre, annoncé au
+démarrage — et la console d'administration sur `/nodefony`.
+
+Pour travailler sur le framework lui-même, c'est le dépôt qu'on clone :
 
 ```bash
 git clone https://github.com/nodefony/nodefony-core.git
@@ -210,14 +225,12 @@ npm install && npm run build
 npm run dev
 ```
 
-L'application répond sur `http://127.0.0.1:5151`, la console d'administration sur `/nodefony`.
-
 Générer du code — une application, un module, un contrôleur, une entité et toute sa chaîne :
 
 ```bash
-nodefony create app mon-app
-nodefony create module blog --frontend react
-nodefony create entity Article title:string! body:text views:int
+npx nodefony create module blog --frontend react
+npx nodefony create entity Article title:string! body:text views:int
+npx nodefony create controller admin --kind rest --role ROLE_ADMIN
 ```
 
 Chaque générateur montre **le plan et le diff avant d'écrire quoi que ce soit**. Un refus ne laisse
