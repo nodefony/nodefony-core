@@ -34,6 +34,10 @@ import { chargePrompts } from "./prompts";
 import { installGitHooks } from "./gitHooks";
 import { GIT_HOOKS_DIR } from "./gitHooksReport";
 import { stripGlobalCliFlags } from "./globalFlags";
+import {
+  collectDoctorReport,
+  renderDoctorReport,
+} from "../kernel/checks/runDoctor";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -1378,6 +1382,23 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         ? `  npx nodefony ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
         : ""),
   );
+  // L'ÉTAT de ce qui vient d'être écrit, montré pendant que l'utilisateur
+  // regarde encore l'écran. Le framework porte déjà l'outil, il lit des
+  // fichiers sans rien démarrer — donc il répond même quand la base est
+  // éteinte ou que le build a échoué, précisément les cas où il faut le voir.
+  //
+  // Seulement quand l'installation a EU LIEU : sans `node_modules`, le rapport
+  // n'énoncerait que des absences que « Prochaines étapes » vient de nommer, et
+  // un diagnostic bruyant sur un cas sain est un diagnostic qu'on apprend à
+  // ignorer.
+  //
+  // Son verdict n'entre PAS dans le code de sortie : il informe. Une génération
+  // réussie dont l'application demande encore un geste reste une génération
+  // réussie, et confondre les deux ferait échouer toute chaîne qui appelle ce
+  // générateur.
+  if (installed) {
+    await showAppState(result.dest);
+  }
   // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
   // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
   // ne peut distinguer une application prête d'une application à réparer.
@@ -1385,4 +1406,36 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     parsed.install ? (installed ? "succeeded" : "failed") : "skipped",
     installed ? (built ? "succeeded" : "failed") : "skipped",
   );
+}
+
+/**
+ * Montre l'état de l'application qu'on vient de générer.
+ *
+ * Le scaffold listait ses fichiers puis rendait la main : si quelque chose
+ * s'était mal passé, l'utilisateur ne l'apprenait qu'à sa première commande.
+ * `doctor` LIT des fichiers — il ne boote pas — donc il répond sur une
+ * application dont la base est injoignable ou dont le build a échoué.
+ *
+ * Ce qu'il dit ne CHANGE RIEN au sort de la génération : les erreurs sont
+ * avalées (un diagnostic qui casse ce qu'il diagnostique serait pire que son
+ * absence) et son code de sortie est ignoré par l'appelant.
+ *
+ * @param dest - racine de l'application générée.
+ */
+async function showAppState(dest: string): Promise<void> {
+  try {
+    const report = await collectDoctorReport(dest);
+    process.stdout.write("\n");
+    renderDoctorReport(report, {
+      json: false,
+      cwd: dest,
+      strict: false,
+      live: false,
+      deep: false,
+      help: false,
+      targetEnv: null,
+    });
+  } catch {
+    /* le diagnostic est un PLUS : son échec ne fait pas échouer la génération */
+  }
 }

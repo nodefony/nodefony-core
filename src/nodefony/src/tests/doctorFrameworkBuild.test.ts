@@ -24,7 +24,11 @@ import {
   utimesSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { checkFrameworkBuild } from "../kernel/checks/freshness";
+import {
+  checkFreshness,
+  checkFrameworkBuild,
+  checkFrontendBuild,
+} from "../kernel/checks/freshness";
 
 /** Écrit un fichier en créant son dossier — les décors sont profonds. */
 function poser(fichier: string, contenu = "x"): void {
@@ -127,5 +131,108 @@ describe("doctor — la fraîcheur du FRAMEWORK, pas seulement de l'application"
 
   it("aucun `node_modules` : rien à dire, et surtout pas une accusation", () => {
     assert.deepEqual(checkFrameworkBuild(decor()), []);
+  });
+});
+
+/*
+ *   Unit — le frontend DÉCLARÉ est-il construit ?
+ *
+ *   Le contrôle de fraîcheur ne regardait que le `dist/` du backend. Une
+ *   application dont le build frontend avait échoué — `public/dist` absent,
+ *   donc aucune page servie — s'entendait répondre « sources et build
+ *   alignés », et `doctor` sortait en 0. Ce banc éprouve les trois verdicts qui
+ *   comptent : la sortie manquante, la sortie périmée, et le silence quand
+ *   tout va bien — sans lequel on ne saurait pas si le contrôle accuse tout ce
+ *   qu'il touche.
+ */
+describe("doctor — le frontend déclaré est-il construit ?", () => {
+  /** Une application qui DÉCLARE une entrée front, avec sa source. */
+  function appFront(options: { outDir?: string; built?: number } = {}): string {
+    const racine = mkdtempSync(path.join(tmpdir(), "nf-front-"));
+    poser(
+      path.join(racine, "nodefony", "frontend", "registerAppFrontEntry.ts"),
+      `/**
+        * Le TSDoc CITE root et outDir avant de les employer :
+        *  - \`root\`   : racine Vite ;
+        *  - \`outDir\` : sortie du build.
+        */
+       svc.registerEntry(module, {
+         type: "svelte5",
+         root: "./frontend",
+         outDir: "${options.outDir ?? "./public/dist"}",
+       });`,
+    );
+    poser(path.join(racine, "frontend", "src", "App.svelte"), "<main></main>");
+    if (options.built !== undefined) {
+      const sortie = path.join(racine, options.outDir ?? "./public/dist");
+      poser(path.join(sortie, "index.js"), "console.log(1);");
+      const when = options.built / 1000;
+      utimesSync(path.join(sortie, "index.js"), when, when);
+    }
+    return racine;
+  }
+
+  it("🔴 le frontend n'est PAS construit → signalé, avec le geste", () => {
+    const findings = checkFrontendBuild(appFront());
+    assert.equal(findings.length, 1, JSON.stringify(findings));
+    assert.equal(findings[0]?.kind, "frontend-missing");
+    assert.match(findings[0]?.message ?? "", /npm run build/u);
+    assert.match(findings[0]?.message ?? "", /public\/dist/u);
+  });
+
+  it("🔴 le frontend est construit AVANT ses sources → signalé", () => {
+    // Le build daté d'il y a une heure, les sources posées à l'instant.
+    const racine = appFront({ built: Date.now() - 3_600_000 });
+    const findings = checkFrontendBuild(racine);
+    assert.equal(findings.length, 1, JSON.stringify(findings));
+    assert.equal(findings[0]?.kind, "frontend-stale");
+  });
+
+  it("le frontend construit APRÈS ses sources ne dit RIEN", () => {
+    const racine = appFront({ built: Date.now() + 60_000 });
+    assert.deepEqual(checkFrontendBuild(racine), []);
+  });
+
+  it("une sortie DÉCLARÉE ailleurs est celle qu'on regarde, pas `public/dist`", () => {
+    // `outDir` se réécrit par entrée : un contrôle qui chercherait le chemin
+    // conventionnel en dur se tairait sur cette application en ayant l'air de
+    // l'avoir vérifiée.
+    const racine = appFront({
+      outDir: "./static/build",
+      built: Date.now() + 60_000,
+    });
+    assert.deepEqual(checkFrontendBuild(racine), []);
+  });
+
+  /*
+   *   Le contrôle doit être BRANCHÉ, pas seulement juste. Un banc qui n'appelle
+   *   que la fonction prouve l'intention de son auteur et rien d'autre : c'est
+   *   `checkFreshness` qui alimente le rapport, et son verdict « sources et
+   *   build alignés » est précisément ce qui rassurait à tort.
+   */
+  it("🔴 le constat REMONTE dans le rapport de fraîcheur", () => {
+    const racine = appFront();
+    // Un backend construit et à jour : sans le frontend, ce rapport serait vert.
+    poser(path.join(racine, "dist", "index.js"), "export const x = 1;");
+    const demain = Date.now() / 1000 + 3600;
+    utimesSync(path.join(racine, "dist", "index.js"), demain, demain);
+
+    const r = checkFreshness(racine);
+    assert.equal(
+      r.findings.filter((f) => f.kind.startsWith("dist-")).length,
+      0,
+      "le backend doit être vu à jour, sinon le test ne prouve rien",
+    );
+    assert.equal(
+      r.findings.filter((f) => f.kind === "frontend-missing").length,
+      1,
+      JSON.stringify(r.findings),
+    );
+  });
+
+  it("une application SANS frontend déclaré ne produit aucun constat", () => {
+    const racine = mkdtempSync(path.join(tmpdir(), "nf-front-"));
+    poser(path.join(racine, "index.ts"), "export const x = 1;");
+    assert.deepEqual(checkFrontendBuild(racine), []);
   });
 });

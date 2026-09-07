@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 817,
-    "symbols": 3927,
+    "files": 818,
+    "symbols": 3935,
     "classes": 388,
-    "interfaces": 1066,
+    "interfaces": 1067,
     "types": 445,
     "enums": 4,
-    "functions": 1634,
-    "constants": 390
+    "functions": 1640,
+    "constants": 391
   },
   "symbols": {
     "Cli": {
@@ -8586,6 +8586,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "La version majeure exigée par `engines.node`, ou `null` si non déclarée."
+    },
+    "checkFrontendBuild": {
+      "name": "checkFrontendBuild",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le frontend DÉCLARÉ est-il construit, et l'est-il APRÈS ses sources ? 🔴 Le contrôle de fraîcheur ne regardait que le `dist/` du backend. Une application dont le build frontend avait échoué — `publ…"
     },
     "checkFreshness": {
       "name": "checkFreshness",
@@ -18338,6 +18346,22 @@
       "module": "@nodefony/orm-core",
       "description": "**Santé ORM lean per-instance** — somme process-wide de tous les connecteurs enregistrés, destinée à voyager dans le report de sonde cluster (« ORM par worker »). C'est la fonction branchée par le …"
     },
+    "withConnectDeadline": {
+      "name": "withConnectDeadline",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectDeadline.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Borne l'attente d'une promesse, et rejette avec une cause NOMMÉE au-delà. Le message importe autant que la borne : « délai dépassé » sans sujet envoie chercher partout. Celui-ci dit ce qu'on attend…"
+    },
+    "CONNECT_TIMEOUT_MS": {
+      "name": "CONNECT_TIMEOUT_MS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectDeadline.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Le DÉLAI DE GARDE d'une connexion à une base — une commande n'attend jamais sans fin. 🔴 Le cas est vécu, et il ne ressemble pas à une panne : `nodefony inspect config` restait suspendu, sans un mo…"
+    },
     "IConnectionDiagnosis": {
       "name": "IConnectionDiagnosis",
       "kind": "interface",
@@ -22560,8 +22584,7 @@
       "module": "@nodefony/drizzle",
       "extends": "Orm",
       "implements": [],
-      "decorators": [],
-      "description": "Adapter Drizzle (driver `better-sqlite3`) **branché sur `@nodefony/orm-core`** — 3ᵉ adapter du banc multi-ORM (P7.4), choix SQL #1 moderne. Particularité vs les autres ORM : Drizzle est **schema-as…"
+      "decorators": []
     },
     "DrizzleOrmOptions": {
       "name": "DrizzleOrmOptions",
@@ -29956,6 +29979,15 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/gitHooks.ts"
       ],
+      "collectDoctorReport": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
+      "renderDoctorReport": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
+      ],
       "envFileOrder": [
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -30839,10 +30871,6 @@
       ],
       "lookupSymbol": [
         "src/nodefony/src/mcp/tools.ts"
-      ],
-      "collectDoctorReport": [
-        "src/nodefony/src/mcp/tools.ts",
-        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "countCheckFindings": [
         "src/nodefony/src/mcp/tools.ts"
@@ -31808,6 +31836,12 @@
       "isTestFile": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
+      "withoutComments": [
+        "src/nodefony/src/kernel/checks/freshness.ts",
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
       "IModuleGated": [
         "src/nodefony/src/kernel/checks/gating.ts",
         "src/nodefony/src/kernel/checks/live.ts"
@@ -31840,11 +31874,6 @@
       ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
-      ],
-      "withoutComments": [
-        "src/nodefony/src/kernel/checks/readiness.ts",
-        "src/nodefony/src/kernel/checks/surface.ts",
-        "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "pluralize": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
@@ -32062,9 +32091,6 @@
         "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "parseDoctorArgv": [
-        "src/nodefony/src/kernel/commands/DoctorCommand.ts"
-      ],
-      "renderDoctorReport": [
         "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
       "reporterProgression": [
@@ -33403,7 +33429,8 @@
       ],
       "parseConnectionTarget": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "defaultConnectorFilename": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
@@ -35710,6 +35737,12 @@
       "Orm": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "CONNECT_TIMEOUT_MS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "withConnectDeadline": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "notConfigured": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"

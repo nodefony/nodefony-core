@@ -32,6 +32,7 @@ import {
 } from "node:fs";
 import { formatDuration } from "./report";
 import { isSkippedDir, isTestFile } from "./walk";
+import { withoutComments } from "./sourceText";
 
 /** Un écart entre ce qui est écrit et ce qui s'exécutera. */
 export interface IFreshnessFinding {
@@ -40,7 +41,9 @@ export interface IFreshnessFinding {
     | "dist-missing"
     | "node-below-engines"
     | "framework-stale"
-    | "framework-missing";
+    | "framework-missing"
+    | "frontend-stale"
+    | "frontend-missing";
   /** Phrase actionnable : le constat, et le geste qui le répare. */
   message: string;
   /** Fichier qui porte le constat, relatif à la racine (si pertinent). */
@@ -124,6 +127,158 @@ export function requiredNodeMajor(engines: unknown): number | null {
 }
 
 /**
+ * Une entrée frontend DÉCLARÉE par l'application : sa racine Vite et sa sortie.
+ *
+ * Les deux chemins viennent de la déclaration elle-même, jamais d'une
+ * convention devinée : `outDir` se réécrit par entrée, et un contrôle qui
+ * chercherait `public/dist` en dur se tairait sur toute application qui a
+ * choisi autre chose — en ayant l'air de l'avoir vérifiée.
+ */
+interface IFrontendEntry {
+  /** Racine Vite, relative à la racine du projet. */
+  root: string;
+  /** Dossier de sortie du build, relatif à la racine du projet. */
+  outDir: string;
+  /** Le fichier qui porte la déclaration, pour nommer le constat. */
+  file: string;
+}
+
+/** `svc.registerEntry(module, { … })` — le bloc d'options, quel qu'en soit le porteur. */
+const REGISTER_ENTRY_RE =
+  /\bregisterEntry\s*\([^,)]*,\s*\{([\s\S]{0,2000}?)\}/gu;
+
+/** `root: "./frontend"` dans un bloc d'options. */
+const ENTRY_ROOT_RE = /\broot\s*:\s*["'`]([^"'`\n]+)["'`]/u;
+
+/** `outDir: "./public/dist"` dans un bloc d'options. */
+const ENTRY_OUT_DIR_RE = /\boutDir\s*:\s*["'`]([^"'`\n]+)["'`]/u;
+
+/** Extensions qui composent un bundle front — bien au-delà du TypeScript. */
+const FRONT_SOURCE_RE =
+  /\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|sass|less|html)$/u;
+
+/**
+ * Les entrées frontend que l'application DÉCLARE, lues dans ses sources.
+ *
+ * Lecture textuelle et SANS les commentaires, comme partout dans `doctor` :
+ * le fichier écrit par le générateur documente `root` et `outDir` dans son
+ * TSDoc avant de les employer, et une lecture brute y verrait deux
+ * déclarations de plus qui n'existent pas.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns une entrée par `registerEntry` complet trouvé.
+ */
+function declaredFrontendEntries(projectRoot: string): IFrontendEntry[] {
+  const entries: IFrontendEntry[] = [];
+  for (const rel of SOURCES) {
+    const target = path.join(projectRoot, rel);
+    const stat = statSync(target, { throwIfNoEntry: false });
+    if (!stat) continue;
+    const files: string[] = stat.isFile()
+      ? [rel]
+      : readdirSync(target, { recursive: true, encoding: "utf8" })
+          .map((entry) => `${rel}/${entry.split(path.sep).join("/")}`)
+          .filter(
+            (f) =>
+              f.endsWith(".ts") &&
+              !f.split("/").some((segment) => isSkippedDir(segment)),
+          );
+    for (const file of files) {
+      const full = path.join(projectRoot, file);
+      if (!statSync(full, { throwIfNoEntry: false })?.isFile()) continue;
+      let code: string;
+      try {
+        code = withoutComments(readFileSync(full, "utf8"));
+      } catch {
+        continue;
+      }
+      REGISTER_ENTRY_RE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = REGISTER_ENTRY_RE.exec(code)) !== null) {
+        const options = m[1] ?? "";
+        const root = ENTRY_ROOT_RE.exec(options)?.[1];
+        const outDir = ENTRY_OUT_DIR_RE.exec(options)?.[1];
+        if (!root || !outDir) continue;
+        entries.push({ root, outDir, file });
+      }
+    }
+  }
+  return entries;
+}
+
+/** La date du fichier le plus récent sous un dossier, 0 s'il n'y en a aucun. */
+function newestFileUnder(dir: string, keep: (f: string) => boolean): number {
+  const stat = statSync(dir, { throwIfNoEntry: false });
+  if (!stat?.isDirectory()) return 0;
+  let newest = 0;
+  for (const entry of readdirSync(dir, { recursive: true, encoding: "utf8" })) {
+    const filePath = entry.split(path.sep).join("/");
+    if (filePath.split("/").some((segment) => isSkippedDir(segment))) continue;
+    if (!keep(filePath)) continue;
+    const s = statSync(path.join(dir, entry), { throwIfNoEntry: false });
+    if (s?.isFile() && s.mtimeMs > newest) newest = s.mtimeMs;
+  }
+  return newest;
+}
+
+/**
+ * Le frontend DÉCLARÉ est-il construit, et l'est-il APRÈS ses sources ?
+ *
+ * 🔴 Le contrôle de fraîcheur ne regardait que le `dist/` du backend. Une
+ * application dont le build frontend avait échoué — `public/dist` ABSENT,
+ * donc aucune page servie — s'entendait répondre « sources et build
+ * alignés », et `doctor` sortait en 0. Un contrôle qui rassure à tort est pire
+ * qu'un contrôle absent : lancé en fin de génération, il SIGNERAIT l'échec au
+ * lieu de le montrer.
+ *
+ * N'accuse que dans le sens sûr, comme le reste de ce fichier : sources plus
+ * récentes que la sortie. Une application qui ne déclare aucun frontend ne
+ * produit rien ici — le silence est alors la bonne réponse, pas un oubli.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns un constat par entrée dont la sortie manque ou date d'avant.
+ */
+export function checkFrontendBuild(projectRoot: string): IFreshnessFinding[] {
+  const findings: IFreshnessFinding[] = [];
+  for (const entry of declaredFrontendEntries(projectRoot)) {
+    const rootDir = path.join(projectRoot, entry.root);
+    const newestSource = newestFileUnder(rootDir, (f) =>
+      FRONT_SOURCE_RE.test(f),
+    );
+    // Une racine vide n'est pas un manquement : il n'y a rien à construire, et
+    // crier dessus enverrait chercher un build qui n'a pas lieu d'être.
+    if (newestSource === 0) continue;
+    const outPath = path.join(projectRoot, entry.outDir);
+    const newestBuilt = newestFileUnder(outPath, () => true);
+    if (newestBuilt === 0) {
+      findings.push({
+        kind: "frontend-missing",
+        message:
+          `le frontend déclaré (\`${entry.root}\`) n'est pas construit ` +
+          `(\`${entry.outDir}\` est absent ou vide) : le framework monte cette ` +
+          "sortie en statique — sans elle, la page ne sera pas servie et le " +
+          "navigateur recevra un 404 sur ses assets. → `npm run build`",
+        file: entry.file,
+      });
+      continue;
+    }
+    if (newestSource > newestBuilt) {
+      const gap = formatDuration((newestSource - newestBuilt) / 1000);
+      findings.push({
+        kind: "frontend-stale",
+        message:
+          `le frontend a changé APRÈS son dernier build (\`${entry.root}\` est ` +
+          `plus récent de ${gap} que \`${entry.outDir}\`) : c'est l'ancien ` +
+          "bundle qui est servi, et rien ne le dit — la modification paraît " +
+          "simplement sans effet. → `npm run build`",
+        file: entry.file,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
  * Confronte les sources au build, et la version de Node au plancher déclaré.
  *
  * @param projectRoot - racine de l'application.
@@ -195,6 +350,11 @@ export function checkFreshness(
       /* manifeste illisible : ce n'est pas le sujet de ce contrôle */
     }
   }
+
+  // Le frontend est une SECONDE chaîne de build, avec sa propre sortie : la
+  // ranger sous le même contrôle est ce qui empêche « sources et build
+  // alignés » de ne parler que de la moitié de l'application.
+  findings.push(...checkFrontendBuild(projectRoot));
 
   return { findings, notComparable: plusRecente === 0 && !distStat };
 }
