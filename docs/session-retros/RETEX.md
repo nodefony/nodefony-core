@@ -34,6 +34,20 @@
 
 ## 📖 Ce qui est ÉCRIT ne protège que si on le relit AU MOMENT du geste
 
+- [1× — 09-07i] **J'ai recopié dans un skill une recette que le PRODUIT imprime déjà — et le skill
+  dit lui-même, en §1, qu'il n'exécute rien.** Après une release, j'ai versé dans
+  `nodefony-release` la séquence `--branch dev` puis les quatre poussées jusqu'au tag : or
+  `release.mjs:487` NOMME le drapeau manquant quand on se trompe, et `--write` imprime la séquence
+  complète. Le user l'a vu tout de suite (« le skill ne tient pas la release, c'est le produit »).
+  Une seconde source venait de naître, avec `dev` écrit en dur, une heure après que #257 ait changé
+  les branches. **Le test avant d'écrire dans un skill : cette phrase évite-t-elle une exploration,
+  ou décrit-elle ce que le produit dit déjà au moment utile ?** Ce qui reste au skill, c'est
+  l'ARBITRAGE — « la forge rejoue le smoke, ne pas le doubler » — jamais la recette.
+- [1× — 09-07i] **Une affirmation d'absence énoncée trois fois de suite, jamais vérifiée.** « Docker
+  Hub n'a pas d'archivage » — il en a un (`status_description = archived`), et le dépôt l'était
+  déjà. Le user l'avait sous les yeux pendant que je l'affirmais. Même famille que l'absence de
+  bancs OAuth la veille : **une absence se prouve par la commande qui la constate**, et l'API
+  publique répondait en une requête.
 - [1× — 09-07h] **J'ai conclu « pas de blocage » sur une mesure qui ne portait pas sur le cas
   décrit — le user a dû le redire.** Il signalait `nodefony inspect config` SUSPENDUE ; j'ai mesuré
   3,0 s et répondu « elle ne bloque pas, elle échoue ». Ma mesure était juste et hors sujet : je
@@ -268,6 +282,27 @@
 
 ## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
 
+- [1× — 09-07i] **Un contrôle qui cherche des secrets sous des noms que personne ne pose est VERT
+  et n'a rien éprouvé — et j'en ai tiré une conclusion que j'ai annoncée au user.** Le job `docker`
+  du préflight lisait `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` quand la release lit
+  `NF_DOCKERHUB_USER`/`NF_DOCKERHUB_TOKEN` : deux noms pour une même notion. Les identifiants
+  venaient d'être posés ; le job est passé par la branche « absents », a émis son avertissement,
+  tiré l'image en anonyme, et fini VERT. J'ai dit « Docker Hub validé ». **Le tort n'est pas d'avoir
+  lu un vert, c'est de ne pas avoir demandé QUELLE BRANCHE il avait prise** — la sortie le disait
+  (aucun `Login Succeeded`, l'avertissement émis), il suffisait de la lire au lieu du verdict.
+  Corollaire déjà connu et re-payé : une même notion sous deux noms diverge en silence.
+- [1× — 09-07i] **Un flux de vérification qui n'est branché sur RIEN ne garde rien, même écrit,
+  testé et vert.** `release-preflight.yml` — dont le nom et l'en-tête disent « les accès existent
+  avant qu'on en ait besoin » — n'avait qu'un `workflow_dispatch` et un calendrier MENSUEL, et
+  aucun `uses:` nulle part. Un jeton restreint EXPIRE : la chaîne publiait les quinze paquets, seul
+  geste irréversible du lot, PUIS découvrait qu'un accès manquait. C'est le user qui a posé la
+  question (« il y a un préflight avant release ? »), pas un contrôle. **Un fichier de garde se
+  cherche par ses APPELANTS, jamais par son intention** : `grep -c 'uses:.*<le flux>'` rend 0 ou
+  plus, et zéro veut dire qu'il ne garde personne.
+- [1× — 09-07i] **Mon `echo` de confirmation s'exécutait après une commande en échec.**
+  `gh api -X DELETE …; echo "LTS supprimée"` — la branche était protégée, l'API a rendu 422, et
+  j'ai annoncé la suppression. Un compte rendu enchaîné par `;` ne constate rien ; il faut `&&`,
+  ou relire l'état après coup.
 - [1× — 09-07h] **J'ai affirmé une ABSENCE sur une recherche qui cherchait au mauvais endroit — et
   je l'ai gravée dans un commit ET dans une fermeture de ticket.** « Aucun banc live n'exerce
   OAuth » : deux existaient, sous `http/nodefony/tests/integration/` quand je regardais

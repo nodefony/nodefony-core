@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T19:29:06.408Z",
+  "generatedAt": "2026-09-07T21:44:37.092Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,24 +25,24 @@
       "title": "12.0.0"
     },
     {
-      "closed": 11,
+      "closed": 12,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 11,
+      "open": 9,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 0,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 22,
+      "open": 23,
       "title": "10.0.0-beta"
     },
     {
       "closed": 134,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
-      "open": 1,
+      "open": 2,
       "title": "10.0.0"
     },
     {
@@ -150,20 +150,6 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 1.2,
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
-      "number": 47,
-      "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
-      "url": "https://github.com/nodefony/nodefony-core/issues/47",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 1.3,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -299,6 +285,20 @@
       ]
     },
     {
+      "number": 275,
+      "title": "fix(release): écarter du changelog les commits qui n'atteignent aucun installeur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/275",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 1.7,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 56,
       "title": "chore(pilotage): donner un ticket aux dettes qui n'en ont pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/56",
@@ -359,8 +359,8 @@
       "number": 261,
       "title": "ci(release): publier la documentation quand une version sort",
       "url": "https://github.com/nodefony/nodefony-core/issues/261",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -417,7 +417,7 @@
       "title": "chore(release): publier la beta depuis la forge, pas à la main",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -2630,11 +2630,25 @@
       ]
     },
     {
+      "number": 47,
+      "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
+      "url": "https://github.com/nodefony/nodefony-core/issues/47",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 59,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 27,
       "title": "chore(release): publier les paquets de la version 10 sur npm",
       "url": "https://github.com/nodefony/nodefony-core/issues/27",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
