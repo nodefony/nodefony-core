@@ -83,6 +83,7 @@ const LOT_ATTENDU = new Set([
   "lib/exec-portable.selftest.mjs",
   "lib/gate-csp-nonce.selftest.mjs",
   "lib/gate-csrf-partenaire.selftest.mjs",
+  "lib/gate-doctor.selftest.mjs",
   "lib/gate-entity-delete.selftest.mjs",
   "lib/gate-liste-bornee.selftest.mjs",
   "lib/gate-login-throttle.selftest.mjs",

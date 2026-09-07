@@ -177,7 +177,7 @@ function verifierExplicationGate() {
         "  nodefony doctor · bench-app 0.1.0\n" +
           "  \u2717  1 PROBL\u00c8ME   4 angles morts\n",
       ],
-      "nodefony doctor \u00b7 bench-app 0.1.0",
+      "\u2717  1 PROBL\u00c8ME   4 angles morts",
     ],
   ];
   for (const [label, [err, out], attendu] of cas) {

@@ -82,6 +82,10 @@ export const IMPUTATIONS = Object.freeze({
   // Le juge a levé une exception. Rien n'a été mesuré, et l'application n'y est
   // pour rien.
   "juge-en-erreur": DECOR,
+  // `doctor --json` n'a pas rendu de JSON : binaire absent, script retiré,
+  // sortie polluée. Le rapport ne dit alors RIEN du code produit — imputer ce
+  // rouge à l'agent le condamnerait pour une panne d'outil.
+  "doctor-illisible": DECOR,
 
   // ─── INDÉTERMINÉ — l'agent PEUT l'avoir produite ──────────────────────────
   // Toute la famille « pas de réponse HTTP ». La gate construit et démarre
@@ -155,6 +159,10 @@ export const IMPUTATIONS = Object.freeze({
   "compte-sur-autre-application": INDETERMINE,
 
   // ─── AGENT — le rouge décrit le logiciel produit ──────────────────────────
+  // Le vérificateur du framework signale un manquement sur le code produit.
+  // Nommé par `lib/gate-doctor.mjs`, qui lit le rapport JSON plutôt que de
+  // deviner une ligne dans un texte écrit pour un humain.
+  "doctor-manquement": AGENT,
   // Rien n'a été monté là où l'énoncé le demandait.
   "route-absente": AGENT,
   "ressource-absente": AGENT,

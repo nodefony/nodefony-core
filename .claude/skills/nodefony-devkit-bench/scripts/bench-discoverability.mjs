@@ -461,6 +461,20 @@ const JUGE_MEDIA = path.join(
   "gate-media-range.mjs",
 );
 
+/**
+ * Juge du vérificateur du framework — commun à TOUTES les tâches.
+ *
+ * Il remplace un `npm run doctor` jugé sur son seul code de sortie : la cause
+ * partait alors dans `expliquerEchec`, qui devine une ligne dans un rapport
+ * écrit pour un humain et rendait la bannière de l'outil. Le mode `--json`
+ * rend le même document, structuré — il n'y a plus rien à deviner.
+ */
+const JUGE_DOCTOR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-doctor.mjs",
+);
+
 /** Juge de la tâche « valeur portée par le chemin » — chemin ABSOLU, même raison. */
 const JUGE_PARAM = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -1121,7 +1135,7 @@ export const SONDES_QUALITE = [
     // absent échoue en nommant npm, jamais le manquement.
     kind: "gate",
     name: "aucun manquement au vérificateur du framework (nodefony doctor)",
-    cmd: ["npm", "run", "doctor"],
+    cmd: ["node", JUGE_DOCTOR],
   },
   {
     // `addedTs` — hors tests : dans une fixture, un `as any` est une commodité
@@ -5256,6 +5270,22 @@ function runTask(app, runDir, task) {
 const BRUIT_EXECUTEUR =
   /^(?:npm (?:notice|warn|WARN)\b|>\s|\$\s|yarn run |pnpm )/u;
 
+/**
+ * Ce qui distingue une ligne de MANQUEMENT d'une ligne de PRÉSENTATION.
+ *
+ * Une bannière porte une IDENTITÉ — nom de l'outil, version, chemin — et
+ * jamais de marqueur d'échec. Un manquement en porte un, presque toujours :
+ * un signe (`✗`, `❌`), ou un mot. La liste couvre les deux langues du dépôt,
+ * les sorties étant anglaises chez les outils tiers et françaises chez les
+ * nôtres.
+ *
+ * Volontairement SANS \b : `échec` commence par une lettre accentuée, que la
+ * limite de mot ASCII ne reconnaît pas — l'ancrer aurait rendu le motif muet
+ * en début de ligne, précisément là où l'outil écrit son verdict.
+ */
+const MARQUEUR_ECHEC =
+  /[✗✘×❌]|erreur|error|échec|echec|fail|problème|probleme|introuvable|manquant|missing/iu;
+
 export function expliquerEchec(stderr, stdout) {
   const flux = [stderr ?? "", stdout ?? ""];
   // 🔴 Le saut du bruit se fait sur LES DEUX flux avant de se rabattre sur
@@ -5266,12 +5296,32 @@ export function expliquerEchec(stderr, stdout) {
   // « npm notice run bench-app@0.1.0 check » — sept heures de mesure sans une
   // seule cause, et un diagnostic qui a dû remonter une application témoin à
   // la main pour lire ce que le gate avait sous les yeux.
-  for (const f of flux) {
-    const utile = f
+  const utiles = flux.map((f) =>
+    f
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l.length > 0 && !BRUIT_EXECUTEUR.test(l));
-    if (utile.length > 0) return borner(utile[0]);
+      .filter((l) => l.length > 0 && !BRUIT_EXECUTEUR.test(l)),
+  );
+  // 🔴 Une ligne qui NOMME un manquement prime sur la première ligne utile.
+  //
+  // Sauter le bruit de l'exécuteur ne suffit pas : l'outil appelé se PRÉSENTE
+  // avant de parler. `nodefony doctor` ouvre par `nodefony doctor · <app>`
+  // (renderReport.ts, `enTete`), et cette bannière est une ligne parfaitement
+  // utile — elle passait donc en tête. Mesuré : dix rouges d'une nuit de banc
+  // expliqués par le nom de l'outil, la ligne qui nommait le manquement étant
+  // juste en dessous, capturée et ignorée.
+  //
+  // C'est la RÉCIDIVE du défaut npm traité au-dessus, un cran plus loin : le
+  // remède avait couvert le bruit de l'EXÉCUTEUR, pas celui de la
+  // PRÉSENTATION. Chercher un marqueur d'échec plutôt qu'énumérer les
+  // bannières connues ferme la famille entière — tout outil qui se présente
+  // avant de parler retomberait autrement dans le même angle mort.
+  for (const lignes of utiles) {
+    const nomme = lignes.find((l) => MARQUEUR_ECHEC.test(l));
+    if (nomme) return borner(nomme);
+  }
+  for (const lignes of utiles) {
+    if (lignes.length > 0) return borner(lignes[0]);
   }
   // Rien que du bruit partout : on le rend quand même — un gate qui se tait et
   // un gate qu'on n'a pas su lire ne se confondent pas.
