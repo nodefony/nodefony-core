@@ -55,9 +55,43 @@ on:
   # aperçoit que le jour de la release.
   schedule:
     - cron: "0 5 1 * *"
+  # 🔴 APPELÉ PAR `release.yml`, AVANT `publier` — c'est ce qui fait de ce flux
+  # une GARDE et non un outil qu'on pense à lancer.
+  #
+  # Le calendrier mensuel ne suffit pas, et le croire coûterait la seule chose
+  # qu'on ne peut pas reprendre : un jeton restreint EXPIRE, et s'il expire le 3
+  # du mois, rien ne le dit avant le 1er du mois suivant. Le jour du tag, la
+  # chaîne publiait les quinze paquets — geste irréversible, `npm unpublish`
+  # n'étant ouvert que 72 heures — PUIS découvrait que `vitrine` ou `image`
+  # n'avait plus d'accès. Une vérification de quarante secondes placée après le
+  # geste qu'on ne peut pas reprendre.
+  #
+  # Ce que l'appel ne fait PAS : bloquer sur ce qui n'aurait pas été fatal. Le
+  # jeton npm reste informatif (avec l'OIDC, son absence est l'état NORMAL), et
+  # les accès vitrine et docker ne sont exigés que si leur job respectif est
+  # armé — une garde qui crie faux apprend à passer outre.
+  workflow_call:
+    inputs:
+      workflow_publieur:
+        type: string
+        required: false
+        default: release.yml
+      # L'appelant dit ce qui est ARMÉ ; sans cela ce flux exigerait un accès
+      # pour un job qui ne tournera pas, et refuserait une publication saine.
+      exiger_vitrine:
+        type: boolean
+        required: false
+        default: false
+      exiger_image:
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
-  group: release-preflight
+  # Le groupe porte le contexte appelant : sans cela, l'appel depuis une release
+  # ANNULERAIT le préflight mensuel en cours — ou serait annulé par lui, ce qui
+  # ferait échouer la publication pour une raison sans rapport avec elle.
+  group: release-preflight-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -198,19 +232,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # Volontairement NON bloquant : ce projet ne publie aucune image. Le login
-      # ne sert qu'au quota, et son absence ne compromet aucune release.
-      - name: Login Docker Hub (si les identifiants existent)
+      # 🔴 LES MÊMES NOMS QUE `release.yml`, ET C'EST TOUT LE SUJET. Ce job a
+      # longtemps lu `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` quand la release
+      # lit `NF_DOCKERHUB_USER` / `NF_DOCKERHUB_TOKEN` : deux noms pour une même
+      # notion, donc un préflight VERT qui n'avait rien éprouvé. Constaté sur le
+      # run 34161751310, identifiants pourtant posés — aucun `Login Succeeded`,
+      # le warning « identifiants absents » émis, et le job vert quand même.
+      # C'est le pire des verdicts : vert pour la mauvaise raison, et cru.
+      #
+      # Le login n'est plus seulement un desserrage de quota : quand `image` est
+      # armé, il est la SEULE preuve que la publication d'image aboutira — et
+      # elle vient après la publication npm, qui ne se reprend pas.
+      - name: Login Docker Hub — la seule preuve que l'image pourra être poussée
         shell: bash
         env:
-          USER: ${{ secrets.DOCKERHUB_USERNAME }}
-          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          IDENTIFIANT: ${{ secrets.NF_DOCKERHUB_USER }}
+          JETON: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+          EXIGE: ${{ inputs.exiger_image && 'oui' || 'non' }}
         run: |
-          if [ -z "${USER}" ] || [ -z "${TOKEN}" ]; then
-            echo "::warning title=Identifiants Docker Hub absents::Le smoke de release tirera node:24-slim en ANONYME, soumis au quota par IP partagée des runners. Poser DOCKERHUB_USERNAME et DOCKERHUB_TOKEN desserre cette limite."
-          else
-            echo "${TOKEN}" | docker login -u "${USER}" --password-stdin
+          set -uo pipefail
+          if [ -z "${IDENTIFIANT}" ] || [ -z "${JETON}" ]; then
+            if [ "${EXIGE}" = "oui" ]; then
+              echo "::error title=Identifiants Docker Hub absents::NF_RELEASE_IMAGE est armé mais NF_DOCKERHUB_USER ou NF_DOCKERHUB_TOKEN n'existe pas — le job « image » échouerait APRÈS la publication npm, qui est irréversible."
+              exit 1
+            fi
+            echo "::warning title=Identifiants Docker Hub absents::Le smoke de release tirera node:24-slim en ANONYME, soumis au quota par IP partagée des runners. Poser NF_DOCKERHUB_USER et NF_DOCKERHUB_TOKEN desserre cette limite."
+            exit 0
           fi
+          # Le code de retour de `docker login` NE SUFFIT PAS à lui seul : on
+          # vérifie que l'identité est réellement enregistrée, sinon on répète la
+          # faute que ce commentaire dénonce.
+          if ! echo "${JETON}" | docker login -u "${IDENTIFIANT}" --password-stdin; then
+            echo "::error title=Identifiants Docker Hub refusés::Jeton expiré, révoqué, ou identifiant erroné."
+            exit 1
+          fi
+          docker system info --format '{{.Username}}' | grep -q . \
+            && echo "✓ authentifié auprès de Docker Hub : $(docker system info --format '{{.Username}}')" \
+            || { echo "::error title=Login sans identité::docker login a rendu 0 sans enregistrer d'identité."; exit 1; }
 
       # L'image que le gabarit d'application utilise réellement. Un pull qui
       # échoue ici, c'est un `smoke-docker.sh` qui échouera pour une raison sans
@@ -261,11 +319,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+          # Vrai seulement quand `release.yml` appelle ce flux avec la vitrine
+          # ARMÉE : un jeton manquant devient alors fatal AVANT la publication,
+          # au lieu de l'être après. En lancement manuel, il reste informatif.
+          EXIGE: ${{ inputs.exiger_vitrine && 'oui' || 'non' }}
         run: |
           set -uo pipefail
           if [ -z "${GH_TOKEN}" ]; then
-            echo "::warning title=Aucun jeton vitrine::NF_VITRINE_TOKEN absent — le job « vitrine » de la release sera sauté, ou échouera s'il est armé."
             echo "present=non" >> "$GITHUB_OUTPUT"
+            if [ "${EXIGE}" = "oui" ]; then
+              echo "::error title=Jeton vitrine absent::NF_RELEASE_VITRINE est armé mais NF_VITRINE_TOKEN n'existe pas — le job « vitrine » échouerait APRÈS la publication npm, qui est irréversible."
+              exit 1
+            fi
+            echo "::warning title=Aucun jeton vitrine::NF_VITRINE_TOKEN absent — le job « vitrine » de la release sera sauté, ou échouera s'il est armé."
             exit 0
           fi
           echo "present=oui" >> "$GITHUB_OUTPUT"

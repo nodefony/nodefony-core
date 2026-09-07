@@ -130,9 +130,36 @@ jobs:
   # ═════════════════════════════════════════════════════════════════════════
   # 2. PUBLICATION — le seul job qui touche au registre
   # ═════════════════════════════════════════════════════════════════════════
+  # ═════════════════════════════════════════════════════════════════════════
+  # 1 bis. ACCÈS — les jetons répondent-ils, AVANT le geste irréversible ?
+  # ═════════════════════════════════════════════════════════════════════════
+  # `release-preflight.yml` existait déjà, mais il n'était lancé que par un
+  # calendrier MENSUEL et à la demande : il ne gardait rien. Un jeton restreint
+  # EXPIRE — s'il expire le 3 du mois, rien ne le dit avant le 1er du mois
+  # suivant. La chaîne publiait donc les quinze paquets, geste que `npm
+  # unpublish` ne reprend que 72 heures durant, PUIS découvrait que `vitrine` ou
+  # `image` n'avait plus d'accès. Quarante secondes de vérification placées
+  # après le seul pas irrattrapable du lot.
+  #
+  # On lui passe ce qui est ARMÉ : un accès manquant n'est fatal que si le job
+  # qui en dépend va réellement tourner. Une garde qui crie faux apprend à
+  # passer outre.
+  acces:
+    name: Accès — jetons et identités, avant toute publication
+    needs: epreuve
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+      id-token: write # le contrôle OIDC en a besoin
+    uses: ./.github/workflows/release-preflight.yml
+    secrets: inherit
+    with:
+      exiger_vitrine: ${{ vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_VITRINE == 'true' }}
+      exiger_image: ${{ vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_IMAGE == 'true' }}
+
   publier:
     name: Publication npm (lockstep, ${{ github.ref_name }})
-    needs: epreuve
+    needs: [epreuve, acces]
     # Le canal est calculé ICI et nulle part ailleurs : l'image le consomme au
     # lieu de le recalculer. Deux dérivations du même fait divergeraient en
     # silence — chacune passant ses propres contrôles.
@@ -302,8 +329,9 @@ jobs:
           if ! gh api repos/nodefony/nodefony/branches/v7 --silent 2>/dev/null; then
             echo "::error::La branche v7 n'existe pas sur nodefony/nodefony."
             echo "::error::Ce dépôt porte l'application de démarrage de l'ère 7 (93 ★, 9 forks)."
-            echo "::error::La créer AVANT, depuis la branche par défaut :"
-            echo "::error::  SHA=\$(gh api repos/nodefony/nodefony/branches/master --jq .commit.sha)"
+            echo "::error::La recréer depuis le TAG de l'ère 7, jamais depuis la branche par"
+            echo "::error::défaut : celle-ci est « main », c'est-à-dire la vitrine générée."
+            echo "::error::  SHA=\$(gh api repos/nodefony/nodefony/git/refs/tags/v7.0.0-beta.22 --jq .object.sha)"
             echo "::error::  gh api repos/nodefony/nodefony/git/refs -f ref=refs/heads/v7 -f sha=\$SHA"
             exit 1
           fi
@@ -527,7 +555,7 @@ jobs:
   # ═════════════════════════════════════════════════════════════════════════
   bilan:
     name: Bilan — ce qui a tourné, et ce qui a été sauté
-    needs: [epreuve, publier, vitrine, image, annonce]
+    needs: [epreuve, acces, publier, vitrine, image, annonce]
     if: always() && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -549,6 +577,7 @@ jobs:
               echo
             fi
             etat "${{ needs.epreuve.result }}" "Épreuve (installation vierge)" ""
+            etat "${{ needs.acces.result }}"   "Accès (jetons vitrine et docker, OIDC, outils)" ""
             etat "${{ needs.publier.result }}" "Publication npm" ""
             etat "${{ needs.vitrine.result }}" "Vitrine nodefony/nodefony" "poser la variable NF_RELEASE_VITRINE=true et le secret NF_VITRINE_TOKEN"
             etat "${{ needs.image.result }}"   "Image docker" "poser la variable NF_RELEASE_IMAGE=true et les secrets NF_DOCKERHUB_*"
