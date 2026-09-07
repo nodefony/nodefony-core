@@ -347,7 +347,9 @@ if (PUBLIER) {
     if (local !== distant) {
       alerter(
         `${BRANCHE_PUBLICATION} LOCAL (${local.slice(0, 8)}) diffère du distant (${distant.slice(0, 8)}).\n` +
-          `  git fetch origin && git branch -f ${BRANCHE_PUBLICATION} origin/${BRANCHE_PUBLICATION}`,
+          `  git fetch origin ${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}` +
+          "  (avance en fast-forward, et REFUSE si les deux ont divergé —\n" +
+          "   `git branch -f` écraserait sans regarder)",
       );
     }
   }
@@ -971,7 +973,7 @@ dire(
     "     part ailleurs : c'est cette branche que décrivent le site public et les liens\n" +
     "     des README publiés.\n" +
     `       git push origin ${branche}:${BRANCHE_PUBLICATION}\n` +
-    `       git fetch origin && git branch -f ${BRANCHE_PUBLICATION} origin/${BRANCHE_PUBLICATION}\n` +
+    `       git fetch origin ${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}\n` +
     `     La seconde ligne n'est pas du rangement : pousser \`${branche}:${BRANCHE_PUBLICATION}\` avance\n` +
     `     la branche DISTANTE et laisse la locale où elle était. Un \`${BRANCHE_PUBLICATION}\` local en\n` +
     "     retard fait ensuite mentir tout ce qui l'interroge.\n" +
