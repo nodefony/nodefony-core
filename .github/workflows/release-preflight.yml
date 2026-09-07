@@ -51,6 +51,18 @@ on:
         description: "Nom du fichier de workflow qui publiera (à déclarer chez npm)"
         type: string
         default: release.yml
+      # Les mêmes drapeaux qu'en `workflow_call`, pour que la garde soit
+      # EXERÇABLE sans attendre un tag. Sans eux, le chemin bloquant ne
+      # s'emprunterait que le jour d'une release — c'est-à-dire jamais en
+      # répétition, et une garde qu'on n'a jamais vue mordre n'en est pas une.
+      exiger_vitrine:
+        description: "Traiter un jeton vitrine manquant comme FATAL (répétition de la garde)"
+        type: boolean
+        default: false
+      exiger_image:
+        description: "Traiter des identifiants Docker manquants comme FATAUX (répétition de la garde)"
+        type: boolean
+        default: false
   # Mensuel : une exigence de version monte, un réglage change, et on ne s'en
   # aperçoit que le jour de la release.
   schedule:
