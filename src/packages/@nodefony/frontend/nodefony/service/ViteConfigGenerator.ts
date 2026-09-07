@@ -43,17 +43,6 @@ export interface ViteConfigGeneratorOptions {
    * sert que les NOMS (vhosts, `host.docker.internal`, forwarders).
    */
   readonly allowedHosts?: true | ReadonlyArray<string>;
-  /**
-   * Config `server.hmr` CLIENTE — où le navigateur ouvre le WebSocket HMR
-   * quand un intermédiaire (forwarder TLS, passerelle conteneur) sépare
-   * l'origine publique de l'adresse d'écoute. Absent = fallback client Vite
-   * (`location.hostname` + port d'écoute), correct en local.
-   */
-  readonly hmr?: {
-    readonly host: string;
-    readonly clientPort: number;
-    readonly protocol: "ws" | "wss";
-  };
 }
 
 /**
@@ -244,24 +233,32 @@ ${fsAllowLines}
         : opts.allowedHosts && opts.allowedHosts.length > 0
           ? `    allowedHosts: ${JSON.stringify(opts.allowedHosts)},\n`
           : "";
-    const hmrLine = opts.hmr
-      ? `    hmr: { host: ${JSON.stringify(opts.hmr.host)}, clientPort: ${
-          opts.hmr.clientPort
-        }, protocol: ${JSON.stringify(opts.hmr.protocol)} },\n`
-      : "";
+    // 🔴 AUCUNE ligne `hmr` n'est émise, JAMAIS — et c'est délibéré.
+    // Le client Vite déduit l'adresse de son socket de l'URL par laquelle IL a
+    // été chargé (`client.mjs` : `__HMR_HOSTNAME__ || importMetaUrl.hostname`,
+    // `hmrPort || importMetaUrl.port`, protocole déduit de `https:`). Or c'est
+    // précisément ce que le rendu fait varier par requête. Le socket suit donc
+    // le même chemin que les ressources, sans qu'on ait à le dire — y compris
+    // quand une même instance sert en même temps l'origine publique d'une
+    // plateforme et un tunnel local, cas où une valeur écrite ici serait juste
+    // pour l'un et fausse pour l'autre.
+    // Deux raisons de plus de ne rien écrire : côté serveur, `host`/`protocol`/
+    // `clientPort` omis valent `null` (donc la déduction s'active), et côté
+    // client un `hmrPort` absent ARME un repli direct en cas d'échec de
+    // connexion — le fixer désarme ce filet.
     const serverBlock =
       proxyPaths.size > 0
         ? `  server: {
     strictPort: ${strictPort},
     cors: true,
-${allowedHostsLine}${hmrLine}${httpsLines}${fsBlock}    proxy: {
+${allowedHostsLine}${httpsLines}${fsBlock}    proxy: {
 ${proxyLines}
     },
   },`
         : `  server: {
     strictPort: ${strictPort},
     cors: true,
-${allowedHostsLine}${hmrLine}${httpsLines}${fsBlock}  },`;
+${allowedHostsLine}${httpsLines}${fsBlock}  },`;
 
     // `base` est inclus seulement si l'origin Vite est fournie en dev. En prod,
     // Vite préfixe avec le `base` standard "/" (assets relatifs).

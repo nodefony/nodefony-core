@@ -62,34 +62,19 @@ describe("remoteDev — origine publique du dev server", () => {
       );
       expect(r).to.not.be.null;
       expect(r!.origin).to.equal("https://host.docker.internal:5174");
-      expect(r!.hmr).to.deep.equal({
-        host: "host.docker.internal",
-        clientPort: 5174,
-        protocol: "wss",
-      });
     });
-    it("substitue {port} dans l'HÔTE (Codespaces) — WS sur 443 implicite", () => {
+    it("substitue {port} dans l'HÔTE (Codespaces) — port implicite conservé", () => {
       const r = resolveOriginTemplate(
         "https://mona-{port}.app.github.dev",
         5173,
       );
+      // Pas de port écrit → aucun port ajouté : le forwarder TLS termine sur
+      // 443, et le port d'ÉCOUTE ne doit pas fuiter dans l'URL publique.
       expect(r!.origin).to.equal("https://mona-5173.app.github.dev");
-      // Pas de port écrit → 443 implicite : le forwarder TLS termine, le WS
-      // HMR doit suivre le MÊME chemin que les assets.
-      expect(r!.hmr).to.deep.equal({
-        host: "mona-5173.app.github.dev",
-        clientPort: 443,
-        protocol: "wss",
-      });
     });
-    it("origine http sans port → clientPort 80, protocole ws", () => {
+    it("origine http sans port → origine nue", () => {
       const r = resolveOriginTemplate("http://proxy.lan", 5173);
       expect(r!.origin).to.equal("http://proxy.lan");
-      expect(r!.hmr).to.deep.equal({
-        host: "proxy.lan",
-        clientPort: 80,
-        protocol: "ws",
-      });
     });
     it("origine FIGÉE : le port réel ne s'y invite pas", () => {
       const r = resolveOriginTemplate(
@@ -97,7 +82,21 @@ describe("remoteDev — origine publique du dev server", () => {
         5174,
       );
       expect(r!.origin).to.equal("https://host.docker.internal:5173");
-      expect(r!.hmr.clientPort).to.equal(5173);
+    });
+    it("ne rend AUCUNE config HMR — le socket se déduit côté client", () => {
+      // Régression gardée : ce module a produit `hmr: {host, clientPort,
+      // protocol}`, écrit tel quel dans la config Vite. Une valeur écrite est
+      // la MÊME pour tous les clients, alors qu'une seule instance sert en
+      // même temps l'origine publique d'une plateforme et un tunnel local.
+      // Le client Vite déduit son socket de l'URL par laquelle il a été chargé
+      // (`client.mjs` : `__HMR_HOSTNAME__ || importMetaUrl.hostname`) — donc
+      // rien à rendre, et surtout rien à figer.
+      const r = resolveOriginTemplate(
+        "https://mona-{port}.app.github.dev",
+        5173,
+      );
+      expect(r).to.not.be.null;
+      expect(Object.keys(r!)).to.deep.equal(["origin"]);
     });
     it("template invalide → null (l'appelant annonce et dérive localement)", () => {
       expect(resolveOriginTemplate("n'importe quoi", 5173)).to.be.null;

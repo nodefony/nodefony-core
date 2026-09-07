@@ -5,7 +5,7 @@
  * NAVIGATEUR utilise peut être toute autre chose — un forwarder TLS (Codespaces,
  * Gitpod), une passerelle de conteneur (`host.docker.internal`), un port remappé.
  * Ce module dissocie les deux : il produit l'origine publique (assets, `base`
- * Vite, WebSocket HMR) à partir d'un TEMPLATE (`{port}` substitué au port réel
+ * Vite) à partir d'un TEMPLATE (`{port}` substitué au port réel
  * du spawn) — explicite (`frontend.publicOrigin`) ou détecté depuis
  * l'environnement de la plateforme.
  *
@@ -14,7 +14,7 @@
  *
  * Formats VÉRIFIÉS (docs officielles + source Vite 8) :
  *  - Codespaces : `https://${CODESPACE_NAME}-${port}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
- *    (TLS terminé par le forwarder → WS HMR en `wss` sur 443).
+ *    (TLS terminé par le forwarder ; le socket HMR s'en déduit côté client).
  *  - Gitpod classic : `https://${port}-<hôte de GITPOD_WORKSPACE_URL>`.
  *  - Vite `server.allowedHosts` : IP et `localhost`/`*.localhost` TOUJOURS
  *    acceptés ; un préfixe `.` = le domaine ET tous ses sous-domaines.
@@ -45,15 +45,6 @@ const ORIGIN_TEMPLATE_RE = /^(https?):\/\/([^/:\s]+)(?::(\d+|\{port\}))?$/;
 export interface IResolvedPublicOrigin {
   /** Origine que le navigateur utilise — verbatim dans les `<script>` et le `base` Vite. */
   readonly origin: string;
-  /**
-   * Config `server.hmr` cliente : le WS HMR doit suivre le MÊME chemin que les
-   * assets. Port implicite → 443/80 selon le scheme (cas forwarder TLS).
-   */
-  readonly hmr: {
-    readonly host: string;
-    readonly clientPort: number;
-    readonly protocol: "ws" | "wss";
-  };
 }
 
 /** Environnement de dev déporté détecté depuis les variables de la plateforme. */
@@ -162,9 +153,10 @@ export function originWithHostname(
 /**
  * Résout un template d'origine contre le port RÉEL du spawn. Pure.
  *
- * @returns origine + config HMR cliente, ou `null` si le template est invalide
+ * @returns l'origine publique, ou `null` si le template est invalide
  *   (l'appelant retombe sur la dérivation locale en l'ANNONÇANT — jamais en
- *   silence).
+ *   silence). Aucune config HMR n'est rendue : le socket suit l'origine par
+ *   laquelle le client Vite a été chargé, il n'a rien à recevoir.
  */
 export function resolveOriginTemplate(
   template: string,
@@ -182,14 +174,8 @@ export function resolveOriginTemplate(
   const explicitPort = portTemplate
     ? parseInt(portTemplate.replaceAll(PORT_PLACEHOLDER, String(port)), 10)
     : undefined;
-  const secure = scheme === "https";
   return {
     origin: `${scheme}://${host}${explicitPort !== undefined ? `:${explicitPort}` : ""}`,
-    hmr: {
-      host,
-      clientPort: explicitPort ?? (secure ? 443 : 80),
-      protocol: secure ? "wss" : "ws",
-    },
   };
 }
 

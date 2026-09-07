@@ -420,7 +420,6 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       viteOrigin,
       https: this.opts.https,
       allowedHosts: this.opts.allowedHosts,
-      hmr: resolved?.hmr,
     });
     writeFileSync(this.configFilePath, content, "utf8");
     this.opts.logger.debug?.(`vite config written: ${this.configFilePath}`);

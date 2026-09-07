@@ -247,17 +247,25 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include("allowedHosts: true,");
   });
 
-  it("émet server.hmr (host/clientPort/protocol) quand fourni", () => {
+  it("n'émet JAMAIS de ligne hmr — même en dev déporté", () => {
+    // Régression gardée. Une valeur écrite ici vaut pour TOUS les clients,
+    // alors qu'une même instance sert en même temps l'origine publique d'une
+    // plateforme et un tunnel local : elle serait juste pour l'un, fausse pour
+    // l'autre. Le client Vite déduit son socket de l'URL par laquelle il a été
+    // chargé (`client.mjs` : `__HMR_HOSTNAME__ || importMetaUrl.hostname`,
+    // `hmrPort || importMetaUrl.port`) — or c'est précisément ce que le rendu
+    // fait varier par requête. Ne rien écrire ARME en prime le repli direct du
+    // client, qui n'existe que si `hmrPort` est absent.
     const out = gen.toMjs([baseEntry], "development", {
-      hmr: {
-        host: "mona-5173.app.github.dev",
-        clientPort: 443,
-        protocol: "wss",
-      },
+      backendOrigin: "http://127.0.0.1:5151",
+      viteOrigin: "https://mona-5173.app.github.dev",
+      allowedHosts: [".app.github.dev"],
     });
-    expect(out).to.include(
-      'hmr: { host: "mona-5173.app.github.dev", clientPort: 443, protocol: "wss" },',
-    );
+    expect(out).to.not.include("hmr");
+    expect(out).to.not.include("clientPort");
+    // La config reste par ailleurs complète : sans cette ligne, l'absence
+    // ci-dessus serait vraie sur une sortie vide.
+    expect(out).to.include('allowedHosts: [".app.github.dev"],');
   });
 
   it("SANS options dev déporté : ni allowedHosts ni hmr (défauts Vite intacts)", () => {
@@ -274,7 +282,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.not.include("allowedHosts");
   });
 
-  it("allowedHosts + hmr coexistent avec proxy et https", () => {
+  it("allowedHosts coexiste avec proxy et https, toujours sans hmr", () => {
     const out = gen.toMjs(
       [{ ...baseEntry, apiProxyPaths: ["/api"] }],
       "development",
@@ -283,17 +291,12 @@ describe("ViteConfigGenerator — toMjs()", () => {
         viteOrigin: "https://host.docker.internal:5173",
         https: { keyPath: "/pem/key.pem", certPath: "/pem/cert.pem" },
         allowedHosts: ["host.docker.internal"],
-        hmr: {
-          host: "host.docker.internal",
-          clientPort: 5173,
-          protocol: "wss",
-        },
       },
     );
     expect(out).to.include('allowedHosts: ["host.docker.internal"],');
-    expect(out).to.include("hmr: {");
     expect(out).to.include("proxy: {");
     expect(out).to.include("https: {");
+    expect(out).to.not.include("hmr");
   });
 
   // --- Preset svelte5 — preuve d'extensibilité (famille `default`) ---------
