@@ -712,18 +712,25 @@ export function writeAgentPointers(
   const written: string[] = [];
   for (const { file, agents } of pointeurs) {
     const target = path.join(projectRoot, file);
-    if (existsSync(target)) {
-      continue;
+    // `wx` : créer OU échouer, en une seule opération du système de fichiers.
+    // Un `existsSync` suivi d'un `writeFileSync` laisse une fenêtre entre les
+    // deux — un fichier apparu entre-temps était ÉCRASÉ, alors que l'intention
+    // est précisément de ne jamais toucher un pointeur existant. Le drapeau
+    // porte cette intention sans fenêtre.
+    try {
+      writeFileSync(
+        target,
+        eta.renderString(template, {
+          appName,
+          pointeur: file,
+          agents: agents.join(" et "),
+        }),
+        { encoding: "utf8", flag: "wx" },
+      );
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
+      throw err;
     }
-    writeFileSync(
-      target,
-      eta.renderString(template, {
-        appName,
-        pointeur: file,
-        agents: agents.join(" et "),
-      }),
-      "utf8",
-    );
     written.push(file);
   }
   return written;

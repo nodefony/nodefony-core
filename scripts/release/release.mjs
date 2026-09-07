@@ -963,12 +963,12 @@ dire(
     "  1. RELIRE le brouillon de CHANGELOG.md et le réécrire pour un lecteur\n" +
     `  2. relire le diff (${aChanger.length} package.json + CHANGELOG.md), puis :\n` +
     `       git commit -am "chore(release): ${VERSION}"\n` +
-    "  3. pousser le COMMIT SEUL, et attendre que la forge se calme :\n" +
+    "  3. pousser le COMMIT, puis SEULEMENT ENSUITE le tag :\n" +
     `       git push origin ${branche}\n` +
-    "     Une poussée de branche réveille toute l'intégration continue (bancs de\n" +
-    "     charge compris) ; le tag arrivé en même temps met la PUBLICATION dans la\n" +
-    "     file, derrière elle. Mesuré : quinze minutes d'attente sur un geste que\n" +
-    "     l'on surveille — et l'on surveille mal ce qui ne démarre pas.\n" +
+    "     Une poussée de branche réveille toute l'intégration continue, bancs de charge\n" +
+    "     compris : la publication attendra un exécuteur derrière elle — mesuré, quinze\n" +
+    "     minutes. C'est normal, et il n'y a RIEN à attendre pour autant : sur ce dépôt,\n" +
+    "     la forge n'est jamais au repos. Ce qui compte est l'ORDRE, pas le calme.\n" +
     `  4. faire avancer ${BRANCHE_PUBLICATION} — un tag de publication s'y pose, et nulle\n` +
     "     part ailleurs : c'est cette branche que décrivent le site public et les liens\n" +
     "     des README publiés.\n" +

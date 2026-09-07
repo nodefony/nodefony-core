@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 812,
-    "symbols": 3899,
+    "symbols": 3900,
     "classes": 385,
     "interfaces": 1059,
     "types": 445,
     "enums": 4,
-    "functions": 1617,
+    "functions": 1618,
     "constants": 389
   },
   "symbols": {
@@ -24101,6 +24101,14 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`). Appelée UNE fois, au 1ᵉʳ abonné. Renvoie son `dispose` (appelé au dernier désabonné) ou `null` si le canal est in…"
+    },
+    "familleDuCanal": {
+      "name": "familleDuCanal",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Le MOTIF de famille d'un canal — son dernier segment remplacé par `*`. `\"studio:metrics:1s\"` → `\"studio:metrics:*\"`, `\"alerts\"` → `\"*\"`. Sert à SUGGÉRER une politique qui garde toute une famille, q…"
     },
     "getRealtimeHub": {
       "name": "getRealtimeHub",

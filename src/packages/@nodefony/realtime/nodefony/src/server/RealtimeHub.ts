@@ -112,6 +112,26 @@ export const isReservedSystemChannel = isPlatformChannel;
 export const REVOCATION_REVALIDATE_MS = 30_000;
 
 /**
+ * Le MOTIF de famille d'un canal — son dernier segment remplacé par `*`.
+ *
+ * `"studio:metrics:1s"` → `"studio:metrics:*"`, `"alerts"` → `"*"`. Sert à
+ * SUGGÉRER une politique qui garde toute une famille, quand un canal dérivé
+ * n'est couvert par aucune.
+ *
+ * Sans expression régulière, et c'est délibéré : `/[^:]*$/` sur un nom de canal
+ * venu de l'extérieur se replie à chaque position d'échec, coût quadratique sur
+ * une entrée que le module ne choisit pas. Chercher le dernier séparateur est
+ * linéaire, et dit plus clairement ce qu'on fait.
+ *
+ * @param channel - le nom complet du canal
+ * @returns le motif couvrant sa famille
+ */
+export function familleDuCanal(channel: string): string {
+  const i = channel.lastIndexOf(":");
+  return i === -1 ? "*" : `${channel.slice(0, i + 1)}*`;
+}
+
+/**
  * Connexion à identité RÉVOCABLE inscrite au registre de re-validation (F4). Ne
  * porte QUE ce qu'il faut pour re-valider puis fermer : le token (avec `isValid`) et
  * un `close` fermant la socket brute. 1 entrée = 1 connexion à identité révocable
@@ -1241,7 +1261,7 @@ export class RealtimeHub {
         `pour d'autres canaux. Un canal dérivé (suffixe de cadence, forage, ` +
         `identifiant) n'hérite pas de la politique de son parent : un nom ` +
         `exact ne garde que lui-même. Déclarer un MOTIF pour garder la famille ` +
-        `— @RealtimeChannel("${channel.replace(/[^:]*$/u, "*")}", { … }) — ou ` +
+        `— @RealtimeChannel("${familleDuCanal(channel)}", { … }) — ou ` +
         `porter la vérification dans la fabrique elle-même.`,
     );
   }
