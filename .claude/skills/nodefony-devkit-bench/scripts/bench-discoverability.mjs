@@ -5002,7 +5002,44 @@ export function reinitialiserDecor(app, runDir, id) {
     `remise à zéro avant la tâche ${id} — état initial`,
     "--allow-empty",
   );
-  console.log("  · décor remis à zéro (aucun héritage de la tâche précédente)");
+  // 🔴 RECONSTRUIRE — sans quoi le décor CONDAMNE la tâche suivante.
+  //
+  // `git clean -xdf` supprime les fichiers IGNORÉS, et `dist/` est la première
+  // ligne du `.gitignore` d'une application générée. Le montage annonce pourtant
+  // « l'app témoin naît construite » (`npm run build`) : cette promesse ne tenait
+  // que pour la PREMIÈRE tâche, toutes les suivantes démarrant sans `dist`.
+  //
+  // Ce que ça coûtait, mesuré : `nodefony doctor` rend `freshness/dist-missing` —
+  // « l'application n'est pas construite » — donc un gate rouge sur toute tâche
+  // qui ne bâtit pas elle-même. Or les tâches de DOCUMENTATION n'ont aucune
+  // raison de bâtir : la 7 dit même « n'installe rien ». Les tâches 7 et 30 sont
+  // sorties FAIL à l'unanimité sur les 3 runs d'une nuit entière, pour un état
+  // que le décor venait de fabriquer — un banc rouge qui ne POUVAIT pas devenir
+  // vert, et dont la cause était invisible faute d'être enregistrée.
+  //
+  // Reconstruire plutôt qu'épargner `dist` du `clean` : un build hérité de la
+  // tâche précédente serait PÉRIMÉ, et `doctor` le dirait (`dist-stale`) — on
+  // aurait déplacé le faux rouge, pas supprimé. Coût mesuré : ~1 s par tâche.
+  const bati = spawnSync("npm", ["run", "build"], {
+    shell: needsShell("npm"),
+    cwd: app,
+    encoding: "utf8",
+    timeout: 5 * 60 * 1000,
+    env: APP_ENV,
+  });
+  // Un build échoué en SILENCE ferait mesurer l'ancienne version — ou aucune.
+  // Il ne fait pas tomber le run : c'est le gate `doctor` qui le dira, à sa place.
+  if (bati.status !== 0) {
+    console.log(
+      `  ⚠️ la reconstruction du décor a ÉCHOUÉ (exit ${bati.status}) — ` +
+        `les gates qui lisent \`dist/\` jugeront un décor incomplet : ` +
+        `${expliquerEchec(bati.stderr ?? "", bati.stdout ?? "")}`,
+    );
+  }
+  console.log(
+    "  · décor remis à zéro (aucun héritage de la tâche précédente)" +
+      (bati.status === 0 ? ", application reconstruite" : ""),
+  );
 }
 
 /** Déroule UNE tâche : agent headless dans l'app, transcript + diff capturés. */
