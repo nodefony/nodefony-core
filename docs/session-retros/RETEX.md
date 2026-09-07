@@ -268,6 +268,14 @@
 
 ## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
 
+- [1× — 09-07h] **J'ai affirmé une ABSENCE sur une recherche qui cherchait au mauvais endroit — et
+  je l'ai gravée dans un commit ET dans une fermeture de ticket.** « Aucun banc live n'exerce
+  OAuth » : deux existaient, sous `http/nodefony/tests/integration/` quand je regardais
+  `http/tests/`. Le user a demandé « on est sûr que tout va bien ? », et c'est cette question qui
+  l'a trouvé. **Une affirmation d'absence est la plus fragile qui soit : elle se prouve par une
+  commande qu'on montre (`rg -c` qui rend 0, sur un motif, pas sur un dossier), jamais par une
+  recherche qui n'a rien rendu.** Une recherche muette ne distingue pas « il n'y en a pas » de « je
+  n'ai pas cherché là ».
 - [1× — 09-07h] **QUATRE gardes rassuraient à tort dans la même journée, et c'est la même faute.**
   `check:lang` rend vert sur un `DIALECTE` posé dans un gabarit qu'il LIT pourtant (vérifié en le
   remettant) — l'identifiant est parti dans l'alpha.2 publiée. Le contrôle « Entités et dialecte »
@@ -334,6 +342,13 @@
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
+- [1× — 09-07h] **Mon test rejetait pour la MAUVAISE raison, et passait donc pour un test.** Cas
+  « une redirection du point de jeton est REFUSÉE » : je redirigeais vers un hôte injoignable, si
+  bien que `fetch` rejetait de toute façon — le test restait vert avec `redirect: "error"` ET avec
+  `redirect: "follow"`, c'est-à-dire la garde désarmée. Vu SEULEMENT en la désarmant. Réécrit pour
+  que la cible RÉPONDE : suivre la redirection rendrait des jetons, donc le refus devient la seule
+  explication possible du rejet. **Un `assert.rejects` ne dit pas POURQUOI ça a rejeté — tant que le
+  cas nominal du chemin fautif n'est pas un SUCCÈS, l'assertion ne discrimine rien.**
 - [1× — 09-07h] **Mon banc appelait la fonction et pas le BRANCHEMENT — je l'ai vu en le
   débranchant, pas en le relisant.** Six cas neufs sur `checkFrontendBuild`, tous verts ; j'ai
   retiré son unique appel dans `checkFreshness` (le seul chemin qui alimente le rapport) et les six
