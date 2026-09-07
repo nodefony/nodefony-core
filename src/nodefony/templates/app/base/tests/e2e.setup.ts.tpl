@@ -45,7 +45,7 @@ const bin = nodefonyBin();
  * fichier. Le seed étant idempotent, `admin` / `admin` — le couple annoncé par
  * le `.env` et le README — cesse alors de fonctionner pour toujours, sans le
  * moindre message. Symétriquement, un `admin` déjà semé en développement fait
- * échouer `connexionAdmin()`, et la suite accuse la route qu'elle mesure au
+ * échouer `adminLogin()`, et la suite accuse la route qu'elle mesure au
  * lieu de son décor. Un fichier à part supprime les deux pannes d'un coup, et
  * rend la suite reproductible.
  *
@@ -65,7 +65,7 @@ const bin = nodefonyBin();
  * pas une base : `CREATE DATABASE` est un privilège d'administration que
  * l'utilisateur applicatif n'a pas.
 <% } %> */
-export const URL_BASE_E2E =
+export const E2E_BASE_URL =
 <% if (it.db) { %>  process.env.NF_E2E_DATABASE_URL ?? "<%= it.db.urlE2e %>";<% } else { %>  process.env.NF_E2E_DATABASE_URL ??
   `sqlite:${path.resolve("var/databases/e2e.db")}`;<% } %>
 <% if (it.hasSecurity) { %>
@@ -78,7 +78,7 @@ export const URL_BASE_E2E =
  * éprouver les routes protégées (la suppression, notamment), d'où cette valeur
  * jetable, posée dans l'environnement du serveur de test et nulle part ailleurs.
  */
-export const MOT_DE_PASSE_ADMIN = "e2e-admin-jetable";
+export const ADMIN_PASSWORD = "e2e-admin-jetable";
 
 /**
  * Ouvre une session d'administration et rend l'en-tête `Cookie` à rejouer.
@@ -92,7 +92,7 @@ export const MOT_DE_PASSE_ADMIN = "e2e-admin-jetable";
  * @throws Si la connexion échoue — mieux vaut un test qui dit « je n'ai pas pu
  * m'authentifier » qu'un test qui conclut « accès refusé » sur un décor cassé.
  */
-export async function connexionAdmin(): Promise<string> {
+export async function adminLogin(): Promise<string> {
   const port = runningAppPort();
   const res = await fetch(
     `http://127.0.0.1:${port}/nodefony/security/api/auth/login`,
@@ -101,7 +101,7 @@ export async function connexionAdmin(): Promise<string> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         username: "admin",
-        password: MOT_DE_PASSE_ADMIN,
+        password: ADMIN_PASSWORD,
       }),
     },
   );
@@ -127,15 +127,15 @@ export async function setup(): Promise<void> {
     env: {
       ...process.env,
       NODE_ENV: "development",
-      NF_DATABASE_URL: URL_BASE_E2E,
+      NF_DATABASE_URL: E2E_BASE_URL,
     },
   });
 <% } else { %>  // Les compagnons `-wal` et `-shm` partent avec le fichier, sinon SQLite
   // ressuscite l'état d'avant.
-  if (URL_BASE_E2E.startsWith("sqlite:")) {
-    const fichier = URL_BASE_E2E.slice("sqlite:".length);
-    for (const suffixe of ["", "-wal", "-shm"]) {
-      rmSync(`${fichier}${suffixe}`, { force: true });
+  if (E2E_BASE_URL.startsWith("sqlite:")) {
+    const file = E2E_BASE_URL.slice("sqlite:".length);
+    for (const suffix of ["", "-wal", "-shm"]) {
+      rmSync(`${file}${suffix}`, { force: true });
     }
   }
 <% } %>
@@ -153,7 +153,7 @@ export async function setup(): Promise<void> {
     env: {
       ...process.env,
       NODE_ENV: "production",
-      NF_DATABASE_URL: URL_BASE_E2E,
+      NF_DATABASE_URL: E2E_BASE_URL,
     },
   });
 <% } %>  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
@@ -161,12 +161,12 @@ export async function setup(): Promise<void> {
     timeout: 120_000,
     env: {
       ...process.env,
-      // La suite ne touche JAMAIS la base de développement — cf `URL_BASE_E2E`.
-      NF_DATABASE_URL: URL_BASE_E2E,
+      // La suite ne touche JAMAIS la base de développement — cf `E2E_BASE_URL`.
+      NF_DATABASE_URL: E2E_BASE_URL,
 <% if (it.hasSecurity) { %>      // Sans cette variable, la production ne sème AUCUN compte : les tests des
       // routes protégées n'auraient aucune identité à présenter, et échoueraient
       // en accusant la garde plutôt que le décor.
-      NF_ADMIN_PASSWORD: MOT_DE_PASSE_ADMIN,
+      NF_ADMIN_PASSWORD: ADMIN_PASSWORD,
 <% } %>    },
   });
 }

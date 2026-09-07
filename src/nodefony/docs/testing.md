@@ -122,7 +122,7 @@ cet ordre, **une fois pour toute la suite** :
 4. **L'arrêter à la fin** (`stop`), sans exception : un serveur orphelin tient les ports et fait
    échouer l'essai suivant sur une erreur qui ne parle pas de lui.
 
-Le fichier expose aussi `URL_BASE_E2E` — une base **séparée de celle du développement**, ce qui
+Le fichier expose aussi `E2E_BASE_URL` — une base **séparée de celle du développement**, ce qui
 n'est pas une coquetterie : une suite qui écrit dans la base de développement y sème un compte
 `admin` dont le mot de passe est celui du fichier de test, et le couple annoncé par le README cesse
 alors de fonctionner sans le moindre message. Surcharge possible par `NF_E2E_DATABASE_URL`.

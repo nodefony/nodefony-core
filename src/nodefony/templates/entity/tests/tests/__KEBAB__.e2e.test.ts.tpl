@@ -1,7 +1,7 @@
 import { runningAppPort } from "nodefony/testing";
 import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
-<% if (it.hasSecurity) { %>import { connexionAdmin } from "./e2e.setup";
+<% if (it.hasSecurity) { %>import { adminLogin } from "./e2e.setup";
 <% } %>
 
 /**
@@ -60,7 +60,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   beforeAll(async () => {
     const port = runningAppPort();
     BASE = `http://127.0.0.1:${port}`;
-<% if (it.hasSecurity) { %>    AUTH = { cookie: await connexionAdmin() };
+<% if (it.hasSecurity) { %>    AUTH = { cookie: await adminLogin() };
 <% } %>  });
 
   it("POST → 201 + Location, puis GET sur cette Location", async () => {

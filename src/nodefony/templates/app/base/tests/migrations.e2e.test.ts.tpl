@@ -18,9 +18,9 @@ import { nodefonyBin, runningAppPort, startSpareApp } from "nodefony/testing";
 // framework. Un fichier écrit avec la convention du dépôt échoue ici sur un
 // `beforeAll is not defined` — mesuré, pas déduit.
 import { afterAll, beforeAll, describe, it } from "vitest";
-import { URL_BASE_E2E } from "./e2e.setup";
+import { E2E_BASE_URL } from "./e2e.setup";
 
-const lancer = promisify(execFile);
+const run = promisify(execFile);
 const bin = nodefonyBin();
 
 /**
@@ -73,14 +73,14 @@ interface IRun {
  */
 async function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<IRun> {
   try {
-    const { stdout, stderr } = await lancer(process.execPath, [bin, ...args], {
+    const { stdout, stderr } = await run(process.execPath, [bin, ...args], {
       env: {
         ...process.env,
         NODE_ENV: "production",
         // La base de la SUITE, jamais celle du développement. Sans cette
         // ligne, la commande inspecte une base que le décor n'a pas migrée et
         // rend « en retard » — un verdict juste, sur la mauvaise base.
-        NF_DATABASE_URL: URL_BASE_E2E,
+        NF_DATABASE_URL: E2E_BASE_URL,
         ...env,
       },
       maxBuffer: 16 * 1024 * 1024,
@@ -118,7 +118,7 @@ function json(stdout: string): Record<string, unknown> {
  * d'administration que l'utilisateur applicatif n'a pas. Le compose généré la
  * crée ; votre recette doit faire de même.
  */
-const URL_JETABLE =
+const SPARE_URL =
   process.env.NF_E2E_SCRATCH_DATABASE_URL ?? "<%= it.db.urlScratch %>";
 
 <% } %>/**
@@ -134,7 +134,7 @@ const URL_JETABLE =
  * @param dir - dossier de travail du cas appelant.
  * @returns l'URL de la base.
  */
-function baseVierge(dir: string): string {
+function freshDatabase(dir: string): string {
 <% if (it.db) { %>  void dir; // aucun fichier à poser : la base vit sur le serveur.
   execFileSync(process.execPath, [bin, "orm:reset", "--yes"], {
     stdio: "ignore",
@@ -142,23 +142,23 @@ function baseVierge(dir: string): string {
     env: {
       ...process.env,
       NODE_ENV: "development",
-      NF_DATABASE_URL: URL_JETABLE,
+      NF_DATABASE_URL: SPARE_URL,
     },
   });
-  return URL_JETABLE;
+  return SPARE_URL;
 <% } else { %>  return `sqlite:${path.join(dir, "base.db")}`;
 <% } %>}
 
 /** Base jetable, pour éprouver le cas « en retard » sans toucher à celle des tests. */
-let jetable: { dir: string; url: string };
+let spareDatabase: { dir: string; url: string };
 
 beforeAll(() => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "e2e-migrations-"));
-  jetable = { dir, url: baseVierge(dir) };
+  spareDatabase = { dir, url: freshDatabase(dir) };
 });
 
 afterAll(() => {
-  rmSync(jetable.dir, { recursive: true, force: true });
+  rmSync(spareDatabase.dir, { recursive: true, force: true });
 });
 
 describe("migrations — la base de cette application", () => {
@@ -195,39 +195,39 @@ describe("migrations — la base de cette application", () => {
   });
 
   it("`--dry-run` n'écrit rien et laisse la base à jour", async () => {
-    const essai = await cli(["orm:migrate", "--dry-run", "--json"]);
-    assert.equal(essai.code, 0, essai.stderr.slice(-800));
+    const attempt = await cli(["orm:migrate", "--dry-run", "--json"]);
+    assert.equal(attempt.code, 0, attempt.stderr.slice(-800));
 
-    const apres = await cli(["orm:migrate:status", "--json"]);
-    assert.equal(json(apres.stdout).verdict, "up-to-date");
+    const after = await cli(["orm:migrate:status", "--json"]);
+    assert.equal(json(after.stdout).verdict, "up-to-date");
   });
 
   it("🔴 sur une base VIERGE, le statut rend 1 — votre barrière de déploiement", async () => {
     // C'est le cas qui protège la production : une base en retard doit ARRÊTER
     // un déploiement. Un code de sortie qui ne distinguerait pas « à jour » de
     // « en retard » laisserait passer une mise en service sur un schéma absent.
-    const enRetard = await cli(["orm:migrate:status", "--json"], {
-      NF_DATABASE_URL: jetable.url,
+    const behind = await cli(["orm:migrate:status", "--json"], {
+      NF_DATABASE_URL: spareDatabase.url,
     });
     assert.equal(
-      enRetard.code,
+      behind.code,
       1,
-      `une base vierge doit exiger une action :\n${enRetard.stdout}`,
+      `une base vierge doit exiger une action :\n${behind.stdout}`,
     );
-    assert.notEqual(json(enRetard.stdout).verdict, "up-to-date");
+    assert.notEqual(json(behind.stdout).verdict, "up-to-date");
 
     // Puis la même base, migrée, redevient verte : le cycle complet, sur une
     // base que cette suite a créée elle-même.
-    const migre = await cli(["orm:migrate", "--json"], {
-      NF_DATABASE_URL: jetable.url,
+    const migrate = await cli(["orm:migrate", "--json"], {
+      NF_DATABASE_URL: spareDatabase.url,
     });
-    assert.equal(migre.code, 0, migre.stderr.slice(-800));
+    assert.equal(migrate.code, 0, migrate.stderr.slice(-800));
 
-    const apres = await cli(["orm:migrate:status", "--json"], {
-      NF_DATABASE_URL: jetable.url,
+    const after = await cli(["orm:migrate:status", "--json"], {
+      NF_DATABASE_URL: spareDatabase.url,
     });
-    assert.equal(apres.code, 0);
-    assert.equal(json(apres.stdout).verdict, "up-to-date");
+    assert.equal(after.code, 0);
+    assert.equal(json(after.stdout).verdict, "up-to-date");
   });
 
   it("🔴 `orm:reset` est REFUSÉ hors développement, et dit quoi faire", async () => {
@@ -241,14 +241,14 @@ describe("migrations — la base de cette application", () => {
     );
 
     const doc = json(r.stdout);
-    const erreur = (doc.error ?? {}) as Record<string, unknown>;
+    const error = (doc.error ?? {}) as Record<string, unknown>;
     assert.ok(
-      typeof erreur.code === "string" && erreur.code.length > 0,
+      typeof error.code === "string" && error.code.length > 0,
       "un refus doit rester un verdict structuré, pas un crash",
     );
-    const gestes = (erreur.nextActions ?? []) as { command?: string }[];
+    const steps = (error.nextActions ?? []) as { command?: string }[];
     assert.ok(
-      gestes.some((g) => typeof g.command === "string" && g.command.length > 0),
+      steps.some((g) => typeof g.command === "string" && g.command.length > 0),
       "un refus doit proposer au moins un geste",
     );
   });
@@ -274,14 +274,14 @@ describe("migrations — la base de cette application", () => {
  * prendre un autre, et un port écrit en dur finit toujours par tomber sur le
  * décor de quelqu'un d'autre.
  */
-async function portLibre(): Promise<number> {
+async function freePort(): Promise<number> {
   return await new Promise((resolve, reject) => {
-    const serveur = net.createServer();
-    serveur.once("error", reject);
-    serveur.listen(0, "127.0.0.1", () => {
-      const adresse = serveur.address();
-      const port = typeof adresse === "object" && adresse ? adresse.port : 0;
-      serveur.close(() =>
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close(() =>
         port > 0 ? resolve(port) : reject(new Error("aucun port libre")),
       );
     });
@@ -295,16 +295,16 @@ async function portLibre(): Promise<number> {
  * seule des deux formes rendrait ce fichier juste sur votre machine et faux
  * chez celui qui déploie sur l'autre moteur.
  *
- * @param dialecte - moteur, tel que la commande l'annonce (`driver.dialect`).
- * @param nom - identifiant à citer.
+ * @param dialect - moteur, tel que la commande l'annonce (`driver.dialect`).
+ * @param name - identifiant à citer.
  * @returns l'identifiant cité.
  */
-function citer(dialecte: string, nom: string): string {
-  return dialecte === "mysql" ? `\`${nom}\`` : `"${nom}"`;
+function quote(dialect: string, name: string): string {
+  return dialect === "mysql" ? `\`${name}\`` : `"${name}"`;
 }
 
 /** Le moteur de CETTE application, tel que la commande l'annonce. */
-async function dialecte(): Promise<string> {
+async function currentDialect(): Promise<string> {
   const r = await cli(["orm:migrate:status", "--json"]);
   const driver = json(r.stdout).driver as { dialect?: string } | undefined;
   assert.ok(driver?.dialect, "la commande n'annonce pas son moteur");
@@ -318,18 +318,18 @@ async function dialecte(): Promise<string> {
  * versionné, et un cas de test qui y dépose un fichier laisse derrière lui une
  * migration que quelqu'un finira par appliquer en production.
  *
- * @param avecExistantes - partir des migrations déjà écrites (défaut), ou d'un
+ * @param withExisting - partir des migrations déjà écrites (défaut), ou d'un
  *   dossier vide pour voir ce que la génération produit SEULE.
  * @returns le dossier, l'URL de la base jetable, et l'environnement à passer.
  */
-function decorJetable(avecExistantes = true): {
+function spareFixture(withExisting = true): {
   dir: string;
   migrations: string;
   env: NodeJS.ProcessEnv;
 } {
   const dir = mkdtempSync(path.join(os.tmpdir(), "e2e-migr-"));
   const migrations = path.join(dir, "migrations");
-  if (avecExistantes) {
+  if (withExisting) {
     cpSync(path.resolve("migrations"), migrations, { recursive: true });
   } else {
     mkdirSync(migrations, { recursive: true });
@@ -338,7 +338,7 @@ function decorJetable(avecExistantes = true): {
     dir,
     migrations,
     env: {
-      NF_DATABASE_URL: baseVierge(dir),
+      NF_DATABASE_URL: freshDatabase(dir),
       NF__DRIZZLE__MIGRATIONS__DIR: migrations,
     },
   };
@@ -350,33 +350,33 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
     // produit est vérifié sur le MOTEUR de cette application — pas sur SQLite
     // par commodité : c'est la configuration qui décide du dialecte, et le SQL
     // d'un `CREATE TABLE` n'est pas le même d'un moteur à l'autre.
-    const decor = decorJetable(false);
+    const fixture = spareFixture(false);
     try {
-      const moteur = await dialecte();
+      const engine = await currentDialect();
       const gen = await cli(
         ["orm:generate", "--name", "schema_de_lapplication", "--json"],
-        decor.env,
+        fixture.env,
       );
       assert.equal(gen.code, 0, gen.stderr.slice(-800));
 
-      const rapport = json(gen.stdout);
+      const report = json(gen.stdout);
       assert.equal(
-        rapport.generated,
+        report.generated,
         true,
         "aucune migration écrite : les entités de l'application ne sont pas vues",
       );
       assert.equal(
-        (rapport.driver as { dialect?: string }).dialect,
-        moteur,
+        (report.driver as { dialect?: string }).dialect,
+        engine,
         "la migration est écrite pour un AUTRE moteur que celui configuré",
       );
 
       // Le fichier existe, et il CRÉE quelque chose. Un rapport qui annonce une
       // migration vide passerait l'assertion précédente sans rien avoir écrit.
-      const fichiers = rapport.files as string[];
-      assert.ok(fichiers.length > 0, "le rapport n'annonce aucun fichier");
+      const files = report.files as string[];
+      assert.ok(files.length > 0, "le rapport n'annonce aucun fichier");
       const sql = readFileSync(
-        path.join(decor.migrations, moteur, `${String(rapport.tag)}.sql`),
+        path.join(fixture.migrations, engine, `${String(report.tag)}.sql`),
         "utf8",
       );
       assert.match(sql, /CREATE TABLE/i);
@@ -384,11 +384,11 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
       // …et ce qui est écrit S'APPLIQUE : une migration qu'on n'a jamais fait
       // tourner n'est qu'un fichier. Le framework passe d'abord (ses tables
       // sont celles auxquelles les vôtres se réfèrent), puis celle-ci.
-      const applique = await cli(["orm:migrate", "--json"], decor.env);
-      assert.equal(applique.code, 0, applique.stderr.slice(-800));
-      assert.equal(json(applique.stdout).verdict, "up-to-date");
+      const apply = await cli(["orm:migrate", "--json"], fixture.env);
+      assert.equal(apply.code, 0, apply.stderr.slice(-800));
+      assert.equal(json(apply.stdout).verdict, "up-to-date");
     } finally {
-      rmSync(decor.dir, { recursive: true, force: true });
+      rmSync(fixture.dir, { recursive: true, force: true });
     }
   }, 180_000);
 
@@ -400,21 +400,21 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
     //
     // Ce que ce cas exige, c'est que le produit le dise AVANT : les tables
     // absentes sont nommées, et l'exemplaire ne se déclare pas prêt.
-    const decor = decorJetable(false);
+    const fixture = spareFixture(false);
     try {
       // Les migrations du framework s'appliquent — elles, elles sont là. C'est
       // le schéma de VOS entités qui manque.
-      const applique = await cli(["orm:migrate", "--json"], decor.env);
-      const doc = json(applique.stdout);
+      const apply = await cli(["orm:migrate", "--json"], fixture.env);
+      const doc = json(apply.stdout);
       assert.equal(
         doc.verdict,
         "divergent",
         "un schéma applicatif absent est passé pour « à jour »",
       );
 
-      const ecart = doc.divergence as { missingTables: string[] } | undefined;
+      const gap = doc.divergence as { missingTables: string[] } | undefined;
       assert.ok(
-        ecart && ecart.missingTables.length > 0,
+        gap && gap.missingTables.length > 0,
         "les tables absentes ne sont pas nommées : il faudrait ouvrir un client SQL",
       );
 
@@ -422,22 +422,22 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
       // elle, la mise en service passerait, et le 500 arriverait chez
       // l'utilisateur au lieu d'ici.
       assert.equal(
-        applique.code,
+        apply.code,
         1,
         `un schéma applicatif absent a laissé passer un déploiement :\n${doc.summary as string}`,
       );
 
       // …et le geste proposé est celui qui MARCHE : le générateur sait écrire
       // ce que le code déclare.
-      const gestes = (doc.nextActions as { command: string }[]).map(
+      const steps = (doc.nextActions as { command: string }[]).map(
         (a) => a.command,
       );
       assert.ok(
-        gestes.some((g) => g.includes("orm:generate")),
-        `aucun geste ne mène au schéma manquant : ${JSON.stringify(gestes)}`,
+        steps.some((g) => g.includes("orm:generate")),
+        `aucun geste ne mène au schéma manquant : ${JSON.stringify(steps)}`,
       );
     } finally {
-      rmSync(decor.dir, { recursive: true, force: true });
+      rmSync(fixture.dir, { recursive: true, force: true });
     }
   }, 180_000);
 
@@ -450,26 +450,26 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
     // en retard est un état EXTERNE, redémarrer le processus ne le répare pas.
     // Un `/livez` qui tomberait provoquerait une cascade de redémarrages
     // inutiles, et le pod n'en sortirait jamais.
-    const decor = decorJetable();
+    const fixture = spareFixture();
     // Relevé AVANT : un second exemplaire écrase l'état d'exécution du projet,
     // et c'est ce que `stop()` s'engage à rendre. Sans ce contrôle, la panne
     // n'apparaîtrait pas ici mais dans le cas SUIVANT, qui accuserait une route
     // n'ayant rien fait.
-    const portDeLaSuite = runningAppPort();
-    const jetable = await startSpareApp({
-      port: await portLibre(),
-      httpsPort: await portLibre(),
-      env: { NODE_ENV: "production", ...decor.env },
+    const suitePort = runningAppPort();
+    const spare = await startSpareApp({
+      port: await freePort(),
+      httpsPort: await freePort(),
+      env: { NODE_ENV: "production", ...fixture.env },
     });
     try {
-      const readyz = await fetch(`http://127.0.0.1:${jetable.port}/readyz`);
+      const readyz = await fetch(`http://127.0.0.1:${spare.port}/readyz`);
       assert.equal(
         readyz.status,
         503,
         "un exemplaire dont le schéma est en retard s'est déclaré PRÊT",
       );
 
-      const livez = await fetch(`http://127.0.0.1:${jetable.port}/livez`);
+      const livez = await fetch(`http://127.0.0.1:${spare.port}/livez`);
       assert.equal(
         livez.status,
         200,
@@ -478,17 +478,17 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
 
       // 🔴 « et le DIT » : la rétention nomme sa cause et donne le geste. Un 503
       // muet enverrait chercher la panne dans le réseau, le proxy ou l'image.
-      const dit = jetable.output();
-      assert.match(dit, /migrations? à appliquer/u);
-      assert.match(dit, /nodefony orm:migrate/u);
+      const says = spare.output();
+      assert.match(says, /migrations? à appliquer/u);
+      assert.match(says, /nodefony orm:migrate/u);
     } finally {
-      await jetable.stop();
-      rmSync(decor.dir, { recursive: true, force: true });
+      await spare.stop();
+      rmSync(fixture.dir, { recursive: true, force: true });
     }
 
     assert.equal(
       runningAppPort(),
-      portDeLaSuite,
+      suitePort,
       "l'exemplaire jetable a emporté l'état d'exécution de l'application",
     );
   }, 180_000);
@@ -502,77 +502,77 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
     //
     // On le provoque par le seul canal que possède une application : une
     // migration LIBRE, celle que `--custom` sert à écrire.
-    const decor = decorJetable();
+    const fixture = spareFixture();
     try {
-      const moteur = await dialecte();
+      const engine = await currentDialect();
       const gen = await cli(
         ["orm:generate", "--custom", "--name", "retrait_a_la_main", "--json"],
-        decor.env,
+        fixture.env,
       );
       assert.equal(gen.code, 0, gen.stderr.slice(-800));
-      const fichier = path.join(
-        decor.migrations,
-        moteur,
+      const file = path.join(
+        fixture.migrations,
+        engine,
         `${String(json(gen.stdout).tag)}.sql`,
       );
       appendFileSync(
-        fichier,
-        `ALTER TABLE ${citer(moteur, "audit_event")} ` +
-          `DROP COLUMN ${citer(moteur, "metadata")};\n`,
+        file,
+        `ALTER TABLE ${quote(engine, "audit_event")} ` +
+          `DROP COLUMN ${quote(engine, "metadata")};\n`,
         "utf8",
       );
 
       // Premier fait : elle est REFUSÉE tant que personne ne l'assume. Une
       // suppression de colonne ne se rattrape que par une restauration de la
       // base — c'est-à-dire une interruption de service et une décision.
-      const refus = await cli(["orm:migrate", "--json"], decor.env);
-      assert.equal(refus.code, 1, "une migration destructive est passée seule");
-      const erreur = (json(refus.stdout).error ?? {}) as {
+      const refusal = await cli(["orm:migrate", "--json"], fixture.env);
+      assert.equal(refusal.code, 1, "une migration destructive est passée seule");
+      const error = (json(refusal.stdout).error ?? {}) as {
         code?: string;
         nextActions?: { command?: string }[];
       };
-      assert.equal(erreur.code, "NF_MIGRATE_DESTRUCTIVE");
+      assert.equal(error.code, "NF_MIGRATE_DESTRUCTIVE");
       assert.ok(
-        (erreur.nextActions ?? []).some((a) =>
+        (error.nextActions ?? []).some((a) =>
           a.command?.includes("--allow-destructive"),
         ),
         "le refus ne donne pas la commande qui l'assume",
       );
 
       // Assumée, elle passe — le garde informe, il n'interdit pas.
-      const assume = await cli(
+      const adopt = await cli(
         ["orm:migrate", "--allow-destructive", "--json"],
-        decor.env,
+        fixture.env,
       );
-      assert.equal(assume.code, 0, assume.stderr.slice(-800));
+      assert.equal(adopt.code, 0, adopt.stderr.slice(-800));
 
       // Second fait, celui qui compte : le verdict n'est PAS « à jour ». La
       // colonne retirée est toujours déclarée par le code, donc la base s'écarte
       // vraiment de lui — et le produit le SAIT.
-      const etat = await cli(["orm:migrate:status", "--json"], decor.env);
-      const doc = json(etat.stdout);
+      const status = await cli(["orm:migrate:status", "--json"], fixture.env);
+      const doc = json(status.stdout);
       assert.equal(doc.verdict, "divergent");
 
       // 🔴 Le verdict dit qu'il y a un écart ; la charge utile doit dire LEQUEL.
       // Sans elle, on ouvre un client SQL et on compare table par table, sur une
       // base de production, au pire moment — pour une réponse déjà calculée.
-      const ecart = doc.divergence as
+      const gap = doc.divergence as
         | {
             additive: { table: string; column: string }[];
             blocking: { table: string; column: string }[];
             missingTables: string[];
           }
         | undefined;
-      assert.ok(ecart, "`divergence` absente du verdict `divergent`");
+      assert.ok(gap, "`divergence` absente du verdict `divergent`");
       assert.ok(
-        [...ecart.additive, ...ecart.blocking].some(
+        [...gap.additive, ...gap.blocking].some(
           (g) => g.table === "audit_event" && g.column === "metadata",
         ),
-        `la colonne retirée n'est pas nommée : ${JSON.stringify(ecart)}`,
+        `la colonne retirée n'est pas nommée : ${JSON.stringify(gap)}`,
       );
       assert.match(String(doc.summary), /audit_event\.metadata/u);
     } finally {
-      rmSync(decor.dir, { recursive: true, force: true });
+      rmSync(fixture.dir, { recursive: true, force: true });
     }
   }, 240_000);
 });

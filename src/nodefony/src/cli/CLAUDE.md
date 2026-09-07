@@ -659,7 +659,7 @@ la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **La SU
 protège déjà le même DELETE, et deux générateurs qui produisent la même route destructrice ne
 peuvent pas avoir deux doctrines. Sans le module, la garde n'est pas émise (le décorateur
 n'existerait pas) et le TSDoc DIT que la route n'est protégée par rien, avec le geste pour la
-protéger. Le décor e2e généré fournit l'identité qui va avec (`connexionAdmin`, `NF_ADMIN_PASSWORD`
+protéger. Le décor e2e généré fournit l'identité qui va avec (`adminLogin`, `NF_ADMIN_PASSWORD`
 posé pour la suite seule : la production ne sème aucun compte sans mot de passe explicite), et le
 test e2e d'entité éprouve les DEUX faces — l'admin supprime, l'anonyme est refusé et la donnée
 survit. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un

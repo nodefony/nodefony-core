@@ -100,6 +100,14 @@
         ]
       }
     ],
+    // Une feuille de style s'importe POUR SON EFFET, sans rien affecter : c'est
+    // la seule forme qu'un bundler accepte. La règle reste utile ailleurs (un
+    // module importé pour effet de bord et oublié), d'où l'exception ciblée
+    // plutôt que l'extinction.
+    "import/no-unassigned-import": [
+      "warn",
+      { "allow": ["**/*.css", "**/*.scss", "**/*.sass", "**/*.less"] }
+    ],
     "typescript/no-explicit-any": "warn",
     "typescript/ban-ts-comment": "warn",
     // ESM strict : une application Nodefony n'écrit jamais `require`.

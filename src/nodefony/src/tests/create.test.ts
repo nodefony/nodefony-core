@@ -2502,14 +2502,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // elle y sème un compte `admin` au mot de passe publié dans ce fichier ;
       // le seed étant idempotent, `admin` / `admin` cesse ensuite de marcher
       // pour toujours — et l'inverse (un admin de dev déjà là) fait échouer
-      // `connexionAdmin()`. Mesuré sur une application réelle, pas déduit.
+      // `adminLogin()`. Mesuré sur une application réelle, pas déduit.
       const e2eSetup = readFileSync(
         path.join(dest, "tests", "e2e.setup.ts"),
         "utf8",
       );
       assert.match(
         e2eSetup,
-        /NF_DATABASE_URL:\s*URL_BASE_E2E/,
+        /NF_DATABASE_URL:\s*E2E_BASE_URL/,
         "le serveur de test doit recevoir une base dédiée, jamais celle du développement",
       );
       assert.include(e2eSetup, "NF_E2E_DATABASE_URL");
