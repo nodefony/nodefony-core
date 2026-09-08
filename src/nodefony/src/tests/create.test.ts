@@ -633,7 +633,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // ponctuation aurait rougi pour un ajout parfaitement voulu — sans rien
         // dire de ce qu'elle protège.
         const compact = config.replace(/\s+/gu, " ");
-        const at = compact.indexOf('"@nodefony/devkit"');
+        // La recherche part du MANIFESTE, pas du début du fichier : la tête du
+        // `nodefony.config.ts` ré-exporte les types de config des modules
+        // montés (registre `NodefonyModuleConfig`), et le nom du devkit y
+        // figure donc AVANT sa déclaration. Chercher la première occurrence
+        // faisait lire une fenêtre qui ne porte aucune option.
+        const manifest = compact.indexOf("modules: [");
+        assert.isAbove(manifest, -1, "le manifeste `modules` doit exister");
+        const at = compact.indexOf('"@nodefony/devkit"', manifest);
         assert.isAbove(at, -1, "le devkit doit figurer au manifeste");
         // La fenêtre qui suit le nom du module porte ses options : c'est là que
         // `policy` se lit, quelle que soit la façon dont le formateur a coupé

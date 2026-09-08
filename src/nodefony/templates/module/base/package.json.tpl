@@ -24,6 +24,8 @@
   "type": "module",
   "description": "<%= it.description %>",
   "main": "dist/index.js",
+  "//types": "La SOURCE, pas un .d.ts généré : ce module est privé, il ne part jamais sur npm. Pointer index.ts rend son type de config lisible sans build préalable — sinon le premier `npm run typecheck` d'une app fraîche échoue sur des types pas encore produits.",
+  "types": "./index.ts",
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
     "typecheck": "tsgo --noEmit",

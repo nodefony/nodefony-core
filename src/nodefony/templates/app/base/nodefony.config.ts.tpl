@@ -1,6 +1,30 @@
 import { defineConfig, use } from "nodefony";
 import type { env } from "./env";
 
+// ── Registre de config des modules — À GARDER ────────────────────────────────
+// Ces ré-exports n'existent QUE pour faire entrer dans le programme TypeScript
+// l'augmentation `declare module "nodefony"` que chaque module publie dans ses
+// types. Sans elles, `use("@nodefony/x", { … })` retombe sur
+// `Record<string, unknown>` : une clé mal orthographiée COMPILE, puis Zod la
+// retire EN SILENCE au boot et le module démarre sur son défaut — on croit avoir
+// réglé quelque chose sans l'avoir réglé, et rien ne le dit.
+//
+// Un ré-export plutôt qu'un `import type { … }` : il compte comme une
+// UTILISATION du type, donc il traverse `noUnusedLocals` (TS6133) si l'app
+// active ce réglage un jour.
+//
+// Y AJOUTER une ligne en montant un module dont on configure les clés.
+export type { IHttpConfigInput } from "@nodefony/http";
+export type { FrameworkConfigInput } from "@nodefony/framework";
+<% if (it.complete) { %>export type { IDrizzleConfigInput } from "@nodefony/drizzle";
+export type { IRealtimeConfigInput } from "@nodefony/realtime";
+export type { ISecurityConfigInput } from "@nodefony/security";
+export type { IFrontendConfigInput } from "@nodefony/frontend";
+export type { IStudioConfigInput } from "@nodefony/studio";
+export type { IRedisConfigInput } from "@nodefony/redis";
+<% } else if (it.front) { %>export type { IFrontendConfigInput } from "@nodefony/frontend";
+<% } %>export type { DevkitConfigInput } from "@nodefony/devkit";
+
 /**
  * Configuration de l'application — UN fichier, seulement les ÉCARTS aux
  * défauts du framework (deep-merge au boot). Le par-environnement passe par

@@ -103,6 +103,11 @@ export {
 export {
   documentationConfigSchema,
   type DocumentationConfig,
+  // Type d'ENTRÉE : c'est lui que le registre `NodefonyModuleConfig` enregistre
+  // (`declare module "nodefony"` ci-dessus). Sans ré-export, une application ne
+  // peut pas le nommer — donc pas charger l'augmentation — et
+  // `use("@nodefony/documentation", { … })` accepte n'importe quelle clé.
+  type DocumentationConfigInput,
 } from "./nodefony/config/config";
 
 // Briques pures réutilisables (RAG / SSG futurs)

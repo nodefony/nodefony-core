@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 818,
-    "symbols": 3946,
+    "files": 820,
+    "symbols": 3953,
     "classes": 388,
     "interfaces": 1072,
-    "types": 446,
+    "types": 449,
     "enums": 4,
-    "functions": 1645,
-    "constants": 391
+    "functions": 1648,
+    "constants": 392
   },
   "symbols": {
     "Cli": {
@@ -20486,6 +20486,37 @@
       "module": "@nodefony/security",
       "description": "Résout l'identité portée par une session (l'identifiant stocké dans le blob) en utilisateur VIVANT — re-fetch systématique auprès du provider. C'est LE choix structurant de la session BFF : la sess…"
     },
+    "StudioConfig": {
+      "name": "StudioConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "studioConfigSchema": {
+      "name": "studioConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/studio/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/studio"
+    },
+    "defineStudioConfig": {
+      "name": "defineStudioConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Builder type-safe de la configuration de `@nodefony/studio`. ⭐ TL;DR : MACHINERIE DE BOOT — on n'édite (presque) jamais ce fichier. Même pattern que `nodefony.config.ts` ↔ `defineConfig()` du core …"
+    },
+    "studioConfigJsonSchema": {
+      "name": "studioConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "JSON Schema introspectable de la config Studio — destiné au formulaire d'édition Studio et à la documentation générée."
+    },
     "StudioController": {
       "name": "StudioController",
       "kind": "class",
@@ -20524,6 +20555,22 @@
         "controller"
       ],
       "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. Dérive de {@link RealtimeController} (framewo…"
+    },
+    "IStudioConfig": {
+      "name": "IStudioConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/interfaces/IStudioConfig.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Configuration normalisée et gelée de `@nodefony/studio` (sortie du builder `defineStudioConfig`, lue par le module et ses controllers). Type dérivé du schéma Zod — NE PAS redéclarer les champs à la…"
+    },
+    "IStudioConfigInput": {
+      "name": "IStudioConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/interfaces/IStudioConfig.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Entrée du builder `defineStudioConfig` — tous les champs portant un défaut sont optionnels (l'app ne fournit que ce qu'elle surcharge). C'est CE type que le registre `NodefonyModuleConfig` enregist…"
     },
     "createClusterOrmTicker": {
       "name": "createClusterOrmTicker",
@@ -29740,8 +29787,19 @@
       "PrebuiltUi": [
         "src/packages/@nodefony/studio/index.ts"
       ],
-      "UiDeliveryMode": [
+      "defineStudioConfig": [
         "src/packages/@nodefony/studio/index.ts"
+      ],
+      "studioConfigJsonSchema": [
+        "src/packages/@nodefony/studio/index.ts"
+      ],
+      "IStudioConfig": [
+        "src/packages/@nodefony/studio/index.ts",
+        "src/packages/@nodefony/studio/nodefony/config/defineModuleConfig.ts"
+      ],
+      "IStudioConfigInput": [
+        "src/packages/@nodefony/studio/index.ts",
+        "src/packages/@nodefony/studio/nodefony/config/defineModuleConfig.ts"
       ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
@@ -32926,7 +32984,8 @@
         "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
-        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"
+        "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/studio/nodefony/config/defineModuleConfig.ts"
       ],
       "IDevkitService": [
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
@@ -35535,6 +35594,13 @@
       "UserNotFoundError": [
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "UiDeliveryMode": [
+        "src/packages/@nodefony/studio/nodefony/config/config.ts"
+      ],
+      "studioConfigSchema": [
+        "src/packages/@nodefony/studio/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/studio/nodefony/interfaces/IStudioConfig.ts"
       ],
       "readStatsSnapshot": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"

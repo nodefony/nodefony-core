@@ -23,6 +23,34 @@
 import { defineConfig, use } from "nodefony";
 import type { env } from "./env";
 
+// ── Registre de config des modules — À GARDER ────────────────────────────────
+// Ces ré-exports n'existent QUE pour faire entrer dans ce programme TypeScript
+// l'augmentation `declare module "nodefony"` que chaque module publie. Sans
+// elles, `use("@nodefony/x", { … })` retombe sur `Record<string, unknown>` :
+// une clé mal orthographiée COMPILE, puis Zod la retire EN SILENCE au boot et
+// le module démarre sur son défaut — le défaut `trustProxi` en grand.
+//
+// Pourquoi un ré-export et pas autre chose :
+//  - `import type { X }` seul → TS6133 ici (`noUnusedLocals`) ; un ré-export
+//    EST une utilisation, donc il passe partout, avec ou sans ce réglage.
+//  - `import type {}` → refusé par `oxlint --deny-warnings`.
+//  - `/// <reference types="…" />` → TS2688 sur les modules dont les types
+//    pointent une source (`http`, `framework`, `security` dans ce dépôt).
+// Le ré-export est le seul mécanisme qui vaut pour les DEUX mondes : ce dépôt
+// et une application qui installe les paquets depuis npm.
+//
+// Y AJOUTER une ligne en montant un module dont on configure les clés.
+export type { IHttpConfigInput } from "@nodefony/http";
+export type { FrameworkConfigInput } from "@nodefony/framework";
+export type { ISecurityConfigInput } from "@nodefony/security";
+export type { IDrizzleConfigInput } from "@nodefony/drizzle";
+export type { IRealtimeConfigInput } from "@nodefony/realtime";
+export type { IRedisConfigInput } from "@nodefony/redis";
+export type { IFrontendConfigInput } from "@nodefony/frontend";
+export type { DocumentationConfigInput } from "@nodefony/documentation";
+export type { IStudioConfigInput } from "@nodefony/studio";
+export type { DevkitConfigInput } from "@nodefony/devkit";
+
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
 type Env = typeof env;
 

@@ -1509,6 +1509,7 @@ export function wireModuleManifest(
   pkgName: string,
   writer: ScaffoldWriter,
   moduleDir = "modules",
+  configInputType?: string,
 ): string | null {
   const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
   if (!writer.exists(configPath)) {
@@ -1555,11 +1556,58 @@ export function wireModuleManifest(
   // `trimEnd` sur la partie gauche puis indentation REPOSÉE : le crochet fermant
   // est précédé de la sienne, qui laisserait sinon une ligne blanche pleine
   // d'espaces et un `]` en colonne 0. Un manifeste reste un fichier qu'on RELIT.
+  const wired = `${source.slice(0, close).trimEnd()}\n\n    ${comment}\n    ${entry}\n  ${source.slice(close)}`;
   writer.write(
     configPath,
-    `${source.slice(0, close).trimEnd()}\n\n    ${comment}\n    ${entry}\n  ${source.slice(close)}`,
+    wireModuleConfigType(wired, pkgName, configInputType),
   );
   return null;
+}
+
+/**
+ * Fait entrer le type de config du module dans le programme TypeScript de
+ * l'application, par un ré-export en tête de `nodefony.config.ts`.
+ *
+ * ## Pourquoi ce ré-export existe
+ *
+ * Le module publie une augmentation `declare module "nodefony"` qui enregistre
+ * sa config dans `NodefonyModuleConfig`. Cette augmentation n'agit QUE si le
+ * fichier qui la porte entre dans le programme — et l'`index.ts` d'un module
+ * local n'y entre pas : le `tsconfig.json` de l'app ne balaye pas `modules/`.
+ * Sans elle, `use("@app/blog", { … })` retombe sur `Record<string, unknown>` :
+ * une clé mal orthographiée COMPILE, puis Zod la retire en silence au boot.
+ *
+ * Un ré-export plutôt qu'un `import type` : il compte comme une utilisation du
+ * type, donc il traverse `noUnusedLocals` (TS6133) si l'app l'active.
+ *
+ * @param source - contenu de `nodefony.config.ts`, module déjà câblé.
+ * @param pkgName - nom npm du module (`@app/blog`).
+ * @param configInputType - nom du type d'entrée exporté (`BlogConfigInput`) ;
+ *   absent, on ne touche à rien (le module ne publie pas de type).
+ * @returns la source, ré-export inséré s'il a pu l'être sans ambiguïté.
+ */
+function wireModuleConfigType(
+  source: string,
+  pkgName: string,
+  configInputType?: string,
+): string {
+  if (!configInputType || source.includes(`from "${pkgName}"`)) {
+    return source;
+  }
+  const line = `export type { ${configInputType} } from "${pkgName}";`;
+  // Ancre : le dernier ré-export de type du bloc de registre posé par le
+  // gabarit d'application. À défaut, la dernière ligne d'import de tête — on
+  // n'insère jamais « quelque part », un manifeste reste un fichier qu'on relit.
+  const exportAnchors = [
+    ...source.matchAll(/^export type \{[^}]*\} from "[^"]+";$/gmu),
+  ];
+  const anchor =
+    exportAnchors.at(-1) ?? [...source.matchAll(/^import .*;$/gmu)].at(-1);
+  if (!anchor || anchor.index === undefined) {
+    return source;
+  }
+  const end = anchor.index + anchor[0].length;
+  return `${source.slice(0, end)}\n${line}${source.slice(end)}`;
 }
 
 /**
@@ -1919,6 +1967,7 @@ function runModuleScaffold(
     pkgName,
     writer,
     layout.createDir,
+    `${pascal}ConfigInput`,
   );
   notes.push(
     manifestNote ??

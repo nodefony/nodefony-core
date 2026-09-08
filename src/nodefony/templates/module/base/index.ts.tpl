@@ -48,3 +48,9 @@ declare module "nodefony" {
 }
 
 export default <%= it.pascal %>Module;
+
+// Type d'ENTRÉE de la config — c'est lui que le registre enregistre ci-dessus.
+// Sans ce ré-export, `nodefony.config.ts` ne peut pas le nommer, donc pas faire
+// entrer l'augmentation dans son programme : `use("<%= it.pkgName %>", { … })`
+// accepterait alors n'importe quelle clé, que Zod retirerait en silence au boot.
+export type { <%= it.pascal %>ConfigInput } from "./nodefony/config/config";

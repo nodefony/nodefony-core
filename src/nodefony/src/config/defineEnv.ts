@@ -258,16 +258,24 @@ export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
 /**
  * Variable d'env ENUM (ensemble fermé). Valeur hors liste → erreur au boot.
  * Le type littéral est préservé (`env.X` typé sur l'union exacte).
+ *
+ * ⚠️ Le `const` sur le paramètre de type n'est pas décoratif : sans lui, TS
+ * infère `["auto","static"]` comme `[string, string]` (la contrainte porte sur
+ * `string`, donc les littéraux sont élargis) et `T[number]` retombe sur
+ * `string` — la promesse de la ligne ci-dessus était alors fausse. Vécu :
+ * `ctx.env.NF_STUDIO_UI` sortait en `string` et ne s'assignait pas à la clé de
+ * config `ui`, dont l'union est exacte. L'appelant n'a RIEN à écrire (`as const`
+ * n'est pas requis au point d'appel).
  */
-export function envEnum<T extends readonly [string, ...string[]]>(
+export function envEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   opts: EnumOpts<T[number]> & { optional: true },
 ): z.ZodType<T[number] | undefined>;
-export function envEnum<T extends readonly [string, ...string[]]>(
+export function envEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   opts?: EnumOpts<T[number]>,
 ): z.ZodType<T[number]>;
-export function envEnum<T extends readonly [string, ...string[]]>(
+export function envEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   opts: EnumOpts<T[number]> = {},
 ): z.ZodType<T[number] | undefined> {
