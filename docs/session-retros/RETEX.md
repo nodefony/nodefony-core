@@ -34,6 +34,15 @@
 
 ## 📖 Ce qui est ÉCRIT ne protège que si on le relit AU MOMENT du geste
 
+- [1× — 09-08] **Une doctrine écrite en commentaire affirmait une garde qui n'existait pas — et
+  tout un correctif s'est appuyé dessus.** `DrizzleService` déclarait, pour justifier de ne plus
+  connecter l'ORM : « un ORM enregistré mais non connecté dit la vérité sur lui-même
+  (`isConnected()` est faux, ET LES STORES LE GARDENT DÉJÀ) ». Vérifié : **trois** consommateurs
+  gardent, **sept** lèvent. La phrase n'avait jamais été confrontée au code, elle a survécu à sa
+  revue, et l'intégration continue en est restée rouge sur quatre systèmes. **Une affirmation
+  qui JUSTIFIE un changement doit être vérifiée AVANT le changement, pas relue après** — c'est
+  exactement le genre de phrase qu'on croit parce qu'elle est précise.
+
 - [1× — 09-07i] **J'ai recopié dans un skill une recette que le PRODUIT imprime déjà — et le skill
   dit lui-même, en §1, qu'il n'exécute rien.** Après une release, j'ai versé dans
   `nodefony-release` la séquence `--branch dev` puis les quatre poussées jusqu'au tag : or
@@ -281,6 +290,20 @@
 > Gradué au CONSOLIDATE du 2026-09-07 — 9 frictions → **`feedback_error_message_names_all_causes`**, mémoire neuve : dire ce qu’on a CONSTATÉ, pas ce qu’on en déduit. Ne PAS réécrire ici.
 
 ## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
+
+- [1× — 09-08] **Un run de tests a rendu « 14 sautés / 0 rouge » parce qu'un BUILD tournait en
+  même temps.** Trois `describe.skipIf(!fs.existsSync(DIST))` se taisent quand le dist du cœur
+  manque — et `npm run build` commence par `rimraf dist`. Pendant la fenêtre où le dossier
+  n'existait plus, 14 tests se sont désactivés et le run s'est présenté comme un succès. Le
+  compte des SAUTÉS était le seul indice, et il n'a de sens que comparé au run précédent (2).
+  **Deux mesures ne se chevauchent jamais** — pas seulement pour la justesse d'un chiffre de
+  perf : ici le banc n'était pas faux, il était VIDE.
+- [1× — 09-08] **Un dist périmé m'a fait accuser ma propre conception.** Après avoir branché un
+  helper neuf, les rouges d'origine sont revenus : j'ai failli conclure que la correction ne
+  marchait pas. La cause était `durableStoreRemedy is not defined` — le typecheck compile les
+  workspaces, mais l'application RACINE a son propre build. Le compte le disait avant moi
+  (1 occurrence dans le dist contre 2 dans la source) : **compter dans l'artefact, pas dans la
+  source**, quand on doute qu'une transformation a eu lieu.
 
 - [1× — 09-07i] **Un contrôle qui cherche des secrets sous des noms que personne ne pose est VERT
   et n'a rien éprouvé — et j'en ai tiré une conclusion que j'ai annoncée au user.** Le job `docker`
