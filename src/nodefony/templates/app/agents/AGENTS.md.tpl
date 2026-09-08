@@ -504,7 +504,7 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run doctor` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
 - **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run doctor` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
 - **Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
-- **Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur
+- **Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur ; et AVANT d'écrire la clé, `npx nodefony inspect schema <module>` dit celles qui existent, avec leur type et ce qu'elles font — n'invente jamais un nom de clé
 - **Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
 - **Après un échec au milieu d'une chaîne `&&`, tout ment** — rien d'aval n'a tourné : tu mesures l'état d'AVANT → après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré
 - **Les tests passent, `npm run typecheck` échoue** — le runner efface les types : un test vert ne typecheck rien → lance les DEUX avant de conclure
@@ -784,6 +784,7 @@ renvoie à `npx nodefony inspect modules` pour ce qui est vraiment monté.
 npx nodefony inspect routes --json     # toutes les routes réelles (chemin, méthodes, controller)
 npx nodefony inspect services --json   # services enregistrés, et le module qui les porte
 npx nodefony inspect config --json     # config EFFECTIVE de chaque module (+ d'où vient chaque valeur)
+npx nodefony inspect schema http        # ce qu'on a le DROIT d'écrire : clés, type, défaut, DESCRIPTION
 npx nodefony inspect modules --json    # modules CHARGÉS — pas ceux que le manifeste déclare
 npx nodefony inspect module http       # un module en détail
 npx nodefony inspect entities --json   # entités déclarées à l'ORM

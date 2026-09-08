@@ -234,6 +234,10 @@ class Inspect extends Command {
       const lines = renderTable(payload as TableRow[], {
         width: usableWidth(out.columns),
         color: shouldColorize(process.env, Boolean(this.kernel?.isTTY)),
+        // Le SUJET dit comment il se lit — la commande ne connaît aucun sujet
+        // par son nom. Un catalogue dont la valeur utile est une phrase se rend
+        // en fiches ; tout le reste compare des lignes, donc un tableau.
+        cards: INSPECT_SUBJECTS[subject]?.render === "cards",
       });
       out.write(`${lines.join("\n")}\n\n`);
       process.stdout.write(

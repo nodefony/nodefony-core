@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 820,
-    "symbols": 3951,
+    "files": 821,
+    "symbols": 3958,
     "classes": 388,
-    "interfaces": 1072,
+    "interfaces": 1074,
     "types": 447,
     "enums": 4,
-    "functions": 1648,
+    "functions": 1653,
     "constants": 392
   },
   "symbols": {
@@ -3164,6 +3164,23 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Schéma de la config app résolue. Exposé pour l'introspection (Studio : `z.toJSONSchema(appConfigSchema)` → panneau de config + formulaire éditable). Chaque champ porte un `.describe()` FR (rôle + d…"
+    },
+    "ISchemaLeaf": {
+      "name": "ISchemaLeaf",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/schemaCatalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Aplatissement d'un JSON Schema de configuration en CATALOGUE de réglages. ⭐ TL;DR : rend, pour un module, la liste des clés qu'on a le droit d'écrire dans `use(\"@nodefony/x\", { … })` — chemin point…"
+    },
+    "flattenConfigSchema": {
+      "name": "flattenConfigSchema",
+      "kind": "function",
+      "file": "src/nodefony/src/config/schemaCatalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Aplatit un JSON Schema de module en catalogue de réglages assignables."
     },
     "ModuleEntryInput": {
       "name": "ModuleEntryInput",
@@ -15887,6 +15904,15 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Entrée config d'un module : valeurs redactées + schéma + provenance par champ."
+    },
+    "ISchemaCatalogRow": {
+      "name": "ISchemaCatalogRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une clé assignable du catalogue de configuration — ce qu'on a le DROIT d'écrire, par opposition à {@link IConfigEntry} qui dit ce QUI EST écrit. Les noms de champs deviennent les en-têtes de colonn…"
     },
     "safeConfig": {
       "name": "safeConfig",
@@ -30784,7 +30810,8 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readResolvedPath": [
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "resolveInfra": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -34266,6 +34293,9 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "extractJsonSchemaDefaults": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "flattenConfigSchema": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "extractMarkdownSection": [

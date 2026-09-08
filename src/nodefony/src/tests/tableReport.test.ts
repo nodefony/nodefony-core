@@ -154,3 +154,67 @@ describe("renderTable — borné à la largeur, quoi qu'on lui donne", () => {
     assert.include(lignes.join("\n"), "b");
   });
 });
+
+describe("renderTable — le mode FICHES, quand une colonne porte une phrase", () => {
+  const réglages = [
+    {
+      key: "headerServer",
+      module: "@nodefony/http",
+      description:
+        "Valeur de l'en-tête Server. null = ne pas exposer l'identité du " +
+        "serveur, ce qui est recommandé en production.",
+    },
+    {
+      key: "trustProxy",
+      module: "@nodefony/http",
+      description: "Confiance envers les en-têtes X-Forwarded, RFC 7239.",
+    },
+  ];
+
+  it("replie la valeur longue au lieu de la TRONQUER", () => {
+    // C'est toute la raison d'être du mode : un tableau retire la colonne
+    // description faute de place, et c'est elle qu'on venait lire. La couper
+    // dans la fiche referait la même perte, en ayant dépensé une ligne.
+    const lines = renderTable(réglages, {
+      width: 60,
+      color: false,
+      cards: true,
+    });
+    const texte = lines.join("\n");
+    assert.include(texte, "recommandé en production.");
+    assert.notInclude(texte, "…", "aucune ellipse : la fiche a la place");
+    for (const l of lines) {
+      assert.isAtMost(l.length, 60, `ligne trop large : ${l}`);
+    }
+  });
+
+  it("annonce les constantes UNE fois au lieu de les répéter par fiche", () => {
+    const lines = renderTable(réglages, {
+      width: 60,
+      color: false,
+      cards: true,
+    });
+    const module = lines.filter((l) => l.includes("@nodefony/http"));
+    assert.lengthOf(
+      module,
+      1,
+      "le module vaut partout pareil : une ligne d'en-tête, pas une par fiche",
+    );
+    assert.include(module[0], "module = @nodefony/http");
+  });
+
+  it("garde la PREMIÈRE colonne même si elle est constante — c'est l'identité", () => {
+    const lignes = renderTable(
+      [
+        { key: "a", note: "x" },
+        { key: "a", note: "y" },
+      ],
+      { width: 40, color: false, cards: true },
+    );
+    assert.equal(
+      lignes.filter((l) => l.includes("key")).length,
+      2,
+      "sans identité, une fiche ne se rattache à rien",
+    );
+  });
+});

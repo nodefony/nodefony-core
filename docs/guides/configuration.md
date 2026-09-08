@@ -244,14 +244,42 @@ pas la source. Après avoir édité `nodefony.config.ts` / `env.ts`, **rebuilder
 `npm run build` à la racine (le `start.sh` du skill ne rebuilde que le module test en dev).
 Voir le skill `nodefony-start-server`.
 
-## Voir la config résolue
+## Voir la config — l'ÉTAT, et le CATALOGUE
 
-L'onglet **Configuration** de Studio (`/nodefony/config`) (introspection via `z.toJSONSchema`), alimenté par
-`GET /nodefony/kernel/api/config` : valeurs effectives (secrets masqués), schéma JSON et
-**provenance par champ** (qui a posé la valeur — défaut du module, `nodefony.config.ts`, `NF__*`).
+Deux questions différentes, deux réponses :
 
-> Il n'existe **pas** de commande `nodefony config:show` : la config résolue se lit par le data
-> plane ci-dessus, pas par la CLI.
+| La question                                                       | La commande                            |
+| ----------------------------------------------------------------- | -------------------------------------- |
+| « Qu'est-ce qui est POSÉ aujourd'hui, et d'où ça vient ? »        | `npx nodefony inspect config`          |
+| « Qu'est-ce que j'ai le DROIT d'écrire, et que fait cette clé ? » | `npx nodefony inspect schema <module>` |
+
+```bash
+npx nodefony inspect schema http          # les clés de @nodefony/http, une fiche par réglage
+npx nodefony inspect schema http --json   # le même catalogue, filtrable au `jq`
+npx nodefony inspect schema              # tous les modules montés
+```
+
+Le catalogue rend, par clé : le **chemin pointé** tel qu'on l'écrit dans `use()`, le **type** (ou
+les valeurs de l'énumération), le **défaut** du schéma, la **valeur effective**, sa **provenance**
+(`default` / `app` / `env` / `runtime`) et la **description** écrite dans le schéma. C'est cette
+dernière qui compte : les schémas du framework portent des centaines de `.describe()` — ce que la
+clé fait, ce qui arrive si on l'omet, quel RFC elle applique — et elles n'étaient lisibles qu'en
+ouvrant le schéma Zod dans `node_modules`.
+
+La colonne `note` dit ce qui rend une clé particulière : `réservé` (acceptée par le schéma, mais le
+code n'en fait encore rien), `secret` (jamais rendue en clair), `dérivé du kernel` (remplie au boot
+si on la laisse vide), `modifiable à chaud`.
+
+Un module inconnu est **refusé en nommant** les modules acceptés — une faute de frappe ne rend donc
+jamais un catalogue vide, qui se lirait « ce module n'a pas de configuration ».
+
+Ces commandes bootent l'application **sans ouvrir un seul port** : elles cohabitent avec un serveur
+de développement en marche. Même donnée côté web : l'onglet **Configuration** de Studio
+(`/nodefony/config`), alimenté par `GET /nodefony/kernel/api/config` et
+`GET /nodefony/kernel/api/config/schema` — même code, deux portes.
+
+> Il n'existe **pas** de commande `nodefony config:show` : c'est `inspect` qui porte les deux
+> lectures.
 
 ## Surcharger en déploiement — Docker / variables d'env
 

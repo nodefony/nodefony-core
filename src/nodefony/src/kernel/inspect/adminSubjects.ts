@@ -23,6 +23,26 @@ export interface IInspectSubject {
   summary: string;
   /** Nom du paramètre attendu, quand le chemin en porte un (`module/{name}`). */
   param?: string;
+  /**
+   * Nom du filtre OPTIONNEL, passé en query plutôt qu'en segment de chemin.
+   *
+   * Deux choses le distinguent de {@link param} : il ne se réclame pas — son
+   * absence rend le sujet ENTIER, ce qui est la réponse utile pour un
+   * catalogue — et il traverse la query, seul endroit où une valeur peut
+   * porter un `/` (un nom de paquet comme `@nodefony/http` occuperait DEUX
+   * segments d'URL et ne matcherait aucune route).
+   */
+  filter?: string;
+  /**
+   * Rendu HUMAIN attendu — `cards` quand une colonne porte une PHRASE.
+   *
+   * Le tableau reste le défaut : il compare des lignes. Un sujet dont la
+   * valeur utile est une description (le catalogue des réglages) doit dire
+   * qu'il veut des fiches, sinon le tableau retire cette colonne faute de
+   * place — et il retire exactement ce qu'on venait lire. Les portes qui
+   * rendent du JSON (MCP, `--json`) ignorent ce champ.
+   */
+  render?: "cards";
 }
 
 /**
@@ -64,6 +84,14 @@ export const INSPECT_SUBJECTS: Record<string, IInspectSubject> = {
     path: "module/{name}",
     summary: "un module en détail (config, services, dépendances)",
     param: "name",
+  },
+  schema: {
+    namespace: "kernel",
+    path: "config/schema",
+    summary:
+      "catalogue des clés CONFIGURABLES d'un module (type, défaut, effectif, description)",
+    filter: "module",
+    render: "cards",
   },
   stores: {
     namespace: "kernel",
@@ -357,6 +385,7 @@ export async function readAdminSubject(
       namespace: spec.namespace,
       path: spec.path,
       params: spec.param && target ? { [spec.param]: target } : {},
+      query: spec.filter && target ? { [spec.filter]: target } : {},
       label: target ?? subject,
     },
     caller,

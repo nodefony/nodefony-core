@@ -28,6 +28,15 @@ export interface ITableOptions {
    * rencontrées, dans l'ordre où elles apparaissent.
    */
   columns?: readonly string[];
+  /**
+   * Force le rendu en FICHES — une ligne par champ, valeur repliée.
+   *
+   * Le tableau reste le défaut : il compare des lignes entre elles. Les fiches
+   * servent quand une colonne porte une PHRASE (la description d'un réglage,
+   * le résumé d'un endpoint) : un tableau la tronque, ou la retire faute de
+   * place — et c'est justement elle qu'on venait lire.
+   */
+  cards?: boolean;
 }
 
 /** En deçà, une colonne ne porte plus d'information — elle porte une ellipse. */
@@ -113,6 +122,37 @@ export function repartir(
 }
 
 /**
+ * Sépare les colonnes qui DISTINGUENT les lignes de celles qui valent partout
+ * pareil.
+ *
+ * La première colonne n'est jamais déclarée constante : c'est l'identité de la
+ * ligne, et une fiche sans identité ne se rattache à rien.
+ *
+ * @param rows - les lignes.
+ * @param columns - toutes les colonnes candidates.
+ * @returns les colonnes variables, et les constantes avec leur valeur unique.
+ */
+function splitConstants(
+  rows: readonly TableRow[],
+  columns: readonly string[],
+): {
+  variables: string[];
+  constants: { clé: string; value: string }[];
+} {
+  const variables: string[] = [];
+  const constants: { clé: string; value: string }[] = [];
+  for (const clé of columns) {
+    const values = new Set(rows.map((r) => formatCell(r[clé])));
+    if (values.size === 1 && variables.length > 0) {
+      constants.push({ clé, value: [...values][0] ?? "" });
+      continue;
+    }
+    variables.push(clé);
+  }
+  return { variables, constants };
+}
+
+/**
  * Rend les données en FICHES — une entrée par bloc `clé : valeur`.
  *
  * C'est le repli quand un tableau ne peut plus tenir : trop de colonnes, ou un
@@ -132,20 +172,40 @@ function fiches(
   p: IPalette,
 ): string[] {
   const lines: string[] = [];
+  // Une constante répétée sur CHAQUE fiche est du bruit pur : elle coûte une
+  // ligne par enregistrement — sur cent réglages filtrés d'un même module, cent
+  // lignes pour redire le nom du module. Le tableau l'élague déjà quand la
+  // place manque ; la fiche, elle, n'attend pas d'être à l'étroit : sa dépense
+  // est une LIGNE, pas une largeur, donc elle est toujours de trop.
+  const { variables, constants } = splitConstants(rows, columns);
+  const shown = variables.length > 0 ? variables : columns;
+  if (constants.length > 0) {
+    for (const { clé, value } of constants) {
+      for (const l of wrap(`${clé} = ${value}`, width - 4, "")) {
+        lines.push(p.dim(`  ${l}`));
+      }
+    }
+    lines.push("");
+  }
   const col = Math.min(
-    Math.max(...columns.map((c) => c.length)),
+    Math.max(...shown.map((c) => c.length)),
     Math.max(MIN_COLUMN, Math.floor(width / 3)),
   );
   for (const [i, row] of rows.entries()) {
     if (i > 0) lines.push("");
-    for (const clé of columns) {
+    for (const clé of shown) {
       const value = formatCell(row[clé]);
-      lines.push(
-        `  ${p.dim(tronquer(clé, col).padEnd(col))}  ${tronquer(
-          value,
-          Math.max(1, width - col - 4),
-        )}`,
-      );
+      // 🔴 REPLIÉ, jamais tronqué. La fiche existe précisément parce que la
+      // valeur ne tenait pas sur une ligne de tableau ; la couper ici perdrait
+      // ce qu'on est venu chercher, en ayant dépensé une ligne par champ pour
+      // rien. Une cellule vide ne coûte qu'une ligne, et dire « ce champ est
+      // vide » est une réponse.
+      const usable = Math.max(MIN_COLUMN, width - col - 4);
+      const chunks = value === "" ? [""] : wrap(value, usable, "");
+      for (const [j, chunk] of chunks.entries()) {
+        const label = j === 0 ? tronquer(clé, col).padEnd(col) : "".padEnd(col);
+        lines.push(`  ${p.dim(label)}  ${chunk}`);
+      }
     }
   }
   return lines;
@@ -174,6 +234,10 @@ export function renderTable(
   // et ne distingue aucune ligne : c'est elle qui doit céder, pas le nom de la
   // route. Comprimer d'abord donnait huit colonnes de huit caractères, toutes
   // tronquées — un tableau qui tient dans l'écran sans plus rien dire.
+  if (opts.cards) {
+    return fiches(rows, columns, width, p);
+  }
+
   const { kept, constants, omitted } = elaguer(rows, columns, width);
 
   const cells = rows.map((row) => kept.map((clé) => formatCell(row[clé])));
@@ -276,16 +340,8 @@ function elaguer(
   //    unique sur toutes les lignes coûte sa largeur et n'apprend rien qu'une
   //    phrase ne dise mieux. La PREMIÈRE colonne reste quoi qu'il arrive —
   //    c'est l'identité de la ligne.
-  const constants: { clé: string; value: string }[] = [];
-  let remaining: string[] = [];
-  for (const clé of columns) {
-    const values = new Set(rows.map((r) => formatCell(r[clé])));
-    if (values.size === 1 && remaining.length > 0) {
-      constants.push({ clé, value: [...values][0] ?? "" });
-      continue;
-    }
-    remaining.push(clé);
-  }
+  const { variables, constants } = splitConstants(rows, columns);
+  let remaining: string[] = variables;
 
   // 2. Si ça ne suffit pas, ce sont les DERNIÈRES qui cèdent. L'ordre des clés
   //    est celui du producteur, et un producteur nomme d'abord ce qui compte :

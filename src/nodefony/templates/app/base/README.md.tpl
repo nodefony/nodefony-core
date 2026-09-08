@@ -50,7 +50,9 @@ pas deux mondes séparés.
 
 ## 3. Structure du projet
 
-- `nodefony.config.ts` — LA config de l'app : uniquement les ÉCARTS aux défauts du framework
+- `nodefony.config.ts` — LA config de l'app : uniquement les ÉCARTS aux défauts du framework.
+  Pour savoir ce qu'on a le droit d'y écrire : `npx nodefony inspect schema <module>` —
+  chaque clé, son type, son défaut, sa valeur actuelle et ce qu'elle fait.
 - `env.ts` — catalogue **typé** des variables d'environnement (seul lecteur de `process.env`, validé au boot)
 - `index.ts` — point d'entrée : la classe `App` (module racine) + ses controllers<% if (it.front) { %> + l'entry frontend (`registerEntry`)<% } %>
 - `nodefony/controllers/` — tes controllers (`@controller` + `@route`, HTTP **et** WS)
@@ -302,6 +304,9 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 ## 10. Aller plus loin
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
+- **Régler un module sans deviner** : `npx nodefony inspect schema <module>` liste les clés
+  configurables avec leur description ; `npx nodefony inspect config` montre ce qui est
+  posé aujourd'hui et d'où ça vient. Une clé inconnue est REFUSÉE au démarrage, en la nommant.
 - **Régénérer autrement** : `nodefony create app` (interactif) ou
   `--preset <complete|minimal> --frontend <none|react|vue|angular|svelte>`
   `--database <sqlite|postgres|mariadb|mysql>` (scriptable).

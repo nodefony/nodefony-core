@@ -349,8 +349,14 @@ export type {
 } from "./config/defineEnv";
 export { renderEnvExample } from "./config/envExample";
 export { defaultAppConfig } from "./config/defaults";
-export { parseNfEnvOverrides, applyResolvedPath } from "./config/envOverride";
+export {
+  parseNfEnvOverrides,
+  applyResolvedPath,
+  readResolvedPath,
+} from "./config/envOverride";
 export type { NfEnvOverride } from "./config/envOverride";
+export { flattenConfigSchema } from "./config/schemaCatalog";
+export type { ISchemaLeaf } from "./config/schemaCatalog";
 export {
   computeConfigProvenance,
   extractJsonSchemaDefaults,

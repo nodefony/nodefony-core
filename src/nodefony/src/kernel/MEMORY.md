@@ -370,6 +370,13 @@ Aucun transport, aucun conteneur. Les appelants ne diffèrent que par la RÉSOLU
 - `AdminApiController.runAdmin` (framework) résout par **nom de route** (Router) puis délègue.
 - `callAdminEndpoint` (`inspect/adminSubjects.ts`) résout par **namespace + chemin** puis délègue.
   Consommateurs : commande `inspect`, serveur MCP (`src/mcp/tools.ts`).
+- `INSPECT_SUBJECTS` (`inspect/adminSubjects.ts`) = **source unique** des sujets : la commande, le
+  serveur MCP (`enum` + description dérivés) et le menu de démarrage la lisent, aucun n'en tient
+  copie. Trois champs facultatifs par sujet : `param` (segment de chemin OBLIGATOIRE — absent ⇒
+  `missing-target`), `filter` (filtre FACULTATIF passé en **query** — c'est le seul endroit où une
+  valeur peut porter un `/`, un nom de paquet occuperait deux segments d'URL), `render: "cards"`
+  (le sujet DIT comment il se lit : fiches quand la valeur utile est une phrase, sinon tableau —
+  la commande ne connaît aucun sujet par son nom).
 - `adminRbac.ts` : `isAdminGranted(roles, requiredRole)` (pure, fail-closed) ·
   `resolveAdminRole(endpoint)` = `public ? "" : (role ?? ADMIN_DEFAULT_ROLE)` — la règle est ICI,
   le broker l'appelle.

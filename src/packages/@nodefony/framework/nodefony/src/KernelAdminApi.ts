@@ -11,6 +11,8 @@ import {
   parseNfEnvOverrides,
   computeConfigProvenance,
   extractJsonSchemaDefaults,
+  flattenConfigSchema,
+  readResolvedPath,
   defaultAppConfig,
   applyResolvedPath,
   outlineMarkdown,
@@ -247,6 +249,39 @@ export interface IConfigEntry {
    * {@link attributeOverrideSources} (a besoin de TOUS les modules → côté agrégat).
    */
   overriddenBy: Record<string, string>;
+}
+
+/**
+ * Une clé assignable du catalogue de configuration — ce qu'on a le DROIT
+ * d'écrire, par opposition à {@link IConfigEntry} qui dit ce QUI EST écrit.
+ *
+ * Les noms de champs deviennent les en-têtes de colonnes de
+ * `nodefony inspect schema`, et les clés du JSON qu'un agent filtre.
+ */
+export interface ISchemaCatalogRow {
+  /**
+   * Chemin pointé de la clé (`certificates.selfSigned.hash`).
+   *
+   * EN PREMIER, et ce n'est pas cosmétique : le rendu tient la première
+   * colonne pour l'identité de la ligne et ne l'élague jamais, quand il retire
+   * les suivantes si elles valent partout pareil. `module` d'abord aurait donc
+   * fait répéter le nom du module sur les cent fiches d'un lot filtré.
+   */
+  key: string;
+  /** Nom de paquet du module qui porte la clé, tel qu'on l'écrit dans `use()`. */
+  module: string;
+  /** Type déclaré, ou les valeurs de l'énumération quand il y en a une. */
+  type: string;
+  /** Défaut du schéma — `undefined` si le schéma n'en pose aucun. */
+  default?: unknown;
+  /** Valeur résolue au boot, secrets déjà REDACTÉS par `computeConfigEntry`. */
+  effective: unknown;
+  /** D'où vient la valeur effective : `default`, `app`, `env` ou `runtime`. */
+  source: string;
+  /** Ce que les métadonnées disent de la clé (`réservé`, `secret`…), vide sinon. */
+  note: string;
+  /** La phrase du schéma (`.describe()`) — c'est elle qu'on venait chercher. */
+  description: string;
 }
 
 /**
@@ -965,6 +1000,78 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary:
         "Aggregated config of all modules (effective values redacted + JSON Schema + per-field provenance) for the global config page",
       handler: async () => ({ modules: buildConfigEntries() }),
+    },
+    {
+      // Le CATALOGUE des réglages, par opposition à `config` qui rend l'ÉTAT.
+      //
+      // La différence est celle qu'on se pose vraiment en configurant : `config`
+      // répond « qu'est-ce qui est posé, et d'où ça vient ? », celui-ci répond
+      // « qu'est-ce que j'ai le DROIT d'écrire, et que fait cette clé ? ». Les
+      // schémas portent des centaines de `.describe()` qui traversent
+      // `z.toJSONSchema()` — jusqu'ici personne ne pouvait les lire sans ouvrir
+      // le schéma Zod dans `node_modules`.
+      //
+      // Rend un TABLEAU PLAT, à dessein : c'est la forme que la porte CLI sait
+      // rendre en tableau sans une ligne de rendu propre (`renderTable`), et
+      // celle qu'un agent filtre au `jq` sans descendre un arbre.
+      path: "config/schema",
+      summary:
+        "Assignable config keys of every module (dotted path, type, default, effective value, provenance, description) — the CATALOG, where `config` gives the STATE",
+      handler: (request: IAdminRequest) => {
+        const wanted = request.query.module;
+        const filter = typeof wanted === "string" ? wanted.toLowerCase() : null;
+        const rows: ISchemaCatalogRow[] = [];
+        const entries = buildConfigEntries();
+        // Un filtre qui ne désigne AUCUN module se dit, avec les noms
+        // acceptés. Sans ça, une faute de frappe (`htp`) rend un catalogue
+        // vide, et le vide se lit « ce module n'a pas de configuration » —
+        // exactement la conclusion inverse de la vérité.
+        if (
+          filter !== null &&
+          !entries.some(
+            (e) =>
+              e.name.toLowerCase() === filter || e.key.toLowerCase() === filter,
+          )
+        ) {
+          return {
+            status: 404,
+            body: {
+              error: "Unknown module",
+              module: wanted,
+              available: entries.map((e) => e.name),
+            },
+          };
+        }
+        for (const entry of entries) {
+          // Le filtre accepte le nom de paquet (`@nodefony/http`) comme le
+          // basename (`http`) : on écrit le premier dans `use()`, on tape le
+          // second en ligne de commande.
+          if (
+            filter !== null &&
+            entry.name.toLowerCase() !== filter &&
+            entry.key.toLowerCase() !== filter
+          ) {
+            continue;
+          }
+          for (const leaf of flattenConfigSchema(entry.configSchema)) {
+            const path = leaf.key.split(".");
+            rows.push({
+              key: leaf.key,
+              module: entry.name,
+              type: leaf.type,
+              default: leaf.default,
+              // La config effective est déjà REDACTÉE par `computeConfigEntry` :
+              // ce catalogue n'ouvre donc aucune porte qu'un secret pourrait
+              // franchir, et il n'a pas à le savoir.
+              effective: readResolvedPath(entry.config, path),
+              source: entry.provenance?.[leaf.key] ?? "default",
+              note: leaf.note,
+              description: leaf.description,
+            });
+          }
+        }
+        return rows;
+      },
     },
     {
       // Écran Studio « Stores » : état RUNTIME de la persistance (Phase 0.8 lot 6).
