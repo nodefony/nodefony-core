@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T20:55:41.208Z",
+  "generatedAt": "2026-09-08T20:59:55.115Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 16,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 17,
+      "open": 20,
       "title": "10.0.0-alpha"
     },
     {
@@ -1616,10 +1616,10 @@
       "title": "feat(config): rendre la config d'un module sûre et découvrable",
       "url": "https://github.com/nodefony/nodefony-core/issues/288",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 3.5,
+      "jours": 4,
       "ordre": 5,
       "labels": [
         "10.0.0-alpha"
@@ -1848,6 +1848,20 @@
       "ordre": 5.6,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 291,
+      "title": "fix(kernel): avertir quand un module écrase la config de l'app",
+      "url": "https://github.com/nodefony/nodefony-core/issues/291",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.6,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2475,7 +2489,7 @@
       "title": "refactor(config): trancher où vit la config d'une application",
       "url": "https://github.com/nodefony/nodefony-core/issues/289",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 2.5,
@@ -2599,6 +2613,20 @@
       ]
     },
     {
+      "number": 290,
+      "title": "docs(security): recaler les ancres périmées de la page social login",
+      "url": "https://github.com/nodefony/nodefony-core/issues/290",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 19,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 87,
       "title": "test(mail): éprouver l'envoi contre un vrai serveur de test",
       "url": "https://github.com/nodefony/nodefony-core/issues/87",
@@ -2610,6 +2638,21 @@
       "ordre": 20,
       "labels": [
         "10.1.0"
+      ]
+    },
+    {
+      "number": 292,
+      "title": "chore(env): trancher le préfixe des variables propres à l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/292",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 20,
+      "labels": [
+        "arbitrage",
+        "10.0.0-alpha"
       ]
     },
     {
